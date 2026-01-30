@@ -46,7 +46,7 @@ interface ModelInputs {
  */
 interface MultimodalMessage {
   role: string;
-  content: string | Array<{ type: string; text?: string }>;
+  content: string | Array<{ type: 'image' | 'text'; text?: string }>;
 }
 
 // Disable local model check since we're always fetching from HuggingFace
@@ -312,7 +312,7 @@ async function generate(
       // Include image marker only when an image is provided
       const formattedMessages: MultimodalMessage[] = messages.map((m) => {
         if (m.role === 'user') {
-          const content: Array<{ type: string; text?: string }> = [];
+          const content: Array<{ type: 'image' | 'text'; text?: string }> = [];
           if (hasImage) {
             content.push({ type: 'image' });
           }
