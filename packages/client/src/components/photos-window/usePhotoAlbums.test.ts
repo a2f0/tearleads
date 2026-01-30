@@ -183,12 +183,15 @@ describe('usePhotoAlbums', () => {
 
     // Albums should be sorted alphabetically
     expect(result.current.albums.length).toBe(2);
-    expect(result.current.albums[0].name).toBe('Alpha Album');
-    expect(result.current.albums[1].name).toBe('Zebra Album');
+    const firstAlbum = result.current.albums[0];
+    const secondAlbum = result.current.albums[1];
+    if (!firstAlbum || !secondAlbum) throw new Error('Albums not found');
+    expect(firstAlbum.name).toBe('Alpha Album');
+    expect(secondAlbum.name).toBe('Zebra Album');
 
     // Photo counts should be calculated
-    expect(result.current.albums[0].photoCount).toBe(1); // Alpha has 1 photo
-    expect(result.current.albums[1].photoCount).toBe(2); // Zebra has 2 photos
+    expect(firstAlbum.photoCount).toBe(1); // Alpha has 1 photo
+    expect(secondAlbum.photoCount).toBe(2); // Zebra has 2 photos
   });
 
   it('handles albums with no name', async () => {
@@ -203,7 +206,9 @@ describe('usePhotoAlbums', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    expect(result.current.albums[0].name).toBe('Unnamed Album');
+    const album = result.current.albums[0];
+    if (!album) throw new Error('Album not found');
+    expect(album.name).toBe('Unnamed Album');
   });
 
   it('handles fetch error', async () => {
