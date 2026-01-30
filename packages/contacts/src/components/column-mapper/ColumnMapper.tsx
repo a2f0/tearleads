@@ -5,7 +5,7 @@ import {
   type DragStartEvent
 } from '@dnd-kit/core';
 import { isRecord } from '@rapid/shared';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useContactsUI } from '../../context';
 import type { ColumnMapping, ParsedCSV } from '../../hooks/useContactsImport';
 import { ColumnChip } from './ColumnChip';
@@ -64,6 +64,18 @@ export function ColumnMapper({
     autoMapColumns(data.headers)
   );
   const [activeId, setActiveId] = useState<string | null>(null);
+  const headerItems = useMemo(() => {
+    const counts = new Map<string, number>();
+    return data.headers.map((header, index) => {
+      const count = counts.get(header) ?? 0;
+      counts.set(header, count + 1);
+      return {
+        id: `${header}-${count}`,
+        header,
+        index
+      };
+    });
+  }, [data.headers]);
 
   const mappedIndices = new Set(
     Object.values(mapping).filter((v): v is number => v !== null)
@@ -121,12 +133,12 @@ export function ColumnMapper({
             Drag columns to map them to contact fields
           </p>
           <div className="flex flex-wrap gap-2">
-            {data.headers.map((header, index) => (
+            {headerItems.map((item) => (
               <DraggableColumn
-                key={`${header}-${index}`}
-                index={index}
-                header={header}
-                disabled={mappedIndices.has(index)}
+                key={item.id}
+                index={item.index}
+                header={item.header}
+                disabled={mappedIndices.has(item.index)}
               />
             ))}
           </div>
