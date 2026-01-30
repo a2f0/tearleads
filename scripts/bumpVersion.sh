@@ -83,7 +83,6 @@ is_version_only_change() {
 has_changes() {
   TARGET_DIR="$1"
   shift
-  VERSION_ONLY_FILES="$*"
 
   CHANGED_FILES=$(git diff --name-only "$BASE_BRANCH"...HEAD -- "$TARGET_DIR")
 
@@ -91,9 +90,12 @@ has_changes() {
     return 1
   fi
 
+  OLD_IFS="$IFS"
+  IFS='
+'
   for FILE_PATH in $CHANGED_FILES; do
     SHOULD_IGNORE=false
-    for VERSION_FILE in $VERSION_ONLY_FILES; do
+    for VERSION_FILE in "$@"; do
       if [ "$FILE_PATH" = "$VERSION_FILE" ]; then
         SHOULD_IGNORE=true
         break
@@ -104,9 +106,11 @@ has_changes() {
       continue
     fi
 
+    IFS="$OLD_IFS"
     return 0
   done
 
+  IFS="$OLD_IFS"
   return 1
 }
 
