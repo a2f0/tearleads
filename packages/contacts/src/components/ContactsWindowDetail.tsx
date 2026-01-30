@@ -213,9 +213,24 @@ export function ContactsWindowDetail({
   }, []);
 
   const handleDeleteEmail = useCallback((emailId: string) => {
-    setEmailsForm((prev) =>
-      prev.map((e) => (e.id === emailId ? { ...e, isDeleted: true } : e))
-    );
+    setEmailsForm((prev) => {
+      const isPrimaryDeleted = prev.find((e) => e.id === emailId)?.isPrimary;
+      const updatedEmails = prev.map((e) =>
+        e.id === emailId ? { ...e, isDeleted: true } : e
+      );
+
+      if (isPrimaryDeleted) {
+        const firstVisible = updatedEmails.find((e) => !e.isDeleted);
+        if (firstVisible) {
+          return updatedEmails.map((e) => ({
+            ...e,
+            isPrimary: e.id === firstVisible.id
+          }));
+        }
+      }
+
+      return updatedEmails;
+    });
   }, []);
 
   const handleAddEmail = useCallback(() => {
@@ -250,9 +265,24 @@ export function ContactsWindowDetail({
   }, []);
 
   const handleDeletePhone = useCallback((phoneId: string) => {
-    setPhonesForm((prev) =>
-      prev.map((p) => (p.id === phoneId ? { ...p, isDeleted: true } : p))
-    );
+    setPhonesForm((prev) => {
+      const isPrimaryDeleted = prev.find((p) => p.id === phoneId)?.isPrimary;
+      const updatedPhones = prev.map((p) =>
+        p.id === phoneId ? { ...p, isDeleted: true } : p
+      );
+
+      if (isPrimaryDeleted) {
+        const firstVisible = updatedPhones.find((p) => !p.isDeleted);
+        if (firstVisible) {
+          return updatedPhones.map((p) => ({
+            ...p,
+            isPrimary: p.id === firstVisible.id
+          }));
+        }
+      }
+
+      return updatedPhones;
+    });
   }, []);
 
   const handleAddPhone = useCallback(() => {
