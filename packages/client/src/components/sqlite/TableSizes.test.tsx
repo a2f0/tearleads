@@ -417,8 +417,8 @@ describe('TableSizes', () => {
     });
   });
 
-  describe('sorting', () => {
-    it('sorts tables alphabetically by name', async () => {
+  describe('table ordering', () => {
+    it('displays tables in the order returned by the query (alphabetically)', async () => {
       setupMockContext({ isUnlocked: true });
       const execute = vi.fn().mockImplementation((sql: string, params) => {
         if (sql === 'PRAGMA page_size') {
@@ -428,16 +428,16 @@ describe('TableSizes', () => {
           return { rows: [{ page_count: 10 }] };
         }
         if (sql.includes('sqlite_master')) {
-          // Return in non-alphabetical order to verify sorting
-          return { rows: [{ name: 'zebra' }, { name: 'alpha' }] };
+          // SQL query uses ORDER BY name, so return in alphabetical order
+          return { rows: [{ name: 'alpha' }, { name: 'zebra' }] };
         }
         if (sql.includes('dbstat')) {
           const tableName = params?.[0];
-          if (tableName === 'zebra') {
-            return { rows: [{ size: 10000 }] }; // Larger size
-          }
           if (tableName === 'alpha') {
-            return { rows: [{ size: 100 }] }; // Smaller size
+            return { rows: [{ size: 100 }] };
+          }
+          if (tableName === 'zebra') {
+            return { rows: [{ size: 10000 }] };
           }
         }
         return { rows: [] };
@@ -447,7 +447,7 @@ describe('TableSizes', () => {
 
       await renderTableSizes();
 
-      // Should be sorted alphabetically, not by size
+      // Tables should be displayed in the order returned by the query
       const tableNames = screen.getAllByText(/alpha|zebra/);
       expect(tableNames[0]).toHaveTextContent('alpha');
       expect(tableNames[1]).toHaveTextContent('zebra');
