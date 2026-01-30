@@ -161,4 +161,74 @@ describe('usePhotoAlbums', () => {
 
     expect(mockDelete).toHaveBeenCalled();
   });
+
+  it('fetches and processes albums with photo counts', async () => {
+    // First call returns albums
+    mockWhere.mockResolvedValueOnce([
+      { id: 'album-1', name: 'Zebra Album', coverPhotoId: null },
+      { id: 'album-2', name: 'Alpha Album', coverPhotoId: 'photo-1' }
+    ]);
+    // Second call returns photo links (for counting)
+    mockWhere.mockResolvedValueOnce([
+      { parentId: 'album-1' },
+      { parentId: 'album-1' },
+      { parentId: 'album-2' }
+    ]);
+
+    const { result } = renderHook(() => usePhotoAlbums());
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    // Albums should be sorted alphabetically
+    expect(result.current.albums.length).toBe(2);
+    expect(result.current.albums[0].name).toBe('Alpha Album');
+    expect(result.current.albums[1].name).toBe('Zebra Album');
+
+    // Photo counts should be calculated
+    expect(result.current.albums[0].photoCount).toBe(1); // Alpha has 1 photo
+    expect(result.current.albums[1].photoCount).toBe(2); // Zebra has 2 photos
+  });
+
+  it('handles albums with no name', async () => {
+    mockWhere.mockResolvedValueOnce([
+      { id: 'album-1', name: null, coverPhotoId: null }
+    ]);
+    mockWhere.mockResolvedValueOnce([]);
+
+    const { result } = renderHook(() => usePhotoAlbums());
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.albums[0].name).toBe('Unnamed Album');
+  });
+
+  it('handles fetch error', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockWhere.mockRejectedValueOnce(new Error('Database error'));
+
+    const { result } = renderHook(() => usePhotoAlbums());
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Database error');
+    });
+
+    consoleSpy.mockRestore();
+  });
+
+  it('handles non-Error objects in catch', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockWhere.mockRejectedValueOnce('String error');
+
+    const { result } = renderHook(() => usePhotoAlbums());
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('String error');
+    });
+
+    consoleSpy.mockRestore();
+  });
 });

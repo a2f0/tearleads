@@ -170,4 +170,42 @@ describe('RenameAlbumDialog', () => {
       expect(onRename).toHaveBeenCalledWith('album-123', 'New Name');
     });
   });
+
+  it('traps focus within dialog - tab cycles through elements', async () => {
+    const user = userEvent.setup();
+    render(<RenameAlbumDialog {...defaultProps} />);
+
+    const input = screen.getByTestId('rename-album-name-input');
+
+    await waitFor(() => expect(input).toHaveFocus());
+
+    const cancelButton = screen.getByTestId('rename-album-dialog-cancel');
+    const saveButton = screen.getByTestId('rename-album-dialog-save');
+
+    // Tab to cancel button
+    await user.tab();
+    expect(cancelButton).toHaveFocus();
+
+    // Tab to save button
+    await user.tab();
+    expect(saveButton).toHaveFocus();
+
+    // Tab should wrap to input
+    await user.tab();
+    expect(input).toHaveFocus();
+  });
+
+  it('traps focus within dialog - shift+tab wraps from first to last', async () => {
+    const user = userEvent.setup();
+    render(<RenameAlbumDialog {...defaultProps} />);
+
+    const input = screen.getByTestId('rename-album-name-input');
+    const saveButton = screen.getByTestId('rename-album-dialog-save');
+
+    await waitFor(() => expect(input).toHaveFocus());
+
+    // Shift+Tab should wrap to save button
+    await user.tab({ shift: true });
+    expect(saveButton).toHaveFocus();
+  });
 });

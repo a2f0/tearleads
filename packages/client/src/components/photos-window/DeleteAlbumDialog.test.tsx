@@ -123,4 +123,34 @@ describe('DeleteAlbumDialog', () => {
       expect(screen.getByTestId('delete-album-dialog-cancel')).toHaveFocus();
     });
   });
+
+  it('traps focus within dialog - tab from last element wraps to first', async () => {
+    const user = userEvent.setup();
+    render(<DeleteAlbumDialog {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('delete-album-dialog-cancel')).toHaveFocus();
+    });
+
+    // Tab to delete button
+    await user.tab();
+    expect(screen.getByTestId('delete-album-dialog-delete')).toHaveFocus();
+
+    // Tab should wrap to cancel button
+    await user.tab();
+    expect(screen.getByTestId('delete-album-dialog-cancel')).toHaveFocus();
+  });
+
+  it('traps focus within dialog - shift+tab from first element wraps to last', async () => {
+    const user = userEvent.setup();
+    render(<DeleteAlbumDialog {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('delete-album-dialog-cancel')).toHaveFocus();
+    });
+
+    // Shift+Tab should wrap to delete button
+    await user.tab({ shift: true });
+    expect(screen.getByTestId('delete-album-dialog-delete')).toHaveFocus();
+  });
 });

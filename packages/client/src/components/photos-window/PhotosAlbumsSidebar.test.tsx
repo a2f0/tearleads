@@ -46,13 +46,61 @@ vi.mock('./NewAlbumDialog', () => ({
 }));
 
 vi.mock('./RenameAlbumDialog', () => ({
-  RenameAlbumDialog: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="rename-album-dialog" /> : null
+  RenameAlbumDialog: ({
+    open,
+    onOpenChange,
+    onAlbumRenamed
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onAlbumRenamed?: () => void;
+  }) =>
+    open ? (
+      <div data-testid="rename-album-dialog">
+        <button type="button" onClick={() => onOpenChange(false)}>
+          Close
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onAlbumRenamed?.();
+            onOpenChange(false);
+          }}
+        >
+          Save
+        </button>
+      </div>
+    ) : null
 }));
 
 vi.mock('./DeleteAlbumDialog', () => ({
-  DeleteAlbumDialog: ({ open }: { open: boolean }) =>
-    open ? <div data-testid="delete-album-dialog" /> : null
+  DeleteAlbumDialog: ({
+    open,
+    onOpenChange,
+    onAlbumDeleted,
+    album
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    onAlbumDeleted?: (albumId: string) => void;
+    album: { id: string } | null;
+  }) =>
+    open ? (
+      <div data-testid="delete-album-dialog">
+        <button type="button" onClick={() => onOpenChange(false)}>
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            if (album) onAlbumDeleted?.(album.id);
+            onOpenChange(false);
+          }}
+        >
+          Delete
+        </button>
+      </div>
+    ) : null
 }));
 
 describe('PhotosAlbumsSidebar', () => {
@@ -169,5 +217,208 @@ describe('PhotosAlbumsSidebar', () => {
 
   it('exports ALL_PHOTOS_ID constant', () => {
     expect(ALL_PHOTOS_ID).toBe('__all__');
+  });
+
+  it('opens rename dialog from context menu', async () => {
+    const user = userEvent.setup();
+    render(<PhotosAlbumsSidebar {...defaultProps} />);
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+    await user.pointer({ keys: '[MouseRight]', target: albumButton });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('album-context-menu')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Rename'));
+    expect(screen.getByTestId('rename-album-dialog')).toBeInTheDocument();
+  });
+
+  it('opens delete dialog from context menu', async () => {
+    const user = userEvent.setup();
+    render(<PhotosAlbumsSidebar {...defaultProps} />);
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+    await user.pointer({ keys: '[MouseRight]', target: albumButton });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('album-context-menu')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Delete'));
+    expect(screen.getByTestId('delete-album-dialog')).toBeInTheDocument();
+  });
+
+  it('closes context menu on backdrop click', async () => {
+    const user = userEvent.setup();
+    render(<PhotosAlbumsSidebar {...defaultProps} />);
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+    await user.pointer({ keys: '[MouseRight]', target: albumButton });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('album-context-menu')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('album-context-menu-backdrop'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('album-context-menu')).not.toBeInTheDocument();
+    });
+  });
+
+  it('calls onAlbumChanged when new album is created', async () => {
+    const user = userEvent.setup();
+    const onAlbumChanged = vi.fn();
+    render(
+      <PhotosAlbumsSidebar {...defaultProps} onAlbumChanged={onAlbumChanged} />
+    );
+
+    await user.click(screen.getByTitle('New Album'));
+    expect(screen.getByTestId('new-album-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Close'));
+    expect(screen.queryByTestId('new-album-dialog')).not.toBeInTheDocument();
+  });
+
+  it('closes rename dialog and calls onAlbumChanged', async () => {
+    const user = userEvent.setup();
+    const onAlbumChanged = vi.fn();
+    render(
+      <PhotosAlbumsSidebar {...defaultProps} onAlbumChanged={onAlbumChanged} />
+    );
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+    await user.pointer({ keys: '[MouseRight]', target: albumButton });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('album-context-menu')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Rename'));
+    expect(screen.getByTestId('rename-album-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Save'));
+
+    await waitFor(() => {
+      expect(mockUsePhotoAlbums.refetch).toHaveBeenCalled();
+      expect(onAlbumChanged).toHaveBeenCalled();
+    });
+  });
+
+  it('selects All Photos when selected album is deleted', async () => {
+    const user = userEvent.setup();
+    const onAlbumSelect = vi.fn();
+    render(
+      <PhotosAlbumsSidebar
+        {...defaultProps}
+        selectedAlbumId="album-1"
+        onAlbumSelect={onAlbumSelect}
+      />
+    );
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+    await user.pointer({ keys: '[MouseRight]', target: albumButton });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('album-context-menu')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Delete'));
+    expect(screen.getByTestId('delete-album-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Delete' }));
+
+    await waitFor(() => {
+      expect(onAlbumSelect).toHaveBeenCalledWith(ALL_PHOTOS_ID);
+    });
+  });
+
+  it('handles resize via mouse drag', async () => {
+    const onWidthChange = vi.fn();
+    const { container } = render(
+      <PhotosAlbumsSidebar {...defaultProps} onWidthChange={onWidthChange} />
+    );
+
+    const resizeHandle = container.querySelector('.cursor-col-resize');
+    if (!resizeHandle) throw new Error('Resize handle not found');
+
+    // Simulate mouse down
+    const mouseDownEvent = new MouseEvent('mousedown', {
+      bubbles: true,
+      clientX: 200
+    });
+    resizeHandle.dispatchEvent(mouseDownEvent);
+
+    // Simulate mouse move
+    const mouseMoveEvent = new MouseEvent('mousemove', {
+      bubbles: true,
+      clientX: 250
+    });
+    document.dispatchEvent(mouseMoveEvent);
+
+    // Simulate mouse up
+    const mouseUpEvent = new MouseEvent('mouseup', {
+      bubbles: true
+    });
+    document.dispatchEvent(mouseUpEvent);
+
+    expect(onWidthChange).toHaveBeenCalled();
+  });
+
+  it('highlights All Photos when selectedAlbumId is null', () => {
+    render(<PhotosAlbumsSidebar {...defaultProps} selectedAlbumId={null} />);
+
+    const allPhotosButton = screen.getByText('All Photos').closest('button');
+    expect(allPhotosButton).toHaveClass('bg-accent');
+  });
+
+  it('closes rename dialog via close button', async () => {
+    const user = userEvent.setup();
+    render(<PhotosAlbumsSidebar {...defaultProps} />);
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+    await user.pointer({ keys: '[MouseRight]', target: albumButton });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('album-context-menu')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Rename'));
+    expect(screen.getByTestId('rename-album-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Close'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('rename-album-dialog')).not.toBeInTheDocument();
+    });
+  });
+
+  it('closes delete dialog via cancel button', async () => {
+    const user = userEvent.setup();
+    render(<PhotosAlbumsSidebar {...defaultProps} />);
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+    await user.pointer({ keys: '[MouseRight]', target: albumButton });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('album-context-menu')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Delete'));
+    expect(screen.getByTestId('delete-album-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Cancel'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('delete-album-dialog')).not.toBeInTheDocument();
+    });
   });
 });
