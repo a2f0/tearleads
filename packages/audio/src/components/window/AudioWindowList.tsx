@@ -1,46 +1,11 @@
-import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { and, desc, eq, like } from 'drizzle-orm';
 import { Info, Loader2, Music, Pause, Play, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useAudio } from '@/audio';
-import { AudioPlayer } from '@/components/audio/AudioPlayer';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
-import { Dropzone } from '@/components/ui/dropzone';
-import { Input } from '@/components/ui/input';
-import { ListRow } from '@/components/ui/list-row';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-import { getDatabase } from '@/db';
-import { getKeyManager } from '@/db/crypto';
-import { useDatabaseContext } from '@/db/hooks';
-import { files } from '@/db/schema';
-import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
-import { useTypedTranslation } from '@/i18n';
-import { detectPlatform, formatFileSize } from '@/lib/utils';
+import { useAudio } from '../../context/AudioContext';
 import {
-  createRetrieveLogger,
-  getFileStorage,
-  initializeFileStorage,
-  isFileStorageInitialized
-} from '@/storage/opfs';
-import { logStore } from '@/stores/logStore';
-
-interface AudioInfo {
-  id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  uploadDate: Date;
-  storagePath: string;
-  thumbnailPath: string | null;
-}
-
-interface AudioWithUrl extends AudioInfo {
-  objectUrl: string;
-  thumbnailUrl: string | null;
-}
+  type AudioWithUrl,
+  useAudioUIContext
+} from '../../context/AudioUIContext';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
@@ -57,10 +22,30 @@ export function AudioWindowList({
   showDropzone = false,
   onUploadFiles
 }: AudioWindowListProps) {
-  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const {
+    databaseState,
+    ui,
+    t,
+    fetchAudioFilesWithUrls,
+    softDeleteAudio,
+    formatFileSize,
+    logError,
+    detectPlatform
+  } = useAudioUIContext();
+  const { isUnlocked, isLoading, currentInstanceId } = databaseState;
+  const {
+    ListRow,
+    RefreshButton,
+    InlineUnlock,
+    ContextMenu,
+    ContextMenuItem,
+    Input,
+    VirtualListStatus,
+    Dropzone,
+    AudioPlayer
+  } = ui;
+
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
-  const { t } = useTypedTranslation('contextMenu');
-  useAudioErrorHandler();
   const currentTrackRef = useRef(currentTrack);
   const [tracks, setTracks] = useState<AudioWithUrl[]>([]);
   const [loading, setLoading] = useState(false);
@@ -97,7 +82,7 @@ export function AudioWindowList({
   const isDesktopPlatform = useMemo(() => {
     const platform = detectPlatform();
     return platform === 'web' || platform === 'electron';
-  }, []);
+  }, [detectPlatform]);
 
   const fetchTracks = useCallback(async () => {
     if (!isUnlocked) return;
@@ -106,97 +91,19 @@ export function AudioWindowList({
     setError(null);
 
     try {
-      const db = getDatabase();
-
-      const result = await db
-        .select({
-          id: files.id,
-          name: files.name,
-          size: files.size,
-          mimeType: files.mimeType,
-          uploadDate: files.uploadDate,
-          storagePath: files.storagePath,
-          thumbnailPath: files.thumbnailPath
-        })
-        .from(files)
-        .where(and(like(files.mimeType, 'audio/%'), eq(files.deleted, false)))
-        .orderBy(desc(files.uploadDate));
-
-      const trackList: AudioInfo[] = result.map((row) => ({
-        id: row.id,
-        name: row.name,
-        size: row.size,
-        mimeType: row.mimeType,
-        uploadDate: row.uploadDate,
-        storagePath: row.storagePath,
-        thumbnailPath: row.thumbnailPath
-      }));
-
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      const logger = createRetrieveLogger(db);
-      const tracksWithUrls = (
-        await Promise.all(
-          trackList.map(async (track) => {
-            try {
-              const data = await storage.measureRetrieve(
-                track.storagePath,
-                logger
-              );
-              assertPlainArrayBuffer(data);
-              const blob = new Blob([data], { type: track.mimeType });
-              const objectUrl = URL.createObjectURL(blob);
-
-              let thumbnailUrl: string | null = null;
-              if (track.thumbnailPath) {
-                try {
-                  const thumbData = await storage.measureRetrieve(
-                    track.thumbnailPath,
-                    logger
-                  );
-                  assertPlainArrayBuffer(thumbData);
-                  const thumbBlob = new Blob([thumbData], {
-                    type: 'image/jpeg'
-                  });
-                  thumbnailUrl = URL.createObjectURL(thumbBlob);
-                } catch (err) {
-                  logStore.warn(
-                    `Failed to load thumbnail for ${track.name}`,
-                    String(err)
-                  );
-                }
-              }
-
-              return { ...track, objectUrl, thumbnailUrl };
-            } catch (err) {
-              logStore.error(`Failed to load track ${track.name}`, String(err));
-              return null;
-            }
-          })
-        )
-      ).filter((t): t is AudioWithUrl => t !== null);
-
+      const tracksWithUrls = await fetchAudioFilesWithUrls();
       setTracks(tracksWithUrls);
       setHasFetched(true);
     } catch (err) {
-      logStore.error('Failed to fetch tracks', String(err));
+      logError('Failed to fetch tracks', String(err));
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, currentInstanceId]);
+  }, [isUnlocked, fetchAudioFilesWithUrls, logError]);
 
   const fetchedForInstanceRef = useRef<string | null>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: tracks intentionally excluded to prevent re-fetch loops
   useEffect(() => {
     const needsFetch =
       isUnlocked &&
@@ -229,7 +136,7 @@ export function AudioWindowList({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchTracks]);
+  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchTracks, tracks]);
 
   useEffect(() => {
     if (!isUnlocked || refreshToken === 0 || !hasFetched) return;
@@ -299,30 +206,28 @@ export function AudioWindowList({
     [handlePlayPause]
   );
 
-  const handleDelete = useCallback(async (trackToDelete: AudioWithUrl) => {
-    setContextMenu(null);
+  const handleDelete = useCallback(
+    async (trackToDelete: AudioWithUrl) => {
+      setContextMenu(null);
 
-    try {
-      const db = getDatabase();
+      try {
+        await softDeleteAudio(trackToDelete.id);
 
-      await db
-        .update(files)
-        .set({ deleted: true })
-        .where(eq(files.id, trackToDelete.id));
-
-      setTracks((prev) => {
-        const remaining = prev.filter((t) => t.id !== trackToDelete.id);
-        URL.revokeObjectURL(trackToDelete.objectUrl);
-        if (trackToDelete.thumbnailUrl) {
-          URL.revokeObjectURL(trackToDelete.thumbnailUrl);
-        }
-        return remaining;
-      });
-    } catch (err) {
-      logStore.error('Failed to delete track', String(err));
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, []);
+        setTracks((prev) => {
+          const remaining = prev.filter((t) => t.id !== trackToDelete.id);
+          URL.revokeObjectURL(trackToDelete.objectUrl);
+          if (trackToDelete.thumbnailUrl) {
+            URL.revokeObjectURL(trackToDelete.thumbnailUrl);
+          }
+          return remaining;
+        });
+      } catch (err) {
+        logError('Failed to delete track', String(err));
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [softDeleteAudio, logError]
+  );
 
   return (
     <div className="flex h-full flex-col space-y-3 p-3">

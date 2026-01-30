@@ -11,6 +11,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"],
+      "@rapid/audio/package.json": ["../audio/package.json"],
+      "@rapid/contacts/package.json": ["../contacts/package.json"],
       "@rapid/email/package.json": ["../email/package.json"],
       "@rapid/notes/package.json": ["../notes/package.json"],
       "@rapid/vfs-explorer/package.json": ["../vfs-explorer/package.json"]

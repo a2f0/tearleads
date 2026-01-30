@@ -5,8 +5,9 @@
 
 import { Sliders } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { useAudio, useAudioAnalyser } from '@/audio';
-import { Button } from '@/components/ui/button';
+import { useAudio } from '../../context/AudioContext';
+import { useAudioUI } from '../../context/AudioUIContext';
+import { useAudioAnalyser } from '../../hooks/useAudioAnalyser';
 import { LCDBar } from './LCDBar';
 import {
   BAR_COUNT,
@@ -29,6 +30,7 @@ export function AudioVisualizer({
   onVisibilityChange
 }: AudioVisualizerProps) {
   const { audioElementRef, isPlaying, currentTrack } = useAudio();
+  const { Button } = useAudioUI();
   const frequencyData = useAudioAnalyser(audioElementRef, isPlaying, BAR_COUNT);
 
   const [internalVisibility, setInternalVisibility] =

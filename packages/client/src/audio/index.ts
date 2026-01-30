@@ -1,8 +1,10 @@
+// Re-export from @rapid/audio package
 export {
+  type AudioError,
   AudioProvider,
   type AudioTrack,
   type RepeatMode,
   useAudio,
+  useAudioAnalyser,
   useAudioContext
-} from './AudioContext';
-export { useAudioAnalyser } from './useAudioAnalyser';
+} from '@rapid/audio';

@@ -14,8 +14,9 @@ import {
   VolumeX
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type AudioTrack, useAudio, useAudioAnalyser } from '@/audio';
-import { Button } from '@/components/ui/button';
+import { type AudioTrack, useAudio } from '../../context/AudioContext';
+import { useAudioUI } from '../../context/AudioUIContext';
+import { useAudioAnalyser } from '../../hooks/useAudioAnalyser';
 import { LCDBar } from './LCDBar';
 import {
   BAR_COUNT,
@@ -55,6 +56,8 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
     seek,
     setVolume
   } = useAudio();
+
+  const { Button } = useAudioUI();
 
   const frequencyData = useAudioAnalyser(audioElementRef, isPlaying, BAR_COUNT);
   const [visualizerVisibility, setVisualizerVisibility] =

@@ -26,7 +26,8 @@ const mockPause = vi.fn();
 const mockResume = vi.fn();
 const mockUseAudio = vi.fn();
 vi.mock('@/audio', () => ({
-  useAudio: () => mockUseAudio()
+  useAudio: () => mockUseAudio(),
+  useAudioAnalyser: () => new Uint8Array(12)
 }));
 
 // Mock the audio visualizer component to avoid Web Audio API in tests
