@@ -444,8 +444,10 @@ export const emails = sqliteTable(
     encryptedCc: text('encrypted_cc'),
     encryptedBodyPath: text('encrypted_body_path'),
     receivedAt: integer('received_at', { mode: 'timestamp_ms' }).notNull(),
-    isRead: integer('is_read').notNull().default(0),
-    isStarred: integer('is_starred').notNull().default(0)
+    isRead: integer('is_read', { mode: 'boolean' }).notNull().default(false),
+    isStarred: integer('is_starred', { mode: 'boolean' })
+      .notNull()
+      .default(false)
   },
   (table) => [index('emails_received_at_idx').on(table.receivedAt)]
 );

@@ -199,11 +199,16 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
         return; // Already linked
       }
 
+      // TODO(pilot): wrappedSessionKey is empty for the pilot implementation.
+      // When full E2EE is implemented, this should contain the album's session
+      // key wrapped with the photo's key (or vice versa) to maintain the
+      // encryption chain. For now, photos are already encrypted individually
+      // and albums just organize references - no re-encryption needed yet.
       await db.insert(vfsLinks).values({
         id: linkId,
         parentId: albumId,
         childId: photoId,
-        wrappedSessionKey: '', // Not using encryption for now
+        wrappedSessionKey: '',
         createdAt: now
       });
 

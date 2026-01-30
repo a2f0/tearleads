@@ -440,8 +440,8 @@ export const emails = pgTable(
     encryptedCc: jsonb('encrypted_cc'),
     encryptedBodyPath: text('encrypted_body_path'),
     receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
-    isRead: integer('is_read').notNull().default(0),
-    isStarred: integer('is_starred').notNull().default(0)
+    isRead: boolean('is_read').notNull().default(false),
+    isStarred: boolean('is_starred').notNull().default(false)
   },
   (table) => [index('emails_received_at_idx').on(table.receivedAt)]
 );

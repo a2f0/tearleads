@@ -1141,16 +1141,16 @@ export const emailsTable: TableDefinition = {
       notNull: true
     },
     isRead: {
-      type: 'integer',
+      type: 'boolean',
       sqlName: 'is_read',
       notNull: true,
-      defaultValue: 0
+      defaultValue: false
     },
     isStarred: {
-      type: 'integer',
+      type: 'boolean',
       sqlName: 'is_starred',
       notNull: true,
-      defaultValue: 0
+      defaultValue: false
     }
   },
   indexes: [{ name: 'emails_received_at_idx', columns: ['receivedAt'] }]

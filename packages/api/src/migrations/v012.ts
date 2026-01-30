@@ -99,8 +99,8 @@ export const v012: Migration = {
           "encrypted_cc" JSONB,
           "encrypted_body_path" TEXT,
           "received_at" TIMESTAMPTZ NOT NULL,
-          "is_read" INTEGER NOT NULL DEFAULT 0,
-          "is_starred" INTEGER NOT NULL DEFAULT 0
+          "is_read" BOOLEAN NOT NULL DEFAULT false,
+          "is_starred" BOOLEAN NOT NULL DEFAULT false
         )
       `);
 
