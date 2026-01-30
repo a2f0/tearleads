@@ -554,3 +554,165 @@ export const vfsAccess = pgTable(
     index('vfs_access_item_idx').on(table.itemId)
   ]
 );
+
+/**
+ * MLS key packages for user identity.
+ * Each package is consumed once when used to add user to a group.
+ */
+export const mlsKeyPackages = pgTable(
+  'mls_key_packages',
+  {
+    id: text('id').primaryKey(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    keyPackageData: text('key_package_data').notNull(),
+    keyPackageRef: text('key_package_ref').notNull(),
+    cipherSuite: integer('cipher_suite').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true }),
+    consumedByGroupId: text('consumed_by_group_id')
+  },
+  (table) => [
+    index('mls_key_packages_user_idx').on(table.userId),
+    uniqueIndex('mls_key_packages_ref_idx').on(table.keyPackageRef)
+  ]
+);
+
+/**
+ * MLS chat groups with epoch tracking for forward secrecy.
+ * Groups manage cryptographic state and membership through MLS protocol.
+ */
+export const mlsGroups = pgTable(
+  'mls_groups',
+  {
+    id: text('id').primaryKey(),
+    groupIdMls: text('group_id_mls').notNull(),
+    name: text('name').notNull(),
+    description: text('description'),
+    creatorUserId: text('creator_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    currentEpoch: integer('current_epoch').notNull().default(0),
+    cipherSuite: integer('cipher_suite').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    uniqueIndex('mls_groups_group_id_mls_idx').on(table.groupIdMls),
+    index('mls_groups_creator_idx').on(table.creatorUserId)
+  ]
+);
+
+/**
+ * MLS group membership tracking.
+ * Tracks which users are members of which groups with their MLS leaf index.
+ */
+export const mlsGroupMembers = pgTable(
+  'mls_group_members',
+  {
+    groupId: text('group_id')
+      .primaryKey()
+      .references(() => mlsGroups.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .primaryKey()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    leafIndex: integer('leaf_index'),
+    role: text('role', {
+      enum: ['admin', 'member']
+    })
+      .notNull()
+      .default('member'),
+    joinedAt: timestamp('joined_at', { withTimezone: true }).notNull(),
+    joinedAtEpoch: integer('joined_at_epoch').notNull(),
+    removedAt: timestamp('removed_at', { withTimezone: true })
+  },
+  (table) => [
+    index('mls_group_members_user_idx').on(table.userId),
+    index('mls_group_members_active_idx').on(table.groupId, table.removedAt)
+  ]
+);
+
+/**
+ * MLS encrypted messages.
+ * Server stores ciphertext only - decryption happens client-side.
+ */
+export const mlsMessages = pgTable(
+  'mls_messages',
+  {
+    id: text('id').primaryKey(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => mlsGroups.id, { onDelete: 'cascade' }),
+    senderUserId: text('sender_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    epoch: integer('epoch').notNull(),
+    ciphertext: text('ciphertext').notNull(),
+    messageType: text('message_type', {
+      enum: ['application', 'commit', 'proposal']
+    }).notNull(),
+    contentType: text('content_type').default('text/plain'),
+    sequenceNumber: integer('sequence_number').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('mls_messages_group_seq_idx').on(table.groupId, table.sequenceNumber),
+    index('mls_messages_group_epoch_idx').on(table.groupId, table.epoch),
+    index('mls_messages_created_idx').on(table.createdAt)
+  ]
+);
+
+/**
+ * MLS welcome messages for new group members.
+ * Contains encrypted group state needed to join.
+ */
+export const mlsWelcomeMessages = pgTable(
+  'mls_welcome_messages',
+  {
+    id: text('id').primaryKey(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => mlsGroups.id, { onDelete: 'cascade' }),
+    recipientUserId: text('recipient_user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    keyPackageRef: text('key_package_ref').notNull(),
+    welcomeData: text('welcome_data').notNull(),
+    epoch: integer('epoch').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    consumedAt: timestamp('consumed_at', { withTimezone: true })
+  },
+  (table) => [
+    index('mls_welcome_recipient_idx').on(
+      table.recipientUserId,
+      table.consumedAt
+    ),
+    index('mls_welcome_group_idx').on(table.groupId)
+  ]
+);
+
+/**
+ * MLS group state snapshots for recovery and multi-device sync.
+ * Stores encrypted serialized MLS state at specific epochs.
+ */
+export const mlsGroupState = pgTable(
+  'mls_group_state',
+  {
+    id: text('id').primaryKey(),
+    groupId: text('group_id')
+      .notNull()
+      .references(() => mlsGroups.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    epoch: integer('epoch').notNull(),
+    encryptedState: text('encrypted_state').notNull(),
+    stateHash: text('state_hash').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('mls_group_state_user_group_idx').on(table.userId, table.groupId),
+    index('mls_group_state_epoch_idx').on(table.groupId, table.epoch)
+  ]
+);

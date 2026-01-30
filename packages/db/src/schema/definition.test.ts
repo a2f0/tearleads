@@ -8,6 +8,12 @@ import {
   filesTable,
   groupsTable,
   migrationsTable,
+  mlsGroupMembersTable,
+  mlsGroupStateTable,
+  mlsGroupsTable,
+  mlsKeyPackagesTable,
+  mlsMessagesTable,
+  mlsWelcomeMessagesTable,
   notesTable,
   organizationsTable,
   secretsTable,
@@ -334,8 +340,8 @@ describe('notesTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 29 tables', () => {
-    expect(allTables).toHaveLength(29);
+  it('contains all 35 tables', () => {
+    expect(allTables).toHaveLength(35);
   });
 
   it('contains all table definitions', () => {
@@ -355,6 +361,25 @@ describe('allTables', () => {
     expect(allTables).toContain(notesTable);
     expect(allTables).toContain(groupsTable);
     expect(allTables).toContain(userGroupsTable);
+    expect(allTables).toContain(userKeysTable);
+    expect(allTables).toContain(vfsRegistryTable);
+    expect(allTables).toContain(vfsFoldersTable);
+    expect(allTables).toContain(vfsLinksTable);
+    expect(allTables).toContain(playlistsTable);
+    expect(allTables).toContain(albumsTable);
+    expect(allTables).toContain(contactGroupsTable);
+    expect(allTables).toContain(emailFoldersTable);
+    expect(allTables).toContain(tagsTable);
+    expect(allTables).toContain(emailsTable);
+    expect(allTables).toContain(vfsSharesTable);
+    expect(allTables).toContain(orgSharesTable);
+    expect(allTables).toContain(vfsAccessTable);
+    expect(allTables).toContain(mlsKeyPackagesTable);
+    expect(allTables).toContain(mlsGroupsTable);
+    expect(allTables).toContain(mlsGroupMembersTable);
+    expect(allTables).toContain(mlsMessagesTable);
+    expect(allTables).toContain(mlsWelcomeMessagesTable);
+    expect(allTables).toContain(mlsGroupStateTable);
   });
 
   it('all tables are valid definitions', () => {

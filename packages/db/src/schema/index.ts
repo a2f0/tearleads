@@ -6,6 +6,13 @@ export {
   contactsTable,
   filesTable,
   migrationsTable,
+  // MLS tables
+  mlsGroupMembersTable,
+  mlsGroupStateTable,
+  mlsGroupsTable,
+  mlsKeyPackagesTable,
+  mlsMessagesTable,
+  mlsWelcomeMessagesTable,
   secretsTable,
   syncMetadataTable,
   userSettingsTable

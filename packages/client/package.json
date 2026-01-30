@@ -58,6 +58,7 @@
     "@rapid/db": "workspace:*",
     "@rapid/contacts": "workspace:*",
     "@rapid/email": "workspace:*",
+    "@rapid/mls-chat": "workspace:*",
     "@rapid/notes": "workspace:*",
     "@rapid/vfs-explorer": "workspace:*",
     "@rapid/shared": "workspace:*",

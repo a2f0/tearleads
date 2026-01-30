@@ -116,6 +116,9 @@ const Documents = lazy(() =>
 const Email = lazy(() =>
   import('./pages/Email').then((m) => ({ default: m.Email }))
 );
+const MlsChat = lazy(() =>
+  import('./pages/MlsChat').then((m) => ({ default: m.MlsChat }))
+);
 const Files = lazy(() =>
   import('./pages/Files').then((m) => ({ default: m.Files }))
 );
@@ -308,6 +311,17 @@ if (rootElement) {
                                             loginDescription="Sign in to access your email"
                                           >
                                             <Email />
+                                          </RequireAuth>
+                                        }
+                                      />
+                                      <Route
+                                        path="mls-chat"
+                                        element={
+                                          <RequireAuth
+                                            loginTitle="MLS Chat Requires Login"
+                                            loginDescription="Sign in to access encrypted chat"
+                                          >
+                                            <MlsChat />
                                           </RequireAuth>
                                         }
                                       />
