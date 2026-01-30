@@ -10,12 +10,23 @@ vi.mock('../hooks', () => ({
     error: null,
     hasFetched: true,
     refetch: vi.fn()
+  })),
+  useVfsAllItems: vi.fn(() => ({
+    items: [],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    refetch: vi.fn()
   }))
 }));
 
-import { useVfsFolderContents, useVfsUnfiledItems } from '../hooks';
+import {
+  useVfsAllItems,
+  useVfsFolderContents,
+  useVfsUnfiledItems
+} from '../hooks';
 import { VfsDetailsPanel } from './VfsDetailsPanel';
-import { UNFILED_FOLDER_ID } from './VfsTreePanel';
+import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from './VfsTreePanel';
 
 const mockItems = [
   {
@@ -285,5 +296,91 @@ describe('VfsDetailsPanel', () => {
     rerender(<VfsDetailsPanel folderId="folder-1" refreshToken={1} />);
 
     expect(mockRefetch).toHaveBeenCalledTimes(1);
+  });
+
+  describe('all items', () => {
+    it('shows all items empty state', () => {
+      vi.mocked(useVfsAllItems).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
+      expect(screen.getByText('No items in registry')).toBeInTheDocument();
+      expect(
+        screen.getByText('Upload files to get started')
+      ).toBeInTheDocument();
+    });
+
+    it('shows loading state for all items', () => {
+      vi.mocked(useVfsAllItems).mockReturnValue({
+        items: [],
+        loading: true,
+        error: null,
+        hasFetched: false,
+        refetch: vi.fn()
+      });
+      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
+      expect(
+        screen.queryByText('No items in registry')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows error state for all items', () => {
+      vi.mocked(useVfsAllItems).mockReturnValue({
+        items: [],
+        loading: false,
+        error: 'Failed to load all items',
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
+      expect(screen.getByText('Failed to load all items')).toBeInTheDocument();
+    });
+
+    it('shows all items in list', () => {
+      vi.mocked(useVfsAllItems).mockReturnValue({
+        items: [
+          {
+            id: 'item-1',
+            objectType: 'file',
+            name: 'all-document.pdf',
+            createdAt: new Date('2024-01-10')
+          }
+        ],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
+      expect(screen.getByText('all-document.pdf')).toBeInTheDocument();
+      expect(screen.getByText('1 item')).toBeInTheDocument();
+    });
+
+    it('calls refetch when refreshToken changes', () => {
+      const mockRefetch = vi.fn();
+      vi.mocked(useVfsAllItems).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: mockRefetch
+      });
+
+      const { rerender } = render(
+        <VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} refreshToken={0} />
+      );
+
+      expect(mockRefetch).not.toHaveBeenCalled();
+
+      rerender(
+        <VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} refreshToken={1} />
+      );
+
+      expect(mockRefetch).toHaveBeenCalledTimes(1);
+    });
   });
 });

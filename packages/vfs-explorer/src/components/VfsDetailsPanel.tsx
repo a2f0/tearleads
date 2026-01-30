@@ -1,6 +1,7 @@
-import { FileBox, Folder, Loader2 } from 'lucide-react';
+import { FileBox, Folder, Layers, Loader2 } from 'lucide-react';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import {
+  useVfsAllItems,
   useVfsFolderContents,
   useVfsUnfiledItems,
   type VfsItem,
@@ -10,7 +11,7 @@ import { cn, OBJECT_TYPE_COLORS, OBJECT_TYPE_ICONS } from '../lib';
 import { ItemContextMenu } from './ItemContextMenu';
 import { VfsDraggableItem } from './VfsDraggableItem';
 import type { VfsViewMode } from './VfsExplorer';
-import { UNFILED_FOLDER_ID } from './VfsTreePanel';
+import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from './VfsTreePanel';
 
 export type { VfsItem, VfsObjectType };
 
@@ -60,6 +61,7 @@ export function VfsDetailsPanel({
   onItemDownload
 }: VfsDetailsPanelProps) {
   const isUnfiled = folderId === UNFILED_FOLDER_ID;
+  const isAllItems = folderId === ALL_ITEMS_FOLDER_ID;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
   const handleItemClick = useCallback(
@@ -120,14 +122,19 @@ export function VfsDetailsPanel({
   );
 
   // Use the appropriate hook based on selection
-  const folderContents = useVfsFolderContents(isUnfiled ? null : folderId);
+  const folderContents = useVfsFolderContents(
+    isUnfiled || isAllItems ? null : folderId
+  );
   const unfiledItems = useVfsUnfiledItems();
+  const allItems = useVfsAllItems({ enabled: isAllItems });
 
   // Refetch when refreshToken changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: refetch functions are stable, including full objects causes infinite loops
   useEffect(() => {
     if (refreshToken !== undefined && refreshToken > 0) {
-      if (isUnfiled) {
+      if (isAllItems) {
+        allItems.refetch();
+      } else if (isUnfiled) {
         unfiledItems.refetch();
       } else {
         folderContents.refetch();
@@ -136,11 +143,11 @@ export function VfsDetailsPanel({
   }, [refreshToken]);
 
   // Select the appropriate data source
-  const items: DisplayItem[] = isUnfiled
-    ? unfiledItems.items
-    : folderContents.items;
-  const loading = isUnfiled ? unfiledItems.loading : folderContents.loading;
-  const error = isUnfiled ? unfiledItems.error : folderContents.error;
+  const { items, loading, error } = isAllItems
+    ? allItems
+    : isUnfiled
+      ? unfiledItems
+      : folderContents;
 
   // Report items to parent for status bar
   useEffect(() => {
@@ -180,7 +187,13 @@ export function VfsDetailsPanel({
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
         <div className="text-center">
-          {isUnfiled ? (
+          {isAllItems ? (
+            <>
+              <Layers className="mx-auto h-12 w-12 opacity-50" />
+              <p className="mt-2 text-sm">No items in registry</p>
+              <p className="mt-1 text-xs">Upload files to get started</p>
+            </>
+          ) : isUnfiled ? (
             <>
               <FileBox className="mx-auto h-12 w-12 opacity-50" />
               <p className="mt-2 text-sm">No unfiled items</p>
