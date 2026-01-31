@@ -1,4 +1,3 @@
-import { and, eq, like } from 'drizzle-orm';
 import {
   ArrowLeft,
   Calendar,
@@ -10,36 +9,12 @@ import {
   Play
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAudio } from '@/audio';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
-import { Button } from '@/components/ui/button';
-import { EditableTitle } from '@/components/ui/editable-title';
-import { getDatabase } from '@/db';
-import { getKeyManager } from '@/db/crypto';
-import { useDatabaseContext } from '@/db/hooks';
-import { files } from '@/db/schema';
-import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
-import { type AudioMetadata, extractAudioMetadata } from '@/lib/audio-metadata';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { formatDate, formatFileSize } from '@/lib/utils';
+import { useAudio } from '../../context/AudioContext';
 import {
-  createRetrieveLogger,
-  getFileStorage,
-  initializeFileStorage,
-  isFileStorageInitialized,
-  type RetrieveMetrics
-} from '@/storage/opfs';
-
-interface AudioInfo {
-  id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  uploadDate: Date;
-  storagePath: string;
-  thumbnailPath: string | null;
-}
+  type AudioInfo,
+  type AudioMetadata,
+  useAudioUIContext
+} from '../../context/AudioUIContext';
 
 interface AudioWindowDetailProps {
   audioId: string;
@@ -70,9 +45,24 @@ export function AudioWindowDetail({
   onBack,
   onDeleted
 }: AudioWindowDetailProps) {
-  const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const {
+    databaseState,
+    ui,
+    fetchAudioFiles,
+    retrieveFile,
+    softDeleteAudio,
+    updateAudioName,
+    formatFileSize,
+    formatDate,
+    extractAudioMetadata,
+    downloadFile,
+    shareFile,
+    canShareFiles
+  } = useAudioUIContext();
+  const { isUnlocked, isLoading } = databaseState;
+  const { Button, InlineUnlock, EditableTitle, ActionToolbar } = ui;
+
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
-  useAudioErrorHandler();
   const currentTrackRef = useRef(currentTrack);
   const [audio, setAudio] = useState<AudioInfo | null>(null);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
@@ -81,9 +71,10 @@ export function AudioWindowDetail({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
-  const [actionLoading, setActionLoading] = useState<ActionType | null>(null);
+  const [actionLoading, setActionLoading] = useState<
+    'download' | 'share' | 'delete' | null
+  >(null);
 
-  // Track all created blob URLs to revoke on unmount.
   const urlsToRevoke = useRef<string[]>([]);
   const objectUrlRef = useRef<string | null>(null);
 
@@ -92,27 +83,7 @@ export function AudioWindowDetail({
 
   useEffect(() => {
     setCanShare(canShareFiles());
-  }, []);
-
-  const retrieveFileData = useCallback(
-    async (
-      storagePath: string,
-      onMetrics?: (metrics: RetrieveMetrics) => void | Promise<void>
-    ): Promise<Uint8Array> => {
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!currentInstanceId) throw new Error('No active instance');
-
-      if (!isFileStorageInitialized()) {
-        await initializeFileStorage(encryptionKey, currentInstanceId);
-      }
-
-      const storage = getFileStorage();
-      return storage.measureRetrieve(storagePath, onMetrics);
-    },
-    [currentInstanceId]
-  );
+  }, [canShareFiles]);
 
   const handlePlayPause = useCallback(() => {
     if (!audio || !objectUrl) return;
@@ -138,31 +109,27 @@ export function AudioWindowDetail({
 
     setActionLoading('download');
     try {
-      const db = getDatabase();
-      const data = await retrieveFileData(
-        audio.storagePath,
-        createRetrieveLogger(db)
-      );
-      downloadFile(data, audio.name);
+      const data = await retrieveFile(audio.storagePath);
+      const uint8Data =
+        data instanceof Uint8Array ? data : new Uint8Array(data);
+      downloadFile(uint8Data, audio.name);
     } catch (err) {
       console.error('Failed to download audio:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setActionLoading(null);
     }
-  }, [audio, retrieveFileData]);
+  }, [audio, retrieveFile, downloadFile]);
 
   const handleShare = useCallback(async () => {
     if (!audio) return;
 
     setActionLoading('share');
     try {
-      const db = getDatabase();
-      const data = await retrieveFileData(
-        audio.storagePath,
-        createRetrieveLogger(db)
-      );
-      const shared = await shareFile(data, audio.name, audio.mimeType);
+      const data = await retrieveFile(audio.storagePath);
+      const uint8Data =
+        data instanceof Uint8Array ? data : new Uint8Array(data);
+      const shared = await shareFile(uint8Data, audio.name, audio.mimeType);
       if (!shared) {
         setError('Sharing is not supported on this device');
       }
@@ -175,18 +142,14 @@ export function AudioWindowDetail({
     } finally {
       setActionLoading(null);
     }
-  }, [audio, retrieveFileData]);
+  }, [audio, retrieveFile, shareFile]);
 
   const handleDelete = useCallback(async () => {
     if (!audio) return;
 
     setActionLoading('delete');
     try {
-      const db = getDatabase();
-      await db
-        .update(files)
-        .set({ deleted: true })
-        .where(eq(files.id, audio.id));
+      await softDeleteAudio(audio.id);
       onDeleted();
     } catch (err) {
       console.error('Failed to delete audio:', err);
@@ -194,19 +157,14 @@ export function AudioWindowDetail({
     } finally {
       setActionLoading(null);
     }
-  }, [audio, onDeleted]);
+  }, [audio, softDeleteAudio, onDeleted]);
 
   const handleUpdateName = useCallback(
     async (newName: string) => {
-      const db = getDatabase();
-      await db
-        .update(files)
-        .set({ name: newName })
-        .where(eq(files.id, audioId));
-
+      await updateAudioName(audioId, newName);
       setAudio((prev) => (prev ? { ...prev, name: newName } : prev));
     },
-    [audioId]
+    [audioId, updateAudioName]
   );
 
   const fetchAudio = useCallback(async () => {
@@ -217,65 +175,38 @@ export function AudioWindowDetail({
     setMetadata(null);
 
     try {
-      const db = getDatabase();
+      const audioFiles = await fetchAudioFiles();
+      const audioInfo = audioFiles.find((f) => f.id === audioId);
 
-      const result = await db
-        .select({
-          id: files.id,
-          name: files.name,
-          size: files.size,
-          mimeType: files.mimeType,
-          uploadDate: files.uploadDate,
-          storagePath: files.storagePath,
-          thumbnailPath: files.thumbnailPath
-        })
-        .from(files)
-        .where(
-          and(
-            eq(files.id, audioId),
-            like(files.mimeType, 'audio/%'),
-            eq(files.deleted, false)
-          )
-        )
-        .limit(1);
-
-      const row = result[0];
-      if (!row) {
+      if (!audioInfo) {
         setError('Audio file not found');
         return;
       }
 
-      const audioInfo: AudioInfo = {
-        id: row.id,
-        name: row.name,
-        size: row.size,
-        mimeType: row.mimeType,
-        uploadDate: row.uploadDate,
-        storagePath: row.storagePath,
-        thumbnailPath: row.thumbnailPath
-      };
       setAudio(audioInfo);
 
-      const logger = createRetrieveLogger(db);
-      const data = await retrieveFileData(audioInfo.storagePath, logger);
+      const data = await retrieveFile(audioInfo.storagePath);
+      const uint8Data =
+        data instanceof Uint8Array ? data : new Uint8Array(data);
       const metadataResult = await extractAudioMetadata(
-        data,
+        uint8Data,
         audioInfo.mimeType
       );
       setMetadata(metadataResult);
 
-      const url = createBlobUrl(data, audioInfo.mimeType);
+      const url = createBlobUrl(uint8Data, audioInfo.mimeType);
       urlsToRevoke.current.push(url);
       objectUrlRef.current = url;
       setObjectUrl(url);
 
       if (audioInfo.thumbnailPath) {
         try {
-          const thumbData = await retrieveFileData(
-            audioInfo.thumbnailPath,
-            logger
-          );
-          const thumbUrl = createBlobUrl(thumbData, 'image/jpeg');
+          const thumbData = await retrieveFile(audioInfo.thumbnailPath);
+          const uint8ThumbData =
+            thumbData instanceof Uint8Array
+              ? thumbData
+              : new Uint8Array(thumbData);
+          const thumbUrl = createBlobUrl(uint8ThumbData, 'image/jpeg');
           urlsToRevoke.current.push(thumbUrl);
           setThumbnailUrl(thumbUrl);
         } catch (err) {
@@ -288,7 +219,13 @@ export function AudioWindowDetail({
     } finally {
       setLoading(false);
     }
-  }, [audioId, isUnlocked, retrieveFileData]);
+  }, [
+    audioId,
+    isUnlocked,
+    fetchAudioFiles,
+    retrieveFile,
+    extractAudioMetadata
+  ]);
 
   useEffect(() => {
     if (isUnlocked && audioId) {

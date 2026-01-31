@@ -53,6 +53,16 @@ export interface AudioTranslations {
   repeatOff: string;
   repeatAll: string;
   repeatOne: string;
+  hideVisualizer: string;
+  showVisualizer: string;
+  mute: string;
+  unmute: string;
+  volume: string;
+  seek: string;
+  getInfo: string;
+  delete: string;
+  download: string;
+  share: string;
 }
 
 export interface TooltipsTranslations {

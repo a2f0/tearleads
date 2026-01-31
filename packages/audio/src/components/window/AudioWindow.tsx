@@ -1,7 +1,6 @@
+import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useRef, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
-import { useFileUpload } from '@/hooks/useFileUpload';
+import { useAudioUIContext } from '../../context/AudioUIContext';
 import { AudioWindowDetail } from './AudioWindowDetail';
 import { AudioWindowList } from './AudioWindowList';
 import type { AudioViewMode } from './AudioWindowMenuBar';
@@ -27,12 +26,13 @@ export function AudioWindow({
   zIndex,
   initialDimensions
 }: AudioWindowProps) {
+  const { uploadFile } = useAudioUIContext();
+
   const [view, setView] = useState<AudioViewMode>('list');
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [showDropzone, setShowDropzone] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { uploadFile } = useFileUpload();
 
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click();

@@ -8,10 +8,7 @@ const mockUseAudio = vi.fn();
 const mockUseAudioAnalyser = vi.fn();
 
 vi.mock('@/audio', () => ({
-  useAudio: () => mockUseAudio()
-}));
-
-vi.mock('@/audio/useAudioAnalyser', () => ({
+  useAudio: () => mockUseAudio(),
   useAudioAnalyser: () => mockUseAudioAnalyser()
 }));
 

@@ -105,6 +105,12 @@ jobs:
       - name: Build vfs-explorer
         run: pnpm --filter @rapid/vfs-explorer build
 
+      - name: Build audio
+        run: pnpm --filter @rapid/audio build
+
+      - name: Build contacts
+        run: pnpm --filter @rapid/contacts build
+
       - name: Build Electron app
         run: pnpm --filter @rapid/client electron:build
         env:

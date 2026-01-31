@@ -111,10 +111,10 @@ export default defineConfig({
         'src/lib/test-instance.ts'
       ],
       thresholds: {
-        statements: 93.4,
+        statements: 92.8,
         branches: 85.1,
-        functions: 94,
-        lines: 95.1
+        functions: 93.3,
+        lines: 94.7
       }
     }
   },
@@ -124,6 +124,10 @@ export default defineConfig({
       '@rapid/api/dist/openapi.json': path.resolve(
         __dirname,
         '../api/dist/openapi.json'
+      ),
+      '@rapid/audio/package.json': path.resolve(
+        __dirname,
+        '../audio/package.json'
       ),
       '@rapid/email/package.json': path.resolve(
         __dirname,

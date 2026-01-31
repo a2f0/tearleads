@@ -91,7 +91,6 @@ export function NewAlbumDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop click handler */}
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-sm"
         onClick={handleCancel}

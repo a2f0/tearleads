@@ -1,3 +1,7 @@
+/**
+ * Audio playback controls component with seek bar and repeat mode.
+ */
+
 import {
   Pause,
   Play,
@@ -9,8 +13,12 @@ import {
 } from 'lucide-react';
 import { type CSSProperties, useCallback, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
-import { type AudioTrack, type RepeatMode, useAudio } from '@/audio';
-import { Button } from '@/components/ui/button';
+import {
+  type AudioTrack,
+  type RepeatMode,
+  useAudio
+} from '../../context/AudioContext';
+import { useAudioUI } from '../../context/AudioUIContext';
 
 interface AudioControlsProps {
   tracks: AudioTrack[];
@@ -40,6 +48,8 @@ export function AudioControls({ tracks }: AudioControlsProps) {
     cycleRepeatMode,
     setOnTrackEnd
   } = useAudio();
+
+  const { Button } = useAudioUI();
 
   const currentIndex = currentTrack
     ? tracks.findIndex((t) => t.id === currentTrack.id)
@@ -117,11 +127,6 @@ export function AudioControls({ tracks }: AudioControlsProps) {
         return t('repeatAll');
       case 'one':
         return t('repeatOne');
-      default: {
-        // Exhaustive check - this should never happen
-        const _exhaustive: never = mode;
-        return _exhaustive;
-      }
     }
   };
 

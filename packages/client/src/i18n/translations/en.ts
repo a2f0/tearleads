@@ -53,7 +53,17 @@ export const en = {
     close: 'Close player',
     repeatOff: 'Repeat: Off',
     repeatAll: 'Repeat: All tracks',
-    repeatOne: 'Repeat: Current track'
+    repeatOne: 'Repeat: Current track',
+    hideVisualizer: 'Hide visualizer',
+    showVisualizer: 'Show visualizer',
+    mute: 'Mute',
+    unmute: 'Unmute',
+    volume: 'Volume',
+    seek: 'Seek',
+    getInfo: 'Get info',
+    delete: 'Delete',
+    download: 'Download',
+    share: 'Share'
   },
   tooltips: {
     sseConnected: 'SSE: Connected',

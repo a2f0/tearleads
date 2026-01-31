@@ -1,0 +1,325 @@
+import type { ReactNode } from 'react';
+import { vi } from 'vitest';
+import type {
+  AboutMenuItemProps,
+  ActionToolbarProps,
+  AudioMetadata,
+  AudioPlayerProps,
+  AudioUIComponents,
+  AudioWithUrl,
+  BackLinkProps,
+  ButtonProps,
+  ContextMenuItemProps,
+  ContextMenuProps,
+  DatabaseState,
+  DropdownMenuItemProps,
+  DropdownMenuProps,
+  DropdownMenuSeparatorProps,
+  DropzoneProps,
+  EditableTitleProps,
+  InlineUnlockProps,
+  InputProps,
+  ListRowProps,
+  RefreshButtonProps,
+  VirtualListStatusProps,
+  WindowOptionsMenuItemProps
+} from '../context/AudioUIContext';
+import { AudioUIProvider } from '../context/AudioUIContext';
+
+export const createMockDatabaseState = (): DatabaseState => ({
+  isUnlocked: true,
+  isLoading: false,
+  currentInstanceId: 'test-instance'
+});
+
+function MockButton({ children, onClick, ...props }: ButtonProps) {
+  return (
+    <button type="button" onClick={onClick} {...props}>
+      {children}
+    </button>
+  );
+}
+
+function MockInput(props: InputProps) {
+  return <input {...props} />;
+}
+
+function MockContextMenu({ children }: ContextMenuProps) {
+  return <div data-testid="context-menu">{children}</div>;
+}
+
+function MockContextMenuItem({ children, onClick }: ContextMenuItemProps) {
+  return (
+    <button type="button" data-testid="context-menu-item" onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+function MockListRow({ children, onContextMenu, ...props }: ListRowProps) {
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: test mock component
+    <div onContextMenu={onContextMenu} {...props}>
+      {children}
+    </div>
+  );
+}
+
+function MockRefreshButton({ onClick, loading }: RefreshButtonProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      data-testid="refresh-button"
+      disabled={loading}
+    >
+      {loading ? 'Loading...' : 'Refresh'}
+    </button>
+  );
+}
+
+function MockVirtualListStatus(_props: VirtualListStatusProps) {
+  return <div data-testid="virtual-list-status">Status</div>;
+}
+
+function MockInlineUnlock({ description }: InlineUnlockProps) {
+  return <div data-testid="inline-unlock">Unlock for {description}</div>;
+}
+
+function MockEditableTitle({ value, onSave }: EditableTitleProps) {
+  return (
+    <input
+      data-testid="editable-title"
+      defaultValue={value}
+      onBlur={(e) => onSave(e.target.value)}
+    />
+  );
+}
+
+function MockDropdownMenu({ trigger, children }: DropdownMenuProps) {
+  return (
+    <div data-testid={`dropdown-${trigger.toLowerCase()}`}>{children}</div>
+  );
+}
+
+function MockDropdownMenuItem({ children, onClick }: DropdownMenuItemProps) {
+  return (
+    <button type="button" onClick={onClick}>
+      {children}
+    </button>
+  );
+}
+
+function MockDropdownMenuSeparator(_props: DropdownMenuSeparatorProps) {
+  return <hr />;
+}
+
+function MockWindowOptionsMenuItem(_props: WindowOptionsMenuItemProps) {
+  return <div>Options</div>;
+}
+
+function MockAboutMenuItem(_props: AboutMenuItemProps) {
+  return <div>About</div>;
+}
+
+function MockBackLink(_props: BackLinkProps) {
+  return <a href="/">Back</a>;
+}
+
+function MockDropzone({ onFilesSelected, label }: DropzoneProps) {
+  return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: test mock component
+    // biome-ignore lint/a11y/useKeyWithClickEvents: test mock component
+    <div data-testid="dropzone" onClick={() => onFilesSelected([])}>
+      {label ?? 'Drop files here'}
+    </div>
+  );
+}
+
+function MockActionToolbar(_props: ActionToolbarProps) {
+  return <div data-testid="action-toolbar">Actions</div>;
+}
+
+function MockAudioPlayer(_props: AudioPlayerProps) {
+  return <div data-testid="audio-player">Player</div>;
+}
+
+export const createMockUI = (): AudioUIComponents => ({
+  Button: MockButton,
+  Input: MockInput,
+  ContextMenu: MockContextMenu,
+  ContextMenuItem: MockContextMenuItem,
+  ListRow: MockListRow,
+  RefreshButton: MockRefreshButton,
+  VirtualListStatus: MockVirtualListStatus,
+  InlineUnlock: MockInlineUnlock,
+  EditableTitle: MockEditableTitle,
+  DropdownMenu: MockDropdownMenu,
+  DropdownMenuItem: MockDropdownMenuItem,
+  DropdownMenuSeparator: MockDropdownMenuSeparator,
+  WindowOptionsMenuItem: MockWindowOptionsMenuItem,
+  AboutMenuItem: MockAboutMenuItem,
+  BackLink: MockBackLink,
+  Dropzone: MockDropzone,
+  ActionToolbar: MockActionToolbar,
+  AudioPlayer: MockAudioPlayer
+});
+
+export const createMockAudioTrack = (
+  overrides: Partial<AudioWithUrl> = {}
+): AudioWithUrl => ({
+  id: 'track-1',
+  name: 'Test Track.mp3',
+  size: 1024000,
+  mimeType: 'audio/mpeg',
+  uploadDate: new Date('2024-01-15'),
+  storagePath: '/audio/test-track.mp3',
+  thumbnailPath: null,
+  objectUrl: 'blob:test-url',
+  thumbnailUrl: null,
+  ...overrides
+});
+
+export const createMockAudioMetadata = (
+  overrides: Partial<AudioMetadata> = {}
+): AudioMetadata => ({
+  title: null,
+  artist: null,
+  album: null,
+  albumArtist: null,
+  year: null,
+  trackNumber: null,
+  trackTotal: null,
+  genre: null,
+  ...overrides
+});
+
+export interface MockContextOptions {
+  databaseState?: Partial<DatabaseState>;
+  ui?: Partial<AudioUIComponents>;
+  fetchAudioFiles?: () => Promise<AudioWithUrl[]>;
+  fetchAudioFilesWithUrls?: () => Promise<AudioWithUrl[]>;
+  retrieveFile?: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
+  softDeleteAudio?: (audioId: string) => Promise<void>;
+  updateAudioName?: (audioId: string, name: string) => Promise<void>;
+  uploadFile?: (file: File) => Promise<void>;
+  extractAudioMetadata?: (
+    data: Uint8Array,
+    mimeType: string
+  ) => Promise<AudioMetadata | null>;
+  downloadFile?: (data: Uint8Array, filename: string) => void;
+  shareFile?: (
+    data: Uint8Array,
+    filename: string,
+    mimeType: string
+  ) => Promise<boolean>;
+  canShareFiles?: () => boolean;
+  navigateToAudio?: (audioId: string) => void;
+}
+
+export interface MockContextValue {
+  databaseState: DatabaseState;
+  ui: AudioUIComponents;
+  t: (key: string) => string;
+  tooltipZIndex: number;
+  fetchAudioFiles: () => Promise<AudioWithUrl[]>;
+  fetchAudioFilesWithUrls: () => Promise<AudioWithUrl[]>;
+  retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
+  softDeleteAudio: (audioId: string) => Promise<void>;
+  updateAudioName: (audioId: string, name: string) => Promise<void>;
+  uploadFile: (file: File) => Promise<void>;
+  formatFileSize: (bytes: number) => string;
+  formatDate: (date: Date) => string;
+  logError: (message: string, details?: string) => void;
+  logWarn: (message: string, details?: string) => void;
+  detectPlatform: () => 'web' | 'electron' | 'ios' | 'android';
+  extractAudioMetadata: (
+    data: Uint8Array,
+    mimeType: string
+  ) => Promise<AudioMetadata | null>;
+  downloadFile: (data: Uint8Array, filename: string) => void;
+  shareFile: (
+    data: Uint8Array,
+    filename: string,
+    mimeType: string
+  ) => Promise<boolean>;
+  canShareFiles: () => boolean;
+  navigateToAudio?: (audioId: string) => void;
+}
+
+export function createMockContextValue(
+  options: MockContextOptions = {}
+): MockContextValue {
+  const baseContext: Omit<MockContextValue, 'navigateToAudio'> = {
+    databaseState: {
+      ...createMockDatabaseState(),
+      ...options.databaseState
+    },
+    ui: {
+      ...createMockUI(),
+      ...options.ui
+    } as AudioUIComponents,
+    t: (key: string) => key,
+    tooltipZIndex: 10000,
+    fetchAudioFiles:
+      options.fetchAudioFiles ?? vi.fn(async () => [] as AudioWithUrl[]),
+    fetchAudioFilesWithUrls:
+      options.fetchAudioFilesWithUrls ??
+      vi.fn(async () => [] as AudioWithUrl[]),
+    retrieveFile: options.retrieveFile ?? vi.fn(async () => new ArrayBuffer(0)),
+    softDeleteAudio: options.softDeleteAudio ?? vi.fn(async () => {}),
+    updateAudioName: options.updateAudioName ?? vi.fn(async () => {}),
+    uploadFile: options.uploadFile ?? vi.fn(async () => {}),
+    formatFileSize: (bytes: number) => `${bytes} bytes`,
+    formatDate: (date: Date) => date.toISOString(),
+    logError: vi.fn(),
+    logWarn: vi.fn(),
+    detectPlatform: () => 'web',
+    extractAudioMetadata:
+      options.extractAudioMetadata ?? vi.fn(async () => null),
+    downloadFile: options.downloadFile ?? vi.fn(),
+    shareFile: options.shareFile ?? vi.fn(async () => true),
+    canShareFiles: options.canShareFiles ?? vi.fn(() => true)
+  };
+
+  if (options.navigateToAudio) {
+    return { ...baseContext, navigateToAudio: options.navigateToAudio };
+  }
+
+  return baseContext;
+}
+
+export function createWrapper(options: MockContextOptions = {}) {
+  const contextValue = createMockContextValue(options);
+
+  return function Wrapper({ children }: { children: ReactNode }) {
+    return (
+      <AudioUIProvider
+        databaseState={contextValue.databaseState}
+        ui={contextValue.ui}
+        t={contextValue.t}
+        tooltipZIndex={contextValue.tooltipZIndex}
+        fetchAudioFiles={contextValue.fetchAudioFiles}
+        fetchAudioFilesWithUrls={contextValue.fetchAudioFilesWithUrls}
+        retrieveFile={contextValue.retrieveFile}
+        softDeleteAudio={contextValue.softDeleteAudio}
+        updateAudioName={contextValue.updateAudioName}
+        uploadFile={contextValue.uploadFile}
+        formatFileSize={contextValue.formatFileSize}
+        formatDate={contextValue.formatDate}
+        logError={contextValue.logError}
+        logWarn={contextValue.logWarn}
+        detectPlatform={contextValue.detectPlatform}
+        extractAudioMetadata={contextValue.extractAudioMetadata}
+        downloadFile={contextValue.downloadFile}
+        shareFile={contextValue.shareFile}
+        canShareFiles={contextValue.canShareFiles}
+        {...(contextValue.navigateToAudio && {
+          navigateToAudio: contextValue.navigateToAudio
+        })}
+      >
+        {children}
+      </AudioUIProvider>
+    );
+  };
+}

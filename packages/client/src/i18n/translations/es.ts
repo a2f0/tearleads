@@ -53,7 +53,17 @@ export const es = {
     close: 'Cerrar reproductor',
     repeatOff: 'Repetir: Desactivado',
     repeatAll: 'Repetir: Todas las pistas',
-    repeatOne: 'Repetir: Pista actual'
+    repeatOne: 'Repetir: Pista actual',
+    hideVisualizer: 'Ocultar visualizador',
+    showVisualizer: 'Mostrar visualizador',
+    mute: 'Silenciar',
+    unmute: 'Activar sonido',
+    volume: 'Volumen',
+    seek: 'Buscar',
+    getInfo: 'Obtener información',
+    delete: 'Eliminar',
+    download: 'Descargar',
+    share: 'Compartir'
   },
   tooltips: {
     sseConnected: 'SSE: Conectado',

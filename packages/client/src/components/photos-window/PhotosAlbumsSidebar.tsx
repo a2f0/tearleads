@@ -254,7 +254,6 @@ function AlbumContextMenu({
 
   return (
     <>
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: Backdrop click handler */}
       <div
         className="fixed inset-0 z-40"
         onClick={handleBackdropClick}

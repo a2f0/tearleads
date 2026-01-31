@@ -19,8 +19,7 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 Track the following state during execution:
 
 - `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied. This ensures we only bump once per PR, even if we loop through multiple CI fixes or rebases.
-- `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after first Gemini review wait. Prevents redundant waits on subsequent loop iterations.
-- `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini wait entirely.
+- `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini checks entirely.
 - `associated_issue_number`: Number or null. The issue number associated with this PR (either extracted from PR body or newly created). All PRs should have an associated issue that gets marked `needs-qa` after merge.
 - `is_rollup_pr`: Boolean, starts `false`. Set to `true` if base branch is not `main`/`master`. Roll-up PRs must wait for their base PR to merge first.
 - `base_pr_number`: Number or null. For roll-up PRs, the PR number associated with the base branch.
@@ -152,8 +151,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
    - If `mergeStateStatus` is `BEHIND`: Update from base and bump version (step 4d)
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Address Gemini feedback while waiting for CI (step 4e/4f)
-   - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4g)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Wait for CI and address Gemini feedback (step 4e)
+   - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4f)
 
    ### 4d. Update from base branch (rebase) and bump version
 
@@ -194,33 +193,15 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    Continue to step 4e.
 
-   ### 4e. Address Gemini feedback (parallel with CI)
+   ### 4e. Wait for CI and address Gemini feedback (interleaved)
 
-   **IMPORTANT**: Do NOT wait for CI to complete before addressing Gemini feedback. Handle Gemini feedback while CI is running to maximize efficiency.
+   **IMPORTANT**: Handle Gemini feedback checking as part of each CI polling iteration. Do NOT block waiting for Gemini's initial review - check opportunistically while polling CI.
 
-   **Skip Gemini handling entirely if**:
-   - `gemini_can_review` is `false` (detected in step 1), OR
-   - `has_waited_for_gemini` is `true` AND no unresolved threads remain
+   **Skip Gemini handling entirely if** `gemini_can_review` is `false` (detected in step 1).
+
+   #### Gemini reply guidelines
 
    Gemini Code Assist is a GitHub App that automatically reviews PRs - do NOT use `gh pr edit --add-reviewer` as it doesn't work with GitHub App bots.
-
-   **Initial Gemini check** (if `has_waited_for_gemini` is `false`):
-   Poll for Gemini's review (timeout: 5 minutes, poll every 30 seconds with jitter):
-
-   ```bash
-   gh pr view <pr-number> --json reviews
-   ```
-
-   Set `has_waited_for_gemini = true` after first review is found.
-
-   #### Unsupported file types response
-
-   If Gemini's review contains:
-   > "Gemini is unable to generate a review for this pull request due to the file types involved not being currently supported."
-
-   Set `gemini_can_review = false` and proceed directly to step 4f (wait for CI).
-
-   **Address feedback while CI runs**: All conversation threads must be resolved before the PR can merge.
 
    **CRITICAL - Reply in-thread only**: When replying to Gemini comments, use the review comment endpoint, NOT `gh pr review` and NOT `gh pr comment`:
    - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
@@ -232,16 +213,14 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    When reporting a fix, **include the commit hash and explicitly ask if it addresses the issue** (e.g., "Commit <hash> ... does this address the issue?").
    **Sentiment check**: If Gemini's response is an approval/confirmation without new requests, resolve the thread. If it is uncertain or requests more changes, keep the thread open and iterate.
 
-   Run `/address-gemini-feedback` to handle any unresolved comments, then `/follow-up-with-gemini` to:
+   #### Unsupported file types response
 
-   - Notify Gemini that feedback has been addressed
-   - Immediately check for any existing Gemini confirmations before waiting; resolve threads right away if confirmations are already present
-   - If no confirmations yet, wait for Gemini's response (polling every 30 seconds, up to 5 minutes)
-   - When Gemini confirms a fix is satisfactory, resolve the thread (see "Resolving Conversation Threads" below)
-   - If Gemini requests further changes, continue addressing feedback
-   - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4f and handle remaining Gemini feedback in parallel
+   If Gemini's review contains:
+   > "Gemini is unable to generate a review for this pull request due to the file types involved not being currently supported."
 
-   ### 4f. Wait for CI (with adaptive polling and branch freshness checks)
+   Set `gemini_can_review = false` and skip Gemini checks for the remainder of this session.
+
+   #### CI and Gemini polling loop
 
    **Important**: Check if branch is behind BEFORE waiting for CI, and periodically during CI. This prevents wasting time on CI runs that will be obsolete.
 
@@ -255,13 +234,19 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - 5-15 minutes: Poll every 2 minutes
    - After 15 minutes: Poll every 3 minutes
 
-   **While CI is running**:
-   - At each poll, also check if branch is behind: `gh pr view --json mergeStateStatus`
-   - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4d (don't wait for CI to finish)
-   - This avoids wasting 15-20 minutes on a CI run that will need to be rerun anyway
+   **At each poll iteration**:
+   1. Check if branch is behind: `gh pr view --json mergeStateStatus`
+      - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4d (don't wait for CI to finish)
+   2. If `gemini_can_review` is `true`, check for unresolved Gemini threads:
+      - Run `/address-gemini-feedback` to fetch and address any unresolved comments
+      - If code changes were made, push and continue polling (CI will restart)
+      - If Gemini has responded with confirmations, resolve those threads via `/follow-up-with-gemini`
+   3. Check CI status and continue polling if still running
+
+   This interleaved approach addresses Gemini feedback while waiting for CI, reducing total merge time.
 
    **When CI completes**:
-   - If CI **passes**: Continue to step 4g (enable auto-merge)
+   - If CI **passes**: Continue to step 4f (enable auto-merge)
    - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
 
      ```bash
@@ -273,9 +258,9 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
      2. If the failure is coverage-related, add tests to raise coverage and re-run the relevant `test:coverage` target locally
      3. Return to monitoring CI status
 
-   ### 4g. Enable auto-merge and wait
+   ### 4f. Enable auto-merge and wait
 
-   **Version bump note**: If `has_bumped_version` is still `false` at this point (a rare edge case, e.g., if the PR started `CLEAN`), perform the version bump now. Run the bump script, stage the version files, amend the last commit, and **force push** the changes. Then, return to step 4f to wait for the new CI run.
+   **Version bump note**: If `has_bumped_version` is still `false` at this point (a rare edge case, e.g., if the PR started `CLEAN`), perform the version bump now. Run the bump script, stage the version files, amend the last commit, and **force push** the changes. Then, return to step 4e to wait for the new CI run.
 
    Enable auto-merge:
 
@@ -366,7 +351,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 - **Don't echo status unnecessarily**: The user sees your tool calls. Don't add "Checking CI status..." messages.
 - **Batch state updates**: Combine related status messages rather than outputting each check individually.
 - **Avoid verbose CI logs**: Only fetch CI logs on failure, and only the failing job's logs.
-- **Skip redundant operations**: Use state flags (`has_waited_for_gemini`, `gemini_can_review`, `has_bumped_version`) religiously.
+- **Skip redundant operations**: Use state flags (`gemini_can_review`, `has_bumped_version`) religiously.
 - **No redundant file reads**: If you read a file, cache its content mentally. Don't re-read unchanged files.
 
 ## Notes
