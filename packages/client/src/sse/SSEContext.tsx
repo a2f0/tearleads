@@ -67,6 +67,7 @@ export function SSEProvider({
   const reconnectAttemptRef = useRef(0);
   const channelsRef = useRef(channels);
   const prevChannelsRef = useRef<string[]>(channels);
+  const prevTokenRef = useRef<string | null>(token);
 
   const clearReconnectTimeout = useCallback(() => {
     if (reconnectTimeoutRef.current) {
@@ -156,6 +157,17 @@ export function SSEProvider({
       connect(channels);
     }
   }, [channels, connectionState, connect]);
+
+  // Reconnect when token changes (e.g., after token refresh)
+  useEffect(() => {
+    const tokenChanged = token !== prevTokenRef.current;
+    prevTokenRef.current = token;
+
+    // Reconnect if token changed and we're connected or connecting
+    if (tokenChanged && token && connectionState !== 'disconnected') {
+      connect();
+    }
+  }, [token, connectionState, connect]);
 
   useEffect(() => {
     if (isLoading) {
