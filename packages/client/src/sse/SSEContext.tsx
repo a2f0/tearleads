@@ -159,15 +159,22 @@ export function SSEProvider({
   }, [channels, connectionState, connect]);
 
   // Reconnect when token changes (e.g., after token refresh)
+  // Only needed when autoConnect is false, since the autoConnect effect
+  // already handles reconnection when token/connect changes
   useEffect(() => {
     const tokenChanged = token !== prevTokenRef.current;
     prevTokenRef.current = token;
 
-    // Reconnect if token changed and we're connected or connecting
-    if (tokenChanged && token && connectionState !== 'disconnected') {
+    // Only reconnect if not using autoConnect (autoConnect effect handles that case)
+    if (
+      !autoConnect &&
+      tokenChanged &&
+      token &&
+      connectionState !== 'disconnected'
+    ) {
       connect();
     }
-  }, [token, connectionState, connect]);
+  }, [autoConnect, token, connectionState, connect]);
 
   useEffect(() => {
     if (isLoading) {
@@ -176,7 +183,9 @@ export function SSEProvider({
 
     if (autoConnect && isAuthenticated) {
       connect();
-    } else {
+    } else if (!isAuthenticated) {
+      // Only disconnect when user logs out, not when autoConnect is false
+      // (manual connections should persist when autoConnect=false)
       disconnect();
     }
   }, [autoConnect, connect, disconnect, isAuthenticated, isLoading]);
