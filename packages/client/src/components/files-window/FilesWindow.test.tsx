@@ -4,6 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesWindow } from './FilesWindow';
 
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManager: () => ({
+    windowOpenRequests: {}
+  })
+}));
+
 // Mock FloatingWindow
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({

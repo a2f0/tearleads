@@ -3,6 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindow } from './PhotosWindow';
 
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManager: () => ({
+    windowOpenRequests: {}
+  })
+}));
+
 const mockUploadFile = vi.fn();
 
 vi.mock('@/components/floating-window', () => ({

@@ -25,11 +25,17 @@ vi.mock('@/contexts/WindowManagerContext', async () => {
     ...actual,
     useWindowManager: () => ({
       openWindow: mockOpenWindow,
+      requestWindowOpen: vi.fn(),
+      windowOpenRequests: {},
       windows: [],
       closeWindow: vi.fn(),
-      bringToFront: vi.fn(),
-      toggleMaximize: vi.fn(),
-      toggleMinimize: vi.fn()
+      focusWindow: vi.fn(),
+      minimizeWindow: vi.fn(),
+      restoreWindow: vi.fn(),
+      updateWindowDimensions: vi.fn(),
+      saveWindowDimensionsForType: vi.fn(),
+      isWindowOpen: vi.fn(),
+      getWindow: vi.fn()
     })
   };
 });

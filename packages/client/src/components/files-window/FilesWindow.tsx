@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 import type { FilesWindowContentRef } from './FilesWindowContent';
 import { FilesWindowContent } from './FilesWindowContent';
 import { FilesWindowDetail } from './FilesWindowDetail';
@@ -27,6 +28,8 @@ export function FilesWindow({
   zIndex,
   initialDimensions
 }: FilesWindowProps) {
+  const { windowOpenRequests } = useWindowManager();
+  const openRequest = windowOpenRequests.files;
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDropzone, setShowDropzone] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -62,6 +65,11 @@ export function FilesWindow({
     setSelectedFileId(null);
     setRefreshToken((value) => value + 1);
   }, []);
+
+  useEffect(() => {
+    if (!openRequest) return;
+    setSelectedFileId(openRequest.fileId);
+  }, [openRequest]);
 
   return (
     <FloatingWindow

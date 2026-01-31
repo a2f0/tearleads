@@ -1,6 +1,7 @@
 import { AudioWindow as AudioWindowBase } from '@rapid/audio';
 import type { WindowDimensions } from '@rapid/window-manager';
 import { ClientAudioProvider } from '@/contexts/ClientAudioProvider';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 
 interface AudioWindowProps {
   id: string;
@@ -26,6 +27,9 @@ export function AudioWindow({
   zIndex,
   initialDimensions
 }: AudioWindowProps) {
+  const { windowOpenRequests } = useWindowManager();
+  const openRequest = windowOpenRequests.audio;
+
   return (
     <ClientAudioProvider>
       <AudioWindowBase
@@ -36,6 +40,8 @@ export function AudioWindow({
         onFocus={onFocus}
         zIndex={zIndex}
         initialDimensions={initialDimensions}
+        openAudioId={openRequest?.audioId}
+        openRequestId={openRequest?.requestId}
       />
     </ClientAudioProvider>
   );

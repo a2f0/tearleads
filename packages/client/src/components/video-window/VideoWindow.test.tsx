@@ -5,6 +5,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoWindow } from './VideoWindow';
 
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManager: () => ({
+    windowOpenRequests: {}
+  })
+}));
+
 const mockUploadFile = vi.fn();
 
 vi.mock('@/components/floating-window', () => ({

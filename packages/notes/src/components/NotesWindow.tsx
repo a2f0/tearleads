@@ -1,6 +1,6 @@
 import { notes, vfsRegistry } from '@rapid/db/sqlite';
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNotesContext } from '../context/NotesContext';
 import { NotesWindowDetail } from './NotesWindowDetail';
 import { NotesWindowList } from './NotesWindowList';
@@ -16,6 +16,8 @@ interface NotesWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
+  openNoteId?: string | null | undefined;
+  openRequestId?: number | undefined;
 }
 
 export function NotesWindow({
@@ -25,7 +27,9 @@ export function NotesWindow({
   onDimensionsChange,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  openNoteId,
+  openRequestId
 }: NotesWindowProps) {
   const { databaseState, getDatabase, vfsKeys, auth, featureFlags, vfsApi } =
     useNotesContext();
@@ -114,6 +118,11 @@ export function NotesWindow({
       console.error('Failed to create note:', err);
     }
   }, [isUnlocked, getDatabase, vfsKeys, auth, featureFlags, vfsApi]);
+
+  useEffect(() => {
+    if (!openRequestId || !openNoteId) return;
+    setSelectedNoteId(openNoteId);
+  }, [openNoteId, openRequestId]);
 
   return (
     <FloatingWindow

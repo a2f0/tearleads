@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
 import { PhotosWindowContent } from './PhotosWindowContent';
@@ -30,6 +31,8 @@ export function PhotosWindow({
   initialDimensions
 }: PhotosWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { windowOpenRequests } = useWindowManager();
+  const openRequest = windowOpenRequests.photos;
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
@@ -87,6 +90,17 @@ export function PhotosWindow({
     setSelectedPhotoId(null);
     setRefreshToken((value) => value + 1);
   }, []);
+
+  useEffect(() => {
+    if (!openRequest) return;
+    if (openRequest.albumId) {
+      setSelectedAlbumId(openRequest.albumId);
+      setSelectedPhotoId(null);
+    }
+    if (openRequest.photoId) {
+      setSelectedPhotoId(openRequest.photoId);
+    }
+  }, [openRequest]);
 
   return (
     <FloatingWindow

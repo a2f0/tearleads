@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext, type WindowDimensions } from '../context';
 import { NewFolderDialog } from './NewFolderDialog';
-import { VfsExplorer } from './VfsExplorer';
+import { VfsExplorer, type VfsOpenItem } from './VfsExplorer';
 import type { VfsViewMode } from './VfsWindowMenuBar';
 import { VfsWindowMenuBar } from './VfsWindowMenuBar';
 
@@ -13,6 +13,7 @@ interface VfsWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
+  onItemOpen?: ((item: VfsOpenItem) => void) | undefined;
 }
 
 export function VfsWindow({
@@ -22,7 +23,8 @@ export function VfsWindow({
   onDimensionsChange,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  onItemOpen
 }: VfsWindowProps) {
   const {
     ui: { FloatingWindow }
@@ -79,6 +81,7 @@ export function VfsWindow({
             refreshToken={refreshToken}
             selectedFolderId={selectedFolderId}
             onFolderSelect={setSelectedFolderId}
+            onItemOpen={onItemOpen}
           />
         </div>
       </div>
