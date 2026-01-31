@@ -14,6 +14,7 @@ import {
   type AudioWithUrl,
   useAudioUIContext
 } from '../../context/AudioUIContext';
+import { ALL_AUDIO_ID } from './AudioPlaylistsSidebar';
 
 type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
 type SortDirection = 'asc' | 'desc';
@@ -21,6 +22,7 @@ type SortDirection = 'asc' | 'desc';
 interface AudioWindowTableViewProps {
   onSelectTrack?: (trackId: string) => void;
   refreshToken?: number;
+  selectedPlaylistId?: string | null;
 }
 
 interface SortHeaderProps {
@@ -82,13 +84,15 @@ function getAudioTypeDisplay(mimeType: string): string {
 
 export function AudioWindowTableView({
   onSelectTrack,
-  refreshToken = 0
+  refreshToken = 0,
+  selectedPlaylistId
 }: AudioWindowTableViewProps) {
   const {
     databaseState,
     ui,
     t,
     fetchAudioFilesWithUrls,
+    getTrackIdsInPlaylist,
     softDeleteAudio,
     formatFileSize,
     formatDate,
@@ -158,7 +162,20 @@ export function AudioWindowTableView({
     setError(null);
 
     try {
-      const tracksWithUrls = await fetchAudioFilesWithUrls();
+      let trackIds: string[] | null = null;
+      if (selectedPlaylistId && selectedPlaylistId !== ALL_AUDIO_ID) {
+        trackIds = await getTrackIdsInPlaylist(selectedPlaylistId);
+        if (trackIds.length === 0) {
+          setTracks([]);
+          setHasFetched(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const tracksWithUrls = await fetchAudioFilesWithUrls(
+        trackIds ?? undefined
+      );
       setTracks(tracksWithUrls);
       setHasFetched(true);
     } catch (err) {
@@ -167,20 +184,29 @@ export function AudioWindowTableView({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, fetchAudioFilesWithUrls, logError]);
+  }, [
+    fetchAudioFilesWithUrls,
+    getTrackIdsInPlaylist,
+    isUnlocked,
+    logError,
+    selectedPlaylistId
+  ]);
 
-  const fetchedForInstanceRef = useRef<string | null>(null);
+  const fetchedForFilterRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const filterKey = selectedPlaylistId ?? ALL_AUDIO_ID;
+    const fetchKey = `${currentInstanceId ?? 'none'}:${filterKey}`;
+
     const needsFetch =
       isUnlocked &&
       !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+      (!hasFetched || fetchedForFilterRef.current !== fetchKey);
 
     if (needsFetch) {
       if (
-        fetchedForInstanceRef.current !== currentInstanceId &&
-        fetchedForInstanceRef.current !== null
+        fetchedForFilterRef.current !== fetchKey &&
+        fetchedForFilterRef.current !== null
       ) {
         for (const track of tracks) {
           if (track.id !== currentTrackRef.current?.id) {
@@ -192,9 +218,10 @@ export function AudioWindowTableView({
         }
         setTracks([]);
         setError(null);
+        setHasFetched(false);
       }
 
-      fetchedForInstanceRef.current = currentInstanceId;
+      fetchedForFilterRef.current = fetchKey;
 
       const timeoutId = setTimeout(() => {
         fetchTracks();
@@ -203,7 +230,15 @@ export function AudioWindowTableView({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchTracks, tracks]);
+  }, [
+    currentInstanceId,
+    fetchTracks,
+    hasFetched,
+    isUnlocked,
+    loading,
+    selectedPlaylistId,
+    tracks
+  ]);
 
   useEffect(() => {
     if (!isUnlocked || refreshToken === 0 || !hasFetched) return;
@@ -358,7 +393,7 @@ export function AudioWindowTableView({
               placeholder="Search tracks..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8"
+              className="h-8 text-base"
               data-testid="window-audio-table-search"
             />
             <div className="flex-1 overflow-auto rounded-lg border">

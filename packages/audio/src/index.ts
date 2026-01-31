@@ -2,12 +2,14 @@
 
 // Components exports
 export {
+  ALL_AUDIO_ID,
   // Player components
   AudioControls,
   AudioPlayer,
+  // Window components
+  AudioPlaylistsSidebar,
   type AudioViewMode,
   AudioVisualizer,
-  // Window components
   AudioWindow,
   AudioWindowDetail,
   AudioWindowList,
@@ -35,6 +37,7 @@ export {
   type AudioInfo,
   type AudioMetadata,
   type AudioPlayerProps,
+  type AudioPlaylist,
   // Playback context
   AudioProvider,
   type AudioTrack,

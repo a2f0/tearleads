@@ -1,6 +1,7 @@
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useRef, useState } from 'react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
+import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
 import { AudioWindowDetail } from './AudioWindowDetail';
 import { AudioWindowList } from './AudioWindowList';
 import type { AudioViewMode } from './AudioWindowMenuBar';
@@ -32,6 +33,10 @@ export function AudioWindow({
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [showDropzone, setShowDropzone] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
+    ALL_AUDIO_ID
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleUpload = useCallback(() => {
@@ -78,6 +83,10 @@ export function AudioWindow({
     setRefreshToken((value) => value + 1);
   }, []);
 
+  const handlePlaylistChanged = useCallback(() => {
+    setRefreshToken((value) => value + 1);
+  }, []);
+
   return (
     <FloatingWindow
       id={id}
@@ -102,26 +111,37 @@ export function AudioWindow({
           showDropzone={showDropzone}
           onShowDropzoneChange={setShowDropzone}
         />
-        <div className="flex-1 overflow-hidden">
-          {selectedTrackId ? (
-            <AudioWindowDetail
-              audioId={selectedTrackId}
-              onBack={handleBack}
-              onDeleted={handleDeleted}
-            />
-          ) : view === 'list' ? (
-            <AudioWindowList
-              onSelectTrack={handleSelectTrack}
-              refreshToken={refreshToken}
-              showDropzone={showDropzone}
-              onUploadFiles={handleUploadFiles}
-            />
-          ) : (
-            <AudioWindowTableView
-              onSelectTrack={handleSelectTrack}
-              refreshToken={refreshToken}
-            />
-          )}
+        <div className="flex flex-1 overflow-hidden">
+          <AudioPlaylistsSidebar
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
+            selectedPlaylistId={selectedPlaylistId}
+            onPlaylistSelect={setSelectedPlaylistId}
+            onPlaylistChanged={handlePlaylistChanged}
+          />
+          <div className="flex-1 overflow-hidden">
+            {selectedTrackId ? (
+              <AudioWindowDetail
+                audioId={selectedTrackId}
+                onBack={handleBack}
+                onDeleted={handleDeleted}
+              />
+            ) : view === 'list' ? (
+              <AudioWindowList
+                onSelectTrack={handleSelectTrack}
+                refreshToken={refreshToken}
+                showDropzone={showDropzone}
+                onUploadFiles={handleUploadFiles}
+                selectedPlaylistId={selectedPlaylistId}
+              />
+            ) : (
+              <AudioWindowTableView
+                onSelectTrack={handleSelectTrack}
+                refreshToken={refreshToken}
+                selectedPlaylistId={selectedPlaylistId}
+              />
+            )}
+          </div>
         </div>
       </div>
       <input

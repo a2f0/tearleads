@@ -28,6 +28,13 @@ export interface AudioWithUrl extends AudioInfo {
   thumbnailUrl: string | null;
 }
 
+export interface AudioPlaylist {
+  id: string;
+  name: string;
+  trackCount: number;
+  coverImageId: string | null;
+}
+
 /**
  * Database state
  */
@@ -51,6 +58,7 @@ export interface ButtonProps {
   size?: 'default' | 'sm' | 'lg' | 'icon';
   className?: string | undefined;
   disabled?: boolean;
+  type?: 'button' | 'submit' | 'reset';
   onClick?: () => void;
   children?: ReactNode;
   title?: string;
@@ -64,6 +72,9 @@ export interface InputProps {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   className?: string;
+  autoComplete?: string;
+  autoFocus?: boolean;
+  disabled?: boolean;
   'data-testid'?: string;
 }
 
@@ -259,9 +270,26 @@ export interface AudioUIContextValue {
   /** Navigate to a specific audio file detail */
   navigateToAudio?: NavigateToAudio;
   /** Fetch audio files from the database */
-  fetchAudioFiles: () => Promise<AudioInfo[]>;
+  fetchAudioFiles: (ids?: string[] | null) => Promise<AudioInfo[]>;
   /** Fetch audio files with object URLs for playback */
-  fetchAudioFilesWithUrls: () => Promise<AudioWithUrl[]>;
+  fetchAudioFilesWithUrls: (ids?: string[] | null) => Promise<AudioWithUrl[]>;
+  /** Fetch playlists from the database */
+  fetchPlaylists: () => Promise<AudioPlaylist[]>;
+  /** Create a new playlist */
+  createPlaylist: (name: string) => Promise<string>;
+  /** Rename a playlist */
+  renamePlaylist: (playlistId: string, newName: string) => Promise<void>;
+  /** Delete a playlist */
+  deletePlaylist: (playlistId: string) => Promise<void>;
+  /** Add an audio file to a playlist */
+  addTrackToPlaylist: (playlistId: string, audioId: string) => Promise<void>;
+  /** Remove an audio file from a playlist */
+  removeTrackFromPlaylist: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
+  /** Get audio IDs in a playlist */
+  getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
   /** Retrieve a file's content by storage path */
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   /** Soft delete an audio file */
@@ -308,8 +336,18 @@ export interface AudioUIProviderProps {
   t: TranslationFunction;
   tooltipZIndex?: number;
   navigateToAudio?: NavigateToAudio;
-  fetchAudioFiles: () => Promise<AudioInfo[]>;
-  fetchAudioFilesWithUrls: () => Promise<AudioWithUrl[]>;
+  fetchAudioFiles: (ids?: string[] | null) => Promise<AudioInfo[]>;
+  fetchAudioFilesWithUrls: (ids?: string[] | null) => Promise<AudioWithUrl[]>;
+  fetchPlaylists: () => Promise<AudioPlaylist[]>;
+  createPlaylist: (name: string) => Promise<string>;
+  renamePlaylist: (playlistId: string, newName: string) => Promise<void>;
+  deletePlaylist: (playlistId: string) => Promise<void>;
+  addTrackToPlaylist: (playlistId: string, audioId: string) => Promise<void>;
+  removeTrackFromPlaylist: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
+  getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;
   updateAudioName: (audioId: string, name: string) => Promise<void>;
@@ -345,6 +383,13 @@ export function AudioUIProvider({
   navigateToAudio,
   fetchAudioFiles,
   fetchAudioFilesWithUrls,
+  fetchPlaylists,
+  createPlaylist,
+  renamePlaylist,
+  deletePlaylist,
+  addTrackToPlaylist,
+  removeTrackFromPlaylist,
+  getTrackIdsInPlaylist,
   retrieveFile,
   softDeleteAudio,
   updateAudioName,
@@ -367,6 +412,13 @@ export function AudioUIProvider({
     tooltipZIndex,
     fetchAudioFiles,
     fetchAudioFilesWithUrls,
+    fetchPlaylists,
+    createPlaylist,
+    renamePlaylist,
+    deletePlaylist,
+    addTrackToPlaylist,
+    removeTrackFromPlaylist,
+    getTrackIdsInPlaylist,
     retrieveFile,
     softDeleteAudio,
     updateAudioName,

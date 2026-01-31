@@ -6,6 +6,7 @@
 import {
   type AudioInfo,
   type AudioMetadata,
+  type AudioPlaylist,
   type AudioUIComponents,
   AudioUIProvider,
   type AudioWithUrl,
@@ -13,7 +14,7 @@ import {
 } from '@rapid/audio';
 import audioPackageJson from '@rapid/audio/package.json';
 import { assertPlainArrayBuffer } from '@rapid/shared';
-import { and, desc, eq, like } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback } from 'react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -38,7 +39,7 @@ import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
-import { files } from '@/db/schema';
+import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
 import { extractAudioMetadata as extractMetadata } from '@/lib/audio-metadata';
@@ -104,97 +105,252 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
     [navigateWithFrom]
   );
 
-  const fetchAudioFiles = useCallback(async (): Promise<AudioInfo[]> => {
+  const fetchAudioFiles = useCallback(
+    async (ids?: string[] | null): Promise<AudioInfo[]> => {
+      const db = getDatabase();
+
+      if (ids && ids.length === 0) return [];
+
+      const baseConditions = and(
+        like(files.mimeType, 'audio/%'),
+        eq(files.deleted, false)
+      );
+      const whereClause =
+        ids && ids.length > 0
+          ? and(baseConditions, inArray(files.id, ids))
+          : baseConditions;
+
+      const result = await db
+        .select({
+          id: files.id,
+          name: files.name,
+          size: files.size,
+          mimeType: files.mimeType,
+          uploadDate: files.uploadDate,
+          storagePath: files.storagePath,
+          thumbnailPath: files.thumbnailPath
+        })
+        .from(files)
+        .where(whereClause)
+        .orderBy(desc(files.uploadDate));
+
+      return result.map((row) => ({
+        id: row.id,
+        name: row.name,
+        size: row.size,
+        mimeType: row.mimeType,
+        uploadDate: row.uploadDate,
+        storagePath: row.storagePath,
+        thumbnailPath: row.thumbnailPath
+      }));
+    },
+    []
+  );
+
+  const fetchAudioFilesWithUrls = useCallback(
+    async (ids?: string[] | null): Promise<AudioWithUrl[]> => {
+      const audioFiles = await fetchAudioFiles(ids);
+
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!databaseContext.currentInstanceId)
+        throw new Error('No active instance');
+
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(
+          encryptionKey,
+          databaseContext.currentInstanceId
+        );
+      }
+
+      const storage = getFileStorage();
+      const db = getDatabase();
+      const logger = createRetrieveLogger(db);
+
+      const tracksWithUrls = (
+        await Promise.all(
+          audioFiles.map(async (track) => {
+            try {
+              const data = await storage.measureRetrieve(
+                track.storagePath,
+                logger
+              );
+              assertPlainArrayBuffer(data);
+              const blob = new Blob([data], { type: track.mimeType });
+              const objectUrl = URL.createObjectURL(blob);
+
+              let thumbnailUrl: string | null = null;
+              if (track.thumbnailPath) {
+                try {
+                  const thumbData = await storage.measureRetrieve(
+                    track.thumbnailPath,
+                    logger
+                  );
+                  assertPlainArrayBuffer(thumbData);
+                  const thumbBlob = new Blob([thumbData], {
+                    type: 'image/jpeg'
+                  });
+                  thumbnailUrl = URL.createObjectURL(thumbBlob);
+                } catch (err) {
+                  logStore.warn(
+                    `Failed to load thumbnail for ${track.name}`,
+                    String(err)
+                  );
+                }
+              }
+
+              return { ...track, objectUrl, thumbnailUrl };
+            } catch (err) {
+              logStore.error(`Failed to load track ${track.name}`, String(err));
+              return null;
+            }
+          })
+        )
+      ).filter((t): t is AudioWithUrl => t !== null);
+
+      return tracksWithUrls;
+    },
+    [fetchAudioFiles, databaseContext.currentInstanceId]
+  );
+
+  const fetchPlaylists = useCallback(async (): Promise<AudioPlaylist[]> => {
     const db = getDatabase();
 
-    const result = await db
+    const trackCountsSubQuery = db
       .select({
-        id: files.id,
-        name: files.name,
-        size: files.size,
-        mimeType: files.mimeType,
-        uploadDate: files.uploadDate,
-        storagePath: files.storagePath,
-        thumbnailPath: files.thumbnailPath
+        parentId: vfsLinks.parentId,
+        trackCount: sql<number>`count(*)`.as('track_count')
       })
-      .from(files)
-      .where(and(like(files.mimeType, 'audio/%'), eq(files.deleted, false)))
-      .orderBy(desc(files.uploadDate));
+      .from(vfsLinks)
+      .groupBy(vfsLinks.parentId)
+      .as('trackCounts');
 
-    return result.map((row) => ({
-      id: row.id,
-      name: row.name,
-      size: row.size,
-      mimeType: row.mimeType,
-      uploadDate: row.uploadDate,
-      storagePath: row.storagePath,
-      thumbnailPath: row.thumbnailPath
+    const playlistRows = await db
+      .select({
+        id: vfsRegistry.id,
+        name: playlists.encryptedName,
+        coverImageId: playlists.coverImageId,
+        trackCount: sql<number>`
+          coalesce(${trackCountsSubQuery.trackCount}, 0)
+        `.mapWith(Number)
+      })
+      .from(vfsRegistry)
+      .innerJoin(playlists, eq(playlists.id, vfsRegistry.id))
+      .leftJoin(
+        trackCountsSubQuery,
+        eq(vfsRegistry.id, trackCountsSubQuery.parentId)
+      )
+      .where(eq(vfsRegistry.objectType, 'playlist'));
+
+    if (playlistRows.length === 0) return [];
+
+    const result: AudioPlaylist[] = playlistRows.map((playlist) => ({
+      id: playlist.id,
+      name: playlist.name || 'Unnamed Playlist',
+      trackCount: playlist.trackCount ?? 0,
+      coverImageId: playlist.coverImageId
     }));
+
+    result.sort((a, b) => a.name.localeCompare(b.name));
+
+    return result;
   }, []);
 
-  const fetchAudioFilesWithUrls = useCallback(async (): Promise<
-    AudioWithUrl[]
-  > => {
-    const audioFiles = await fetchAudioFiles();
-
-    const keyManager = getKeyManager();
-    const encryptionKey = keyManager.getCurrentKey();
-    if (!encryptionKey) throw new Error('Database not unlocked');
-    if (!databaseContext.currentInstanceId)
-      throw new Error('No active instance');
-
-    if (!isFileStorageInitialized()) {
-      await initializeFileStorage(
-        encryptionKey,
-        databaseContext.currentInstanceId
-      );
-    }
-
-    const storage = getFileStorage();
+  const createPlaylist = useCallback(async (name: string): Promise<string> => {
     const db = getDatabase();
-    const logger = createRetrieveLogger(db);
+    const playlistId = crypto.randomUUID();
+    const now = new Date();
 
-    const tracksWithUrls = (
-      await Promise.all(
-        audioFiles.map(async (track) => {
-          try {
-            const data = await storage.measureRetrieve(
-              track.storagePath,
-              logger
-            );
-            assertPlainArrayBuffer(data);
-            const blob = new Blob([data], { type: track.mimeType });
-            const objectUrl = URL.createObjectURL(blob);
+    await db.insert(vfsRegistry).values({
+      id: playlistId,
+      objectType: 'playlist',
+      ownerId: null,
+      createdAt: now
+    });
 
-            let thumbnailUrl: string | null = null;
-            if (track.thumbnailPath) {
-              try {
-                const thumbData = await storage.measureRetrieve(
-                  track.thumbnailPath,
-                  logger
-                );
-                assertPlainArrayBuffer(thumbData);
-                const thumbBlob = new Blob([thumbData], { type: 'image/jpeg' });
-                thumbnailUrl = URL.createObjectURL(thumbBlob);
-              } catch (err) {
-                logStore.warn(
-                  `Failed to load thumbnail for ${track.name}`,
-                  String(err)
-                );
-              }
-            }
+    await db.insert(playlists).values({
+      id: playlistId,
+      encryptedName: name,
+      encryptedDescription: null,
+      coverImageId: null,
+      shuffleMode: 0
+    });
 
-            return { ...track, objectUrl, thumbnailUrl };
-          } catch (err) {
-            logStore.error(`Failed to load track ${track.name}`, String(err));
-            return null;
-          }
-        })
-      )
-    ).filter((t): t is AudioWithUrl => t !== null);
+    return playlistId;
+  }, []);
 
-    return tracksWithUrls;
-  }, [fetchAudioFiles, databaseContext.currentInstanceId]);
+  const renamePlaylist = useCallback(
+    async (playlistId: string, newName: string): Promise<void> => {
+      const db = getDatabase();
+      await db
+        .update(playlists)
+        .set({ encryptedName: newName })
+        .where(eq(playlists.id, playlistId));
+    },
+    []
+  );
+
+  const deletePlaylist = useCallback(
+    async (playlistId: string): Promise<void> => {
+      const db = getDatabase();
+
+      await db.delete(vfsLinks).where(eq(vfsLinks.parentId, playlistId));
+      await db.delete(playlists).where(eq(playlists.id, playlistId));
+      await db.delete(vfsRegistry).where(eq(vfsRegistry.id, playlistId));
+    },
+    []
+  );
+
+  const addTrackToPlaylist = useCallback(
+    async (playlistId: string, audioId: string): Promise<void> => {
+      const db = getDatabase();
+      const linkId = crypto.randomUUID();
+      const now = new Date();
+
+      const existing = await db
+        .select({ id: vfsLinks.id })
+        .from(vfsLinks)
+        .where(
+          and(eq(vfsLinks.parentId, playlistId), eq(vfsLinks.childId, audioId))
+        );
+
+      if (existing.length > 0) return;
+
+      await db.insert(vfsLinks).values({
+        id: linkId,
+        parentId: playlistId,
+        childId: audioId,
+        wrappedSessionKey: '',
+        createdAt: now
+      });
+    },
+    []
+  );
+
+  const removeTrackFromPlaylist = useCallback(
+    async (playlistId: string, audioId: string): Promise<void> => {
+      const db = getDatabase();
+      await db
+        .delete(vfsLinks)
+        .where(
+          and(eq(vfsLinks.parentId, playlistId), eq(vfsLinks.childId, audioId))
+        );
+    },
+    []
+  );
+
+  const getTrackIdsInPlaylist = useCallback(
+    async (playlistId: string): Promise<string[]> => {
+      const db = getDatabase();
+      const links = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.parentId, playlistId));
+      return links.map((link) => link.childId);
+    },
+    []
+  );
 
   const retrieveFile = useCallback(
     async (storagePath: string): Promise<ArrayBuffer | Uint8Array> => {
@@ -282,6 +438,13 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       navigateToAudio={navigateToAudio}
       fetchAudioFiles={fetchAudioFiles}
       fetchAudioFilesWithUrls={fetchAudioFilesWithUrls}
+      fetchPlaylists={fetchPlaylists}
+      createPlaylist={createPlaylist}
+      renamePlaylist={renamePlaylist}
+      deletePlaylist={deletePlaylist}
+      addTrackToPlaylist={addTrackToPlaylist}
+      removeTrackFromPlaylist={removeTrackFromPlaylist}
+      getTrackIdsInPlaylist={getTrackIdsInPlaylist}
       retrieveFile={retrieveFile}
       softDeleteAudio={softDeleteAudio}
       updateAudioName={updateAudioName}

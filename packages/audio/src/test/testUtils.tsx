@@ -3,8 +3,10 @@ import { vi } from 'vitest';
 import type {
   AboutMenuItemProps,
   ActionToolbarProps,
+  AudioInfo,
   AudioMetadata,
   AudioPlayerProps,
+  AudioPlaylist,
   AudioUIComponents,
   AudioWithUrl,
   BackLinkProps,
@@ -197,8 +199,18 @@ export const createMockAudioMetadata = (
 export interface MockContextOptions {
   databaseState?: Partial<DatabaseState>;
   ui?: Partial<AudioUIComponents>;
-  fetchAudioFiles?: () => Promise<AudioWithUrl[]>;
-  fetchAudioFilesWithUrls?: () => Promise<AudioWithUrl[]>;
+  fetchAudioFiles?: (ids?: string[] | null) => Promise<AudioInfo[]>;
+  fetchAudioFilesWithUrls?: (ids?: string[] | null) => Promise<AudioWithUrl[]>;
+  fetchPlaylists?: () => Promise<AudioPlaylist[]>;
+  createPlaylist?: (name: string) => Promise<string>;
+  renamePlaylist?: (playlistId: string, newName: string) => Promise<void>;
+  deletePlaylist?: (playlistId: string) => Promise<void>;
+  addTrackToPlaylist?: (playlistId: string, audioId: string) => Promise<void>;
+  removeTrackFromPlaylist?: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
+  getTrackIdsInPlaylist?: (playlistId: string) => Promise<string[]>;
   retrieveFile?: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio?: (audioId: string) => Promise<void>;
   updateAudioName?: (audioId: string, name: string) => Promise<void>;
@@ -222,8 +234,18 @@ export interface MockContextValue {
   ui: AudioUIComponents;
   t: (key: string) => string;
   tooltipZIndex: number;
-  fetchAudioFiles: () => Promise<AudioWithUrl[]>;
-  fetchAudioFilesWithUrls: () => Promise<AudioWithUrl[]>;
+  fetchAudioFiles: (ids?: string[] | null) => Promise<AudioInfo[]>;
+  fetchAudioFilesWithUrls: (ids?: string[] | null) => Promise<AudioWithUrl[]>;
+  fetchPlaylists: () => Promise<AudioPlaylist[]>;
+  createPlaylist: (name: string) => Promise<string>;
+  renamePlaylist: (playlistId: string, newName: string) => Promise<void>;
+  deletePlaylist: (playlistId: string) => Promise<void>;
+  addTrackToPlaylist: (playlistId: string, audioId: string) => Promise<void>;
+  removeTrackFromPlaylist: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
+  getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;
   updateAudioName: (audioId: string, name: string) => Promise<void>;
@@ -262,10 +284,19 @@ export function createMockContextValue(
     t: (key: string) => key,
     tooltipZIndex: 10000,
     fetchAudioFiles:
-      options.fetchAudioFiles ?? vi.fn(async () => [] as AudioWithUrl[]),
+      options.fetchAudioFiles ?? vi.fn(async () => [] as AudioInfo[]),
     fetchAudioFilesWithUrls:
       options.fetchAudioFilesWithUrls ??
       vi.fn(async () => [] as AudioWithUrl[]),
+    fetchPlaylists: options.fetchPlaylists ?? vi.fn(async () => []),
+    createPlaylist: options.createPlaylist ?? vi.fn(async () => 'playlist-1'),
+    renamePlaylist: options.renamePlaylist ?? vi.fn(async () => {}),
+    deletePlaylist: options.deletePlaylist ?? vi.fn(async () => {}),
+    addTrackToPlaylist: options.addTrackToPlaylist ?? vi.fn(async () => {}),
+    removeTrackFromPlaylist:
+      options.removeTrackFromPlaylist ?? vi.fn(async () => {}),
+    getTrackIdsInPlaylist:
+      options.getTrackIdsInPlaylist ?? vi.fn(async () => []),
     retrieveFile: options.retrieveFile ?? vi.fn(async () => new ArrayBuffer(0)),
     softDeleteAudio: options.softDeleteAudio ?? vi.fn(async () => {}),
     updateAudioName: options.updateAudioName ?? vi.fn(async () => {}),
@@ -301,6 +332,13 @@ export function createWrapper(options: MockContextOptions = {}) {
         tooltipZIndex={contextValue.tooltipZIndex}
         fetchAudioFiles={contextValue.fetchAudioFiles}
         fetchAudioFilesWithUrls={contextValue.fetchAudioFilesWithUrls}
+        fetchPlaylists={contextValue.fetchPlaylists}
+        createPlaylist={contextValue.createPlaylist}
+        renamePlaylist={contextValue.renamePlaylist}
+        deletePlaylist={contextValue.deletePlaylist}
+        addTrackToPlaylist={contextValue.addTrackToPlaylist}
+        removeTrackFromPlaylist={contextValue.removeTrackFromPlaylist}
+        getTrackIdsInPlaylist={contextValue.getTrackIdsInPlaylist}
         retrieveFile={contextValue.retrieveFile}
         softDeleteAudio={contextValue.softDeleteAudio}
         updateAudioName={contextValue.updateAudioName}
