@@ -435,6 +435,93 @@ describe('SSEContext', () => {
     });
   });
 
+  describe('token refresh', () => {
+    it('reconnects when token changes while connected', async () => {
+      const { result } = renderHook(() => useSSE(), {
+        wrapper: autoConnectWrapper
+      });
+
+      await flushAuthLoad();
+      act(() => {
+        MockEventSource.getLastInstance().emit('connected');
+      });
+      expect(result.current.connectionState).toBe('connected');
+      const initialInstanceCount = MockEventSource.instances.length;
+
+      // Simulate token refresh by updating localStorage and dispatching auth change event
+      act(() => {
+        localStorage.setItem('auth_token', 'new-refreshed-token');
+        window.dispatchEvent(new Event('rapid_auth_change'));
+      });
+
+      // Allow effects to run
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(MockEventSource.instances.length).toBe(initialInstanceCount + 1);
+      expect(result.current.connectionState).toBe('connecting');
+      expect(MockEventSource.getLastInstance().url).toContain(
+        'token=new-refreshed-token'
+      );
+    });
+
+    it('does not reconnect when token changes while disconnected', async () => {
+      const { result } = renderHook(() => useSSE(), { wrapper });
+
+      await flushAuthLoad();
+      expect(result.current.connectionState).toBe('disconnected');
+      const initialInstanceCount = MockEventSource.instances.length;
+
+      // Simulate token refresh
+      act(() => {
+        localStorage.setItem('auth_token', 'new-refreshed-token');
+        window.dispatchEvent(new Event('rapid_auth_change'));
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Should not create a new EventSource since we were disconnected
+      expect(MockEventSource.instances.length).toBe(initialInstanceCount);
+      expect(result.current.connectionState).toBe('disconnected');
+    });
+
+    it('reconnects when token changes while connected with autoConnect=false', async () => {
+      const { result } = renderHook(() => useSSE(), { wrapper });
+
+      await flushAuthLoad();
+
+      // Manually connect
+      act(() => {
+        result.current.connect();
+      });
+      act(() => {
+        MockEventSource.getLastInstance().emit('connected');
+      });
+      expect(result.current.connectionState).toBe('connected');
+      const initialInstanceCount = MockEventSource.instances.length;
+
+      // Simulate token refresh
+      act(() => {
+        localStorage.setItem('auth_token', 'new-refreshed-token');
+        window.dispatchEvent(new Event('rapid_auth_change'));
+      });
+
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      // Should create a new EventSource with the new token
+      expect(MockEventSource.instances.length).toBe(initialInstanceCount + 1);
+      expect(result.current.connectionState).toBe('connecting');
+      expect(MockEventSource.getLastInstance().url).toContain(
+        'token=new-refreshed-token'
+      );
+    });
+  });
+
   describe('channel changes', () => {
     it('reconnects when channels change while connected', async () => {
       let channels = ['channel1'];
