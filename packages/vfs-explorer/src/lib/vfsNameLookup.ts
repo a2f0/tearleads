@@ -17,12 +17,13 @@ import {
   vfsFolders
 } from '@rapid/db/sqlite';
 import { inArray } from 'drizzle-orm';
+import type { VfsRegistryRow } from './vfsTypes';
 
 /**
  * Groups registry rows by object type for batch name lookups.
  */
 export function groupByObjectType(
-  rows: Array<{ id: string; objectType: string }>
+  rows: Pick<VfsRegistryRow, 'id' | 'objectType'>[]
 ): Record<string, string[]> {
   const byType: Record<string, string[]> = {};
   for (const row of rows) {
