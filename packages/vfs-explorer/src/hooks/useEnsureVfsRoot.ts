@@ -76,6 +76,15 @@ export function useEnsureVfsRoot(): UseEnsureVfsRootResult {
 
   // Auto-ensure root when database is unlocked
   useEffect(() => {
+    // Reset state when instance changes
+    if (
+      checkedForInstanceRef.current !== currentInstanceId &&
+      checkedForInstanceRef.current !== null
+    ) {
+      setIsReady(false);
+      setError(null);
+    }
+
     const needsCheck =
       isUnlocked &&
       !isCreating &&
@@ -87,14 +96,6 @@ export function useEnsureVfsRoot(): UseEnsureVfsRootResult {
       ensureRoot();
     }
   }, [isUnlocked, isCreating, isReady, currentInstanceId, ensureRoot]);
-
-  // Reset state when instance changes
-  useEffect(() => {
-    if (currentInstanceId !== checkedForInstanceRef.current) {
-      setIsReady(false);
-      setError(null);
-    }
-  }, [currentInstanceId]);
 
   return {
     isReady,
