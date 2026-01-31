@@ -14,6 +14,7 @@ export {
   type AudioInfo,
   type AudioMetadata,
   type AudioPlayerProps,
+  type AudioPlaylist,
   type AudioTranslationKey,
   type AudioUIComponents,
   type AudioUIContextValue,

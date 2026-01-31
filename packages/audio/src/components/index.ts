@@ -21,6 +21,8 @@ export {
 // Window components
 export {
   type AudioViewMode,
+  AudioPlaylistsSidebar,
+  ALL_AUDIO_ID,
   AudioWindow,
   AudioWindowDetail,
   AudioWindowList,

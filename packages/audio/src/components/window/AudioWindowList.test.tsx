@@ -122,6 +122,34 @@ describe('AudioWindowList', () => {
     });
   });
 
+  it('filters tracks by selected playlist', async () => {
+    const mockTrack = createMockAudioTrack({
+      id: 'track-1',
+      name: 'Playlist Song.mp3'
+    });
+    const fetchAudioFilesWithUrls = vi.fn(async () => [mockTrack]);
+    const getTrackIdsInPlaylist = vi.fn(async () => ['track-1']);
+
+    renderWithAudioProvider(
+      <AudioWindowList selectedPlaylistId="playlist-1" />,
+      {
+        databaseState: { isUnlocked: true },
+        fetchAudioFilesWithUrls,
+        getTrackIdsInPlaylist
+      }
+    );
+
+    await waitFor(() => {
+      expect(getTrackIdsInPlaylist).toHaveBeenCalledWith('playlist-1');
+    });
+
+    expect(fetchAudioFilesWithUrls).toHaveBeenCalledWith(['track-1']);
+
+    await waitFor(() => {
+      expect(screen.getByText('Playlist Song.mp3')).toBeInTheDocument();
+    });
+  });
+
   it('renders search input when tracks exist', async () => {
     const mockTrack = createMockAudioTrack();
     const fetchAudioFilesWithUrls = vi.fn(async () => [mockTrack]);
