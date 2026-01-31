@@ -53,7 +53,17 @@ export const ua = {
     close: 'Закрити плеєр',
     repeatOff: 'Повтор: Вимкнено',
     repeatAll: 'Повтор: Усі треки',
-    repeatOne: 'Повтор: Поточний трек'
+    repeatOne: 'Повтор: Поточний трек',
+    hideVisualizer: 'Приховати візуалізатор',
+    showVisualizer: 'Показати візуалізатор',
+    mute: 'Вимкнути звук',
+    unmute: 'Увімкнути звук',
+    volume: 'Гучність',
+    seek: 'Перемотати',
+    getInfo: 'Інформація',
+    delete: 'Видалити',
+    download: 'Завантажити',
+    share: 'Поділитися'
   },
   tooltips: {
     sseConnected: 'SSE: Підключено',

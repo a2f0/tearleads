@@ -205,7 +205,16 @@ export type AudioTranslationKey =
   | 'play'
   | 'pause'
   | 'download'
-  | 'share';
+  | 'share'
+  | 'hideVisualizer'
+  | 'showVisualizer'
+  | 'previousTrack'
+  | 'restart'
+  | 'nextTrack'
+  | 'mute'
+  | 'unmute'
+  | 'volume'
+  | 'seek';
 
 /**
  * Translation function type

@@ -6,7 +6,7 @@
 import { Sliders } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useAudio } from '../../context/AudioContext';
-import { useAudioUI } from '../../context/AudioUIContext';
+import { useAudioUI, useAudioUIContext } from '../../context/AudioUIContext';
 import { useAudioAnalyser } from '../../hooks/useAudioAnalyser';
 import { LCDBar } from './LCDBar';
 import {
@@ -31,6 +31,7 @@ export function AudioVisualizer({
 }: AudioVisualizerProps) {
   const { audioElementRef, isPlaying, currentTrack } = useAudio();
   const { Button } = useAudioUI();
+  const { t } = useAudioUIContext();
   const frequencyData = useAudioAnalyser(audioElementRef, isPlaying, BAR_COUNT);
 
   const [internalVisibility, setInternalVisibility] =
@@ -88,7 +89,7 @@ export function AudioVisualizer({
         className="h-8 w-8 shrink-0"
         onClick={handleToggleVisibility}
         aria-label={
-          visibility === 'visible' ? 'Hide visualizer' : 'Show visualizer'
+          visibility === 'visible' ? t('hideVisualizer') : t('showVisualizer')
         }
         data-testid="visualizer-toggle"
       >

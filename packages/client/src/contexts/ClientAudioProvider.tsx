@@ -84,7 +84,7 @@ interface ClientAudioProviderProps {
 
 export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
   const databaseContext = useDatabaseContext();
-  const { t } = useTypedTranslation('contextMenu');
+  const { t } = useTypedTranslation('audio');
   const navigateWithFrom = useNavigateWithFrom();
   const { uploadFile: fileUpload } = useFileUpload();
 

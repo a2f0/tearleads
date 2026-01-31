@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { type AudioTrack, useAudio } from '../../context/AudioContext';
-import { useAudioUI } from '../../context/AudioUIContext';
+import { useAudioUI, useAudioUIContext } from '../../context/AudioUIContext';
 import { useAudioAnalyser } from '../../hooks/useAudioAnalyser';
 import { LCDBar } from './LCDBar';
 import {
@@ -58,6 +58,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
   } = useAudio();
 
   const { Button } = useAudioUI();
+  const { t } = useAudioUIContext();
 
   const frequencyData = useAudioAnalyser(audioElementRef, isPlaying, BAR_COUNT);
   const [visualizerVisibility, setVisualizerVisibility] =
@@ -235,7 +236,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
                 '--progress': `${progress}%`
               } as React.CSSProperties
             }
-            aria-label="Seek"
+            aria-label={t('seek')}
             data-testid="audio-seekbar"
           />
         </div>
@@ -256,8 +257,8 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           onClick={handleToggleVisibility}
           aria-label={
             visualizerVisibility === 'visible'
-              ? 'Hide visualizer'
-              : 'Show visualizer'
+              ? t('hideVisualizer')
+              : t('showVisualizer')
           }
           data-testid="visualizer-toggle"
         >
@@ -268,7 +269,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           size="icon"
           onClick={handlePrevious}
           disabled={!hasPrevious}
-          aria-label="Previous track"
+          aria-label={t('previousTrack')}
           data-testid="audio-previous"
         >
           <SkipBack />
@@ -277,7 +278,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           variant="ghost"
           size="icon"
           onClick={handleRestart}
-          aria-label="Restart track"
+          aria-label={t('restart')}
           data-testid="audio-restart"
         >
           <RotateCcw />
@@ -286,7 +287,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           variant="default"
           size="icon"
           onClick={handlePlayPause}
-          aria-label={isPlaying ? 'Pause' : 'Play'}
+          aria-label={isPlaying ? t('pause') : t('play')}
           data-testid="audio-play-pause"
         >
           {isPlaying ? <Pause /> : <Play />}
@@ -296,7 +297,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           size="icon"
           onClick={handleNext}
           disabled={!hasNext}
-          aria-label="Next track"
+          aria-label={t('nextTrack')}
           data-testid="audio-next"
         >
           <SkipForward />
@@ -310,7 +311,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
           size="icon"
           className="h-8 w-8"
           onClick={handleToggleMute}
-          aria-label={volume > 0 ? 'Mute' : 'Unmute'}
+          aria-label={volume > 0 ? t('mute') : t('unmute')}
           data-testid="audio-mute-toggle"
         >
           {volume > 0 ? (
@@ -332,7 +333,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
               '--progress': `${volumePercent}%`
             } as React.CSSProperties
           }
-          aria-label="Volume"
+          aria-label={t('volume')}
           data-testid="audio-volume"
         />
       </div>
