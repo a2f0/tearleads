@@ -15,7 +15,7 @@ import {
 import audioPackageJson from '@rapid/audio/package.json';
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar } from '@/components/ui/action-toolbar';
@@ -429,6 +429,10 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
     []
   );
 
+  const logError = useMemo(() => logStore.error.bind(logStore), []);
+
+  const logWarn = useMemo(() => logStore.warn.bind(logStore), []);
+
   return (
     <AudioUIProvider
       databaseState={databaseState}
@@ -451,8 +455,8 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       uploadFile={uploadFile}
       formatFileSize={formatFileSize}
       formatDate={formatDate}
-      logError={logStore.error.bind(logStore)}
-      logWarn={logStore.warn.bind(logStore)}
+      logError={logError}
+      logWarn={logWarn}
       detectPlatform={detectPlatform}
       extractAudioMetadata={extractAudioMetadata}
       downloadFile={handleDownloadFile}

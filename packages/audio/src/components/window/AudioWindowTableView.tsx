@@ -181,6 +181,7 @@ export function AudioWindowTableView({
     } catch (err) {
       logError('Failed to fetch tracks', String(err));
       setError(err instanceof Error ? err.message : String(err));
+      setHasFetched(true);
     } finally {
       setLoading(false);
     }
