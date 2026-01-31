@@ -15,7 +15,7 @@ import {
 import audioPackageJson from '@rapid/audio/package.json';
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { type ReactNode, useCallback } from 'react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar } from '@/components/ui/action-toolbar';
@@ -429,9 +429,15 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
     []
   );
 
-  const logError = useMemo(() => logStore.error.bind(logStore), []);
+  const logError = useCallback(
+    (message: string, details?: string) => logStore.error(message, details),
+    []
+  );
 
-  const logWarn = useMemo(() => logStore.warn.bind(logStore), []);
+  const logWarn = useCallback(
+    (message: string, details?: string) => logStore.warn(message, details),
+    []
+  );
 
   return (
     <AudioUIProvider
