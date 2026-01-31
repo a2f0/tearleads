@@ -14,7 +14,7 @@ import {
 
 const chatRouter: RouterType = Router();
 
-const OPENROUTER_API_URL = 'https://openchatRouter.ai/api/v1/chat/completions';
+const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
 
 /**
