@@ -26,7 +26,7 @@ type PostgresTableRow = {
   index_bytes: number | string | null;
 };
 
-const router: RouterType = Router();
+const postgresRouter: RouterType = Router();
 
 function coerceNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -68,7 +68,7 @@ function coerceNumber(value: unknown): number {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/info', async (_req: Request, res: Response) => {
+postgresRouter.get('/info', async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const versionResult = await pool.query<{ version: string }>(
@@ -117,7 +117,7 @@ router.get('/info', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/tables', async (_req: Request, res: Response) => {
+postgresRouter.get('/tables', async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<{
@@ -191,7 +191,7 @@ router.get('/tables', async (_req: Request, res: Response) => {
  *       500:
  *         description: Postgres connection error
  */
-router.get(
+postgresRouter.get(
   '/tables/:schema/:table/columns',
   async (req: Request, res: Response) => {
     const { schema, table } = req.params;
@@ -292,7 +292,7 @@ router.get(
  *       500:
  *         description: Postgres connection error
  */
-router.get(
+postgresRouter.get(
   '/tables/:schema/:table/rows',
   async (req: Request, res: Response) => {
     const schema = req.params['schema'];
@@ -384,4 +384,4 @@ router.get(
   }
 );
 
-export { router as postgresRouter };
+export { postgresRouter };

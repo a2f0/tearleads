@@ -25,7 +25,7 @@ import {
   storeRefreshToken
 } from '../lib/sessions.js';
 
-const router: RouterType = Router();
+const authRouter: RouterType = Router();
 const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
 const REFRESH_TOKEN_TTL_SECONDS = getRefreshTokenTtlSeconds();
 
@@ -106,7 +106,7 @@ function parseLoginPayload(body: unknown): LoginPayload | null {
  *       500:
  *         description: Server error
  */
-router.post('/login', async (req: Request, res: Response) => {
+authRouter.post('/login', async (req: Request, res: Response) => {
   const payload = parseLoginPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'email and password are required' });
@@ -285,7 +285,7 @@ function getAllowedEmailDomains(): string[] {
  *       500:
  *         description: Server error
  */
-router.post('/register', async (req: Request, res: Response) => {
+authRouter.post('/register', async (req: Request, res: Response) => {
   const payload = parseRegisterPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'email and password are required' });
@@ -488,7 +488,7 @@ function parseRefreshPayload(body: unknown): RefreshPayload | null {
  *       500:
  *         description: Server error
  */
-router.post('/refresh', async (req: Request, res: Response) => {
+authRouter.post('/refresh', async (req: Request, res: Response) => {
   const payload = parseRefreshPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'refreshToken is required' });
@@ -616,7 +616,7 @@ router.post('/refresh', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-router.get('/sessions', async (req: Request, res: Response) => {
+authRouter.get('/sessions', async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -676,37 +676,40 @@ router.get('/sessions', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-router.delete('/sessions/:sessionId', async (req: Request, res: Response) => {
-  const claims = req.authClaims;
-  if (!claims) {
-    res.status(401).json({ error: 'Unauthorized' });
-    return;
-  }
-
-  const { sessionId } = req.params;
-  if (!sessionId || typeof sessionId !== 'string') {
-    res.status(400).json({ error: 'Session ID is required' });
-    return;
-  }
-
-  if (sessionId === claims.jti) {
-    res.status(403).json({ error: 'Cannot delete current session' });
-    return;
-  }
-
-  try {
-    const deleted = await deleteSession(sessionId, claims.sub);
-    if (!deleted) {
-      res.status(404).json({ error: 'Session not found' });
+authRouter.delete(
+  '/sessions/:sessionId',
+  async (req: Request, res: Response) => {
+    const claims = req.authClaims;
+    if (!claims) {
+      res.status(401).json({ error: 'Unauthorized' });
       return;
     }
 
-    res.json({ deleted: true });
-  } catch (error) {
-    console.error('Failed to delete session:', error);
-    res.status(500).json({ error: 'Failed to delete session' });
+    const { sessionId } = req.params;
+    if (!sessionId || typeof sessionId !== 'string') {
+      res.status(400).json({ error: 'Session ID is required' });
+      return;
+    }
+
+    if (sessionId === claims.jti) {
+      res.status(403).json({ error: 'Cannot delete current session' });
+      return;
+    }
+
+    try {
+      const deleted = await deleteSession(sessionId, claims.sub);
+      if (!deleted) {
+        res.status(404).json({ error: 'Session not found' });
+        return;
+      }
+
+      res.json({ deleted: true });
+    } catch (error) {
+      console.error('Failed to delete session:', error);
+      res.status(500).json({ error: 'Failed to delete session' });
+    }
   }
-});
+);
 
 /**
  * @openapi
@@ -733,7 +736,7 @@ router.delete('/sessions/:sessionId', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-router.post('/logout', async (req: Request, res: Response) => {
+authRouter.post('/logout', async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -750,4 +753,4 @@ router.post('/logout', async (req: Request, res: Response) => {
   }
 });
 
-export { router as authRouter };
+export { authRouter };
