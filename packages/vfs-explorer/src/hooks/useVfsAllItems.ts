@@ -2,39 +2,19 @@
  * Hook for querying all VFS items in the registry.
  */
 
-import {
-  albums,
-  contactGroups,
-  contacts,
-  emailFolders,
-  emails,
-  files,
-  notes,
-  playlists,
-  tags,
-  vfsFolders,
-  vfsRegistry
-} from '@rapid/db/sqlite';
-import { inArray } from 'drizzle-orm';
+import { vfsRegistry } from '@rapid/db/sqlite';
+import { ne } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';
+import {
+  fetchItemNames,
+  groupByObjectType,
+  sortVfsItems,
+  type VfsObjectType
+} from '../lib';
 
-export type VfsObjectType =
-  // Entities
-  | 'file'
-  | 'photo'
-  | 'audio'
-  | 'video'
-  | 'contact'
-  | 'note'
-  | 'email'
-  // Collections
-  | 'folder'
-  | 'playlist'
-  | 'album'
-  | 'contactGroup'
-  | 'emailFolder'
-  | 'tag';
+export type { VfsObjectType };
 
 export interface VfsAllItem {
   id: string;
@@ -76,14 +56,15 @@ export function useVfsAllItems(
     try {
       const db = getDatabase();
 
-      // Get all registry items
+      // Get all registry items, excluding the VFS root
       const registryRows = await db
         .select({
           id: vfsRegistry.id,
           objectType: vfsRegistry.objectType,
           createdAt: vfsRegistry.createdAt
         })
-        .from(vfsRegistry);
+        .from(vfsRegistry)
+        .where(ne(vfsRegistry.id, VFS_ROOT_ID));
 
       if (registryRows.length === 0) {
         setItems([]);
@@ -91,208 +72,9 @@ export function useVfsAllItems(
         return;
       }
 
-      // Group by object type for efficient name lookups
-      const byType: Record<string, string[]> = {};
-      for (const row of registryRows) {
-        if (!byType[row.objectType]) {
-          byType[row.objectType] = [];
-        }
-        byType[row.objectType]?.push(row.id);
-      }
-
-      // Lookup names from respective tables in parallel
-      const nameMap = new Map<string, string>();
-      const nameLookups: Promise<void>[] = [];
-
-      // Folders
-      if (byType['folder']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: vfsFolders.id,
-              name: vfsFolders.encryptedName
-            })
-            .from(vfsFolders)
-            .where(inArray(vfsFolders.id, byType['folder']))
-            .then((folderNameRows) => {
-              for (const row of folderNameRows) {
-                nameMap.set(row.id, row.name || 'Unnamed Folder');
-              }
-            })
-        );
-      }
-
-      // Contacts
-      if (byType['contact']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: contacts.id,
-              firstName: contacts.firstName,
-              lastName: contacts.lastName
-            })
-            .from(contacts)
-            .where(inArray(contacts.id, byType['contact']))
-            .then((contactRows) => {
-              for (const row of contactRows) {
-                const name = row.lastName
-                  ? `${row.firstName} ${row.lastName}`
-                  : row.firstName;
-                nameMap.set(row.id, name);
-              }
-            })
-        );
-      }
-
-      // Notes
-      if (byType['note']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: notes.id,
-              title: notes.title
-            })
-            .from(notes)
-            .where(inArray(notes.id, byType['note']))
-            .then((noteRows) => {
-              for (const row of noteRows) {
-                nameMap.set(row.id, row.title);
-              }
-            })
-        );
-      }
-
-      // Files, Photos, Audio, Video (all use files table)
-      const fileTypes = ['file', 'photo', 'audio', 'video'].filter(
-        (t) => byType[t]?.length
-      );
-      if (fileTypes.length > 0) {
-        const fileIds = fileTypes.flatMap((t) => byType[t] || []);
-        nameLookups.push(
-          db
-            .select({
-              id: files.id,
-              name: files.name
-            })
-            .from(files)
-            .where(inArray(files.id, fileIds))
-            .then((fileRows) => {
-              for (const row of fileRows) {
-                nameMap.set(row.id, row.name);
-              }
-            })
-        );
-      }
-
-      // Playlists
-      if (byType['playlist']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: playlists.id,
-              name: playlists.encryptedName
-            })
-            .from(playlists)
-            .where(inArray(playlists.id, byType['playlist']))
-            .then((playlistRows) => {
-              for (const row of playlistRows) {
-                nameMap.set(row.id, row.name || 'Unnamed Playlist');
-              }
-            })
-        );
-      }
-
-      // Albums
-      if (byType['album']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: albums.id,
-              name: albums.encryptedName
-            })
-            .from(albums)
-            .where(inArray(albums.id, byType['album']))
-            .then((albumRows) => {
-              for (const row of albumRows) {
-                nameMap.set(row.id, row.name || 'Unnamed Album');
-              }
-            })
-        );
-      }
-
-      // Contact Groups
-      if (byType['contactGroup']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: contactGroups.id,
-              name: contactGroups.encryptedName
-            })
-            .from(contactGroups)
-            .where(inArray(contactGroups.id, byType['contactGroup']))
-            .then((groupRows) => {
-              for (const row of groupRows) {
-                nameMap.set(row.id, row.name || 'Unnamed Group');
-              }
-            })
-        );
-      }
-
-      // Email Folders
-      if (byType['emailFolder']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: emailFolders.id,
-              name: emailFolders.encryptedName
-            })
-            .from(emailFolders)
-            .where(inArray(emailFolders.id, byType['emailFolder']))
-            .then((folderRows) => {
-              for (const row of folderRows) {
-                nameMap.set(row.id, row.name || 'Unnamed Folder');
-              }
-            })
-        );
-      }
-
-      // Tags
-      if (byType['tag']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: tags.id,
-              name: tags.encryptedName
-            })
-            .from(tags)
-            .where(inArray(tags.id, byType['tag']))
-            .then((tagRows) => {
-              for (const row of tagRows) {
-                nameMap.set(row.id, row.name || 'Unnamed Tag');
-              }
-            })
-        );
-      }
-
-      // Emails
-      if (byType['email']?.length) {
-        nameLookups.push(
-          db
-            .select({
-              id: emails.id,
-              subject: emails.encryptedSubject
-            })
-            .from(emails)
-            .where(inArray(emails.id, byType['email']))
-            .then((emailRows) => {
-              for (const row of emailRows) {
-                nameMap.set(row.id, row.subject || '(No Subject)');
-              }
-            })
-        );
-      }
-
-      await Promise.all(nameLookups);
+      // Group by object type and fetch names
+      const byType = groupByObjectType(registryRows);
+      const nameMap = await fetchItemNames(db, byType);
 
       // Build final items list
       const resultItems: VfsAllItem[] = registryRows.map((row) => ({
@@ -303,11 +85,7 @@ export function useVfsAllItems(
       }));
 
       // Sort: folders first, then alphabetically by name
-      resultItems.sort((a, b) => {
-        if (a.objectType === 'folder' && b.objectType !== 'folder') return -1;
-        if (a.objectType !== 'folder' && b.objectType === 'folder') return 1;
-        return a.name.localeCompare(b.name);
-      });
+      sortVfsItems(resultItems);
 
       setItems(resultItems);
       setHasFetched(true);

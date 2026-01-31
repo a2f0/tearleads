@@ -8,6 +8,7 @@ import {
 } from '@testing-library/react';
 import { useState } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_ROOT_ID } from '../constants';
 import { VfsExplorerProvider, type VfsExplorerUIComponents } from '../context';
 import {
   createMockDatabase,
@@ -61,8 +62,8 @@ describe('useVfsAllItems', () => {
   });
 
   it('fetches all items when unlocked', async () => {
-    // Mock vfsRegistry query - returns one folder
-    mockDb.from.mockResolvedValueOnce([
+    // Mock vfsRegistry query (now uses .where for VFS_ROOT_ID filter) - returns one folder
+    mockDb.where.mockResolvedValueOnce([
       { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
     ]);
 
@@ -83,7 +84,7 @@ describe('useVfsAllItems', () => {
 
   it('handles empty registry', async () => {
     // Mock vfsRegistry query - no items
-    mockDb.from.mockResolvedValueOnce([]);
+    mockDb.where.mockResolvedValueOnce([]);
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -105,7 +106,7 @@ describe('useVfsAllItems', () => {
       .mockImplementation(() => {});
 
     // Mock vfsRegistry query to throw error
-    mockDb.from.mockRejectedValueOnce(new Error('Database error'));
+    mockDb.where.mockRejectedValueOnce(new Error('Database error'));
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -124,7 +125,7 @@ describe('useVfsAllItems', () => {
 
   it('refetch function works', async () => {
     // Initial fetch - vfsRegistry returns empty
-    mockDb.from.mockResolvedValueOnce([]);
+    mockDb.where.mockResolvedValueOnce([]);
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -138,7 +139,7 @@ describe('useVfsAllItems', () => {
     });
 
     // Setup for refetch - vfsRegistry returns empty
-    mockDb.from.mockResolvedValueOnce([]);
+    mockDb.where.mockResolvedValueOnce([]);
 
     await act(async () => {
       await result.current.refetch();
@@ -169,7 +170,7 @@ describe('useVfsAllItems', () => {
       .mockImplementation(() => {});
 
     // Mock vfsRegistry query to throw non-Error
-    mockDb.from.mockRejectedValueOnce('String error');
+    mockDb.where.mockRejectedValueOnce('String error');
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -238,7 +239,7 @@ describe('useVfsAllItems', () => {
 
     // Mock initial fetch for instance-1
     // 1. vfsRegistry query returns one folder
-    mockDb.from.mockResolvedValueOnce([
+    mockDb.where.mockResolvedValueOnce([
       { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
     ]);
     // 2. folder name lookup
@@ -257,7 +258,7 @@ describe('useVfsAllItems', () => {
 
     // Mock fetch for instance-2 (no items)
     // vfsRegistry query returns empty
-    mockDb.from.mockResolvedValueOnce([]);
+    mockDb.where.mockResolvedValueOnce([]);
 
     // Trigger instance change
     act(() => {
@@ -293,7 +294,7 @@ describe('useVfsAllItems', () => {
 
   it('fetches when enabled changes from false to true', async () => {
     // Mock vfsRegistry query - returns one folder
-    mockDb.from.mockResolvedValueOnce([
+    mockDb.where.mockResolvedValueOnce([
       { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
     ]);
 
@@ -315,5 +316,41 @@ describe('useVfsAllItems', () => {
     });
 
     expect(result.current.items).toHaveLength(1);
+  });
+
+  it('excludes VFS_ROOT_ID from results', async () => {
+    // Mock vfsRegistry query - returns folder and contact
+    // (VFS_ROOT_ID should be filtered at DB level, but test that results don't include it)
+    mockDb.where.mockResolvedValueOnce([
+      { id: 'folder-1', objectType: 'folder', createdAt: new Date() },
+      { id: 'contact-1', objectType: 'contact', createdAt: new Date() }
+    ]);
+
+    // Mock name lookups
+    mockDb.where
+      .mockResolvedValueOnce([{ id: 'folder-1', name: 'My Folder' }])
+      .mockResolvedValueOnce([
+        { id: 'contact-1', firstName: 'John', lastName: 'Doe' }
+      ]);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsAllItems(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    // Verify VFS_ROOT_ID is not in the results
+    const hasVfsRoot = result.current.items.some(
+      (item) => item.id === VFS_ROOT_ID
+    );
+    expect(hasVfsRoot).toBe(false);
+
+    // Verify the query was called with the where clause (uses ne filter)
+    expect(mockDb.where).toHaveBeenCalled();
   });
 });

@@ -13,7 +13,7 @@ import {
   Users,
   Video
 } from 'lucide-react';
-import type { VfsObjectType } from '../hooks';
+import type { VfsObjectType } from './vfsTypes';
 
 export const OBJECT_TYPE_ICONS: Record<VfsObjectType, typeof Folder> = {
   // Entities
