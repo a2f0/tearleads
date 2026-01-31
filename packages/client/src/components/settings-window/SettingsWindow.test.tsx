@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { SettingsWindow } from './SettingsWindow';
 
@@ -35,22 +36,15 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 // Mock Settings component
-vi.mock('@/pages/Settings', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    Settings: ({ showBackLink }: { showBackLink?: boolean }) => {
-      const location = useLocation();
-      return (
-        <div data-testid="settings-content">
-          <span data-testid="settings-location">{location.pathname}</span>
-          <span data-testid="settings-backlink">
-            {showBackLink ? 'true' : 'false'}
-          </span>
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@/pages/Settings', () => ({
+  Settings: ({ showBackLink }: { showBackLink?: boolean }) => (
+    <div data-testid="settings-content">
+      <span data-testid="settings-backlink">
+        {showBackLink ? 'true' : 'false'}
+      </span>
+    </div>
+  )
+}));
 
 describe('SettingsWindow', () => {
   const defaultProps = {
@@ -73,9 +67,7 @@ describe('SettingsWindow', () => {
 
   it('renders the settings content', () => {
     render(<SettingsWindow {...defaultProps} />);
-    expect(screen.getByTestId('settings-location')).toHaveTextContent(
-      '/settings'
-    );
+    expect(screen.getByTestId('settings-content')).toBeInTheDocument();
     expect(screen.getByTestId('settings-backlink')).toHaveTextContent('false');
   });
 
@@ -134,5 +126,16 @@ describe('SettingsWindow', () => {
     expect(
       screen.queryByRole('menuitem', { name: 'Compact' })
     ).not.toBeInTheDocument();
+  });
+
+  it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {
+    expect(() =>
+      render(
+        <MemoryRouter>
+          <SettingsWindow {...defaultProps} />
+        </MemoryRouter>
+      )
+    ).not.toThrow();
+    expect(screen.getByTestId('settings-content')).toBeInTheDocument();
   });
 });

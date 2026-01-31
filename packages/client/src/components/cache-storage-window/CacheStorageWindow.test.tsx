@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CacheStorageWindow } from './CacheStorageWindow';
 
@@ -29,22 +30,15 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/cache-storage', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    CacheStorage: ({ showBackLink }: { showBackLink?: boolean }) => {
-      const location = useLocation();
-      return (
-        <div data-testid="cache-storage-content">
-          <span data-testid="cache-storage-location">{location.pathname}</span>
-          <span data-testid="cache-storage-backlink">
-            {showBackLink ? 'true' : 'false'}
-          </span>
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@/pages/cache-storage', () => ({
+  CacheStorage: ({ showBackLink }: { showBackLink?: boolean }) => (
+    <div data-testid="cache-storage-content">
+      <span data-testid="cache-storage-backlink">
+        {showBackLink ? 'true' : 'false'}
+      </span>
+    </div>
+  )
+}));
 
 vi.mock('./CacheStorageWindowMenuBar', () => ({
   CacheStorageWindowMenuBar: ({
@@ -92,9 +86,7 @@ describe('CacheStorageWindow', () => {
 
   it('renders cache storage content', () => {
     render(<CacheStorageWindow {...defaultProps} />);
-    expect(screen.getByTestId('cache-storage-location')).toHaveTextContent(
-      '/cache-storage'
-    );
+    expect(screen.getByTestId('cache-storage-content')).toBeInTheDocument();
     expect(screen.getByTestId('cache-storage-backlink')).toHaveTextContent(
       'false'
     );
@@ -147,5 +139,16 @@ describe('CacheStorageWindow', () => {
     const window = screen.getByTestId('floating-window');
     const propKeys = JSON.parse(window.dataset['propsKeys'] || '[]');
     expect(propKeys).toContain('onDimensionsChange');
+  });
+
+  it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {
+    expect(() =>
+      render(
+        <MemoryRouter>
+          <CacheStorageWindow {...defaultProps} />
+        </MemoryRouter>
+      )
+    ).not.toThrow();
+    expect(screen.getByTestId('cache-storage-content')).toBeInTheDocument();
   });
 });

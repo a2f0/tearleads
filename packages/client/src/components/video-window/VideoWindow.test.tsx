@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoWindow } from './VideoWindow';
 
@@ -37,39 +38,32 @@ vi.mock('@/hooks/useFileUpload', () => ({
   useFileUpload: () => ({ uploadFile: mockUploadFile })
 }));
 
-vi.mock('@/pages/Video', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    VideoPage: ({
-      onOpenVideo,
-      hideBackLink,
-      viewMode
-    }: {
-      onOpenVideo?: (
-        videoId: string,
-        options?: { autoPlay?: boolean | undefined }
-      ) => void;
-      hideBackLink?: boolean;
-      viewMode?: 'list' | 'table';
-    }) => {
-      const location = useLocation();
-      return (
-        <>
-          <div data-testid="video-location">{location.pathname}</div>
-          <div data-testid="video-view-mode">{viewMode}</div>
-          <button
-            type="button"
-            onClick={() => onOpenVideo?.('test-video')}
-            data-testid="open-video"
-          >
-            Open Video
-          </button>
-          {hideBackLink && <div data-testid="back-link-hidden" />}
-        </>
-      );
-    }
-  };
-});
+vi.mock('@/pages/Video', () => ({
+  VideoPage: ({
+    onOpenVideo,
+    hideBackLink,
+    viewMode
+  }: {
+    onOpenVideo?: (
+      videoId: string,
+      options?: { autoPlay?: boolean | undefined }
+    ) => void;
+    hideBackLink?: boolean;
+    viewMode?: 'list' | 'table';
+  }) => (
+    <>
+      <div data-testid="video-view-mode">{viewMode}</div>
+      <button
+        type="button"
+        onClick={() => onOpenVideo?.('test-video')}
+        data-testid="open-video"
+      >
+        Open Video
+      </button>
+      {hideBackLink && <div data-testid="back-link-hidden" />}
+    </>
+  )
+}));
 
 vi.mock('@/pages/VideoDetail', () => ({
   VideoDetail: ({
@@ -115,7 +109,6 @@ describe('VideoWindow', () => {
 
   it('renders the VideoPage content', () => {
     render(<VideoWindow {...defaultProps} />);
-    expect(screen.getByTestId('video-location')).toHaveTextContent('/videos');
     expect(screen.getByTestId('video-view-mode')).toHaveTextContent('list');
     expect(screen.getByTestId('open-video')).toBeInTheDocument();
     expect(screen.getByTestId('back-link-hidden')).toBeInTheDocument();
@@ -125,7 +118,7 @@ describe('VideoWindow', () => {
 
   it('wraps list content in a scrollable container', () => {
     render(<VideoWindow {...defaultProps} />);
-    const container = screen.getByTestId('video-location').parentElement;
+    const container = screen.getByTestId('video-view-mode').parentElement;
     expect(container).toHaveClass('overflow-auto');
     expect(container).toHaveClass('h-full');
   });
@@ -214,5 +207,16 @@ describe('VideoWindow', () => {
     expect(clickSpy).toHaveBeenCalled();
 
     clickSpy.mockRestore();
+  });
+
+  it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {
+    expect(() =>
+      render(
+        <MemoryRouter>
+          <VideoWindow {...defaultProps} />
+        </MemoryRouter>
+      )
+    ).not.toThrow();
+    expect(screen.getByTestId('video-view-mode')).toBeInTheDocument();
   });
 });

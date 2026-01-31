@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DocumentsWindow } from './DocumentsWindow';
 
@@ -31,33 +32,28 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/Documents', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    Documents: ({
-      onSelectDocument,
-      ...props
-    }: {
-      onSelectDocument?: (documentId: string) => void;
-      [key: string]: unknown;
-    }) => {
-      lastDocumentsProps = props;
-      const location = useLocation();
-      return (
-        <div data-testid="documents-content">
-          <div data-testid="documents-location">{location.pathname}</div>
-          <button
-            type="button"
-            onClick={() => onSelectDocument?.('doc-1')}
-            data-testid="select-document"
-          >
-            Select Document
-          </button>
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@/pages/Documents', () => ({
+  Documents: ({
+    onSelectDocument,
+    ...props
+  }: {
+    onSelectDocument?: (documentId: string) => void;
+    [key: string]: unknown;
+  }) => {
+    lastDocumentsProps = props;
+    return (
+      <div data-testid="documents-content">
+        <button
+          type="button"
+          onClick={() => onSelectDocument?.('doc-1')}
+          data-testid="select-document"
+        >
+          Select Document
+        </button>
+      </div>
+    );
+  }
+}));
 
 vi.mock('@/pages/DocumentDetail', () => ({
   DocumentDetail: ({
@@ -165,9 +161,6 @@ describe('DocumentsWindow', () => {
   it('renders Documents content', () => {
     render(<DocumentsWindow {...defaultProps} />);
     expect(screen.getByTestId('documents-content')).toBeInTheDocument();
-    expect(screen.getByTestId('documents-location')).toHaveTextContent(
-      '/documents'
-    );
     expect(lastDocumentsProps?.['showBackLink']).toBe(false);
     expect(lastDocumentsProps?.['viewMode']).toBe('list');
     expect(lastDocumentsProps?.['showDropzone']).toBe(false);
@@ -303,5 +296,16 @@ describe('DocumentsWindow', () => {
     const window = screen.getByTestId('floating-window');
     const propKeys = JSON.parse(window.dataset['propsKeys'] || '[]');
     expect(propKeys).toContain('onDimensionsChange');
+  });
+
+  it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {
+    expect(() =>
+      render(
+        <MemoryRouter>
+          <DocumentsWindow {...defaultProps} />
+        </MemoryRouter>
+      )
+    ).not.toThrow();
+    expect(screen.getByTestId('documents-content')).toBeInTheDocument();
   });
 });

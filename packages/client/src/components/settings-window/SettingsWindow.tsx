@@ -1,4 +1,3 @@
-import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Settings } from '@/pages/Settings';
@@ -44,9 +43,7 @@ export function SettingsWindow({
       <div className="flex h-full flex-col">
         <SettingsWindowMenuBar onClose={onClose} />
         <div className="flex-1 overflow-auto p-3">
-          <MemoryRouter initialEntries={['/settings']}>
-            <Settings showBackLink={false} />
-          </MemoryRouter>
+          <Settings showBackLink={false} />
         </div>
       </div>
     </FloatingWindow>

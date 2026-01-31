@@ -1,6 +1,5 @@
 import type { ChangeEvent } from 'react';
 import { useCallback, useRef, useState } from 'react';
-import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { useFileUpload } from '@/hooks/useFileUpload';
@@ -119,26 +118,24 @@ export function VideoWindow({
           onClose={onClose}
         />
         <div className="flex-1 overflow-hidden">
-          <MemoryRouter initialEntries={['/videos']}>
-            {activeVideoId ? (
-              <div className="h-full overflow-auto p-3">
-                <VideoDetail
-                  videoId={activeVideoId}
-                  onBack={handleBack}
-                  autoPlay={autoPlay}
-                />
-              </div>
-            ) : (
-              <div className="h-full overflow-auto p-3">
-                <VideoPage
-                  key={refreshToken}
-                  onOpenVideo={handleOpenVideo}
-                  hideBackLink
-                  viewMode={viewMode}
-                />
-              </div>
-            )}
-          </MemoryRouter>
+          {activeVideoId ? (
+            <div className="h-full overflow-auto p-3">
+              <VideoDetail
+                videoId={activeVideoId}
+                onBack={handleBack}
+                autoPlay={autoPlay}
+              />
+            </div>
+          ) : (
+            <div className="h-full overflow-auto p-3">
+              <VideoPage
+                key={refreshToken}
+                onOpenVideo={handleOpenVideo}
+                hideBackLink
+                viewMode={viewMode}
+              />
+            </div>
+          )}
         </div>
       </div>
       <input

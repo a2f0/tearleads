@@ -1,4 +1,3 @@
-import { MemoryRouter } from 'react-router-dom';
 import { Photos } from '@/pages/Photos';
 
 interface PhotosWindowThumbnailViewProps {
@@ -15,16 +14,14 @@ export function PhotosWindowThumbnailView({
   selectedAlbumId
 }: PhotosWindowThumbnailViewProps) {
   return (
-    <MemoryRouter>
-      <div className="h-full overflow-auto p-3">
-        <Photos
-          onSelectPhoto={onSelectPhoto}
-          refreshToken={refreshToken}
-          showBackLink={false}
-          showDropzone={showDropzone}
-          selectedAlbumId={selectedAlbumId}
-        />
-      </div>
-    </MemoryRouter>
+    <div className="h-full overflow-auto p-3">
+      <Photos
+        onSelectPhoto={onSelectPhoto}
+        refreshToken={refreshToken}
+        showBackLink={false}
+        showDropzone={showDropzone}
+        selectedAlbumId={selectedAlbumId}
+      />
+    </div>
   );
 }

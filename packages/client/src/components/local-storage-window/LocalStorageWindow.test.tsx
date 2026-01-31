@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type React from 'react';
-import { useEffect } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { LocalStorageWindow } from './LocalStorageWindow';
 
@@ -34,17 +34,15 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/local-storage', async () => {
-  const { useLocation } = await import('react-router-dom');
+vi.mock('@/pages/local-storage', () => {
+  const { useEffect } = require('react');
   return {
     LocalStorage: ({ showBackLink }: { showBackLink?: boolean }) => {
-      const location = useLocation();
       useEffect(() => {
         localStorageMount();
       }, []);
       return (
         <div data-testid="local-storage-content">
-          <span data-testid="local-storage-location">{location.pathname}</span>
           <span data-testid="local-storage-backlink">
             {showBackLink ? 'true' : 'false'}
           </span>
@@ -81,9 +79,7 @@ describe('LocalStorageWindow', () => {
 
   it('renders the local storage content', () => {
     render(<LocalStorageWindow {...defaultProps} />);
-    expect(screen.getByTestId('local-storage-location')).toHaveTextContent(
-      '/local-storage'
-    );
+    expect(screen.getByTestId('local-storage-content')).toBeInTheDocument();
     expect(screen.getByTestId('local-storage-backlink')).toHaveTextContent(
       'false'
     );
@@ -128,5 +124,16 @@ describe('LocalStorageWindow', () => {
       'data-initial-dimensions',
       JSON.stringify(initialDimensions)
     );
+  });
+
+  it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {
+    expect(() =>
+      render(
+        <MemoryRouter>
+          <LocalStorageWindow {...defaultProps} />
+        </MemoryRouter>
+      )
+    ).not.toThrow();
+    expect(screen.getByTestId('local-storage-content')).toBeInTheDocument();
   });
 });
