@@ -429,6 +429,16 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
     []
   );
 
+  const logError = useCallback(
+    (message: string, details?: string) => logStore.error(message, details),
+    []
+  );
+
+  const logWarn = useCallback(
+    (message: string, details?: string) => logStore.warn(message, details),
+    []
+  );
+
   return (
     <AudioUIProvider
       databaseState={databaseState}
@@ -451,8 +461,8 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       uploadFile={uploadFile}
       formatFileSize={formatFileSize}
       formatDate={formatDate}
-      logError={logStore.error.bind(logStore)}
-      logWarn={logStore.warn.bind(logStore)}
+      logError={logError}
+      logWarn={logWarn}
       detectPlatform={detectPlatform}
       extractAudioMetadata={extractAudioMetadata}
       downloadFile={handleDownloadFile}

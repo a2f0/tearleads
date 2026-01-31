@@ -53,6 +53,7 @@ export function useAudioPlaylists(): UseAudioPlaylistsResult {
     } catch (err) {
       logError('Failed to fetch playlists', String(err));
       setError(err instanceof Error ? err.message : String(err));
+      setHasFetched(true);
     } finally {
       setLoading(false);
     }
