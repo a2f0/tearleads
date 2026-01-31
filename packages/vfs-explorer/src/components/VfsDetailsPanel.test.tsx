@@ -20,13 +20,13 @@ vi.mock('../hooks', () => ({
   }))
 }));
 
+import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
 import {
   useVfsAllItems,
   useVfsFolderContents,
   useVfsUnfiledItems
 } from '../hooks';
 import { VfsDetailsPanel } from './VfsDetailsPanel';
-import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from './VfsTreePanel';
 
 const mockItems = [
   {

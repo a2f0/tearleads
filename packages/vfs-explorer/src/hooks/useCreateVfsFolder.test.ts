@@ -110,7 +110,7 @@ describe('useCreateVfsFolder', () => {
     expect(mockInsert).toHaveBeenCalledTimes(3);
   });
 
-  it('creates folder without parent link when not logged in', async () => {
+  it('creates folder with link to VFS root when not logged in and no parent specified', async () => {
     const wrapper = createWrapper({
       database: mockDb,
       auth: { isLoggedIn: vi.fn(() => false) }
@@ -118,11 +118,11 @@ describe('useCreateVfsFolder', () => {
     const { result } = renderHook(() => useCreateVfsFolder(), { wrapper });
 
     await act(async () => {
-      await result.current.createFolder('Child Folder', 'parent-folder-id');
+      await result.current.createFolder('Root Folder');
     });
 
-    // Should have 2 inserts: registry, folders (no link when not logged in)
-    expect(mockInsert).toHaveBeenCalledTimes(2);
+    // Should have 3 inserts: registry, folders, links (always creates link now)
+    expect(mockInsert).toHaveBeenCalledTimes(3);
   });
 
   it('still creates folder when session key wrapping fails', async () => {

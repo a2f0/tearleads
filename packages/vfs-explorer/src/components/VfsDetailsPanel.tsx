@@ -1,5 +1,6 @@
 import { FileBox, Folder, Layers, Loader2 } from 'lucide-react';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
+import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
 import {
   useVfsAllItems,
   useVfsFolderContents,
@@ -11,7 +12,6 @@ import { cn, OBJECT_TYPE_COLORS, OBJECT_TYPE_ICONS } from '../lib';
 import { ItemContextMenu } from './ItemContextMenu';
 import { VfsDraggableItem } from './VfsDraggableItem';
 import type { VfsViewMode } from './VfsExplorer';
-import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from './VfsTreePanel';
 
 export type { VfsItem, VfsObjectType };
 

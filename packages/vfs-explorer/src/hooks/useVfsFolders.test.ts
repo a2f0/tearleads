@@ -1,5 +1,6 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_ROOT_ID } from '../constants';
 import {
   createMockDatabase,
   createMockDatabaseState,
@@ -130,6 +131,40 @@ describe('useVfsFolders', () => {
     });
 
     expect(result.current.folders).toEqual([]);
+  });
+
+  it('filters out the VFS root from returned folders', async () => {
+    const mockFolderRows = [
+      { id: VFS_ROOT_ID, name: 'VFS Root', createdAt: Date.now() },
+      { id: 'folder-1', name: 'My Folder', createdAt: Date.now() }
+    ];
+
+    // folder-1 is a child of VFS_ROOT
+    const mockLinkRows = [{ childId: 'folder-1', parentId: VFS_ROOT_ID }];
+    const mockChildCountRows = [{ parentId: VFS_ROOT_ID }];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolders(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    // Should only return folder-1, not VFS_ROOT
+    expect(result.current.folders).toHaveLength(1);
+    expect(result.current.folders[0]?.id).toBe('folder-1');
+    expect(result.current.folders[0]?.name).toBe('My Folder');
+    // folder-1 should be a root folder (its parent VFS_ROOT is filtered out)
+    expect(result.current.folders[0]?.parentId).toBe(VFS_ROOT_ID);
   });
 
   it('provides refetch function that reloads data', async () => {

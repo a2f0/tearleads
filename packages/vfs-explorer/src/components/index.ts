@@ -1,3 +1,8 @@
+export {
+  ALL_ITEMS_FOLDER_ID,
+  UNFILED_FOLDER_ID,
+  VFS_ROOT_ID
+} from '../constants';
 export type { DeleteFolderDialogProps } from './DeleteFolderDialog';
 export { DeleteFolderDialog } from './DeleteFolderDialog';
 export { FolderContextMenu } from './FolderContextMenu';
@@ -17,6 +22,6 @@ export type { VfsOpenItem, VfsViewMode } from './VfsExplorer';
 export { VfsExplorer } from './VfsExplorer';
 export { VfsStatusBar } from './VfsStatusBar';
 export type { VfsFolderNode } from './VfsTreePanel';
-export { UNFILED_FOLDER_ID, VfsTreePanel } from './VfsTreePanel';
+export { VfsTreePanel } from './VfsTreePanel';
 export { VfsWindow } from './VfsWindow';
 export { VfsWindowMenuBar } from './VfsWindowMenuBar';

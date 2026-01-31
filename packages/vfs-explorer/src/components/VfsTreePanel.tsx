@@ -8,18 +8,14 @@ import {
   Loader2
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useVfsFolders, type VfsFolderNode } from '../hooks';
+import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
+import { useEnsureVfsRoot, useVfsFolders, type VfsFolderNode } from '../hooks';
 import { cn } from '../lib';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
 import { FolderContextMenu } from './FolderContextMenu';
 import { NewFolderDialog } from './NewFolderDialog';
 import { RenameFolderDialog } from './RenameFolderDialog';
 import { VfsDroppableFolder } from './VfsDroppableFolder';
-
-// Special ID for the unfiled items virtual folder
-export const UNFILED_FOLDER_ID = '__unfiled__';
-// Special ID for the all items virtual folder
-export const ALL_ITEMS_FOLDER_ID = '__all__';
 
 export type { VfsFolderNode };
 
@@ -48,6 +44,9 @@ export function VfsTreePanel({
   refreshToken,
   onFolderChanged
 }: VfsTreePanelProps) {
+  // Ensure the VFS root exists before loading folders
+  useEnsureVfsRoot();
+
   const { folders, loading, error, refetch } = useVfsFolders();
 
   // Refetch when refreshToken changes

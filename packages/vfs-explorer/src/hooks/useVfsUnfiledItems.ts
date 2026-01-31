@@ -16,8 +16,9 @@ import {
   vfsLinks,
   vfsRegistry
 } from '@rapid/db/sqlite';
-import { eq, inArray, isNull } from 'drizzle-orm';
+import { and, eq, inArray, isNull, ne } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';
 
 export type VfsObjectType =
@@ -72,6 +73,7 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
 
       // Get all registry items that have no parent link using LEFT JOIN
       // This is more efficient than loading all linked IDs into memory
+      // Exclude the VFS root - it's the only item that should have no parent
       const registryRows = await db
         .select({
           id: vfsRegistry.id,
@@ -80,7 +82,7 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
         })
         .from(vfsRegistry)
         .leftJoin(vfsLinks, eq(vfsRegistry.id, vfsLinks.childId))
-        .where(isNull(vfsLinks.childId));
+        .where(and(isNull(vfsLinks.childId), ne(vfsRegistry.id, VFS_ROOT_ID)));
 
       if (registryRows.length === 0) {
         setItems([]);
