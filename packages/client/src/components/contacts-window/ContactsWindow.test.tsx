@@ -3,6 +3,12 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ContactsWindow } from './ContactsWindow';
 
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManager: () => ({
+    windowOpenRequests: {}
+  })
+}));
+
 const mockInsert = vi.fn().mockReturnValue({
   values: vi.fn().mockResolvedValue(undefined)
 });

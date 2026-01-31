@@ -13,7 +13,18 @@ const mockNavigate = vi.fn();
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
-    openWindow: mockOpenWindow
+    windows: [],
+    openWindow: mockOpenWindow,
+    requestWindowOpen: vi.fn(),
+    windowOpenRequests: {},
+    closeWindow: vi.fn(),
+    focusWindow: vi.fn(),
+    minimizeWindow: vi.fn(),
+    restoreWindow: vi.fn(),
+    updateWindowDimensions: vi.fn(),
+    saveWindowDimensionsForType: vi.fn(),
+    isWindowOpen: vi.fn(),
+    getWindow: vi.fn()
   })
 }));
 

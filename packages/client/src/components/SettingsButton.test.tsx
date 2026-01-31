@@ -27,6 +27,8 @@ describe('SettingsButton', () => {
     vi.mocked(useWindowManager).mockReturnValue({
       windows: [],
       openWindow,
+      requestWindowOpen: vi.fn(),
+      windowOpenRequests: {},
       focusWindow,
       closeWindow: vi.fn(),
       minimizeWindow: vi.fn(),
@@ -72,6 +74,8 @@ describe('SettingsButton', () => {
         { id: 'settings-1', type: 'settings', zIndex: 1, isMinimized: false }
       ],
       openWindow,
+      requestWindowOpen: vi.fn(),
+      windowOpenRequests: {},
       focusWindow,
       closeWindow: vi.fn(),
       minimizeWindow: vi.fn(),

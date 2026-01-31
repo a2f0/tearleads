@@ -1,7 +1,8 @@
 import type { ChangeEvent } from 'react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { isVideoMimeType } from '@/lib/thumbnail';
 import { VideoPage } from '@/pages/Video';
@@ -28,6 +29,8 @@ export function VideoWindow({
   zIndex,
   initialDimensions
 }: VideoWindowProps) {
+  const { windowOpenRequests } = useWindowManager();
+  const openRequest = windowOpenRequests.videos;
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [autoPlay, setAutoPlay] = useState(false);
@@ -94,6 +97,11 @@ export function VideoWindow({
     },
     [handleUploadFiles]
   );
+
+  useEffect(() => {
+    if (!openRequest) return;
+    handleOpenVideo(openRequest.videoId, { autoPlay: false });
+  }, [handleOpenVideo, openRequest]);
 
   return (
     <FloatingWindow

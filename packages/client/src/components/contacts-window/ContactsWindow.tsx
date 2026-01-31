@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { ContactsWindowDetail } from './ContactsWindowDetail';
 import { ContactsWindowImport } from './ContactsWindowImport';
@@ -32,6 +33,8 @@ export function ContactsWindow({
   initialDimensions
 }: ContactsWindowProps) {
   const { isUnlocked } = useDatabaseContext();
+  const { windowOpenRequests } = useWindowManager();
+  const openRequest = windowOpenRequests.contacts;
   const [currentView, setCurrentView] = useState<WindowView>('list');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
     null
@@ -91,6 +94,12 @@ export function ContactsWindow({
     setSelectedContactId(contactId);
     setCurrentView('detail');
   }, []);
+
+  useEffect(() => {
+    if (!openRequest) return;
+    setSelectedContactId(openRequest.contactId);
+    setCurrentView('detail');
+  }, [openRequest]);
 
   const getTitle = () => {
     switch (currentView) {

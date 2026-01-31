@@ -36,7 +36,20 @@ describe('MiniPlayer', () => {
     vi.clearAllMocks();
     // Default to a non-audio page
     mockUseLocation.mockReturnValue({ pathname: '/home' });
-    mockUseWindowManager.mockReturnValue({ windows: [] });
+    mockUseWindowManager.mockReturnValue({
+      windows: [],
+      openWindow: vi.fn(),
+      requestWindowOpen: vi.fn(),
+      windowOpenRequests: {},
+      closeWindow: vi.fn(),
+      focusWindow: vi.fn(),
+      minimizeWindow: vi.fn(),
+      restoreWindow: vi.fn(),
+      updateWindowDimensions: vi.fn(),
+      saveWindowDimensionsForType: vi.fn(),
+      isWindowOpen: vi.fn(),
+      getWindow: vi.fn()
+    });
   });
 
   describe('when no audio context', () => {

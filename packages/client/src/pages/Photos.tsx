@@ -10,6 +10,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { ALL_PHOTOS_ID } from '@/components/photos-window/PhotosAlbumsSidebar';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -100,6 +101,7 @@ export function Photos({
   showDropzone = true,
   selectedAlbumId
 }: PhotosProps = {}) {
+  const [searchParams] = useSearchParams();
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { t } = useTypedTranslation('contextMenu');
@@ -118,6 +120,11 @@ export function Photos({
   const { uploadFile } = useFileUpload();
   const parentRef = useRef<HTMLDivElement>(null);
   const columns = useColumnCount();
+
+  const resolvedAlbumId =
+    selectedAlbumId !== undefined
+      ? selectedAlbumId
+      : (searchParams.get('album') ?? undefined);
 
   const photoRows = useMemo(() => {
     const rows: GridItem[][] = [];
@@ -281,11 +288,11 @@ export function Photos({
 
       // If a specific album is selected, get the photo IDs in that album
       let photoIdsInAlbum: string[] | null = null;
-      if (selectedAlbumId && selectedAlbumId !== ALL_PHOTOS_ID) {
+      if (resolvedAlbumId && resolvedAlbumId !== ALL_PHOTOS_ID) {
         const albumLinks = await db
           .select({ childId: vfsLinks.childId })
           .from(vfsLinks)
-          .where(eq(vfsLinks.parentId, selectedAlbumId));
+          .where(eq(vfsLinks.parentId, resolvedAlbumId));
         photoIdsInAlbum = albumLinks.map((l) => l.childId);
 
         // If album is empty, return early
@@ -371,7 +378,7 @@ export function Photos({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, currentInstanceId, selectedAlbumId]);
+  }, [isUnlocked, currentInstanceId, resolvedAlbumId]);
 
   // Track the instance ID for which we've fetched photos
   // Using a ref avoids React's state batching issues

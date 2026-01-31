@@ -1,5 +1,5 @@
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
 import { AudioWindowDetail } from './AudioWindowDetail';
@@ -16,6 +16,8 @@ interface AudioWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
+  openAudioId?: string | null | undefined;
+  openRequestId?: number | undefined;
 }
 
 export function AudioWindow({
@@ -25,7 +27,9 @@ export function AudioWindow({
   onDimensionsChange,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  openAudioId,
+  openRequestId
 }: AudioWindowProps) {
   const { uploadFile } = useAudioUIContext();
 
@@ -86,6 +90,11 @@ export function AudioWindow({
   const handlePlaylistChanged = useCallback(() => {
     setRefreshToken((value) => value + 1);
   }, []);
+
+  useEffect(() => {
+    if (!openRequestId || !openAudioId) return;
+    setSelectedTrackId(openAudioId);
+  }, [openAudioId, openRequestId]);
 
   return (
     <FloatingWindow

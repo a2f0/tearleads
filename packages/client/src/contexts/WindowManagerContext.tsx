@@ -4,6 +4,7 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState
 } from 'react';
 import { generateUniqueId } from '@/lib/utils';
@@ -50,6 +51,22 @@ export type WindowType =
   | 'v86'
   | 'vfs';
 
+export interface WindowOpenRequestPayloads {
+  contacts: { contactId: string };
+  notes: { noteId: string };
+  documents: { documentId: string };
+  photos: { photoId?: string; albumId?: string };
+  files: { fileId: string };
+  audio: { audioId: string };
+  videos: { videoId: string };
+}
+
+export type WindowOpenRequests = {
+  [K in keyof WindowOpenRequestPayloads]?: WindowOpenRequestPayloads[K] & {
+    requestId: number;
+  };
+};
+
 export interface WindowDimensions {
   width: number;
   height: number;
@@ -75,6 +92,11 @@ export interface WindowInstance {
 interface WindowManagerContextValue {
   windows: WindowInstance[];
   openWindow: (type: WindowType, id?: string) => string;
+  requestWindowOpen: <K extends keyof WindowOpenRequestPayloads>(
+    type: K,
+    payload: WindowOpenRequestPayloads[K]
+  ) => void;
+  windowOpenRequests: WindowOpenRequests;
   closeWindow: (id: string) => void;
   focusWindow: (id: string) => void;
   minimizeWindow: (id: string, dimensions?: WindowDimensions) => void;
@@ -102,6 +124,9 @@ export function WindowManagerProvider({
   children
 }: WindowManagerProviderProps) {
   const [windows, setWindows] = useState<WindowInstance[]>([]);
+  const [windowOpenRequests, setWindowOpenRequests] =
+    useState<WindowOpenRequests>({});
+  const requestCounterRef = useRef(0);
 
   const getNextZIndex = useCallback((currentWindows: WindowInstance[]) => {
     if (currentWindows.length === 0) {
@@ -181,6 +206,21 @@ export function WindowManagerProvider({
     [getNextZIndex, windows]
   );
 
+  const requestWindowOpen = useCallback(
+    <K extends keyof WindowOpenRequestPayloads>(
+      type: K,
+      payload: WindowOpenRequestPayloads[K]
+    ) => {
+      requestCounterRef.current += 1;
+      const requestId = requestCounterRef.current;
+      setWindowOpenRequests((prev) => ({
+        ...prev,
+        [type]: { ...payload, requestId }
+      }));
+    },
+    []
+  );
+
   const minimizeWindow = useCallback(
     (id: string, dimensions?: WindowDimensions) => {
       setWindows((prev) =>
@@ -246,6 +286,8 @@ export function WindowManagerProvider({
     () => ({
       windows,
       openWindow,
+      requestWindowOpen,
+      windowOpenRequests,
       closeWindow,
       focusWindow,
       minimizeWindow,
@@ -258,6 +300,8 @@ export function WindowManagerProvider({
     [
       windows,
       openWindow,
+      requestWindowOpen,
+      windowOpenRequests,
       closeWindow,
       focusWindow,
       minimizeWindow,

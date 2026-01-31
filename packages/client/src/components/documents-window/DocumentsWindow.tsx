@@ -1,6 +1,7 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { DocumentDetail } from '@/pages/DocumentDetail';
 import { Documents } from '@/pages/Documents';
@@ -27,6 +28,8 @@ export function DocumentsWindow({
   initialDimensions
 }: DocumentsWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { windowOpenRequests } = useWindowManager();
+  const openRequest = windowOpenRequests.documents;
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     null
   );
@@ -81,6 +84,11 @@ export function DocumentsWindow({
   const handleBack = useCallback(() => {
     setSelectedDocumentId(null);
   }, []);
+
+  useEffect(() => {
+    if (!openRequest) return;
+    setSelectedDocumentId(openRequest.documentId);
+  }, [openRequest]);
 
   return (
     <FloatingWindow

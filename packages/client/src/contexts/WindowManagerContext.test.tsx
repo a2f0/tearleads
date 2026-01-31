@@ -182,6 +182,31 @@ describe('WindowManagerContext', () => {
     });
   });
 
+  describe('requestWindowOpen', () => {
+    it('stores window open requests with incrementing ids', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.requestWindowOpen('contacts', {
+          contactId: 'contact-1'
+        });
+      });
+
+      expect(result.current.windowOpenRequests.contacts?.contactId).toBe(
+        'contact-1'
+      );
+      expect(result.current.windowOpenRequests.contacts?.requestId).toBe(1);
+
+      act(() => {
+        result.current.requestWindowOpen('contacts', {
+          contactId: 'contact-1'
+        });
+      });
+
+      expect(result.current.windowOpenRequests.contacts?.requestId).toBe(2);
+    });
+  });
+
   describe('closeWindow', () => {
     it('removes window by id', () => {
       const { result } = renderHook(() => useWindowManager(), { wrapper });

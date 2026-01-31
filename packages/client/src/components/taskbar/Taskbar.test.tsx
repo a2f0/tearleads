@@ -28,11 +28,17 @@ const mockUpdateWindowDimensions = vi.fn();
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
     windows: mockWindows,
+    openWindow: vi.fn(),
+    requestWindowOpen: vi.fn(),
+    windowOpenRequests: {},
     focusWindow: mockFocusWindow,
     closeWindow: mockCloseWindow,
     minimizeWindow: mockMinimizeWindow,
     restoreWindow: mockRestoreWindow,
-    updateWindowDimensions: mockUpdateWindowDimensions
+    updateWindowDimensions: mockUpdateWindowDimensions,
+    saveWindowDimensionsForType: vi.fn(),
+    isWindowOpen: vi.fn(),
+    getWindow: vi.fn()
   })
 }));
 
