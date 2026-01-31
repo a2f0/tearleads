@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type AudioPlaylist, useAudioUIContext } from '../../context/AudioUIContext';
+import {
+  type AudioPlaylist,
+  useAudioUIContext
+} from '../../context/AudioUIContext';
 
 export interface DeletePlaylistDialogProps {
   open: boolean;

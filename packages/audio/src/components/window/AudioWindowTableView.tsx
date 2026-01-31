@@ -173,7 +173,9 @@ export function AudioWindowTableView({
         }
       }
 
-      const tracksWithUrls = await fetchAudioFilesWithUrls(trackIds ?? undefined);
+      const tracksWithUrls = await fetchAudioFilesWithUrls(
+        trackIds ?? undefined
+      );
       setTracks(tracksWithUrls);
       setHasFetched(true);
     } catch (err) {

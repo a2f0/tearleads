@@ -168,7 +168,10 @@ describe('AudioPlaylistsSidebar', () => {
 
   it('highlights selected playlist', () => {
     render(
-      <AudioPlaylistsSidebar {...defaultProps} selectedPlaylistId="playlist-1" />
+      <AudioPlaylistsSidebar
+        {...defaultProps}
+        selectedPlaylistId="playlist-1"
+      />
     );
 
     const playlistButton = screen.getByText('Road Trip').closest('button');
@@ -177,7 +180,10 @@ describe('AudioPlaylistsSidebar', () => {
 
   it('highlights All Tracks when selected', () => {
     render(
-      <AudioPlaylistsSidebar {...defaultProps} selectedPlaylistId={ALL_AUDIO_ID} />
+      <AudioPlaylistsSidebar
+        {...defaultProps}
+        selectedPlaylistId={ALL_AUDIO_ID}
+      />
     );
 
     const allTracksButton = screen.getByText('All Tracks').closest('button');

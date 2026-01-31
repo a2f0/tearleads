@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { type AudioPlaylist, useAudioUIContext } from '../../context/AudioUIContext';
+import {
+  type AudioPlaylist,
+  useAudioUIContext
+} from '../../context/AudioUIContext';
 
 export interface UseAudioPlaylistsResult {
   playlists: AudioPlaylist[];
@@ -11,7 +14,10 @@ export interface UseAudioPlaylistsResult {
   renamePlaylist: (playlistId: string, newName: string) => Promise<void>;
   deletePlaylist: (playlistId: string) => Promise<void>;
   addTrackToPlaylist: (playlistId: string, audioId: string) => Promise<void>;
-  removeTrackFromPlaylist: (playlistId: string, audioId: string) => Promise<void>;
+  removeTrackFromPlaylist: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
   getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
 }
 

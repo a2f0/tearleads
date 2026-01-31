@@ -5,8 +5,8 @@ import type {
   ActionToolbarProps,
   AudioInfo,
   AudioMetadata,
-  AudioPlaylist,
   AudioPlayerProps,
+  AudioPlaylist,
   AudioUIComponents,
   AudioWithUrl,
   BackLinkProps,
@@ -206,7 +206,10 @@ export interface MockContextOptions {
   renamePlaylist?: (playlistId: string, newName: string) => Promise<void>;
   deletePlaylist?: (playlistId: string) => Promise<void>;
   addTrackToPlaylist?: (playlistId: string, audioId: string) => Promise<void>;
-  removeTrackFromPlaylist?: (playlistId: string, audioId: string) => Promise<void>;
+  removeTrackFromPlaylist?: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
   getTrackIdsInPlaylist?: (playlistId: string) => Promise<string[]>;
   retrieveFile?: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio?: (audioId: string) => Promise<void>;
@@ -238,7 +241,10 @@ export interface MockContextValue {
   renamePlaylist: (playlistId: string, newName: string) => Promise<void>;
   deletePlaylist: (playlistId: string) => Promise<void>;
   addTrackToPlaylist: (playlistId: string, audioId: string) => Promise<void>;
-  removeTrackFromPlaylist: (playlistId: string, audioId: string) => Promise<void>;
+  removeTrackFromPlaylist: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
   getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;

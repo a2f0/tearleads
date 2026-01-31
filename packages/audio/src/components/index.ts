@@ -20,9 +20,9 @@ export {
 
 // Window components
 export {
-  type AudioViewMode,
-  AudioPlaylistsSidebar,
   ALL_AUDIO_ID,
+  AudioPlaylistsSidebar,
+  type AudioViewMode,
   AudioWindow,
   AudioWindowDetail,
   AudioWindowList,

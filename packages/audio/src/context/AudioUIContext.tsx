@@ -284,7 +284,10 @@ export interface AudioUIContextValue {
   /** Add an audio file to a playlist */
   addTrackToPlaylist: (playlistId: string, audioId: string) => Promise<void>;
   /** Remove an audio file from a playlist */
-  removeTrackFromPlaylist: (playlistId: string, audioId: string) => Promise<void>;
+  removeTrackFromPlaylist: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
   /** Get audio IDs in a playlist */
   getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
   /** Retrieve a file's content by storage path */
@@ -340,7 +343,10 @@ export interface AudioUIProviderProps {
   renamePlaylist: (playlistId: string, newName: string) => Promise<void>;
   deletePlaylist: (playlistId: string) => Promise<void>;
   addTrackToPlaylist: (playlistId: string, audioId: string) => Promise<void>;
-  removeTrackFromPlaylist: (playlistId: string, audioId: string) => Promise<void>;
+  removeTrackFromPlaylist: (
+    playlistId: string,
+    audioId: string
+  ) => Promise<void>;
   getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;

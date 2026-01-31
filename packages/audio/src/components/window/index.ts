@@ -1,4 +1,4 @@
-export { AudioPlaylistsSidebar, ALL_AUDIO_ID } from './AudioPlaylistsSidebar';
+export { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
 export { AudioWindow } from './AudioWindow';
 export { AudioWindowDetail } from './AudioWindowDetail';
 export { AudioWindowList } from './AudioWindowList';

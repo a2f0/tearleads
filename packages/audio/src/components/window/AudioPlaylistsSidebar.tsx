@@ -1,6 +1,6 @@
 import { List, Loader2, Music, Plus } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
-import { type AudioPlaylist } from '../../context/AudioUIContext';
+import type { AudioPlaylist } from '../../context/AudioUIContext';
 import { AudioPlaylistsContextMenu } from './AudioPlaylistsContextMenu';
 import { DeletePlaylistDialog } from './DeletePlaylistDialog';
 import { NewPlaylistDialog } from './NewPlaylistDialog';
@@ -52,7 +52,10 @@ export function AudioPlaylistsSidebar({
       const handleMouseMove = (e: MouseEvent) => {
         if (!isDragging.current) return;
         const delta = e.clientX - startX.current;
-        const newWidth = Math.max(150, Math.min(400, startWidth.current + delta));
+        const newWidth = Math.max(
+          150,
+          Math.min(400, startWidth.current + delta)
+        );
         onWidthChange(newWidth);
       };
 

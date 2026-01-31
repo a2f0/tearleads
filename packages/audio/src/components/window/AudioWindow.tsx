@@ -1,7 +1,7 @@
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useRef, useState } from 'react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
-import { AudioPlaylistsSidebar, ALL_AUDIO_ID } from './AudioPlaylistsSidebar';
+import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
 import { AudioWindowDetail } from './AudioWindowDetail';
 import { AudioWindowList } from './AudioWindowList';
 import type { AudioViewMode } from './AudioWindowMenuBar';

@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { type AudioPlaylist } from '../../context/AudioUIContext';
+import type { AudioPlaylist } from '../../context/AudioUIContext';
 
 interface AudioPlaylistsContextMenuProps {
   x: number;

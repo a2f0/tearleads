@@ -2,14 +2,14 @@
 
 // Components exports
 export {
+  ALL_AUDIO_ID,
   // Player components
   AudioControls,
   AudioPlayer,
-  type AudioViewMode,
-  ALL_AUDIO_ID,
-  AudioVisualizer,
   // Window components
   AudioPlaylistsSidebar,
+  type AudioViewMode,
+  AudioVisualizer,
   AudioWindow,
   AudioWindowDetail,
   AudioWindowList,
