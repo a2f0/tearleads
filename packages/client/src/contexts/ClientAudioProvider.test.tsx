@@ -1,5 +1,5 @@
-import { render, screen } from '@testing-library/react';
 import type { AudioUIProviderProps } from '@rapid/audio';
+import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioAboutMenuItem, ClientAudioProvider } from './ClientAudioProvider';
 
