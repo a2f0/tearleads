@@ -18,7 +18,7 @@ import {
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
-const router: RouterType = Router();
+const groupsRouter: RouterType = Router();
 
 /**
  * @openapi
@@ -60,7 +60,7 @@ const router: RouterType = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/', async (_req: Request, res: Response) => {
+groupsRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<{
@@ -159,7 +159,7 @@ router.get('/', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post(
+groupsRouter.post(
   '/',
   async (req: Request<unknown, unknown, CreateGroupRequest>, res: Response) => {
     try {
@@ -282,66 +282,69 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPostgresPool();
+groupsRouter.get(
+  '/:id',
+  async (req: Request<{ id: string }>, res: Response) => {
+    try {
+      const { id } = req.params;
+      const pool = await getPostgresPool();
 
-    const groupResult = await pool.query<{
-      id: string;
-      organization_id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      'SELECT id, organization_id, name, description, created_at, updated_at FROM groups WHERE id = $1',
-      [id]
-    );
+      const groupResult = await pool.query<{
+        id: string;
+        organization_id: string;
+        name: string;
+        description: string | null;
+        created_at: Date;
+        updated_at: Date;
+      }>(
+        'SELECT id, organization_id, name, description, created_at, updated_at FROM groups WHERE id = $1',
+        [id]
+      );
 
-    const groupRow = groupResult.rows[0];
-    if (!groupRow) {
-      res.status(404).json({ error: 'Group not found' });
-      return;
-    }
+      const groupRow = groupResult.rows[0];
+      if (!groupRow) {
+        res.status(404).json({ error: 'Group not found' });
+        return;
+      }
 
-    const membersResult = await pool.query<{
-      user_id: string;
-      email: string;
-      joined_at: Date;
-    }>(
-      `SELECT ug.user_id, u.email, ug.joined_at
+      const membersResult = await pool.query<{
+        user_id: string;
+        email: string;
+        joined_at: Date;
+      }>(
+        `SELECT ug.user_id, u.email, ug.joined_at
        FROM user_groups ug
        JOIN users u ON u.id = ug.user_id
        WHERE ug.group_id = $1
        ORDER BY ug.joined_at`,
-      [id]
-    );
+        [id]
+      );
 
-    const group: Group = {
-      id: groupRow.id,
-      organizationId: groupRow.organization_id,
-      name: groupRow.name,
-      description: groupRow.description,
-      createdAt: groupRow.created_at.toISOString(),
-      updatedAt: groupRow.updated_at.toISOString()
-    };
+      const group: Group = {
+        id: groupRow.id,
+        organizationId: groupRow.organization_id,
+        name: groupRow.name,
+        description: groupRow.description,
+        createdAt: groupRow.created_at.toISOString(),
+        updatedAt: groupRow.updated_at.toISOString()
+      };
 
-    const members: GroupMember[] = membersResult.rows.map((row) => ({
-      userId: row.user_id,
-      email: row.email,
-      joinedAt: row.joined_at.toISOString()
-    }));
+      const members: GroupMember[] = membersResult.rows.map((row) => ({
+        userId: row.user_id,
+        email: row.email,
+        joinedAt: row.joined_at.toISOString()
+      }));
 
-    const response: GroupDetailResponse = { group, members };
-    res.json(response);
-  } catch (err) {
-    console.error('Groups error:', err);
-    res.status(500).json({
-      error: err instanceof Error ? err.message : 'Failed to fetch group'
-    });
+      const response: GroupDetailResponse = { group, members };
+      res.json(response);
+    } catch (err) {
+      console.error('Groups error:', err);
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to fetch group'
+      });
+    }
   }
-});
+);
 
 /**
  * @openapi
@@ -398,7 +401,7 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.put(
+groupsRouter.put(
   '/:id',
   async (
     req: Request<{ id: string }, unknown, UpdateGroupRequest>,
@@ -535,20 +538,23 @@ router.put(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPostgresPool();
+groupsRouter.delete(
+  '/:id',
+  async (req: Request<{ id: string }>, res: Response) => {
+    try {
+      const { id } = req.params;
+      const pool = await getPostgresPool();
 
-    const result = await pool.query('DELETE FROM groups WHERE id = $1', [id]);
-    res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
-  } catch (err) {
-    console.error('Groups error:', err);
-    res.status(500).json({
-      error: err instanceof Error ? err.message : 'Failed to delete group'
-    });
+      const result = await pool.query('DELETE FROM groups WHERE id = $1', [id]);
+      res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
+    } catch (err) {
+      console.error('Groups error:', err);
+      res.status(500).json({
+        error: err instanceof Error ? err.message : 'Failed to delete group'
+      });
+    }
   }
-});
+);
 
 /**
  * @openapi
@@ -588,7 +594,7 @@ router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get(
+groupsRouter.get(
   '/:id/members',
   async (req: Request<{ id: string }>, res: Response) => {
     try {
@@ -696,7 +702,7 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post(
+groupsRouter.post(
   '/:id/members',
   async (
     req: Request<{ id: string }, unknown, AddMemberRequest>,
@@ -801,7 +807,7 @@ router.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete(
+groupsRouter.delete(
   '/:id/members/:userId',
   async (req: Request<{ id: string; userId: string }>, res: Response) => {
     try {
@@ -823,4 +829,4 @@ router.delete(
   }
 );
 
-export { router as groupsRouter };
+export { groupsRouter };

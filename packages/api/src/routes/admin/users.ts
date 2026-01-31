@@ -24,7 +24,7 @@ type UserRow = {
   created_at?: Date | string | null;
 };
 
-const router: RouterType = Router();
+const usersRouter: RouterType = Router();
 
 type AdminUserOverrides = {
   createdAt?: string | null;
@@ -144,7 +144,7 @@ function parseUserUpdatePayload(body: unknown): AdminUserUpdatePayload | null {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/', async (_req: Request, res: Response) => {
+usersRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<UserRow>(
@@ -213,7 +213,7 @@ router.get('/', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/:id', async (req: Request, res: Response) => {
+usersRouter.get('/:id', async (req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<UserRow>(
@@ -307,7 +307,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.patch('/:id', async (req: Request, res: Response) => {
+usersRouter.patch('/:id', async (req: Request, res: Response) => {
   const updates = parseUserUpdatePayload(req.body);
   if (!updates) {
     res.status(400).json({ error: 'Invalid user update payload' });
@@ -436,4 +436,4 @@ router.patch('/:id', async (req: Request, res: Response) => {
   }
 });
 
-export { router as usersRouter };
+export { usersRouter };

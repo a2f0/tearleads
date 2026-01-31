@@ -16,7 +16,7 @@ import {
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
-const router: RouterType = Router();
+const organizationsRouter: RouterType = Router();
 
 async function checkOrganizationExists(
   id: string,
@@ -48,7 +48,7 @@ async function checkOrganizationExists(
  *       500:
  *         description: Database error
  */
-router.get('/', async (_req: Request, res: Response) => {
+organizationsRouter.get('/', async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<{
@@ -100,7 +100,7 @@ router.get('/', async (_req: Request, res: Response) => {
  *       500:
  *         description: Database error
  */
-router.post(
+organizationsRouter.post(
   '/',
   async (
     req: Request<unknown, unknown, CreateOrganizationRequest>,
@@ -179,45 +179,49 @@ router.post(
  *       500:
  *         description: Database error
  */
-router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  try {
-    const pool = await getPostgresPool();
-    const result = await pool.query<{
-      id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
-      `SELECT id, name, description, created_at, updated_at
+organizationsRouter.get(
+  '/:id',
+  async (req: Request<{ id: string }>, res: Response) => {
+    try {
+      const pool = await getPostgresPool();
+      const result = await pool.query<{
+        id: string;
+        name: string;
+        description: string | null;
+        created_at: Date;
+        updated_at: Date;
+      }>(
+        `SELECT id, name, description, created_at, updated_at
        FROM organizations
        WHERE id = $1`,
-      [req.params['id']]
-    );
+        [req.params['id']]
+      );
 
-    const row = result.rows[0];
-    if (!row) {
-      res.status(404).json({ error: 'Organization not found' });
-      return;
-    }
-
-    const response: OrganizationResponse = {
-      organization: {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        createdAt: row.created_at.toISOString(),
-        updatedAt: row.updated_at.toISOString()
+      const row = result.rows[0];
+      if (!row) {
+        res.status(404).json({ error: 'Organization not found' });
+        return;
       }
-    };
-    res.json(response);
-  } catch (err) {
-    console.error('Organizations error:', err);
-    res.status(500).json({
-      error: err instanceof Error ? err.message : 'Failed to fetch organization'
-    });
+
+      const response: OrganizationResponse = {
+        organization: {
+          id: row.id,
+          name: row.name,
+          description: row.description,
+          createdAt: row.created_at.toISOString(),
+          updatedAt: row.updated_at.toISOString()
+        }
+      };
+      res.json(response);
+    } catch (err) {
+      console.error('Organizations error:', err);
+      res.status(500).json({
+        error:
+          err instanceof Error ? err.message : 'Failed to fetch organization'
+      });
+    }
   }
-});
+);
 
 /**
  * @openapi
@@ -242,7 +246,7 @@ router.get('/:id', async (req: Request<{ id: string }>, res: Response) => {
  *       500:
  *         description: Database error
  */
-router.get(
+organizationsRouter.get(
   '/:id/users',
   async (req: Request<{ id: string }>, res: Response) => {
     try {
@@ -306,7 +310,7 @@ router.get(
  *       500:
  *         description: Database error
  */
-router.get(
+organizationsRouter.get(
   '/:id/groups',
   async (req: Request<{ id: string }>, res: Response) => {
     try {
@@ -370,7 +374,7 @@ router.get(
  *       500:
  *         description: Database error
  */
-router.put(
+organizationsRouter.put(
   '/:id',
   async (
     req: Request<{ id: string }, unknown, UpdateOrganizationRequest>,
@@ -470,22 +474,26 @@ router.put(
  *       500:
  *         description: Database error
  */
-router.delete('/:id', async (req: Request<{ id: string }>, res: Response) => {
-  try {
-    const { id } = req.params;
-    const pool = await getPostgresPool();
+organizationsRouter.delete(
+  '/:id',
+  async (req: Request<{ id: string }>, res: Response) => {
+    try {
+      const { id } = req.params;
+      const pool = await getPostgresPool();
 
-    const result = await pool.query('DELETE FROM organizations WHERE id = $1', [
-      id
-    ]);
-    res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
-  } catch (err) {
-    console.error('Organizations error:', err);
-    res.status(500).json({
-      error:
-        err instanceof Error ? err.message : 'Failed to delete organization'
-    });
+      const result = await pool.query(
+        'DELETE FROM organizations WHERE id = $1',
+        [id]
+      );
+      res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
+    } catch (err) {
+      console.error('Organizations error:', err);
+      res.status(500).json({
+        error:
+          err instanceof Error ? err.message : 'Failed to delete organization'
+      });
+    }
   }
-});
+);
 
-export { router as organizationsRouter };
+export { organizationsRouter };

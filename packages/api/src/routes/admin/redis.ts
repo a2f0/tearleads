@@ -11,7 +11,7 @@ import {
 } from 'express';
 import { getRedisClient } from '../../lib/redis.js';
 
-const router: RouterType = Router();
+const redisRouter: RouterType = Router();
 
 /**
  * @openapi
@@ -66,7 +66,7 @@ const router: RouterType = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/keys', async (req: Request, res: Response) => {
+redisRouter.get('/keys', async (req: Request, res: Response) => {
   try {
     const client = await getRedisClient();
     const cursor = String(req.query['cursor'] ?? '0');
@@ -143,7 +143,7 @@ router.get('/keys', async (req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/dbsize', async (_req: Request, res: Response) => {
+redisRouter.get('/dbsize', async (_req: Request, res: Response) => {
   try {
     const client = await getRedisClient();
     const count = await client.dbSize();
@@ -208,7 +208,7 @@ router.get('/dbsize', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get(
+redisRouter.get(
   '/keys/:key',
   async (req: Request<{ key: string }>, res: Response) => {
     try {
@@ -288,7 +288,7 @@ router.get(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.delete(
+redisRouter.delete(
   '/keys/:key',
   async (req: Request<{ key: string }>, res: Response) => {
     try {
@@ -305,4 +305,4 @@ router.delete(
   }
 );
 
-export { router as redisRouter };
+export { redisRouter };

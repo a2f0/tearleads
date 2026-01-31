@@ -12,7 +12,7 @@ import {
   type Router as RouterType
 } from 'express';
 
-const router: RouterType = Router();
+const chatRouter: RouterType = Router();
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
@@ -71,7 +71,7 @@ export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
  *       500:
  *         description: Server configuration error
  */
-router.post('/completions', async (req: Request, res: Response) => {
+chatRouter.post('/completions', async (req: Request, res: Response) => {
   const messageResult = validateChatMessages(req.body?.['messages']);
   if (!messageResult.ok) {
     res.status(400).json({ error: messageResult.error });
@@ -129,4 +129,4 @@ router.post('/completions', async (req: Request, res: Response) => {
   }
 });
 
-export { router as chatRouter, OPENROUTER_API_URL };
+export { chatRouter, OPENROUTER_API_URL };

@@ -20,7 +20,7 @@ import {
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
 
-const router: RouterType = Router();
+const vfsRouter: RouterType = Router();
 
 // Valid VFS object types
 const VALID_OBJECT_TYPES: VfsObjectType[] = [
@@ -144,7 +144,7 @@ function parseRegisterPayload(body: unknown): VfsRegisterRequest | null {
  *       500:
  *         description: Server error
  */
-router.get('/keys/me', async (req: Request, res: Response) => {
+vfsRouter.get('/keys/me', async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -223,7 +223,7 @@ router.get('/keys/me', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-router.post('/keys', async (req: Request, res: Response) => {
+vfsRouter.post('/keys', async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -331,7 +331,7 @@ router.post('/keys', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-router.post('/register', async (req: Request, res: Response) => {
+vfsRouter.post('/register', async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -387,4 +387,4 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-export { router as vfsRouter };
+export { vfsRouter };
