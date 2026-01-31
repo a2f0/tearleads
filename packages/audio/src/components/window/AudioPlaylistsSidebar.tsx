@@ -71,6 +71,17 @@ export function AudioPlaylistsSidebar({
     [onWidthChange, width]
   );
 
+  const handleResizeKeyDown = useCallback(
+    (e: React.KeyboardEvent<HTMLDivElement>) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      const delta = e.key === 'ArrowRight' ? 10 : -10;
+      const newWidth = Math.max(150, Math.min(400, width + delta));
+      onWidthChange(newWidth);
+    },
+    [onWidthChange, width]
+  );
+
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, playlist: AudioPlaylist) => {
       e.preventDefault();
@@ -164,10 +175,16 @@ export function AudioPlaylistsSidebar({
             </button>
           ))}
       </div>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for panel width */}
-      <div
-        className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"
+      <hr
+        className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize border-0 bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
         onMouseDown={handleMouseDown}
+        onKeyDown={handleResizeKeyDown}
+        tabIndex={0}
+        aria-orientation="vertical"
+        aria-valuenow={width}
+        aria-valuemin={150}
+        aria-valuemax={400}
+        aria-label="Resize playlist sidebar"
       />
 
       {contextMenu && (

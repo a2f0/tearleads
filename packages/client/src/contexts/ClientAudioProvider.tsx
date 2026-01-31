@@ -14,7 +14,7 @@ import {
 } from '@rapid/audio';
 import audioPackageJson from '@rapid/audio/package.json';
 import { assertPlainArrayBuffer } from '@rapid/shared';
-import { and, desc, eq, inArray, like } from 'drizzle-orm';
+import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback } from 'react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -217,37 +217,38 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
   const fetchPlaylists = useCallback(async (): Promise<AudioPlaylist[]> => {
     const db = getDatabase();
 
+    const trackCountsSubQuery = db
+      .select({
+        parentId: vfsLinks.parentId,
+        trackCount: sql<number>`count(*)`.as('track_count')
+      })
+      .from(vfsLinks)
+      .groupBy(vfsLinks.parentId)
+      .as('trackCounts');
+
     const playlistRows = await db
       .select({
         id: vfsRegistry.id,
         name: playlists.encryptedName,
-        coverImageId: playlists.coverImageId
+        coverImageId: playlists.coverImageId,
+        trackCount: sql<number>`
+          coalesce(${trackCountsSubQuery.trackCount}, 0)
+        `.mapWith(Number)
       })
       .from(vfsRegistry)
       .innerJoin(playlists, eq(playlists.id, vfsRegistry.id))
+      .leftJoin(
+        trackCountsSubQuery,
+        eq(vfsRegistry.id, trackCountsSubQuery.parentId)
+      )
       .where(eq(vfsRegistry.objectType, 'playlist'));
 
     if (playlistRows.length === 0) return [];
 
-    const playlistIds = playlistRows.map((row) => row.id);
-
-    const childCountRows = await db
-      .select({ parentId: vfsLinks.parentId })
-      .from(vfsLinks)
-      .where(inArray(vfsLinks.parentId, playlistIds));
-
-    const trackCountMap = new Map<string, number>();
-    for (const row of childCountRows) {
-      trackCountMap.set(
-        row.parentId,
-        (trackCountMap.get(row.parentId) || 0) + 1
-      );
-    }
-
     const result: AudioPlaylist[] = playlistRows.map((playlist) => ({
       id: playlist.id,
       name: playlist.name || 'Unnamed Playlist',
-      trackCount: trackCountMap.get(playlist.id) || 0,
+      trackCount: playlist.trackCount ?? 0,
       coverImageId: playlist.coverImageId
     }));
 

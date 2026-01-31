@@ -100,21 +100,30 @@ describe('ClientAudioProvider', () => {
 
   it('fetches playlists from the database', async () => {
     const playlistRows = [
-      { id: 'playlist-1', name: 'Morning Mix', coverImageId: null }
+      {
+        id: 'playlist-1',
+        name: 'Morning Mix',
+        coverImageId: null,
+        trackCount: 2
+      }
     ];
-    const linkRows = [{ parentId: 'playlist-1' }, { parentId: 'playlist-1' }];
+    const trackCountsSubQuery = { parentId: 'parent_id', trackCount: 0 };
 
     mockDb.select
       .mockReturnValueOnce({
         from: vi.fn(() => ({
-          innerJoin: vi.fn(() => ({
-            where: vi.fn(async () => playlistRows)
+          groupBy: vi.fn(() => ({
+            as: vi.fn(() => trackCountsSubQuery)
           }))
         }))
       })
       .mockReturnValueOnce({
         from: vi.fn(() => ({
-          where: vi.fn(async () => linkRows)
+          innerJoin: vi.fn(() => ({
+            leftJoin: vi.fn(() => ({
+              where: vi.fn(async () => playlistRows)
+            }))
+          }))
         }))
       });
 
@@ -139,10 +148,21 @@ describe('ClientAudioProvider', () => {
   });
 
   it('fetches empty playlists without links', async () => {
+    const trackCountsSubQuery = { parentId: 'parent_id', trackCount: 0 };
+
+    mockDb.select.mockReturnValueOnce({
+      from: vi.fn(() => ({
+        groupBy: vi.fn(() => ({
+          as: vi.fn(() => trackCountsSubQuery)
+        }))
+      }))
+    });
     mockDb.select.mockReturnValueOnce({
       from: vi.fn(() => ({
         innerJoin: vi.fn(() => ({
-          where: vi.fn(async () => [])
+          leftJoin: vi.fn(() => ({
+            where: vi.fn(async () => [])
+          }))
         }))
       }))
     });
