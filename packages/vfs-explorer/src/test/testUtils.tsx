@@ -19,6 +19,7 @@ interface MockDb {
   innerJoin: ReturnType<typeof vi.fn>;
   leftJoin: ReturnType<typeof vi.fn>;
   where: ReturnType<typeof vi.fn>;
+  limit: ReturnType<typeof vi.fn>;
   insert: ReturnType<typeof vi.fn>;
   transaction: ReturnType<typeof vi.fn>;
 }
@@ -30,6 +31,7 @@ export const createMockDatabase = (): MockDb => {
     innerJoin: vi.fn().mockReturnThis(),
     leftJoin: vi.fn().mockReturnThis(),
     where: vi.fn().mockReturnThis(),
+    limit: vi.fn().mockReturnThis(),
     insert: vi.fn(() => ({
       values: vi.fn().mockResolvedValue(undefined)
     })),

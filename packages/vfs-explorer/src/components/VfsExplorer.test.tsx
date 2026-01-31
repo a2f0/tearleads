@@ -23,6 +23,12 @@ vi.mock('../hooks', () => ({
     moveItem: vi.fn(),
     isMoving: false,
     error: null
+  })),
+  useEnsureVfsRoot: vi.fn(() => ({
+    isReady: true,
+    isCreating: false,
+    error: null,
+    ensureRoot: vi.fn()
   }))
 }));
 

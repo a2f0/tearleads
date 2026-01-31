@@ -5,6 +5,8 @@ export type {
 export { useCreateVfsFolder } from './useCreateVfsFolder';
 export type { UseDeleteVfsFolderResult } from './useDeleteVfsFolder';
 export { useDeleteVfsFolder } from './useDeleteVfsFolder';
+export type { UseEnsureVfsRootResult } from './useEnsureVfsRoot';
+export { useEnsureVfsRoot } from './useEnsureVfsRoot';
 export type { UseMoveVfsItemResult } from './useMoveVfsItem';
 export { useMoveVfsItem } from './useMoveVfsItem';
 export type { UseRenameVfsFolderResult } from './useRenameVfsFolder';

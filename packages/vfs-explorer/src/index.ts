@@ -10,8 +10,10 @@ export type {
 } from './components';
 // Components
 export {
+  ALL_ITEMS_FOLDER_ID,
   NewFolderDialog,
   UNFILED_FOLDER_ID,
+  VFS_ROOT_ID,
   VfsDetailsPanel,
   VfsExplorer,
   VfsTreePanel,
@@ -50,6 +52,7 @@ export type {
   CreateFolderResult,
   UseCreateVfsFolderResult,
   UseDeleteVfsFolderResult,
+  UseEnsureVfsRootResult,
   UseMoveVfsItemResult,
   UseRenameVfsFolderResult,
   UseVfsFolderContentsResult,
@@ -61,6 +64,7 @@ export type {
 export {
   useCreateVfsFolder,
   useDeleteVfsFolder,
+  useEnsureVfsRoot,
   useMoveVfsItem,
   useRenameVfsFolder,
   useVfsFolderContents,

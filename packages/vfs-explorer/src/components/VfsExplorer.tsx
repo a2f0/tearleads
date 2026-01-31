@@ -8,12 +8,13 @@ import {
   useSensors
 } from '@dnd-kit/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { UNFILED_FOLDER_ID } from '../constants';
 import { useMoveVfsItem } from '../hooks';
 import { type DisplayItem, VfsDetailsPanel } from './VfsDetailsPanel';
 import type { DragItemData } from './VfsDraggableItem';
 import { VfsDragOverlay } from './VfsDragOverlay';
 import { VfsStatusBar } from './VfsStatusBar';
-import { UNFILED_FOLDER_ID, VfsTreePanel } from './VfsTreePanel';
+import { VfsTreePanel } from './VfsTreePanel';
 
 export type VfsViewMode = 'list' | 'table';
 

@@ -4,6 +4,7 @@
 
 import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
 import { useCallback, useState } from 'react';
+import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';
 
 export interface CreateFolderResult {
@@ -73,17 +74,15 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
             encryptedName: name.trim()
           });
 
-          // If parent folder specified and we have an encrypted key, create link
-          if (parentId && encryptedSessionKey) {
-            const linkId = crypto.randomUUID();
-            await tx.insert(vfsLinks).values({
-              id: linkId,
-              parentId,
-              childId: id,
-              wrappedSessionKey: encryptedSessionKey,
-              createdAt: now
-            });
-          }
+          // Create link to parent folder (or VFS root if no parent specified)
+          const linkId = crypto.randomUUID();
+          await tx.insert(vfsLinks).values({
+            id: linkId,
+            parentId: parentId ?? VFS_ROOT_ID,
+            childId: id,
+            wrappedSessionKey: encryptedSessionKey ?? '',
+            createdAt: now
+          });
         });
 
         if (
