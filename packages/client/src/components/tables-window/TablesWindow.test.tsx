@@ -1,7 +1,17 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TablesWindow } from './TablesWindow';
+
+function renderTablesWindow(props: ComponentProps<typeof TablesWindow>) {
+  return render(
+    <MemoryRouter initialEntries={['/sqlite/tables']}>
+      <TablesWindow {...props} />
+    </MemoryRouter>
+  );
+}
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -29,19 +39,13 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/pages/Tables', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    Tables: ({ showBackLink }: { showBackLink?: boolean }) => {
-      const location = useLocation();
-      return (
-        <div data-testid="tables-content" data-show-back-link={showBackLink}>
-          {location.pathname}
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@/pages/Tables', () => ({
+  Tables: ({ showBackLink }: { showBackLink?: boolean }) => (
+    <div data-testid="tables-content" data-show-back-link={showBackLink}>
+      Tables Content
+    </div>
+  )
+}));
 
 vi.mock('@/pages/TableRows', () => ({
   TableRows: () => <div data-testid="table-rows-content">Rows Content</div>
@@ -61,20 +65,18 @@ describe('TablesWindow', () => {
   });
 
   it('renders in FloatingWindow', () => {
-    render(<TablesWindow {...defaultProps} />);
+    renderTablesWindow(defaultProps);
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
   });
 
   it('displays the correct title', () => {
-    render(<TablesWindow {...defaultProps} />);
+    renderTablesWindow(defaultProps);
     expect(screen.getByTestId('window-title')).toHaveTextContent('Tables');
   });
 
   it('renders tables content', () => {
-    render(<TablesWindow {...defaultProps} />);
-    expect(screen.getByTestId('tables-content')).toHaveTextContent(
-      '/sqlite/tables'
-    );
+    renderTablesWindow(defaultProps);
+    expect(screen.getByTestId('tables-content')).toBeInTheDocument();
     expect(screen.getByTestId('tables-content')).toHaveAttribute(
       'data-show-back-link',
       'false'
@@ -84,7 +86,7 @@ describe('TablesWindow', () => {
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<TablesWindow {...defaultProps} onClose={onClose} />);
+    renderTablesWindow({ ...defaultProps, onClose });
 
     await user.click(screen.getByTestId('close-window'));
     expect(onClose).toHaveBeenCalled();
@@ -92,9 +94,7 @@ describe('TablesWindow', () => {
 
   it('passes initialDimensions to FloatingWindow when provided', () => {
     const initialDimensions = { x: 120, y: 140, width: 700, height: 550 };
-    render(
-      <TablesWindow {...defaultProps} initialDimensions={initialDimensions} />
-    );
+    renderTablesWindow({ ...defaultProps, initialDimensions });
     const window = screen.getByTestId('floating-window');
     const props = JSON.parse(window.dataset['props'] || '{}');
     expect(props.initialDimensions).toEqual(initialDimensions);
@@ -102,9 +102,7 @@ describe('TablesWindow', () => {
 
   it('passes onDimensionsChange to FloatingWindow when provided', () => {
     const onDimensionsChange = vi.fn();
-    render(
-      <TablesWindow {...defaultProps} onDimensionsChange={onDimensionsChange} />
-    );
+    renderTablesWindow({ ...defaultProps, onDimensionsChange });
     const window = screen.getByTestId('floating-window');
     const propKeys = JSON.parse(window.dataset['propsKeys'] || '[]');
     expect(propKeys).toContain('onDimensionsChange');

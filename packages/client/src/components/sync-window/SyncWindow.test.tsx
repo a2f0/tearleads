@@ -1,5 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { SyncWindow } from './SyncWindow';
 
@@ -35,22 +36,13 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 // Mock Sync component
-vi.mock('@/pages/Sync', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    Sync: ({ showBackLink }: { showBackLink?: boolean }) => {
-      const location = useLocation();
-      return (
-        <div data-testid="sync-content">
-          <span data-testid="sync-location">{location.pathname}</span>
-          <span data-testid="sync-backlink">
-            {showBackLink ? 'true' : 'false'}
-          </span>
-        </div>
-      );
-    }
-  };
-});
+vi.mock('@/pages/Sync', () => ({
+  Sync: ({ showBackLink }: { showBackLink?: boolean }) => (
+    <div data-testid="sync-content">
+      <span data-testid="sync-backlink">{showBackLink ? 'true' : 'false'}</span>
+    </div>
+  )
+}));
 
 describe('SyncWindow', () => {
   const defaultProps = {
@@ -71,9 +63,9 @@ describe('SyncWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Sync');
   });
 
-  it('renders the sync content', () => {
+  it('renders the sync content with showBackLink=false', () => {
     render(<SyncWindow {...defaultProps} />);
-    expect(screen.getByTestId('sync-location')).toHaveTextContent('/sync');
+    expect(screen.getByTestId('sync-content')).toBeInTheDocument();
     expect(screen.getByTestId('sync-backlink')).toHaveTextContent('false');
   });
 
@@ -118,5 +110,19 @@ describe('SyncWindow', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {
+    // This test simulates the real runtime environment where WindowRenderer
+    // is rendered inside BrowserRouter. SyncWindow should not create a nested
+    // Router, which would cause: "You cannot render a <Router> inside another <Router>"
+    expect(() =>
+      render(
+        <MemoryRouter>
+          <SyncWindow {...defaultProps} />
+        </MemoryRouter>
+      )
+    ).not.toThrow();
+    expect(screen.getByTestId('sync-content')).toBeInTheDocument();
   });
 });

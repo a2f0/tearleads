@@ -12,4 +12,23 @@ test.describe('Settings Window (Web)', () => {
     // Verify settings content renders
     await expect(page.getByText('Theme')).toBeVisible({ timeout: 15000 });
   });
+
+  test('settings button opens settings window on desktop', async ({ page }) => {
+    await clearOriginStorage(page);
+    await page.setViewportSize({ width: 1280, height: 800 });
+
+    // Navigate to home page
+    await page.goto('/');
+
+    // Wait for the page to load
+    await expect(page.getByTestId('settings-button')).toBeVisible({
+      timeout: 15000
+    });
+
+    // Click the settings button
+    await page.getByTestId('settings-button').click();
+
+    // Verify the settings window opens (FloatingWindow with Settings content)
+    await expect(page.getByText('Theme')).toBeVisible({ timeout: 5000 });
+  });
 });

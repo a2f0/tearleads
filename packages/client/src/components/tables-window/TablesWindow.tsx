@@ -1,4 +1,4 @@
-import { MemoryRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { TableRows } from '@/pages/TableRows';
@@ -42,19 +42,17 @@ export function TablesWindow({
       <div className="flex h-full flex-col">
         <TablesWindowMenuBar onClose={onClose} />
         <div className="flex-1 overflow-auto p-4">
-          <MemoryRouter initialEntries={['/sqlite/tables']}>
-            <Routes>
-              <Route
-                path="/sqlite/tables"
-                element={<Tables showBackLink={false} />}
-              />
-              <Route path="/sqlite/tables/:tableName" element={<TableRows />} />
-              <Route
-                path="*"
-                element={<Navigate to="/sqlite/tables" replace />}
-              />
-            </Routes>
-          </MemoryRouter>
+          <Routes>
+            <Route
+              path="/sqlite/tables"
+              element={<Tables showBackLink={false} />}
+            />
+            <Route path="/sqlite/tables/:tableName" element={<TableRows />} />
+            <Route
+              path="*"
+              element={<Navigate to="/sqlite/tables" replace />}
+            />
+          </Routes>
         </div>
       </div>
     </FloatingWindow>

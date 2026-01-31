@@ -1,4 +1,3 @@
-import { MemoryRouter } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Sync } from '@/pages/Sync';
@@ -44,9 +43,7 @@ export function SyncWindow({
       <div className="flex h-full min-h-0 flex-col">
         <SyncWindowMenuBar onClose={onClose} />
         <div className="min-h-0 flex-1 overflow-auto p-3">
-          <MemoryRouter initialEntries={['/sync']}>
-            <Sync showBackLink={false} />
-          </MemoryRouter>
+          <Sync showBackLink={false} />
         </div>
       </div>
     </FloatingWindow>

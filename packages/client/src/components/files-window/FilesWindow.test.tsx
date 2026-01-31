@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesWindow } from './FilesWindow';
 
@@ -111,52 +112,47 @@ vi.mock('./FilesWindowTableView', () => ({
 }));
 
 // Mock FilesWindowContent
-vi.mock('./FilesWindowContent', async () => {
-  const { useLocation } = await import('react-router-dom');
-  return {
-    FilesWindowContent: vi.fn().mockImplementation(
-      ({
-        showDeleted,
-        showDropzone,
-        ref,
-        onSelectFile
-      }: {
-        showDeleted: boolean;
-        showDropzone: boolean;
-        ref?: React.RefObject<{
-          uploadFiles: (files: File[]) => void;
-        } | null>;
-        onSelectFile?: (fileId: string) => void;
-      }) => {
-        const location = useLocation();
-        // Simulate forwardRef behavior by exposing uploadFiles
-        if (ref) {
-          ref.current = { uploadFiles: mockUploadFiles };
-        }
-        return (
-          <div data-testid="files-content">
-            <span data-testid="files-location">{location.pathname}</span>
-            <span data-testid="content-show-deleted">
-              {showDeleted ? 'true' : 'false'}
-            </span>
-            <span data-testid="content-show-dropzone">
-              {showDropzone ? 'true' : 'false'}
-            </span>
-            {onSelectFile && (
-              <button
-                type="button"
-                data-testid="select-file-button"
-                onClick={() => onSelectFile('test-file-id')}
-              >
-                Select File
-              </button>
-            )}
-          </div>
-        );
+vi.mock('./FilesWindowContent', () => ({
+  FilesWindowContent: vi.fn().mockImplementation(
+    ({
+      showDeleted,
+      showDropzone,
+      ref,
+      onSelectFile
+    }: {
+      showDeleted: boolean;
+      showDropzone: boolean;
+      ref?: React.RefObject<{
+        uploadFiles: (files: File[]) => void;
+      } | null>;
+      onSelectFile?: (fileId: string) => void;
+    }) => {
+      // Simulate forwardRef behavior by exposing uploadFiles
+      if (ref) {
+        ref.current = { uploadFiles: mockUploadFiles };
       }
-    )
-  };
-});
+      return (
+        <div data-testid="files-content">
+          <span data-testid="content-show-deleted">
+            {showDeleted ? 'true' : 'false'}
+          </span>
+          <span data-testid="content-show-dropzone">
+            {showDropzone ? 'true' : 'false'}
+          </span>
+          {onSelectFile && (
+            <button
+              type="button"
+              data-testid="select-file-button"
+              onClick={() => onSelectFile('test-file-id')}
+            >
+              Select File
+            </button>
+          )}
+        </div>
+      );
+    }
+  )
+}));
 
 // Mock FilesWindowDetail
 vi.mock('./FilesWindowDetail', () => ({
@@ -213,7 +209,6 @@ describe('FilesWindow', () => {
   it('renders files content', () => {
     render(<FilesWindow {...defaultProps} />);
     expect(screen.getByTestId('files-content')).toBeInTheDocument();
-    expect(screen.getByTestId('files-location')).toHaveTextContent('/files');
   });
 
   it('starts with showDeleted as false', () => {
@@ -449,6 +444,17 @@ describe('FilesWindow', () => {
     await user.click(screen.getByTestId('detail-deleted'));
 
     expect(screen.queryByTestId('files-detail')).not.toBeInTheDocument();
+    expect(screen.getByTestId('files-content')).toBeInTheDocument();
+  });
+
+  it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {
+    expect(() =>
+      render(
+        <MemoryRouter>
+          <FilesWindow {...defaultProps} />
+        </MemoryRouter>
+      )
+    ).not.toThrow();
     expect(screen.getByTestId('files-content')).toBeInTheDocument();
   });
 });
