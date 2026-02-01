@@ -262,7 +262,14 @@ export async function initializeRegistry(): Promise<InstanceMetadata> {
   // If initialization is already in progress, return the existing promise
   // to prevent race conditions from concurrent calls (e.g., React StrictMode)
   if (initializationPromise) {
-    return initializationPromise;
+    // Verify the cached instance still exists (storage may have been cleared)
+    const cached = await initializationPromise;
+    const stillExists = await getInstance(cached.id);
+    if (stillExists) {
+      return cached;
+    }
+    // Instance was deleted (e.g., storage cleared), re-initialize
+    initializationPromise = null;
   }
 
   const promise = initializeRegistryInternal();
