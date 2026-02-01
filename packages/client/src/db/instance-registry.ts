@@ -198,9 +198,19 @@ export async function updateInstance(
 
 /**
  * Update the lastAccessedAt timestamp for an instance.
+ * Silently returns if the instance doesn't exist (e.g., after storage was cleared).
  */
 export async function touchInstance(instanceId: string): Promise<void> {
-  await updateInstance(instanceId, { lastAccessedAt: Date.now() });
+  try {
+    await updateInstance(instanceId, { lastAccessedAt: Date.now() });
+  } catch (err) {
+    // Instance may have been deleted (e.g., storage cleared during testing)
+    // This is non-critical - just skip the timestamp update
+    if (err instanceof Error && err.message.includes('Instance not found')) {
+      return;
+    }
+    throw err;
+  }
 }
 
 /**
