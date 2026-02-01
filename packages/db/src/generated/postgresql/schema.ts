@@ -363,7 +363,12 @@ export const playlists = pgTable('playlists', {
   coverImageId: text('cover_image_id').references(() => vfsRegistry.id, {
     onDelete: 'set null'
   }),
-  shuffleMode: integer('shuffle_mode').notNull().default(0)
+  shuffleMode: integer('shuffle_mode').notNull().default(0),
+  mediaType: text('media_type', {
+    enum: ['audio', 'video']
+  })
+    .notNull()
+    .default('audio')
 });
 
 /**

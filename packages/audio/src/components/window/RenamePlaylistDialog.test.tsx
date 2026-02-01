@@ -8,7 +8,8 @@ const mockPlaylist = {
   id: 'playlist-1',
   name: 'Old Name',
   trackCount: 3,
-  coverImageId: null
+  coverImageId: null,
+  mediaType: 'audio' as const
 };
 
 describe('RenamePlaylistDialog', () => {

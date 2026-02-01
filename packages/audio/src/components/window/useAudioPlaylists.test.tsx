@@ -7,7 +7,8 @@ const mockPlaylist = {
   id: 'playlist-1',
   name: 'Morning Mix',
   trackCount: 2,
-  coverImageId: null
+  coverImageId: null,
+  mediaType: 'audio' as const
 };
 
 describe('useAudioPlaylists', () => {

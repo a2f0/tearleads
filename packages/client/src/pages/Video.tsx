@@ -6,7 +6,7 @@ import {
   useReactTable
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { and, desc, eq, like } from 'drizzle-orm';
+import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { ChevronRight, Film, Info, Loader2, Play, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -20,7 +20,7 @@ import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
-import { files } from '@/db/schema';
+import { files, vfsLinks } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
@@ -83,12 +83,14 @@ interface VideoPageProps {
     | undefined;
   hideBackLink?: boolean | undefined;
   viewMode?: ViewMode | undefined;
+  playlistId?: string | null | undefined;
 }
 
 export function VideoPage({
   onOpenVideo,
   hideBackLink = false,
-  viewMode = 'list'
+  viewMode = 'list',
+  playlistId = null
 }: VideoPageProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -132,6 +134,32 @@ export function VideoPage({
     try {
       const db = getDatabase();
 
+      // If a playlist is selected, get the video IDs in that playlist
+      let videoIdsInPlaylist: string[] | null = null;
+      if (playlistId) {
+        const links = await db
+          .select({ childId: vfsLinks.childId })
+          .from(vfsLinks)
+          .where(eq(vfsLinks.parentId, playlistId));
+        videoIdsInPlaylist = links.map((link) => link.childId);
+
+        // If playlist is empty, return early
+        if (videoIdsInPlaylist.length === 0) {
+          setVideos([]);
+          setHasFetched(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const baseConditions = and(
+        like(files.mimeType, 'video/%'),
+        eq(files.deleted, false)
+      );
+      const whereClause = videoIdsInPlaylist
+        ? and(baseConditions, inArray(files.id, videoIdsInPlaylist))
+        : baseConditions;
+
       const result = await db
         .select({
           id: files.id,
@@ -143,7 +171,7 @@ export function VideoPage({
           thumbnailPath: files.thumbnailPath
         })
         .from(files)
-        .where(and(like(files.mimeType, 'video/%'), eq(files.deleted, false)))
+        .where(whereClause)
         .orderBy(desc(files.uploadDate));
 
       const videoList: VideoInfo[] = result.map((row) => ({
@@ -199,10 +227,11 @@ export function VideoPage({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, currentInstanceId]);
+  }, [isUnlocked, currentInstanceId, playlistId]);
 
   // Track the instance ID for which we've fetched videos
   const fetchedForInstanceRef = useRef<string | null>(null);
+  const fetchedForPlaylistRef = useRef<string | null | undefined>(undefined);
 
   const handleFilesSelected = useCallback(
     async (selectedFiles: File[]) => {
@@ -239,18 +268,17 @@ export function VideoPage({
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: videos intentionally excluded to prevent re-fetch loops
   useEffect(() => {
-    // Check if we need to fetch for this instance
+    // Check if we need to fetch for this instance or playlist
+    const instanceChanged = fetchedForInstanceRef.current !== currentInstanceId;
+    const playlistChanged = fetchedForPlaylistRef.current !== playlistId;
     const needsFetch =
       isUnlocked &&
       !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+      (!hasFetched || instanceChanged || playlistChanged);
 
     if (needsFetch) {
       // If instance changed, cleanup old thumbnail URLs first
-      if (
-        fetchedForInstanceRef.current !== currentInstanceId &&
-        fetchedForInstanceRef.current !== null
-      ) {
+      if (instanceChanged && fetchedForInstanceRef.current !== null) {
         for (const video of videos) {
           if (video.thumbnailUrl) {
             URL.revokeObjectURL(video.thumbnailUrl);
@@ -260,8 +288,9 @@ export function VideoPage({
         setError(null);
       }
 
-      // Update ref before fetching to prevent re-entry
+      // Update refs before fetching to prevent re-entry
       fetchedForInstanceRef.current = currentInstanceId;
+      fetchedForPlaylistRef.current = playlistId;
 
       // Defer fetch to next tick to ensure database singleton is updated
       const timeoutId = setTimeout(() => {
@@ -271,7 +300,14 @@ export function VideoPage({
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchVideos]);
+  }, [
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    playlistId,
+    fetchVideos
+  ]);
 
   // Cleanup thumbnail URLs on unmount
   useEffect(() => {

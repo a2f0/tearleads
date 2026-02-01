@@ -231,6 +231,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
         id: vfsRegistry.id,
         name: playlists.encryptedName,
         coverImageId: playlists.coverImageId,
+        mediaType: playlists.mediaType,
         trackCount: sql<number>`
           coalesce(${trackCountsSubQuery.trackCount}, 0)
         `.mapWith(Number)
@@ -241,7 +242,12 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
         trackCountsSubQuery,
         eq(vfsRegistry.id, trackCountsSubQuery.parentId)
       )
-      .where(eq(vfsRegistry.objectType, 'playlist'));
+      .where(
+        and(
+          eq(vfsRegistry.objectType, 'playlist'),
+          eq(playlists.mediaType, 'audio')
+        )
+      );
 
     if (playlistRows.length === 0) return [];
 
@@ -249,7 +255,8 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       id: playlist.id,
       name: playlist.name || 'Unnamed Playlist',
       trackCount: playlist.trackCount ?? 0,
-      coverImageId: playlist.coverImageId
+      coverImageId: playlist.coverImageId,
+      mediaType: playlist.mediaType
     }));
 
     result.sort((a, b) => a.name.localeCompare(b.name));
@@ -274,7 +281,8 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       encryptedName: name,
       encryptedDescription: null,
       coverImageId: null,
-      shuffleMode: 0
+      shuffleMode: 0,
+      mediaType: 'audio'
     });
 
     return playlistId;

@@ -28,11 +28,14 @@ export interface AudioWithUrl extends AudioInfo {
   thumbnailUrl: string | null;
 }
 
+export type MediaType = 'audio' | 'video';
+
 export interface AudioPlaylist {
   id: string;
   name: string;
   trackCount: number;
   coverImageId: string | null;
+  mediaType: MediaType;
 }
 
 /**

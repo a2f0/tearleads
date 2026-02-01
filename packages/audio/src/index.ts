@@ -61,6 +61,7 @@ export {
   type InlineUnlockProps,
   type InputProps,
   type ListRowProps,
+  type MediaType,
   type NavigateToAudio,
   type NavigateToAudioOptions,
   type RefreshButtonProps,
