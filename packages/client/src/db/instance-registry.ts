@@ -249,8 +249,19 @@ export async function initializeRegistry(): Promise<InstanceMetadata> {
     return initializationPromise;
   }
 
-  initializationPromise = initializeRegistryInternal();
-  return initializationPromise;
+  const promise = initializeRegistryInternal();
+  initializationPromise = promise;
+
+  // If initialization fails, reset the promise to allow retries on subsequent calls.
+  // This prevents the registry from being permanently "poisoned" by a failed
+  // initialization attempt.
+  promise.catch(() => {
+    if (initializationPromise === promise) {
+      initializationPromise = null;
+    }
+  });
+
+  return promise;
 }
 
 /**
@@ -362,7 +373,7 @@ async function initializeTestInstance(
  */
 export async function clearRegistry(): Promise<void> {
   // Reset initialization lock so next initializeRegistry() call works correctly
-  initializationPromise = null;
+  resetInitializationState();
 
   const db = await openRegistryDB();
   return new Promise((resolve, reject) => {
