@@ -24,6 +24,7 @@ import {
   getInstances,
   getRegistryData,
   initializeRegistry,
+  resetInitializationState,
   setActiveInstanceId,
   touchInstance,
   updateInstance
@@ -164,6 +165,7 @@ describe('instance-registry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStore.clear();
+    resetInitializationState();
     mockIsTestMode.mockReturnValue(false);
     mockGetTestInstanceId.mockReturnValue(null);
   });
@@ -476,6 +478,26 @@ describe('instance-registry', () => {
       // Should respect non-test instance (preserves within-test state like page reload)
       expect(instance.id).toBe('user-created-uuid');
       expect(instance.name).toBe('Instance 2');
+    });
+
+    it('re-initializes when cached instance was deleted', async () => {
+      // First call creates and caches an instance
+      const firstInstance = await initializeRegistry();
+      expect(firstInstance.name).toBe('Instance 1');
+
+      // Simulate storage being cleared (e.g., during Electron testing)
+      mockStore.clear();
+
+      // Second call should detect the cached instance no longer exists
+      // and re-initialize instead of returning stale cached data
+      const secondInstance = await initializeRegistry();
+
+      // Should create a new instance since the old one was deleted
+      expect(secondInstance.name).toBe('Instance 1');
+      // Verify the instance exists in storage (was re-created)
+      const storedInstances = getStoredInstances();
+      expect(storedInstances.length).toBe(1);
+      expect(storedInstances[0]?.id).toBe(secondInstance.id);
     });
   });
 

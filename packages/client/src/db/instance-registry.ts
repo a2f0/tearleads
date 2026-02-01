@@ -15,6 +15,21 @@ const REGISTRY_STORE_NAME = 'registry';
 const REGISTRY_KEY = 'instances';
 const ACTIVE_INSTANCE_KEY = 'active_instance';
 
+/**
+ * Module-level initialization lock to prevent race conditions.
+ * When initializeRegistry() is called concurrently (e.g., due to React StrictMode),
+ * all calls will await the same promise, ensuring only one initialization occurs.
+ */
+let initializationPromise: Promise<InstanceMetadata> | null = null;
+
+/**
+ * Reset the initialization state. For testing purposes only.
+ * This allows tests to start fresh without the cached initialization promise.
+ */
+export function resetInitializationState(): void {
+  initializationPromise = null;
+}
+
 export interface InstanceMetadata {
   id: string;
   name: string;
@@ -183,9 +198,19 @@ export async function updateInstance(
 
 /**
  * Update the lastAccessedAt timestamp for an instance.
+ * Silently returns if the instance doesn't exist (e.g., after storage was cleared).
  */
 export async function touchInstance(instanceId: string): Promise<void> {
-  await updateInstance(instanceId, { lastAccessedAt: Date.now() });
+  try {
+    await updateInstance(instanceId, { lastAccessedAt: Date.now() });
+  } catch (err) {
+    // Instance may have been deleted (e.g., storage cleared during testing)
+    // This is non-critical - just skip the timestamp update
+    if (err instanceof Error && err.message.includes('Instance not found')) {
+      return;
+    }
+    throw err;
+  }
 }
 
 /**
@@ -223,8 +248,49 @@ export async function getInstance(
  *
  * In test mode (Playwright), uses a deterministic instance ID based on
  * the worker index to enable parallel test execution without OPFS conflicts.
+ *
+ * This function is idempotent - concurrent calls (e.g., from React StrictMode)
+ * will return the same promise, preventing duplicate instance creation.
  */
 export async function initializeRegistry(): Promise<InstanceMetadata> {
+  // In test mode, skip caching - each test worker needs its own initialization
+  // and the worker ID may differ between calls in parallel test execution.
+  if (isTestMode()) {
+    return initializeRegistryInternal();
+  }
+
+  // If initialization is already in progress, return the existing promise
+  // to prevent race conditions from concurrent calls (e.g., React StrictMode)
+  if (initializationPromise) {
+    // Verify the cached instance still exists (storage may have been cleared)
+    const cached = await initializationPromise;
+    const stillExists = await getInstance(cached.id);
+    if (stillExists) {
+      return cached;
+    }
+    // Instance was deleted (e.g., storage cleared), re-initialize
+    initializationPromise = null;
+  }
+
+  const promise = initializeRegistryInternal();
+  initializationPromise = promise;
+
+  // If initialization fails, reset the promise to allow retries on subsequent calls.
+  // This prevents the registry from being permanently "poisoned" by a failed
+  // initialization attempt.
+  promise.catch(() => {
+    if (initializationPromise === promise) {
+      initializationPromise = null;
+    }
+  });
+
+  return promise;
+}
+
+/**
+ * Internal initialization logic, called only once per app lifecycle.
+ */
+async function initializeRegistryInternal(): Promise<InstanceMetadata> {
   // In test mode, use a deterministic instance ID for the worker
   if (isTestMode()) {
     const testInstanceId = getTestInstanceId();
@@ -325,8 +391,13 @@ async function initializeTestInstance(
 
 /**
  * Clear the entire registry (for testing or complete reset).
+ * Also resets the initialization lock so subsequent calls to
+ * initializeRegistry() will properly re-initialize.
  */
 export async function clearRegistry(): Promise<void> {
+  // Reset initialization lock so next initializeRegistry() call works correctly
+  resetInitializationState();
+
   const db = await openRegistryDB();
   return new Promise((resolve, reject) => {
     const tx = db.transaction(REGISTRY_STORE_NAME, 'readwrite');
