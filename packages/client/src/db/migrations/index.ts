@@ -10,9 +10,10 @@ import { v006 } from './v006';
 import { v007 } from './v007';
 import { v008 } from './v008';
 import { v009 } from './v009';
+import { v010 } from './v010';
 
 export type { Migration, MigrationFn } from './types';
-export { addColumnIfNotExists } from './utils';
+export { addColumnIfNotExists, tableExists } from './utils';
 
 /**
  * All migrations in order. Add new migrations to this array.
@@ -27,7 +28,8 @@ export const migrations: Migration[] = [
   v006,
   v007,
   v008,
-  v009
+  v009,
+  v010
 ];
 
 /**
