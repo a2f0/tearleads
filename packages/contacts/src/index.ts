@@ -13,7 +13,9 @@ export type {
   ContactsContextValue,
   ContactsProviderProps,
   ContactsUIComponents,
-  DatabaseState
+  DatabaseState,
+  RegisterInVfsFunction,
+  VfsRegistrationResult
 } from './context';
 export {
   ContactsProvider,

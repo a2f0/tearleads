@@ -21,11 +21,13 @@ export {
   type ListRowProps,
   type NavigateOptions,
   type RefreshButtonProps,
+  type RegisterInVfsFunction,
   type SaveFileFunction,
   type TranslationFunction,
   useContactsContext,
   useContactsUI,
   useDatabaseState,
+  type VfsRegistrationResult,
   type VirtualListStatusProps,
   type WindowOptionsMenuItemProps
 } from './ContactsContext';
