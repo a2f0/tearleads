@@ -61,6 +61,9 @@ if [ -n "$FLOW_PATH" ] && [ "${FLOW_PATH#/.maestro/}" = "$FLOW_PATH" ] && [ "${F
   FLOW_PATH="../.maestro/${FLOW_PATH}"
 fi
 
+# Disable audio to prevent crackling on host audio
+"$SCRIPT_DIR/muteIosSimulatorAudio.sh"
+
 if xcrun simctl list devices | grep -q "$SIMULATOR_NAME.*Booted"; then
   echo "==> Simulator $SIMULATOR_NAME is already running"
 else
