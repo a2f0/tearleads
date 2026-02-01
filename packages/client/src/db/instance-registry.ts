@@ -243,6 +243,12 @@ export async function getInstance(
  * will return the same promise, preventing duplicate instance creation.
  */
 export async function initializeRegistry(): Promise<InstanceMetadata> {
+  // In test mode, skip caching - each test worker needs its own initialization
+  // and the worker ID may differ between calls in parallel test execution.
+  if (isTestMode()) {
+    return initializeRegistryInternal();
+  }
+
   // If initialization is already in progress, return the existing promise
   // to prevent race conditions from concurrent calls (e.g., React StrictMode)
   if (initializationPromise) {
