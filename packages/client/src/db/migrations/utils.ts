@@ -10,7 +10,7 @@ export async function tableExists(
   tableName: string
 ): Promise<boolean> {
   const result = await adapter.execute(
-    `SELECT name FROM sqlite_master WHERE type='table' AND name=?`,
+    `SELECT 1 FROM sqlite_master WHERE type='table' AND name=?`,
     [tableName]
   );
   return (result?.rows?.length ?? 0) > 0;

@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DatabaseAdapter } from '@/db/adapters/types';
-import { addColumnIfNotExists } from './utils';
+import { addColumnIfNotExists, tableExists } from './utils';
 
 const createAdapter = (
   execute: DatabaseAdapter['execute']
@@ -68,5 +68,47 @@ describe('addColumnIfNotExists', () => {
 
     expect(warnSpy).toHaveBeenCalled();
     warnSpy.mockRestore();
+  });
+});
+
+describe('tableExists', () => {
+  it('returns true when the table exists', async () => {
+    const execute = vi.fn<DatabaseAdapter['execute']>().mockResolvedValueOnce({
+      rows: [{ '1': 1 }]
+    });
+
+    const result = await tableExists(createAdapter(execute), 'my_table');
+
+    expect(result).toBe(true);
+    expect(execute).toHaveBeenCalledWith(
+      `SELECT 1 FROM sqlite_master WHERE type='table' AND name=?`,
+      ['my_table']
+    );
+  });
+
+  it('returns false when the table does not exist', async () => {
+    const execute = vi.fn<DatabaseAdapter['execute']>().mockResolvedValueOnce({
+      rows: []
+    });
+
+    const result = await tableExists(createAdapter(execute), 'missing_table');
+
+    expect(result).toBe(false);
+    expect(execute).toHaveBeenCalledWith(
+      `SELECT 1 FROM sqlite_master WHERE type='table' AND name=?`,
+      ['missing_table']
+    );
+  });
+
+  it('returns false when result is null or undefined', async () => {
+    const execute = vi
+      .fn<DatabaseAdapter['execute']>()
+      .mockResolvedValueOnce(
+        null as unknown as { rows: Record<string, unknown>[] }
+      );
+
+    const result = await tableExists(createAdapter(execute), 'test_table');
+
+    expect(result).toBe(false);
   });
 });
