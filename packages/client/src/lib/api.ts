@@ -87,6 +87,18 @@ interface RequestParams {
   skipTokenRefresh?: boolean;
 }
 
+async function getErrorMessageFromResponse(
+  response: Response,
+  defaultMessage: string
+): Promise<string> {
+  try {
+    const errorBody = (await response.json()) as { error?: string };
+    return errorBody.error ?? defaultMessage;
+  } catch {
+    return defaultMessage;
+  }
+}
+
 async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
   if (!API_BASE_URL) {
     throw new Error('VITE_API_URL environment variable is not set');
@@ -111,7 +123,9 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
     if (response.status === 401) {
       // For login requests, 401 means invalid credentials - don't trigger session expired flow
       if (skipTokenRefresh) {
-        throw new Error('API error: 401');
+        throw new Error(
+          await getErrorMessageFromResponse(response, 'API error: 401')
+        );
       }
 
       if (!refreshPromise) {
@@ -145,7 +159,12 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
     }
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      throw new Error(
+        await getErrorMessageFromResponse(
+          response,
+          `API error: ${response.status}`
+        )
+      );
     }
 
     const data = await response.json();
