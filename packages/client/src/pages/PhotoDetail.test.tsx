@@ -12,6 +12,14 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+// Mock the photos sidebar
+vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
+  ALL_PHOTOS_ID: '__all__',
+  PhotosAlbumsSidebar: () => (
+    <div data-testid="photos-albums-sidebar">Albums Sidebar</div>
+  )
+}));
+
 // Mock the database
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();

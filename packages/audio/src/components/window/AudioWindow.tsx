@@ -31,7 +31,8 @@ export function AudioWindow({
   openAudioId,
   openRequestId
 }: AudioWindowProps) {
-  const { uploadFile } = useAudioUIContext();
+  const { uploadFile, databaseState } = useAudioUIContext();
+  const { isUnlocked } = databaseState;
 
   const [view, setView] = useState<AudioViewMode>('list');
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
@@ -121,13 +122,15 @@ export function AudioWindow({
           onShowDropzoneChange={setShowDropzone}
         />
         <div className="flex flex-1 overflow-hidden">
-          <AudioPlaylistsSidebar
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            selectedPlaylistId={selectedPlaylistId}
-            onPlaylistSelect={setSelectedPlaylistId}
-            onPlaylistChanged={handlePlaylistChanged}
-          />
+          {isUnlocked && (
+            <AudioPlaylistsSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              selectedPlaylistId={selectedPlaylistId}
+              onPlaylistSelect={setSelectedPlaylistId}
+              onPlaylistChanged={handlePlaylistChanged}
+            />
+          )}
           <div className="flex-1 overflow-hidden">
             {selectedTrackId ? (
               <AudioWindowDetail

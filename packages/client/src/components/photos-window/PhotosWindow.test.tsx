@@ -3,10 +3,16 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindow } from './PhotosWindow';
 
+const mockWindowOpenRequests = vi.fn();
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
-    windowOpenRequests: {}
+    windowOpenRequests: mockWindowOpenRequests()
   })
+}));
+
+const mockUseDatabaseContext = vi.fn();
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
 const mockUploadFile = vi.fn();
@@ -118,7 +124,8 @@ vi.mock('./PhotosWindowContent', () => ({
 vi.mock('./PhotosWindowDetail', () => ({
   PhotosWindowDetail: ({
     photoId,
-    onBack
+    onBack,
+    onDeleted
   }: {
     photoId: string;
     onBack: () => void;
@@ -128,6 +135,13 @@ vi.mock('./PhotosWindowDetail', () => ({
       <span data-testid="detail-photo-id">{photoId}</span>
       <button type="button" onClick={onBack} data-testid="detail-back-button">
         Back
+      </button>
+      <button
+        type="button"
+        onClick={onDeleted}
+        data-testid="detail-delete-button"
+      >
+        Delete
       </button>
     </div>
   )
@@ -185,6 +199,11 @@ describe('PhotosWindow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUploadFile.mockClear();
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false
+    });
+    mockWindowOpenRequests.mockReturnValue({});
   });
 
   it('renders in FloatingWindow', () => {
@@ -331,6 +350,68 @@ describe('PhotosWindow', () => {
     await waitFor(() => {
       expect(screen.getByTestId('photos-detail')).toBeInTheDocument();
       expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+    });
+  });
+
+  it('shows sidebar when database is unlocked', () => {
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false
+    });
+    render(<PhotosWindow {...defaultProps} />);
+    expect(screen.getByTestId('photos-albums-sidebar')).toBeInTheDocument();
+  });
+
+  it('hides sidebar when database is locked', () => {
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: false,
+      isLoading: false
+    });
+    render(<PhotosWindow {...defaultProps} />);
+    expect(
+      screen.queryByTestId('photos-albums-sidebar')
+    ).not.toBeInTheDocument();
+  });
+
+  it('returns to content view when photo is deleted', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    // Navigate to detail view
+    await user.click(screen.getByTestId('select-photo-button'));
+    await waitFor(() => {
+      expect(screen.getByTestId('photos-detail')).toBeInTheDocument();
+    });
+
+    // Delete photo
+    await user.click(screen.getByTestId('detail-delete-button'));
+
+    // Should return to content view
+    await waitFor(() => {
+      expect(screen.queryByTestId('photos-detail')).not.toBeInTheDocument();
+      expect(screen.getByTestId('photos-content')).toBeInTheDocument();
+    });
+  });
+
+  it('handles open request with albumId', () => {
+    mockWindowOpenRequests.mockReturnValue({
+      photos: { albumId: 'album-123', requestId: 1 }
+    });
+    render(<PhotosWindow {...defaultProps} />);
+    expect(screen.getByTestId('photos-content')).toBeInTheDocument();
+  });
+
+  it('handles open request with photoId', async () => {
+    mockWindowOpenRequests.mockReturnValue({
+      photos: { photoId: 'photo-456', requestId: 1 }
+    });
+    render(<PhotosWindow {...defaultProps} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('photos-detail')).toBeInTheDocument();
+      expect(screen.getByTestId('detail-photo-id')).toHaveTextContent(
+        'photo-456'
+      );
     });
   });
 });

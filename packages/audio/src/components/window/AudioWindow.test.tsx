@@ -19,6 +19,13 @@ vi.mock('@tanstack/react-virtual', () => ({
   })
 }));
 
+vi.mock('./AudioPlaylistsSidebar', () => ({
+  ALL_AUDIO_ID: '__all__',
+  AudioPlaylistsSidebar: () => (
+    <div data-testid="audio-playlists-sidebar">Playlists Sidebar</div>
+  )
+}));
+
 describe('AudioWindow', () => {
   function renderWithProviders(
     options: Parameters<typeof createWrapper>[0] = {}
@@ -79,5 +86,21 @@ describe('AudioWindow', () => {
 
     // Should render the floating window when database is unlocked
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
+  });
+
+  it('shows sidebar when database is unlocked', () => {
+    renderWithProviders({
+      databaseState: { isUnlocked: true }
+    });
+    expect(screen.getByTestId('audio-playlists-sidebar')).toBeInTheDocument();
+  });
+
+  it('hides sidebar when database is locked', () => {
+    renderWithProviders({
+      databaseState: { isUnlocked: false, isLoading: false }
+    });
+    expect(
+      screen.queryByTestId('audio-playlists-sidebar')
+    ).not.toBeInTheDocument();
   });
 });
