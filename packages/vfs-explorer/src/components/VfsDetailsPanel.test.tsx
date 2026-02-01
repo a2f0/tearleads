@@ -407,31 +407,30 @@ describe('VfsDetailsPanel', () => {
       expect(screen.getByText('Loading database...')).toBeInTheDocument();
     });
 
-    it('shows locked state when database is locked', () => {
-      mockDatabaseState.isUnlocked = false;
-      mockDatabaseState.isLoading = false;
-      mockDatabaseState.currentInstanceId = null;
-      render(<VfsDetailsPanel folderId="1" />);
-      expect(screen.getByText('Database is locked')).toBeInTheDocument();
-      expect(
-        screen.getByText('Unlock the database to view items')
-      ).toBeInTheDocument();
-    });
+    describe('when database is locked', () => {
+      beforeEach(() => {
+        mockDatabaseState.isUnlocked = false;
+        mockDatabaseState.isLoading = false;
+        mockDatabaseState.currentInstanceId = null;
+      });
 
-    it('shows locked state for unfiled items when database is locked', () => {
-      mockDatabaseState.isUnlocked = false;
-      mockDatabaseState.isLoading = false;
-      mockDatabaseState.currentInstanceId = null;
-      render(<VfsDetailsPanel folderId={UNFILED_FOLDER_ID} />);
-      expect(screen.getByText('Database is locked')).toBeInTheDocument();
-    });
+      it('shows locked state for a regular folder', () => {
+        render(<VfsDetailsPanel folderId="1" />);
+        expect(screen.getByText('Database is locked')).toBeInTheDocument();
+        expect(
+          screen.getByText('Unlock the database to view items')
+        ).toBeInTheDocument();
+      });
 
-    it('shows locked state for all items when database is locked', () => {
-      mockDatabaseState.isUnlocked = false;
-      mockDatabaseState.isLoading = false;
-      mockDatabaseState.currentInstanceId = null;
-      render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
-      expect(screen.getByText('Database is locked')).toBeInTheDocument();
+      it('shows locked state for unfiled items', () => {
+        render(<VfsDetailsPanel folderId={UNFILED_FOLDER_ID} />);
+        expect(screen.getByText('Database is locked')).toBeInTheDocument();
+      });
+
+      it('shows locked state for all items', () => {
+        render(<VfsDetailsPanel folderId={ALL_ITEMS_FOLDER_ID} />);
+        expect(screen.getByText('Database is locked')).toBeInTheDocument();
+      });
     });
   });
 });
