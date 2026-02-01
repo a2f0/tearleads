@@ -111,7 +111,17 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
     if (response.status === 401) {
       // For login requests, 401 means invalid credentials - don't trigger session expired flow
       if (skipTokenRefresh) {
-        throw new Error('API error: 401');
+        // Try to extract error message from response body
+        let errorMessage = 'API error: 401';
+        try {
+          const errorBody = (await response.json()) as { error?: string };
+          if (errorBody.error) {
+            errorMessage = errorBody.error;
+          }
+        } catch {
+          // Response body is not JSON or empty, use default message
+        }
+        throw new Error(errorMessage);
       }
 
       if (!refreshPromise) {
@@ -145,7 +155,17 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
     }
 
     if (!response.ok) {
-      throw new Error(`API error: ${response.status}`);
+      // Try to extract error message from response body
+      let errorMessage = `API error: ${response.status}`;
+      try {
+        const errorBody = (await response.json()) as { error?: string };
+        if (errorBody.error) {
+          errorMessage = errorBody.error;
+        }
+      } catch {
+        // Response body is not JSON or empty, use default message
+      }
+      throw new Error(errorMessage);
     }
 
     const data = await response.json();

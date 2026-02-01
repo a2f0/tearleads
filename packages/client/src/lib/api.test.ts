@@ -106,7 +106,7 @@ describe('api', () => {
 
       await expect(
         api.auth.login('test@example.com', 'wrongpassword')
-      ).rejects.toThrow('API error: 401');
+      ).rejects.toThrow('Invalid email or password');
 
       // Should NOT set session expired error for login failures
       expect(getAuthError()).toBeNull();
@@ -165,10 +165,38 @@ describe('api', () => {
 
       await expect(
         api.auth.register('test@example.com', 'password123')
-      ).rejects.toThrow('API error: 401');
+      ).rejects.toThrow('Invalid request');
 
       // Should NOT set session expired error for registration failures
       expect(getAuthError()).toBeNull();
+    });
+
+    it('throws error with message from response body when email already registered', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Email already registered' }), {
+          status: 409
+        })
+      );
+
+      const { api } = await import('./api');
+
+      await expect(
+        api.auth.register('existing@example.com', 'password123')
+      ).rejects.toThrow('Email already registered');
+    });
+
+    it('extracts error message from login 401 response', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Invalid email or password' }), {
+          status: 401
+        })
+      );
+
+      const { api } = await import('./api');
+
+      await expect(
+        api.auth.login('test@example.com', 'wrongpassword')
+      ).rejects.toThrow('Invalid email or password');
     });
 
     it('handles network errors', async () => {

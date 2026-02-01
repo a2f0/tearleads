@@ -200,6 +200,29 @@ describe('RegisterForm', () => {
     });
   });
 
+  it('displays "Email already registered" error when API returns 409', async () => {
+    // Simulates the exact error that api.ts now throws when the server returns
+    // 409 with { error: 'Email already registered' }
+    mockRegister.mockRejectedValueOnce(new Error('Email already registered'));
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'existing@example.com');
+    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.click(screen.getByRole('button', { name: 'Create Account' }));
+
+    // Error message should appear in the error div
+    await waitFor(() => {
+      const errorDiv = screen.getByText('Email already registered');
+      expect(errorDiv).toBeInTheDocument();
+      expect(errorDiv).toHaveClass('text-destructive');
+    });
+
+    // Form should not be cleared (registration failed)
+    expect(screen.getByLabelText('Email')).toHaveValue('existing@example.com');
+  });
+
   it('displays string error message', async () => {
     mockRegister.mockRejectedValueOnce('String error message');
     const user = userEvent.setup();
