@@ -794,10 +794,6 @@ export const vfsFoldersTable: TableDefinition = {
       type: 'text',
       sqlName: 'encrypted_name'
     },
-    color: {
-      type: 'text',
-      sqlName: 'color'
-    },
     icon: {
       type: 'text',
       sqlName: 'icon'

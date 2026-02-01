@@ -320,7 +320,6 @@ export const vfsFolders = sqliteTable('vfs_folders', {
     .primaryKey()
     .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
   encryptedName: text('encrypted_name'),
-  color: text('color'),
   icon: text('icon'),
   viewMode: text('view_mode'),
   defaultSort: text('default_sort'),
