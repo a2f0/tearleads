@@ -24,6 +24,7 @@ import {
   getInstances,
   getRegistryData,
   initializeRegistry,
+  resetInitializationState,
   setActiveInstanceId,
   touchInstance,
   updateInstance
@@ -164,6 +165,7 @@ describe('instance-registry', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockStore.clear();
+    resetInitializationState();
     mockIsTestMode.mockReturnValue(false);
     mockGetTestInstanceId.mockReturnValue(null);
   });
