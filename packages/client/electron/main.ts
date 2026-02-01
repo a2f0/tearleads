@@ -77,7 +77,7 @@ function createWindow(): void {
       mainWindow.setTitle(title);
       mainWindow.webContents.executeJavaScript(`document.title = ${JSON.stringify(title)}`);
       // Skip showing window in test headless mode (for local dev with multiple agents)
-      if (!process.argv.includes('--test-headless')) {
+      if (!app.commandLine.hasSwitch('test-headless')) {
         mainWindow.show();
       }
     }
