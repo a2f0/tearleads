@@ -277,8 +277,11 @@ export function VideoPage({
       (!hasFetched || instanceChanged || playlistChanged);
 
     if (needsFetch) {
-      // If instance changed, cleanup old thumbnail URLs first
-      if (instanceChanged && fetchedForInstanceRef.current !== null) {
+      // If instance or playlist changed, cleanup old thumbnail URLs first
+      if (
+        (instanceChanged || playlistChanged) &&
+        fetchedForInstanceRef.current !== null
+      ) {
         for (const video of videos) {
           if (video.thumbnailUrl) {
             URL.revokeObjectURL(video.thumbnailUrl);

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 
 export interface DeleteVideoPlaylistDialogProps {
@@ -19,45 +20,12 @@ export function DeleteVideoPlaylistDialog({
 }: DeleteVideoPlaylistDialogProps) {
   const [isDeleting, setIsDeleting] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
 
-  useEffect(() => {
-    if (open) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-    } else {
-      previousActiveElement.current?.focus();
-    }
-  }, [open]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && !isDeleting) {
-        onOpenChange(false);
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    },
-    [isDeleting, onOpenChange]
+  const { handleKeyDown } = useDialogAccessibility(
+    dialogRef,
+    open,
+    isDeleting,
+    () => onOpenChange(false)
   );
 
   const handleDelete = async () => {

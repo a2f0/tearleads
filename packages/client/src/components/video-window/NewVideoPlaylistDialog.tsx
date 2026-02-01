@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
 
 export interface NewVideoPlaylistDialogProps {
@@ -18,47 +19,19 @@ export function NewVideoPlaylistDialog({
   const [isCreating, setIsCreating] = useState(false);
   const { createPlaylist } = useVideoPlaylists();
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  const { handleKeyDown } = useDialogAccessibility(
+    dialogRef,
+    open,
+    isCreating,
+    () => onOpenChange(false)
+  );
 
   useEffect(() => {
     if (open) {
       setPlaylistName('');
-      previousActiveElement.current = document.activeElement as HTMLElement;
-    } else {
-      previousActiveElement.current?.focus();
     }
   }, [open]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && !isCreating) {
-        onOpenChange(false);
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    },
-    [isCreating, onOpenChange]
-  );
 
   const handleCreate = async () => {
     if (!playlistName.trim() || isCreating) return;

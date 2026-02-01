@@ -1,6 +1,7 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 
 export interface RenameVideoPlaylistDialogProps {
@@ -21,47 +22,19 @@ export function RenameVideoPlaylistDialog({
   const [newName, setNewName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
+
+  const { handleKeyDown } = useDialogAccessibility(
+    dialogRef,
+    open,
+    isRenaming,
+    () => onOpenChange(false)
+  );
 
   useEffect(() => {
     if (open && playlist) {
       setNewName(playlist.name);
-      previousActiveElement.current = document.activeElement as HTMLElement;
-    } else {
-      previousActiveElement.current?.focus();
     }
   }, [open, playlist]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && !isRenaming) {
-        onOpenChange(false);
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    },
-    [isRenaming, onOpenChange]
-  );
 
   const handleRename = async () => {
     if (!playlist || !newName.trim() || isRenaming) return;
