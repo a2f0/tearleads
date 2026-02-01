@@ -11,8 +11,12 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { DeletePhotoDialog } from '@/components/DeletePhotoDialog';
+import {
+  ALL_PHOTOS_ID,
+  PhotosAlbumsSidebar
+} from '@/components/photos-window/PhotosAlbumsSidebar';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -42,8 +46,13 @@ interface PhotoInfo {
 
 export function PhotoDetail() {
   const { id } = useParams<{ id: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
+  const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(
+    searchParams.get('album') ?? ALL_PHOTOS_ID
+  );
   const {
     loadedModel,
     isClassifying,
@@ -255,180 +264,202 @@ export function PhotoDetail() {
     };
   }, []);
 
+  const handleAlbumSelect = useCallback(
+    (albumId: string | null) => {
+      setSelectedAlbumId(albumId);
+      const query =
+        albumId && albumId !== ALL_PHOTOS_ID ? `?album=${albumId}` : '';
+      navigate(`/photos${query}`);
+    },
+    [navigate]
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <BackLink defaultTo="/photos" defaultLabel="Back to Photos" />
-      </div>
-
-      {isLoading && (
-        <div className="rounded-lg border p-8 text-center text-muted-foreground">
-          Loading database...
-        </div>
-      )}
-
-      {!isLoading && !isUnlocked && <InlineUnlock description="this photo" />}
-
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">
-          {error}
-        </div>
-      )}
-
-      {isUnlocked && loading && (
-        <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
-          <Loader2 className="h-5 w-5 animate-spin" />
-          Loading photo...
-        </div>
-      )}
-
-      {isUnlocked && !loading && !error && photo && (
-        <div className="space-y-6">
-          <h1 className="font-bold text-2xl tracking-tight">{photo.name}</h1>
-
-          {objectUrl && (
-            <div className="overflow-hidden rounded-lg border bg-muted">
-              <img
-                src={objectUrl}
-                alt={photo.name}
-                className="mx-auto max-h-[70vh] object-contain"
-              />
-            </div>
-          )}
-
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={handleDownload}
-              disabled={actionLoading !== null}
-              data-testid="download-button"
-            >
-              {actionLoading === 'download' ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="mr-2 h-4 w-4" />
-              )}
-              Download
-            </Button>
-            {canShare && (
-              <Button
-                variant="outline"
-                onClick={handleShare}
-                disabled={actionLoading !== null}
-                data-testid="share-button"
-              >
-                {actionLoading === 'share' ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <Share2 className="mr-2 h-4 w-4" />
-                )}
-                Share
-              </Button>
-            )}
-            <Button
-              variant="outline"
-              onClick={handleClassify}
-              disabled={
-                actionLoading !== null || isModelLoading || isClassifying
-              }
-              data-testid="classify-button"
-            >
-              {isModelLoading || isClassifying ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <ScanSearch className="mr-2 h-4 w-4" />
-              )}
-              {isModelLoading
-                ? `Loading${loadProgress ? ` ${Math.round(loadProgress.progress * 100)}%` : '...'}`
-                : isClassifying
-                  ? 'Classifying...'
-                  : 'Classify Document'}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={() => setDeleteDialogOpen(true)}
-              disabled={actionLoading !== null}
-              data-testid="delete-button"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              Delete
-            </Button>
-          </div>
-
-          {classificationResult && (
-            <div className="rounded-lg border">
-              <div className="border-b px-4 py-3">
-                <h2 className="font-semibold">Document Classification</h2>
-              </div>
-              <div className="divide-y">
-                {classificationResult.labels
-                  .map((label, index) => ({
-                    label,
-                    score: classificationResult.scores[index] ?? 0
-                  }))
-                  .sort((a, b) => b.score - a.score)
-                  .map(({ label, score }) => (
-                    <div
-                      key={label}
-                      className="flex items-center gap-3 px-4 py-3"
-                    >
-                      <span className="text-sm capitalize">{label}</span>
-                      <div className="ml-auto flex items-center gap-2">
-                        <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className="h-full bg-primary transition-all"
-                            style={{ width: `${score * 100}%` }}
-                          />
-                        </div>
-                        <span className="w-12 text-right font-mono text-muted-foreground text-sm">
-                          {(score * 100).toFixed(1)}%
-                        </span>
-                      </div>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          <div className="rounded-lg border">
-            <div className="border-b px-4 py-3">
-              <h2 className="font-semibold">Photo Details</h2>
-            </div>
-            <div className="divide-y">
-              <div className="flex items-center gap-3 px-4 py-3">
-                <FileType className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">Type</span>
-                <span className="ml-auto font-mono text-sm">
-                  {photo.mimeType}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 px-4 py-3">
-                <HardDrive className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">Size</span>
-                <span className="ml-auto font-mono text-sm">
-                  {formatFileSize(photo.size)}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 px-4 py-3">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">Uploaded</span>
-                <span className="ml-auto text-sm">
-                  {formatDate(photo.uploadDate)}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {photo && (
-        <DeletePhotoDialog
-          open={deleteDialogOpen}
-          onOpenChange={setDeleteDialogOpen}
-          photoName={photo.name}
-          onDelete={handleDelete}
+    <div className="flex h-full gap-6">
+      {isUnlocked && (
+        <PhotosAlbumsSidebar
+          width={sidebarWidth}
+          onWidthChange={setSidebarWidth}
+          selectedAlbumId={selectedAlbumId}
+          onAlbumSelect={handleAlbumSelect}
         />
       )}
+      <div className="min-w-0 flex-1 space-y-6">
+        <div className="flex items-center gap-4">
+          <BackLink defaultTo="/photos" defaultLabel="Back to Photos" />
+        </div>
+
+        {isLoading && (
+          <div className="rounded-lg border p-8 text-center text-muted-foreground">
+            Loading database...
+          </div>
+        )}
+
+        {!isLoading && !isUnlocked && <InlineUnlock description="this photo" />}
+
+        {error && (
+          <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">
+            {error}
+          </div>
+        )}
+
+        {isUnlocked && loading && (
+          <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            Loading photo...
+          </div>
+        )}
+
+        {isUnlocked && !loading && !error && photo && (
+          <div className="space-y-6">
+            <h1 className="font-bold text-2xl tracking-tight">{photo.name}</h1>
+
+            {objectUrl && (
+              <div className="overflow-hidden rounded-lg border bg-muted">
+                <img
+                  src={objectUrl}
+                  alt={photo.name}
+                  className="mx-auto max-h-[70vh] object-contain"
+                />
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                onClick={handleDownload}
+                disabled={actionLoading !== null}
+                data-testid="download-button"
+              >
+                {actionLoading === 'download' ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="mr-2 h-4 w-4" />
+                )}
+                Download
+              </Button>
+              {canShare && (
+                <Button
+                  variant="outline"
+                  onClick={handleShare}
+                  disabled={actionLoading !== null}
+                  data-testid="share-button"
+                >
+                  {actionLoading === 'share' ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Share2 className="mr-2 h-4 w-4" />
+                  )}
+                  Share
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={handleClassify}
+                disabled={
+                  actionLoading !== null || isModelLoading || isClassifying
+                }
+                data-testid="classify-button"
+              >
+                {isModelLoading || isClassifying ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <ScanSearch className="mr-2 h-4 w-4" />
+                )}
+                {isModelLoading
+                  ? `Loading${loadProgress ? ` ${Math.round(loadProgress.progress * 100)}%` : '...'}`
+                  : isClassifying
+                    ? 'Classifying...'
+                    : 'Classify Document'}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={actionLoading !== null}
+                data-testid="delete-button"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            </div>
+
+            {classificationResult && (
+              <div className="rounded-lg border">
+                <div className="border-b px-4 py-3">
+                  <h2 className="font-semibold">Document Classification</h2>
+                </div>
+                <div className="divide-y">
+                  {classificationResult.labels
+                    .map((label, index) => ({
+                      label,
+                      score: classificationResult.scores[index] ?? 0
+                    }))
+                    .sort((a, b) => b.score - a.score)
+                    .map(({ label, score }) => (
+                      <div
+                        key={label}
+                        className="flex items-center gap-3 px-4 py-3"
+                      >
+                        <span className="text-sm capitalize">{label}</span>
+                        <div className="ml-auto flex items-center gap-2">
+                          <div className="h-2 w-24 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full bg-primary transition-all"
+                              style={{ width: `${score * 100}%` }}
+                            />
+                          </div>
+                          <span className="w-12 text-right font-mono text-muted-foreground text-sm">
+                            {(score * 100).toFixed(1)}%
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+
+            <div className="rounded-lg border">
+              <div className="border-b px-4 py-3">
+                <h2 className="font-semibold">Photo Details</h2>
+              </div>
+              <div className="divide-y">
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <FileType className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground text-sm">Type</span>
+                  <span className="ml-auto font-mono text-sm">
+                    {photo.mimeType}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <HardDrive className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground text-sm">Size</span>
+                  <span className="ml-auto font-mono text-sm">
+                    {formatFileSize(photo.size)}
+                  </span>
+                </div>
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-muted-foreground text-sm">
+                    Uploaded
+                  </span>
+                  <span className="ml-auto text-sm">
+                    {formatDate(photo.uploadDate)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {photo && (
+          <DeletePhotoDialog
+            open={deleteDialogOpen}
+            onOpenChange={setDeleteDialogOpen}
+            photoName={photo.name}
+            onDelete={handleDelete}
+          />
+        )}
+      </div>
     </div>
   );
 }

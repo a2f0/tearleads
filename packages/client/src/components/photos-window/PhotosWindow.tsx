@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useDatabaseContext } from '@/db/hooks';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
 import { PhotosWindowContent } from './PhotosWindowContent';
@@ -32,6 +33,7 @@ export function PhotosWindow({
 }: PhotosWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { windowOpenRequests } = useWindowManager();
+  const { isUnlocked } = useDatabaseContext();
   const openRequest = windowOpenRequests.photos;
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -128,14 +130,16 @@ export function PhotosWindow({
           onShowDropzoneChange={setShowDropzone}
         />
         <div className="flex flex-1 overflow-hidden">
-          <PhotosAlbumsSidebar
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            selectedAlbumId={selectedAlbumId}
-            onAlbumSelect={setSelectedAlbumId}
-            refreshToken={refreshToken}
-            onAlbumChanged={handleRefresh}
-          />
+          {isUnlocked && (
+            <PhotosAlbumsSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              selectedAlbumId={selectedAlbumId}
+              onAlbumSelect={setSelectedAlbumId}
+              refreshToken={refreshToken}
+              onAlbumChanged={handleRefresh}
+            />
+          )}
           <div className="flex-1 overflow-hidden">
             {selectedPhotoId ? (
               <PhotosWindowDetail

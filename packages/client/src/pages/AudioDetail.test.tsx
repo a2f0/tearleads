@@ -24,6 +24,19 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+// Mock the audio playlists sidebar
+vi.mock('@rapid/audio', async () => {
+  const actual =
+    await vi.importActual<typeof import('@rapid/audio')>('@rapid/audio');
+  return {
+    ...actual,
+    ALL_AUDIO_ID: '__all__',
+    AudioPlaylistsSidebar: () => (
+      <div data-testid="audio-playlists-sidebar">Playlists Sidebar</div>
+    )
+  };
+});
+
 // Mock the database
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();
