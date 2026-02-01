@@ -63,7 +63,7 @@ export function AnalyticsWindow({
           onExportCsv={handleExportCsv}
           exportCsvDisabled={!exportHandler || exportingCsv}
         />
-        <div className="flex-1 overflow-hidden p-4">
+        <div className="flex-1 overflow-hidden px-4 pb-4">
           <Analytics
             showBackLink={false}
             onExportCsvChange={handleExportCsvChange}
