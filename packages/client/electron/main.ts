@@ -76,7 +76,10 @@ function createWindow(): void {
       const title = `Tearleads v${__APP_VERSION__}`;
       mainWindow.setTitle(title);
       mainWindow.webContents.executeJavaScript(`document.title = ${JSON.stringify(title)}`);
-      mainWindow.show();
+      // Skip showing window in test headless mode (for local dev with multiple agents)
+      if (!process.argv.includes('--test-headless')) {
+        mainWindow.show();
+      }
     }
   });
 
