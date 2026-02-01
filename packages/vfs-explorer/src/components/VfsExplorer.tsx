@@ -48,7 +48,7 @@ export function VfsExplorer({
 }: VfsExplorerProps) {
   const [internalSelectedFolderId, setInternalSelectedFolderId] = useState<
     string | null
-  >(null);
+  >(UNFILED_FOLDER_ID);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [treePanelWidth, setTreePanelWidth] = useState(240);
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
