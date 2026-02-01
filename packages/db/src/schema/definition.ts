@@ -928,6 +928,13 @@ export const playlistsTable: TableDefinition = {
       sqlName: 'shuffle_mode',
       notNull: true,
       defaultValue: 0
+    },
+    mediaType: {
+      type: 'text',
+      sqlName: 'media_type',
+      notNull: true,
+      defaultValue: 'audio',
+      enumValues: ['audio', 'video'] as const
     }
   }
 };

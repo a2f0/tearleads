@@ -8,7 +8,8 @@ const mockPlaylist = {
   id: 'playlist-1',
   name: 'Evening Mix',
   trackCount: 2,
-  coverImageId: null
+  coverImageId: null,
+  mediaType: 'audio' as const
 };
 
 describe('DeletePlaylistDialog', () => {

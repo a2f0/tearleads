@@ -11,6 +11,17 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
   })
 }));
 
+vi.mock('@/contexts/ClientVideoProvider', () => ({
+  ClientVideoProvider: ({ children }: { children: React.ReactNode }) => (
+    <>{children}</>
+  )
+}));
+
+vi.mock('./VideoPlaylistsSidebar', () => ({
+  ALL_VIDEO_ID: '__ALL_VIDEO__',
+  VideoPlaylistsSidebar: () => null
+}));
+
 const mockUploadFile = vi.fn();
 
 vi.mock('@/components/floating-window', () => ({
