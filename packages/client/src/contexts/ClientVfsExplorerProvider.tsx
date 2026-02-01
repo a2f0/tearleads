@@ -7,7 +7,7 @@ import {
   type VfsExplorerUIComponents
 } from '@rapid/vfs-explorer';
 import vfsExplorerPackageJson from '@rapid/vfs-explorer/package.json';
-import type { ReactNode } from 'react';
+import { type ReactNode, useMemo } from 'react';
 import { FloatingWindow } from '@/components/floating-window';
 import { Button } from '@/components/ui/button';
 import {
@@ -62,47 +62,72 @@ export function ClientVfsExplorerProvider({
 }: ClientVfsExplorerProviderProps) {
   const databaseContext = useDatabaseContext();
 
-  const databaseState = {
-    isUnlocked: databaseContext.isUnlocked,
-    isLoading: databaseContext.isLoading,
-    currentInstanceId: databaseContext.currentInstanceId
-  };
+  const databaseState = useMemo(
+    () => ({
+      isUnlocked: databaseContext.isUnlocked,
+      isLoading: databaseContext.isLoading,
+      currentInstanceId: databaseContext.currentInstanceId
+    }),
+    [
+      databaseContext.isUnlocked,
+      databaseContext.isLoading,
+      databaseContext.currentInstanceId
+    ]
+  );
+
+  const vfsKeys = useMemo(
+    () => ({
+      generateSessionKey,
+      wrapSessionKey
+    }),
+    []
+  );
+
+  const auth = useMemo(
+    () => ({
+      isLoggedIn,
+      readStoredAuth
+    }),
+    []
+  );
+
+  const featureFlags = useMemo(
+    () => ({
+      getFeatureFlagValue: (key: string) =>
+        key === 'vfsServerRegistration' ? getFeatureFlagValue(key) : false
+    }),
+    []
+  );
+
+  const vfsApi = useMemo(
+    () => ({
+      register: async (params: {
+        id: string;
+        objectType: string;
+        encryptedSessionKey: string;
+      }) => {
+        if (params.objectType !== 'folder') {
+          throw new Error(`Unsupported VFS object type: ${params.objectType}`);
+        }
+        await api.vfs.register({
+          id: params.id,
+          objectType: params.objectType,
+          encryptedSessionKey: params.encryptedSessionKey
+        });
+      }
+    }),
+    []
+  );
 
   return (
     <VfsExplorerProvider
       databaseState={databaseState}
       getDatabase={getDatabase}
       ui={vfsExplorerUIComponents}
-      vfsKeys={{
-        generateSessionKey,
-        wrapSessionKey
-      }}
-      auth={{
-        isLoggedIn,
-        readStoredAuth
-      }}
-      featureFlags={{
-        getFeatureFlagValue: (key: string) =>
-          key === 'vfsServerRegistration' ? getFeatureFlagValue(key) : false
-      }}
-      vfsApi={{
-        register: async (params: {
-          id: string;
-          objectType: string;
-          encryptedSessionKey: string;
-        }) => {
-          if (params.objectType !== 'folder') {
-            throw new Error(
-              `Unsupported VFS object type: ${params.objectType}`
-            );
-          }
-          await api.vfs.register({
-            id: params.id,
-            objectType: params.objectType,
-            encryptedSessionKey: params.encryptedSessionKey
-          });
-        }
-      }}
+      vfsKeys={vfsKeys}
+      auth={auth}
+      featureFlags={featureFlags}
+      vfsApi={vfsApi}
     >
       {children}
     </VfsExplorerProvider>
