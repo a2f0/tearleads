@@ -150,6 +150,10 @@ export interface TestContactsProviderProps {
     filename: string,
     mimeType: string
   ) => Promise<void>;
+  registerInVfs?: (
+    contactId: string,
+    createdAt: Date
+  ) => Promise<{ success: boolean; error?: string }>;
   formatDate?: (date: Date) => string;
 }
 
@@ -163,6 +167,7 @@ export function TestContactsProvider({
   navigate = vi.fn(),
   navigateWithFrom = vi.fn(),
   saveFile = vi.fn().mockResolvedValue(undefined),
+  registerInVfs = vi.fn().mockResolvedValue({ success: true }),
   formatDate = (date) => date.toLocaleDateString()
 }: TestContactsProviderProps) {
   const db = database ?? createMockDatabase();
@@ -174,6 +179,7 @@ export function TestContactsProvider({
       getDatabase={() => db as unknown as Database}
       getDatabaseAdapter={() => adapter}
       saveFile={saveFile}
+      registerInVfs={registerInVfs}
       ui={ui}
       t={t}
       tooltipZIndex={10000}

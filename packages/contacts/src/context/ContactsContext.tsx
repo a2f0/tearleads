@@ -173,6 +173,23 @@ export type SaveFileFunction = (
 ) => Promise<void>;
 
 /**
+ * VFS registration result
+ */
+export interface VfsRegistrationResult {
+  success: boolean;
+  error?: string;
+}
+
+/**
+ * VFS registration function type
+ * Registers a contact in the VFS registry for organization and sharing
+ */
+export type RegisterInVfsFunction = (
+  contactId: string,
+  createdAt: Date
+) => Promise<VfsRegistrationResult>;
+
+/**
  * Context value interface
  */
 /**
@@ -194,6 +211,8 @@ export interface ContactsContextValue {
   getDatabaseAdapter: () => DatabaseAdapter;
   /** Save file function for exports */
   saveFile: SaveFileFunction;
+  /** Register a contact in VFS for organization and sharing */
+  registerInVfs: RegisterInVfsFunction;
   /** UI components */
   ui: ContactsUIComponents;
   /** Translation function for context menu labels */
@@ -216,6 +235,7 @@ export interface ContactsProviderProps {
   getDatabase: () => Database;
   getDatabaseAdapter: () => DatabaseAdapter;
   saveFile: SaveFileFunction;
+  registerInVfs: RegisterInVfsFunction;
   ui: ContactsUIComponents;
   t: TranslationFunction;
   tooltipZIndex?: number;
@@ -233,6 +253,7 @@ export function ContactsProvider({
   getDatabase,
   getDatabaseAdapter,
   saveFile,
+  registerInVfs,
   ui,
   t,
   tooltipZIndex = 10050,
@@ -247,6 +268,7 @@ export function ContactsProvider({
         getDatabase,
         getDatabaseAdapter,
         saveFile,
+        registerInVfs,
         ui,
         t,
         tooltipZIndex,

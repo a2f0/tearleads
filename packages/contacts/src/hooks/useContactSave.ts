@@ -8,6 +8,12 @@ import type {
   PhoneFormData
 } from '../lib/validation';
 
+/** Callback for VFS registration after contact creation */
+export type OnContactCreatedCallback = (
+  contactId: string,
+  createdAt: Date
+) => Promise<void>;
+
 export interface SaveContactParams {
   contactId?: string;
   formData: ContactFormData;
@@ -26,7 +32,8 @@ export interface SaveContactResult {
  * Extracts common database transaction logic for both new and existing contacts.
  */
 export function useContactSave() {
-  const { getDatabase, getDatabaseAdapter } = useContactsContext();
+  const { getDatabase, getDatabaseAdapter, registerInVfs } =
+    useContactsContext();
   const [saving, setSaving] = useState(false);
 
   /**
@@ -82,6 +89,13 @@ export function useContactSave() {
           }
 
           await adapter.commitTransaction();
+
+          // Register in VFS after successful commit
+          const vfsResult = await registerInVfs(contactId, now);
+          if (!vfsResult.success) {
+            console.warn('VFS registration failed:', vfsResult.error);
+          }
+
           return { success: true, contactId };
         } catch (err) {
           await adapter.rollbackTransaction();
@@ -97,7 +111,7 @@ export function useContactSave() {
         setSaving(false);
       }
     },
-    [getDatabase, getDatabaseAdapter]
+    [getDatabase, getDatabaseAdapter, registerInVfs]
   );
 
   /**
