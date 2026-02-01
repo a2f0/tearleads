@@ -1,4 +1,5 @@
 import type { Migration } from './types';
+import { addColumnIfNotExists } from './utils';
 
 /**
  * v009: Add metadata columns to vfs_folders and vfs_links
@@ -11,14 +12,15 @@ export const v009: Migration = {
   version: 9,
   description: 'Add metadata columns to vfs_folders and vfs_links',
   up: async (adapter) => {
-    const statements = [
-      `ALTER TABLE "vfs_folders" ADD COLUMN "icon" TEXT`,
-      `ALTER TABLE "vfs_folders" ADD COLUMN "view_mode" TEXT`,
-      `ALTER TABLE "vfs_folders" ADD COLUMN "default_sort" TEXT`,
-      `ALTER TABLE "vfs_folders" ADD COLUMN "sort_direction" TEXT`,
-      `ALTER TABLE "vfs_links" ADD COLUMN "position" INTEGER`
-    ];
-
-    await adapter.executeMany(statements);
+    await addColumnIfNotExists(adapter, 'vfs_folders', 'icon', 'TEXT');
+    await addColumnIfNotExists(adapter, 'vfs_folders', 'view_mode', 'TEXT');
+    await addColumnIfNotExists(adapter, 'vfs_folders', 'default_sort', 'TEXT');
+    await addColumnIfNotExists(
+      adapter,
+      'vfs_folders',
+      'sort_direction',
+      'TEXT'
+    );
+    await addColumnIfNotExists(adapter, 'vfs_links', 'position', 'INTEGER');
   }
 };
