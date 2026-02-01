@@ -22,8 +22,8 @@ export function getElectronArgs(): string[] {
   const args = [mainPath];
 
   if (!isHeaded) {
-    // Headless mode: disable GPU and sandbox for stability
-    args.push('--no-sandbox', '--disable-gpu');
+    // Headless mode: disable GPU and sandbox for stability, keep window hidden
+    args.push('--no-sandbox', '--disable-gpu', '--test-headless');
   }
 
   return args;
