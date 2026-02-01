@@ -6,7 +6,7 @@ import type { Migration } from './types.js';
  *
  * Adds:
  * - position column to vfs_links for ordered collections
- * - metadata columns to vfs_folders (color, icon, view_mode, etc.)
+ * - metadata columns to vfs_folders (icon, view_mode, etc.)
  * - playlists table for audio collections
  * - albums table for photo collections
  * - contact_groups table for contact organization
@@ -29,7 +29,6 @@ export const v012: Migration = {
       // Add metadata columns to vfs_folders
       await pool.query(`
         ALTER TABLE "vfs_folders"
-        ADD COLUMN IF NOT EXISTS "color" TEXT,
         ADD COLUMN IF NOT EXISTS "icon" TEXT,
         ADD COLUMN IF NOT EXISTS "view_mode" TEXT,
         ADD COLUMN IF NOT EXISTS "default_sort" TEXT,
