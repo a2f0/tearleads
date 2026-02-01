@@ -9,6 +9,9 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 cd "$SCRIPT_DIR/../packages/client"
 
+# Disable audio to prevent crackling on host audio
+defaults write com.apple.iphonesimulator MuteAudio -bool true
+
 BUNDLE_ID="com.tearleads.rapid"
 DEVICE="${1:-"iPhone 16 Pro"}"
 
