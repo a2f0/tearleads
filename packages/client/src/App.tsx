@@ -80,7 +80,7 @@ function App() {
           </header>
           <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-14">
             <div
-              className="container relative mx-auto flex min-h-0 max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8"
+              className="container relative mx-auto flex min-h-0 max-w-2xl flex-1 flex-col overflow-auto px-4 pb-16 lg:max-w-none lg:px-8"
               style={{
                 paddingBottom:
                   keyboardHeight > 0
