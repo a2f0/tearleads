@@ -176,9 +176,42 @@ vi.mock('./PhotosWindowThumbnailView', () => ({
 
 vi.mock('./PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
-  PhotosAlbumsSidebar: () => (
-    <div data-testid="photos-albums-sidebar">Albums Sidebar</div>
+  PhotosAlbumsSidebar: ({
+    selectedAlbumId,
+    onAlbumSelect
+  }: {
+    selectedAlbumId: string | null;
+    onAlbumSelect: (id: string | null) => void;
+  }) => (
+    <div data-testid="photos-albums-sidebar">
+      <button
+        type="button"
+        data-testid="select-album"
+        onClick={() => onAlbumSelect('test-album-id')}
+      >
+        Select Album
+      </button>
+      <span data-testid="selected-album">{selectedAlbumId}</span>
+    </div>
   )
+}));
+
+const mockAddPhotoToAlbum = vi.fn();
+
+vi.mock('./usePhotoAlbums', () => ({
+  usePhotoAlbums: () => ({
+    albums: [],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    refetch: vi.fn(),
+    createAlbum: vi.fn(),
+    renameAlbum: vi.fn(),
+    deleteAlbum: vi.fn(),
+    addPhotoToAlbum: mockAddPhotoToAlbum,
+    removePhotoFromAlbum: vi.fn(),
+    getPhotoIdsInAlbum: vi.fn()
+  })
 }));
 
 vi.mock('@/hooks/useFileUpload', () => ({
@@ -199,6 +232,12 @@ describe('PhotosWindow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUploadFile.mockClear();
+    mockUploadFile.mockResolvedValue({
+      id: 'uploaded-file-id',
+      isDuplicate: false
+    });
+    mockAddPhotoToAlbum.mockClear();
+    mockAddPhotoToAlbum.mockResolvedValue(undefined);
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
       isLoading: false
@@ -412,6 +451,65 @@ describe('PhotosWindow', () => {
       expect(screen.getByTestId('detail-photo-id')).toHaveTextContent(
         'photo-456'
       );
+    });
+  });
+
+  describe('upload to album', () => {
+    it('adds uploaded files to selected album', async () => {
+      const user = userEvent.setup();
+      render(<PhotosWindow {...defaultProps} />);
+
+      // Select an album first
+      await user.click(screen.getByTestId('select-album'));
+
+      // Verify album is selected
+      await waitFor(() => {
+        expect(screen.getByTestId('selected-album')).toHaveTextContent(
+          'test-album-id'
+        );
+      });
+
+      // Upload a file
+      const fileInput = screen.getByTestId(
+        'photo-file-input'
+      ) as HTMLInputElement;
+      const file = new File(['image'], 'photo.jpg', { type: 'image/jpeg' });
+
+      await user.upload(fileInput, file);
+
+      await waitFor(() => {
+        expect(mockUploadFile).toHaveBeenCalledWith(file);
+      });
+
+      await waitFor(() => {
+        expect(mockAddPhotoToAlbum).toHaveBeenCalledWith(
+          'test-album-id',
+          'uploaded-file-id'
+        );
+      });
+    });
+
+    it('does not add to album when "All Photos" is selected', async () => {
+      const user = userEvent.setup();
+      render(<PhotosWindow {...defaultProps} />);
+
+      // By default, "All Photos" is selected (ALL_PHOTOS_ID)
+      expect(screen.getByTestId('selected-album')).toHaveTextContent('__all__');
+
+      // Upload a file
+      const fileInput = screen.getByTestId(
+        'photo-file-input'
+      ) as HTMLInputElement;
+      const file = new File(['image'], 'photo.jpg', { type: 'image/jpeg' });
+
+      await user.upload(fileInput, file);
+
+      await waitFor(() => {
+        expect(mockUploadFile).toHaveBeenCalledWith(file);
+      });
+
+      // Should NOT call addPhotoToAlbum when "All Photos" is selected
+      expect(mockAddPhotoToAlbum).not.toHaveBeenCalled();
     });
   });
 });

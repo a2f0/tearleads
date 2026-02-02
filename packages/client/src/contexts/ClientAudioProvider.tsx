@@ -403,8 +403,9 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
   );
 
   const uploadFile = useCallback(
-    async (file: File): Promise<void> => {
-      await fileUpload(file);
+    async (file: File): Promise<string> => {
+      const result = await fileUpload(file);
+      return result.id;
     },
     [fileUpload]
   );
