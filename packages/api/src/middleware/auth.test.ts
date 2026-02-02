@@ -169,4 +169,26 @@ describe('Auth middleware', () => {
     consoleSpy.mockRestore();
     await deleteSession(sessionId, 'user-1');
   });
+
+  it('returns 500 when JWT_SECRET is not configured', async () => {
+    const consoleSpy = mockConsoleError();
+    vi.unstubAllEnvs();
+    delete process.env['JWT_SECRET'];
+
+    const response = await request(app)
+      .post('/v1/chat/completions')
+      .set('Authorization', 'Bearer some-token')
+      .send({
+        messages: [{ role: 'user', content: 'Hello' }]
+      });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Failed to authenticate' });
+    expect(consoleSpy).toHaveBeenCalledWith(
+      'Authentication setup error: JWT_SECRET is not configured.'
+    );
+
+    consoleSpy.mockRestore();
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+  });
 });

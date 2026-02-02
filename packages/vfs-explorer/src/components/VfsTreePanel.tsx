@@ -33,6 +33,7 @@ interface VfsTreePanelProps {
   compact?: boolean | undefined;
   refreshToken?: number | undefined;
   onFolderChanged?: (() => void) | undefined;
+  onFolderShare?: ((folder: VfsFolderNode) => void) | undefined;
 }
 
 export function VfsTreePanel({
@@ -42,7 +43,8 @@ export function VfsTreePanel({
   onFolderSelect,
   compact: _compact,
   refreshToken,
-  onFolderChanged
+  onFolderChanged,
+  onFolderShare
 }: VfsTreePanelProps) {
   // Ensure the VFS root exists before loading folders
   useEnsureVfsRoot();
@@ -284,6 +286,7 @@ export function VfsTreePanel({
           onNewSubfolder={(folder) => setNewSubfolderParent(folder)}
           onRename={(folder) => setRenameDialogFolder(folder)}
           onDelete={(folder) => setDeleteDialogFolder(folder)}
+          onShare={onFolderShare}
         />
       )}
 

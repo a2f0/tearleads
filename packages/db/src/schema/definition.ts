@@ -1160,6 +1160,167 @@ export const emailsTable: TableDefinition = {
 };
 
 /**
+ * VFS shares - sharing items with users, groups, and organizations.
+ * Supports permission levels and optional expiration dates.
+ */
+export const vfsSharesTable: TableDefinition = {
+  name: 'vfs_shares',
+  propertyName: 'vfsShares',
+  comment:
+    'VFS shares - sharing items with users, groups, and organizations.\nSupports permission levels and optional expiration dates.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    itemId: {
+      type: 'text',
+      sqlName: 'item_id',
+      notNull: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    shareType: {
+      type: 'text',
+      sqlName: 'share_type',
+      notNull: true,
+      enumValues: ['user', 'group', 'organization'] as const
+    },
+    targetId: {
+      type: 'text',
+      sqlName: 'target_id',
+      notNull: true
+    },
+    permissionLevel: {
+      type: 'text',
+      sqlName: 'permission_level',
+      notNull: true,
+      enumValues: ['view', 'edit', 'download'] as const
+    },
+    wrappedSessionKey: {
+      type: 'text',
+      sqlName: 'wrapped_session_key'
+    },
+    createdBy: {
+      type: 'text',
+      sqlName: 'created_by',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    expiresAt: {
+      type: 'timestamp',
+      sqlName: 'expires_at'
+    }
+  },
+  indexes: [
+    { name: 'vfs_shares_item_idx', columns: ['itemId'] },
+    { name: 'vfs_shares_target_idx', columns: ['targetId'] },
+    {
+      name: 'vfs_shares_item_target_type_idx',
+      columns: ['itemId', 'targetId', 'shareType'],
+      unique: true
+    },
+    { name: 'vfs_shares_expires_idx', columns: ['expiresAt'] }
+  ]
+};
+
+/**
+ * Organization shares - sharing items between organizations.
+ * Enables org-to-org sharing with permission levels and expiration.
+ */
+export const orgSharesTable: TableDefinition = {
+  name: 'org_shares',
+  propertyName: 'orgShares',
+  comment:
+    'Organization shares - sharing items between organizations.\nEnables org-to-org sharing with permission levels and expiration.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    sourceOrgId: {
+      type: 'text',
+      sqlName: 'source_org_id',
+      notNull: true,
+      references: {
+        table: 'organizations',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    targetOrgId: {
+      type: 'text',
+      sqlName: 'target_org_id',
+      notNull: true,
+      references: {
+        table: 'organizations',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    itemId: {
+      type: 'text',
+      sqlName: 'item_id',
+      notNull: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    permissionLevel: {
+      type: 'text',
+      sqlName: 'permission_level',
+      notNull: true,
+      enumValues: ['view', 'edit', 'download'] as const
+    },
+    createdBy: {
+      type: 'text',
+      sqlName: 'created_by',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    expiresAt: {
+      type: 'timestamp',
+      sqlName: 'expires_at'
+    }
+  },
+  indexes: [
+    { name: 'org_shares_item_idx', columns: ['itemId'] },
+    { name: 'org_shares_source_idx', columns: ['sourceOrgId'] },
+    { name: 'org_shares_target_idx', columns: ['targetOrgId'] },
+    {
+      name: 'org_shares_unique_idx',
+      columns: ['sourceOrgId', 'targetOrgId', 'itemId'],
+      unique: true
+    }
+  ]
+};
+
+/**
  * VFS access - direct access grants for sharing items with users.
  * Stores wrapped keys encrypted with user's public key.
  */
@@ -1260,5 +1421,7 @@ export const allTables: TableDefinition[] = [
   emailFoldersTable,
   tagsTable,
   emailsTable,
+  vfsSharesTable,
+  orgSharesTable,
   vfsAccessTable
 ];

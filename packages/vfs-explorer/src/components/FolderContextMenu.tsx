@@ -1,4 +1,4 @@
-import { FolderPlus, Pencil, Trash2 } from 'lucide-react';
+import { FolderPlus, Pencil, Share2, Trash2 } from 'lucide-react';
 import { useVfsExplorerContext } from '../context';
 import type { VfsFolderNode } from '../hooks';
 
@@ -10,6 +10,7 @@ interface FolderContextMenuProps {
   onNewSubfolder: (parentFolder: VfsFolderNode) => void;
   onRename: (folder: VfsFolderNode) => void;
   onDelete: (folder: VfsFolderNode) => void;
+  onShare?: ((folder: VfsFolderNode) => void) | undefined;
 }
 
 export function FolderContextMenu({
@@ -19,10 +20,12 @@ export function FolderContextMenu({
   onClose,
   onNewSubfolder,
   onRename,
-  onDelete
+  onDelete,
+  onShare
 }: FolderContextMenuProps) {
   const {
-    ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator }
+    ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator },
+    vfsShareApi
   } = useVfsExplorerContext();
 
   return (
@@ -45,6 +48,17 @@ export function FolderContextMenu({
       >
         Rename
       </ContextMenuItem>
+      {vfsShareApi && onShare && (
+        <ContextMenuItem
+          icon={<Share2 className="h-4 w-4" />}
+          onClick={() => {
+            onShare(folder);
+            onClose();
+          }}
+        >
+          Sharing
+        </ContextMenuItem>
+      )}
       <ContextMenuSeparator />
       <ContextMenuItem
         icon={<Trash2 className="h-4 w-4" />}

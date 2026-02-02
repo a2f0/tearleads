@@ -334,8 +334,8 @@ describe('notesTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 27 tables', () => {
-    expect(allTables).toHaveLength(27);
+  it('contains all 29 tables', () => {
+    expect(allTables).toHaveLength(29);
   });
 
   it('contains all table definitions', () => {

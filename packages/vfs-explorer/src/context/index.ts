@@ -17,6 +17,7 @@ export type {
   VfsExplorerProviderProps,
   VfsExplorerUIComponents,
   VfsKeyFunctions,
+  VfsShareApiFunctions,
   WindowDimensions,
   WindowOptionsMenuItemProps
 } from './VfsExplorerContext';

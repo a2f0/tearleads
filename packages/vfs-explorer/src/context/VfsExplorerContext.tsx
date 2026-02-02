@@ -1,4 +1,14 @@
 import type { Database } from '@rapid/db/sqlite';
+import type {
+  CreateOrgShareRequest,
+  CreateVfsShareRequest,
+  ShareTargetSearchResponse,
+  UpdateVfsShareRequest,
+  VfsOrgShare,
+  VfsShare,
+  VfsSharesResponse,
+  VfsShareType
+} from '@rapid/shared';
 import type { ComponentType, ReactNode, RefObject } from 'react';
 import { createContext, useContext } from 'react';
 
@@ -43,6 +53,25 @@ export interface VfsApiFunctions {
     objectType: string;
     encryptedSessionKey: string;
   }) => Promise<void>;
+}
+
+/**
+ * VFS Share API functions
+ */
+export interface VfsShareApiFunctions {
+  getShares: (itemId: string) => Promise<VfsSharesResponse>;
+  createShare: (request: CreateVfsShareRequest) => Promise<VfsShare>;
+  updateShare: (
+    shareId: string,
+    request: UpdateVfsShareRequest
+  ) => Promise<VfsShare>;
+  deleteShare: (shareId: string) => Promise<{ deleted: boolean }>;
+  createOrgShare: (request: CreateOrgShareRequest) => Promise<VfsOrgShare>;
+  deleteOrgShare: (shareId: string) => Promise<{ deleted: boolean }>;
+  searchTargets: (
+    query: string,
+    type?: VfsShareType
+  ) => Promise<ShareTargetSearchResponse>;
 }
 
 /**
@@ -170,6 +199,8 @@ export interface VfsExplorerContextValue {
   featureFlags: FeatureFlagFunctions;
   /** VFS API functions */
   vfsApi: VfsApiFunctions;
+  /** VFS Share API functions (optional for backwards compatibility) */
+  vfsShareApi?: VfsShareApiFunctions | undefined;
 }
 
 const VfsExplorerContext = createContext<VfsExplorerContextValue | null>(null);
@@ -183,6 +214,7 @@ export interface VfsExplorerProviderProps {
   auth: AuthFunctions;
   featureFlags: FeatureFlagFunctions;
   vfsApi: VfsApiFunctions;
+  vfsShareApi?: VfsShareApiFunctions | undefined;
 }
 
 /**
@@ -196,7 +228,8 @@ export function VfsExplorerProvider({
   vfsKeys,
   auth,
   featureFlags,
-  vfsApi
+  vfsApi,
+  vfsShareApi
 }: VfsExplorerProviderProps) {
   return (
     <VfsExplorerContext.Provider
@@ -207,7 +240,8 @@ export function VfsExplorerProvider({
         vfsKeys,
         auth,
         featureFlags,
-        vfsApi
+        vfsApi,
+        vfsShareApi
       }}
     >
       {children}
