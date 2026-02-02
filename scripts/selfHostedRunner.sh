@@ -79,8 +79,8 @@ cmd_install() {
   # Detect architecture
   ARCH=$(uname -m)
   case "$ARCH" in
-    arm64) RUNNER_ARCH="osx-arm64" ;;
-    x86_64) RUNNER_ARCH="osx-x64" ;;
+    arm64) RUNNER_ARCH="osx-arm64"; ARCH_LABEL="ARM64" ;;
+    x86_64) RUNNER_ARCH="osx-x64"; ARCH_LABEL="X64" ;;
     *) log_error "Unsupported architecture: $ARCH"; exit 1 ;;
   esac
 
@@ -97,7 +97,7 @@ cmd_install() {
   TOKEN=$(gh api --method POST "repos/${REPO}/actions/runners/registration-token" -q .token)
 
   log_info "Configuring runner..."
-  ./config.sh --url "https://github.com/${REPO}" --token "$TOKEN" --name "$(hostname)-self-hosted" --labels "self-hosted,macOS,ARM64" --work "_work"
+  ./config.sh --url "https://github.com/${REPO}" --token "$TOKEN" --name "$(hostname)-self-hosted" --labels "self-hosted,macOS,${ARCH_LABEL}" --work "_work"
 
   log_info "Runner installed successfully!"
   echo ""
@@ -221,6 +221,7 @@ cmd_uninstall() {
   fi
 
   log_info "Removing runner directory..."
+  cd "$HOME"
   rm -rf "$RUNNER_DIR"
 
   log_info "Runner uninstalled."
@@ -244,7 +245,7 @@ cmd_help() {
   echo ""
   echo "Environment variables:"
   echo "  RUNNER_DIR      Runner installation directory (default: ~/actions-runner)"
-  echo "  RUNNER_VERSION  Runner version to install (default: 2.321.0)"
+  echo "  RUNNER_VERSION  Runner version to install (default: 2.331.0)"
 }
 
 # Main
