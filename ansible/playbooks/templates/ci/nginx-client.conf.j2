@@ -42,14 +42,14 @@ server {
 {{ app_headers | indent(8, true) }}
     }
 
-    # /sqlite is a client route, but /sqlite/ hosts WASM assets
-    location = /sqlite {
-        try_files /index.html =404;
-        add_header Cache-Control "no-cache";
-{{ app_headers | indent(8, true) }}
-    }
-
-    location ^~ /sqlite/ {
+    # SQLite WASM files - match specific file types only (not the /sqlite SPA route)
+    # Uses regex to avoid blocking /sqlite/ directory requests which need SPA fallback (#524)
+    # See also: #656 (MIME types), #578 (SPA vs static), #670 (Android WebView), #1315 (CI fix)
+    location ~* ^/sqlite/.*\.(wasm|js)$ {
+        types {
+            application/javascript    js;
+            application/wasm          wasm;
+        }
         try_files $uri =404;
         add_header Cache-Control "public, immutable";
 {{ app_headers | indent(8, true) }}
