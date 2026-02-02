@@ -1,6 +1,6 @@
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { DurationChart } from '@/components/duration-chart';
+import { LazyDurationChart } from '@/components/duration-chart';
 import { formatDuration } from '@/components/duration-chart/formatters';
 import { getDatabase } from '@/db';
 import {
@@ -140,7 +140,7 @@ export function AnalyticsTab() {
 
       {events.length > 0 ? (
         <div className="h-32">
-          <DurationChart
+          <LazyDurationChart
             events={events}
             selectedEventTypes={selectedEventTypes}
             timeFilter="hour"

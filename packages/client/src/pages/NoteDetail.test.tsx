@@ -6,27 +6,24 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { NoteDetail } from './NoteDetail';
 
-vi.mock('@uiw/react-md-editor', () => ({
-  default: ({
+vi.mock('@/components/markdown-editor', () => ({
+  LazyMarkdownEditor: ({
     value,
-    onChange
+    onChange,
+    colorMode
   }: {
     value: string;
     onChange: (value: string | undefined) => void;
+    colorMode: 'light' | 'dark';
   }) => (
-    <textarea
-      data-testid="mock-md-editor"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-    />
-  ),
-  commands: {
-    codeEdit: { name: 'codeEdit' },
-    codeLive: { name: 'codeLive' },
-    codePreview: { name: 'codePreview' },
-    divider: { name: 'divider' },
-    fullscreen: { name: 'fullscreen' }
-  }
+    <div data-color-mode={colorMode}>
+      <textarea
+        data-testid="mock-md-editor"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    </div>
+  )
 }));
 
 const mockUseDatabaseContext = vi.fn();
@@ -383,8 +380,10 @@ describe('NoteDetail', () => {
     }) => {
       await renderNoteDetail({ theme });
 
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', expectedMode);
+      const editorContainer = screen.getByTestId('markdown-editor');
+      const colorModeElement =
+        editorContainer.querySelector('[data-color-mode]');
+      expect(colorModeElement).toHaveAttribute('data-color-mode', expectedMode);
     });
 
     it.each([
@@ -397,8 +396,10 @@ describe('NoteDetail', () => {
     }) => {
       await renderNoteDetail({ theme: 'light' });
 
-      const editor = screen.getByTestId('markdown-editor');
-      expect(editor).toHaveAttribute('data-color-mode', 'light');
+      const editorContainer = screen.getByTestId('markdown-editor');
+      const colorModeElement =
+        editorContainer.querySelector('[data-color-mode]');
+      expect(colorModeElement).toHaveAttribute('data-color-mode', 'light');
 
       act(() => {
         window.dispatchEvent(
@@ -408,7 +409,7 @@ describe('NoteDetail', () => {
         );
       });
 
-      expect(editor).toHaveAttribute('data-color-mode', expectedMode);
+      expect(colorModeElement).toHaveAttribute('data-color-mode', expectedMode);
     });
   });
 });

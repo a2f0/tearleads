@@ -45,7 +45,10 @@ vi.mock('@/db/analytics', async (importOriginal) => {
 });
 
 vi.mock('@/components/duration-chart', () => ({
-  DurationChart: () => <div data-testid="duration-chart">Duration Chart</div>
+  DurationChart: () => <div data-testid="duration-chart">Duration Chart</div>,
+  LazyDurationChart: () => (
+    <div data-testid="duration-chart">Duration Chart</div>
+  )
 }));
 
 import {
