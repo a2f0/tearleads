@@ -3,11 +3,22 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { SSEProvider, useSSE, useSSEContext } from './SSEContext';
 
+const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
+const mockIsJwtExpired = vi.fn().mockReturnValue(false);
+
 const mockApiModule = vi.hoisted(() => ({
-  API_BASE_URL: 'http://localhost:5001/v1'
+  API_BASE_URL: 'http://localhost:5001/v1',
+  tryRefreshToken: () => mockTryRefreshToken()
 }));
 
 vi.mock('@/lib/api', () => mockApiModule);
+vi.mock('@/lib/jwt', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/jwt')>();
+  return {
+    ...actual,
+    isJwtExpired: (token: string) => mockIsJwtExpired(token)
+  };
+});
 
 type EventSourceListener = (event: { data: string }) => void;
 
@@ -75,6 +86,8 @@ describe('SSEContext', () => {
       'auth_user',
       JSON.stringify({ id: '123', email: 'test@example.com' })
     );
+    mockIsJwtExpired.mockReturnValue(false);
+    mockTryRefreshToken.mockResolvedValue(false);
   });
 
   afterEach(() => {
@@ -155,6 +168,20 @@ describe('SSEContext', () => {
     });
 
     describe('connect', () => {
+      it('does nothing when token is null', async () => {
+        localStorage.clear();
+
+        const { result } = renderHook(() => useSSE(), { wrapper });
+
+        await flushAuthLoad();
+        act(() => {
+          result.current.connect();
+        });
+
+        expect(MockEventSource.instances).toHaveLength(0);
+        expect(result.current.connectionState).toBe('disconnected');
+      });
+
       it('creates EventSource with correct URL', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
@@ -266,6 +293,64 @@ describe('SSEContext', () => {
         expect(consoleSpy).toHaveBeenCalledWith(
           'Failed to parse SSE message:',
           expect.any(Error)
+        );
+        consoleSpy.mockRestore();
+      });
+
+      it('handles message with missing type in message object', async () => {
+        const consoleSpy = vi
+          .spyOn(console, 'error')
+          .mockImplementation(() => {});
+        const { result } = renderHook(() => useSSE(), { wrapper });
+
+        await flushAuthLoad();
+        act(() => {
+          result.current.connect();
+        });
+
+        act(() => {
+          MockEventSource.getInstance(0).emit(
+            'message',
+            JSON.stringify({
+              channel: 'test',
+              message: { payload: {}, timestamp: '2026-01-10T00:00:00.000Z' }
+            })
+          );
+        });
+
+        expect(result.current.lastMessage).toBeNull();
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'Failed to parse SSE message: invalid shape',
+          expect.any(Object)
+        );
+        consoleSpy.mockRestore();
+      });
+
+      it('handles message with missing payload in message object', async () => {
+        const consoleSpy = vi
+          .spyOn(console, 'error')
+          .mockImplementation(() => {});
+        const { result } = renderHook(() => useSSE(), { wrapper });
+
+        await flushAuthLoad();
+        act(() => {
+          result.current.connect();
+        });
+
+        act(() => {
+          MockEventSource.getInstance(0).emit(
+            'message',
+            JSON.stringify({
+              channel: 'test',
+              message: { type: 'test', timestamp: '2026-01-10T00:00:00.000Z' }
+            })
+          );
+        });
+
+        expect(result.current.lastMessage).toBeNull();
+        expect(consoleSpy).toHaveBeenCalledWith(
+          'Failed to parse SSE message: invalid shape',
+          expect.any(Object)
         );
         consoleSpy.mockRestore();
       });
@@ -519,6 +604,76 @@ describe('SSEContext', () => {
       expect(MockEventSource.getLastInstance().url).toContain(
         'token=new-refreshed-token'
       );
+    });
+  });
+
+  describe('token expiration handling', () => {
+    it('attempts token refresh when error occurs with expired token', async () => {
+      mockIsJwtExpired.mockReturnValue(true);
+
+      const { result } = renderHook(() => useSSE(), { wrapper });
+
+      await flushAuthLoad();
+      act(() => {
+        result.current.connect();
+      });
+
+      act(() => {
+        MockEventSource.getInstance(0).emit('connected');
+      });
+
+      // Clear any calls from AuthContext mount before testing SSE error handling
+      mockTryRefreshToken.mockClear();
+
+      // Trigger error with expired token
+      act(() => {
+        MockEventSource.getInstance(0).triggerError();
+      });
+
+      expect(mockTryRefreshToken).toHaveBeenCalledTimes(1);
+      expect(result.current.connectionState).toBe('disconnected');
+
+      // Should NOT schedule a reconnect - let auth flow handle it
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      // No new EventSource should be created
+      expect(MockEventSource.instances).toHaveLength(1);
+    });
+
+    it('uses exponential backoff when error occurs with valid token', async () => {
+      mockIsJwtExpired.mockReturnValue(false);
+
+      const { result } = renderHook(() => useSSE(), { wrapper });
+
+      await flushAuthLoad();
+      act(() => {
+        result.current.connect();
+      });
+
+      act(() => {
+        MockEventSource.getInstance(0).emit('connected');
+      });
+
+      // Clear any calls from AuthContext mount before testing SSE error handling
+      mockTryRefreshToken.mockClear();
+
+      // Trigger error with valid token
+      act(() => {
+        MockEventSource.getInstance(0).triggerError();
+      });
+
+      expect(mockTryRefreshToken).not.toHaveBeenCalled();
+      expect(result.current.connectionState).toBe('disconnected');
+
+      // Should schedule reconnect with exponential backoff
+      act(() => {
+        vi.advanceTimersByTime(1000);
+      });
+
+      expect(MockEventSource.instances).toHaveLength(2);
+      expect(result.current.connectionState).toBe('connecting');
     });
   });
 

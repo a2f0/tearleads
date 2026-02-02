@@ -14,7 +14,8 @@ import {
   useState
 } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { API_BASE_URL } from '@/lib/api';
+import { API_BASE_URL, tryRefreshToken } from '@/lib/api';
+import { isJwtExpired } from '@/lib/jwt';
 
 interface SSEContextValue {
   connectionState: SSEConnectionState;
@@ -131,7 +132,17 @@ export function SSEProvider({
         eventSourceRef.current = null;
         setConnectionState('disconnected');
 
-        // Exponential backoff: 1s, 2s, 4s, 8s, 16s, max 30s
+        // Check if this is likely an auth error (token expired)
+        // EventSource doesn't expose HTTP status codes, so we check client-side
+        if (token && isJwtExpired(token)) {
+          // Token expired - attempt refresh instead of blind retry
+          // If refresh succeeds, the token-change effect will reconnect SSE
+          // If refresh fails, isAuthenticated becomes false and we stay disconnected
+          void tryRefreshToken();
+          return;
+        }
+
+        // Network error or other issue - use exponential backoff
         const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, 30000);
         reconnectAttemptRef.current++;
 
