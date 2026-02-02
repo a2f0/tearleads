@@ -12,6 +12,21 @@ server {
     index index.html;
 
 {% if item == 'app' %}
+    # MIME types for app assets (Vite build output)
+    types {
+        application/javascript    js mjs;
+        application/wasm          wasm;
+        text/css                  css;
+        text/html                 html;
+        application/json          json;
+        image/svg+xml             svg;
+        image/png                 png;
+        image/x-icon              ico;
+        application/manifest+json webmanifest;
+        font/woff                 woff;
+        font/woff2                woff2;
+    }
+
     # Service worker - never cache, always fetch fresh
     location = /sw.js {
         add_header Cache-Control "no-cache, no-store, must-revalidate";
@@ -27,21 +42,17 @@ server {
     # Static assets - fingerprinted, cache aggressively (Vite uses /assets/)
     # Use ^~ to prevent regex locations (like .mjs) from taking precedence
     location ^~ /assets/ {
-        # Define MIME types for all assets (types directive overrides inherited types)
-        types {
-            application/javascript    js mjs;
-            text/css                  css;
-            image/svg+xml             svg;
-            image/png                 png;
-            image/x-icon              ico;
-            application/manifest+json webmanifest;
-            font/woff                 woff;
-            font/woff2                woff2;
-            application/wasm          wasm;
-        }
         try_files $uri =404;
         expires 1y;
         add_header Cache-Control "public, immutable";
+{{ app_headers | indent(8, true) }}
+    }
+
+    # /sqlite is a client route - serve index.html directly
+    # Without this, try_files $uri $uri/ matches the sqlite/ directory and returns 403
+    location = /sqlite {
+        try_files /index.html =404;
+        add_header Cache-Control "no-cache";
 {{ app_headers | indent(8, true) }}
     }
 
@@ -49,10 +60,6 @@ server {
     # Uses regex to avoid blocking /sqlite/ directory requests which need SPA fallback (#524)
     # See also: #656 (MIME types), #578 (SPA vs static), #670 (Android WebView)
     location ~* ^/sqlite/.*\.(wasm|js)$ {
-        types {
-            application/javascript    js;
-            application/wasm          wasm;
-        }
         try_files $uri =404;
         expires 7d;
         add_header Cache-Control "public";
@@ -66,6 +73,12 @@ server {
         add_header Cache-Control "public, immutable";
 {{ app_headers | indent(8, true) }}
     }
+
+    # Serve .mjs files with correct MIME type for ES modules (www only)
+    location ~* \.mjs$ {
+        types { application/javascript mjs; }
+        default_type application/javascript;
+    }
 {% endif %}
 
     location / {
@@ -78,11 +91,5 @@ server {
         try_files $uri $uri/ =404;
 {% endif %}
 {{ app_headers | indent(8, true) }}
-    }
-
-    # Serve .mjs files with correct MIME type for ES modules
-    location ~* \.mjs$ {
-        types { application/javascript mjs; }
-        default_type application/javascript;
     }
 }
