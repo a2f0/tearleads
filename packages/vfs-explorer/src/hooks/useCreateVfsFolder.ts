@@ -57,8 +57,34 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
           }
         }
 
+        // Determine the parent folder ID
+        const effectiveParentId = parentId ?? VFS_ROOT_ID;
+
         // Use transaction to ensure atomicity
         await db.transaction(async (tx) => {
+          // If linking to VFS root, ensure it exists first using onConflictDoNothing
+          // to handle concurrent folder creation requests gracefully
+          if (effectiveParentId === VFS_ROOT_ID) {
+            await tx
+              .insert(vfsRegistry)
+              .values({
+                id: VFS_ROOT_ID,
+                objectType: 'folder',
+                ownerId: null,
+                encryptedSessionKey: null,
+                createdAt: now
+              })
+              .onConflictDoNothing();
+
+            await tx
+              .insert(vfsFolders)
+              .values({
+                id: VFS_ROOT_ID,
+                encryptedName: 'VFS Root'
+              })
+              .onConflictDoNothing();
+          }
+
           // Insert into local vfs_registry
           await tx.insert(vfsRegistry).values({
             id,
@@ -78,7 +104,7 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
           const linkId = crypto.randomUUID();
           await tx.insert(vfsLinks).values({
             id: linkId,
-            parentId: parentId ?? VFS_ROOT_ID,
+            parentId: effectiveParentId,
             childId: id,
             wrappedSessionKey: encryptedSessionKey ?? '',
             createdAt: now

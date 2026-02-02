@@ -1,5 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_ROOT_ID } from '../constants';
 import { createMockDatabase, createWrapper } from '../test/testUtils';
 import { useCreateVfsFolder } from './useCreateVfsFolder';
 
@@ -17,7 +18,9 @@ describe('useCreateVfsFolder', () => {
     vi.clearAllMocks();
 
     mockInsert = vi.fn(() => ({
-      values: vi.fn().mockResolvedValue(undefined)
+      values: vi.fn(() => ({
+        onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
+      }))
     }));
 
     mockTransaction = vi.fn(async (callback) => {
@@ -121,8 +124,9 @@ describe('useCreateVfsFolder', () => {
       await result.current.createFolder('Root Folder');
     });
 
-    // Should have 3 inserts: registry, folders, links (always creates link now)
-    expect(mockInsert).toHaveBeenCalledTimes(3);
+    // Should have 5 inserts: vfs_registry (root), vfs_folders (root),
+    // vfs_registry (new folder), vfs_folders (new folder), vfs_links
+    expect(mockInsert).toHaveBeenCalledTimes(5);
   });
 
   it('still creates folder when session key wrapping fails', async () => {
@@ -191,5 +195,87 @@ describe('useCreateVfsFolder', () => {
     });
 
     expect(result.current.error).toBeNull();
+  });
+
+  it('inserts VFS root with onConflictDoNothing when creating folder without parent', async () => {
+    let insertCount = 0;
+    const insertedIds: string[] = [];
+    const localMockInsert = vi.fn(() => ({
+      values: vi.fn((val) => {
+        insertCount++;
+        if (val.id) insertedIds.push(val.id);
+        return {
+          onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
+        };
+      })
+    }));
+
+    mockTransaction.mockImplementationOnce(async (callback) => {
+      await callback({
+        insert: localMockInsert
+      });
+    });
+
+    const wrapper = createWrapper({
+      database: mockDb,
+      auth: { isLoggedIn: vi.fn(() => false) }
+    });
+    const { result } = renderHook(() => useCreateVfsFolder(), { wrapper });
+
+    await act(async () => {
+      await result.current.createFolder('New Folder');
+    });
+
+    expect(result.current.error).toBeNull();
+
+    // Should have inserted: vfs_registry (root), vfs_folders (root),
+    // vfs_registry (new folder), vfs_folders (new folder), vfs_links
+    expect(insertCount).toBe(5);
+
+    // First two inserts should be for VFS root (with onConflictDoNothing)
+    expect(insertedIds[0]).toBe(VFS_ROOT_ID);
+    expect(insertedIds[1]).toBe(VFS_ROOT_ID);
+
+    // Third and fourth should be for the new folder
+    expect(insertedIds[2]).toBe('test-uuid-1234');
+    expect(insertedIds[3]).toBe('test-uuid-1234');
+  });
+
+  it('does not insert VFS root when creating folder with explicit parent', async () => {
+    let insertCount = 0;
+    const insertedIds: string[] = [];
+    const localMockInsert = vi.fn(() => ({
+      values: vi.fn((val) => {
+        insertCount++;
+        if (val.id) insertedIds.push(val.id);
+        return {
+          onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
+        };
+      })
+    }));
+
+    mockTransaction.mockImplementationOnce(async (callback) => {
+      await callback({
+        insert: localMockInsert
+      });
+    });
+
+    const wrapper = createWrapper({
+      database: mockDb,
+      auth: { isLoggedIn: vi.fn(() => false) }
+    });
+    const { result } = renderHook(() => useCreateVfsFolder(), { wrapper });
+
+    await act(async () => {
+      await result.current.createFolder('New Folder', 'explicit-parent-id');
+    });
+
+    expect(result.current.error).toBeNull();
+
+    // Should have inserted only: vfs_registry (new folder), vfs_folders (new folder), vfs_links
+    expect(insertCount).toBe(3);
+
+    // First insert should be the new folder, not the VFS root
+    expect(insertedIds[0]).toBe('test-uuid-1234');
   });
 });
