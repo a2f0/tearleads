@@ -69,6 +69,89 @@ describe('Database Integration Tests', () => {
       expect(tableNames).toContain('files');
       expect(tableNames).toContain('analytics_events');
     });
+
+    it('creates playlists table with media_type column', async () => {
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
+
+      const adapter = getDatabaseAdapter();
+
+      // Verify playlists table exists
+      const tables = await adapter.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='playlists'"
+      );
+      expect(tables.rows).toHaveLength(1);
+
+      // Verify media_type column exists
+      const columns = await adapter.execute('PRAGMA table_info("playlists")');
+      const columnNames = columns.rows.map(
+        (row: Record<string, unknown>) => row['name']
+      );
+      expect(columnNames).toContain('id');
+      expect(columnNames).toContain('encrypted_name');
+      expect(columnNames).toContain('media_type');
+    });
+
+    it('allows creating and querying playlists with media_type', async () => {
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
+
+      const adapter = getDatabaseAdapter();
+      const playlistId = 'test-playlist-id';
+      const now = Date.now();
+
+      // Create vfs_registry entry first (playlists references it)
+      await adapter.execute(
+        `INSERT INTO vfs_registry (id, object_type, owner_id, created_at) VALUES (?, ?, ?, ?)`,
+        [playlistId, 'playlist', null, now]
+      );
+
+      // Create playlist with media_type
+      await adapter.execute(
+        `INSERT INTO playlists (id, encrypted_name, media_type) VALUES (?, ?, ?)`,
+        [playlistId, 'Test Playlist', 'video']
+      );
+
+      // Query it back
+      const result = await adapter.execute(
+        `SELECT id, encrypted_name, media_type FROM playlists WHERE id = ?`,
+        [playlistId]
+      );
+
+      expect(result.rows).toHaveLength(1);
+      const row = result.rows[0] as Record<string, unknown>;
+      expect(row['id']).toBe(playlistId);
+      expect(row['encrypted_name']).toBe('Test Playlist');
+      expect(row['media_type']).toBe('video');
+    });
+
+    it('defaults media_type to audio when not specified', async () => {
+      await setupDatabase(TEST_PASSWORD, TEST_INSTANCE_ID);
+
+      const adapter = getDatabaseAdapter();
+      const playlistId = 'test-playlist-default';
+      const now = Date.now();
+
+      // Create vfs_registry entry
+      await adapter.execute(
+        `INSERT INTO vfs_registry (id, object_type, owner_id, created_at) VALUES (?, ?, ?, ?)`,
+        [playlistId, 'playlist', null, now]
+      );
+
+      // Create playlist without specifying media_type
+      await adapter.execute(
+        `INSERT INTO playlists (id, encrypted_name) VALUES (?, ?)`,
+        [playlistId, 'Default Playlist']
+      );
+
+      // Query it back - should default to 'audio'
+      const result = await adapter.execute(
+        `SELECT media_type FROM playlists WHERE id = ?`,
+        [playlistId]
+      );
+
+      expect(result.rows).toHaveLength(1);
+      const row = result.rows[0] as Record<string, unknown>;
+      expect(row['media_type']).toBe('audio');
+    });
   });
 
   describe('unlockDatabase', () => {

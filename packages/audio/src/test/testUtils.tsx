@@ -214,7 +214,7 @@ export interface MockContextOptions {
   retrieveFile?: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio?: (audioId: string) => Promise<void>;
   updateAudioName?: (audioId: string, name: string) => Promise<void>;
-  uploadFile?: (file: File) => Promise<void>;
+  uploadFile?: (file: File) => Promise<string>;
   extractAudioMetadata?: (
     data: Uint8Array,
     mimeType: string
@@ -249,7 +249,7 @@ export interface MockContextValue {
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;
   updateAudioName: (audioId: string, name: string) => Promise<void>;
-  uploadFile: (file: File) => Promise<void>;
+  uploadFile: (file: File) => Promise<string>;
   formatFileSize: (bytes: number) => string;
   formatDate: (date: Date) => string;
   logError: (message: string, details?: string) => void;
@@ -300,7 +300,7 @@ export function createMockContextValue(
     retrieveFile: options.retrieveFile ?? vi.fn(async () => new ArrayBuffer(0)),
     softDeleteAudio: options.softDeleteAudio ?? vi.fn(async () => {}),
     updateAudioName: options.updateAudioName ?? vi.fn(async () => {}),
-    uploadFile: options.uploadFile ?? vi.fn(async () => {}),
+    uploadFile: options.uploadFile ?? vi.fn(async () => 'uploaded-file-id'),
     formatFileSize: (bytes: number) => `${bytes} bytes`,
     formatDate: (date: Date) => date.toISOString(),
     logError: vi.fn(),

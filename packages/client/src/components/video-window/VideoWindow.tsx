@@ -8,6 +8,7 @@ import { useFileUpload } from '@/hooks/useFileUpload';
 import { isVideoMimeType } from '@/lib/thumbnail';
 import { VideoPage } from '@/pages/Video';
 import { VideoDetail } from '@/pages/VideoDetail';
+import { useVideoPlaylistContext } from '@/video/VideoPlaylistContext';
 import { ALL_VIDEO_ID, VideoPlaylistsSidebar } from './VideoPlaylistsSidebar';
 import type { ViewMode } from './VideoWindowMenuBar';
 import { VideoWindowMenuBar } from './VideoWindowMenuBar';
@@ -22,7 +23,15 @@ interface VideoWindowProps {
   initialDimensions?: WindowDimensions | undefined;
 }
 
-export function VideoWindow({
+export function VideoWindow(props: VideoWindowProps) {
+  return (
+    <ClientVideoProvider>
+      <VideoWindowInner {...props} />
+    </ClientVideoProvider>
+  );
+}
+
+function VideoWindowInner({
   id,
   onClose,
   onMinimize,
@@ -32,6 +41,7 @@ export function VideoWindow({
   initialDimensions
 }: VideoWindowProps) {
   const { windowOpenRequests } = useWindowManager();
+  const { addTrackToPlaylist } = useVideoPlaylistContext();
   const openRequest = windowOpenRequests.videos;
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -69,6 +79,8 @@ export function VideoWindow({
 
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
+      const uploadedIds: string[] = [];
+
       await Promise.all(
         files.map(async (file) => {
           if (!isVideoMimeType(file.type)) {
@@ -82,15 +94,24 @@ export function VideoWindow({
           }
 
           try {
-            await uploadFile(file);
+            const result = await uploadFile(file);
+            uploadedIds.push(result.id);
           } catch (err) {
             console.error(`Failed to upload ${file.name}:`, err);
           }
         })
       );
+
+      // Add uploaded files to selected playlist if one is selected
+      if (selectedPlaylistId && selectedPlaylistId !== ALL_VIDEO_ID) {
+        await Promise.all(
+          uploadedIds.map((id) => addTrackToPlaylist(selectedPlaylistId, id))
+        );
+      }
+
       setRefreshToken((value) => value + 1);
     },
-    [uploadFile]
+    [uploadFile, selectedPlaylistId, addTrackToPlaylist]
   );
 
   const handleFileInputChange = useCallback(
@@ -114,73 +135,71 @@ export function VideoWindow({
   }, []);
 
   return (
-    <ClientVideoProvider>
-      <FloatingWindow
-        id={id}
-        title="Videos"
-        onClose={onClose}
-        onMinimize={onMinimize}
-        onDimensionsChange={onDimensionsChange}
-        onFocus={onFocus}
-        zIndex={zIndex}
-        initialDimensions={initialDimensions}
-        defaultWidth={700}
-        defaultHeight={550}
-        minWidth={400}
-        minHeight={300}
-      >
-        <div className="flex h-full flex-col">
-          <VideoWindowMenuBar
-            viewMode={viewMode}
-            onViewModeChange={handleViewModeChange}
-            onUpload={handleUpload}
-            onClose={onClose}
+    <FloatingWindow
+      id={id}
+      title="Videos"
+      onClose={onClose}
+      onMinimize={onMinimize}
+      onDimensionsChange={onDimensionsChange}
+      onFocus={onFocus}
+      zIndex={zIndex}
+      initialDimensions={initialDimensions}
+      defaultWidth={700}
+      defaultHeight={550}
+      minWidth={400}
+      minHeight={300}
+    >
+      <div className="flex h-full flex-col">
+        <VideoWindowMenuBar
+          viewMode={viewMode}
+          onViewModeChange={handleViewModeChange}
+          onUpload={handleUpload}
+          onClose={onClose}
+        />
+        <div className="flex flex-1 overflow-hidden">
+          <VideoPlaylistsSidebar
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
+            selectedPlaylistId={selectedPlaylistId}
+            onPlaylistSelect={setSelectedPlaylistId}
+            onPlaylistChanged={handlePlaylistChanged}
           />
-          <div className="flex flex-1 overflow-hidden">
-            <VideoPlaylistsSidebar
-              width={sidebarWidth}
-              onWidthChange={setSidebarWidth}
-              selectedPlaylistId={selectedPlaylistId}
-              onPlaylistSelect={setSelectedPlaylistId}
-              onPlaylistChanged={handlePlaylistChanged}
-            />
-            <div className="flex-1 overflow-hidden">
-              {activeVideoId ? (
-                <div className="h-full overflow-auto p-3">
-                  <VideoDetail
-                    videoId={activeVideoId}
-                    onBack={handleBack}
-                    autoPlay={autoPlay}
-                  />
-                </div>
-              ) : (
-                <div className="h-full overflow-auto p-3">
-                  <VideoPage
-                    key={refreshToken}
-                    onOpenVideo={handleOpenVideo}
-                    hideBackLink
-                    viewMode={viewMode}
-                    playlistId={
-                      selectedPlaylistId === ALL_VIDEO_ID
-                        ? null
-                        : selectedPlaylistId
-                    }
-                  />
-                </div>
-              )}
-            </div>
+          <div className="flex-1 overflow-hidden">
+            {activeVideoId ? (
+              <div className="h-full overflow-auto p-3">
+                <VideoDetail
+                  videoId={activeVideoId}
+                  onBack={handleBack}
+                  autoPlay={autoPlay}
+                />
+              </div>
+            ) : (
+              <div className="h-full overflow-auto p-3">
+                <VideoPage
+                  key={refreshToken}
+                  onOpenVideo={handleOpenVideo}
+                  hideBackLink
+                  viewMode={viewMode}
+                  playlistId={
+                    selectedPlaylistId === ALL_VIDEO_ID
+                      ? null
+                      : selectedPlaylistId
+                  }
+                />
+              </div>
+            )}
           </div>
         </div>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="video/*"
-          multiple
-          className="hidden"
-          onChange={handleFileInputChange}
-          data-testid="video-file-input"
-        />
-      </FloatingWindow>
-    </ClientVideoProvider>
+      </div>
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="video/*"
+        multiple
+        className="hidden"
+        onChange={handleFileInputChange}
+        data-testid="video-file-input"
+      />
+    </FloatingWindow>
   );
 }

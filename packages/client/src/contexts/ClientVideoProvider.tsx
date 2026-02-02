@@ -65,7 +65,7 @@ export function ClientVideoProvider({ children }: ClientVideoProviderProps) {
     const result: VideoPlaylist[] = playlistRows.map((playlist) => ({
       id: playlist.id,
       name: playlist.name || 'Unnamed Playlist',
-      trackCount: playlist.trackCount ?? 0,
+      trackCount: Number(playlist.trackCount) || 0,
       coverImageId: playlist.coverImageId,
       mediaType: playlist.mediaType
     }));

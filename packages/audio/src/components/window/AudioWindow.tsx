@@ -31,7 +31,7 @@ export function AudioWindow({
   openAudioId,
   openRequestId
 }: AudioWindowProps) {
-  const { uploadFile, databaseState } = useAudioUIContext();
+  const { uploadFile, addTrackToPlaylist, databaseState } = useAudioUIContext();
   const { isUnlocked } = databaseState;
 
   const [view, setView] = useState<AudioViewMode>('list');
@@ -50,18 +50,29 @@ export function AudioWindow({
 
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
+      const uploadedIds: string[] = [];
+
       await Promise.all(
         files.map(async (file) => {
           try {
-            await uploadFile(file);
+            const fileId = await uploadFile(file);
+            uploadedIds.push(fileId);
           } catch (err) {
             console.error(`Failed to upload ${file.name}:`, err);
           }
         })
       );
+
+      // Add uploaded files to selected playlist if one is selected
+      if (selectedPlaylistId && selectedPlaylistId !== ALL_AUDIO_ID) {
+        await Promise.all(
+          uploadedIds.map((id) => addTrackToPlaylist(selectedPlaylistId, id))
+        );
+      }
+
       setRefreshToken((value) => value + 1);
     },
-    [uploadFile]
+    [uploadFile, selectedPlaylistId, addTrackToPlaylist]
   );
 
   const handleFileInputChange = useCallback(

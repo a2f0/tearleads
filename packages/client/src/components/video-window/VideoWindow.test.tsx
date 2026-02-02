@@ -17,9 +17,34 @@ vi.mock('@/contexts/ClientVideoProvider', () => ({
   )
 }));
 
+const mockAddTrackToPlaylist = vi.fn();
+
 vi.mock('./VideoPlaylistsSidebar', () => ({
   ALL_VIDEO_ID: '__ALL_VIDEO__',
-  VideoPlaylistsSidebar: () => null
+  VideoPlaylistsSidebar: ({
+    selectedPlaylistId,
+    onPlaylistSelect
+  }: {
+    selectedPlaylistId: string | null;
+    onPlaylistSelect: (id: string | null) => void;
+  }) => (
+    <div data-testid="video-playlists-sidebar">
+      <button
+        type="button"
+        data-testid="select-playlist"
+        onClick={() => onPlaylistSelect('test-playlist-id')}
+      >
+        Select Playlist
+      </button>
+      <span data-testid="selected-playlist">{selectedPlaylistId}</span>
+    </div>
+  )
+}));
+
+vi.mock('@/video/VideoPlaylistContext', () => ({
+  useVideoPlaylistContext: () => ({
+    addTrackToPlaylist: mockAddTrackToPlaylist
+  })
 }));
 
 const mockUploadFile = vi.fn();
@@ -112,6 +137,12 @@ describe('VideoWindow', () => {
 
   beforeEach(() => {
     mockUploadFile.mockClear();
+    mockUploadFile.mockResolvedValue({
+      id: 'uploaded-file-id',
+      isDuplicate: false
+    });
+    mockAddTrackToPlaylist.mockClear();
+    mockAddTrackToPlaylist.mockResolvedValue(undefined);
   });
 
   it('renders in FloatingWindow', () => {
@@ -210,6 +241,65 @@ describe('VideoWindow', () => {
     await waitFor(() => {
       expect(mockUploadFile).toHaveBeenCalledWith(file);
     });
+  });
+
+  it('adds uploaded files to selected playlist', async () => {
+    const user = userEvent.setup();
+    render(<VideoWindow {...defaultProps} />);
+
+    // Select a playlist first
+    await user.click(screen.getByTestId('select-playlist'));
+
+    // Verify playlist is selected
+    await waitFor(() => {
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        'test-playlist-id'
+      );
+    });
+
+    // Upload a file
+    const fileInput = screen.getByTestId(
+      'video-file-input'
+    ) as HTMLInputElement;
+    const file = new File(['video'], 'clip.mp4', { type: 'video/mp4' });
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(mockUploadFile).toHaveBeenCalledWith(file);
+    });
+
+    await waitFor(() => {
+      expect(mockAddTrackToPlaylist).toHaveBeenCalledWith(
+        'test-playlist-id',
+        'uploaded-file-id'
+      );
+    });
+  });
+
+  it('does not add to playlist when "All Videos" is selected', async () => {
+    const user = userEvent.setup();
+    render(<VideoWindow {...defaultProps} />);
+
+    // By default, "All Videos" is selected (ALL_VIDEO_ID)
+    expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+      '__ALL_VIDEO__'
+    );
+
+    // Upload a file
+    const fileInput = screen.getByTestId(
+      'video-file-input'
+    ) as HTMLInputElement;
+    const file = new File(['video'], 'clip.mp4', { type: 'video/mp4' });
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(mockUploadFile).toHaveBeenCalledWith(file);
+    });
+
+    // Should NOT call addTrackToPlaylist when "All Videos" is selected
+    expect(mockAddTrackToPlaylist).not.toHaveBeenCalled();
   });
 
   it('opens the file picker from the menu upload action', async () => {

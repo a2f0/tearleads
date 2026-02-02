@@ -11,6 +11,7 @@ import type { ViewMode } from './PhotosWindowMenuBar';
 import { PhotosWindowMenuBar } from './PhotosWindowMenuBar';
 import { PhotosWindowTableView } from './PhotosWindowTableView';
 import { PhotosWindowThumbnailView } from './PhotosWindowThumbnailView';
+import { usePhotoAlbums } from './usePhotoAlbums';
 
 interface PhotosWindowProps {
   id: string;
@@ -44,6 +45,7 @@ export function PhotosWindow({
     ALL_PHOTOS_ID
   );
   const { uploadFile } = useFileUpload();
+  const { addPhotoToAlbum } = usePhotoAlbums();
 
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click();
@@ -55,18 +57,29 @@ export function PhotosWindow({
 
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
+      const uploadedIds: string[] = [];
+
       await Promise.all(
         files.map(async (file) => {
           try {
-            await uploadFile(file);
+            const result = await uploadFile(file);
+            uploadedIds.push(result.id);
           } catch (err) {
             console.error(`Failed to upload ${file.name}:`, err);
           }
         })
       );
+
+      // Add uploaded files to selected album if one is selected
+      if (selectedAlbumId && selectedAlbumId !== ALL_PHOTOS_ID) {
+        await Promise.all(
+          uploadedIds.map((id) => addPhotoToAlbum(selectedAlbumId, id))
+        );
+      }
+
       setRefreshToken((value) => value + 1);
     },
-    [uploadFile]
+    [uploadFile, selectedAlbumId, addPhotoToAlbum]
   );
 
   const handleFileInputChange = useCallback(
