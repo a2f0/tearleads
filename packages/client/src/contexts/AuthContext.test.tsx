@@ -352,6 +352,94 @@ describe('AuthContext', () => {
     });
   });
 
+  it('updates when auth user changes in another tab', async () => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'saved-token');
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+      expect(screen.getByTestId('user-email')).toHaveTextContent(
+        'saved@example.com'
+      );
+    });
+
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({ id: '456', email: 'updated@example.com' })
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: AUTH_USER_KEY,
+          newValue: JSON.stringify({
+            id: '456',
+            email: 'updated@example.com'
+          }),
+          oldValue: JSON.stringify({
+            id: '123',
+            email: 'saved@example.com'
+          })
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('user-email')).toHaveTextContent(
+        'updated@example.com'
+      );
+    });
+  });
+
+  it('updates when storage is cleared in another tab', async () => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'saved-token');
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+    });
+
+    localStorage.clear();
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: null,
+          newValue: null,
+          oldValue: null
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+  });
+
   it('updates when session expiration is reported', async () => {
     render(
       <AuthProvider>
