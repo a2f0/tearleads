@@ -19,8 +19,6 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 export MAESTRO_CLI_NO_ANALYTICS=1
 
-MAESTRO_CLI="${HOME}/.maestro/bin/maestro"
-ANDROID_VERSION="33"
 HEADLESS=0
 FLOW_PATH=""
 RECORD_VIDEO=0
@@ -84,10 +82,17 @@ if adb devices | grep -q "emulator.*device"; then
   echo "==> Android emulator is already running"
 else
   echo "==> Starting Android emulator..."
+  # Find an available AVD
+  AVD_NAME=$(emulator -list-avds | head -n 1)
+  if [ -z "$AVD_NAME" ]; then
+    echo "Error: No Android AVDs found. Create one with Android Studio or avdmanager." >&2
+    exit 1
+  fi
+  echo "==> Using AVD: $AVD_NAME"
   if [ "$HEADLESS" -eq 1 ]; then
-    "$MAESTRO_CLI" start-device --platform android --os-version "$ANDROID_VERSION" --headless
+    emulator -avd "$AVD_NAME" -no-window -no-audio -no-boot-anim &
   else
-    "$MAESTRO_CLI" start-device --platform android --os-version "$ANDROID_VERSION"
+    emulator -avd "$AVD_NAME" &
   fi
   echo "==> Waiting for emulator to boot..."
   adb wait-for-device

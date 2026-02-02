@@ -1,17 +1,17 @@
 #!/bin/sh
 set -eu
 
-HEADLESS=0
+HEADLESS=1
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
-    --headless)
-      HEADLESS=1
+    --headed)
+      HEADLESS=0
       shift
       ;;
     *)
       echo "Unknown argument: $1"
-      echo "Usage: $0 [--headless]"
+      echo "Usage: $0 [--headed]"
       exit 1
       ;;
   esac
