@@ -32,9 +32,17 @@ describe('VFS Folder Integration: Create and Fetch', () => {
       link: null
     };
 
+    // Track inserts, skipping VFS root inserts (first 2 when no parent specified)
     let insertCount = 0;
     mockInsert = vi.fn(() => ({
       values: vi.fn((data) => {
+        // Skip VFS root inserts (they use onConflictDoNothing)
+        if (data.id === VFS_ROOT_ID) {
+          return {
+            onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
+          };
+        }
+
         if (insertCount === 0) {
           insertedData.registry = data;
         } else if (insertCount === 1) {
@@ -43,24 +51,16 @@ describe('VFS Folder Integration: Create and Fetch', () => {
           insertedData.link = data;
         }
         insertCount++;
-        return Promise.resolve(undefined);
+        return {
+          onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
+        };
       })
-    }));
-
-    // Mock tx.select for VFS root check - always return root exists
-    const mockTxSelect = vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn().mockResolvedValue([{ id: VFS_ROOT_ID }])
-        }))
-      }))
     }));
 
     mockTransaction = vi.fn(async (callback) => {
       insertCount = 0;
       await callback({
-        insert: mockInsert,
-        select: mockTxSelect
+        insert: mockInsert
       });
     });
 

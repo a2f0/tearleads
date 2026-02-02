@@ -13,28 +13,19 @@ describe('useCreateVfsFolder', () => {
   let mockDb: ReturnType<typeof createMockDatabase>;
   let mockInsert: ReturnType<typeof vi.fn>;
   let mockTransaction: ReturnType<typeof vi.fn>;
-  let mockTxSelect: ReturnType<typeof vi.fn>;
 
   beforeEach(() => {
     vi.clearAllMocks();
 
     mockInsert = vi.fn(() => ({
-      values: vi.fn().mockResolvedValue(undefined)
-    }));
-
-    // Default mock for tx.select - VFS root exists
-    mockTxSelect = vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn().mockResolvedValue([{ id: VFS_ROOT_ID }])
-        }))
+      values: vi.fn(() => ({
+        onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
       }))
     }));
 
     mockTransaction = vi.fn(async (callback) => {
       await callback({
-        insert: mockInsert,
-        select: mockTxSelect
+        insert: mockInsert
       });
     });
 
@@ -133,8 +124,9 @@ describe('useCreateVfsFolder', () => {
       await result.current.createFolder('Root Folder');
     });
 
-    // Should have 3 inserts: registry, folders, links (always creates link now)
-    expect(mockInsert).toHaveBeenCalledTimes(3);
+    // Should have 5 inserts: vfs_registry (root), vfs_folders (root),
+    // vfs_registry (new folder), vfs_folders (new folder), vfs_links
+    expect(mockInsert).toHaveBeenCalledTimes(5);
   });
 
   it('still creates folder when session key wrapping fails', async () => {
@@ -205,29 +197,22 @@ describe('useCreateVfsFolder', () => {
     expect(result.current.error).toBeNull();
   });
 
-  it('creates VFS root if it does not exist when creating folder without parent', async () => {
+  it('inserts VFS root with onConflictDoNothing when creating folder without parent', async () => {
     let insertCount = 0;
     const insertedIds: string[] = [];
     const localMockInsert = vi.fn(() => ({
       values: vi.fn((val) => {
         insertCount++;
         if (val.id) insertedIds.push(val.id);
-        return Promise.resolve();
+        return {
+          onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
+        };
       })
-    }));
-
-    const localMockSelect = vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn().mockResolvedValue([]) // VFS root does not exist
-        }))
-      }))
     }));
 
     mockTransaction.mockImplementationOnce(async (callback) => {
       await callback({
-        insert: localMockInsert,
-        select: localMockSelect
+        insert: localMockInsert
       });
     });
 
@@ -247,7 +232,7 @@ describe('useCreateVfsFolder', () => {
     // vfs_registry (new folder), vfs_folders (new folder), vfs_links
     expect(insertCount).toBe(5);
 
-    // First two inserts should be for VFS root
+    // First two inserts should be for VFS root (with onConflictDoNothing)
     expect(insertedIds[0]).toBe(VFS_ROOT_ID);
     expect(insertedIds[1]).toBe(VFS_ROOT_ID);
 
@@ -256,66 +241,22 @@ describe('useCreateVfsFolder', () => {
     expect(insertedIds[3]).toBe('test-uuid-1234');
   });
 
-  it('does not create VFS root if it already exists', async () => {
+  it('does not insert VFS root when creating folder with explicit parent', async () => {
     let insertCount = 0;
     const insertedIds: string[] = [];
     const localMockInsert = vi.fn(() => ({
       values: vi.fn((val) => {
         insertCount++;
         if (val.id) insertedIds.push(val.id);
-        return Promise.resolve();
+        return {
+          onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
+        };
       })
-    }));
-
-    const localMockSelect = vi.fn(() => ({
-      from: vi.fn(() => ({
-        where: vi.fn(() => ({
-          limit: vi.fn().mockResolvedValue([{ id: VFS_ROOT_ID }]) // VFS root exists
-        }))
-      }))
     }));
 
     mockTransaction.mockImplementationOnce(async (callback) => {
       await callback({
-        insert: localMockInsert,
-        select: localMockSelect
-      });
-    });
-
-    const wrapper = createWrapper({
-      database: mockDb,
-      auth: { isLoggedIn: vi.fn(() => false) }
-    });
-    const { result } = renderHook(() => useCreateVfsFolder(), { wrapper });
-
-    await act(async () => {
-      await result.current.createFolder('New Folder');
-    });
-
-    expect(result.current.error).toBeNull();
-
-    // Should have inserted only: vfs_registry (new folder), vfs_folders (new folder), vfs_links
-    expect(insertCount).toBe(3);
-
-    // First insert should be the new folder, not the VFS root
-    expect(insertedIds[0]).toBe('test-uuid-1234');
-  });
-
-  it('does not check for VFS root when creating folder with explicit parent', async () => {
-    let insertCount = 0;
-    const localMockInsert = vi.fn(() => ({
-      values: vi.fn(() => {
-        insertCount++;
-        return Promise.resolve();
-      })
-    }));
-
-    const localMockSelect = vi.fn();
-
-    mockTransaction.mockImplementationOnce(async (callback) => {
-      await callback({
-        insert: localMockInsert,
-        select: localMockSelect
+        insert: localMockInsert
       });
     });
 
@@ -331,10 +272,10 @@ describe('useCreateVfsFolder', () => {
 
     expect(result.current.error).toBeNull();
 
-    // Should NOT have called select (no VFS root check needed)
-    expect(localMockSelect).not.toHaveBeenCalled();
-
-    // Should have inserted only: vfs_registry, vfs_folders, vfs_links
+    // Should have inserted only: vfs_registry (new folder), vfs_folders (new folder), vfs_links
     expect(insertCount).toBe(3);
+
+    // First insert should be the new folder, not the VFS root
+    expect(insertedIds[0]).toBe('test-uuid-1234');
   });
 });

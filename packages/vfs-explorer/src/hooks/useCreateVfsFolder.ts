@@ -3,7 +3,6 @@
  */
 
 import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
-import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';
@@ -63,29 +62,27 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
 
         // Use transaction to ensure atomicity
         await db.transaction(async (tx) => {
-          // If linking to VFS root, ensure it exists first
+          // If linking to VFS root, ensure it exists first using onConflictDoNothing
+          // to handle concurrent folder creation requests gracefully
           if (effectiveParentId === VFS_ROOT_ID) {
-            const existingRoot = await tx
-              .select({ id: vfsRegistry.id })
-              .from(vfsRegistry)
-              .where(eq(vfsRegistry.id, VFS_ROOT_ID))
-              .limit(1);
-
-            if (existingRoot.length === 0) {
-              // Create the VFS root folder
-              await tx.insert(vfsRegistry).values({
+            await tx
+              .insert(vfsRegistry)
+              .values({
                 id: VFS_ROOT_ID,
                 objectType: 'folder',
                 ownerId: null,
                 encryptedSessionKey: null,
                 createdAt: now
-              });
+              })
+              .onConflictDoNothing();
 
-              await tx.insert(vfsFolders).values({
+            await tx
+              .insert(vfsFolders)
+              .values({
                 id: VFS_ROOT_ID,
                 encryptedName: 'VFS Root'
-              });
-            }
+              })
+              .onConflictDoNothing();
           }
 
           // Insert into local vfs_registry

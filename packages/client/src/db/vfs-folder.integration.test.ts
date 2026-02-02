@@ -82,30 +82,27 @@ describe('VFS Folder Integration Tests', () => {
       const linkId = 'drizzle-link-id';
       const now = new Date();
 
-      // Simulate the fixed useCreateVfsFolder logic
+      // Simulate the fixed useCreateVfsFolder logic using onConflictDoNothing
       await db.transaction(async (tx) => {
-        // Check if VFS root exists
-        const existingRoot = await tx
-          .select({ id: vfsRegistry.id })
-          .from(vfsRegistry)
-          .where(eq(vfsRegistry.id, VFS_ROOT_ID))
-          .limit(1);
-
-        // Create VFS root if it doesn't exist
-        if (existingRoot.length === 0) {
-          await tx.insert(vfsRegistry).values({
+        // Insert VFS root with onConflictDoNothing to handle race conditions
+        await tx
+          .insert(vfsRegistry)
+          .values({
             id: VFS_ROOT_ID,
             objectType: 'folder',
             ownerId: null,
             encryptedSessionKey: null,
             createdAt: now
-          });
+          })
+          .onConflictDoNothing();
 
-          await tx.insert(vfsFolders).values({
+        await tx
+          .insert(vfsFolders)
+          .values({
             id: VFS_ROOT_ID,
             encryptedName: 'VFS Root'
-          });
-        }
+          })
+          .onConflictDoNothing();
 
         // Create the new folder
         await tx.insert(vfsRegistry).values({
@@ -181,28 +178,25 @@ describe('VFS Folder Integration Tests', () => {
       const linkId = 'second-link-id';
 
       await db.transaction(async (tx) => {
-        // Check if VFS root exists
-        const existingRoot = await tx
-          .select({ id: vfsRegistry.id })
-          .from(vfsRegistry)
-          .where(eq(vfsRegistry.id, VFS_ROOT_ID))
-          .limit(1);
-
-        // Should NOT create VFS root since it exists
-        if (existingRoot.length === 0) {
-          await tx.insert(vfsRegistry).values({
+        // Use onConflictDoNothing - VFS root already exists, so this is a no-op
+        await tx
+          .insert(vfsRegistry)
+          .values({
             id: VFS_ROOT_ID,
             objectType: 'folder',
             ownerId: null,
             encryptedSessionKey: null,
             createdAt: now
-          });
+          })
+          .onConflictDoNothing();
 
-          await tx.insert(vfsFolders).values({
+        await tx
+          .insert(vfsFolders)
+          .values({
             id: VFS_ROOT_ID,
             encryptedName: 'VFS Root'
-          });
-        }
+          })
+          .onConflictDoNothing();
 
         // Create the new folder
         await tx.insert(vfsRegistry).values({
