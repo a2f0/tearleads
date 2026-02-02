@@ -60,6 +60,12 @@ test.describe('Table Viewer', () => {
     await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
 
+    // Wait for loading state to clear before checking heading
+    // The Tables component shows "Loading database..." while isLoading is true
+    await expect(page.getByText('Loading database...')).not.toBeVisible({
+      timeout: PAGE_LOAD_TIMEOUT
+    });
+
     // Wait for tables list to load - page title is "Tables"
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible({
       timeout: PAGE_LOAD_TIMEOUT
@@ -173,6 +179,11 @@ test.describe('Table Viewer', () => {
     await page.goto('/sqlite/tables');
     await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
+
+    // Wait for loading state to clear
+    await expect(page.getByText('Loading database...')).not.toBeVisible({
+      timeout: PAGE_LOAD_TIMEOUT
+    });
 
     // Wait for tables list - page title is "Tables"
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible({
