@@ -269,6 +269,45 @@ describe('AuthContext', () => {
     });
   });
 
+  it('updates when auth storage changes in another tab', async () => {
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
+      );
+    });
+
+    localStorage.setItem('auth_token', 'tab-token');
+    localStorage.setItem(
+      'auth_user',
+      JSON.stringify({ id: '321', email: 'tab@example.com' })
+    );
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: 'auth_token',
+          newValue: 'tab-token',
+          oldValue: null
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+      expect(screen.getByTestId('user-email')).toHaveTextContent(
+        'tab@example.com'
+      );
+    });
+  });
+
   it('updates when session expiration is reported', async () => {
     render(
       <AuthProvider>

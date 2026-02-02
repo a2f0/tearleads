@@ -68,6 +68,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     return unsubscribe;
   }, [syncFromStorage]);
 
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const authStorageKeys = new Set([
+      'auth_token',
+      'auth_refresh_token',
+      'auth_user'
+    ]);
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (!event.key || authStorageKeys.has(event.key)) {
+        syncFromStorage();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, [syncFromStorage]);
+
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
   const login = useCallback(async (email: string, password: string) => {
     clearAuthError();
