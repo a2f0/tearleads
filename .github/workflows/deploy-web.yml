@@ -6,7 +6,7 @@ on:
 jobs:
   deploy:
     name: Deploy Website, Client, API & SMTP Listener
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 10
 
     steps:
@@ -27,8 +27,13 @@ jobs:
       - name: Install Playwright browsers
         run: pnpm --filter @rapid/website exec playwright install chromium
 
-      - name: Install ImageMagick
+      - name: Install ImageMagick (Linux)
+        if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y imagemagick
+
+      - name: Install ImageMagick (macOS)
+        if: runner.os == 'macOS'
+        run: brew install imagemagick
 
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh

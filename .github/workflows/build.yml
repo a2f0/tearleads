@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 2
     outputs:
       core: ${{ steps.filter.outputs.core }}
@@ -91,7 +91,7 @@ jobs:
           retention-days: 7
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 20
 
     steps:
