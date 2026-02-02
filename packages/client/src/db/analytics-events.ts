@@ -54,6 +54,13 @@ export type AnalyticsEventSlug =
   | 'api_get_vfs_keys'
   | 'api_post_vfs_keys'
   | 'api_post_vfs_register'
+  | 'api_get_vfs_shares'
+  | 'api_post_vfs_share'
+  | 'api_patch_vfs_share'
+  | 'api_delete_vfs_share'
+  | 'api_post_vfs_org_share'
+  | 'api_delete_vfs_org_share'
+  | 'api_get_vfs_share_targets'
   // LLM operations
   | 'llm_model_load'
   | 'llm_prompt_text'
@@ -109,6 +116,13 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   api_get_vfs_keys: 'API Get VFS Keys',
   api_post_vfs_keys: 'API Setup VFS Keys',
   api_post_vfs_register: 'API Register VFS Item',
+  api_get_vfs_shares: 'API Get VFS Shares',
+  api_post_vfs_share: 'API Create VFS Share',
+  api_patch_vfs_share: 'API Update VFS Share',
+  api_delete_vfs_share: 'API Delete VFS Share',
+  api_post_vfs_org_share: 'API Create VFS Org Share',
+  api_delete_vfs_org_share: 'API Delete VFS Org Share',
+  api_get_vfs_share_targets: 'API Search VFS Share Targets',
   // LLM
   llm_model_load: 'LLM Model Load',
   llm_prompt_text: 'LLM Text Prompt',
@@ -263,6 +277,28 @@ export interface ApiPostVfsKeysDetail {
 export interface ApiPostVfsRegisterDetail {
   objectType?: string;
 }
+export interface ApiGetVfsSharesDetail {
+  shareCount?: number;
+}
+export interface ApiPostVfsShareDetail {
+  shareType?: string;
+}
+export interface ApiPatchVfsShareDetail {
+  shareId?: string;
+}
+export interface ApiDeleteVfsShareDetail {
+  deleted?: boolean;
+}
+export interface ApiPostVfsOrgShareDetail {
+  sourceOrgId?: string;
+  targetOrgId?: string;
+}
+export interface ApiDeleteVfsOrgShareDetail {
+  deleted?: boolean;
+}
+export interface ApiGetVfsShareTargetsDetail {
+  resultCount?: number;
+}
 
 // LLM events
 export interface LlmModelLoadDetail {
@@ -326,6 +362,13 @@ export interface EventDetailMap {
   api_get_vfs_keys: ApiGetVfsKeysDetail;
   api_post_vfs_keys: ApiPostVfsKeysDetail;
   api_post_vfs_register: ApiPostVfsRegisterDetail;
+  api_get_vfs_shares: ApiGetVfsSharesDetail;
+  api_post_vfs_share: ApiPostVfsShareDetail;
+  api_patch_vfs_share: ApiPatchVfsShareDetail;
+  api_delete_vfs_share: ApiDeleteVfsShareDetail;
+  api_post_vfs_org_share: ApiPostVfsOrgShareDetail;
+  api_delete_vfs_org_share: ApiDeleteVfsOrgShareDetail;
+  api_get_vfs_share_targets: ApiGetVfsShareTargetsDetail;
   llm_model_load: LlmModelLoadDetail;
   llm_prompt_text: LlmPromptTextDetail;
   llm_prompt_multimodal: LlmPromptMultimodalDetail;

@@ -427,4 +427,63 @@ describe('PhotosAlbumsSidebar', () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  it('opens empty space context menu on right click', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<PhotosAlbumsSidebar {...defaultProps} />);
+
+    const scrollableArea = container.querySelector('.overflow-y-auto');
+    if (!scrollableArea) throw new Error('Scrollable area not found');
+    await user.pointer({ keys: '[MouseRight]', target: scrollableArea });
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('empty-space-context-menu')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('opens new album dialog from empty space context menu', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<PhotosAlbumsSidebar {...defaultProps} />);
+
+    const scrollableArea = container.querySelector('.overflow-y-auto');
+    if (!scrollableArea) throw new Error('Scrollable area not found');
+    await user.pointer({ keys: '[MouseRight]', target: scrollableArea });
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('empty-space-context-menu')
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('New Album'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-album-dialog')).toBeInTheDocument();
+    });
+  });
+
+  it('closes empty space context menu on backdrop click', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<PhotosAlbumsSidebar {...defaultProps} />);
+
+    const scrollableArea = container.querySelector('.overflow-y-auto');
+    if (!scrollableArea) throw new Error('Scrollable area not found');
+    await user.pointer({ keys: '[MouseRight]', target: scrollableArea });
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('empty-space-context-menu')
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('empty-space-context-menu-backdrop'));
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('empty-space-context-menu')
+      ).not.toBeInTheDocument();
+    });
+  });
 });

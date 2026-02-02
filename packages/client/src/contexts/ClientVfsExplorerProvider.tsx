@@ -119,6 +119,19 @@ export function ClientVfsExplorerProvider({
     []
   );
 
+  const vfsShareApi = useMemo(
+    () => ({
+      getShares: api.vfs.getShares,
+      createShare: api.vfs.createShare,
+      updateShare: api.vfs.updateShare,
+      deleteShare: api.vfs.deleteShare,
+      createOrgShare: api.vfs.createOrgShare,
+      deleteOrgShare: api.vfs.deleteOrgShare,
+      searchTargets: api.vfs.searchShareTargets
+    }),
+    []
+  );
+
   return (
     <VfsExplorerProvider
       databaseState={databaseState}
@@ -128,6 +141,7 @@ export function ClientVfsExplorerProvider({
       auth={auth}
       featureFlags={featureFlags}
       vfsApi={vfsApi}
+      vfsShareApi={vfsShareApi}
     >
       {children}
     </VfsExplorerProvider>
