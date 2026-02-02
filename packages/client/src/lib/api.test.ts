@@ -598,13 +598,10 @@ describe('api', () => {
 
     it('calls getShares endpoint', async () => {
       vi.mocked(global.fetch).mockResolvedValue(
-        new Response(
-          JSON.stringify({ shares: [], orgShares: [] }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          }
-        )
+        new Response(JSON.stringify({ shares: [], orgShares: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
       );
 
       const { api } = await import('./api');
@@ -637,8 +634,9 @@ describe('api', () => {
       const { api } = await import('./api');
       await api.vfs.createShare({
         itemId: 'folder-1',
-        userId: 'user-1',
-        permission: 'read'
+        shareType: 'user',
+        targetId: 'user-1',
+        permissionLevel: 'view'
       });
 
       const call = vi.mocked(global.fetch).mock.calls[0];
@@ -669,7 +667,7 @@ describe('api', () => {
       );
 
       const { api } = await import('./api');
-      await api.vfs.updateShare('share-1', { permission: 'write' });
+      await api.vfs.updateShare('share-1', { permissionLevel: 'edit' });
 
       const call = vi.mocked(global.fetch).mock.calls[0];
       if (!call) {
@@ -721,15 +719,18 @@ describe('api', () => {
       const { api } = await import('./api');
       await api.vfs.createOrgShare({
         itemId: 'folder-1',
-        organizationId: 'org-1',
-        permission: 'read'
+        sourceOrgId: 'org-1',
+        targetOrgId: 'org-2',
+        permissionLevel: 'view'
       });
 
       const call = vi.mocked(global.fetch).mock.calls[0];
       if (!call) {
         throw new Error('Expected fetch to be called');
       }
-      expect(call[0]).toBe('http://localhost:3000/vfs/items/folder-1/org-shares');
+      expect(call[0]).toBe(
+        'http://localhost:3000/vfs/items/folder-1/org-shares'
+      );
       const options = call[1];
       expect(options?.method).toBe('POST');
     });
@@ -756,13 +757,10 @@ describe('api', () => {
 
     it('calls searchShareTargets endpoint', async () => {
       vi.mocked(global.fetch).mockResolvedValue(
-        new Response(
-          JSON.stringify({ users: [], organizations: [] }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          }
-        )
+        new Response(JSON.stringify({ users: [], organizations: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
       );
 
       const { api } = await import('./api');
@@ -776,13 +774,10 @@ describe('api', () => {
 
     it('calls searchShareTargets with type filter', async () => {
       vi.mocked(global.fetch).mockResolvedValue(
-        new Response(
-          JSON.stringify({ users: [], organizations: [] }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' }
-          }
-        )
+        new Response(JSON.stringify({ users: [], organizations: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
       );
 
       const { api } = await import('./api');
