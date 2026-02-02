@@ -58,13 +58,14 @@ test.describe('Table Viewer', () => {
     // Navigate to tables list
     await page.goto('/sqlite/tables');
     await page.waitForLoadState('networkidle');
-    await unlockIfNeeded(page);
 
-    // Wait for loading state to clear before checking heading
-    // The Tables component shows "Loading database..." while isLoading is true
-    await expect(page.getByText('Loading database...')).not.toBeVisible({
+    // Wait for lazy-loaded component to finish loading (Suspense fallback)
+    // The app shows "Loading..." during lazy component load
+    await expect(page.getByText('Loading...').first()).not.toBeVisible({
       timeout: PAGE_LOAD_TIMEOUT
     });
+
+    await unlockIfNeeded(page);
 
     // Wait for tables list to load - page title is "Tables"
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible({
@@ -178,12 +179,13 @@ test.describe('Table Viewer', () => {
     // Navigate directly to tables list
     await page.goto('/sqlite/tables');
     await page.waitForLoadState('networkidle');
-    await unlockIfNeeded(page);
 
-    // Wait for loading state to clear
-    await expect(page.getByText('Loading database...')).not.toBeVisible({
+    // Wait for lazy-loaded component to finish loading (Suspense fallback)
+    await expect(page.getByText('Loading...').first()).not.toBeVisible({
       timeout: PAGE_LOAD_TIMEOUT
     });
+
+    await unlockIfNeeded(page);
 
     // Wait for tables list - page title is "Tables"
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible({
