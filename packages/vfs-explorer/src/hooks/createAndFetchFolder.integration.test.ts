@@ -47,10 +47,20 @@ describe('VFS Folder Integration: Create and Fetch', () => {
       })
     }));
 
+    // Mock tx.select for VFS root check - always return root exists
+    const mockTxSelect = vi.fn(() => ({
+      from: vi.fn(() => ({
+        where: vi.fn(() => ({
+          limit: vi.fn().mockResolvedValue([{ id: VFS_ROOT_ID }])
+        }))
+      }))
+    }));
+
     mockTransaction = vi.fn(async (callback) => {
       insertCount = 0;
       await callback({
-        insert: mockInsert
+        insert: mockInsert,
+        select: mockTxSelect
       });
     });
 
