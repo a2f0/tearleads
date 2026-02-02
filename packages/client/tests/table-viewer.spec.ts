@@ -34,10 +34,11 @@ async function setupDatabase(page: Page) {
 
 // Helper to unlock via inline unlock component if database is locked
 async function unlockIfNeeded(page: Page) {
-  await page.waitForTimeout(500);
+  // Wait for page to stabilize before checking unlock state
+  await page.waitForTimeout(1000);
 
   const inlineUnlock = page.getByTestId('inline-unlock-password');
-  if (await inlineUnlock.isVisible({ timeout: 3000 }).catch(() => false)) {
+  if (await inlineUnlock.isVisible({ timeout: 5000 }).catch(() => false)) {
     await inlineUnlock.fill(TEST_PASSWORD);
     await page.getByTestId('inline-unlock-button').click();
     await expect(inlineUnlock).not.toBeVisible({ timeout: DB_OPERATION_TIMEOUT });
@@ -56,6 +57,7 @@ test.describe('Table Viewer', () => {
 
     // Navigate to tables list
     await page.goto('/sqlite/tables');
+    await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
 
     // Wait for tables list to load - page title is "Tables"
@@ -95,6 +97,7 @@ test.describe('Table Viewer', () => {
 
     // Navigate to analytics_events table which should have data
     await page.goto('/sqlite/tables/analytics_events');
+    await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
 
     // Wait for table to load - should show scroll container since we have data
@@ -122,6 +125,7 @@ test.describe('Table Viewer', () => {
 
     // Navigate to analytics_events table which has data
     await page.goto('/sqlite/tables/analytics_events');
+    await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
 
     // Wait for table heading
@@ -167,6 +171,7 @@ test.describe('Table Viewer', () => {
 
     // Navigate directly to tables list
     await page.goto('/sqlite/tables');
+    await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
 
     // Wait for tables list - page title is "Tables"
@@ -196,6 +201,7 @@ test.describe('Table Viewer', () => {
 
     // Navigate to a table
     await page.goto('/sqlite/tables/user_settings');
+    await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
 
     // Wait for table heading
@@ -236,6 +242,7 @@ test.describe('Table Viewer', () => {
 
     // Navigate to analytics_events table via ROUTE (not floating window)
     await page.goto('/sqlite/tables/analytics_events');
+    await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
 
     // Wait for table to load
@@ -291,6 +298,7 @@ test.describe('Table Viewer', () => {
     }
 
     await page.goto('/sqlite/tables/analytics_events');
+    await page.waitForLoadState('networkidle');
     await unlockIfNeeded(page);
 
     await expect(page.getByRole('heading', { name: 'analytics_events' })).toBeVisible({
