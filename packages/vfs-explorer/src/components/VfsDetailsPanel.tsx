@@ -41,6 +41,8 @@ interface VfsDetailsPanelProps {
   onItemsChange?: ((items: DisplayItem[]) => void) | undefined;
   /** Callback when download is requested via context menu */
   onItemDownload?: ((item: DisplayItem) => void) | undefined;
+  /** Callback when sharing is requested via context menu */
+  onItemShare?: ((item: DisplayItem) => void) | undefined;
 }
 
 interface ContextMenuState {
@@ -59,7 +61,8 @@ export function VfsDetailsPanel({
   onFolderSelect,
   onItemOpen,
   onItemsChange,
-  onItemDownload
+  onItemDownload,
+  onItemShare
 }: VfsDetailsPanelProps) {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseState();
   // Treat null folderId as unfiled (default view)
@@ -122,6 +125,13 @@ export function VfsDetailsPanel({
       onItemDownload?.(item);
     },
     [onItemDownload]
+  );
+
+  const handleContextMenuShare = useCallback(
+    (item: DisplayItem) => {
+      onItemShare?.(item);
+    },
+    [onItemShare]
   );
 
   // Use the appropriate hook based on selection
@@ -324,6 +334,7 @@ export function VfsDetailsPanel({
           onClose={handleContextMenuClose}
           onOpen={handleContextMenuOpen}
           onDownload={handleContextMenuDownload}
+          onShare={handleContextMenuShare}
         />
       )}
     </div>

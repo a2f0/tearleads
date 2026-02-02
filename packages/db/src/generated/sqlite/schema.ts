@@ -457,6 +457,81 @@ export const emails = sqliteTable(
 );
 
 /**
+ * VFS shares - sharing items with users, groups, and organizations.
+ * Supports permission levels and optional expiration dates.
+ */
+export const vfsShares = sqliteTable(
+  'vfs_shares',
+  {
+    id: text('id').primaryKey(),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    shareType: text('share_type', {
+      enum: ['user', 'group', 'organization']
+    }).notNull(),
+    targetId: text('target_id').notNull(),
+    permissionLevel: text('permission_level', {
+      enum: ['view', 'edit', 'download']
+    }).notNull(),
+    wrappedSessionKey: text('wrapped_session_key'),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' })
+  },
+  (table) => [
+    index('vfs_shares_item_idx').on(table.itemId),
+    index('vfs_shares_target_idx').on(table.targetId),
+    uniqueIndex('vfs_shares_item_target_type_idx').on(
+      table.itemId,
+      table.targetId,
+      table.shareType
+    ),
+    index('vfs_shares_expires_idx').on(table.expiresAt)
+  ]
+);
+
+/**
+ * Organization shares - sharing items between organizations.
+ * Enables org-to-org sharing with permission levels and expiration.
+ */
+export const orgShares = sqliteTable(
+  'org_shares',
+  {
+    id: text('id').primaryKey(),
+    sourceOrgId: text('source_org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    targetOrgId: text('target_org_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    permissionLevel: text('permission_level', {
+      enum: ['view', 'edit', 'download']
+    }).notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' })
+  },
+  (table) => [
+    index('org_shares_item_idx').on(table.itemId),
+    index('org_shares_source_idx').on(table.sourceOrgId),
+    index('org_shares_target_idx').on(table.targetOrgId),
+    uniqueIndex('org_shares_unique_idx').on(
+      table.sourceOrgId,
+      table.targetOrgId,
+      table.itemId
+    )
+  ]
+);
+
+/**
  * VFS access - direct access grants for sharing items with users.
  * Stores wrapped keys encrypted with user's public key.
  */
@@ -516,6 +591,8 @@ export const schema = {
   emailFolders,
   tags,
   emails,
+  vfsShares,
+  orgShares,
   vfsAccess
 };
 

@@ -11,6 +11,8 @@ export type { UseMoveVfsItemResult } from './useMoveVfsItem';
 export { useMoveVfsItem } from './useMoveVfsItem';
 export type { UseRenameVfsFolderResult } from './useRenameVfsFolder';
 export { useRenameVfsFolder } from './useRenameVfsFolder';
+export type { UseShareTargetSearchResult } from './useShareTargetSearch';
+export { useShareTargetSearch } from './useShareTargetSearch';
 export type { UseVfsAllItemsResult, VfsAllItem } from './useVfsAllItems';
 export { useVfsAllItems } from './useVfsAllItems';
 export type {
@@ -21,6 +23,8 @@ export type {
 export { useVfsFolderContents } from './useVfsFolderContents';
 export type { UseVfsFoldersResult, VfsFolderNode } from './useVfsFolders';
 export { useVfsFolders } from './useVfsFolders';
+export type { UseVfsSharesResult } from './useVfsShares';
+export { useVfsShares } from './useVfsShares';
 export type {
   UseVfsUnfiledItemsResult,
   VfsUnfiledItem

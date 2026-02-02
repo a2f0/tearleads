@@ -309,6 +309,74 @@ export interface VfsRegisterResponse {
   createdAt: string;
 }
 
+// VFS Sharing types
+export type VfsShareType = 'user' | 'group' | 'organization';
+export type VfsPermissionLevel = 'view' | 'edit' | 'download';
+
+export interface VfsShare {
+  id: string;
+  itemId: string;
+  shareType: VfsShareType;
+  targetId: string;
+  targetName: string;
+  permissionLevel: VfsPermissionLevel;
+  createdBy: string;
+  createdByEmail: string;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface VfsOrgShare {
+  id: string;
+  sourceOrgId: string;
+  sourceOrgName: string;
+  targetOrgId: string;
+  targetOrgName: string;
+  itemId: string;
+  permissionLevel: VfsPermissionLevel;
+  createdBy: string;
+  createdByEmail: string;
+  createdAt: string;
+  expiresAt: string | null;
+}
+
+export interface CreateVfsShareRequest {
+  itemId: string;
+  shareType: VfsShareType;
+  targetId: string;
+  permissionLevel: VfsPermissionLevel;
+  expiresAt?: string | null;
+}
+
+export interface CreateOrgShareRequest {
+  itemId: string;
+  sourceOrgId: string;
+  targetOrgId: string;
+  permissionLevel: VfsPermissionLevel;
+  expiresAt?: string | null;
+}
+
+export interface VfsSharesResponse {
+  shares: VfsShare[];
+  orgShares: VfsOrgShare[];
+}
+
+export interface UpdateVfsShareRequest {
+  permissionLevel?: VfsPermissionLevel;
+  expiresAt?: string | null;
+}
+
+export interface ShareTargetSearchResult {
+  id: string;
+  type: VfsShareType;
+  name: string;
+  description?: string | undefined;
+}
+
+export interface ShareTargetSearchResponse {
+  results: ShareTargetSearchResult[];
+}
+
 // Utilities
 export function formatDate(date: Date): string {
   return date.toISOString();

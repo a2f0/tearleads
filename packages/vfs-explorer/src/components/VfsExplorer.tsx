@@ -9,7 +9,8 @@ import {
 } from '@dnd-kit/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { UNFILED_FOLDER_ID } from '../constants';
-import { useMoveVfsItem } from '../hooks';
+import { useMoveVfsItem, type VfsFolderNode } from '../hooks';
+import { SharingPanel } from './SharingPanel';
 import { type DisplayItem, VfsDetailsPanel } from './VfsDetailsPanel';
 import type { DragItemData } from './VfsDraggableItem';
 import { VfsDragOverlay } from './VfsDragOverlay';
@@ -51,6 +52,8 @@ export function VfsExplorer({
   >(UNFILED_FOLDER_ID);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
   const [treePanelWidth, setTreePanelWidth] = useState(240);
+  const [sharingPanelWidth, setSharingPanelWidth] = useState(320);
+  const [sharingItem, setSharingItem] = useState<DisplayItem | null>(null);
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const [items, setItems] = useState<DisplayItem[]>([]);
   const { moveItem } = useMoveVfsItem();
@@ -93,6 +96,23 @@ export function VfsExplorer({
     },
     [onFolderSelect]
   );
+
+  const handleItemShare = useCallback((item: DisplayItem) => {
+    setSharingItem(item);
+  }, []);
+
+  const handleFolderShare = useCallback((folder: VfsFolderNode) => {
+    setSharingItem({
+      id: folder.id,
+      objectType: 'folder',
+      name: folder.name,
+      createdAt: new Date()
+    });
+  }, []);
+
+  const handleCloseSharingPanel = useCallback(() => {
+    setSharingItem(null);
+  }, []);
 
   const handleDragStart = useCallback((event: DragStartEvent) => {
     const data = event.active.data.current as DragItemData | undefined;
@@ -150,6 +170,7 @@ export function VfsExplorer({
             onFolderSelect={handleFolderSelect}
             compact={compact}
             refreshToken={refreshToken}
+            onFolderShare={handleFolderShare}
           />
           <VfsDetailsPanel
             folderId={selectedFolderId}
@@ -162,7 +183,16 @@ export function VfsExplorer({
             onItemOpen={onItemOpen}
             onItemDownload={onItemDownload}
             onItemsChange={setItems}
+            onItemShare={handleItemShare}
           />
+          {sharingItem && (
+            <SharingPanel
+              item={sharingItem}
+              width={sharingPanelWidth}
+              onWidthChange={setSharingPanelWidth}
+              onClose={handleCloseSharingPanel}
+            />
+          )}
         </div>
         <VfsStatusBar
           itemCount={items.length}

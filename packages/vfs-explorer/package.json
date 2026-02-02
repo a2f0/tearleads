@@ -22,6 +22,7 @@
   },
   "peerDependencies": {
     "@rapid/db": "workspace:*",
+    "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
     "@rapid/window-manager": "workspace:*",
     "drizzle-orm": "0.45.1",

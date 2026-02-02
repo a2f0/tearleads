@@ -12,6 +12,8 @@ export type { NewFolderDialogProps } from './NewFolderDialog';
 export { NewFolderDialog } from './NewFolderDialog';
 export type { RenameFolderDialogProps } from './RenameFolderDialog';
 export { RenameFolderDialog } from './RenameFolderDialog';
+export type { SharingPanelProps } from './SharingPanel';
+export { SharingPanel } from './SharingPanel';
 export type { DisplayItem, VfsItem, VfsObjectType } from './VfsDetailsPanel';
 export { VfsDetailsPanel } from './VfsDetailsPanel';
 export type { DragItemData } from './VfsDraggableItem';

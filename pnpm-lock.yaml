@@ -905,6 +905,9 @@ importers:
       '@rapid/db':
         specifier: workspace:*
         version: link:../db
+      '@rapid/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@rapid/ui':
         specifier: workspace:*
         version: link:../ui

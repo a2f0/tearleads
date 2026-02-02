@@ -13,6 +13,7 @@ export {
   migrations,
   notes,
   organizations,
+  orgShares,
   playlists,
   schema,
   secrets,
@@ -27,5 +28,6 @@ export {
   vfsAccess,
   vfsFolders,
   vfsLinks,
-  vfsRegistry
+  vfsRegistry,
+  vfsShares
 } from '@rapid/db/sqlite';
