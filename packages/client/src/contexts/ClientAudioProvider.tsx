@@ -254,7 +254,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
     const result: AudioPlaylist[] = playlistRows.map((playlist) => ({
       id: playlist.id,
       name: playlist.name || 'Unnamed Playlist',
-      trackCount: playlist.trackCount ?? 0,
+      trackCount: Number(playlist.trackCount) || 0,
       coverImageId: playlist.coverImageId,
       mediaType: playlist.mediaType
     }));
