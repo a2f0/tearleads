@@ -2,21 +2,31 @@ import type { Migration } from './types';
 import { addColumnIfNotExists, tableExists } from './utils';
 
 /**
- * v010: Add media_type column to playlists table
+ * v010: Add playlists table with media_type column
  *
- * Adds a discriminator column to support both audio and video playlists
- * in the same table. Existing playlists default to 'audio'.
+ * Creates the playlists table for audio/video collections if it doesn't exist.
+ * If the table already exists (from server sync), adds the media_type column.
  */
 export const v010: Migration = {
   version: 10,
-  description: 'Add media_type column to playlists for audio/video support',
+  description: 'Add playlists table for audio/video collections',
   up: async (adapter) => {
-    // Only add column if the playlists table exists.
-    // On fresh databases, the table will be created with this column already.
     if (!(await tableExists(adapter, 'playlists'))) {
+      // Create the full playlists table
+      await adapter.execute(`
+        CREATE TABLE "playlists" (
+          "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+          "encrypted_name" TEXT,
+          "encrypted_description" TEXT,
+          "cover_image_id" TEXT REFERENCES "vfs_registry"("id") ON DELETE SET NULL,
+          "shuffle_mode" INTEGER NOT NULL DEFAULT 0,
+          "media_type" TEXT NOT NULL DEFAULT 'audio'
+        )
+      `);
       return;
     }
 
+    // Table exists, just add media_type column if missing
     await addColumnIfNotExists(
       adapter,
       'playlists',
