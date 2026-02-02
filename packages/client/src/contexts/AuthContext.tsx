@@ -10,6 +10,9 @@ import {
 } from 'react';
 import { api } from '@/lib/api';
 import {
+  AUTH_REFRESH_TOKEN_KEY,
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
   clearAuthError,
   clearStoredAuth,
   getAuthError,
@@ -66,6 +69,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const unsubscribe = onAuthChange(syncFromStorage);
     return unsubscribe;
+  }, [syncFromStorage]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const authStorageKeys = new Set([
+      AUTH_TOKEN_KEY,
+      AUTH_REFRESH_TOKEN_KEY,
+      AUTH_USER_KEY
+    ]);
+
+    const handleStorageChange = (event: StorageEvent) => {
+      if (!event.key || authStorageKeys.has(event.key)) {
+        syncFromStorage();
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [syncFromStorage]);
 
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
