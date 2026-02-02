@@ -47,7 +47,7 @@ async function unlockIfNeeded(page: Page) {
 
 // TODO: Skipped pending investigation of CI-specific failure where app-container
 // doesn't render after navigation. Works locally but fails consistently in CI.
-// See: https://github.com/a2f0/rapid/issues/TBD
+// See: https://github.com/a2f0/rapid/issues/1315
 test.describe.skip('Table Viewer', () => {
   test.beforeEach(async ({ page }) => {
     await clearOriginStorage(page);
