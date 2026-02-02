@@ -88,6 +88,106 @@ async function uploadTestImage(page: Page) {
   await expect(page.getByTestId('photos-grid')).toBeVisible();
 }
 
+test.describe('Photo albums context menu', () => {
+  test.use({ viewport: { width: 1280, height: 800 } });
+
+  // Helper to open the Photos floating window from Home desktop
+  async function openPhotosWindow(page: Page) {
+    // Navigate to Home page using in-app navigation to preserve React state (including database unlock)
+    await navigateInApp(page, '/');
+
+    // Double-click the Photos icon (using data-icon-path attribute) to open the floating window
+    const photosIcon = page.locator('button[data-icon-path="/photos"]');
+    await expect(photosIcon).toBeVisible({ timeout: 10000 });
+    await photosIcon.dblclick();
+
+    // Wait for the floating window to appear (ID includes UUID, so match with regex)
+    // Use role=dialog to get the main window element, not resize handles or title bar
+    const photosWindow = page.locator(
+      '[data-testid^="floating-window-photos"][role="dialog"]'
+    );
+    await expect(photosWindow).toBeVisible({ timeout: 10000 });
+  }
+
+  test('should show context menu when right-clicking an album', async ({
+    page
+  }) => {
+    await page.goto('/');
+    await setupAndUnlockDatabase(page);
+    await openPhotosWindow(page);
+
+    // Create a new album by clicking the "New Album" button in the window
+    const newAlbumButton = page.locator('button[title="New Album"]');
+    await expect(newAlbumButton).toBeVisible({ timeout: 10000 });
+    await newAlbumButton.click();
+
+    // Fill in the album name in the dialog
+    const albumNameInput = page.getByTestId('new-album-name-input');
+    await expect(albumNameInput).toBeVisible({ timeout: 5000 });
+    await albumNameInput.fill('Test Album');
+
+    // Click create button
+    await page.getByTestId('new-album-dialog-create').click();
+
+    // Wait for the album to appear in the sidebar
+    const albumItem = page.getByText('Test Album');
+    await expect(albumItem).toBeVisible({ timeout: 10000 });
+
+    // Right-click on the album to open context menu
+    await albumItem.click({ button: 'right' });
+
+    // Verify the context menu is visible
+    const contextMenu = page.getByTestId('album-context-menu');
+    await expect(contextMenu).toBeVisible({ timeout: 5000 });
+
+    // Verify the menu has the expected options
+    await expect(page.getByRole('button', { name: 'Rename' })).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Delete' })).toBeVisible();
+
+    // Verify the context menu is not obscured by checking it's clickable
+    const renameButton = page.getByRole('button', { name: 'Rename' });
+    await expect(renameButton).toBeVisible();
+
+    // Click rename to verify the menu is interactive
+    await renameButton.click();
+
+    // Verify the rename dialog opens
+    await expect(
+      page.getByRole('heading', { name: 'Rename Album' })
+    ).toBeVisible({ timeout: 5000 });
+  });
+
+  test('should close context menu when clicking backdrop', async ({ page }) => {
+    await page.goto('/');
+    await setupAndUnlockDatabase(page);
+    await openPhotosWindow(page);
+
+    // Create a new album
+    const newAlbumButton = page.locator('button[title="New Album"]');
+    await expect(newAlbumButton).toBeVisible({ timeout: 10000 });
+    await newAlbumButton.click();
+    const albumNameInput = page.getByTestId('new-album-name-input');
+    await expect(albumNameInput).toBeVisible({ timeout: 5000 });
+    await albumNameInput.fill('Backdrop Test Album');
+    await page.getByTestId('new-album-dialog-create').click();
+
+    // Wait for album and right-click
+    const albumItem = page.getByText('Backdrop Test Album');
+    await expect(albumItem).toBeVisible({ timeout: 10000 });
+    await albumItem.click({ button: 'right' });
+
+    // Verify context menu appears
+    const contextMenu = page.getByTestId('album-context-menu');
+    await expect(contextMenu).toBeVisible({ timeout: 5000 });
+
+    // Click the backdrop to close
+    await page.getByTestId('album-context-menu-backdrop').click();
+
+    // Verify context menu is hidden
+    await expect(contextMenu).not.toBeVisible();
+  });
+});
+
 test.describe('Photos page responsive layout', () => {
   test.describe('Mobile viewport (375px - iPhone)', () => {
     test.use({ viewport: { width: 375, height: 667 } });

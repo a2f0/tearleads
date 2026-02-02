@@ -1,4 +1,5 @@
 import { useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
 
 interface AudioPlaylistsContextMenuProps {
@@ -22,16 +23,17 @@ export function AudioPlaylistsContextMenu({
     onClose();
   }, [onClose]);
 
-  return (
+  // Use portal to escape FloatingWindow's backdrop-filter containing block
+  return createPortal(
     <>
       <div
-        className="fixed inset-0 z-40"
+        className="fixed inset-0 z-[200]"
         onClick={handleBackdropClick}
         aria-hidden="true"
         data-testid="playlist-context-menu-backdrop"
       />
       <div
-        className="fixed z-50 min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+        className="fixed z-[201] min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
         style={{ left: x, top: y }}
         data-testid="playlist-context-menu"
       >
@@ -56,6 +58,7 @@ export function AudioPlaylistsContextMenu({
           Delete
         </button>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
