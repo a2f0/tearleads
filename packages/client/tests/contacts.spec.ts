@@ -77,11 +77,10 @@ test.describe('Contacts Page', () => {
 
     // Create several test contacts to ensure scrollable content
     for (let i = 0; i < 10; i++) {
-      // Wait for add-contact-card to be stable (not being re-rendered)
+      // Wait for add-contact-card to be stable and enabled
       const addCard = page.getByTestId('add-contact-card');
       await addCard.waitFor({ state: 'visible', timeout: PAGE_LOAD_TIMEOUT });
-      // Wait for any React re-renders to settle
-      await page.waitForTimeout(200);
+      await expect(addCard).toBeEnabled();
       await addCard.click();
 
       // Wait for the new contact form to load
@@ -107,14 +106,14 @@ test.describe('Contacts Page', () => {
       ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
       // Wait for contacts to finish loading (virtual list status should appear after first contact)
       if (i > 0) {
-        await expect(page.locator('text=/Viewing \\d+-\\d+ of \\d+/')).toBeVisible({
+        await expect(page.getByTestId('virtual-list-status')).toBeVisible({
           timeout: PAGE_LOAD_TIMEOUT
         });
       }
     }
 
     // Wait for contacts to load and virtual list status to appear
-    const virtualListStatus = page.locator('text=/Viewing \\d+-\\d+ of \\d+/');
+    const virtualListStatus = page.getByTestId('virtual-list-status');
     await expect(virtualListStatus).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Find the scroll container
@@ -142,7 +141,9 @@ test.describe('Contacts Page', () => {
       const scrollContainer = document.querySelector(
         '[data-testid="contacts-scroll-container"]'
       );
-      const stickyEl = document.querySelector('.sticky.top-0');
+      const stickyEl = document.querySelector(
+        '[data-testid="contacts-sticky-header"]'
+      );
       if (!scrollContainer || !stickyEl) return 0;
       return (stickyEl as HTMLElement).offsetTop;
     });

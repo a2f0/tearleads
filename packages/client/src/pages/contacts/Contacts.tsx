@@ -482,21 +482,26 @@ export function Contacts() {
           )}
 
           {contacts.length > 0 && (
-            <div className="flex min-h-0 flex-1 flex-col space-y-2">
+            <div className="flex min-h-0 flex-1 flex-col">
               <div
                 ref={parentRef}
                 className="flex-1 overflow-auto rounded-lg border"
                 data-testid="contacts-scroll-container"
               >
                 {/* Sticky section - status line */}
-                <div className="sticky top-0 z-10 bg-background p-2">
-                  <VirtualListStatus
-                    firstVisible={firstVisible}
-                    lastVisible={lastVisible}
-                    loadedCount={contacts.length}
-                    itemLabel="contact"
-                    searchQuery={searchQuery}
-                  />
+                <div
+                  className="sticky top-0 z-10 bg-background p-2"
+                  data-testid="contacts-sticky-header"
+                >
+                  <div data-testid="virtual-list-status">
+                    <VirtualListStatus
+                      firstVisible={firstVisible}
+                      lastVisible={lastVisible}
+                      loadedCount={contacts.length}
+                      itemLabel="contact"
+                      searchQuery={searchQuery}
+                    />
+                  </div>
                 </div>
                 <div
                   className="relative w-full"
