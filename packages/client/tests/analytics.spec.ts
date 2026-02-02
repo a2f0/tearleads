@@ -565,8 +565,8 @@ test.describe('Analytics page', () => {
       timeout: PAGE_LOAD_TIMEOUT
     });
 
-    // Find the Analytics scroll container by data-testid
-    const scrollContainer = page.getByTestId('analytics-scroll-container');
+    // Find the Analytics events scroll container by data-testid
+    const scrollContainer = page.getByTestId('analytics-events-scroll-container');
     await expect(scrollContainer).toBeVisible();
 
     // Get the initial positions of sticky elements
@@ -596,7 +596,7 @@ test.describe('Analytics page', () => {
 
     // Get position of sticky element relative to scroll container
     const stickyOffsetTop = await page.evaluate(() => {
-      const scrollContainer = document.querySelector('[data-testid="analytics-scroll-container"]');
+      const scrollContainer = document.querySelector('[data-testid="analytics-events-scroll-container"]');
       const stickyEl = document.querySelector('.sticky.top-0');
       if (!scrollContainer || !stickyEl) return 0;
       return (stickyEl as HTMLElement).offsetTop;

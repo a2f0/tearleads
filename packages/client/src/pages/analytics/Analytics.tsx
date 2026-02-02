@@ -490,11 +490,11 @@ export function Analytics({
 
       {isUnlocked && !error && (
         <div
-          className="flex min-h-0 flex-1 flex-col overflow-hidden"
+          className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden"
           data-testid="analytics-scroll-container"
         >
           {/* Top section: filters, event types, summary - scrollable with max height */}
-          <div className="max-h-[40%] shrink-0 space-y-4 overflow-auto pb-4">
+          <div className="max-h-[40%] shrink-0 space-y-4 overflow-auto">
             {/* Time filter */}
             <div className="flex flex-wrap gap-2">
               {TIME_FILTERS.map((filter) => (
@@ -693,6 +693,7 @@ export function Analytics({
           {/* Bottom section: chart, status, headers, virtual table - scrollable with parentRef */}
           <div
             ref={parentRef}
+            data-testid="analytics-events-scroll-container"
             className="flex min-h-0 flex-1 flex-col overflow-auto"
           >
             {/* Sticky header section - chart, status line, and table header */}
