@@ -1,6 +1,7 @@
 import { ImagePlus, Images, Loader2 } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { zIndex } from '@/constants/zIndex';
 import { cn } from '@/lib/utils';
 import { DeleteAlbumDialog } from './DeleteAlbumDialog';
 import { NewAlbumDialog } from './NewAlbumDialog';
@@ -257,15 +258,20 @@ function AlbumContextMenu({
   return createPortal(
     <>
       <div
-        className="fixed inset-0 z-[200]"
+        className="fixed inset-0"
+        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
         onClick={handleBackdropClick}
         aria-hidden="true"
         data-testid="album-context-menu-backdrop"
       />
       <div
         ref={menuRef}
-        className="fixed z-[201] min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
-        style={{ left: x, top: y }}
+        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+        style={{
+          left: x,
+          top: y,
+          zIndex: zIndex.floatingWindowContextMenu
+        }}
         data-testid="album-context-menu"
       >
         <button

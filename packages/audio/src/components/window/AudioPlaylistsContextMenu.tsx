@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import { createPortal } from 'react-dom';
+import { zIndex } from '../../constants/zIndex';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
 
 interface AudioPlaylistsContextMenuProps {
@@ -27,14 +28,19 @@ export function AudioPlaylistsContextMenu({
   return createPortal(
     <>
       <div
-        className="fixed inset-0 z-[200]"
+        className="fixed inset-0"
+        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
         onClick={handleBackdropClick}
         aria-hidden="true"
         data-testid="playlist-context-menu-backdrop"
       />
       <div
-        className="fixed z-[201] min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
-        style={{ left: x, top: y }}
+        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+        style={{
+          left: x,
+          top: y,
+          zIndex: zIndex.floatingWindowContextMenu
+        }}
         data-testid="playlist-context-menu"
       >
         <button
