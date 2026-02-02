@@ -94,7 +94,7 @@ cmd_install() {
   rm actions-runner.tar.gz
 
   log_info "Fetching registration token..."
-  TOKEN=$(gh api "repos/${REPO}/actions/runners/registration-token" -q .token)
+  TOKEN=$(gh api --method POST "repos/${REPO}/actions/runners/registration-token" -q .token)
 
   log_info "Configuring runner..."
   ./config.sh --url "https://github.com/${REPO}" --token "$TOKEN" --name "$(hostname)-self-hosted" --labels "self-hosted,macOS,ARM64" --work "_work"
@@ -213,7 +213,7 @@ cmd_uninstall() {
 
   # Remove runner from GitHub
   log_info "Fetching removal token..."
-  TOKEN=$(gh api "repos/${REPO}/actions/runners/remove-token" -q .token 2>/dev/null || echo "")
+  TOKEN=$(gh api --method POST "repos/${REPO}/actions/runners/remove-token" -q .token 2>/dev/null || echo "")
 
   if [[ -n "$TOKEN" ]]; then
     log_info "Removing runner from GitHub..."
