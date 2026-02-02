@@ -1,5 +1,5 @@
 import type { Migration } from './types';
-import { addColumnIfNotExists, tableExists } from './utils';
+import { addColumnIfNotExists } from './utils';
 
 /**
  * v010: Add playlists table and media_type column
@@ -12,29 +12,25 @@ export const v010: Migration = {
   version: 10,
   description: 'Add playlists table with media_type for audio/video support',
   up: async (adapter) => {
-    // Check if playlists table exists
-    const exists = await tableExists(adapter, 'playlists');
+    // Create playlists table if it doesn't exist. This is idempotent.
+    await adapter.execute(`
+      CREATE TABLE IF NOT EXISTS "playlists" (
+        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+        "encrypted_name" TEXT,
+        "encrypted_description" TEXT,
+        "cover_image_id" TEXT REFERENCES "vfs_registry"("id") ON DELETE SET NULL,
+        "shuffle_mode" INTEGER NOT NULL DEFAULT 0,
+        "media_type" TEXT NOT NULL DEFAULT 'audio'
+      )
+    `);
 
-    if (!exists) {
-      // Create playlists table with media_type column
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS "playlists" (
-          "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
-          "encrypted_name" TEXT,
-          "encrypted_description" TEXT,
-          "cover_image_id" TEXT REFERENCES "vfs_registry"("id") ON DELETE SET NULL,
-          "shuffle_mode" INTEGER NOT NULL DEFAULT 0,
-          "media_type" TEXT NOT NULL DEFAULT 'audio'
-        )
-      `);
-    } else {
-      // Table exists, just add the media_type column if missing
-      await addColumnIfNotExists(
-        adapter,
-        'playlists',
-        'media_type',
-        "TEXT NOT NULL DEFAULT 'audio'"
-      );
-    }
+    // For existing tables, add the media_type column if it's missing.
+    // This is also idempotent and safe to run even if the table was just created.
+    await addColumnIfNotExists(
+      adapter,
+      'playlists',
+      'media_type',
+      "TEXT NOT NULL DEFAULT 'audio'"
+    );
   }
 };
