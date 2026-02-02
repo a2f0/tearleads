@@ -130,19 +130,20 @@ export function SSEProvider({
       eventSource.onerror = () => {
         eventSource.close();
         eventSourceRef.current = null;
-        setConnectionState('disconnected');
 
         // Check if this is likely an auth error (token expired)
         // EventSource doesn't expose HTTP status codes, so we check client-side
         if (token && isJwtExpired(token)) {
-          // Token expired - attempt refresh instead of blind retry
-          // If refresh succeeds, the token-change effect will reconnect SSE
+          // Token expired - set to 'connecting' while we attempt refresh
+          // This allows the token-change effect to reconnect after refresh succeeds
           // If refresh fails, isAuthenticated becomes false and we stay disconnected
+          setConnectionState('connecting');
           void tryRefreshToken();
           return;
         }
 
-        // Network error or other issue - use exponential backoff
+        // Network error or other issue - set disconnected and use exponential backoff
+        setConnectionState('disconnected');
         const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, 30000);
         reconnectAttemptRef.current++;
 

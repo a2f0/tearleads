@@ -631,14 +631,15 @@ describe('SSEContext', () => {
       });
 
       expect(mockTryRefreshToken).toHaveBeenCalledTimes(1);
-      expect(result.current.connectionState).toBe('disconnected');
+      // State should be 'connecting' to allow token-change effect to reconnect
+      expect(result.current.connectionState).toBe('connecting');
 
       // Should NOT schedule a reconnect - let auth flow handle it
       act(() => {
         vi.advanceTimersByTime(1000);
       });
 
-      // No new EventSource should be created
+      // No new EventSource should be created via exponential backoff
       expect(MockEventSource.instances).toHaveLength(1);
     });
 
