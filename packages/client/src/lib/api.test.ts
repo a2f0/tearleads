@@ -590,4 +590,208 @@ describe('api', () => {
       expect(options?.method).toBe('DELETE');
     });
   });
+
+  describe('VFS share endpoints', () => {
+    beforeEach(() => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+    });
+
+    it('calls getShares endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({ shares: [], orgShares: [] }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.vfs.getShares('folder-1');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/vfs/items/folder-1/shares',
+        {}
+      );
+    });
+
+    it('calls createShare endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            share: {
+              id: 'share-1',
+              itemId: 'folder-1',
+              userId: 'user-1',
+              permission: 'read'
+            }
+          }),
+          {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.vfs.createShare({
+        itemId: 'folder-1',
+        userId: 'user-1',
+        permission: 'read'
+      });
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+      expect(call[0]).toBe('http://localhost:3000/vfs/items/folder-1/shares');
+      const options = call[1];
+      expect(options?.method).toBe('POST');
+    });
+
+    it('calls updateShare endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            share: {
+              id: 'share-1',
+              itemId: 'folder-1',
+              userId: 'user-1',
+              permission: 'write'
+            }
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.vfs.updateShare('share-1', { permission: 'write' });
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+      expect(call[0]).toBe('http://localhost:3000/vfs/shares/share-1');
+      const options = call[1];
+      expect(options?.method).toBe('PATCH');
+    });
+
+    it('calls deleteShare endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ deleted: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.vfs.deleteShare('share-1');
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+      expect(call[0]).toBe('http://localhost:3000/vfs/shares/share-1');
+      const options = call[1];
+      expect(options?.method).toBe('DELETE');
+    });
+
+    it('calls createOrgShare endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            orgShare: {
+              id: 'org-share-1',
+              itemId: 'folder-1',
+              organizationId: 'org-1',
+              permission: 'read'
+            }
+          }),
+          {
+            status: 201,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.vfs.createOrgShare({
+        itemId: 'folder-1',
+        organizationId: 'org-1',
+        permission: 'read'
+      });
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+      expect(call[0]).toBe('http://localhost:3000/vfs/items/folder-1/org-shares');
+      const options = call[1];
+      expect(options?.method).toBe('POST');
+    });
+
+    it('calls deleteOrgShare endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ deleted: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.vfs.deleteOrgShare('org-share-1');
+
+      const call = vi.mocked(global.fetch).mock.calls[0];
+      if (!call) {
+        throw new Error('Expected fetch to be called');
+      }
+      expect(call[0]).toBe('http://localhost:3000/vfs/org-shares/org-share-1');
+      const options = call[1];
+      expect(options?.method).toBe('DELETE');
+    });
+
+    it('calls searchShareTargets endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({ users: [], organizations: [] }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.vfs.searchShareTargets('test');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/vfs/share-targets/search?q=test',
+        {}
+      );
+    });
+
+    it('calls searchShareTargets with type filter', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({ users: [], organizations: [] }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.vfs.searchShareTargets('test', 'user');
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/vfs/share-targets/search?q=test&type=user',
+        {}
+      );
+    });
+  });
 });
