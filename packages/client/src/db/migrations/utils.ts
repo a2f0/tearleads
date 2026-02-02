@@ -2,6 +2,21 @@ import { isRecord } from '@rapid/shared';
 import type { DatabaseAdapter } from '../adapters';
 
 /**
+ * Check if a table exists in the database.
+ * Uses sqlite_master to check for table existence.
+ */
+export async function tableExists(
+  adapter: DatabaseAdapter,
+  tableName: string
+): Promise<boolean> {
+  const result = await adapter.execute(
+    `SELECT 1 FROM sqlite_master WHERE type='table' AND name=?`,
+    [tableName]
+  );
+  return (result?.rows?.length ?? 0) > 0;
+}
+
+/**
  * Add a column to a table if it doesn't already exist.
  * Uses PRAGMA table_info to check for column existence.
  */
