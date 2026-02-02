@@ -482,71 +482,81 @@ export function Contacts() {
           )}
 
           {contacts.length > 0 && (
-            <div className="flex min-h-0 flex-1 flex-col space-y-2">
-              <VirtualListStatus
-                firstVisible={firstVisible}
-                lastVisible={lastVisible}
-                loadedCount={contacts.length}
-                itemLabel="contact"
-                searchQuery={searchQuery}
-              />
-              <div className="flex-1 rounded-lg border">
-                <div ref={parentRef} className="h-full overflow-auto">
-                  <div
-                    className="relative w-full"
-                    style={{ height: `${virtualizer.getTotalSize()}px` }}
-                  >
-                    {virtualItems.map((virtualItem) => {
-                      const contact = contacts[virtualItem.index];
-                      if (!contact) return null;
-
-                      return (
-                        <div
-                          key={contact.id}
-                          data-index={virtualItem.index}
-                          ref={virtualizer.measureElement}
-                          className="absolute top-0 left-0 w-full px-1 py-0.5"
-                          style={{
-                            transform: `translateY(${virtualItem.start}px)`
-                          }}
-                        >
-                          <button
-                            type="button"
-                            className="flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
-                            onClick={() =>
-                              navigateWithFrom(`/contacts/${contact.id}`, {
-                                fromLabel: 'Back to Contacts'
-                              })
-                            }
-                            onContextMenu={(e) => handleContextMenu(e, contact)}
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium">
-                                {contact.firstName}
-                                {contact.lastName && ` ${contact.lastName}`}
-                              </p>
-                              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-sm">
-                                {contact.primaryEmail && (
-                                  <span className="flex items-center gap-1">
-                                    <Mail className="h-3 w-3" />
-                                    <span className="truncate">
-                                      {contact.primaryEmail}
-                                    </span>
-                                  </span>
-                                )}
-                                {contact.primaryPhone && (
-                                  <span className="flex items-center gap-1">
-                                    <Phone className="h-3 w-3" />
-                                    {contact.primaryPhone}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          </button>
-                        </div>
-                      );
-                    })}
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div
+                ref={parentRef}
+                className="flex-1 overflow-auto rounded-lg border"
+                data-testid="contacts-scroll-container"
+              >
+                {/* Sticky section - status line */}
+                <div
+                  className="sticky top-0 z-10 bg-background p-2"
+                  data-testid="contacts-sticky-header"
+                >
+                  <div data-testid="virtual-list-status">
+                    <VirtualListStatus
+                      firstVisible={firstVisible}
+                      lastVisible={lastVisible}
+                      loadedCount={contacts.length}
+                      itemLabel="contact"
+                      searchQuery={searchQuery}
+                    />
                   </div>
+                </div>
+                <div
+                  className="relative w-full"
+                  style={{ height: `${virtualizer.getTotalSize()}px` }}
+                >
+                  {virtualItems.map((virtualItem) => {
+                    const contact = contacts[virtualItem.index];
+                    if (!contact) return null;
+
+                    return (
+                      <div
+                        key={contact.id}
+                        data-index={virtualItem.index}
+                        ref={virtualizer.measureElement}
+                        className="absolute top-0 left-0 w-full px-1 py-0.5"
+                        style={{
+                          transform: `translateY(${virtualItem.start}px)`
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between rounded-lg border p-4 text-left transition-colors hover:bg-muted/50"
+                          onClick={() =>
+                            navigateWithFrom(`/contacts/${contact.id}`, {
+                              fromLabel: 'Back to Contacts'
+                            })
+                          }
+                          onContextMenu={(e) => handleContextMenu(e, contact)}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium">
+                              {contact.firstName}
+                              {contact.lastName && ` ${contact.lastName}`}
+                            </p>
+                            <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-muted-foreground text-sm">
+                              {contact.primaryEmail && (
+                                <span className="flex items-center gap-1">
+                                  <Mail className="h-3 w-3" />
+                                  <span className="truncate">
+                                    {contact.primaryEmail}
+                                  </span>
+                                </span>
+                              )}
+                              {contact.primaryPhone && (
+                                <span className="flex items-center gap-1">
+                                  <Phone className="h-3 w-3" />
+                                  {contact.primaryPhone}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </button>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
               {/* Add New Contact Card (always at bottom) */}

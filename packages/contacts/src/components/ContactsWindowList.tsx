@@ -189,78 +189,83 @@ export function ContactsWindowList({
             </Button>
           </div>
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col space-y-2">
-            <Input
-              type="search"
-              placeholder="Search contacts..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="h-8 text-base"
-              data-testid="window-contacts-search"
-            />
-            <VirtualListStatus
-              firstVisible={firstVisible}
-              lastVisible={lastVisible}
-              loadedCount={filteredContacts.length}
-              itemLabel="contact"
-            />
-            <div className="flex-1 rounded-lg border">
-              <div ref={parentRef} className="h-full overflow-auto">
-                <div
-                  className="relative w-full"
-                  style={{ height: `${virtualizer.getTotalSize()}px` }}
-                >
-                  {virtualItems.map((virtualItem) => {
-                    const contact = filteredContacts[virtualItem.index];
-                    if (!contact) return null;
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div
+              ref={parentRef}
+              className="flex-1 overflow-auto rounded-lg border"
+              data-testid="contacts-scroll-container"
+            >
+              {/* Sticky section - search and status line */}
+              <div className="sticky top-0 z-10 space-y-2 bg-background p-2">
+                <Input
+                  type="search"
+                  placeholder="Search contacts..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 text-base"
+                  data-testid="window-contacts-search"
+                />
+                <VirtualListStatus
+                  firstVisible={firstVisible}
+                  lastVisible={lastVisible}
+                  loadedCount={filteredContacts.length}
+                  itemLabel="contact"
+                />
+              </div>
+              <div
+                className="relative w-full"
+                style={{ height: `${virtualizer.getTotalSize()}px` }}
+              >
+                {virtualItems.map((virtualItem) => {
+                  const contact = filteredContacts[virtualItem.index];
+                  if (!contact) return null;
 
-                    return (
-                      <div
-                        key={contact.id}
-                        data-index={virtualItem.index}
-                        ref={virtualizer.measureElement}
-                        className="absolute top-0 left-0 w-full px-1 py-0.5"
-                        style={{
-                          transform: `translateY(${virtualItem.start}px)`
-                        }}
+                  return (
+                    <div
+                      key={contact.id}
+                      data-index={virtualItem.index}
+                      ref={virtualizer.measureElement}
+                      className="absolute top-0 left-0 w-full px-1 py-0.5"
+                      style={{
+                        transform: `translateY(${virtualItem.start}px)`
+                      }}
+                    >
+                      <ListRow
+                        onContextMenu={(e) => handleContextMenu(e, contact)}
                       >
-                        <ListRow
-                          onContextMenu={(e) => handleContextMenu(e, contact)}
+                        <button
+                          type="button"
+                          className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden text-left"
+                          onClick={() => handleContactClick(contact)}
                         >
-                          <button
-                            type="button"
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden text-left"
-                            onClick={() => handleContactClick(contact)}
-                          >
-                            <User className="h-4 w-4 shrink-0 text-muted-foreground" />
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-xs">
-                                {getDisplayName(contact)}
-                              </p>
-                              <p className="flex items-center gap-2 truncate text-muted-foreground text-xs">
-                                {contact.primaryEmail && (
-                                  <span className="flex items-center gap-0.5">
-                                    <Mail className="h-3 w-3" />
-                                    {contact.primaryEmail}
-                                  </span>
-                                )}
-                                {contact.primaryPhone && (
-                                  <span className="flex items-center gap-0.5">
-                                    <Phone className="h-3 w-3" />
-                                    {contact.primaryPhone}
-                                  </span>
-                                )}
-                                {!contact.primaryEmail &&
-                                  !contact.primaryPhone &&
-                                  'No contact info'}
-                              </p>
-                            </div>
-                          </button>
-                        </ListRow>
-                      </div>
-                    );
-                  })}
-                </div>
+                          <User className="h-4 w-4 shrink-0 text-muted-foreground" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-xs">
+                              {getDisplayName(contact)}
+                            </p>
+                            <p className="flex items-center gap-2 truncate text-muted-foreground text-xs">
+                              {contact.primaryEmail && (
+                                <span className="flex items-center gap-0.5">
+                                  <Mail className="h-3 w-3" />
+                                  {contact.primaryEmail}
+                                </span>
+                              )}
+                              {contact.primaryPhone && (
+                                <span className="flex items-center gap-0.5">
+                                  <Phone className="h-3 w-3" />
+                                  {contact.primaryPhone}
+                                </span>
+                              )}
+                              {!contact.primaryEmail &&
+                                !contact.primaryPhone &&
+                                'No contact info'}
+                            </p>
+                          </div>
+                        </button>
+                      </ListRow>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>
