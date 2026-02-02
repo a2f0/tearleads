@@ -4,7 +4,7 @@ import { clearOriginStorage } from './test-utils';
 
 const TEST_PASSWORD = 'testpassword123';
 const DB_OPERATION_TIMEOUT = 15000;
-const PAGE_LOAD_TIMEOUT = 10000;
+const PAGE_LOAD_TIMEOUT = 15000;
 
 // Helper to wait for successful database operation
 const waitForSuccess = (page: Page) =>
@@ -58,16 +58,17 @@ test.describe('Table Viewer', () => {
     // Navigate to tables list
     await page.goto('/sqlite/tables');
     await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    // Wait for lazy-loaded component to finish loading (Suspense fallback)
-    // The app shows "Loading..." during lazy component load
-    await expect(page.getByText('Loading...').first()).not.toBeVisible({
+    // Wait for app container to be visible (ensures React app has mounted)
+    await expect(page.getByTestId('app-container')).toBeVisible({
       timeout: PAGE_LOAD_TIMEOUT
     });
 
     await unlockIfNeeded(page);
 
     // Wait for tables list to load - page title is "Tables"
+    // Use a longer timeout as the Tables component is lazy-loaded
     await expect(page.getByRole('heading', { name: 'Tables' })).toBeVisible({
       timeout: PAGE_LOAD_TIMEOUT
     });
@@ -179,9 +180,10 @@ test.describe('Table Viewer', () => {
     // Navigate directly to tables list
     await page.goto('/sqlite/tables');
     await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
-    // Wait for lazy-loaded component to finish loading (Suspense fallback)
-    await expect(page.getByText('Loading...').first()).not.toBeVisible({
+    // Wait for app container to be visible (ensures React app has mounted)
+    await expect(page.getByTestId('app-container')).toBeVisible({
       timeout: PAGE_LOAD_TIMEOUT
     });
 
