@@ -532,6 +532,127 @@ test.describe('Analytics page', () => {
    * Regression test for mobile responsive layout.
    * Ensures the analytics page does not have horizontal scroll on mobile devices.
    */
+  /**
+   * Test for sticky scroll behavior on the analytics page.
+   * The duration chart, status line, and table header should remain visible
+   * when scrolling down through the events list.
+   */
+  dbTest('should keep chart, status line, and table header sticky when scrolling', async ({
+    page
+  }) => {
+    // Use a smaller viewport to ensure content is scrollable
+    await page.setViewportSize({ width: 1280, height: 600 });
+
+    await setupDatabase(page);
+
+    // Generate multiple analytics events to ensure we have scrollable content
+    for (let i = 0; i < 5; i++) {
+      await page.getByTestId('db-write-button').click();
+      await waitForSuccess(page);
+      await page.getByTestId('db-read-button').click();
+      await waitForSuccess(page);
+    }
+
+    await navigateTo(page, 'Analytics');
+    await unlockIfNeeded(page);
+    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+
+    // Wait for chart and events to load
+    await expect(page.getByText('Duration Over Time')).toBeVisible({
+      timeout: PAGE_LOAD_TIMEOUT
+    });
+    await expect(page.getByTestId('analytics-header')).toBeVisible({
+      timeout: PAGE_LOAD_TIMEOUT
+    });
+
+    // Find the Analytics scroll container by data-testid
+    const scrollContainer = page.getByTestId('analytics-scroll-container');
+    await expect(scrollContainer).toBeVisible();
+
+    // Get the initial positions of sticky elements
+    const chartTitle = page.getByText('Duration Over Time');
+    const tableHeader = page.getByTestId('analytics-header');
+
+    // Verify elements are visible before scrolling
+    await expect(chartTitle).toBeVisible();
+    await expect(tableHeader).toBeVisible();
+
+    // Get initial bounding box
+    const chartBoundingBoxBefore = await chartTitle.boundingBox();
+    expect(chartBoundingBoxBefore).not.toBeNull();
+
+    // Check if the scroll container is actually scrollable
+    const scrollInfo = await scrollContainer.evaluate((el) => ({
+      scrollHeight: el.scrollHeight,
+      clientHeight: el.clientHeight,
+      isScrollable: el.scrollHeight > el.clientHeight
+    }));
+
+    // The scroll container should be scrollable with enough content and small viewport
+    expect(
+      scrollInfo.isScrollable,
+      `Scroll container should be scrollable (scrollHeight: ${scrollInfo.scrollHeight}, clientHeight: ${scrollInfo.clientHeight})`
+    ).toBe(true);
+
+    // Get position of sticky element relative to scroll container
+    const stickyOffsetTop = await page.evaluate(() => {
+      const scrollContainer = document.querySelector('[data-testid="analytics-scroll-container"]');
+      const stickyEl = document.querySelector('.sticky.top-0');
+      if (!scrollContainer || !stickyEl) return 0;
+      return (stickyEl as HTMLElement).offsetTop;
+    });
+
+    // Scroll past the sticky element's initial position to trigger sticky
+    const scrollAmount = stickyOffsetTop + 100;
+    await scrollContainer.evaluate((el, amount) => {
+      el.scrollTop = amount;
+    }, scrollAmount);
+
+    // Wait for next animation frame to ensure scroll completes
+    await page.evaluate(() => new Promise(requestAnimationFrame));
+
+    // Check scroll position after
+    const scrollTopAfter = await scrollContainer.evaluate((el) => el.scrollTop);
+
+    // Verify we actually scrolled
+    expect(scrollTopAfter, 'Should have scrolled down').toBeGreaterThan(0);
+
+    // Verify sticky elements are still visible after scrolling
+    await expect(chartTitle).toBeVisible();
+    await expect(tableHeader).toBeVisible();
+
+    // Get bounding boxes after scrolling
+    const chartBoundingBoxAfter = await chartTitle.boundingBox();
+    const headerBoundingBoxAfter = await tableHeader.boundingBox();
+
+    expect(chartBoundingBoxAfter).not.toBeNull();
+    expect(headerBoundingBoxAfter).not.toBeNull();
+
+    const chartYBefore = chartBoundingBoxBefore?.y ?? 0;
+    const chartYAfter = chartBoundingBoxAfter?.y ?? 0;
+    const headerYAfter = headerBoundingBoxAfter?.y ?? 0;
+
+    // If sticky is working, the chart should still be visible near the top after scrolling.
+    // Without sticky, the chart would have scrolled off the top of the viewport.
+    // Example: chart starts at Y=452, we scroll 457px, so without sticky it would be at Y=-5
+    // With sticky, it stays visible (Y > 0) near the top (Y < 200)
+    expect(
+      chartYAfter,
+      `Chart should be visible (sticky) after scroll - started at Y=${chartYBefore}, scrolled ${scrollTopAfter}px, now at Y=${chartYAfter} (would be ~${chartYBefore - scrollTopAfter} if not sticky)`
+    ).toBeGreaterThan(0);
+
+    expect(
+      chartYAfter,
+      `Chart should be near top of viewport after scroll - Y position: ${chartYAfter}px`
+    ).toBeLessThan(200);
+
+    // The table header is part of the sticky section, so it should also be visible
+    expect(
+      headerYAfter,
+      `Table header should be visible after scroll - Y position: ${headerYAfter}px`
+    ).toBeGreaterThan(0);
+  });
+
   dbTest('should not have horizontal scroll on mobile viewport', async ({
     page
   }) => {

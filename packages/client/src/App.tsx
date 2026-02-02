@@ -63,7 +63,7 @@ function App() {
       className="safe-area-inset flex h-dvh max-h-dvh flex-col bg-background"
       data-testid="app-container"
     >
-      <div className="flex flex-1">
+      <div className="flex min-h-0 flex-1">
         <Sidebar
           ref={sidebarRef}
           isOpen={isSidebarOpen}
@@ -78,9 +78,9 @@ function App() {
               <AccountSwitcher />
             </div>
           </header>
-          <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-auto pb-14">
+          <main className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden pb-14">
             <div
-              className="container relative mx-auto flex max-w-2xl flex-1 flex-col px-4 pb-16 lg:max-w-none lg:px-8"
+              className="container relative mx-auto flex min-h-0 max-w-2xl flex-1 flex-col overflow-auto px-4 pb-16 lg:max-w-none lg:px-8"
               style={{
                 paddingBottom:
                   keyboardHeight > 0

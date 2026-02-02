@@ -489,7 +489,10 @@ export function Analytics({
       )}
 
       {isUnlocked && !error && (
-        <div className="flex-1 space-y-4 overflow-auto">
+        <div
+          className="flex-1 space-y-4 overflow-auto"
+          data-testid="analytics-scroll-container"
+        >
           {/* Time filter */}
           <div className="flex flex-wrap gap-2">
             {TIME_FILTERS.map((filter) => (
@@ -679,25 +682,71 @@ export function Analytics({
             </div>
           )}
 
-          {/* Duration chart - shows only visible events from the virtual scroll viewport */}
-          <div className="sticky top-0 z-10 bg-background pb-4">
+          {/* Sticky header section - chart, status line, and table header */}
+          <div className="sticky top-0 z-10 bg-background pb-2">
             <DurationChart
               events={visibleEvents}
               selectedEventTypes={selectedEventTypes}
               timeFilter={timeFilter}
             />
+            <div className="mt-4 flex flex-col gap-2">
+              <VirtualListStatus
+                firstVisible={firstVisible}
+                lastVisible={lastVisible}
+                loadedCount={events.length}
+                totalCount={totalCount}
+                hasMore={hasMore}
+                itemLabel="event"
+              />
+              {events.length > 0 && (
+                <div
+                  data-testid="analytics-header"
+                  className="grid grid-cols-[1fr_80px_80px] gap-2 rounded-t-lg border-x border-t bg-muted/50 px-2 py-2 font-medium text-xs sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3 sm:text-sm"
+                >
+                  <button
+                    type="button"
+                    onClick={() => handleSort('eventName')}
+                    className="inline-flex items-center gap-1 text-left hover:text-foreground"
+                    data-testid="sort-eventName"
+                  >
+                    Event
+                    <SortIcon column="eventName" sort={sort} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('durationMs')}
+                    className="inline-flex items-center gap-1 text-left hover:text-foreground"
+                    data-testid="sort-durationMs"
+                  >
+                    <span className="hidden sm:inline">Duration</span>
+                    <span className="sm:hidden">Dur</span>
+                    <SortIcon column="durationMs" sort={sort} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('success')}
+                    className="inline-flex items-center gap-1 text-left hover:text-foreground"
+                    data-testid="sort-success"
+                  >
+                    Status
+                    <SortIcon column="success" sort={sort} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleSort('timestamp')}
+                    className="hidden items-center gap-1 text-left hover:text-foreground sm:inline-flex"
+                    data-testid="sort-timestamp"
+                  >
+                    Time
+                    <SortIcon column="timestamp" sort={sort} />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Events table - fills remaining space with independent scroll */}
-          <div className="flex min-h-0 flex-1 flex-col space-y-2">
-            <VirtualListStatus
-              firstVisible={firstVisible}
-              lastVisible={lastVisible}
-              loadedCount={events.length}
-              totalCount={totalCount}
-              hasMore={hasMore}
-              itemLabel="event"
-            />
+          <div className="flex min-h-0 flex-1 flex-col">
             {loading && events.length === 0 ? (
               <div className="rounded-lg border p-8 text-center text-muted-foreground">
                 Loading events...
@@ -708,51 +757,7 @@ export function Analytics({
                 operations.
               </div>
             ) : (
-              <div className="flex flex-1 flex-col overflow-hidden rounded-lg border">
-                <div className="border-b bg-muted/50">
-                  <div
-                    data-testid="analytics-header"
-                    className="grid grid-cols-[1fr_80px_80px] gap-2 px-2 py-2 font-medium text-xs sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3 sm:text-sm"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleSort('eventName')}
-                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
-                      data-testid="sort-eventName"
-                    >
-                      Event
-                      <SortIcon column="eventName" sort={sort} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSort('durationMs')}
-                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
-                      data-testid="sort-durationMs"
-                    >
-                      <span className="hidden sm:inline">Duration</span>
-                      <span className="sm:hidden">Dur</span>
-                      <SortIcon column="durationMs" sort={sort} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSort('success')}
-                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
-                      data-testid="sort-success"
-                    >
-                      Status
-                      <SortIcon column="success" sort={sort} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSort('timestamp')}
-                      className="hidden items-center gap-1 text-left hover:text-foreground sm:inline-flex"
-                      data-testid="sort-timestamp"
-                    >
-                      Time
-                      <SortIcon column="timestamp" sort={sort} />
-                    </button>
-                  </div>
-                </div>
+              <div className="flex flex-1 flex-col overflow-hidden rounded-b-lg border-x border-b">
                 <div ref={parentRef} className="flex-1 overflow-auto">
                   <div
                     className="relative w-full"
