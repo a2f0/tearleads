@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock hooks
@@ -10,6 +11,28 @@ vi.mock('../hooks', () => ({
     isCreating: false,
     error: null,
     ensureRoot: vi.fn()
+  }))
+}));
+
+// Mock context
+vi.mock('../context', () => ({
+  useVfsExplorerContext: vi.fn(() => ({
+    ui: {
+      ContextMenu: ({ children }: { children: ReactNode }) => (
+        <div data-testid="mock-context-menu">{children}</div>
+      ),
+      ContextMenuItem: ({
+        children,
+        onClick
+      }: {
+        children: ReactNode;
+        onClick?: () => void;
+      }) => (
+        <button type="button" onClick={onClick}>
+          {children}
+        </button>
+      )
+    }
   }))
 }));
 
