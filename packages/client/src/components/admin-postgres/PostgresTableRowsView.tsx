@@ -98,6 +98,26 @@ export function PostgresTableRowsView({
   const isLoadingMoreRef = useRef(false);
   const [hasScrolled, setHasScrolled] = useState(false);
 
+  // Local component to reduce duplication of sticky VirtualListStatus
+  const StickyVirtualListStatus = ({
+    firstVisible,
+    lastVisible
+  }: {
+    firstVisible: number | null;
+    lastVisible: number | null;
+  }) => (
+    <div className="sticky top-0 z-10 bg-background px-4 py-2">
+      <VirtualListStatus
+        firstVisible={firstVisible}
+        lastVisible={lastVisible}
+        loadedCount={rows.length}
+        totalCount={totalCount}
+        hasMore={hasMore}
+        itemLabel="row"
+      />
+    </div>
+  );
+
   const fetchTableData = useCallback(
     async (reset = true) => {
       if (!schema || !tableName) return;
@@ -452,16 +472,10 @@ export function PostgresTableRowsView({
           className="min-h-0 flex-1 overflow-auto rounded-lg border"
           data-testid="scroll-container"
         >
-          <div className="sticky top-0 z-10 bg-background px-4 py-2">
-            <VirtualListStatus
-              firstVisible={firstVisible}
-              lastVisible={lastVisible}
-              loadedCount={rows.length}
-              totalCount={totalCount}
-              hasMore={hasMore}
-              itemLabel="row"
-            />
-          </div>
+          <StickyVirtualListStatus
+            firstVisible={firstVisible}
+            lastVisible={lastVisible}
+          />
           <div
             style={{ height: `${virtualizer.getTotalSize()}px` }}
             className="relative w-full"
@@ -516,16 +530,10 @@ export function PostgresTableRowsView({
           className="min-h-0 flex-1 overflow-auto rounded-lg border"
           data-testid="scroll-container"
         >
-          <div className="sticky top-0 z-10 bg-background px-4 py-2">
-            <VirtualListStatus
-              firstVisible={firstVisible}
-              lastVisible={lastVisible}
-              loadedCount={rows.length}
-              totalCount={totalCount}
-              hasMore={hasMore}
-              itemLabel="row"
-            />
-          </div>
+          <StickyVirtualListStatus
+            firstVisible={firstVisible}
+            lastVisible={lastVisible}
+          />
           <table className="w-full border-collapse">
             <thead className="sticky top-[2.25rem] z-10 bg-muted">
               <tr>
