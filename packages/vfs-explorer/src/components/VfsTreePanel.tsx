@@ -237,7 +237,11 @@ export function VfsTreePanel({
           Folders
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto p-1" onContextMenu={handleEmptySpaceContextMenu}>
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
+      <div
+        className="flex-1 overflow-y-auto p-1"
+        onContextMenu={handleEmptySpaceContextMenu}
+      >
         {/* Unfiled Items - always shown, not a drop target */}
         <VfsDroppableFolder folderId={UNFILED_FOLDER_ID} disabled>
           <button

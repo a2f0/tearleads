@@ -5,6 +5,7 @@ import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 import { DeleteVideoPlaylistDialog } from './DeleteVideoPlaylistDialog';
 import { NewVideoPlaylistDialog } from './NewVideoPlaylistDialog';
 import { RenameVideoPlaylistDialog } from './RenameVideoPlaylistDialog';
+import { VideoEmptySpaceContextMenu } from './VideoEmptySpaceContextMenu';
 import { VideoPlaylistsContextMenu } from './VideoPlaylistsContextMenu';
 
 export const ALL_VIDEO_ID = '__all__';
@@ -41,6 +42,11 @@ export function VideoPlaylistsSidebar({
     x: number;
     y: number;
     playlist: VideoPlaylist;
+  } | null>(null);
+
+  const [emptySpaceContextMenu, setEmptySpaceContextMenu] = useState<{
+    x: number;
+    y: number;
   } | null>(null);
 
   const handleMouseDown = useCallback(
@@ -91,6 +97,11 @@ export function VideoPlaylistsSidebar({
     []
   );
 
+  const handleEmptySpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
   const handlePlaylistChanged = useCallback(() => {
     refetch();
     onPlaylistChanged?.();
@@ -125,7 +136,11 @@ export function VideoPlaylistsSidebar({
           <Plus className="h-4 w-4" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-1">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
+      <div
+        className="flex-1 overflow-y-auto p-1"
+        onContextMenu={handleEmptySpaceContextMenu}
+      >
         <button
           type="button"
           className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
@@ -195,6 +210,18 @@ export function VideoPlaylistsSidebar({
           onClose={() => setContextMenu(null)}
           onRename={(playlist) => setRenameDialogPlaylist(playlist)}
           onDelete={(playlist) => setDeleteDialogPlaylist(playlist)}
+        />
+      )}
+
+      {emptySpaceContextMenu && (
+        <VideoEmptySpaceContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+          onNewPlaylist={() => {
+            setNewPlaylistDialogOpen(true);
+            setEmptySpaceContextMenu(null);
+          }}
         />
       )}
 
