@@ -2,6 +2,7 @@ name: Deploy Web
 
 on:
   workflow_call:
+  workflow_dispatch:
 
 jobs:
   deploy:

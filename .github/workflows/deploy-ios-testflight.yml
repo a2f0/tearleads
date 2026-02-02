@@ -2,6 +2,7 @@ name: Deploy iOS to TestFlight
 
 on:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: write
