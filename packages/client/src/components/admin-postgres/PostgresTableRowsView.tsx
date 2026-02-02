@@ -16,7 +16,6 @@ import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { api } from '@/lib/api';
 import { createCsv } from '@/lib/csv';
-import { cn } from '@/lib/utils';
 
 function downloadFile(content: string, filename: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
@@ -437,57 +436,140 @@ export function PostgresTableRowsView({
         </div>
       )}
 
-      <div className="sticky top-0 z-10 bg-background">
-        <VirtualListStatus
-          firstVisible={firstVisible}
-          lastVisible={lastVisible}
-          loadedCount={rows.length}
-          totalCount={totalCount}
-          hasMore={hasMore}
-          itemLabel="row"
-        />
-      </div>
+      {loading && rows.length === 0 ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border p-8 text-muted-foreground">
+          <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          Loading table data...
+        </div>
+      ) : rows.length === 0 ? (
+        <div className="flex min-h-0 flex-1 items-center justify-center rounded-lg border p-8 text-muted-foreground">
+          No rows found.
+        </div>
+      ) : documentView ? (
+        // Document view - scroll container with sticky VirtualListStatus inside
+        <div
+          ref={parentRef}
+          className="min-h-0 flex-1 overflow-auto rounded-lg border"
+          data-testid="scroll-container"
+        >
+          <div className="sticky top-0 z-10 bg-background px-4 py-2">
+            <VirtualListStatus
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              loadedCount={rows.length}
+              totalCount={totalCount}
+              hasMore={hasMore}
+              itemLabel="row"
+            />
+          </div>
+          <div
+            style={{ height: `${virtualizer.getTotalSize()}px` }}
+            className="relative w-full"
+          >
+            {virtualItems.map((virtualItem) => {
+              const isLoaderRow = virtualItem.index >= rows.length;
 
-      <div
-        className={cn('min-h-0 flex-1 overflow-hidden rounded-lg border', {
-          'h-[calc(100vh-350px)]': rows.length > 0
-        })}
-      >
-        {loading && rows.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Loading table data...
+              if (isLoaderRow) {
+                return (
+                  <div
+                    key="loader"
+                    className="absolute top-0 left-0 flex w-full items-center justify-center p-4 text-muted-foreground"
+                    style={{
+                      transform: `translateY(${virtualItem.start}px)`
+                    }}
+                  >
+                    {loadingMore && (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading more...
+                      </>
+                    )}
+                  </div>
+                );
+              }
+
+              const row = rows[virtualItem.index];
+              if (!row) return null;
+
+              return (
+                <div
+                  key={getRowKey(virtualItem.index)}
+                  data-index={virtualItem.index}
+                  ref={virtualizer.measureElement}
+                  className="absolute top-0 left-0 w-full p-2"
+                  style={{
+                    transform: `translateY(${virtualItem.start}px)`
+                  }}
+                >
+                  <pre className="overflow-x-auto rounded border bg-muted/50 p-3 font-mono text-xs">
+                    {JSON.stringify(row, null, 2)}
+                  </pre>
+                </div>
+              );
+            })}
           </div>
-        ) : rows.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-muted-foreground">
-            No rows found.
+        </div>
+      ) : (
+        // Table view - scroll container with sticky VirtualListStatus inside
+        <div
+          ref={parentRef}
+          className="min-h-0 flex-1 overflow-auto rounded-lg border"
+          data-testid="scroll-container"
+        >
+          <div className="sticky top-0 z-10 bg-background px-4 py-2">
+            <VirtualListStatus
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              loadedCount={rows.length}
+              totalCount={totalCount}
+              hasMore={hasMore}
+              itemLabel="row"
+            />
           </div>
-        ) : documentView ? (
-          // Document view
-          <div ref={parentRef} className="h-full overflow-auto">
-            <div
-              style={{ height: `${virtualizer.getTotalSize()}px` }}
-              className="relative w-full"
-            >
+          <table className="w-full border-collapse">
+            <thead className="sticky top-[2.25rem] z-10 bg-muted">
+              <tr>
+                {visibleColumns.map((col) => (
+                  <th
+                    key={col.name}
+                    className="cursor-pointer border-b px-3 py-2 text-left font-medium text-sm hover:bg-muted/80"
+                    onClick={() => handleSort(col.name)}
+                  >
+                    <div className="flex items-center gap-1">
+                      <span className="truncate">{col.name}</span>
+                      {sort.column === col.name ? (
+                        sort.direction === 'asc' ? (
+                          <ArrowUp className="h-4 w-4 shrink-0" />
+                        ) : (
+                          <ArrowDown className="h-4 w-4 shrink-0" />
+                        )
+                      ) : (
+                        <ArrowUpDown className="h-4 w-4 shrink-0 text-muted-foreground/50" />
+                      )}
+                    </div>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
               {virtualItems.map((virtualItem) => {
                 const isLoaderRow = virtualItem.index >= rows.length;
 
                 if (isLoaderRow) {
                   return (
-                    <div
-                      key="loader"
-                      className="absolute top-0 left-0 flex w-full items-center justify-center p-4 text-muted-foreground"
-                      style={{
-                        transform: `translateY(${virtualItem.start}px)`
-                      }}
-                    >
-                      {loadingMore && (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Loading more...
-                        </>
-                      )}
-                    </div>
+                    <tr key="loader">
+                      <td
+                        colSpan={visibleColumns.length}
+                        className="p-4 text-center text-muted-foreground"
+                      >
+                        {loadingMore && (
+                          <span className="flex items-center justify-center">
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Loading more...
+                          </span>
+                        )}
+                      </td>
+                    </tr>
                   );
                 }
 
@@ -495,98 +577,26 @@ export function PostgresTableRowsView({
                 if (!row) return null;
 
                 return (
-                  <div
+                  <tr
                     key={getRowKey(virtualItem.index)}
-                    data-index={virtualItem.index}
-                    ref={virtualizer.measureElement}
-                    className="absolute top-0 left-0 w-full p-2"
-                    style={{
-                      transform: `translateY(${virtualItem.start}px)`
-                    }}
+                    className="border-b hover:bg-muted/50"
                   >
-                    <pre className="overflow-x-auto rounded border bg-muted/50 p-3 font-mono text-xs">
-                      {JSON.stringify(row, null, 2)}
-                    </pre>
-                  </div>
+                    {visibleColumns.map((col) => (
+                      <td
+                        key={col.name}
+                        className="max-w-xs truncate px-3 py-2 font-mono text-sm"
+                        title={formatCellValue(row[col.name])}
+                      >
+                        {formatCellValue(row[col.name])}
+                      </td>
+                    ))}
+                  </tr>
                 );
               })}
-            </div>
-          </div>
-        ) : (
-          // Table view
-          <div ref={parentRef} className="h-full overflow-auto">
-            <table className="w-full border-collapse">
-              <thead className="sticky top-0 z-10 bg-muted">
-                <tr>
-                  {visibleColumns.map((col) => (
-                    <th
-                      key={col.name}
-                      className="cursor-pointer border-b px-3 py-2 text-left font-medium text-sm hover:bg-muted/80"
-                      onClick={() => handleSort(col.name)}
-                    >
-                      <div className="flex items-center gap-1">
-                        <span className="truncate">{col.name}</span>
-                        {sort.column === col.name ? (
-                          sort.direction === 'asc' ? (
-                            <ArrowUp className="h-4 w-4 shrink-0" />
-                          ) : (
-                            <ArrowDown className="h-4 w-4 shrink-0" />
-                          )
-                        ) : (
-                          <ArrowUpDown className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                        )}
-                      </div>
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {virtualItems.map((virtualItem) => {
-                  const isLoaderRow = virtualItem.index >= rows.length;
-
-                  if (isLoaderRow) {
-                    return (
-                      <tr key="loader">
-                        <td
-                          colSpan={visibleColumns.length}
-                          className="p-4 text-center text-muted-foreground"
-                        >
-                          {loadingMore && (
-                            <span className="flex items-center justify-center">
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Loading more...
-                            </span>
-                          )}
-                        </td>
-                      </tr>
-                    );
-                  }
-
-                  const row = rows[virtualItem.index];
-                  if (!row) return null;
-
-                  return (
-                    <tr
-                      key={getRowKey(virtualItem.index)}
-                      className="border-b hover:bg-muted/50"
-                    >
-                      {visibleColumns.map((col) => (
-                        <td
-                          key={col.name}
-                          className="max-w-xs truncate px-3 py-2 font-mono text-sm"
-                          title={formatCellValue(row[col.name])}
-                        >
-                          {formatCellValue(row[col.name])}
-                        </td>
-                      ))}
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
