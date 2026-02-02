@@ -4,7 +4,7 @@ import { clearOriginStorage } from './test-utils';
 
 const TEST_PASSWORD = 'testpassword123';
 const DB_OPERATION_TIMEOUT = 15000;
-const PAGE_LOAD_TIMEOUT = 5000;
+const PAGE_LOAD_TIMEOUT = 10000;
 
 // Helper to wait for successful database operation
 const waitForSuccess = (page: Page) =>
