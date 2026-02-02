@@ -63,7 +63,7 @@ function App() {
       className="safe-area-inset flex h-dvh max-h-dvh flex-col bg-background"
       data-testid="app-container"
     >
-      <div className="flex min-h-0 flex-1">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         <Sidebar
           ref={sidebarRef}
           isOpen={isSidebarOpen}

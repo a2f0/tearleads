@@ -124,7 +124,7 @@ export function Tables({ showBackLink = true }: TablesProps) {
   }, [isUnlocked, currentInstanceId, loading, fetchTables, error]);
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-full flex-col space-y-6 overflow-auto">
       <div className="space-y-2">
         {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
         <div className="flex items-center justify-between">
