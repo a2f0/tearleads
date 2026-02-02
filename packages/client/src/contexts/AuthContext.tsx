@@ -10,6 +10,9 @@ import {
 } from 'react';
 import { api } from '@/lib/api';
 import {
+  AUTH_REFRESH_TOKEN_KEY,
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
   clearAuthError,
   clearStoredAuth,
   getAuthError,
@@ -74,9 +77,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
 
     const authStorageKeys = new Set([
-      'auth_token',
-      'auth_refresh_token',
-      'auth_user'
+      AUTH_TOKEN_KEY,
+      AUTH_REFRESH_TOKEN_KEY,
+      AUTH_USER_KEY
     ]);
 
     const handleStorageChange = (event: StorageEvent) => {

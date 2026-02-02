@@ -1,7 +1,12 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { clearStoredAuth, setSessionExpiredError } from '@/lib/auth-storage';
+import {
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY,
+  clearStoredAuth,
+  setSessionExpiredError
+} from '@/lib/auth-storage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
@@ -80,9 +85,9 @@ describe('AuthContext', () => {
   });
 
   it('loads existing session from localStorage', async () => {
-    localStorage.setItem('auth_token', 'saved-token');
+    localStorage.setItem(AUTH_TOKEN_KEY, 'saved-token');
     localStorage.setItem(
-      'auth_user',
+      AUTH_USER_KEY,
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
 
@@ -173,16 +178,16 @@ describe('AuthContext', () => {
     });
 
     expect(mockLogout).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem('auth_token')).toBeNull();
-    expect(localStorage.getItem('auth_user')).toBeNull();
+    expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(AUTH_USER_KEY)).toBeNull();
   });
 
   it('clears local state even when logout API fails (offline support)', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {});
     mockLogout.mockRejectedValueOnce(new Error('Network error'));
-    localStorage.setItem('auth_token', 'saved-token');
+    localStorage.setItem(AUTH_TOKEN_KEY, 'saved-token');
     localStorage.setItem(
-      'auth_user',
+      AUTH_USER_KEY,
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
 
@@ -209,8 +214,8 @@ describe('AuthContext', () => {
     });
 
     expect(mockLogout).toHaveBeenCalledTimes(1);
-    expect(localStorage.getItem('auth_token')).toBeNull();
-    expect(localStorage.getItem('auth_user')).toBeNull();
+    expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(AUTH_USER_KEY)).toBeNull();
     expect(consoleWarn).toHaveBeenCalledWith(
       'Server-side logout failed:',
       expect.any(Error)
@@ -220,8 +225,8 @@ describe('AuthContext', () => {
   });
 
   it('clears invalid localStorage data', async () => {
-    localStorage.setItem('auth_token', 'invalid-token');
-    localStorage.setItem('auth_user', 'not valid json');
+    localStorage.setItem(AUTH_TOKEN_KEY, 'invalid-token');
+    localStorage.setItem(AUTH_USER_KEY, 'not valid json');
 
     render(
       <AuthProvider>
@@ -235,14 +240,14 @@ describe('AuthContext', () => {
       );
     });
 
-    expect(localStorage.getItem('auth_token')).toBeNull();
-    expect(localStorage.getItem('auth_user')).toBeNull();
+    expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(AUTH_USER_KEY)).toBeNull();
   });
 
   it('updates when auth storage is cleared externally', async () => {
-    localStorage.setItem('auth_token', 'saved-token');
+    localStorage.setItem(AUTH_TOKEN_KEY, 'saved-token');
     localStorage.setItem(
-      'auth_user',
+      AUTH_USER_KEY,
       JSON.stringify({ id: '123', email: 'saved@example.com' })
     );
 
@@ -282,16 +287,16 @@ describe('AuthContext', () => {
       );
     });
 
-    localStorage.setItem('auth_token', 'tab-token');
+    localStorage.setItem(AUTH_TOKEN_KEY, 'tab-token');
     localStorage.setItem(
-      'auth_user',
+      AUTH_USER_KEY,
       JSON.stringify({ id: '321', email: 'tab@example.com' })
     );
 
     act(() => {
       window.dispatchEvent(
         new StorageEvent('storage', {
-          key: 'auth_token',
+          key: AUTH_TOKEN_KEY,
           newValue: 'tab-token',
           oldValue: null
         })
@@ -304,6 +309,45 @@ describe('AuthContext', () => {
       );
       expect(screen.getByTestId('user-email')).toHaveTextContent(
         'tab@example.com'
+      );
+    });
+  });
+
+  it('updates when auth storage is cleared in another tab', async () => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'saved-token');
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+    });
+
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+
+    act(() => {
+      window.dispatchEvent(
+        new StorageEvent('storage', {
+          key: AUTH_TOKEN_KEY,
+          newValue: null,
+          oldValue: 'saved-token'
+        })
+      );
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'not authenticated'
       );
     });
   });
