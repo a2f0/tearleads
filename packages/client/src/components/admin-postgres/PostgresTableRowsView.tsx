@@ -34,7 +34,7 @@ const PAGE_SIZE = 50;
 const ROW_HEIGHT_ESTIMATE = 40;
 const MOBILE_BREAKPOINT = 640;
 const DEFAULT_CONTAINER_CLASSNAME =
-  'flex max-h-[calc(100vh-200px)] flex-col space-y-4 overflow-hidden';
+  'flex flex-1 min-h-0 flex-col space-y-4 overflow-hidden';
 
 function isMobileViewport(): boolean {
   return typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
@@ -437,14 +437,16 @@ export function PostgresTableRowsView({
         </div>
       )}
 
-      <VirtualListStatus
-        firstVisible={firstVisible}
-        lastVisible={lastVisible}
-        loadedCount={rows.length}
-        totalCount={totalCount}
-        hasMore={hasMore}
-        itemLabel="row"
-      />
+      <div className="sticky top-0 z-10 bg-background">
+        <VirtualListStatus
+          firstVisible={firstVisible}
+          lastVisible={lastVisible}
+          loadedCount={rows.length}
+          totalCount={totalCount}
+          hasMore={hasMore}
+          itemLabel="row"
+        />
+      </div>
 
       <div
         className={cn('min-h-0 flex-1 overflow-hidden rounded-lg border', {

@@ -37,7 +37,7 @@ const KEYBOARD_RESIZE_STEP = 10;
 const CONFIRM_TRUNCATE_TIMEOUT_MS = 3000;
 const MOBILE_BREAKPOINT = 640; // Tailwind's sm breakpoint
 const DEFAULT_CONTAINER_CLASSNAME =
-  'flex max-h-[calc(100vh-200px)] flex-col space-y-4 overflow-hidden';
+  'flex flex-1 min-h-0 flex-col space-y-4 overflow-hidden';
 
 function isMobileViewport(): boolean {
   return typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
@@ -744,28 +744,29 @@ export function TableRowsView({
         )}
 
       {isUnlocked && tableName && !error && columns.length > 0 && (
-        <div className="flex min-h-0 flex-1 flex-col space-y-4">
-          <VirtualListStatus
-            firstVisible={firstVisible}
-            lastVisible={lastVisible}
-            loadedCount={rows.length}
-            totalCount={totalCount}
-            hasMore={hasMore}
-            itemLabel="row"
-          />
-
+        <div className="flex min-h-0 flex-1 flex-col">
           {documentView ? (
             <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
-              {rows.length === 0 && !loading ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  No rows in this table
+              <div
+                ref={parentRef}
+                className="min-h-0 flex-1 overflow-auto p-2"
+                data-testid="scroll-container"
+              >
+                <div className="sticky top-0 z-10 bg-background pb-2">
+                  <VirtualListStatus
+                    firstVisible={firstVisible}
+                    lastVisible={lastVisible}
+                    loadedCount={rows.length}
+                    totalCount={totalCount}
+                    hasMore={hasMore}
+                    itemLabel="row"
+                  />
                 </div>
-              ) : (
-                <div
-                  ref={parentRef}
-                  className="h-full overflow-auto p-2"
-                  data-testid="scroll-container"
-                >
+                {rows.length === 0 && !loading ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    No rows in this table
+                  </div>
+                ) : (
                   <div
                     className="relative w-full"
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -813,8 +814,8 @@ export function TableRowsView({
                       );
                     })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
@@ -874,16 +875,26 @@ export function TableRowsView({
               </div>
 
               {/* Virtual scroll container */}
-              {rows.length === 0 && !loading ? (
-                <div className="px-4 py-8 text-center text-muted-foreground">
-                  No rows in this table
+              <div
+                ref={parentRef}
+                className="min-h-0 flex-1 overflow-auto"
+                data-testid="scroll-container"
+              >
+                <div className="sticky top-0 z-10 bg-background px-4 py-2">
+                  <VirtualListStatus
+                    firstVisible={firstVisible}
+                    lastVisible={lastVisible}
+                    loadedCount={rows.length}
+                    totalCount={totalCount}
+                    hasMore={hasMore}
+                    itemLabel="row"
+                  />
                 </div>
-              ) : (
-                <div
-                  ref={parentRef}
-                  className="h-full overflow-auto"
-                  data-testid="scroll-container"
-                >
+                {rows.length === 0 && !loading ? (
+                  <div className="px-4 py-8 text-center text-muted-foreground">
+                    No rows in this table
+                  </div>
+                ) : (
                   <div
                     className="relative w-full"
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -947,8 +958,8 @@ export function TableRowsView({
                       );
                     })}
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
           )}
         </div>
