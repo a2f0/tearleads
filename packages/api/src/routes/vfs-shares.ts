@@ -178,7 +178,7 @@ vfsSharesRouter.get(
       const { itemId } = req.params;
       const pool = await getPostgresPool();
 
-      // Verify item exists and user has access
+      // Verify item exists and user is the owner
       const itemResult = await pool.query<{ owner_id: string | null }>(
         'SELECT owner_id FROM vfs_registry WHERE id = $1',
         [itemId]
@@ -186,6 +186,14 @@ vfsSharesRouter.get(
 
       if (!itemResult.rows[0]) {
         res.status(404).json({ error: 'Item not found' });
+        return;
+      }
+
+      // Authorization check: only owner can view shares
+      if (itemResult.rows[0].owner_id !== claims.sub) {
+        res
+          .status(403)
+          .json({ error: 'Not authorized to view shares for this item' });
         return;
       }
 
@@ -366,13 +374,21 @@ vfsSharesRouter.post(
     try {
       const pool = await getPostgresPool();
 
-      // Verify item exists
-      const itemResult = await pool.query<{ id: string }>(
-        'SELECT id FROM vfs_registry WHERE id = $1',
-        [payload.itemId]
-      );
+      // Verify item exists and user is the owner
+      const itemResult = await pool.query<{
+        id: string;
+        owner_id: string | null;
+      }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [
+        payload.itemId
+      ]);
       if (!itemResult.rows[0]) {
         res.status(404).json({ error: 'Item not found' });
+        return;
+      }
+
+      // Authorization check: only owner can create shares
+      if (itemResult.rows[0].owner_id !== claims.sub) {
+        res.status(403).json({ error: 'Not authorized to share this item' });
         return;
       }
 
@@ -550,6 +566,23 @@ vfsSharesRouter.patch(
       const { shareId } = req.params;
       const pool = await getPostgresPool();
 
+      // Authorization check: verify user owns the item associated with this share
+      const authCheckResult = await pool.query<{ owner_id: string | null }>(
+        `SELECT r.owner_id
+         FROM vfs_shares s
+         JOIN vfs_registry r ON r.id = s.item_id
+         WHERE s.id = $1`,
+        [shareId]
+      );
+      if (!authCheckResult.rows[0]) {
+        res.status(404).json({ error: 'Share not found' });
+        return;
+      }
+      if (authCheckResult.rows[0].owner_id !== claims.sub) {
+        res.status(403).json({ error: 'Not authorized to update this share' });
+        return;
+      }
+
       const updates: string[] = [];
       const values: (string | Date | null)[] = [];
       let paramIndex = 1;
@@ -674,6 +707,23 @@ vfsSharesRouter.delete(
       const { shareId } = req.params;
       const pool = await getPostgresPool();
 
+      // Authorization check: verify user owns the item associated with this share
+      const authCheckResult = await pool.query<{ owner_id: string | null }>(
+        `SELECT r.owner_id
+         FROM vfs_shares s
+         JOIN vfs_registry r ON r.id = s.item_id
+         WHERE s.id = $1`,
+        [shareId]
+      );
+      if (!authCheckResult.rows[0]) {
+        res.status(404).json({ error: 'Share not found' });
+        return;
+      }
+      if (authCheckResult.rows[0].owner_id !== claims.sub) {
+        res.status(403).json({ error: 'Not authorized to delete this share' });
+        return;
+      }
+
       const result = await pool.query('DELETE FROM vfs_shares WHERE id = $1', [
         shareId
       ]);
@@ -760,13 +810,21 @@ vfsSharesRouter.post(
     try {
       const pool = await getPostgresPool();
 
-      // Verify item exists
-      const itemResult = await pool.query<{ id: string }>(
-        'SELECT id FROM vfs_registry WHERE id = $1',
-        [payload.itemId]
-      );
+      // Verify item exists and user is the owner
+      const itemResult = await pool.query<{
+        id: string;
+        owner_id: string | null;
+      }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [
+        payload.itemId
+      ]);
       if (!itemResult.rows[0]) {
         res.status(404).json({ error: 'Item not found' });
+        return;
+      }
+
+      // Authorization check: only owner can create org shares
+      if (itemResult.rows[0].owner_id !== claims.sub) {
+        res.status(403).json({ error: 'Not authorized to share this item' });
         return;
       }
 
@@ -898,6 +956,25 @@ vfsSharesRouter.delete(
     try {
       const { shareId } = req.params;
       const pool = await getPostgresPool();
+
+      // Authorization check: verify user owns the item associated with this org share
+      const authCheckResult = await pool.query<{ owner_id: string | null }>(
+        `SELECT r.owner_id
+         FROM org_shares os
+         JOIN vfs_registry r ON r.id = os.item_id
+         WHERE os.id = $1`,
+        [shareId]
+      );
+      if (!authCheckResult.rows[0]) {
+        res.status(404).json({ error: 'Org share not found' });
+        return;
+      }
+      if (authCheckResult.rows[0].owner_id !== claims.sub) {
+        res
+          .status(403)
+          .json({ error: 'Not authorized to delete this org share' });
+        return;
+      }
 
       const result = await pool.query('DELETE FROM org_shares WHERE id = $1', [
         shareId

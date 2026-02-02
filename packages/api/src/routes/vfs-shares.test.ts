@@ -66,10 +66,27 @@ describe('VFS Shares routes', () => {
       expect(response.body).toEqual({ error: 'Item not found' });
     });
 
+    it('returns 403 when user is not the owner', async () => {
+      const authHeader = await createAuthHeader();
+      // Item exists but different owner
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'different-user' }]
+      });
+
+      const response = await request(app)
+        .get('/v1/vfs/items/item-123/shares')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'Not authorized to view shares for this item'
+      });
+    });
+
     it('returns 200 with shares when item exists', async () => {
       const authHeader = await createAuthHeader();
-      // First query: check item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      // First query: check item exists (owner_id matches test user)
+      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-1' }] });
       // Second query: get shares
       mockQuery.mockResolvedValueOnce({
         rows: [
@@ -190,10 +207,30 @@ describe('VFS Shares routes', () => {
       expect(response.body).toEqual({ error: 'Item not found' });
     });
 
+    it('returns 403 when user is not the owner', async () => {
+      const authHeader = await createAuthHeader();
+      // Item exists but different owner
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'different-user' }]
+      });
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/shares')
+        .set('Authorization', authHeader)
+        .send(validPayload);
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'Not authorized to share this item'
+      });
+    });
+
     it('returns 404 when target user not found', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Target user not found
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -209,7 +246,9 @@ describe('VFS Shares routes', () => {
     it('returns 404 when target group not found', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Target group not found
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -225,7 +264,9 @@ describe('VFS Shares routes', () => {
     it('returns 404 when target org not found', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Target org not found
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -245,7 +286,9 @@ describe('VFS Shares routes', () => {
     it('returns 201 when share is created successfully', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Target user exists
       mockQuery.mockResolvedValueOnce({
         rows: [{ email: 'target@test.com' }]
@@ -341,6 +384,7 @@ describe('VFS Shares routes', () => {
 
     it('returns 404 when share not found', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query - share not found
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
@@ -352,8 +396,30 @@ describe('VFS Shares routes', () => {
       expect(response.body).toEqual({ error: 'Share not found' });
     });
 
+    it('returns 403 when user is not the owner', async () => {
+      const authHeader = await createAuthHeader();
+      // Auth check query - different owner
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'different-user' }]
+      });
+
+      const response = await request(app)
+        .patch('/v1/vfs/shares/share-123')
+        .set('Authorization', authHeader)
+        .send({ permissionLevel: 'edit' });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'Not authorized to update this share'
+      });
+    });
+
     it('returns 200 when share is updated successfully', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
       // UPDATE query
       mockQuery.mockResolvedValueOnce({
         rows: [
@@ -411,20 +477,43 @@ describe('VFS Shares routes', () => {
       expect(response.body).toEqual({ error: 'Unauthorized' });
     });
 
-    it('returns deleted: false when share not found', async () => {
+    it('returns 404 when share not found', async () => {
       const authHeader = await createAuthHeader();
-      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Auth check query - share not found
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
         .delete('/v1/vfs/shares/share-123')
         .set('Authorization', authHeader);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ deleted: false });
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Share not found' });
+    });
+
+    it('returns 403 when user is not the owner', async () => {
+      const authHeader = await createAuthHeader();
+      // Auth check query - different owner
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'different-user' }]
+      });
+
+      const response = await request(app)
+        .delete('/v1/vfs/shares/share-123')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'Not authorized to delete this share'
+      });
     });
 
     it('returns deleted: true when share is deleted successfully', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
+      // DELETE query
       mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
       const response = await request(app)
@@ -513,10 +602,30 @@ describe('VFS Shares routes', () => {
       expect(response.body).toEqual({ error: 'Item not found' });
     });
 
+    it('returns 403 when user is not the owner', async () => {
+      const authHeader = await createAuthHeader();
+      // Item exists but different owner
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'different-user' }]
+      });
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/org-shares')
+        .set('Authorization', authHeader)
+        .send(validPayload);
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'Not authorized to share this item'
+      });
+    });
+
     it('returns 404 when source org not found', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Source org not found
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
@@ -532,7 +641,9 @@ describe('VFS Shares routes', () => {
     it('returns 404 when target org not found', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Source org exists
       mockQuery.mockResolvedValueOnce({
         rows: [{ name: 'Source Org' }]
@@ -552,7 +663,9 @@ describe('VFS Shares routes', () => {
     it('returns 201 when org share is created successfully', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Source org exists
       mockQuery.mockResolvedValueOnce({
         rows: [{ name: 'Source Org' }]
@@ -611,6 +724,10 @@ describe('VFS Shares routes', () => {
   describe('PATCH /vfs/shares/:shareId edge cases', () => {
     it('returns 200 when updating group share', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
       // UPDATE query with group type
       mockQuery.mockResolvedValueOnce({
         rows: [
@@ -646,6 +763,10 @@ describe('VFS Shares routes', () => {
 
     it('returns 200 when updating org share', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
       // UPDATE query with org type
       mockQuery.mockResolvedValueOnce({
         rows: [
@@ -681,6 +802,10 @@ describe('VFS Shares routes', () => {
 
     it('returns 200 with expiresAt update', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
       // UPDATE query
       mockQuery.mockResolvedValueOnce({
         rows: [
@@ -716,6 +841,10 @@ describe('VFS Shares routes', () => {
 
     it('returns 200 when clearing expiresAt', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
       // UPDATE query
       mockQuery.mockResolvedValueOnce({
         rows: [
@@ -751,6 +880,10 @@ describe('VFS Shares routes', () => {
 
     it('handles missing target name gracefully', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
       // UPDATE query
       mockQuery.mockResolvedValueOnce({
         rows: [
@@ -787,7 +920,9 @@ describe('VFS Shares routes', () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Target user exists
       mockQuery.mockResolvedValueOnce({
         rows: [{ email: 'target@test.com' }]
@@ -815,7 +950,9 @@ describe('VFS Shares routes', () => {
     it('creates share for group target', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Target group exists
       mockQuery.mockResolvedValueOnce({
         rows: [{ name: 'Test Group' }]
@@ -857,7 +994,9 @@ describe('VFS Shares routes', () => {
     it('creates share for org target', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Target org exists
       mockQuery.mockResolvedValueOnce({
         rows: [{ name: 'Test Org' }]
@@ -900,7 +1039,9 @@ describe('VFS Shares routes', () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Target user exists
       mockQuery.mockResolvedValueOnce({
         rows: [{ email: 'target@test.com' }]
@@ -958,7 +1099,9 @@ describe('VFS Shares routes', () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Source org exists
       mockQuery.mockResolvedValueOnce({ rows: [{ name: 'Source Org' }] });
       // Target org exists
@@ -987,7 +1130,9 @@ describe('VFS Shares routes', () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
       // Item exists
-      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-001' }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
       // Source org exists
       mockQuery.mockResolvedValueOnce({ rows: [{ name: 'Source Org' }] });
       // Target org exists
@@ -1051,20 +1196,43 @@ describe('VFS Shares routes', () => {
       expect(response.body).toEqual({ error: 'Unauthorized' });
     });
 
-    it('returns deleted: false when org share not found', async () => {
+    it('returns 404 when org share not found', async () => {
       const authHeader = await createAuthHeader();
-      mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 0 });
+      // Auth check query - share not found
+      mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
         .delete('/v1/vfs/org-shares/orgshare-123')
         .set('Authorization', authHeader);
 
-      expect(response.status).toBe(200);
-      expect(response.body).toEqual({ deleted: false });
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Org share not found' });
+    });
+
+    it('returns 403 when user is not the owner', async () => {
+      const authHeader = await createAuthHeader();
+      // Auth check query - different owner
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'different-user' }]
+      });
+
+      const response = await request(app)
+        .delete('/v1/vfs/org-shares/orgshare-123')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'Not authorized to delete this org share'
+      });
     });
 
     it('returns deleted: true when org share is deleted successfully', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
+      // DELETE query
       mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
 
       const response = await request(app)
@@ -1093,6 +1261,11 @@ describe('VFS Shares routes', () => {
   describe('DELETE /vfs/shares/:shareId edge cases', () => {
     it('handles null rowCount', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
+      // DELETE query with null rowCount
       mockQuery.mockResolvedValueOnce({ rows: [], rowCount: null });
 
       const response = await request(app)
@@ -1107,6 +1280,11 @@ describe('VFS Shares routes', () => {
   describe('DELETE /vfs/org-shares/:shareId edge cases', () => {
     it('handles null rowCount', async () => {
       const authHeader = await createAuthHeader();
+      // Auth check query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ owner_id: 'user-1' }]
+      });
+      // DELETE query with null rowCount
       mockQuery.mockResolvedValueOnce({ rows: [], rowCount: null });
 
       const response = await request(app)
