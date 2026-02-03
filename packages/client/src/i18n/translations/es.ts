@@ -31,6 +31,7 @@ export const es = {
     localStorage: 'Almacenamiento Local',
     keychain: 'Llavero',
     chat: 'Chat',
+    mlsChat: 'MLS Chat',
     models: 'Modelos',
     admin: 'Admin',
     redis: 'Redis',

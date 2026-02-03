@@ -31,6 +31,7 @@ export const en = {
     localStorage: 'Local Storage',
     keychain: 'Keychain',
     chat: 'Chat',
+    mlsChat: 'MLS Chat',
     models: 'Models',
     admin: 'Admin',
     redis: 'Redis',

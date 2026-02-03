@@ -29,6 +29,7 @@ export interface MenuTranslations {
   localStorage: string;
   keychain: string;
   chat: string;
+  mlsChat: string;
   models: string;
   admin: string;
   redis: string;
