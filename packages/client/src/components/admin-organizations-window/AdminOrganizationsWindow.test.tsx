@@ -196,37 +196,32 @@ describe('AdminOrganizationsWindow', () => {
       expectedId: 'group-456',
       expectedTitle: 'Edit Group'
     }
-  ])(
-    'navigates to $view detail from organization view',
-    async ({
-      selectButtonTestId,
-      detailViewTestId,
-      detailIdTestId,
-      expectedId,
-      expectedTitle
-    }) => {
-      const user = userEvent.setup();
-      render(<AdminOrganizationsWindow {...defaultProps} />);
+  ])('navigates to $view detail from organization view', async ({
+    selectButtonTestId,
+    detailViewTestId,
+    detailIdTestId,
+    expectedId,
+    expectedTitle
+  }) => {
+    const user = userEvent.setup();
+    render(<AdminOrganizationsWindow {...defaultProps} />);
 
-      await user.click(screen.getByTestId('select-org-btn'));
-      await user.click(screen.getByTestId(selectButtonTestId));
+    await user.click(screen.getByTestId('select-org-btn'));
+    await user.click(screen.getByTestId(selectButtonTestId));
 
-      expect(screen.getByTestId(detailViewTestId)).toBeInTheDocument();
-      expect(screen.getByTestId(detailIdTestId)).toHaveTextContent(expectedId);
-      expect(screen.getByTestId('window-title')).toHaveTextContent(
-        expectedTitle
-      );
+    expect(screen.getByTestId(detailViewTestId)).toBeInTheDocument();
+    expect(screen.getByTestId(detailIdTestId)).toHaveTextContent(expectedId);
+    expect(screen.getByTestId('window-title')).toHaveTextContent(expectedTitle);
 
-      await user.click(
-        screen.getByRole('button', { name: 'Back to Organization' })
-      );
+    await user.click(
+      screen.getByRole('button', { name: 'Back to Organization' })
+    );
 
-      expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
-      expect(screen.getByTestId('window-title')).toHaveTextContent(
-        'Organization'
-      );
-    }
-  );
+    expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Organization'
+    );
+  });
 
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
