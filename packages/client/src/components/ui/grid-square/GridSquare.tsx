@@ -23,9 +23,9 @@ export function GridSquare({
       aria-pressed={selected}
       className={cn(
         'relative overflow-hidden rounded-lg bg-muted transition-all',
-        'ring-1 ring-border',
-        'hover:ring-2 hover:ring-primary',
+        !selected && 'ring-1 ring-border',
         selected && 'ring-2 ring-primary',
+        'hover:ring-2 hover:ring-primary',
         className
       )}
       style={{ aspectRatio: '1 / 1' }}
