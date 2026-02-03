@@ -21,6 +21,7 @@ import {
   Minus,
   Music,
   RefreshCw,
+  Save,
   Settings,
   Shield,
   Square,
@@ -67,6 +68,7 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   sync: <RefreshCw className="h-3 w-3" />,
   v86: <Cpu className="h-3 w-3" />,
   vfs: <FolderTree className="h-3 w-3" />,
+  backup: <Save className="h-3 w-3" />,
   'mls-chat': <Lock className="h-3 w-3" />
 };
 
@@ -101,6 +103,7 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   sync: 'Sync',
   v86: 'v86',
   vfs: 'VFS Explorer',
+  backup: 'Backups',
   'mls-chat': 'MLS Chat'
 };
 

@@ -204,7 +204,13 @@ export function RestoreBackupTab() {
       </div>
 
       {backupFile && !manifest && (
-        <div className="space-y-3">
+        <form
+          className="space-y-3"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleValidate();
+          }}
+        >
           <div>
             <label
               htmlFor="backup-pwd"
@@ -223,17 +229,23 @@ export function RestoreBackupTab() {
           </div>
 
           <Button
-            onClick={handleValidate}
+            type="submit"
             disabled={!backupPassword || isValidating}
             className="w-full"
           >
             {isValidating ? 'Validating...' : 'Validate Backup'}
           </Button>
-        </div>
+        </form>
       )}
 
       {manifest && (
-        <div className="space-y-4">
+        <form
+          className="space-y-4"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void handleRestore();
+          }}
+        >
           {/* Backup info */}
           <div className="rounded-md border border-zinc-700 bg-zinc-800/50 p-3">
             <div className="space-y-1 text-sm">
@@ -326,13 +338,13 @@ export function RestoreBackupTab() {
           )}
 
           <Button
-            onClick={handleRestore}
+            type="submit"
             disabled={isRestoring || !newPassword || !confirmNewPassword}
             className="w-full"
           >
             {isRestoring ? 'Restoring...' : 'Restore Backup'}
           </Button>
-        </div>
+        </form>
       )}
 
       {error && (

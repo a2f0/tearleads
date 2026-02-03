@@ -23,6 +23,7 @@ import {
   MessageSquare,
   Music,
   RefreshCw,
+  Save,
   Settings,
   Shield,
   StickyNote,
@@ -240,6 +241,13 @@ export const navItems: NavItem[] = [
     testId: 'vfs-link'
   },
   {
+    path: '/backups',
+    icon: Save,
+    labelKey: 'backups',
+    inMobileMenu: true,
+    testId: 'backups-link'
+  },
+  {
     path: '/settings',
     icon: Settings,
     labelKey: 'settings',
@@ -282,6 +290,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/sync': 'sync',
   '/v86': 'v86',
   '/vfs': 'vfs',
+  '/backups': 'backup',
   '/mls-chat': 'mls-chat'
 };
 
