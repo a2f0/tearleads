@@ -16,7 +16,7 @@
     "build:notes": "pnpm --filter @rapid/notes build",
     "build:contacts": "pnpm --filter @rapid/contacts build",
     "build:email": "pnpm --filter @rapid/email build",
-    "dev": "VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && pnpm --filter @rapid/api buildOpenapi && tsx scripts/checkSmtpPort.ts && concurrently -n api,client,website,smtp -c blue,magenta,cyan,green \"pnpm --filter @rapid/api dev\" \"pnpm --filter @rapid/client dev\" \"pnpm --filter @rapid/website dev\" \"pnpm --filter @rapid/smtp-listener dev\"",
+    "dev": "tsx scripts/killPnpmDev.ts && VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && pnpm --filter @rapid/api buildOpenapi && tsx scripts/checkSmtpPort.ts && concurrently -n api,client,website,smtp -c blue,magenta,cyan,green \"RAPID_SKIP_DEV_KILL=1 pnpm --filter @rapid/api dev\" \"RAPID_SKIP_DEV_KILL=1 pnpm --filter @rapid/client dev\" \"RAPID_SKIP_DEV_KILL=1 pnpm --filter @rapid/website dev\" \"RAPID_SKIP_DEV_KILL=1 pnpm --filter @rapid/smtp-listener dev\"",
     "dev:api": "pnpm build:shared && pnpm build:db && pnpm --filter @rapid/api dev",
     "dev:client": "VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && pnpm --filter @rapid/client dev",
     "devWebsite": "pnpm build:ui && pnpm --filter @rapid/api buildOpenapi && pnpm --filter @rapid/website dev",

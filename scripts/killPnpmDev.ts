@@ -1,0 +1,154 @@
+/**
+ * Kill existing pnpm dev processes running from this repo.
+ * Usage: tsx scripts/killPnpmDev.ts
+ */
+import { execFileSync } from 'node:child_process';
+import { realpathSync } from 'node:fs';
+import path from 'node:path';
+
+type ProcessInfo = {
+  pid: number;
+  ppid: number;
+  command: string;
+};
+
+const repoRoot = realpathSync(process.cwd());
+
+const parseProcessList = (output: string): ProcessInfo[] => {
+  const lines = output.trim().split('\n');
+  const processes: ProcessInfo[] = [];
+
+  for (const line of lines) {
+    const match = line.match(/^\s*(\d+)\s+(\d+)\s+(.*)$/);
+    if (!match) {
+      continue;
+    }
+    const pid = Number.parseInt(match[1], 10);
+    const ppid = Number.parseInt(match[2], 10);
+    const command = match[3];
+
+    if (Number.isNaN(pid) || Number.isNaN(ppid)) {
+      continue;
+    }
+
+    processes.push({ pid, ppid, command });
+  }
+
+  return processes;
+};
+
+const getProcessList = (): ProcessInfo[] => {
+  const output = execFileSync('ps', ['-ax', '-o', 'pid=,ppid=,command='], {
+    encoding: 'utf8',
+  });
+  return parseProcessList(output);
+};
+
+const buildPpidMap = (processes: ProcessInfo[]): Map<number, number> => {
+  const map = new Map<number, number>();
+  for (const proc of processes) {
+    map.set(proc.pid, proc.ppid);
+  }
+  return map;
+};
+
+const getAncestorPids = (pid: number, ppidMap: Map<number, number>): Set<number> => {
+  const ancestors = new Set<number>();
+  let current: number | undefined = pid;
+
+  while (current && !ancestors.has(current)) {
+    ancestors.add(current);
+    const parent = ppidMap.get(current);
+    if (!parent || parent <= 1) {
+      break;
+    }
+    current = parent;
+  }
+
+  return ancestors;
+};
+
+const getProcessCwd = (pid: number): string | null => {
+  try {
+    const output = execFileSync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const line = output
+      .split('\n')
+      .map((value) => value.trim())
+      .find((value) => value.startsWith('n'));
+
+    if (!line) {
+      return null;
+    }
+
+    return line.slice(1);
+  } catch {
+    return null;
+  }
+};
+
+const isInRepo = (cwd: string | null): boolean => {
+  if (!cwd) {
+    return false;
+  }
+  try {
+    const resolved = realpathSync(cwd);
+    return resolved === repoRoot || resolved.startsWith(`${repoRoot}${path.sep}`);
+  } catch {
+    return false;
+  }
+};
+
+const isAlive = (pid: number): boolean => {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const killPid = (pid: number, signal: NodeJS.Signals): void => {
+  try {
+    process.kill(pid, signal);
+  } catch {
+    // Ignore errors for already-dead processes or permission issues.
+  }
+};
+
+const main = (): void => {
+  if (process.env.RAPID_SKIP_DEV_KILL === '1') {
+    return;
+  }
+  const processes = getProcessList();
+  const ppidMap = buildPpidMap(processes);
+  const ancestors = getAncestorPids(process.pid, ppidMap);
+
+  const pnpmDevRegex = /\bpnpm\b.*\bdev\b/;
+  const candidates = processes.filter((proc) => pnpmDevRegex.test(proc.command));
+
+  const targets = candidates
+    .filter((proc) => !ancestors.has(proc.pid))
+    .filter((proc) => isInRepo(getProcessCwd(proc.pid)));
+
+  if (targets.length === 0) {
+    return;
+  }
+
+  const targetPids = targets.map((proc) => proc.pid);
+  console.log(`[killPnpmDev] Stopping existing pnpm dev processes: ${targetPids.join(', ')}`);
+
+  for (const pid of targetPids) {
+    killPid(pid, 'SIGTERM');
+  }
+
+  for (const pid of targetPids) {
+    if (isAlive(pid)) {
+      killPid(pid, 'SIGKILL');
+    }
+  }
+};
+
+main();
