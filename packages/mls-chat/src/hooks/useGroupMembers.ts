@@ -94,12 +94,12 @@ export function useGroupMembers(
       );
 
       // Generate MLS commit and welcome
-      const { commit, welcome } = await client.addMember(
+      const { commit, welcome, newEpoch } = await client.addMember(
         groupId,
         keyPackageBytes
       );
 
-      if (!welcome) {
+      if (!welcome || newEpoch === undefined) {
         throw new Error('Failed to generate welcome message');
       }
 
@@ -111,9 +111,10 @@ export function useGroupMembers(
           headers,
           body: JSON.stringify({
             userId,
-            keyPackageId: kpData.keyPackage.id,
+            keyPackageRef: kpData.keyPackage.keyPackageRef,
             commit: btoa(String.fromCharCode(...commit)),
-            welcome: btoa(String.fromCharCode(...welcome))
+            welcome: btoa(String.fromCharCode(...welcome)),
+            newEpoch
           })
         }
       );
@@ -146,7 +147,13 @@ export function useGroupMembers(
       }
 
       // Generate MLS remove commit
-      const { commit } = await client.removeMember(groupId, member.leafIndex);
+      const { commit, newEpoch } = await client.removeMember(
+        groupId,
+        member.leafIndex
+      );
+      if (newEpoch === undefined) {
+        throw new Error('Failed to generate remove commit');
+      }
 
       // Send to server
       const response = await fetch(
@@ -155,7 +162,8 @@ export function useGroupMembers(
           method: 'DELETE',
           headers,
           body: JSON.stringify({
-            commit: btoa(String.fromCharCode(...commit))
+            commit: btoa(String.fromCharCode(...commit)),
+            newEpoch
           })
         }
       );

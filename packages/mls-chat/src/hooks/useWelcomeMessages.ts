@@ -48,9 +48,9 @@ export function useWelcomeMessages(
       }
 
       const data = (await response.json()) as {
-        welcomeMessages: MlsWelcomeMessage[];
+        welcomes: MlsWelcomeMessage[];
       };
-      setWelcomeMessages(data.welcomeMessages);
+      setWelcomeMessages(data.welcomes);
     } catch (err) {
       setError(
         err instanceof Error

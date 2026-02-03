@@ -33,6 +33,7 @@ export interface CommitResult {
   commit: Uint8Array;
   welcome?: Uint8Array;
   groupInfo?: Uint8Array;
+  newEpoch?: number;
 }
 
 export interface DecryptedContent {
@@ -222,7 +223,8 @@ export class MlsClient {
     return {
       commit,
       welcome,
-      groupInfo
+      groupInfo,
+      newEpoch: groupState.epoch
     };
   }
 
@@ -247,7 +249,7 @@ export class MlsClient {
 
     await this.saveGroupState(groupId, groupState);
 
-    return { commit };
+    return { commit, newEpoch: groupState.epoch };
   }
 
   /**
@@ -359,6 +361,15 @@ export class MlsClient {
   }
 
   /**
+   * Generate a base64 MLS group ID for server persistence.
+   */
+  generateGroupIdMls(): string {
+    const bytes = new Uint8Array(16);
+    crypto.getRandomValues(bytes);
+    return this.bytesToBase64(bytes);
+  }
+
+  /**
    * Check if we have state for a group.
    */
   hasGroup(groupId: string): boolean {
@@ -422,6 +433,10 @@ export class MlsClient {
     return Array.from(bytes)
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
+  }
+
+  private bytesToBase64(bytes: Uint8Array): string {
+    return btoa(String.fromCharCode(...bytes));
   }
 
   /**

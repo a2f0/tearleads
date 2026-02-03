@@ -4,6 +4,7 @@
  */
 
 import type { MlsGroup } from '@rapid/shared';
+import { MLS_CIPHERSUITES } from '@rapid/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
@@ -82,7 +83,17 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
       }
 
       // Create group on server first to get the group ID
-      const body: { name: string; description?: string } = { name };
+      const groupIdMls = client.generateGroupIdMls();
+      const body: {
+        name: string;
+        description?: string;
+        groupIdMls: string;
+        cipherSuite: number;
+      } = {
+        name,
+        groupIdMls,
+        cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
+      };
       if (description) {
         body.description = description;
       }

@@ -108,7 +108,8 @@ export function useGroupMessages(
 
         const data = (await response.json()) as {
           messages: MlsMessage[];
-          nextCursor?: string;
+          hasMore: boolean;
+          cursor?: string;
         };
 
         // Decrypt all messages
@@ -123,8 +124,8 @@ export function useGroupMessages(
           setMessages(validMessages);
         }
 
-        cursorRef.current = data.nextCursor ?? null;
-        setHasMore(!!data.nextCursor);
+        cursorRef.current = data.cursor ?? null;
+        setHasMore(data.hasMore);
       } catch (err) {
         setError(
           err instanceof Error ? err : new Error('Failed to fetch messages')
@@ -148,6 +149,10 @@ export function useGroupMessages(
       try {
         const plaintextBytes = new TextEncoder().encode(plaintext);
         const ciphertext = await client.encryptMessage(groupId, plaintextBytes);
+        const epoch = client.getGroupEpoch(groupId);
+        if (epoch === undefined) {
+          throw new Error('Group state not initialized');
+        }
 
         const headers: HeadersInit = { 'Content-Type': 'application/json' };
         const authValue = getAuthHeader?.();
@@ -162,7 +167,9 @@ export function useGroupMessages(
             headers,
             body: JSON.stringify({
               ciphertext: btoa(String.fromCharCode(...ciphertext)),
-              contentType
+              contentType,
+              epoch,
+              messageType: 'application'
             })
           }
         );

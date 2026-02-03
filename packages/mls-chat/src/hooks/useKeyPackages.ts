@@ -4,6 +4,7 @@
  */
 
 import type { MlsKeyPackage } from '@rapid/shared';
+import { MLS_CIPHERSUITES } from '@rapid/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
@@ -67,13 +68,18 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
       setError(null);
 
       try {
-        const newKeyPackages: Array<{ ref: string; keyPackage: string }> = [];
+        const newKeyPackages: Array<{
+          keyPackageData: string;
+          keyPackageRef: string;
+          cipherSuite: number;
+        }> = [];
 
         for (let i = 0; i < count; i++) {
           const kp = await client.generateKeyPackage();
           newKeyPackages.push({
-            ref: kp.ref,
-            keyPackage: btoa(String.fromCharCode(...kp.keyPackageBytes))
+            keyPackageRef: kp.ref,
+            keyPackageData: btoa(String.fromCharCode(...kp.keyPackageBytes)),
+            cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
           });
         }
 

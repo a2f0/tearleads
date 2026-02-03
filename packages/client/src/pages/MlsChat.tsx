@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import { API_BASE_URL } from '@/lib/api';
 
 // Map our UI components to what MlsChat expects
 const MlsChatButton: MlsChatUIComponents['Button'] = ({
@@ -114,7 +115,7 @@ export const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
   const { token, user } = useAuth();
 
   // Get the API base URL from environment
-  const apiBaseUrl = import.meta.env.VITE_API_URL ?? 'http://localhost:3001';
+  const apiBaseUrl = API_BASE_URL ?? 'http://localhost:5001/v1';
 
   // Auth header function
   const getAuthHeader = () => (token ? `Bearer ${token}` : null);

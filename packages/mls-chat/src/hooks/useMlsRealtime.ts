@@ -52,7 +52,10 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
     const authValue = getAuthHeader?.();
     const params = new URLSearchParams({ channels });
     if (authValue) {
-      params.set('auth', authValue);
+      const token = authValue.startsWith('Bearer ')
+        ? authValue.slice('Bearer '.length).trim()
+        : authValue;
+      params.set('token', token);
     }
 
     const eventSource = new EventSource(`${apiBaseUrl}/sse?${params}`);
