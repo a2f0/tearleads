@@ -114,8 +114,8 @@ export function useFloatingWindow({
         // Use actual rendered dimensions if available (accounts for CSS constraints like maxWidth)
         // Fall back to state dimensions if element ref not provided
         const rect = elementRef?.current?.getBoundingClientRect();
-        const effectiveWidth = rect?.width ?? widthRef.current;
-        const effectiveHeight = rect?.height ?? heightRef.current;
+        const effectiveWidth = rect?.width || widthRef.current;
+        const effectiveHeight = rect?.height || heightRef.current;
 
         // Constrain position to be within the viewport
         const constrainedX = Math.max(
@@ -248,8 +248,8 @@ export function useFloatingWindow({
     const handleResize = () => {
       // Use actual rendered dimensions if available (accounts for CSS constraints like maxWidth)
       const rect = elementRef?.current?.getBoundingClientRect();
-      const effectiveWidth = rect?.width ?? width;
-      const effectiveHeight = rect?.height ?? height;
+      const effectiveWidth = rect?.width || width;
+      const effectiveHeight = rect?.height || height;
 
       setX((currentX) =>
         Math.max(0, Math.min(currentX, window.innerWidth - effectiveWidth))
