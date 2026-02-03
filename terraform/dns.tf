@@ -86,6 +86,26 @@ resource "hcloud_zone_rrset" "api_ipv6" {
   ]
 }
 
+resource "hcloud_zone_rrset" "download" {
+  zone = data.hcloud_zone.main.name
+  name = "download"
+  type = "A"
+  ttl  = 60
+  records = [
+    { value = hcloud_server.main.ipv4_address }
+  ]
+}
+
+resource "hcloud_zone_rrset" "download_ipv6" {
+  zone = data.hcloud_zone.main.name
+  name = "download"
+  type = "AAAA"
+  ttl  = 60
+  records = [
+    { value = local.ipv6_address }
+  ]
+}
+
 resource "hcloud_zone_rrset" "email" {
   zone = data.hcloud_zone.main.name
   name = "email"

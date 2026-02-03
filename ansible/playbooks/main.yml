@@ -16,6 +16,7 @@
       - www
       - app
       - api
+      - download
       - email
     patch_time: "03:00"
     patch_timezone: "UTC"
@@ -281,6 +282,15 @@
         recurse: true
       loop: "{{ sites | map('regex_replace', '^', '/var/www/') | list }}"
 
+    - name: Create downloads directory
+      ansible.builtin.file:
+        path: /var/www/downloads
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: www-data
+        mode: "0775"
+        recurse: true
+
     - name: Deploy nginx vhosts
       ansible.builtin.template:
         src: nginx-vhost.conf.j2
@@ -315,6 +325,7 @@
         mode: "0644"
       loop:
         - api
+        - download
         - email
       notify: Reload nginx
 
@@ -325,6 +336,7 @@
         state: link
       loop:
         - api
+        - download
         - email
       notify: Reload nginx
 
