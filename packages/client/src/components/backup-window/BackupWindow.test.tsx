@@ -40,7 +40,7 @@ describe('BackupWindow', () => {
     render(<BackupWindow {...defaultProps} />);
 
     // Find and click the Restore tab button
-    const restoreButton = screen.getByRole('button', { name: /restore/i });
+    const restoreButton = screen.getByRole('tab', { name: /restore/i });
     fireEvent.click(restoreButton);
 
     expect(screen.queryByTestId('create-backup-tab')).not.toBeInTheDocument();
@@ -51,11 +51,11 @@ describe('BackupWindow', () => {
     render(<BackupWindow {...defaultProps} />);
 
     // Switch to Restore
-    const restoreButton = screen.getByRole('button', { name: /restore/i });
+    const restoreButton = screen.getByRole('tab', { name: /restore/i });
     fireEvent.click(restoreButton);
 
     // Switch back to Create
-    const createButton = screen.getByRole('button', { name: /create/i });
+    const createButton = screen.getByRole('tab', { name: /create/i });
     fireEvent.click(createButton);
 
     expect(screen.getByTestId('create-backup-tab')).toBeInTheDocument();
@@ -65,17 +65,17 @@ describe('BackupWindow', () => {
   it('highlights active tab', () => {
     render(<BackupWindow {...defaultProps} />);
 
-    const createButton = screen.getByRole('button', { name: /create/i });
-    const restoreButton = screen.getByRole('button', { name: /restore/i });
+    const createButton = screen.getByRole('tab', { name: /create/i });
+    const restoreButton = screen.getByRole('tab', { name: /restore/i });
 
     // Create tab should be active by default
-    expect(createButton.className).toContain('bg-zinc-700');
-    expect(restoreButton.className).not.toContain('bg-zinc-700');
+    expect(createButton).toHaveAttribute('aria-selected', 'true');
+    expect(restoreButton).toHaveAttribute('aria-selected', 'false');
 
     // Switch to Restore
     fireEvent.click(restoreButton);
 
-    expect(createButton.className).not.toContain('bg-zinc-700');
-    expect(restoreButton.className).toContain('bg-zinc-700');
+    expect(createButton).toHaveAttribute('aria-selected', 'false');
+    expect(restoreButton).toHaveAttribute('aria-selected', 'true');
   });
 });

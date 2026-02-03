@@ -103,26 +103,6 @@ export interface BackupProgressEvent {
   currentItem?: string | undefined;
 }
 
-/** Options for creating a backup */
-export interface ExportOptions {
-  /** Password for encryption */
-  password: string;
-  /** Include blob files in backup */
-  includeBlobs: boolean;
-  /** Progress callback */
-  onProgress?: (event: BackupProgressEvent) => void;
-}
-
-/** Options for restoring a backup */
-export interface ImportOptions {
-  /** Password for decryption */
-  password: string;
-  /** Name for the new instance */
-  instanceName?: string;
-  /** Progress callback */
-  onProgress?: (event: BackupProgressEvent) => void;
-}
-
 /** Result of a successful import */
 export interface ImportResult {
   /** ID of the newly created instance */

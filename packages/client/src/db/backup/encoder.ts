@@ -52,10 +52,12 @@ function writeUint32LE(
   value: number,
   offset: number
 ): void {
-  buffer[offset] = value & 0xff;
-  buffer[offset + 1] = (value >> 8) & 0xff;
-  buffer[offset + 2] = (value >> 16) & 0xff;
-  buffer[offset + 3] = (value >> 24) & 0xff;
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength
+  );
+  view.setUint32(offset, value, true);
 }
 
 /**
@@ -66,8 +68,12 @@ function writeUint16LE(
   value: number,
   offset: number
 ): void {
-  buffer[offset] = value & 0xff;
-  buffer[offset + 1] = (value >> 8) & 0xff;
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength
+  );
+  view.setUint16(offset, value, true);
 }
 
 /**

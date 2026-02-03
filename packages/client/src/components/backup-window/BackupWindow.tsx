@@ -48,9 +48,14 @@ export function BackupWindow({
         <BackupWindowMenuBar onClose={onClose} />
 
         {/* Tab buttons */}
-        <div className="flex gap-1 border-zinc-700 border-b px-4 pb-2">
+        <div
+          role="tablist"
+          className="flex gap-1 border-zinc-700 border-b px-4 pb-2"
+        >
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'create'}
             onClick={() => setActiveTab('create')}
             className={`rounded-md px-4 py-1.5 font-medium text-sm transition-colors ${
               activeTab === 'create'
@@ -62,6 +67,8 @@ export function BackupWindow({
           </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={activeTab === 'restore'}
             onClick={() => setActiveTab('restore')}
             className={`rounded-md px-4 py-1.5 font-medium text-sm transition-colors ${
               activeTab === 'restore'
@@ -74,7 +81,7 @@ export function BackupWindow({
         </div>
 
         {/* Tab content */}
-        <div className="flex-1 overflow-y-auto p-4">
+        <div role="tabpanel" className="flex-1 overflow-y-auto p-4">
           {activeTab === 'create' && <CreateBackupTab />}
           {activeTab === 'restore' && <RestoreBackupTab />}
         </div>

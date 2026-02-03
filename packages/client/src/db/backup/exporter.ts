@@ -195,7 +195,6 @@ export async function createBackup(
   // Phase 2: Collect blob information
   const blobs: BlobEntry[] = [];
   let blobTotalSize = 0;
-  const blobStorageMap = new Map<string, string>(); // path -> storagePath for reading
 
   if (includeBlobs && fileStorage) {
     onProgress?.({
@@ -215,7 +214,6 @@ export async function createBackup(
           mimeType: file.mimeType,
           size: file.size
         });
-        blobStorageMap.set(file.storagePath, file.storagePath);
         blobTotalSize += file.size;
       }
     }

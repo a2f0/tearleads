@@ -83,20 +83,24 @@ export interface DecodeOptions {
  * Read a 32-bit unsigned integer from a buffer in little-endian format.
  */
 function readUint32LE(buffer: Uint8Array, offset: number): number {
-  return (
-    ((buffer[offset] ?? 0) |
-      ((buffer[offset + 1] ?? 0) << 8) |
-      ((buffer[offset + 2] ?? 0) << 16) |
-      ((buffer[offset + 3] ?? 0) << 24)) >>>
-    0
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength
   );
+  return view.getUint32(offset, true);
 }
 
 /**
  * Read a 16-bit unsigned integer from a buffer in little-endian format.
  */
 function readUint16LE(buffer: Uint8Array, offset: number): number {
-  return (buffer[offset] ?? 0) | ((buffer[offset + 1] ?? 0) << 8);
+  const view = new DataView(
+    buffer.buffer,
+    buffer.byteOffset,
+    buffer.byteLength
+  );
+  return view.getUint16(offset, true);
 }
 
 /**

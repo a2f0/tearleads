@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -59,9 +59,9 @@ export function CreateBackupTab() {
   }, [includeBlobs]);
 
   // Update estimate when component mounts
-  useState(() => {
+  useEffect(() => {
     updateEstimate();
-  });
+  }, [updateEstimate]);
 
   const handleProgressUpdate = useCallback((event: BackupProgressEvent) => {
     const phaseLabels: Record<string, string> = {

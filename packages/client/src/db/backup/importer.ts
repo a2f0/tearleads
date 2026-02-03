@@ -73,41 +73,6 @@ export async function validateBackupFile(
 }
 
 /**
- * Tables that should be cleared before restoring data.
- * System tables are excluded.
- */
-const RESTORE_TABLES = new Set([
-  'albums',
-  'analytics_events',
-  'contact_emails',
-  'contact_groups',
-  'contact_phones',
-  'contacts',
-  'email_folders',
-  'emails',
-  'files',
-  'groups',
-  'notes',
-  'organizations',
-  'org_shares',
-  'playlists',
-  'secrets',
-  'sync_metadata',
-  'tags',
-  'user_credentials',
-  'user_groups',
-  'user_keys',
-  'user_organizations',
-  'user_settings',
-  'users',
-  'vfs_access',
-  'vfs_folders',
-  'vfs_links',
-  'vfs_registry',
-  'vfs_shares'
-]);
-
-/**
  * Restore data to a table.
  */
 async function restoreTableData(
@@ -213,10 +178,8 @@ export async function restoreBackup(
 
     const adapter = getDatabaseAdapter();
 
-    // Restore data to each table
-    const tables = Object.keys(database.data).filter((t) =>
-      RESTORE_TABLES.has(t)
-    );
+    // Restore data to each table (trust the backup content; exporter filters system tables)
+    const tables = Object.keys(database.data);
 
     for (let i = 0; i < tables.length; i++) {
       const tableName = tables[i];
