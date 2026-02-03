@@ -60,6 +60,11 @@ export default defineConfig({
         ),
         '@rapid/email/package.json': path.resolve(__dirname, '../email/package.json'),
         '@rapid/notes/package.json': path.resolve(__dirname, '../notes/package.json'),
+        '@rapid/mls-chat/package.json': path.resolve(
+          __dirname,
+          '../mls-chat/package.json'
+        ),
+        '@rapid/mls-chat': path.resolve(__dirname, '../mls-chat/src/index.ts'),
         '@rapid/vfs-explorer/package.json': path.resolve(
           __dirname,
           '../vfs-explorer/package.json'
