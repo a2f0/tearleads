@@ -8,7 +8,7 @@ import {
   useMemo,
   useState
 } from 'react';
-import { api } from '@/lib/api';
+import { api, tryRefreshToken } from '@/lib/api';
 import {
   AUTH_REFRESH_TOKEN_KEY,
   AUTH_TOKEN_KEY,
@@ -16,11 +16,14 @@ import {
   clearAuthError,
   clearStoredAuth,
   getAuthError,
+  getStoredAuthToken,
   onAuthChange,
   readStoredAuth,
   storeAuth
 } from '@/lib/auth-storage';
 import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
+
+const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -93,6 +96,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
       window.removeEventListener('storage', handleStorageChange);
     };
   }, [syncFromStorage]);
+
+  // Proactive token refresh on mount and visibility change
+  useEffect(() => {
+    const checkAndRefresh = async () => {
+      const storedToken = getStoredAuthToken();
+      if (!storedToken) return;
+
+      const timeRemaining = getJwtTimeRemaining(storedToken);
+      // timeRemaining is null if token is already expired
+      if (timeRemaining === null || timeRemaining < REFRESH_THRESHOLD_MS) {
+        // Token expired or expiring soon - refresh proactively
+        await tryRefreshToken();
+      }
+    };
+
+    // Check on mount (app hydration)
+    void checkAndRefresh();
+
+    // Check on visibility change (tab becoming visible)
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void checkAndRefresh();
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
   const login = useCallback(async (email: string, password: string) => {

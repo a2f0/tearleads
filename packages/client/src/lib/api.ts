@@ -77,6 +77,25 @@ async function attemptTokenRefresh(): Promise<boolean> {
   }
 }
 
+/**
+ * Attempts to refresh the token. Returns true if successful.
+ * Can be called from SSE or other contexts that don't go through the API wrapper.
+ * Uses deduplication to prevent concurrent refresh attempts.
+ */
+export async function tryRefreshToken(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = attemptTokenRefresh().finally(() => {
+      refreshPromise = null;
+    });
+  }
+  const refreshed = await refreshPromise;
+  if (!refreshed) {
+    setSessionExpiredError();
+    clearStoredAuth();
+  }
+  return refreshed;
+}
+
 // API event slugs - subset of AnalyticsEventSlug for API calls
 type ApiEventSlug = Extract<AnalyticsEventSlug, `api_${string}`>;
 

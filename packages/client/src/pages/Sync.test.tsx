@@ -9,6 +9,7 @@ import { Sync } from './Sync';
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockPingGet = vi.fn();
+const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -19,7 +20,8 @@ vi.mock('@/lib/api', () => ({
     ping: {
       get: () => mockPingGet()
     }
-  }
+  },
+  tryRefreshToken: () => mockTryRefreshToken()
 }));
 
 function renderSync(showBackLink = true) {

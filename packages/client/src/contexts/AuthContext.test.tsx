@@ -11,6 +11,7 @@ import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();
 const mockLogout = vi.fn();
+const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -18,7 +19,8 @@ vi.mock('@/lib/api', () => ({
       login: (...args: unknown[]) => mockLogin(...args),
       logout: () => mockLogout()
     }
-  }
+  },
+  tryRefreshToken: () => mockTryRefreshToken()
 }));
 
 function TestComponent() {
