@@ -12,10 +12,15 @@
     sites:
       - www
       - app
+    web_root_directories:
+      - www
+      - app
+      - downloads
     subdomains:
       - www
       - app
       - api
+      - download
       - email
     patch_time: "03:00"
     patch_timezone: "UTC"
@@ -279,7 +284,7 @@
         group: www-data
         mode: "0775"
         recurse: true
-      loop: "{{ sites | map('regex_replace', '^', '/var/www/') | list }}"
+      loop: "{{ web_root_directories | map('regex_replace', '^', '/var/www/') | list }}"
 
     - name: Deploy nginx vhosts
       ansible.builtin.template:
@@ -315,6 +320,7 @@
         mode: "0644"
       loop:
         - api
+        - download
         - email
       notify: Reload nginx
 
@@ -325,6 +331,7 @@
         state: link
       loop:
         - api
+        - download
         - email
       notify: Reload nginx
 

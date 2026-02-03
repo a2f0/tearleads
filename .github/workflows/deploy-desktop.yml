@@ -119,3 +119,35 @@ jobs:
         with:
           name: desktop-${{ matrix.os }}
           path: packages/client/dist-electron/**
+
+  publish-downloads:
+    name: Publish Desktop Downloads
+    runs-on: ubuntu-latest
+    needs: deploy
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve app version
+        run: echo "APP_VERSION=$(node -p \"require('./packages/client/package.json').version\")" >> "$GITHUB_ENV"
+
+      - name: Download desktop artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: downloads
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.DEPLOY_SSH_KEY }}" > ~/.ssh/deploy.key
+          chmod 600 ~/.ssh/deploy.key
+          ssh-keyscan -H download.${{ secrets.DEPLOY_DOMAIN }} >> ~/.ssh/known_hosts
+
+      - name: Upload downloads
+        run: |
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }} \
+            "mkdir -p /var/www/downloads/desktop/${APP_VERSION}"
+          rsync -avz -e "ssh -i ~/.ssh/deploy.key" \
+            downloads/ ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }}:/var/www/downloads/desktop/${APP_VERSION}/
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }} \
+            "ln -sfn /var/www/downloads/desktop/${APP_VERSION} /var/www/downloads/desktop/latest"
