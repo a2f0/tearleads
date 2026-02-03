@@ -12,6 +12,10 @@
     sites:
       - www
       - app
+    web_root_directories:
+      - www
+      - app
+      - downloads
     subdomains:
       - www
       - app
@@ -280,16 +284,7 @@
         group: www-data
         mode: "0775"
         recurse: true
-      loop: "{{ sites | map('regex_replace', '^', '/var/www/') | list }}"
-
-    - name: Create downloads directory
-      ansible.builtin.file:
-        path: /var/www/downloads
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: www-data
-        mode: "0775"
-        recurse: true
+      loop: "{{ web_root_directories | map('regex_replace', '^', '/var/www/') | list }}"
 
     - name: Deploy nginx vhosts
       ansible.builtin.template:
