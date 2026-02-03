@@ -192,9 +192,9 @@ export function generateTitleFromMessage(content: string): string {
     return trimmed;
   }
 
-  // Find a good break point (space, punctuation)
+  // Find a good break point at the last word boundary before MAX_LENGTH
   const breakPoint = trimmed.lastIndexOf(' ', MAX_LENGTH);
-  if (breakPoint > MAX_LENGTH / 2) {
+  if (breakPoint > 0) {
     return `${trimmed.slice(0, breakPoint)}...`;
   }
 
