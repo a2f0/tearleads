@@ -1130,7 +1130,14 @@ router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
         `INSERT INTO mls_messages (
           id, group_id, sender_user_id, epoch, ciphertext, message_type, sequence_number, created_at
         ) VALUES ($1, $2, $3, $4, $5, 'commit', $6, NOW())`,
-        [commitId, groupId, claims.sub, payload.newEpoch, payload.commit, nextSeq]
+        [
+          commitId,
+          groupId,
+          claims.sub,
+          payload.newEpoch,
+          payload.commit,
+          nextSeq
+        ]
       );
 
       // Update group epoch
