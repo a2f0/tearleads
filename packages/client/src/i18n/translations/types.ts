@@ -5,6 +5,8 @@ export interface CommonTranslations {
   settings: string;
   theme: string;
   themeDescription: string;
+  create: string;
+  restore: string;
 }
 
 export interface MenuTranslations {
@@ -40,6 +42,7 @@ export interface MenuTranslations {
   sync: string;
   v86: string;
   vfs: string;
+  backups: string;
 }
 
 export interface AudioTranslations {

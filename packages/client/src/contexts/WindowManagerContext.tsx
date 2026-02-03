@@ -49,7 +49,8 @@ export type WindowType =
   | 'local-storage'
   | 'sync'
   | 'v86'
-  | 'vfs';
+  | 'vfs'
+  | 'backup';
 
 export interface WindowOpenRequestPayloads {
   contacts: { contactId: string };

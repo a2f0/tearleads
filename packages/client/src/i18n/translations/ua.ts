@@ -7,7 +7,9 @@ export const ua = {
     selectLanguage: 'Вибрати мову',
     settings: 'Налаштування',
     theme: 'Тема',
-    themeDescription: 'Виберіть бажану колірну тему'
+    themeDescription: 'Виберіть бажану колірну тему',
+    create: 'Створити',
+    restore: 'Відновити'
   },
   menu: {
     home: 'Головна',
@@ -41,7 +43,8 @@ export const ua = {
     email: 'Пошта',
     sync: 'Синхронізація',
     v86: 'v86',
-    vfs: 'Провідник VFS'
+    vfs: 'Провідник VFS',
+    backups: 'Резервні копії'
   },
   audio: {
     play: 'Відтворити',

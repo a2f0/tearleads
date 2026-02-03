@@ -7,7 +7,9 @@ export const en = {
     selectLanguage: 'Select language',
     settings: 'Settings',
     theme: 'Theme',
-    themeDescription: 'Choose your preferred color theme'
+    themeDescription: 'Choose your preferred color theme',
+    create: 'Create',
+    restore: 'Restore'
   },
   menu: {
     home: 'Home',
@@ -41,7 +43,8 @@ export const en = {
     email: 'Email',
     sync: 'Sync',
     v86: 'v86',
-    vfs: 'VFS Explorer'
+    vfs: 'VFS Explorer',
+    backups: 'Backups'
   },
   audio: {
     play: 'Play',
