@@ -179,49 +179,54 @@ describe('AdminOrganizationsWindow', () => {
     );
   });
 
-  it('navigates to user detail from organization view', async () => {
-    const user = userEvent.setup();
-    render(<AdminOrganizationsWindow {...defaultProps} />);
+  it.each([
+    {
+      view: 'user',
+      selectButtonTestId: 'select-org-user',
+      detailViewTestId: 'orgs-admin-user-detail',
+      detailIdTestId: 'detail-user-id',
+      expectedId: 'user-123',
+      expectedTitle: 'Edit User'
+    },
+    {
+      view: 'group',
+      selectButtonTestId: 'select-org-group',
+      detailViewTestId: 'orgs-admin-group-detail',
+      detailIdTestId: 'detail-group-id',
+      expectedId: 'group-456',
+      expectedTitle: 'Edit Group'
+    }
+  ])(
+    'navigates to $view detail from organization view',
+    async ({
+      selectButtonTestId,
+      detailViewTestId,
+      detailIdTestId,
+      expectedId,
+      expectedTitle
+    }) => {
+      const user = userEvent.setup();
+      render(<AdminOrganizationsWindow {...defaultProps} />);
 
-    await user.click(screen.getByTestId('select-org-btn'));
-    await user.click(screen.getByTestId('select-org-user'));
+      await user.click(screen.getByTestId('select-org-btn'));
+      await user.click(screen.getByTestId(selectButtonTestId));
 
-    expect(screen.getByTestId('orgs-admin-user-detail')).toBeInTheDocument();
-    expect(screen.getByTestId('detail-user-id')).toHaveTextContent('user-123');
-    expect(screen.getByTestId('window-title')).toHaveTextContent('Edit User');
+      expect(screen.getByTestId(detailViewTestId)).toBeInTheDocument();
+      expect(screen.getByTestId(detailIdTestId)).toHaveTextContent(expectedId);
+      expect(screen.getByTestId('window-title')).toHaveTextContent(
+        expectedTitle
+      );
 
-    await user.click(
-      screen.getByRole('button', { name: 'Back to Organization' })
-    );
+      await user.click(
+        screen.getByRole('button', { name: 'Back to Organization' })
+      );
 
-    expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
-    expect(screen.getByTestId('window-title')).toHaveTextContent(
-      'Organization'
-    );
-  });
-
-  it('navigates to group detail from organization view', async () => {
-    const user = userEvent.setup();
-    render(<AdminOrganizationsWindow {...defaultProps} />);
-
-    await user.click(screen.getByTestId('select-org-btn'));
-    await user.click(screen.getByTestId('select-org-group'));
-
-    expect(screen.getByTestId('orgs-admin-group-detail')).toBeInTheDocument();
-    expect(screen.getByTestId('detail-group-id')).toHaveTextContent(
-      'group-456'
-    );
-    expect(screen.getByTestId('window-title')).toHaveTextContent('Edit Group');
-
-    await user.click(
-      screen.getByRole('button', { name: 'Back to Organization' })
-    );
-
-    expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
-    expect(screen.getByTestId('window-title')).toHaveTextContent(
-      'Organization'
-    );
-  });
+      expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
+      expect(screen.getByTestId('window-title')).toHaveTextContent(
+        'Organization'
+      );
+    }
+  );
 
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();

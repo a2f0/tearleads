@@ -35,14 +35,18 @@ export function AdminOrganizationsWindow({
 }: AdminOrganizationsWindowProps) {
   const [view, setView] = useState<OrganizationsWindowView>({ type: 'index' });
 
-  const title =
-    view.type === 'index'
-      ? 'Organizations Admin'
-      : view.type === 'organization'
-        ? 'Organization'
-        : view.type === 'user'
-          ? 'Edit User'
-          : 'Edit Group';
+  const title = (() => {
+    switch (view.type) {
+      case 'index':
+        return 'Organizations Admin';
+      case 'organization':
+        return 'Organization';
+      case 'user':
+        return 'Edit User';
+      case 'group':
+        return 'Edit Group';
+    }
+  })();
 
   const handleOrganizationSelect = (organizationId: string) => {
     setView({ type: 'organization', organizationId });
@@ -65,6 +69,17 @@ export function AdminOrganizationsWindow({
   const handleBackToOrganization = (organizationId: string) => {
     setView({ type: 'organization', organizationId });
   };
+
+  const renderBackToOrganizationButton = (organizationId: string) => (
+    <button
+      type="button"
+      onClick={() => handleBackToOrganization(organizationId)}
+      className="inline-flex items-center text-muted-foreground hover:text-foreground"
+    >
+      <ArrowLeft className="mr-2 h-4 w-4" />
+      Back to Organization
+    </button>
+  );
 
   return (
     <FloatingWindow
@@ -109,31 +124,13 @@ export function AdminOrganizationsWindow({
           ) : view.type === 'user' ? (
             <UsersAdminDetail
               userId={view.userId}
-              backLink={
-                <button
-                  type="button"
-                  onClick={() => handleBackToOrganization(view.organizationId)}
-                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Organization
-                </button>
-              }
+              backLink={renderBackToOrganizationButton(view.organizationId)}
             />
           ) : (
             <GroupDetailPage
               groupId={view.groupId}
               onDelete={() => handleBackToOrganization(view.organizationId)}
-              backLink={
-                <button
-                  type="button"
-                  onClick={() => handleBackToOrganization(view.organizationId)}
-                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Organization
-                </button>
-              }
+              backLink={renderBackToOrganizationButton(view.organizationId)}
             />
           )}
         </div>
