@@ -1,4 +1,4 @@
-import { ImagePlus, Images, Loader2 } from 'lucide-react';
+import { ImagePlus, Images, Loader2, Plus } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { zIndex } from '@/constants/zIndex';
@@ -15,6 +15,11 @@ interface AlbumContextMenuState {
   x: number;
   y: number;
   album: PhotoAlbum;
+}
+
+interface EmptySpaceContextMenuState {
+  x: number;
+  y: number;
 }
 
 interface PhotosAlbumsSidebarProps {
@@ -54,6 +59,8 @@ export function PhotosAlbumsSidebar({
   const [contextMenu, setContextMenu] = useState<AlbumContextMenuState | null>(
     null
   );
+  const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
+    useState<EmptySpaceContextMenuState | null>(null);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -92,6 +99,11 @@ export function PhotosAlbumsSidebar({
     []
   );
 
+  const handleEmptySpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
   const handleAlbumChanged = useCallback(() => {
     refetch();
     onAlbumChanged?.();
@@ -125,7 +137,11 @@ export function PhotosAlbumsSidebar({
           <ImagePlus className="h-4 w-4" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-1">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
+      <div
+        className="flex-1 overflow-y-auto p-1"
+        onContextMenu={handleEmptySpaceContextMenu}
+      >
         {/* All Photos - always shown */}
         <button
           type="button"
@@ -194,6 +210,19 @@ export function PhotosAlbumsSidebar({
           onClose={() => setContextMenu(null)}
           onRename={(album) => setRenameDialogAlbum(album)}
           onDelete={(album) => setDeleteDialogAlbum(album)}
+        />
+      )}
+
+      {/* Empty Space Context Menu */}
+      {emptySpaceContextMenu && (
+        <EmptySpaceContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+          onNewAlbum={() => {
+            setNewAlbumDialogOpen(true);
+            setEmptySpaceContextMenu(null);
+          }}
         />
       )}
 
@@ -293,6 +322,57 @@ function AlbumContextMenu({
           }}
         >
           Delete
+        </button>
+      </div>
+    </>,
+    document.body
+  );
+}
+
+// Empty space context menu component
+interface EmptySpaceContextMenuProps {
+  x: number;
+  y: number;
+  onClose: () => void;
+  onNewAlbum: () => void;
+}
+
+function EmptySpaceContextMenu({
+  x,
+  y,
+  onClose,
+  onNewAlbum
+}: EmptySpaceContextMenuProps) {
+  const handleBackdropClick = useCallback(() => {
+    onClose();
+  }, [onClose]);
+
+  // Use portal to escape FloatingWindow's backdrop-filter containing block
+  return createPortal(
+    <>
+      <div
+        className="fixed inset-0"
+        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
+        onClick={handleBackdropClick}
+        aria-hidden="true"
+        data-testid="empty-space-context-menu-backdrop"
+      />
+      <div
+        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+        style={{
+          left: x,
+          top: y,
+          zIndex: zIndex.floatingWindowContextMenu
+        }}
+        data-testid="empty-space-context-menu"
+      >
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+          onClick={onNewAlbum}
+        >
+          <Plus className="h-4 w-4" />
+          New Album
         </button>
       </div>
     </>,

@@ -1,6 +1,6 @@
 {
   "name": "@rapid/vfs-explorer",
-  "version": "0.0.24",
+  "version": "0.0.26",
   "description": "VFS Explorer components for Rapid",
   "type": "module",
   "main": "dist/index.js",
@@ -40,6 +40,7 @@
     "tailwind-merge": "3.4.0"
   },
   "devDependencies": {
+    "@rapid/shared": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",

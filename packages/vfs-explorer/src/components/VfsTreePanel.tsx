@@ -4,11 +4,13 @@ import {
   FileBox,
   Folder,
   FolderOpen,
+  FolderPlus,
   Layers,
   Loader2
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
+import { useVfsExplorerContext } from '../context';
 import { useEnsureVfsRoot, useVfsFolders, type VfsFolderNode } from '../hooks';
 import { cn } from '../lib';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
@@ -23,6 +25,11 @@ interface ContextMenuState {
   x: number;
   y: number;
   folder: VfsFolderNode;
+}
+
+interface EmptySpaceContextMenuState {
+  x: number;
+  y: number;
 }
 
 interface VfsTreePanelProps {
@@ -49,6 +56,9 @@ export function VfsTreePanel({
   // Ensure the VFS root exists before loading folders
   useEnsureVfsRoot();
 
+  const {
+    ui: { ContextMenu, ContextMenuItem }
+  } = useVfsExplorerContext();
   const { folders, loading, error, refetch } = useVfsFolders();
 
   // Refetch when refreshToken changes
@@ -67,6 +77,8 @@ export function VfsTreePanel({
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
+    useState<EmptySpaceContextMenuState | null>(null);
 
   // Dialog states
   const [renameDialogFolder, setRenameDialogFolder] =
@@ -75,6 +87,7 @@ export function VfsTreePanel({
     useState<VfsFolderNode | null>(null);
   const [newSubfolderParent, setNewSubfolderParent] =
     useState<VfsFolderNode | null>(null);
+  const [showNewRootFolderDialog, setShowNewRootFolderDialog] = useState(false);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -124,6 +137,11 @@ export function VfsTreePanel({
     },
     []
   );
+
+  const handleEmptySpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
 
   const handleFolderChanged = useCallback(() => {
     refetch();
@@ -219,7 +237,11 @@ export function VfsTreePanel({
           Folders
         </span>
       </div>
-      <div className="flex-1 overflow-y-auto p-1">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
+      <div
+        className="flex-1 overflow-y-auto p-1"
+        onContextMenu={handleEmptySpaceContextMenu}
+      >
         {/* Unfiled Items - always shown, not a drop target */}
         <VfsDroppableFolder folderId={UNFILED_FOLDER_ID} disabled>
           <button
@@ -276,7 +298,7 @@ export function VfsTreePanel({
         onMouseDown={handleMouseDown}
       />
 
-      {/* Context Menu */}
+      {/* Folder Context Menu */}
       {contextMenu && (
         <FolderContextMenu
           x={contextMenu.x}
@@ -288,6 +310,25 @@ export function VfsTreePanel({
           onDelete={(folder) => setDeleteDialogFolder(folder)}
           onShare={onFolderShare}
         />
+      )}
+
+      {/* Empty Space Context Menu */}
+      {emptySpaceContextMenu && (
+        <ContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<FolderPlus className="h-4 w-4" />}
+            onClick={() => {
+              setShowNewRootFolderDialog(true);
+              setEmptySpaceContextMenu(null);
+            }}
+          >
+            New Folder
+          </ContextMenuItem>
+        </ContextMenu>
       )}
 
       {/* New Subfolder Dialog */}
@@ -303,6 +344,16 @@ export function VfsTreePanel({
           }
           handleFolderChanged();
         }}
+      />
+
+      {/* New Root Folder Dialog */}
+      <NewFolderDialog
+        open={showNewRootFolderDialog}
+        onOpenChange={(open) => {
+          if (!open) setShowNewRootFolderDialog(false);
+        }}
+        parentFolderId={null}
+        onFolderCreated={handleFolderChanged}
       />
 
       {/* Rename Dialog */}

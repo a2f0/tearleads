@@ -493,4 +493,183 @@ describe('VideoPlaylistsSidebar', () => {
       expect(screen.queryByText('Delete Playlist')).not.toBeInTheDocument();
     });
   });
+
+  it('opens empty space context menu and shows New Playlist option', async () => {
+    const fetchPlaylists = vi.fn(async () => []);
+    const Wrapper = createVideoPlaylistWrapper({
+      databaseState: { isUnlocked: true },
+      fetchPlaylists
+    });
+
+    render(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={vi.fn()}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+        />
+      </Wrapper>
+    );
+
+    // Find the sidebar container and right-click on it
+    const sidebar = screen.getByTestId('video-playlists-sidebar');
+    const scrollableArea = sidebar.querySelector('.overflow-y-auto');
+    if (scrollableArea) fireEvent.contextMenu(scrollableArea);
+
+    await waitFor(() => {
+      expect(screen.getByText('New Playlist')).toBeInTheDocument();
+    });
+  });
+
+  it('opens new playlist dialog from empty space context menu', async () => {
+    const fetchPlaylists = vi.fn(async () => []);
+    const Wrapper = createVideoPlaylistWrapper({
+      databaseState: { isUnlocked: true },
+      fetchPlaylists
+    });
+
+    render(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={vi.fn()}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+        />
+      </Wrapper>
+    );
+
+    // Find the sidebar container and right-click on it
+    const sidebar = screen.getByTestId('video-playlists-sidebar');
+    const scrollableArea = sidebar.querySelector('.overflow-y-auto');
+    if (scrollableArea) fireEvent.contextMenu(scrollableArea);
+
+    await waitFor(() => {
+      expect(screen.getByText('New Playlist')).toBeInTheDocument();
+    });
+
+    // Click "New Playlist" in context menu
+    fireEvent.click(screen.getByText('New Playlist'));
+
+    await waitFor(() => {
+      expect(screen.getByText('New Video Playlist')).toBeInTheDocument();
+    });
+  });
+
+  it('closes empty space context menu via backdrop click', async () => {
+    const fetchPlaylists = vi.fn(async () => []);
+    const Wrapper = createVideoPlaylistWrapper({
+      databaseState: { isUnlocked: true },
+      fetchPlaylists
+    });
+
+    render(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={vi.fn()}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+        />
+      </Wrapper>
+    );
+
+    // Open empty space context menu
+    const sidebar = screen.getByTestId('video-playlists-sidebar');
+    const scrollableArea = sidebar.querySelector('.overflow-y-auto');
+    if (scrollableArea) fireEvent.contextMenu(scrollableArea);
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('video-empty-space-context-menu')
+      ).toBeInTheDocument();
+    });
+
+    // Close by clicking backdrop
+    fireEvent.click(
+      screen.getByTestId('video-empty-space-context-menu-backdrop')
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.queryByTestId('video-empty-space-context-menu')
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  it('handles keyboard resize with ArrowRight key', async () => {
+    const fetchPlaylists = vi.fn(async () => []);
+    const onWidthChange = vi.fn();
+    const Wrapper = createVideoPlaylistWrapper({
+      databaseState: { isUnlocked: true },
+      fetchPlaylists
+    });
+
+    render(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={onWidthChange}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+        />
+      </Wrapper>
+    );
+
+    const resizeHandle = screen.getByLabelText('Resize playlist sidebar');
+    fireEvent.keyDown(resizeHandle, { key: 'ArrowRight' });
+
+    expect(onWidthChange).toHaveBeenCalledWith(210);
+  });
+
+  it('handles keyboard resize with ArrowLeft key', async () => {
+    const fetchPlaylists = vi.fn(async () => []);
+    const onWidthChange = vi.fn();
+    const Wrapper = createVideoPlaylistWrapper({
+      databaseState: { isUnlocked: true },
+      fetchPlaylists
+    });
+
+    render(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={onWidthChange}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+        />
+      </Wrapper>
+    );
+
+    const resizeHandle = screen.getByLabelText('Resize playlist sidebar');
+    fireEvent.keyDown(resizeHandle, { key: 'ArrowLeft' });
+
+    expect(onWidthChange).toHaveBeenCalledWith(190);
+  });
+
+  it('ignores non-arrow keys for keyboard resize', async () => {
+    const fetchPlaylists = vi.fn(async () => []);
+    const onWidthChange = vi.fn();
+    const Wrapper = createVideoPlaylistWrapper({
+      databaseState: { isUnlocked: true },
+      fetchPlaylists
+    });
+
+    render(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={onWidthChange}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+        />
+      </Wrapper>
+    );
+
+    const resizeHandle = screen.getByLabelText('Resize playlist sidebar');
+    fireEvent.keyDown(resizeHandle, { key: 'Enter' });
+
+    expect(onWidthChange).not.toHaveBeenCalled();
+  });
 });

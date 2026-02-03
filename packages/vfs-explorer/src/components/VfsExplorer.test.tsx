@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the context
@@ -7,6 +8,24 @@ vi.mock('../context', () => ({
     isUnlocked: true,
     isLoading: false,
     currentInstanceId: 'test-instance'
+  }),
+  useVfsExplorerContext: () => ({
+    ui: {
+      ContextMenu: ({ children }: { children: ReactNode }) => (
+        <div data-testid="mock-context-menu">{children}</div>
+      ),
+      ContextMenuItem: ({
+        children,
+        onClick
+      }: {
+        children: ReactNode;
+        onClick?: () => void;
+      }) => (
+        <button type="button" onClick={onClick}>
+          {children}
+        </button>
+      )
+    }
   })
 }));
 

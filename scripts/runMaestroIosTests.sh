@@ -18,9 +18,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 export MAESTRO_CLI_NO_ANALYTICS=1
 
-MAESTRO_CLI="${HOME}/.maestro/bin/maestro"
 SIMULATOR_NAME="Maestro_iPhone11_18"
-IOS_VERSION="18"
 HEADLESS=0
 FLOW_PATH=""
 RECORD_VIDEO=0
@@ -68,13 +66,25 @@ if xcrun simctl list devices | grep -q "$SIMULATOR_NAME.*Booted"; then
   echo "==> Simulator $SIMULATOR_NAME is already running"
 else
   echo "==> Starting iOS simulator..."
-  if [ "$HEADLESS" -eq 1 ]; then
-    "$MAESTRO_CLI" start-device --platform ios --os-version "$IOS_VERSION" --headless
-  else
-    "$MAESTRO_CLI" start-device --platform ios --os-version "$IOS_VERSION"
+  # Get the UDID of the simulator
+  SIMULATOR_UDID=$(xcrun simctl list devices -j | grep -A2 "\"name\" : \"$SIMULATOR_NAME\"" | grep udid | head -1 | sed 's/.*: "\(.*\)".*/\1/' || true)
+  if [ -z "$SIMULATOR_UDID" ]; then
+    # Fallback: try to find any available iPhone simulator
+    SIMULATOR_UDID=$(xcrun simctl list devices available -j | grep -B2 '"isAvailable" : true' | grep udid | head -1 | sed 's/.*: "\(.*\)".*/\1/' || true)
+  fi
+  if [ -z "$SIMULATOR_UDID" ]; then
+    echo "Error: Could not find simulator $SIMULATOR_NAME or any available iPhone simulator" >&2
+    exit 1
+  fi
+  echo "==> Using simulator UDID: $SIMULATOR_UDID"
+  # Boot the simulator (runs headless by default via simctl)
+  xcrun simctl boot "$SIMULATOR_UDID" 2>/dev/null || true
+  if [ "$HEADLESS" -eq 0 ]; then
+    # Open Simulator.app to show the UI
+    open -a Simulator
   fi
   echo "==> Waiting for simulator to boot..."
-  xcrun simctl bootstatus "$SIMULATOR_NAME" -b
+  xcrun simctl bootstatus "$SIMULATOR_UDID" -b
 fi
 
 echo "==> Building the app..."
