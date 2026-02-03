@@ -24,6 +24,13 @@ import type {
 } from './types';
 
 /**
+ * Tables to skip during import.
+ * - schema_migrations: Already populated by setupDatabase() migrations.
+ *   Importing would cause PRIMARY KEY conflicts.
+ */
+const IMPORT_SKIP_TABLES = new Set(['schema_migrations']);
+
+/**
  * Options for restoring a backup.
  */
 export interface RestoreBackupOptions {
@@ -178,25 +185,35 @@ export async function restoreBackup(
 
     const adapter = getDatabaseAdapter();
 
-    // Restore data to each table (trust the backup content; exporter filters system tables)
-    const tables = Object.keys(database.data);
+    // Disable FK checks during import to avoid constraint violations from table ordering
+    await adapter.execute('PRAGMA foreign_keys = OFF');
 
-    for (let i = 0; i < tables.length; i++) {
-      const tableName = tables[i];
-      if (!tableName) continue;
+    try {
+      // Restore data to each table, skipping internal tables
+      const tables = Object.keys(database.data).filter(
+        (t) => !IMPORT_SKIP_TABLES.has(t)
+      );
 
-      const rows = database.data[tableName];
+      for (let i = 0; i < tables.length; i++) {
+        const tableName = tables[i];
+        if (!tableName) continue;
 
-      onProgress?.({
-        phase: 'database',
-        current: i,
-        total: tables.length,
-        currentItem: `Restoring ${tableName}`
-      });
+        const rows = database.data[tableName];
 
-      if (Array.isArray(rows) && rows.length > 0) {
-        await restoreTableData(adapter, tableName, rows);
+        onProgress?.({
+          phase: 'database',
+          current: i,
+          total: tables.length,
+          currentItem: `Restoring ${tableName}`
+        });
+
+        if (Array.isArray(rows) && rows.length > 0) {
+          await restoreTableData(adapter, tableName, rows);
+        }
       }
+    } finally {
+      // Re-enable FK checks
+      await adapter.execute('PRAGMA foreign_keys = ON');
     }
 
     // Phase 4: Restore blobs

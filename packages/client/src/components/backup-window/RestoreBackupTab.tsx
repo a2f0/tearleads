@@ -8,6 +8,7 @@ import {
   getBackupInfo,
   restoreBackup
 } from '@/db/backup';
+import { useDatabaseContext } from '@/db/hooks/useDatabase';
 
 interface BackupProgress {
   phase: string;
@@ -35,6 +36,7 @@ function formatBytes(bytes: number): string {
 }
 
 export function RestoreBackupTab() {
+  const { refreshInstances } = useDatabaseContext();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [backupFile, setBackupFile] = useState<File | null>(null);
   const [backupData, setBackupData] = useState<Uint8Array | null>(null);
@@ -138,6 +140,9 @@ export function RestoreBackupTab() {
         newInstancePassword: newPassword,
         onProgress: handleProgressUpdate
       });
+
+      // Refresh the instances list so the new instance appears in the switcher
+      await refreshInstances();
 
       setProgress({ phase: 'Complete', percent: 100 });
       setSuccess(
