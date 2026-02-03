@@ -1,3 +1,5 @@
+export type { UseCopyVfsItemResult } from './useCopyVfsItem';
+export { useCopyVfsItem } from './useCopyVfsItem';
 export type {
   CreateFolderResult,
   UseCreateVfsFolderResult

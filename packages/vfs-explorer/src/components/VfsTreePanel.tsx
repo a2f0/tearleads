@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronRight,
+  Clipboard,
   FileBox,
   Folder,
   FolderOpen,
@@ -10,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
-import { useVfsExplorerContext } from '../context';
+import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import { useEnsureVfsRoot, useVfsFolders, type VfsFolderNode } from '../hooks';
 import { cn } from '../lib';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
@@ -41,6 +42,7 @@ interface VfsTreePanelProps {
   refreshToken?: number | undefined;
   onFolderChanged?: (() => void) | undefined;
   onFolderShare?: ((folder: VfsFolderNode) => void) | undefined;
+  onPaste?: ((targetFolderId: string) => void) | undefined;
 }
 
 export function VfsTreePanel({
@@ -51,15 +53,17 @@ export function VfsTreePanel({
   compact: _compact,
   refreshToken,
   onFolderChanged,
-  onFolderShare
+  onFolderShare,
+  onPaste
 }: VfsTreePanelProps) {
   // Ensure the VFS root exists before loading folders
   useEnsureVfsRoot();
 
   const {
-    ui: { ContextMenu, ContextMenuItem }
+    ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator }
   } = useVfsExplorerContext();
   const { folders, loading, error, refetch } = useVfsFolders();
+  const { hasItems } = useVfsClipboard();
 
   // Refetch when refreshToken changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: refetch is stable from useCallback
@@ -309,6 +313,7 @@ export function VfsTreePanel({
           onRename={(folder) => setRenameDialogFolder(folder)}
           onDelete={(folder) => setDeleteDialogFolder(folder)}
           onShare={onFolderShare}
+          onPaste={onPaste}
         />
       )}
 
@@ -328,6 +333,24 @@ export function VfsTreePanel({
           >
             New Folder
           </ContextMenuItem>
+          {hasItems &&
+            onPaste &&
+            selectedFolderId &&
+            selectedFolderId !== UNFILED_FOLDER_ID &&
+            selectedFolderId !== ALL_ITEMS_FOLDER_ID && (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  icon={<Clipboard className="h-4 w-4" />}
+                  onClick={() => {
+                    onPaste(selectedFolderId);
+                    setEmptySpaceContextMenu(null);
+                  }}
+                >
+                  Paste
+                </ContextMenuItem>
+              </>
+            )}
         </ContextMenu>
       )}
 
