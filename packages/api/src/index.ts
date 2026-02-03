@@ -19,6 +19,7 @@ import { usersRouter } from './routes/admin/users.js';
 import { authRouter } from './routes/auth.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
+import { mlsRouter } from './routes/mls.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 import { vfsRouter } from './routes/vfs.js';
 import { vfsSharesRouter } from './routes/vfs-shares.js';
@@ -125,6 +126,9 @@ app.use('/v1/sse', sseRouter);
 // VFS routes
 app.use('/v1/vfs', vfsRouter);
 app.use('/v1/vfs', vfsSharesRouter);
+
+// MLS routes
+app.use('/v1/mls', mlsRouter);
 
 // 404 handler
 app.use((_req: Request, res: Response) => {

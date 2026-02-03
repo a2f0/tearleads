@@ -1,0 +1,53 @@
+{
+  "name": "@rapid/mls-chat",
+  "version": "0.0.1",
+  "description": "MLS (RFC 9420) end-to-end encrypted chat for Rapid",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "mls",
+    "rfc9420",
+    "e2e",
+    "encryption",
+    "chat"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "peerDependencies": {
+    "react": "19.2.3",
+    "react-dom": "19.2.3"
+  },
+  "dependencies": {
+    "@rapid/shared": "workspace:*",
+    "idb": "^8.0.2"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@types/react": "19.2.3",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "4.5.2",
+    "@vitest/coverage-v8": "4.0.18",
+    "jsdom": "26.1.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18",
+    "vitest-fail-on-console": "0.10.1"
+  }
+}
