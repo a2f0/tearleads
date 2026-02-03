@@ -174,18 +174,20 @@ function VfsExplorerInner({
       if (targetFolderId === UNFILED_FOLDER_ID) return;
 
       try {
-        for (const item of clipboard.items) {
-          // Don't allow pasting a folder into itself
-          if (item.objectType === 'folder' && item.id === targetFolderId) {
-            continue;
-          }
+        // Run paste operations concurrently for better performance
+        const pasteOperations = clipboard.items
+          .filter(
+            (item) =>
+              !(item.objectType === 'folder' && item.id === targetFolderId)
+          )
+          .map((item) => {
+            if (isCut) {
+              return moveItem(item.id, targetFolderId);
+            }
+            return copyItem(item.id, targetFolderId);
+          });
 
-          if (isCut) {
-            await moveItem(item.id, targetFolderId);
-          } else {
-            await copyItem(item.id, targetFolderId);
-          }
-        }
+        await Promise.all(pasteOperations);
 
         // Clear clipboard after cut (but not after copy)
         if (isCut) {

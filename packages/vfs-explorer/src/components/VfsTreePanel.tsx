@@ -333,20 +333,24 @@ export function VfsTreePanel({
           >
             New Folder
           </ContextMenuItem>
-          {hasItems && onPaste && selectedFolderId && (
-            <>
-              <ContextMenuSeparator />
-              <ContextMenuItem
-                icon={<Clipboard className="h-4 w-4" />}
-                onClick={() => {
-                  onPaste(selectedFolderId);
-                  setEmptySpaceContextMenu(null);
-                }}
-              >
-                Paste
-              </ContextMenuItem>
-            </>
-          )}
+          {hasItems &&
+            onPaste &&
+            selectedFolderId &&
+            selectedFolderId !== UNFILED_FOLDER_ID &&
+            selectedFolderId !== ALL_ITEMS_FOLDER_ID && (
+              <>
+                <ContextMenuSeparator />
+                <ContextMenuItem
+                  icon={<Clipboard className="h-4 w-4" />}
+                  onClick={() => {
+                    onPaste(selectedFolderId);
+                    setEmptySpaceContextMenu(null);
+                  }}
+                >
+                  Paste
+                </ContextMenuItem>
+              </>
+            )}
         </ContextMenu>
       )}
 
