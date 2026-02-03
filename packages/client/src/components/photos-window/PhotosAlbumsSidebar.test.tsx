@@ -137,6 +137,20 @@ describe('PhotosAlbumsSidebar', () => {
     expect(screen.getByText('5')).toBeInTheDocument();
   });
 
+  it('refetches when refresh token changes', async () => {
+    const { rerender } = render(
+      <PhotosAlbumsSidebar {...defaultProps} refreshToken={0} />
+    );
+
+    expect(mockUsePhotoAlbums.refetch).not.toHaveBeenCalled();
+
+    rerender(<PhotosAlbumsSidebar {...defaultProps} refreshToken={1} />);
+
+    await waitFor(() => {
+      expect(mockUsePhotoAlbums.refetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it('selects All Photos when clicked', async () => {
     const user = userEvent.setup();
     const onAlbumSelect = vi.fn();

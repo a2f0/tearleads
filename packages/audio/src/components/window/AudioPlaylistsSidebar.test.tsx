@@ -109,6 +109,7 @@ describe('AudioPlaylistsSidebar', () => {
     onWidthChange: vi.fn(),
     selectedPlaylistId: ALL_AUDIO_ID,
     onPlaylistSelect: vi.fn(),
+    refreshToken: 0,
     onPlaylistChanged: vi.fn()
   };
 
@@ -134,6 +135,20 @@ describe('AudioPlaylistsSidebar', () => {
     render(<AudioPlaylistsSidebar {...defaultProps} />);
     expect(screen.getByText('12')).toBeInTheDocument();
     expect(screen.getByText('4')).toBeInTheDocument();
+  });
+
+  it('refetches when refresh token changes', async () => {
+    const { rerender } = render(
+      <AudioPlaylistsSidebar {...defaultProps} refreshToken={0} />
+    );
+
+    expect(mockUseAudioPlaylists.refetch).not.toHaveBeenCalled();
+
+    rerender(<AudioPlaylistsSidebar {...defaultProps} refreshToken={1} />);
+
+    await waitFor(() => {
+      expect(mockUseAudioPlaylists.refetch).toHaveBeenCalledTimes(1);
+    });
   });
 
   it('selects All Tracks when clicked', async () => {

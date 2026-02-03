@@ -1,5 +1,5 @@
 import { ImagePlus, Images, Loader2, Plus } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { zIndex } from '@/constants/zIndex';
 import { cn } from '@/lib/utils';
@@ -36,7 +36,7 @@ export function PhotosAlbumsSidebar({
   onWidthChange,
   selectedAlbumId,
   onAlbumSelect,
-  refreshToken: _refreshToken,
+  refreshToken,
   onAlbumChanged
 }: PhotosAlbumsSidebarProps) {
   const { albums, loading, error, refetch, deleteAlbum, renameAlbum } =
@@ -61,6 +61,22 @@ export function PhotosAlbumsSidebar({
   );
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
+
+  const lastRefreshTokenRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (refreshToken === undefined) return;
+
+    if (lastRefreshTokenRef.current === null) {
+      lastRefreshTokenRef.current = refreshToken;
+      return;
+    }
+
+    if (lastRefreshTokenRef.current !== refreshToken) {
+      lastRefreshTokenRef.current = refreshToken;
+      void refetch();
+    }
+  }, [refreshToken, refetch]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {

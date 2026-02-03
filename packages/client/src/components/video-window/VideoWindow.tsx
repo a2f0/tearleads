@@ -162,6 +162,7 @@ function VideoWindowInner({
             onWidthChange={setSidebarWidth}
             selectedPlaylistId={selectedPlaylistId}
             onPlaylistSelect={setSelectedPlaylistId}
+            refreshToken={refreshToken}
             onPlaylistChanged={handlePlaylistChanged}
           />
           <div className="flex-1 overflow-hidden">

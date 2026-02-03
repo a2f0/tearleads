@@ -1,5 +1,5 @@
 import { List, Loader2, Plus, Video } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 import { DeleteVideoPlaylistDialog } from './DeleteVideoPlaylistDialog';
@@ -15,6 +15,7 @@ interface VideoPlaylistsSidebarProps {
   onWidthChange: (width: number) => void;
   selectedPlaylistId: string | null;
   onPlaylistSelect: (playlistId: string | null) => void;
+  refreshToken?: number;
   onPlaylistChanged?: () => void;
 }
 
@@ -23,6 +24,7 @@ export function VideoPlaylistsSidebar({
   onWidthChange,
   selectedPlaylistId,
   onPlaylistSelect,
+  refreshToken,
   onPlaylistChanged
 }: VideoPlaylistsSidebarProps) {
   const { playlists, loading, error, refetch, deletePlaylist, renamePlaylist } =
@@ -48,6 +50,22 @@ export function VideoPlaylistsSidebar({
     x: number;
     y: number;
   } | null>(null);
+
+  const lastRefreshTokenRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (refreshToken === undefined) return;
+
+    if (lastRefreshTokenRef.current === null) {
+      lastRefreshTokenRef.current = refreshToken;
+      return;
+    }
+
+    if (lastRefreshTokenRef.current !== refreshToken) {
+      lastRefreshTokenRef.current = refreshToken;
+      void refetch();
+    }
+  }, [refreshToken, refetch]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
