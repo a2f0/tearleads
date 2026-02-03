@@ -5,7 +5,7 @@
   "main": "out/main/main.js",
   "type": "module",
   "scripts": {
-    "dev": "vite",
+    "dev": "tsx ../../scripts/killPnpmDev.ts && vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "clean": "rm -rf dist",
