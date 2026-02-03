@@ -122,11 +122,12 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    **Address feedback while CI runs**:
 
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
-   - Reply in-thread:
+   - Reply **only inside the review thread**:
      - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
      - Reply in-thread: `gh api -X POST /repos/$REPO/pulls/<pr-number>/comments -F in_reply_to=<comment_id> -f body="...@gemini-code-assist ..."`
-     - List general PR comments (issue comments): `gh api /repos/$REPO/issues/<pr-number>/comments`
-     - Reply to general PR comments: `gh api -X POST /repos/$REPO/issues/<pr-number>/comments -f body="...@gemini-code-assist ..."`
+   - **Never reply in the PR body or top-level PR comments** for review feedback.
+     - Do **not** use `gh pr edit --body` or `gh pr comment` to answer reviewer feedback.
+     - Do **not** use issue comments (`/repos/$REPO/issues/<pr-number>/comments`) for review feedback.
    - **Push commits before tagging Gemini with a hash** so the hash links on GitHub and is reviewable.
    - When replying that a fix is complete, **include the commit hash (not just the message) and explicitly ask if the change addresses the issue** (e.g., "Commit <hash> ... does this address the issue?").
    - Analyze Gemini's sentiment in follow-up replies:
