@@ -56,13 +56,61 @@ vi.mock('@/pages/admin/OrganizationsAdmin', () => ({
 vi.mock('@/pages/admin/OrganizationDetailPage', () => ({
   OrganizationDetailPage: ({
     organizationId,
-    backLink
+    backLink,
+    onUserSelect,
+    onGroupSelect
   }: {
     organizationId?: string | null;
     backLink?: React.ReactNode;
+    onUserSelect?: (userId: string) => void;
+    onGroupSelect?: (groupId: string) => void;
   }) => (
     <div data-testid="orgs-admin-detail">
       <span data-testid="detail-org-id">{organizationId}</span>
+      <button
+        type="button"
+        data-testid="select-org-user"
+        onClick={() => onUserSelect?.('user-123')}
+      >
+        Select User
+      </button>
+      <button
+        type="button"
+        data-testid="select-org-group"
+        onClick={() => onGroupSelect?.('group-456')}
+      >
+        Select Group
+      </button>
+      {backLink}
+    </div>
+  )
+}));
+
+vi.mock('@/pages/admin/UsersAdminDetail', () => ({
+  UsersAdminDetail: ({
+    userId,
+    backLink
+  }: {
+    userId?: string | null;
+    backLink?: React.ReactNode;
+  }) => (
+    <div data-testid="orgs-admin-user-detail">
+      <span data-testid="detail-user-id">{userId}</span>
+      {backLink}
+    </div>
+  )
+}));
+
+vi.mock('@/pages/admin/GroupDetailPage', () => ({
+  GroupDetailPage: ({
+    groupId,
+    backLink
+  }: {
+    groupId?: string | null;
+    backLink?: React.ReactNode;
+  }) => (
+    <div data-testid="orgs-admin-group-detail">
+      <span data-testid="detail-group-id">{groupId}</span>
       {backLink}
     </div>
   )
@@ -128,6 +176,50 @@ describe('AdminOrganizationsWindow', () => {
     expect(screen.getByTestId('orgs-admin-list')).toBeInTheDocument();
     expect(screen.getByTestId('window-title')).toHaveTextContent(
       'Organizations Admin'
+    );
+  });
+
+  it('navigates to user detail from organization view', async () => {
+    const user = userEvent.setup();
+    render(<AdminOrganizationsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-org-btn'));
+    await user.click(screen.getByTestId('select-org-user'));
+
+    expect(screen.getByTestId('orgs-admin-user-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('detail-user-id')).toHaveTextContent('user-123');
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Edit User');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Back to Organization' })
+    );
+
+    expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Organization'
+    );
+  });
+
+  it('navigates to group detail from organization view', async () => {
+    const user = userEvent.setup();
+    render(<AdminOrganizationsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-org-btn'));
+    await user.click(screen.getByTestId('select-org-group'));
+
+    expect(screen.getByTestId('orgs-admin-group-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('detail-group-id')).toHaveTextContent(
+      'group-456'
+    );
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Edit Group');
+
+    await user.click(
+      screen.getByRole('button', { name: 'Back to Organization' })
+    );
+
+    expect(screen.getByTestId('orgs-admin-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Organization'
     );
   });
 
