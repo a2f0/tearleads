@@ -56,15 +56,14 @@ export function VideoPlaylistsSidebar({
   useEffect(() => {
     if (refreshToken === undefined) return;
 
-    if (lastRefreshTokenRef.current === null) {
-      lastRefreshTokenRef.current = refreshToken;
-      return;
-    }
-
-    if (lastRefreshTokenRef.current !== refreshToken) {
-      lastRefreshTokenRef.current = refreshToken;
+    if (
+      lastRefreshTokenRef.current !== null &&
+      lastRefreshTokenRef.current !== refreshToken
+    ) {
       void refetch();
     }
+
+    lastRefreshTokenRef.current = refreshToken;
   }, [refreshToken, refetch]);
 
   const handleMouseDown = useCallback(

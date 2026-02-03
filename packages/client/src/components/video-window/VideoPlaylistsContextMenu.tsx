@@ -33,18 +33,10 @@ export function VideoPlaylistsContextMenu({
       }
     };
 
-    const handleMouseDown = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
     document.addEventListener('keydown', handleKeyDown);
-    document.addEventListener('mousedown', handleMouseDown);
 
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
-      document.removeEventListener('mousedown', handleMouseDown);
     };
   }, [onClose]);
 
