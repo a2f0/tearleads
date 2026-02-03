@@ -1,5 +1,5 @@
 import { Pencil, Trash2 } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { zIndex } from '@/constants/zIndex';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
@@ -21,8 +21,31 @@ export function VideoPlaylistsContextMenu({
   onRename,
   onDelete
 }: VideoPlaylistsContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
   const handleBackdropClick = useCallback(() => {
     onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleMouseDown);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleMouseDown);
+    };
   }, [onClose]);
 
   const handleRename = () => {
@@ -46,6 +69,7 @@ export function VideoPlaylistsContextMenu({
         data-testid="video-playlist-context-menu-backdrop"
       />
       <div
+        ref={menuRef}
         className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
         style={{
           left: x,
