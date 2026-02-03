@@ -84,20 +84,21 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    ```bash
    git fetch origin <baseRefName> >/dev/null
-   git rebase -X theirs origin/<baseRefName> >/dev/null
+   git rebase origin/<baseRefName> >/dev/null
    ```
 
    If rebase conflicts:
-   - Prefer upstream changes and attempt an automatic resolution:
+   - **Preserve main branch changes** (features already merged to main must not be reverted):
      - List conflicts: `git diff --name-only --diff-filter=U`
-     - For each conflicted file, checkout upstream: `git checkout --theirs <file>`
+     - For each conflicted file, **keep the main branch version**: `git checkout --ours <file>`
+       - NOTE: During rebase, `--ours` refers to the branch being rebased ONTO (main), not the PR branch. This is the opposite of `git merge`.
      - Stage all resolved files: `git add <file>`
      - Continue: `git rebase --continue`
-   - If conflicts persist after preferring upstream:
+   - If conflicts persist or require manual intervention:
      - Run `git rebase --abort` to restore the branch
-     - List the remaining conflicting files
+     - List the conflicting files
      - Clear the queued status with `clearQueued.sh`
-     - Stop and ask the user for help.
+     - Stop and ask the user for help - do NOT automatically resolve in a way that could revert merged features.
 
    If `has_bumped_version` is `false`, run `bumpVersion.sh`, stage the version files, amend the last commit with a GPG-signed message, and set `has_bumped_version = true`. Force push after rebase:
 

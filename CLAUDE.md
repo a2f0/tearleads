@@ -86,6 +86,26 @@ Issue update guidelines:
 
 - If CI or local runs fail coverage thresholds, add tests to raise coverage and re-run the relevant `test:coverage` target locally before proceeding.
 
+### Merge Conflict Resolution (CRITICAL)
+
+When resolving merge conflicts during rebase, **always preserve changes that are already in main**. Features merged to main must not be reverted.
+
+**Git rebase terminology is counterintuitive:**
+
+- During `git rebase`, `--ours` refers to the branch being rebased ONTO (main/upstream)
+- During `git rebase`, `--theirs` refers to the branch being rebased (your PR branch)
+- This is the **opposite** of `git merge`
+
+To keep main's version during a rebase conflict:
+
+```bash
+git checkout --ours <conflicted-file>   # Keeps main's version
+git add <conflicted-file>
+git rebase --continue
+```
+
+If conflicts are complex or you're unsure, abort and ask for help rather than risk reverting merged features.
+
 ## Binary Files Policy
 
 - Do not add binary files to the repo. Prefer SVG or external URLs.
