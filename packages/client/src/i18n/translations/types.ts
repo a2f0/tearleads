@@ -5,6 +5,8 @@ export interface CommonTranslations {
   settings: string;
   theme: string;
   themeDescription: string;
+  create: string;
+  restore: string;
 }
 
 export interface MenuTranslations {

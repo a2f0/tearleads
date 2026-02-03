@@ -7,7 +7,9 @@ export const es = {
     selectLanguage: 'Seleccionar idioma',
     settings: 'Configuración',
     theme: 'Tema',
-    themeDescription: 'Elija su tema de color preferido'
+    themeDescription: 'Elija su tema de color preferido',
+    create: 'Crear',
+    restore: 'Restaurar'
   },
   menu: {
     home: 'Inicio',

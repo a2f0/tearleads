@@ -7,7 +7,9 @@ export const ua = {
     selectLanguage: 'Вибрати мову',
     settings: 'Налаштування',
     theme: 'Тема',
-    themeDescription: 'Виберіть бажану колірну тему'
+    themeDescription: 'Виберіть бажану колірну тему',
+    create: 'Створити',
+    restore: 'Відновити'
   },
   menu: {
     home: 'Головна',
