@@ -8,6 +8,7 @@ import { AdminUsersWindow } from '@/components/admin-users-window';
 import { AdminWindow } from '@/components/admin-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
+import { BackupWindow } from '@/components/backup-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ConsoleWindow } from '@/components/console-window';
@@ -93,6 +94,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   sync: { Component: SyncWindow },
   v86: { Component: V86Window },
   vfs: { Component: VfsWindow },
+  backup: { Component: BackupWindow },
   'mls-chat': { Component: MlsChatWindow }
 };
 
