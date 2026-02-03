@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   detect-changes:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 2
     outputs:
       core: ${{ steps.filter.outputs.core }}
@@ -91,7 +91,7 @@ jobs:
           retention-days: 7
 
   build:
-    runs-on: ubuntu-latest
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 20
 
     steps:
@@ -113,11 +113,17 @@ jobs:
           cache: 'pnpm'
 
       - name: Setup Ruby
+        if: vars.USE_SELF_HOSTED != 'true'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3.0'
           bundler-cache: true
           working-directory: packages/client
+
+      - name: Install Ruby dependencies (self-hosted)
+        if: vars.USE_SELF_HOSTED == 'true'
+        run: bundle install
+        working-directory: packages/client
 
       - name: Install dependencies
         run: pnpm install
@@ -150,13 +156,14 @@ jobs:
         run: pnpm lint:rubocop
 
       - name: Setup Python
+        if: vars.USE_SELF_HOSTED != 'true'
         uses: actions/setup-python@v5
         with:
           python-version-file: '.python-version'
           cache: 'pip'
 
       - name: Install ansible-lint
-        run: pip install ansible-lint ansible passlib
+        run: pip3 install ansible-lint ansible passlib
 
       - name: Cache Ansible collections
         uses: actions/cache@v4

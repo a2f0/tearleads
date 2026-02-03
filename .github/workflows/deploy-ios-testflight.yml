@@ -2,6 +2,7 @@ name: Deploy iOS to TestFlight
 
 on:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -9,7 +10,7 @@ permissions:
 jobs:
   deploy:
     name: Deploy to TestFlight
-    runs-on: macos-latest
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'macos-latest' }}
     timeout-minutes: 15
     env:
       XCODE_VERSION: 'latest-stable'
