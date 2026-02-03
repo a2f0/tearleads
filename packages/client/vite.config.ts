@@ -1,10 +1,13 @@
 import path from 'node:path';
-import { defineConfig } from 'vite';
+import { defineConfig, type PluginOption } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
+import { visualizer } from 'rollup-plugin-visualizer';
 import packageJson from './package.json';
 import { pwaOptions } from './pwa.options';
+
+const analyzeBundle = process.env['ANALYZE_BUNDLE'] === 'true';
 
 export default defineConfig(({ mode }) => ({
   define: {
@@ -17,7 +20,14 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     react(),
     tailwindcss(),
-    VitePWA(pwaOptions)
+    VitePWA(pwaOptions),
+    analyzeBundle &&
+      (visualizer({
+        filename: 'dist/stats.html',
+        open: false,
+        gzipSize: true,
+        brotliSize: true
+      }) as unknown as PluginOption)
   ],
   resolve: {
     alias: {
@@ -81,7 +91,11 @@ export default defineConfig(({ mode }) => ({
           // UI dependencies
           'vendor-ui': ['lucide-react', 'class-variance-authority'],
           // PDF viewer (lazy-loaded when viewing documents)
-          'vendor-pdf': ['react-pdf']
+          'vendor-pdf': ['react-pdf'],
+          // Charts (lazy-loaded in analytics)
+          'vendor-charts': ['recharts'],
+          // Markdown editor (lazy-loaded in notes)
+          'vendor-markdown': ['@uiw/react-md-editor']
         }
       }
     }

@@ -1,24 +1,18 @@
-import { createMarkdownToolbarFilter } from '@rapid/notes';
 import { useTheme } from '@rapid/ui';
-import MDEditor, { commands } from '@uiw/react-md-editor';
 import { and, eq } from 'drizzle-orm';
 import { Calendar, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { LazyMarkdownEditor } from '@/components/markdown-editor';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { EditableTitle } from '@/components/ui/editable-title';
-import { zIndex } from '@/constants/zIndex';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { notes } from '@/db/schema';
 import { formatDate } from '@/lib/utils';
-
-const markdownToolbarCommandsFilter = createMarkdownToolbarFilter(
-  zIndex.tooltip
-);
 
 interface NoteInfo {
   id: string;
@@ -233,25 +227,12 @@ export function NoteDetail() {
             data-testid="note-title"
           />
 
-          <div
-            className="min-h-0 flex-1"
-            data-testid="markdown-editor"
-            data-color-mode={editorColorMode}
-          >
-            <MDEditor
+          <div className="min-h-0 flex-1" data-testid="markdown-editor">
+            <LazyMarkdownEditor
               value={content}
               onChange={handleContentChange}
-              height="100%"
-              preview="edit"
+              colorMode={editorColorMode}
               hideToolbar={!showToolbar}
-              visibleDragbar={false}
-              commandsFilter={markdownToolbarCommandsFilter}
-              extraCommands={[
-                commands.codeEdit,
-                commands.codePreview,
-                commands.divider,
-                commands.fullscreen
-              ]}
             />
           </div>
 

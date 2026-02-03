@@ -190,9 +190,10 @@ test.describe('Notes Editor Theme Integration', () => {
     const htmlElement = page.locator('html');
     await expect(htmlElement).toHaveClass(/monochrome/);
 
-    // Get editor wrapper and check data-color-mode
+    // Get editor wrapper and check data-color-mode (now on child element)
     const editorWrapper = page.getByTestId('markdown-editor');
-    await expect(editorWrapper).toHaveAttribute('data-color-mode', 'dark');
+    const colorModeElement = editorWrapper.locator('[data-color-mode]');
+    await expect(colorModeElement).toHaveAttribute('data-color-mode', 'dark');
 
     // Get computed styles from the editor element (toolbar is hidden by default)
     const editorBg = await getComputedBackgroundColor(page, '.w-md-editor');
@@ -223,9 +224,10 @@ test.describe('Notes Editor Theme Integration', () => {
     const htmlElement = page.locator('html');
     await expect(htmlElement).toHaveClass(/tokyo-night/);
 
-    // Get editor wrapper and check data-color-mode
+    // Get editor wrapper and check data-color-mode (now on child element)
     const editorWrapper = page.getByTestId('markdown-editor');
-    await expect(editorWrapper).toHaveAttribute('data-color-mode', 'dark');
+    const colorModeElement = editorWrapper.locator('[data-color-mode]');
+    await expect(colorModeElement).toHaveAttribute('data-color-mode', 'dark');
 
     // Get computed styles from the editor element (toolbar is hidden by default)
     const editorBg = await getComputedBackgroundColor(page, '.w-md-editor');
@@ -256,9 +258,10 @@ test.describe('Notes Editor Theme Integration', () => {
     const htmlElement = page.locator('html');
     await expect(htmlElement).toHaveClass(/light/);
 
-    // Get editor wrapper and check data-color-mode
+    // Get editor wrapper and check data-color-mode (now on child element)
     const editorWrapper = page.getByTestId('markdown-editor');
-    await expect(editorWrapper).toHaveAttribute('data-color-mode', 'light');
+    const colorModeElement = editorWrapper.locator('[data-color-mode]');
+    await expect(colorModeElement).toHaveAttribute('data-color-mode', 'light');
 
     // Get computed styles from the editor elements
     const editorBg = await getComputedBackgroundColor(page, '.w-md-editor');
@@ -288,9 +291,10 @@ test.describe('Notes Editor Theme Integration', () => {
     const htmlElement = page.locator('html');
     await expect(htmlElement).toHaveClass(/dark/);
 
-    // Get editor wrapper and check data-color-mode
+    // Get editor wrapper and check data-color-mode (now on child element)
     const editorWrapper = page.getByTestId('markdown-editor');
-    await expect(editorWrapper).toHaveAttribute('data-color-mode', 'dark');
+    const colorModeElement = editorWrapper.locator('[data-color-mode]');
+    await expect(colorModeElement).toHaveAttribute('data-color-mode', 'dark');
 
     // Get computed styles from the editor elements
     const editorBg = await getComputedBackgroundColor(page, '.w-md-editor');
