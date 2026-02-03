@@ -160,20 +160,21 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    ```bash
    git fetch origin <baseRefName>
-   git rebase -X theirs origin/<baseRefName>
+   git rebase origin/<baseRefName>
    ```
 
    - If rebase conflicts occur:
-     1. Prefer upstream changes and attempt an automatic resolution:
+     1. **Preserve main branch changes** (features already merged to main must not be reverted):
         - List conflicts: `git diff --name-only --diff-filter=U`
-        - For each conflicted file, checkout upstream: `git checkout --theirs <file>`
+        - For each conflicted file, **keep the main branch version**: `git checkout --ours <file>`
+          - NOTE: During rebase, `--ours` refers to the branch being rebased ONTO (main), not the PR branch. This is the opposite of `git merge`.
         - Stage all resolved files: `git add <file>`
         - Continue: `git rebase --continue`
-     2. If conflicts persist after preferring upstream:
+     2. If conflicts persist or require manual intervention:
         - Run `git rebase --abort` to restore the branch
-        - List the remaining conflicting files
+        - List the conflicting files
         - Clear the queued status with `clearQueued.sh`
-        - Stop and ask the user for help.
+        - Stop and ask the user for help - do NOT automatically resolve in a way that could revert merged features.
 
    **Bump version immediately after successful rebase** (if `has_bumped_version` is `false`):
 
