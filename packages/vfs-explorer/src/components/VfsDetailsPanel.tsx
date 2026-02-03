@@ -1,7 +1,18 @@
-import { FileBox, Folder, Layers, Loader2, Lock } from 'lucide-react';
+import {
+  Clipboard,
+  FileBox,
+  Folder,
+  Layers,
+  Loader2,
+  Lock
+} from 'lucide-react';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
-import { useDatabaseState } from '../context';
+import {
+  useDatabaseState,
+  useVfsClipboard,
+  useVfsExplorerContext
+} from '../context';
 import {
   useVfsAllItems,
   useVfsFolderContents,
@@ -43,6 +54,13 @@ interface VfsDetailsPanelProps {
   onItemDownload?: ((item: DisplayItem) => void) | undefined;
   /** Callback when sharing is requested via context menu */
   onItemShare?: ((item: DisplayItem) => void) | undefined;
+  /** Callback when paste is requested via context menu */
+  onPaste?: ((targetFolderId: string) => void) | undefined;
+}
+
+interface EmptySpaceContextMenuState {
+  x: number;
+  y: number;
 }
 
 interface ContextMenuState {
@@ -62,13 +80,20 @@ export function VfsDetailsPanel({
   onItemOpen,
   onItemsChange,
   onItemDownload,
-  onItemShare
+  onItemShare,
+  onPaste
 }: VfsDetailsPanelProps) {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseState();
+  const {
+    ui: { ContextMenu, ContextMenuItem }
+  } = useVfsExplorerContext();
+  const { hasItems } = useVfsClipboard();
   // Treat null folderId as unfiled (default view)
   const isUnfiled = folderId === UNFILED_FOLDER_ID || folderId === null;
   const isAllItems = folderId === ALL_ITEMS_FOLDER_ID;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
+    useState<EmptySpaceContextMenuState | null>(null);
 
   const handleItemClick = useCallback(
     (e: MouseEvent, itemId: string) => {
@@ -93,7 +118,19 @@ export function VfsDetailsPanel({
   const handleContainerClick = useCallback(() => {
     onItemSelect?.(null);
     setContextMenu(null);
+    setEmptySpaceContextMenu(null);
   }, [onItemSelect]);
+
+  const handleEmptySpaceContextMenu = useCallback(
+    (e: MouseEvent) => {
+      e.preventDefault();
+      // Only show paste option if we have a real folder (not unfiled or all items)
+      if (!isUnfiled && !isAllItems && folderId) {
+        setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
+      }
+    },
+    [isUnfiled, isAllItems, folderId]
+  );
 
   const handleContextMenu = useCallback(
     (e: MouseEvent, item: DisplayItem) => {
@@ -249,7 +286,11 @@ export function VfsDetailsPanel({
       </div>
       {/* biome-ignore lint/a11y/noStaticElementInteractions: click-to-deselect on container background */}
       {/* biome-ignore lint/a11y/useKeyWithClickEvents: keyboard navigation is a separate enhancement */}
-      <div className="flex-1 overflow-y-auto" onClick={handleContainerClick}>
+      <div
+        className="flex-1 overflow-y-auto"
+        onClick={handleContainerClick}
+        onContextMenu={handleEmptySpaceContextMenu}
+      >
         {viewMode === 'table' ? (
           <table className="w-full">
             <thead className="sticky top-0 bg-background">
@@ -336,6 +377,23 @@ export function VfsDetailsPanel({
           onDownload={handleContextMenuDownload}
           onShare={handleContextMenuShare}
         />
+      )}
+      {emptySpaceContextMenu && hasItems && onPaste && folderId && (
+        <ContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<Clipboard className="h-4 w-4" />}
+            onClick={() => {
+              onPaste(folderId);
+              setEmptySpaceContextMenu(null);
+            }}
+          >
+            Paste
+          </ContextMenuItem>
+        </ContextMenu>
       )}
     </div>
   );

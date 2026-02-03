@@ -31,8 +31,18 @@ vi.mock('../context', () => ({
         <button type="button" onClick={onClick}>
           {children}
         </button>
-      )
+      ),
+      ContextMenuSeparator: () => <hr />
     }
+  })),
+  useVfsClipboard: vi.fn(() => ({
+    clipboard: { items: [], operation: null },
+    cut: vi.fn(),
+    copy: vi.fn(),
+    clear: vi.fn(),
+    hasItems: false,
+    isCut: false,
+    isCopy: false
   }))
 }));
 

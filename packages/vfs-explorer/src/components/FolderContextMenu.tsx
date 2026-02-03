@@ -1,5 +1,13 @@
-import { FolderPlus, Pencil, Share2, Trash2 } from 'lucide-react';
-import { useVfsExplorerContext } from '../context';
+import {
+  Clipboard,
+  ClipboardCopy,
+  Copy,
+  FolderPlus,
+  Pencil,
+  Share2,
+  Trash2
+} from 'lucide-react';
+import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import type { VfsFolderNode } from '../hooks';
 
 interface FolderContextMenuProps {
@@ -11,6 +19,7 @@ interface FolderContextMenuProps {
   onRename: (folder: VfsFolderNode) => void;
   onDelete: (folder: VfsFolderNode) => void;
   onShare?: ((folder: VfsFolderNode) => void) | undefined;
+  onPaste?: ((targetFolderId: string) => void) | undefined;
 }
 
 export function FolderContextMenu({
@@ -21,12 +30,20 @@ export function FolderContextMenu({
   onNewSubfolder,
   onRename,
   onDelete,
-  onShare
+  onShare,
+  onPaste
 }: FolderContextMenuProps) {
   const {
     ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator },
     vfsShareApi
   } = useVfsExplorerContext();
+  const { cut, copy, hasItems } = useVfsClipboard();
+
+  const clipboardItem = {
+    id: folder.id,
+    objectType: 'folder' as const,
+    name: folder.name
+  };
 
   return (
     <ContextMenu x={x} y={y} onClose={onClose}>
@@ -57,6 +74,36 @@ export function FolderContextMenu({
           }}
         >
           Sharing
+        </ContextMenuItem>
+      )}
+      <ContextMenuSeparator />
+      <ContextMenuItem
+        icon={<ClipboardCopy className="h-4 w-4" />}
+        onClick={() => {
+          cut([clipboardItem]);
+          onClose();
+        }}
+      >
+        Cut
+      </ContextMenuItem>
+      <ContextMenuItem
+        icon={<Copy className="h-4 w-4" />}
+        onClick={() => {
+          copy([clipboardItem]);
+          onClose();
+        }}
+      >
+        Copy
+      </ContextMenuItem>
+      {hasItems && onPaste && (
+        <ContextMenuItem
+          icon={<Clipboard className="h-4 w-4" />}
+          onClick={() => {
+            onPaste(folder.id);
+            onClose();
+          }}
+        >
+          Paste
         </ContextMenuItem>
       )}
       <ContextMenuSeparator />

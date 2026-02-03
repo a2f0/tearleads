@@ -24,9 +24,20 @@ vi.mock('../context', () => ({
         <button type="button" onClick={onClick}>
           {children}
         </button>
-      )
+      ),
+      ContextMenuSeparator: () => <hr />
     }
-  })
+  }),
+  useVfsClipboard: () => ({
+    clipboard: { items: [], operation: null },
+    cut: vi.fn(),
+    copy: vi.fn(),
+    clear: vi.fn(),
+    hasItems: false,
+    isCut: false,
+    isCopy: false
+  }),
+  VfsClipboardProvider: ({ children }: { children: ReactNode }) => children
 }));
 
 // Create stable mock return values to prevent infinite loops
@@ -52,6 +63,12 @@ const mockMoveVfsItem = {
   error: null
 };
 
+const mockCopyVfsItem = {
+  copyItem: vi.fn(),
+  isCopying: false,
+  error: null
+};
+
 const mockEnsureVfsRoot = {
   isReady: true,
   isCreating: false,
@@ -66,6 +83,7 @@ vi.mock('../hooks', () => ({
   useVfsUnfiledItems: vi.fn(() => mockUnfiledItems),
   useVfsAllItems: vi.fn(() => mockAllItems),
   useMoveVfsItem: vi.fn(() => mockMoveVfsItem),
+  useCopyVfsItem: vi.fn(() => mockCopyVfsItem),
   useEnsureVfsRoot: vi.fn(() => mockEnsureVfsRoot)
 }));
 

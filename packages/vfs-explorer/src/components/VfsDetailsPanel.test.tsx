@@ -10,7 +10,34 @@ const mockDatabaseState: DatabaseState = {
 };
 
 vi.mock('../context', () => ({
-  useDatabaseState: () => mockDatabaseState
+  useDatabaseState: () => mockDatabaseState,
+  useVfsExplorerContext: () => ({
+    ui: {
+      ContextMenu: ({ children }: { children: React.ReactNode }) => (
+        <div data-testid="mock-context-menu">{children}</div>
+      ),
+      ContextMenuItem: ({
+        children,
+        onClick
+      }: {
+        children: React.ReactNode;
+        onClick?: () => void;
+      }) => (
+        <button type="button" onClick={onClick}>
+          {children}
+        </button>
+      )
+    }
+  }),
+  useVfsClipboard: () => ({
+    clipboard: { items: [], operation: null },
+    cut: vi.fn(),
+    copy: vi.fn(),
+    clear: vi.fn(),
+    hasItems: false,
+    isCut: false,
+    isCopy: false
+  })
 }));
 
 // Mock the hooks

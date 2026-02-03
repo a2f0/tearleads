@@ -9,7 +9,8 @@ import {
 } from '@dnd-kit/core';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { UNFILED_FOLDER_ID } from '../constants';
-import { useMoveVfsItem, type VfsFolderNode } from '../hooks';
+import { useVfsClipboard, VfsClipboardProvider } from '../context';
+import { useCopyVfsItem, useMoveVfsItem, type VfsFolderNode } from '../hooks';
 import { SharingPanel } from './SharingPanel';
 import { type DisplayItem, VfsDetailsPanel } from './VfsDetailsPanel';
 import type { DragItemData } from './VfsDraggableItem';
@@ -36,7 +37,15 @@ interface VfsExplorerProps {
   onItemDownload?: ((item: VfsOpenItem) => void) | undefined;
 }
 
-export function VfsExplorer({
+export function VfsExplorer(props: VfsExplorerProps) {
+  return (
+    <VfsClipboardProvider>
+      <VfsExplorerInner {...props} />
+    </VfsClipboardProvider>
+  );
+}
+
+function VfsExplorerInner({
   className,
   compact,
   viewMode = 'table',
@@ -56,7 +65,10 @@ export function VfsExplorer({
   const [sharingItem, setSharingItem] = useState<DisplayItem | null>(null);
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const [items, setItems] = useState<DisplayItem[]>([]);
+  const [folderRefreshToken, setFolderRefreshToken] = useState(0);
   const { moveItem } = useMoveVfsItem();
+  const { copyItem } = useCopyVfsItem();
+  const { clipboard, clear: clearClipboard, isCut } = useVfsClipboard();
 
   // Configure pointer sensor with distance constraint to allow double-clicks
   const sensors = useSensors(
@@ -154,6 +166,45 @@ export function VfsExplorer({
     [moveItem, onItemMoved]
   );
 
+  const handlePaste = useCallback(
+    async (targetFolderId: string) => {
+      if (clipboard.items.length === 0) return;
+
+      // Don't allow pasting to unfiled folder
+      if (targetFolderId === UNFILED_FOLDER_ID) return;
+
+      try {
+        for (const item of clipboard.items) {
+          // Don't allow pasting a folder into itself
+          if (item.objectType === 'folder' && item.id === targetFolderId) {
+            continue;
+          }
+
+          if (isCut) {
+            await moveItem(item.id, targetFolderId);
+          } else {
+            await copyItem(item.id, targetFolderId);
+          }
+        }
+
+        // Clear clipboard after cut (but not after copy)
+        if (isCut) {
+          clearClipboard();
+        }
+
+        // Refresh the view
+        setFolderRefreshToken((prev) => prev + 1);
+        onItemMoved?.();
+      } catch (err) {
+        console.error('Failed to paste items:', err);
+      }
+    },
+    [clipboard.items, isCut, moveItem, copyItem, clearClipboard, onItemMoved]
+  );
+
+  // Combine external refresh token with internal folder refresh token
+  const combinedRefreshToken = (refreshToken ?? 0) + folderRefreshToken;
+
   return (
     <DndContext
       sensors={sensors}
@@ -169,14 +220,15 @@ export function VfsExplorer({
             selectedFolderId={selectedFolderId}
             onFolderSelect={handleFolderSelect}
             compact={compact}
-            refreshToken={refreshToken}
+            refreshToken={combinedRefreshToken}
             onFolderShare={handleFolderShare}
+            onPaste={handlePaste}
           />
           <VfsDetailsPanel
             folderId={selectedFolderId}
             viewMode={viewMode}
             compact={compact}
-            refreshToken={refreshToken}
+            refreshToken={combinedRefreshToken}
             selectedItemId={selectedItemId}
             onItemSelect={setSelectedItemId}
             onFolderSelect={handleFolderSelect}
@@ -184,6 +236,7 @@ export function VfsExplorer({
             onItemDownload={onItemDownload}
             onItemsChange={setItems}
             onItemShare={handleItemShare}
+            onPaste={handlePaste}
           />
           {sharingItem && (
             <SharingPanel
