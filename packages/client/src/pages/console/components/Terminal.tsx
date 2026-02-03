@@ -176,7 +176,7 @@ export function Terminal({ className, autoFocus = true }: TerminalProps) {
     terminal.appendLine('Rapid Terminal v1.0', 'output');
     terminal.appendLine('Type "help" for available commands.', 'output');
     terminal.appendLine('', 'output');
-  }, [terminal.appendLine]);
+  }, [terminal]);
 
   return (
     <div
