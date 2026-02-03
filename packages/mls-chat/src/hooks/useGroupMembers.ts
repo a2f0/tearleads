@@ -112,8 +112,8 @@ export function useGroupMembers(
           body: JSON.stringify({
             userId,
             keyPackageRef: kpData.keyPackage.keyPackageRef,
-            commit: btoa(String.fromCharCode(...commit)),
-            welcome: btoa(String.fromCharCode(...welcome)),
+            commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
+            welcome: btoa(String.fromCharCode.apply(null, Array.from(welcome))),
             newEpoch
           })
         }
@@ -162,7 +162,7 @@ export function useGroupMembers(
           method: 'DELETE',
           headers,
           body: JSON.stringify({
-            commit: btoa(String.fromCharCode(...commit)),
+            commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
             newEpoch
           })
         }

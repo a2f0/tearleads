@@ -1118,26 +1118,17 @@ router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
         ]
       );
 
-      // Store commit as message
+      // Store commit as message with atomic sequence number generation
       const commitId = randomUUID();
-      const seqResult = await client.query<{ max_seq: string | null }>(
-        `SELECT MAX(sequence_number)::text as max_seq FROM mls_messages WHERE group_id = $1`,
-        [groupId]
-      );
-      const nextSeq = parseInt(seqResult.rows[0]?.max_seq ?? '0', 10) + 1;
-
       await client.query(
         `INSERT INTO mls_messages (
           id, group_id, sender_user_id, epoch, ciphertext, message_type, sequence_number, created_at
-        ) VALUES ($1, $2, $3, $4, $5, 'commit', $6, NOW())`,
-        [
-          commitId,
-          groupId,
-          claims.sub,
-          payload.newEpoch,
-          payload.commit,
-          nextSeq
-        ]
+        ) VALUES (
+          $1, $2, $3, $4, $5, 'commit',
+          COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
+          NOW()
+        )`,
+        [commitId, groupId, claims.sub, payload.newEpoch, payload.commit]
       );
 
       // Update group epoch
@@ -1367,26 +1358,17 @@ router.delete(
           return;
         }
 
-        // Store commit
+        // Store commit with atomic sequence number generation
         const commitId = randomUUID();
-        const seqResult = await client.query<{ max_seq: string | null }>(
-          `SELECT MAX(sequence_number)::text as max_seq FROM mls_messages WHERE group_id = $1`,
-          [groupId]
-        );
-        const nextSeq = parseInt(seqResult.rows[0]?.max_seq ?? '0', 10) + 1;
-
         await client.query(
           `INSERT INTO mls_messages (
             id, group_id, sender_user_id, epoch, ciphertext, message_type, sequence_number, created_at
-          ) VALUES ($1, $2, $3, $4, $5, 'commit', $6, NOW())`,
-          [
-            commitId,
-            groupId,
-            claims.sub,
-            payload.newEpoch,
-            payload.commit,
-            nextSeq
-          ]
+          ) VALUES (
+            $1, $2, $3, $4, $5, 'commit',
+            COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
+            NOW()
+          )`,
+          [commitId, groupId, claims.sub, payload.newEpoch, payload.commit]
         );
 
         // Update group epoch
@@ -1863,13 +1845,13 @@ router.post('/groups/:groupId/state', async (req: Request, res: Response) => {
       `INSERT INTO mls_group_state (
         id, group_id, user_id, epoch, encrypted_state, state_hash, created_at
       ) VALUES ($1, $2, $3, $4, $5, $6, NOW())
-      ON CONFLICT (group_id, user_id) WHERE epoch <= $4
-      DO UPDATE SET
-        id = $1,
-        epoch = $4,
-        encrypted_state = $5,
-        state_hash = $6,
+      ON CONFLICT (group_id, user_id) DO UPDATE SET
+        id = EXCLUDED.id,
+        epoch = EXCLUDED.epoch,
+        encrypted_state = EXCLUDED.encrypted_state,
+        state_hash = EXCLUDED.state_hash,
         created_at = NOW()
+      WHERE mls_group_state.epoch <= EXCLUDED.epoch
       RETURNING id, created_at`,
       [
         id,
@@ -1881,29 +1863,11 @@ router.post('/groups/:groupId/state', async (req: Request, res: Response) => {
       ]
     );
 
-    // Handle conflict by trying to update
     if (result.rows.length === 0) {
-      const updateResult = await pool.query<{ id: string; created_at: Date }>(
-        `UPDATE mls_group_state SET
-          id = $1, epoch = $4, encrypted_state = $5, state_hash = $6, created_at = NOW()
-         WHERE group_id = $2 AND user_id = $3 AND epoch < $4
-         RETURNING id, created_at`,
-        [
-          id,
-          groupId,
-          claims.sub,
-          payload.epoch,
-          payload.encryptedState,
-          payload.stateHash
-        ]
-      );
-
-      if (updateResult.rows.length === 0) {
-        res
-          .status(409)
-          .json({ error: 'State with same or newer epoch already exists' });
-        return;
-      }
+      res
+        .status(409)
+        .json({ error: 'State with a newer epoch already exists' });
+      return;
     }
 
     const state: MlsGroupState = {

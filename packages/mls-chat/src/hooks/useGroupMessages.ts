@@ -166,7 +166,9 @@ export function useGroupMessages(
             method: 'POST',
             headers,
             body: JSON.stringify({
-              ciphertext: btoa(String.fromCharCode(...ciphertext)),
+              ciphertext: btoa(
+                String.fromCharCode.apply(null, Array.from(ciphertext))
+              ),
               contentType,
               epoch,
               messageType: 'application'

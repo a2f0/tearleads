@@ -436,7 +436,7 @@ export class MlsClient {
   }
 
   private bytesToBase64(bytes: Uint8Array): string {
-    return btoa(String.fromCharCode(...bytes));
+    return btoa(String.fromCharCode.apply(null, Array.from(bytes)));
   }
 
   /**

@@ -42,11 +42,12 @@ export const MlsChatWindow: FC<MlsChatWindowProps> = ({
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Scroll to bottom on new messages
+  // biome-ignore lint/correctness/useExhaustiveDependencies: messages dependency triggers scroll on new messages
   useEffect(() => {
     if (messagesEndRef.current) {
       messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, []);
+  }, [messages]);
 
   // Handle scroll for infinite loading
   const handleScroll = useCallback(() => {

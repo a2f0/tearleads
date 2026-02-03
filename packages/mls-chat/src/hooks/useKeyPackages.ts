@@ -78,7 +78,9 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
           const kp = await client.generateKeyPackage();
           newKeyPackages.push({
             keyPackageRef: kp.ref,
-            keyPackageData: btoa(String.fromCharCode(...kp.keyPackageBytes)),
+            keyPackageData: btoa(
+              String.fromCharCode.apply(null, Array.from(kp.keyPackageBytes))
+            ),
             cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
           });
         }
