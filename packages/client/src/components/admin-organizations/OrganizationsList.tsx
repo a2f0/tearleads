@@ -1,6 +1,7 @@
 import type { Organization } from '@rapid/shared';
-import { Building2, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Building2, Copy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -59,6 +60,18 @@ export function OrganizationsList({
     setOrganizations((prev) =>
       prev.filter((organization) => organization.id !== deleteDialog.id)
     );
+  };
+
+  const handleCopyId = async (organization: Organization) => {
+    try {
+      await navigator.clipboard.writeText(organization.id);
+      toast.success('Organization ID copied.');
+    } catch (err) {
+      console.error('Failed to copy organization id:', err);
+      toast.error('Failed to copy organization ID.');
+    } finally {
+      setContextMenu(null);
+    }
   };
 
   if (loading) {
@@ -163,6 +176,12 @@ export function OrganizationsList({
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
         >
+          <ContextMenuItem
+            icon={<Copy className="h-4 w-4" />}
+            onClick={() => handleCopyId(contextMenu.organization)}
+          >
+            Copy ID
+          </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
               setDeleteDialog(contextMenu.organization);

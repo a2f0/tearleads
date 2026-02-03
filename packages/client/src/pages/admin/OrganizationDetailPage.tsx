@@ -7,6 +7,8 @@ import type {
 import {
   Building2,
   Calendar,
+  Check,
+  Copy,
   Loader2,
   Pencil,
   Save,
@@ -17,6 +19,7 @@ import {
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { toast } from 'sonner';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -54,6 +57,7 @@ export function OrganizationDetailPage({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isIdCopied, setIsIdCopied] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState<OrganizationFormData | null>(null);
@@ -99,6 +103,16 @@ export function OrganizationDetailPage({
   useEffect(() => {
     void fetchOrganization();
   }, [fetchOrganization]);
+
+  useEffect(() => {
+    if (!isIdCopied) return;
+
+    const timerId = setTimeout(() => {
+      setIsIdCopied(false);
+    }, 2000);
+
+    return () => clearTimeout(timerId);
+  }, [isIdCopied]);
 
   const handleEditClick = useCallback(() => {
     if (!organization) return;
@@ -156,6 +170,22 @@ export function OrganizationDetailPage({
     await api.admin.organizations.delete(id);
     onDelete?.();
   };
+
+  const handleCopyId = useCallback(() => {
+    if (!organization) return;
+    const copy = async () => {
+      try {
+        await navigator.clipboard.writeText(organization.id);
+        setIsIdCopied(true);
+        toast.success('Organization ID copied.');
+      } catch (err) {
+        console.error('Failed to copy organization id:', err);
+        toast.error('Failed to copy organization ID.');
+      }
+    };
+
+    void copy();
+  }, [organization]);
 
   if (loading) {
     return (
@@ -257,6 +287,24 @@ export function OrganizationDetailPage({
             <Building2 className="h-5 w-5 text-muted-foreground" />
           </div>
           <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="font-mono text-muted-foreground text-xs">
+                {organization.id}
+              </p>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleCopyId}
+                aria-label="Copy organization id to clipboard"
+                data-testid="copy-organization-id"
+              >
+                {isIdCopied ? (
+                  <Check className="h-4 w-4 text-success" />
+                ) : (
+                  <Copy className="h-4 w-4" />
+                )}
+              </Button>
+            </div>
             {isEditing && formData ? (
               <div className="space-y-2">
                 <Input
