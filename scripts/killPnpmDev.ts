@@ -173,7 +173,8 @@ const sleep = (ms: number): Promise<void> =>
 
 const main = async (): Promise<void> => {
   // Skip if another dev process in this repo ran kill recently
-  if (isWithinCooldown()) {
+  // Use --force flag to bypass cooldown (for root dev script)
+  if (!process.argv.includes('--force') && isWithinCooldown()) {
     return;
   }
 
