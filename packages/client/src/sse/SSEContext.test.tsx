@@ -118,9 +118,10 @@ describe('SSEContext', () => {
   }
 
   describe('SSEProvider', () => {
-    it('starts disconnected when autoConnect is false', () => {
+    it('starts disconnected when autoConnect is false', async () => {
       const { result } = renderHook(() => useSSE(), { wrapper });
 
+      await flushAuthLoad();
       expect(result.current.connectionState).toBe('disconnected');
     });
 
