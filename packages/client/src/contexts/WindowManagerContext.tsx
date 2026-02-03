@@ -50,7 +50,7 @@ export type WindowType =
   | 'sync'
   | 'v86'
   | 'vfs'
-  | 'backup';
+  | 'mls-chat';
 
 export interface WindowOpenRequestPayloads {
   contacts: { contactId: string };

@@ -18,11 +18,11 @@ import {
   Home,
   ImageIcon,
   Key,
+  Lock,
   Mail,
   MessageSquare,
   Music,
   RefreshCw,
-  Save,
   Settings,
   Shield,
   StickyNote,
@@ -177,6 +177,13 @@ export const navItems: NavItem[] = [
     testId: 'chat-link'
   },
   {
+    path: '/mls-chat',
+    icon: Lock,
+    labelKey: 'mlsChat',
+    inMobileMenu: true,
+    testId: 'mls-chat-link'
+  },
+  {
     path: '/email',
     icon: Mail,
     labelKey: 'email',
@@ -233,13 +240,6 @@ export const navItems: NavItem[] = [
     testId: 'vfs-link'
   },
   {
-    path: '/backups',
-    icon: Save,
-    labelKey: 'backups',
-    inMobileMenu: true,
-    testId: 'backups-link'
-  },
-  {
     path: '/settings',
     icon: Settings,
     labelKey: 'settings',
@@ -282,7 +282,7 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/sync': 'sync',
   '/v86': 'v86',
   '/vfs': 'vfs',
-  '/backups': 'backup'
+  '/mls-chat': 'mls-chat'
 };
 
 export interface SidebarProps {
