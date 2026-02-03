@@ -568,34 +568,46 @@ router.post('/groups', async (req: Request, res: Response) => {
     const id = randomUUID();
     const now = new Date();
 
-    await pool.query('BEGIN');
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
 
-    // Create group
-    await pool.query(
-      `INSERT INTO mls_groups (
-        id, group_id_mls, name, description, creator_user_id,
-        current_epoch, cipher_suite, created_at, updated_at
-      ) VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $7)`,
-      [
-        id,
-        payload.groupIdMls,
-        payload.name,
-        payload.description ?? null,
-        claims.sub,
-        payload.cipherSuite,
-        now
-      ]
-    );
+      // Create group
+      await client.query(
+        `INSERT INTO mls_groups (
+          id, group_id_mls, name, description, creator_user_id,
+          current_epoch, cipher_suite, created_at, updated_at
+        ) VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $7)`,
+        [
+          id,
+          payload.groupIdMls,
+          payload.name,
+          payload.description ?? null,
+          claims.sub,
+          payload.cipherSuite,
+          now
+        ]
+      );
 
-    // Add creator as admin member
-    await pool.query(
-      `INSERT INTO mls_group_members (
-        group_id, user_id, leaf_index, role, joined_at, joined_at_epoch
-      ) VALUES ($1, $2, 0, 'admin', $3, 0)`,
-      [id, claims.sub, now]
-    );
+      // Add creator as admin member
+      await client.query(
+        `INSERT INTO mls_group_members (
+          group_id, user_id, leaf_index, role, joined_at, joined_at_epoch
+        ) VALUES ($1, $2, 0, 'admin', $3, 0)`,
+        [id, claims.sub, now]
+      );
 
-    await pool.query('COMMIT');
+      await client.query('COMMIT');
+    } catch (error) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // Ignore rollback errors
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
 
     const group: MlsGroup = {
       id,
@@ -614,8 +626,6 @@ router.post('/groups', async (req: Request, res: Response) => {
     const response: CreateMlsGroupResponse = { group };
     res.status(201).json(response);
   } catch (error) {
-    const pool = await getPostgresPool();
-    await pool.query('ROLLBACK');
     console.error('Failed to create group:', error);
     res.status(500).json({ error: 'Failed to create group' });
   }
@@ -1062,69 +1072,84 @@ router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
       return;
     }
 
-    await pool.query('BEGIN');
-
-    // Get current member count for leaf index
-    const countResult = await pool.query<{ count: string }>(
-      `SELECT COUNT(*) as count FROM mls_group_members WHERE group_id = $1`,
-      [groupId]
-    );
-    const leafIndex = parseInt(countResult.rows[0]?.count ?? '0', 10);
-
-    // Add member
+    const client = await pool.connect();
+    let welcomeId = '';
+    let leafIndex = 0;
     const now = new Date();
-    await pool.query(
-      `INSERT INTO mls_group_members (
-        group_id, user_id, leaf_index, role, joined_at, joined_at_epoch
-      ) VALUES ($1, $2, $3, 'member', $4, $5)`,
-      [groupId, payload.userId, leafIndex, now, payload.newEpoch]
-    );
 
-    // Mark key package as consumed
-    await pool.query(
-      `UPDATE mls_key_packages SET consumed_at = NOW(), consumed_by_group_id = $1
-       WHERE key_package_ref = $2`,
-      [groupId, payload.keyPackageRef]
-    );
+    try {
+      await client.query('BEGIN');
 
-    // Store welcome message
-    const welcomeId = randomUUID();
-    await pool.query(
-      `INSERT INTO mls_welcome_messages (
-        id, group_id, recipient_user_id, key_package_ref, welcome_data, epoch, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-      [
-        welcomeId,
-        groupId,
-        payload.userId,
-        payload.keyPackageRef,
-        payload.welcome,
-        payload.newEpoch
-      ]
-    );
+      // Get current member count for leaf index
+      const countResult = await client.query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM mls_group_members WHERE group_id = $1`,
+        [groupId]
+      );
+      leafIndex = parseInt(countResult.rows[0]?.count ?? '0', 10);
 
-    // Store commit as message
-    const commitId = randomUUID();
-    const seqResult = await pool.query<{ max_seq: string | null }>(
-      `SELECT MAX(sequence_number)::text as max_seq FROM mls_messages WHERE group_id = $1`,
-      [groupId]
-    );
-    const nextSeq = parseInt(seqResult.rows[0]?.max_seq ?? '0', 10) + 1;
+      // Add member
+      await client.query(
+        `INSERT INTO mls_group_members (
+          group_id, user_id, leaf_index, role, joined_at, joined_at_epoch
+        ) VALUES ($1, $2, $3, 'member', $4, $5)`,
+        [groupId, payload.userId, leafIndex, now, payload.newEpoch]
+      );
 
-    await pool.query(
-      `INSERT INTO mls_messages (
-        id, group_id, sender_user_id, epoch, ciphertext, message_type, sequence_number, created_at
-      ) VALUES ($1, $2, $3, $4, $5, 'commit', $6, NOW())`,
-      [commitId, groupId, claims.sub, payload.newEpoch, payload.commit, nextSeq]
-    );
+      // Mark key package as consumed
+      await client.query(
+        `UPDATE mls_key_packages SET consumed_at = NOW(), consumed_by_group_id = $1
+         WHERE key_package_ref = $2`,
+        [groupId, payload.keyPackageRef]
+      );
 
-    // Update group epoch
-    await pool.query(
-      `UPDATE mls_groups SET current_epoch = $1, updated_at = NOW() WHERE id = $2`,
-      [payload.newEpoch, groupId]
-    );
+      // Store welcome message
+      welcomeId = randomUUID();
+      await client.query(
+        `INSERT INTO mls_welcome_messages (
+          id, group_id, recipient_user_id, key_package_ref, welcome_data, epoch, created_at
+        ) VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
+        [
+          welcomeId,
+          groupId,
+          payload.userId,
+          payload.keyPackageRef,
+          payload.welcome,
+          payload.newEpoch
+        ]
+      );
 
-    await pool.query('COMMIT');
+      // Store commit as message
+      const commitId = randomUUID();
+      const seqResult = await client.query<{ max_seq: string | null }>(
+        `SELECT MAX(sequence_number)::text as max_seq FROM mls_messages WHERE group_id = $1`,
+        [groupId]
+      );
+      const nextSeq = parseInt(seqResult.rows[0]?.max_seq ?? '0', 10) + 1;
+
+      await client.query(
+        `INSERT INTO mls_messages (
+          id, group_id, sender_user_id, epoch, ciphertext, message_type, sequence_number, created_at
+        ) VALUES ($1, $2, $3, $4, $5, 'commit', $6, NOW())`,
+        [commitId, groupId, claims.sub, payload.newEpoch, payload.commit, nextSeq]
+      );
+
+      // Update group epoch
+      await client.query(
+        `UPDATE mls_groups SET current_epoch = $1, updated_at = NOW() WHERE id = $2`,
+        [payload.newEpoch, groupId]
+      );
+
+      await client.query('COMMIT');
+    } catch (error) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // Ignore rollback errors
+      }
+      throw error;
+    } finally {
+      client.release();
+    }
 
     // Get member email
     const userResult = await pool.query<{ email: string }>(
@@ -1158,8 +1183,6 @@ router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
     const response: AddMlsMemberResponse = { member };
     res.status(201).json(response);
   } catch (error) {
-    const pool = await getPostgresPool();
-    await pool.query('ROLLBACK');
     console.error('Failed to add member:', error);
     res.status(500).json({ error: 'Failed to add member' });
   }
@@ -1320,50 +1343,62 @@ router.delete(
         return;
       }
 
-      await pool.query('BEGIN');
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
 
-      // Mark as removed
-      const result = await pool.query(
-        `UPDATE mls_group_members SET removed_at = NOW()
-         WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-        [groupId, userId]
-      );
+        // Mark as removed
+        const result = await client.query(
+          `UPDATE mls_group_members SET removed_at = NOW()
+           WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
+          [groupId, userId]
+        );
 
-      if (result.rowCount === 0) {
-        await pool.query('ROLLBACK');
-        res.status(404).json({ error: 'Member not found' });
-        return;
+        if (result.rowCount === 0) {
+          await client.query('ROLLBACK');
+          res.status(404).json({ error: 'Member not found' });
+          return;
+        }
+
+        // Store commit
+        const commitId = randomUUID();
+        const seqResult = await client.query<{ max_seq: string | null }>(
+          `SELECT MAX(sequence_number)::text as max_seq FROM mls_messages WHERE group_id = $1`,
+          [groupId]
+        );
+        const nextSeq = parseInt(seqResult.rows[0]?.max_seq ?? '0', 10) + 1;
+
+        await client.query(
+          `INSERT INTO mls_messages (
+            id, group_id, sender_user_id, epoch, ciphertext, message_type, sequence_number, created_at
+          ) VALUES ($1, $2, $3, $4, $5, 'commit', $6, NOW())`,
+          [
+            commitId,
+            groupId,
+            claims.sub,
+            payload.newEpoch,
+            payload.commit,
+            nextSeq
+          ]
+        );
+
+        // Update group epoch
+        await client.query(
+          `UPDATE mls_groups SET current_epoch = $1, updated_at = NOW() WHERE id = $2`,
+          [payload.newEpoch, groupId]
+        );
+
+        await client.query('COMMIT');
+      } catch (error) {
+        try {
+          await client.query('ROLLBACK');
+        } catch {
+          // Ignore rollback errors
+        }
+        throw error;
+      } finally {
+        client.release();
       }
-
-      // Store commit
-      const commitId = randomUUID();
-      const seqResult = await pool.query<{ max_seq: string | null }>(
-        `SELECT MAX(sequence_number)::text as max_seq FROM mls_messages WHERE group_id = $1`,
-        [groupId]
-      );
-      const nextSeq = parseInt(seqResult.rows[0]?.max_seq ?? '0', 10) + 1;
-
-      await pool.query(
-        `INSERT INTO mls_messages (
-          id, group_id, sender_user_id, epoch, ciphertext, message_type, sequence_number, created_at
-        ) VALUES ($1, $2, $3, $4, $5, 'commit', $6, NOW())`,
-        [
-          commitId,
-          groupId,
-          claims.sub,
-          payload.newEpoch,
-          payload.commit,
-          nextSeq
-        ]
-      );
-
-      // Update group epoch
-      await pool.query(
-        `UPDATE mls_groups SET current_epoch = $1, updated_at = NOW() WHERE id = $2`,
-        [payload.newEpoch, groupId]
-      );
-
-      await pool.query('COMMIT');
 
       // Broadcast to group
       await broadcast(`mls:group:${groupId}`, {
@@ -1374,8 +1409,6 @@ router.delete(
 
       res.status(204).send();
     } catch (error) {
-      const pool = await getPostgresPool();
-      await pool.query('ROLLBACK');
       console.error('Failed to remove member:', error);
       res.status(500).json({ error: 'Failed to remove member' });
     }

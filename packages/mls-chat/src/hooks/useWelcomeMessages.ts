@@ -39,7 +39,7 @@ export function useWelcomeMessages(
         headers['Authorization'] = authValue;
       }
 
-      const response = await fetch(`${apiBaseUrl}/v1/mls/welcome-messages`, {
+      const response = await fetch(`${apiBaseUrl}/mls/welcome-messages`, {
         headers
       });
 
@@ -94,7 +94,7 @@ export function useWelcomeMessages(
         }
 
         const response = await fetch(
-          `${apiBaseUrl}/v1/mls/welcome-messages/${welcomeId}/ack`,
+          `${apiBaseUrl}/mls/welcome-messages/${welcomeId}/ack`,
           {
             method: 'POST',
             headers

@@ -39,7 +39,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
         headers['Authorization'] = authValue;
       }
 
-      const response = await fetch(`${apiBaseUrl}/v1/mls/key-packages/me`, {
+      const response = await fetch(`${apiBaseUrl}/mls/key-packages/me`, {
         headers
       });
 
@@ -89,7 +89,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
           headers['Authorization'] = authValue;
         }
 
-        const response = await fetch(`${apiBaseUrl}/v1/mls/key-packages`, {
+        const response = await fetch(`${apiBaseUrl}/mls/key-packages`, {
           method: 'POST',
           headers,
           body: JSON.stringify({ keyPackages: newKeyPackages })
@@ -122,7 +122,7 @@ export function useKeyPackages(client: MlsClient | null): UseKeyPackagesResult {
         headers['Authorization'] = authValue;
       }
 
-      const response = await fetch(`${apiBaseUrl}/v1/mls/key-packages/${id}`, {
+      const response = await fetch(`${apiBaseUrl}/mls/key-packages/${id}`, {
         method: 'DELETE',
         headers
       });

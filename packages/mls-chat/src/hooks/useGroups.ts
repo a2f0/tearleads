@@ -38,7 +38,7 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
         headers['Authorization'] = authValue;
       }
 
-      const response = await fetch(`${apiBaseUrl}/v1/mls/groups`, {
+      const response = await fetch(`${apiBaseUrl}/mls/groups`, {
         headers
       });
 
@@ -98,7 +98,7 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
         body.description = description;
       }
 
-      const response = await fetch(`${apiBaseUrl}/v1/mls/groups`, {
+      const response = await fetch(`${apiBaseUrl}/mls/groups`, {
         method: 'POST',
         headers,
         body: JSON.stringify(body)
@@ -127,7 +127,7 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
         headers['Authorization'] = authValue;
       }
 
-      const response = await fetch(`${apiBaseUrl}/v1/mls/groups/${groupId}`, {
+      const response = await fetch(`${apiBaseUrl}/mls/groups/${groupId}`, {
         method: 'DELETE',
         headers
       });

@@ -42,7 +42,7 @@ export function useGroupMembers(
       }
 
       const response = await fetch(
-        `${apiBaseUrl}/v1/mls/groups/${groupId}/members`,
+        `${apiBaseUrl}/mls/groups/${groupId}/members`,
         {
           headers
         }
@@ -77,7 +77,7 @@ export function useGroupMembers(
 
       // Fetch a key package for the user to add
       const kpResponse = await fetch(
-        `${apiBaseUrl}/v1/mls/key-packages/${userId}`,
+        `${apiBaseUrl}/mls/key-packages/${userId}`,
         {
           headers
         }
@@ -105,7 +105,7 @@ export function useGroupMembers(
 
       // Send to server
       const response = await fetch(
-        `${apiBaseUrl}/v1/mls/groups/${groupId}/members`,
+        `${apiBaseUrl}/mls/groups/${groupId}/members`,
         {
           method: 'POST',
           headers,
@@ -157,7 +157,7 @@ export function useGroupMembers(
 
       // Send to server
       const response = await fetch(
-        `${apiBaseUrl}/v1/mls/groups/${groupId}/members/${userId}`,
+        `${apiBaseUrl}/mls/groups/${groupId}/members/${userId}`,
         {
           method: 'DELETE',
           headers,
