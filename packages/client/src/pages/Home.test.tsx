@@ -59,7 +59,8 @@ const MOCK_SAVED_POSITIONS = {
   '/admin/organizations': { x: 500, y: 600 },
   '/sync': { x: 100, y: 700 },
   '/v86': { x: 200, y: 700 },
-  '/vfs': { x: 300, y: 700 }
+  '/vfs': { x: 300, y: 700 },
+  '/backups': { x: 400, y: 700 }
 };
 
 describe('Home', () => {

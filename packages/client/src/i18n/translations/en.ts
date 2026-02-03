@@ -41,7 +41,8 @@ export const en = {
     email: 'Email',
     sync: 'Sync',
     v86: 'v86',
-    vfs: 'VFS Explorer'
+    vfs: 'VFS Explorer',
+    backups: 'Backups'
   },
   audio: {
     play: 'Play',

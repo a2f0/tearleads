@@ -80,6 +80,9 @@ const AudioDetail = lazy(() =>
 const AudioPage = lazy(() =>
   import('./pages/Audio').then((m) => ({ default: m.AudioPage }))
 );
+const Backups = lazy(() =>
+  import('./pages/Backups').then((m) => ({ default: m.Backups }))
+);
 const CacheStorage = lazy(() =>
   import('./pages/cache-storage').then((m) => ({ default: m.CacheStorage }))
 );
@@ -406,6 +409,10 @@ if (rootElement) {
                                       />
                                       <Route path="sync" element={<Sync />} />
                                       <Route path="vfs" element={<Vfs />} />
+                                      <Route
+                                        path="backups"
+                                        element={<Backups />}
+                                      />
                                     </Route>
                                   </Routes>
                                 </Suspense>

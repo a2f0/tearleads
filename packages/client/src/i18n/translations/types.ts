@@ -40,6 +40,7 @@ export interface MenuTranslations {
   sync: string;
   v86: string;
   vfs: string;
+  backups: string;
 }
 
 export interface AudioTranslations {

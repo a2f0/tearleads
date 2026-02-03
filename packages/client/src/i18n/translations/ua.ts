@@ -41,7 +41,8 @@ export const ua = {
     email: 'Пошта',
     sync: 'Синхронізація',
     v86: 'v86',
-    vfs: 'Провідник VFS'
+    vfs: 'Провідник VFS',
+    backups: 'Резервні копії'
   },
   audio: {
     play: 'Відтворити',

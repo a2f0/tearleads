@@ -20,6 +20,7 @@ import {
   Minus,
   Music,
   RefreshCw,
+  Save,
   Settings,
   Shield,
   Square,
@@ -65,7 +66,8 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   'local-storage': <HardDrive className="h-3 w-3" />,
   sync: <RefreshCw className="h-3 w-3" />,
   v86: <Cpu className="h-3 w-3" />,
-  vfs: <FolderTree className="h-3 w-3" />
+  vfs: <FolderTree className="h-3 w-3" />,
+  backup: <Save className="h-3 w-3" />
 };
 
 const WINDOW_LABELS: Record<WindowType, string> = {
@@ -98,7 +100,8 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   'local-storage': 'Local Storage',
   sync: 'Sync',
   v86: 'v86',
-  vfs: 'VFS Explorer'
+  vfs: 'VFS Explorer',
+  backup: 'Backups'
 };
 
 interface TaskbarButtonProps {

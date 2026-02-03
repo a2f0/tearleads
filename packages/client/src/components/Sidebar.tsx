@@ -22,6 +22,7 @@ import {
   MessageSquare,
   Music,
   RefreshCw,
+  Save,
   Settings,
   Shield,
   StickyNote,
@@ -232,6 +233,13 @@ export const navItems: NavItem[] = [
     testId: 'vfs-link'
   },
   {
+    path: '/backups',
+    icon: Save,
+    labelKey: 'backups',
+    inMobileMenu: true,
+    testId: 'backups-link'
+  },
+  {
     path: '/settings',
     icon: Settings,
     labelKey: 'settings',
@@ -273,7 +281,8 @@ const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/admin/organizations': 'admin-organizations',
   '/sync': 'sync',
   '/v86': 'v86',
-  '/vfs': 'vfs'
+  '/vfs': 'vfs',
+  '/backups': 'backup'
 };
 
 export interface SidebarProps {
