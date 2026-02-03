@@ -63,10 +63,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setAuthErrorState(getAuthError());
   }, []);
 
-  // Load session from localStorage on mount
+  // Load session from localStorage on mount and proactively refresh if needed
+  // IMPORTANT: isLoading stays true until refresh completes to prevent SSE race condition
   useEffect(() => {
-    syncFromStorage();
-    setIsLoading(false);
+    const initAuth = async () => {
+      syncFromStorage();
+
+      // Check if proactive refresh is needed before marking as loaded
+      const storedToken = getStoredAuthToken();
+      if (storedToken) {
+        const timeRemaining = getJwtTimeRemaining(storedToken);
+        // timeRemaining is null if token is already expired
+        if (timeRemaining === null || timeRemaining < REFRESH_THRESHOLD_MS) {
+          // Token expired or expiring soon - refresh before allowing SSE to connect
+          await tryRefreshToken();
+        }
+      }
+
+      setIsLoading(false);
+    };
+
+    void initAuth();
   }, [syncFromStorage]);
 
   useEffect(() => {
@@ -97,7 +114,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [syncFromStorage]);
 
-  // Proactive token refresh on mount and visibility change
+  // Proactive token refresh on visibility change (mount case handled above)
   useEffect(() => {
     const checkAndRefresh = async () => {
       const storedToken = getStoredAuthToken();
@@ -110,9 +127,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         await tryRefreshToken();
       }
     };
-
-    // Check on mount (app hydration)
-    void checkAndRefresh();
 
     // Check on visibility change (tab becoming visible)
     const handleVisibilityChange = () => {
