@@ -194,8 +194,7 @@ export async function restoreBackup(
         (t) => !IMPORT_SKIP_TABLES.has(t)
       );
 
-      for (let i = 0; i < tables.length; i++) {
-        const tableName = tables[i];
+      for (const [i, tableName] of tables.entries()) {
         if (!tableName) continue;
 
         const rows = database.data[tableName];
