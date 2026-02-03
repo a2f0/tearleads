@@ -152,7 +152,13 @@ export function CreateBackupTab() {
   };
 
   return (
-    <div className="space-y-4">
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        void handleCreate();
+      }}
+    >
       <div>
         <h3 className="mb-1 font-medium text-sm text-zinc-300">
           Create Encrypted Backup
@@ -244,12 +250,12 @@ export function CreateBackupTab() {
       )}
 
       <Button
-        onClick={handleCreate}
+        type="submit"
         disabled={isCreating || !password || !confirmPassword}
         className="w-full"
       >
         {isCreating ? 'Creating Backup...' : 'Create Backup'}
       </Button>
-    </div>
+    </form>
   );
 }
