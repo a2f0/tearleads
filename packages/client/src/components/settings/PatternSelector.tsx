@@ -24,7 +24,7 @@ export function PatternSelector() {
         </p>
       </div>
       <div
-        className="flex gap-3 overflow-x-auto md:overflow-visible"
+        className="flex gap-3 overflow-x-auto p-0.5 md:overflow-visible"
         data-testid="pattern-selector-container"
       >
         {PATTERNS.map((pattern) => (

@@ -14,7 +14,7 @@ export function ThemeSelector() {
     <div className="space-y-3">
       <p className="font-medium">{t('theme')}</p>
       <div
-        className="flex gap-3 overflow-x-auto md:overflow-visible"
+        className="flex gap-3 overflow-x-auto p-0.5 md:overflow-visible"
         data-testid="theme-selector-container"
       >
         {THEMES.map((t) => (

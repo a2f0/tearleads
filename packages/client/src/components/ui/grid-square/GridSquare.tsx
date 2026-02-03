@@ -22,9 +22,10 @@ export function GridSquare({
       data-testid={testId}
       aria-pressed={selected}
       className={cn(
-        'relative overflow-hidden rounded-lg border bg-muted transition-all',
-        'hover:ring-2 hover:ring-primary hover:ring-offset-2',
-        selected && 'ring-2 ring-primary ring-offset-2',
+        'relative overflow-hidden rounded-lg bg-muted transition-all',
+        !selected && 'ring-1 ring-border',
+        selected && 'ring-2 ring-primary',
+        'hover:ring-2 hover:ring-primary',
         className
       )}
       style={{ aspectRatio: '1 / 1' }}
