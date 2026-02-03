@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  albumsTable,
   allTables,
   analyticsEventsTable,
   contactEmailsTable,
+  contactGroupsTable,
   contactPhonesTable,
   contactsTable,
-  contactGroupsTable,
   emailFoldersTable,
   emailsTable,
   filesTable,
   groupsTable,
-  albumsTable,
   migrationsTable,
   mlsGroupMembersTable,
   mlsGroupStateTable,
