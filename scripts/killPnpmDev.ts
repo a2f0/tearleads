@@ -1,6 +1,8 @@
 /**
  * Kill existing pnpm dev processes running from this repo.
  * Usage: tsx scripts/killPnpmDev.ts
+ *
+ * Note: relies on `ps` and `lsof` output formats commonly available on macOS.
  */
 import { execFileSync } from 'node:child_process';
 import { realpathSync } from 'node:fs';
@@ -118,7 +120,12 @@ const killPid = (pid: number, signal: NodeJS.Signals): void => {
   }
 };
 
-const main = (): void => {
+const sleep = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const main = async (): Promise<void> => {
   if (process.env.RAPID_SKIP_DEV_KILL === '1') {
     return;
   }
@@ -144,6 +151,8 @@ const main = (): void => {
     killPid(pid, 'SIGTERM');
   }
 
+  await sleep(200);
+
   for (const pid of targetPids) {
     if (isAlive(pid)) {
       killPid(pid, 'SIGKILL');
@@ -151,4 +160,7 @@ const main = (): void => {
   }
 };
 
-main();
+main().catch((error: unknown) => {
+  console.error('[killPnpmDev] Error:', error);
+  process.exit(1);
+});
