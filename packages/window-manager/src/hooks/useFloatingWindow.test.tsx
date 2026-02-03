@@ -607,5 +607,90 @@ describe('useFloatingWindow', () => {
       expect(result.current.x).toBeLessThanOrEqual(500 - result.current.width);
       expect(result.current.y).toBeLessThanOrEqual(400 - result.current.height);
     });
+
+    it('uses actual rendered dimensions from elementRef when dragging', () => {
+      // Simulate a scenario where CSS constrains the window smaller than state width
+      // (e.g., maxWidth: 80vw when viewport shrinks due to DevTools)
+      const mockElement = {
+        getBoundingClientRect: () => ({
+          width: 300, // CSS-constrained to 300px
+          height: 250 // CSS-constrained to 250px
+        })
+      } as HTMLElement;
+
+      const elementRef = { current: mockElement };
+
+      const { result } = renderHook(() =>
+        useFloatingWindow({
+          ...defaultOptions,
+          defaultX: 0,
+          defaultY: 0,
+          defaultWidth: 500, // State width is 500px
+          defaultHeight: 400, // State height is 400px
+          elementRef
+        })
+      );
+
+      // Viewport is 1024x768, state width is 500, but actual rendered width is 300
+      // Without elementRef fix: maxX would be 1024 - 500 = 524
+      // With elementRef fix: maxX should be 1024 - 300 = 724
+      const dragHandlers = result.current.createDragHandlers();
+
+      act(() => {
+        dragHandlers.onMouseDown({
+          preventDefault: vi.fn(),
+          clientX: 0,
+          clientY: 0
+        } as unknown as React.MouseEvent);
+      });
+
+      // Try to drag to X=700 (would be blocked without fix since 700 > 524)
+      act(() => {
+        const moveEvent = new MouseEvent('mousemove', {
+          clientX: 700,
+          clientY: 0
+        });
+        document.dispatchEvent(moveEvent);
+      });
+
+      // With the fix, position should reach 700 since actual width is 300 (700 + 300 < 1024)
+      expect(result.current.x).toBe(700);
+    });
+
+    it('uses actual rendered dimensions from elementRef on window resize', () => {
+      const mockElement = {
+        getBoundingClientRect: () => ({
+          width: 300,
+          height: 250
+        })
+      } as HTMLElement;
+
+      const elementRef = { current: mockElement };
+
+      const { result } = renderHook(() =>
+        useFloatingWindow({
+          ...defaultOptions,
+          defaultX: 600,
+          defaultY: 400,
+          defaultWidth: 500,
+          defaultHeight: 400,
+          elementRef
+        })
+      );
+
+      // Simulate viewport shrinking (like DevTools opening)
+      act(() => {
+        Object.defineProperty(window, 'innerWidth', {
+          writable: true,
+          configurable: true,
+          value: 800
+        });
+        window.dispatchEvent(new Event('resize'));
+      });
+
+      // Without fix: maxX = 800 - 500 = 300, so X would clamp to 300
+      // With fix: maxX = 800 - 300 = 500, so X should clamp to 500
+      expect(result.current.x).toBe(500);
+    });
   });
 });

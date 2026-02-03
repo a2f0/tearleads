@@ -130,6 +130,7 @@ export function FloatingWindow({
   );
   const hasFitContentRef = useRef(false);
   const fitContentAttemptsRef = useRef(0);
+  const windowRef = useRef<HTMLDivElement | null>(null);
   const contentRef = useRef<HTMLDivElement | null>(null);
   const titleBarRef = useRef<HTMLDivElement | null>(null);
 
@@ -176,7 +177,8 @@ export function FloatingWindow({
     minHeight,
     maxWidthPercent,
     maxHeightPercent,
-    onDimensionsChange: handleDimensionsChange
+    onDimensionsChange: handleDimensionsChange,
+    elementRef: windowRef
   });
 
   const dragHandlers = createDragHandlers();
@@ -355,6 +357,7 @@ export function FloatingWindow({
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Window focus on click
     <div
+      ref={windowRef}
       className={cn(
         'floating-window fixed flex flex-col overflow-hidden border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80',
         isDesktop && !isMaximized && 'rounded-lg',
