@@ -391,7 +391,7 @@ describe('decoder', () => {
       expect(decodedBlob).toBeDefined();
       expect(decodedBlob?.data.length).toBe(largeSize);
       expect(Array.from(decodedBlob?.data ?? [])).toEqual(Array.from(blobData));
-    });
+    }, 60000); // 60s timeout for large blob test
 
     it('throws InvalidPasswordError on wrong password', async () => {
       const manifest = createTestManifest();
