@@ -38,6 +38,11 @@ export default defineConfig(({ mode }) => ({
         '../vfs-explorer/package.json'
       ),
       '@rapid/vfs-explorer': path.resolve(__dirname, '../vfs-explorer/src/index.ts'),
+      '@rapid/mls-chat/package.json': path.resolve(
+        __dirname,
+        '../mls-chat/package.json'
+      ),
+      '@rapid/mls-chat': path.resolve(__dirname, '../mls-chat/src/index.ts'),
       '@rapid/window-manager': path.resolve(__dirname, '../window-manager/src/index.ts'),
       '@rapid/api/dist/openapi.json': path.resolve(
         __dirname,
