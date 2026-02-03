@@ -32,6 +32,8 @@ interface UseFloatingWindowOptions {
         y: number;
       }) => void)
     | undefined;
+  /** Ref to the window element for reading actual rendered dimensions (accounts for CSS constraints like maxWidth) */
+  elementRef?: React.RefObject<HTMLElement | null> | undefined;
 }
 
 interface UseFloatingWindowReturn {
@@ -59,7 +61,8 @@ export function useFloatingWindow({
   minHeight,
   maxWidthPercent,
   maxHeightPercent,
-  onDimensionsChange
+  onDimensionsChange,
+  elementRef
 }: UseFloatingWindowOptions): UseFloatingWindowReturn {
   const [width, setWidth] = useState(defaultWidth);
   const [height, setHeight] = useState(defaultHeight);
@@ -108,14 +111,20 @@ export function useFloatingWindow({
         const newX = startXRef.current + deltaX;
         const newY = startYRef.current + deltaY;
 
-        // Constrain position to be within the viewport (use refs for current dimensions)
+        // Use actual rendered dimensions if available (accounts for CSS constraints like maxWidth)
+        // Fall back to state dimensions if element ref not provided
+        const rect = elementRef?.current?.getBoundingClientRect();
+        const effectiveWidth = rect?.width ?? widthRef.current;
+        const effectiveHeight = rect?.height ?? heightRef.current;
+
+        // Constrain position to be within the viewport
         const constrainedX = Math.max(
           0,
-          Math.min(newX, window.innerWidth - widthRef.current)
+          Math.min(newX, window.innerWidth - effectiveWidth)
         );
         const constrainedY = Math.max(
           0,
-          Math.min(newY, window.innerHeight - heightRef.current)
+          Math.min(newY, window.innerHeight - effectiveHeight)
         );
 
         setX(constrainedX);
@@ -186,7 +195,7 @@ export function useFloatingWindow({
         }
       }
     },
-    [maxWidthPercent, maxHeightPercent, minWidth, minHeight]
+    [maxWidthPercent, maxHeightPercent, minWidth, minHeight, elementRef]
   );
 
   const handleMouseMove = useCallback(
@@ -237,18 +246,23 @@ export function useFloatingWindow({
   // Keep window within viewport on browser resize
   useEffect(() => {
     const handleResize = () => {
+      // Use actual rendered dimensions if available (accounts for CSS constraints like maxWidth)
+      const rect = elementRef?.current?.getBoundingClientRect();
+      const effectiveWidth = rect?.width ?? width;
+      const effectiveHeight = rect?.height ?? height;
+
       setX((currentX) =>
-        Math.max(0, Math.min(currentX, window.innerWidth - width))
+        Math.max(0, Math.min(currentX, window.innerWidth - effectiveWidth))
       );
       setY((currentY) =>
-        Math.max(0, Math.min(currentY, window.innerHeight - height))
+        Math.max(0, Math.min(currentY, window.innerHeight - effectiveHeight))
       );
     };
 
     window.addEventListener('resize', handleResize);
 
     return () => window.removeEventListener('resize', handleResize);
-  }, [width, height]);
+  }, [width, height, elementRef]);
 
   const handleStart = useCallback(
     (clientX: number, clientY: number, mode: 'drag' | Corner) => {
