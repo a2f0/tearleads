@@ -139,6 +139,7 @@ export function AudioWindow({
               onWidthChange={setSidebarWidth}
               selectedPlaylistId={selectedPlaylistId}
               onPlaylistSelect={setSelectedPlaylistId}
+              refreshToken={refreshToken}
               onPlaylistChanged={handlePlaylistChanged}
             />
           )}

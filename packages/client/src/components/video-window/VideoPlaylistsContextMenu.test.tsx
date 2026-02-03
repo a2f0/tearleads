@@ -102,23 +102,22 @@ describe('VideoPlaylistsContextMenu', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('closes when clicking outside the menu', () => {
+  it('closes when clicking the backdrop', () => {
     const onClose = vi.fn();
 
     render(
-      <div data-testid="outside">
-        <VideoPlaylistsContextMenu
-          x={0}
-          y={0}
-          playlist={mockPlaylist}
-          onClose={onClose}
-          onRename={vi.fn()}
-          onDelete={vi.fn()}
-        />
-      </div>
+      <VideoPlaylistsContextMenu
+        x={0}
+        y={0}
+        playlist={mockPlaylist}
+        onClose={onClose}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />
     );
 
-    fireEvent.mouseDown(document.body);
+    const backdrop = screen.getByTestId('video-playlist-context-menu-backdrop');
+    fireEvent.click(backdrop);
 
     expect(onClose).toHaveBeenCalled();
   });
@@ -138,7 +137,7 @@ describe('VideoPlaylistsContextMenu', () => {
     );
 
     const menu = screen.getByTestId('video-playlist-context-menu');
-    fireEvent.mouseDown(menu);
+    fireEvent.click(menu);
 
     expect(onClose).not.toHaveBeenCalled();
   });

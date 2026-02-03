@@ -61,6 +61,49 @@ describe('VideoPlaylistsSidebar', () => {
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
+  it('refetches when refresh token changes', async () => {
+    const fetchPlaylists = vi.fn(async () => mockPlaylists);
+    const Wrapper = createVideoPlaylistWrapper({
+      databaseState: { isUnlocked: true },
+      fetchPlaylists
+    });
+
+    const { rerender } = render(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={vi.fn()}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+          refreshToken={0}
+        />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Action')).toBeInTheDocument();
+    });
+
+    const initialFetchCount = fetchPlaylists.mock.calls.length;
+    expect(initialFetchCount).toBeGreaterThan(0);
+
+    rerender(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={vi.fn()}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+          refreshToken={1}
+        />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(fetchPlaylists).toHaveBeenCalledTimes(initialFetchCount + 1);
+    });
+  });
+
   it('shows loading indicator while fetching', async () => {
     // Create a promise that never resolves to keep loading state
     const fetchPlaylists = vi.fn(

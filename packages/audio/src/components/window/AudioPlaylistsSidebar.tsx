@@ -1,5 +1,5 @@
 import { List, Loader2, Music, Plus } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
 import { AudioPlaylistsContextMenu } from './AudioPlaylistsContextMenu';
 import { DeletePlaylistDialog } from './DeletePlaylistDialog';
@@ -15,6 +15,7 @@ interface AudioPlaylistsSidebarProps {
   onWidthChange: (width: number) => void;
   selectedPlaylistId: string | null;
   onPlaylistSelect: (playlistId: string | null) => void;
+  refreshToken?: number;
   onPlaylistChanged?: () => void;
 }
 
@@ -23,6 +24,7 @@ export function AudioPlaylistsSidebar({
   onWidthChange,
   selectedPlaylistId,
   onPlaylistSelect,
+  refreshToken,
   onPlaylistChanged
 }: AudioPlaylistsSidebarProps) {
   const { playlists, loading, error, refetch, deletePlaylist, renamePlaylist } =
@@ -48,6 +50,21 @@ export function AudioPlaylistsSidebar({
     x: number;
     y: number;
   } | null>(null);
+
+  const lastRefreshTokenRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (refreshToken === undefined) return;
+
+    if (
+      lastRefreshTokenRef.current !== null &&
+      lastRefreshTokenRef.current !== refreshToken
+    ) {
+      void refetch();
+    }
+
+    lastRefreshTokenRef.current = refreshToken;
+  }, [refreshToken, refetch]);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
