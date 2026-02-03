@@ -20,22 +20,21 @@ export function MarkdownEditor({
   hideToolbar = false
 }: MarkdownEditorProps) {
   return (
-    <div data-color-mode={colorMode}>
-      <MDEditor
-        value={value}
-        onChange={onChange}
-        height="100%"
-        preview="edit"
-        hideToolbar={hideToolbar}
-        visibleDragbar={false}
-        commandsFilter={markdownToolbarCommandsFilter}
-        extraCommands={[
-          commands.codeEdit,
-          commands.codePreview,
-          commands.divider,
-          commands.fullscreen
-        ]}
-      />
-    </div>
+    <MDEditor
+      value={value}
+      onChange={onChange}
+      height="100%"
+      preview="edit"
+      hideToolbar={hideToolbar}
+      visibleDragbar={false}
+      commandsFilter={markdownToolbarCommandsFilter}
+      extraCommands={[
+        commands.codeEdit,
+        commands.codePreview,
+        commands.divider,
+        commands.fullscreen
+      ]}
+      data-color-mode={colorMode}
+    />
   );
 }

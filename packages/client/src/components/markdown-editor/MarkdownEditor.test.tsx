@@ -5,13 +5,16 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@uiw/react-md-editor', () => ({
   default: ({
     value,
-    onChange
+    onChange,
+    'data-color-mode': dataColorMode
   }: {
     value: string;
     onChange: (value: string | undefined) => void;
+    'data-color-mode'?: string;
   }) => (
     <textarea
       data-testid="md-editor"
+      data-color-mode={dataColorMode}
       value={value}
       onChange={(e) => onChange(e.target.value)}
     />
@@ -40,8 +43,10 @@ describe('MarkdownEditor', () => {
       />
     );
 
-    const wrapper = screen.getByTestId('md-editor').parentElement;
-    expect(wrapper).toHaveAttribute('data-color-mode', 'light');
+    expect(screen.getByTestId('md-editor')).toHaveAttribute(
+      'data-color-mode',
+      'light'
+    );
   });
 
   it('renders with dark color mode', () => {
@@ -53,8 +58,10 @@ describe('MarkdownEditor', () => {
       />
     );
 
-    const wrapper = screen.getByTestId('md-editor').parentElement;
-    expect(wrapper).toHaveAttribute('data-color-mode', 'dark');
+    expect(screen.getByTestId('md-editor')).toHaveAttribute(
+      'data-color-mode',
+      'dark'
+    );
   });
 
   it('calls onChange when content changes', async () => {
