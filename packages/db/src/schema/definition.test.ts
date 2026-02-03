@@ -5,8 +5,12 @@ import {
   contactEmailsTable,
   contactPhonesTable,
   contactsTable,
+  contactGroupsTable,
+  emailFoldersTable,
+  emailsTable,
   filesTable,
   groupsTable,
+  albumsTable,
   migrationsTable,
   mlsGroupMembersTable,
   mlsGroupStateTable,
@@ -16,13 +20,22 @@ import {
   mlsWelcomeMessagesTable,
   notesTable,
   organizationsTable,
+  orgSharesTable,
+  playlistsTable,
   secretsTable,
   syncMetadataTable,
+  tagsTable,
   userCredentialsTable,
   userGroupsTable,
+  userKeysTable,
   userOrganizationsTable,
   userSettingsTable,
-  usersTable
+  usersTable,
+  vfsAccessTable,
+  vfsFoldersTable,
+  vfsLinksTable,
+  vfsRegistryTable,
+  vfsSharesTable
 } from './definition.js';
 import { isTableDefinition } from './types.js';
 

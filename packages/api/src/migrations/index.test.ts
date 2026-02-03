@@ -158,19 +158,7 @@ describe('migrations', () => {
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([
-        2,
-        3,
-        4,
-        5,
-        6,
-        7,
-        8,
-        9,
-        10,
-        11,
-        12,
-        13,
-        14
+        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
       ]);
       expect(result.currentVersion).toBe(14);
     });
