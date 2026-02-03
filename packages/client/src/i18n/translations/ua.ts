@@ -31,7 +31,7 @@ export const ua = {
     localStorage: 'Локальне сховище',
     keychain: "Зв'язка ключів",
     chat: 'Чат',
-    mlsChat: 'MLS Chat',
+    mlsChat: 'MLS Чат',
     models: 'Моделі',
     admin: 'Адмін',
     redis: 'Redis',
