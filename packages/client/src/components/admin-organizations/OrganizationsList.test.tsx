@@ -4,6 +4,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationsList } from './OrganizationsList';
 
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn()
+  }
+}));
+
 const mockList = vi.fn();
 const mockDelete = vi.fn();
 
@@ -243,6 +250,36 @@ describe('OrganizationsList', () => {
     await user.keyboard(' ');
 
     expect(onOrganizationSelect).toHaveBeenCalledWith('org-1');
+  });
+
+  it('copies organization id from context menu', async () => {
+    const user = userEvent.setup();
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(
+      writeTextMock
+    );
+    mockList.mockResolvedValue({
+      organizations: [
+        {
+          id: 'org-1',
+          name: 'Acme',
+          description: null,
+          createdAt: '2024-01-01T00:00:00Z',
+          updatedAt: '2024-01-01T00:00:00Z'
+        }
+      ]
+    });
+
+    renderOrganizationsList();
+
+    await waitFor(() => {
+      expect(screen.getByText('Acme')).toBeInTheDocument();
+    });
+
+    fireEvent.contextMenu(screen.getByText('Acme'));
+    await user.click(screen.getByText('Copy ID'));
+
+    expect(writeTextMock).toHaveBeenCalledWith('org-1');
   });
 
   it('deletes an organization from context menu', async () => {

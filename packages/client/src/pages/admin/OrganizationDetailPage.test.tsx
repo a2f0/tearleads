@@ -4,6 +4,13 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationDetailPage } from './OrganizationDetailPage';
 
+vi.mock('sonner', () => ({
+  toast: {
+    error: vi.fn(),
+    success: vi.fn()
+  }
+}));
+
 const mockGet = vi.fn();
 const mockGetUsers = vi.fn();
 const mockGetGroups = vi.fn();
@@ -107,6 +114,23 @@ describe('OrganizationDetailPage', () => {
     expect(screen.getByText('Groups (1)')).toBeInTheDocument();
     expect(screen.getByText('alice@example.com')).toBeInTheDocument();
     expect(screen.getByText('Admins')).toBeInTheDocument();
+  });
+
+  it('copies organization id to clipboard', async () => {
+    const user = userEvent.setup();
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(
+      writeTextMock
+    );
+    setupMocks();
+
+    renderWithRouter('org-1');
+
+    await screen.findByRole('heading', { name: 'Acme' });
+
+    await user.click(screen.getByTestId('copy-organization-id'));
+
+    expect(writeTextMock).toHaveBeenCalledWith('org-1');
   });
 
   it('enters edit mode when edit button is clicked', async () => {
