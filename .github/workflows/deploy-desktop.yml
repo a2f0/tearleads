@@ -109,7 +109,6 @@ jobs:
         run: pnpm --filter @rapid/client run electron:dist
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
           APPLE_TEAM_ID: ${{ secrets.TEAM_ID }}
           APPLE_API_KEY: ${{ github.workspace }}/.secrets/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
           APPLE_API_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
