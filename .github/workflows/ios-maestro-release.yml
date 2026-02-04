@@ -111,7 +111,10 @@ jobs:
           fi
 
           echo "Using simulator: $DEVICE"
-          xcrun simctl boot "$DEVICE" || true
+          xcrun simctl shutdown "$DEVICE" || true
+          xcrun simctl erase "$DEVICE"
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
           echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
 
       - name: Install app on simulator
@@ -124,6 +127,12 @@ jobs:
           fi
           echo "Installing release app from: $APP_PATH"
           xcrun simctl install "$SIMULATOR_UDID" "$APP_PATH"
+
+      - name: Preflight app launch
+        run: |
+          xcrun simctl launch "$SIMULATOR_UDID" com.tearleads.rapid
+          sleep 3
+          xcrun simctl terminate "$SIMULATOR_UDID" com.tearleads.rapid || true
 
       - name: Run Maestro tests
         env:
