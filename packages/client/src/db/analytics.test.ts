@@ -11,7 +11,8 @@ const mockAdapter = {
 
 // Mock dependencies
 vi.mock('./index', () => ({
-  getDatabaseAdapter: vi.fn(() => mockAdapter)
+  getDatabaseAdapter: vi.fn(() => mockAdapter),
+  isDatabaseInitialized: vi.fn(() => true)
 }));
 
 // Import after mocks
@@ -26,6 +27,7 @@ import {
   measureOperation
 } from './analytics';
 import type { Database } from './index';
+import { isDatabaseInitialized } from './index';
 
 // Create mock database
 const mockDb = {
@@ -277,6 +279,14 @@ describe('analytics', () => {
       expect(id1).toBeDefined();
       expect(id2).toBeDefined();
       expect(id1).not.toBe(id2);
+    });
+
+    it('skips logging when database is not initialized', async () => {
+      vi.mocked(isDatabaseInitialized).mockReturnValueOnce(false);
+
+      await logApiEvent('api_get_ping', 100, true);
+
+      expect(mockAdapter.execute).not.toHaveBeenCalled();
     });
   });
 

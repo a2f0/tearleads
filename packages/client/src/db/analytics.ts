@@ -9,7 +9,7 @@ import type {
   EventDetailMap
 } from './analytics-events';
 import type { Database } from './index';
-import { getDatabaseAdapter } from './index';
+import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 import { analyticsEvents } from './schema';
 
 export type DatabaseInsert = Pick<Database, 'insert'>;
@@ -418,6 +418,11 @@ export async function logApiEvent<T extends AnalyticsEventSlug>(
   success: boolean,
   detail?: EventDetailMap[T]
 ): Promise<void> {
+  // Silently skip if database not initialized (e.g., API calls before login)
+  if (!isDatabaseInitialized()) {
+    return;
+  }
+
   try {
     const adapter = getDatabaseAdapter();
     await adapter.execute(
