@@ -280,6 +280,14 @@ describe('Database API', () => {
       await resetDatabase(TEST_INSTANCE_ID);
       expect(isDatabaseInitialized()).toBe(false);
     });
+
+    it('returns false after database close', async () => {
+      await setupDatabase('password', TEST_INSTANCE_ID);
+      expect(isDatabaseInitialized()).toBe(true);
+
+      await closeDatabase();
+      expect(isDatabaseInitialized()).toBe(false);
+    });
   });
 
   describe('closeDatabase', () => {

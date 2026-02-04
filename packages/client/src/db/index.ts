@@ -314,11 +314,11 @@ export function getDatabaseAdapter(): DatabaseAdapter {
 }
 
 /**
- * Check if the database adapter is initialized.
- * Use this to check before calling getDatabaseAdapter() to avoid throwing.
+ * Check if the database is initialized and ready for use.
+ * This is true after setup/unlock and false after close/reset.
  */
 export function isDatabaseInitialized(): boolean {
-  return adapterInstance !== null;
+  return databaseInstance !== null;
 }
 
 /**
