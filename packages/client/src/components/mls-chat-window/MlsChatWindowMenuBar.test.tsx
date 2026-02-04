@@ -1,7 +1,7 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MlsChatWindowMenuBar } from './MlsChatWindowMenuBar';
 
 vi.mock('@/hooks/useAppVersion', () => ({
@@ -9,6 +9,10 @@ vi.mock('@/hooks/useAppVersion', () => ({
 }));
 
 describe('MlsChatWindowMenuBar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   const renderMenuBar = (onClose = vi.fn()) =>
     render(
       <ThemeProvider>
