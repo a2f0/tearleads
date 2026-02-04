@@ -1,12 +1,16 @@
 import { WINDOW_FIT_CONTENT_EVENT } from '@rapid/window-manager';
 import { useRef, useState } from 'react';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenuItem,
+  useDropdownMenuContext
+} from '@/components/ui/dropdown-menu';
 import { usePreserveWindowState } from '@/hooks/usePreserveWindowState';
 import { WindowOptionsDialog } from './WindowOptionsDialog';
 
 export function WindowOptionsMenuItem() {
   const { preserveWindowState, setPreserveWindowState } =
     usePreserveWindowState();
+  const dropdownMenu = useDropdownMenuContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const menuItemRef = useRef<HTMLButtonElement | null>(null);
   const windowElementRef = useRef<HTMLElement | null>(null);
@@ -23,6 +27,13 @@ export function WindowOptionsMenuItem() {
     );
   };
 
+  const handleDialogOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      dropdownMenu?.close();
+    }
+  };
+
   return (
     <>
       <DropdownMenuItem
@@ -34,7 +45,7 @@ export function WindowOptionsMenuItem() {
       </DropdownMenuItem>
       <WindowOptionsDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogOpenChange}
         preserveWindowState={preserveWindowState}
         onSave={setPreserveWindowState}
         onFitContent={handleFitContent}
