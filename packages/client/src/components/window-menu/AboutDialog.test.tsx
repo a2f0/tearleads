@@ -9,6 +9,7 @@ function renderDialog(props: {
   onOpenChange?: (open: boolean) => void;
   version?: string;
   appName?: string;
+  closeLabel?: string;
 }) {
   const defaultProps = {
     open: true,
