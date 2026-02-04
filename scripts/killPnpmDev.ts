@@ -3,9 +3,21 @@
  * Usage: tsx scripts/killPnpmDev.ts
  *
  * Note: relies on `ps` and `lsof` output formats commonly available on macOS.
+ *
+ * Cooldown mechanism: After running, writes a marker file. Subsequent invocations
+ * within COOLDOWN_MS skip the kill step. This allows the root `pnpm dev` to kill
+ * processes once, while child dev scripts (spawned via concurrently) skip redundant kills.
  */
 import { execFileSync } from 'node:child_process';
-import { realpathSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import {
+  realpathSync,
+  statSync,
+  writeFileSync,
+  mkdirSync,
+  rmSync
+} from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 type ProcessInfo = {
@@ -14,7 +26,41 @@ type ProcessInfo = {
   command: string;
 };
 
+const COOLDOWN_MS = 10_000; // 10 seconds
+
 const repoRoot = realpathSync(process.cwd());
+
+// Create a unique marker file path based on repo root
+const repoHash = createHash('md5').update(repoRoot).digest('hex').slice(0, 8);
+const markerDir = path.join(os.tmpdir(), 'rapid-dev-kill');
+const markerFile = path.join(markerDir, `${repoHash}.marker`);
+
+const isWithinCooldown = (): boolean => {
+  try {
+    const stat = statSync(markerFile);
+    const ageMs = Date.now() - stat.mtimeMs;
+    return ageMs < COOLDOWN_MS;
+  } catch {
+    return false;
+  }
+};
+
+const writeMarker = (): void => {
+  try {
+    mkdirSync(markerDir, { recursive: true });
+    writeFileSync(markerFile, String(Date.now()));
+  } catch {
+    // Ignore - marker is optional optimization
+  }
+};
+
+const clearMarker = (): void => {
+  try {
+    rmSync(markerFile, { force: true });
+  } catch {
+    // Ignore
+  }
+};
 
 const parseProcessList = (output: string): ProcessInfo[] => {
   const lines = output.trim().split('\n');
@@ -126,9 +172,12 @@ const sleep = (ms: number): Promise<void> =>
   });
 
 const main = async (): Promise<void> => {
-  if (process.env.RAPID_SKIP_DEV_KILL === '1') {
+  // Skip if another dev process in this repo ran kill recently
+  // Use --force flag to bypass cooldown (for root dev script)
+  if (!process.argv.includes('--force') && isWithinCooldown()) {
     return;
   }
+
   const processes = getProcessList();
   const ppidMap = buildPpidMap(processes);
   const ancestors = getAncestorPids(process.pid, ppidMap);
@@ -141,8 +190,13 @@ const main = async (): Promise<void> => {
     .filter((proc) => isInRepo(getProcessCwd(proc.pid)));
 
   if (targets.length === 0) {
+    // No processes to kill, but still write marker to prevent redundant checks
+    writeMarker();
     return;
   }
+
+  // Clear marker before killing - ensures fresh cooldown starts after kill completes
+  clearMarker();
 
   const targetPids = targets.map((proc) => proc.pid);
   console.log(`[killPnpmDev] Stopping existing pnpm dev processes: ${targetPids.join(', ')}`);
@@ -158,6 +212,9 @@ const main = async (): Promise<void> => {
       killPid(pid, 'SIGKILL');
     }
   }
+
+  // Write marker after successful kill
+  writeMarker();
 };
 
 main().catch((error: unknown) => {
