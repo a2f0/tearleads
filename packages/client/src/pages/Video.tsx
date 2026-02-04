@@ -17,6 +17,11 @@ import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import {
+  ALL_VIDEO_ID,
+  VideoPlaylistsSidebar
+} from '@/components/video-window/VideoPlaylistsSidebar';
+import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -730,5 +735,48 @@ export function VideoPage({
         </ContextMenu>
       )}
     </div>
+  );
+}
+
+function VideoWithSidebar() {
+  const { isUnlocked } = useDatabaseContext();
+  const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
+    ALL_VIDEO_ID
+  );
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  return (
+    <div className="flex h-full flex-col space-y-4">
+      <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      <div className="flex min-h-0 flex-1">
+        {isUnlocked && (
+          <VideoPlaylistsSidebar
+            width={sidebarWidth}
+            onWidthChange={setSidebarWidth}
+            selectedPlaylistId={selectedPlaylistId}
+            onPlaylistSelect={setSelectedPlaylistId}
+            refreshToken={refreshToken}
+            onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
+          />
+        )}
+        <div className="min-w-0 flex-1 overflow-hidden pl-4">
+          <VideoPage
+            hideBackLink
+            playlistId={
+              selectedPlaylistId === ALL_VIDEO_ID ? null : selectedPlaylistId
+            }
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Video() {
+  return (
+    <ClientVideoProvider>
+      <VideoWithSidebar />
+    </ClientVideoProvider>
   );
 }

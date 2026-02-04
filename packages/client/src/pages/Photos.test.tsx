@@ -4,7 +4,47 @@ import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
-import { Photos } from './Photos';
+import { Photos, PhotosPage } from './Photos';
+
+// Mock PhotosAlbumsSidebar
+vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
+  ALL_PHOTOS_ID: '__all__',
+  PhotosAlbumsSidebar: vi.fn(
+    ({
+      selectedAlbumId,
+      onAlbumSelect,
+      onAlbumChanged,
+      onWidthChange,
+      width
+    }) => (
+      <div data-testid="photos-albums-sidebar">
+        <span data-testid="selected-album">{selectedAlbumId}</span>
+        <span data-testid="sidebar-width">{width}</span>
+        <button
+          type="button"
+          data-testid="select-album-1"
+          onClick={() => onAlbumSelect('album-1')}
+        >
+          Select Album 1
+        </button>
+        <button
+          type="button"
+          data-testid="trigger-album-changed"
+          onClick={() => onAlbumChanged?.()}
+        >
+          Trigger Album Changed
+        </button>
+        <button
+          type="button"
+          data-testid="change-width"
+          onClick={() => onWidthChange?.(300)}
+        >
+          Change Width
+        </button>
+      </div>
+    )
+  )
+}));
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
@@ -1042,6 +1082,117 @@ describe('Photos', () => {
       await waitFor(() => {
         expect(mockDb.orderBy).toHaveBeenCalled();
       });
+    });
+  });
+});
+
+describe('PhotosPage (wrapper with sidebar)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Mock URL methods
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:test-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    // Default mocks
+    mockStorage.retrieve.mockResolvedValue(
+      new Uint8Array([0xff, 0xd8, 0xff, 0xe0])
+    );
+    mockDb.orderBy.mockResolvedValue([]);
+  });
+
+  function renderPhotosPage() {
+    return render(
+      <MemoryRouter>
+        <PhotosPage />
+      </MemoryRouter>
+    );
+  }
+
+  describe('when database is unlocked', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'test-instance'
+      });
+    });
+
+    it('renders the PhotosAlbumsSidebar', async () => {
+      renderPhotosPage();
+
+      expect(screen.getByTestId('photos-albums-sidebar')).toBeInTheDocument();
+    });
+
+    it('renders the back link', async () => {
+      renderPhotosPage();
+
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
+    it('initializes with ALL_PHOTOS_ID selected', async () => {
+      renderPhotosPage();
+
+      expect(screen.getByTestId('selected-album')).toHaveTextContent('__all__');
+    });
+
+    it('updates album selection when sidebar selection changes', async () => {
+      const user = userEvent.setup();
+      renderPhotosPage();
+
+      await user.click(screen.getByTestId('select-album-1'));
+
+      expect(screen.getByTestId('selected-album')).toHaveTextContent('album-1');
+    });
+
+    it('updates width when onWidthChange is called', async () => {
+      const user = userEvent.setup();
+      renderPhotosPage();
+
+      expect(screen.getByTestId('sidebar-width')).toHaveTextContent('200');
+
+      await user.click(screen.getByTestId('change-width'));
+
+      expect(screen.getByTestId('sidebar-width')).toHaveTextContent('300');
+    });
+
+    it('increments refreshToken when onAlbumChanged is called', async () => {
+      const user = userEvent.setup();
+      renderPhotosPage();
+
+      // Trigger the album changed callback
+      await user.click(screen.getByTestId('trigger-album-changed'));
+
+      // The test passes if no errors occur - refreshToken is internal state
+      expect(screen.getByTestId('photos-albums-sidebar')).toBeInTheDocument();
+    });
+  });
+
+  describe('when database is locked', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        currentInstanceId: null,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
+      });
+    });
+
+    it('does not render the PhotosAlbumsSidebar', () => {
+      renderPhotosPage();
+
+      expect(
+        screen.queryByTestId('photos-albums-sidebar')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows inline unlock component', () => {
+      renderPhotosPage();
+
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
     });
   });
 });

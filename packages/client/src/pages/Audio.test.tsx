@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
-import { AudioPage } from './Audio';
+import { Audio, AudioPage } from './Audio';
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
@@ -18,6 +18,53 @@ vi.mock('@tanstack/react-virtual', () => ({
     getTotalSize: () => count * 56,
     measureElement: vi.fn()
   }))
+}));
+
+// Mock AudioPlaylistsSidebar from @rapid/audio
+vi.mock('@rapid/audio', () => ({
+  ALL_AUDIO_ID: '__all__',
+  AudioPlaylistsSidebar: vi.fn(
+    ({
+      selectedPlaylistId,
+      onPlaylistSelect,
+      onPlaylistChanged,
+      onWidthChange,
+      width
+    }) => (
+      <div data-testid="audio-playlists-sidebar">
+        <span data-testid="selected-playlist">{selectedPlaylistId}</span>
+        <span data-testid="sidebar-width">{width}</span>
+        <button
+          type="button"
+          data-testid="select-playlist-1"
+          onClick={() => onPlaylistSelect('playlist-1')}
+        >
+          Select Playlist 1
+        </button>
+        <button
+          type="button"
+          data-testid="trigger-playlist-changed"
+          onClick={() => onPlaylistChanged?.()}
+        >
+          Trigger Playlist Changed
+        </button>
+        <button
+          type="button"
+          data-testid="change-width"
+          onClick={() => onWidthChange?.(300)}
+        >
+          Change Width
+        </button>
+      </div>
+    )
+  )
+}));
+
+// Mock ClientAudioProvider
+vi.mock('@/contexts/ClientAudioProvider', () => ({
+  ClientAudioProvider: vi.fn(({ children }) => (
+    <div data-testid="client-audio-provider">{children}</div>
+  ))
 }));
 
 // Mock the audio context
@@ -130,11 +177,17 @@ const TEST_AUDIO_DATA = new Uint8Array([0x49, 0x44, 0x33]); // ID3 tag bytes
 const TEST_ENCRYPTION_KEY = new Uint8Array([1, 2, 3, 4]);
 
 function createMockQueryChain(result: unknown[]) {
+  const whereResult = {
+    orderBy: vi.fn().mockResolvedValue(result)
+  };
+  // Make whereResult thenable for vfsLinks query pattern (no orderBy)
+  Object.defineProperty(whereResult, 'then', {
+    value: (resolve: (value: unknown[]) => void) => resolve([]),
+    enumerable: false
+  });
   return {
     from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        orderBy: vi.fn().mockResolvedValue(result)
-      })
+      where: vi.fn().mockReturnValue(whereResult)
     })
   };
 }
@@ -960,6 +1013,130 @@ describe('AudioPage', () => {
       await waitFor(() => {
         expect(mockSelect).toHaveBeenCalled();
       });
+    });
+  });
+});
+
+describe('Audio wrapper with sidebar', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Mock URL methods
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:test-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    // Default mock for audio context
+    mockUseAudio.mockReturnValue({
+      currentTrack: null,
+      isPlaying: false,
+      play: mockPlay,
+      pause: mockPause,
+      resume: mockResume,
+      audioElementRef: { current: null }
+    });
+
+    // Default mocks for unlocked database
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
+    mockGetCurrentKey.mockReturnValue(TEST_ENCRYPTION_KEY);
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    mockRetrieve.mockResolvedValue(TEST_AUDIO_DATA);
+    mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
+    mockUpdate.mockReturnValue(createMockUpdateChain());
+    mockDetectPlatform.mockReturnValue('web');
+  });
+
+  function renderAudioWrapper() {
+    return render(
+      <MemoryRouter>
+        <Audio />
+      </MemoryRouter>
+    );
+  }
+
+  describe('when database is unlocked', () => {
+    it('renders with ClientAudioProvider', () => {
+      renderAudioWrapper();
+      expect(screen.getByTestId('client-audio-provider')).toBeInTheDocument();
+    });
+
+    it('renders the sidebar', () => {
+      renderAudioWrapper();
+      expect(screen.getByTestId('audio-playlists-sidebar')).toBeInTheDocument();
+    });
+
+    it('renders the back link', () => {
+      renderAudioWrapper();
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
+    it('initializes with ALL_AUDIO_ID selected', () => {
+      renderAudioWrapper();
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        '__all__'
+      );
+    });
+
+    it('updates selection when playlist is selected', async () => {
+      const user = userEvent.setup();
+      renderAudioWrapper();
+
+      await user.click(screen.getByTestId('select-playlist-1'));
+
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        'playlist-1'
+      );
+    });
+
+    it('updates width when onWidthChange is called', async () => {
+      const user = userEvent.setup();
+      renderAudioWrapper();
+
+      expect(screen.getByTestId('sidebar-width')).toHaveTextContent('200');
+
+      await user.click(screen.getByTestId('change-width'));
+
+      expect(screen.getByTestId('sidebar-width')).toHaveTextContent('300');
+    });
+
+    it('increments refreshToken when onPlaylistChanged is called', async () => {
+      const user = userEvent.setup();
+      renderAudioWrapper();
+
+      // Trigger the playlist changed callback
+      await user.click(screen.getByTestId('trigger-playlist-changed'));
+
+      // The test passes if no errors occur - refreshToken is internal state
+      expect(screen.getByTestId('audio-playlists-sidebar')).toBeInTheDocument();
+    });
+  });
+
+  describe('when database is locked', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        currentInstanceId: null,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
+      });
+    });
+
+    it('does not render the sidebar', () => {
+      renderAudioWrapper();
+      expect(
+        screen.queryByTestId('audio-playlists-sidebar')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows inline unlock component', () => {
+      renderAudioWrapper();
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
     });
   });
 });

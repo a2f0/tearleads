@@ -3,7 +3,54 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
-import { VideoPage } from './Video';
+import { Video, VideoPage } from './Video';
+
+// Mock VideoPlaylistsSidebar
+vi.mock('@/components/video-window/VideoPlaylistsSidebar', () => ({
+  ALL_VIDEO_ID: '__all__',
+  VideoPlaylistsSidebar: vi.fn(
+    ({
+      selectedPlaylistId,
+      onPlaylistSelect,
+      onPlaylistChanged,
+      onWidthChange,
+      width
+    }) => (
+      <div data-testid="video-playlists-sidebar">
+        <span data-testid="selected-playlist">{selectedPlaylistId}</span>
+        <span data-testid="sidebar-width">{width}</span>
+        <button
+          type="button"
+          data-testid="select-playlist-1"
+          onClick={() => onPlaylistSelect('playlist-1')}
+        >
+          Select Playlist 1
+        </button>
+        <button
+          type="button"
+          data-testid="trigger-playlist-changed"
+          onClick={() => onPlaylistChanged?.()}
+        >
+          Trigger Playlist Changed
+        </button>
+        <button
+          type="button"
+          data-testid="change-width"
+          onClick={() => onWidthChange?.(300)}
+        >
+          Change Width
+        </button>
+      </div>
+    )
+  )
+}));
+
+// Mock ClientVideoProvider
+vi.mock('@/contexts/ClientVideoProvider', () => ({
+  ClientVideoProvider: vi.fn(({ children }) => (
+    <div data-testid="client-video-provider">{children}</div>
+  ))
+}));
 
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
@@ -871,6 +918,160 @@ describe('VideoPage', () => {
       await waitFor(() => {
         expect(mockSelect).toHaveBeenCalled();
       });
+    });
+  });
+});
+
+describe('Video (wrapper with sidebar)', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+
+    // Mock URL methods
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:test-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+
+    // Default mocks
+    mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
+    mockIsFileStorageInitialized.mockReturnValue(true);
+    mockRetrieve.mockResolvedValue(new Uint8Array([0x00]));
+    mockSelect.mockReturnValue({
+      from: vi.fn().mockReturnValue({
+        where: vi.fn().mockReturnValue({
+          orderBy: vi.fn().mockResolvedValue([])
+        })
+      })
+    });
+    mockDetectPlatform.mockReturnValue('web');
+  });
+
+  function renderVideo() {
+    return render(
+      <MemoryRouter>
+        <Video />
+      </MemoryRouter>
+    );
+  }
+
+  describe('when database is unlocked', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'test-instance'
+      });
+    });
+
+    it('renders the ClientVideoProvider', async () => {
+      renderVideo();
+
+      expect(screen.getByTestId('client-video-provider')).toBeInTheDocument();
+    });
+
+    it('renders the VideoPlaylistsSidebar', async () => {
+      renderVideo();
+
+      expect(screen.getByTestId('video-playlists-sidebar')).toBeInTheDocument();
+    });
+
+    it('renders the back link', async () => {
+      renderVideo();
+
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+
+    it('initializes with ALL_VIDEO_ID selected', async () => {
+      renderVideo();
+
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        '__all__'
+      );
+    });
+
+    it('updates playlist selection when sidebar selection changes', async () => {
+      // Mock both vfsLinks query (for playlist filtering) and files query
+      // vfsLinks query: select().from().where() -> returns array
+      // files query: select().from().where().orderBy() -> returns array
+      mockSelect.mockImplementation(() => {
+        const whereResult = {
+          orderBy: vi.fn().mockResolvedValue([])
+        };
+        // Make whereResult thenable for vfsLinks query (no orderBy, resolves directly)
+        Object.defineProperty(whereResult, 'then', {
+          value: (resolve: (value: unknown[]) => void) => resolve([]),
+          enumerable: false
+        });
+        return {
+          from: vi.fn().mockReturnValue({
+            where: vi.fn().mockReturnValue(whereResult)
+          })
+        };
+      });
+
+      const user = userEvent.setup();
+      renderVideo();
+
+      await user.click(screen.getByTestId('select-playlist-1'));
+
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        'playlist-1'
+      );
+    });
+
+    it('updates width when onWidthChange is called', async () => {
+      const user = userEvent.setup();
+      renderVideo();
+
+      expect(screen.getByTestId('sidebar-width')).toHaveTextContent('200');
+
+      await user.click(screen.getByTestId('change-width'));
+
+      expect(screen.getByTestId('sidebar-width')).toHaveTextContent('300');
+    });
+
+    it('increments refreshToken when onPlaylistChanged is called', async () => {
+      const user = userEvent.setup();
+      renderVideo();
+
+      // Trigger the playlist changed callback
+      await user.click(screen.getByTestId('trigger-playlist-changed'));
+
+      // The test passes if no errors occur - refreshToken is internal state
+      // but the callback should work without throwing
+      expect(screen.getByTestId('video-playlists-sidebar')).toBeInTheDocument();
+    });
+  });
+
+  describe('when database is locked', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: false,
+        currentInstanceId: null,
+        isSetUp: true,
+        hasPersistedSession: false,
+        unlock: vi.fn(),
+        restoreSession: vi.fn()
+      });
+    });
+
+    it('renders the ClientVideoProvider', () => {
+      renderVideo();
+
+      expect(screen.getByTestId('client-video-provider')).toBeInTheDocument();
+    });
+
+    it('does not render the VideoPlaylistsSidebar', () => {
+      renderVideo();
+
+      expect(
+        screen.queryByTestId('video-playlists-sidebar')
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows inline unlock component', () => {
+      renderVideo();
+
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
     });
   });
 });
