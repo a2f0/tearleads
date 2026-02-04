@@ -11,7 +11,6 @@ import {
   CHUNK_HEADER_SIZE,
   FORMAT_VERSION,
   HEADER_SIZE,
-  LEGACY_PBKDF2_ITERATIONS,
   MAGIC_BYTES,
   MAGIC_SIZE,
   PBKDF2_ITERATIONS,
@@ -346,20 +345,8 @@ export async function decode(options: DecodeOptions): Promise<DecodeResult> {
     return { manifest, database, blobs };
   };
 
-  const attemptDecode = async (iterations: number): Promise<DecodeResult> =>
-    decodeWithKey(await deriveKey(password, header.salt, iterations));
-
-  try {
-    return await attemptDecode(PBKDF2_ITERATIONS);
-  } catch (error) {
-    if (
-      error instanceof InvalidPasswordError &&
-      PBKDF2_ITERATIONS !== LEGACY_PBKDF2_ITERATIONS
-    ) {
-      return attemptDecode(LEGACY_PBKDF2_ITERATIONS);
-    }
-    throw error;
-  }
+  const key = await deriveKey(password, header.salt, PBKDF2_ITERATIONS);
+  return decodeWithKey(key);
 }
 
 /**
@@ -383,33 +370,17 @@ export async function validateBackup(
     if (data.length <= HEADER_SIZE) {
       return { valid: false, error: 'No chunks in backup' };
     }
-    const attemptValidate = async (
-      iterations: number
-    ): Promise<{ valid: boolean; manifest?: BackupManifest }> => {
-      const key = await deriveKey(password, header.salt, iterations);
 
-      const chunkHeader = parseChunkHeader(data, HEADER_SIZE);
-      const chunkData = await decryptChunk(data, HEADER_SIZE, chunkHeader, key);
+    const key = await deriveKey(password, header.salt, PBKDF2_ITERATIONS);
+    const chunkHeader = parseChunkHeader(data, HEADER_SIZE);
+    const chunkData = await decryptChunk(data, HEADER_SIZE, chunkHeader, key);
 
-      if (chunkHeader.chunkType === ChunkType.MANIFEST) {
-        const manifest = parseJsonChunk<BackupManifest>(chunkData);
-        return { valid: true, manifest };
-      }
-
-      return { valid: true };
-    };
-
-    try {
-      return await attemptValidate(PBKDF2_ITERATIONS);
-    } catch (error) {
-      if (
-        error instanceof InvalidPasswordError &&
-        PBKDF2_ITERATIONS !== LEGACY_PBKDF2_ITERATIONS
-      ) {
-        return await attemptValidate(LEGACY_PBKDF2_ITERATIONS);
-      }
-      throw error;
+    if (chunkHeader.chunkType === ChunkType.MANIFEST) {
+      const manifest = parseJsonChunk<BackupManifest>(chunkData);
+      return { valid: true, manifest };
     }
+
+    return { valid: true };
   } catch (error) {
     if (error instanceof InvalidPasswordError) {
       return { valid: false, error: 'Invalid password' };
