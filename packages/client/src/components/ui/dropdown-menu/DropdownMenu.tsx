@@ -1,9 +1,12 @@
 import {
   Children,
   cloneElement,
+  createContext,
   isValidElement,
   useCallback,
+  useContext,
   useEffect,
+  useMemo,
   useRef,
   useState
 } from 'react';
@@ -18,6 +21,18 @@ interface DropdownMenuProps {
 interface ChildProps {
   onClick?: () => void;
   preventClose?: boolean;
+}
+
+interface DropdownMenuContextValue {
+  close: () => void;
+}
+
+const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(
+  null
+);
+
+export function useDropdownMenuContext(): DropdownMenuContextValue | null {
+  return useContext(DropdownMenuContext);
 }
 
 export function DropdownMenu({
@@ -100,44 +115,51 @@ export function DropdownMenu({
     }
   };
 
+  const contextValue = useMemo<DropdownMenuContextValue>(
+    () => ({ close }),
+    [close]
+  );
+
   return (
-    <div ref={containerRef} className="relative">
-      <button
-        type="button"
-        onClick={toggle}
-        className="px-2 py-0.5 text-xs hover:bg-accent"
-        aria-haspopup="menu"
-        aria-expanded={isOpen}
-      >
-        {trigger}
-      </button>
-      {isOpen && (
-        <div
-          ref={menuRef}
-          role="menu"
-          tabIndex={-1}
-          onKeyDown={handleMenuKeyDown}
-          className={cn(
-            'dropdown-menu absolute top-full z-[10000] mt-0.5 min-w-32 rounded border bg-background py-1 shadow-md outline-none',
-            align === 'left' ? 'left-0' : 'right-0'
-          )}
-          data-align={align}
+    <DropdownMenuContext.Provider value={contextValue}>
+      <div ref={containerRef} className="relative">
+        <button
+          type="button"
+          onClick={toggle}
+          className="px-2 py-0.5 text-xs hover:bg-accent"
+          aria-haspopup="menu"
+          aria-expanded={isOpen}
         >
-          {Children.map(children, (child) => {
-            if (isValidElement<ChildProps>(child) && child.props.onClick) {
-              return cloneElement(child, {
-                onClick: () => {
-                  child.props.onClick?.();
-                  if (!child.props.preventClose) {
-                    close();
+          {trigger}
+        </button>
+        {isOpen && (
+          <div
+            ref={menuRef}
+            role="menu"
+            tabIndex={-1}
+            onKeyDown={handleMenuKeyDown}
+            className={cn(
+              'dropdown-menu absolute top-full z-[10000] mt-0.5 min-w-32 rounded border bg-background py-1 shadow-md outline-none',
+              align === 'left' ? 'left-0' : 'right-0'
+            )}
+            data-align={align}
+          >
+            {Children.map(children, (child) => {
+              if (isValidElement<ChildProps>(child) && child.props.onClick) {
+                return cloneElement(child, {
+                  onClick: () => {
+                    child.props.onClick?.();
+                    if (!child.props.preventClose) {
+                      close();
+                    }
                   }
-                }
-              });
-            }
-            return child;
-          })}
-        </div>
-      )}
-    </div>
+                });
+              }
+              return child;
+            })}
+          </div>
+        )}
+      </div>
+    </DropdownMenuContext.Provider>
   );
 }

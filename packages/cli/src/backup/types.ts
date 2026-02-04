@@ -2,17 +2,21 @@
  * Universal Backup Format Types
  *
  * Defines the structure of .rbu backup files that work across
- * all platforms (Web, Electron, iOS, Android).
+ * all platforms (Web, Electron, iOS, Android, CLI).
  */
 
+export type ChunkTypeValue = 0 | 1 | 2;
+
 /** Chunk types in the backup file */
-export const ChunkType = {
+export const ChunkType: {
+  MANIFEST: ChunkTypeValue;
+  DATABASE: ChunkTypeValue;
+  BLOB: ChunkTypeValue;
+} = {
   MANIFEST: 0,
   DATABASE: 1,
   BLOB: 2
-} as const;
-
-export type ChunkTypeValue = (typeof ChunkType)[keyof typeof ChunkType];
+};
 
 /** Backup file header (plaintext, 32 bytes) */
 export interface BackupHeader {
@@ -103,34 +107,39 @@ export interface BackupProgressEvent {
   currentItem?: string | undefined;
 }
 
-/** Result of a successful import */
-export interface ImportResult {
-  /** ID of the newly created instance */
-  instanceId: string;
-  /** Name of the new instance */
-  instanceName: string;
-  /** Manifest from the backup */
-  manifest: BackupManifest;
+/** Decoded blob data from a backup. */
+export interface DecodedBlob {
+  header: BlobHeader;
+  data: Uint8Array;
 }
 
-/** Blob provider interface for platform-specific blob access */
-export interface BlobProvider {
-  /** List all blobs in storage */
-  listBlobs(): Promise<BlobEntry[]>;
-  /** Read a blob by path */
-  readBlob(path: string): Promise<Uint8Array>;
-  /** Write a blob to storage */
-  writeBlob(path: string, data: Uint8Array, mimeType: string): Promise<void>;
-  /** Delete a blob */
-  deleteBlob(path: string): Promise<void>;
+/** Result of decoding a backup file. */
+export interface DecodeResult {
+  manifest: BackupManifest;
+  database: BackupDatabase;
+  blobs: DecodedBlob[];
+}
+
+/** Options for decoding a backup file. */
+export interface DecodeOptions {
+  data: Uint8Array;
+  password: string;
+  onProgress?: (event: BackupProgressEvent) => void;
+}
+
+/** Options for encoding a backup file. */
+export interface EncodeOptions {
+  password: string;
+  manifest: BackupManifest;
+  database: BackupDatabase;
+  blobs: BlobEntry[];
+  readBlob: (path: string) => Promise<Uint8Array>;
+  onProgress?: (event: BackupProgressEvent) => void;
 }
 
 /** Entry in the blob listing */
 export interface BlobEntry {
-  /** Relative path */
   path: string;
-  /** MIME type */
   mimeType: string;
-  /** Size in bytes */
   size: number;
 }

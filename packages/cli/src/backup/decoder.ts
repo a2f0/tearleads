@@ -6,7 +6,7 @@
  * - Chunks (variable, encrypted): manifest, database, blobs
  */
 
-import { decompress } from './compression';
+import { decompress } from './compression.js';
 import {
   CHUNK_HEADER_SIZE,
   FORMAT_VERSION,
@@ -16,18 +16,19 @@ import {
   MAGIC_SIZE,
   PBKDF2_ITERATIONS,
   SALT_SIZE
-} from './constants';
-import { decrypt, deriveKey } from './crypto';
+} from './constants.js';
+import { decrypt, deriveKey } from './crypto.js';
 import {
-  type BackupDatabase,
   type BackupHeader,
   type BackupManifest,
   type BackupProgressEvent,
   type BlobHeader,
-  type ChunkHeader,
   ChunkType,
-  type ChunkTypeValue
-} from './types';
+  type ChunkTypeValue,
+  type DecodedBlob,
+  type DecodeOptions,
+  type DecodeResult
+} from './types.js';
 
 /**
  * Error thrown when backup file is invalid or corrupted.
@@ -47,38 +48,6 @@ export class InvalidPasswordError extends Error {
     super('Invalid password or corrupted backup');
     this.name = 'InvalidPasswordError';
   }
-}
-
-/**
- * Decoded blob data from a backup.
- */
-export interface DecodedBlob {
-  header: BlobHeader;
-  data: Uint8Array;
-}
-
-/**
- * Result of decoding a backup file.
- */
-export interface DecodeResult {
-  /** Backup manifest */
-  manifest: BackupManifest;
-  /** Database content */
-  database: BackupDatabase;
-  /** Decoded blobs */
-  blobs: DecodedBlob[];
-}
-
-/**
- * Options for decoding a backup file.
- */
-export interface DecodeOptions {
-  /** Backup file data */
-  data: Uint8Array;
-  /** Password for decryption */
-  password: string;
-  /** Progress callback */
-  onProgress?: (event: BackupProgressEvent) => void;
 }
 
 /**
@@ -113,7 +82,6 @@ function parseHeader(data: Uint8Array): BackupHeader {
     throw new BackupDecodeError('File too small to be a valid backup');
   }
 
-  // Check magic bytes
   const magic = data.slice(0, MAGIC_SIZE);
   for (let i = 0; i < MAGIC_SIZE; i++) {
     if (magic[i] !== MAGIC_BYTES[i]) {
@@ -121,7 +89,6 @@ function parseHeader(data: Uint8Array): BackupHeader {
     }
   }
 
-  // Read version
   const version = readUint16LE(data, MAGIC_SIZE);
   if (version > FORMAT_VERSION) {
     throw new BackupDecodeError(
@@ -129,10 +96,7 @@ function parseHeader(data: Uint8Array): BackupHeader {
     );
   }
 
-  // Read flags
   const flags = readUint16LE(data, MAGIC_SIZE + 2);
-
-  // Read salt
   const salt = data.slice(MAGIC_SIZE + 4, MAGIC_SIZE + 4 + SALT_SIZE);
 
   return { magic, version, flags, salt };
@@ -141,7 +105,7 @@ function parseHeader(data: Uint8Array): BackupHeader {
 /**
  * Parse a chunk header.
  */
-function parseChunkHeader(data: Uint8Array, offset: number): ChunkHeader {
+function parseChunkHeader(data: Uint8Array, offset: number) {
   if (offset + CHUNK_HEADER_SIZE > data.length) {
     throw new BackupDecodeError(
       'Unexpected end of file while reading chunk header'
@@ -149,11 +113,22 @@ function parseChunkHeader(data: Uint8Array, offset: number): ChunkHeader {
   }
 
   const payloadLength = readUint32LE(data, offset);
-  const chunkType = data[offset + 4] as ChunkTypeValue;
+  const chunkTypeValue = data[offset + 4] ?? -1;
+  if (!isChunkTypeValue(chunkTypeValue)) {
+    throw new BackupDecodeError(`Unknown chunk type: ${chunkTypeValue}`);
+  }
   const reserved = data.slice(offset + 5, offset + 8);
   const iv = data.slice(offset + 8, offset + CHUNK_HEADER_SIZE);
 
-  return { payloadLength, chunkType, reserved, iv };
+  return { payloadLength, chunkType: chunkTypeValue, reserved, iv };
+}
+
+function isChunkTypeValue(value: number): value is ChunkTypeValue {
+  return (
+    value === ChunkType.MANIFEST ||
+    value === ChunkType.DATABASE ||
+    value === ChunkType.BLOB
+  );
 }
 
 /**
@@ -162,7 +137,7 @@ function parseChunkHeader(data: Uint8Array, offset: number): ChunkHeader {
 async function decryptChunk(
   data: Uint8Array,
   offset: number,
-  header: ChunkHeader,
+  header: { payloadLength: number; iv: Uint8Array },
   key: CryptoKey
 ): Promise<Uint8Array> {
   const payloadStart = offset + CHUNK_HEADER_SIZE;
@@ -213,47 +188,37 @@ function parseBlobChunk(data: Uint8Array): DecodedBlob {
 /**
  * Decode a backup file.
  *
- * @param options - Decoding options
+ * @param options - Decode options
  * @returns Decoded backup content
- * @throws BackupDecodeError if file is invalid
- * @throws InvalidPasswordError if password is wrong
  */
 export async function decode(options: DecodeOptions): Promise<DecodeResult> {
   const { data, password, onProgress } = options;
 
-  // Parse header
   const header = parseHeader(data);
-
   const decodeWithKey = async (key: CryptoKey): Promise<DecodeResult> => {
-    let manifest: BackupManifest | null = null;
-    let database: BackupDatabase | null = null;
-    const blobs: DecodedBlob[] = [];
-    const partialBlobs = new Map<
-      string,
-      { parts: Map<number, Uint8Array>; header: BlobHeader }
-    >();
-
     let offset = HEADER_SIZE;
-    let chunkIndex = 0;
+    let manifest: BackupManifest | null = null;
+    let database: DecodeResult['database'] | null = null;
+    const blobs: DecodedBlob[] = [];
 
-    let tempOffset = HEADER_SIZE;
-    let totalChunks = 0;
-    while (tempOffset < data.length) {
-      const chunkHeader = parseChunkHeader(data, tempOffset);
-      tempOffset += CHUNK_HEADER_SIZE + chunkHeader.payloadLength;
-      totalChunks++;
-    }
+    const totalChunks = Math.max(
+      1,
+      Math.floor((data.length - HEADER_SIZE) / CHUNK_HEADER_SIZE)
+    );
+    let currentChunk = 0;
 
     const reportProgress = (
       phase: BackupProgressEvent['phase'],
       item?: string
     ) => {
-      onProgress?.({
+      if (!onProgress) return;
+      const event: BackupProgressEvent = {
         phase,
-        current: chunkIndex,
+        current: currentChunk,
         total: totalChunks,
         currentItem: item
-      });
+      };
+      onProgress(event);
     };
 
     while (offset < data.length) {
@@ -265,83 +230,29 @@ export async function decode(options: DecodeOptions): Promise<DecodeResult> {
           reportProgress('preparing', 'manifest');
           manifest = parseJsonChunk<BackupManifest>(chunkData);
           break;
-
         case ChunkType.DATABASE:
           reportProgress('database', 'database');
-          database = parseJsonChunk<BackupDatabase>(chunkData);
+          database = parseJsonChunk<DecodeResult['database']>(chunkData);
           break;
-
-        case ChunkType.BLOB: {
-          const decoded = parseBlobChunk(chunkData);
-          reportProgress('blobs', decoded.header.path);
-
-          if (decoded.header.totalParts && decoded.header.totalParts > 1) {
-            const path = decoded.header.path;
-            if (!partialBlobs.has(path)) {
-              partialBlobs.set(path, {
-                parts: new Map(),
-                header: decoded.header
-              });
-            }
-            const partial = partialBlobs.get(path);
-            if (!partial) continue;
-            partial.parts.set(decoded.header.partIndex ?? 0, decoded.data);
-
-            if (partial.parts.size === decoded.header.totalParts) {
-              const totalSize = Array.from(partial.parts.values()).reduce(
-                (sum, part) => sum + part.length,
-                0
-              );
-              const assembled = new Uint8Array(totalSize);
-              let assembleOffset = 0;
-              for (let i = 0; i < decoded.header.totalParts; i++) {
-                const part = partial.parts.get(i);
-                if (!part) {
-                  throw new BackupDecodeError(
-                    `Missing blob part ${i} for ${path}`
-                  );
-                }
-                assembled.set(part, assembleOffset);
-                assembleOffset += part.length;
-              }
-              const {
-                partIndex: _,
-                totalParts: __,
-                ...headerWithoutParts
-              } = partial.header;
-              blobs.push({
-                header: headerWithoutParts,
-                data: assembled
-              });
-              partialBlobs.delete(path);
-            }
-          } else {
-            blobs.push(decoded);
-          }
+        case ChunkType.BLOB:
+          reportProgress('blobs', 'blob');
+          blobs.push(parseBlobChunk(chunkData));
           break;
-        }
-
         default:
-          break;
+          throw new BackupDecodeError(
+            `Unknown chunk type: ${chunkHeader.chunkType}`
+          );
       }
 
       offset += CHUNK_HEADER_SIZE + chunkHeader.payloadLength;
-      chunkIndex++;
+      currentChunk++;
     }
 
-    reportProgress('finalizing');
-
-    if (partialBlobs.size > 0) {
-      const incomplete = Array.from(partialBlobs.keys()).join(', ');
-      throw new BackupDecodeError(`Incomplete split blobs: ${incomplete}`);
+    if (!manifest || !database) {
+      throw new BackupDecodeError('Backup missing required chunks');
     }
 
-    if (!manifest) {
-      throw new BackupDecodeError('Missing manifest chunk');
-    }
-    if (!database) {
-      throw new BackupDecodeError('Missing database chunk');
-    }
+    reportProgress('finalizing', 'complete');
 
     return { manifest, database, blobs };
   };
@@ -351,20 +262,19 @@ export async function decode(options: DecodeOptions): Promise<DecodeResult> {
 
   try {
     return await attemptDecode(PBKDF2_ITERATIONS);
-  } catch (error) {
+  } catch (err) {
     if (
-      error instanceof InvalidPasswordError &&
+      err instanceof InvalidPasswordError &&
       PBKDF2_ITERATIONS !== LEGACY_PBKDF2_ITERATIONS
     ) {
       return attemptDecode(LEGACY_PBKDF2_ITERATIONS);
     }
-    throw error;
+    throw err;
   }
 }
 
 /**
  * Read just the header from a backup file without decrypting.
- * Useful for quick validation and metadata extraction.
  */
 export function readHeader(data: Uint8Array): BackupHeader {
   return parseHeader(data);
@@ -372,51 +282,24 @@ export function readHeader(data: Uint8Array): BackupHeader {
 
 /**
  * Validate a backup file without fully decoding it.
- * Attempts to decrypt the first chunk to verify the password.
  */
-export async function validateBackup(
-  data: Uint8Array,
-  password: string
-): Promise<{ valid: boolean; manifest?: BackupManifest; error?: string }> {
+export function validateBackup(data: Uint8Array): {
+  valid: boolean;
+  error?: string;
+} {
   try {
     const header = parseHeader(data);
-    if (data.length <= HEADER_SIZE) {
-      return { valid: false, error: 'No chunks in backup' };
+    if (header.version > FORMAT_VERSION) {
+      return {
+        valid: false,
+        error: `Unsupported backup version: ${header.version}`
+      };
     }
-    const attemptValidate = async (
-      iterations: number
-    ): Promise<{ valid: boolean; manifest?: BackupManifest }> => {
-      const key = await deriveKey(password, header.salt, iterations);
-
-      const chunkHeader = parseChunkHeader(data, HEADER_SIZE);
-      const chunkData = await decryptChunk(data, HEADER_SIZE, chunkHeader, key);
-
-      if (chunkHeader.chunkType === ChunkType.MANIFEST) {
-        const manifest = parseJsonChunk<BackupManifest>(chunkData);
-        return { valid: true, manifest };
-      }
-
-      return { valid: true };
+    return { valid: true };
+  } catch (err) {
+    return {
+      valid: false,
+      error: err instanceof Error ? err.message : 'Invalid backup file'
     };
-
-    try {
-      return await attemptValidate(PBKDF2_ITERATIONS);
-    } catch (error) {
-      if (
-        error instanceof InvalidPasswordError &&
-        PBKDF2_ITERATIONS !== LEGACY_PBKDF2_ITERATIONS
-      ) {
-        return await attemptValidate(LEGACY_PBKDF2_ITERATIONS);
-      }
-      throw error;
-    }
-  } catch (error) {
-    if (error instanceof InvalidPasswordError) {
-      return { valid: false, error: 'Invalid password' };
-    }
-    if (error instanceof BackupDecodeError) {
-      return { valid: false, error: error.message };
-    }
-    return { valid: false, error: 'Unknown error' };
   }
 }

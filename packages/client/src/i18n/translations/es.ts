@@ -9,7 +9,8 @@ export const es = {
     theme: 'Tema',
     themeDescription: 'Elija su tema de color preferido',
     create: 'Crear',
-    restore: 'Restaurar'
+    restore: 'Restaurar',
+    stored: 'Guardadas'
   },
   menu: {
     home: 'Inicio',

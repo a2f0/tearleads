@@ -8,13 +8,15 @@ export interface WindowOptionsDialogProps {
   onOpenChange: (open: boolean) => void;
   preserveWindowState: boolean;
   onSave: (preserveWindowState: boolean) => void;
+  onFitContent?: () => void;
 }
 
 export function WindowOptionsDialog({
   open,
   onOpenChange,
   preserveWindowState,
-  onSave
+  onSave,
+  onFitContent
 }: WindowOptionsDialogProps) {
   const [selectedOption, setSelectedOption] = useState(preserveWindowState);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -79,6 +81,11 @@ export function WindowOptionsDialog({
     onOpenChange(false);
   };
 
+  const handleFitContent = () => {
+    onFitContent?.();
+    onOpenChange(false);
+  };
+
   if (!open) return null;
 
   return createPortal(
@@ -131,6 +138,16 @@ export function WindowOptionsDialog({
             />
             <span className="text-sm">Use default window state</span>
           </label>
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-sm">Size window to content</span>
+            <Button
+              variant="outline"
+              onClick={handleFitContent}
+              data-testid="window-options-fit-content"
+            >
+              Fit
+            </Button>
+          </div>
         </div>
         <div className="mt-6 flex justify-end gap-3">
           <Button
