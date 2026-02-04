@@ -1,7 +1,10 @@
 import { OPENROUTER_CHAT_MODELS } from '@rapid/shared';
+import { useState } from 'react';
+import { useConversations } from '@/hooks/useConversations';
 import { useLLM } from '@/hooks/useLLM';
 import { ChatHeader } from './ChatHeader';
 import { ChatInterface } from './ChatInterface';
+import { ConversationsSidebar } from './ConversationsSidebar';
 import { NoModelLoadedContent } from './NoModelLoadedContent';
 
 /**
@@ -40,6 +43,18 @@ function getModelDisplayName(modelId: string): string {
 
 export function Chat() {
   const { loadedModel, modelType, generate } = useLLM();
+  const {
+    conversations,
+    loading: conversationsLoading,
+    error: conversationsError,
+    currentConversationId,
+    selectConversation,
+    createConversation,
+    renameConversation,
+    deleteConversation
+  } = useConversations();
+
+  const [sidebarWidth, setSidebarWidth] = useState(220);
 
   const modelDisplayName = loadedModel
     ? getModelDisplayName(loadedModel)
@@ -47,14 +62,36 @@ export function Chat() {
 
   const isVisionModel = modelType === 'vision' || modelType === 'paligemma';
 
+  const handleNewConversation = async () => {
+    await createConversation();
+  };
+
+  const handleConversationSelect = async (id: string | null) => {
+    await selectConversation(id);
+  };
+
   return (
-    <div className="flex h-full flex-col">
-      <ChatHeader modelDisplayName={modelDisplayName} />
-      {loadedModel ? (
-        <ChatInterface generate={generate} isVisionModel={isVisionModel} />
-      ) : (
-        <NoModelLoadedContent />
-      )}
+    <div className="flex h-full">
+      <ConversationsSidebar
+        width={sidebarWidth}
+        onWidthChange={setSidebarWidth}
+        conversations={conversations}
+        selectedConversationId={currentConversationId}
+        onConversationSelect={handleConversationSelect}
+        onNewConversation={handleNewConversation}
+        onRenameConversation={renameConversation}
+        onDeleteConversation={deleteConversation}
+        loading={conversationsLoading}
+        error={conversationsError}
+      />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <ChatHeader modelDisplayName={modelDisplayName} />
+        {loadedModel ? (
+          <ChatInterface generate={generate} isVisionModel={isVisionModel} />
+        ) : (
+          <NoModelLoadedContent />
+        )}
+      </div>
     </div>
   );
 }

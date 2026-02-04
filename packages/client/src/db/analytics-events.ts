@@ -65,7 +65,17 @@ export type AnalyticsEventSlug =
   | 'llm_model_load'
   | 'llm_prompt_text'
   | 'llm_prompt_multimodal'
-  | 'llm_classify_image';
+  | 'llm_classify_image'
+  // AI conversation operations
+  | 'api_post_ai_conversation'
+  | 'api_get_ai_conversations'
+  | 'api_get_ai_conversation'
+  | 'api_patch_ai_conversation'
+  | 'api_delete_ai_conversation'
+  | 'api_post_ai_message'
+  | 'api_post_ai_usage'
+  | 'api_get_ai_usage'
+  | 'api_get_ai_usage_summary';
 
 // Hand-curated display names
 export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
@@ -127,7 +137,17 @@ export const EVENT_DISPLAY_NAMES: Record<AnalyticsEventSlug, string> = {
   llm_model_load: 'LLM Model Load',
   llm_prompt_text: 'LLM Text Prompt',
   llm_prompt_multimodal: 'LLM Multimodal Prompt',
-  llm_classify_image: 'LLM Image Classification'
+  llm_classify_image: 'LLM Image Classification',
+  // AI conversations
+  api_post_ai_conversation: 'API Create AI Conversation',
+  api_get_ai_conversations: 'API List AI Conversations',
+  api_get_ai_conversation: 'API Get AI Conversation',
+  api_patch_ai_conversation: 'API Update AI Conversation',
+  api_delete_ai_conversation: 'API Delete AI Conversation',
+  api_post_ai_message: 'API Add AI Message',
+  api_post_ai_usage: 'API Record AI Usage',
+  api_get_ai_usage: 'API Get AI Usage',
+  api_get_ai_usage_summary: 'API Get AI Usage Summary'
 };
 
 /**
@@ -317,6 +337,36 @@ export interface LlmClassifyImageDetail {
   classification?: string;
 }
 
+// AI conversation events
+export interface ApiPostAiConversationDetail {
+  conversationId?: string;
+}
+export interface ApiGetAiConversationsDetail {
+  conversationCount?: number;
+}
+export interface ApiGetAiConversationDetail {
+  messageCount?: number;
+}
+export interface ApiPatchAiConversationDetail {
+  conversationId?: string;
+}
+export interface ApiDeleteAiConversationDetail {
+  deleted?: boolean;
+}
+export interface ApiPostAiMessageDetail {
+  role?: string;
+}
+export interface ApiPostAiUsageDetail {
+  modelId?: string;
+  totalTokens?: number;
+}
+export interface ApiGetAiUsageDetail {
+  usageCount?: number;
+}
+export interface ApiGetAiUsageSummaryDetail {
+  totalTokens?: number;
+}
+
 // Map event slugs to their detail types
 export interface EventDetailMap {
   db_setup: DbSetupDetail;
@@ -373,6 +423,15 @@ export interface EventDetailMap {
   llm_prompt_text: LlmPromptTextDetail;
   llm_prompt_multimodal: LlmPromptMultimodalDetail;
   llm_classify_image: LlmClassifyImageDetail;
+  api_post_ai_conversation: ApiPostAiConversationDetail;
+  api_get_ai_conversations: ApiGetAiConversationsDetail;
+  api_get_ai_conversation: ApiGetAiConversationDetail;
+  api_patch_ai_conversation: ApiPatchAiConversationDetail;
+  api_delete_ai_conversation: ApiDeleteAiConversationDetail;
+  api_post_ai_message: ApiPostAiMessageDetail;
+  api_post_ai_usage: ApiPostAiUsageDetail;
+  api_get_ai_usage: ApiGetAiUsageDetail;
+  api_get_ai_usage_summary: ApiGetAiUsageSummaryDetail;
 }
 
 // Union of all detail types

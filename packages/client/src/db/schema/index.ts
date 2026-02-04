@@ -1,5 +1,8 @@
 // Re-export schema from @rapid/db
 export {
+  aiConversations,
+  aiMessages,
+  aiUsage,
   albums,
   analyticsEvents,
   contactEmails,

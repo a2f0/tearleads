@@ -28,6 +28,26 @@ vi.mock('@/hooks/useLLM', () => ({
   }))
 }));
 
+// Mock useConversations hook
+vi.mock('@/hooks/useConversations', () => ({
+  useConversations: vi.fn(() => ({
+    conversations: [],
+    loading: false,
+    error: null,
+    currentConversationId: null,
+    currentMessages: [],
+    currentSessionKey: null,
+    messagesLoading: false,
+    createConversation: vi.fn().mockResolvedValue('conv-123'),
+    selectConversation: vi.fn().mockResolvedValue(undefined),
+    renameConversation: vi.fn().mockResolvedValue(undefined),
+    deleteConversation: vi.fn().mockResolvedValue(undefined),
+    addMessage: vi.fn().mockResolvedValue(undefined),
+    refetch: vi.fn().mockResolvedValue(undefined),
+    clearCurrentConversation: vi.fn()
+  }))
+}));
+
 // Mock database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({

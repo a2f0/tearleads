@@ -17,9 +17,10 @@ export interface LicenseInfo {
   repository?: string;
 }
 
+// AI conversations
+export * from './ai-conversations.js';
 // Chat validation helpers
 export * from './chat.js';
-
 // OpenRouter model options
 export * from './openrouter.js';
 

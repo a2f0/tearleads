@@ -16,6 +16,7 @@ import { organizationsRouter } from './routes/admin/organizations.js';
 import { postgresRouter } from './routes/admin/postgres.js';
 import { redisRouter } from './routes/admin/redis.js';
 import { usersRouter } from './routes/admin/users.js';
+import { aiConversationsRouter } from './routes/ai-conversations.js';
 import { authRouter } from './routes/auth.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
@@ -116,6 +117,9 @@ app.use('/v1/auth', authRouter);
 
 // Chat completion route
 app.use('/v1/chat', chatRouter);
+
+// AI conversations and usage tracking
+app.use('/v1/ai', aiConversationsRouter);
 
 // Email routes
 app.use('/v1/emails', emailsRouter);
