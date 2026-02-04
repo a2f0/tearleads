@@ -298,6 +298,30 @@ describe('FloatingWindow', () => {
     expect(dialog).toHaveAttribute('data-maximized', 'false');
   });
 
+  it('restores max width limits after leaving near-maximized state', async () => {
+    const user = userEvent.setup();
+    render(
+      <FloatingWindow
+        {...defaultProps}
+        maxWidthPercent={1}
+        maxHeightPercent={1}
+      />
+    );
+    const dialog = screen.getByRole('dialog');
+    const titleBar = screen.getByTestId(
+      'floating-window-test-window-title-bar'
+    );
+
+    fireEvent.doubleClick(titleBar);
+    expect(dialog).not.toHaveStyle({ maxWidth: '80vw' });
+
+    await user.click(screen.getByRole('button', { name: /restore/i }));
+
+    await waitFor(() => {
+      expect(dialog).toHaveStyle({ maxWidth: '100vw' });
+    });
+  });
+
   it('uses initial dimensions from props', () => {
     render(
       <FloatingWindow
