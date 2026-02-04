@@ -5,7 +5,12 @@
 import type { FC, ReactElement } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
-import { GroupList, MemberList, MlsChatWindow } from '../components/index.js';
+import {
+  GroupList,
+  MemberList,
+  MlsChatWindow,
+  NewGroupDialog
+} from '../components/index.js';
 import {
   useGroupMembers,
   useGroupMessages,
@@ -36,6 +41,7 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
   const [selectedGroupId, setSelectedGroupId] = useState<string | null>(null);
   const [showMembers, setShowMembers] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
+  const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
 
@@ -79,18 +85,18 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
     }
   }, [isInitialized, hasCredential, keyPackages.length, generateAndUpload]);
 
-  const handleCreateGroup = useCallback(async () => {
-    const name = window.prompt('Enter group name:');
-    if (!name?.trim()) return;
-
-    setIsCreatingGroup(true);
-    try {
-      const group = await createGroup(name.trim());
-      setSelectedGroupId(group.id);
-    } finally {
-      setIsCreatingGroup(false);
-    }
-  }, [createGroup]);
+  const handleCreateGroup = useCallback(
+    async (name: string) => {
+      setIsCreatingGroup(true);
+      try {
+        const group = await createGroup(name);
+        setSelectedGroupId(group.id);
+      } finally {
+        setIsCreatingGroup(false);
+      }
+    },
+    [createGroup]
+  );
 
   const handleLeaveGroup = useCallback(async () => {
     if (!selectedGroupId) return;
@@ -149,10 +155,17 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
           groups={groups}
           selectedGroupId={selectedGroupId}
           onSelectGroup={setSelectedGroupId}
-          onCreateGroup={() => void handleCreateGroup()}
-          isLoading={groupsLoading || isCreatingGroup}
+          onCreateGroup={() => setNewGroupDialogOpen(true)}
+          isLoading={groupsLoading}
         />
       </div>
+
+      <NewGroupDialog
+        open={newGroupDialogOpen}
+        onOpenChange={setNewGroupDialogOpen}
+        onGroupCreate={handleCreateGroup}
+        isCreating={isCreatingGroup}
+      />
 
       {/* Main chat area */}
       <div className="flex flex-1 flex-col">
