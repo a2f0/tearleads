@@ -39,7 +39,7 @@ export function DebugWindow({
     >
       <div className="flex h-full flex-col">
         <DebugWindowMenuBar onClose={onClose} />
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="flex-1 overflow-y-auto p-6">
           <Debug showTitle={false} />
         </div>
       </div>

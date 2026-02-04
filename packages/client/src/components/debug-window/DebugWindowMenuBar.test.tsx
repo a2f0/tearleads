@@ -26,6 +26,22 @@ describe('DebugWindowMenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
+  it('renders View menu trigger', () => {
+    render(<DebugWindowMenuBar {...defaultProps} />);
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('shows Options in View menu', async () => {
+    const user = userEvent.setup();
+    render(<DebugWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Options' })
+    ).toBeInTheDocument();
+  });
+
   it('calls onClose when Close is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
