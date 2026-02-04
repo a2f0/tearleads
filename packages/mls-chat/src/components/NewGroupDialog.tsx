@@ -23,6 +23,7 @@ export const NewGroupDialog: FC<NewGroupDialogProps> = ({
 }) => {
   const { Button } = useMlsChatUI();
   const [groupName, setGroupName] = useState('');
+  const [creationError, setCreationError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -30,6 +31,7 @@ export const NewGroupDialog: FC<NewGroupDialogProps> = ({
   useEffect(() => {
     if (open) {
       setGroupName('');
+      setCreationError(null);
       previousActiveElement.current = document.activeElement as HTMLElement;
       setTimeout(() => inputRef.current?.focus(), 0);
     } else {
@@ -70,12 +72,16 @@ export const NewGroupDialog: FC<NewGroupDialogProps> = ({
 
   const handleCreate = async () => {
     if (!groupName.trim() || isCreating) return;
+    setCreationError(null);
 
     try {
       await onGroupCreate(groupName.trim());
       onOpenChange(false);
     } catch (error) {
       console.error('Failed to create group:', error);
+      setCreationError(
+        error instanceof Error ? error.message : 'An unknown error occurred.'
+      );
     }
   };
 
@@ -125,6 +131,9 @@ export const NewGroupDialog: FC<NewGroupDialogProps> = ({
               data-testid="new-group-name-input"
               autoComplete="off"
             />
+            {creationError && (
+              <p className="mt-2 text-destructive text-sm">{creationError}</p>
+            )}
           </div>
           <div className="mt-6 flex justify-end gap-3">
             <Button

@@ -115,4 +115,25 @@ describe('NewGroupDialog', () => {
       expect(onGroupCreate).toHaveBeenCalledWith('Trimmed Group');
     });
   });
+
+  it('displays error message when group creation fails', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const onGroupCreate = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('Network error'));
+
+    renderWithProvider(
+      <NewGroupDialog {...defaultProps} onGroupCreate={onGroupCreate} />
+    );
+
+    const user = userEvent.setup();
+    await user.type(screen.getByTestId('new-group-name-input'), 'Test Group');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Network error')).toBeInTheDocument();
+    });
+
+    consoleSpy.mockRestore();
+  });
 });
