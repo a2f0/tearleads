@@ -2,6 +2,19 @@
 #
 # Downloads pre-built SQLite3MultipleCiphers WASM with encryption support.
 #
+# ASSET STRATEGY:
+# These files are NOT committed to git (listed in .gitignore) and must be downloaded:
+# - After git clone (before first build)
+# - When updating the SQLite version (change SQLITE3MC_VERSION below)
+#
+# The script downloads files to:
+# - src/workers/sqlite-wasm/  - For Vite bundling (main JS + WASM)
+# - public/sqlite/            - For runtime loading (WASM + OPFS proxy)
+# - public/assets/            - OPFS proxy (referenced from bundled assets path)
+#
+# Run: scripts/downloadSqliteWasm.sh
+# Re-download: scripts/downloadSqliteWasm.sh --clean
+#
 
 set -e
 SCRIPT_PATH=$0

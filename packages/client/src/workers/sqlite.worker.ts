@@ -5,6 +5,18 @@
 
 /// <reference lib="webworker" />
 
+/**
+ * Debug logging for SQLite worker.
+ * Only enabled in development to reduce production log noise.
+ */
+const DEBUG_SQLITE = import.meta.env?.DEV === true;
+
+function debugLog(...args: unknown[]): void {
+  if (DEBUG_SQLITE) {
+    console.log(...args);
+  }
+}
+
 import type {
   QueryParams,
   QueryResultData,
@@ -130,7 +142,7 @@ function ensureMultipleciphersVfs(baseVfsName: string): boolean {
 
   const rc = createFn(baseVfsName, 0);
   if (rc === sqlite3.capi.SQLITE_OK || rc === 0) {
-    console.log(`Registered ${targetName} VFS`);
+    debugLog(`Registered ${targetName} VFS`);
     return true;
   }
 
@@ -176,14 +188,14 @@ function keyToHex(key: Uint8Array): string {
  */
 async function initializeSqliteWasm(): Promise<void> {
   if (sqlite3) {
-    console.log('SQLite WASM already initialized');
+    debugLog('SQLite WASM already initialized');
     return;
   }
 
   // Base URL for SQLite companion files (wasm, OPFS proxy worker)
   // These are served from /sqlite/ in the public folder
   sqliteBaseUrl = new URL('/sqlite/', self.location.origin).href;
-  console.log('SQLite base URL:', sqliteBaseUrl);
+  debugLog('SQLite base URL:', sqliteBaseUrl);
 
   // Initialize the SQLite WASM module with locateFile override
   // This redirects wasm and worker file lookups to /sqlite/ in public folder
@@ -191,7 +203,7 @@ async function initializeSqliteWasm(): Promise<void> {
   // See issue #670 for details on the Android WebView MIME type problem
   try {
     sqlite3 = await sqlite3InitModule({
-      print: console.log,
+      print: debugLog,
       printErr: console.error,
       locateFile: (path: string, _prefix: string) => {
         // Redirect all file lookups to /sqlite/ base URL
@@ -213,15 +225,15 @@ async function initializeSqliteWasm(): Promise<void> {
     throw new Error('SQLite module loaded but missing expected properties');
   }
 
-  console.log('SQLite WASM initialized:', sqlite3.capi.sqlite3_libversion());
-  console.log('Available VFS classes:', Object.keys(sqlite3.oo1));
+  debugLog('SQLite WASM initialized:', sqlite3.capi.sqlite3_libversion());
+  debugLog('Available VFS classes:', Object.keys(sqlite3.oo1));
 
   // Log browser capabilities
   const hasStorageApi = typeof navigator?.storage?.getDirectory === 'function';
-  console.log('Browser capabilities:');
-  console.log('- navigator.storage.getDirectory:', hasStorageApi);
-  console.log('- crossOriginIsolated:', self.crossOriginIsolated === true);
-  console.log('- SharedArrayBuffer:', typeof SharedArrayBuffer !== 'undefined');
+  debugLog('Browser capabilities:');
+  debugLog('- navigator.storage.getDirectory:', hasStorageApi);
+  debugLog('- crossOriginIsolated:', self.crossOriginIsolated === true);
+  debugLog('- SharedArrayBuffer:', typeof SharedArrayBuffer !== 'undefined');
 }
 
 /**
@@ -232,7 +244,7 @@ async function installOpfsVfs(): Promise<boolean> {
 
   // Check if OPFS is already available
   if (sqlite3.opfs) {
-    console.log('OPFS VFS already installed');
+    debugLog('OPFS VFS already installed');
     return true;
   }
 
@@ -244,20 +256,20 @@ async function installOpfsVfs(): Promise<boolean> {
 
   // Try to install OPFS VFS
   try {
-    console.log('OPFS installOpfsVfs type:', typeof sqlite3.installOpfsVfs);
+    debugLog('OPFS installOpfsVfs type:', typeof sqlite3.installOpfsVfs);
     if (typeof sqlite3.installOpfsVfs === 'function') {
       const proxyUri = sqliteBaseUrl
         ? new URL('sqlite3-opfs-async-proxy.js', sqliteBaseUrl).href
         : undefined;
-      console.log('OPFS proxy URI:', proxyUri ?? 'default');
+      debugLog('OPFS proxy URI:', proxyUri ?? 'default');
       await sqlite3.installOpfsVfs(proxyUri ? { proxyUri } : undefined);
-      console.log('OPFS VFS installed successfully');
+      debugLog('OPFS VFS installed successfully');
       return true;
     }
 
     // Alternative: check for OpfsDb class
     if (hasOpfsDb(sqlite3.oo1) && sqlite3.oo1.OpfsDb) {
-      console.log('OpfsDb class available');
+      debugLog('OpfsDb class available');
       return true;
     }
 
@@ -296,12 +308,12 @@ async function initializeDatabase(
   // Try to install OPFS VFS for persistence
   const hasOpfs = await installOpfsVfs();
   let vfsList = getVfsList();
-  console.log('SQLite VFS list:', vfsList);
+  debugLog('SQLite VFS list:', vfsList);
   if (hasOpfs && vfsList.includes('opfs')) {
     const created = ensureMultipleciphersVfs('opfs');
     if (created) {
       vfsList = getVfsList();
-      console.log('SQLite VFS list after mc create:', vfsList);
+      debugLog('SQLite VFS list after mc create:', vfsList);
     }
   }
 
@@ -311,7 +323,7 @@ async function initializeDatabase(
     const vfsName = getOpfsVfsName();
     if (vfsName) {
       currentDbFilename = `file:${name}.sqlite3?vfs=${vfsName}`;
-      console.log(`Using ${vfsName} VFS for encrypted persistence`);
+      debugLog(`Using ${vfsName} VFS for encrypted persistence`);
     } else {
       currentDbFilename = `${name}.sqlite3`;
       console.warn(
@@ -320,7 +332,7 @@ async function initializeDatabase(
     }
   } else {
     currentDbFilename = `${name}.sqlite3`;
-    console.log('Using in-memory VFS (data will not persist across reloads)');
+    debugLog('Using in-memory VFS (data will not persist across reloads)');
   }
 
   // Helper to open the database (uses captured variables from outer scope)
@@ -342,7 +354,7 @@ async function initializeDatabase(
   try {
     // Create/open encrypted database
     openDatabase();
-    console.log('Encrypted database opened successfully:', currentDbFilename);
+    debugLog('Encrypted database opened successfully:', currentDbFilename);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
@@ -370,7 +382,7 @@ async function initializeDatabase(
         const filename = `${name}.sqlite3`;
         try {
           await opfsRoot.removeEntry(filename);
-          console.log('Deleted corrupted OPFS file:', filename);
+          debugLog('Deleted corrupted OPFS file:', filename);
         } catch {
           // File might not exist
         }
@@ -389,7 +401,7 @@ async function initializeDatabase(
       // Retry opening/creating the database
       try {
         openDatabase();
-        console.log(
+        debugLog(
           'Database created successfully after deleting corrupted file:',
           currentDbFilename
         );
@@ -525,7 +537,7 @@ function rekey(newKey: Uint8Array): void {
 
   encryptionKey = newHexKey;
 
-  console.log('Database re-keyed successfully');
+  debugLog('Database re-keyed successfully');
 }
 
 /**
@@ -540,7 +552,7 @@ function exportDatabase(): Uint8Array {
   // Export the database using the SQLite API
   // This gets the raw (encrypted) database file bytes
   const data = sqlite3.capi.sqlite3_js_db_export(db);
-  console.log('Exported database:', data.length, 'bytes');
+  debugLog('Exported database:', data.length, 'bytes');
   return data;
 }
 
@@ -572,7 +584,7 @@ function importDatabase(data: Uint8Array): void {
     if (sqlite3.FS) {
       // Write the imported encrypted data directly to the VFS file
       sqlite3.FS.writeFile(currentDbFilename, data);
-      console.log('Wrote imported data to VFS:', currentDbFilename);
+      debugLog('Wrote imported data to VFS:', currentDbFilename);
     } else {
       // Fallback: If FS is not available, try using sqlite3_deserialize
       // with a properly configured encrypted database
@@ -601,7 +613,7 @@ function importDatabase(data: Uint8Array): void {
       db.exec('SELECT 1;');
       db.exec('PRAGMA foreign_keys = ON;');
 
-      console.log('Imported database via deserialize:', data.length, 'bytes');
+      debugLog('Imported database via deserialize:', data.length, 'bytes');
       return;
     }
 
@@ -618,7 +630,7 @@ function importDatabase(data: Uint8Array): void {
     // Enable foreign keys
     db.exec('PRAGMA foreign_keys = ON;');
 
-    console.log('Imported database:', data.length, 'bytes');
+    debugLog('Imported database:', data.length, 'bytes');
   } catch (error) {
     console.error('Failed to import database:', error);
     const message = error instanceof Error ? error.message : String(error);
@@ -656,10 +668,10 @@ async function deleteDatabaseFile(name: string): Promise<void> {
 
     try {
       await opfsRoot.removeEntry(filename);
-      console.log('Deleted OPFS database file:', filename);
+      debugLog('Deleted OPFS database file:', filename);
     } catch {
       // File might not exist, which is fine
-      console.log('OPFS file not found or already deleted:', filename);
+      debugLog('OPFS file not found or already deleted:', filename);
     }
 
     // Also try to delete any journal/WAL files
