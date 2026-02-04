@@ -56,7 +56,7 @@ test.describe('Settings Window (Web)', () => {
       const content = node.querySelector('.flex-1.overflow-auto');
       if (!content) return;
       const spacer = document.createElement('div');
-      spacer.dataset.testid = 'fit-content-spacer';
+      spacer.setAttribute('data-testid', 'fit-content-spacer');
       spacer.style.height = '600px';
       content.appendChild(spacer);
     });
