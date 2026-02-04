@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { navItems } from '@/components/Sidebar';
 import { WINDOW_PATHS } from './windowPaths';
 
-const adminFlyoutPaths = ['/admin/redis', '/admin/postgres', '/admin/groups'];
+const adminFlyoutPaths = [
+  '/admin/redis',
+  '/admin/postgres',
+  '/admin/groups',
+  '/admin/users',
+  '/admin/organizations'
+];
 
 describe('WINDOW_PATHS', () => {
   it('includes every sidebar launcher path', () => {
