@@ -125,14 +125,20 @@ platform :ios do
 
   desc 'Sync macOS Developer ID certificates for desktop app'
   lane :sync_desktop_certs do
-    %w[APPLE_ID TEAM_ID MATCH_GIT_URL MATCH_PASSWORD].each do |var|
+    %w[APPLE_ID TEAM_ID MATCH_GIT_URL MATCH_PASSWORD DESKTOP_APP_IDENTIFIER].each do |var|
       UI.user_error!("Please set #{var} environment variable") unless ENV[var]
     end
 
     match(
       type: 'developer_id',
+      platform: 'macos',
       readonly: true,
-      matchfile: File.expand_path('Matchfile.desktop', __dir__)
+      skip_provisioning_profiles: true,
+      app_identifier: ENV['DESKTOP_APP_IDENTIFIER'],
+      git_url: ENV['MATCH_GIT_URL'],
+      storage_mode: 'git',
+      username: ENV['APPLE_ID'],
+      team_id: ENV['TEAM_ID']
     )
   end
 
