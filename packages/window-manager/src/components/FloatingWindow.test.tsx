@@ -7,6 +7,7 @@ import {
 } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { WINDOW_FIT_CONTENT_EVENT } from '../lib/events.js';
 import { FloatingWindow } from './FloatingWindow.js';
 
 // Test with footerHeight=56 to match original FOOTER_HEIGHT behavior
@@ -650,6 +651,26 @@ describe('FloatingWindow', () => {
 
       await waitFor(() => {
         expect(dialog).toHaveStyle({ height: '428px' });
+      });
+    });
+
+    it('sizes to fit content when requested by event', async () => {
+      scrollHeight = 500;
+      scrollWidth = 640;
+
+      render(
+        <FloatingWindow
+          {...defaultProps}
+          maxWidthPercent={1}
+          maxHeightPercent={1}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+      dialog.dispatchEvent(new CustomEvent(WINDOW_FIT_CONTENT_EVENT));
+
+      await waitFor(() => {
+        expect(dialog).toHaveStyle({ width: '640px', height: '528px' });
       });
     });
   });

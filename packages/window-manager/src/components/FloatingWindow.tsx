@@ -9,6 +9,7 @@ import {
 } from 'react';
 import type { Corner } from '../hooks/useFloatingWindow.js';
 import { useFloatingWindow } from '../hooks/useFloatingWindow.js';
+import { WINDOW_FIT_CONTENT_EVENT } from '../lib/events.js';
 import { cn } from '../lib/utils.js';
 
 const DESKTOP_BREAKPOINT = 768;
@@ -271,6 +272,87 @@ export function FloatingWindow({
     setDimensions,
     footerHeight
   ]);
+
+  const getFitContentDimensions = useCallback(() => {
+    const contentElement = contentRef.current;
+    if (!contentElement) return null;
+
+    const contentHeight = contentElement.scrollHeight;
+    const contentWidth = contentElement.scrollWidth;
+    if (contentHeight <= 0 || contentWidth <= 0) return null;
+
+    const titleBarHeight = titleBarRef.current?.offsetHeight ?? 0;
+    const desiredHeight = Math.ceil(contentHeight + titleBarHeight);
+    const desiredWidth = Math.ceil(contentWidth);
+    const maxWidth = window.innerWidth * maxWidthPercent;
+    const maxHeight = (window.innerHeight - footerHeight) * maxHeightPercent;
+
+    const nextWidth = Math.max(minWidth, Math.min(desiredWidth, maxWidth));
+    const nextHeight = Math.max(
+      minHeight,
+      Math.min(desiredHeight, maxHeight)
+    );
+    const nextX = Math.max(0, Math.round((window.innerWidth - nextWidth) / 2));
+    const nextY = Math.max(0, Math.round((maxHeight - nextHeight) / 2));
+
+    return {
+      width: nextWidth,
+      height: nextHeight,
+      x: nextX,
+      y: nextY
+    };
+  }, [
+    footerHeight,
+    maxHeightPercent,
+    maxWidthPercent,
+    minHeight,
+    minWidth
+  ]);
+
+  const handleFitContentRequest = useCallback(() => {
+    if (!isDesktop) return;
+
+    const nextDimensions = getFitContentDimensions();
+    if (!nextDimensions) return;
+
+    if (isMaximized) {
+      preMaximizeStateRef.current = null;
+      setIsMaximized(false);
+      setIsNearMaximized(false);
+    }
+
+    setDimensions(
+      nextDimensions.width,
+      nextDimensions.height,
+      nextDimensions.x,
+      nextDimensions.y
+    );
+    onDimensionsChange?.({
+      width: nextDimensions.width,
+      height: nextDimensions.height,
+      x: nextDimensions.x,
+      y: nextDimensions.y,
+      isMaximized: false
+    });
+  }, [
+    getFitContentDimensions,
+    isDesktop,
+    isMaximized,
+    onDimensionsChange,
+    setDimensions
+  ]);
+
+  useEffect(() => {
+    const element = windowRef.current;
+    if (!element) return undefined;
+
+    const handleEvent = () => handleFitContentRequest();
+    element.addEventListener(WINDOW_FIT_CONTENT_EVENT, handleEvent);
+
+    return () => {
+      element.removeEventListener(WINDOW_FIT_CONTENT_EVENT, handleEvent);
+    };
+  }, [handleFitContentRequest]);
 
   useEffect(() => {
     const handleResize = () => {

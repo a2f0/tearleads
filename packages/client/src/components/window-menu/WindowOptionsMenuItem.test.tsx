@@ -2,6 +2,7 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { WINDOW_FIT_CONTENT_EVENT } from '@rapid/window-manager';
 import { WindowOptionsMenuItem } from './WindowOptionsMenuItem';
 
 const mockSetPreserveWindowState = vi.fn();
@@ -17,7 +18,9 @@ vi.mock('@/hooks/usePreserveWindowState', () => ({
 function renderMenuItem() {
   return render(
     <ThemeProvider>
-      <WindowOptionsMenuItem />
+      <div className="floating-window" data-testid="floating-window-container">
+        <WindowOptionsMenuItem />
+      </div>
     </ThemeProvider>
   );
 }
@@ -114,6 +117,23 @@ describe('WindowOptionsMenuItem', () => {
     expect(
       screen.queryByTestId('window-options-dialog')
     ).not.toBeInTheDocument();
+  });
+
+  it('dispatches fit content event when Fit is clicked', async () => {
+    const user = userEvent.setup();
+    renderMenuItem();
+
+    const windowElement = screen.getByTestId('floating-window-container');
+    const dispatchSpy = vi.spyOn(windowElement, 'dispatchEvent');
+
+    await user.click(screen.getByText('Options'));
+    await user.click(screen.getByTestId('window-options-fit-content'));
+
+    expect(dispatchSpy).toHaveBeenCalled();
+    const firstCall = dispatchSpy.mock.calls[0];
+    expect(firstCall).toBeTruthy();
+    const eventArg = firstCall?.[0];
+    expect(eventArg?.type).toBe(WINDOW_FIT_CONTENT_EVENT);
   });
 
   it('reflects current preserveWindowState in dialog', async () => {

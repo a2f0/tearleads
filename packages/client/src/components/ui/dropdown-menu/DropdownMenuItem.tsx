@@ -1,6 +1,7 @@
 import { Check } from 'lucide-react';
+import { forwardRef } from 'react';
 
-interface DropdownMenuItemProps {
+export interface DropdownMenuItemProps {
   children: React.ReactNode;
   onClick: () => void;
   icon?: React.ReactNode;
@@ -9,14 +10,20 @@ interface DropdownMenuItemProps {
   preventClose?: boolean;
 }
 
-export function DropdownMenuItem({
-  children,
-  onClick,
-  icon,
-  checked,
-  disabled = false,
-  preventClose: _preventClose
-}: DropdownMenuItemProps) {
+export const DropdownMenuItem = forwardRef<
+  HTMLButtonElement,
+  DropdownMenuItemProps
+>(function DropdownMenuItem(
+  {
+    children,
+    onClick,
+    icon,
+    checked,
+    disabled = false,
+    preventClose: _preventClose
+  },
+  ref
+) {
   const handleClick = () => {
     if (!disabled) {
       onClick();
@@ -32,6 +39,7 @@ export function DropdownMenuItem({
 
   return (
     <button
+      ref={ref}
       type="button"
       role="menuitem"
       onClick={handleClick}
@@ -48,4 +56,4 @@ export function DropdownMenuItem({
       <span className="flex-1">{children}</span>
     </button>
   );
-}
+});

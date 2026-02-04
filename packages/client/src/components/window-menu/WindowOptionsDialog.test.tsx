@@ -9,6 +9,7 @@ function renderDialog(props: {
   onOpenChange?: (open: boolean) => void;
   preserveWindowState?: boolean;
   onSave?: (preserveWindowState: boolean) => void;
+  onFitContent?: () => void;
 }) {
   const defaultProps = {
     open: true,
@@ -46,6 +47,7 @@ describe('WindowOptionsDialog', () => {
     expect(screen.getByText('Window Options')).toBeInTheDocument();
     expect(screen.getByText('Preserve window state')).toBeInTheDocument();
     expect(screen.getByText('Use default window state')).toBeInTheDocument();
+    expect(screen.getByText('Size window to content')).toBeInTheDocument();
   });
 
   it('shows preserve option selected when preserveWindowState is true', () => {
@@ -150,6 +152,18 @@ describe('WindowOptionsDialog', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
 
+  it('calls onFitContent and closes when Fit is clicked', async () => {
+    const onFitContent = vi.fn();
+    const onOpenChange = vi.fn();
+    const user = userEvent.setup();
+    renderDialog({ onFitContent, onOpenChange });
+
+    await user.click(screen.getByTestId('window-options-fit-content'));
+
+    expect(onFitContent).toHaveBeenCalledWith();
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
+
   it('resets selection when reopened', () => {
     const { rerender } = render(
       <ThemeProvider>
@@ -199,6 +213,7 @@ describe('WindowOptionsDialog', () => {
     renderDialog({});
 
     const preserveRadio = screen.getByTestId('window-state-preserve-radio');
+    const fitButton = screen.getByTestId('window-options-fit-content');
     const cancelButton = screen.getByTestId('window-options-cancel');
     const okButton = screen.getByTestId('window-options-ok');
 
@@ -206,7 +221,10 @@ describe('WindowOptionsDialog', () => {
     preserveRadio.focus();
     expect(document.activeElement).toBe(preserveRadio);
 
-    // Tab skips to cancel button (radio group is single tab stop)
+    // Tab skips to fit button (radio group is single tab stop)
+    await user.tab();
+    expect(document.activeElement).toBe(fitButton);
+
     await user.tab();
     expect(document.activeElement).toBe(cancelButton);
 
