@@ -33,10 +33,10 @@ export function SettingsWindow({
       zIndex={zIndex}
       {...(initialDimensions && { initialDimensions })}
       fitContent
-      defaultWidth={500}
-      defaultHeight={600}
-      minWidth={400}
-      minHeight={400}
+      defaultWidth={960}
+      defaultHeight={640}
+      minWidth={840}
+      minHeight={520}
       maxWidthPercent={1}
       maxHeightPercent={1}
     >

@@ -48,4 +48,20 @@ describe('SettingsWindowMenuBar', () => {
       screen.getByRole('menuitem', { name: 'Options' })
     ).toBeInTheDocument();
   });
+
+  it('closes the View menu when options dialog is dismissed', async () => {
+    const user = userEvent.setup();
+    render(<SettingsWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Options' }));
+
+    expect(screen.getByTestId('window-options-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('window-options-cancel'));
+
+    expect(
+      screen.queryByRole('menuitem', { name: 'Options' })
+    ).not.toBeInTheDocument();
+  });
 });
