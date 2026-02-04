@@ -181,7 +181,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
       - If job succeeded: reset `job_failure_counts[job] = 0`
       - If job failed:
         - Increment `job_failure_counts[job]`
-        - If count > 3: ask user for help
+        - If count >= 3: ask user for help
         - Else: run `/fix-tests <job-name>`, push fix, cancel workflow:
 
           ```bash

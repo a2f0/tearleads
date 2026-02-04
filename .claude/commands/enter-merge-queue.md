@@ -274,7 +274,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
       - If `status="completed"` AND `conclusion="failure"`:
         - Increment `job_failure_counts[job]`
-        - If `job_failure_counts[job] > 3` (failed 3 times = initial + 2 retries):
+        - If `job_failure_counts[job] >= 3` (failed 3 times = initial + 2 retries):
           - Log: "Job '<job-name>' failed 3 times. Asking user for help."
           - Clear queued status with `clearQueued.sh`
           - Stop and ask user for guidance
