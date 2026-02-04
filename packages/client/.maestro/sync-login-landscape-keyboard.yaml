@@ -11,7 +11,7 @@ appId: com.tearleads.rapid
 # Wait for home to load (extended timeout for CI environments)
 - extendedWaitUntil:
     visible: "Files"
-    timeout: 15000
+    timeout: 30000
 
 # Navigate to Sync page using Maestro native swipe and tap
 # IMPORTANT: JavaScript navigation (window.location.href, Link.click()) does NOT work
