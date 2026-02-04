@@ -789,7 +789,10 @@ test.describe('Debug page', () => {
 
     // Wait for ping data to load (either success or error)
     // Look for version in the API Status section (green text) or error message
-    const apiStatusSection = page.getByText('API Status').locator('..');
+    const apiStatusSection = page
+      .getByText('API Status')
+      .locator('..')
+      .locator('..');
     const apiStatus = apiStatusSection.getByText(
       /^\d+\.\d+\.\d+$|Failed to connect to API/
     );
