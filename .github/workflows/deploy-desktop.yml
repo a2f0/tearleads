@@ -9,7 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     env:
-      DESKTOP_APP_IDENTIFIER: com.tearleads.desktop
+      DESKTOP_APP_IDENTIFIER: com.tearleads.rapid
     strategy:
       fail-fast: false
       matrix:
@@ -96,6 +96,7 @@ jobs:
           MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          DESKTOP_APP_IDENTIFIER: ${{ env.DESKTOP_APP_IDENTIFIER }}
 
       - name: Build desktop release artifacts
         if: runner.os != 'macOS'
