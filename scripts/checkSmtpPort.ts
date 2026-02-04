@@ -11,6 +11,9 @@ const host = process.env.SMTP_HOST || '127.0.0.1';
 const port = Number.parseInt(process.env.SMTP_PORT || '25', 10);
 const timeoutMs = Number.parseInt(process.env.SMTP_PORT_CHECK_TIMEOUT_MS || '500', 10);
 const repoRoot = realpathSync(process.cwd());
+const SIGTERM_WAIT_MS = 200;
+const SIGKILL_WAIT_MS = 100;
+const POST_KILL_WAIT_MS = 100;
 
 const getProcessCwd = (pid: number): string | null => {
   try {
@@ -49,20 +52,19 @@ const isInRepo = (cwd: string | null): boolean => {
   }
 };
 
-const getPidOnPort = (): number | null => {
+const getPidsOnPort = (): number[] => {
   try {
     const output = execFileSync('lsof', ['-i', `:${port}`, '-t'], {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'ignore'],
     });
-    const pids = output
+    return output
       .trim()
       .split('\n')
       .map((s) => Number.parseInt(s, 10))
       .filter((n) => !Number.isNaN(n));
-    return pids.length > 0 ? pids[0] : null;
   } catch {
-    return null;
+    return [];
   }
 };
 
@@ -88,24 +90,32 @@ const isAlive = (pid: number): boolean => {
   }
 };
 
-const killExistingListener = async (): Promise<boolean> => {
-  const pid = getPidOnPort();
-  if (!pid) {
+const killExistingListeners = async (pids: number[]): Promise<boolean> => {
+  const pidsToKill = pids.filter((pid) => isInRepo(getProcessCwd(pid)));
+
+  if (pidsToKill.length === 0) {
     return false;
   }
 
-  const cwd = getProcessCwd(pid);
-  if (!isInRepo(cwd)) {
-    return false;
+  console.log(
+    `[checkSmtpPort] Killing existing SMTP listener(s) on port ${port}: PID(s) ${pidsToKill.join(', ')}`
+  );
+
+  for (const pid of pidsToKill) {
+    killPid(pid, 'SIGTERM');
+  }
+  await sleep(SIGTERM_WAIT_MS);
+
+  let needsSigKillWait = false;
+  for (const pid of pidsToKill) {
+    if (isAlive(pid)) {
+      killPid(pid, 'SIGKILL');
+      needsSigKillWait = true;
+    }
   }
 
-  console.log(`[checkSmtpPort] Killing existing SMTP listener (PID ${pid}) on port ${port}`);
-  killPid(pid, 'SIGTERM');
-  await sleep(200);
-
-  if (isAlive(pid)) {
-    killPid(pid, 'SIGKILL');
-    await sleep(100);
+  if (needsSigKillWait) {
+    await sleep(SIGKILL_WAIT_MS);
   }
 
   return true;
@@ -143,19 +153,19 @@ const checkPort = (): Promise<void> =>
 
 const main = async (): Promise<void> => {
   // First check if port is in use
-  const pid = getPidOnPort();
-  if (!pid) {
+  const pids = getPidsOnPort();
+  if (pids.length === 0) {
     finish(0);
     return;
   }
 
-  // Try to kill existing listener if it's from this repo
-  const killed = await killExistingListener();
+  // Try to kill existing listeners if they're from this repo
+  const killed = await killExistingListeners(pids);
   if (killed) {
     // Verify port is now free
-    await sleep(100);
-    const stillInUse = getPidOnPort();
-    if (!stillInUse) {
+    await sleep(POST_KILL_WAIT_MS);
+    const stillInUsePids = getPidsOnPort();
+    if (stillInUsePids.length === 0) {
       finish(0);
       return;
     }
