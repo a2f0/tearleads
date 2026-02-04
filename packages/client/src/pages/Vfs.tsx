@@ -80,7 +80,9 @@ export function Vfs() {
       )}
 
       {!isDatabaseLoading && !isUnlocked && (
-        <InlineUnlock description="VFS explorer" />
+        <div className="flex flex-1 items-center justify-center p-4">
+          <InlineUnlock description="VFS explorer" />
+        </div>
       )}
 
       {isUnlocked && (

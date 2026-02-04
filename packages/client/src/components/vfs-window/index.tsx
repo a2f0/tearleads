@@ -115,18 +115,23 @@ export function VfsWindow({
     [openWindow, requestWindowOpen]
   );
 
+  const windowProps = {
+    id,
+    onClose,
+    onMinimize,
+    onDimensionsChange,
+    onFocus,
+    zIndex,
+    initialDimensions
+  };
+
   // Show lock screen when database is loading or locked
   if (isDatabaseLoading || !isUnlocked) {
     return (
       <FloatingWindow
-        id={id}
-        title="VFS Explorer"
-        onClose={onClose}
-        onMinimize={onMinimize}
-        onDimensionsChange={onDimensionsChange}
-        onFocus={onFocus}
-        zIndex={zIndex}
+        {...windowProps}
         {...(initialDimensions && { initialDimensions })}
+        title="VFS Explorer"
         defaultWidth={900}
         defaultHeight={600}
         minWidth={600}
@@ -151,16 +156,7 @@ export function VfsWindow({
 
   return (
     <ClientVfsExplorerProvider>
-      <VfsWindowBase
-        id={id}
-        onClose={onClose}
-        onMinimize={onMinimize}
-        onDimensionsChange={onDimensionsChange}
-        onFocus={onFocus}
-        zIndex={zIndex}
-        initialDimensions={initialDimensions}
-        onItemOpen={handleItemOpen}
-      />
+      <VfsWindowBase {...windowProps} onItemOpen={handleItemOpen} />
     </ClientVfsExplorerProvider>
   );
 }
