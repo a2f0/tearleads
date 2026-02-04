@@ -49,6 +49,11 @@ describe('AboutDialog', () => {
     expect(screen.getByText('About VFS Explorer')).toBeInTheDocument();
   });
 
+  it('uses a custom close label when provided', () => {
+    renderDialog({ closeLabel: 'Close' });
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
+  });
+
   it('closes when OK is clicked', async () => {
     const onOpenChange = vi.fn();
     const user = userEvent.setup();

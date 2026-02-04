@@ -9,7 +9,9 @@ vi.mock('@/hooks/useAppVersion', () => ({
   useAppVersion: vi.fn(() => '1.2.3')
 }));
 
-function renderMenuItem(props: { appName?: string; version?: string } = {}) {
+function renderMenuItem(
+  props: { appName?: string; version?: string; closeLabel?: string } = {}
+) {
   return render(
     <ThemeProvider>
       <AboutMenuItem {...props} />
@@ -108,6 +110,15 @@ describe('AboutMenuItem', () => {
 
     expect(screen.getByText('About Email')).toBeInTheDocument();
     expect(screen.getByTestId('about-version')).toHaveTextContent('0.0.8');
+  });
+
+  it('uses a custom close label when provided', async () => {
+    const user = userEvent.setup();
+    renderMenuItem({ closeLabel: 'Close' });
+
+    await user.click(screen.getByText('About'));
+
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 
   it('displays Unknown when hook returns undefined and no version prop', async () => {

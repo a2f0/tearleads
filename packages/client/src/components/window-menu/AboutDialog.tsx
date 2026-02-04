@@ -8,13 +8,15 @@ export interface AboutDialogProps {
   onOpenChange: (open: boolean) => void;
   version: string;
   appName?: string | undefined;
+  closeLabel?: string | undefined;
 }
 
 export function AboutDialog({
   open,
   onOpenChange,
   version,
-  appName = 'Notes'
+  appName = 'Notes',
+  closeLabel = 'OK'
 }: AboutDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -102,7 +104,7 @@ export function AboutDialog({
         </div>
         <div className="mt-6 flex justify-end">
           <Button onClick={handleClose} data-testid="about-ok">
-            OK
+            {closeLabel}
           </Button>
         </div>
       </div>

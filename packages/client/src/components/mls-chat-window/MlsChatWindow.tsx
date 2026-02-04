@@ -2,6 +2,7 @@ import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { useTypedTranslation } from '@/i18n';
 import { MlsChatPage } from '@/pages/MlsChat';
+import { MlsChatWindowMenuBar } from './MlsChatWindowMenuBar';
 
 interface MlsChatWindowProps {
   id: string;
@@ -40,7 +41,10 @@ export function MlsChatWindow({
       minHeight={350}
     >
       <div className="flex h-full flex-col overflow-hidden">
-        <MlsChatPage className="h-full" />
+        <MlsChatWindowMenuBar onClose={onClose} />
+        <div className="flex-1 overflow-hidden">
+          <MlsChatPage className="h-full" />
+        </div>
       </div>
     </FloatingWindow>
   );
