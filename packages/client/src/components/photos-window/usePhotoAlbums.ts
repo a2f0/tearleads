@@ -2,7 +2,7 @@ import { and, eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { albums, vfsLinks, vfsRegistry } from '@/db/schema';
+import { albums, files, vfsLinks, vfsRegistry } from '@/db/schema';
 
 export interface PhotoAlbum {
   id: string;
@@ -61,13 +61,16 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
 
       const albumIds = albumRows.map((a) => a.id);
 
-      // Get photo counts for each album
+      // Get photo counts for each album (excluding deleted files)
       const childCountRows = await db
         .select({
           parentId: vfsLinks.parentId
         })
         .from(vfsLinks)
-        .where(inArray(vfsLinks.parentId, albumIds));
+        .innerJoin(files, eq(files.id, vfsLinks.childId))
+        .where(
+          and(inArray(vfsLinks.parentId, albumIds), eq(files.deleted, false))
+        );
 
       const photoCountMap = new Map<string, number>();
       for (const row of childCountRows) {

@@ -112,8 +112,12 @@ describe('ClientAudioProvider', () => {
     mockDb.select
       .mockReturnValueOnce({
         from: vi.fn(() => ({
-          groupBy: vi.fn(() => ({
-            as: vi.fn(() => trackCountsSubQuery)
+          innerJoin: vi.fn(() => ({
+            where: vi.fn(() => ({
+              groupBy: vi.fn(() => ({
+                as: vi.fn(() => trackCountsSubQuery)
+              }))
+            }))
           }))
         }))
       })
@@ -152,8 +156,12 @@ describe('ClientAudioProvider', () => {
 
     mockDb.select.mockReturnValueOnce({
       from: vi.fn(() => ({
-        groupBy: vi.fn(() => ({
-          as: vi.fn(() => trackCountsSubQuery)
+        innerJoin: vi.fn(() => ({
+          where: vi.fn(() => ({
+            groupBy: vi.fn(() => ({
+              as: vi.fn(() => trackCountsSubQuery)
+            }))
+          }))
         }))
       }))
     });
@@ -177,6 +185,47 @@ describe('ClientAudioProvider', () => {
 
     const playlists = await lastProviderProps.fetchPlaylists();
     expect(playlists).toEqual([]);
+  });
+
+  it('count subquery joins files and filters deleted', async () => {
+    const trackCountsSubQuery = { parentId: 'parent_id', trackCount: 0 };
+
+    const innerJoinFn = vi.fn(() => ({
+      where: vi.fn(() => ({
+        groupBy: vi.fn(() => ({
+          as: vi.fn(() => trackCountsSubQuery)
+        }))
+      }))
+    }));
+
+    mockDb.select
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          innerJoin: innerJoinFn
+        }))
+      })
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          innerJoin: vi.fn(() => ({
+            leftJoin: vi.fn(() => ({
+              where: vi.fn(async () => [])
+            }))
+          }))
+        }))
+      });
+
+    render(
+      <ClientAudioProvider>
+        <div />
+      </ClientAudioProvider>
+    );
+
+    if (!lastProviderProps) throw new Error('AudioUIProvider not captured');
+
+    await lastProviderProps.fetchPlaylists();
+
+    // The subquery should call innerJoin to join with files table
+    expect(innerJoinFn).toHaveBeenCalled();
   });
 
   it('fetches audio files by id filter and handles empty ids', async () => {

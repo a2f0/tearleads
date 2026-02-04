@@ -7,7 +7,7 @@ import { and, eq, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback } from 'react';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { playlists, vfsLinks, vfsRegistry } from '@/db/schema';
+import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { logStore } from '@/stores/logStore';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 import { VideoPlaylistProvider } from '@/video/VideoPlaylistContext';
@@ -34,6 +34,8 @@ export function ClientVideoProvider({ children }: ClientVideoProviderProps) {
         trackCount: sql<number>`count(*)`.as('track_count')
       })
       .from(vfsLinks)
+      .innerJoin(files, eq(files.id, vfsLinks.childId))
+      .where(eq(files.deleted, false))
       .groupBy(vfsLinks.parentId)
       .as('trackCounts');
 
