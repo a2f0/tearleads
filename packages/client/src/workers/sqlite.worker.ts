@@ -14,8 +14,7 @@ const DEBUG_SQLITE =
   typeof import.meta.env !== 'undefined' &&
   import.meta.env.DEV === true;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function debugLog(...args: any[]): void {
+function debugLog(...args: unknown[]): void {
   if (DEBUG_SQLITE) {
     console.log(...args);
   }
