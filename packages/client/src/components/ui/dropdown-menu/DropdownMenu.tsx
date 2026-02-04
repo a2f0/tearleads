@@ -27,7 +27,9 @@ interface DropdownMenuContextValue {
   close: () => void;
 }
 
-const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(null);
+const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(
+  null
+);
 
 export function useDropdownMenuContext(): DropdownMenuContextValue | null {
   return useContext(DropdownMenuContext);
