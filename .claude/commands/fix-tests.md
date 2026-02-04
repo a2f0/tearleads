@@ -12,110 +12,242 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
 Use `-R "$REPO"` with all `gh` commands in this skill.
 
-This skill helps diagnose and fix failing tests from GitHub Actions CI.
+This skill diagnoses and fixes failing CI jobs. It can target a specific job when called with an argument (e.g., `/fix-tests electron-e2e`) or diagnose all failures when called without arguments.
 
-## 1. Check CI Status
+## Job Names Reference
 
-Get the current PR and recent CI runs:
+| Job Name                   | Workflow                    | Approx Duration |
+| -------------------------- | --------------------------- | --------------- |
+| `build`                    | build.yml                   | ~15 min         |
+| `web-e2e`                  | web-e2e.yml                 | ~10 min         |
+| `electron-e2e`             | electron-e2e.yml            | ~10 min         |
+| `android-maestro-release`  | android-maestro-release.yml | ~20 min         |
+| `ios-maestro-release`      | ios-maestro-release.yml     | ~30 min         |
+| `website-e2e`              | website-e2e.yml             | ~5 min          |
+
+## 1. Identify Failing Jobs
+
+Get the current PR and find the failing workflow run:
 
 ```bash
-gh pr view --json number,title,url | cat
-gh run list --limit 5
+# Get PR info
+gh pr view --json number,headRefName -R "$REPO"
+
+# Get the latest workflow run for current commit
+COMMIT=$(git rev-parse HEAD)
+gh run list --commit "$COMMIT" --limit 1 --json databaseId,status,conclusion -R "$REPO"
 ```
 
-## 2. Identify Failing Jobs
-
-View the failing job details:
+If a specific job name was provided (e.g., `/fix-tests electron-e2e`), focus on that job. Otherwise, identify all failing jobs:
 
 ```bash
-# View run summary
-gh run view <run-id>
+# Get all jobs and their statuses (token-efficient)
+gh run view <run-id> --json jobs --jq '[.jobs[] | {name, status, conclusion}]' -R "$REPO"
 
-# View failed job logs
-gh run view <run-id> --log-failed
+# Filter to just failed jobs
+gh run view <run-id> --json jobs --jq '[.jobs[] | select(.conclusion=="failure") | .name]' -R "$REPO"
 ```
 
-## 3. Download Test Artifacts
+## 2. Download Failed Job Logs
 
-Download debug artifacts (screenshots, logs, reports) from failed runs:
+Download only the logs for failed jobs (not all artifacts):
 
 ```bash
-# List available artifacts
-gh run view <run-id> --json artifacts --jq '.artifacts[].name'
+# View failed job logs directly (most token-efficient)
+gh run view <run-id> --log-failed -R "$REPO"
 
-# Download specific artifact
-gh run download <run-id> -n <artifact-name> -D /tmp/<destination-folder>
-
-# Download all artifacts
-gh run download <run-id> -D /tmp/<destination-folder>
+# Or download specific artifact for detailed analysis
+gh run download <run-id> -n <artifact-name> -D /tmp/<folder> -R "$REPO"
 ```
 
-### Common Artifact Names
+### Artifact Names by Job
 
-- **Playwright**: `playwright-report`, `test-results`
-- **Android Maestro**: `android-maestro-debug` (screenshots, logcat, UI hierarchy)
-- **iOS Maestro**: `ios-maestro-debug`
-- **Electron**: `electron-e2e-results`
+| Job                       | Artifact Name          | Contents                            |
+| ------------------------- | ---------------------- | ----------------------------------- |
+| `build`                   | `coverage-reports`     | Coverage JSON files                 |
+| `web-e2e`                 | `playwright-report`    | HTML report, screenshots, traces    |
+| `electron-e2e`            | (logs only)            | Electron test output                |
+| `android-maestro-release` | `android-maestro-debug`| Screenshots, logcat, UI hierarchy   |
+| `ios-maestro-release`     | `ios-maestro-debug`    | Screenshots, logs                   |
 
-## 4. Analyze Artifacts
+## 3. Categorize the Failure
 
-For Playwright:
+Analyze the logs to determine the failure type:
+
+### Lint/Type Errors (build job)
+
+**Symptoms**: ESLint errors, TypeScript errors in build job logs
 
 ```bash
-# View the HTML report
-open /tmp/playwright-report/index.html
+# Look for lint errors
+grep -i "error\|warning" /tmp/logs.txt | head -20
 
-# Check screenshots and traces
-ls /tmp/test-results/
+# Common patterns:
+# - "'foo' is defined but never used"
+# - "Type 'X' is not assignable to type 'Y'"
+# - "Unexpected any. Specify a different type"
 ```
 
-For Maestro (Android/iOS):
+**Fix**: Address the lint/type error in the source file. Run locally to verify:
 
 ```bash
+pnpm lint
+pnpm exec tsc -b
+```
+
+### Test Failures
+
+**Symptoms**: Test assertion failures, timeout errors
+
+```bash
+# For unit tests (build job)
+grep -i "fail\|error\|timeout" /tmp/logs.txt
+```
+
+**Fix**: Update test assertions or fix the code logic. Run locally:
+
+```bash
+# Unit tests
+pnpm --filter @rapid/<package> test
+
+# E2E tests
+pnpm --filter @rapid/client test:e2e
+```
+
+### Coverage Drop (build job)
+
+**Symptoms**: "Coverage threshold not met" errors
+
+```bash
+# Look for coverage errors
+grep -i "coverage\|threshold" /tmp/logs.txt
+```
+
+**Fix**: Add tests to restore coverage. Check which files dropped:
+
+```bash
+# Run coverage locally
+pnpm --filter @rapid/<package> test:coverage
+
+# Check the coverage report
+cat packages/<package>/coverage/coverage-summary.json
+```
+
+Focus on:
+
+- New code that lacks tests
+- Branches not covered
+- Functions not called
+
+### Flaky Tests
+
+**Symptoms**: Test passes locally but fails intermittently in CI
+
+**Common causes**:
+
+- Race conditions in async code
+- Timing-dependent assertions
+- Shared state between tests
+
+**Fix options**:
+
+1. Add explicit waits/retries
+2. Isolate test state
+3. Use deterministic mocks
+4. Mark as `.skip` temporarily and create an issue
+
+### Infrastructure/Timeout Failures
+
+**Symptoms**: Network errors, service unavailable, timeout without test output
+
+**Fix**: Usually transient - rerun CI:
+
+```bash
+gh run rerun <run-id> -R "$REPO"
+```
+
+If persistent, check:
+
+- CI resource limits
+- External service dependencies
+- Database connection issues
+
+## 4. Job-Specific Fixes
+
+### build Job
+
+The build job runs lint, type-check, build, and tests with coverage.
+
+```bash
+# Run the full build pipeline locally
+pnpm lint && pnpm exec tsc -b && pnpm build && pnpm test:coverage
+```
+
+Common issues:
+
+- **Lint errors**: Fix in source, run `pnpm lint`
+- **Type errors**: Fix types, run `pnpm exec tsc -b`
+- **Build errors**: Check imports, run `pnpm build`
+- **Coverage drop**: Add tests, run `pnpm --filter @rapid/<pkg> test:coverage`
+
+### web-e2e / electron-e2e Jobs
+
+```bash
+# Download Playwright report
+gh run download <run-id> -n playwright-report -D /tmp/playwright -R "$REPO"
+open /tmp/playwright/index.html
+
+# Run locally
+pnpm --filter @rapid/client test:e2e
+```
+
+Common issues:
+
+- **Selector changed**: Update the selector in the test
+- **Timing issue**: Add `await page.waitFor*` assertions
+- **API response changed**: Update expected values
+
+### android-maestro-release / ios-maestro-release Jobs
+
+```bash
+# Download debug artifacts
+gh run download <run-id> -n android-maestro-debug -D /tmp/maestro -R "$REPO"
+
 # View screenshots
-open /tmp/android-maestro-debug/*.png
+open /tmp/maestro/*.png
 
-# Check logcat for JS console logs
-grep -i "console\|error\|capacitor" /tmp/android-maestro-debug/logcat.txt
+# Check logcat (Android)
+grep -i "console\|error\|capacitor" /tmp/maestro/logcat.txt
 
 # View UI hierarchy
-cat /tmp/android-maestro-debug/ui-hierarchy.xml
+cat /tmp/maestro/ui-hierarchy.xml
 ```
 
-## 5. Run Tests Locally
+Common issues:
 
-### Playwright (Web E2E)
+- **Element not found**: Update selector or add wait
+- **WebView NAF="true"**: Add `androidWebViewHierarchy: devtools` to test
+- **Timing issue**: Use `waitForAnimationToEnd` or increase `retryTapIfNoChange`
 
-```bash
-pnpm --filter @rapid/client test:e2e
-# Or run specific test
-npx playwright test <test-name>
-```
+## 5. Apply Fix and Verify
 
-### Maestro (Android)
+1. Make the fix in the source code
+2. Verify locally (run the relevant test command)
+3. Commit and push:
 
-```bash
-# Start emulator first, then:
-cd packages/client
-bundle exec fastlane android test_maestro
-```
+   ```bash
+   git add -A
+   git commit -S -m "fix(tests): <description of fix>" >/dev/null
+   git push >/dev/null
+   ```
 
-### Maestro (iOS)
+4. Report which job was fixed and what changed
 
-```bash
-# Start simulator first, then:
-cd packages/client
-bundle exec fastlane ios test_maestro
-```
-
-## 6. Common Issues and Fixes
+## 6. Common Issues Reference
 
 ### Maestro: WebView Not Accessible (NAF="true")
 
-If Maestro can't find text/elements in a WebView, the UI hierarchy may show
-`NAF="true"` (Not Accessible Friendly) on the WebView node.
-
-**Fix**: Add `androidWebViewHierarchy: devtools` to your test file:
+If Maestro can't find elements in a WebView:
 
 ```yaml
 appId: com.tearleads.rapid
@@ -126,31 +258,33 @@ androidWebViewHierarchy: devtools
 - assertVisible: "My Text"
 ```
 
-This uses Chrome DevTools Protocol instead of Android accessibility APIs.
-
-**Also required**: Enable WebView debugging in MainActivity.java:
-
-```java
-WebView.setWebContentsDebuggingEnabled(true);
-```
-
 ### Maestro: Use evalScript for Complex Interactions
-
-For reliable WebView interaction, prefer JavaScript-based selectors:
 
 ```yaml
 - evalScript: document.querySelector('[data-testid="my-button"]').click()
 ```
 
-### Platform Detection Issues
+### Playwright: Flaky Selector
 
-If tests fail because platform detection returns wrong value (e.g., 'web' instead
-of 'android'), check the debug indicator on the Files page and review logcat for
-platform detection logs.
+```typescript
+// Instead of:
+await page.click('.dynamic-class');
 
-## 7. Fix and Verify
+// Use:
+await page.getByTestId('button-submit').click();
+await page.getByRole('button', { name: 'Submit' }).click();
+```
 
-1. Fix the failing tests by updating selectors, assertions, or test logic
-2. Verify all tests pass locally before pushing
-3. Run `/commit-and-push` to commit and push the fixes
-4. Monitor the CI run to confirm the fix works
+### Coverage: Adding Tests for New Code
+
+1. Identify uncovered lines in coverage report
+2. Write tests that exercise those code paths
+3. Focus on branch coverage (if/else, switch cases)
+4. Run `pnpm --filter @rapid/<pkg> test:coverage` to verify
+
+## Token Efficiency
+
+- Use `--log-failed` instead of downloading all artifacts when possible
+- Use `--jq` filtering to minimize JSON response size
+- Only download artifacts for the specific failing job
+- Suppress git output: `git commit ... >/dev/null && git push >/dev/null`
