@@ -2,9 +2,12 @@ import type { VfsOpenItem } from '@rapid/vfs-explorer';
 import { VfsWindow as VfsWindowBase } from '@rapid/vfs-explorer';
 import type { WindowDimensions } from '@rapid/window-manager';
 import { useCallback } from 'react';
+import { FloatingWindow } from '@/components/floating-window';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useDatabaseContext } from '@/db/hooks';
 import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfs-open';
 
 interface VfsWindowProps {
@@ -31,6 +34,7 @@ export function VfsWindow({
   zIndex,
   initialDimensions
 }: VfsWindowProps) {
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { openWindow, requestWindowOpen } = useWindowManager();
 
   const handleItemOpen = useCallback(
@@ -110,6 +114,40 @@ export function VfsWindow({
     },
     [openWindow, requestWindowOpen]
   );
+
+  // Show lock screen when database is loading or locked
+  if (isDatabaseLoading || !isUnlocked) {
+    return (
+      <FloatingWindow
+        id={id}
+        title="VFS Explorer"
+        onClose={onClose}
+        onMinimize={onMinimize}
+        onDimensionsChange={onDimensionsChange}
+        onFocus={onFocus}
+        zIndex={zIndex}
+        {...(initialDimensions && { initialDimensions })}
+        defaultWidth={900}
+        defaultHeight={600}
+        minWidth={600}
+        minHeight={400}
+      >
+        <div className="flex h-full flex-col">
+          {isDatabaseLoading && (
+            <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
+              Loading database...
+            </div>
+          )}
+
+          {!isDatabaseLoading && !isUnlocked && (
+            <div className="flex flex-1 items-center justify-center p-4">
+              <InlineUnlock description="VFS explorer" />
+            </div>
+          )}
+        </div>
+      </FloatingWindow>
+    );
+  }
 
   return (
     <ClientVfsExplorerProvider>

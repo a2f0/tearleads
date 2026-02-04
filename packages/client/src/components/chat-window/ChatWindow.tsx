@@ -2,7 +2,9 @@ import { ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
+import { useDatabaseContext } from '@/db/hooks';
 import { useLLM } from '@/hooks/useLLM';
 import { ChatInterface } from '@/pages/chat/ChatInterface';
 import { NoModelLoadedContent } from '@/pages/chat/NoModelLoadedContent';
@@ -43,6 +45,7 @@ export function ChatWindow({
   zIndex,
   initialDimensions
 }: ChatWindowProps) {
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { loadedModel, modelType, generate } = useLLM();
   const [chatKey, setChatKey] = useState(0);
   const [activeView, setActiveView] = useState<'chat' | 'models'>('chat');
@@ -90,39 +93,55 @@ export function ChatWindow({
       minHeight={400}
     >
       <div className="flex h-full flex-col">
-        <ChatWindowMenuBar
-          onNewChat={handleNewChat}
-          onClose={onClose}
-          modelDisplayName={modelDisplayName}
-        />
-        <div className="flex-1 overflow-hidden">
-          {activeView === 'models' ? (
-            <div className="flex h-full flex-col">
-              <div className="border-b bg-muted/30 px-2 py-1">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleBackToChat}
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Chat
-                </Button>
-              </div>
-              <div className="flex-1 overflow-auto p-4">
-                <ModelsContent showBackLink={false} />
-              </div>
-            </div>
-          ) : loadedModel ? (
-            <ChatInterface
-              key={chatKey}
-              generate={generate}
-              isVisionModel={isVisionModel}
+        {isDatabaseLoading && (
+          <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
+            Loading database...
+          </div>
+        )}
+
+        {!isDatabaseLoading && !isUnlocked && (
+          <div className="flex flex-1 items-center justify-center p-4">
+            <InlineUnlock description="chat" />
+          </div>
+        )}
+
+        {isUnlocked && (
+          <>
+            <ChatWindowMenuBar
+              onNewChat={handleNewChat}
+              onClose={onClose}
+              modelDisplayName={modelDisplayName}
             />
-          ) : (
-            <NoModelLoadedContent onOpenModels={handleOpenModels} />
-          )}
-        </div>
+            <div className="flex-1 overflow-hidden">
+              {activeView === 'models' ? (
+                <div className="flex h-full flex-col">
+                  <div className="border-b bg-muted/30 px-2 py-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBackToChat}
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to Chat
+                    </Button>
+                  </div>
+                  <div className="flex-1 overflow-auto p-4">
+                    <ModelsContent showBackLink={false} />
+                  </div>
+                </div>
+              ) : loadedModel ? (
+                <ChatInterface
+                  key={chatKey}
+                  generate={generate}
+                  isVisionModel={isVisionModel}
+                />
+              ) : (
+                <NoModelLoadedContent onOpenModels={handleOpenModels} />
+              )}
+            </div>
+          </>
+        )}
       </div>
     </FloatingWindow>
   );

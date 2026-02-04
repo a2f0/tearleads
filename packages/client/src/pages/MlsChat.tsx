@@ -10,10 +10,12 @@ import {
 } from '@rapid/mls-chat';
 import type { FC } from 'react';
 
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
+import { useDatabaseContext } from '@/db/hooks';
 import { API_BASE_URL } from '@/lib/api';
 
 // Map our UI components to what MlsChat expects
@@ -112,6 +114,7 @@ interface MlsChatPageProps {
 }
 
 export const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { token, user } = useAuth();
 
   // Get the API base URL from environment
@@ -123,6 +126,22 @@ export const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
   // User info
   const userId = user?.id ?? '';
   const userEmail = user?.email ?? '';
+
+  if (isDatabaseLoading) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
+        Loading database...
+      </div>
+    );
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <InlineUnlock description="MLS chat" />
+      </div>
+    );
+  }
 
   if (!userId || !userEmail) {
     return (

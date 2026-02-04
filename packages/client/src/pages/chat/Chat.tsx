@@ -1,5 +1,7 @@
 import { OPENROUTER_CHAT_MODELS } from '@rapid/shared';
 import { useState } from 'react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { useDatabaseContext } from '@/db/hooks';
 import { useConversations } from '@/hooks/useConversations';
 import { useLLM } from '@/hooks/useLLM';
 import { ChatHeader } from './ChatHeader';
@@ -42,6 +44,7 @@ function getModelDisplayName(modelId: string): string {
 }
 
 export function Chat() {
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { loadedModel, modelType, generate } = useLLM();
   const {
     conversations,
@@ -69,6 +72,22 @@ export function Chat() {
   const handleConversationSelect = async (id: string | null) => {
     await selectConversation(id);
   };
+
+  if (isDatabaseLoading) {
+    return (
+      <div className="flex h-full items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
+        Loading database...
+      </div>
+    );
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        <InlineUnlock description="chat" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full">

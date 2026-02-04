@@ -1,5 +1,7 @@
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { useDatabaseContext } from '@/db/hooks';
 import { useTypedTranslation } from '@/i18n';
 import { MlsChatPage } from '@/pages/MlsChat';
 import { MlsChatWindowMenuBar } from './MlsChatWindowMenuBar';
@@ -24,6 +26,7 @@ export function MlsChatWindow({
   initialDimensions
 }: MlsChatWindowProps) {
   const { t } = useTypedTranslation('menu');
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
 
   return (
     <FloatingWindow
@@ -41,10 +44,26 @@ export function MlsChatWindow({
       minHeight={350}
     >
       <div className="flex h-full flex-col overflow-hidden">
-        <MlsChatWindowMenuBar onClose={onClose} />
-        <div className="flex-1 overflow-hidden">
-          <MlsChatPage className="h-full" />
-        </div>
+        {isDatabaseLoading && (
+          <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
+            Loading database...
+          </div>
+        )}
+
+        {!isDatabaseLoading && !isUnlocked && (
+          <div className="flex flex-1 items-center justify-center p-4">
+            <InlineUnlock description="MLS chat" />
+          </div>
+        )}
+
+        {isUnlocked && (
+          <>
+            <MlsChatWindowMenuBar onClose={onClose} />
+            <div className="flex-1 overflow-hidden">
+              <MlsChatPage className="h-full" />
+            </div>
+          </>
+        )}
       </div>
     </FloatingWindow>
   );
