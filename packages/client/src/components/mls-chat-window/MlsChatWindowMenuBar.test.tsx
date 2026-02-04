@@ -27,12 +27,8 @@ describe('MlsChatWindowMenuBar', () => {
 
     await user.click(screen.getByRole('button', { name: 'File' }));
 
-    expect(
-      screen.getByRole('menuitem', { name: 'About' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('menuitem', { name: 'Close' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'About' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
   it('opens About dialog with version info', async () => {

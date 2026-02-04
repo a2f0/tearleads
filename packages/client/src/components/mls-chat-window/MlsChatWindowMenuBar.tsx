@@ -9,9 +9,7 @@ interface MlsChatWindowMenuBarProps {
   onClose: () => void;
 }
 
-export function MlsChatWindowMenuBar({
-  onClose
-}: MlsChatWindowMenuBarProps) {
+export function MlsChatWindowMenuBar({ onClose }: MlsChatWindowMenuBarProps) {
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
