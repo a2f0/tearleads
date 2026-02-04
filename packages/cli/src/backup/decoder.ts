@@ -11,8 +11,10 @@ import {
   CHUNK_HEADER_SIZE,
   FORMAT_VERSION,
   HEADER_SIZE,
+  LEGACY_PBKDF2_ITERATIONS,
   MAGIC_BYTES,
   MAGIC_SIZE,
+  PBKDF2_ITERATIONS,
   SALT_SIZE
 } from './constants.js';
 import { decrypt, deriveKey } from './crypto.js';
@@ -169,13 +171,7 @@ function parseJsonChunk<T>(data: Uint8Array): T {
  * Parse a blob chunk.
  */
 function parseBlobChunk(data: Uint8Array): DecodedBlob {
-  let separatorIndex = -1;
-  for (let i = 0; i < data.length; i++) {
-    if (data[i] === 0) {
-      separatorIndex = i;
-      break;
-    }
-  }
+  const separatorIndex = data.indexOf(0);
 
   if (separatorIndex === -1) {
     throw new BackupDecodeError('Invalid blob chunk: missing separator');
@@ -199,67 +195,82 @@ export async function decode(options: DecodeOptions): Promise<DecodeResult> {
   const { data, password, onProgress } = options;
 
   const header = parseHeader(data);
-  const key = await deriveKey(password, header.salt);
+  const decodeWithKey = async (key: CryptoKey): Promise<DecodeResult> => {
+    let offset = HEADER_SIZE;
+    let manifest: BackupManifest | null = null;
+    let database: DecodeResult['database'] | null = null;
+    const blobs: DecodedBlob[] = [];
 
-  let offset = HEADER_SIZE;
-  let manifest: BackupManifest | null = null;
-  let database: DecodeResult['database'] | null = null;
-  const blobs: DecodedBlob[] = [];
+    const totalChunks = Math.max(
+      1,
+      Math.floor((data.length - HEADER_SIZE) / CHUNK_HEADER_SIZE)
+    );
+    let currentChunk = 0;
 
-  const totalChunks = Math.max(
-    1,
-    Math.floor((data.length - HEADER_SIZE) / CHUNK_HEADER_SIZE)
-  );
-  let currentChunk = 0;
-
-  const reportProgress = (
-    phase: BackupProgressEvent['phase'],
-    item?: string
-  ) => {
-    if (!onProgress) return;
-    const event: BackupProgressEvent = {
-      phase,
-      current: currentChunk,
-      total: totalChunks,
-      currentItem: item
+    const reportProgress = (
+      phase: BackupProgressEvent['phase'],
+      item?: string
+    ) => {
+      if (!onProgress) return;
+      const event: BackupProgressEvent = {
+        phase,
+        current: currentChunk,
+        total: totalChunks,
+        currentItem: item
+      };
+      onProgress(event);
     };
-    onProgress(event);
-  };
 
-  while (offset < data.length) {
-    const chunkHeader = parseChunkHeader(data, offset);
-    const chunkData = await decryptChunk(data, offset, chunkHeader, key);
+    while (offset < data.length) {
+      const chunkHeader = parseChunkHeader(data, offset);
+      const chunkData = await decryptChunk(data, offset, chunkHeader, key);
 
-    switch (chunkHeader.chunkType) {
-      case ChunkType.MANIFEST:
-        reportProgress('preparing', 'manifest');
-        manifest = parseJsonChunk<BackupManifest>(chunkData);
-        break;
-      case ChunkType.DATABASE:
-        reportProgress('database', 'database');
-        database = parseJsonChunk<DecodeResult['database']>(chunkData);
-        break;
-      case ChunkType.BLOB:
-        reportProgress('blobs', 'blob');
-        blobs.push(parseBlobChunk(chunkData));
-        break;
-      default:
-        throw new BackupDecodeError(
-          `Unknown chunk type: ${chunkHeader.chunkType}`
-        );
+      switch (chunkHeader.chunkType) {
+        case ChunkType.MANIFEST:
+          reportProgress('preparing', 'manifest');
+          manifest = parseJsonChunk<BackupManifest>(chunkData);
+          break;
+        case ChunkType.DATABASE:
+          reportProgress('database', 'database');
+          database = parseJsonChunk<DecodeResult['database']>(chunkData);
+          break;
+        case ChunkType.BLOB:
+          reportProgress('blobs', 'blob');
+          blobs.push(parseBlobChunk(chunkData));
+          break;
+        default:
+          throw new BackupDecodeError(
+            `Unknown chunk type: ${chunkHeader.chunkType}`
+          );
+      }
+
+      offset += CHUNK_HEADER_SIZE + chunkHeader.payloadLength;
+      currentChunk++;
     }
 
-    offset += CHUNK_HEADER_SIZE + chunkHeader.payloadLength;
-    currentChunk++;
+    if (!manifest || !database) {
+      throw new BackupDecodeError('Backup missing required chunks');
+    }
+
+    reportProgress('finalizing', 'complete');
+
+    return { manifest, database, blobs };
+  };
+
+  const attemptDecode = async (iterations: number): Promise<DecodeResult> =>
+    decodeWithKey(await deriveKey(password, header.salt, iterations));
+
+  try {
+    return await attemptDecode(PBKDF2_ITERATIONS);
+  } catch (err) {
+    if (
+      err instanceof InvalidPasswordError &&
+      PBKDF2_ITERATIONS !== LEGACY_PBKDF2_ITERATIONS
+    ) {
+      return attemptDecode(LEGACY_PBKDF2_ITERATIONS);
+    }
+    throw err;
   }
-
-  if (!manifest || !database) {
-    throw new BackupDecodeError('Backup missing required chunks');
-  }
-
-  reportProgress('finalizing', 'complete');
-
-  return { manifest, database, blobs };
 }
 
 /**

@@ -11,8 +11,10 @@ import {
   CHUNK_HEADER_SIZE,
   FORMAT_VERSION,
   HEADER_SIZE,
+  LEGACY_PBKDF2_ITERATIONS,
   MAGIC_BYTES,
   MAGIC_SIZE,
+  PBKDF2_ITERATIONS,
   SALT_SIZE
 } from './constants';
 import { decrypt, deriveKey } from './crypto';
@@ -194,14 +196,7 @@ function parseJsonChunk<T>(data: Uint8Array): T {
  * Parse a blob chunk.
  */
 function parseBlobChunk(data: Uint8Array): DecodedBlob {
-  // Find null separator
-  let separatorIndex = -1;
-  for (let i = 0; i < data.length; i++) {
-    if (data[i] === 0) {
-      separatorIndex = i;
-      break;
-    }
-  }
+  const separatorIndex = data.indexOf(0);
 
   if (separatorIndex === -1) {
     throw new BackupDecodeError('Invalid blob chunk: missing separator');
@@ -229,138 +224,142 @@ export async function decode(options: DecodeOptions): Promise<DecodeResult> {
   // Parse header
   const header = parseHeader(data);
 
-  // Derive key
-  const key = await deriveKey(password, header.salt);
+  const decodeWithKey = async (key: CryptoKey): Promise<DecodeResult> => {
+    let manifest: BackupManifest | null = null;
+    let database: BackupDatabase | null = null;
+    const blobs: DecodedBlob[] = [];
+    const partialBlobs = new Map<
+      string,
+      { parts: Map<number, Uint8Array>; header: BlobHeader }
+    >();
 
-  // Track decoded content
-  let manifest: BackupManifest | null = null;
-  let database: BackupDatabase | null = null;
-  const blobs: DecodedBlob[] = [];
-  const partialBlobs = new Map<
-    string,
-    { parts: Map<number, Uint8Array>; header: BlobHeader }
-  >();
+    let offset = HEADER_SIZE;
+    let chunkIndex = 0;
 
-  // Read chunks
-  let offset = HEADER_SIZE;
-  let chunkIndex = 0;
-
-  // First pass: count chunks for progress
-  let tempOffset = HEADER_SIZE;
-  let totalChunks = 0;
-  while (tempOffset < data.length) {
-    const chunkHeader = parseChunkHeader(data, tempOffset);
-    tempOffset += CHUNK_HEADER_SIZE + chunkHeader.payloadLength;
-    totalChunks++;
-  }
-
-  const reportProgress = (
-    phase: BackupProgressEvent['phase'],
-    item?: string
-  ) => {
-    onProgress?.({
-      phase,
-      current: chunkIndex,
-      total: totalChunks,
-      currentItem: item
-    });
-  };
-
-  while (offset < data.length) {
-    const chunkHeader = parseChunkHeader(data, offset);
-    const chunkData = await decryptChunk(data, offset, chunkHeader, key);
-
-    switch (chunkHeader.chunkType) {
-      case ChunkType.MANIFEST:
-        reportProgress('preparing', 'manifest');
-        manifest = parseJsonChunk<BackupManifest>(chunkData);
-        break;
-
-      case ChunkType.DATABASE:
-        reportProgress('database', 'database');
-        database = parseJsonChunk<BackupDatabase>(chunkData);
-        break;
-
-      case ChunkType.BLOB: {
-        const decoded = parseBlobChunk(chunkData);
-        reportProgress('blobs', decoded.header.path);
-
-        // Handle split blobs
-        if (decoded.header.totalParts && decoded.header.totalParts > 1) {
-          const path = decoded.header.path;
-          if (!partialBlobs.has(path)) {
-            partialBlobs.set(path, {
-              parts: new Map(),
-              header: decoded.header
-            });
-          }
-          const partial = partialBlobs.get(path);
-          if (!partial) continue;
-          partial.parts.set(decoded.header.partIndex ?? 0, decoded.data);
-
-          // Check if all parts received
-          if (partial.parts.size === decoded.header.totalParts) {
-            // Reassemble blob
-            const totalSize = Array.from(partial.parts.values()).reduce(
-              (sum, part) => sum + part.length,
-              0
-            );
-            const assembled = new Uint8Array(totalSize);
-            let assembleOffset = 0;
-            for (let i = 0; i < decoded.header.totalParts; i++) {
-              const part = partial.parts.get(i);
-              if (!part) {
-                throw new BackupDecodeError(
-                  `Missing blob part ${i} for ${path}`
-                );
-              }
-              assembled.set(part, assembleOffset);
-              assembleOffset += part.length;
-            }
-            // Create a new header without the split blob properties
-            const {
-              partIndex: _,
-              totalParts: __,
-              ...headerWithoutParts
-            } = partial.header;
-            blobs.push({
-              header: headerWithoutParts,
-              data: assembled
-            });
-            partialBlobs.delete(path);
-          }
-        } else {
-          blobs.push(decoded);
-        }
-        break;
-      }
-
-      default:
-        // Unknown chunk type - skip for forward compatibility
-        break;
+    let tempOffset = HEADER_SIZE;
+    let totalChunks = 0;
+    while (tempOffset < data.length) {
+      const chunkHeader = parseChunkHeader(data, tempOffset);
+      tempOffset += CHUNK_HEADER_SIZE + chunkHeader.payloadLength;
+      totalChunks++;
     }
 
-    offset += CHUNK_HEADER_SIZE + chunkHeader.payloadLength;
-    chunkIndex++;
-  }
+    const reportProgress = (
+      phase: BackupProgressEvent['phase'],
+      item?: string
+    ) => {
+      onProgress?.({
+        phase,
+        current: chunkIndex,
+        total: totalChunks,
+        currentItem: item
+      });
+    };
 
-  reportProgress('finalizing');
+    while (offset < data.length) {
+      const chunkHeader = parseChunkHeader(data, offset);
+      const chunkData = await decryptChunk(data, offset, chunkHeader, key);
 
-  // Check for incomplete partial blobs
-  if (partialBlobs.size > 0) {
-    const incomplete = Array.from(partialBlobs.keys()).join(', ');
-    throw new BackupDecodeError(`Incomplete split blobs: ${incomplete}`);
-  }
+      switch (chunkHeader.chunkType) {
+        case ChunkType.MANIFEST:
+          reportProgress('preparing', 'manifest');
+          manifest = parseJsonChunk<BackupManifest>(chunkData);
+          break;
 
-  // Validate required chunks
-  if (!manifest) {
-    throw new BackupDecodeError('Missing manifest chunk');
-  }
-  if (!database) {
-    throw new BackupDecodeError('Missing database chunk');
-  }
+        case ChunkType.DATABASE:
+          reportProgress('database', 'database');
+          database = parseJsonChunk<BackupDatabase>(chunkData);
+          break;
 
-  return { manifest, database, blobs };
+        case ChunkType.BLOB: {
+          const decoded = parseBlobChunk(chunkData);
+          reportProgress('blobs', decoded.header.path);
+
+          if (decoded.header.totalParts && decoded.header.totalParts > 1) {
+            const path = decoded.header.path;
+            if (!partialBlobs.has(path)) {
+              partialBlobs.set(path, {
+                parts: new Map(),
+                header: decoded.header
+              });
+            }
+            const partial = partialBlobs.get(path);
+            if (!partial) continue;
+            partial.parts.set(decoded.header.partIndex ?? 0, decoded.data);
+
+            if (partial.parts.size === decoded.header.totalParts) {
+              const totalSize = Array.from(partial.parts.values()).reduce(
+                (sum, part) => sum + part.length,
+                0
+              );
+              const assembled = new Uint8Array(totalSize);
+              let assembleOffset = 0;
+              for (let i = 0; i < decoded.header.totalParts; i++) {
+                const part = partial.parts.get(i);
+                if (!part) {
+                  throw new BackupDecodeError(
+                    `Missing blob part ${i} for ${path}`
+                  );
+                }
+                assembled.set(part, assembleOffset);
+                assembleOffset += part.length;
+              }
+              const {
+                partIndex: _,
+                totalParts: __,
+                ...headerWithoutParts
+              } = partial.header;
+              blobs.push({
+                header: headerWithoutParts,
+                data: assembled
+              });
+              partialBlobs.delete(path);
+            }
+          } else {
+            blobs.push(decoded);
+          }
+          break;
+        }
+
+        default:
+          break;
+      }
+
+      offset += CHUNK_HEADER_SIZE + chunkHeader.payloadLength;
+      chunkIndex++;
+    }
+
+    reportProgress('finalizing');
+
+    if (partialBlobs.size > 0) {
+      const incomplete = Array.from(partialBlobs.keys()).join(', ');
+      throw new BackupDecodeError(`Incomplete split blobs: ${incomplete}`);
+    }
+
+    if (!manifest) {
+      throw new BackupDecodeError('Missing manifest chunk');
+    }
+    if (!database) {
+      throw new BackupDecodeError('Missing database chunk');
+    }
+
+    return { manifest, database, blobs };
+  };
+
+  const attemptDecode = async (iterations: number): Promise<DecodeResult> =>
+    decodeWithKey(await deriveKey(password, header.salt, iterations));
+
+  try {
+    return await attemptDecode(PBKDF2_ITERATIONS);
+  } catch (error) {
+    if (
+      error instanceof InvalidPasswordError &&
+      PBKDF2_ITERATIONS !== LEGACY_PBKDF2_ITERATIONS
+    ) {
+      return attemptDecode(LEGACY_PBKDF2_ITERATIONS);
+    }
+    throw error;
+  }
 }
 
 /**
@@ -381,22 +380,36 @@ export async function validateBackup(
 ): Promise<{ valid: boolean; manifest?: BackupManifest; error?: string }> {
   try {
     const header = parseHeader(data);
-    const key = await deriveKey(password, header.salt);
-
-    // Try to decrypt the first chunk (should be manifest)
     if (data.length <= HEADER_SIZE) {
       return { valid: false, error: 'No chunks in backup' };
     }
+    const attemptValidate = async (
+      iterations: number
+    ): Promise<{ valid: boolean; manifest?: BackupManifest }> => {
+      const key = await deriveKey(password, header.salt, iterations);
 
-    const chunkHeader = parseChunkHeader(data, HEADER_SIZE);
-    const chunkData = await decryptChunk(data, HEADER_SIZE, chunkHeader, key);
+      const chunkHeader = parseChunkHeader(data, HEADER_SIZE);
+      const chunkData = await decryptChunk(data, HEADER_SIZE, chunkHeader, key);
 
-    if (chunkHeader.chunkType === ChunkType.MANIFEST) {
-      const manifest = parseJsonChunk<BackupManifest>(chunkData);
-      return { valid: true, manifest };
+      if (chunkHeader.chunkType === ChunkType.MANIFEST) {
+        const manifest = parseJsonChunk<BackupManifest>(chunkData);
+        return { valid: true, manifest };
+      }
+
+      return { valid: true };
+    };
+
+    try {
+      return await attemptValidate(PBKDF2_ITERATIONS);
+    } catch (error) {
+      if (
+        error instanceof InvalidPasswordError &&
+        PBKDF2_ITERATIONS !== LEGACY_PBKDF2_ITERATIONS
+      ) {
+        return await attemptValidate(LEGACY_PBKDF2_ITERATIONS);
+      }
+      throw error;
     }
-
-    return { valid: true };
   } catch (error) {
     if (error instanceof InvalidPasswordError) {
       return { valid: false, error: 'Invalid password' };

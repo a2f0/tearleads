@@ -29,7 +29,10 @@ export const AUTH_TAG_SIZE = 16;
 export const CHUNK_HEADER_SIZE = 20;
 
 /** PBKDF2 iterations for key derivation */
-export const PBKDF2_ITERATIONS = 100_000;
+export const PBKDF2_ITERATIONS = 600_000;
+
+/** Legacy PBKDF2 iterations for backward compatibility */
+export const LEGACY_PBKDF2_ITERATIONS = 100_000;
 
 /** AES key size in bits */
 export const AES_KEY_BITS = 256;

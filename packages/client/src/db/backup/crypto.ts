@@ -37,7 +37,8 @@ export function generateIv(): Uint8Array {
  */
 export async function deriveKey(
   password: string,
-  salt: Uint8Array
+  salt: Uint8Array,
+  iterations: number = PBKDF2_ITERATIONS
 ): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const passwordBytes = encoder.encode(password);
@@ -57,7 +58,7 @@ export async function deriveKey(
     {
       name: 'PBKDF2',
       salt: saltBuffer,
-      iterations: PBKDF2_ITERATIONS,
+      iterations,
       hash: 'SHA-256'
     },
     keyMaterial,
