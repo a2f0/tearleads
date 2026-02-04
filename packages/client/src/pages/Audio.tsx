@@ -1,6 +1,7 @@
+import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@rapid/audio';
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { and, desc, eq, like } from 'drizzle-orm';
+import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import {
   ChevronRight,
   Info,
@@ -21,10 +22,11 @@ import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import { ClientAudioProvider } from '@/contexts/ClientAudioProvider';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
-import { files } from '@/db/schema';
+import { files, vfsLinks } from '@/db/schema';
 import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
@@ -71,7 +73,15 @@ interface AudioWithUrl extends AudioInfo {
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
-export function AudioPage() {
+interface AudioPageProps {
+  playlistId?: string | null | undefined;
+  hideBackLink?: boolean | undefined;
+}
+
+export function AudioPage({
+  playlistId = null,
+  hideBackLink = false
+}: AudioPageProps = {}) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
@@ -116,6 +126,32 @@ export function AudioPage() {
     try {
       const db = getDatabase();
 
+      // If a playlist is selected, get the track IDs in that playlist
+      let trackIdsInPlaylist: string[] | null = null;
+      if (playlistId) {
+        const links = await db
+          .select({ childId: vfsLinks.childId })
+          .from(vfsLinks)
+          .where(eq(vfsLinks.parentId, playlistId));
+        trackIdsInPlaylist = links.map((link) => link.childId);
+
+        // If playlist is empty, return early
+        if (trackIdsInPlaylist.length === 0) {
+          setTracks([]);
+          setHasFetched(true);
+          setLoading(false);
+          return;
+        }
+      }
+
+      const baseConditions = and(
+        like(files.mimeType, 'audio/%'),
+        eq(files.deleted, false)
+      );
+      const whereClause = trackIdsInPlaylist
+        ? and(baseConditions, inArray(files.id, trackIdsInPlaylist))
+        : baseConditions;
+
       const result = await db
         .select({
           id: files.id,
@@ -127,7 +163,7 @@ export function AudioPage() {
           thumbnailPath: files.thumbnailPath
         })
         .from(files)
-        .where(and(like(files.mimeType, 'audio/%'), eq(files.deleted, false)))
+        .where(whereClause)
         .orderBy(desc(files.uploadDate));
 
       const trackList: AudioInfo[] = result.map((row) => ({
@@ -201,11 +237,12 @@ export function AudioPage() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, currentInstanceId]);
+  }, [isUnlocked, currentInstanceId, playlistId]);
 
-  // Track the instance ID for which we've fetched tracks
+  // Track the instance ID and playlist ID for which we've fetched tracks
   // Using a ref avoids React's state batching issues
   const fetchedForInstanceRef = useRef<string | null>(null);
+  const fetchedForPlaylistRef = useRef<string | null | undefined>(undefined);
 
   const handleFilesSelected = useCallback(
     async (files: File[]) => {
@@ -242,16 +279,18 @@ export function AudioPage() {
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: tracks intentionally excluded to prevent re-fetch loops
   useEffect(() => {
-    // Check if we need to fetch for this instance
+    // Check if we need to fetch for this instance or playlist
+    const instanceChanged = fetchedForInstanceRef.current !== currentInstanceId;
+    const playlistChanged = fetchedForPlaylistRef.current !== playlistId;
     const needsFetch =
       isUnlocked &&
       !loading &&
-      (!hasFetched || fetchedForInstanceRef.current !== currentInstanceId);
+      (!hasFetched || instanceChanged || playlistChanged);
 
     if (needsFetch) {
-      // If instance changed, cleanup old object URLs first
+      // If instance or playlist changed, cleanup old object URLs first
       if (
-        fetchedForInstanceRef.current !== currentInstanceId &&
+        (instanceChanged || playlistChanged) &&
         fetchedForInstanceRef.current !== null
       ) {
         for (const track of tracks) {
@@ -266,8 +305,9 @@ export function AudioPage() {
         setError(null);
       }
 
-      // Update ref before fetching to prevent re-entry
+      // Update refs before fetching to prevent re-entry
       fetchedForInstanceRef.current = currentInstanceId;
+      fetchedForPlaylistRef.current = playlistId;
 
       // Defer fetch to next tick to ensure database singleton is updated
       const timeoutId = setTimeout(() => {
@@ -277,7 +317,14 @@ export function AudioPage() {
       return () => clearTimeout(timeoutId);
     }
     return undefined;
-  }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchTracks]);
+  }, [
+    isUnlocked,
+    loading,
+    hasFetched,
+    currentInstanceId,
+    playlistId,
+    fetchTracks
+  ]);
 
   // Keep currentTrackRef in sync with currentTrack
   useEffect(() => {
@@ -389,7 +436,9 @@ export function AudioPage() {
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        {!hideBackLink && (
+          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        )}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Music className="h-8 w-8 text-muted-foreground" />
@@ -588,5 +637,50 @@ export function AudioPage() {
         </ContextMenu>
       )}
     </div>
+  );
+}
+
+function AudioWithSidebar() {
+  const { isUnlocked } = useDatabaseContext();
+  const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
+    ALL_AUDIO_ID
+  );
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  return (
+    <div className="flex h-full flex-col space-y-4">
+      <BackLink defaultTo="/" defaultLabel="Back to Home" />
+      <div className="flex min-h-0 flex-1">
+        {isUnlocked && (
+          <div className="hidden md:block">
+            <AudioPlaylistsSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              selectedPlaylistId={selectedPlaylistId}
+              onPlaylistSelect={setSelectedPlaylistId}
+              refreshToken={refreshToken}
+              onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
+            />
+          </div>
+        )}
+        <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
+          <AudioPage
+            hideBackLink
+            playlistId={
+              selectedPlaylistId === ALL_AUDIO_ID ? null : selectedPlaylistId
+            }
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export function Audio() {
+  return (
+    <ClientAudioProvider>
+      <AudioWithSidebar />
+    </ClientAudioProvider>
   );
 }

@@ -78,7 +78,7 @@ const AudioDetail = lazy(() =>
   import('./pages/AudioDetail').then((m) => ({ default: m.AudioDetail }))
 );
 const AudioPage = lazy(() =>
-  import('./pages/Audio').then((m) => ({ default: m.AudioPage }))
+  import('./pages/Audio').then((m) => ({ default: m.Audio }))
 );
 const Backups = lazy(() =>
   import('./pages/Backups').then((m) => ({ default: m.Backups }))
@@ -156,7 +156,7 @@ const PhotoDetail = lazy(() =>
   import('./pages/PhotoDetail').then((m) => ({ default: m.PhotoDetail }))
 );
 const Photos = lazy(() =>
-  import('./pages/Photos').then((m) => ({ default: m.Photos }))
+  import('./pages/Photos').then((m) => ({ default: m.PhotosPage }))
 );
 const Settings = lazy(() =>
   import('./pages/Settings').then((m) => ({ default: m.Settings }))
@@ -178,7 +178,7 @@ const VideoDetail = lazy(() =>
 );
 const Vfs = lazy(() => import('./pages/Vfs').then((m) => ({ default: m.Vfs })));
 const VideoPage = lazy(() =>
-  import('./pages/Video').then((m) => ({ default: m.VideoPage }))
+  import('./pages/Video').then((m) => ({ default: m.Video }))
 );
 
 // Global error handlers for async errors (not caught by React error boundaries)
