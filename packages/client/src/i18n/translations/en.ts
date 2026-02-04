@@ -9,7 +9,8 @@ export const en = {
     theme: 'Theme',
     themeDescription: 'Choose your preferred color theme',
     create: 'Create',
-    restore: 'Restore'
+    restore: 'Restore',
+    stored: 'Stored'
   },
   menu: {
     home: 'Home',

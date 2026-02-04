@@ -9,6 +9,11 @@ import {
   estimateBackupSize as estimateSize
 } from '@/db/backup';
 import { getActiveInstance } from '@/db/instance-registry';
+import { saveFile } from '@/lib/file-utils';
+import {
+  isBackupStorageSupported,
+  saveBackupToStorage
+} from '@/storage/backup-storage';
 import { getFileStorage, isFileStorageInitialized } from '@/storage/opfs';
 
 interface BackupProgress {
@@ -25,6 +30,16 @@ function formatBytes(bytes: number): string {
   return `${parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
 }
 
+function formatBackupFilename(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  return `rapid-backup-${year}-${month}-${day}-${hours}${minutes}${seconds}.rbu`;
+}
+
 export function CreateBackupTab() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -32,6 +47,8 @@ export function CreateBackupTab() {
   const [isCreating, setIsCreating] = useState(false);
   const [progress, setProgress] = useState<BackupProgress | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [isStorageSupported] = useState(() => isBackupStorageSupported());
   const [estimatedSize, setEstimatedSize] = useState<{
     blobCount: number;
     blobTotalSize: number;
@@ -81,6 +98,7 @@ export function CreateBackupTab() {
 
   const handleCreate = async () => {
     setError(null);
+    setSuccess(null);
 
     if (!password) {
       setError('Please enter a password');
@@ -117,23 +135,15 @@ export function CreateBackupTab() {
         onProgress: handleProgressUpdate
       });
 
-      // Create download - wrap in new Uint8Array to ensure proper ArrayBuffer type
-      const blob = new Blob([new Uint8Array(backupData).buffer], {
-        type: 'application/octet-stream'
-      });
-      const url = URL.createObjectURL(blob);
+      const filename = formatBackupFilename(new Date());
 
-      const date = new Date();
-      const dateStr = date.toISOString().split('T')[0];
-      const filename = `backup-${dateStr}.rbu`;
-
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      if (isStorageSupported) {
+        await saveBackupToStorage(backupData, filename);
+        setSuccess(`Backup saved to local storage as "${filename}".`);
+      } else {
+        await saveFile(backupData, filename);
+        setSuccess(`Backup downloaded as "${filename}".`);
+      }
 
       setProgress({ phase: 'Complete', percent: 100 });
 
@@ -142,6 +152,7 @@ export function CreateBackupTab() {
         setPassword('');
         setConfirmPassword('');
         setProgress(null);
+        setSuccess(null);
       }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create backup');
@@ -166,6 +177,12 @@ export function CreateBackupTab() {
         <p className="text-xs text-zinc-500">
           Create a backup file that can be restored on any device.
         </p>
+        {!isStorageSupported && (
+          <p className="mt-1 text-xs text-zinc-500">
+            Local backup storage is not supported on this platform. Backups will
+            be downloaded instead.
+          </p>
+        )}
       </div>
 
       <div className="space-y-3">
@@ -240,6 +257,12 @@ export function CreateBackupTab() {
               {progress.currentItem}
             </p>
           )}
+        </div>
+      )}
+
+      {success && (
+        <div className="rounded-md border border-green-500/30 bg-green-500/10 p-2 text-green-400 text-sm">
+          {success}
         </div>
       )}
 

@@ -7,6 +7,7 @@ export interface CommonTranslations {
   themeDescription: string;
   create: string;
   restore: string;
+  stored: string;
 }
 
 export interface MenuTranslations {

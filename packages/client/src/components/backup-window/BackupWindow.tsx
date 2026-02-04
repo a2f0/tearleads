@@ -5,6 +5,7 @@ import { FloatingWindow } from '@/components/floating-window';
 import { BackupWindowMenuBar } from './BackupWindowMenuBar';
 import { CreateBackupTab } from './CreateBackupTab';
 import { RestoreBackupTab } from './RestoreBackupTab';
+import { StoredBackupsTab } from './StoredBackupsTab';
 
 interface BackupWindowProps {
   id: string;
@@ -16,7 +17,7 @@ interface BackupWindowProps {
   initialDimensions?: WindowDimensions | undefined;
 }
 
-type Tab = 'create' | 'restore';
+type Tab = 'create' | 'restore' | 'stored';
 
 export function BackupWindow({
   id,
@@ -78,12 +79,26 @@ export function BackupWindow({
           >
             Restore
           </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'stored'}
+            onClick={() => setActiveTab('stored')}
+            className={`rounded-md px-4 py-1.5 font-medium text-sm transition-colors ${
+              activeTab === 'stored'
+                ? 'bg-zinc-700 text-white'
+                : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
+            }`}
+          >
+            Stored
+          </button>
         </div>
 
         {/* Tab content */}
         <div role="tabpanel" className="flex-1 overflow-y-auto p-4">
           {activeTab === 'create' && <CreateBackupTab />}
           {activeTab === 'restore' && <RestoreBackupTab />}
+          {activeTab === 'stored' && <StoredBackupsTab />}
         </div>
       </div>
     </FloatingWindow>

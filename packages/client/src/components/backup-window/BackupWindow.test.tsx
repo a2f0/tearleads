@@ -14,6 +14,10 @@ vi.mock('./RestoreBackupTab', () => ({
   )
 }));
 
+vi.mock('./StoredBackupsTab', () => ({
+  StoredBackupsTab: () => <div data-testid="stored-backup-tab">Stored Tab</div>
+}));
+
 describe('BackupWindow', () => {
   const defaultProps = {
     id: 'test-backup-window',
@@ -34,6 +38,7 @@ describe('BackupWindow', () => {
     render(<BackupWindow {...defaultProps} />);
     expect(screen.getByTestId('create-backup-tab')).toBeInTheDocument();
     expect(screen.queryByTestId('restore-backup-tab')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stored-backup-tab')).not.toBeInTheDocument();
   });
 
   it('switches to Restore tab when clicked', () => {
@@ -45,6 +50,7 @@ describe('BackupWindow', () => {
 
     expect(screen.queryByTestId('create-backup-tab')).not.toBeInTheDocument();
     expect(screen.getByTestId('restore-backup-tab')).toBeInTheDocument();
+    expect(screen.queryByTestId('stored-backup-tab')).not.toBeInTheDocument();
   });
 
   it('switches back to Create tab', () => {
@@ -60,6 +66,18 @@ describe('BackupWindow', () => {
 
     expect(screen.getByTestId('create-backup-tab')).toBeInTheDocument();
     expect(screen.queryByTestId('restore-backup-tab')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('stored-backup-tab')).not.toBeInTheDocument();
+  });
+
+  it('switches to Stored tab', () => {
+    render(<BackupWindow {...defaultProps} />);
+
+    const storedButton = screen.getByRole('tab', { name: /stored/i });
+    fireEvent.click(storedButton);
+
+    expect(screen.queryByTestId('create-backup-tab')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('restore-backup-tab')).not.toBeInTheDocument();
+    expect(screen.getByTestId('stored-backup-tab')).toBeInTheDocument();
   });
 
   it('highlights active tab', () => {
@@ -67,15 +85,18 @@ describe('BackupWindow', () => {
 
     const createButton = screen.getByRole('tab', { name: /create/i });
     const restoreButton = screen.getByRole('tab', { name: /restore/i });
+    const storedButton = screen.getByRole('tab', { name: /stored/i });
 
     // Create tab should be active by default
     expect(createButton).toHaveAttribute('aria-selected', 'true');
     expect(restoreButton).toHaveAttribute('aria-selected', 'false');
+    expect(storedButton).toHaveAttribute('aria-selected', 'false');
 
     // Switch to Restore
     fireEvent.click(restoreButton);
 
     expect(createButton).toHaveAttribute('aria-selected', 'false');
     expect(restoreButton).toHaveAttribute('aria-selected', 'true');
+    expect(storedButton).toHaveAttribute('aria-selected', 'false');
   });
 });

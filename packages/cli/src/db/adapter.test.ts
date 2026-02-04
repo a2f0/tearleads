@@ -9,6 +9,10 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { setConfigRoot } from '../config/index.js';
 import { NativeSqliteAdapter } from './adapter.js';
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 describe('NativeSqliteAdapter', () => {
   let tempDir: string;
   let adapter: NativeSqliteAdapter;
@@ -222,6 +226,37 @@ describe('NativeSqliteAdapter', () => {
 
       const exported = adapter.exportToJson();
       expect(exported['contacts']).toHaveLength(1);
+    });
+
+    it('exports backup schema and data', async () => {
+      await adapter.initialize(testKey);
+      adapter.exec("INSERT INTO contacts (name) VALUES ('Backup User')");
+
+      const backup = adapter.exportToBackupDatabase();
+
+      expect(backup.tables.some((table) => table.name === 'contacts')).toBe(
+        true
+      );
+      expect(backup.data['contacts']).toHaveLength(1);
+    });
+
+    it('imports backup schema and data', async () => {
+      await adapter.initialize(testKey);
+      adapter.exec("INSERT INTO contacts (name) VALUES ('Original')");
+
+      const backup = adapter.exportToBackupDatabase();
+
+      adapter.exec("INSERT INTO contacts (name) VALUES ('Extra')");
+      adapter.importFromBackupDatabase(backup);
+
+      const exported = adapter.exportToJson();
+      expect(exported['contacts']).toHaveLength(1);
+      const row = exported['contacts'][0];
+      if (isRecord(row) && typeof row.name === 'string') {
+        expect(row.name).toBe('Original');
+      } else {
+        throw new Error('Unexpected row shape');
+      }
     });
   });
 

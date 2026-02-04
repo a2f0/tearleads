@@ -16,6 +16,15 @@ vi.mock('@/db/instance-registry', () => ({
   getActiveInstance: vi.fn()
 }));
 
+vi.mock('@/lib/file-utils', () => ({
+  saveFile: vi.fn()
+}));
+
+vi.mock('@/storage/backup-storage', () => ({
+  isBackupStorageSupported: () => true,
+  saveBackupToStorage: vi.fn()
+}));
+
 vi.mock('@/storage/opfs', () => ({
   getFileStorage: vi.fn(),
   isFileStorageInitialized: vi.fn(() => false)

@@ -1,11 +1,15 @@
 import { useState } from 'react';
 
-import { CreateBackupTab, RestoreBackupTab } from '@/components/backup-window';
+import {
+  CreateBackupTab,
+  RestoreBackupTab,
+  StoredBackupsTab
+} from '@/components/backup-window';
 import { BackLink } from '@/components/ui/back-link';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
 
-type Tab = 'create' | 'restore';
+type Tab = 'create' | 'restore' | 'stored';
 
 interface BackupsProps {
   showBackLink?: boolean;
@@ -17,7 +21,8 @@ export function Backups({ showBackLink = true }: BackupsProps) {
   const { t: tCommon } = useTypedTranslation('common');
   const tabs: Array<{ id: Tab; label: string }> = [
     { id: 'create', label: tCommon('create') },
-    { id: 'restore', label: tCommon('restore') }
+    { id: 'restore', label: tCommon('restore') },
+    { id: 'stored', label: tCommon('stored') }
   ];
 
   return (
@@ -50,6 +55,7 @@ export function Backups({ showBackLink = true }: BackupsProps) {
 
         {activeTab === 'create' && <CreateBackupTab />}
         {activeTab === 'restore' && <RestoreBackupTab />}
+        {activeTab === 'stored' && <StoredBackupsTab />}
       </div>
     </div>
   );

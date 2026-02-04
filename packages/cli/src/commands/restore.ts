@@ -5,17 +5,19 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { Command } from 'commander';
+import { decode } from '../backup/index.js';
 import { hasPersistedSession } from '../crypto/key-manager.js';
 import {
-  importDatabase,
+  importBackupDatabase,
   isDatabaseSetUp,
   isDatabaseUnlocked,
   restoreDatabaseSession
 } from '../db/index.js';
-import { promptConfirm } from '../utils/prompt.js';
+import { promptConfirm, promptPassword } from '../utils/prompt.js';
 
 interface RestoreOptions {
   force?: boolean;
+  password?: string;
 }
 
 export async function runRestore(
@@ -60,9 +62,28 @@ export async function runRestore(
     }
   }
 
-  const jsonData = await fs.readFile(filePath, 'utf-8');
-  const data = JSON.parse(jsonData) as Record<string, unknown[]>;
-  importDatabase(data);
+  const password = options.password
+    ? options.password
+    : await promptPassword('Backup password: ');
+
+  const backupData = await fs.readFile(filePath);
+  let decoded: Awaited<ReturnType<typeof decode>>;
+  try {
+    decoded = await decode({ data: new Uint8Array(backupData), password });
+  } catch (err) {
+    console.error(
+      err instanceof Error ? err.message : 'Failed to decode backup file.'
+    );
+    process.exit(1);
+  }
+
+  if (decoded.blobs.length > 0) {
+    console.warn(
+      `Warning: backup contains ${decoded.blobs.length} blobs that will be ignored in the CLI restore.`
+    );
+  }
+
+  importBackupDatabase(decoded.database);
   console.log('Database restored successfully.');
 }
 
@@ -70,4 +91,5 @@ export const restoreCommand = new Command('restore')
   .description('Restore database from a backup file')
   .argument('<file>', 'Backup file path')
   .option('-f, --force', 'Overwrite without confirmation')
+  .option('-p, --password <password>', 'Backup password')
   .action(runRestore);
