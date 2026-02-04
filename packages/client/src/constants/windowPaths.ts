@@ -30,5 +30,6 @@ export const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/sync': 'sync',
   '/v86': 'v86',
   '/vfs': 'vfs',
+  '/backups': 'backup',
   '/mls-chat': 'mls-chat'
 };

@@ -36,7 +36,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { FOOTER_HEIGHT } from '@/constants/layout';
-import type { WindowType } from '@/contexts/WindowManagerContext';
+import { WINDOW_PATHS } from '@/constants/windowPaths';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import type { MenuKeys } from '@/i18n';
 import { useTypedTranslation } from '@/i18n';
@@ -255,44 +255,6 @@ export const navItems: NavItem[] = [
     testId: 'settings-link'
   }
 ];
-
-// AGENT GUARDRAIL: When adding a new window path here, ensure parity with:
-// - Home.tsx PATH_TO_WINDOW_TYPE mapping
-// - WindowManagerContext.tsx WindowType union
-// - WindowRenderer.tsx switch cases
-const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
-  '/notes': 'notes',
-  '/console': 'console',
-  '/settings': 'settings',
-  '/files': 'files',
-  '/help': 'help',
-  '/email': 'email',
-  '/contacts': 'contacts',
-  '/photos': 'photos',
-  '/documents': 'documents',
-  '/videos': 'videos',
-  '/keychain': 'keychain',
-  '/sqlite': 'sqlite',
-  '/opfs': 'opfs',
-  '/debug': 'debug',
-  '/cache-storage': 'cache-storage',
-  '/local-storage': 'local-storage',
-  '/chat': 'chat',
-  '/analytics': 'analytics',
-  '/audio': 'audio',
-  '/models': 'models',
-  '/admin': 'admin',
-  '/admin/redis': 'admin-redis',
-  '/admin/postgres': 'admin-postgres',
-  '/admin/groups': 'admin-groups',
-  '/admin/users': 'admin-users',
-  '/admin/organizations': 'admin-organizations',
-  '/sync': 'sync',
-  '/v86': 'v86',
-  '/vfs': 'vfs',
-  '/backups': 'backup',
-  '/mls-chat': 'mls-chat'
-};
 
 export interface SidebarProps {
   isOpen: boolean;
