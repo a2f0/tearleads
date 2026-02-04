@@ -17,7 +17,7 @@ import { getPreserveWindowState } from '@/lib/windowStatePreference';
 // AGENT GUARDRAIL: When adding a new WindowType, ensure parity across:
 // - WindowRenderer.tsx (add entry in the window component map)
 // - Home.tsx PATH_TO_WINDOW_TYPE (enable opening from desktop icons)
-// - Sidebar.tsx WINDOW_PATHS (enable opening from sidebar double-click)
+// - constants/windowPaths.ts WINDOW_PATHS (enable opening from sidebar double-click)
 // - Create corresponding window component in components/<type>-window/
 export type WindowType =
   | 'notes'

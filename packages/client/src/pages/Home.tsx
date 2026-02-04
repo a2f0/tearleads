@@ -17,6 +17,7 @@ import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { ContextMenuSeparator } from '@/components/ui/context-menu/ContextMenuSeparator';
 import { DesktopBackground } from '@/components/ui/desktop-background';
 import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
+import { WINDOW_PATHS } from '@/constants/windowPaths';
 import {
   useWindowManager,
   type WindowType
@@ -30,40 +31,18 @@ import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
 
-// AGENT GUARDRAIL: When adding a new path here, ensure parity with:
-// - Sidebar.tsx WINDOW_PATHS mapping
+// AGENT GUARDRAIL: When adding a new window path, ensure parity with:
+// - constants/windowPaths.ts WINDOW_PATHS mapping
 // - WindowManagerContext.tsx WindowType union
 // - WindowRenderer.tsx switch cases
-export const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {
-  '/notes': 'notes',
-  '/console': 'console',
-  '/help': 'help',
-  '/settings': 'settings',
-  '/files': 'files',
-  '/documents': 'documents',
-  '/debug': 'debug',
-  '/email': 'email',
-  '/contacts': 'contacts',
-  '/photos': 'photos',
-  '/videos': 'videos',
-  '/keychain': 'keychain',
-  '/sqlite': 'sqlite',
-  '/opfs': 'opfs',
-  '/chat': 'chat',
-  '/analytics': 'analytics',
-  '/audio': 'audio',
-  '/models': 'models',
-  '/admin': 'admin',
-  '/admin/users': 'admin-users',
-  '/admin/organizations': 'admin-organizations',
-  '/cache-storage': 'cache-storage',
-  '/local-storage': 'local-storage',
-  '/sync': 'sync',
-  '/v86': 'v86',
-  '/vfs': 'vfs',
-  '/backups': 'backup',
-  '/mls-chat': 'mls-chat'
-};
+export const PATH_TO_WINDOW_TYPE: Partial<Record<string, WindowType>> = {};
+for (const item of navItems) {
+  if (item.path === '/') continue;
+  const windowType = WINDOW_PATHS[item.path];
+  if (windowType) {
+    PATH_TO_WINDOW_TYPE[item.path] = windowType;
+  }
+}
 
 export const ICON_SIZE = 64;
 const ICON_SIZE_MOBILE = 56;

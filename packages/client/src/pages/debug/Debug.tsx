@@ -2,6 +2,7 @@ import type { PingData } from '@rapid/shared';
 import { Check, Copy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { useAppVersion } from '@/hooks/useAppVersion';
 import { API_BASE_URL, api } from '@/lib/api';
@@ -107,9 +108,9 @@ export function Debug({ showTitle = true }: DebugProps) {
         <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
       )}
 
-      <div className="space-y-3 rounded-lg border p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium">System Info</h2>
+      <Card>
+        <CardHeader className="flex-row items-center justify-between space-y-0">
+          <CardTitle>System Info</CardTitle>
           <Button
             variant="ghost"
             size="icon"
@@ -123,58 +124,68 @@ export function Debug({ showTitle = true }: DebugProps) {
               <Copy className="h-4 w-4" />
             )}
           </Button>
-        </div>
-        {systemInfo.map((item) => (
-          <InfoRow
-            key={item.label}
-            label={item.label}
-            value={item.value}
-            {...(item.valueClassName && {
-              valueClassName: item.valueClassName
-            })}
-          />
-        ))}
-      </div>
+        </CardHeader>
+        <CardContent className="space-y-2">
+          {systemInfo.map((item) => (
+            <InfoRow
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              {...(item.valueClassName && {
+                valueClassName: item.valueClassName
+              })}
+            />
+          ))}
+        </CardContent>
+      </Card>
 
-      <div className="space-y-3 rounded-lg border p-4">
-        <h2 className="font-medium">API Status</h2>
-        <div className="flex justify-between gap-2 text-sm">
-          <span className="shrink-0 text-muted-foreground">API URL</span>
-          <span className="min-w-0 break-all text-right text-xs">
-            {API_BASE_URL || '(not set)'}
-          </span>
-        </div>
-        {pingLoading && (
-          <p className="text-muted-foreground text-sm">Loading...</p>
-        )}
-        {pingError && <p className="text-destructive text-sm">{pingError}</p>}
-        {!pingLoading && !pingError && ping && (
-          <div className="space-y-1 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Version</span>
-              <span className="font-medium text-success">{ping.version}</span>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>API Status</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex justify-between gap-2 text-sm">
+            <span className="shrink-0 text-muted-foreground">API URL</span>
+            <span className="min-w-0 break-all text-right text-xs">
+              {API_BASE_URL || '(not set)'}
+            </span>
           </div>
-        )}
-        <RefreshButton
-          onClick={fetchPing}
-          loading={pingLoading}
-          className="mt-2 w-full"
-        />
-      </div>
+          {pingLoading && (
+            <p className="text-muted-foreground text-sm">Loading...</p>
+          )}
+          {pingError && <p className="text-destructive text-sm">{pingError}</p>}
+          {!pingLoading && !pingError && ping && (
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Version</span>
+                <span className="font-medium text-success">{ping.version}</span>
+              </div>
+            </div>
+          )}
+          <RefreshButton
+            onClick={fetchPing}
+            loading={pingLoading}
+            className="w-full"
+          />
+        </CardContent>
+      </Card>
 
-      <div className="space-y-3 rounded-lg border p-4">
-        <h2 className="font-medium">Actions</h2>
-        <Button
-          variant="destructive"
-          size="sm"
-          className="w-full"
-          onClick={() => setShouldThrow(true)}
-          data-testid="throw-error-button"
-        >
-          Throw Error
-        </Button>
-      </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>Actions</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Button
+            variant="destructive"
+            size="sm"
+            className="w-full"
+            onClick={() => setShouldThrow(true)}
+            data-testid="throw-error-button"
+          >
+            Throw Error
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 }
