@@ -387,8 +387,8 @@ usersRouter.patch('/:id', async (req: Request, res: Response) => {
 
       if (organizationIds.length > 0) {
         await pool.query(
-          `INSERT INTO user_organizations (user_id, organization_id)
-           SELECT $1, unnest($2::text[])`,
+          `INSERT INTO user_organizations (user_id, organization_id, joined_at)
+           SELECT $1, unnest($2::text[]), NOW()`,
           [userId, organizationIds]
         );
       }
