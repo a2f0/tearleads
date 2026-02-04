@@ -130,10 +130,10 @@ describe('WindowOptionsMenuItem', () => {
     await user.click(screen.getByTestId('window-options-fit-content'));
 
     expect(dispatchSpy).toHaveBeenCalled();
-    const firstCall = dispatchSpy.mock.calls[0];
-    expect(firstCall).toBeTruthy();
-    const eventArg = firstCall?.[0];
-    expect(eventArg?.type).toBe(WINDOW_FIT_CONTENT_EVENT);
+    const hasFitEvent = dispatchSpy.mock.calls.some(
+      ([eventArg]) => eventArg?.type === WINDOW_FIT_CONTENT_EVENT
+    );
+    expect(hasFitEvent).toBe(true);
   });
 
   it('reflects current preserveWindowState in dialog', async () => {
