@@ -19,9 +19,17 @@ const config: Configuration = {
         arch: ['arm64'],
       },
     ],
-    notarize: {
-      teamId: process.env.APPLE_TEAM_ID,
-    },
+    notarize: (() => {
+      if (!process.env.APPLE_TEAM_ID) {
+        if (process.platform === 'darwin') {
+          throw new Error(
+            'APPLE_TEAM_ID environment variable must be set for macOS notarization.',
+          );
+        }
+        return undefined;
+      }
+      return {teamId: process.env.APPLE_TEAM_ID};
+    })(),
   },
   win: {
     icon: 'build/icons/icon.ico',
