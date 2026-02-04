@@ -9,10 +9,7 @@
  * Debug logging for SQLite worker.
  * Only enabled in development to reduce production log noise.
  */
-const DEBUG_SQLITE =
-  typeof import.meta !== 'undefined' &&
-  typeof import.meta.env !== 'undefined' &&
-  import.meta.env.DEV === true;
+const DEBUG_SQLITE = import.meta.env?.DEV === true;
 
 function debugLog(...args: unknown[]): void {
   if (DEBUG_SQLITE) {
