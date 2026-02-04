@@ -11,7 +11,6 @@ import {
   CHUNK_HEADER_SIZE,
   FORMAT_VERSION,
   HEADER_SIZE,
-  LEGACY_PBKDF2_ITERATIONS,
   MAGIC_BYTES,
   MAGIC_SIZE,
   PBKDF2_ITERATIONS,
@@ -257,20 +256,8 @@ export async function decode(options: DecodeOptions): Promise<DecodeResult> {
     return { manifest, database, blobs };
   };
 
-  const attemptDecode = async (iterations: number): Promise<DecodeResult> =>
-    decodeWithKey(await deriveKey(password, header.salt, iterations));
-
-  try {
-    return await attemptDecode(PBKDF2_ITERATIONS);
-  } catch (err) {
-    if (
-      err instanceof InvalidPasswordError &&
-      PBKDF2_ITERATIONS !== LEGACY_PBKDF2_ITERATIONS
-    ) {
-      return attemptDecode(LEGACY_PBKDF2_ITERATIONS);
-    }
-    throw err;
-  }
+  const key = await deriveKey(password, header.salt, PBKDF2_ITERATIONS);
+  return decodeWithKey(key);
 }
 
 /**
