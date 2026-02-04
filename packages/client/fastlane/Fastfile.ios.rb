@@ -131,7 +131,9 @@ platform :ios do
 
     match(
       type: 'developer_id',
+      platform: 'macos',
       readonly: true,
+      skip_provisioning_profiles: true,
       app_identifier: ENV['DESKTOP_APP_IDENTIFIER'],
       git_url: ENV['MATCH_GIT_URL'],
       storage_mode: 'git',
