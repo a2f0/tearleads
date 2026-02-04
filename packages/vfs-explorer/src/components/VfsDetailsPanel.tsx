@@ -1,18 +1,7 @@
-import {
-  Clipboard,
-  FileBox,
-  Folder,
-  Layers,
-  Loader2,
-  Lock
-} from 'lucide-react';
+import { Clipboard, FileBox, Folder, Layers, Loader2 } from 'lucide-react';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
-import {
-  useDatabaseState,
-  useVfsClipboard,
-  useVfsExplorerContext
-} from '../context';
+import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import {
   useVfsAllItems,
   useVfsFolderContents,
@@ -83,7 +72,6 @@ export function VfsDetailsPanel({
   onItemShare,
   onPaste
 }: VfsDetailsPanelProps) {
-  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseState();
   const {
     ui: { ContextMenu, ContextMenuItem }
   } = useVfsExplorerContext();
@@ -217,29 +205,6 @@ export function VfsDetailsPanel({
       <div className="flex flex-1 items-center justify-center text-destructive">
         <div className="text-center">
           <p className="text-sm">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (isDatabaseLoading) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-muted-foreground">
-        <div className="text-center">
-          <Loader2 className="mx-auto h-12 w-12 animate-spin opacity-50" />
-          <p className="mt-2 text-sm">Loading database...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!isUnlocked) {
-    return (
-      <div className="flex flex-1 items-center justify-center text-muted-foreground">
-        <div className="text-center">
-          <Lock className="mx-auto h-12 w-12 opacity-50" />
-          <p className="mt-2 text-sm">Database is locked</p>
-          <p className="mt-1 text-xs">Unlock the database to view items</p>
         </div>
       </div>
     );

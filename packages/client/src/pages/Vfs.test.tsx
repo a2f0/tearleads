@@ -5,6 +5,18 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Vfs } from './Vfs';
 
+const mockUseDatabaseContext = vi.fn();
+
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">Unlock {description}</div>
+  )
+}));
+
 vi.mock('@/components/ui/back-link', () => ({
   BackLink: ({
     defaultTo,
@@ -65,6 +77,11 @@ describe('Vfs', () => {
     mockResolveFileOpenTarget.mockReset();
     mockResolvePlaylistType.mockReset();
     latestVfsExplorerProps = null;
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
   });
 
   it('renders page title', () => {

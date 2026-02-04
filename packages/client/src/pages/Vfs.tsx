@@ -1,8 +1,10 @@
 import type { VfsOpenItem } from '@rapid/vfs-explorer';
 import { VfsExplorer } from '@rapid/vfs-explorer';
 import { useCallback } from 'react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
+import { useDatabaseContext } from '@/db/hooks';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
   type FileOpenTarget,
@@ -11,6 +13,7 @@ import {
 } from '@/lib/vfs-open';
 
 export function Vfs() {
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const navigateWithFrom = useNavigateWithFrom();
 
   const handleItemOpen = useCallback(
@@ -61,19 +64,34 @@ export function Vfs() {
   );
 
   return (
-    <ClientVfsExplorerProvider>
-      <div className="flex h-full flex-col space-y-4">
-        <div className="space-y-2">
-          <BackLink defaultTo="/" defaultLabel="Back to Home" />
-          <h1 className="font-bold text-2xl tracking-tight">VFS Explorer</h1>
-          <p className="text-muted-foreground text-sm">
-            Organize and share your data with end-to-end encryption
-          </p>
-        </div>
-        <div className="min-h-0 flex-1 rounded-lg border">
-          <VfsExplorer className="h-full" onItemOpen={handleItemOpen} />
-        </div>
+    <div className="flex h-full flex-col space-y-4">
+      <div className="space-y-2">
+        <BackLink defaultTo="/" defaultLabel="Back to Home" />
+        <h1 className="font-bold text-2xl tracking-tight">VFS Explorer</h1>
+        <p className="text-muted-foreground text-sm">
+          Organize and share your data with end-to-end encryption
+        </p>
       </div>
-    </ClientVfsExplorerProvider>
+
+      {isDatabaseLoading && (
+        <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
+          Loading database...
+        </div>
+      )}
+
+      {!isDatabaseLoading && !isUnlocked && (
+        <div className="flex flex-1 items-center justify-center p-4">
+          <InlineUnlock description="VFS explorer" />
+        </div>
+      )}
+
+      {isUnlocked && (
+        <ClientVfsExplorerProvider>
+          <div className="min-h-0 flex-1 rounded-lg border">
+            <VfsExplorer className="h-full" onItemOpen={handleItemOpen} />
+          </div>
+        </ClientVfsExplorerProvider>
+      )}
+    </div>
   );
 }
