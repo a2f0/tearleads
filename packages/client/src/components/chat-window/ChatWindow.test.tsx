@@ -77,6 +77,19 @@ vi.mock('./ChatWindowMenuBar', () => ({
   )
 }));
 
+// Mock database context
+const mockUseDatabaseContext = vi.fn();
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+// Mock InlineUnlock component
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">Unlock {description}</div>
+  )
+}));
+
 describe('ChatWindow', () => {
   const defaultProps = {
     id: 'test-window',
@@ -88,6 +101,11 @@ describe('ChatWindow', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
   });
 
   it('renders in FloatingWindow', () => {

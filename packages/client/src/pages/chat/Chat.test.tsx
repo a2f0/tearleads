@@ -54,6 +54,13 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+// Mock InlineUnlock component
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">Unlock {description}</div>
+  )
+}));
+
 // Mock database
 const mockSelect = vi.fn();
 vi.mock('@/db', () => ({
@@ -801,9 +808,8 @@ describe('Chat', () => {
       });
     });
 
-    it('shows loading indefinitely when database is not unlocked', async () => {
-      // When database is not unlocked, fetchPhotos returns early without
-      // changing the loading state, so the component remains in loading state
+    it('shows lock screen when database is not unlocked', async () => {
+      // When database is not unlocked, show the lock screen instead of the chat interface
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: false,
         isLoading: false,
@@ -812,16 +818,8 @@ describe('Chat', () => {
 
       renderChat();
 
-      const imageButton = findImageButton();
-
-      await act(async () => {
-        fireEvent.click(imageButton);
-      });
-
-      // Should show loading state since fetchPhotos returns early when not unlocked
-      await waitFor(() => {
-        expect(screen.getByText(/Loading photos/)).toBeInTheDocument();
-      });
+      // Should show the InlineUnlock component since database is locked
+      expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
     });
 
     it('closes photo picker when close button is clicked', async () => {

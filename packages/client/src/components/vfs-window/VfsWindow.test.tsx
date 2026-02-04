@@ -10,6 +10,26 @@ const mockRequestWindowOpen = vi.fn();
 const mockResolveFileOpenTarget = vi.fn();
 const mockResolvePlaylistType = vi.fn();
 
+// Mock database context
+const mockUseDatabaseContext = vi.fn();
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+// Mock InlineUnlock component
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">Unlock {description}</div>
+  )
+}));
+
+// Mock FloatingWindow component
+vi.mock('@/components/floating-window', () => ({
+  FloatingWindow: ({ children }: { children: ReactNode }) => (
+    <div data-testid="floating-window">{children}</div>
+  )
+}));
+
 let latestProps: { onItemOpen?: (item: VfsOpenItem) => void } | null = null;
 
 vi.mock('@rapid/vfs-explorer', () => ({
@@ -55,6 +75,11 @@ describe('VfsWindow', () => {
     mockResolveFileOpenTarget.mockReset();
     mockResolvePlaylistType.mockReset();
     latestProps = null;
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false,
+      currentInstanceId: 'test-instance'
+    });
   });
 
   it('opens contacts window for contact items', async () => {
