@@ -691,16 +691,18 @@ export function PhotosPage() {
       <BackLink defaultTo="/" defaultLabel="Back to Home" />
       <div className="flex min-h-0 flex-1">
         {isUnlocked && (
-          <PhotosAlbumsSidebar
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            selectedAlbumId={selectedAlbumId}
-            onAlbumSelect={setSelectedAlbumId}
-            refreshToken={refreshToken}
-            onAlbumChanged={() => setRefreshToken((t) => t + 1)}
-          />
+          <div className="hidden md:block">
+            <PhotosAlbumsSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              selectedAlbumId={selectedAlbumId}
+              onAlbumSelect={setSelectedAlbumId}
+              refreshToken={refreshToken}
+              onAlbumChanged={() => setRefreshToken((t) => t + 1)}
+            />
+          </div>
         )}
-        <div className="min-w-0 flex-1 overflow-hidden pl-4">
+        <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
           <Photos
             showBackLink={false}
             selectedAlbumId={selectedAlbumId}

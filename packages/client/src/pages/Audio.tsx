@@ -653,16 +653,18 @@ function AudioWithSidebar() {
       <BackLink defaultTo="/" defaultLabel="Back to Home" />
       <div className="flex min-h-0 flex-1">
         {isUnlocked && (
-          <AudioPlaylistsSidebar
-            width={sidebarWidth}
-            onWidthChange={setSidebarWidth}
-            selectedPlaylistId={selectedPlaylistId}
-            onPlaylistSelect={setSelectedPlaylistId}
-            refreshToken={refreshToken}
-            onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
-          />
+          <div className="hidden md:block">
+            <AudioPlaylistsSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              selectedPlaylistId={selectedPlaylistId}
+              onPlaylistSelect={setSelectedPlaylistId}
+              refreshToken={refreshToken}
+              onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
+            />
+          </div>
         )}
-        <div className="min-w-0 flex-1 overflow-hidden pl-4">
+        <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
           <AudioPage
             hideBackLink
             playlistId={
