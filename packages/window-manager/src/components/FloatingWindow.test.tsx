@@ -699,5 +699,73 @@ describe('FloatingWindow', () => {
         expect(dialog).toHaveStyle({ width: '640px', height: '528px' });
       });
     });
+
+    it('disconnects observer after max fit attempts', async () => {
+      scrollHeight = 360;
+      scrollWidth = 520;
+
+      render(
+        <FloatingWindow
+          {...defaultProps}
+          fitContent
+          maxWidthPercent={1}
+          maxHeightPercent={1}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+
+      await waitFor(() => {
+        expect(dialog).toHaveStyle({ width: '520px', height: '388px' });
+      });
+
+      for (let i = 0; i < 4; i += 1) {
+        scrollHeight += 10;
+        scrollWidth += 10;
+        act(() => {
+          if (resizeObserverCallback && resizeObserverInstance) {
+            resizeObserverCallback([], resizeObserverInstance);
+          }
+        });
+      }
+
+      await waitFor(() => {
+        expect(resizeObserverInstance?.disconnect).toHaveBeenCalledTimes(1);
+      });
+    });
+
+    it('exits maximized state when fit content requested by event', async () => {
+      scrollHeight = 480;
+      scrollWidth = 620;
+
+      const onDimensionsChange = vi.fn();
+      render(
+        <FloatingWindow
+          {...defaultProps}
+          onDimensionsChange={onDimensionsChange}
+          maxWidthPercent={1}
+          maxHeightPercent={1}
+        />
+      );
+
+      const dialog = screen.getByRole('dialog');
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.doubleClick(titleBar);
+      expect(dialog).toHaveAttribute('data-maximized', 'true');
+
+      act(() => {
+        dialog.dispatchEvent(new CustomEvent(WINDOW_FIT_CONTENT_EVENT));
+      });
+
+      await waitFor(() => {
+        expect(dialog).toHaveAttribute('data-maximized', 'false');
+      });
+
+      const lastCall = onDimensionsChange.mock.calls.at(-1)?.[0];
+      expect(lastCall).toEqual(expect.objectContaining({ isMaximized: false }));
+    });
   });
 });
