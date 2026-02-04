@@ -667,7 +667,9 @@ describe('FloatingWindow', () => {
       );
 
       const dialog = screen.getByRole('dialog');
-      dialog.dispatchEvent(new CustomEvent(WINDOW_FIT_CONTENT_EVENT));
+      act(() => {
+        dialog.dispatchEvent(new CustomEvent(WINDOW_FIT_CONTENT_EVENT));
+      });
 
       await waitFor(() => {
         expect(dialog).toHaveStyle({ width: '640px', height: '528px' });
