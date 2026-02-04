@@ -19,6 +19,9 @@ const config: Configuration = {
         arch: ['arm64'],
       },
     ],
+    notarize: {
+      teamId: process.env.APPLE_TEAM_ID,
+    },
   },
   win: {
     icon: 'build/icons/icon.ico',
