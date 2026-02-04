@@ -10,7 +10,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   ALL_PHOTOS_ID,
   PhotosAlbumsSidebar
@@ -679,12 +679,26 @@ export function Photos({
 }
 
 export function PhotosPage() {
+  const { albumId } = useParams<{ albumId?: string }>();
+  const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
-  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(
-    ALL_PHOTOS_ID
-  );
   const [refreshToken, setRefreshToken] = useState(0);
+
+  // Derive selected album from URL (or ALL_PHOTOS_ID if no param)
+  const selectedAlbumId = albumId ?? ALL_PHOTOS_ID;
+
+  // Navigate on album selection
+  const handleAlbumSelect = useCallback(
+    (id: string | null) => {
+      if (id === ALL_PHOTOS_ID || id === null) {
+        navigate('/photos');
+      } else {
+        navigate(`/photos/albums/${id}`);
+      }
+    },
+    [navigate]
+  );
 
   return (
     <div className="flex h-full flex-col space-y-4">
@@ -696,7 +710,7 @@ export function PhotosPage() {
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
               selectedAlbumId={selectedAlbumId}
-              onAlbumSelect={setSelectedAlbumId}
+              onAlbumSelect={handleAlbumSelect}
               refreshToken={refreshToken}
               onAlbumChanged={() => setRefreshToken((t) => t + 1)}
             />
@@ -705,7 +719,9 @@ export function PhotosPage() {
         <div className="min-w-0 flex-1 overflow-hidden md:pl-4">
           <Photos
             showBackLink={false}
-            selectedAlbumId={selectedAlbumId}
+            selectedAlbumId={
+              selectedAlbumId === ALL_PHOTOS_ID ? null : selectedAlbumId
+            }
             refreshToken={refreshToken}
           />
         </div>

@@ -262,6 +262,10 @@ if (rootElement) {
                                         element={<Photos />}
                                       />
                                       <Route
+                                        path="photos/albums/:albumId"
+                                        element={<Photos />}
+                                      />
+                                      <Route
                                         path="photos/:id"
                                         element={<PhotoDetail />}
                                       />
@@ -270,11 +274,19 @@ if (rootElement) {
                                         element={<AudioPage />}
                                       />
                                       <Route
+                                        path="audio/playlists/:playlistId"
+                                        element={<AudioPage />}
+                                      />
+                                      <Route
                                         path="audio/:id"
                                         element={<AudioDetail />}
                                       />
                                       <Route
                                         path="videos"
+                                        element={<VideoPage />}
+                                      />
+                                      <Route
+                                        path="videos/playlists/:playlistId"
                                         element={<VideoPage />}
                                       />
                                       <Route

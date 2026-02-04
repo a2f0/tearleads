@@ -9,6 +9,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { ChevronRight, Film, Info, Loader2, Play, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -739,12 +740,26 @@ export function VideoPage({
 }
 
 function VideoWithSidebar() {
+  const { playlistId } = useParams<{ playlistId?: string }>();
+  const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
-    ALL_VIDEO_ID
-  );
   const [refreshToken, setRefreshToken] = useState(0);
+
+  // Derive selected playlist from URL (or ALL_VIDEO_ID if no param)
+  const selectedPlaylistId = playlistId ?? ALL_VIDEO_ID;
+
+  // Navigate on playlist selection
+  const handlePlaylistSelect = useCallback(
+    (id: string | null) => {
+      if (id === ALL_VIDEO_ID || id === null) {
+        navigate('/videos');
+      } else {
+        navigate(`/videos/playlists/${id}`);
+      }
+    },
+    [navigate]
+  );
 
   return (
     <div className="flex h-full flex-col space-y-4">
@@ -756,7 +771,7 @@ function VideoWithSidebar() {
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
               selectedPlaylistId={selectedPlaylistId}
-              onPlaylistSelect={setSelectedPlaylistId}
+              onPlaylistSelect={handlePlaylistSelect}
               refreshToken={refreshToken}
               onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
             />

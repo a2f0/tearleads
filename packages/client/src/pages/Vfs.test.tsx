@@ -17,6 +17,7 @@ vi.mock('@/components/ui/back-link', () => ({
 
 const mockNavigateWithFrom = vi.fn();
 const mockResolveFileOpenTarget = vi.fn();
+const mockResolvePlaylistType = vi.fn();
 let latestVfsExplorerProps: {
   onItemOpen?: (item: VfsOpenItem) => void;
 } | null = null;
@@ -54,13 +55,15 @@ vi.mock('@/lib/navigation', () => ({
 
 vi.mock('@/lib/vfs-open', () => ({
   resolveFileOpenTarget: (...args: unknown[]) =>
-    mockResolveFileOpenTarget(...args)
+    mockResolveFileOpenTarget(...args),
+  resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)
 }));
 
 describe('Vfs', () => {
   beforeEach(() => {
     mockNavigateWithFrom.mockReset();
     mockResolveFileOpenTarget.mockReset();
+    mockResolvePlaylistType.mockReset();
     latestVfsExplorerProps = null;
   });
 
@@ -141,9 +144,12 @@ describe('Vfs', () => {
       createdAt: new Date()
     });
 
-    expect(mockNavigateWithFrom).toHaveBeenCalledWith('/photos?album=album-1', {
-      fromLabel: 'Back to VFS Explorer'
-    });
+    expect(mockNavigateWithFrom).toHaveBeenCalledWith(
+      '/photos/albums/album-1',
+      {
+        fromLabel: 'Back to VFS Explorer'
+      }
+    );
   });
 
   it('navigates to photo detail when opening a photo item', async () => {
@@ -300,7 +306,9 @@ describe('Vfs', () => {
     });
   });
 
-  it('navigates to audio list for playlists', async () => {
+  it('navigates to audio playlist for audio playlists', async () => {
+    mockResolvePlaylistType.mockResolvedValue('audio');
+
     render(
       <MemoryRouter>
         <Vfs />
@@ -310,13 +318,40 @@ describe('Vfs', () => {
     await latestVfsExplorerProps?.onItemOpen?.({
       id: 'playlist-1',
       objectType: 'playlist',
-      name: 'Playlist',
+      name: 'Audio Playlist',
       createdAt: new Date()
     });
 
-    expect(mockNavigateWithFrom).toHaveBeenCalledWith('/audio', {
-      fromLabel: 'Back to VFS Explorer'
+    expect(mockNavigateWithFrom).toHaveBeenCalledWith(
+      '/audio/playlists/playlist-1',
+      {
+        fromLabel: 'Back to VFS Explorer'
+      }
+    );
+  });
+
+  it('navigates to video playlist for video playlists', async () => {
+    mockResolvePlaylistType.mockResolvedValue('video');
+
+    render(
+      <MemoryRouter>
+        <Vfs />
+      </MemoryRouter>
+    );
+
+    await latestVfsExplorerProps?.onItemOpen?.({
+      id: 'playlist-2',
+      objectType: 'playlist',
+      name: 'Video Playlist',
+      createdAt: new Date()
     });
+
+    expect(mockNavigateWithFrom).toHaveBeenCalledWith(
+      '/videos/playlists/playlist-2',
+      {
+        fromLabel: 'Back to VFS Explorer'
+      }
+    );
   });
 
   it('navigates to files list for tags', async () => {

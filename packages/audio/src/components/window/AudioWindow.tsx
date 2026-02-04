@@ -17,6 +17,7 @@ interface AudioWindowProps {
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
   openAudioId?: string | null | undefined;
+  openPlaylistId?: string | null | undefined;
   openRequestId?: number | undefined;
 }
 
@@ -29,6 +30,7 @@ export function AudioWindow({
   zIndex,
   initialDimensions,
   openAudioId,
+  openPlaylistId,
   openRequestId
 }: AudioWindowProps) {
   const { uploadFile, addTrackToPlaylist, databaseState } = useAudioUIContext();
@@ -104,9 +106,14 @@ export function AudioWindow({
   }, []);
 
   useEffect(() => {
-    if (!openRequestId || !openAudioId) return;
-    setSelectedTrackId(openAudioId);
-  }, [openAudioId, openRequestId]);
+    if (!openRequestId) return;
+    if (openAudioId) {
+      setSelectedTrackId(openAudioId);
+    }
+    if (openPlaylistId) {
+      setSelectedPlaylistId(openPlaylistId);
+    }
+  }, [openAudioId, openPlaylistId, openRequestId]);
 
   return (
     <FloatingWindow

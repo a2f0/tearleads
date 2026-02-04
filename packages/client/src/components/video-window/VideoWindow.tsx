@@ -127,7 +127,12 @@ function VideoWindowInner({
 
   useEffect(() => {
     if (!openRequest) return;
-    handleOpenVideo(openRequest.videoId, { autoPlay: false });
+    if (openRequest.videoId) {
+      handleOpenVideo(openRequest.videoId, { autoPlay: false });
+    }
+    if (openRequest.playlistId) {
+      setSelectedPlaylistId(openRequest.playlistId);
+    }
   }, [handleOpenVideo, openRequest]);
 
   const handlePlaylistChanged = useCallback(() => {

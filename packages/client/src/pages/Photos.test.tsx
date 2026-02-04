@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { Photos, PhotosPage } from './Photos';
@@ -1101,10 +1101,13 @@ describe('PhotosPage (wrapper with sidebar)', () => {
     mockDb.orderBy.mockResolvedValue([]);
   });
 
-  function renderPhotosPage() {
+  function renderPhotosPage(route = '/photos') {
     return render(
-      <MemoryRouter>
-        <PhotosPage />
+      <MemoryRouter initialEntries={[route]}>
+        <Routes>
+          <Route path="/photos" element={<PhotosPage />} />
+          <Route path="/photos/albums/:albumId" element={<PhotosPage />} />
+        </Routes>
       </MemoryRouter>
     );
   }
@@ -1136,13 +1139,14 @@ describe('PhotosPage (wrapper with sidebar)', () => {
       expect(screen.getByTestId('selected-album')).toHaveTextContent('__all__');
     });
 
-    it('updates album selection when sidebar selection changes', async () => {
+    it('navigates when album is selected', async () => {
       const user = userEvent.setup();
       renderPhotosPage();
 
       await user.click(screen.getByTestId('select-album-1'));
 
-      expect(screen.getByTestId('selected-album')).toHaveTextContent('album-1');
+      // Navigation is now handled via URL routing
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/albums/album-1');
     });
 
     it('updates width when onWidthChange is called', async () => {
@@ -1193,6 +1197,74 @@ describe('PhotosPage (wrapper with sidebar)', () => {
       renderPhotosPage();
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
+    });
+  });
+
+  describe('URL-based routing', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'test-instance'
+      });
+    });
+
+    it('reads albumId from URL params', () => {
+      renderPhotosPage('/photos/albums/test-album-123');
+
+      expect(screen.getByTestId('selected-album')).toHaveTextContent(
+        'test-album-123'
+      );
+    });
+
+    it('uses ALL_PHOTOS_ID when no album param', () => {
+      renderPhotosPage('/photos');
+
+      expect(screen.getByTestId('selected-album')).toHaveTextContent('__all__');
+    });
+
+    it('navigates to album route when album is selected', async () => {
+      const user = userEvent.setup();
+      renderPhotosPage('/photos');
+
+      await user.click(screen.getByTestId('select-album-1'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos/albums/album-1');
+    });
+
+    it('navigates to /photos when ALL_PHOTOS_ID is selected', async () => {
+      const user = userEvent.setup();
+      // Suppress console.error from photo fetch when mock changes
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      // Mock the sidebar to have an "All Photos" button
+      const { PhotosAlbumsSidebar } = await import(
+        '@/components/photos-window/PhotosAlbumsSidebar'
+      );
+      const MockedSidebar = PhotosAlbumsSidebar as unknown as ReturnType<
+        typeof vi.fn
+      >;
+      MockedSidebar.mockImplementation(({ onAlbumSelect }) => (
+        <div data-testid="photos-albums-sidebar">
+          <button
+            type="button"
+            data-testid="select-all-photos"
+            onClick={() => onAlbumSelect('__all__')}
+          >
+            All Photos
+          </button>
+        </div>
+      ));
+
+      renderPhotosPage('/photos/albums/test-album');
+
+      await user.click(screen.getByTestId('select-all-photos'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/photos');
+
+      consoleSpy.mockRestore();
     });
   });
 });
