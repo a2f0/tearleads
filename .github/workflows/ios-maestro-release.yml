@@ -127,7 +127,7 @@ jobs:
 
       - name: Run Maestro tests
         env:
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: 360000
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 600000
         run: |
           # Run Maestro tests (capture exit code before || continues execution)
           MAESTRO_EXIT=0
