@@ -13,18 +13,15 @@ export function WindowOptionsMenuItem() {
   const dropdownMenu = useDropdownMenuContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const menuItemRef = useRef<HTMLButtonElement | null>(null);
-  const windowElementRef = useRef<HTMLElement | null>(null);
 
   const handleOpenDialog = () => {
-    windowElementRef.current =
-      menuItemRef.current?.closest<HTMLElement>('.floating-window') ?? null;
     setDialogOpen(true);
   };
 
   const handleFitContent = () => {
-    windowElementRef.current?.dispatchEvent(
-      new CustomEvent(WINDOW_FIT_CONTENT_EVENT)
-    );
+    menuItemRef.current
+      ?.closest<HTMLElement>('.floating-window')
+      ?.dispatchEvent(new CustomEvent(WINDOW_FIT_CONTENT_EVENT));
   };
 
   const handleDialogOpenChange = (open: boolean) => {
