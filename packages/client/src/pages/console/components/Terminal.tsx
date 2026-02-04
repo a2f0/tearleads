@@ -169,14 +169,16 @@ export function Terminal({ className, autoFocus = true }: TerminalProps) {
     [terminal, history]
   );
 
+  const { appendLine } = terminal;
+
   // Show welcome message on mount (only once)
   useEffect(() => {
     if (welcomeShownRef.current) return;
     welcomeShownRef.current = true;
-    terminal.appendLine('Rapid Terminal v1.0', 'output');
-    terminal.appendLine('Type "help" for available commands.', 'output');
-    terminal.appendLine('', 'output');
-  }, [terminal.appendLine]);
+    appendLine('Rapid Terminal v1.0', 'output');
+    appendLine('Type "help" for available commands.', 'output');
+    appendLine('', 'output');
+  }, [appendLine]);
 
   return (
     <div

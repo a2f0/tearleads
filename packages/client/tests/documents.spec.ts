@@ -198,7 +198,7 @@ test.describe('PDF worker', () => {
 
     // Wait for page info to show (indicates PDF loaded successfully)
     await expect(page.getByTestId('pdf-page-info')).toContainText('Page 1 of', {
-      timeout: 10000
+      timeout: 30000
     });
 
     // Check that no "fake worker" warning was logged

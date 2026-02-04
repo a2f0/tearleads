@@ -20,6 +20,16 @@ Update all of the dependencies in the `packages` folder and:
 - Commit and push changes using `/commit-and-push`.
 - Prepare the PR for merging using `/enter-merge-queue`.
 
+## Preferred Flow
+
+Use the shared update script:
+
+```bash
+./scripts/updateEverything.sh
+```
+
+Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+
 ## Node.js Version Alignment
 
 When updating `electron`, ensure Node.js versions are aligned:
