@@ -314,6 +314,14 @@ export function getDatabaseAdapter(): DatabaseAdapter {
 }
 
 /**
+ * Check if the database is initialized and ready for use.
+ * This is true after setup/unlock and false after close/reset.
+ */
+export function isDatabaseInitialized(): boolean {
+  return databaseInstance !== null;
+}
+
+/**
  * Close the database connection.
  * Note: On web, the adapter is preserved to keep the worker/WASM memory alive.
  * This allows data to persist across lock/unlock cycles within a session.

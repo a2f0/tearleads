@@ -95,6 +95,7 @@ import {
   getDatabase,
   getDatabaseAdapter,
   importDatabase,
+  isDatabaseInitialized,
   isDatabaseSetUp,
   persistDatabaseSession,
   resetDatabase,
@@ -254,6 +255,38 @@ describe('Database API', () => {
       await setupDatabase('password', TEST_INSTANCE_ID);
       const adapter = getDatabaseAdapter();
       expect(adapter).toBeDefined();
+    });
+  });
+
+  describe('isDatabaseInitialized', () => {
+    it('returns false when database not initialized', async () => {
+      expect(isDatabaseInitialized()).toBe(false);
+    });
+
+    it('returns true after database setup', async () => {
+      await setupDatabase('password', TEST_INSTANCE_ID);
+      expect(isDatabaseInitialized()).toBe(true);
+    });
+
+    it('returns true after database unlock', async () => {
+      await unlockDatabase('password', TEST_INSTANCE_ID);
+      expect(isDatabaseInitialized()).toBe(true);
+    });
+
+    it('returns false after database reset', async () => {
+      await setupDatabase('password', TEST_INSTANCE_ID);
+      expect(isDatabaseInitialized()).toBe(true);
+
+      await resetDatabase(TEST_INSTANCE_ID);
+      expect(isDatabaseInitialized()).toBe(false);
+    });
+
+    it('returns false after database close', async () => {
+      await setupDatabase('password', TEST_INSTANCE_ID);
+      expect(isDatabaseInitialized()).toBe(true);
+
+      await closeDatabase();
+      expect(isDatabaseInitialized()).toBe(false);
     });
   });
 
