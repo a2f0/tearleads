@@ -5,7 +5,7 @@ import { useCallback } from 'react';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
-import { resolveFileOpenTarget } from '@/lib/vfs-open';
+import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfs-open';
 
 interface VfsWindowProps {
   id: string;
@@ -67,9 +67,15 @@ export function VfsWindow({
         case 'emailFolder':
           openWindow('email');
           return;
-        case 'playlist':
-          openWindow('audio');
+        case 'playlist': {
+          const playlistType = await resolvePlaylistType(id);
+          if (playlistType === 'video') {
+            openWithPayload('videos', { playlistId: id });
+          } else {
+            openWithPayload('audio', { playlistId: id });
+          }
           return;
+        }
         case 'contactGroup':
           openWindow('contacts');
           return;

@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { Audio, AudioPage } from './Audio';
@@ -1049,10 +1049,13 @@ describe('Audio wrapper with sidebar', () => {
     mockDetectPlatform.mockReturnValue('web');
   });
 
-  function renderAudioWrapper() {
+  function renderAudioWrapper(route = '/audio') {
     return render(
-      <MemoryRouter>
-        <Audio />
+      <MemoryRouter initialEntries={[route]}>
+        <Routes>
+          <Route path="/audio" element={<Audio />} />
+          <Route path="/audio/playlists/:playlistId" element={<Audio />} />
+        </Routes>
       </MemoryRouter>
     );
   }
@@ -1080,15 +1083,14 @@ describe('Audio wrapper with sidebar', () => {
       );
     });
 
-    it('updates selection when playlist is selected', async () => {
+    it('navigates when playlist is selected', async () => {
       const user = userEvent.setup();
       renderAudioWrapper();
 
       await user.click(screen.getByTestId('select-playlist-1'));
 
-      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
-        'playlist-1'
-      );
+      // Navigation is now handled via URL routing
+      expect(mockNavigate).toHaveBeenCalledWith('/audio/playlists/playlist-1');
     });
 
     it('updates width when onWidthChange is called', async () => {
@@ -1137,6 +1139,60 @@ describe('Audio wrapper with sidebar', () => {
     it('shows inline unlock component', () => {
       renderAudioWrapper();
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
+    });
+  });
+
+  describe('URL-based routing', () => {
+    it('reads playlistId from URL params', () => {
+      renderAudioWrapper('/audio/playlists/test-playlist-123');
+
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        'test-playlist-123'
+      );
+    });
+
+    it('uses ALL_AUDIO_ID when no playlist param', () => {
+      renderAudioWrapper('/audio');
+
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        '__all__'
+      );
+    });
+
+    it('navigates to playlist route when playlist is selected', async () => {
+      const user = userEvent.setup();
+      renderAudioWrapper('/audio');
+
+      await user.click(screen.getByTestId('select-playlist-1'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/audio/playlists/playlist-1');
+    });
+
+    it('navigates to /audio when ALL_AUDIO_ID is selected', async () => {
+      const user = userEvent.setup();
+
+      // Mock the sidebar to have an "All Audio" button
+      const { AudioPlaylistsSidebar } = await import('@rapid/audio');
+      const MockedSidebar = AudioPlaylistsSidebar as unknown as ReturnType<
+        typeof vi.fn
+      >;
+      MockedSidebar.mockImplementation(({ onPlaylistSelect }) => (
+        <div data-testid="audio-playlists-sidebar">
+          <button
+            type="button"
+            data-testid="select-all-audio"
+            onClick={() => onPlaylistSelect('__all__')}
+          >
+            All Audio
+          </button>
+        </div>
+      ));
+
+      renderAudioWrapper('/audio/playlists/test-playlist');
+
+      await user.click(screen.getByTestId('select-all-audio'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/audio');
     });
   });
 });

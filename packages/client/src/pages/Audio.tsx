@@ -12,6 +12,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAudio } from '@/audio';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -641,12 +642,26 @@ export function AudioPage({
 }
 
 function AudioWithSidebar() {
+  const { playlistId } = useParams<{ playlistId?: string }>();
+  const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
-    ALL_AUDIO_ID
-  );
   const [refreshToken, setRefreshToken] = useState(0);
+
+  // Derive selected playlist from URL (or ALL_AUDIO_ID if no param)
+  const selectedPlaylistId = playlistId ?? ALL_AUDIO_ID;
+
+  // Navigate on playlist selection
+  const handlePlaylistSelect = useCallback(
+    (id: string | null) => {
+      if (id === ALL_AUDIO_ID || id === null) {
+        navigate('/audio');
+      } else {
+        navigate(`/audio/playlists/${id}`);
+      }
+    },
+    [navigate]
+  );
 
   return (
     <div className="flex h-full flex-col space-y-4">
@@ -658,7 +673,7 @@ function AudioWithSidebar() {
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
               selectedPlaylistId={selectedPlaylistId}
-              onPlaylistSelect={setSelectedPlaylistId}
+              onPlaylistSelect={handlePlaylistSelect}
               refreshToken={refreshToken}
               onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
             />

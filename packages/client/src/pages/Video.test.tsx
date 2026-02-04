@@ -1,6 +1,6 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { Video, VideoPage } from './Video';
@@ -944,10 +944,13 @@ describe('Video (wrapper with sidebar)', () => {
     mockDetectPlatform.mockReturnValue('web');
   });
 
-  function renderVideo() {
+  function renderVideo(route = '/videos') {
     return render(
-      <MemoryRouter>
-        <Video />
+      <MemoryRouter initialEntries={[route]}>
+        <Routes>
+          <Route path="/videos" element={<Video />} />
+          <Route path="/videos/playlists/:playlistId" element={<Video />} />
+        </Routes>
       </MemoryRouter>
     );
   }
@@ -987,34 +990,14 @@ describe('Video (wrapper with sidebar)', () => {
       );
     });
 
-    it('updates playlist selection when sidebar selection changes', async () => {
-      // Mock both vfsLinks query (for playlist filtering) and files query
-      // vfsLinks query: select().from().where() -> returns array
-      // files query: select().from().where().orderBy() -> returns array
-      mockSelect.mockImplementation(() => {
-        const whereResult = {
-          orderBy: vi.fn().mockResolvedValue([])
-        };
-        // Make whereResult thenable for vfsLinks query (no orderBy, resolves directly)
-        Object.defineProperty(whereResult, 'then', {
-          value: (resolve: (value: unknown[]) => void) => resolve([]),
-          enumerable: false
-        });
-        return {
-          from: vi.fn().mockReturnValue({
-            where: vi.fn().mockReturnValue(whereResult)
-          })
-        };
-      });
-
+    it('navigates when playlist is selected', async () => {
       const user = userEvent.setup();
       renderVideo();
 
       await user.click(screen.getByTestId('select-playlist-1'));
 
-      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
-        'playlist-1'
-      );
+      // Navigation is now handled via URL routing
+      expect(mockNavigate).toHaveBeenCalledWith('/videos/playlists/playlist-1');
     });
 
     it('updates width when onWidthChange is called', async () => {
@@ -1072,6 +1055,76 @@ describe('Video (wrapper with sidebar)', () => {
       renderVideo();
 
       expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
+    });
+  });
+
+  describe('URL-based routing', () => {
+    beforeEach(() => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: true,
+        isLoading: false,
+        currentInstanceId: 'test-instance'
+      });
+    });
+
+    it('reads playlistId from URL params', () => {
+      renderVideo('/videos/playlists/test-playlist-123');
+
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        'test-playlist-123'
+      );
+    });
+
+    it('uses ALL_VIDEO_ID when no playlist param', () => {
+      renderVideo('/videos');
+
+      expect(screen.getByTestId('selected-playlist')).toHaveTextContent(
+        '__all__'
+      );
+    });
+
+    it('navigates to playlist route when playlist is selected', async () => {
+      const user = userEvent.setup();
+      renderVideo('/videos');
+
+      await user.click(screen.getByTestId('select-playlist-1'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/videos/playlists/playlist-1');
+    });
+
+    it('navigates to /videos when ALL_VIDEO_ID is selected', async () => {
+      const user = userEvent.setup();
+      // Suppress console.error from video fetch when mock changes
+      const consoleSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      // Mock the sidebar to have an "All Videos" button
+      const { VideoPlaylistsSidebar } = await import(
+        '@/components/video-window/VideoPlaylistsSidebar'
+      );
+      const MockedSidebar = VideoPlaylistsSidebar as unknown as ReturnType<
+        typeof vi.fn
+      >;
+      MockedSidebar.mockImplementation(({ onPlaylistSelect }) => (
+        <div data-testid="video-playlists-sidebar">
+          <button
+            type="button"
+            data-testid="select-all-videos"
+            onClick={() => onPlaylistSelect('__all__')}
+          >
+            All Videos
+          </button>
+        </div>
+      ));
+
+      renderVideo('/videos/playlists/test-playlist');
+
+      await user.click(screen.getByTestId('select-all-videos'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/videos');
+
+      consoleSpy.mockRestore();
     });
   });
 });

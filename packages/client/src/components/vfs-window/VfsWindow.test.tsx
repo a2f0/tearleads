@@ -8,6 +8,7 @@ const mockOpenWindow = vi.fn();
 const mockRequestWindowOpen = vi.fn();
 
 const mockResolveFileOpenTarget = vi.fn();
+const mockResolvePlaylistType = vi.fn();
 
 let latestProps: { onItemOpen?: (item: VfsOpenItem) => void } | null = null;
 
@@ -43,7 +44,8 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 
 vi.mock('@/lib/vfs-open', () => ({
   resolveFileOpenTarget: (...args: unknown[]) =>
-    mockResolveFileOpenTarget(...args)
+    mockResolveFileOpenTarget(...args),
+  resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)
 }));
 
 describe('VfsWindow', () => {
@@ -51,6 +53,7 @@ describe('VfsWindow', () => {
     mockOpenWindow.mockReset();
     mockRequestWindowOpen.mockReset();
     mockResolveFileOpenTarget.mockReset();
+    mockResolvePlaylistType.mockReset();
     latestProps = null;
   });
 
@@ -394,7 +397,9 @@ describe('VfsWindow', () => {
     expect(mockOpenWindow).toHaveBeenCalledWith('contacts');
   });
 
-  it('opens audio window for playlist items', async () => {
+  it('opens audio window for audio playlist items', async () => {
+    mockResolvePlaylistType.mockResolvedValue('audio');
+
     render(
       <VfsWindow
         id="vfs-12"
@@ -408,11 +413,40 @@ describe('VfsWindow', () => {
     await latestProps?.onItemOpen?.({
       id: 'playlist-1',
       objectType: 'playlist',
-      name: 'Playlist',
+      name: 'Audio Playlist',
       createdAt: new Date()
     });
 
     expect(mockOpenWindow).toHaveBeenCalledWith('audio');
+    expect(mockRequestWindowOpen).toHaveBeenCalledWith('audio', {
+      playlistId: 'playlist-1'
+    });
+  });
+
+  it('opens videos window for video playlist items', async () => {
+    mockResolvePlaylistType.mockResolvedValue('video');
+
+    render(
+      <VfsWindow
+        id="vfs-12b"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={100}
+      />
+    );
+
+    await latestProps?.onItemOpen?.({
+      id: 'playlist-2',
+      objectType: 'playlist',
+      name: 'Video Playlist',
+      createdAt: new Date()
+    });
+
+    expect(mockOpenWindow).toHaveBeenCalledWith('videos');
+    expect(mockRequestWindowOpen).toHaveBeenCalledWith('videos', {
+      playlistId: 'playlist-2'
+    });
   });
 
   it('opens files window for tag items', async () => {
