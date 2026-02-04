@@ -1,8 +1,8 @@
+import { WINDOW_FIT_CONTENT_EVENT } from '@rapid/window-manager';
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WINDOW_FIT_CONTENT_EVENT } from '@rapid/window-manager';
 import { WindowOptionsMenuItem } from './WindowOptionsMenuItem';
 
 const mockSetPreserveWindowState = vi.fn();

@@ -1,5 +1,5 @@
-import { useRef, useState } from 'react';
 import { WINDOW_FIT_CONTENT_EVENT } from '@rapid/window-manager';
+import { useRef, useState } from 'react';
 import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { usePreserveWindowState } from '@/hooks/usePreserveWindowState';
 import { WindowOptionsDialog } from './WindowOptionsDialog';

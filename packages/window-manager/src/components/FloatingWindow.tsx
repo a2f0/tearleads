@@ -288,10 +288,7 @@ export function FloatingWindow({
     const maxHeight = (window.innerHeight - footerHeight) * maxHeightPercent;
 
     const nextWidth = Math.max(minWidth, Math.min(desiredWidth, maxWidth));
-    const nextHeight = Math.max(
-      minHeight,
-      Math.min(desiredHeight, maxHeight)
-    );
+    const nextHeight = Math.max(minHeight, Math.min(desiredHeight, maxHeight));
     const nextX = Math.max(0, Math.round((window.innerWidth - nextWidth) / 2));
     const nextY = Math.max(0, Math.round((maxHeight - nextHeight) / 2));
 
@@ -301,13 +298,7 @@ export function FloatingWindow({
       x: nextX,
       y: nextY
     };
-  }, [
-    footerHeight,
-    maxHeightPercent,
-    maxWidthPercent,
-    minHeight,
-    minWidth
-  ]);
+  }, [footerHeight, maxHeightPercent, maxWidthPercent, minHeight, minWidth]);
 
   const handleFitContentRequest = useCallback(() => {
     if (!isDesktop) return;
