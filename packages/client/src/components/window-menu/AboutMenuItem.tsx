@@ -6,9 +6,14 @@ import { AboutDialog } from './AboutDialog';
 export interface AboutMenuItemProps {
   appName?: string;
   version?: string;
+  closeLabel?: string;
 }
 
-export function AboutMenuItem({ appName, version }: AboutMenuItemProps) {
+export function AboutMenuItem({
+  appName,
+  version,
+  closeLabel
+}: AboutMenuItemProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const hookVersion = useAppVersion();
   const displayVersion = version ?? hookVersion ?? 'Unknown';
@@ -23,6 +28,7 @@ export function AboutMenuItem({ appName, version }: AboutMenuItemProps) {
         onOpenChange={setDialogOpen}
         version={displayVersion}
         appName={appName}
+        closeLabel={closeLabel}
       />
     </>
   );

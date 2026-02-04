@@ -9,6 +9,7 @@ function renderDialog(props: {
   onOpenChange?: (open: boolean) => void;
   version?: string;
   appName?: string;
+  closeLabel?: string;
 }) {
   const defaultProps = {
     open: true,
@@ -47,6 +48,11 @@ describe('AboutDialog', () => {
   it('displays custom app name', () => {
     renderDialog({ appName: 'VFS Explorer' });
     expect(screen.getByText('About VFS Explorer')).toBeInTheDocument();
+  });
+
+  it('uses a custom close label when provided', () => {
+    renderDialog({ closeLabel: 'Close' });
+    expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
 
   it('closes when OK is clicked', async () => {
