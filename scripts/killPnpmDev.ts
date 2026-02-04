@@ -27,6 +27,8 @@ type ProcessInfo = {
 };
 
 const COOLDOWN_MS = 10_000; // 10 seconds
+const PORT_RELEASE_MAX_WAIT_MS = 2000;
+const PORT_RELEASE_POLL_INTERVAL_MS = 100;
 
 const repoRoot = realpathSync(process.cwd());
 
@@ -211,13 +213,9 @@ const main = async (): Promise<void> => {
 
   // Also find processes holding dev ports (from any rapid clone, not just this repo)
   // This ensures port conflicts are resolved even when switching between workspaces
-  const portPids: number[] = [];
-  for (const port of DEV_PORTS) {
-    const pid = getProcessOnPort(port);
-    if (pid && !ancestors.has(pid)) {
-      portPids.push(pid);
-    }
-  }
+  const portPids = DEV_PORTS.map(getProcessOnPort).filter(
+    (pid): pid is number => pid !== null && !ancestors.has(pid)
+  );
 
   // Combine pnpm dev targets with port-holding processes
   const allTargetPids = [...new Set([
@@ -249,16 +247,20 @@ const main = async (): Promise<void> => {
   }
 
   // Wait for ports to be released (OS may take time to free them)
-  const maxWait = 2000;
-  const pollInterval = 100;
   let waited = 0;
-  while (waited < maxWait) {
-    const allFree = DEV_PORTS.every(isPortFree);
-    if (allFree) {
+  let allPortsAreFree = false;
+  while (waited < PORT_RELEASE_MAX_WAIT_MS) {
+    allPortsAreFree = DEV_PORTS.every(isPortFree);
+    if (allPortsAreFree) {
       break;
     }
-    await sleep(pollInterval);
-    waited += pollInterval;
+    await sleep(PORT_RELEASE_POLL_INTERVAL_MS);
+    waited += PORT_RELEASE_POLL_INTERVAL_MS;
+  }
+
+  if (!allPortsAreFree) {
+    const busyPorts = DEV_PORTS.filter((port) => !isPortFree(port));
+    console.warn(`[killPnpmDev] Timed out waiting for ports to be released: ${busyPorts.join(', ')}`);
   }
 
   // Write marker after successful kill
