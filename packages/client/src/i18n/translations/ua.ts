@@ -9,7 +9,8 @@ export const ua = {
     theme: 'Тема',
     themeDescription: 'Виберіть бажану колірну тему',
     create: 'Створити',
-    restore: 'Відновити'
+    restore: 'Відновити',
+    stored: 'Збережені'
   },
   menu: {
     home: 'Головна',

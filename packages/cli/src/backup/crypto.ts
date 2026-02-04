@@ -12,7 +12,7 @@ import {
   IV_SIZE,
   PBKDF2_ITERATIONS,
   SALT_SIZE
-} from './constants';
+} from './constants.js';
 
 /**
  * Generate a random salt for PBKDF2 key derivation.
@@ -51,7 +51,6 @@ export async function deriveKey(
     ['deriveBits', 'deriveKey']
   );
 
-  // Create a proper ArrayBuffer from the Uint8Array to satisfy BufferSource type
   const saltBuffer = new Uint8Array(salt).buffer;
 
   return crypto.subtle.deriveKey(
@@ -81,7 +80,6 @@ export async function encrypt(
 ): Promise<{ iv: Uint8Array; ciphertext: Uint8Array }> {
   const iv = generateIv();
 
-  // Create proper ArrayBuffers from Uint8Arrays to satisfy BufferSource type
   const dataBuffer = new Uint8Array(data).buffer;
   const ivBuffer = new Uint8Array(iv).buffer;
 
@@ -111,7 +109,6 @@ export async function decrypt(
   key: CryptoKey,
   iv: Uint8Array
 ): Promise<Uint8Array> {
-  // Create proper ArrayBuffers from Uint8Arrays to satisfy BufferSource type
   const ciphertextBuffer = new Uint8Array(ciphertext).buffer;
   const ivBuffer = new Uint8Array(iv).buffer;
 

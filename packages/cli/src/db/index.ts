@@ -3,6 +3,7 @@
  */
 
 import fs from 'node:fs/promises';
+import type { BackupDatabase } from '../backup/types.js';
 import { getConfigPaths } from '../config/index.js';
 import {
   changePassword as changeKeyPassword,
@@ -101,6 +102,16 @@ export function exportDatabase(): Record<string, unknown[]> {
 }
 
 /**
+ * Export the database to a backup-ready structure.
+ */
+export function exportBackupDatabase(): BackupDatabase {
+  if (!adapter || !adapter.isOpen()) {
+    throw new Error('Database not open');
+  }
+  return adapter.exportToBackupDatabase();
+}
+
+/**
  * Import data into the database from JSON.
  */
 export function importDatabase(data: Record<string, unknown[]>): void {
@@ -108,6 +119,16 @@ export function importDatabase(data: Record<string, unknown[]>): void {
     throw new Error('Database not open');
   }
   adapter.importFromJson(data);
+}
+
+/**
+ * Import a backup database structure.
+ */
+export function importBackupDatabase(database: BackupDatabase): void {
+  if (!adapter || !adapter.isOpen()) {
+    throw new Error('Database not open');
+  }
+  adapter.importFromBackupDatabase(database);
 }
 
 /**

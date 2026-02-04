@@ -7,6 +7,11 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import type { Database as DatabaseType } from 'better-sqlite3';
 import Database from 'better-sqlite3-multiple-ciphers';
+import type {
+  BackupDatabase,
+  IndexSchema,
+  TableSchema
+} from '../backup/types.js';
 import { getConfigPaths } from '../config/index.js';
 
 /**
@@ -37,6 +42,18 @@ const SCHEMA = `
     value TEXT NOT NULL
   );
 `;
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getStringField(
+  value: Record<string, unknown>,
+  key: string
+): string | null {
+  const field = value[key];
+  return typeof field === 'string' ? field : null;
+}
 
 /**
  * Convert Uint8Array key to hex string for SQLCipher PRAGMA.
@@ -159,6 +176,58 @@ export class NativeSqliteAdapter {
   }
 
   /**
+   * Export the database to a backup-friendly structure with schema and data.
+   */
+  exportToBackupDatabase(): BackupDatabase {
+    if (!this.db) {
+      throw new Error('Database not open');
+    }
+
+    const tables = this.db
+      .prepare(
+        "SELECT name, sql FROM sqlite_master WHERE type='table' AND sql IS NOT NULL ORDER BY name"
+      )
+      .all();
+
+    const tableSchemas: TableSchema[] = [];
+    for (const row of tables) {
+      if (!isRecord(row)) continue;
+      const name = getStringField(row, 'name');
+      const sql = getStringField(row, 'sql');
+      if (!name || !sql) continue;
+      if (name.startsWith('sqlite_') || name === '__drizzle_migrations') {
+        continue;
+      }
+      tableSchemas.push({ name, sql });
+    }
+
+    const indexes = this.db
+      .prepare(
+        "SELECT name, tbl_name, sql FROM sqlite_master WHERE type='index' AND sql IS NOT NULL ORDER BY name"
+      )
+      .all();
+
+    const indexSchemas: IndexSchema[] = [];
+    for (const row of indexes) {
+      if (!isRecord(row)) continue;
+      const name = getStringField(row, 'name');
+      const tableName = getStringField(row, 'tbl_name');
+      const sql = getStringField(row, 'sql');
+      if (!name || !tableName || !sql) continue;
+      if (name.startsWith('sqlite_')) continue;
+      indexSchemas.push({ name, tableName, sql });
+    }
+
+    const data: Record<string, unknown[]> = {};
+    for (const table of tableSchemas) {
+      const rows = this.db.prepare(`SELECT * FROM "${table.name}"`).all();
+      data[table.name] = rows;
+    }
+
+    return { tables: tableSchemas, indexes: indexSchemas, data };
+  }
+
+  /**
    * Import data from a JSON structure (restore from backup).
    */
   importFromJson(data: Record<string, unknown[]>): void {
@@ -190,6 +259,64 @@ export class NativeSqliteAdapter {
           const rowData = row as Record<string, unknown>;
           const values = columns.map((col) => rowData[col]);
           insertStmt.run(...values);
+        }
+      }
+    });
+
+    transaction();
+  }
+
+  /**
+   * Import a backup database structure, recreating schema and data.
+   */
+  importFromBackupDatabase(database: BackupDatabase): void {
+    if (!this.db) {
+      throw new Error('Database not open');
+    }
+
+    const db = this.db;
+
+    const transaction = db.transaction(() => {
+      const existingTables = db
+        .prepare(
+          "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
+        )
+        .all();
+
+      for (const row of existingTables) {
+        if (!isRecord(row)) continue;
+        const name = getStringField(row, 'name');
+        if (!name) continue;
+        db.exec(`DROP TABLE IF EXISTS "${name}"`);
+      }
+
+      for (const table of database.tables) {
+        db.exec(table.sql);
+      }
+
+      for (const [tableName, rows] of Object.entries(database.data)) {
+        if (!Array.isArray(rows) || rows.length === 0) continue;
+
+        const firstRow = rows[0];
+        if (!isRecord(firstRow)) continue;
+        const columns = Object.keys(firstRow);
+        if (columns.length === 0) continue;
+
+        const placeholders = columns.map(() => '?').join(', ');
+        const insertStmt = db.prepare(
+          `INSERT INTO "${tableName}" (${columns.join(', ')}) VALUES (${placeholders})`
+        );
+
+        for (const row of rows) {
+          if (!isRecord(row)) continue;
+          const values = columns.map((col) => row[col]);
+          insertStmt.run(...values);
+        }
+      }
+
+      for (const index of database.indexes) {
+        if (index.sql.trim().length > 0) {
+          db.exec(index.sql);
         }
       }
     });
