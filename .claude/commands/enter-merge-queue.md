@@ -24,6 +24,8 @@ Track the following state during execution:
 - `is_rollup_pr`: Boolean, starts `false`. Set to `true` if base branch is not `main`/`master`. Roll-up PRs must wait for their base PR to merge first.
 - `base_pr_number`: Number or null. For roll-up PRs, the PR number associated with the base branch.
 - `original_base_ref`: String or null. For roll-up PRs, stores the original base branch name before retargeting to main.
+- `job_failure_counts`: Map of job name → failure count. Tracks how many times each job has failed across workflow runs. Reset when job succeeds or PR is rebased.
+- `current_run_id`: Number or null. The workflow run ID being monitored. Used to detect when a new workflow starts after a fix push.
 
 ## Polling with Jitter
 
@@ -176,6 +178,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
         - Clear the queued status with `clearQueued.sh`
         - Stop and ask the user for help - do NOT automatically resolve in a way that could revert merged features.
 
+   **Reset job failure counts after rebase**: Clear `job_failure_counts` (new base = fresh start for CI).
+
    **Bump version immediately after successful rebase** (if `has_bumped_version` is `false`):
 
    1. Run `bumpVersion.sh` and capture its output
@@ -194,9 +198,9 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    Continue to step 4e.
 
-   ### 4e. Wait for CI and address Gemini feedback (interleaved)
+   ### 4e. Wait for CI with early job failure detection
 
-   **IMPORTANT**: Handle Gemini feedback checking as part of each CI polling iteration. Do NOT block waiting for Gemini's initial review - check opportunistically while polling CI.
+   **IMPORTANT**: Poll individual job statuses to detect failures early. React to failures immediately instead of waiting for the entire workflow to complete. This saves significant time when fast jobs (lint, build) fail while slow jobs (iOS Maestro) are still running.
 
    **Skip Gemini handling entirely if** `gemini_can_review` is `false` (detected in step 1).
 
@@ -221,43 +225,93 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    Set `gemini_can_review = false` and skip Gemini checks for the remainder of this session.
 
-   #### CI and Gemini polling loop
+   #### Job-level CI polling (early failure detection)
 
    **Important**: Check if branch is behind BEFORE waiting for CI, and periodically during CI. This prevents wasting time on CI runs that will be obsolete.
 
+   **Step 1**: Get the workflow run ID for the current commit:
+
    ```bash
-   git rev-parse HEAD
-   gh run list --commit <commit-sha> --limit 1 --json status,conclusion,databaseId
+   COMMIT=$(git rev-parse HEAD)
+   RUN_ID=$(gh run list --commit "$COMMIT" --limit 1 --json databaseId --jq '.[0].databaseId')
    ```
 
+   Store as `current_run_id`. If the run ID changes (new workflow started), update `current_run_id`.
+
+   **Step 2**: Poll individual job statuses (not just workflow status):
+
+   ```bash
+   gh run view $RUN_ID --json jobs --jq '[.jobs[] | {name, status, conclusion}]'
+   ```
+
+   **Job priority order** (process failures in this order - fastest jobs first):
+   1. `build` (~15 min) - lint, types, coverage
+   2. `web-e2e` (~10 min) - Playwright tests
+   3. `electron-e2e` (~10 min) - Electron tests
+   4. `android-maestro-release` (~20 min) - Android Maestro
+   5. `ios-maestro-release` (~30 min) - iOS Maestro (slowest)
+
    **Adaptive polling intervals** (with jitter):
-   - First 5 minutes: Poll every 1 minute (CI might fail fast on lint/type errors)
+   - First 5 minutes: Poll every 1 minute (catch fast lint/type failures)
    - 5-15 minutes: Poll every 2 minutes
    - After 15 minutes: Poll every 3 minutes
 
-   **At each poll iteration**:
-   1. Check if branch is behind: `gh pr view --json mergeStateStatus`
+   #### At each poll iteration
+
+   1. **Check if branch is behind**: `gh pr view --json mergeStateStatus`
       - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4d (don't wait for CI to finish)
-   2. If `gemini_can_review` is `true`, check for unresolved Gemini threads:
+
+   2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
       - Run `/address-gemini-feedback` to fetch and address any unresolved comments
       - If code changes were made, push and continue polling (CI will restart)
       - If Gemini has responded with confirmations, resolve those threads via `/follow-up-with-gemini`
-   3. Check CI status and continue polling if still running
 
-   This interleaved approach addresses Gemini feedback while waiting for CI, reducing total merge time.
+   3. **Check individual job statuses** (in priority order):
 
-   **When CI completes**:
-   - If CI **passes**: Continue to step 4f (enable auto-merge)
-   - If CI is **cancelled**: Rerun CI using the CLI (do NOT push empty commits):
+      For each job:
+      - If `status="completed"` AND `conclusion="success"`:
+        - Reset `job_failure_counts[job] = 0`
 
-     ```bash
-     gh run rerun <run-id>
-     ```
+      - If `status="completed"` AND `conclusion="failure"`:
+        - Increment `job_failure_counts[job]`
+        - If `job_failure_counts[job] > 3` (failed 3 times = initial + 2 retries):
+          - Log: "Job '<job-name>' failed 3 times. Asking user for help."
+          - Clear queued status with `clearQueued.sh`
+          - Stop and ask user for guidance
+        - Else:
+          - Log: "Job '<job-name>' failed (attempt X/3). Starting fix."
+          - Run `/fix-tests <job-name>` targeting the specific job
+          - If fix was pushed:
+            - Cancel the obsolete workflow: `gh run cancel $RUN_ID`
+            - Log: "Cancelled obsolete workflow. New CI starting."
+            - Break out of job loop (new workflow will start, pick it up next poll)
 
-   - If CI **fails**:
-     1. Run `/fix-tests` to diagnose and fix the failure
-     2. If the failure is coverage-related, add tests to raise coverage and re-run the relevant `test:coverage` target locally
-     3. Return to monitoring CI status
+   4. **Check overall workflow status**:
+      - If ALL jobs completed AND ALL succeeded → continue to step 4f
+      - If ANY jobs still running → continue polling
+
+   #### Workflow cancellation
+
+   After pushing a fix, cancel the obsolete workflow to save CI minutes:
+
+   ```bash
+   gh run cancel $RUN_ID
+   ```
+
+   **Why cancel?**
+   - Saves CI minutes (no point running tests against stale code)
+   - New workflow automatically starts when fix is pushed
+   - Prevents confusion from multiple simultaneous workflows
+
+   **Safety**: Only cancel after confirming the push succeeded.
+
+   #### When CI is cancelled (externally)
+
+   If the workflow was cancelled (not by us), rerun it:
+
+   ```bash
+   gh run rerun $RUN_ID
+   ```
 
    ### 4f. Enable auto-merge and wait
 
@@ -363,7 +417,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 - Do NOT create "QA: ..." issues - issues are only created when explicitly requested by the user
 - Prioritize staying up-to-date over waiting for CI in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
-- If stuck (same fix attempted twice), ask user for help
+- If stuck (same job fails 3 times after 2 fix attempts), ask user for help
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
 - Only resolve threads after explicit Gemini confirmation
 - **Roll-up PRs**: PRs targeting a non-main branch wait for their base PR to merge first. Once merged, GitHub auto-retargets to main and the roll-up continues normally.

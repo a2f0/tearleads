@@ -23,6 +23,8 @@ Track these state flags:
 - `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after waiting once for Gemini.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files.
 - `associated_issue_number`: Number or null. Track the issue to mark `needs-qa` after merge.
+- `job_failure_counts`: Map of job name → failure count. Tracks how many times each job has failed. Reset when job succeeds or PR is rebased.
+- `current_run_id`: Number or null. The workflow run ID being monitored.
 
 Use polling jitter with ±20% randomization:
 
@@ -100,6 +102,8 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
      - Clear the queued status with `clearQueued.sh`
      - Stop and ask the user for help - do NOT automatically resolve in a way that could revert merged features.
 
+   Reset `job_failure_counts` after rebase (new base = fresh start).
+
    If `has_bumped_version` is `false`, run `bumpVersion.sh`, stage the version files, amend the last commit with a GPG-signed message, and set `has_bumped_version = true`. Force push after rebase:
 
    ```bash
@@ -138,30 +142,56 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Include relevant commit hashes in replies (not just titles).
    - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4e and handle remaining Gemini feedback in parallel.
 
-   4e. Wait for CI with adaptive polling and branch freshness checks:
+   4e. Wait for CI with early job failure detection:
+
+   **Poll individual job statuses** to detect failures early instead of waiting for the entire workflow.
+
+   Get workflow run ID:
 
    ```bash
-   git rev-parse HEAD
-   gh run list --commit <commit-sha> --limit 1 --json status,conclusion,databaseId -R "$REPO"
+   COMMIT=$(git rev-parse HEAD)
+   RUN_ID=$(gh run list --commit "$COMMIT" --limit 1 --json databaseId --jq '.[0].databaseId' -R "$REPO")
    ```
+
+   Poll job statuses (not just workflow status):
+
+   ```bash
+   gh run view $RUN_ID --json jobs --jq '[.jobs[] | {name, status, conclusion}]' -R "$REPO"
+   ```
+
+   **Job priority order** (process failures fastest-first):
+   1. `build` (~15 min)
+   2. `web-e2e` / `electron-e2e` (~10 min)
+   3. `android-maestro-release` (~20 min)
+   4. `ios-maestro-release` (~30 min)
 
    Poll cadence (with jitter):
    - 0-5 min: every 1 min
    - 5-15 min: every 2 min
    - 15+ min: every 3 min
 
-   At each poll, check if the branch is behind:
+   **At each poll**:
 
-   ```bash
-   gh pr view --json mergeStateStatus -R "$REPO"
-   ```
+   1. Check if branch is behind: `gh pr view --json mergeStateStatus -R "$REPO"`
+      - If `BEHIND`, return to 4c immediately
 
-   If `BEHIND`, return to 4c immediately.
+   2. Handle Gemini feedback (if applicable)
 
-   When CI completes:
-   - Pass: continue to 4f.
-   - Cancelled: rerun with `gh run rerun <run-id> -R "$REPO"`.
-   - Failed: run `/fix-tests`, add tests for coverage failures, and re-run coverage locally.
+   3. Check job statuses:
+      - If job succeeded: reset `job_failure_counts[job] = 0`
+      - If job failed:
+        - Increment `job_failure_counts[job]`
+        - If count > 3: ask user for help
+        - Else: run `/fix-tests <job-name>`, push fix, cancel workflow:
+
+          ```bash
+          gh run cancel $RUN_ID -R "$REPO"
+          ```
+
+   4. If all jobs succeeded → continue to 4f
+      If any jobs running → continue polling
+
+   When CI is cancelled externally: `gh run rerun $RUN_ID -R "$REPO"`
 
    4f. Enable auto-merge and wait:
 
