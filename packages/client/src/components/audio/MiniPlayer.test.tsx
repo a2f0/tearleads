@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { MiniPlayer } from './MiniPlayer';
@@ -200,7 +200,7 @@ describe('MiniPlayer', () => {
       expect(mockStop).toHaveBeenCalled();
     });
 
-    it('does not render when audio window is maximized', () => {
+    it('does not render when audio window is open', () => {
       mockUseWindowManager.mockReturnValue({
         windows: [
           {
@@ -209,11 +209,11 @@ describe('MiniPlayer', () => {
             zIndex: 200,
             isMinimized: false,
             dimensions: {
-              width: 800,
-              height: 600,
-              x: 0,
-              y: 0,
-              isMaximized: true
+              width: 450,
+              height: 500,
+              x: 100,
+              y: 100,
+              isMaximized: false
             }
           }
         ]
@@ -222,6 +222,29 @@ describe('MiniPlayer', () => {
       render(<MiniPlayer />);
 
       expect(screen.queryByTestId('mini-player')).not.toBeInTheDocument();
+    });
+
+    it('renders when audio window is minimized', () => {
+      mockUseWindowManager.mockReturnValue({
+        windows: [
+          {
+            id: 'audio-1',
+            type: 'audio',
+            zIndex: 200,
+            isMinimized: true,
+            dimensions: {
+              width: 450,
+              height: 500,
+              x: 100,
+              y: 100
+            }
+          }
+        ]
+      });
+
+      render(<MiniPlayer />);
+
+      expect(screen.getByTestId('mini-player')).toBeInTheDocument();
     });
   });
 
@@ -247,6 +270,133 @@ describe('MiniPlayer', () => {
     await user.click(playButton);
 
     expect(mockResume).toHaveBeenCalled();
+  });
+
+  describe('context menu', () => {
+    const mockOpenWindow = vi.fn().mockReturnValue('audio-new');
+    const mockRestoreWindow = vi.fn();
+    const mockUpdateWindowDimensions = vi.fn();
+
+    beforeEach(() => {
+      mockUseAudioContext.mockReturnValue({
+        currentTrack: TEST_TRACK,
+        isPlaying: true,
+        pause: mockPause,
+        resume: mockResume,
+        stop: mockStop,
+        seek: mockSeek
+      });
+    });
+
+    it('shows Restore and Maximize on right-click', () => {
+      mockUseWindowManager.mockReturnValue({
+        windows: [],
+        openWindow: mockOpenWindow,
+        restoreWindow: mockRestoreWindow,
+        updateWindowDimensions: mockUpdateWindowDimensions
+      });
+      render(<MiniPlayer />);
+
+      fireEvent.contextMenu(screen.getByTestId('mini-player'));
+
+      expect(
+        screen.getByRole('button', { name: 'Restore' })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: 'Maximize' })
+      ).toBeInTheDocument();
+    });
+
+    it('calls restoreWindow when Restore is clicked and audio window exists', async () => {
+      const user = userEvent.setup();
+      mockUseWindowManager.mockReturnValue({
+        windows: [
+          {
+            id: 'audio-1',
+            type: 'audio',
+            zIndex: 200,
+            isMinimized: true,
+            dimensions: { width: 450, height: 500, x: 100, y: 100 }
+          }
+        ],
+        openWindow: mockOpenWindow,
+        restoreWindow: mockRestoreWindow,
+        updateWindowDimensions: mockUpdateWindowDimensions
+      });
+      render(<MiniPlayer />);
+
+      fireEvent.contextMenu(screen.getByTestId('mini-player'));
+      await user.click(screen.getByRole('button', { name: 'Restore' }));
+
+      expect(mockRestoreWindow).toHaveBeenCalledWith('audio-1');
+      expect(mockOpenWindow).not.toHaveBeenCalled();
+    });
+
+    it('calls openWindow when Restore is clicked and no audio window exists', async () => {
+      const user = userEvent.setup();
+      mockUseWindowManager.mockReturnValue({
+        windows: [],
+        openWindow: mockOpenWindow,
+        restoreWindow: mockRestoreWindow,
+        updateWindowDimensions: mockUpdateWindowDimensions
+      });
+      render(<MiniPlayer />);
+
+      fireEvent.contextMenu(screen.getByTestId('mini-player'));
+      await user.click(screen.getByRole('button', { name: 'Restore' }));
+
+      expect(mockOpenWindow).toHaveBeenCalledWith('audio');
+      expect(mockRestoreWindow).not.toHaveBeenCalled();
+    });
+
+    it('calls updateWindowDimensions and restoreWindow when Maximize is clicked', async () => {
+      const user = userEvent.setup();
+      mockUseWindowManager.mockReturnValue({
+        windows: [
+          {
+            id: 'audio-1',
+            type: 'audio',
+            zIndex: 200,
+            isMinimized: true,
+            dimensions: { width: 450, height: 500, x: 100, y: 100 }
+          }
+        ],
+        openWindow: mockOpenWindow,
+        restoreWindow: mockRestoreWindow,
+        updateWindowDimensions: mockUpdateWindowDimensions
+      });
+      render(<MiniPlayer />);
+
+      fireEvent.contextMenu(screen.getByTestId('mini-player'));
+      await user.click(screen.getByRole('button', { name: 'Maximize' }));
+
+      expect(mockUpdateWindowDimensions).toHaveBeenCalledWith(
+        'audio-1',
+        expect.objectContaining({ isMaximized: true, x: 0, y: 0 })
+      );
+      expect(mockRestoreWindow).toHaveBeenCalledWith('audio-1');
+    });
+
+    it('opens a new window when Maximize is clicked and no audio window exists', async () => {
+      const user = userEvent.setup();
+      mockUseWindowManager.mockReturnValue({
+        windows: [],
+        openWindow: mockOpenWindow,
+        restoreWindow: mockRestoreWindow,
+        updateWindowDimensions: mockUpdateWindowDimensions
+      });
+      render(<MiniPlayer />);
+
+      fireEvent.contextMenu(screen.getByTestId('mini-player'));
+      await user.click(screen.getByRole('button', { name: 'Maximize' }));
+
+      expect(mockOpenWindow).toHaveBeenCalledWith('audio');
+      expect(mockUpdateWindowDimensions).toHaveBeenCalledWith(
+        'audio-new',
+        expect.objectContaining({ isMaximized: true, x: 0, y: 0 })
+      );
+      expect(mockRestoreWindow).toHaveBeenCalledWith('audio-new');
+    });
   });
 
   describe('track name display', () => {
