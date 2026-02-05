@@ -14,6 +14,14 @@ androidWebViewHierarchy: devtools
     (async () => {
       const isAndroid = /Android/i.test(navigator.userAgent);
       if (isAndroid) {
+        await window.waitForElement('[data-icon-path="/settings"]', 6000);
+        const homeSettings = document.querySelector(
+          '[data-icon-path="/settings"]'
+        );
+        if (homeSettings) {
+          homeSettings.click();
+          return 'clicked-android-home-settings';
+        }
         window.history.pushState({}, '', '/settings');
         window.dispatchEvent(new PopStateEvent('popstate'));
         return 'navigated-android';
