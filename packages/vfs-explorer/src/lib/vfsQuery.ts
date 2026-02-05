@@ -61,25 +61,29 @@ function nameCoalesce(): SQL<string> {
  * Default (no sort): folders first, then alphabetical by name.
  */
 function buildOrderBy(sort: VfsSortState, nameExpr: SQL<string>): SQL[] {
+  // All sort orders include vfsRegistry.id as a final tie-breaker for stable,
+  // deterministic ordering when primary sort values are identical.
   if (!sort.column || !sort.direction) {
     return [
       asc(
         sql`CASE WHEN ${vfsRegistry.objectType} = 'folder' THEN 0 ELSE 1 END`
       ),
-      asc(sql`${nameExpr} COLLATE NOCASE`)
+      asc(sql`${nameExpr} COLLATE NOCASE`),
+      asc(vfsRegistry.id)
     ];
   }
   const dirFn = sort.direction === 'desc' ? desc : asc;
   switch (sort.column) {
     case 'name':
-      return [dirFn(sql`${nameExpr} COLLATE NOCASE`)];
+      return [dirFn(sql`${nameExpr} COLLATE NOCASE`), asc(vfsRegistry.id)];
     case 'objectType':
       return [
         dirFn(vfsRegistry.objectType),
-        asc(sql`${nameExpr} COLLATE NOCASE`)
+        asc(sql`${nameExpr} COLLATE NOCASE`),
+        asc(vfsRegistry.id)
       ];
     case 'createdAt':
-      return [dirFn(vfsRegistry.createdAt)];
+      return [dirFn(vfsRegistry.createdAt), asc(vfsRegistry.id)];
   }
 }
 
