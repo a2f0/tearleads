@@ -115,12 +115,17 @@ export async function queryFolderContents(
   const nameExpr = nameCoalesce();
   const orderExprs = buildOrderBy(sort, nameExpr);
 
+  // Explicit SQL aliases are required because the sqlite-proxy adapter's
+  // extractSelectColumns() parses column names from the generated SQL.
+  // Without aliases, complex expressions (COALESCE) produce unparseable
+  // column names, and duplicate bare column names (two "id" columns)
+  // collide in the result object.
   const rows = await db
     .select({
       id: vfsRegistry.id,
-      linkId: vfsLinks.id,
+      linkId: sql<string>`${vfsLinks.id} as "linkId"`,
       objectType: vfsRegistry.objectType,
-      name: nameExpr,
+      name: sql<string>`${nameExpr} as "name"`,
       createdAt: vfsRegistry.createdAt
     })
     .from(vfsLinks)
@@ -199,11 +204,12 @@ export async function queryUnfiledItems(
   const nameExpr = nameCoalesce();
   const orderExprs = buildOrderBy(sort, nameExpr);
 
+  // Explicit "name" alias required: see queryFolderContents comment.
   const rows = await db
     .select({
       id: vfsRegistry.id,
       objectType: vfsRegistry.objectType,
-      name: nameExpr,
+      name: sql<string>`${nameExpr} as "name"`,
       createdAt: vfsRegistry.createdAt
     })
     .from(vfsRegistry)
@@ -282,11 +288,12 @@ export async function queryAllItems(
   const nameExpr = nameCoalesce();
   const orderExprs = buildOrderBy(sort, nameExpr);
 
+  // Explicit "name" alias required: see queryFolderContents comment.
   const rows = await db
     .select({
       id: vfsRegistry.id,
       objectType: vfsRegistry.objectType,
-      name: nameExpr,
+      name: sql<string>`${nameExpr} as "name"`,
       createdAt: vfsRegistry.createdAt
     })
     .from(vfsRegistry)
