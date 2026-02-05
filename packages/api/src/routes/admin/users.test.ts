@@ -122,6 +122,20 @@ describe('admin users routes', () => {
     });
   });
 
+  it('GET /v1/admin/users returns empty users list', async () => {
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValueOnce({ rows: [] })
+    });
+
+    const response = await request(app)
+      .get('/v1/admin/users')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ users: [] });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+  });
+
   it('GET /v1/admin/users returns 500 on error', async () => {
     mockGetPostgresPool.mockRejectedValue(new Error('query failed'));
     const consoleError = vi
