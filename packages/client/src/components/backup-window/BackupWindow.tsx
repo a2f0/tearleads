@@ -51,14 +51,14 @@ export function BackupWindow({
         {/* Tab buttons */}
         <div
           role="tablist"
-          className="flex gap-1 border-zinc-700 border-b px-4 pb-2"
+          className="flex gap-1 border-zinc-700 border-b px-4"
         >
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'create'}
             onClick={() => setActiveTab('create')}
-            className={`rounded-md px-4 py-1.5 font-medium text-sm transition-colors ${
+            className={`px-4 py-1.5 font-medium text-sm transition-colors ${
               activeTab === 'create'
                 ? 'bg-zinc-700 text-white'
                 : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
@@ -71,7 +71,7 @@ export function BackupWindow({
             role="tab"
             aria-selected={activeTab === 'restore'}
             onClick={() => setActiveTab('restore')}
-            className={`rounded-md px-4 py-1.5 font-medium text-sm transition-colors ${
+            className={`px-4 py-1.5 font-medium text-sm transition-colors ${
               activeTab === 'restore'
                 ? 'bg-zinc-700 text-white'
                 : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'
@@ -84,7 +84,7 @@ export function BackupWindow({
             role="tab"
             aria-selected={activeTab === 'stored'}
             onClick={() => setActiveTab('stored')}
-            className={`rounded-md px-4 py-1.5 font-medium text-sm transition-colors ${
+            className={`px-4 py-1.5 font-medium text-sm transition-colors ${
               activeTab === 'stored'
                 ? 'bg-zinc-700 text-white'
                 : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300'

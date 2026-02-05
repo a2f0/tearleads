@@ -188,6 +188,7 @@ export function RestoreBackupForm({
             <Input
               id="backup-pwd"
               type="password"
+              autoComplete="current-password"
               value={backupPassword}
               onChange={(e) => setBackupPassword(e.target.value)}
               placeholder="Enter the backup's password"
@@ -257,6 +258,7 @@ export function RestoreBackupForm({
               <Input
                 id="new-pwd"
                 type="password"
+                autoComplete="new-password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Password for restored instance"
@@ -274,6 +276,7 @@ export function RestoreBackupForm({
               <Input
                 id="confirm-new-pwd"
                 type="password"
+                autoComplete="new-password"
                 value={confirmNewPassword}
                 onChange={(e) => setConfirmNewPassword(e.target.value)}
                 placeholder="Confirm password"

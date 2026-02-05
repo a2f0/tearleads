@@ -25,8 +25,13 @@ vi.mock('@/storage/backup-storage', () => ({
   saveBackupToStorage: vi.fn()
 }));
 
+vi.mock('@/db/crypto', () => ({
+  getKeyManager: vi.fn(() => ({ getCurrentKey: () => null }))
+}));
+
 vi.mock('@/storage/opfs', () => ({
-  getFileStorage: vi.fn(),
+  getFileStorageForInstance: vi.fn(),
+  initializeFileStorage: vi.fn(),
   isFileStorageInitialized: vi.fn(() => false)
 }));
 
