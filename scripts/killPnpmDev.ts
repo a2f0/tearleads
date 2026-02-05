@@ -14,8 +14,7 @@ import {
   realpathSync,
   statSync,
   writeFileSync,
-  mkdirSync,
-  rmSync
+  mkdirSync
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -53,14 +52,6 @@ const writeMarker = (): void => {
     writeFileSync(markerFile, String(Date.now()));
   } catch {
     // Ignore - marker is optional optimization
-  }
-};
-
-const clearMarker = (): void => {
-  try {
-    rmSync(markerFile, { force: true });
-  } catch {
-    // Ignore
   }
 };
 
@@ -200,6 +191,11 @@ const main = async (): Promise<void> => {
     return;
   }
 
+  // Write marker immediately to prevent concurrent sibling processes (e.g.,
+  // api and client dev scripts starting simultaneously) from all entering the
+  // kill path and killing each other's newly-started servers.
+  writeMarker();
+
   const processes = getProcessList();
   const ppidMap = buildPpidMap(processes);
   const ancestors = getAncestorPids(process.pid, ppidMap);
@@ -224,13 +220,8 @@ const main = async (): Promise<void> => {
   ])];
 
   if (allTargetPids.length === 0) {
-    // No processes to kill, but still write marker to prevent redundant checks
-    writeMarker();
     return;
   }
-
-  // Clear marker before killing - ensures fresh cooldown starts after kill completes
-  clearMarker();
 
   console.log(`[killPnpmDev] Stopping existing dev processes: ${allTargetPids.join(', ')}`);
 
@@ -263,7 +254,7 @@ const main = async (): Promise<void> => {
     console.warn(`[killPnpmDev] Timed out waiting for ports to be released: ${busyPorts.join(', ')}`);
   }
 
-  // Write marker after successful kill
+  // Refresh marker for accurate cooldown timing after kill completes
   writeMarker();
 };
 
