@@ -1083,9 +1083,34 @@ type WindowMinimizeCase = [
   dimensions: WindowDimensions
 ];
 
+interface WindowCase {
+  label: string;
+  type: string;
+  id: string;
+  windowTestId: string;
+  closeTestId: string;
+  focusTestId?: string;
+  minimize?: {
+    testId: string;
+    dimensions: WindowDimensions;
+  };
+}
+
 function renderSingleWindow(type: string, id: string) {
   mockWindows = [{ id, type, zIndex: 100 }];
   render(<WindowRenderer />, { wrapper });
+}
+
+function hasFocusTestId(
+  windowCase: WindowCase
+): windowCase is WindowCase & { focusTestId: string } {
+  return Boolean(windowCase.focusTestId);
+}
+
+function hasMinimizeCase(windowCase: WindowCase): windowCase is WindowCase & {
+  minimize: { testId: string; dimensions: WindowDimensions };
+} {
+  return Boolean(windowCase.minimize);
 }
 
 describe('WindowRenderer', () => {
@@ -1248,45 +1273,272 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
   });
 
-  const renderCases: WindowClickCase[] = [
-    ['notes', 'notes', 'notes-1', 'notes-window-notes-1'],
-    ['console', 'console', 'console-1', 'console-window-console-1'],
-    ['settings', 'settings', 'settings-1', 'settings-window-settings-1'],
-    ['email', 'email', 'email-1', 'email-window-email-1'],
-    ['files', 'files', 'files-1', 'files-window-files-1'],
-    ['tables', 'tables', 'tables-1', 'tables-window-tables-1'],
-    ['debug', 'debug', 'debug-1', 'debug-window-debug-1'],
-    ['documents', 'documents', 'documents-1', 'documents-window-documents-1'],
-    ['photos', 'photos', 'photos-1', 'photos-window-photos-1'],
-    ['models', 'models', 'models-1', 'models-window-models-1'],
-    ['keychain', 'keychain', 'keychain-1', 'keychain-window-keychain-1'],
-    ['contacts', 'contacts', 'contacts-1', 'contacts-window-contacts-1'],
-    ['sqlite', 'sqlite', 'sqlite-1', 'sqlite-window-sqlite-1'],
-    ['opfs', 'opfs', 'opfs-1', 'opfs-window-opfs-1'],
-    [
-      'local storage',
-      'local-storage',
-      'local-storage-1',
-      'local-storage-window-local-storage-1'
-    ],
-    ['analytics', 'analytics', 'analytics-1', 'analytics-window-analytics-1'],
-    ['audio', 'audio', 'audio-1', 'audio-window-audio-1'],
-    ['admin', 'admin', 'admin-1', 'admin-window-admin-1'],
-    [
-      'admin users',
-      'admin-users',
-      'admin-users-1',
-      'admin-users-window-admin-users-1'
-    ],
-    [
-      'admin organizations',
-      'admin-organizations',
-      'admin-organizations-1',
-      'admin-organizations-window-admin-organizations-1'
-    ],
-    ['chat', 'chat', 'chat-1', 'chat-window-chat-1'],
-    ['help', 'help', 'help-1', 'help-window-help-1']
+  const windowCases: WindowCase[] = [
+    {
+      label: 'notes',
+      type: 'notes',
+      id: 'notes-1',
+      windowTestId: 'notes-window-notes-1',
+      closeTestId: 'close-notes-1',
+      focusTestId: 'notes-window-notes-1',
+      minimize: {
+        testId: 'minimize-notes-1',
+        dimensions: { x: 0, y: 0, width: 400, height: 300 }
+      }
+    },
+    {
+      label: 'console',
+      type: 'console',
+      id: 'console-1',
+      windowTestId: 'console-window-console-1',
+      closeTestId: 'close-console-1',
+      minimize: {
+        testId: 'minimize-console-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 400 }
+      }
+    },
+    {
+      label: 'settings',
+      type: 'settings',
+      id: 'settings-1',
+      windowTestId: 'settings-window-settings-1',
+      closeTestId: 'close-settings-1'
+    },
+    {
+      label: 'email',
+      type: 'email',
+      id: 'email-1',
+      windowTestId: 'email-window-email-1',
+      closeTestId: 'close-email-1',
+      focusTestId: 'email-window-email-1',
+      minimize: {
+        testId: 'minimize-email-1',
+        dimensions: { x: 0, y: 0, width: 550, height: 450 }
+      }
+    },
+    {
+      label: 'files',
+      type: 'files',
+      id: 'files-1',
+      windowTestId: 'files-window-files-1',
+      closeTestId: 'close-files-1',
+      focusTestId: 'files-window-files-1',
+      minimize: {
+        testId: 'minimize-files-1',
+        dimensions: { x: 0, y: 0, width: 500, height: 400 }
+      }
+    },
+    {
+      label: 'tables',
+      type: 'tables',
+      id: 'tables-1',
+      windowTestId: 'tables-window-tables-1',
+      closeTestId: 'close-tables-1',
+      focusTestId: 'tables-window-tables-1',
+      minimize: {
+        testId: 'minimize-tables-1',
+        dimensions: { x: 0, y: 0, width: 850, height: 600 }
+      }
+    },
+    {
+      label: 'debug',
+      type: 'debug',
+      id: 'debug-1',
+      windowTestId: 'debug-window-debug-1',
+      closeTestId: 'close-debug-1',
+      focusTestId: 'debug-window-debug-1',
+      minimize: {
+        testId: 'minimize-debug-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'documents',
+      type: 'documents',
+      id: 'documents-1',
+      windowTestId: 'documents-window-documents-1',
+      closeTestId: 'close-documents-1',
+      focusTestId: 'documents-window-documents-1',
+      minimize: {
+        testId: 'minimize-documents-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 550 }
+      }
+    },
+    {
+      label: 'photos',
+      type: 'photos',
+      id: 'photos-1',
+      windowTestId: 'photos-window-photos-1',
+      closeTestId: 'close-photos-1',
+      focusTestId: 'photos-window-photos-1',
+      minimize: {
+        testId: 'minimize-photos-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 550 }
+      }
+    },
+    {
+      label: 'models',
+      type: 'models',
+      id: 'models-1',
+      windowTestId: 'models-window-models-1',
+      closeTestId: 'close-models-1',
+      focusTestId: 'models-window-models-1',
+      minimize: {
+        testId: 'minimize-models-1',
+        dimensions: { x: 0, y: 0, width: 720, height: 600 }
+      }
+    },
+    {
+      label: 'keychain',
+      type: 'keychain',
+      id: 'keychain-1',
+      windowTestId: 'keychain-window-keychain-1',
+      closeTestId: 'close-keychain-1',
+      focusTestId: 'keychain-window-keychain-1',
+      minimize: {
+        testId: 'minimize-keychain-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'contacts',
+      type: 'contacts',
+      id: 'contacts-1',
+      windowTestId: 'contacts-window-contacts-1',
+      closeTestId: 'close-contacts-1',
+      focusTestId: 'contacts-window-contacts-1',
+      minimize: {
+        testId: 'minimize-contacts-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'sqlite',
+      type: 'sqlite',
+      id: 'sqlite-1',
+      windowTestId: 'sqlite-window-sqlite-1',
+      closeTestId: 'close-sqlite-1',
+      focusTestId: 'sqlite-window-sqlite-1',
+      minimize: {
+        testId: 'minimize-sqlite-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'opfs',
+      type: 'opfs',
+      id: 'opfs-1',
+      windowTestId: 'opfs-window-opfs-1',
+      closeTestId: 'close-opfs-1',
+      minimize: {
+        testId: 'minimize-opfs-1',
+        dimensions: { x: 0, y: 0, width: 720, height: 560 }
+      }
+    },
+    {
+      label: 'local storage',
+      type: 'local-storage',
+      id: 'local-storage-1',
+      windowTestId: 'local-storage-window-local-storage-1',
+      closeTestId: 'close-local-storage-1',
+      focusTestId: 'local-storage-window-local-storage-1',
+      minimize: {
+        testId: 'minimize-local-storage-1',
+        dimensions: { x: 0, y: 0, width: 520, height: 420 }
+      }
+    },
+    {
+      label: 'analytics',
+      type: 'analytics',
+      id: 'analytics-1',
+      windowTestId: 'analytics-window-analytics-1',
+      closeTestId: 'close-analytics-1',
+      focusTestId: 'analytics-window-analytics-1',
+      minimize: {
+        testId: 'minimize-analytics-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 550 }
+      }
+    },
+    {
+      label: 'audio',
+      type: 'audio',
+      id: 'audio-1',
+      windowTestId: 'audio-window-audio-1',
+      closeTestId: 'close-audio-1',
+      focusTestId: 'audio-window-audio-1',
+      minimize: {
+        testId: 'minimize-audio-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'admin',
+      type: 'admin',
+      id: 'admin-1',
+      windowTestId: 'admin-window-admin-1',
+      closeTestId: 'close-admin-1',
+      focusTestId: 'admin-window-admin-1',
+      minimize: {
+        testId: 'minimize-admin-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 600 }
+      }
+    },
+    {
+      label: 'admin users',
+      type: 'admin-users',
+      id: 'admin-users-1',
+      windowTestId: 'admin-users-window-admin-users-1',
+      closeTestId: 'close-admin-users-1',
+      focusTestId: 'admin-users-window-admin-users-1',
+      minimize: {
+        testId: 'minimize-admin-users-1',
+        dimensions: { x: 0, y: 0, width: 840, height: 620 }
+      }
+    },
+    {
+      label: 'admin organizations',
+      type: 'admin-organizations',
+      id: 'admin-organizations-1',
+      windowTestId: 'admin-organizations-window-admin-organizations-1',
+      closeTestId: 'close-admin-organizations-1',
+      focusTestId: 'admin-organizations-window-admin-organizations-1',
+      minimize: {
+        testId: 'minimize-admin-organizations-1',
+        dimensions: { x: 0, y: 0, width: 840, height: 620 }
+      }
+    },
+    {
+      label: 'chat',
+      type: 'chat',
+      id: 'chat-1',
+      windowTestId: 'chat-window-chat-1',
+      closeTestId: 'close-chat-1',
+      focusTestId: 'chat-window-chat-1',
+      minimize: {
+        testId: 'minimize-chat-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 600 }
+      }
+    },
+    {
+      label: 'help',
+      type: 'help',
+      id: 'help-1',
+      windowTestId: 'help-window-help-1',
+      closeTestId: 'close-help-1',
+      focusTestId: 'help-window-help-1',
+      minimize: {
+        testId: 'minimize-help-1',
+        dimensions: { x: 0, y: 0, width: 900, height: 700 }
+      }
+    }
   ];
+
+  const renderCases: WindowClickCase[] = windowCases.map((windowCase) => [
+    windowCase.label,
+    windowCase.type,
+    windowCase.id,
+    windowCase.windowTestId
+  ]);
 
   it.each(
     renderCases
@@ -1295,40 +1547,12 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId(testId)).toBeInTheDocument();
   });
 
-  const closeCases: WindowClickCase[] = [
-    ['notes', 'notes', 'notes-1', 'close-notes-1'],
-    ['console', 'console', 'console-1', 'close-console-1'],
-    ['settings', 'settings', 'settings-1', 'close-settings-1'],
-    ['email', 'email', 'email-1', 'close-email-1'],
-    ['contacts', 'contacts', 'contacts-1', 'close-contacts-1'],
-    ['sqlite', 'sqlite', 'sqlite-1', 'close-sqlite-1'],
-    ['opfs', 'opfs', 'opfs-1', 'close-opfs-1'],
-    ['files', 'files', 'files-1', 'close-files-1'],
-    ['documents', 'documents', 'documents-1', 'close-documents-1'],
-    ['photos', 'photos', 'photos-1', 'close-photos-1'],
-    ['models', 'models', 'models-1', 'close-models-1'],
-    ['keychain', 'keychain', 'keychain-1', 'close-keychain-1'],
-    [
-      'local storage',
-      'local-storage',
-      'local-storage-1',
-      'close-local-storage-1'
-    ],
-    ['analytics', 'analytics', 'analytics-1', 'close-analytics-1'],
-    ['audio', 'audio', 'audio-1', 'close-audio-1'],
-    ['admin', 'admin', 'admin-1', 'close-admin-1'],
-    ['admin users', 'admin-users', 'admin-users-1', 'close-admin-users-1'],
-    [
-      'admin organizations',
-      'admin-organizations',
-      'admin-organizations-1',
-      'close-admin-organizations-1'
-    ],
-    ['chat', 'chat', 'chat-1', 'close-chat-1'],
-    ['tables', 'tables', 'tables-1', 'close-tables-1'],
-    ['debug', 'debug', 'debug-1', 'close-debug-1'],
-    ['help', 'help', 'help-1', 'close-help-1']
-  ];
+  const closeCases: WindowClickCase[] = windowCases.map((windowCase) => [
+    windowCase.label,
+    windowCase.type,
+    windowCase.id,
+    windowCase.closeTestId
+  ]);
 
   it.each(
     closeCases
@@ -1339,42 +1563,14 @@ describe('WindowRenderer', () => {
     expect(mockCloseWindow).toHaveBeenCalledWith(id);
   });
 
-  const focusCases: WindowClickCase[] = [
-    ['notes', 'notes', 'notes-1', 'notes-window-notes-1'],
-    ['email', 'email', 'email-1', 'email-window-email-1'],
-    ['contacts', 'contacts', 'contacts-1', 'contacts-window-contacts-1'],
-    ['sqlite', 'sqlite', 'sqlite-1', 'sqlite-window-sqlite-1'],
-    ['files', 'files', 'files-1', 'files-window-files-1'],
-    ['documents', 'documents', 'documents-1', 'documents-window-documents-1'],
-    ['photos', 'photos', 'photos-1', 'photos-window-photos-1'],
-    ['models', 'models', 'models-1', 'models-window-models-1'],
-    ['keychain', 'keychain', 'keychain-1', 'keychain-window-keychain-1'],
-    [
-      'local storage',
-      'local-storage',
-      'local-storage-1',
-      'local-storage-window-local-storage-1'
-    ],
-    ['analytics', 'analytics', 'analytics-1', 'analytics-window-analytics-1'],
-    ['audio', 'audio', 'audio-1', 'audio-window-audio-1'],
-    ['admin', 'admin', 'admin-1', 'admin-window-admin-1'],
-    [
-      'admin users',
-      'admin-users',
-      'admin-users-1',
-      'admin-users-window-admin-users-1'
-    ],
-    [
-      'admin organizations',
-      'admin-organizations',
-      'admin-organizations-1',
-      'admin-organizations-window-admin-organizations-1'
-    ],
-    ['chat', 'chat', 'chat-1', 'chat-window-chat-1'],
-    ['tables', 'tables', 'tables-1', 'tables-window-tables-1'],
-    ['debug', 'debug', 'debug-1', 'debug-window-debug-1'],
-    ['help', 'help', 'help-1', 'help-window-help-1']
-  ];
+  const focusCases: WindowClickCase[] = windowCases
+    .filter(hasFocusTestId)
+    .map((windowCase) => [
+      windowCase.label,
+      windowCase.type,
+      windowCase.id,
+      windowCase.focusTestId
+    ]);
 
   it.each(
     focusCases
@@ -1385,155 +1581,15 @@ describe('WindowRenderer', () => {
     expect(mockFocusWindow).toHaveBeenCalledWith(id);
   });
 
-  const minimizeCases: WindowMinimizeCase[] = [
-    [
-      'notes',
-      'notes',
-      'notes-1',
-      'minimize-notes-1',
-      { x: 0, y: 0, width: 400, height: 300 }
-    ],
-    [
-      'console',
-      'console',
-      'console-1',
-      'minimize-console-1',
-      { x: 0, y: 0, width: 600, height: 400 }
-    ],
-    [
-      'email',
-      'email',
-      'email-1',
-      'minimize-email-1',
-      { x: 0, y: 0, width: 550, height: 450 }
-    ],
-    [
-      'contacts',
-      'contacts',
-      'contacts-1',
-      'minimize-contacts-1',
-      { x: 0, y: 0, width: 600, height: 500 }
-    ],
-    [
-      'sqlite',
-      'sqlite',
-      'sqlite-1',
-      'minimize-sqlite-1',
-      { x: 0, y: 0, width: 600, height: 500 }
-    ],
-    [
-      'opfs',
-      'opfs',
-      'opfs-1',
-      'minimize-opfs-1',
-      { x: 0, y: 0, width: 720, height: 560 }
-    ],
-    [
-      'files',
-      'files',
-      'files-1',
-      'minimize-files-1',
-      { x: 0, y: 0, width: 500, height: 400 }
-    ],
-    [
-      'documents',
-      'documents',
-      'documents-1',
-      'minimize-documents-1',
-      { x: 0, y: 0, width: 700, height: 550 }
-    ],
-    [
-      'photos',
-      'photos',
-      'photos-1',
-      'minimize-photos-1',
-      { x: 0, y: 0, width: 700, height: 550 }
-    ],
-    [
-      'models',
-      'models',
-      'models-1',
-      'minimize-models-1',
-      { x: 0, y: 0, width: 720, height: 600 }
-    ],
-    [
-      'keychain',
-      'keychain',
-      'keychain-1',
-      'minimize-keychain-1',
-      { x: 0, y: 0, width: 600, height: 500 }
-    ],
-    [
-      'local storage',
-      'local-storage',
-      'local-storage-1',
-      'minimize-local-storage-1',
-      { x: 0, y: 0, width: 520, height: 420 }
-    ],
-    [
-      'analytics',
-      'analytics',
-      'analytics-1',
-      'minimize-analytics-1',
-      { x: 0, y: 0, width: 700, height: 550 }
-    ],
-    [
-      'audio',
-      'audio',
-      'audio-1',
-      'minimize-audio-1',
-      { x: 0, y: 0, width: 600, height: 500 }
-    ],
-    [
-      'admin',
-      'admin',
-      'admin-1',
-      'minimize-admin-1',
-      { x: 0, y: 0, width: 700, height: 600 }
-    ],
-    [
-      'admin users',
-      'admin-users',
-      'admin-users-1',
-      'minimize-admin-users-1',
-      { x: 0, y: 0, width: 840, height: 620 }
-    ],
-    [
-      'admin organizations',
-      'admin-organizations',
-      'admin-organizations-1',
-      'minimize-admin-organizations-1',
-      { x: 0, y: 0, width: 840, height: 620 }
-    ],
-    [
-      'chat',
-      'chat',
-      'chat-1',
-      'minimize-chat-1',
-      { x: 0, y: 0, width: 700, height: 600 }
-    ],
-    [
-      'tables',
-      'tables',
-      'tables-1',
-      'minimize-tables-1',
-      { x: 0, y: 0, width: 850, height: 600 }
-    ],
-    [
-      'debug',
-      'debug',
-      'debug-1',
-      'minimize-debug-1',
-      { x: 0, y: 0, width: 600, height: 500 }
-    ],
-    [
-      'help',
-      'help',
-      'help-1',
-      'minimize-help-1',
-      { x: 0, y: 0, width: 900, height: 700 }
-    ]
-  ];
+  const minimizeCases: WindowMinimizeCase[] = windowCases
+    .filter(hasMinimizeCase)
+    .map((windowCase) => [
+      windowCase.label,
+      windowCase.type,
+      windowCase.id,
+      windowCase.minimize.testId,
+      windowCase.minimize.dimensions
+    ]);
 
   it.each(
     minimizeCases
