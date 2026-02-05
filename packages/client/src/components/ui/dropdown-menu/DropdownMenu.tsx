@@ -31,6 +31,7 @@ interface ChildProps {
 
 interface DropdownMenuContextValue {
   close: () => void;
+  getContainerElement: () => HTMLElement | null;
 }
 
 const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(
@@ -155,9 +156,11 @@ export function DropdownMenu({
     }
   };
 
+  const getContainerElement = useCallback(() => containerRef.current, []);
+
   const contextValue = useMemo<DropdownMenuContextValue>(
-    () => ({ close }),
-    [close]
+    () => ({ close, getContainerElement }),
+    [close, getContainerElement]
   );
 
   return (

@@ -19,7 +19,7 @@ export function WindowOptionsMenuItem() {
   };
 
   const handleFitContent = () => {
-    menuItemRef.current
+    (dropdownMenu?.getContainerElement() ?? menuItemRef.current)
       ?.closest<HTMLElement>('.floating-window')
       ?.dispatchEvent(new CustomEvent(WINDOW_FIT_CONTENT_EVENT));
   };
