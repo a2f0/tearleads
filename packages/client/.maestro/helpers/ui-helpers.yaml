@@ -4,33 +4,32 @@ appId: com.tearleads.rapid
 # Usage: - runFlow: helpers/ui-helpers.yaml
 
 - evalScript: |
-    window.waitForElement = async (selector, timeout = 8000) => {
+    window.waitFor = async (predicate, errorMessage, timeout = 8000) => {
       const interval = 200;
       const maxTries = Math.ceil(timeout / interval);
       for (let i = 0; i < maxTries; i++) {
-        if (document.querySelector(selector)) return 'ok';
+        if (await predicate()) return 'ok';
         await new Promise(r => setTimeout(r, interval));
       }
-      throw new Error('Element not found: ' + selector);
+      throw new Error(errorMessage);
     };
 
-    window.waitForAttribute = async (
-      selector,
-      attribute,
-      expectedValue,
-      timeout = 8000
-    ) => {
-      const interval = 200;
-      const maxTries = Math.ceil(timeout / interval);
-      for (let i = 0; i < maxTries; i++) {
-        const element = document.querySelector(selector);
-        if (element && element.getAttribute(attribute) === expectedValue) {
-          return 'ok';
-        }
-        await new Promise(r => setTimeout(r, interval));
-      }
-      throw new Error(
-        `Expected ${selector} ${attribute}=${expectedValue}`
+    window.waitForElement = (selector, timeout) => {
+      return window.waitFor(
+        () => document.querySelector(selector),
+        `Element not found: ${selector}`,
+        timeout
+      );
+    };
+
+    window.waitForAttribute = (selector, attribute, expectedValue, timeout) => {
+      return window.waitFor(
+        () => {
+          const element = document.querySelector(selector);
+          return element && element.getAttribute(attribute) === expectedValue;
+        },
+        `Expected ${selector} ${attribute}=${expectedValue}`,
+        timeout
       );
     };
 
