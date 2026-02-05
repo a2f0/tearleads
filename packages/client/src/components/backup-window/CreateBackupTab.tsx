@@ -17,7 +17,7 @@ import {
 } from '@/storage/backup-storage';
 import {
   type FileStorage,
-  getFileStorage,
+  getFileStorageForInstance,
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
@@ -50,7 +50,7 @@ async function getOrInitFileStorage(
   instanceId: string
 ): Promise<FileStorage | null> {
   if (isFileStorageInitialized(instanceId)) {
-    return getFileStorage();
+    return getFileStorageForInstance(instanceId);
   }
   const keyManager = getKeyManager();
   const encryptionKey = keyManager.getCurrentKey();

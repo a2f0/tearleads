@@ -30,7 +30,7 @@ vi.mock('@/db/crypto', () => ({
 }));
 
 vi.mock('@/storage/opfs', () => ({
-  getFileStorage: vi.fn(),
+  getFileStorageForInstance: vi.fn(),
   initializeFileStorage: vi.fn(),
   isFileStorageInitialized: vi.fn(() => false)
 }));
