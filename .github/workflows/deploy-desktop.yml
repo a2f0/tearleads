@@ -98,6 +98,16 @@ jobs:
           MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
           DESKTOP_APP_IDENTIFIER: ${{ env.DESKTOP_APP_IDENTIFIER }}
 
+      - name: Verify macOS signing identity
+        if: runner.os == 'macOS'
+        run: |
+          echo "Available signing identities:"
+          security find-identity -v -p codesigning
+          security find-identity -v -p codesigning | grep "Developer ID Application" || {
+            echo "::error::No Developer ID Application signing identity found. Certificate import may have failed."
+            exit 1
+          }
+
       - name: Build desktop release artifacts
         if: runner.os != 'macOS'
         run: pnpm --filter @rapid/client run electron:dist:unsigned
