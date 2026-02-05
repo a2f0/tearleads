@@ -221,7 +221,7 @@ describe('api', () => {
     it('deduplicates concurrent refresh attempts', async () => {
       localStorage.setItem('auth_refresh_token', 'refresh-token');
 
-      let resolveRefresh: (response: Response) => void;
+      let resolveRefresh: ((response: Response) => void) | undefined;
       const refreshPromise = new Promise<Response>((resolve) => {
         resolveRefresh = resolve;
       });
@@ -240,6 +240,10 @@ describe('api', () => {
 
       const first = tryRefreshToken();
       const second = tryRefreshToken();
+
+      if (!resolveRefresh) {
+        throw new Error('refresh resolver missing');
+      }
 
       resolveRefresh(
         new Response(
@@ -316,7 +320,7 @@ describe('api', () => {
       localStorage.setItem('auth_token', 'stale-token');
       localStorage.setItem('auth_refresh_token', 'refresh-token');
 
-      let resolveRefresh: (response: Response) => void;
+      let resolveRefresh: ((response: Response) => void) | undefined;
       const refreshPromise = new Promise<Response>((resolve) => {
         resolveRefresh = resolve;
       });
@@ -349,6 +353,10 @@ describe('api', () => {
 
       const first = api.ping.get();
       const second = api.ping.get();
+
+      if (!resolveRefresh) {
+        throw new Error('refresh resolver missing');
+      }
 
       resolveRefresh(
         new Response(

@@ -6,7 +6,7 @@ describe('auth-storage without window', () => {
       window?: Window;
     };
     const originalWindow = globalWithWindow.window;
-    globalWithWindow.window = undefined;
+    globalWithWindow.window = undefined as unknown as Window;
 
     try {
       const { onAuthChange, setAuthError, clearAuthError, getAuthError } =
