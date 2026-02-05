@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -75,6 +75,13 @@ export function CreateBackupTab({ onSuccess }: CreateBackupTabProps) {
     blobCount: number;
     blobTotalSize: number;
   } | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Estimate backup size on mount or when includeBlobs changes
   const updateEstimate = useCallback(async () => {
@@ -168,16 +175,24 @@ export function CreateBackupTab({ onSuccess }: CreateBackupTabProps) {
 
       // Reset form after short delay
       setTimeout(() => {
-        setPassword('');
-        setConfirmPassword('');
-        setProgress(null);
-        setSuccess(null);
+        if (isMountedRef.current) {
+          setPassword('');
+          setConfirmPassword('');
+          setProgress(null);
+          setSuccess(null);
+        }
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create backup');
-      setProgress(null);
+      if (isMountedRef.current) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to create backup'
+        );
+        setProgress(null);
+      }
     } finally {
-      setIsCreating(false);
+      if (isMountedRef.current) {
+        setIsCreating(false);
+      }
     }
   };
 
