@@ -192,6 +192,7 @@ export function PhotosWindow({
                         selectedAlbumId={selectedAlbumId}
                         uploading={uploading}
                         uploadProgress={uploadProgress}
+                        onUpload={handleUpload}
                       />
                     )}
                     {viewMode === 'table' && (

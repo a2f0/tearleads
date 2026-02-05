@@ -111,6 +111,7 @@ export function FilesWindow({
               showDropzone={showDropzone}
               onSelectFile={handleSelectFile}
               refreshToken={refreshToken}
+              onUpload={handleUpload}
             />
           ) : (
             <FilesWindowTableView

@@ -5,7 +5,8 @@ import {
   Info,
   Loader2,
   Share2,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -31,6 +32,7 @@ interface PhotosWindowContentProps {
   selectedAlbumId?: string | null;
   uploading?: boolean;
   uploadProgress?: number;
+  onUpload?: () => void;
 }
 
 export function PhotosWindowContent({
@@ -40,7 +42,8 @@ export function PhotosWindowContent({
   onUploadFiles,
   selectedAlbumId,
   uploading = false,
-  uploadProgress = 0
+  uploadProgress = 0,
+  onUpload
 }: PhotosWindowContentProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -60,6 +63,10 @@ export function PhotosWindowContent({
     y: number;
   } | null>(null);
   const [canShare, setCanShare] = useState(false);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -86,9 +93,19 @@ export function PhotosWindowContent({
   const handleContextMenu = useCallback(
     (event: React.MouseEvent, photo: PhotoWithUrl) => {
       event.preventDefault();
+      event.stopPropagation();
       setContextMenu({ photo, x: event.clientX, y: event.clientY });
     },
     []
+  );
+
+  const handleBlankSpaceContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!onUpload) return;
+      e.preventDefault();
+      setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
+    },
+    [onUpload]
   );
 
   const handleCloseContextMenu = useCallback(() => {
@@ -180,7 +197,11 @@ export function PhotosWindowContent({
               Loading photos...
             </div>
           ) : photos.length === 0 && hasFetched ? (
-            <div className="rounded-lg border p-6 text-center">
+            // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
+            <div
+              className="rounded-lg border p-6 text-center"
+              onContextMenu={handleBlankSpaceContextMenu}
+            >
               {showDropzone && onUploadFiles ? (
                 <Dropzone
                   onFilesSelected={onUploadFiles}
@@ -205,7 +226,12 @@ export function PhotosWindowContent({
                 className="mb-2"
               />
               <div className="flex-1 rounded-lg border">
-                <div ref={parentRef} className="h-full overflow-auto">
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
+                <div
+                  ref={parentRef}
+                  className="h-full overflow-auto"
+                  onContextMenu={handleBlankSpaceContextMenu}
+                >
                   <div
                     className="relative w-full"
                     style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -325,6 +351,24 @@ export function PhotosWindowContent({
             onClick={handleDelete}
           >
             {t('delete')}
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {blankSpaceMenu && onUpload && (
+        <ContextMenu
+          x={blankSpaceMenu.x}
+          y={blankSpaceMenu.y}
+          onClose={() => setBlankSpaceMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<Upload className="h-4 w-4" />}
+            onClick={() => {
+              onUpload();
+              setBlankSpaceMenu(null);
+            }}
+          >
+            Upload
           </ContextMenuItem>
         </ContextMenu>
       )}

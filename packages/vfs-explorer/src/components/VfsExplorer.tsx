@@ -35,6 +35,8 @@ interface VfsExplorerProps {
   onItemOpen?: ((item: VfsOpenItem) => void) | undefined;
   /** Callback when download is requested via context menu */
   onItemDownload?: ((item: VfsOpenItem) => void) | undefined;
+  /** Callback when upload is requested via context menu */
+  onUpload?: (() => void) | undefined;
 }
 
 export function VfsExplorer(props: VfsExplorerProps) {
@@ -54,7 +56,8 @@ function VfsExplorerInner({
   onFolderSelect,
   onItemMoved,
   onItemOpen,
-  onItemDownload
+  onItemDownload,
+  onUpload
 }: VfsExplorerProps) {
   const [internalSelectedFolderId, setInternalSelectedFolderId] = useState<
     string | null
@@ -274,6 +277,7 @@ function VfsExplorerInner({
             onItemsChange={setItems}
             onItemShare={handleItemShare}
             onPaste={handlePaste}
+            onUpload={onUpload}
           />
           {sharingItem && (
             <SharingPanel

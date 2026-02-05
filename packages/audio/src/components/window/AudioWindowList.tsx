@@ -1,5 +1,13 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Info, Loader2, Music, Pause, Play, Trash2 } from 'lucide-react';
+import {
+  Info,
+  Loader2,
+  Music,
+  Pause,
+  Play,
+  Trash2,
+  Upload
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '../../context/AudioContext';
 import {
@@ -18,6 +26,7 @@ interface AudioWindowListProps {
   selectedPlaylistId?: string | null;
   uploading?: boolean;
   uploadProgress?: number;
+  onUpload?: () => void;
 }
 
 export function AudioWindowList({
@@ -27,7 +36,8 @@ export function AudioWindowList({
   onUploadFiles,
   selectedPlaylistId,
   uploading = false,
-  uploadProgress = 0
+  uploadProgress = 0,
+  onUpload
 }: AudioWindowListProps) {
   const {
     databaseState,
@@ -62,6 +72,10 @@ export function AudioWindowList({
   const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{
     track: AudioWithUrl;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
     x: number;
     y: number;
   } | null>(null);
@@ -223,9 +237,19 @@ export function AudioWindowList({
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, track: AudioWithUrl) => {
       e.preventDefault();
+      e.stopPropagation();
       setContextMenu({ track, x: e.clientX, y: e.clientY });
     },
     []
+  );
+
+  const handleBlankSpaceContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!onUpload) return;
+      e.preventDefault();
+      setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
+    },
+    [onUpload]
   );
 
   const handleCloseContextMenu = useCallback(() => {
@@ -337,7 +361,11 @@ export function AudioWindowList({
             Loading audio...
           </div>
         ) : tracks.length === 0 && hasFetched ? (
-          <div className="rounded-lg border p-6 text-center">
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
+          <div
+            className="rounded-lg border p-6 text-center"
+            onContextMenu={handleBlankSpaceContextMenu}
+          >
             {showDropzone && onUploadFiles ? (
               <div className="space-y-3">
                 <Dropzone
@@ -383,7 +411,12 @@ export function AudioWindowList({
               itemLabel="track"
             />
             <div className="flex-1 rounded-lg border">
-              <div ref={parentRef} className="h-full overflow-auto">
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
+              <div
+                ref={parentRef}
+                className="h-full overflow-auto"
+                onContextMenu={handleBlankSpaceContextMenu}
+              >
                 <div
                   className="relative w-full"
                   style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -504,6 +537,24 @@ export function AudioWindowList({
             onClick={() => handleDelete(contextMenu.track)}
           >
             {t('delete')}
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {blankSpaceMenu && onUpload && (
+        <ContextMenu
+          x={blankSpaceMenu.x}
+          y={blankSpaceMenu.y}
+          onClose={() => setBlankSpaceMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<Upload className="h-4 w-4" />}
+            onClick={() => {
+              onUpload();
+              setBlankSpaceMenu(null);
+            }}
+          >
+            Upload
           </ContextMenuItem>
         </ContextMenu>
       )}

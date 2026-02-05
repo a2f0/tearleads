@@ -185,6 +185,7 @@ export function AudioWindow({
                 selectedPlaylistId={selectedPlaylistId}
                 uploading={uploading}
                 uploadProgress={uploadProgress}
+                onUpload={handleUpload}
               />
             ) : (
               <AudioWindowTableView

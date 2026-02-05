@@ -6,7 +6,8 @@ import {
   FileBox,
   Folder,
   Layers,
-  Loader2
+  Loader2,
+  Upload
 } from 'lucide-react';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
@@ -55,6 +56,8 @@ interface VfsDetailsPanelProps {
   onItemShare?: ((item: DisplayItem) => void) | undefined;
   /** Callback when paste is requested via context menu */
   onPaste?: ((targetFolderId: string) => void) | undefined;
+  /** Callback when upload is requested via context menu */
+  onUpload?: (() => void) | undefined;
 }
 
 interface EmptySpaceContextMenuState {
@@ -82,7 +85,8 @@ export function VfsDetailsPanel({
   onItemsChange,
   onItemDownload,
   onItemShare,
-  onPaste
+  onPaste,
+  onUpload
 }: VfsDetailsPanelProps) {
   const {
     ui: { ContextMenu, ContextMenuItem }
@@ -143,12 +147,13 @@ export function VfsDetailsPanel({
   const handleEmptySpaceContextMenu = useCallback(
     (e: MouseEvent) => {
       e.preventDefault();
-      // Only show paste option if we have a real folder (not unfiled or all items)
-      if (!isUnfiled && !isAllItems && folderId) {
+      // Show context menu for real folders (not unfiled or all items)
+      // when upload or paste actions are available
+      if (!isUnfiled && !isAllItems && folderId && (onUpload || hasItems)) {
         setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
       }
     },
-    [isUnfiled, isAllItems, folderId]
+    [isUnfiled, isAllItems, folderId, onUpload, hasItems]
   );
 
   const handleContextMenu = useCallback(
@@ -244,33 +249,69 @@ export function VfsDetailsPanel({
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-1 items-center justify-center text-muted-foreground">
-        <div className="text-center">
-          {isAllItems ? (
-            <>
-              <Layers className="mx-auto h-12 w-12 opacity-50" />
-              <p className="mt-2 text-sm">No items in registry</p>
-              <p className="mt-1 text-xs">Upload files to get started</p>
-            </>
-          ) : isUnfiled ? (
-            <>
-              <FileBox className="mx-auto h-12 w-12 opacity-50" />
-              <p className="mt-2 text-sm">No unfiled items</p>
-              <p className="mt-1 text-xs">
-                Uploaded files will appear here until organized
-              </p>
-            </>
-          ) : (
-            <>
-              <Folder className="mx-auto h-12 w-12 opacity-50" />
-              <p className="mt-2 text-sm">This folder is empty</p>
-              <p className="mt-1 text-xs">
-                Use &quot;Link Item&quot; to add items
-              </p>
-            </>
-          )}
+      <>
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state */}
+        <div
+          className="flex flex-1 items-center justify-center text-muted-foreground"
+          onContextMenu={handleEmptySpaceContextMenu}
+        >
+          <div className="text-center">
+            {isAllItems ? (
+              <>
+                <Layers className="mx-auto h-12 w-12 opacity-50" />
+                <p className="mt-2 text-sm">No items in registry</p>
+                <p className="mt-1 text-xs">Upload files to get started</p>
+              </>
+            ) : isUnfiled ? (
+              <>
+                <FileBox className="mx-auto h-12 w-12 opacity-50" />
+                <p className="mt-2 text-sm">No unfiled items</p>
+                <p className="mt-1 text-xs">
+                  Uploaded files will appear here until organized
+                </p>
+              </>
+            ) : (
+              <>
+                <Folder className="mx-auto h-12 w-12 opacity-50" />
+                <p className="mt-2 text-sm">This folder is empty</p>
+                <p className="mt-1 text-xs">
+                  Use &quot;Link Item&quot; to add items
+                </p>
+              </>
+            )}
+          </div>
         </div>
-      </div>
+        {emptySpaceContextMenu && (
+          <ContextMenu
+            x={emptySpaceContextMenu.x}
+            y={emptySpaceContextMenu.y}
+            onClose={() => setEmptySpaceContextMenu(null)}
+          >
+            {onUpload && (
+              <ContextMenuItem
+                icon={<Upload className="h-4 w-4" />}
+                onClick={() => {
+                  onUpload();
+                  setEmptySpaceContextMenu(null);
+                }}
+              >
+                Upload
+              </ContextMenuItem>
+            )}
+            {hasItems && onPaste && folderId && (
+              <ContextMenuItem
+                icon={<Clipboard className="h-4 w-4" />}
+                onClick={() => {
+                  onPaste(folderId);
+                  setEmptySpaceContextMenu(null);
+                }}
+              >
+                Paste
+              </ContextMenuItem>
+            )}
+          </ContextMenu>
+        )}
+      </>
     );
   }
 
@@ -413,21 +454,34 @@ export function VfsDetailsPanel({
           onShare={handleContextMenuShare}
         />
       )}
-      {emptySpaceContextMenu && hasItems && onPaste && folderId && (
+      {emptySpaceContextMenu && (
         <ContextMenu
           x={emptySpaceContextMenu.x}
           y={emptySpaceContextMenu.y}
           onClose={() => setEmptySpaceContextMenu(null)}
         >
-          <ContextMenuItem
-            icon={<Clipboard className="h-4 w-4" />}
-            onClick={() => {
-              onPaste(folderId);
-              setEmptySpaceContextMenu(null);
-            }}
-          >
-            Paste
-          </ContextMenuItem>
+          {onUpload && (
+            <ContextMenuItem
+              icon={<Upload className="h-4 w-4" />}
+              onClick={() => {
+                onUpload();
+                setEmptySpaceContextMenu(null);
+              }}
+            >
+              Upload
+            </ContextMenuItem>
+          )}
+          {hasItems && onPaste && folderId && (
+            <ContextMenuItem
+              icon={<Clipboard className="h-4 w-4" />}
+              onClick={() => {
+                onPaste(folderId);
+                setEmptySpaceContextMenu(null);
+              }}
+            >
+              Paste
+            </ContextMenuItem>
+          )}
         </ContextMenu>
       )}
     </div>

@@ -14,6 +14,8 @@ interface VfsWindowProps {
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
   onItemOpen?: ((item: VfsOpenItem) => void) | undefined;
+  onUpload?: (() => void) | undefined;
+  refreshToken?: number | undefined;
 }
 
 export function VfsWindow({
@@ -24,13 +26,16 @@ export function VfsWindow({
   onFocus,
   zIndex,
   initialDimensions,
-  onItemOpen
+  onItemOpen,
+  onUpload,
+  refreshToken: externalRefreshToken
 }: VfsWindowProps) {
   const {
     ui: { FloatingWindow }
   } = useVfsExplorerContext();
   const [viewMode, setViewMode] = useState<VfsViewMode>('table');
-  const [refreshToken, setRefreshToken] = useState(0);
+  const [internalRefreshToken, setInternalRefreshToken] = useState(0);
+  const refreshToken = internalRefreshToken + (externalRefreshToken ?? 0);
   const [showNewFolderDialog, setShowNewFolderDialog] = useState(false);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
 
@@ -40,7 +45,7 @@ export function VfsWindow({
 
   const handleFolderCreated = useCallback((_id: string, _name: string) => {
     // Refresh the folder list
-    setRefreshToken((t) => t + 1);
+    setInternalRefreshToken((t) => t + 1);
   }, []);
 
   const handleLinkItem = useCallback(() => {
@@ -48,7 +53,7 @@ export function VfsWindow({
   }, []);
 
   const handleRefresh = useCallback(() => {
-    setRefreshToken((t) => t + 1);
+    setInternalRefreshToken((t) => t + 1);
   }, []);
 
   return (
@@ -82,6 +87,7 @@ export function VfsWindow({
             selectedFolderId={selectedFolderId}
             onFolderSelect={setSelectedFolderId}
             onItemOpen={onItemOpen}
+            onUpload={onUpload}
           />
         </div>
       </div>

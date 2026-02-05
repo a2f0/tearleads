@@ -167,6 +167,7 @@ export function DocumentsWindow({
                 refreshToken={refreshToken}
                 viewMode={viewMode}
                 showDropzone={showDropzone}
+                onUpload={handleUpload}
               />
             </div>
           )}

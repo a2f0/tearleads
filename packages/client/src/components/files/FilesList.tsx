@@ -12,6 +12,7 @@ import {
   Play,
   RotateCcw,
   Trash2,
+  Upload,
   XCircle
 } from 'lucide-react';
 import {
@@ -87,6 +88,7 @@ export interface FilesListProps {
   onFilesChange?: () => void;
   onSelectFile?: (fileId: string) => void;
   refreshToken?: number;
+  onUpload?: () => void;
 }
 
 export const FilesList = forwardRef<FilesListRef, FilesListProps>(
@@ -98,7 +100,8 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
       showDropzone = true,
       onFilesChange,
       onSelectFile,
-      refreshToken
+      refreshToken,
+      onUpload
     },
     ref
   ) {
@@ -118,6 +121,10 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
     const { t } = useTypedTranslation('contextMenu');
     const [contextMenu, setContextMenu] = useState<{
       file: FileWithThumbnail;
+      x: number;
+      y: number;
+    } | null>(null);
+    const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
       x: number;
       y: number;
     } | null>(null);
@@ -461,9 +468,19 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
     const handleContextMenu = useCallback(
       (e: React.MouseEvent, file: FileWithThumbnail) => {
         e.preventDefault();
+        e.stopPropagation();
         setContextMenu({ file, x: e.clientX, y: e.clientY });
       },
       []
+    );
+
+    const handleBlankSpaceContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        if (!onUpload) return;
+        e.preventDefault();
+        setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
+      },
+      [onUpload]
     );
 
     const handleCloseContextMenu = useCallback(() => {
@@ -625,7 +642,11 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                 Loading files...
               </div>
             ) : filteredFiles.length === 0 ? (
-              <div className="rounded-lg border p-8 text-center text-muted-foreground">
+              // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
+              <div
+                className="rounded-lg border p-8 text-center text-muted-foreground"
+                onContextMenu={handleBlankSpaceContextMenu}
+              >
                 No files found. Drop or select files above to upload.
               </div>
             ) : (
@@ -638,7 +659,12 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                   className="mb-2"
                 />
                 <div className="flex-1 rounded-lg border">
-                  <div ref={parentRef} className="h-full overflow-auto">
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
+                  <div
+                    ref={parentRef}
+                    className="h-full overflow-auto"
+                    onContextMenu={handleBlankSpaceContextMenu}
+                  >
                     <div
                       className="relative w-full"
                       style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -861,6 +887,24 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
               </ContextMenu>
             );
           })()}
+
+        {blankSpaceMenu && onUpload && (
+          <ContextMenu
+            x={blankSpaceMenu.x}
+            y={blankSpaceMenu.y}
+            onClose={() => setBlankSpaceMenu(null)}
+          >
+            <ContextMenuItem
+              icon={<Upload className="h-4 w-4" />}
+              onClick={() => {
+                onUpload();
+                setBlankSpaceMenu(null);
+              }}
+            >
+              Upload
+            </ContextMenuItem>
+          </ContextMenu>
+        )}
       </div>
     );
   }

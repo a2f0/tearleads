@@ -1005,4 +1005,74 @@ describe('Documents', () => {
       });
     });
   });
+
+  describe('blank space context menu', () => {
+    it('shows upload context menu on right-click when onUpload is provided', async () => {
+      const mockOnUpload = vi.fn();
+      await renderDocuments({ onUpload: mockOnUpload });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      // Find the scroll container with the list and right-click
+      const scrollContainer = screen
+        .getByText('test-document.pdf')
+        .closest('[class*="overflow-auto"]');
+      expect(scrollContainer).toBeInTheDocument();
+
+      if (scrollContainer) {
+        await act(async () => {
+          scrollContainer.dispatchEvent(
+            new MouseEvent('contextmenu', {
+              bubbles: true,
+              cancelable: true,
+              clientX: 100,
+              clientY: 200
+            })
+          );
+        });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Upload')).toBeInTheDocument();
+      });
+    });
+
+    it('calls onUpload when upload menu item is clicked', async () => {
+      const user = userEvent.setup();
+      const mockOnUpload = vi.fn();
+      await renderDocuments({ onUpload: mockOnUpload });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      // Find the scroll container and right-click
+      const scrollContainer = screen
+        .getByText('test-document.pdf')
+        .closest('[class*="overflow-auto"]');
+
+      if (scrollContainer) {
+        await act(async () => {
+          scrollContainer.dispatchEvent(
+            new MouseEvent('contextmenu', {
+              bubbles: true,
+              cancelable: true,
+              clientX: 100,
+              clientY: 200
+            })
+          );
+        });
+      }
+
+      await waitFor(() => {
+        expect(screen.getByText('Upload')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Upload'));
+
+      expect(mockOnUpload).toHaveBeenCalled();
+    });
+  });
 });
