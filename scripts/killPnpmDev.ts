@@ -169,7 +169,7 @@ const killPid = (pid: number, signal: NodeJS.Signals): void => {
 };
 
 // Dev ports that should be freed before starting
-const DEV_PORTS = [3000];
+const DEV_PORTS = [25, 3000, 3001, 5001];
 
 const getProcessOnPort = (port: number): number | null => {
   try {
