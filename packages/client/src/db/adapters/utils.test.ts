@@ -69,6 +69,44 @@ describe('extractSelectColumns', () => {
     });
   });
 
+  describe('complex expressions with aliases', () => {
+    it('extracts alias from COALESCE with AS alias', () => {
+      const sql =
+        'select "vfs_registry"."id", COALESCE(NULLIF("vfs_folders"."encrypted_name", \'\'), \'Unknown\') as "name", "vfs_registry"."created_at" from "vfs_registry"';
+      expect(extractSelectColumns(sql)).toEqual(['id', 'name', 'created_at']);
+    });
+
+    it('extracts alias from multiline COALESCE with AS alias', () => {
+      const sql = `select "vfs_registry"."id", COALESCE(
+    NULLIF("vfs_folders"."encrypted_name", ''),
+    CASE WHEN "vfs_registry"."object_type" = 'folder' THEN 'Unnamed Folder' END,
+    NULLIF("files"."name", ''),
+    'Unknown'
+  ) as "name", "vfs_registry"."created_at" from "vfs_registry"`;
+      expect(extractSelectColumns(sql)).toEqual(['id', 'name', 'created_at']);
+    });
+
+    it('extracts aliased duplicate column names correctly', () => {
+      const sql =
+        'select "vfs_registry"."id", "vfs_links"."id" as "linkId", "vfs_registry"."object_type" from "vfs_links"';
+      expect(extractSelectColumns(sql)).toEqual([
+        'id',
+        'linkId',
+        'object_type'
+      ]);
+    });
+
+    it('fails to extract column name from COALESCE without alias', () => {
+      const sql =
+        'select "vfs_registry"."id", COALESCE(NULLIF("files"."name", \'\'), \'Unknown\'), "vfs_registry"."created_at" from "vfs_registry"';
+      const columns = extractSelectColumns(sql);
+      // Without an alias, extractSelectColumns cannot determine the correct
+      // column name for the COALESCE expression, producing an incorrect value.
+      expect(columns).not.toBeNull();
+      expect(columns?.[1]).not.toBe('name');
+    });
+  });
+
   describe('SELECT * queries', () => {
     it('returns null for SELECT *', () => {
       const sql = 'SELECT * FROM users';
@@ -270,6 +308,36 @@ describe('convertRowsToArrays', () => {
       const sql = 'SELECT count(*) as total FROM users';
       const rows = [{ total: 42 }];
       expect(convertRowsToArrays(sql, rows)).toEqual([[42]]);
+    });
+  });
+
+  describe('with complex VFS-style queries', () => {
+    it('converts rows correctly when COALESCE has AS alias', () => {
+      const sql = `select "vfs_registry"."id", "vfs_links"."id" as "linkId", "vfs_registry"."object_type", COALESCE(NULLIF("files"."name", ''), 'Unknown') as "name", "vfs_registry"."created_at" from "vfs_links"`;
+      const rows = [
+        {
+          id: 'reg-1',
+          linkId: 'link-1',
+          object_type: 'file',
+          name: 'document.pdf',
+          created_at: 1704067200000
+        }
+      ];
+      expect(convertRowsToArrays(sql, rows)).toEqual([
+        ['reg-1', 'link-1', 'file', 'document.pdf', 1704067200000]
+      ]);
+    });
+
+    it('loses COALESCE value when alias is missing', () => {
+      // Without AS "name", extractSelectColumns cannot match the COALESCE
+      // expression to the row's "name" key, so the value is lost.
+      const sql = `select "vfs_registry"."id", COALESCE(NULLIF("files"."name", ''), 'Unknown'), "vfs_registry"."created_at" from "vfs_registry"`;
+      const rows = [
+        { id: 'reg-1', name: 'document.pdf', created_at: 1704067200000 }
+      ];
+      const result = convertRowsToArrays(sql, rows) as unknown[][];
+      // Position 1 maps to a garbled column name that doesn't match any row key
+      expect(result[0]?.[1]).toBeUndefined();
     });
   });
 });
