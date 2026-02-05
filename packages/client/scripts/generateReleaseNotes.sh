@@ -69,25 +69,34 @@ BUMP_COMMITS=$(git log -2 --format="%H" -- "$VERSION_FILE" 2>/dev/null || echo "
 CURRENT_BUMP=$(echo "$BUMP_COMMITS" | head -1)
 PREVIOUS_BUMP=$(echo "$BUMP_COMMITS" | tail -1)
 
-if [ "$CURRENT_BUMP" = "$PREVIOUS_BUMP" ]; then
-    echo "Error: Could not find two distinct version bump commits for $PLATFORM. Unable to determine commit range." >&2
+if [ -z "$CURRENT_BUMP" ]; then
+    echo "Error: No version bump commits found for $PLATFORM." >&2
     exit 1
 fi
 
-# Get timestamps for the commit range to filter PRs
-PREVIOUS_DATE=$(git log -1 --format="%cI" "$PREVIOUS_BUMP" 2>/dev/null)
-CURRENT_DATE=$(git log -1 --format="%cI" "$CURRENT_BUMP" 2>/dev/null)
+# Determine commit range based on available version bump history
+if [ "$CURRENT_BUMP" = "$PREVIOUS_BUMP" ]; then
+    # Only one version bump exists; use recent commits leading up to it
+    echo "Only one version bump found for $PLATFORM; using recent commit history" >&2
+    GIT_RANGE="-20 ${CURRENT_BUMP}"
+else
+    PREVIOUS_DATE=$(git log -1 --format="%cI" "$PREVIOUS_BUMP" 2>/dev/null)
+    CURRENT_DATE=$(git log -1 --format="%cI" "$CURRENT_BUMP" 2>/dev/null)
+    echo "Finding PRs merged between $PREVIOUS_DATE and $CURRENT_DATE" >&2
+    # Include the bump commit itself: squash-merge combines feature + version bump in one commit
+    GIT_RANGE="${PREVIOUS_BUMP}..${CURRENT_BUMP}"
+fi
 
-echo "Finding PRs merged between $PREVIOUS_DATE and $CURRENT_DATE" >&2
-
-# Extract PR numbers from merge commits in the range (excluding the current bump commit)
-# Merge commits typically have messages like "Merge pull request #123 from ..."
-PR_NUMBERS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}~1" --merges --format="%s" 2>/dev/null | \
-    grep -oE '#[0-9]+' | tr -d '#' | sort -u)
+# Extract PR numbers from all commits in range
+# Works with merge commits ("Merge pull request #123") and squash-merge ("feat: desc (#123)")
+# shellcheck disable=SC2086
+PR_NUMBERS=$(git log $GIT_RANGE --format="%s" 2>/dev/null | \
+    grep -oE '#[0-9]+' | tr -d '#' | sort -u || true)
 
 if [ -z "$PR_NUMBERS" ]; then
-    echo "Warning: No PR merge commits found in range, falling back to commit messages" >&2
-    COMMITS=$(git log "${PREVIOUS_BUMP}..${CURRENT_BUMP}~1" --no-merges --format="- %s" 2>/dev/null)
+    echo "Warning: No PR references found in commits, falling back to commit messages" >&2
+    # shellcheck disable=SC2086
+    COMMITS=$(git log $GIT_RANGE --no-merges --format="- %s" 2>/dev/null)
 else
     # Fetch PRs one at a time (gh pr view only accepts one PR number)
     # shellcheck disable=SC2086
