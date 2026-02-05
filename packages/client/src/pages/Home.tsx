@@ -55,6 +55,7 @@ export const ITEM_HEIGHT = ICON_SIZE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const ITEM_HEIGHT_MOBILE = ICON_SIZE_MOBILE + LABEL_HEIGHT + ICON_LABEL_GAP;
 const STORAGE_KEY = 'desktop-icon-positions';
 const MIN_SELECTION_DRAG_DISTANCE = 5;
+export const OVERLAP_PADDING = 4;
 
 type Position = { x: number; y: number };
 type Positions = Record<string, Position>;
@@ -127,6 +128,113 @@ function positionsAreEqual(p1: Positions, p2: Positions): boolean {
   return true;
 }
 
+function overlapsAny(
+  x: number,
+  y: number,
+  itemWidth: number,
+  itemHeight: number,
+  placed: Array<{ x: number; y: number }>
+): boolean {
+  for (const p of placed) {
+    if (
+      x < p.x + itemWidth + OVERLAP_PADDING &&
+      x + itemWidth + OVERLAP_PADDING > p.x &&
+      y < p.y + itemHeight + OVERLAP_PADDING &&
+      y + itemHeight + OVERLAP_PADDING > p.y
+    ) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function findNearestFreePosition(
+  originX: number,
+  originY: number,
+  itemWidth: number,
+  itemHeight: number,
+  stepX: number,
+  stepY: number,
+  maxX: number,
+  maxY: number,
+  placed: Array<{ x: number; y: number }>
+): Position | null {
+  const maxRings =
+    Math.max(Math.ceil(maxX / stepX), Math.ceil(maxY / stepY)) + 1;
+
+  for (let ring = 1; ring <= maxRings; ring++) {
+    for (let dx = -ring; dx <= ring; dx++) {
+      for (let dy = -ring; dy <= ring; dy++) {
+        if (Math.abs(dx) !== ring && Math.abs(dy) !== ring) continue;
+
+        const clampedX = Math.max(0, Math.min(originX + dx * stepX, maxX));
+        const clampedY = Math.max(0, Math.min(originY + dy * stepY, maxY));
+
+        if (!overlapsAny(clampedX, clampedY, itemWidth, itemHeight, placed)) {
+          return { x: clampedX, y: clampedY };
+        }
+      }
+    }
+  }
+
+  return null;
+}
+
+export function resolveOverlaps(
+  positions: Positions,
+  containerWidth: number,
+  containerHeight: number,
+  iconSize: number,
+  labelHeight: number
+): Positions {
+  const itemWidth = iconSize;
+  const itemHeight = iconSize + labelHeight + ICON_LABEL_GAP;
+  const cellW = itemWidth + OVERLAP_PADDING;
+  const cellH = itemHeight + OVERLAP_PADDING;
+  const maxX = containerWidth - itemWidth;
+  const maxY = containerHeight - itemHeight;
+
+  if (maxX < 0 || maxY < 0) {
+    return positions;
+  }
+
+  const entries = Object.entries(positions).sort((a, b) =>
+    a[0].localeCompare(b[0])
+  );
+  const placed: Array<{ x: number; y: number }> = [];
+  const resolved: Positions = {};
+
+  for (const [key, pos] of entries) {
+    if (!overlapsAny(pos.x, pos.y, itemWidth, itemHeight, placed)) {
+      resolved[key] = pos;
+      placed.push({ x: pos.x, y: pos.y });
+      continue;
+    }
+
+    const found = findNearestFreePosition(
+      pos.x,
+      pos.y,
+      itemWidth,
+      itemHeight,
+      cellW,
+      cellH,
+      maxX,
+      maxY,
+      placed
+    );
+
+    if (found) {
+      resolved[key] = found;
+      placed.push({ x: found.x, y: found.y });
+    } else {
+      resolved[key] = pos;
+      placed.push({ x: pos.x, y: pos.y });
+    }
+  }
+
+  return resolved;
+}
+
 function constrainPosition(
   pos: Position,
   containerWidth: number,
@@ -159,7 +267,13 @@ function constrainAllPositions(
       labelHeight
     );
   }
-  return constrained;
+  return resolveOverlaps(
+    constrained,
+    containerWidth,
+    containerHeight,
+    iconSize,
+    labelHeight
+  );
 }
 
 function calculateGridPositions(

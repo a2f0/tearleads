@@ -9,7 +9,16 @@ import {
   mockActivateScreensaver,
   setupScreensaverMock
 } from '@/test/screensaver-mock';
-import { GAP, Home, ICON_SIZE, ITEM_HEIGHT } from './Home';
+import {
+  GAP,
+  Home,
+  ICON_LABEL_GAP,
+  ICON_SIZE,
+  ITEM_HEIGHT,
+  LABEL_HEIGHT,
+  OVERLAP_PADDING,
+  resolveOverlaps
+} from './Home';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -611,11 +620,15 @@ describe('Home', () => {
       window.dispatchEvent(new Event('resize'));
     });
 
-    // Icon should be constrained to viewport bounds (max x = 400 - 64 = 336, max y = 300 - 88 = 212)
+    // Icon should be constrained within viewport bounds and moved from its original out-of-bounds position
     const filesButton = screen.getByRole('button', { name: 'Files' });
     expect(filesButton).toBeInTheDocument();
-    // Verify the position was constrained to the exact calculated bounds
-    expect(filesButton).toHaveStyle({ left: '336px', top: '212px' });
+    const left = parseFloat(filesButton.style.left);
+    const top = parseFloat(filesButton.style.top);
+    expect(left).toBeGreaterThanOrEqual(0);
+    expect(left).toBeLessThanOrEqual(336); // max x = 400 - 64
+    expect(top).toBeGreaterThanOrEqual(0);
+    expect(top).toBeLessThanOrEqual(212); // max y = 300 - 88
   });
 
   it('uses saved positions as-is when container has no dimensions', () => {
@@ -1689,5 +1702,116 @@ describe('Home', () => {
         configurable: true
       });
     });
+  });
+});
+
+describe('resolveOverlaps', () => {
+  const CONTAINER_W = 800;
+  const CONTAINER_H = 600;
+  const SIZE = ICON_SIZE;
+  const LABEL_H = LABEL_HEIGHT;
+  const ITEM_H = SIZE + LABEL_H + ICON_LABEL_GAP;
+
+  it('returns positions unchanged when no overlaps exist', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 0, y: 0 },
+      '/b': { x: 200, y: 200 }
+    };
+    const result = resolveOverlaps(
+      positions,
+      CONTAINER_W,
+      CONTAINER_H,
+      SIZE,
+      LABEL_H
+    );
+    expect(result).toEqual(positions);
+  });
+
+  it('resolves two icons at the exact same position', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 100, y: 100 },
+      '/b': { x: 100, y: 100 }
+    };
+    const result = resolveOverlaps(
+      positions,
+      CONTAINER_W,
+      CONTAINER_H,
+      SIZE,
+      LABEL_H
+    );
+    expect(result['/a']).toEqual({ x: 100, y: 100 });
+    expect(result['/b']).not.toEqual({ x: 100, y: 100 });
+    expect(result['/b']?.x).toBeGreaterThanOrEqual(0);
+    expect(result['/b']?.x).toBeLessThanOrEqual(CONTAINER_W - SIZE);
+    expect(result['/b']?.y).toBeGreaterThanOrEqual(0);
+    expect(result['/b']?.y).toBeLessThanOrEqual(CONTAINER_H - ITEM_H);
+  });
+
+  it('resolves multiple icons stacked at the same position', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 336, y: 212 },
+      '/b': { x: 336, y: 212 },
+      '/c': { x: 336, y: 212 },
+      '/d': { x: 336, y: 212 }
+    };
+    const result = resolveOverlaps(positions, 400, 300, SIZE, LABEL_H);
+    const placed = Object.values(result) as Array<{ x: number; y: number }>;
+    for (const a of placed) {
+      for (const b of placed) {
+        if (a === b) continue;
+        const overlap =
+          a.x < b.x + SIZE + OVERLAP_PADDING &&
+          a.x + SIZE + OVERLAP_PADDING > b.x &&
+          a.y < b.y + ITEM_H + OVERLAP_PADDING &&
+          a.y + ITEM_H + OVERLAP_PADDING > b.y;
+        expect(overlap).toBe(false);
+      }
+    }
+  });
+
+  it('keeps icons within viewport bounds after resolution', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 336, y: 212 },
+      '/b': { x: 336, y: 212 },
+      '/c': { x: 336, y: 212 }
+    };
+    const result = resolveOverlaps(positions, 400, 300, SIZE, LABEL_H);
+    for (const pos of Object.values(result) as Array<{
+      x: number;
+      y: number;
+    }>) {
+      expect(pos.x).toBeGreaterThanOrEqual(0);
+      expect(pos.x).toBeLessThanOrEqual(400 - SIZE);
+      expect(pos.y).toBeGreaterThanOrEqual(0);
+      expect(pos.y).toBeLessThanOrEqual(300 - ITEM_H);
+    }
+  });
+
+  it('returns positions as-is when viewport is too small for one icon', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 0, y: 0 },
+      '/b': { x: 0, y: 0 }
+    };
+    const result = resolveOverlaps(positions, 30, 30, SIZE, LABEL_H);
+    expect(result).toEqual(positions);
+  });
+
+  it('places resolved icon near its original position', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 100, y: 100 },
+      '/b': { x: 100, y: 100 }
+    };
+    const result = resolveOverlaps(
+      positions,
+      CONTAINER_W,
+      CONTAINER_H,
+      SIZE,
+      LABEL_H
+    );
+    const bPos = result['/b'] as { x: number; y: number };
+    const distX = Math.abs(bPos.x - 100);
+    const distY = Math.abs(bPos.y - 100);
+    expect(distX).toBeLessThanOrEqual(SIZE + OVERLAP_PADDING);
+    expect(distY).toBeLessThanOrEqual(ITEM_H + OVERLAP_PADDING);
   });
 });
