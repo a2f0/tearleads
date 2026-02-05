@@ -211,6 +211,31 @@ describe('usePhotoAlbums', () => {
     expect(album.name).toBe('Unnamed Album');
   });
 
+  it('excludes deleted files from photo counts', async () => {
+    // First call returns albums
+    mockWhere.mockResolvedValueOnce([
+      { id: 'album-1', name: 'My Album', coverPhotoId: null }
+    ]);
+    // Second call returns photo links (count query joins files to exclude deleted)
+    mockWhere.mockResolvedValueOnce([
+      { parentId: 'album-1' },
+      { parentId: 'album-1' }
+    ]);
+
+    const { result } = renderHook(() => usePhotoAlbums());
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    // Count query should go through innerJoin (to join files table)
+    expect(mockInnerJoin).toHaveBeenCalled();
+
+    const album = result.current.albums[0];
+    if (!album) throw new Error('Album not found');
+    expect(album.photoCount).toBe(2);
+  });
+
   it('handles fetch error', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockWhere.mockRejectedValueOnce(new Error('Database error'));

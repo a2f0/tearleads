@@ -223,6 +223,8 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
         trackCount: sql<number>`count(*)`.as('track_count')
       })
       .from(vfsLinks)
+      .innerJoin(files, eq(files.id, vfsLinks.childId))
+      .where(eq(files.deleted, false))
       .groupBy(vfsLinks.parentId)
       .as('trackCounts');
 
