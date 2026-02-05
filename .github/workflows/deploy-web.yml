@@ -58,7 +58,7 @@ jobs:
         run: |
           # Protect all files in /_astro/ from deletion - hashed assets are immutable
           # and must persist indefinitely to avoid 404s for cached HTML references
-          rsync -avz --delete --filter='P /_astro/**' -e "ssh -i ~/.ssh/deploy.key" \
+          rsync -avz --delete --filter='P /_astro/**' -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/website/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/www/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
@@ -68,7 +68,7 @@ jobs:
         run: |
           # Protect all files in /assets/ from deletion - hashed assets are immutable
           # and must persist indefinitely to avoid 404s for cached HTML references
-          rsync -avz --delete --filter='P /assets/**' -e "ssh -i ~/.ssh/deploy.key" \
+          rsync -avz --delete --filter='P /assets/**' -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/client/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/var/www/app/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
@@ -81,7 +81,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
             "mkdir -p /opt/rapid-api/dist"
-          rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
+          rsync -avz --delete -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/api/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-api/dist/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
@@ -104,7 +104,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
             "mkdir -p /opt/rapid-smtp-listener/dist"
-          rsync -avz --delete -e "ssh -i ~/.ssh/deploy.key" \
+          rsync -avz --delete -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/smtp-listener/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-smtp-listener/dist/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
