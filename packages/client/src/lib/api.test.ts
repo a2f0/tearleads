@@ -23,6 +23,7 @@ describe('api', () => {
     global.fetch = vi.fn();
     mockLogApiEvent.mockResolvedValue(undefined);
     localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_refresh_token');
     localStorage.removeItem('auth_user');
   });
 
@@ -205,6 +206,422 @@ describe('api', () => {
       const { api } = await import('./api');
 
       await expect(api.ping.get()).rejects.toThrow('Network error');
+    });
+
+    it('uses default message when error body has no error field', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({}), { status: 400 })
+      );
+
+      const { api } = await import('./api');
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 400');
+    });
+
+    it('deduplicates concurrent refresh attempts', async () => {
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+
+      let resolveRefresh: (response: Response) => void;
+      const refreshPromise = new Promise<Response>((resolve) => {
+        resolveRefresh = resolve;
+      });
+
+      vi.mocked(global.fetch).mockImplementation(async (input: RequestInfo | URL) => {
+        const url = input.toString();
+        if (url.endsWith('/auth/refresh')) {
+          return refreshPromise;
+        }
+        throw new Error(`Unexpected request: ${url}`);
+      });
+
+      const { tryRefreshToken } = await import('./api');
+
+      const first = tryRefreshToken();
+      const second = tryRefreshToken();
+
+      resolveRefresh(
+        new Response(
+          JSON.stringify({
+            accessToken: 'new-token',
+            refreshToken: 'new-refresh',
+            tokenType: 'Bearer',
+            expiresIn: 3600,
+            refreshExpiresIn: 604800,
+            user: { id: 'user-1', email: 'user@example.com' }
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      await expect(Promise.all([first, second])).resolves.toEqual([true, true]);
+      expect(vi.mocked(global.fetch)).toHaveBeenCalledTimes(1);
+    });
+
+    it('refreshes token and retries request on 401', async () => {
+      localStorage.setItem('auth_token', 'stale-token');
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+
+      vi.mocked(global.fetch).mockImplementation(
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = input.toString();
+          if (url.endsWith('/ping')) {
+            const authHeader = init?.headers
+              ? new Headers(init.headers).get('Authorization')
+              : null;
+            if (authHeader === 'Bearer stale-token') {
+              return new Response(null, { status: 401 });
+            }
+            return new Response(JSON.stringify({ version: '1.0.0' }), {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            });
+          }
+
+          if (url.endsWith('/auth/refresh')) {
+            return new Response(
+              JSON.stringify({
+                accessToken: 'new-token',
+                refreshToken: 'new-refresh',
+                tokenType: 'Bearer',
+                expiresIn: 3600,
+                refreshExpiresIn: 604800,
+                user: { id: 'user-1', email: 'user@example.com' }
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
+          throw new Error(`Unexpected request: ${url}`);
+        }
+      );
+
+      const { api } = await import('./api');
+      const result = await api.ping.get();
+
+      expect(result).toEqual({ version: '1.0.0' });
+      expect(localStorage.getItem('auth_token')).toBe('new-token');
+      expect(localStorage.getItem('auth_refresh_token')).toBe('new-refresh');
+      expect(vi.mocked(global.fetch).mock.calls).toHaveLength(3);
+    });
+
+    it('reuses refresh promise across concurrent requests', async () => {
+      localStorage.setItem('auth_token', 'stale-token');
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+
+      let resolveRefresh: (response: Response) => void;
+      const refreshPromise = new Promise<Response>((resolve) => {
+        resolveRefresh = resolve;
+      });
+
+      vi.mocked(global.fetch).mockImplementation(
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = input.toString();
+          if (url.endsWith('/ping')) {
+            const authHeader = init?.headers
+              ? new Headers(init.headers).get('Authorization')
+              : null;
+            if (authHeader === 'Bearer new-token') {
+              return new Response(JSON.stringify({ version: '1.0.0' }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              });
+            }
+            return new Response(null, { status: 401 });
+          }
+
+          if (url.endsWith('/auth/refresh')) {
+            return refreshPromise;
+          }
+
+          throw new Error(`Unexpected request: ${url}`);
+        }
+      );
+
+      const { api } = await import('./api');
+
+      const first = api.ping.get();
+      const second = api.ping.get();
+
+      resolveRefresh(
+        new Response(
+          JSON.stringify({
+            accessToken: 'new-token',
+            refreshToken: 'new-refresh',
+            tokenType: 'Bearer',
+            expiresIn: 3600,
+            refreshExpiresIn: 604800,
+            user: { id: 'user-1', email: 'user@example.com' }
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      await expect(Promise.all([first, second])).resolves.toEqual([
+        { version: '1.0.0' },
+        { version: '1.0.0' }
+      ]);
+      expect(vi.mocked(global.fetch).mock.calls.filter(([input]) =>
+        input.toString().endsWith('/auth/refresh')
+      )).toHaveLength(1);
+    });
+
+    it('clears auth when retry response is not ok after refresh', async () => {
+      localStorage.setItem('auth_token', 'stale-token');
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      localStorage.setItem(
+        'auth_user',
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+
+      vi.mocked(global.fetch).mockImplementation(
+        async (input: RequestInfo | URL, init?: RequestInit) => {
+          const url = input.toString();
+          if (url.endsWith('/ping')) {
+            const authHeader = init?.headers
+              ? new Headers(init.headers).get('Authorization')
+              : null;
+            if (authHeader === 'Bearer new-token') {
+              return new Response(null, { status: 500 });
+            }
+            return new Response(null, { status: 401 });
+          }
+
+          if (url.endsWith('/auth/refresh')) {
+            return new Response(
+              JSON.stringify({
+                accessToken: 'new-token',
+                refreshToken: 'new-refresh',
+                tokenType: 'Bearer',
+                expiresIn: 3600,
+                refreshExpiresIn: 604800,
+                user: { id: 'user-1', email: 'user@example.com' }
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          }
+
+          throw new Error(`Unexpected request: ${url}`);
+        }
+      );
+
+      const { api } = await import('./api');
+      const { getAuthError } = await import('./auth-storage');
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
+      expect(localStorage.getItem('auth_user')).toBeNull();
+      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+    });
+
+    it('clears auth when refresh succeeds but no auth header is available', async () => {
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      localStorage.removeItem('auth_token');
+
+      const originalSetItem = localStorage.setItem.bind(localStorage);
+      localStorage.setItem = () => {
+        throw new Error('blocked');
+      };
+
+      vi.mocked(global.fetch).mockImplementation(
+        async (input: RequestInfo | URL) => {
+          const url = input.toString();
+          if (url.endsWith('/ping')) {
+            return new Response(null, { status: 401 });
+          }
+          if (url.endsWith('/auth/refresh')) {
+            return new Response(
+              JSON.stringify({
+                accessToken: 'new-token',
+                refreshToken: 'new-refresh',
+                tokenType: 'Bearer',
+                expiresIn: 3600,
+                refreshExpiresIn: 604800,
+                user: { id: 'user-1', email: 'user@example.com' }
+              }),
+              {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' }
+              }
+            );
+          }
+          throw new Error(`Unexpected request: ${url}`);
+        }
+      );
+
+      try {
+        const { api } = await import('./api');
+        const { getAuthError } = await import('./auth-storage');
+
+        await expect(api.ping.get()).rejects.toThrow('API error: 401');
+        expect(getAuthError()).toBe('Session expired. Please sign in again.');
+      } finally {
+        localStorage.setItem = originalSetItem;
+      }
+    });
+
+    it('clears auth when refresh fails after 401', async () => {
+      localStorage.setItem('auth_token', 'stale-token');
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      localStorage.setItem(
+        'auth_user',
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+
+      vi.mocked(global.fetch).mockImplementation(
+        async (input: RequestInfo | URL) => {
+          const url = input.toString();
+          if (url.endsWith('/ping')) {
+            return new Response(null, { status: 401 });
+          }
+          if (url.endsWith('/auth/refresh')) {
+            return new Response(null, { status: 500 });
+          }
+          throw new Error(`Unexpected request: ${url}`);
+        }
+      );
+
+      const { api } = await import('./api');
+      const { getAuthError } = await import('./auth-storage');
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
+      expect(localStorage.getItem('auth_user')).toBeNull();
+      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+    });
+
+    it('tryRefreshToken returns false without a refresh token', async () => {
+      localStorage.setItem('auth_token', 'stale-token');
+      localStorage.setItem(
+        'auth_user',
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+
+      const { tryRefreshToken } = await import('./api');
+      const { getAuthError } = await import('./auth-storage');
+
+      await expect(tryRefreshToken()).resolves.toBe(false);
+
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(localStorage.getItem('auth_user')).toBeNull();
+      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+    });
+
+    it('tryRefreshToken returns true when refresh succeeds', async () => {
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            accessToken: 'new-token',
+            refreshToken: 'new-refresh',
+            tokenType: 'Bearer',
+            expiresIn: 3600,
+            refreshExpiresIn: 604800,
+            user: { id: 'user-1', email: 'user@example.com' }
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { tryRefreshToken } = await import('./api');
+
+      await expect(tryRefreshToken()).resolves.toBe(true);
+      expect(localStorage.getItem('auth_token')).toBe('new-token');
+      expect(localStorage.getItem('auth_refresh_token')).toBe('new-refresh');
+    });
+
+    it('builds postgres rows query strings from options', async () => {
+      vi.mocked(global.fetch).mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({}), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          })
+        )
+      );
+
+      const { api } = await import('./api');
+
+      await api.admin.postgres.getRows('public', 'users', {
+        limit: 10,
+        offset: 20,
+        sortColumn: 'email',
+        sortDirection: 'desc'
+      });
+      await api.admin.postgres.getRows('public', 'users');
+
+      expect(vi.mocked(global.fetch).mock.calls[0]?.[0]).toBe(
+        'http://localhost:3000/admin/postgres/tables/public/users/rows?limit=10&offset=20&sortColumn=email&sortDirection=desc'
+      );
+      expect(vi.mocked(global.fetch).mock.calls[1]?.[0]).toBe(
+        'http://localhost:3000/admin/postgres/tables/public/users/rows'
+      );
+    });
+
+    it('builds AI usage query strings from options', async () => {
+      vi.mocked(global.fetch).mockImplementation(() =>
+        Promise.resolve(
+          new Response(JSON.stringify({}), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          })
+        )
+      );
+
+      const { api } = await import('./api');
+
+      await api.ai.listConversations({ cursor: 'cursor-1', limit: 5 });
+      await api.ai.listConversations();
+      await api.ai.getUsage({
+        startDate: '2024-01-01',
+        endDate: '2024-01-31',
+        cursor: 'cursor-2',
+        limit: 25
+      });
+      await api.ai.getUsage();
+      await api.ai.getUsageSummary({
+        startDate: '2024-01-01',
+        endDate: '2024-01-31'
+      });
+      await api.ai.getUsageSummary();
+
+      expect(vi.mocked(global.fetch).mock.calls[0]?.[0]).toBe(
+        'http://localhost:3000/ai/conversations?cursor=cursor-1&limit=5'
+      );
+      expect(vi.mocked(global.fetch).mock.calls[1]?.[0]).toBe(
+        'http://localhost:3000/ai/conversations'
+      );
+      expect(vi.mocked(global.fetch).mock.calls[2]?.[0]).toBe(
+        'http://localhost:3000/ai/usage?startDate=2024-01-01&endDate=2024-01-31&cursor=cursor-2&limit=25'
+      );
+      expect(vi.mocked(global.fetch).mock.calls[3]?.[0]).toBe(
+        'http://localhost:3000/ai/usage'
+      );
+      expect(vi.mocked(global.fetch).mock.calls[4]?.[0]).toBe(
+        'http://localhost:3000/ai/usage/summary?startDate=2024-01-01&endDate=2024-01-31'
+      );
+      expect(vi.mocked(global.fetch).mock.calls[5]?.[0]).toBe(
+        'http://localhost:3000/ai/usage/summary'
+      );
     });
 
     it('adds Authorization header when auth token is stored', async () => {

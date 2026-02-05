@@ -78,7 +78,7 @@ describe('UsersAdmin', () => {
     expect(screen.getByText('Account Created')).toBeInTheDocument();
     expect(screen.getByText('Last Active')).toBeInTheDocument();
     expect(screen.getByText('Total Tokens')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 
   it('shows back link by default', async () => {
