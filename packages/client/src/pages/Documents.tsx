@@ -18,6 +18,7 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { UploadProgress } from '@/components/ui/upload-progress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -491,6 +492,7 @@ export function Documents({
                 {uploadProgress}% complete
               </p>
             </div>
+            <UploadProgress progress={uploadProgress} />
           </div>
         ) : documents.length === 0 && hasFetched ? (
           !isTableView && showDropzone ? (

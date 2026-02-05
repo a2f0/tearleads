@@ -20,6 +20,7 @@ import { BackLink } from '@/components/ui/back-link';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { UploadProgress } from '@/components/ui/upload-progress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -535,6 +536,7 @@ export function Photos({
                 {uploadProgress}% complete
               </p>
             </div>
+            <UploadProgress progress={uploadProgress} />
           </div>
         ) : photos.length === 0 && hasFetched ? (
           showDropzone ? (
