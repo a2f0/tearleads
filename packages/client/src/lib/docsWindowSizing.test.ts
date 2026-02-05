@@ -27,10 +27,7 @@ describe('getDocsWindowDefaults', () => {
       ),
       defaultHeight: Math.max(
         DOCS_WINDOW_MIN_HEIGHT,
-        Math.min(
-          DOCS_WINDOW_DEFAULT_HEIGHT,
-          700 - DOCS_WINDOW_VERTICAL_GUTTER
-        )
+        Math.min(DOCS_WINDOW_DEFAULT_HEIGHT, 700 - DOCS_WINDOW_VERTICAL_GUTTER)
       )
     });
   });

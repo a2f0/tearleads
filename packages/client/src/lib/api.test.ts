@@ -226,13 +226,15 @@ describe('api', () => {
         resolveRefresh = resolve;
       });
 
-      vi.mocked(global.fetch).mockImplementation(async (input: RequestInfo | URL) => {
-        const url = input.toString();
-        if (url.endsWith('/auth/refresh')) {
-          return refreshPromise;
+      vi.mocked(global.fetch).mockImplementation(
+        async (input: RequestInfo | URL) => {
+          const url = input.toString();
+          if (url.endsWith('/auth/refresh')) {
+            return refreshPromise;
+          }
+          throw new Error(`Unexpected request: ${url}`);
         }
-        throw new Error(`Unexpected request: ${url}`);
-      });
+      );
 
       const { tryRefreshToken } = await import('./api');
 
@@ -369,9 +371,13 @@ describe('api', () => {
         { version: '1.0.0' },
         { version: '1.0.0' }
       ]);
-      expect(vi.mocked(global.fetch).mock.calls.filter(([input]) =>
-        input.toString().endsWith('/auth/refresh')
-      )).toHaveLength(1);
+      expect(
+        vi
+          .mocked(global.fetch)
+          .mock.calls.filter(([input]) =>
+            input.toString().endsWith('/auth/refresh')
+          )
+      ).toHaveLength(1);
     });
 
     it('clears auth when retry response is not ok after refresh', async () => {
