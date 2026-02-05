@@ -367,4 +367,16 @@ describe('AudioWindowList', () => {
 
     expect(onSelectTrack).toHaveBeenCalledWith('track-1');
   });
+
+  it('shows upload progress when uploading', () => {
+    renderWithAudioProvider(
+      <AudioWindowList uploading={true} uploadProgress={50} />,
+      {
+        databaseState: { isUnlocked: true }
+      }
+    );
+
+    expect(screen.getByText('Uploading...')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
 });

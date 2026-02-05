@@ -214,7 +214,10 @@ export interface MockContextOptions {
   retrieveFile?: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio?: (audioId: string) => Promise<void>;
   updateAudioName?: (audioId: string, name: string) => Promise<void>;
-  uploadFile?: (file: File) => Promise<string>;
+  uploadFile?: (
+    file: File,
+    onProgress?: (progress: number) => void
+  ) => Promise<string>;
   extractAudioMetadata?: (
     data: Uint8Array,
     mimeType: string
@@ -249,7 +252,10 @@ export interface MockContextValue {
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;
   updateAudioName: (audioId: string, name: string) => Promise<void>;
-  uploadFile: (file: File) => Promise<string>;
+  uploadFile: (
+    file: File,
+    onProgress?: (progress: number) => void
+  ) => Promise<string>;
   formatFileSize: (bytes: number) => string;
   formatDate: (date: Date) => string;
   logError: (message: string, details?: string) => void;

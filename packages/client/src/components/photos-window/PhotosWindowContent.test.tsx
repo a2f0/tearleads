@@ -408,4 +408,51 @@ describe('PhotosWindowContent', () => {
 
     expect(mockDeletePhoto).toHaveBeenCalledWith('photo-1');
   });
+
+  it('shows upload progress when uploading', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(
+      <PhotosWindowContent
+        refreshToken={0}
+        uploading={true}
+        uploadProgress={50}
+      />
+    );
+
+    expect(screen.getByText('Uploading...')).toBeInTheDocument();
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+  });
+
+  it('hides file list when uploading', () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    render(
+      <PhotosWindowContent
+        refreshToken={0}
+        uploading={true}
+        uploadProgress={25}
+      />
+    );
+
+    expect(screen.queryByText('photo.jpg')).not.toBeInTheDocument();
+  });
 });

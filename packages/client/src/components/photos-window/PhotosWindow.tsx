@@ -55,29 +55,48 @@ export function PhotosWindow({
     setRefreshToken((value) => value + 1);
   }, []);
 
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
       const uploadedIds: string[] = [];
 
-      await Promise.all(
-        files.map(async (file) => {
-          try {
-            const result = await uploadFile(file);
-            uploadedIds.push(result.id);
-          } catch (err) {
-            console.error(`Failed to upload ${file.name}:`, err);
-          }
-        })
-      );
+      setUploading(true);
+      setUploadProgress(0);
+      const progresses = Array<number>(files.length).fill(0);
+      const updateOverall = () => {
+        const total = progresses.reduce((sum, p) => sum + p, 0);
+        setUploadProgress(Math.round(total / files.length));
+      };
 
-      // Add uploaded files to selected album if one is selected
-      if (selectedAlbumId && selectedAlbumId !== ALL_PHOTOS_ID) {
+      try {
         await Promise.all(
-          uploadedIds.map((id) => addPhotoToAlbum(selectedAlbumId, id))
+          files.map(async (file, index) => {
+            try {
+              const result = await uploadFile(file, (progress) => {
+                progresses[index] = progress;
+                updateOverall();
+              });
+              uploadedIds.push(result.id);
+            } catch (err) {
+              console.error(`Failed to upload ${file.name}:`, err);
+            }
+          })
         );
-      }
 
-      setRefreshToken((value) => value + 1);
+        // Add uploaded files to selected album if one is selected
+        if (selectedAlbumId && selectedAlbumId !== ALL_PHOTOS_ID) {
+          await Promise.all(
+            uploadedIds.map((id) => addPhotoToAlbum(selectedAlbumId, id))
+          );
+        }
+
+        setRefreshToken((value) => value + 1);
+      } finally {
+        setUploading(false);
+        setUploadProgress(0);
+      }
     },
     [uploadFile, selectedAlbumId, addPhotoToAlbum]
   );
@@ -171,6 +190,8 @@ export function PhotosWindow({
                         showDropzone={showDropzone}
                         onUploadFiles={handleUploadFiles}
                         selectedAlbumId={selectedAlbumId}
+                        uploading={uploading}
+                        uploadProgress={uploadProgress}
                       />
                     )}
                     {viewMode === 'table' && (

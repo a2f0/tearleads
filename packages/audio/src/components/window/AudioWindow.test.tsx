@@ -178,7 +178,7 @@ describe('AudioWindow', () => {
       await user.upload(fileInput, file);
 
       await waitFor(() => {
-        expect(mockUploadFile).toHaveBeenCalledWith(file);
+        expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function));
       });
 
       await waitFor(() => {
@@ -207,7 +207,7 @@ describe('AudioWindow', () => {
       await user.upload(fileInput, file);
 
       await waitFor(() => {
-        expect(mockUploadFile).toHaveBeenCalledWith(file);
+        expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function));
       });
 
       // Should NOT call addTrackToPlaylist when "All Audio" is selected
