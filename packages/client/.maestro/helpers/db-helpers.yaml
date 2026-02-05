@@ -5,7 +5,7 @@ appId: com.tearleads.rapid
 # Usage: - runFlow: helpers/db-helpers.yaml
 
 # Load shared UI helpers (provides waitFor, waitForElement, waitForAttribute)
-- runFlow: helpers/ui-helpers.yaml
+- runFlow: ui-helpers.yaml
 
 - evalScript: |
     window.waitForStatus = function(status) {
