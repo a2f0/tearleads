@@ -10,6 +10,7 @@ import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 const MINI_PLAYER_WIDTH = 256; // w-64
+const MINI_PLAYER_HEIGHT = 64; // p-3 (12px) * 2 + h-10 button (40px)
 const MINI_PLAYER_MARGIN = 16;
 const DRAG_THRESHOLD = 3;
 
@@ -44,13 +45,36 @@ export function MiniPlayer() {
   const startXRef = useRef(0);
   const startYRef = useRef(0);
 
-  // Initialize position to bottom-right corner
+  // Initialize position to bottom-right corner and clamp on resize
   useEffect(() => {
     if (isMobile) return;
-    setPosition({
+
+    const computeDefault = () => ({
       left: window.innerWidth - MINI_PLAYER_WIDTH - MINI_PLAYER_MARGIN,
-      top: window.innerHeight - FOOTER_HEIGHT - MINI_PLAYER_MARGIN - 48
+      top:
+        window.innerHeight -
+        FOOTER_HEIGHT -
+        MINI_PLAYER_MARGIN -
+        MINI_PLAYER_HEIGHT
     });
+
+    setPosition(computeDefault());
+
+    const handleResize = () => {
+      setPosition((prev) => ({
+        left: Math.max(
+          0,
+          Math.min(prev.left, window.innerWidth - MINI_PLAYER_WIDTH)
+        ),
+        top: Math.max(
+          0,
+          Math.min(prev.top, window.innerHeight - MINI_PLAYER_HEIGHT)
+        )
+      }));
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, [isMobile]);
 
   const audioWindow = useMemo(
@@ -80,7 +104,7 @@ export function MiniPlayer() {
 
     const rect = elementRef.current?.getBoundingClientRect();
     const w = rect?.width || MINI_PLAYER_WIDTH;
-    const h = rect?.height || 48;
+    const h = rect?.height || MINI_PLAYER_HEIGHT;
 
     const newX = Math.max(
       0,
@@ -104,7 +128,7 @@ export function MiniPlayer() {
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent<HTMLElement>) => {
-      if (isMobile) return;
+      if (isMobile || !elementRef.current) return;
 
       // Don't initiate drag from buttons
       const target = e.target as HTMLElement;
@@ -114,15 +138,17 @@ export function MiniPlayer() {
       hasDraggedRef.current = false;
       startMouseXRef.current = e.clientX;
       startMouseYRef.current = e.clientY;
-      startXRef.current = position.left;
-      startYRef.current = position.top;
+
+      const rect = elementRef.current.getBoundingClientRect();
+      startXRef.current = rect.left;
+      startYRef.current = rect.top;
 
       document.body.style.cursor = 'grabbing';
       document.body.style.userSelect = 'none';
       document.addEventListener('mousemove', handleMouseMove);
       document.addEventListener('mouseup', handleMouseUp);
     },
-    [isMobile, position.left, position.top, handleMouseMove, handleMouseUp]
+    [isMobile, handleMouseMove, handleMouseUp]
   );
 
   // Clean up listeners on unmount
