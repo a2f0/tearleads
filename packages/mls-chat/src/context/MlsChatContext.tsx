@@ -36,6 +36,7 @@ export interface ScrollAreaProps {
 export interface DropdownMenuProps {
   trigger: ReactNode;
   children: ReactNode;
+  align?: 'left' | 'right';
 }
 
 export interface DropdownMenuItemProps {

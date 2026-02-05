@@ -10,7 +10,7 @@ import {
   useRef,
   useState
 } from 'react';
-import { cn } from '@/lib/utils';
+import { createPortal } from 'react-dom';
 
 interface DropdownMenuProps {
   trigger: React.ReactNode;
@@ -31,6 +31,7 @@ interface ChildProps {
 
 interface DropdownMenuContextValue {
   close: () => void;
+  getContainerElement: () => HTMLElement | null;
 }
 
 const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(
@@ -50,6 +51,7 @@ export function DropdownMenu({
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -65,9 +67,11 @@ export function DropdownMenu({
     if (!isOpen) return undefined;
 
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
       if (
         containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        !containerRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
       ) {
         close();
       }
@@ -87,6 +91,37 @@ export function DropdownMenu({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen, close]);
+
+  useEffect(() => {
+    if (!isOpen || !containerRef.current) {
+      return;
+    }
+
+    const updatePosition = () => {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const style: React.CSSProperties = {
+        position: 'fixed',
+        top: rect.bottom + 2
+      };
+      if (align === 'right') {
+        style.right = window.innerWidth - rect.right;
+      } else {
+        style.left = rect.left;
+      }
+      setMenuStyle(style);
+    };
+
+    updatePosition();
+
+    window.addEventListener('resize', updatePosition);
+    document.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      document.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [isOpen, align]);
 
   useEffect(() => {
     if (isOpen && menuRef.current) {
@@ -121,9 +156,11 @@ export function DropdownMenu({
     }
   };
 
+  const getContainerElement = useCallback(() => containerRef.current, []);
+
   const contextValue = useMemo<DropdownMenuContextValue>(
-    () => ({ close }),
-    [close]
+    () => ({ close, getContainerElement }),
+    [close, getContainerElement]
   );
 
   return (
@@ -149,33 +186,33 @@ export function DropdownMenu({
             {trigger}
           </button>
         )}
-        {isOpen && (
-          <div
-            ref={menuRef}
-            role="menu"
-            tabIndex={-1}
-            onKeyDown={handleMenuKeyDown}
-            className={cn(
-              'dropdown-menu absolute top-full z-[10000] mt-0.5 min-w-32 rounded border bg-background py-1 shadow-md outline-none',
-              align === 'left' ? 'left-0' : 'right-0'
-            )}
-            data-align={align}
-          >
-            {Children.map(children, (child) => {
-              if (isValidElement<ChildProps>(child) && child.props.onClick) {
-                return cloneElement(child, {
-                  onClick: () => {
-                    child.props.onClick?.();
-                    if (!child.props.preventClose) {
-                      close();
+        {isOpen &&
+          createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              tabIndex={-1}
+              onKeyDown={handleMenuKeyDown}
+              style={menuStyle}
+              className="dropdown-menu z-[10000] min-w-32 whitespace-nowrap rounded border bg-background py-1 shadow-md outline-none"
+              data-align={align}
+            >
+              {Children.map(children, (child) => {
+                if (isValidElement<ChildProps>(child) && child.props.onClick) {
+                  return cloneElement(child, {
+                    onClick: () => {
+                      child.props.onClick?.();
+                      if (!child.props.preventClose) {
+                        close();
+                      }
                     }
-                  }
-                });
-              }
-              return child;
-            })}
-          </div>
-        )}
+                  });
+                }
+                return child;
+              })}
+            </div>,
+            document.body
+          )}
       </div>
     </DropdownMenuContext.Provider>
   );

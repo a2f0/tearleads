@@ -86,16 +86,20 @@ const MlsChatScrollArea: MlsChatUIComponents['ScrollArea'] = ({
 
 const MlsChatDropdownMenu: MlsChatUIComponents['DropdownMenu'] = ({
   trigger,
-  children
-}) => <DropdownMenu trigger={trigger}>{children}</DropdownMenu>;
+  children,
+  align
+}) => (
+  <DropdownMenu trigger={trigger} {...(align !== undefined && { align })}>
+    {children}
+  </DropdownMenu>
+);
 
 const MlsChatDropdownMenuItem: MlsChatUIComponents['DropdownMenuItem'] = ({
   onClick,
   icon,
   children
 }) => (
-  <DropdownMenuItem onClick={onClick}>
-    {icon && <span className="mr-2">{icon}</span>}
+  <DropdownMenuItem onClick={onClick} icon={icon}>
     {children}
   </DropdownMenuItem>
 );

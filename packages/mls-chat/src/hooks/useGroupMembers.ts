@@ -87,9 +87,15 @@ export function useGroupMembers(
         throw new Error('User has no available key packages');
       }
 
-      const kpData = (await kpResponse.json()) as { keyPackage: MlsKeyPackage };
+      const kpData = (await kpResponse.json()) as {
+        keyPackages: MlsKeyPackage[];
+      };
+      const keyPackage = kpData.keyPackages[0];
+      if (!keyPackage) {
+        throw new Error('User has no available key packages');
+      }
       const keyPackageBytes = Uint8Array.from(
-        atob(kpData.keyPackage.keyPackageData),
+        atob(keyPackage.keyPackageData),
         (c) => c.charCodeAt(0)
       );
 
@@ -111,7 +117,7 @@ export function useGroupMembers(
           headers,
           body: JSON.stringify({
             userId,
-            keyPackageRef: kpData.keyPackage.keyPackageRef,
+            keyPackageRef: keyPackage.keyPackageRef,
             commit: btoa(String.fromCharCode.apply(null, Array.from(commit))),
             welcome: btoa(String.fromCharCode.apply(null, Array.from(welcome))),
             newEpoch
