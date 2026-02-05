@@ -157,7 +157,7 @@ jobs:
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }} \
             "mkdir -p /var/www/downloads/desktop/${APP_VERSION}"
-          rsync -avz -e "ssh -i ~/.ssh/deploy.key" \
+          rsync -avz -e "ssh -vvv -i ~/.ssh/deploy.key" \
             downloads/ ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }}:/var/www/downloads/desktop/${APP_VERSION}/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }} \
             "ln -sfn /var/www/downloads/desktop/${APP_VERSION} /var/www/downloads/desktop/latest"
