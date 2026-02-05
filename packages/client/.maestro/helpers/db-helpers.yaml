@@ -4,17 +4,10 @@ appId: com.tearleads.rapid
 # Include this flow at the start of tests that need database interaction helpers
 # Usage: - runFlow: helpers/db-helpers.yaml
 
+# Load shared UI helpers (provides waitFor, waitForElement, waitForAttribute)
+- runFlow: ui-helpers.yaml
+
 - evalScript: |
-    window.waitFor = async (predicate, errorMessage, timeout) => {
-      timeout = timeout || 10000;
-      var interval = 200;
-      var maxTries = timeout / interval;
-      for (var i = 0; i < maxTries; i++) {
-        if (await predicate()) return 'ok';
-        await new Promise(function(resolve) { setTimeout(resolve, interval); });
-      }
-      throw new Error(errorMessage);
-    };
     window.waitForStatus = function(status) {
       return window.waitFor(
         function() { return document.querySelector('[data-testid="db-status"]') && document.querySelector('[data-testid="db-status"]').textContent === status; },

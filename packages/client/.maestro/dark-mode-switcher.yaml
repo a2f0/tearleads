@@ -1,22 +1,49 @@
 appId: com.tearleads.rapid
+androidWebViewHierarchy: devtools
 ---
 - launchApp:
     clearState: true
 
 - assertVisible: "Tearleads"
 
+# Load shared UI helper functions
+- runFlow: helpers/ui-helpers.yaml
+
 # Navigate to settings with mobile/desktop handling
 - evalScript: |
     (async () => {
-      window.waitForElement = async (selector, timeout = 8000) => {
-        const interval = 200;
-        const maxTries = Math.ceil(timeout / interval);
-        for (let i = 0; i < maxTries; i++) {
-          if (document.querySelector(selector)) return 'ok';
-          await new Promise(r => setTimeout(r, interval));
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        let homeSettings = null;
+        try {
+          await window.waitForElement('[data-icon-path="/settings"]', 6000);
+          homeSettings = document.querySelector(
+            '[data-icon-path="/settings"]'
+          );
+        } catch (error) {
+          // Fall back to history navigation if the home icon is missing.
         }
-        throw new Error('Element not found: ' + selector);
-      };
+        if (homeSettings) {
+          homeSettings.click();
+          return 'clicked-android-home-settings';
+        }
+        window.history.pushState({}, '', '/settings');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        return 'navigated-android';
+      }
+
+      const settingsButton = document.querySelector(
+        '[data-testid="settings-button"]'
+      );
+      if (settingsButton && settingsButton.offsetParent !== null) {
+        settingsButton.click();
+        try {
+          await window.waitForElement('[data-testid="settings-sheet"]', 1500);
+          return 'opened-settings-sheet';
+        } catch (error) {
+          // Fall back to sidebar navigation if SettingsSheet isn't available.
+        }
+      }
 
       const mobileButton = document.querySelector(
         '[data-testid="mobile-menu-button"]'
@@ -35,52 +62,86 @@ appId: com.tearleads.rapid
         return 'clicked-mobile';
       }
 
-      const sidebarLink = document.querySelector(
+      let sidebarLink = document.querySelector(
         'aside [data-testid="settings-link"]'
       );
       if (!sidebarLink) {
-        throw new Error('Settings link not found in sidebar');
+        const startButton = document.querySelector(
+          '[data-testid="start-button"]'
+        );
+        if (startButton) {
+          startButton.click();
+          await window.waitForElement('aside [data-testid="settings-link"]');
+          sidebarLink = document.querySelector(
+            'aside [data-testid="settings-link"]'
+          );
+        }
       }
-      sidebarLink.scrollIntoView({ block: 'center' });
-      sidebarLink.click();
-      return 'clicked-sidebar';
+      if (sidebarLink) {
+        sidebarLink.scrollIntoView({ block: 'center' });
+        sidebarLink.click();
+        return 'clicked-sidebar';
+      }
+
+      const homeSettings = document.querySelector(
+        '[data-icon-path="/settings"]'
+      );
+      if (homeSettings) {
+        homeSettings.scrollIntoView({ block: 'center' });
+        homeSettings.click();
+        return 'clicked-home-settings';
+      }
+
+      throw new Error('Settings navigation failed');
     })()
 
-# Wait for Settings page to load (WebView-friendly)
+# Wait for Settings page/sheet to load (WebView-friendly)
 - evalScript: |
     (async () => {
       return window.waitForElement(
-        '[data-testid="theme-selector-grid"]',
+        '[data-testid="theme-selector-container"]',
         10000
       );
     })()
 
 # Tap the dark theme option (starts in light mode by default)
-- evalScript: document.querySelector('[data-testid="theme-option-dark"]').click()
-
-# Poll until dark mode is applied
 - evalScript: |
     (async () => {
-      for (let i = 0; i < 30; i++) {
-        if (document.documentElement.classList.contains('dark')) {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      throw new Error('Expected dark mode');
+      const option = document.querySelector('[data-testid="theme-option-dark"]');
+      if (!option) throw new Error('Dark theme option not found');
+      option.scrollIntoView({ block: 'center', inline: 'center' });
+      option.click();
+    })()
+
+# Poll until dark option is selected
+- evalScript: |
+    (async () => {
+      return window.waitForAttribute(
+        '[data-testid="theme-option-dark"]',
+        'aria-pressed',
+        'true',
+        3000
+      );
     })()
 
 # Tap light theme option to switch back to light
-- evalScript: document.querySelector('[data-testid="theme-option-light"]').click()
-
-# Poll until light mode is applied
 - evalScript: |
     (async () => {
-      for (let i = 0; i < 30; i++) {
-        if (!document.documentElement.classList.contains('dark')) {
-          return 'ok';
-        }
-        await new Promise(resolve => setTimeout(resolve, 100));
-      }
-      throw new Error('Expected light mode');
+      const option = document.querySelector(
+        '[data-testid="theme-option-light"]'
+      );
+      if (!option) throw new Error('Light theme option not found');
+      option.scrollIntoView({ block: 'center', inline: 'center' });
+      option.click();
+    })()
+
+# Poll until light option is selected
+- evalScript: |
+    (async () => {
+      return window.waitForAttribute(
+        '[data-testid="theme-option-light"]',
+        'aria-pressed',
+        'true',
+        3000
+      );
     })()

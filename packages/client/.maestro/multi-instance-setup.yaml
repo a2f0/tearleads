@@ -27,7 +27,7 @@ appId: com.tearleads.rapid
 - evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 
 # Wait for SQLite page to load
-- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+- evalScript: window.waitForElement('[data-testid="database-test"]')
 
 # DO NOT click reset - match user's exact flow where they go directly to setup
 # Wait for status to stabilize (should be "Not Set Up" on fresh install)

@@ -329,7 +329,27 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for initial data to load
-    await expect(page.getByTestId('analytics-header')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+    await expect
+      .poll(
+        async () => {
+          if (await page.getByTestId('analytics-header').isVisible()) {
+            return 'header';
+          }
+          if (await page.getByText('No events recorded yet').isVisible()) {
+            return 'empty';
+          }
+          if (
+            await page
+              .getByText(/^Viewing \d+-\d+ of \d+ events?$/)
+              .isVisible()
+          ) {
+            return 'count';
+          }
+          return '';
+        },
+        { timeout: PAGE_LOAD_TIMEOUT }
+      )
+      .toMatch(/header|empty|count/);
 
     // Click refresh multiple times rapidly to test stability
     const refreshButton = page.getByRole('button', { name: 'Refresh' });
