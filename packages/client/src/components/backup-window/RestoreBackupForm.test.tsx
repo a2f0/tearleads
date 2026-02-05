@@ -37,6 +37,7 @@ describe('RestoreBackupForm', () => {
         createdAt: '2024-01-02T10:00:00.000Z',
         appVersion: '1.2.3',
         platform: 'web',
+        formatVersion: 1,
         blobCount: 1,
         blobTotalSize: 1024
       },
@@ -54,6 +55,7 @@ describe('RestoreBackupForm', () => {
 
     expect(await screen.findByText('web')).toBeInTheDocument();
     expect(screen.getByText('1.2.3')).toBeInTheDocument();
+    expect(screen.getByText('Format:')).toBeInTheDocument();
     expect(screen.getByText(/1 KB/)).toBeInTheDocument();
     expect(screen.getByText('Restored Instance')).toBeInTheDocument();
   });
@@ -64,6 +66,7 @@ describe('RestoreBackupForm', () => {
         createdAt: '2024-01-02T10:00:00.000Z',
         appVersion: '1.2.3',
         platform: 'web',
+        formatVersion: 1,
         blobCount: 0,
         blobTotalSize: 0
       },

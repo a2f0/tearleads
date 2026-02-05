@@ -6,7 +6,18 @@ import { describe, expect, it, vi } from 'vitest';
 import { Backups } from './Backups';
 
 vi.mock('@/components/backup-window', () => ({
-  CreateBackupTab: () => <div data-testid="create-tab">Create Tab</div>,
+  CreateBackupTab: ({
+    onSuccess
+  }: {
+    onSuccess?: (options: { stored: boolean }) => void;
+  }) => (
+    <div>
+      <button type="button" onClick={() => onSuccess?.({ stored: true })}>
+        Trigger Success
+      </button>
+      <div data-testid="create-tab">Create Tab</div>
+    </div>
+  ),
   RestoreBackupTab: () => <div data-testid="restore-tab">Restore Tab</div>,
   StoredBackupsTab: () => <div data-testid="stored-tab">Stored Tab</div>
 }));
@@ -53,6 +64,19 @@ describe('Backups page', () => {
     expect(screen.getByTestId('restore-tab')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'common:stored' }));
+    expect(screen.getByTestId('stored-tab')).toBeInTheDocument();
+  });
+
+  it('switches to stored after create success', () => {
+    render(
+      <MemoryRouter>
+        <ThemeProvider>
+          <Backups />
+        </ThemeProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger Success' }));
     expect(screen.getByTestId('stored-tab')).toBeInTheDocument();
   });
 });

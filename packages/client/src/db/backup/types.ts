@@ -34,6 +34,8 @@ export interface BackupManifest {
   platform: 'web' | 'electron' | 'ios' | 'android' | 'cli';
   /** App version that created the backup */
   appVersion: string;
+  /** Backup format version */
+  formatVersion: number;
   /** Total number of blob chunks */
   blobCount: number;
   /** Total size of all blobs in bytes */

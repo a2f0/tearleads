@@ -230,6 +230,10 @@ export function RestoreBackupForm({
                 <span className="text-zinc-400">Version:</span>
                 <span className="text-zinc-300">{manifest.appVersion}</span>
               </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-400">Format:</span>
+                <span className="text-zinc-300">{manifest.formatVersion}</span>
+              </div>
               {manifest.blobCount > 0 && (
                 <div className="flex justify-between">
                   <span className="text-zinc-400">Files:</span>

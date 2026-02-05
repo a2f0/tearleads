@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { FORMAT_VERSION } from './constants';
 import { encode } from './encoder';
 import { getBackupInfo, validateBackupFile } from './importer';
 import type { BackupDatabase, BackupManifest } from './types';
@@ -8,6 +9,7 @@ describe('importer', () => {
     createdAt: '2026-02-02T12:00:00.000Z',
     platform: 'web',
     appVersion: '1.0.0',
+    formatVersion: FORMAT_VERSION,
     blobCount: 0,
     blobTotalSize: 0,
     instanceName: 'Test Instance'
@@ -125,6 +127,7 @@ describe('importer', () => {
         createdAt: '2025-12-25T10:30:00.000Z',
         platform: 'electron',
         appVersion: '2.0.0',
+        formatVersion: FORMAT_VERSION,
         blobCount: 5,
         blobTotalSize: 5000
       };

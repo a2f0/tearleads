@@ -152,48 +152,60 @@ export function StoredBackupsTab() {
       )}
 
       {backups.length > 0 && (
-        <div className="space-y-2">
-          {backups.map((backup) => (
-            <div
-              key={backup.name}
-              className="rounded-md border border-zinc-800 bg-zinc-900/40 p-3"
-            >
-              <div className="flex items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm text-zinc-200">
-                    {backup.name}
-                  </p>
-                  <p className="text-xs text-zinc-500">
-                    {formatBytes(backup.size)} ·{' '}
+        <div className="overflow-auto rounded-md border border-zinc-800">
+          <table className="w-full text-xs">
+            <thead className="bg-zinc-900/60 text-zinc-500">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Name</th>
+                <th className="px-3 py-2 text-left font-medium">Size</th>
+                <th className="px-3 py-2 text-left font-medium">Modified</th>
+                <th className="px-3 py-2 text-right font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {backups.map((backup) => (
+                <tr
+                  key={backup.name}
+                  className="border-zinc-800 border-t hover:bg-zinc-900/40"
+                >
+                  <td className="px-3 py-2 text-zinc-200">
+                    <span className="block truncate">{backup.name}</span>
+                  </td>
+                  <td className="px-3 py-2 text-zinc-500">
+                    {formatBytes(backup.size)}
+                  </td>
+                  <td className="px-3 py-2 text-zinc-500">
                     {formatDate(backup.lastModified)}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => void handleRestore(backup)}
-                  >
-                    Restore
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => void handleDownload(backup)}
-                  >
-                    Download
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => void handleDelete(backup)}
-                  >
-                    Delete
-                  </Button>
-                </div>
-              </div>
-            </div>
-          ))}
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => void handleRestore(backup)}
+                      >
+                        Restore
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => void handleDownload(backup)}
+                      >
+                        Download
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => void handleDelete(backup)}
+                      >
+                        Delete
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
 

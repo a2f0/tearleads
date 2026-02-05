@@ -9,6 +9,7 @@
 
 import type { FileStorage } from '@/storage/opfs';
 import type { DatabaseAdapter } from '../adapters/types';
+import { FORMAT_VERSION } from './constants';
 import { type EncodeOptions, encode } from './encoder';
 import type {
   BackupDatabase,
@@ -57,11 +58,10 @@ function detectPlatform(): BackupManifest['platform'] {
 }
 
 /**
- * Get the app version from package.json or environment.
+ * Get the app version from the build-time constant.
  */
 function getAppVersion(): string {
-  // In a real app, this would come from package.json or build config
-  return '1.0.0';
+  return typeof __APP_VERSION__ === 'string' ? __APP_VERSION__ : 'unknown';
 }
 
 /**
@@ -224,6 +224,7 @@ export async function createBackup(
     createdAt: new Date().toISOString(),
     platform: detectPlatform(),
     appVersion: getAppVersion(),
+    formatVersion: FORMAT_VERSION,
     blobCount: blobs.length,
     blobTotalSize,
     ...(instanceName && { instanceName })
