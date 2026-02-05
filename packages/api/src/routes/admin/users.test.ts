@@ -44,26 +44,39 @@ describe('admin users routes', () => {
       'user-2': null
     });
     mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValue({
-        rows: [
-          {
-            id: 'user-1',
-            email: 'alpha@example.com',
-            email_confirmed: true,
-            admin: false,
-            organization_ids: [],
-            created_at: new Date('2024-01-01T00:00:00.000Z')
-          },
-          {
-            id: 'user-2',
-            email: 'beta@example.com',
-            email_confirmed: false,
-            admin: true,
-            organization_ids: ['org-1'],
-            created_at: '2024-02-01T00:00:00.000Z'
-          }
-        ]
-      })
+      query: mockQuery
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'alpha@example.com',
+              email_confirmed: true,
+              admin: false,
+              organization_ids: [],
+              created_at: new Date('2024-01-01T00:00:00.000Z')
+            },
+            {
+              id: 'user-2',
+              email: 'beta@example.com',
+              email_confirmed: false,
+              admin: true,
+              organization_ids: ['org-1'],
+              created_at: '2024-02-01T00:00:00.000Z'
+            }
+          ]
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              user_id: 'user-1',
+              total_prompt_tokens: '120',
+              total_completion_tokens: '80',
+              total_tokens: '200',
+              request_count: '3',
+              last_used_at: new Date('2024-01-04T00:00:00.000Z')
+            }
+          ]
+        })
     });
 
     const response = await request(app)
@@ -80,7 +93,14 @@ describe('admin users routes', () => {
           admin: false,
           organizationIds: [],
           createdAt: '2024-01-01T00:00:00.000Z',
-          lastActiveAt: '2024-01-05T00:00:00.000Z'
+          lastActiveAt: '2024-01-05T00:00:00.000Z',
+          accounting: {
+            totalPromptTokens: 120,
+            totalCompletionTokens: 80,
+            totalTokens: 200,
+            requestCount: 3,
+            lastUsedAt: '2024-01-04T00:00:00.000Z'
+          }
         },
         {
           id: 'user-2',
@@ -89,7 +109,14 @@ describe('admin users routes', () => {
           admin: true,
           organizationIds: ['org-1'],
           createdAt: '2024-02-01T00:00:00.000Z',
-          lastActiveAt: null
+          lastActiveAt: null,
+          accounting: {
+            totalPromptTokens: 0,
+            totalCompletionTokens: 0,
+            totalTokens: 0,
+            requestCount: 0,
+            lastUsedAt: null
+          }
         }
       ]
     });
@@ -113,17 +140,30 @@ describe('admin users routes', () => {
 
   it('GET /v1/admin/users/:id returns a single user', async () => {
     mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValue({
-        rows: [
-          {
-            id: 'user-1',
-            email: 'alpha@example.com',
-            email_confirmed: true,
-            admin: false,
-            organization_ids: ['org-1', 'org-2']
-          }
-        ]
-      })
+      query: mockQuery
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'user-1',
+              email: 'alpha@example.com',
+              email_confirmed: true,
+              admin: false,
+              organization_ids: ['org-1', 'org-2']
+            }
+          ]
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              user_id: 'user-1',
+              total_prompt_tokens: '30',
+              total_completion_tokens: '70',
+              total_tokens: '100',
+              request_count: '1',
+              last_used_at: new Date('2024-02-02T00:00:00.000Z')
+            }
+          ]
+        })
     });
 
     const response = await request(app)
@@ -139,7 +179,14 @@ describe('admin users routes', () => {
         admin: false,
         organizationIds: ['org-1', 'org-2'],
         createdAt: null,
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 30,
+          totalCompletionTokens: 70,
+          totalTokens: 100,
+          requestCount: 1,
+          lastUsedAt: '2024-02-02T00:00:00.000Z'
+        }
       }
     });
   });
@@ -214,7 +261,14 @@ describe('admin users routes', () => {
         admin: true,
         organizationIds: [],
         createdAt: null,
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalTokens: 0,
+          requestCount: 0,
+          lastUsedAt: null
+        }
       }
     });
     expect(mockQuery).toHaveBeenCalled();
@@ -346,7 +400,14 @@ describe('admin users routes', () => {
         admin: false,
         organizationIds: [],
         createdAt: null,
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalTokens: 0,
+          requestCount: 0,
+          lastUsedAt: null
+        }
       }
     });
   });
@@ -400,7 +461,14 @@ describe('admin users routes', () => {
         admin: false,
         organizationIds: ['org-1', 'org-2'],
         createdAt: null,
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalTokens: 0,
+          requestCount: 0,
+          lastUsedAt: null
+        }
       }
     });
   });
@@ -446,7 +514,14 @@ describe('admin users routes', () => {
         admin: false,
         organizationIds: [],
         createdAt: null,
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalTokens: 0,
+          requestCount: 0,
+          lastUsedAt: null
+        }
       }
     });
   });

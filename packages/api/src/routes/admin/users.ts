@@ -1,5 +1,6 @@
 import type {
   AdminUser,
+  AdminUserAccounting,
   AdminUserResponse,
   AdminUsersResponse,
   AdminUserUpdatePayload,
@@ -29,6 +30,24 @@ const usersRouter: RouterType = Router();
 type AdminUserOverrides = {
   createdAt?: string | null;
   lastActiveAt?: string | null;
+  accounting?: AdminUserAccounting;
+};
+
+type UserUsageRow = {
+  user_id: string;
+  total_prompt_tokens: string;
+  total_completion_tokens: string;
+  total_tokens: string;
+  request_count: string;
+  last_used_at: Date | null;
+};
+
+const emptyAccounting: AdminUserAccounting = {
+  totalPromptTokens: 0,
+  totalCompletionTokens: 0,
+  totalTokens: 0,
+  requestCount: 0,
+  lastUsedAt: null
 };
 
 function normalizeDate(value: Date | string | null | undefined): string | null {
@@ -51,8 +70,50 @@ function mapUserRow(
       ? row.organization_ids
       : [],
     createdAt: overrides.createdAt ?? normalizeDate(row.created_at),
-    lastActiveAt: overrides.lastActiveAt ?? null
+    lastActiveAt: overrides.lastActiveAt ?? null,
+    accounting: overrides.accounting ?? emptyAccounting
   };
+}
+
+function mapUsageRow(row: UserUsageRow): AdminUserAccounting {
+  return {
+    totalPromptTokens: parseInt(row.total_prompt_tokens, 10),
+    totalCompletionTokens: parseInt(row.total_completion_tokens, 10),
+    totalTokens: parseInt(row.total_tokens, 10),
+    requestCount: parseInt(row.request_count, 10),
+    lastUsedAt: row.last_used_at?.toISOString() ?? null
+  };
+}
+
+async function getUserAccounting(
+  pool: Awaited<ReturnType<typeof getPostgresPool>>,
+  userIds: string[]
+): Promise<Record<string, AdminUserAccounting>> {
+  if (userIds.length === 0) {
+    return {};
+  }
+
+  const usageResult = await pool.query<UserUsageRow>(
+    `SELECT
+       user_id,
+       COALESCE(SUM(prompt_tokens), 0) AS total_prompt_tokens,
+       COALESCE(SUM(completion_tokens), 0) AS total_completion_tokens,
+       COALESCE(SUM(total_tokens), 0) AS total_tokens,
+       COUNT(*) AS request_count,
+       MAX(created_at) AS last_used_at
+     FROM ai_usage
+     WHERE user_id = ANY($1::text[])
+     GROUP BY user_id`,
+    [userIds]
+  );
+
+  return usageResult.rows.reduce<Record<string, AdminUserAccounting>>(
+    (acc, row) => {
+      acc[row.user_id] = mapUsageRow(row);
+      return acc;
+    },
+    {}
+  );
 }
 
 function parseUserUpdatePayload(body: unknown): AdminUserUpdatePayload | null {
@@ -167,8 +228,15 @@ usersRouter.get('/', async (_req: Request, res: Response) => {
     const lastActiveByUserId = await getLatestLastActiveByUserIds(
       result.rows.map((row) => row.id)
     );
+    const accountingByUserId = await getUserAccounting(
+      pool,
+      result.rows.map((row) => row.id)
+    );
     const users = result.rows.map((row) =>
-      mapUserRow(row, { lastActiveAt: lastActiveByUserId[row.id] ?? null })
+      mapUserRow(row, {
+        lastActiveAt: lastActiveByUserId[row.id] ?? null,
+        accounting: accountingByUserId[row.id] ?? emptyAccounting
+      })
     );
     const response: AdminUsersResponse = { users };
     res.json(response);
@@ -243,8 +311,12 @@ usersRouter.get('/:id', async (req: Request, res: Response) => {
 
     const lastActiveAt =
       (await getLatestLastActiveByUserIds([user.id]))[user.id] ?? null;
+    const accountingByUserId = await getUserAccounting(pool, [user.id]);
     const response: AdminUserResponse = {
-      user: mapUserRow(user, { lastActiveAt })
+      user: mapUserRow(user, {
+        lastActiveAt,
+        accounting: accountingByUserId[user.id] ?? emptyAccounting
+      })
     };
     res.json(response);
   } catch (err) {
@@ -410,6 +482,7 @@ usersRouter.patch('/:id', async (req: Request, res: Response) => {
     const lastActiveAt =
       (await getLatestLastActiveByUserIds([updatedUser.id]))[updatedUser.id] ??
       null;
+    const accountingByUserId = await getUserAccounting(pool, [updatedUser.id]);
     const response: AdminUserUpdateResponse = {
       user: mapUserRow(
         {
@@ -417,7 +490,10 @@ usersRouter.patch('/:id', async (req: Request, res: Response) => {
           organization_ids: orgResult.rows.map((row) => row.organization_id),
           created_at: createdAt
         },
-        { lastActiveAt }
+        {
+          lastActiveAt,
+          accounting: accountingByUserId[updatedUser.id] ?? emptyAccounting
+        }
       )
     };
     res.json(response);

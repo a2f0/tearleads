@@ -44,7 +44,14 @@ describe('UsersAdminDetail', () => {
       admin: true,
       organizationIds: ['org-1'],
       createdAt: '2024-01-01T12:00:00.000Z',
-      lastActiveAt: '2024-01-10T18:30:00.000Z'
+      lastActiveAt: '2024-01-10T18:30:00.000Z',
+      accounting: {
+        totalPromptTokens: 120,
+        totalCompletionTokens: 80,
+        totalTokens: 200,
+        requestCount: 3,
+        lastUsedAt: '2024-01-09T12:00:00.000Z'
+      }
     }
   };
 
@@ -56,7 +63,14 @@ describe('UsersAdminDetail', () => {
       admin: false,
       organizationIds: [],
       createdAt: '2024-02-14T08:15:00.000Z',
-      lastActiveAt: null
+      lastActiveAt: null,
+      accounting: {
+        totalPromptTokens: 0,
+        totalCompletionTokens: 0,
+        totalTokens: 0,
+        requestCount: 0,
+        lastUsedAt: null
+      }
     }
   };
 
@@ -92,6 +106,7 @@ describe('UsersAdminDetail', () => {
     expect(screen.getByText('user-1')).toBeInTheDocument();
     expect(screen.getByDisplayValue('admin@example.com')).toBeInTheDocument();
     expect(screen.getByLabelText('Organization IDs')).toHaveValue('org-1');
+    expect(screen.getByText('AI Usage')).toBeInTheDocument();
   });
 
   it('shows error when user not found', async () => {
@@ -129,7 +144,14 @@ describe('UsersAdminDetail', () => {
         admin: true,
         organizationIds: ['org-1'],
         createdAt: '2024-01-01T12:00:00.000Z',
-        lastActiveAt: '2024-01-10T18:30:00.000Z'
+        lastActiveAt: '2024-01-10T18:30:00.000Z',
+        accounting: {
+          totalPromptTokens: 120,
+          totalCompletionTokens: 80,
+          totalTokens: 200,
+          requestCount: 3,
+          lastUsedAt: '2024-01-09T12:00:00.000Z'
+        }
       }
     });
 
@@ -160,7 +182,14 @@ describe('UsersAdminDetail', () => {
         admin: false,
         organizationIds: ['org-1', 'org-2'],
         createdAt: '2024-02-14T08:15:00.000Z',
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 10,
+          totalCompletionTokens: 5,
+          totalTokens: 15,
+          requestCount: 1,
+          lastUsedAt: '2024-02-15T08:15:00.000Z'
+        }
       }
     });
 
@@ -191,7 +220,14 @@ describe('UsersAdminDetail', () => {
         admin: false,
         organizationIds: [],
         createdAt: '2024-02-14T08:15:00.000Z',
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalTokens: 0,
+          requestCount: 0,
+          lastUsedAt: null
+        }
       }
     });
 
@@ -224,7 +260,14 @@ describe('UsersAdminDetail', () => {
         admin: true,
         organizationIds: [],
         createdAt: '2024-02-14T08:15:00.000Z',
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalTokens: 0,
+          requestCount: 0,
+          lastUsedAt: null
+        }
       }
     });
 
