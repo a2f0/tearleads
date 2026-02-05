@@ -9,6 +9,7 @@ import { render, waitFor } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { expect } from 'vitest';
+import { ScreensaverProvider } from '@/components/screensaver';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import { SettingsProvider } from '@/db/hooks';
 import { TestDatabaseProvider } from './test-database-provider';
@@ -79,11 +80,13 @@ function createWrapper({
           showLoading={showLoading}
         >
           <SettingsProvider>
-            <WindowManagerProvider>
-              <MemoryRouter initialEntries={initialEntries}>
-                {children}
-              </MemoryRouter>
-            </WindowManagerProvider>
+            <ScreensaverProvider>
+              <WindowManagerProvider>
+                <MemoryRouter initialEntries={initialEntries}>
+                  {children}
+                </MemoryRouter>
+              </WindowManagerProvider>
+            </ScreensaverProvider>
           </SettingsProvider>
         </TestDatabaseProvider>
       </ThemeProvider>

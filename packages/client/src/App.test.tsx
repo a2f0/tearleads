@@ -55,6 +55,14 @@ vi.mock('./components/MobileMenu', () => ({
   MobileMenu: () => <div data-testid="mobile-menu" />
 }));
 
+vi.mock('./components/screensaver', () => ({
+  useScreensaver: () => ({
+    isActive: false,
+    activate: vi.fn(),
+    deactivate: vi.fn()
+  })
+}));
+
 vi.mock('./components/SettingsButton', () => ({
   SettingsButton: () => <div data-testid="settings-button" />
 }));
@@ -73,6 +81,13 @@ vi.mock('./components/taskbar', () => ({
 
 vi.mock('./components/ui/desktop-background', () => ({
   DesktopBackground: () => <div data-testid="desktop-background" />
+}));
+
+vi.mock('./db/hooks', () => ({
+  useDatabaseContext: () => ({
+    isUnlocked: false,
+    lock: vi.fn()
+  })
 }));
 
 vi.mock('./hooks/useAppVersion', () => ({
