@@ -854,6 +854,42 @@ describe('Documents', () => {
         expect(screen.queryByText('Uploading...')).not.toBeInTheDocument();
       });
     });
+
+    it('shows upload progress while uploading', async () => {
+      let progressCallback: (progress: number) => void = () => {};
+      const uploadControl = { resolve: () => {} };
+
+      mockUploadFile.mockImplementation((_file, onProgress) => {
+        progressCallback = onProgress ?? (() => {});
+        return new Promise<void>((resolve) => {
+          uploadControl.resolve = resolve;
+        });
+      });
+
+      const file = new File(['test content'], 'test.pdf', {
+        type: 'application/pdf'
+      });
+
+      await user.upload(input, file);
+
+      act(() => {
+        progressCallback(64);
+      });
+
+      const progressbar = screen.getByRole('progressbar', {
+        name: /upload progress/i
+      });
+      expect(progressbar).toHaveAttribute('aria-valuenow', '64');
+      expect(screen.getByText('64%')).toBeInTheDocument();
+
+      uploadControl.resolve();
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole('progressbar', { name: /upload progress/i })
+        ).not.toBeInTheDocument();
+      });
+    });
   });
 
   describe('share functionality', () => {

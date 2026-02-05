@@ -644,6 +644,38 @@ describe('VideoPage', () => {
       consoleSpy.mockRestore();
     });
 
+    it('shows upload progress while uploading', async () => {
+      let progressCallback: (progress: number) => void = () => {};
+      const uploadControl = { resolve: () => {} };
+
+      mockUploadFile.mockImplementation((_file, onProgress) => {
+        progressCallback = onProgress ?? (() => {});
+        return new Promise<void>((resolve) => {
+          uploadControl.resolve = resolve;
+        });
+      });
+
+      await user.upload(input as HTMLInputElement, videoFile);
+
+      act(() => {
+        progressCallback(55);
+      });
+
+      const progressbar = screen.getByRole('progressbar', {
+        name: /upload progress/i
+      });
+      expect(progressbar).toHaveAttribute('aria-valuenow', '55');
+      expect(screen.getByText('55%')).toBeInTheDocument();
+
+      uploadControl.resolve();
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole('progressbar', { name: /upload progress/i })
+        ).not.toBeInTheDocument();
+      });
+    });
+
     it('shows error for unsupported video format', async () => {
       // Use video/x-ms-wmv which is not in VIDEO_MIME_TYPES list
       const unsupportedFile = new File(['content'], 'test.wmv', {

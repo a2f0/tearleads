@@ -625,6 +625,38 @@ describe('AudioPage', () => {
 
       consoleSpy.mockRestore();
     });
+
+    it('shows upload progress while uploading', async () => {
+      let progressCallback: (progress: number) => void = () => {};
+      const uploadControl = { resolve: () => {} };
+
+      mockUploadFile.mockImplementation((_file, onProgress) => {
+        progressCallback = onProgress ?? (() => {});
+        return new Promise<void>((resolve) => {
+          uploadControl.resolve = resolve;
+        });
+      });
+
+      await user.upload(input as HTMLInputElement, audioFile);
+
+      act(() => {
+        progressCallback(37);
+      });
+
+      const progressbar = screen.getByRole('progressbar', {
+        name: /upload progress/i
+      });
+      expect(progressbar).toHaveAttribute('aria-valuenow', '37');
+      expect(screen.getByText('37%')).toBeInTheDocument();
+
+      uploadControl.resolve();
+
+      await waitFor(() => {
+        expect(
+          screen.queryByRole('progressbar', { name: /upload progress/i })
+        ).not.toBeInTheDocument();
+      });
+    });
   });
 
   describe('audio context integration', () => {

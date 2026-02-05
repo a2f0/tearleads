@@ -18,6 +18,7 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { UploadProgress } from '@/components/ui/upload-progress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -487,10 +488,8 @@ export function Documents({
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <div className="text-center">
               <p className="font-medium">Uploading...</p>
-              <p className="text-muted-foreground text-sm">
-                {uploadProgress}% complete
-              </p>
             </div>
+            <UploadProgress progress={uploadProgress} />
           </div>
         ) : documents.length === 0 && hasFetched ? (
           !isTableView && showDropzone ? (

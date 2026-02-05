@@ -22,6 +22,7 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { UploadProgress } from '@/components/ui/upload-progress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { ClientAudioProvider } from '@/contexts/ClientAudioProvider';
 import { getDatabase } from '@/db';
@@ -476,10 +477,8 @@ export function AudioPage({
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <div className="text-center">
               <p className="font-medium">Uploading...</p>
-              <p className="text-muted-foreground text-sm">
-                {uploadProgress}% complete
-              </p>
             </div>
+            <UploadProgress progress={uploadProgress} />
           </div>
         ) : tracks.length === 0 && hasFetched ? (
           <div className="space-y-4">
