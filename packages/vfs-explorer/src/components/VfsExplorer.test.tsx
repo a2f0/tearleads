@@ -1,6 +1,17 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
+// Mutable clipboard state for per-test control
+const mockClipboardState: {
+  items: { id: string; objectType: string; name: string }[];
+  operation: 'cut' | 'copy' | null;
+} = {
+  items: [],
+  operation: null
+};
+
+const mockClearClipboard = vi.fn();
 
 // Mock the context
 vi.mock('../context', () => ({
@@ -29,13 +40,13 @@ vi.mock('../context', () => ({
     }
   }),
   useVfsClipboard: () => ({
-    clipboard: { items: [], operation: null },
+    clipboard: mockClipboardState,
     cut: vi.fn(),
     copy: vi.fn(),
-    clear: vi.fn(),
-    hasItems: false,
-    isCut: false,
-    isCopy: false
+    clear: mockClearClipboard,
+    hasItems: mockClipboardState.items.length > 0,
+    isCut: mockClipboardState.operation === 'cut',
+    isCopy: mockClipboardState.operation === 'copy'
   }),
   VfsClipboardProvider: ({ children }: { children: ReactNode }) => children
 }));
@@ -110,6 +121,9 @@ import { VfsExplorer } from './VfsExplorer';
 describe('VfsExplorer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    // Reset clipboard state
+    mockClipboardState.items = [];
+    mockClipboardState.operation = null;
     vi.mocked(useVfsFolders).mockReturnValue({
       folders: [],
       loading: false,
@@ -148,5 +162,214 @@ describe('VfsExplorer', () => {
     render(<VfsExplorer viewMode="table" />);
     // Default view shows unfiled items
     expect(screen.getByText('No unfiled items')).toBeInTheDocument();
+  });
+
+  describe('paste operations', () => {
+    it('calls copyItem when pasting into an empty folder via context menu', async () => {
+      // Set up clipboard with a copied file
+      mockClipboardState.items = [
+        { id: 'file-1', objectType: 'file', name: 'document.pdf' }
+      ];
+      mockClipboardState.operation = 'copy';
+
+      // Mock folders so we have a folder to select
+      vi.mocked(useVfsFolders).mockReturnValue({
+        folders: [
+          {
+            id: 'folder-1',
+            name: 'My Folder',
+            parentId: null,
+            childCount: 0,
+            children: []
+          }
+        ],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      // Folder contents are empty (newly created folder)
+      vi.mocked(useVfsFolderContents).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      render(<VfsExplorer selectedFolderId="folder-1" />);
+
+      // Verify we see the empty folder state
+      expect(screen.getByText('This folder is empty')).toBeInTheDocument();
+
+      // Right-click on the empty space to trigger context menu
+      const emptyState = screen.getByText('This folder is empty');
+      fireEvent.contextMenu(emptyState);
+
+      // The Paste button should appear (hasItems is true)
+      const pasteButton = screen.getByText('Paste');
+      expect(pasteButton).toBeInTheDocument();
+
+      // Click the Paste button
+      fireEvent.click(pasteButton);
+
+      // Verify copyItem was called with correct arguments
+      await waitFor(() => {
+        expect(mockCopyVfsItem.copyItem).toHaveBeenCalledWith(
+          'file-1',
+          'folder-1'
+        );
+      });
+    });
+
+    it('calls moveItem when pasting a cut item', async () => {
+      // Set up clipboard with a cut file
+      mockClipboardState.items = [
+        { id: 'file-2', objectType: 'note', name: 'My Note' }
+      ];
+      mockClipboardState.operation = 'cut';
+
+      vi.mocked(useVfsFolders).mockReturnValue({
+        folders: [
+          {
+            id: 'folder-2',
+            name: 'Target Folder',
+            parentId: null,
+            childCount: 0,
+            children: []
+          }
+        ],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      vi.mocked(useVfsFolderContents).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      render(<VfsExplorer selectedFolderId="folder-2" />);
+
+      const emptyState = screen.getByText('This folder is empty');
+      fireEvent.contextMenu(emptyState);
+
+      const pasteButton = screen.getByText('Paste');
+      fireEvent.click(pasteButton);
+
+      await waitFor(() => {
+        expect(mockMoveVfsItem.moveItem).toHaveBeenCalledWith(
+          'file-2',
+          'folder-2'
+        );
+      });
+    });
+
+    it('clears clipboard after pasting cut items', async () => {
+      mockClipboardState.items = [
+        { id: 'file-3', objectType: 'file', name: 'cut-file.pdf' }
+      ];
+      mockClipboardState.operation = 'cut';
+
+      vi.mocked(useVfsFolders).mockReturnValue({
+        folders: [
+          {
+            id: 'folder-3',
+            name: 'Folder',
+            parentId: null,
+            childCount: 0,
+            children: []
+          }
+        ],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      vi.mocked(useVfsFolderContents).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      render(<VfsExplorer selectedFolderId="folder-3" />);
+
+      const emptyState = screen.getByText('This folder is empty');
+      fireEvent.contextMenu(emptyState);
+      fireEvent.click(screen.getByText('Paste'));
+
+      await waitFor(() => {
+        expect(mockClearClipboard).toHaveBeenCalled();
+      });
+    });
+
+    it('does not show paste context menu on unfiled folder', () => {
+      mockClipboardState.items = [
+        { id: 'file-1', objectType: 'file', name: 'test.pdf' }
+      ];
+      mockClipboardState.operation = 'copy';
+
+      render(<VfsExplorer />);
+
+      // Default view is unfiled - should show "No unfiled items"
+      expect(screen.getByText('No unfiled items')).toBeInTheDocument();
+
+      // Right-click should NOT show Paste
+      const emptyState = screen.getByText('No unfiled items');
+      fireEvent.contextMenu(emptyState);
+
+      expect(screen.queryByText('Paste')).not.toBeInTheDocument();
+    });
+
+    it('does not paste a folder into itself', async () => {
+      // Set up clipboard with the target folder itself
+      mockClipboardState.items = [
+        { id: 'folder-self', objectType: 'folder', name: 'Self Folder' }
+      ];
+      mockClipboardState.operation = 'copy';
+
+      vi.mocked(useVfsFolders).mockReturnValue({
+        folders: [
+          {
+            id: 'folder-self',
+            name: 'Self Folder',
+            parentId: null,
+            childCount: 0,
+            children: []
+          }
+        ],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      vi.mocked(useVfsFolderContents).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+
+      render(<VfsExplorer selectedFolderId="folder-self" />);
+
+      const emptyState = screen.getByText('This folder is empty');
+      fireEvent.contextMenu(emptyState);
+      fireEvent.click(screen.getByText('Paste'));
+
+      // copyItem should NOT be called (filtered out)
+      await waitFor(() => {
+        expect(mockCopyVfsItem.copyItem).not.toHaveBeenCalled();
+      });
+    });
   });
 });
