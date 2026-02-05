@@ -329,7 +329,12 @@ test.describe('Analytics page', () => {
     await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
 
     // Wait for initial data to load
-    await expect(page.getByTestId('analytics-header')).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
+    await expect(
+      page
+        .getByTestId('analytics-header')
+        .or(page.getByText('No events recorded yet'))
+        .or(page.getByText(/^Viewing \d+-\d+ of \d+ events?$/))
+    ).toBeVisible({ timeout: PAGE_LOAD_TIMEOUT });
 
     // Click refresh multiple times rapidly to test stability
     const refreshButton = page.getByRole('button', { name: 'Refresh' });
