@@ -32,19 +32,12 @@ export async function runDump(
   if (options.inputFile) {
     // Dump from .rbu backup file
     const filePath = path.resolve(options.inputFile);
-    try {
-      await fs.access(filePath);
-    } catch {
-      console.error(`File not found: ${filePath}`);
-      process.exit(1);
-    }
-
     const password = options.password
       ? options.password
       : await promptPassword('Backup password: ');
 
-    const backupData = await fs.readFile(filePath);
     try {
+      const backupData = await fs.readFile(filePath);
       const decoded = await decode({
         data: new Uint8Array(backupData),
         password
@@ -57,9 +50,15 @@ export async function runDump(
         );
       }
     } catch (err) {
-      console.error(
-        err instanceof Error ? err.message : 'Failed to decode backup file.'
-      );
+      if ((err as NodeJS.ErrnoException).code === 'ENOENT') {
+        console.error(`File not found: ${filePath}`);
+      } else {
+        console.error(
+          err instanceof Error
+            ? err.message
+            : 'Failed to read or decode backup file.'
+        );
+      }
       process.exit(1);
     }
   } else {
@@ -70,14 +69,12 @@ export async function runDump(
     }
 
     if (!isDatabaseUnlocked()) {
-      if (await hasPersistedSession()) {
-        const restored = await restoreDatabaseSession();
-        if (!restored) {
-          console.error('Session expired. Run "tearleads unlock" first.');
-          process.exit(1);
-        }
-      } else {
-        console.error('Database not unlocked. Run "tearleads unlock" first.');
+      const canRestore = await hasPersistedSession();
+      if (!canRestore || !(await restoreDatabaseSession())) {
+        const message = canRestore
+          ? 'Session expired. Run "tearleads unlock" first.'
+          : 'Database not unlocked. Run "tearleads unlock" first.';
+        console.error(message);
         process.exit(1);
       }
     }
@@ -104,7 +101,13 @@ export async function runDump(
       console.error(`${outputPath} exists and is not a directory.`);
       process.exit(1);
     }
-  } catch {
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.error(
+        `Error checking output path "${outputPath}": ${(err as Error).message}`
+      );
+      process.exit(1);
+    }
     // Folder doesn't exist, which is fine
   }
 
