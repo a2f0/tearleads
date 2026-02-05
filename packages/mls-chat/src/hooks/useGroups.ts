@@ -113,10 +113,22 @@ export function useGroups(client: MlsClient | null): UseGroupsResult {
       // Initialize MLS group state locally
       await client.createGroup(data.group.id);
 
-      await fetchGroups();
+      // Optimistically add the new group to state so it appears immediately
+      setGroups((prev) => [
+        ...prev,
+        {
+          id: data.group.id,
+          name,
+          canDecrypt: true,
+          memberCount: 1,
+          lastMessageAt: undefined,
+          unreadCount: 0
+        }
+      ]);
+
       return data.group;
     },
-    [client, apiBaseUrl, getAuthHeader, fetchGroups]
+    [client, apiBaseUrl, getAuthHeader]
   );
 
   const leaveGroup = useCallback(
