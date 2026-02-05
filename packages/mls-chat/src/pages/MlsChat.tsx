@@ -6,6 +6,7 @@ import type { FC, ReactElement } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  AddMemberDialog,
   GroupList,
   MemberList,
   MlsChatWindow,
@@ -42,6 +43,8 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
   const [showMembers, setShowMembers] = useState(false);
   const [isCreatingGroup, setIsCreatingGroup] = useState(false);
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
+  const [addMemberDialogOpen, setAddMemberDialogOpen] = useState(false);
+  const [isAddingMember, setIsAddingMember] = useState(false);
 
   const selectedGroup = groups.find((g) => g.id === selectedGroupId);
 
@@ -57,8 +60,7 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
   const {
     members,
     isLoading: membersLoading,
-    // addMember will be used when member lookup is implemented
-    addMember: _addMember,
+    addMember,
     removeMember
   } = useGroupMembers(selectedGroupId, client);
 
@@ -111,14 +113,17 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
     setShowMembers(false);
   }, [selectedGroupId, leaveGroup]);
 
-  const handleAddMember = useCallback(async () => {
-    const email = window.prompt('Enter user email to add:');
-    if (!email?.trim()) return;
-
-    // In a real app, you'd look up the user ID by email
-    // For now, we'll just show an error
-    window.alert('Member lookup by email not yet implemented');
-  }, []);
+  const handleAddMember = useCallback(
+    async (userId: string) => {
+      setIsAddingMember(true);
+      try {
+        await addMember(userId);
+      } finally {
+        setIsAddingMember(false);
+      }
+    },
+    [addMember]
+  );
 
   // Show setup screen if not initialized
   if (!isInitialized || !hasCredential) {
@@ -167,6 +172,13 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
         isCreating={isCreatingGroup}
       />
 
+      <AddMemberDialog
+        open={addMemberDialogOpen}
+        onOpenChange={setAddMemberDialogOpen}
+        onAddMember={handleAddMember}
+        isAdding={isAddingMember}
+      />
+
       {/* Main chat area */}
       <div className="flex flex-1 flex-col">
         {selectedGroup ? (
@@ -209,7 +221,7 @@ export const MlsChat: FC<MlsChatProps> = ({ className = '' }) => {
             members={members}
             isLoading={membersLoading}
             canManageMembers={true}
-            onAddMember={() => void handleAddMember()}
+            onAddMember={() => setAddMemberDialogOpen(true)}
             onRemoveMember={(userId) => void removeMember(userId)}
           />
         </div>

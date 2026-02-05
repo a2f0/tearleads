@@ -10,7 +10,7 @@ import {
   useRef,
   useState
 } from 'react';
-import { cn } from '@/lib/utils';
+import { createPortal } from 'react-dom';
 
 interface DropdownMenuProps {
   trigger: React.ReactNode;
@@ -50,6 +50,7 @@ export function DropdownMenu({
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
+  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -65,9 +66,11 @@ export function DropdownMenu({
     if (!isOpen) return undefined;
 
     const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Node;
       if (
         containerRef.current &&
-        !containerRef.current.contains(e.target as Node)
+        !containerRef.current.contains(target) &&
+        (!menuRef.current || !menuRef.current.contains(target))
       ) {
         close();
       }
@@ -87,6 +90,22 @@ export function DropdownMenu({
       document.removeEventListener('keydown', handleEscape);
     };
   }, [isOpen, close]);
+
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const rect = containerRef.current.getBoundingClientRect();
+      const style: React.CSSProperties = {
+        position: 'fixed',
+        top: rect.bottom + 2
+      };
+      if (align === 'right') {
+        style.right = window.innerWidth - rect.right;
+      } else {
+        style.left = rect.left;
+      }
+      setMenuStyle(style);
+    }
+  }, [isOpen, align]);
 
   useEffect(() => {
     if (isOpen && menuRef.current) {
@@ -149,33 +168,33 @@ export function DropdownMenu({
             {trigger}
           </button>
         )}
-        {isOpen && (
-          <div
-            ref={menuRef}
-            role="menu"
-            tabIndex={-1}
-            onKeyDown={handleMenuKeyDown}
-            className={cn(
-              'dropdown-menu absolute top-full z-[10000] mt-0.5 min-w-32 rounded border bg-background py-1 shadow-md outline-none',
-              align === 'left' ? 'left-0' : 'right-0'
-            )}
-            data-align={align}
-          >
-            {Children.map(children, (child) => {
-              if (isValidElement<ChildProps>(child) && child.props.onClick) {
-                return cloneElement(child, {
-                  onClick: () => {
-                    child.props.onClick?.();
-                    if (!child.props.preventClose) {
-                      close();
+        {isOpen &&
+          createPortal(
+            <div
+              ref={menuRef}
+              role="menu"
+              tabIndex={-1}
+              onKeyDown={handleMenuKeyDown}
+              style={menuStyle}
+              className="dropdown-menu z-[10000] min-w-32 whitespace-nowrap rounded border bg-background py-1 shadow-md outline-none"
+              data-align={align}
+            >
+              {Children.map(children, (child) => {
+                if (isValidElement<ChildProps>(child) && child.props.onClick) {
+                  return cloneElement(child, {
+                    onClick: () => {
+                      child.props.onClick?.();
+                      if (!child.props.preventClose) {
+                        close();
+                      }
                     }
-                  }
-                });
-              }
-              return child;
-            })}
-          </div>
-        )}
+                  });
+                }
+                return child;
+              })}
+            </div>,
+            document.body
+          )}
       </div>
     </DropdownMenuContext.Provider>
   );

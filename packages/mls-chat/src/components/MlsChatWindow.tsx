@@ -84,6 +84,7 @@ export const MlsChatWindow: FC<MlsChatWindowProps> = ({
                 <MoreIcon />
               </Button>
             }
+            align="right"
           >
             {onOpenMembers && (
               <DropdownMenuItem onClick={onOpenMembers} icon={<UsersIcon />}>

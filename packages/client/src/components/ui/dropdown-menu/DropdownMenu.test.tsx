@@ -97,8 +97,9 @@ describe('DropdownMenu', () => {
     await user.click(screen.getByRole('button', { name: 'File' }));
     const menu = screen.getByRole('menu');
 
-    expect(menu).toHaveClass('right-0');
-    expect(menu).not.toHaveClass('left-0');
+    expect(menu.style.right).toBeDefined();
+    expect(menu.style.left).toBe('');
+    expect(menu).toHaveAttribute('data-align', 'right');
   });
 
   it('supports left alignment by default', async () => {
@@ -112,8 +113,9 @@ describe('DropdownMenu', () => {
     await user.click(screen.getByRole('button', { name: 'File' }));
     const menu = screen.getByRole('menu');
 
-    expect(menu).toHaveClass('left-0');
-    expect(menu).not.toHaveClass('right-0');
+    expect(menu.style.left).toBeDefined();
+    expect(menu.style.right).toBe('');
+    expect(menu).toHaveAttribute('data-align', 'left');
   });
 
   it('navigates menu items with ArrowDown key', async () => {

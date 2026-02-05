@@ -83,6 +83,7 @@ export const MemberList: FC<MemberListProps> = ({
                         <MoreIcon />
                       </Button>
                     }
+                    align="right"
                   >
                     <DropdownMenuItem
                       onClick={() => onRemoveMember(member.userId)}

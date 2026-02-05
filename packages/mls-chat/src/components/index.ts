@@ -1,3 +1,5 @@
+export type { AddMemberDialogProps } from './AddMemberDialog.js';
+export { AddMemberDialog } from './AddMemberDialog.js';
 export { GroupList } from './GroupList.js';
 export { MemberList } from './MemberList.js';
 export { MlsChatWindow } from './MlsChatWindow.js';
