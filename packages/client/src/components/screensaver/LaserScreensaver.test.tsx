@@ -146,8 +146,9 @@ describe('LaserScreensaver', () => {
     expect(document.querySelector('canvas')).not.toBeInTheDocument();
   });
 
-  it('dismisses on significant mouse movement', async () => {
-    const user = userEvent.setup();
+  it('dismisses after grace period on mouse movement', async () => {
+    vi.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     render(
       <TestWrapper>
@@ -159,22 +160,25 @@ describe('LaserScreensaver', () => {
     await user.click(screen.getByText('Activate'));
     expect(document.querySelector('canvas')).toBeInTheDocument();
 
-    // Simulate mouse movement with significant movement
+    await act(async () => {
+      vi.advanceTimersByTime(2000);
+    });
+
     await act(async () => {
       const event = new MouseEvent('mousemove', {
         bubbles: true,
-        cancelable: true,
-        movementX: 10,
-        movementY: 10
+        cancelable: true
       });
       document.dispatchEvent(event);
     });
 
     expect(document.querySelector('canvas')).not.toBeInTheDocument();
+    vi.useRealTimers();
   });
 
-  it('does not dismiss on small mouse movement', async () => {
-    const user = userEvent.setup();
+  it('does not dismiss during the grace period', async () => {
+    vi.useFakeTimers();
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
 
     render(
       <TestWrapper>
@@ -186,18 +190,17 @@ describe('LaserScreensaver', () => {
     await user.click(screen.getByText('Activate'));
     expect(document.querySelector('canvas')).toBeInTheDocument();
 
-    // Simulate mouse movement with small movement (should be ignored)
+    // Simulate mouse movement before grace period ends
     await act(async () => {
       const event = new MouseEvent('mousemove', {
         bubbles: true,
-        cancelable: true,
-        movementX: 1,
-        movementY: 1
+        cancelable: true
       });
       document.dispatchEvent(event);
     });
 
     expect(document.querySelector('canvas')).toBeInTheDocument();
+    vi.useRealTimers();
   });
 
   it('dismisses on touchstart', async () => {

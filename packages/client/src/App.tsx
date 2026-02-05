@@ -1,17 +1,22 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { useEffect, useRef, useState } from 'react';
+import { Lock } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
 import { HUDTrigger } from './components/hud';
 import { MobileMenu } from './components/MobileMenu';
+import { useScreensaver } from './components/screensaver';
 import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
 import { Taskbar } from './components/taskbar';
+import { ContextMenu } from './components/ui/context-menu/ContextMenu';
+import { ContextMenuItem } from './components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from './components/ui/desktop-background';
 import { FOOTER_HEIGHT } from './constants/layout';
+import { useDatabaseContext } from './db/hooks';
 import { useKeyboardHeight } from './hooks/useKeyboardHeight';
 import { useSSEContext } from './sse';
 
@@ -31,9 +36,15 @@ function App() {
   const pathname = location.pathname;
   const isHome = pathname === '/';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [startMenuContextMenu, setStartMenuContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const keyboardHeight = useKeyboardHeight();
+  const { isUnlocked, lock } = useDatabaseContext();
+  const { activate: activateScreensaver } = useScreensaver();
 
   useEffect(() => {
     if (pathname) {
@@ -57,6 +68,29 @@ function App() {
       document.removeEventListener('pointerdown', handlePointerDown);
     };
   }, [isSidebarOpen]);
+
+  const handleStartMenuContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLButtonElement>) => {
+      event.preventDefault();
+      setStartMenuContextMenu({ x: event.clientX, y: event.clientY });
+    },
+    []
+  );
+
+  const handleCloseStartMenuContextMenu = useCallback(() => {
+    setStartMenuContextMenu(null);
+  }, []);
+
+  const handleLockInstance = useCallback(async () => {
+    try {
+      activateScreensaver();
+      if (isUnlocked) {
+        await lock(true);
+      }
+    } finally {
+      setStartMenuContextMenu(null);
+    }
+  }, [activateScreensaver, isUnlocked, lock]);
 
   return (
     <div
@@ -101,6 +135,7 @@ function App() {
               <button
                 type="button"
                 onClick={() => setIsSidebarOpen((prev) => !prev)}
+                onContextMenu={handleStartMenuContextMenu}
                 ref={startButtonRef}
                 className="hidden items-center justify-center lg:flex"
                 aria-label="Toggle sidebar"
@@ -116,6 +151,20 @@ function App() {
         }
         copyrightText=""
       />
+      {startMenuContextMenu && (
+        <ContextMenu
+          x={startMenuContextMenu.x}
+          y={startMenuContextMenu.y}
+          onClose={handleCloseStartMenuContextMenu}
+        >
+          <ContextMenuItem
+            icon={<Lock className="h-4 w-4" />}
+            onClick={handleLockInstance}
+          >
+            Lock Instance
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
       <div
         className="fixed right-4 z-50 flex h-6 items-center"
         style={{
