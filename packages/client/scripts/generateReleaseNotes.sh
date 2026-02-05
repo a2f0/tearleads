@@ -134,13 +134,14 @@ else
         end;
 
       def is_internal_label($labels):
-        ($labels | map(.name | ascii_downcase) | any(. == "chore" or . == "infra" or . == "ci" or . == "tests" or . == "test" or . == "deps" or . == "dependencies" or . == "refactor" or . == "docs" or . == "build" or . == "tooling"));
+        ["chore", "infra", "ci", "tests", "test", "deps", "dependencies", "refactor", "docs", "build", "tooling"] as $internal_labels |
+        ($labels | map(.name | ascii_downcase) | any(IN($internal_labels[])));
 
       map(select(.labels == null or (is_internal_label(.labels) | not))
         | . as $pr
         | (release_section($pr.body // "") | if length > 0 then . else $pr.title end) as $summary
         | "\n## PR #\($pr.number): \($pr.title)\n\($summary)"
-      ) | join("")')
+      ) | if length > 0 then join("") else "No user-visible changes found in PRs." end')
 fi
 
 if [ -z "$COMMITS" ]; then
@@ -182,7 +183,7 @@ is_valid_notes() {
     printf '%s' "$notes" | grep -q '^• ' || return 1
     # 1 to 3 bullets
     bullet_count=$(printf '%s' "$notes" | grep -c '^• ' || true)
-    if [ "$bullet_count" -lt 1 ] || [ "$bullet_count" -gt 3 ]; then
+    if [ "$bullet_count" -gt 3 ]; then
         return 1
     fi
     # Under 500 characters
