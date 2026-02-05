@@ -19,7 +19,7 @@ interface DropdownMenuProps {
 }
 
 interface TriggerElementProps {
-  onClick?: () => void;
+  onClick?: (e: React.MouseEvent) => void;
   'aria-haspopup'?: string;
   'aria-expanded'?: boolean;
 }
@@ -131,7 +131,10 @@ export function DropdownMenu({
       <div ref={containerRef} className="relative">
         {isValidElement<TriggerElementProps>(trigger) ? (
           cloneElement(trigger, {
-            onClick: toggle,
+            onClick: (e: React.MouseEvent) => {
+              toggle();
+              trigger.props.onClick?.(e);
+            },
             'aria-haspopup': 'menu',
             'aria-expanded': isOpen
           })
