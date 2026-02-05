@@ -12,6 +12,7 @@
  *   create-account    Create an account in the database
  *   delete-account    Delete an account from the database
  *   make-admin        Grant admin privileges to an existing account
+ *   list-admins       List accounts with admin privileges
  *   sync-last-active  Sync lastActiveAt from Redis sessions to PostgreSQL
  *
  * Environment variables:
@@ -24,6 +25,7 @@
 import { program } from 'commander';
 import { createAccountCommand } from './cli/createAccount.js';
 import { deleteAccountCommand } from './cli/deleteAccount.js';
+import { listAdminsCommand } from './cli/listAdmins.js';
 import { makeAdminCommand } from './cli/makeAdmin.js';
 import { migrateCommand } from './cli/migrate.js';
 import { syncLastActiveCommand } from './cli/syncLastActive.js';
@@ -40,6 +42,7 @@ migrateCommand(program);
 createAccountCommand(program);
 deleteAccountCommand(program);
 makeAdminCommand(program);
+listAdminsCommand(program);
 syncLastActiveCommand(program);
 
 program.parse();
