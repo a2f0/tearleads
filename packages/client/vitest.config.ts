@@ -87,6 +87,8 @@ export default defineConfig({
         'src/components/admin-postgres-window/index.ts',
         'src/components/chat-window/index.ts',
         'src/contexts/ClientContactsProvider.tsx',
+        // ClientEmailProvider has database folder operations that require integration testing
+        'src/contexts/ClientEmailProvider.tsx',
         'src/components/console-window/index.ts',
         'src/components/files/index.ts',
         'src/components/files-window/index.ts',

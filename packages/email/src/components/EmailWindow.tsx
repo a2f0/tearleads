@@ -1,10 +1,15 @@
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { Loader2, Mail } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
+import { useHasEmailFolderOperations } from '../context/EmailContext.js';
 import { useEmails } from '../hooks';
 import { formatEmailDate, formatEmailSize } from '../lib';
+import { ALL_MAIL_ID } from '../types/folder.js';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailWindowMenuBar } from './EmailWindowMenuBar';
+import { EmailFoldersSidebar } from './sidebar/EmailFoldersSidebar.js';
+
+const DEFAULT_SIDEBAR_WIDTH = 180;
 
 interface EmailWindowProps {
   id: string;
@@ -25,9 +30,19 @@ export function EmailWindow({
   zIndex,
   initialDimensions
 }: EmailWindowProps) {
+  const hasFolderOperations = useHasEmailFolderOperations();
   const { emails, loading, error, fetchEmails } = useEmails();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedEmailId, setSelectedEmailId] = useState<string | null>(null);
+  const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
+    ALL_MAIL_ID
+  );
+  const [folderRefreshToken, setFolderRefreshToken] = useState(0);
+
+  const handleFolderChanged = useCallback(() => {
+    setFolderRefreshToken((t) => t + 1);
+  }, []);
 
   useEffect(() => {
     fetchEmails();
@@ -57,108 +72,120 @@ export function EmailWindow({
           onRefresh={fetchEmails}
           onClose={onClose}
         />
-        <div className="flex-1 overflow-hidden">
-          {loading ? (
-            <div className="flex h-full items-center justify-center">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : error ? (
-            <div className="p-4 text-destructive text-sm">{error}</div>
-          ) : selectedEmailId && selectedEmail ? (
-            <div className="flex h-full flex-col">
-              <div className="border-b p-3">
-                <button
-                  type="button"
-                  onClick={() => setSelectedEmailId(null)}
-                  className="mb-2 text-muted-foreground text-xs hover:text-foreground"
-                >
-                  &larr; Back to Inbox
-                </button>
-                <h2 className="font-medium text-sm">
-                  {selectedEmail.subject || '(No Subject)'}
-                </h2>
-                <p className="text-muted-foreground text-xs">
-                  From: {selectedEmail.from}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  To: {selectedEmail.to.join(', ')}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {formatEmailDate(selectedEmail.receivedAt)} ·{' '}
-                  {formatEmailSize(selectedEmail.size)}
-                </p>
-              </div>
-              <div className="flex-1 overflow-auto p-3">
-                <p className="text-muted-foreground text-sm italic">
-                  Email body parsing coming soon...
-                </p>
-              </div>
-            </div>
-          ) : emails.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
-              <Mail className="h-8 w-8" />
-              <p className="text-sm">No emails yet</p>
-            </div>
-          ) : viewMode === 'list' ? (
-            <div className="h-full overflow-auto">
-              {emails.map((email) => (
-                <button
-                  key={email.id}
-                  type="button"
-                  onClick={() => setSelectedEmailId(email.id)}
-                  className="flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/50"
-                >
-                  <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium text-sm">
-                      {email.subject || '(No Subject)'}
-                    </p>
-                    <p className="truncate text-muted-foreground text-xs">
-                      {email.from}
-                    </p>
-                    <p className="text-muted-foreground text-xs">
-                      {formatEmailDate(email.receivedAt)}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : (
-            <div className="h-full overflow-auto">
-              <table className="w-full text-sm">
-                <thead className="sticky top-0 border-b bg-muted/50">
-                  <tr>
-                    <th className="p-2 text-left font-medium">Subject</th>
-                    <th className="p-2 text-left font-medium">From</th>
-                    <th className="p-2 text-left font-medium">Date</th>
-                    <th className="p-2 text-right font-medium">Size</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {emails.map((email) => (
-                    <tr
-                      key={email.id}
-                      onClick={() => setSelectedEmailId(email.id)}
-                      className="cursor-pointer border-b transition-colors hover:bg-muted/50"
-                    >
-                      <td className="max-w-[200px] truncate p-2">
-                        {email.subject || '(No Subject)'}
-                      </td>
-                      <td className="max-w-[150px] truncate p-2 text-muted-foreground">
-                        {email.from}
-                      </td>
-                      <td className="whitespace-nowrap p-2 text-muted-foreground">
-                        {formatEmailDate(email.receivedAt)}
-                      </td>
-                      <td className="p-2 text-right text-muted-foreground">
-                        {formatEmailSize(email.size)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+        <div className="flex flex-1 overflow-hidden">
+          {hasFolderOperations && (
+            <EmailFoldersSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              selectedFolderId={selectedFolderId}
+              onFolderSelect={setSelectedFolderId}
+              refreshToken={folderRefreshToken}
+              onFolderChanged={handleFolderChanged}
+            />
           )}
+          <div className="flex-1 overflow-hidden">
+            {loading ? (
+              <div className="flex h-full items-center justify-center">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <div className="p-4 text-destructive text-sm">{error}</div>
+            ) : selectedEmailId && selectedEmail ? (
+              <div className="flex h-full flex-col">
+                <div className="border-b p-3">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedEmailId(null)}
+                    className="mb-2 text-muted-foreground text-xs hover:text-foreground"
+                  >
+                    &larr; Back to Inbox
+                  </button>
+                  <h2 className="font-medium text-sm">
+                    {selectedEmail.subject || '(No Subject)'}
+                  </h2>
+                  <p className="text-muted-foreground text-xs">
+                    From: {selectedEmail.from}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    To: {selectedEmail.to.join(', ')}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {formatEmailDate(selectedEmail.receivedAt)} ·{' '}
+                    {formatEmailSize(selectedEmail.size)}
+                  </p>
+                </div>
+                <div className="flex-1 overflow-auto p-3">
+                  <p className="text-muted-foreground text-sm italic">
+                    Email body parsing coming soon...
+                  </p>
+                </div>
+              </div>
+            ) : emails.length === 0 ? (
+              <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                <Mail className="h-8 w-8" />
+                <p className="text-sm">No emails yet</p>
+              </div>
+            ) : viewMode === 'list' ? (
+              <div className="h-full overflow-auto">
+                {emails.map((email) => (
+                  <button
+                    key={email.id}
+                    type="button"
+                    onClick={() => setSelectedEmailId(email.id)}
+                    className="flex w-full items-start gap-3 border-b p-3 text-left transition-colors hover:bg-muted/50"
+                  >
+                    <Mail className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-sm">
+                        {email.subject || '(No Subject)'}
+                      </p>
+                      <p className="truncate text-muted-foreground text-xs">
+                        {email.from}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {formatEmailDate(email.receivedAt)}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="h-full overflow-auto">
+                <table className="w-full text-sm">
+                  <thead className="sticky top-0 border-b bg-muted/50">
+                    <tr>
+                      <th className="p-2 text-left font-medium">Subject</th>
+                      <th className="p-2 text-left font-medium">From</th>
+                      <th className="p-2 text-left font-medium">Date</th>
+                      <th className="p-2 text-right font-medium">Size</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {emails.map((email) => (
+                      <tr
+                        key={email.id}
+                        onClick={() => setSelectedEmailId(email.id)}
+                        className="cursor-pointer border-b transition-colors hover:bg-muted/50"
+                      >
+                        <td className="max-w-[200px] truncate p-2">
+                          {email.subject || '(No Subject)'}
+                        </td>
+                        <td className="max-w-[150px] truncate p-2 text-muted-foreground">
+                          {email.from}
+                        </td>
+                        <td className="whitespace-nowrap p-2 text-muted-foreground">
+                          {formatEmailDate(email.receivedAt)}
+                        </td>
+                        <td className="p-2 text-right text-muted-foreground">
+                          {formatEmailSize(email.size)}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </FloatingWindow>

@@ -23,6 +23,8 @@ export * from './ai-conversations.js';
 export * from './chat.js';
 // OpenRouter model options
 export * from './openrouter.js';
+// Tree utilities
+export * from './tree/index.js';
 
 // Types
 export interface PingData {
