@@ -247,7 +247,7 @@ describe('DocumentsWindow', () => {
     fireEvent.change(fileInput, { target: { files: [file] } });
 
     await waitFor(() => {
-      expect(mockUploadFile).toHaveBeenCalledWith(file);
+      expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function));
     });
   });
 
@@ -302,6 +302,35 @@ describe('DocumentsWindow', () => {
     const window = screen.getByTestId('floating-window');
     const propKeys = JSON.parse(window.dataset['propsKeys'] || '[]');
     expect(propKeys).toContain('onDimensionsChange');
+  });
+
+  it('shows upload progress during file upload', async () => {
+    let resolveUpload: (value: { id: string; isDuplicate: boolean }) => void =
+      () => {};
+    mockUploadFile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve;
+        })
+    );
+
+    render(<DocumentsWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId('documents-file-input');
+    const file = new File(['hello'], 'test.txt', { type: 'text/plain' });
+
+    fireEvent.change(fileInput, { target: { files: [file] } });
+
+    await waitFor(() => {
+      expect(screen.getByText('Uploading...')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+
+    // Resolve the upload to clean up
+    resolveUpload({ id: 'uploaded-file-id', isDuplicate: false });
+    await waitFor(() => {
+      expect(screen.queryByText('Uploading...')).not.toBeInTheDocument();
+    });
   });
 
   it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {

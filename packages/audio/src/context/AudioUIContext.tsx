@@ -300,7 +300,10 @@ export interface AudioUIContextValue {
   /** Update an audio file's name */
   updateAudioName: (audioId: string, name: string) => Promise<void>;
   /** Upload a file, returns the file ID */
-  uploadFile: (file: File) => Promise<string>;
+  uploadFile: (
+    file: File,
+    onProgress?: (progress: number) => void
+  ) => Promise<string>;
   /** Format file size for display */
   formatFileSize: (bytes: number) => string;
   /** Format date for display */
@@ -354,7 +357,10 @@ export interface AudioUIProviderProps {
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;
   updateAudioName: (audioId: string, name: string) => Promise<void>;
-  uploadFile: (file: File) => Promise<string>;
+  uploadFile: (
+    file: File,
+    onProgress?: (progress: number) => void
+  ) => Promise<string>;
   formatFileSize: (bytes: number) => string;
   formatDate: (date: Date) => string;
   logError: (message: string, details?: string) => void;

@@ -1,6 +1,8 @@
+import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { UploadProgress } from '@/components/ui/upload-progress';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { DocumentDetail } from '@/pages/DocumentDetail';
@@ -36,6 +38,8 @@ export function DocumentsWindow({
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [showDropzone, setShowDropzone] = useState(false);
   const { uploadFile } = useFileUpload();
 
@@ -54,26 +58,43 @@ export function DocumentsWindow({
       if (files.length > 0) {
         let uploadedCount = 0;
         const errors: string[] = [];
-        await Promise.all(
-          files.map(async (file) => {
-            try {
-              await uploadFile(file);
-              uploadedCount++;
-            } catch (err) {
-              console.error(`Failed to upload ${file.name}:`, err);
-              errors.push(
-                `"${file.name}": ${
-                  err instanceof Error ? err.message : String(err)
-                }`
-              );
-            }
-          })
-        );
-        if (uploadedCount > 0) {
-          setRefreshToken((value) => value + 1);
-        }
-        if (errors.length > 0) {
-          setUploadError(errors.join('\n'));
+
+        setUploading(true);
+        setUploadProgress(0);
+        const progresses = Array<number>(files.length).fill(0);
+        const updateOverall = () => {
+          const total = progresses.reduce((sum, p) => sum + p, 0);
+          setUploadProgress(Math.round(total / files.length));
+        };
+
+        try {
+          await Promise.all(
+            files.map(async (file, index) => {
+              try {
+                await uploadFile(file, (progress) => {
+                  progresses[index] = progress;
+                  updateOverall();
+                });
+                uploadedCount++;
+              } catch (err) {
+                console.error(`Failed to upload ${file.name}:`, err);
+                errors.push(
+                  `"${file.name}": ${
+                    err instanceof Error ? err.message : String(err)
+                  }`
+                );
+              }
+            })
+          );
+          if (uploadedCount > 0) {
+            setRefreshToken((value) => value + 1);
+          }
+          if (errors.length > 0) {
+            setUploadError(errors.join('\n'));
+          }
+        } finally {
+          setUploading(false);
+          setUploadProgress(0);
         }
       }
       e.target.value = '';
@@ -123,7 +144,15 @@ export function DocumentsWindow({
               {uploadError}
             </div>
           )}
-          {selectedDocumentId ? (
+          {uploading ? (
+            <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="text-center">
+                <p className="font-medium">Uploading...</p>
+              </div>
+              <UploadProgress progress={uploadProgress} />
+            </div>
+          ) : selectedDocumentId ? (
             <div className="h-full overflow-auto p-3">
               <DocumentDetail
                 documentId={selectedDocumentId}

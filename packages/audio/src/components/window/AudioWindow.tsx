@@ -50,29 +50,48 @@ export function AudioWindow({
     fileInputRef.current?.click();
   }, []);
 
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
       const uploadedIds: string[] = [];
 
-      await Promise.all(
-        files.map(async (file) => {
-          try {
-            const fileId = await uploadFile(file);
-            uploadedIds.push(fileId);
-          } catch (err) {
-            console.error(`Failed to upload ${file.name}:`, err);
-          }
-        })
-      );
+      setUploading(true);
+      setUploadProgress(0);
+      const progresses = Array<number>(files.length).fill(0);
+      const updateOverall = () => {
+        const total = progresses.reduce((sum, p) => sum + p, 0);
+        setUploadProgress(Math.round(total / files.length));
+      };
 
-      // Add uploaded files to selected playlist if one is selected
-      if (selectedPlaylistId && selectedPlaylistId !== ALL_AUDIO_ID) {
+      try {
         await Promise.all(
-          uploadedIds.map((id) => addTrackToPlaylist(selectedPlaylistId, id))
+          files.map(async (file, index) => {
+            try {
+              const fileId = await uploadFile(file, (progress) => {
+                progresses[index] = progress;
+                updateOverall();
+              });
+              uploadedIds.push(fileId);
+            } catch (err) {
+              console.error(`Failed to upload ${file.name}:`, err);
+            }
+          })
         );
-      }
 
-      setRefreshToken((value) => value + 1);
+        // Add uploaded files to selected playlist if one is selected
+        if (selectedPlaylistId && selectedPlaylistId !== ALL_AUDIO_ID) {
+          await Promise.all(
+            uploadedIds.map((id) => addTrackToPlaylist(selectedPlaylistId, id))
+          );
+        }
+
+        setRefreshToken((value) => value + 1);
+      } finally {
+        setUploading(false);
+        setUploadProgress(0);
+      }
     },
     [uploadFile, selectedPlaylistId, addTrackToPlaylist]
   );
@@ -164,6 +183,8 @@ export function AudioWindow({
                 showDropzone={showDropzone}
                 onUploadFiles={handleUploadFiles}
                 selectedPlaylistId={selectedPlaylistId}
+                uploading={uploading}
+                uploadProgress={uploadProgress}
               />
             ) : (
               <AudioWindowTableView

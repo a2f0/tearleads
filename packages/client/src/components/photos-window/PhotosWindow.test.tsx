@@ -340,7 +340,9 @@ describe('PhotosWindow', () => {
 
     await user.upload(fileInput, file);
 
-    await waitFor(() => expect(mockUploadFile).toHaveBeenCalledWith(file));
+    await waitFor(() =>
+      expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function))
+    );
     expect(fileInput.value).toBe('');
   });
 
@@ -478,7 +480,7 @@ describe('PhotosWindow', () => {
       await user.upload(fileInput, file);
 
       await waitFor(() => {
-        expect(mockUploadFile).toHaveBeenCalledWith(file);
+        expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function));
       });
 
       await waitFor(() => {
@@ -505,7 +507,7 @@ describe('PhotosWindow', () => {
       await user.upload(fileInput, file);
 
       await waitFor(() => {
-        expect(mockUploadFile).toHaveBeenCalledWith(file);
+        expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function));
       });
 
       // Should NOT call addPhotoToAlbum when "All Photos" is selected

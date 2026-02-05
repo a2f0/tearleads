@@ -1,11 +1,19 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Download, ImageIcon, Info, Share2, Trash2 } from 'lucide-react';
+import {
+  Download,
+  ImageIcon,
+  Info,
+  Loader2,
+  Share2,
+  Trash2
+} from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
+import { UploadProgress } from '@/components/ui/upload-progress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
@@ -21,6 +29,8 @@ interface PhotosWindowContentProps {
   showDropzone?: boolean;
   onUploadFiles?: (files: File[]) => void | Promise<void>;
   selectedAlbumId?: string | null;
+  uploading?: boolean;
+  uploadProgress?: number;
 }
 
 export function PhotosWindowContent({
@@ -28,7 +38,9 @@ export function PhotosWindowContent({
   refreshToken,
   showDropzone = false,
   onUploadFiles,
-  selectedAlbumId
+  selectedAlbumId,
+  uploading = false,
+  uploadProgress = 0
 }: PhotosWindowContentProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -155,7 +167,15 @@ export function PhotosWindowContent({
 
       {isUnlocked && !error && (
         <div className="flex min-h-0 flex-1 flex-col">
-          {loading && !hasFetched ? (
+          {uploading ? (
+            <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              <div className="text-center">
+                <p className="font-medium">Uploading...</p>
+              </div>
+              <UploadProgress progress={uploadProgress} />
+            </div>
+          ) : loading && !hasFetched ? (
             <div className="rounded-lg border p-6 text-center text-muted-foreground text-xs">
               Loading photos...
             </div>

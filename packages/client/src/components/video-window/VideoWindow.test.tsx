@@ -239,7 +239,7 @@ describe('VideoWindow', () => {
     await user.upload(fileInput, file);
 
     await waitFor(() => {
-      expect(mockUploadFile).toHaveBeenCalledWith(file);
+      expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function));
     });
   });
 
@@ -266,7 +266,7 @@ describe('VideoWindow', () => {
     await user.upload(fileInput, file);
 
     await waitFor(() => {
-      expect(mockUploadFile).toHaveBeenCalledWith(file);
+      expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function));
     });
 
     await waitFor(() => {
@@ -295,7 +295,7 @@ describe('VideoWindow', () => {
     await user.upload(fileInput, file);
 
     await waitFor(() => {
-      expect(mockUploadFile).toHaveBeenCalledWith(file);
+      expect(mockUploadFile).toHaveBeenCalledWith(file, expect.any(Function));
     });
 
     // Should NOT call addTrackToPlaylist when "All Videos" is selected
@@ -325,5 +325,37 @@ describe('VideoWindow', () => {
       )
     ).not.toThrow();
     expect(screen.getByTestId('video-view-mode')).toBeInTheDocument();
+  });
+
+  it('shows upload progress during file upload', async () => {
+    const user = userEvent.setup();
+    let resolveUpload: (value: { id: string; isDuplicate: boolean }) => void =
+      () => {};
+    mockUploadFile.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveUpload = resolve;
+        })
+    );
+
+    render(<VideoWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId(
+      'video-file-input'
+    ) as HTMLInputElement;
+    const file = new File(['video'], 'clip.mp4', { type: 'video/mp4' });
+
+    await user.upload(fileInput, file);
+
+    await waitFor(() => {
+      expect(screen.getByText('Uploading...')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('progressbar')).toBeInTheDocument();
+
+    // Resolve the upload to clean up
+    resolveUpload({ id: 'uploaded-file-id', isDuplicate: false });
+    await waitFor(() => {
+      expect(screen.queryByText('Uploading...')).not.toBeInTheDocument();
+    });
   });
 });

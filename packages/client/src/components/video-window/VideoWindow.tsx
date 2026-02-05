@@ -1,7 +1,9 @@
+import { Loader2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { UploadProgress } from '@/components/ui/upload-progress';
 import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useFileUpload } from '@/hooks/useFileUpload';
@@ -77,39 +79,58 @@ function VideoWindowInner({
     fileInputRef.current?.click();
   }, []);
 
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
       const uploadedIds: string[] = [];
 
-      await Promise.all(
-        files.map(async (file) => {
-          if (!isVideoMimeType(file.type)) {
-            console.error(
-              `Failed to upload ${file.name}:`,
-              new Error(
-                `"${file.name}" has an unsupported video format. Supported formats: MP4, WebM, OGG, MOV, AVI, MKV, MPEG, 3GP.`
-              )
-            );
-            return;
-          }
+      setUploading(true);
+      setUploadProgress(0);
+      const progresses = Array<number>(files.length).fill(0);
+      const updateOverall = () => {
+        const total = progresses.reduce((sum, p) => sum + p, 0);
+        setUploadProgress(Math.round(total / files.length));
+      };
 
-          try {
-            const result = await uploadFile(file);
-            uploadedIds.push(result.id);
-          } catch (err) {
-            console.error(`Failed to upload ${file.name}:`, err);
-          }
-        })
-      );
-
-      // Add uploaded files to selected playlist if one is selected
-      if (selectedPlaylistId && selectedPlaylistId !== ALL_VIDEO_ID) {
+      try {
         await Promise.all(
-          uploadedIds.map((id) => addTrackToPlaylist(selectedPlaylistId, id))
-        );
-      }
+          files.map(async (file, index) => {
+            if (!isVideoMimeType(file.type)) {
+              console.error(
+                `Failed to upload ${file.name}:`,
+                new Error(
+                  `"${file.name}" has an unsupported video format. Supported formats: MP4, WebM, OGG, MOV, AVI, MKV, MPEG, 3GP.`
+                )
+              );
+              return;
+            }
 
-      setRefreshToken((value) => value + 1);
+            try {
+              const result = await uploadFile(file, (progress) => {
+                progresses[index] = progress;
+                updateOverall();
+              });
+              uploadedIds.push(result.id);
+            } catch (err) {
+              console.error(`Failed to upload ${file.name}:`, err);
+            }
+          })
+        );
+
+        // Add uploaded files to selected playlist if one is selected
+        if (selectedPlaylistId && selectedPlaylistId !== ALL_VIDEO_ID) {
+          await Promise.all(
+            uploadedIds.map((id) => addTrackToPlaylist(selectedPlaylistId, id))
+          );
+        }
+
+        setRefreshToken((value) => value + 1);
+      } finally {
+        setUploading(false);
+        setUploadProgress(0);
+      }
     },
     [uploadFile, selectedPlaylistId, addTrackToPlaylist]
   );
@@ -171,7 +192,15 @@ function VideoWindowInner({
             onPlaylistChanged={handlePlaylistChanged}
           />
           <div className="flex-1 overflow-hidden">
-            {activeVideoId ? (
+            {uploading ? (
+              <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="text-center">
+                  <p className="font-medium">Uploading...</p>
+                </div>
+                <UploadProgress progress={uploadProgress} />
+              </div>
+            ) : activeVideoId ? (
               <div className="h-full overflow-auto p-3">
                 <VideoDetail
                   videoId={activeVideoId}
