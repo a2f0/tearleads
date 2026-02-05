@@ -24,7 +24,7 @@ export function ModelsWindow({
   zIndex,
   initialDimensions
 }: ModelsWindowProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('cards');
+  const [viewMode, setViewMode] = useState<ViewMode>('table');
 
   return (
     <FloatingWindow

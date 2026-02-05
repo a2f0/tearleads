@@ -37,7 +37,7 @@ export function ModelsWindowMenuBar({
           checked={viewMode === 'table'}
           icon={<Table2 className="h-3 w-3" />}
         >
-          Compact Table
+          Table
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
