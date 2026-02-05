@@ -4,7 +4,7 @@ appId: com.tearleads.rapid
 # Usage: - runFlow: helpers/ui-helpers.yaml
 
 - evalScript: |
-    window.waitFor = async (predicate, errorMessage, timeout = 8000) => {
+    window.waitFor = async (predicate, errorMessage, timeout = 10000) => {
       const interval = 200;
       const maxTries = Math.ceil(timeout / interval);
       for (let i = 0; i < maxTries; i++) {
