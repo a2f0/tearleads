@@ -1,4 +1,5 @@
 appId: com.tearleads.rapid
+androidWebViewHierarchy: devtools
 ---
 - launchApp:
     clearState: true
@@ -11,6 +12,13 @@ appId: com.tearleads.rapid
 # Navigate to settings with mobile/desktop handling
 - evalScript: |
     (async () => {
+      const isAndroid = /Android/i.test(navigator.userAgent);
+      if (isAndroid) {
+        window.history.pushState({}, '', '/settings');
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        return 'navigated-android';
+      }
+
       const settingsButton = document.querySelector(
         '[data-testid="settings-button"]'
       );
