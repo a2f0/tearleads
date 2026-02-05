@@ -17,7 +17,7 @@ appId: com.tearleads.rapid
     window.waitForElement = (selector, timeout) => {
       return window.waitFor(
         () => document.querySelector(selector),
-        `Element not found: ${selector}`,
+        'Element not found: ' + selector,
         timeout
       );
     };
@@ -28,7 +28,7 @@ appId: com.tearleads.rapid
           const element = document.querySelector(selector);
           return element && element.getAttribute(attribute) === expectedValue;
         },
-        `Expected ${selector} ${attribute}=${expectedValue}`,
+        'Expected ' + selector + ' ' + attribute + '=' + expectedValue,
         timeout
       );
     };
