@@ -1,9 +1,6 @@
 import type { Command } from 'commander';
-import {
-  closePostgresPool,
-  getPostgresConnectionInfo,
-  getPostgresPool
-} from '../lib/postgres.js';
+import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
+import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 import { closeRedisClient } from '../lib/redis.js';
 import { getLatestLastActiveByUserIds } from '../lib/sessions.js';
 
@@ -19,30 +16,11 @@ type SyncLastActiveResult = {
 
 const DEFAULT_BATCH_SIZE = 100;
 
-function buildConnectionLabel(): string {
-  const info = getPostgresConnectionInfo();
-  const database = info.database ?? null;
-  if (!database) {
-    throw new Error(
-      'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).'
-    );
-  }
-
-  const labelParts = [
-    info.host ? `host=${info.host}` : null,
-    info.port ? `port=${info.port}` : null,
-    info.user ? `user=${info.user}` : null,
-    `database=${database}`
-  ].filter((value): value is string => Boolean(value));
-
-  return labelParts.join(', ');
-}
-
 async function syncLastActive(
   dryRun: boolean,
   batchSize: number
 ): Promise<SyncLastActiveResult> {
-  const label = buildConnectionLabel();
+  const label = buildPostgresConnectionLabel();
   console.log(`Postgres connection: ${label}`);
 
   const pool = await getPostgresPool();

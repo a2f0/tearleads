@@ -1,10 +1,7 @@
 import type { Command } from 'commander';
+import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
 import { normalizeEmail } from '../lib/create-account.js';
-import {
-  closePostgresPool,
-  getPostgresConnectionInfo,
-  getPostgresPool
-} from '../lib/postgres.js';
+import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 
 type ParsedArgs = {
   email: string | null;
@@ -71,27 +68,8 @@ function parseArgs(argv: string[]): ParsedArgs {
   return { email, help };
 }
 
-function buildConnectionLabel(): string {
-  const info = getPostgresConnectionInfo();
-  const database = info.database ?? null;
-  if (!database) {
-    throw new Error(
-      'Missing Postgres connection info. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (plus PGHOST/PGPORT/PGUSER as needed).'
-    );
-  }
-
-  const labelParts = [
-    info.host ? `host=${info.host}` : null,
-    info.port ? `port=${info.port}` : null,
-    info.user ? `user=${info.user}` : null,
-    `database=${database}`
-  ].filter((value): value is string => Boolean(value));
-
-  return labelParts.join(', ');
-}
-
 async function deleteAccount(email: string): Promise<void> {
-  const label = buildConnectionLabel();
+  const label = buildPostgresConnectionLabel();
   const pool = await getPostgresPool();
   const client = await pool.connect();
 
