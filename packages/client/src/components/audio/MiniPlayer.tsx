@@ -1,5 +1,5 @@
 import { Copy, Music, Pause, Play, SkipBack, Square, X } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useAudioContext } from '@/audio';
@@ -24,7 +24,10 @@ export function MiniPlayer() {
     y: number;
   } | null>(null);
 
-  const audioWindow = windows.find((w) => w.type === 'audio');
+  const audioWindow = useMemo(
+    () => windows.find((w) => w.type === 'audio'),
+    [windows]
+  );
 
   const isOnAudioPage = location.pathname.startsWith('/audio');
   const isAudioWindowVisible = windows.some(
@@ -60,16 +63,19 @@ export function MiniPlayer() {
       windowId = openWindow('audio');
     }
 
-    const preMaximizeDimensions =
-      audioWindow?.dimensions?.preMaximizeDimensions ??
-      (audioWindow?.dimensions && !audioWindow.dimensions.isMaximized
-        ? {
-            width: audioWindow.dimensions.width,
-            height: audioWindow.dimensions.height,
-            x: audioWindow.dimensions.x,
-            y: audioWindow.dimensions.y
-          }
-        : undefined);
+    let preMaximizeDimensions = audioWindow?.dimensions?.preMaximizeDimensions;
+    if (
+      !preMaximizeDimensions &&
+      audioWindow?.dimensions &&
+      !audioWindow.dimensions.isMaximized
+    ) {
+      preMaximizeDimensions = {
+        width: audioWindow.dimensions.width,
+        height: audioWindow.dimensions.height,
+        x: audioWindow.dimensions.x,
+        y: audioWindow.dimensions.y
+      };
+    }
 
     updateWindowDimensions(windowId, {
       width: window.innerWidth,
