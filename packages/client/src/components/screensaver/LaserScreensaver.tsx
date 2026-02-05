@@ -17,7 +17,7 @@ const BEAM_COUNT = 6;
 const TRAIL_LENGTH = 100;
 const MIN_SPEED = 3;
 const MAX_SPEED = 6;
-const MOUSE_MOVE_THRESHOLD = 3;
+const DISMISS_GRACE_PERIOD_MS = 2000;
 
 function initializeBeams(
   width: number,
@@ -55,15 +55,17 @@ export function LaserScreensaver() {
   useEffect(() => {
     if (!isActive) return;
 
-    const dismiss = () => deactivate();
+    let isDismissable = false;
+    const dismiss = () => {
+      if (!isDismissable) return;
+      deactivate();
+    };
+    const graceTimer = window.setTimeout(() => {
+      isDismissable = true;
+    }, DISMISS_GRACE_PERIOD_MS);
 
-    const handleMouseMove = (e: MouseEvent) => {
-      if (
-        Math.abs(e.movementX) > MOUSE_MOVE_THRESHOLD ||
-        Math.abs(e.movementY) > MOUSE_MOVE_THRESHOLD
-      ) {
-        dismiss();
-      }
+    const handleMouseMove = () => {
+      dismiss();
     };
 
     document.addEventListener('keydown', dismiss);
@@ -76,6 +78,7 @@ export function LaserScreensaver() {
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mousedown', dismiss);
       document.removeEventListener('touchstart', dismiss);
+      window.clearTimeout(graceTimer);
     };
   }, [isActive, deactivate]);
 

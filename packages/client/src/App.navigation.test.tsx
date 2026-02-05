@@ -1,9 +1,18 @@
 import { ThemeProvider } from '@rapid/ui';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within
+} from '@testing-library/react';
 import userEvent, { type UserEvent } from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setupScreensaverMock } from '@/test/screensaver-mock';
+import {
+  mockActivateScreensaver,
+  setupScreensaverMock
+} from '@/test/screensaver-mock';
 import App from './App';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { Contacts } from './pages/contacts';
@@ -14,6 +23,7 @@ import { Settings } from './pages/Settings';
 import { Sqlite } from './pages/Sqlite';
 
 const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
+const mockLock = vi.fn().mockResolvedValue(undefined);
 
 // Mock database context - shared mock factory
 const createDatabaseContextMock = () => ({
@@ -32,7 +42,8 @@ const createDatabaseContextMock = () => ({
   createInstance: vi.fn(async () => 'new-instance'),
   switchInstance: vi.fn(async () => true),
   deleteInstance: vi.fn(async () => {}),
-  refreshInstances: vi.fn(async () => {})
+  refreshInstances: vi.fn(async () => {}),
+  lock: mockLock
 });
 
 vi.mock('@/db/hooks', () => ({
@@ -202,6 +213,19 @@ describe('App Integration', () => {
       await waitFor(() => {
         expect(aside).toHaveClass('lg:hidden');
       });
+    });
+
+    it('locks the instance from the start menu context menu', async () => {
+      const startButton = screen.getByTestId('start-button');
+      fireEvent.contextMenu(startButton);
+
+      const lockItem = await screen.findByText('Lock Instance');
+      await user.click(lockItem);
+
+      await waitFor(() => {
+        expect(mockLock).toHaveBeenCalledWith(true);
+      });
+      expect(mockActivateScreensaver).toHaveBeenCalledTimes(1);
     });
 
     describe('mobile menu navigation', () => {
