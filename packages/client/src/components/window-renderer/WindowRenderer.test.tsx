@@ -1069,7 +1069,12 @@ function wrapper({ children }: { children: ReactNode }) {
   return <WindowManagerProvider>{children}</WindowManagerProvider>;
 }
 
-type WindowClickCase = [label: string, type: string, id: string, testId: string];
+type WindowClickCase = [
+  label: string,
+  type: string,
+  id: string,
+  testId: string
+];
 type WindowMinimizeCase = [
   label: string,
   type: string,
@@ -1283,13 +1288,12 @@ describe('WindowRenderer', () => {
     ['help', 'help', 'help-1', 'help-window-help-1']
   ];
 
-  it.each(renderCases)(
-    'renders %s window for %s type',
-    (_label, type, id, testId) => {
-      renderSingleWindow(type, id);
-      expect(screen.getByTestId(testId)).toBeInTheDocument();
-    }
-  );
+  it.each(
+    renderCases
+  )('renders %s window for %s type', (_label, type, id, testId) => {
+    renderSingleWindow(type, id);
+    expect(screen.getByTestId(testId)).toBeInTheDocument();
+  });
 
   const closeCases: WindowClickCase[] = [
     ['notes', 'notes', 'notes-1', 'close-notes-1'],
@@ -1304,7 +1308,12 @@ describe('WindowRenderer', () => {
     ['photos', 'photos', 'photos-1', 'close-photos-1'],
     ['models', 'models', 'models-1', 'close-models-1'],
     ['keychain', 'keychain', 'keychain-1', 'close-keychain-1'],
-    ['local storage', 'local-storage', 'local-storage-1', 'close-local-storage-1'],
+    [
+      'local storage',
+      'local-storage',
+      'local-storage-1',
+      'close-local-storage-1'
+    ],
     ['analytics', 'analytics', 'analytics-1', 'close-analytics-1'],
     ['audio', 'audio', 'audio-1', 'close-audio-1'],
     ['admin', 'admin', 'admin-1', 'close-admin-1'],
@@ -1321,15 +1330,14 @@ describe('WindowRenderer', () => {
     ['help', 'help', 'help-1', 'close-help-1']
   ];
 
-  it.each(closeCases)(
-    'calls closeWindow when %s close button is clicked',
-    async (_label, type, id, testId) => {
-      const user = userEvent.setup();
-      renderSingleWindow(type, id);
-      await user.click(screen.getByTestId(testId));
-      expect(mockCloseWindow).toHaveBeenCalledWith(id);
-    }
-  );
+  it.each(
+    closeCases
+  )('calls closeWindow when %s close button is clicked', async (_label, type, id, testId) => {
+    const user = userEvent.setup();
+    renderSingleWindow(type, id);
+    await user.click(screen.getByTestId(testId));
+    expect(mockCloseWindow).toHaveBeenCalledWith(id);
+  });
 
   const focusCases: WindowClickCase[] = [
     ['notes', 'notes', 'notes-1', 'notes-window-notes-1'],
@@ -1368,15 +1376,14 @@ describe('WindowRenderer', () => {
     ['help', 'help', 'help-1', 'help-window-help-1']
   ];
 
-  it.each(focusCases)(
-    'calls focusWindow when %s window is clicked',
-    async (_label, type, id, testId) => {
-      const user = userEvent.setup();
-      renderSingleWindow(type, id);
-      await user.click(screen.getByTestId(testId));
-      expect(mockFocusWindow).toHaveBeenCalledWith(id);
-    }
-  );
+  it.each(
+    focusCases
+  )('calls focusWindow when %s window is clicked', async (_label, type, id, testId) => {
+    const user = userEvent.setup();
+    renderSingleWindow(type, id);
+    await user.click(screen.getByTestId(testId));
+    expect(mockFocusWindow).toHaveBeenCalledWith(id);
+  });
 
   const minimizeCases: WindowMinimizeCase[] = [
     [
@@ -1528,15 +1535,14 @@ describe('WindowRenderer', () => {
     ]
   ];
 
-  it.each(minimizeCases)(
-    'calls minimizeWindow when %s minimize button is clicked',
-    async (_label, type, id, testId, dimensions) => {
-      const user = userEvent.setup();
-      renderSingleWindow(type, id);
-      await user.click(screen.getByTestId(testId));
-      expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
-    }
-  );
+  it.each(
+    minimizeCases
+  )('calls minimizeWindow when %s minimize button is clicked', async (_label, type, id, testId, dimensions) => {
+    const user = userEvent.setup();
+    renderSingleWindow(type, id);
+    await user.click(screen.getByTestId(testId));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
+  });
 
   it('renders all twenty-one window types together', () => {
     mockWindows = [
