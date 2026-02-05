@@ -263,7 +263,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
         ```bash
         if [ -n "$RUN_ID" ]; then
-          gh run cancel $RUN_ID
+          gh run cancel $RUN_ID -R "$REPO"
         fi
         ```
 
