@@ -96,7 +96,15 @@ export function BackupWindow({
 
         {/* Tab content */}
         <div role="tabpanel" className="flex-1 overflow-y-auto p-4">
-          {activeTab === 'create' && <CreateBackupTab />}
+          {activeTab === 'create' && (
+            <CreateBackupTab
+              onSuccess={({ stored }) => {
+                if (stored) {
+                  setActiveTab('stored');
+                }
+              }}
+            />
+          )}
           {activeTab === 'restore' && <RestoreBackupTab />}
           {activeTab === 'stored' && <StoredBackupsTab />}
         </div>

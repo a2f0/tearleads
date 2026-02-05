@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { HEADER_SIZE, MAGIC_BYTES, MAX_BLOB_CHUNK_SIZE } from './constants';
+import {
+  FORMAT_VERSION,
+  HEADER_SIZE,
+  MAGIC_BYTES,
+  MAX_BLOB_CHUNK_SIZE
+} from './constants';
 import {
   BackupDecodeError,
   decode,
@@ -16,6 +21,7 @@ describe('encoder', () => {
     createdAt: '2026-02-02T12:00:00.000Z',
     platform: 'web',
     appVersion: '1.0.0',
+    formatVersion: FORMAT_VERSION,
     blobCount: 0,
     blobTotalSize: 0,
     instanceName: 'Test Instance'
@@ -243,6 +249,7 @@ describe('decoder', () => {
     createdAt: '2026-02-02T12:00:00.000Z',
     platform: 'web',
     appVersion: '1.0.0',
+    formatVersion: FORMAT_VERSION,
     blobCount: 0,
     blobTotalSize: 0,
     instanceName: 'Test Instance'
@@ -535,6 +542,7 @@ describe('encoder and decoder integration', () => {
       createdAt: new Date().toISOString(),
       platform: 'electron',
       appVersion: '2.5.0',
+      formatVersion: FORMAT_VERSION,
       blobCount: 3,
       blobTotalSize: 300,
       instanceName: 'Production Database'
@@ -626,6 +634,7 @@ describe('encoder and decoder integration', () => {
       createdAt: new Date().toISOString(),
       platform: 'web',
       appVersion: '1.0.0',
+      formatVersion: FORMAT_VERSION,
       blobCount: 0,
       blobTotalSize: 0
     };
@@ -650,6 +659,7 @@ describe('encoder and decoder integration', () => {
       createdAt: new Date().toISOString(),
       platform: 'ios',
       appVersion: '1.0.0',
+      formatVersion: FORMAT_VERSION,
       blobCount: 1,
       blobTotalSize: 256
     };

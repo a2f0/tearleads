@@ -53,7 +53,15 @@ export function Backups({ showBackLink = true }: BackupsProps) {
           ))}
         </div>
 
-        {activeTab === 'create' && <CreateBackupTab />}
+        {activeTab === 'create' && (
+          <CreateBackupTab
+            onSuccess={({ stored }) => {
+              if (stored) {
+                setActiveTab('stored');
+              }
+            }}
+          />
+        )}
         {activeTab === 'restore' && <RestoreBackupTab />}
         {activeTab === 'stored' && <StoredBackupsTab />}
       </div>

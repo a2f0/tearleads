@@ -1,6 +1,10 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
+import { getCurrentInstanceId, getDatabaseAdapter } from '@/db';
+import { createBackup } from '@/db/backup';
+import { getActiveInstance } from '@/db/instance-registry';
+
 // Mock dependencies - returns null to skip estimation
 vi.mock('@/db', () => ({
   getCurrentInstanceId: vi.fn(() => null),
@@ -36,6 +40,11 @@ vi.mock('@/storage/opfs', () => ({
 }));
 
 import { CreateBackupTab } from './CreateBackupTab';
+
+const mockCreateBackup = vi.mocked(createBackup);
+const mockGetCurrentInstanceId = vi.mocked(getCurrentInstanceId);
+const mockGetDatabaseAdapter = vi.mocked(getDatabaseAdapter);
+const mockGetActiveInstance = vi.mocked(getActiveInstance);
 
 describe('CreateBackupTab', () => {
   it('renders form elements', async () => {
@@ -97,5 +106,39 @@ describe('CreateBackupTab', () => {
     expect(checkbox).toBeChecked();
     fireEvent.click(checkbox);
     expect(checkbox).not.toBeChecked();
+  });
+
+  it('hides setup UI and shows starting state during backup', async () => {
+    mockGetCurrentInstanceId.mockReturnValue('instance-1');
+    mockGetDatabaseAdapter.mockReturnValue({} as never);
+    mockGetActiveInstance.mockResolvedValue({
+      id: 'instance-1',
+      name: 'Test Instance',
+      createdAt: 1,
+      lastAccessedAt: 1
+    });
+    mockCreateBackup.mockImplementation(
+      () => new Promise<Uint8Array>(() => {})
+    );
+
+    render(<CreateBackupTab />);
+    await waitFor(() => {
+      expect(screen.getByLabelText('Backup Password')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText('Backup Password'), {
+      target: { value: 'password123' }
+    });
+    fireEvent.change(screen.getByLabelText('Confirm Password'), {
+      target: { value: 'password123' }
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Create Backup' }));
+
+    expect(await screen.findByText('Starting backup...')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Backup Password')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Create Backup' })
+    ).not.toBeInTheDocument();
   });
 });

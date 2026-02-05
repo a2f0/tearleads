@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -58,7 +58,11 @@ async function getOrInitFileStorage(
   return initializeFileStorage(encryptionKey, instanceId);
 }
 
-export function CreateBackupTab() {
+interface CreateBackupTabProps {
+  onSuccess?: ((options: { stored: boolean }) => void) | undefined;
+}
+
+export function CreateBackupTab({ onSuccess }: CreateBackupTabProps) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [includeBlobs, setIncludeBlobs] = useState(true);
@@ -71,6 +75,13 @@ export function CreateBackupTab() {
     blobCount: number;
     blobTotalSize: number;
   } | null>(null);
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   // Estimate backup size on mount or when includeBlobs changes
   const updateEstimate = useCallback(async () => {
@@ -128,7 +139,7 @@ export function CreateBackupTab() {
 
     try {
       setIsCreating(true);
-      setProgress({ phase: 'Starting', percent: 0 });
+      setProgress(null);
 
       const instanceId = getCurrentInstanceId();
       if (!instanceId) {
@@ -160,19 +171,28 @@ export function CreateBackupTab() {
       }
 
       setProgress({ phase: 'Complete', percent: 100 });
+      onSuccess?.({ stored: isStorageSupported });
 
       // Reset form after short delay
       setTimeout(() => {
-        setPassword('');
-        setConfirmPassword('');
-        setProgress(null);
-        setSuccess(null);
+        if (isMountedRef.current) {
+          setPassword('');
+          setConfirmPassword('');
+          setProgress(null);
+          setSuccess(null);
+        }
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create backup');
-      setProgress(null);
+      if (isMountedRef.current) {
+        setError(
+          err instanceof Error ? err.message : 'Failed to create backup'
+        );
+        setProgress(null);
+      }
     } finally {
-      setIsCreating(false);
+      if (isMountedRef.current) {
+        setIsCreating(false);
+      }
     }
   };
 
@@ -199,60 +219,70 @@ export function CreateBackupTab() {
         )}
       </div>
 
-      <div className="space-y-3">
-        <div>
-          <label
-            htmlFor="backup-password"
-            className="mb-1 block text-xs text-zinc-400"
-          >
-            Backup Password
-          </label>
-          <Input
-            id="backup-password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="Enter backup password"
-            disabled={isCreating}
-          />
-        </div>
+      {!isCreating && (
+        <div className="space-y-3">
+          <div>
+            <label
+              htmlFor="backup-password"
+              className="mb-1 block text-xs text-zinc-400"
+            >
+              Backup Password
+            </label>
+            <Input
+              id="backup-password"
+              type="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter backup password"
+              disabled={isCreating}
+            />
+          </div>
 
-        <div>
-          <label
-            htmlFor="confirm-password"
-            className="mb-1 block text-xs text-zinc-400"
-          >
-            Confirm Password
-          </label>
-          <Input
-            id="confirm-password"
-            type="password"
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            placeholder="Confirm password"
-            disabled={isCreating}
-          />
-        </div>
+          <div>
+            <label
+              htmlFor="confirm-password"
+              className="mb-1 block text-xs text-zinc-400"
+            >
+              Confirm Password
+            </label>
+            <Input
+              id="confirm-password"
+              type="password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder="Confirm password"
+              disabled={isCreating}
+            />
+          </div>
 
-        <label className="flex items-center gap-2">
-          <input
-            type="checkbox"
-            checked={includeBlobs}
-            onChange={(e) => setIncludeBlobs(e.target.checked)}
-            disabled={isCreating}
-            className="h-4 w-4 rounded border-zinc-600 bg-zinc-800"
-          />
-          <span className="text-sm text-zinc-300">
-            Include file attachments
-            {estimatedSize && estimatedSize.blobCount > 0 && (
-              <span className="ml-1 text-zinc-500">
-                ({estimatedSize.blobCount} files,{' '}
-                {formatBytes(estimatedSize.blobTotalSize)})
-              </span>
-            )}
-          </span>
-        </label>
-      </div>
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={includeBlobs}
+              onChange={(e) => setIncludeBlobs(e.target.checked)}
+              disabled={isCreating}
+              className="h-4 w-4 rounded border-zinc-600 bg-zinc-800"
+            />
+            <span className="text-sm text-zinc-300">
+              Include file attachments
+              {estimatedSize && estimatedSize.blobCount > 0 && (
+                <span className="ml-1 text-zinc-500">
+                  ({estimatedSize.blobCount} files,{' '}
+                  {formatBytes(estimatedSize.blobTotalSize)})
+                </span>
+              )}
+            </span>
+          </label>
+        </div>
+      )}
+
+      {isCreating && !progress && (
+        <div className="rounded-md border border-zinc-700 bg-zinc-800/50 p-3 text-sm text-zinc-300">
+          Starting backup...
+        </div>
+      )}
 
       {progress && (
         <div className="rounded-md border border-zinc-700 bg-zinc-800/50 p-3">
@@ -286,13 +316,15 @@ export function CreateBackupTab() {
         </div>
       )}
 
-      <Button
-        type="submit"
-        disabled={isCreating || !password || !confirmPassword}
-        className="w-full"
-      >
-        {isCreating ? 'Creating Backup...' : 'Create Backup'}
-      </Button>
+      {!isCreating && (
+        <Button
+          type="submit"
+          disabled={!password || !confirmPassword}
+          className="w-full"
+        >
+          Create Backup
+        </Button>
+      )}
     </form>
   );
 }

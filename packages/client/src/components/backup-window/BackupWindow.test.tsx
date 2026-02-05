@@ -5,7 +5,18 @@ import { BackupWindow } from './BackupWindow';
 
 // Mock the child components to avoid testing their internals here
 vi.mock('./CreateBackupTab', () => ({
-  CreateBackupTab: () => <div data-testid="create-backup-tab">Create Tab</div>
+  CreateBackupTab: ({
+    onSuccess
+  }: {
+    onSuccess?: (options: { stored: boolean }) => void;
+  }) => (
+    <div>
+      <button type="button" onClick={() => onSuccess?.({ stored: true })}>
+        Trigger Success
+      </button>
+      <div data-testid="create-backup-tab">Create Tab</div>
+    </div>
+  )
 }));
 
 vi.mock('./RestoreBackupTab', () => ({
@@ -77,6 +88,15 @@ describe('BackupWindow', () => {
 
     expect(screen.queryByTestId('create-backup-tab')).not.toBeInTheDocument();
     expect(screen.queryByTestId('restore-backup-tab')).not.toBeInTheDocument();
+    expect(screen.getByTestId('stored-backup-tab')).toBeInTheDocument();
+  });
+
+  it('switches to Stored tab after create success', () => {
+    render(<BackupWindow {...defaultProps} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Trigger Success' }));
+
+    expect(screen.queryByTestId('create-backup-tab')).not.toBeInTheDocument();
     expect(screen.getByTestId('stored-backup-tab')).toBeInTheDocument();
   });
 

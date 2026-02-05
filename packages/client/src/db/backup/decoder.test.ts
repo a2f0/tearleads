@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { MAGIC_BYTES } from './constants';
+import { FORMAT_VERSION, MAGIC_BYTES } from './constants';
 import {
   BackupDecodeError,
   decode,
@@ -15,6 +15,7 @@ describe('decoder', () => {
     createdAt: '2026-02-02T12:00:00.000Z',
     platform: 'web',
     appVersion: '1.0.0',
+    formatVersion: FORMAT_VERSION,
     blobCount: 0,
     blobTotalSize: 0,
     instanceName: 'Test Instance'
