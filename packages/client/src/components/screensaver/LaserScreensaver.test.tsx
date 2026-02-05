@@ -44,7 +44,6 @@ beforeEach(() => {
 afterEach(() => {
   // Restore original
   HTMLCanvasElement.prototype.getContext = originalGetContext;
-  vi.useRealTimers();
 });
 
 function TestWrapper({ children }: { children: React.ReactNode }) {
@@ -114,8 +113,7 @@ describe('LaserScreensaver', () => {
   });
 
   it('dismisses on keydown', async () => {
-    vi.useFakeTimers();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(
       <TestWrapper>
@@ -128,7 +126,7 @@ describe('LaserScreensaver', () => {
     expect(document.querySelector('canvas')).toBeInTheDocument();
 
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      await new Promise((resolve) => setTimeout(resolve, 2100));
     });
 
     await user.keyboard('{Escape}');
@@ -136,8 +134,7 @@ describe('LaserScreensaver', () => {
   });
 
   it('dismisses on mousedown', async () => {
-    vi.useFakeTimers();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(
       <TestWrapper>
@@ -150,7 +147,7 @@ describe('LaserScreensaver', () => {
     expect(document.querySelector('canvas')).toBeInTheDocument();
 
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      await new Promise((resolve) => setTimeout(resolve, 2100));
     });
 
     await user.click(document.body);
@@ -158,8 +155,7 @@ describe('LaserScreensaver', () => {
   });
 
   it('dismisses after grace period on mouse movement', async () => {
-    vi.useFakeTimers();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(
       <TestWrapper>
@@ -172,7 +168,7 @@ describe('LaserScreensaver', () => {
     expect(document.querySelector('canvas')).toBeInTheDocument();
 
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      await new Promise((resolve) => setTimeout(resolve, 2100));
     });
 
     await act(async () => {
@@ -187,8 +183,7 @@ describe('LaserScreensaver', () => {
   });
 
   it('does not dismiss during the grace period', async () => {
-    vi.useFakeTimers();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(
       <TestWrapper>
@@ -213,8 +208,7 @@ describe('LaserScreensaver', () => {
   });
 
   it('dismisses on touchstart', async () => {
-    vi.useFakeTimers();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
 
     render(
       <TestWrapper>
@@ -227,7 +221,7 @@ describe('LaserScreensaver', () => {
     expect(document.querySelector('canvas')).toBeInTheDocument();
 
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      await new Promise((resolve) => setTimeout(resolve, 2100));
     });
 
     await act(async () => {
@@ -285,8 +279,7 @@ describe('LaserScreensaver', () => {
   });
 
   it('cleans up animation on deactivation', async () => {
-    vi.useFakeTimers();
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    const user = userEvent.setup();
     const cancelAnimationFrameSpy = vi.spyOn(window, 'cancelAnimationFrame');
 
     render(
@@ -300,7 +293,7 @@ describe('LaserScreensaver', () => {
     expect(document.querySelector('canvas')).toBeInTheDocument();
 
     await act(async () => {
-      vi.advanceTimersByTime(2000);
+      await new Promise((resolve) => setTimeout(resolve, 2100));
     });
 
     // Dismiss the screensaver
