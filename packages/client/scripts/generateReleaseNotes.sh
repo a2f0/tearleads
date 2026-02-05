@@ -107,7 +107,7 @@ else
     # Use || true to prevent set -e from exiting if gh pr view fails
     PR_DATA_ITEMS=""
     for PR_NUM in $PR_NUMBERS; do
-        PR_DATA=$(gh pr view "$PR_NUM" --json number,title,body 2>/dev/null || true)
+        PR_DATA=$(gh pr view "$PR_NUM" --json number,title,body,labels 2>/dev/null || true)
         if [ -n "$PR_DATA" ]; then
             if [ -z "$PR_DATA_ITEMS" ]; then
                 PR_DATA_ITEMS="$PR_DATA"
@@ -120,7 +120,28 @@ else
 
     # Process the JSON array of PRs using jq for cleaner formatting
     # Use printf instead of echo to avoid escape sequence interpretation
-    COMMITS=$(printf '%s' "$PR_DATA_LIST" | jq -r 'map("\n## PR #\(.number): \(.title)\n\(.body // "" | split("\n") | .[0:50] | join("\n"))") | join("")')
+    COMMITS=$(printf '%s' "$PR_DATA_LIST" | jq -r '
+      def release_section($body):
+        if ($body | length) == 0 then "" else
+          ($body
+            | split("\n")
+            | . as $lines
+            | ("\n" + ($lines | join("\n")) + "\n") as $text
+            | (if ($text | test("\\n##?\\s*Release Notes\\s*\\n"; "i")) then
+                ($text | capture("\\n##?\\s*Release Notes\\s*\\n(?<section>[\\s\\S]*?)(\\n##\\s|$)").section)
+              else ""
+              end)
+        end;
+
+      def is_internal_label($labels):
+        ["chore", "infra", "ci", "tests", "test", "deps", "dependencies", "refactor", "docs", "build", "tooling"] as $internal_labels |
+        ($labels | map(.name | ascii_downcase) | any(IN($internal_labels[])));
+
+      map(select(.labels == null or (is_internal_label(.labels) | not))
+        | . as $pr
+        | (release_section($pr.body // "") | if length > 0 then . else $pr.title end) as $summary
+        | "\n## PR #\($pr.number): \($pr.title)\n\($summary)"
+      ) | if length > 0 then join("") else "No user-visible changes found in PRs." end')
 fi
 
 if [ -z "$COMMITS" ]; then
@@ -130,13 +151,16 @@ fi
 
 call_anthropic_api() {
     model="$1"
-    printf '%s' "$COMMITS" | jq -Rs --arg model "$model" '
+    max_tokens="$2"
+    printf '%s' "$COMMITS" | jq -Rs --arg model "$model" --arg max_tokens "$max_tokens" '
 {
     model: $model,
-    max_tokens: 150,
+    max_tokens: ($max_tokens | tonumber),
+    temperature: 0,
+    system: "You are a release-notes generator. Only use facts explicitly stated in the provided PR titles/bodies. Do not infer or invent features. If nothing user-visible is present, output a single bullet: • No user-visible changes.",
     messages: [{
         role: "user",
-        content: ("Generate release notes for a mobile app. 2-3 bullet points using • character. Plain text only, no markdown.\n\nRULES:\n- Under 500 characters total (Google Play Store limit)\n- Start DIRECTLY with the first • bullet - no preamble or introduction\n- No header or version number\n- Focus on user-visible changes only\n- Skip internal PRs (refactoring, docs, CI, tests, deps)\n\nPull Requests:\n" + .)
+        content: ("Generate release notes for a mobile app. 2-3 bullet points using • character. Plain text only, no markdown.\n\nRULES:\n- Under 500 characters total (Google Play Store limit)\n- Start DIRECTLY with the first • bullet - no preamble or introduction\n- No header or version number\n- Focus on user-visible changes only\n- Only include changes explicitly stated below; do not infer\n- If nothing user-visible, output exactly: • No user-visible changes\n\nPull Requests:\n" + .)
     }]
 }' | curl -s https://api.anthropic.com/v1/messages \
         -H "Content-Type: application/json" \
@@ -153,9 +177,25 @@ extract_error() {
     printf '%s' "$1" | jq -r '.error.message // .error.type // empty'
 }
 
+is_valid_notes() {
+    notes="$1"
+    # Must start with bullet
+    printf '%s' "$notes" | grep -q '^• ' || return 1
+    # 1 to 3 bullets
+    bullet_count=$(printf '%s' "$notes" | grep -c '^• ' || true)
+    if [ "$bullet_count" -gt 3 ]; then
+        return 1
+    fi
+    # Under 500 characters
+    if [ "$(printf '%s' "$notes" | wc -c | tr -d ' ')" -ge 500 ]; then
+        return 1
+    fi
+    return 0
+}
+
 # Try primary model
 echo "Trying model: $ANTHROPIC_MODEL" >&2
-RESPONSE=$(call_anthropic_api "$ANTHROPIC_MODEL")
+RESPONSE=$(call_anthropic_api "$ANTHROPIC_MODEL" 180)
 RELEASE_NOTES=$(extract_notes "$RESPONSE")
 
 # If primary fails, try fallback model
@@ -165,7 +205,14 @@ if [ -z "$RELEASE_NOTES" ]; then
     printf "Full response: %s\n" "$RESPONSE" >&2
     printf "Trying fallback model: %s\n" "$FALLBACK_MODEL" >&2
 
-    RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL")
+    RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL" 220)
+    RELEASE_NOTES=$(extract_notes "$RESPONSE")
+fi
+
+# If output format is invalid, retry with stricter prompt and shorter output
+if [ -n "$RELEASE_NOTES" ] && ! is_valid_notes "$RELEASE_NOTES"; then
+    printf "Invalid release notes format; retrying with stricter limits\n" >&2
+    RESPONSE=$(call_anthropic_api "$FALLBACK_MODEL" 120)
     RELEASE_NOTES=$(extract_notes "$RESPONSE")
 fi
 
