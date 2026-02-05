@@ -53,35 +53,23 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
   const fetchFolders = useCallback(async (): Promise<EmailFolder[]> => {
     const db = getDatabase();
 
-    // Get all email folders with their parent links
+    // Get all email folders with their parent links using LEFT JOIN
     const folderRows = await db
       .select({
         id: emailFolders.id,
         encryptedName: emailFolders.encryptedName,
         folderType: emailFolders.folderType,
-        unreadCount: emailFolders.unreadCount
-      })
-      .from(emailFolders);
-
-    // Get parent links for folders
-    const links = await db
-      .select({
-        childId: vfsLinks.childId,
+        unreadCount: emailFolders.unreadCount,
         parentId: vfsLinks.parentId
       })
-      .from(vfsLinks)
-      .innerJoin(emailFolders, eq(emailFolders.id, vfsLinks.childId));
-
-    const parentMap = new Map<string, string>();
-    for (const link of links) {
-      parentMap.set(link.childId, link.parentId);
-    }
+      .from(emailFolders)
+      .leftJoin(vfsLinks, eq(emailFolders.id, vfsLinks.childId));
 
     return folderRows.map((row) => ({
       id: row.id,
       name: row.encryptedName ?? 'Unnamed Folder',
       folderType: (row.folderType ?? 'custom') as EmailFolderType,
-      parentId: parentMap.get(row.id) ?? null,
+      parentId: row.parentId ?? null,
       unreadCount: row.unreadCount ?? 0
     }));
   }, []);
@@ -92,33 +80,36 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
       const folderId = crypto.randomUUID();
       const now = new Date();
 
-      // Create VFS registry entry
-      await db.insert(vfsRegistry).values({
-        id: folderId,
-        objectType: 'emailFolder',
-        ownerId: null,
-        createdAt: now
-      });
-
-      // Create email folder entry
-      await db.insert(emailFolders).values({
-        id: folderId,
-        encryptedName: name,
-        folderType: 'custom',
-        unreadCount: 0
-      });
-
-      // If parentId provided, create link
-      if (parentId) {
-        const linkId = crypto.randomUUID();
-        await db.insert(vfsLinks).values({
-          id: linkId,
-          parentId,
-          childId: folderId,
-          wrappedSessionKey: '',
+      // Use transaction for atomicity
+      await db.transaction(async (tx) => {
+        // Create VFS registry entry
+        await tx.insert(vfsRegistry).values({
+          id: folderId,
+          objectType: 'emailFolder',
+          ownerId: null,
           createdAt: now
         });
-      }
+
+        // Create email folder entry
+        await tx.insert(emailFolders).values({
+          id: folderId,
+          encryptedName: name,
+          folderType: 'custom',
+          unreadCount: 0
+        });
+
+        // If parentId provided, create link
+        if (parentId) {
+          const linkId = crypto.randomUUID();
+          await tx.insert(vfsLinks).values({
+            id: linkId,
+            parentId,
+            childId: folderId,
+            wrappedSessionKey: '',
+            createdAt: now
+          });
+        }
+      });
 
       return {
         id: folderId,
@@ -145,37 +136,43 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
   const deleteFolder = useCallback(async (id: string): Promise<void> => {
     const db = getDatabase();
 
-    // Delete any child links (emails in this folder)
-    await db.delete(vfsLinks).where(eq(vfsLinks.parentId, id));
+    // Use transaction for atomicity
+    await db.transaction(async (tx) => {
+      // Delete any child links (emails in this folder)
+      await tx.delete(vfsLinks).where(eq(vfsLinks.parentId, id));
 
-    // Delete the folder's parent link (if nested)
-    await db.delete(vfsLinks).where(eq(vfsLinks.childId, id));
+      // Delete the folder's parent link (if nested)
+      await tx.delete(vfsLinks).where(eq(vfsLinks.childId, id));
 
-    // Delete email folder entry
-    await db.delete(emailFolders).where(eq(emailFolders.id, id));
+      // Delete email folder entry
+      await tx.delete(emailFolders).where(eq(emailFolders.id, id));
 
-    // Delete VFS registry entry
-    await db.delete(vfsRegistry).where(eq(vfsRegistry.id, id));
+      // Delete VFS registry entry
+      await tx.delete(vfsRegistry).where(eq(vfsRegistry.id, id));
+    });
   }, []);
 
   const moveFolder = useCallback(
     async (id: string, newParentId: string | null): Promise<void> => {
       const db = getDatabase();
 
-      // Delete existing parent link
-      await db.delete(vfsLinks).where(eq(vfsLinks.childId, id));
+      // Use transaction for atomicity
+      await db.transaction(async (tx) => {
+        // Delete existing parent link
+        await tx.delete(vfsLinks).where(eq(vfsLinks.childId, id));
 
-      // If new parent provided, create new link
-      if (newParentId) {
-        const linkId = crypto.randomUUID();
-        await db.insert(vfsLinks).values({
-          id: linkId,
-          parentId: newParentId,
-          childId: id,
-          wrappedSessionKey: '',
-          createdAt: new Date()
-        });
-      }
+        // If new parent provided, create new link
+        if (newParentId) {
+          const linkId = crypto.randomUUID();
+          await tx.insert(vfsLinks).values({
+            id: linkId,
+            parentId: newParentId,
+            childId: id,
+            wrappedSessionKey: '',
+            createdAt: new Date()
+          });
+        }
+      });
     },
     []
   );
@@ -196,20 +193,23 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         const folderName =
           SYSTEM_FOLDER_NAMES[folderType as keyof typeof SYSTEM_FOLDER_NAMES];
 
-        // Create VFS registry entry
-        await db.insert(vfsRegistry).values({
-          id: folderId,
-          objectType: 'emailFolder',
-          ownerId: null,
-          createdAt: now
-        });
+        // Use transaction for atomicity
+        await db.transaction(async (tx) => {
+          // Create VFS registry entry
+          await tx.insert(vfsRegistry).values({
+            id: folderId,
+            objectType: 'emailFolder',
+            ownerId: null,
+            createdAt: now
+          });
 
-        // Create email folder entry
-        await db.insert(emailFolders).values({
-          id: folderId,
-          encryptedName: folderName,
-          folderType,
-          unreadCount: 0
+          // Create email folder entry
+          await tx.insert(emailFolders).values({
+            id: folderId,
+            encryptedName: folderName,
+            folderType,
+            unreadCount: 0
+          });
         });
       }
     }
