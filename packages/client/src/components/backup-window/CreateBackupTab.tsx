@@ -8,13 +8,19 @@ import {
   createBackup,
   estimateBackupSize as estimateSize
 } from '@/db/backup';
+import { getKeyManager } from '@/db/crypto';
 import { getActiveInstance } from '@/db/instance-registry';
 import { saveFile } from '@/lib/file-utils';
 import {
   isBackupStorageSupported,
   saveBackupToStorage
 } from '@/storage/backup-storage';
-import { getFileStorage, isFileStorageInitialized } from '@/storage/opfs';
+import {
+  type FileStorage,
+  getFileStorage,
+  initializeFileStorage,
+  isFileStorageInitialized
+} from '@/storage/opfs';
 
 interface BackupProgress {
   phase: string;
@@ -40,6 +46,18 @@ function formatBackupFilename(date: Date): string {
   return `rapid-backup-${year}-${month}-${day}-${hours}${minutes}${seconds}.rbu`;
 }
 
+async function getOrInitFileStorage(
+  instanceId: string
+): Promise<FileStorage | null> {
+  if (isFileStorageInitialized(instanceId)) {
+    return getFileStorage();
+  }
+  const keyManager = getKeyManager();
+  const encryptionKey = keyManager.getCurrentKey();
+  if (!encryptionKey) return null;
+  return initializeFileStorage(encryptionKey, instanceId);
+}
+
 export function CreateBackupTab() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -61,9 +79,7 @@ export function CreateBackupTab() {
       if (!instanceId) return;
 
       const adapter = getDatabaseAdapter();
-      const fileStorage = isFileStorageInitialized(instanceId)
-        ? getFileStorage()
-        : null;
+      const fileStorage = await getOrInitFileStorage(instanceId);
 
       const estimate = await estimateSize(adapter, fileStorage, includeBlobs);
       setEstimatedSize({
@@ -120,9 +136,7 @@ export function CreateBackupTab() {
       }
 
       const adapter = getDatabaseAdapter();
-      const fileStorage = isFileStorageInitialized(instanceId)
-        ? getFileStorage()
-        : null;
+      const fileStorage = await getOrInitFileStorage(instanceId);
 
       // Get instance name for the backup
       const instance = await getActiveInstance();
