@@ -41,15 +41,37 @@ appId: com.tearleads.rapid
         return 'clicked-mobile';
       }
 
-      const sidebarLink = document.querySelector(
+      let sidebarLink = document.querySelector(
         'aside [data-testid="settings-link"]'
       );
       if (!sidebarLink) {
-        throw new Error('Settings link not found in sidebar');
+        const startButton = document.querySelector(
+          '[data-testid="start-button"]'
+        );
+        if (startButton) {
+          startButton.click();
+          await window.waitForElement('aside [data-testid="settings-link"]');
+          sidebarLink = document.querySelector(
+            'aside [data-testid="settings-link"]'
+          );
+        }
       }
-      sidebarLink.scrollIntoView({ block: 'center' });
-      sidebarLink.click();
-      return 'clicked-sidebar';
+      if (sidebarLink) {
+        sidebarLink.scrollIntoView({ block: 'center' });
+        sidebarLink.click();
+        return 'clicked-sidebar';
+      }
+
+      const homeSettings = document.querySelector(
+        '[data-icon-path="/settings"]'
+      );
+      if (homeSettings) {
+        homeSettings.scrollIntoView({ block: 'center' });
+        homeSettings.click();
+        return 'clicked-home-settings';
+      }
+
+      throw new Error('Settings navigation failed');
     })()
 
 # Wait for Settings page/sheet to load (WebView-friendly)
