@@ -198,7 +198,9 @@ export function resolveOverlaps(
     return positions;
   }
 
-  const entries = Object.entries(positions);
+  const entries = Object.entries(positions).sort((a, b) =>
+    a[0].localeCompare(b[0])
+  );
   const placed: Array<{ x: number; y: number }> = [];
   const resolved: Positions = {};
 
