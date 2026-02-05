@@ -298,38 +298,39 @@ export function AudioWindowList({
       {isUnlocked &&
         !error &&
         (uploading ? (
-          <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <div className="text-center">
-              <p className="font-medium">Uploading...</p>
-            </div>
-            <div className="w-full max-w-sm">
-              <div className="mb-2 flex items-center justify-between text-muted-foreground text-xs">
-                <span>Upload progress</span>
-                <span>
-                  {Math.max(0, Math.min(100, Math.round(uploadProgress)))}%
-                </span>
+          (() => {
+            const clampedProgress = Math.max(
+              0,
+              Math.min(100, Math.round(uploadProgress))
+            );
+            return (
+              <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <div className="text-center">
+                  <p className="font-medium">Uploading...</p>
+                </div>
+                <div className="w-full max-w-sm">
+                  <div className="mb-2 flex items-center justify-between text-muted-foreground text-xs">
+                    <span>Upload progress</span>
+                    <span>{clampedProgress}%</span>
+                  </div>
+                  <div
+                    role="progressbar"
+                    aria-label="Upload progress"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={clampedProgress}
+                    className="h-2 w-full overflow-hidden rounded-full bg-muted"
+                  >
+                    <div
+                      className="h-full bg-primary transition-all duration-300"
+                      style={{ width: `${clampedProgress}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-              <div
-                role="progressbar"
-                aria-label="Upload progress"
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-valuenow={Math.max(
-                  0,
-                  Math.min(100, Math.round(uploadProgress))
-                )}
-                className="h-2 w-full overflow-hidden rounded-full bg-muted"
-              >
-                <div
-                  className="h-full bg-primary transition-all duration-300"
-                  style={{
-                    width: `${Math.max(0, Math.min(100, Math.round(uploadProgress)))}%`
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+            );
+          })()
         ) : loading && !hasFetched ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
             <Loader2 className="h-4 w-4 animate-spin" />
