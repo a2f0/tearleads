@@ -173,7 +173,13 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    **At each poll**:
 
    1. Check if branch is behind: `gh pr view --json mergeStateStatus -R "$REPO"`
-      - If `BEHIND`, return to 4c immediately
+      - If `BEHIND`, cancel the current workflow run to save CI minutes (only if `RUN_ID` is set), then return to 4c immediately:
+
+        ```bash
+        if [ -n "$RUN_ID" ]; then
+          gh run cancel $RUN_ID -R "$REPO"
+        fi
+        ```
 
    2. Handle Gemini feedback (if applicable)
 
@@ -193,13 +199,13 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    When CI is cancelled externally: `gh run rerun $RUN_ID -R "$REPO"`
 
-   4f. Enable auto-merge and wait:
+   4f. Enable auto-merge and continue looping until merged:
 
    If `has_bumped_version` is still `false`, perform the bump, amend, force push, and return to 4e.
 
    ```bash
    gh pr merge --auto --merge -R "$REPO"
-   gh pr view --json state,mergeStateStatus -R "$REPO"
+   gh pr view --json state,mergeStateStatus,autoMergeRequest -R "$REPO"
    ```
 
    - Only enable auto-merge after:
@@ -208,7 +214,17 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
      - Gemini feedback is fully addressed (per sentiment analysis)
    - If auto-merge is unavailable, try a direct merge (same conditions) and continue polling.
 
-   Poll until `MERGED`. If `BEHIND`, return to 4c.
+   After enabling auto-merge, do NOT exit. Continue polling in the main loop:
+   - If `MERGED`: exit loop.
+   - If `BEHIND`: return to 4c to rebase, push, and keep auto-merge eligible.
+   - If `BLOCKED`/`UNKNOWN`: resume 4d/4e.
+   - If `CLEAN`: keep auto-merge enabled and continue.
+
+   Optimization: after 4f, poll more frequently for a short window to catch new base changes quickly:
+   - First 5 minutes after enabling auto-merge: poll merge state every 30 seconds (with jitter).
+   - After 5 minutes: fall back to normal polling cadence.
+
+   Optimization: if `autoMergeRequest` is already present, skip re-enabling and proceed to the loop checks above.
 
 5. Refresh workspace after merge:
 

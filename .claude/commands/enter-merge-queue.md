@@ -259,7 +259,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    #### At each poll iteration
 
    1. **Check if branch is behind**: `gh pr view --json mergeStateStatus`
-      - If `mergeStateStatus` is `BEHIND`: **Immediately** go back to step 4d (don't wait for CI to finish)
+      - If `mergeStateStatus` is `BEHIND`: cancel the current workflow to save CI minutes (only if `RUN_ID` is set), then **immediately** go back to step 4d (don't wait for CI to finish):
+
+        ```bash
+        if [ -n "$RUN_ID" ]; then
+          gh run cancel $RUN_ID -R "$REPO"
+        fi
+        ```
 
    2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
       - Run `/address-gemini-feedback` to fetch and address any unresolved comments
