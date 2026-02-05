@@ -1,12 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 describe('auth-storage without window', () => {
   it('no-ops when window is undefined', async () => {
-    const globalWithWindow = globalThis as typeof globalThis & {
-      window?: Window;
-    };
-    const originalWindow = globalWithWindow.window;
-    globalWithWindow.window = undefined as unknown as Window;
+    vi.stubGlobal('window', undefined);
 
     try {
       const { onAuthChange, setAuthError, clearAuthError, getAuthError } =
@@ -21,7 +17,7 @@ describe('auth-storage without window', () => {
       clearAuthError();
       expect(getAuthError()).toBeNull();
     } finally {
-      globalWithWindow.window = originalWindow;
+      vi.unstubAllGlobals();
     }
   });
 });
