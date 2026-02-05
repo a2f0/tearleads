@@ -61,13 +61,15 @@ describe('useVfsUnfiledItems', () => {
   });
 
   it('fetches items when unlocked', async () => {
-    // Mock LEFT JOIN query for unfiled items - returns one folder
-    mockDb.where.mockResolvedValueOnce([
-      { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
+    // Mock unified query (JOINs + WHERE + ORDER BY) - returns one folder with name resolved
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'My Folder',
+        createdAt: new Date()
+      }
     ]);
-
-    // Mock folders name lookup
-    mockDb.where.mockResolvedValueOnce([{ id: 'folder-1', name: 'My Folder' }]);
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -82,8 +84,8 @@ describe('useVfsUnfiledItems', () => {
   });
 
   it('handles empty registry', async () => {
-    // Mock LEFT JOIN query - no unfiled items
-    mockDb.where.mockResolvedValueOnce([]);
+    // Mock unified query - no unfiled items
+    mockDb.orderBy.mockResolvedValueOnce([]);
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -104,8 +106,8 @@ describe('useVfsUnfiledItems', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
-    // Mock LEFT JOIN query to throw error
-    mockDb.where.mockRejectedValueOnce(new Error('Database error'));
+    // Mock unified query to throw error
+    mockDb.orderBy.mockRejectedValueOnce(new Error('Database error'));
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -123,8 +125,8 @@ describe('useVfsUnfiledItems', () => {
   });
 
   it('refetch function works', async () => {
-    // Initial fetch - LEFT JOIN returns empty
-    mockDb.where.mockResolvedValueOnce([]);
+    // Initial fetch - returns empty
+    mockDb.orderBy.mockResolvedValueOnce([]);
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -137,8 +139,8 @@ describe('useVfsUnfiledItems', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    // Setup for refetch - LEFT JOIN returns empty
-    mockDb.where.mockResolvedValueOnce([]);
+    // Setup for refetch - returns empty
+    mockDb.orderBy.mockResolvedValueOnce([]);
 
     await act(async () => {
       await result.current.refetch();
@@ -164,14 +166,14 @@ describe('useVfsUnfiledItems', () => {
   });
 
   it('handles linked items filtering', async () => {
-    // Mock LEFT JOIN query - only unfiled items returned (linked items excluded by DB)
-    mockDb.where.mockResolvedValueOnce([
-      { id: 'unlinked-folder', objectType: 'folder', createdAt: new Date() }
-    ]);
-
-    // Mock folder name lookup
-    mockDb.where.mockResolvedValueOnce([
-      { id: 'unlinked-folder', name: 'Unlinked Folder' }
+    // Mock unified query - only unfiled items returned (linked items excluded by DB)
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'unlinked-folder',
+        objectType: 'folder',
+        name: 'Unlinked Folder',
+        createdAt: new Date()
+      }
     ]);
 
     const wrapper = createWrapper({
@@ -191,8 +193,8 @@ describe('useVfsUnfiledItems', () => {
       .spyOn(console, 'error')
       .mockImplementation(() => {});
 
-    // Mock LEFT JOIN query to throw non-Error
-    mockDb.where.mockRejectedValueOnce('String error');
+    // Mock unified query to throw non-Error
+    mockDb.orderBy.mockRejectedValueOnce('String error');
 
     const wrapper = createWrapper({
       databaseState: createMockDatabaseState(),
@@ -261,13 +263,15 @@ describe('useVfsUnfiledItems', () => {
       );
     }
 
-    // Mock initial fetch for instance-1 using LEFT JOIN
-    // 1. LEFT JOIN query returns one folder
-    mockDb.where.mockResolvedValueOnce([
-      { id: 'folder-1', objectType: 'folder', createdAt: new Date() }
+    // Mock initial fetch for instance-1 - unified query returns one folder with name resolved
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'folder-1',
+        objectType: 'folder',
+        name: 'My Folder',
+        createdAt: new Date()
+      }
     ]);
-    // 2. folder name lookup
-    mockDb.where.mockResolvedValueOnce([{ id: 'folder-1', name: 'My Folder' }]);
 
     render(<TestWrapper />);
 
@@ -280,9 +284,8 @@ describe('useVfsUnfiledItems', () => {
       'My Folder'
     );
 
-    // Mock fetch for instance-2 (no items)
-    // LEFT JOIN query returns empty
-    mockDb.where.mockResolvedValueOnce([]);
+    // Mock fetch for instance-2 (no items) - unified query returns empty
+    mockDb.orderBy.mockResolvedValueOnce([]);
 
     // Trigger instance change
     act(() => {

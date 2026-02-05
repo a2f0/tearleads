@@ -1,4 +1,13 @@
-import { Clipboard, FileBox, Folder, Layers, Loader2 } from 'lucide-react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Clipboard,
+  FileBox,
+  Folder,
+  Layers,
+  Loader2
+} from 'lucide-react';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
 import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
@@ -10,6 +19,7 @@ import {
   type VfsObjectType
 } from '../hooks';
 import { cn, OBJECT_TYPE_COLORS, OBJECT_TYPE_ICONS } from '../lib';
+import type { VfsSortColumn, VfsSortState } from '../lib/vfsTypes';
 import { ItemContextMenu } from './ItemContextMenu';
 import { VfsDraggableItem } from './VfsDraggableItem';
 import type { VfsViewMode } from './VfsExplorer';
@@ -58,6 +68,8 @@ interface ContextMenuState {
   item: DisplayItem;
 }
 
+const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
+
 export function VfsDetailsPanel({
   folderId,
   viewMode = 'list',
@@ -82,6 +94,25 @@ export function VfsDetailsPanel({
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
+  const [sort, setSort] = useState<VfsSortState>(DEFAULT_SORT);
+
+  // Reset sort when folder changes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: folderId triggers sort reset on navigation
+  useEffect(() => {
+    setSort(DEFAULT_SORT);
+  }, [folderId]);
+
+  const handleSort = useCallback((column: VfsSortColumn) => {
+    setSort((prev) => {
+      if (prev.column !== column) {
+        return { column, direction: 'asc' };
+      }
+      if (prev.direction === 'asc') {
+        return { column, direction: 'desc' };
+      }
+      return { column: null, direction: null };
+    });
+  }, []);
 
   const handleItemClick = useCallback(
     (e: MouseEvent, itemId: string) => {
@@ -161,10 +192,11 @@ export function VfsDetailsPanel({
 
   // Use the appropriate hook based on selection
   const folderContents = useVfsFolderContents(
-    isUnfiled || isAllItems ? null : folderId
+    isUnfiled || isAllItems ? null : folderId,
+    sort
   );
-  const unfiledItems = useVfsUnfiledItems();
-  const allItems = useVfsAllItems({ enabled: isAllItems });
+  const unfiledItems = useVfsUnfiledItems(sort);
+  const allItems = useVfsAllItems({ enabled: isAllItems, sort });
 
   // Refetch when refreshToken changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: refetch functions are stable, including full objects causes infinite loops
@@ -242,6 +274,17 @@ export function VfsDetailsPanel({
     );
   }
 
+  const renderSortIcon = (column: VfsSortColumn) => {
+    if (sort.column === column) {
+      return sort.direction === 'asc' ? (
+        <ArrowUp className="h-3 w-3" />
+      ) : (
+        <ArrowDown className="h-3 w-3" />
+      );
+    }
+    return <ArrowUpDown className="h-3 w-3 opacity-50" />;
+  };
+
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center border-b px-3 py-2">
@@ -260,9 +303,36 @@ export function VfsDetailsPanel({
           <table className="w-full">
             <thead className="sticky top-0 bg-background">
               <tr className="border-b text-left text-muted-foreground text-xs">
-                <th className="px-3 py-2 font-medium">Name</th>
-                <th className="px-3 py-2 font-medium">Type</th>
-                <th className="px-3 py-2 font-medium">Created</th>
+                <th className="px-3 py-2 font-medium">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('name')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                  >
+                    Name
+                    {renderSortIcon('name')}
+                  </button>
+                </th>
+                <th className="px-3 py-2 font-medium">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('objectType')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                  >
+                    Type
+                    {renderSortIcon('objectType')}
+                  </button>
+                </th>
+                <th className="px-3 py-2 font-medium">
+                  <button
+                    type="button"
+                    onClick={() => handleSort('createdAt')}
+                    className="inline-flex items-center gap-1 hover:text-foreground"
+                  >
+                    Created
+                    {renderSortIcon('createdAt')}
+                  </button>
+                </th>
               </tr>
             </thead>
             <tbody>

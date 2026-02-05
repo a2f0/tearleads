@@ -1,17 +1,12 @@
 /**
  * Hook for querying the contents of a VFS folder.
+ * Uses SQL-level sorting via JOINs and ORDER BY (no in-memory sort).
  */
 
-import { vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
-import { eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
-import {
-  fetchItemNames,
-  groupByObjectType,
-  sortVfsItems,
-  type VfsObjectType
-} from '../lib';
+import { queryFolderContents } from '../lib/vfsQuery';
+import type { VfsObjectType, VfsSortState } from '../lib/vfsTypes';
 
 export type { VfsObjectType };
 
@@ -31,8 +26,11 @@ export interface UseVfsFolderContentsResult {
   refetch: () => Promise<void>;
 }
 
+const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
+
 export function useVfsFolderContents(
-  folderId: string | null
+  folderId: string | null,
+  sort: VfsSortState = DEFAULT_SORT
 ): UseVfsFolderContentsResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
   const { isUnlocked, currentInstanceId } = databaseState;
@@ -61,49 +59,18 @@ export function useVfsFolderContents(
     try {
       const db = getDatabase();
 
-      // Get all links where this folder is the parent
-      const linkRows = await db
-        .select({
-          linkId: vfsLinks.id,
-          childId: vfsLinks.childId
-        })
-        .from(vfsLinks)
-        .where(eq(vfsLinks.parentId, folderId));
+      const rows = await queryFolderContents(db, folderId, sort);
 
-      if (linkRows.length === 0) {
-        setItems([]);
-        setHasFetched(true);
-        return;
-      }
-
-      const childIds = linkRows.map((l) => l.childId);
-      const linkMap = new Map(linkRows.map((l) => [l.childId, l.linkId]));
-
-      // Get registry info for all children
-      const registryRows = await db
-        .select({
-          id: vfsRegistry.id,
-          objectType: vfsRegistry.objectType,
-          createdAt: vfsRegistry.createdAt
-        })
-        .from(vfsRegistry)
-        .where(inArray(vfsRegistry.id, childIds));
-
-      // Group by object type and fetch names
-      const byType = groupByObjectType(registryRows);
-      const nameMap = await fetchItemNames(db, byType);
-
-      // Build final items list
-      const resultItems: VfsItem[] = registryRows.map((row) => ({
+      const resultItems: VfsItem[] = rows.map((row) => ({
         id: row.id,
-        linkId: linkMap.get(row.id) || row.id,
+        linkId: row.linkId,
         objectType: row.objectType as VfsObjectType,
-        name: nameMap.get(row.id) || 'Unknown',
-        createdAt: new Date(row.createdAt)
+        name: row.name,
+        createdAt:
+          row.createdAt instanceof Date
+            ? row.createdAt
+            : new Date(row.createdAt)
       }));
-
-      // Sort: folders first, then alphabetically by name
-      sortVfsItems(resultItems);
 
       setItems(resultItems);
       setHasFetched(true);
@@ -113,7 +80,7 @@ export function useVfsFolderContents(
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, folderId, getDatabase]);
+  }, [isUnlocked, folderId, sort, getDatabase]);
 
   useEffect(() => {
     const needsFetch =
@@ -149,6 +116,19 @@ export function useVfsFolderContents(
     folderId,
     fetchContents
   ]);
+
+  // Refetch when sort changes
+  const prevSortRef = useRef<VfsSortState>(DEFAULT_SORT);
+  useEffect(() => {
+    const sortChanged =
+      prevSortRef.current.column !== sort.column ||
+      prevSortRef.current.direction !== sort.direction;
+    prevSortRef.current = sort;
+
+    if (sortChanged && hasFetched && isUnlocked && !loading) {
+      fetchContents();
+    }
+  }, [sort, hasFetched, isUnlocked, loading, fetchContents]);
 
   return {
     items,

@@ -40,3 +40,21 @@ export interface VfsRegistryRow {
   objectType: string;
   createdAt: Date;
 }
+
+/**
+ * Sortable columns in the VFS explorer.
+ */
+export type VfsSortColumn = 'name' | 'objectType' | 'createdAt';
+
+/**
+ * Sort direction.
+ */
+export type VfsSortDirection = 'asc' | 'desc';
+
+/**
+ * Sort state for the VFS explorer.
+ */
+export interface VfsSortState {
+  column: VfsSortColumn | null;
+  direction: VfsSortDirection | null;
+}

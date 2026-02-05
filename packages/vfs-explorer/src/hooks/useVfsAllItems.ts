@@ -1,18 +1,12 @@
 /**
  * Hook for querying all VFS items in the registry.
+ * Uses SQL-level sorting via JOINs and ORDER BY (no in-memory sort).
  */
 
-import { vfsRegistry } from '@rapid/db/sqlite';
-import { ne } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';
-import {
-  fetchItemNames,
-  groupByObjectType,
-  sortVfsItems,
-  type VfsObjectType
-} from '../lib';
+import { queryAllItems } from '../lib/vfsQuery';
+import type { VfsObjectType, VfsSortState } from '../lib/vfsTypes';
 
 export type { VfsObjectType };
 
@@ -33,12 +27,15 @@ export interface UseVfsAllItemsResult {
 
 interface UseVfsAllItemsOptions {
   enabled?: boolean;
+  sort?: VfsSortState;
 }
+
+const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
 
 export function useVfsAllItems(
   options: UseVfsAllItemsOptions = {}
 ): UseVfsAllItemsResult {
-  const { enabled = true } = options;
+  const { enabled = true, sort = DEFAULT_SORT } = options;
   const { databaseState, getDatabase } = useVfsExplorerContext();
   const { isUnlocked, currentInstanceId } = databaseState;
   const [items, setItems] = useState<VfsAllItem[]>([]);
@@ -56,36 +53,17 @@ export function useVfsAllItems(
     try {
       const db = getDatabase();
 
-      // Get all registry items, excluding the VFS root
-      const registryRows = await db
-        .select({
-          id: vfsRegistry.id,
-          objectType: vfsRegistry.objectType,
-          createdAt: vfsRegistry.createdAt
-        })
-        .from(vfsRegistry)
-        .where(ne(vfsRegistry.id, VFS_ROOT_ID));
+      const rows = await queryAllItems(db, sort);
 
-      if (registryRows.length === 0) {
-        setItems([]);
-        setHasFetched(true);
-        return;
-      }
-
-      // Group by object type and fetch names
-      const byType = groupByObjectType(registryRows);
-      const nameMap = await fetchItemNames(db, byType);
-
-      // Build final items list
-      const resultItems: VfsAllItem[] = registryRows.map((row) => ({
+      const resultItems: VfsAllItem[] = rows.map((row) => ({
         id: row.id,
         objectType: row.objectType as VfsObjectType,
-        name: nameMap.get(row.id) || 'Unknown',
-        createdAt: new Date(row.createdAt)
+        name: row.name,
+        createdAt:
+          row.createdAt instanceof Date
+            ? row.createdAt
+            : new Date(row.createdAt)
       }));
-
-      // Sort: folders first, then alphabetically by name
-      sortVfsItems(resultItems);
 
       setItems(resultItems);
       setHasFetched(true);
@@ -95,7 +73,7 @@ export function useVfsAllItems(
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, enabled, getDatabase]);
+  }, [isUnlocked, enabled, sort, getDatabase]);
 
   useEffect(() => {
     const needsFetch =
@@ -123,6 +101,19 @@ export function useVfsAllItems(
     }
     return undefined;
   }, [enabled, isUnlocked, loading, hasFetched, currentInstanceId, fetchItems]);
+
+  // Refetch when sort changes
+  const prevSortRef = useRef<VfsSortState>(DEFAULT_SORT);
+  useEffect(() => {
+    const sortChanged =
+      prevSortRef.current.column !== sort.column ||
+      prevSortRef.current.direction !== sort.direction;
+    prevSortRef.current = sort;
+
+    if (sortChanged && hasFetched && isUnlocked && !loading) {
+      fetchItems();
+    }
+  }, [sort, hasFetched, isUnlocked, loading, fetchItems]);
 
   return {
     items,
