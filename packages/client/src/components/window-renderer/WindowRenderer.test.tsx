@@ -1531,7 +1531,7 @@ describe('WindowRenderer', () => {
         dimensions: { x: 0, y: 0, width: 900, height: 700 }
       }
     }
-  ];
+  ].sort((left, right) => left.label.localeCompare(right.label));
 
   const renderCases: WindowClickCase[] = windowCases.map((windowCase) => [
     windowCase.label,
