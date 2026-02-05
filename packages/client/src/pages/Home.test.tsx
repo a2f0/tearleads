@@ -9,7 +9,16 @@ import {
   mockActivateScreensaver,
   setupScreensaverMock
 } from '@/test/screensaver-mock';
-import { GAP, Home, ICON_SIZE, ITEM_HEIGHT } from './Home';
+import {
+  GAP,
+  Home,
+  ICON_LABEL_GAP,
+  ICON_SIZE,
+  ITEM_HEIGHT,
+  LABEL_HEIGHT,
+  OVERLAP_PADDING,
+  resolveOverlaps
+} from './Home';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
@@ -1689,5 +1698,115 @@ describe('Home', () => {
         configurable: true
       });
     });
+  });
+});
+
+describe('resolveOverlaps', () => {
+  const CONTAINER_W = 800;
+  const CONTAINER_H = 600;
+  const SIZE = ICON_SIZE;
+  const LABEL_H = LABEL_HEIGHT;
+  const ITEM_H = SIZE + LABEL_H + ICON_LABEL_GAP;
+
+  it('returns positions unchanged when no overlaps exist', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 0, y: 0 },
+      '/b': { x: 200, y: 200 }
+    };
+    const result = resolveOverlaps(
+      positions,
+      CONTAINER_W,
+      CONTAINER_H,
+      SIZE,
+      LABEL_H
+    );
+    expect(result).toEqual(positions);
+  });
+
+  it('resolves two icons at the exact same position', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 100, y: 100 },
+      '/b': { x: 100, y: 100 }
+    };
+    const result = resolveOverlaps(
+      positions,
+      CONTAINER_W,
+      CONTAINER_H,
+      SIZE,
+      LABEL_H
+    );
+    expect(result['/a']).toEqual({ x: 100, y: 100 });
+    expect(result['/b']).not.toEqual({ x: 100, y: 100 });
+    expect(result['/b']?.x).toBeGreaterThanOrEqual(0);
+    expect(result['/b']?.x).toBeLessThanOrEqual(CONTAINER_W - SIZE);
+    expect(result['/b']?.y).toBeGreaterThanOrEqual(0);
+    expect(result['/b']?.y).toBeLessThanOrEqual(CONTAINER_H - ITEM_H);
+  });
+
+  it('resolves multiple icons stacked at the same position', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 336, y: 212 },
+      '/b': { x: 336, y: 212 },
+      '/c': { x: 336, y: 212 },
+      '/d': { x: 336, y: 212 }
+    };
+    const result = resolveOverlaps(positions, 400, 300, SIZE, LABEL_H);
+    const placed = Object.values(result) as Array<{ x: number; y: number }>;
+    for (const a of placed) {
+      for (const b of placed) {
+        if (a === b) continue;
+        const dx = Math.abs(a.x - b.x);
+        const dy = Math.abs(a.y - b.y);
+        const separated =
+          dx >= SIZE + OVERLAP_PADDING || dy >= ITEM_H + OVERLAP_PADDING;
+        expect(separated).toBe(true);
+      }
+    }
+  });
+
+  it('keeps icons within viewport bounds after resolution', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 336, y: 212 },
+      '/b': { x: 336, y: 212 },
+      '/c': { x: 336, y: 212 }
+    };
+    const result = resolveOverlaps(positions, 400, 300, SIZE, LABEL_H);
+    for (const pos of Object.values(result) as Array<{
+      x: number;
+      y: number;
+    }>) {
+      expect(pos.x).toBeGreaterThanOrEqual(0);
+      expect(pos.x).toBeLessThanOrEqual(400 - SIZE);
+      expect(pos.y).toBeGreaterThanOrEqual(0);
+      expect(pos.y).toBeLessThanOrEqual(300 - ITEM_H);
+    }
+  });
+
+  it('returns positions as-is when viewport is too small for one icon', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 0, y: 0 },
+      '/b': { x: 0, y: 0 }
+    };
+    const result = resolveOverlaps(positions, 30, 30, SIZE, LABEL_H);
+    expect(result).toEqual(positions);
+  });
+
+  it('places resolved icon near its original position', () => {
+    const positions: Record<string, { x: number; y: number }> = {
+      '/a': { x: 100, y: 100 },
+      '/b': { x: 100, y: 100 }
+    };
+    const result = resolveOverlaps(
+      positions,
+      CONTAINER_W,
+      CONTAINER_H,
+      SIZE,
+      LABEL_H
+    );
+    const bPos = result['/b'] as { x: number; y: number };
+    const distX = Math.abs(bPos.x - 100);
+    const distY = Math.abs(bPos.y - 100);
+    expect(distX).toBeLessThanOrEqual(SIZE + OVERLAP_PADDING);
+    expect(distY).toBeLessThanOrEqual(ITEM_H + OVERLAP_PADDING);
   });
 });
