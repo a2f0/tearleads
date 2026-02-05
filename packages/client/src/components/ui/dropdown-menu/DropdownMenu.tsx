@@ -92,7 +92,12 @@ export function DropdownMenu({
   }, [isOpen, close]);
 
   useEffect(() => {
-    if (isOpen && containerRef.current) {
+    if (!isOpen || !containerRef.current) {
+      return;
+    }
+
+    const updatePosition = () => {
+      if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
       const style: React.CSSProperties = {
         position: 'fixed',
@@ -104,7 +109,17 @@ export function DropdownMenu({
         style.left = rect.left;
       }
       setMenuStyle(style);
-    }
+    };
+
+    updatePosition();
+
+    window.addEventListener('resize', updatePosition);
+    document.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      window.removeEventListener('resize', updatePosition);
+      document.removeEventListener('scroll', updatePosition, true);
+    };
   }, [isOpen, align]);
 
   useEffect(() => {
