@@ -24,6 +24,7 @@ import {
 import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
 
 const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds
+const REFRESH_POLL_INTERVAL_MS = 30 * 1000;
 
 interface AuthContextValue {
   isAuthenticated: boolean;
@@ -63,6 +64,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
     setAuthErrorState(getAuthError());
   }, []);
 
+  const refreshIfNeeded = useCallback(async () => {
+    const storedToken = getStoredAuthToken();
+    if (!storedToken) return;
+
+    const timeRemaining = getJwtTimeRemaining(storedToken);
+    // timeRemaining is null if token is already expired
+    if (timeRemaining === null || timeRemaining < REFRESH_THRESHOLD_MS) {
+      await tryRefreshToken();
+      syncFromStorage();
+    }
+  }, [syncFromStorage]);
+
   // Load session from localStorage on mount and proactively refresh if needed
   // IMPORTANT: isLoading stays true until refresh completes to prevent SSE race condition
   useEffect(() => {
@@ -70,21 +83,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       syncFromStorage();
 
       // Check if proactive refresh is needed before marking as loaded
-      const storedToken = getStoredAuthToken();
-      if (storedToken) {
-        const timeRemaining = getJwtTimeRemaining(storedToken);
-        // timeRemaining is null if token is already expired
-        if (timeRemaining === null || timeRemaining < REFRESH_THRESHOLD_MS) {
-          // Token expired or expiring soon - refresh before allowing SSE to connect
-          await tryRefreshToken();
-        }
-      }
+      await refreshIfNeeded();
 
       setIsLoading(false);
     };
 
     void initAuth();
-  }, [syncFromStorage]);
+  }, [refreshIfNeeded, syncFromStorage]);
 
   useEffect(() => {
     const unsubscribe = onAuthChange(syncFromStorage);
@@ -114,32 +119,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
   }, [syncFromStorage]);
 
-  // Proactive token refresh on visibility change (mount case handled above)
+  // Proactive token refresh on visibility/focus change (mount case handled above)
   useEffect(() => {
-    const checkAndRefresh = async () => {
-      const storedToken = getStoredAuthToken();
-      if (!storedToken) return;
-
-      const timeRemaining = getJwtTimeRemaining(storedToken);
-      // timeRemaining is null if token is already expired
-      if (timeRemaining === null || timeRemaining < REFRESH_THRESHOLD_MS) {
-        // Token expired or expiring soon - refresh proactively
-        await tryRefreshToken();
-      }
-    };
-
-    // Check on visibility change (tab becoming visible)
-    const handleVisibilityChange = () => {
+    const handlePageActive = () => {
       if (document.visibilityState === 'visible') {
-        void checkAndRefresh();
+        void refreshIfNeeded();
       }
     };
 
-    document.addEventListener('visibilitychange', handleVisibilityChange);
+    document.addEventListener('visibilitychange', handlePageActive);
+    window.addEventListener('focus', handlePageActive);
+    window.addEventListener('pageshow', handlePageActive);
     return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      document.removeEventListener('visibilitychange', handlePageActive);
+      window.removeEventListener('focus', handlePageActive);
+      window.removeEventListener('pageshow', handlePageActive);
     };
-  }, []);
+  }, [refreshIfNeeded]);
+
+  // Proactive token refresh on a timer to keep the session alive
+  useEffect(() => {
+    if (isLoading || !token) {
+      return;
+    }
+
+    const interval = window.setInterval(() => {
+      void refreshIfNeeded();
+    }, REFRESH_POLL_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+    };
+  }, [isLoading, refreshIfNeeded, token]);
 
   // Errors propagate to caller for handling (e.g., Sync component catches and displays)
   const login = useCallback(async (email: string, password: string) => {
