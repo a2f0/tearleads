@@ -1,18 +1,12 @@
 /**
  * Hook for querying VFS items that are not linked to any folder.
+ * Uses SQL-level sorting via JOINs and ORDER BY (no in-memory sort).
  */
 
-import { vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
-import { and, eq, isNull, ne } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';
-import {
-  fetchItemNames,
-  groupByObjectType,
-  sortVfsItems,
-  type VfsObjectType
-} from '../lib';
+import { queryUnfiledItems } from '../lib/vfsQuery';
+import type { VfsObjectType, VfsSortState } from '../lib/vfsTypes';
 
 export type { VfsObjectType };
 
@@ -31,7 +25,11 @@ export interface UseVfsUnfiledItemsResult {
   refetch: () => Promise<void>;
 }
 
-export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
+const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
+
+export function useVfsUnfiledItems(
+  sort: VfsSortState = DEFAULT_SORT
+): UseVfsUnfiledItemsResult {
   const { databaseState, getDatabase } = useVfsExplorerContext();
   const { isUnlocked, currentInstanceId } = databaseState;
   const [items, setItems] = useState<VfsUnfiledItem[]>([]);
@@ -49,39 +47,17 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
     try {
       const db = getDatabase();
 
-      // Get all registry items that have no parent link using LEFT JOIN
-      // This is more efficient than loading all linked IDs into memory
-      // Exclude the VFS root - it's the only item that should have no parent
-      const registryRows = await db
-        .select({
-          id: vfsRegistry.id,
-          objectType: vfsRegistry.objectType,
-          createdAt: vfsRegistry.createdAt
-        })
-        .from(vfsRegistry)
-        .leftJoin(vfsLinks, eq(vfsRegistry.id, vfsLinks.childId))
-        .where(and(isNull(vfsLinks.childId), ne(vfsRegistry.id, VFS_ROOT_ID)));
+      const rows = await queryUnfiledItems(db, sort);
 
-      if (registryRows.length === 0) {
-        setItems([]);
-        setHasFetched(true);
-        return;
-      }
-
-      // Group by object type and fetch names
-      const byType = groupByObjectType(registryRows);
-      const nameMap = await fetchItemNames(db, byType);
-
-      // Build final items list
-      const resultItems: VfsUnfiledItem[] = registryRows.map((row) => ({
+      const resultItems: VfsUnfiledItem[] = rows.map((row) => ({
         id: row.id,
         objectType: row.objectType as VfsObjectType,
-        name: nameMap.get(row.id) || 'Unknown',
-        createdAt: new Date(row.createdAt)
+        name: row.name,
+        createdAt:
+          row.createdAt instanceof Date
+            ? row.createdAt
+            : new Date(row.createdAt)
       }));
-
-      // Sort: folders first, then alphabetically by name
-      sortVfsItems(resultItems);
 
       setItems(resultItems);
       setHasFetched(true);
@@ -91,7 +67,7 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, getDatabase]);
+  }, [isUnlocked, sort, getDatabase]);
 
   useEffect(() => {
     const needsFetch =
@@ -118,6 +94,19 @@ export function useVfsUnfiledItems(): UseVfsUnfiledItemsResult {
     }
     return undefined;
   }, [isUnlocked, loading, hasFetched, currentInstanceId, fetchItems]);
+
+  // Refetch when sort changes
+  const prevSortRef = useRef<VfsSortState>(DEFAULT_SORT);
+  useEffect(() => {
+    const sortChanged =
+      prevSortRef.current.column !== sort.column ||
+      prevSortRef.current.direction !== sort.direction;
+    prevSortRef.current = sort;
+
+    if (sortChanged && hasFetched && isUnlocked && !loading) {
+      fetchItems();
+    }
+  }, [sort, hasFetched, isUnlocked, loading, fetchItems]);
 
   return {
     items,
