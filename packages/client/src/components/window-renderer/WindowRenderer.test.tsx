@@ -1069,6 +1069,50 @@ function wrapper({ children }: { children: ReactNode }) {
   return <WindowManagerProvider>{children}</WindowManagerProvider>;
 }
 
+type WindowClickCase = [
+  label: string,
+  type: string,
+  id: string,
+  testId: string
+];
+type WindowMinimizeCase = [
+  label: string,
+  type: string,
+  id: string,
+  testId: string,
+  dimensions: WindowDimensions
+];
+
+interface WindowCase {
+  label: string;
+  type: string;
+  id: string;
+  windowTestId: string;
+  closeTestId: string;
+  focusTestId?: string;
+  minimize?: {
+    testId: string;
+    dimensions: WindowDimensions;
+  };
+}
+
+function renderSingleWindow(type: string, id: string) {
+  mockWindows = [{ id, type, zIndex: 100 }];
+  render(<WindowRenderer />, { wrapper });
+}
+
+function hasFocusTestId(
+  windowCase: WindowCase
+): windowCase is WindowCase & { focusTestId: string } {
+  return Boolean(windowCase.focusTestId);
+}
+
+function hasMinimizeCase(windowCase: WindowCase): windowCase is WindowCase & {
+  minimize: { testId: string; dimensions: WindowDimensions };
+} {
+  return Boolean(windowCase.minimize);
+}
+
 describe('WindowRenderer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -1101,12 +1145,6 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId('notes-window-notes-2')).toBeInTheDocument();
   });
 
-  it('renders notes window for notes type', () => {
-    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
-  });
-
   it('renders multiple windows', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
@@ -1115,24 +1153,6 @@ describe('WindowRenderer', () => {
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
     expect(screen.getByTestId('notes-window-notes-2')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-notes-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('notes-1');
-  });
-
-  it('calls focusWindow when window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('notes-window-notes-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('notes-1');
   });
 
   it('calls saveWindowDimensionsForType when dimensions change', async () => {
@@ -1227,21 +1247,6 @@ describe('WindowRenderer', () => {
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
   });
 
-  it('renders console window for console type', () => {
-    mockWindows = [{ id: 'console-1', type: 'console', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when console close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'console-1', type: 'console', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-console-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('console-1');
-  });
-
   it('renders mixed window types', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
@@ -1250,47 +1255,6 @@ describe('WindowRenderer', () => {
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
     expect(screen.getByTestId('console-window-console-1')).toBeInTheDocument();
-  });
-
-  it('renders settings window for settings type', () => {
-    mockWindows = [{ id: 'settings-1', type: 'settings', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('settings-window-settings-1')
-    ).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when settings close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'settings-1', type: 'settings', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-settings-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('settings-1');
-  });
-
-  it('renders email window for email type', () => {
-    mockWindows = [{ id: 'email-1', type: 'email', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when email close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'email-1', type: 'email', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-email-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('email-1');
-  });
-
-  it('calls focusWindow when email window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'email-1', type: 'email', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('email-window-email-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('email-1');
   });
 
   it('renders all four window types together', () => {
@@ -1309,803 +1273,331 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId('email-window-email-1')).toBeInTheDocument();
   });
 
-  it('calls minimizeWindow when notes minimize button is clicked', async () => {
+  const windowCases: WindowCase[] = [
+    {
+      label: 'notes',
+      type: 'notes',
+      id: 'notes-1',
+      windowTestId: 'notes-window-notes-1',
+      closeTestId: 'close-notes-1',
+      focusTestId: 'notes-window-notes-1',
+      minimize: {
+        testId: 'minimize-notes-1',
+        dimensions: { x: 0, y: 0, width: 400, height: 300 }
+      }
+    },
+    {
+      label: 'console',
+      type: 'console',
+      id: 'console-1',
+      windowTestId: 'console-window-console-1',
+      closeTestId: 'close-console-1',
+      minimize: {
+        testId: 'minimize-console-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 400 }
+      }
+    },
+    {
+      label: 'settings',
+      type: 'settings',
+      id: 'settings-1',
+      windowTestId: 'settings-window-settings-1',
+      closeTestId: 'close-settings-1'
+    },
+    {
+      label: 'email',
+      type: 'email',
+      id: 'email-1',
+      windowTestId: 'email-window-email-1',
+      closeTestId: 'close-email-1',
+      focusTestId: 'email-window-email-1',
+      minimize: {
+        testId: 'minimize-email-1',
+        dimensions: { x: 0, y: 0, width: 550, height: 450 }
+      }
+    },
+    {
+      label: 'files',
+      type: 'files',
+      id: 'files-1',
+      windowTestId: 'files-window-files-1',
+      closeTestId: 'close-files-1',
+      focusTestId: 'files-window-files-1',
+      minimize: {
+        testId: 'minimize-files-1',
+        dimensions: { x: 0, y: 0, width: 500, height: 400 }
+      }
+    },
+    {
+      label: 'tables',
+      type: 'tables',
+      id: 'tables-1',
+      windowTestId: 'tables-window-tables-1',
+      closeTestId: 'close-tables-1',
+      focusTestId: 'tables-window-tables-1',
+      minimize: {
+        testId: 'minimize-tables-1',
+        dimensions: { x: 0, y: 0, width: 850, height: 600 }
+      }
+    },
+    {
+      label: 'debug',
+      type: 'debug',
+      id: 'debug-1',
+      windowTestId: 'debug-window-debug-1',
+      closeTestId: 'close-debug-1',
+      focusTestId: 'debug-window-debug-1',
+      minimize: {
+        testId: 'minimize-debug-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'documents',
+      type: 'documents',
+      id: 'documents-1',
+      windowTestId: 'documents-window-documents-1',
+      closeTestId: 'close-documents-1',
+      focusTestId: 'documents-window-documents-1',
+      minimize: {
+        testId: 'minimize-documents-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 550 }
+      }
+    },
+    {
+      label: 'photos',
+      type: 'photos',
+      id: 'photos-1',
+      windowTestId: 'photos-window-photos-1',
+      closeTestId: 'close-photos-1',
+      focusTestId: 'photos-window-photos-1',
+      minimize: {
+        testId: 'minimize-photos-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 550 }
+      }
+    },
+    {
+      label: 'models',
+      type: 'models',
+      id: 'models-1',
+      windowTestId: 'models-window-models-1',
+      closeTestId: 'close-models-1',
+      focusTestId: 'models-window-models-1',
+      minimize: {
+        testId: 'minimize-models-1',
+        dimensions: { x: 0, y: 0, width: 720, height: 600 }
+      }
+    },
+    {
+      label: 'keychain',
+      type: 'keychain',
+      id: 'keychain-1',
+      windowTestId: 'keychain-window-keychain-1',
+      closeTestId: 'close-keychain-1',
+      focusTestId: 'keychain-window-keychain-1',
+      minimize: {
+        testId: 'minimize-keychain-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'contacts',
+      type: 'contacts',
+      id: 'contacts-1',
+      windowTestId: 'contacts-window-contacts-1',
+      closeTestId: 'close-contacts-1',
+      focusTestId: 'contacts-window-contacts-1',
+      minimize: {
+        testId: 'minimize-contacts-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'sqlite',
+      type: 'sqlite',
+      id: 'sqlite-1',
+      windowTestId: 'sqlite-window-sqlite-1',
+      closeTestId: 'close-sqlite-1',
+      focusTestId: 'sqlite-window-sqlite-1',
+      minimize: {
+        testId: 'minimize-sqlite-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'opfs',
+      type: 'opfs',
+      id: 'opfs-1',
+      windowTestId: 'opfs-window-opfs-1',
+      closeTestId: 'close-opfs-1',
+      minimize: {
+        testId: 'minimize-opfs-1',
+        dimensions: { x: 0, y: 0, width: 720, height: 560 }
+      }
+    },
+    {
+      label: 'local storage',
+      type: 'local-storage',
+      id: 'local-storage-1',
+      windowTestId: 'local-storage-window-local-storage-1',
+      closeTestId: 'close-local-storage-1',
+      focusTestId: 'local-storage-window-local-storage-1',
+      minimize: {
+        testId: 'minimize-local-storage-1',
+        dimensions: { x: 0, y: 0, width: 520, height: 420 }
+      }
+    },
+    {
+      label: 'analytics',
+      type: 'analytics',
+      id: 'analytics-1',
+      windowTestId: 'analytics-window-analytics-1',
+      closeTestId: 'close-analytics-1',
+      focusTestId: 'analytics-window-analytics-1',
+      minimize: {
+        testId: 'minimize-analytics-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 550 }
+      }
+    },
+    {
+      label: 'audio',
+      type: 'audio',
+      id: 'audio-1',
+      windowTestId: 'audio-window-audio-1',
+      closeTestId: 'close-audio-1',
+      focusTestId: 'audio-window-audio-1',
+      minimize: {
+        testId: 'minimize-audio-1',
+        dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'admin',
+      type: 'admin',
+      id: 'admin-1',
+      windowTestId: 'admin-window-admin-1',
+      closeTestId: 'close-admin-1',
+      focusTestId: 'admin-window-admin-1',
+      minimize: {
+        testId: 'minimize-admin-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 600 }
+      }
+    },
+    {
+      label: 'admin users',
+      type: 'admin-users',
+      id: 'admin-users-1',
+      windowTestId: 'admin-users-window-admin-users-1',
+      closeTestId: 'close-admin-users-1',
+      focusTestId: 'admin-users-window-admin-users-1',
+      minimize: {
+        testId: 'minimize-admin-users-1',
+        dimensions: { x: 0, y: 0, width: 840, height: 620 }
+      }
+    },
+    {
+      label: 'admin organizations',
+      type: 'admin-organizations',
+      id: 'admin-organizations-1',
+      windowTestId: 'admin-organizations-window-admin-organizations-1',
+      closeTestId: 'close-admin-organizations-1',
+      focusTestId: 'admin-organizations-window-admin-organizations-1',
+      minimize: {
+        testId: 'minimize-admin-organizations-1',
+        dimensions: { x: 0, y: 0, width: 840, height: 620 }
+      }
+    },
+    {
+      label: 'chat',
+      type: 'chat',
+      id: 'chat-1',
+      windowTestId: 'chat-window-chat-1',
+      closeTestId: 'close-chat-1',
+      focusTestId: 'chat-window-chat-1',
+      minimize: {
+        testId: 'minimize-chat-1',
+        dimensions: { x: 0, y: 0, width: 700, height: 600 }
+      }
+    },
+    {
+      label: 'help',
+      type: 'help',
+      id: 'help-1',
+      windowTestId: 'help-window-help-1',
+      closeTestId: 'close-help-1',
+      focusTestId: 'help-window-help-1',
+      minimize: {
+        testId: 'minimize-help-1',
+        dimensions: { x: 0, y: 0, width: 900, height: 700 }
+      }
+    }
+  ].sort((left, right) => left.label.localeCompare(right.label));
+
+  const renderCases: WindowClickCase[] = windowCases.map((windowCase) => [
+    windowCase.label,
+    windowCase.type,
+    windowCase.id,
+    windowCase.windowTestId
+  ]);
+
+  it.each(
+    renderCases
+  )('renders %s window for %s type', (_label, type, id, testId) => {
+    renderSingleWindow(type, id);
+    expect(screen.getByTestId(testId)).toBeInTheDocument();
+  });
+
+  const closeCases: WindowClickCase[] = windowCases.map((windowCase) => [
+    windowCase.label,
+    windowCase.type,
+    windowCase.id,
+    windowCase.closeTestId
+  ]);
+
+  it.each(
+    closeCases
+  )('calls closeWindow when %s close button is clicked', async (_label, type, id, testId) => {
     const user = userEvent.setup();
-    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-notes-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('notes-1', {
-      x: 0,
-      y: 0,
-      width: 400,
-      height: 300
-    });
+    renderSingleWindow(type, id);
+    await user.click(screen.getByTestId(testId));
+    expect(mockCloseWindow).toHaveBeenCalledWith(id);
   });
 
-  it('calls minimizeWindow when console minimize button is clicked', async () => {
+  const focusCases: WindowClickCase[] = windowCases
+    .filter(hasFocusTestId)
+    .map((windowCase) => [
+      windowCase.label,
+      windowCase.type,
+      windowCase.id,
+      windowCase.focusTestId
+    ]);
+
+  it.each(
+    focusCases
+  )('calls focusWindow when %s window is clicked', async (_label, type, id, testId) => {
     const user = userEvent.setup();
-    mockWindows = [{ id: 'console-1', type: 'console', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-console-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('console-1', {
-      x: 0,
-      y: 0,
-      width: 600,
-      height: 400
-    });
+    renderSingleWindow(type, id);
+    await user.click(screen.getByTestId(testId));
+    expect(mockFocusWindow).toHaveBeenCalledWith(id);
   });
 
-  it('calls minimizeWindow when email minimize button is clicked', async () => {
+  const minimizeCases: WindowMinimizeCase[] = windowCases
+    .filter(hasMinimizeCase)
+    .map((windowCase) => [
+      windowCase.label,
+      windowCase.type,
+      windowCase.id,
+      windowCase.minimize.testId,
+      windowCase.minimize.dimensions
+    ]);
+
+  it.each(
+    minimizeCases
+  )('calls minimizeWindow when %s minimize button is clicked', async (_label, type, id, testId, dimensions) => {
     const user = userEvent.setup();
-    mockWindows = [{ id: 'email-1', type: 'email', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-email-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('email-1', {
-      x: 0,
-      y: 0,
-      width: 550,
-      height: 450
-    });
-  });
-
-  it('renders files window for files type', () => {
-    mockWindows = [{ id: 'files-1', type: 'files', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('files-window-files-1')).toBeInTheDocument();
-  });
-
-  it('renders tables window for tables type', () => {
-    mockWindows = [{ id: 'tables-1', type: 'tables', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('tables-window-tables-1')).toBeInTheDocument();
-  });
-
-  it('renders debug window for debug type', () => {
-    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('debug-window-debug-1')).toBeInTheDocument();
-  });
-
-  it('renders documents window for documents type', () => {
-    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('documents-window-documents-1')
-    ).toBeInTheDocument();
-  });
-
-  it('renders photos window for photos type', () => {
-    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
-  });
-
-  it('renders models window for models type', () => {
-    mockWindows = [{ id: 'models-1', type: 'models', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('models-window-models-1')).toBeInTheDocument();
-  });
-
-  it('renders keychain window for keychain type', () => {
-    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('keychain-window-keychain-1')
-    ).toBeInTheDocument();
-  });
-
-  it('renders contacts window for contacts type', () => {
-    mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('contacts-window-contacts-1')
-    ).toBeInTheDocument();
-  });
-
-  it('renders sqlite window for sqlite type', () => {
-    mockWindows = [{ id: 'sqlite-1', type: 'sqlite', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
-  });
-
-  it('renders opfs window for opfs type', () => {
-    mockWindows = [{ id: 'opfs-1', type: 'opfs', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('opfs-window-opfs-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when contacts close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-contacts-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('contacts-1');
-  });
-
-  it('calls focusWindow when contacts window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('contacts-window-contacts-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('contacts-1');
-  });
-
-  it('calls minimizeWindow when contacts minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'contacts-1', type: 'contacts', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-contacts-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('contacts-1', {
-      x: 0,
-      y: 0,
-      width: 600,
-      height: 500
-    });
-  });
-
-  it('calls closeWindow when sqlite close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'sqlite-1', type: 'sqlite', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-sqlite-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('sqlite-1');
-  });
-
-  it('calls focusWindow when sqlite window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'sqlite-1', type: 'sqlite', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('sqlite-window-sqlite-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('sqlite-1');
-  });
-
-  it('calls minimizeWindow when sqlite minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'sqlite-1', type: 'sqlite', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-sqlite-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('sqlite-1', {
-      x: 0,
-      y: 0,
-      width: 600,
-      height: 500
-    });
-  });
-
-  it('calls closeWindow when opfs close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'opfs-1', type: 'opfs', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-opfs-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('opfs-1');
-  });
-
-  it('calls minimizeWindow when opfs minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'opfs-1', type: 'opfs', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-opfs-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('opfs-1', {
-      x: 0,
-      y: 0,
-      width: 720,
-      height: 560
-    });
-  });
-
-  it('calls closeWindow when files close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'files-1', type: 'files', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-files-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('files-1');
-  });
-
-  it('calls focusWindow when files window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'files-1', type: 'files', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('files-window-files-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('files-1');
-  });
-
-  it('calls minimizeWindow when files minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'files-1', type: 'files', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-files-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('files-1', {
-      x: 0,
-      y: 0,
-      width: 500,
-      height: 400
-    });
-  });
-
-  it('calls closeWindow when documents close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-documents-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('documents-1');
-  });
-
-  it('calls focusWindow when documents window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('documents-window-documents-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('documents-1');
-  });
-
-  it('calls minimizeWindow when documents minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-documents-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('documents-1', {
-      x: 0,
-      y: 0,
-      width: 700,
-      height: 550
-    });
-  });
-
-  it('calls closeWindow when photos close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-photos-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('photos-1');
-  });
-
-  it('calls focusWindow when photos window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('photos-window-photos-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('photos-1');
-  });
-
-  it('calls minimizeWindow when photos minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'photos-1', type: 'photos', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-photos-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('photos-1', {
-      x: 0,
-      y: 0,
-      width: 700,
-      height: 550
-    });
-  });
-
-  it('calls closeWindow when models close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'models-1', type: 'models', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-models-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('models-1');
-  });
-
-  it('calls focusWindow when models window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'models-1', type: 'models', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('models-window-models-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('models-1');
-  });
-
-  it('calls minimizeWindow when models minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'models-1', type: 'models', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-models-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('models-1', {
-      x: 0,
-      y: 0,
-      width: 720,
-      height: 600
-    });
-  });
-
-  it('calls closeWindow when keychain close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-keychain-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('keychain-1');
-  });
-
-  it('calls focusWindow when keychain window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('keychain-window-keychain-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('keychain-1');
-  });
-
-  it('calls minimizeWindow when keychain minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'keychain-1', type: 'keychain', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-keychain-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('keychain-1', {
-      x: 0,
-      y: 0,
-      width: 600,
-      height: 500
-    });
-  });
-
-  it('renders local storage window for local-storage type', () => {
-    mockWindows = [
-      { id: 'local-storage-1', type: 'local-storage', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('local-storage-window-local-storage-1')
-    ).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when local storage close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [
-      { id: 'local-storage-1', type: 'local-storage', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-local-storage-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('local-storage-1');
-  });
-
-  it('calls focusWindow when local storage window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [
-      { id: 'local-storage-1', type: 'local-storage', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(
-      screen.getByTestId('local-storage-window-local-storage-1')
-    );
-    expect(mockFocusWindow).toHaveBeenCalledWith('local-storage-1');
-  });
-
-  it('calls minimizeWindow when local storage minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [
-      { id: 'local-storage-1', type: 'local-storage', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-local-storage-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('local-storage-1', {
-      x: 0,
-      y: 0,
-      width: 520,
-      height: 420
-    });
-  });
-
-  it('renders analytics window for analytics type', () => {
-    mockWindows = [{ id: 'analytics-1', type: 'analytics', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('analytics-window-analytics-1')
-    ).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when analytics close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'analytics-1', type: 'analytics', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-analytics-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('analytics-1');
-  });
-
-  it('calls focusWindow when analytics window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'analytics-1', type: 'analytics', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('analytics-window-analytics-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('analytics-1');
-  });
-
-  it('calls minimizeWindow when analytics minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'analytics-1', type: 'analytics', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-analytics-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('analytics-1', {
-      x: 0,
-      y: 0,
-      width: 700,
-      height: 550
-    });
-  });
-
-  it('renders audio window for audio type', () => {
-    mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('audio-window-audio-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when audio close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-audio-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('audio-1');
-  });
-
-  it('calls focusWindow when audio window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('audio-window-audio-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('audio-1');
-  });
-
-  it('calls minimizeWindow when audio minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'audio-1', type: 'audio', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-audio-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('audio-1', {
-      x: 0,
-      y: 0,
-      width: 600,
-      height: 500
-    });
-  });
-
-  it('renders admin window for admin type', () => {
-    mockWindows = [{ id: 'admin-1', type: 'admin', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('admin-window-admin-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when admin close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-1', type: 'admin', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-admin-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('admin-1');
-  });
-
-  it('calls focusWindow when admin window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-1', type: 'admin', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('admin-window-admin-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('admin-1');
-  });
-
-  it('calls minimizeWindow when admin minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-1', type: 'admin', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-admin-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('admin-1', {
-      x: 0,
-      y: 0,
-      width: 700,
-      height: 600
-    });
-  });
-
-  it('renders admin users window for admin-users type', () => {
-    mockWindows = [{ id: 'admin-users-1', type: 'admin-users', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('admin-users-window-admin-users-1')
-    ).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when admin users close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-users-1', type: 'admin-users', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-admin-users-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('admin-users-1');
-  });
-
-  it('calls focusWindow when admin users window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-users-1', type: 'admin-users', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('admin-users-window-admin-users-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('admin-users-1');
-  });
-
-  it('calls minimizeWindow when admin users minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'admin-users-1', type: 'admin-users', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-admin-users-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('admin-users-1', {
-      x: 0,
-      y: 0,
-      width: 840,
-      height: 620
-    });
-  });
-
-  it('renders admin organizations window for admin-organizations type', () => {
-    mockWindows = [
-      { id: 'admin-organizations-1', type: 'admin-organizations', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('admin-organizations-window-admin-organizations-1')
-    ).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when admin organizations close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [
-      { id: 'admin-organizations-1', type: 'admin-organizations', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-admin-organizations-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('admin-organizations-1');
-  });
-
-  it('calls focusWindow when admin organizations window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [
-      { id: 'admin-organizations-1', type: 'admin-organizations', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(
-      screen.getByTestId('admin-organizations-window-admin-organizations-1')
-    );
-    expect(mockFocusWindow).toHaveBeenCalledWith('admin-organizations-1');
-  });
-
-  it('calls minimizeWindow when admin organizations minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [
-      { id: 'admin-organizations-1', type: 'admin-organizations', zIndex: 100 }
-    ];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-admin-organizations-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('admin-organizations-1', {
-      x: 0,
-      y: 0,
-      width: 840,
-      height: 620
-    });
-  });
-
-  it('renders chat window for chat type', () => {
-    mockWindows = [{ id: 'chat-1', type: 'chat', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('chat-window-chat-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when chat close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'chat-1', type: 'chat', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-chat-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('chat-1');
-  });
-
-  it('calls focusWindow when chat window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'chat-1', type: 'chat', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('chat-window-chat-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('chat-1');
-  });
-
-  it('calls minimizeWindow when chat minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'chat-1', type: 'chat', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-chat-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('chat-1', {
-      x: 0,
-      y: 0,
-      width: 700,
-      height: 600
-    });
-  });
-
-  describe('tables window', () => {
-    let user: ReturnType<typeof userEvent.setup>;
-
-    beforeEach(() => {
-      user = userEvent.setup();
-      mockWindows = [{ id: 'tables-1', type: 'tables', zIndex: 100 }];
-      render(<WindowRenderer />, { wrapper });
-    });
-
-    it('renders for tables type', () => {
-      expect(screen.getByTestId('tables-window-tables-1')).toBeInTheDocument();
-    });
-
-    it('calls closeWindow when tables close button is clicked', async () => {
-      await user.click(screen.getByTestId('close-tables-1'));
-      expect(mockCloseWindow).toHaveBeenCalledWith('tables-1');
-    });
-
-    it('calls focusWindow when tables window is clicked', async () => {
-      await user.click(screen.getByTestId('tables-window-tables-1'));
-      expect(mockFocusWindow).toHaveBeenCalledWith('tables-1');
-    });
-
-    it('calls minimizeWindow when tables minimize button is clicked', async () => {
-      await user.click(screen.getByTestId('minimize-tables-1'));
-      expect(mockMinimizeWindow).toHaveBeenCalledWith('tables-1', {
-        x: 0,
-        y: 0,
-        width: 850,
-        height: 600
-      });
-    });
-  });
-
-  it('renders debug window for debug type', () => {
-    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('debug-window-debug-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when debug close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-debug-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('debug-1');
-  });
-
-  it('calls focusWindow when debug window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('debug-window-debug-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('debug-1');
-  });
-
-  it('calls minimizeWindow when debug minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'debug-1', type: 'debug', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-debug-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('debug-1', {
-      x: 0,
-      y: 0,
-      width: 600,
-      height: 500
-    });
-  });
-
-  it('renders documents window for documents type', () => {
-    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(
-      screen.getByTestId('documents-window-documents-1')
-    ).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when documents close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-documents-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('documents-1');
-  });
-
-  it('calls focusWindow when documents window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('documents-window-documents-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('documents-1');
-  });
-
-  it('calls minimizeWindow when documents minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'documents-1', type: 'documents', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-documents-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('documents-1', {
-      x: 0,
-      y: 0,
-      width: 700,
-      height: 550
-    });
-  });
-
-  it('renders help window for help type', () => {
-    mockWindows = [{ id: 'help-1', type: 'help', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-    expect(screen.getByTestId('help-window-help-1')).toBeInTheDocument();
-  });
-
-  it('calls closeWindow when help close button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'help-1', type: 'help', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('close-help-1'));
-    expect(mockCloseWindow).toHaveBeenCalledWith('help-1');
-  });
-
-  it('calls focusWindow when help window is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'help-1', type: 'help', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('help-window-help-1'));
-    expect(mockFocusWindow).toHaveBeenCalledWith('help-1');
-  });
-
-  it('calls minimizeWindow when help minimize button is clicked', async () => {
-    const user = userEvent.setup();
-    mockWindows = [{ id: 'help-1', type: 'help', zIndex: 100 }];
-    render(<WindowRenderer />, { wrapper });
-
-    await user.click(screen.getByTestId('minimize-help-1'));
-    expect(mockMinimizeWindow).toHaveBeenCalledWith('help-1', {
-      x: 0,
-      y: 0,
-      width: 900,
-      height: 700
-    });
+    renderSingleWindow(type, id);
+    await user.click(screen.getByTestId(testId));
+    expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
   });
 
   it('renders all twenty-one window types together', () => {
