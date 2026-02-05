@@ -42,19 +42,17 @@ describe('ModelsWindowMenuBar', () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it('shows Cards and Compact Table options in View menu', async () => {
+  it('shows Cards and Table options in View menu', async () => {
     const user = userEvent.setup();
     render(<ModelsWindowMenuBar {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: 'View' }));
 
     expect(screen.getByRole('menuitem', { name: 'Cards' })).toBeInTheDocument();
-    expect(
-      screen.getByRole('menuitem', { name: 'Compact Table' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Table' })).toBeInTheDocument();
   });
 
-  it('calls onViewModeChange when Compact Table is selected', async () => {
+  it('calls onViewModeChange when Table is selected', async () => {
     const user = userEvent.setup();
     const onViewModeChange = vi.fn();
     render(
@@ -65,7 +63,7 @@ describe('ModelsWindowMenuBar', () => {
     );
 
     await user.click(screen.getByRole('button', { name: 'View' }));
-    await user.click(screen.getByRole('menuitem', { name: 'Compact Table' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Table' }));
 
     expect(onViewModeChange).toHaveBeenCalledWith('table');
   });

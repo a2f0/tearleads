@@ -128,7 +128,7 @@ describe('Models', () => {
       });
     });
 
-    it('renders the compact table view when enabled', async () => {
+    it('renders the table view when enabled', async () => {
       renderModelsContent(true, 'table');
 
       await waitFor(() => {
