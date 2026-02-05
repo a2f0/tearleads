@@ -27,6 +27,8 @@ type ProcessInfo = {
 };
 
 const COOLDOWN_MS = 10_000; // 10 seconds
+const PORT_RELEASE_MAX_WAIT_MS = 2000;
+const PORT_RELEASE_POLL_INTERVAL_MS = 100;
 
 const repoRoot = realpathSync(process.cwd());
 
@@ -166,6 +168,26 @@ const killPid = (pid: number, signal: NodeJS.Signals): void => {
   }
 };
 
+// Dev ports that should be freed before starting
+const DEV_PORTS = [3000];
+
+const getProcessOnPort = (port: number): number | null => {
+  try {
+    const output = execFileSync('lsof', ['-i', `:${port}`, '-t', '-sTCP:LISTEN'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    });
+    const pid = Number.parseInt(output.trim().split('\n')[0], 10);
+    return Number.isNaN(pid) ? null : pid;
+  } catch {
+    return null;
+  }
+};
+
+const isPortFree = (port: number): boolean => {
+  return getProcessOnPort(port) === null;
+};
+
 const sleep = (ms: number): Promise<void> =>
   new Promise((resolve) => {
     setTimeout(resolve, ms);
@@ -189,7 +211,19 @@ const main = async (): Promise<void> => {
     .filter((proc) => !ancestors.has(proc.pid))
     .filter((proc) => isInRepo(getProcessCwd(proc.pid)));
 
-  if (targets.length === 0) {
+  // Also find processes holding dev ports (from any rapid clone, not just this repo)
+  // This ensures port conflicts are resolved even when switching between workspaces
+  const portPids = DEV_PORTS.map(getProcessOnPort).filter(
+    (pid): pid is number => pid !== null && !ancestors.has(pid)
+  );
+
+  // Combine pnpm dev targets with port-holding processes
+  const allTargetPids = [...new Set([
+    ...targets.map((proc) => proc.pid),
+    ...portPids,
+  ])];
+
+  if (allTargetPids.length === 0) {
     // No processes to kill, but still write marker to prevent redundant checks
     writeMarker();
     return;
@@ -198,19 +232,35 @@ const main = async (): Promise<void> => {
   // Clear marker before killing - ensures fresh cooldown starts after kill completes
   clearMarker();
 
-  const targetPids = targets.map((proc) => proc.pid);
-  console.log(`[killPnpmDev] Stopping existing pnpm dev processes: ${targetPids.join(', ')}`);
+  console.log(`[killPnpmDev] Stopping existing dev processes: ${allTargetPids.join(', ')}`);
 
-  for (const pid of targetPids) {
+  for (const pid of allTargetPids) {
     killPid(pid, 'SIGTERM');
   }
 
   await sleep(200);
 
-  for (const pid of targetPids) {
+  for (const pid of allTargetPids) {
     if (isAlive(pid)) {
       killPid(pid, 'SIGKILL');
     }
+  }
+
+  // Wait for ports to be released (OS may take time to free them)
+  let waited = 0;
+  let allPortsAreFree = false;
+  while (waited < PORT_RELEASE_MAX_WAIT_MS) {
+    allPortsAreFree = DEV_PORTS.every(isPortFree);
+    if (allPortsAreFree) {
+      break;
+    }
+    await sleep(PORT_RELEASE_POLL_INTERVAL_MS);
+    waited += PORT_RELEASE_POLL_INTERVAL_MS;
+  }
+
+  if (!allPortsAreFree) {
+    const busyPorts = DEV_PORTS.filter((port) => !isPortFree(port));
+    console.warn(`[killPnpmDev] Timed out waiting for ports to be released: ${busyPorts.join(', ')}`);
   }
 
   // Write marker after successful kill
