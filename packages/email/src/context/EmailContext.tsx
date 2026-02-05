@@ -1,5 +1,6 @@
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext } from 'react';
+import type { EmailFolder, EmailFolderType } from '../types/folder.js';
 
 /**
  * UI component props interfaces
@@ -46,6 +47,29 @@ export interface EmailUIComponents {
 }
 
 /**
+ * Email folder operations interface
+ */
+export interface EmailFolderOperations {
+  /** Fetch all email folders */
+  fetchFolders: () => Promise<EmailFolder[]>;
+  /** Create a new folder */
+  createFolder: (
+    name: string,
+    parentId?: string | null
+  ) => Promise<EmailFolder>;
+  /** Rename a folder */
+  renameFolder: (id: string, newName: string) => Promise<void>;
+  /** Delete a folder */
+  deleteFolder: (id: string) => Promise<void>;
+  /** Move a folder to a new parent */
+  moveFolder: (id: string, newParentId: string | null) => Promise<void>;
+  /** Initialize system folders (Inbox, Sent, Drafts, Trash, Spam) */
+  initializeSystemFolders: () => Promise<void>;
+  /** Get folder by type (for system folders) */
+  getFolderByType: (type: EmailFolderType) => Promise<EmailFolder | null>;
+}
+
+/**
  * Context value interface
  */
 export interface EmailContextValue {
@@ -55,15 +79,18 @@ export interface EmailContextValue {
   getAuthHeader?: () => string | null;
   /** UI components */
   ui: EmailUIComponents;
+  /** Folder operations (optional - provided by client with database access) */
+  folderOperations?: EmailFolderOperations;
 }
 
-const EmailContext = createContext<EmailContextValue | null>(null);
+export const EmailContext = createContext<EmailContextValue | null>(null);
 
 export interface EmailProviderProps {
   children: ReactNode;
   apiBaseUrl: string;
   getAuthHeader?: () => string | null;
   ui: EmailUIComponents;
+  folderOperations?: EmailFolderOperations;
 }
 
 /**
@@ -73,12 +100,14 @@ export function EmailProvider({
   children,
   apiBaseUrl,
   getAuthHeader,
-  ui
+  ui,
+  folderOperations
 }: EmailProviderProps) {
   const contextValue: EmailContextValue = {
     apiBaseUrl,
     ui,
-    ...(getAuthHeader !== undefined && { getAuthHeader })
+    ...(getAuthHeader !== undefined && { getAuthHeader }),
+    ...(folderOperations !== undefined && { folderOperations })
   };
 
   return (
@@ -120,4 +149,26 @@ export function useEmailApi(): {
     apiBaseUrl,
     ...(getAuthHeader !== undefined && { getAuthHeader })
   };
+}
+
+/**
+ * Hook to access folder operations
+ * @throws Error if folder operations are not provided
+ */
+export function useEmailFolderOperations(): EmailFolderOperations {
+  const { folderOperations } = useEmailContext();
+  if (!folderOperations) {
+    throw new Error(
+      'Email folder operations are not available. Ensure EmailProvider is configured with folderOperations.'
+    );
+  }
+  return folderOperations;
+}
+
+/**
+ * Hook to check if folder operations are available
+ */
+export function useHasEmailFolderOperations(): boolean {
+  const { folderOperations } = useEmailContext();
+  return folderOperations !== undefined;
 }
