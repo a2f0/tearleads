@@ -11,17 +11,17 @@ appId: com.tearleads.rapid
 # Navigate to settings with mobile/desktop handling
 - evalScript: |
     (async () => {
-      const isMobile = window.matchMedia('(max-width: 1023px)').matches;
-      if (isMobile) {
-        const settingsButton = document.querySelector(
-          '[data-testid="settings-button"]'
-        );
-        if (!settingsButton) {
-          throw new Error('Settings button not found');
-        }
+      const settingsButton = document.querySelector(
+        '[data-testid="settings-button"]'
+      );
+      if (settingsButton && settingsButton.offsetParent !== null) {
         settingsButton.click();
-        await window.waitForElement('[data-testid="settings-sheet"]');
-        return 'opened-settings-sheet';
+        try {
+          await window.waitForElement('[data-testid="settings-sheet"]', 1500);
+          return 'opened-settings-sheet';
+        } catch (error) {
+          // Fall back to sidebar navigation if SettingsSheet isn't available.
+        }
       }
 
       const mobileButton = document.querySelector(
