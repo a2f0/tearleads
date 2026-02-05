@@ -8,7 +8,7 @@ import {
   MlsChatProvider,
   type MlsChatUIComponents
 } from '@rapid/mls-chat';
-import type { FC } from 'react';
+import { type FC, useCallback } from 'react';
 
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -120,8 +120,11 @@ export const MlsChatPage: FC<MlsChatPageProps> = ({ className }) => {
   // Get the API base URL from environment
   const apiBaseUrl = API_BASE_URL ?? 'http://localhost:5001/v1';
 
-  // Auth header function
-  const getAuthHeader = () => (token ? `Bearer ${token}` : null);
+  // Auth header function - stabilize reference to prevent downstream hooks from re-creating
+  const getAuthHeader = useCallback(
+    () => (token ? `Bearer ${token}` : null),
+    [token]
+  );
 
   // User info
   const userId = user?.id ?? '';

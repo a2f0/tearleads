@@ -18,6 +18,12 @@ interface DropdownMenuProps {
   align?: 'left' | 'right';
 }
 
+interface TriggerElementProps {
+  onClick?: (e: React.MouseEvent) => void;
+  'aria-haspopup'?: string;
+  'aria-expanded'?: boolean;
+}
+
 interface ChildProps {
   onClick?: () => void;
   preventClose?: boolean;
@@ -123,15 +129,26 @@ export function DropdownMenu({
   return (
     <DropdownMenuContext.Provider value={contextValue}>
       <div ref={containerRef} className="relative">
-        <button
-          type="button"
-          onClick={toggle}
-          className="px-2 py-0.5 text-xs hover:bg-accent"
-          aria-haspopup="menu"
-          aria-expanded={isOpen}
-        >
-          {trigger}
-        </button>
+        {isValidElement<TriggerElementProps>(trigger) ? (
+          cloneElement(trigger, {
+            onClick: (e: React.MouseEvent) => {
+              toggle();
+              trigger.props.onClick?.(e);
+            },
+            'aria-haspopup': 'menu',
+            'aria-expanded': isOpen
+          })
+        ) : (
+          <button
+            type="button"
+            onClick={toggle}
+            className="px-2 py-0.5 text-xs hover:bg-accent"
+            aria-haspopup="menu"
+            aria-expanded={isOpen}
+          >
+            {trigger}
+          </button>
+        )}
         {isOpen && (
           <div
             ref={menuRef}
