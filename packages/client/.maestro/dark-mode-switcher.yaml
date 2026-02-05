@@ -14,10 +14,15 @@ androidWebViewHierarchy: devtools
     (async () => {
       const isAndroid = /Android/i.test(navigator.userAgent);
       if (isAndroid) {
-        await window.waitForElement('[data-icon-path="/settings"]', 6000);
-        const homeSettings = document.querySelector(
-          '[data-icon-path="/settings"]'
-        );
+        let homeSettings = null;
+        try {
+          await window.waitForElement('[data-icon-path="/settings"]', 6000);
+          homeSettings = document.querySelector(
+            '[data-icon-path="/settings"]'
+          );
+        } catch (error) {
+          // Fall back to history navigation if the home icon is missing.
+        }
         if (homeSettings) {
           homeSettings.click();
           return 'clicked-android-home-settings';
