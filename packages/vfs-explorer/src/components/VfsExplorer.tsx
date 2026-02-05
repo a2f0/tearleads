@@ -7,7 +7,7 @@ import {
   useSensor,
   useSensors
 } from '@dnd-kit/core';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UNFILED_FOLDER_ID } from '../constants';
 import { useVfsClipboard, VfsClipboardProvider } from '../context';
 import { useCopyVfsItem, useMoveVfsItem, type VfsFolderNode } from '../hooks';
@@ -66,9 +66,30 @@ function VfsExplorerInner({
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const [items, setItems] = useState<DisplayItem[]>([]);
   const [folderRefreshToken, setFolderRefreshToken] = useState(0);
+  const [statusMessage, setStatusMessage] = useState<{
+    text: string;
+    type: 'error' | 'info';
+  } | null>(null);
+  const statusTimerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
   const { moveItem } = useMoveVfsItem();
   const { copyItem } = useCopyVfsItem();
   const { clipboard, clear: clearClipboard, isCut } = useVfsClipboard();
+
+  const showStatusMessage = useCallback(
+    (text: string, type: 'error' | 'info') => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+      setStatusMessage({ text, type });
+      statusTimerRef.current = setTimeout(() => setStatusMessage(null), 4000);
+    },
+    []
+  );
+
+  // Clean up status timer
+  useEffect(() => {
+    return () => {
+      if (statusTimerRef.current) clearTimeout(statusTimerRef.current);
+    };
+  }, []);
 
   // Configure pointer sensor with distance constraint to allow double-clicks
   const sensors = useSensors(
@@ -160,10 +181,12 @@ function VfsExplorerInner({
         await moveItem(itemData.id, targetFolderId);
         onItemMoved?.();
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         console.error('Failed to move item:', err);
+        showStatusMessage(`Move failed: ${message}`, 'error');
       }
     },
-    [moveItem, onItemMoved]
+    [moveItem, onItemMoved, showStatusMessage]
   );
 
   const handlePaste = useCallback(
@@ -174,18 +197,20 @@ function VfsExplorerInner({
       if (targetFolderId === UNFILED_FOLDER_ID) return;
 
       try {
+        const itemsToPaste = clipboard.items.filter(
+          (item) =>
+            !(item.objectType === 'folder' && item.id === targetFolderId)
+        );
+
+        if (itemsToPaste.length === 0) return;
+
         // Run paste operations concurrently for better performance
-        const pasteOperations = clipboard.items
-          .filter(
-            (item) =>
-              !(item.objectType === 'folder' && item.id === targetFolderId)
-          )
-          .map((item) => {
-            if (isCut) {
-              return moveItem(item.id, targetFolderId);
-            }
-            return copyItem(item.id, targetFolderId);
-          });
+        const pasteOperations = itemsToPaste.map((item) => {
+          if (isCut) {
+            return moveItem(item.id, targetFolderId);
+          }
+          return copyItem(item.id, targetFolderId);
+        });
 
         await Promise.all(pasteOperations);
 
@@ -198,10 +223,20 @@ function VfsExplorerInner({
         setFolderRefreshToken((prev) => prev + 1);
         onItemMoved?.();
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         console.error('Failed to paste items:', err);
+        showStatusMessage(`Paste failed: ${message}`, 'error');
       }
     },
-    [clipboard.items, isCut, moveItem, copyItem, clearClipboard, onItemMoved]
+    [
+      clipboard.items,
+      isCut,
+      moveItem,
+      copyItem,
+      clearClipboard,
+      onItemMoved,
+      showStatusMessage
+    ]
   );
 
   // Combine external refresh token with internal folder refresh token
@@ -252,6 +287,7 @@ function VfsExplorerInner({
         <VfsStatusBar
           itemCount={items.length}
           selectedItemName={selectedItemName}
+          message={statusMessage}
         />
       </div>
       <VfsDragOverlay activeItem={activeItem} />
