@@ -514,9 +514,6 @@ export function VideoPage({
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <div className="text-center">
               <p className="font-medium">Uploading...</p>
-              <p className="text-muted-foreground text-sm">
-                {uploadProgress}% complete
-              </p>
             </div>
             <UploadProgress progress={uploadProgress} />
           </div>
