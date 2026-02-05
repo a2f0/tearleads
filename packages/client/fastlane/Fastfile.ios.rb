@@ -129,6 +129,8 @@ platform :ios do
       UI.user_error!("Please set #{var} environment variable") unless ENV[var]
     end
 
+    setup_ci_environment
+
     match(
       type: 'developer_id',
       platform: 'macos',
