@@ -15,7 +15,7 @@ appId: com.tearleads.rapid
 - evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 
 # Wait for SQLite page to load
-- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+- evalScript: window.waitForElement('[data-testid="database-test"]')
 
 # Reset database to ensure clean state
 - evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
@@ -137,7 +137,7 @@ appId: com.tearleads.rapid
 - evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 
 # Wait for SQLite page to load
-- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+- evalScript: window.waitForElement('[data-testid="database-test"]')
 
 # Verify database is still unlocked
 - evalScript: window.waitForStatus('Unlocked')
@@ -185,7 +185,7 @@ appId: com.tearleads.rapid
 # Test that export is disabled when database is locked
 # First, lock the database
 - evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
-- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+- evalScript: window.waitForElement('[data-testid="database-test"]')
 
 # Setup database again since we're in a fresh state after previous tests
 - evalScript: |
@@ -222,7 +222,7 @@ appId: com.tearleads.rapid
 
 # Navigate back to debug and unlock
 - evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
-- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+- evalScript: window.waitForElement('[data-testid="database-test"]')
 - evalScript: window.setPassword('testpassword123')
 - evalScript: document.querySelector('[data-testid="db-unlock-button"]').click()
 - evalScript: window.waitForStatus('Unlocked')
@@ -244,6 +244,6 @@ appId: com.tearleads.rapid
 
 # Clean up - reset database
 - evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
-- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+- evalScript: window.waitForElement('[data-testid="database-test"]')
 - evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
 - evalScript: window.waitForStatus('Not Set Up')

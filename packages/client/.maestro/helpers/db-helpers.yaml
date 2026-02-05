@@ -15,6 +15,13 @@ appId: com.tearleads.rapid
       }
       throw new Error(errorMessage);
     };
+    window.waitForElement = function(selector, timeout) {
+      return window.waitFor(
+        function() { return document.querySelector(selector); },
+        'Element not found: ' + selector,
+        timeout
+      );
+    };
     window.waitForStatus = function(status) {
       return window.waitFor(
         function() { return document.querySelector('[data-testid="db-status"]') && document.querySelector('[data-testid="db-status"]').textContent === status; },

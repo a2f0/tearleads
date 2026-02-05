@@ -16,7 +16,7 @@ appId: com.tearleads.rapid
 - evalScript: document.querySelector('[data-testid="sqlite-link"]').click()
 
 # Wait for SQLite page to load
-- evalScript: window.waitFor(() => document.querySelector('[data-testid="database-test"]'), 'Database Test component not found')
+- evalScript: window.waitForElement('[data-testid="database-test"]')
 
 # Reset database to ensure clean state
 - evalScript: document.querySelector('[data-testid="db-reset-button"]').click()

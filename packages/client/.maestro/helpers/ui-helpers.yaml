@@ -1,0 +1,37 @@
+appId: com.tearleads.rapid
+---
+# Shared UI test helper functions
+# Usage: - runFlow: helpers/ui-helpers.yaml
+
+- evalScript: |
+    window.waitForElement = async (selector, timeout = 8000) => {
+      const interval = 200;
+      const maxTries = Math.ceil(timeout / interval);
+      for (let i = 0; i < maxTries; i++) {
+        if (document.querySelector(selector)) return 'ok';
+        await new Promise(r => setTimeout(r, interval));
+      }
+      throw new Error('Element not found: ' + selector);
+    };
+
+    window.waitForAttribute = async (
+      selector,
+      attribute,
+      expectedValue,
+      timeout = 8000
+    ) => {
+      const interval = 200;
+      const maxTries = Math.ceil(timeout / interval);
+      for (let i = 0; i < maxTries; i++) {
+        const element = document.querySelector(selector);
+        if (element && element.getAttribute(attribute) === expectedValue) {
+          return 'ok';
+        }
+        await new Promise(r => setTimeout(r, interval));
+      }
+      throw new Error(
+        `Expected ${selector} ${attribute}=${expectedValue}`
+      );
+    };
+
+    'ui helpers loaded';
