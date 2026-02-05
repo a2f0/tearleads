@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
-import { cn, formatDate } from '@/lib/utils';
+import { cn, formatNumber, formatTimestamp } from '@/lib/utils';
 
 interface UsersAdminDetailProps {
   userId?: string | null;
@@ -203,15 +203,6 @@ export function UsersAdminDetail({
       setOrganizationIdsInput(user.organizationIds.join(', '));
     }
   }, [user]);
-
-  const formatTimestamp = useCallback((timestamp: string | null) => {
-    if (!timestamp) return '—';
-    return formatDate(new Date(timestamp));
-  }, []);
-
-  const formatNumber = useCallback((value: number) => {
-    return new Intl.NumberFormat().format(value);
-  }, []);
 
   const copyUserId = useCallback(() => {
     if (!user) return;

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
-import { formatDate } from '@/lib/utils';
+import { formatNumber, formatTimestamp } from '@/lib/utils';
 
 interface UsersAdminProps {
   showBackLink?: boolean;
@@ -43,15 +43,6 @@ export function UsersAdmin({
     },
     [onUserSelect]
   );
-
-  const formatTimestamp = useCallback((timestamp: string | null) => {
-    if (!timestamp) return '—';
-    return formatDate(new Date(timestamp));
-  }, []);
-
-  const formatNumber = useCallback((value: number) => {
-    return new Intl.NumberFormat().format(value);
-  }, []);
 
   return (
     <div className="flex h-full flex-col space-y-6">

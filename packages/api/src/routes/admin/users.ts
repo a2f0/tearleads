@@ -225,13 +225,9 @@ usersRouter.get('/', async (_req: Request, res: Response) => {
        GROUP BY u.id
        ORDER BY u.email`
     );
-    const lastActiveByUserId = await getLatestLastActiveByUserIds(
-      result.rows.map((row) => row.id)
-    );
-    const accountingByUserId = await getUserAccounting(
-      pool,
-      result.rows.map((row) => row.id)
-    );
+    const userIds = result.rows.map((row) => row.id);
+    const lastActiveByUserId = await getLatestLastActiveByUserIds(userIds);
+    const accountingByUserId = await getUserAccounting(pool, userIds);
     const users = result.rows.map((row) =>
       mapUserRow(row, {
         lastActiveAt: lastActiveByUserId[row.id] ?? null,

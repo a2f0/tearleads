@@ -90,6 +90,15 @@ export function formatDate(date: Date): string {
   });
 }
 
+export function formatTimestamp(timestamp: string | null): string {
+  if (!timestamp) return '—';
+  return formatDate(new Date(timestamp));
+}
+
+export function formatNumber(value: number): string {
+  return new Intl.NumberFormat().format(value);
+}
+
 export interface WebGPUErrorInfo {
   title: string;
   message: string;
