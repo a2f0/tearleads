@@ -13,6 +13,18 @@ const mockLogin = vi.fn();
 const mockLogout = vi.fn();
 const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 
+function createJwt(expiresAtSeconds: number): string {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+  const payload = btoa(JSON.stringify({ exp: expiresAtSeconds }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+  return `${header}.${payload}.`;
+}
+
 vi.mock('@/lib/api', () => ({
   api: {
     auth: {
@@ -28,6 +40,7 @@ function TestComponent() {
     authError,
     isAuthenticated,
     user,
+    token,
     isLoading,
     login,
     logout,
@@ -47,6 +60,7 @@ function TestComponent() {
       <div data-testid="auth-status">
         {isAuthenticated ? 'authenticated' : 'not authenticated'}
       </div>
+      <div data-testid="auth-token">{token ?? 'null'}</div>
       {user && <div data-testid="user-email">{user.email}</div>}
       {authError && <div data-testid="auth-error">{authError}</div>}
       <button type="button" onClick={handleLogin}>
@@ -103,10 +117,82 @@ describe('AuthContext', () => {
       expect(screen.getByTestId('auth-status')).toHaveTextContent(
         'authenticated'
       );
+      expect(screen.getByTestId('auth-token')).toHaveTextContent('saved-token');
       expect(screen.getByTestId('user-email')).toHaveTextContent(
         'saved@example.com'
       );
     });
+  });
+
+  it('syncs refreshed token into state on mount', async () => {
+    localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+    mockTryRefreshToken.mockImplementationOnce(() => {
+      localStorage.setItem(AUTH_TOKEN_KEY, 'refreshed-token');
+      return Promise.resolve(true);
+    });
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+      expect(screen.getByTestId('auth-token')).toHaveTextContent(
+        'refreshed-token'
+      );
+    });
+  });
+
+  it('refreshes the token on an interval when nearing expiration', async () => {
+    const now = new Date('2026-02-05T12:00:00.000Z');
+    const expiresAt = Math.floor(now.getTime() / 1000) + 5 * 60;
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(now);
+    localStorage.setItem(AUTH_TOKEN_KEY, createJwt(expiresAt));
+    localStorage.setItem(
+      AUTH_USER_KEY,
+      JSON.stringify({ id: '123', email: 'saved@example.com' })
+    );
+
+    const refreshedToken = createJwt(expiresAt + 3600);
+    mockTryRefreshToken.mockImplementationOnce(() => {
+      localStorage.setItem(AUTH_TOKEN_KEY, refreshedToken);
+      return Promise.resolve(true);
+    });
+
+    render(
+      <AuthProvider>
+        <TestComponent />
+      </AuthProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-status')).toHaveTextContent(
+        'authenticated'
+      );
+    });
+
+    vi.setSystemTime(new Date('2026-02-05T12:04:30.000Z'));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(30_000);
+    });
+
+    expect(mockTryRefreshToken).toHaveBeenCalledTimes(1);
+    await waitFor(() => {
+      expect(screen.getByTestId('auth-token')).toHaveTextContent(
+        refreshedToken
+      );
+    });
+
+    vi.useRealTimers();
   });
 
   it('handles login success', async () => {
