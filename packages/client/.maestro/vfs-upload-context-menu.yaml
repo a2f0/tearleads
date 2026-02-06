@@ -1,0 +1,221 @@
+appId: com.tearleads.rapid
+---
+# VFS Upload Context Menu Test
+# Tests that the Upload context menu item appears when right-clicking in an empty folder
+
+- launchApp:
+    clearState: true
+
+# Load shared helpers
+- runFlow: helpers/db-helpers.yaml
+
+# Wait for app to load
+- evalScript: |
+    window.waitFor(
+      () => document.body.innerText.includes('Tearleads'),
+      'Tearleads text not found'
+    )
+
+# Navigate to SQLite page to set up database
+- evalScript: |
+    window.waitFor(
+      () => {
+        const link = document.querySelector('[data-testid="sqlite-link"]');
+        if (link) {
+          link.click();
+          return true;
+        }
+        return false;
+      },
+      'SQLite link not found'
+    )
+
+# Wait for SQLite page to load
+- evalScript: window.waitForElement('[data-testid="database-test"]')
+
+# Reset database to ensure clean state
+- evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
+- evalScript: window.waitForResult('success')
+- evalScript: window.waitForStatus('Not Set Up')
+
+# Set up database with password
+- evalScript: window.setPassword('testpassword123')
+- evalScript: document.querySelector('[data-testid="db-setup-button"]').click()
+- evalScript: window.waitForResult('success')
+- evalScript: window.waitForStatus('Unlocked')
+
+# Navigate to VFS page
+- evalScript: |
+    window.waitFor(
+      () => {
+        const link = document.querySelector('[href="/vfs"]') ||
+                     Array.from(document.querySelectorAll('a')).find(a => a.textContent.includes('VFS'));
+        if (link) {
+          link.click();
+          return true;
+        }
+        return false;
+      },
+      'VFS link not found',
+      10000
+    )
+
+# Wait for VFS Explorer to load (look for the Folders header)
+- evalScript: |
+    window.waitFor(
+      () => document.body.innerText.includes('Folders') &&
+            document.body.innerText.includes('Unfiled Items'),
+      'VFS Explorer not loaded',
+      10000
+    )
+
+# Create a new folder by right-clicking in the tree panel empty space
+- evalScript: |
+    (async () => {
+      // Find the tree panel (contains "Folders" text)
+      const treePanel = Array.from(document.querySelectorAll('div')).find(
+        d => d.innerText.includes('Folders') && d.querySelector('button')
+      );
+      if (!treePanel) throw new Error('Tree panel not found');
+
+      // Find empty space in tree panel and trigger context menu
+      const emptySpace = treePanel.querySelector('.overflow-y-auto');
+      if (!emptySpace) throw new Error('Tree panel empty space not found');
+
+      const event = new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 100,
+        clientY: 300
+      });
+      emptySpace.dispatchEvent(event);
+
+      return 'ok';
+    })()
+
+# Wait for context menu and click "New Folder"
+- evalScript: |
+    window.waitFor(
+      () => {
+        const newFolderItem = Array.from(document.querySelectorAll('button')).find(
+          b => b.textContent.includes('New Folder')
+        );
+        if (newFolderItem) {
+          newFolderItem.click();
+          return true;
+        }
+        return false;
+      },
+      'New Folder context menu item not found',
+      5000
+    )
+
+# Wait for new folder dialog and enter folder name
+- evalScript: |
+    window.waitFor(
+      () => {
+        const input = document.querySelector('[data-testid="new-folder-name-input"]');
+        if (input) {
+          input.value = 'Test Upload Folder';
+          input.dispatchEvent(new Event('input', { bubbles: true }));
+          return true;
+        }
+        return false;
+      },
+      'New folder name input not found',
+      5000
+    )
+
+# Click Create button
+- evalScript: |
+    window.waitFor(
+      () => {
+        const createBtn = document.querySelector('[data-testid="new-folder-dialog-create"]');
+        if (createBtn && !createBtn.disabled) {
+          createBtn.click();
+          return true;
+        }
+        return false;
+      },
+      'Create button not found or disabled',
+      5000
+    )
+
+# Wait for dialog to close and folder to appear
+- evalScript: |
+    window.waitFor(
+      () => {
+        const dialog = document.querySelector('[data-testid="new-folder-dialog"]');
+        const folderBtn = Array.from(document.querySelectorAll('button')).find(
+          b => b.textContent.includes('Test Upload Folder')
+        );
+        return !dialog && folderBtn;
+      },
+      'Folder not created or dialog still open',
+      5000
+    )
+
+# Click on the newly created folder to select it
+- evalScript: |
+    window.waitFor(
+      () => {
+        const folderBtn = Array.from(document.querySelectorAll('button')).find(
+          b => b.textContent.includes('Test Upload Folder')
+        );
+        if (folderBtn) {
+          folderBtn.click();
+          return true;
+        }
+        return false;
+      },
+      'Test Upload Folder button not found',
+      5000
+    )
+
+# Wait for empty folder message to appear in details panel
+- evalScript: |
+    window.waitFor(
+      () => document.body.innerText.includes('This folder is empty'),
+      'Empty folder message not found',
+      5000
+    )
+
+# Trigger context menu on the empty folder content area
+- evalScript: |
+    (async () => {
+      // Find the details panel (contains "This folder is empty")
+      const detailsPanel = Array.from(document.querySelectorAll('div')).find(
+        d => d.innerText.includes('This folder is empty')
+      );
+      if (!detailsPanel) throw new Error('Empty folder panel not found');
+
+      const event = new MouseEvent('contextmenu', {
+        bubbles: true,
+        cancelable: true,
+        clientX: 500,
+        clientY: 300
+      });
+      detailsPanel.dispatchEvent(event);
+
+      return 'ok';
+    })()
+
+# Verify Upload context menu item appears
+- evalScript: |
+    window.waitFor(
+      () => {
+        const uploadItem = document.querySelector('[data-testid="vfs-upload-context-menu-item"]') ||
+                          Array.from(document.querySelectorAll('button')).find(
+                            b => b.textContent.trim() === 'Upload'
+                          );
+        if (uploadItem) {
+          return true;
+        }
+        return false;
+      },
+      'Upload context menu item not found - THIS IS THE BUG!',
+      5000
+    )
+
+# Test passed - Upload context menu is visible
+- evalScript: "'VFS Upload context menu test PASSED'"

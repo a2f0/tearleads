@@ -1,5 +1,5 @@
 import type { VfsOpenItem } from '@rapid/vfs-explorer';
-import { act, render } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VfsWindow } from './index';
@@ -9,14 +9,24 @@ const mockRequestWindowOpen = vi.fn();
 
 const mockResolveFileOpenTarget = vi.fn();
 const mockResolvePlaylistType = vi.fn();
-const mockUploadFile = vi.fn();
-const mockDbSelect = vi.fn();
-const mockDbInsert = vi.fn();
+const mockHandleUpload = vi.fn();
+const mockHandleFileInputChange = vi.fn();
+const mockFileInputRef = { current: null };
 
 // Mock database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+// Mock useVfsUploader hook
+vi.mock('@/hooks/useVfsUploader', () => ({
+  useVfsUploader: () => ({
+    fileInputRef: mockFileInputRef,
+    refreshToken: 0,
+    handleUpload: mockHandleUpload,
+    handleFileInputChange: mockHandleFileInputChange
+  })
 }));
 
 // Mock InlineUnlock component
@@ -77,37 +87,17 @@ vi.mock('@/lib/vfs-open', () => ({
   resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)
 }));
 
-vi.mock('@/hooks/useFileUpload', () => ({
-  useFileUpload: () => ({
-    uploadFile: mockUploadFile
-  })
-}));
-
 describe('VfsWindow', () => {
   beforeEach(() => {
     mockOpenWindow.mockReset();
     mockRequestWindowOpen.mockReset();
     mockResolveFileOpenTarget.mockReset();
     mockResolvePlaylistType.mockReset();
-    mockUploadFile.mockReset();
-    mockDbSelect.mockReset();
-    mockDbInsert.mockReset();
+    mockHandleUpload.mockReset();
+    mockHandleFileInputChange.mockReset();
     latestProps = null;
 
-    // Create chainable mock for db.select().from().where()
-    const mockWhere = vi.fn().mockResolvedValue([]);
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-    mockDbSelect.mockReturnValue({ from: mockFrom });
-
-    // Create chainable mock for db.insert().values()
-    const mockValues = vi.fn().mockResolvedValue(undefined);
-    mockDbInsert.mockReturnValue({ values: mockValues });
-
     mockUseDatabaseContext.mockReturnValue({
-      db: {
-        select: mockDbSelect,
-        insert: mockDbInsert
-      },
       isUnlocked: true,
       isLoading: false,
       currentInstanceId: 'test-instance'
@@ -549,8 +539,8 @@ describe('VfsWindow', () => {
     expect(mockRequestWindowOpen).not.toHaveBeenCalled();
   });
 
-  it('triggers file input click when onUpload is called', () => {
-    const { container } = render(
+  it('passes handleUpload to VfsWindowBase onUpload prop', () => {
+    render(
       <VfsWindow
         id="vfs-upload-1"
         onClose={vi.fn()}
@@ -560,88 +550,10 @@ describe('VfsWindow', () => {
       />
     );
 
-    const fileInput = container.querySelector(
-      'input[type="file"]'
-    ) as HTMLInputElement;
-    const clickSpy = vi.spyOn(fileInput, 'click');
-
+    // Call onUpload from VfsWindowBase props
     latestProps?.onUpload?.('folder-123');
 
-    expect(clickSpy).toHaveBeenCalled();
-  });
-
-  it('uploads file and creates VFS link when file is selected', async () => {
-    mockUploadFile.mockResolvedValue({ id: 'file-id-123', isDuplicate: false });
-
-    const { container } = render(
-      <VfsWindow
-        id="vfs-upload-2"
-        onClose={vi.fn()}
-        onMinimize={vi.fn()}
-        onFocus={vi.fn()}
-        zIndex={100}
-      />
-    );
-
-    // Trigger upload with folder ID
-    latestProps?.onUpload?.('folder-456');
-
-    // Simulate file selection
-    const fileInput = container.querySelector(
-      'input[type="file"]'
-    ) as HTMLInputElement;
-    const file = new File(['test'], 'test.txt', { type: 'text/plain' });
-
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
-      writable: false
-    });
-
-    await act(async () => {
-      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-
-    expect(mockUploadFile).toHaveBeenCalledWith(file);
-  });
-
-  it('does not create duplicate VFS link if link already exists', async () => {
-    mockUploadFile.mockResolvedValue({ id: 'file-id-789', isDuplicate: false });
-
-    // Mock that link already exists
-    const mockWhere = vi.fn().mockResolvedValue([{ id: 'existing-link' }]);
-    const mockFrom = vi.fn().mockReturnValue({ where: mockWhere });
-    mockDbSelect.mockReturnValue({ from: mockFrom });
-
-    const { container } = render(
-      <VfsWindow
-        id="vfs-upload-3"
-        onClose={vi.fn()}
-        onMinimize={vi.fn()}
-        onFocus={vi.fn()}
-        zIndex={100}
-      />
-    );
-
-    // Trigger upload with folder ID
-    latestProps?.onUpload?.('folder-789');
-
-    // Simulate file selection
-    const fileInput = container.querySelector(
-      'input[type="file"]'
-    ) as HTMLInputElement;
-    const file = new File(['test'], 'test.txt', { type: 'text/plain' });
-
-    Object.defineProperty(fileInput, 'files', {
-      value: [file],
-      writable: false
-    });
-
-    await act(async () => {
-      fileInput.dispatchEvent(new Event('change', { bubbles: true }));
-    });
-
-    expect(mockUploadFile).toHaveBeenCalled();
-    // Insert should not be called since link exists
-    expect(mockDbInsert).not.toHaveBeenCalled();
+    // Should call the mocked handleUpload from useVfsUploader
+    expect(mockHandleUpload).toHaveBeenCalledWith('folder-123');
   });
 });

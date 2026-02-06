@@ -1,14 +1,11 @@
-import { vfsLinks } from '@rapid/db/sqlite';
 import type { VfsOpenItem } from '@rapid/vfs-explorer';
 import { VfsExplorer } from '@rapid/vfs-explorer';
-import { and, eq } from 'drizzle-orm';
-import { useCallback, useRef, useState } from 'react';
-import { toast } from 'sonner';
+import { useCallback } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import { useDatabaseContext } from '@/db/hooks';
-import { useFileUpload } from '@/hooks/useFileUpload';
+import { useVfsUploader } from '@/hooks/useVfsUploader';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
   type FileOpenTarget,
@@ -17,66 +14,10 @@ import {
 } from '@/lib/vfs-open';
 
 export function Vfs() {
-  const { db, isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const navigateWithFrom = useNavigateWithFrom();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const currentFolderIdRef = useRef<string | null>(null);
-  const { uploadFile } = useFileUpload();
-  const [refreshToken, setRefreshToken] = useState(0);
-
-  const handleUpload = useCallback((folderId: string) => {
-    currentFolderIdRef.current = folderId;
-    fileInputRef.current?.click();
-  }, []);
-
-  const handleFileInputChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const files = Array.from(e.target.files ?? []);
-      const folderId = currentFolderIdRef.current;
-
-      if (files.length > 0 && db) {
-        await Promise.all(
-          files.map(async (file) => {
-            try {
-              const result = await uploadFile(file);
-
-              // Create VFS link to folder if uploading to a specific folder
-              if (folderId) {
-                const existing = await db
-                  .select({ id: vfsLinks.id })
-                  .from(vfsLinks)
-                  .where(
-                    and(
-                      eq(vfsLinks.parentId, folderId),
-                      eq(vfsLinks.childId, result.id)
-                    )
-                  );
-
-                if (existing.length === 0) {
-                  const linkId = crypto.randomUUID();
-                  const now = new Date();
-                  await db.insert(vfsLinks).values({
-                    id: linkId,
-                    parentId: folderId,
-                    childId: result.id,
-                    wrappedSessionKey: '',
-                    createdAt: now
-                  });
-                }
-              }
-            } catch (err) {
-              console.error(`Failed to upload ${file.name}:`, err);
-              toast.error(`Failed to upload ${file.name}. Please try again.`);
-            }
-          })
-        );
-        setRefreshToken((value) => value + 1);
-      }
-      currentFolderIdRef.current = null;
-      e.target.value = '';
-    },
-    [db, uploadFile]
-  );
+  const { fileInputRef, refreshToken, handleUpload, handleFileInputChange } =
+    useVfsUploader();
 
   const handleItemOpen = useCallback(
     async (item: VfsOpenItem) => {

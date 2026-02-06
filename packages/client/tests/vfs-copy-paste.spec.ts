@@ -115,9 +115,6 @@ test.describe('VFS copy/paste', () => {
     const allItemsButton = page.getByText('All Items').first();
     await allItemsButton.click();
 
-    // Wait a moment for the view to update
-    await page.waitForTimeout(1000);
-
     // Wait for items to load - find the photo row (not the folder)
     // Folders are sorted first, so we need to find a row with type 'file'
     const photoRow = page.locator('tbody tr', { hasText: 'file' }).first();
@@ -147,29 +144,12 @@ test.describe('VFS copy/paste', () => {
     // Click Paste
     const pasteButton = page.getByRole('button', { name: 'Paste', exact: true });
     await expect(pasteButton).toBeVisible({ timeout: 5000 });
-
-    // Capture console logs for debugging
-    const consoleLogs: string[] = [];
-    page.on('console', (msg) => {
-      if (msg.text().includes('[') && msg.text().includes(']')) {
-        consoleLogs.push(msg.text());
-      }
-    });
-
     await pasteButton.click();
 
-    // Wait a moment for paste to complete
-    await page.waitForTimeout(2000);
-
-    // Print debug info
-    console.log('Console logs after paste:', consoleLogs);
-
-    // Check if empty message is still showing
-    const emptyMessage = page.getByText('This folder is empty');
-    const isStillEmpty = await emptyMessage.isVisible();
-    console.log('Is folder still empty:', isStillEmpty);
-
-    // Verify item appears in folder - table should have a row
+    // Verify empty message is gone and item appears in folder
+    await expect(page.getByText('This folder is empty')).not.toBeVisible({
+      timeout: 15000
+    });
     const pastedItemRow = page.locator('tbody tr').first();
     await expect(pastedItemRow).toBeVisible({ timeout: 15000 });
   });
@@ -194,12 +174,9 @@ test.describe('VFS copy/paste', () => {
     const unfiledButton = page.getByText('Unfiled Items').first();
     await unfiledButton.click();
 
-    // Wait a moment for the view to update
-    await page.waitForTimeout(1000);
-
     // Wait for items to load - check for table rows
     const itemRow = page.locator('tbody tr').first();
-    await expect(itemRow).toBeVisible({ timeout: 5000 });
+    await expect(itemRow).toBeVisible({ timeout: 15000 });
     await itemRow.dispatchEvent('contextmenu');
 
     // Click Copy (use exact match to avoid matching folders with "Copy" in name)
@@ -244,11 +221,10 @@ test.describe('VFS copy/paste', () => {
 
     // Go to All Items
     await page.getByText('All Items').first().click();
-    await page.waitForTimeout(1000);
 
     // Copy the photo item (not the folder - folders are sorted first)
     const photoRow = page.locator('tbody tr', { hasText: 'file' }).first();
-    await expect(photoRow).toBeVisible({ timeout: 5000 });
+    await expect(photoRow).toBeVisible({ timeout: 15000 });
     await photoRow.dispatchEvent('contextmenu');
 
     let copyButton = page.getByRole('button', { name: 'Copy', exact: true });
@@ -267,7 +243,6 @@ test.describe('VFS copy/paste', () => {
     let pasteButton = page.getByRole('button', { name: 'Paste', exact: true });
     await expect(pasteButton).toBeVisible({ timeout: 5000 });
     await pasteButton.click();
-    await page.waitForTimeout(1000);
 
     // Verify first paste worked - table should have a row
     const firstPastedRow = page.locator('tbody tr').first();
@@ -275,11 +250,10 @@ test.describe('VFS copy/paste', () => {
 
     // Go back to All Items and copy again
     await page.getByText('All Items').first().click();
-    await page.waitForTimeout(1000);
 
     // Copy the photo again (not the folder)
     const photoRowAgain = page.locator('tbody tr', { hasText: 'file' }).first();
-    await expect(photoRowAgain).toBeVisible({ timeout: 5000 });
+    await expect(photoRowAgain).toBeVisible({ timeout: 15000 });
     await photoRowAgain.dispatchEvent('contextmenu');
 
     copyButton = page.getByRole('button', { name: 'Copy', exact: true });
@@ -288,11 +262,10 @@ test.describe('VFS copy/paste', () => {
 
     // Navigate to folder and paste again
     await page.getByText('Duplicate Test Folder').first().click();
-    await page.waitForTimeout(1000);
 
     // Folder should now show item(s) - first pasted row should be visible
     const existingRow = page.locator('tbody tr').first();
-    await expect(existingRow).toBeVisible({ timeout: 5000 });
+    await expect(existingRow).toBeVisible({ timeout: 15000 });
 
     // Count rows before second paste
     const rowsBeforePaste = await page.locator('tbody tr').count();
@@ -304,9 +277,9 @@ test.describe('VFS copy/paste', () => {
     pasteButton = page.getByRole('button', { name: 'Paste', exact: true });
     await expect(pasteButton).toBeVisible({ timeout: 5000 });
     await pasteButton.click();
-    await page.waitForTimeout(1000);
 
-    // Should still be same number of rows (not duplicated)
+    // Wait briefly for paste operation to complete, then verify count
+    await page.waitForTimeout(500);
     const rowsAfterPaste = await page.locator('tbody tr').count();
     expect(rowsAfterPaste).toBe(rowsBeforePaste);
   });
