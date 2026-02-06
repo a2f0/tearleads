@@ -3,11 +3,15 @@ import type { DatabaseAdapter } from '../adapters/types.js';
 /**
  * Test migrations for VFS tables.
  * These create a minimal VFS schema for testing purposes.
+ *
+ * Includes stub tables for queryFolderContents LEFT JOINs:
+ * files, contacts, notes, playlists, albums, contactGroups, emailFolders, tags, emails
  */
 export const vfsTestMigrations = [
   {
     version: 1,
     up: async (adapter: DatabaseAdapter) => {
+      // Core VFS tables
       await adapter.execute(`
         CREATE TABLE IF NOT EXISTS vfs_registry (
           id TEXT PRIMARY KEY,
@@ -41,6 +45,65 @@ export const vfsTestMigrations = [
           created_at INTEGER NOT NULL
         )
       `);
+
+      // Stub tables for queryFolderContents LEFT JOINs
+      // These are minimal versions just to satisfy the query structure
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS files (
+          id TEXT PRIMARY KEY,
+          name TEXT
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS contacts (
+          id TEXT PRIMARY KEY,
+          first_name TEXT,
+          last_name TEXT
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS notes (
+          id TEXT PRIMARY KEY,
+          title TEXT
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS playlists (
+          id TEXT PRIMARY KEY,
+          encrypted_name TEXT
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS albums (
+          id TEXT PRIMARY KEY,
+          encrypted_name TEXT
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS contact_groups (
+          id TEXT PRIMARY KEY,
+          encrypted_name TEXT
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS email_folders (
+          id TEXT PRIMARY KEY,
+          encrypted_name TEXT
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS tags (
+          id TEXT PRIMARY KEY,
+          encrypted_name TEXT
+        )
+      `);
+      await adapter.execute(`
+        CREATE TABLE IF NOT EXISTS emails (
+          id TEXT PRIMARY KEY,
+          encrypted_subject TEXT
+        )
+      `);
+
       await adapter.execute('PRAGMA foreign_keys = ON');
     }
   }
