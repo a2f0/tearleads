@@ -1,5 +1,6 @@
 import type { Page } from '@playwright/test';
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync } from 'node:fs';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from './fixtures';
 import { clearOriginStorage, MINIMAL_PNG } from './test-utils';
@@ -137,9 +138,7 @@ test.describe('Backup and Restore', () => {
     expect(download.suggestedFilename()).toMatch(/^rapid-backup-.*\.rbu$/);
 
     // Ensure artifact directory exists
-    if (!existsSync(BACKUP_ARTIFACT_DIR)) {
-      mkdirSync(BACKUP_ARTIFACT_DIR, { recursive: true });
-    }
+    await mkdir(BACKUP_ARTIFACT_DIR, { recursive: true });
 
     // Save the backup to the artifact directory for CI validation
     const backupPath = join(BACKUP_ARTIFACT_DIR, 'web-backup.rbu');
@@ -186,7 +185,9 @@ test.describe('Backup and Restore', () => {
     expect(readValue).toBe(writtenValue);
   });
 
-  test('should disable backup when database is locked', async ({ page }) => {
+  test('should show error when creating backup with locked database', async ({
+    page
+  }) => {
     await page.goto('/');
     await setupDatabase(page);
 
@@ -199,10 +200,19 @@ test.describe('Backup and Restore', () => {
     // Navigate to backups
     await navigateInApp(page, '/backups');
 
-    // The create backup button should be visible but we can't create a backup
-    // without an unlocked database (the form won't have access to keys)
+    // Fill in backup form
     await expect(page.getByLabel('Password')).toBeVisible({
       timeout: 10000
     });
+    await page.getByLabel('Password').fill(BACKUP_PASSWORD);
+    await page.getByLabel('Confirm').fill(BACKUP_PASSWORD);
+
+    // Attempt to create backup with locked database
+    await page.getByRole('button', { name: 'Create Backup' }).click();
+
+    // Verify error message appears
+    const errorMessage = page.getByTestId('backup-error');
+    await expect(errorMessage).toBeVisible({ timeout: 10000 });
+    await expect(errorMessage).toContainText('No active database instance');
   });
 });
