@@ -63,7 +63,10 @@ function NotificationItem({
           <div className="flex items-center gap-2">
             <span className="font-medium text-xs">{notification.title}</span>
             {!notification.read && (
-              <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+              <span
+                className="h-1.5 w-1.5 shrink-0 rounded-full bg-primary"
+                data-testid="unread-indicator"
+              />
             )}
           </div>
           <p className="text-muted-foreground text-xs">

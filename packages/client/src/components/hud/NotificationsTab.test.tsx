@@ -166,9 +166,7 @@ describe('NotificationsTab', () => {
 
     render(<NotificationsTab />);
 
-    // Unread indicator is a small dot
-    const unreadDot = document.querySelector('.bg-primary.rounded-full');
-    expect(unreadDot).toBeInTheDocument();
+    expect(screen.getByTestId('unread-indicator')).toBeInTheDocument();
   });
 
   it('hides unread indicator for read notifications', async () => {
@@ -184,8 +182,7 @@ describe('NotificationsTab', () => {
       fireEvent.click(notification);
     });
 
-    const unreadDot = document.querySelector('.bg-primary.rounded-full');
-    expect(unreadDot).not.toBeInTheDocument();
+    expect(screen.queryByTestId('unread-indicator')).not.toBeInTheDocument();
   });
 
   it('displays relative time for notifications', () => {
