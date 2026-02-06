@@ -131,7 +131,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}
-          path: packages/client/dist-electron/**
+          path: |
+            packages/client/dist-electron/*.dmg
+            packages/client/dist-electron/*.exe
+            packages/client/dist-electron/*.AppImage
+            packages/client/dist-electron/*.deb
 
   publish-downloads:
     name: Publish Desktop Downloads
