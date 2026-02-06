@@ -85,6 +85,7 @@ export const MlsChatContent: FC<MlsChatContentProps> = ({
               type="button"
               onClick={() => setShowMembers(false)}
               className="text-muted-foreground hover:text-foreground"
+              aria-label="Close members panel"
             >
               <CloseIcon />
             </button>

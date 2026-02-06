@@ -4,6 +4,9 @@ import { useCallback, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { zIndex } from '@/constants/zIndex';
 
+const MIN_SIDEBAR_WIDTH = 150;
+const MAX_SIDEBAR_WIDTH = 400;
+
 interface MlsChatGroupsSidebarProps {
   width: number;
   onWidthChange: (width: number) => void;
@@ -50,8 +53,8 @@ export function MlsChatGroupsSidebar({
         if (!isDragging.current) return;
         const delta = e.clientX - startX.current;
         const newWidth = Math.max(
-          150,
-          Math.min(400, startWidth.current + delta)
+          MIN_SIDEBAR_WIDTH,
+          Math.min(MAX_SIDEBAR_WIDTH, startWidth.current + delta)
         );
         onWidthChange(newWidth);
       };
@@ -73,7 +76,10 @@ export function MlsChatGroupsSidebar({
       if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
       e.preventDefault();
       const delta = e.key === 'ArrowRight' ? 10 : -10;
-      const newWidth = Math.max(150, Math.min(400, width + delta));
+      const newWidth = Math.max(
+        MIN_SIDEBAR_WIDTH,
+        Math.min(MAX_SIDEBAR_WIDTH, width + delta)
+      );
       onWidthChange(newWidth);
     },
     [onWidthChange, width]

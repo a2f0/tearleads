@@ -26,6 +26,8 @@ import { MlsChatContent } from './MlsChatContent';
 import { MlsChatGroupsSidebar } from './MlsChatGroupsSidebar';
 import { MlsChatWindowMenuBar } from './MlsChatWindowMenuBar';
 
+const MIN_KEY_PACKAGES_COUNT = 5;
+
 interface MlsChatWindowProps {
   id: string;
   onClose: () => void;
@@ -264,8 +266,12 @@ function MlsChatWindowInner({ onClose }: MlsChatWindowInnerProps) {
 
   // Ensure we have key packages
   useEffect(() => {
-    if (isInitialized && hasCredential && keyPackages.length < 5) {
-      void generateAndUpload(5 - keyPackages.length);
+    if (
+      isInitialized &&
+      hasCredential &&
+      keyPackages.length < MIN_KEY_PACKAGES_COUNT
+    ) {
+      void generateAndUpload(MIN_KEY_PACKAGES_COUNT - keyPackages.length);
     }
   }, [isInitialized, hasCredential, keyPackages.length, generateAndUpload]);
 
