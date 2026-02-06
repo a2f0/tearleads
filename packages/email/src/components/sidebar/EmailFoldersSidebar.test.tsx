@@ -223,7 +223,10 @@ describe('EmailFoldersSidebar', () => {
       expect(screen.getByTestId('email-folder-all-mail')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByTestId('email-folder-all-mail'));
+    const allMailItem = screen.getByTestId('email-folder-all-mail');
+    const button = allMailItem.querySelector('button');
+    if (!button) throw new Error('Button not found in All Mail item');
+    await user.click(button);
     expect(onFolderSelect).toHaveBeenCalledWith('__all_mail__');
   });
 
@@ -241,7 +244,8 @@ describe('EmailFoldersSidebar', () => {
 
     await waitFor(() => {
       const inboxItem = screen.getByTestId('email-folder-1');
-      expect(inboxItem).toHaveClass('bg-accent');
+      const button = inboxItem.querySelector('button');
+      expect(button).toHaveClass('bg-accent');
     });
   });
 
@@ -794,7 +798,7 @@ describe('EmailFoldersSidebar', () => {
     });
   });
 
-  it('closes context menu when clicking elsewhere', async () => {
+  it('closes context menu when clicking backdrop', async () => {
     const user = userEvent.setup();
     const context = createMockContext();
 
@@ -823,8 +827,8 @@ describe('EmailFoldersSidebar', () => {
       ).toBeInTheDocument();
     });
 
-    // Click somewhere else (All Mail)
-    await user.click(screen.getByTestId('email-folder-all-mail'));
+    // Click on backdrop to close
+    await user.click(screen.getByTestId('email-folder-context-menu-backdrop'));
 
     // Context menu should close
     await waitFor(() => {
