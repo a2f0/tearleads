@@ -83,4 +83,21 @@ describe('EmptySpaceContextMenu', () => {
     const menu = screen.getByTestId('empty-space-context-menu');
     expect(menu).toHaveStyle({ zIndex: '201' });
   });
+
+  it('calls onClose when pressing Escape key', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <EmptySpaceContextMenu
+        x={100}
+        y={200}
+        onClose={onClose}
+        onNewFolder={vi.fn()}
+      />
+    );
+
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalled();
+  });
 });

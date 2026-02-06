@@ -223,7 +223,10 @@ describe('EmailFoldersSidebar', () => {
       expect(screen.getByTestId('email-folder-all-mail')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByTestId('email-folder-all-mail'));
+    const allMailItem = screen.getByTestId('email-folder-all-mail');
+    const button = allMailItem.querySelector('button');
+    if (!button) throw new Error('Button not found in All Mail item');
+    await user.click(button);
     expect(onFolderSelect).toHaveBeenCalledWith('__all_mail__');
   });
 

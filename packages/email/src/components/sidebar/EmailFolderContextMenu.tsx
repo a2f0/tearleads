@@ -1,5 +1,5 @@
 import { FolderPlus, Pencil, Trash2 } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { zIndex } from '../../constants/zIndex';
 import type { EmailFolder } from '../../types/folder.js';
@@ -28,6 +28,18 @@ export function EmailFolderContextMenu({
     onClose();
   }, [onClose]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
   const canRename = canRenameFolder(folder);
   const canDelete = canDeleteFolder(folder);
 
@@ -38,11 +50,6 @@ export function EmailFolderContextMenu({
         className="fixed inset-0"
         style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
         onClick={handleBackdropClick}
-        onKeyDown={(e) => {
-          if (e.key === 'Escape') {
-            onClose();
-          }
-        }}
         aria-hidden="true"
         data-testid="email-folder-context-menu-backdrop"
       />

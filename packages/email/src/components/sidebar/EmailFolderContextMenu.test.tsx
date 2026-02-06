@@ -188,4 +188,24 @@ describe('EmailFolderContextMenu', () => {
     const menu = screen.getByTestId('email-folder-context-menu');
     expect(menu).toHaveStyle({ zIndex: '201' });
   });
+
+  it('calls onClose when pressing Escape key', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(
+      <EmailFolderContextMenu
+        x={100}
+        y={200}
+        folder={mockCustomFolder}
+        onClose={onClose}
+        onCreateSubfolder={vi.fn()}
+        onRename={vi.fn()}
+        onDelete={vi.fn()}
+      />
+    );
+
+    await user.keyboard('{Escape}');
+    expect(onClose).toHaveBeenCalled();
+  });
 });

@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import type { EmailFolder } from '../../types/folder';
@@ -125,8 +125,8 @@ describe('RenameFolderDialog', () => {
       />
     );
 
-    await user.clear(screen.getByTestId('rename-folder-input'));
-    await user.type(screen.getByTestId('rename-folder-input'), 'Updated Name');
+    const input = screen.getByTestId('rename-folder-input');
+    fireEvent.change(input, { target: { value: 'Updated Name' } });
     await user.click(screen.getByTestId('rename-folder-submit'));
 
     await waitFor(() => {

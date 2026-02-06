@@ -187,51 +187,44 @@ export function EmailFoldersSidebar({
     const isCustomFolder = folder.folderType === 'custom';
 
     return (
-      <div key={folder.id} data-testid={`email-folder-${folder.id}`}>
+      <div
+        key={folder.id}
+        data-testid={`email-folder-${folder.id}`}
+        className="flex items-center"
+        style={{ paddingLeft: `${depth * 16}px` }}
+      >
+        {/* Expand/collapse button for custom folders - separate from select button for accessibility */}
+        {isCustomFolder &&
+          (hasChildren ? (
+            <button
+              type="button"
+              aria-label={isExpanded ? 'Collapse' : 'Expand'}
+              className="flex h-6 w-4 shrink-0 items-center justify-center rounded hover:bg-accent/50"
+              onClick={() => toggleExpanded(folder.id)}
+            >
+              {isExpanded ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </button>
+          ) : (
+            <span className="w-4 shrink-0" />
+          ))}
+        {/* Folder select button */}
         <button
           type="button"
-          className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
+          className={`flex flex-1 items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
             isSelected
               ? 'bg-accent text-accent-foreground'
               : 'hover:bg-accent/50'
           }`}
-          style={{ paddingLeft: `${depth * 16 + 8}px` }}
           onClick={() => onFolderSelect(folder.id)}
           onDoubleClick={() => hasChildren && toggleExpanded(folder.id)}
           onContextMenu={(e) => {
             if (!isSystem) handleContextMenu(e, folder);
           }}
         >
-          {/* Only show chevron spacer for custom folders (system folders are not expandable) */}
-          {isCustomFolder && (
-            // biome-ignore lint/a11y/useSemanticElements: span with role=button used to avoid nested button elements
-            <span
-              role="button"
-              tabIndex={hasChildren ? 0 : -1}
-              className="flex h-4 w-4 shrink-0 items-center justify-center"
-              aria-label={
-                hasChildren ? (isExpanded ? 'Collapse' : 'Expand') : undefined
-              }
-              onClick={(e) => {
-                e.stopPropagation();
-                if (hasChildren) toggleExpanded(folder.id);
-              }}
-              onKeyDown={(e) => {
-                if ((e.key === 'Enter' || e.key === ' ') && hasChildren) {
-                  e.stopPropagation();
-                  toggleExpanded(folder.id);
-                }
-              }}
-            >
-              {hasChildren ? (
-                isExpanded ? (
-                  <ChevronDown className="h-3 w-3" />
-                ) : (
-                  <ChevronRight className="h-3 w-3" />
-                )
-              ) : null}
-            </span>
-          )}
           <Icon
             className={`h-4 w-4 shrink-0 ${
               isCustomFolder
@@ -277,20 +270,20 @@ export function EmailFoldersSidebar({
         onContextMenu={handleEmptySpaceContextMenu}
       >
         {/* All Mail option */}
-        <button
-          type="button"
-          className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
-            selectedFolderId === ALL_MAIL_ID || selectedFolderId === null
-              ? 'bg-accent text-accent-foreground'
-              : 'hover:bg-accent/50'
-          }`}
-          style={{ paddingLeft: '8px' }}
-          onClick={() => onFolderSelect(ALL_MAIL_ID)}
-          data-testid="email-folder-all-mail"
-        >
-          <Mail className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-          <span className="truncate">All Mail</span>
-        </button>
+        <div className="flex items-center" data-testid="email-folder-all-mail">
+          <button
+            type="button"
+            className={`flex flex-1 items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
+              selectedFolderId === ALL_MAIL_ID || selectedFolderId === null
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent/50'
+            }`}
+            onClick={() => onFolderSelect(ALL_MAIL_ID)}
+          >
+            <Mail className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+            <span className="truncate">All Mail</span>
+          </button>
+        </div>
 
         {/* Loading state */}
         {loading && !hasFetched && (

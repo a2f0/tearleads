@@ -1,5 +1,5 @@
 import { FolderPlus } from 'lucide-react';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { zIndex } from '../../constants/zIndex';
 
@@ -18,6 +18,18 @@ export function EmptySpaceContextMenu({
 }: EmptySpaceContextMenuProps) {
   const handleBackdropClick = useCallback(() => {
     onClose();
+  }, [onClose]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
   }, [onClose]);
 
   // Use portal to escape FloatingWindow's backdrop-filter containing block
