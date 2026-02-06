@@ -1,0 +1,69 @@
+---
+import Layout from '../layouts/Layout.astro';
+import { defaultLanguage } from '../i18n/config';
+import { getHref } from '../i18n/utils';
+import releases from '../data/releases.json';
+import { getDownloadUrl, PLATFORM_LABELS } from '../utils/downloads';
+import type { Release } from '../types/releases';
+
+const currentLang = defaultLanguage;
+const latestRelease = releases.releases[0] as Release | undefined;
+const platforms = ['macos', 'windows', 'linux'] as const;
+---
+
+<Layout title="Downloads - Rapid" lang={currentLang}>
+  <div class="container mx-auto px-4 py-16">
+    <h1 class="font-bold text-4xl">Download Rapid</h1>
+    <p class="mt-4 text-muted-foreground text-lg">
+      Get Rapid for your desktop platform.
+    </p>
+
+    {latestRelease ? (
+      <div class="mt-12">
+        <h2 class="font-semibold text-2xl">Latest Release</h2>
+        <p class="mt-2 text-muted-foreground">
+          Version {latestRelease.version} &middot; Released {latestRelease.date}
+        </p>
+
+        <div class="mt-8 grid gap-6 md:grid-cols-3">
+          {platforms.map((platform) => {
+            const info = latestRelease.platforms[platform];
+            const url = getDownloadUrl(latestRelease.version, platform, info);
+            return (
+              <a
+                href={url}
+                class="group flex flex-col items-center rounded-lg border bg-card p-6 transition-colors hover:border-foreground/20"
+              >
+                <div class="mb-4 text-4xl">
+                  {platform === 'macos' && ''}
+                  {platform === 'windows' && ''}
+                  {platform === 'linux' && ''}
+                </div>
+                <h3 class="font-semibold text-lg group-hover:underline">
+                  {PLATFORM_LABELS[platform]}
+                </h3>
+                <p class="mt-1 text-muted-foreground text-sm">
+                  {info.arch} &middot; .{info.ext}
+                </p>
+                <span class="mt-4 rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground text-sm">
+                  Download
+                </span>
+              </a>
+            );
+          })}
+        </div>
+      </div>
+    ) : (
+      <p class="mt-8 text-muted-foreground">No releases available yet.</p>
+    )}
+
+    <div class="mt-12">
+      <a
+        href={getHref('/downloads/archive', currentLang)}
+        class="text-muted-foreground hover:text-foreground hover:underline"
+      >
+        View older versions &rarr;
+      </a>
+    </div>
+  </div>
+</Layout>

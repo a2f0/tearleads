@@ -1,0 +1,40 @@
+{
+  "releases": [
+    {
+      "version": "0.0.356",
+      "date": "2026-02-06",
+      "platforms": {
+        "macos": {
+          "arch": "arm64",
+          "ext": "dmg"
+        },
+        "windows": {
+          "arch": "x64",
+          "ext": "exe"
+        },
+        "linux": {
+          "arch": "x64",
+          "ext": "AppImage"
+        }
+      }
+    },
+    {
+      "version": "0.0.355",
+      "date": "2025-02-06",
+      "platforms": {
+        "macos": {
+          "arch": "arm64",
+          "ext": "dmg"
+        },
+        "windows": {
+          "arch": "x64",
+          "ext": "exe"
+        },
+        "linux": {
+          "arch": "x64",
+          "ext": "AppImage"
+        }
+      }
+    }
+  ]
+}

@@ -248,4 +248,34 @@ else
   printf "  %-12s: %s\n" "Chrome Ext" "no changes in packages/chrome-extension (skipping)"
 fi
 
+# Update releases.json for desktop downloads (idempotent)
+RELEASES_FILE="$REPO_ROOT/packages/website/src/data/releases.json"
+if [ "$CLIENT_CHANGED" = "true" ] && [ -f "$RELEASES_FILE" ]; then
+  CURRENT_DATE=$(date +%Y-%m-%d)
+
+  # Check if version already exists (idempotency check)
+  if jq -e ".releases[] | select(.version == \"$NEW_CLIENT_VERSION\")" "$RELEASES_FILE" > /dev/null 2>&1; then
+    printf "  %-12s: %s\n" "Releases" "version $NEW_CLIENT_VERSION already in releases.json (skipping)"
+  else
+    if [ "$DRY_RUN" = "true" ]; then
+      printf "  %-12s: %s\n" "Releases" "would add $NEW_CLIENT_VERSION to releases.json"
+    else
+      # Prepend new release to the array
+      TMP_FILE=$(mktemp)
+      jq --arg ver "$NEW_CLIENT_VERSION" \
+         --arg date "$CURRENT_DATE" \
+         '.releases = [{
+           "version": $ver,
+           "date": $date,
+           "platforms": {
+             "macos": { "arch": "arm64", "ext": "dmg" },
+             "windows": { "arch": "x64", "ext": "exe" },
+             "linux": { "arch": "x64", "ext": "AppImage" }
+           }
+         }] + .releases' "$RELEASES_FILE" > "$TMP_FILE" && mv "$TMP_FILE" "$RELEASES_FILE"
+      printf "  %-12s: %s\n" "Releases" "added $NEW_CLIENT_VERSION to releases.json"
+    fi
+  fi
+fi
+
 echo "Done."
