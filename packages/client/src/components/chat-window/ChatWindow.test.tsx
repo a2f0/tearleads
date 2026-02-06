@@ -5,6 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ChatWindow } from './ChatWindow';
 
 const mockMountCallback = vi.fn();
+const mockCreateConversation = vi.fn();
+const mockSelectConversation = vi.fn();
+const mockRenameConversation = vi.fn();
+const mockDeleteConversation = vi.fn();
 
 vi.mock('@/hooks/useLLM', () => ({
   useLLM: vi.fn(() => ({
@@ -12,6 +16,19 @@ vi.mock('@/hooks/useLLM', () => ({
     modelType: null,
     generate: vi.fn()
   }))
+}));
+
+vi.mock('@/hooks/useConversations', () => ({
+  useConversations: () => ({
+    conversations: [],
+    loading: false,
+    error: null,
+    currentConversationId: null,
+    selectConversation: mockSelectConversation,
+    createConversation: mockCreateConversation,
+    renameConversation: mockRenameConversation,
+    deleteConversation: mockDeleteConversation
+  })
 }));
 
 vi.mock('@/components/floating-window', () => ({
@@ -43,6 +60,33 @@ vi.mock('@/pages/chat/ChatInterface', () => ({
   }
 }));
 
+vi.mock('@/pages/chat/ConversationsSidebar', () => ({
+  ConversationsSidebar: ({
+    onNewConversation,
+    onConversationSelect
+  }: {
+    onNewConversation: () => Promise<void>;
+    onConversationSelect: (id: string | null) => Promise<void>;
+  }) => (
+    <div data-testid="conversations-sidebar">
+      <button
+        type="button"
+        onClick={() => void onNewConversation()}
+        data-testid="sidebar-new-conversation"
+      >
+        New
+      </button>
+      <button
+        type="button"
+        onClick={() => void onConversationSelect('conv-123')}
+        data-testid="select-conversation"
+      >
+        Select
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/pages/chat/NoModelLoadedContent', () => ({
   NoModelLoadedContent: ({ onOpenModels }: { onOpenModels?: () => void }) => (
     <div data-testid="no-model-content">
@@ -62,12 +106,16 @@ vi.mock('./ChatWindowMenuBar', () => ({
     onNewChat,
     onClose
   }: {
-    onNewChat: () => void;
+    onNewChat: () => void | Promise<void>;
     onClose: () => void;
     modelDisplayName?: string | undefined;
   }) => (
     <div data-testid="menu-bar">
-      <button type="button" onClick={onNewChat} data-testid="new-chat-button">
+      <button
+        type="button"
+        onClick={() => void onNewChat()}
+        data-testid="new-chat-button"
+      >
         New Chat
       </button>
       <button type="button" onClick={onClose} data-testid="menu-close-button">
@@ -113,9 +161,41 @@ describe('ChatWindow', () => {
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
   });
 
-  it('shows title as "Chat" when no model loaded', () => {
+  it('shows title as "AI" when no model loaded', () => {
     render(<ChatWindow {...defaultProps} />);
-    expect(screen.getByTestId('window-title')).toHaveTextContent('Chat');
+    expect(screen.getByTestId('window-title')).toHaveTextContent('AI');
+  });
+
+  it('renders conversations sidebar', () => {
+    render(<ChatWindow {...defaultProps} />);
+    expect(screen.getByTestId('conversations-sidebar')).toBeInTheDocument();
+  });
+
+  it('selects conversation when clicked in sidebar', async () => {
+    const user = userEvent.setup();
+    render(<ChatWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-conversation'));
+
+    await waitFor(() => {
+      expect(mockSelectConversation).toHaveBeenCalledWith('conv-123');
+    });
+  });
+
+  it('returns to chat view when back button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ChatWindow {...defaultProps} />);
+
+    // First open models
+    await user.click(screen.getByTestId('open-models'));
+    expect(screen.getByTestId('models-content')).toBeInTheDocument();
+
+    // Then click back button
+    await user.click(screen.getByRole('button', { name: /back to chat/i }));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('models-content')).not.toBeInTheDocument();
+    });
   });
 
   it('shows NoModelLoadedContent when no model loaded', () => {
@@ -177,7 +257,7 @@ describe('ChatWindow', () => {
 
     render(<ChatWindow {...defaultProps} />);
     expect(screen.getByTestId('window-title')).toHaveTextContent(
-      'Chat - Test Model'
+      'AI - Test Model'
     );
   });
 
@@ -195,7 +275,7 @@ describe('ChatWindow', () => {
     expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
   });
 
-  it('resets chat when New Chat is clicked', async () => {
+  it('creates new conversation when New Chat is clicked', async () => {
     const { useLLM } = await import('@/hooks/useLLM');
     const mockGenerate = vi.fn();
     vi.mocked(useLLM).mockReturnValue({
@@ -218,12 +298,11 @@ describe('ChatWindow', () => {
     render(<ChatWindow {...defaultProps} />);
 
     expect(screen.getByTestId('chat-interface')).toBeInTheDocument();
-    expect(mockMountCallback).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByTestId('new-chat-button'));
 
     await waitFor(() => {
-      expect(mockMountCallback).toHaveBeenCalledTimes(2);
+      expect(mockCreateConversation).toHaveBeenCalled();
     });
   });
 
@@ -257,7 +336,7 @@ describe('ChatWindow', () => {
 
     render(<ChatWindow {...defaultProps} />);
     expect(screen.getByTestId('window-title')).toHaveTextContent(
-      'Chat - Simple Model'
+      'AI - Simple Model'
     );
   });
 
@@ -281,7 +360,7 @@ describe('ChatWindow', () => {
 
     render(<ChatWindow {...defaultProps} />);
     expect(screen.getByTestId('window-title')).toHaveTextContent(
-      'Chat - Test Model'
+      'AI - Test Model'
     );
   });
 });

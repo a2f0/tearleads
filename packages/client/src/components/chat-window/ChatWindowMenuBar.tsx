@@ -7,7 +7,7 @@ import {
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface ChatWindowMenuBarProps {
-  onNewChat: () => void;
+  onNewChat: () => void | Promise<void>;
   onClose: () => void;
   modelDisplayName: string | undefined;
 }
