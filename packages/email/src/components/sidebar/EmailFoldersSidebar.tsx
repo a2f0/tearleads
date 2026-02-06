@@ -24,6 +24,7 @@ import {
 import { CreateFolderDialog } from './CreateFolderDialog';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
 import { EmailFolderContextMenu } from './EmailFolderContextMenu';
+import { EmptySpaceContextMenu } from './EmptySpaceContextMenu';
 import { RenameFolderDialog } from './RenameFolderDialog';
 
 export interface EmailFoldersSidebarProps {
@@ -92,6 +93,11 @@ export function EmailFoldersSidebar({
     folder: EmailFolder;
   } | null>(null);
 
+  const [emptySpaceContextMenu, setEmptySpaceContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       isDragging.current = true;
@@ -139,6 +145,11 @@ export function EmailFoldersSidebar({
     },
     []
   );
+
+  const handleEmptySpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
 
   const handleFolderChanged = useCallback(() => {
     refetch();
@@ -256,7 +267,11 @@ export function EmailFoldersSidebar({
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-1">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
+      <div
+        className="flex-1 overflow-y-auto p-1"
+        onContextMenu={handleEmptySpaceContextMenu}
+      >
         {/* All Mail option */}
         <button
           type="button"
@@ -348,6 +363,16 @@ export function EmailFoldersSidebar({
               setDeleteDialogFolder(folder);
             }
           }}
+        />
+      )}
+
+      {/* Empty space context menu */}
+      {emptySpaceContextMenu && (
+        <EmptySpaceContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+          onNewFolder={() => handleCreateSubfolder(null)}
         />
       )}
 
