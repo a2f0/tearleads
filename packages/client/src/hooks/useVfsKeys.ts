@@ -191,8 +191,12 @@ async function fetchAndDecryptKeys(): Promise<FetchedKeys> {
         };
         cachedKeyPair = keyPair;
         return { keyPair, hasPrivateKeys: true };
-      } catch {
+      } catch (error) {
         // Fall back to public-only keys when decryption fails.
+        console.error(
+          'Failed to decrypt VFS private keys, falling back to public-only:',
+          error
+        );
       }
     }
 

@@ -77,8 +77,9 @@ async function getSessionKey(
     );
     sessionKeyCache.set(conversation.id, sessionKey);
     return sessionKey;
-  } catch {
+  } catch (error) {
     // If unwrapping fails, we can't decrypt the conversation.
+    console.error('Failed to unwrap conversation session key:', error);
     throw new Error(
       'Cannot decrypt conversation - private keys not available. ' +
         'Please unlock your database or create a new conversation.'
