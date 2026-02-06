@@ -2,12 +2,10 @@
 import Layout from '../../layouts/Layout.astro';
 import { defaultLanguage } from '../../i18n/config';
 import { getHref } from '../../i18n/utils';
-import releases from '../../data/releases.json';
-import { getDownloadUrl, PLATFORM_LABELS } from '../../utils/downloads';
-import type { Release } from '../../types/releases';
+import { getDownloadUrl, getReleases, PLATFORM_LABELS } from '../../utils/downloads';
 
 const currentLang = defaultLanguage;
-const allReleases = releases.releases as Release[];
+const allReleases = getReleases();
 const platforms = ['macos', 'windows', 'linux'] as const;
 ---
 

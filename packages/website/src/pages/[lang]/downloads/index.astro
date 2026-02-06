@@ -3,15 +3,14 @@ import Layout from '../../../layouts/Layout.astro';
 import { isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
 import type { SupportedLanguage } from '../../../i18n/config';
 import { getStaticPathsForLocales, getHref } from '../../../i18n/utils';
-import releases from '../../../data/releases.json';
-import { getDownloadUrl, PLATFORM_LABELS } from '../../../utils/downloads';
-import type { Release } from '../../../types/releases';
+import { getDownloadUrl, getReleases, PLATFORM_LABELS } from '../../../utils/downloads';
 
 export const getStaticPaths = getStaticPathsForLocales;
 
 const { lang } = Astro.params;
 const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
-const latestRelease = releases.releases[0] as Release | undefined;
+const releases = getReleases();
+const latestRelease = releases[0];
 const platforms = ['macos', 'windows', 'linux'] as const;
 ---
 
@@ -38,11 +37,6 @@ const platforms = ['macos', 'windows', 'linux'] as const;
                 href={url}
                 class="group flex flex-col items-center rounded-lg border bg-card p-6 transition-colors hover:border-foreground/20"
               >
-                <div class="mb-4 text-4xl">
-                  {platform === 'macos' && ''}
-                  {platform === 'windows' && ''}
-                  {platform === 'linux' && ''}
-                </div>
                 <h3 class="font-semibold text-lg group-hover:underline">
                   {PLATFORM_LABELS[platform]}
                 </h3>

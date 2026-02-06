@@ -3,15 +3,13 @@ import Layout from '../../../layouts/Layout.astro';
 import { isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
 import type { SupportedLanguage } from '../../../i18n/config';
 import { getStaticPathsForLocales, getHref } from '../../../i18n/utils';
-import releases from '../../../data/releases.json';
-import { getDownloadUrl, PLATFORM_LABELS } from '../../../utils/downloads';
-import type { Release } from '../../../types/releases';
+import { getDownloadUrl, getReleases, PLATFORM_LABELS } from '../../../utils/downloads';
 
 export const getStaticPaths = getStaticPathsForLocales;
 
 const { lang } = Astro.params;
 const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
-const allReleases = releases.releases as Release[];
+const allReleases = getReleases();
 const platforms = ['macos', 'windows', 'linux'] as const;
 ---
 

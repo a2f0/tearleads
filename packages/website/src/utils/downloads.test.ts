@@ -1,15 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { PlatformInfo } from '../types/releases';
 import {
   detectPlatform,
   getDownloadUrl,
+  getReleases,
+  isValidPlatformInfo,
+  isValidRelease,
   PLATFORM_ICONS,
   PLATFORM_LABELS
 } from './downloads';
 
 describe('getDownloadUrl', () => {
-  const _mockPlatformInfo: PlatformInfo = { arch: 'arm64', ext: 'dmg' };
-
   beforeEach(() => {
     vi.stubEnv('PUBLIC_DOWNLOAD_DOMAIN', 'download.example.com');
   });
@@ -40,6 +40,103 @@ describe('getDownloadUrl', () => {
     expect(url).toBe(
       'https://download.example.com/desktop/1.2.3/Rapid-1.2.3-x86_64.AppImage'
     );
+  });
+
+  it('uses fallback domain when PUBLIC_DOWNLOAD_DOMAIN is not set', () => {
+    vi.unstubAllEnvs();
+    const url = getDownloadUrl('1.2.3', 'macos', { arch: 'arm64', ext: 'dmg' });
+    expect(url).toBe(
+      'https://download.example.com/desktop/1.2.3/Rapid-1.2.3-arm64.dmg'
+    );
+  });
+});
+
+describe('getReleases', () => {
+  it('returns releases array from JSON', () => {
+    const releases = getReleases();
+    expect(Array.isArray(releases)).toBe(true);
+    expect(releases.length).toBeGreaterThan(0);
+  });
+
+  it('each release has required fields', () => {
+    const releases = getReleases();
+    for (const release of releases) {
+      expect(typeof release.version).toBe('string');
+      expect(typeof release.date).toBe('string');
+      expect(release.platforms).toBeDefined();
+      expect(release.platforms.macos).toBeDefined();
+      expect(release.platforms.windows).toBeDefined();
+      expect(release.platforms.linux).toBeDefined();
+    }
+  });
+});
+
+describe('isValidPlatformInfo', () => {
+  it('returns true for valid platform info', () => {
+    expect(isValidPlatformInfo({ arch: 'arm64', ext: 'dmg' })).toBe(true);
+  });
+
+  it('returns false for null', () => {
+    expect(isValidPlatformInfo(null)).toBe(false);
+  });
+
+  it('returns false for non-object', () => {
+    expect(isValidPlatformInfo('string')).toBe(false);
+  });
+
+  it('returns false for missing arch', () => {
+    expect(isValidPlatformInfo({ ext: 'dmg' })).toBe(false);
+  });
+
+  it('returns false for missing ext', () => {
+    expect(isValidPlatformInfo({ arch: 'arm64' })).toBe(false);
+  });
+});
+
+describe('isValidRelease', () => {
+  const validRelease = {
+    version: '1.0.0',
+    date: '2025-01-01',
+    platforms: {
+      macos: { arch: 'arm64', ext: 'dmg' },
+      windows: { arch: 'x64', ext: 'exe' },
+      linux: { arch: 'x64', ext: 'AppImage' }
+    }
+  };
+
+  it('returns true for valid release', () => {
+    expect(isValidRelease(validRelease)).toBe(true);
+  });
+
+  it('returns false for null', () => {
+    expect(isValidRelease(null)).toBe(false);
+  });
+
+  it('returns false for non-object', () => {
+    expect(isValidRelease('string')).toBe(false);
+  });
+
+  it('returns false for missing version', () => {
+    const invalid = { ...validRelease, version: undefined };
+    expect(isValidRelease(invalid)).toBe(false);
+  });
+
+  it('returns false for missing date', () => {
+    const invalid = { ...validRelease, date: undefined };
+    expect(isValidRelease(invalid)).toBe(false);
+  });
+
+  it('returns false for missing platforms', () => {
+    const invalid = { ...validRelease, platforms: undefined };
+    expect(isValidRelease(invalid)).toBe(false);
+  });
+
+  it('returns false for invalid macos platform', () => {
+    const invalid = {
+      ...validRelease,
+      platforms: { ...validRelease.platforms, macos: null }
+    };
+    expect(isValidRelease(invalid)).toBe(false);
   });
 });
 
