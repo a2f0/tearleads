@@ -8,6 +8,8 @@ import {
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import type { DisplayItem } from './VfsDetailsPanel';
 
+export type ContextMenuItemType = 'cut' | 'copy' | 'share';
+
 export interface ItemContextMenuProps {
   x: number;
   y: number;
@@ -16,7 +18,7 @@ export interface ItemContextMenuProps {
   onOpen: (item: DisplayItem) => void;
   onDownload: (item: DisplayItem) => void;
   onShare?: ((item: DisplayItem) => void) | undefined;
-  hideCut?: boolean;
+  hiddenItems?: ContextMenuItemType[] | undefined;
 }
 
 export function ItemContextMenu({
@@ -27,7 +29,7 @@ export function ItemContextMenu({
   onOpen,
   onDownload,
   onShare,
-  hideCut
+  hiddenItems = []
 }: ItemContextMenuProps) {
   const {
     ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator },
@@ -62,7 +64,7 @@ export function ItemContextMenu({
         Download
       </ContextMenuItem>
       <ContextMenuSeparator />
-      {!hideCut && (
+      {!hiddenItems.includes('cut') && (
         <ContextMenuItem
           icon={<ClipboardCopy className="h-4 w-4" />}
           onClick={() => {

@@ -463,7 +463,7 @@ export function VfsDetailsPanel({
           onOpen={handleContextMenuOpen}
           onDownload={handleContextMenuDownload}
           onShare={handleContextMenuShare}
-          hideCut={isAllItems}
+          hiddenItems={isAllItems ? ['cut'] : undefined}
         />
       )}
       {renderEmptySpaceContextMenu()}
