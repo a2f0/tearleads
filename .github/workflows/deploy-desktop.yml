@@ -139,7 +139,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Resolve app version
-        run: echo "APP_VERSION=$(node -p \"require('./packages/client/package.json').version\")" >> "$GITHUB_ENV"
+        run: |
+          APP_VERSION=$(node -p "require('./packages/client/package.json').version")
+          echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
 
       - name: Download desktop artifacts
         uses: actions/download-artifact@v4
