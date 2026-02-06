@@ -171,11 +171,11 @@ export const navItems: NavItem[] = [
     testId: 'keychain-link'
   },
   {
-    path: '/chat',
+    path: '/ai',
     icon: MessageSquare,
     labelKey: 'chat',
     inMobileMenu: true,
-    testId: 'chat-link'
+    testId: 'ai-link'
   },
   {
     path: '/mls-chat',

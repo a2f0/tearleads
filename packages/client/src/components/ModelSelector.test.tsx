@@ -83,7 +83,7 @@ describe('ModelSelector', () => {
 
       await user.click(screen.getByRole('button'));
 
-      expect(screen.getByText('Available Models')).toBeInTheDocument();
+      expect(screen.getByText('Local Models')).toBeInTheDocument();
     });
 
     it('shows chat models in dropdown (excludes classification models)', async () => {
@@ -130,12 +130,12 @@ describe('ModelSelector', () => {
       );
 
       await user.click(screen.getByText('Select Model'));
-      expect(screen.getByText('Available Models')).toBeInTheDocument();
+      expect(screen.getByText('Local Models')).toBeInTheDocument();
 
       await user.click(screen.getByTestId('outside'));
 
       await waitFor(() => {
-        expect(screen.queryByText('Available Models')).not.toBeInTheDocument();
+        expect(screen.queryByText('Local Models')).not.toBeInTheDocument();
       });
     });
 
@@ -144,11 +144,11 @@ describe('ModelSelector', () => {
       render(<ModelSelector modelDisplayName={undefined} />);
 
       await user.click(screen.getByText('Select Model'));
-      expect(screen.getByText('Available Models')).toBeInTheDocument();
+      expect(screen.getByText('Local Models')).toBeInTheDocument();
 
       await user.keyboard('{Escape}');
 
-      expect(screen.queryByText('Available Models')).not.toBeInTheDocument();
+      expect(screen.queryByText('Local Models')).not.toBeInTheDocument();
     });
   });
 
@@ -160,7 +160,7 @@ describe('ModelSelector', () => {
       await user.click(screen.getByText('Select Model'));
       // Wait for dropdown to appear
       await waitFor(() => {
-        expect(screen.getByText('Available Models')).toBeInTheDocument();
+        expect(screen.getByText('Local Models')).toBeInTheDocument();
       });
       await user.click(screen.getByText('Phi 3.5 Mini'));
 
@@ -210,7 +210,7 @@ describe('ModelSelector', () => {
       await user.click(screen.getByText('Select Model'));
       await user.click(screen.getByText('SmolVLM 256M'));
 
-      expect(screen.queryByText('Available Models')).not.toBeInTheDocument();
+      expect(screen.queryByText('Local Models')).not.toBeInTheDocument();
     });
 
     it('shows checkmark next to loaded model', async () => {
@@ -292,7 +292,7 @@ describe('ModelSelector', () => {
 
       await user.click(screen.getByRole('button'));
 
-      expect(screen.queryByText('Available Models')).not.toBeInTheDocument();
+      expect(screen.queryByText('Local Models')).not.toBeInTheDocument();
     });
   });
 });

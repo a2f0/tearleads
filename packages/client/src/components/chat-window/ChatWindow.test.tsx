@@ -191,7 +191,7 @@ describe('ChatWindow', () => {
     expect(screen.getByTestId('models-content')).toBeInTheDocument();
 
     // Then click back button
-    await user.click(screen.getByRole('button', { name: /back to chat/i }));
+    await user.click(screen.getByRole('button', { name: /back to ai/i }));
 
     await waitFor(() => {
       expect(screen.queryByTestId('models-content')).not.toBeInTheDocument();

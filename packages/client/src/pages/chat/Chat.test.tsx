@@ -244,7 +244,7 @@ describe('Chat', () => {
     it('renders the page title', () => {
       renderChat();
 
-      expect(screen.getByText('Chat')).toBeInTheDocument();
+      expect(screen.getByText('AI')).toBeInTheDocument();
     });
 
     it('shows no model loaded message', () => {

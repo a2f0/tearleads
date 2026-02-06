@@ -72,7 +72,9 @@ describe('VFS routes', () => {
         rows: [
           {
             public_encryption_key: 'enc-key-123',
-            public_signing_key: 'sign-key-456'
+            public_signing_key: 'sign-key-456',
+            encrypted_private_keys: 'encrypted-blob',
+            argon2_salt: 'argon2-salt'
           }
         ]
       });
@@ -84,7 +86,9 @@ describe('VFS routes', () => {
       expect(response.status).toBe(200);
       expect(response.body).toEqual({
         publicEncryptionKey: 'enc-key-123',
-        publicSigningKey: 'sign-key-456'
+        publicSigningKey: 'sign-key-456',
+        encryptedPrivateKeys: 'encrypted-blob',
+        argon2Salt: 'argon2-salt'
       });
     });
 

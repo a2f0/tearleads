@@ -105,18 +105,18 @@ describe('RequireAuth', () => {
 
     render(
       <RequireAuth
-        loginTitle="Chat Requires Login"
-        loginDescription="Sign in to access AI chat features"
+        loginTitle="AI Requires Login"
+        loginDescription="Sign in to access AI features"
       >
         <div>Protected Content</div>
       </RequireAuth>
     );
 
     expect(screen.getByTestId('login-title')).toHaveTextContent(
-      'Chat Requires Login'
+      'AI Requires Login'
     );
     expect(screen.getByTestId('login-description')).toHaveTextContent(
-      'Sign in to access AI chat features'
+      'Sign in to access AI features'
     );
   });
 

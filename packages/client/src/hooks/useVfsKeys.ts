@@ -12,6 +12,7 @@
 import {
   combineEncapsulation,
   combinePublicKey,
+  decrypt,
   deserializePublicKey,
   encrypt,
   generateKeyPair,
@@ -98,8 +99,39 @@ async function encryptPrivateKeys(
   };
 }
 
-// Note: decryptPrivateKeys will be needed when implementing file sharing/reading
-// For now, we only need to wrap session keys (encryption), not unwrap them (decryption)
+/**
+ * Decrypt private keys with the local database encryption key.
+ */
+async function decryptPrivateKeys(encryptedBlob: string): Promise<{
+  x25519PrivateKey: string;
+  mlKemPrivateKey: string;
+}> {
+  const keyManager = getKeyManager();
+  const dbKey = keyManager.getCurrentKey();
+
+  if (!dbKey) {
+    throw new Error('Database is not unlocked');
+  }
+
+  const ciphertext = fromBase64(encryptedBlob);
+  const cryptoKey = await importKey(dbKey);
+  const plaintext = await decrypt(ciphertext, cryptoKey);
+  const decoded = new TextDecoder().decode(plaintext);
+
+  const parsed = JSON.parse(decoded) as {
+    x25519PrivateKey?: string;
+    mlKemPrivateKey?: string;
+  };
+
+  if (!parsed.x25519PrivateKey || !parsed.mlKemPrivateKey) {
+    throw new Error('Invalid decrypted private key payload');
+  }
+
+  return {
+    x25519PrivateKey: parsed.x25519PrivateKey,
+    mlKemPrivateKey: parsed.mlKemPrivateKey
+  };
+}
 
 /**
  * Generate a new VFS keypair, encrypt it, and store on server.
@@ -134,54 +166,46 @@ async function generateAndStoreKeys(): Promise<VfsKeyPair> {
 /**
  * Fetch and decrypt existing VFS keys from server.
  */
-async function fetchAndDecryptKeys(): Promise<VfsKeyPair | null> {
+type FetchedKeys = { keyPair: VfsKeyPair; hasPrivateKeys: boolean } | null;
+
+async function fetchAndDecryptKeys(): Promise<FetchedKeys> {
   try {
     const response = await api.vfs.getMyKeys();
 
     // Parse public keys from server
     const publicKey = splitPublicKey(response.publicEncryptionKey);
 
-    // We need to fetch the encrypted private keys too
-    // For now, we only have public keys from getMyKeys endpoint
-    // The private keys are stored encrypted and would need a separate endpoint
-    // or we need to enhance getMyKeys to return encrypted private keys
+    const x25519PublicKey = fromBase64(publicKey.x25519PublicKey);
+    const mlKemPublicKey = fromBase64(publicKey.mlKemPublicKey);
 
-    // For this implementation, we'll need to check if we have the private keys
-    // cached locally or regenerate them (which would be a different keypair)
-
-    // Since the server only returns public keys, and we can't decrypt without
-    // the encrypted private keys, we need to handle this differently:
-    // Option 1: Store encrypted private keys locally as well
-    // Option 2: Add encrypted private keys to getMyKeys response
-    // Option 3: Generate new keys if we don't have them cached
-
-    // For now, return null if we don't have cached keys
-    // The file upload flow will handle this by checking if keys exist
-    // and using the public key for wrapping (which doesn't need private key)
-    if (!cachedKeyPair) {
-      // We have public keys on server but no private keys locally
-      // This happens after browser refresh - the keypair needs to be regenerated
-      // For VFS registration, we only need the public key to wrap session keys
-      // So we can construct a "public-only" representation
-
-      // Actually, for file upload (wrapping session keys), we only need the public key
-      // The private key is only needed for unwrapping (reading files)
-      // So we can return a partial keypair with just public keys
-
-      const x25519PublicKey = fromBase64(publicKey.x25519PublicKey);
-      const mlKemPublicKey = fromBase64(publicKey.mlKemPublicKey);
-
-      // Return a keypair with only public keys populated
-      // Private keys are zeroed - they're only needed for decryption
-      return {
-        x25519PublicKey,
-        x25519PrivateKey: new Uint8Array(32), // Placeholder, not used for wrapping
-        mlKemPublicKey,
-        mlKemPrivateKey: new Uint8Array(2400) // Placeholder, not used for wrapping
-      };
+    if (response.encryptedPrivateKeys) {
+      try {
+        const decrypted = await decryptPrivateKeys(
+          response.encryptedPrivateKeys
+        );
+        const keyPair: VfsKeyPair = {
+          x25519PublicKey,
+          x25519PrivateKey: fromBase64(decrypted.x25519PrivateKey),
+          mlKemPublicKey,
+          mlKemPrivateKey: fromBase64(decrypted.mlKemPrivateKey)
+        };
+        cachedKeyPair = keyPair;
+        return { keyPair, hasPrivateKeys: true };
+      } catch {
+        // Fall back to public-only keys when decryption fails.
+      }
     }
 
-    return cachedKeyPair;
+    // No private keys available - return a public-only keypair
+    return {
+      hasPrivateKeys: false,
+      keyPair: {
+        x25519PublicKey,
+        x25519PrivateKey: new Uint8Array(32),
+        mlKemPublicKey,
+        mlKemPrivateKey: new Uint8Array(2400)
+      }
+    };
   } catch (error) {
     // 404 means no keys exist yet
     if (error instanceof Error && error.message.includes('404')) {
@@ -211,8 +235,8 @@ export async function ensureVfsKeys(): Promise<VfsPublicKey> {
   const existingKeys = await fetchAndDecryptKeys();
   if (existingKeys) {
     return {
-      x25519PublicKey: existingKeys.x25519PublicKey,
-      mlKemPublicKey: existingKeys.mlKemPublicKey
+      x25519PublicKey: existingKeys.keyPair.x25519PublicKey,
+      mlKemPublicKey: existingKeys.keyPair.mlKemPublicKey
     };
   }
 
@@ -222,6 +246,28 @@ export async function ensureVfsKeys(): Promise<VfsPublicKey> {
     x25519PublicKey: newKeys.x25519PublicKey,
     mlKemPublicKey: newKeys.mlKemPublicKey
   };
+}
+
+/**
+ * Ensure the full VFS keypair (including private keys) is available.
+ * Throws if private keys cannot be retrieved/decrypted.
+ */
+export async function ensureVfsKeyPair(): Promise<VfsKeyPair> {
+  if (cachedKeyPair) {
+    return cachedKeyPair;
+  }
+
+  const existingKeys = await fetchAndDecryptKeys();
+  if (!existingKeys) {
+    throw new Error('VFS keys not set up');
+  }
+
+  if (!existingKeys.hasPrivateKeys) {
+    throw new Error('VFS private keys not available');
+  }
+
+  cachedKeyPair = existingKeys.keyPair;
+  return existingKeys.keyPair;
 }
 
 /**

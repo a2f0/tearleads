@@ -31,7 +31,7 @@ export const en = {
     cacheStorage: 'Cache Storage',
     localStorage: 'Local Storage',
     keychain: 'Keychain',
-    chat: 'Chat',
+    chat: 'AI',
     mlsChat: 'MLS Chat',
     models: 'Models',
     admin: 'Admin',

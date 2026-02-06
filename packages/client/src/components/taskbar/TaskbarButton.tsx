@@ -88,7 +88,7 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   keychain: 'Keychain',
   sqlite: 'SQLite',
   opfs: 'OPFS',
-  chat: 'Chat',
+  chat: 'AI',
   analytics: 'Analytics',
   audio: 'Audio',
   models: 'Models',
