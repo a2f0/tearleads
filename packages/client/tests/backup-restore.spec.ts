@@ -213,6 +213,6 @@ test.describe('Backup and Restore', () => {
     // Verify error message appears
     const errorMessage = page.getByTestId('backup-error');
     await expect(errorMessage).toBeVisible({ timeout: 10000 });
-    await expect(errorMessage).toContainText('No active database instance');
+    await expect(errorMessage).toContainText('Database not initialized');
   });
 });
