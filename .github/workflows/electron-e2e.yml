@@ -123,3 +123,45 @@ jobs:
         run: xvfb-run --auto-servernum -- pnpm --filter @rapid/client electron:test
         env:
           NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/.github/ci/localhost.crt
+
+      - name: Build CLI for backup validation
+        run: pnpm --filter @rapid/cli build
+
+      - name: Validate backup file
+        run: |
+          BACKUP_FILE="packages/client/playwright-report/backups/electron-backup.rbu"
+          DUMP_OUTPUT="packages/client/playwright-report/backups/dump-output"
+
+          if [ -f "$BACKUP_FILE" ]; then
+            echo "Found backup file: $BACKUP_FILE"
+            echo "Validating backup with CLI dump command..."
+
+            # Run CLI dump to decrypt and extract backup
+            # Usage: rapid dump <folder> -f <backup-file> -p <password>
+            cd packages/cli
+            node dist/index.js dump "$GITHUB_WORKSPACE/$DUMP_OUTPUT" \
+              -f "$GITHUB_WORKSPACE/$BACKUP_FILE" \
+              -p testpassword123 \
+              --force
+
+            # Verify manifest.json was created
+            if [ -f "$GITHUB_WORKSPACE/$DUMP_OUTPUT/manifest.json" ]; then
+              echo "Backup validation successful!"
+              echo "Manifest contents:"
+              cat "$GITHUB_WORKSPACE/$DUMP_OUTPUT/manifest.json"
+            else
+              echo "Backup validation failed: manifest.json not found"
+              exit 1
+            fi
+          else
+            echo "No backup file found at $BACKUP_FILE (backup test may have been skipped)"
+          fi
+
+      - name: Upload Electron test artifacts
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: electron-e2e-artifacts
+          path: packages/client/playwright-report/
+          retention-days: 7
+          if-no-files-found: ignore

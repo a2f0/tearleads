@@ -159,6 +159,39 @@ jobs:
           BASE_URL: https://localhost:8443
           PW_FULLY_PARALLEL: 'true'
 
+      - name: Build CLI for backup validation
+        run: pnpm --filter @rapid/cli build
+
+      - name: Validate backup file
+        run: |
+          BACKUP_FILE="packages/client/playwright-report/backups/web-backup.rbu"
+          DUMP_OUTPUT="packages/client/playwright-report/backups/dump-output"
+
+          if [ -f "$BACKUP_FILE" ]; then
+            echo "Found backup file: $BACKUP_FILE"
+            echo "Validating backup with CLI dump command..."
+
+            # Run CLI dump to decrypt and extract backup
+            # Usage: rapid dump <folder> -f <backup-file> -p <password>
+            cd packages/cli
+            node dist/index.js dump "$GITHUB_WORKSPACE/$DUMP_OUTPUT" \
+              -f "$GITHUB_WORKSPACE/$BACKUP_FILE" \
+              -p testpassword123 \
+              --force
+
+            # Verify manifest.json was created
+            if [ -f "$GITHUB_WORKSPACE/$DUMP_OUTPUT/manifest.json" ]; then
+              echo "Backup validation successful!"
+              echo "Manifest contents:"
+              cat "$GITHUB_WORKSPACE/$DUMP_OUTPUT/manifest.json"
+            else
+              echo "Backup validation failed: manifest.json not found"
+              exit 1
+            fi
+          else
+            echo "No backup file found at $BACKUP_FILE (backup test may have been skipped)"
+          fi
+
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: always()
