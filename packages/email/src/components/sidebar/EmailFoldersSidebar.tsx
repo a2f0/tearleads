@@ -176,13 +176,13 @@ export function EmailFoldersSidebar({
     return (
       <div
         key={folder.id}
-        className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
+        className={`flex w-full items-center gap-2 rounded py-1 text-left text-sm transition-colors ${
           isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
         }`}
-        style={{ paddingLeft: `${8 + indent * 16}px` }}
+        style={{ paddingLeft: `${4 + indent * 16}px` }}
         data-testid={`email-folder-${folder.id}`}
       >
-        {hasChildren ? (
+        {hasChildren && (
           <button
             type="button"
             onClick={(e) => {
@@ -198,19 +198,17 @@ export function EmailFoldersSidebar({
               <ChevronRight className="h-3.5 w-3.5" />
             )}
           </button>
-        ) : (
-          <span className="h-4 w-4 shrink-0" />
         )}
         <button
           type="button"
-          className="flex min-w-0 flex-1 items-center gap-1"
+          className="flex min-w-0 flex-1 items-center gap-2 text-left"
           onClick={() => onFolderSelect(folder.id)}
           onContextMenu={(e) => {
             if (!isSystem) handleContextMenu(e, folder);
           }}
         >
           <Icon className="h-4 w-4 shrink-0 text-primary" />
-          <span className="flex-1 truncate">{folder.name}</span>
+          <span className="truncate">{folder.name}</span>
         </button>
         {folder.unreadCount > 0 && (
           <span className="text-muted-foreground text-xs">
@@ -246,16 +244,15 @@ export function EmailFoldersSidebar({
         {/* All Mail option */}
         <button
           type="button"
-          className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
+          className={`flex w-full items-center gap-2 rounded py-1 text-left text-sm transition-colors ${
             selectedFolderId === ALL_MAIL_ID || selectedFolderId === null
               ? 'bg-accent text-accent-foreground'
               : 'hover:bg-accent/50'
           }`}
-          style={{ paddingLeft: '8px' }}
+          style={{ paddingLeft: '4px' }}
           onClick={() => onFolderSelect(ALL_MAIL_ID)}
           data-testid="email-folder-all-mail"
         >
-          <span className="h-4 w-4 shrink-0" />
           <Mail className="h-4 w-4 shrink-0 text-primary" />
           <span className="truncate">All Mail</span>
         </button>
