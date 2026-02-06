@@ -79,6 +79,9 @@ jobs:
       - name: Build contacts
         run: pnpm --filter @rapid/contacts build
 
+      - name: Build db-test-utils
+        run: pnpm --filter @rapid/db-test-utils build
+
       - name: Setup App Store Connect API Key (macOS)
         if: runner.os == 'macOS'
         run: |

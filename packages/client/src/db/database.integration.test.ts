@@ -9,9 +9,9 @@
 // Import integration setup FIRST - this sets up mocks for adapters and key manager
 import '../test/setup-integration';
 
+import { resetTestKeyManager } from '@rapid/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { resetTestKeyManager } from '../test/test-key-manager';
 import {
   changePassword,
   clearPersistedSession,

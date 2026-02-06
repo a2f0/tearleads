@@ -1,9 +1,7 @@
-import '@testing-library/jest-dom/vitest';
-import { cleanup } from '@testing-library/react';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import failOnConsole from 'vitest-fail-on-console';
 
-// Allow expected warnings from SQLite WASM (used in integration tests)
+// Allow expected warnings from SQLite WASM
 const allowedWarnings = [
   'Ignoring inability to install OPFS sqlite3_vfs',
   'sqlite3_step() rc='
@@ -32,7 +30,6 @@ afterEach(() => {
     warnSpy.mockRestore();
     warnSpy = null;
   }
-  cleanup();
 });
 
 // Still fail on console.error

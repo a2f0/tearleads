@@ -8,15 +8,15 @@
  * Or set the INTEGRATION_TESTS=true env var to auto-load via setup.ts
  */
 
-import { afterEach, beforeEach, expect, vi } from 'vitest';
-import { WasmNodeAdapter } from '@/db/adapters/wasm-node.adapter';
-import type { InstanceMetadata } from '@/db/instance-registry';
-import { mockConsoleWarn } from './console-mocks';
 import {
   getTestKeyManager,
   resetTestKeyManager,
-  TestKeyManager
-} from './test-key-manager';
+  TestKeyManager,
+  WasmNodeAdapter
+} from '@rapid/db-test-utils';
+import { afterEach, beforeEach, expect, vi } from 'vitest';
+import type { InstanceMetadata } from '@/db/instance-registry';
+import { mockConsoleWarn } from './console-mocks';
 
 // Store active adapter for cleanup
 let activeAdapter: WasmNodeAdapter | null = null;

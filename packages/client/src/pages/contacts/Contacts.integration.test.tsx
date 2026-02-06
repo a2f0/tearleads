@@ -8,13 +8,13 @@
 // Import integration setup FIRST
 import '../../test/setup-integration';
 
+import { resetTestKeyManager } from '@rapid/db-test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/db';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import { renderWithDatabase } from '../../test/render-with-database';
-import { resetTestKeyManager } from '../../test/test-key-manager';
 import { Contacts } from './Contacts';
 
 // Mock useVirtualizer to simplify testing

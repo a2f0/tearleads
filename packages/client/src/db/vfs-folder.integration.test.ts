@@ -11,9 +11,9 @@
 import '../test/setup-integration';
 
 import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
+import { resetTestKeyManager } from '@rapid/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { resetTestKeyManager } from '../test/test-key-manager';
 import { getDatabaseAdapter, resetDatabase, setupDatabase } from '.';
 
 const TEST_PASSWORD = 'test-password-123';

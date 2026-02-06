@@ -8,10 +8,10 @@
  * Related: https://github.com/a2f0/rapid/issues/137
  */
 
+import type { DatabaseConfig } from '@rapid/db-test-utils';
+import { WasmNodeAdapter } from '@rapid/db-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mockConsoleWarn } from '@/test/console-mocks';
-import type { DatabaseConfig } from './adapters/types';
-import { WasmNodeAdapter } from './adapters/wasm-node.adapter';
 
 // Use a fixed test key for consistency
 const TEST_ENCRYPTION_KEY = new Uint8Array([
