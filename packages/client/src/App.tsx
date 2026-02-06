@@ -1,15 +1,16 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { Lock } from 'lucide-react';
+import { Info, Lock } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
-import { HUDTrigger } from './components/hud';
 import { MobileMenu } from './components/MobileMenu';
+import { NotificationCenterTrigger } from './components/notification-center';
 import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
+import { SSEConnectionDialog } from './components/SSEConnectionDialog';
 import { useScreensaver } from './components/screensaver';
 import { Taskbar } from './components/taskbar';
 import { ContextMenu } from './components/ui/context-menu/ContextMenu';
@@ -40,6 +41,11 @@ function App() {
     x: number;
     y: number;
   } | null>(null);
+  const [sseContextMenu, setSseContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+  const [isSseDialogOpen, setIsSseDialogOpen] = useState(false);
   const sidebarRef = useRef<HTMLElement | null>(null);
   const startButtonRef = useRef<HTMLButtonElement | null>(null);
   const keyboardHeight = useKeyboardHeight();
@@ -91,6 +97,23 @@ function App() {
       setStartMenuContextMenu(null);
     }
   }, [activateScreensaver, isUnlocked, lock]);
+
+  const handleSseContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      setSseContextMenu({ x: event.clientX, y: event.clientY });
+    },
+    []
+  );
+
+  const handleCloseSseContextMenu = useCallback(() => {
+    setSseContextMenu(null);
+  }, []);
+
+  const handleShowConnectionDetails = useCallback(() => {
+    setIsSseDialogOpen(true);
+    setSseContextMenu(null);
+  }, []);
 
   return (
     <div
@@ -174,8 +197,12 @@ function App() {
       >
         <div className="flex items-center gap-2">
           {sse && (
-            <div className="flex h-6 w-6 items-center justify-center">
-              {/* Optical alignment tweak to match the HUD icon's center. */}
+            // biome-ignore lint/a11y/noStaticElementInteractions: Context menu handler for SSE indicator
+            <div
+              className="flex h-6 w-6 cursor-pointer items-center justify-center"
+              onContextMenu={handleSseContextMenu}
+            >
+              {/* Optical alignment tweak to match the Notification Center icon's center. */}
               <ConnectionIndicator
                 state={sse.connectionState}
                 tooltip={t(sseTooltipKeys[sse.connectionState])}
@@ -183,10 +210,31 @@ function App() {
               />
             </div>
           )}
-          <HUDTrigger />
+          <NotificationCenterTrigger />
         </div>
       </div>
       <MiniPlayer />
+      {sseContextMenu && (
+        <ContextMenu
+          x={sseContextMenu.x}
+          y={sseContextMenu.y}
+          onClose={handleCloseSseContextMenu}
+        >
+          <ContextMenuItem
+            icon={<Info className="h-4 w-4" />}
+            onClick={handleShowConnectionDetails}
+          >
+            Connection Details
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+      {sse && (
+        <SSEConnectionDialog
+          isOpen={isSseDialogOpen}
+          onClose={() => setIsSseDialogOpen(false)}
+          connectionState={sse.connectionState}
+        />
+      )}
     </div>
   );
 }

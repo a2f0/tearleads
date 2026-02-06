@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { HUD } from './HUD';
+import { NotificationCenter } from './NotificationCenter';
 
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => ({
@@ -17,7 +17,7 @@ vi.mock('./LogsTab', () => ({
   LogsTab: () => <div data-testid="logs-tab">Logs Tab</div>
 }));
 
-describe('HUD', () => {
+describe('NotificationCenter', () => {
   beforeEach(() => {
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
@@ -32,23 +32,25 @@ describe('HUD', () => {
   });
 
   it('renders nothing when closed', () => {
-    const { container } = render(<HUD isOpen={false} onClose={() => {}} />);
+    const { container } = render(
+      <NotificationCenter isOpen={false} onClose={() => {}} />
+    );
     expect(container).toBeEmptyDOMElement();
   });
 
   it('renders when open', () => {
-    render(<HUD isOpen={true} onClose={() => {}} />);
+    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('shows logs tab by default', () => {
-    render(<HUD isOpen={true} onClose={() => {}} />);
+    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
     expect(screen.getByTestId('logs-tab')).toBeInTheDocument();
   });
 
   it('switches to logs tab when clicked', async () => {
     const user = userEvent.setup();
-    render(<HUD isOpen={true} onClose={() => {}} />);
+    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
 
     await user.click(screen.getByRole('button', { name: /logs/i }));
     expect(screen.getByTestId('logs-tab')).toBeInTheDocument();
@@ -57,46 +59,52 @@ describe('HUD', () => {
   it('calls onClose when close button clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<HUD isOpen={true} onClose={onClose} />);
+    render(<NotificationCenter isOpen={true} onClose={onClose} />);
 
     await user.click(screen.getByRole('button', { name: /close/i }));
     expect(onClose).toHaveBeenCalled();
   });
 
   it('renders backdrop when open', () => {
-    render(<HUD isOpen={true} onClose={() => {}} />);
-    expect(screen.getByTestId('hud-backdrop')).toBeInTheDocument();
+    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+    expect(
+      screen.getByTestId('notification-center-backdrop')
+    ).toBeInTheDocument();
   });
 
   it('calls onClose when backdrop is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<HUD isOpen={true} onClose={onClose} />);
+    render(<NotificationCenter isOpen={true} onClose={onClose} />);
 
-    await user.click(screen.getByTestId('hud-backdrop'));
+    await user.click(screen.getByTestId('notification-center-backdrop'));
     expect(onClose).toHaveBeenCalled();
   });
 
   it('does not render backdrop when closed', () => {
-    render(<HUD isOpen={false} onClose={() => {}} />);
-    expect(screen.queryByTestId('hud-backdrop')).not.toBeInTheDocument();
+    render(<NotificationCenter isOpen={false} onClose={() => {}} />);
+    expect(
+      screen.queryByTestId('notification-center-backdrop')
+    ).not.toBeInTheDocument();
   });
 
   describe('title bar', () => {
     it('renders title bar when open', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
-      expect(screen.getByTestId('hud-title-bar')).toBeInTheDocument();
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+      expect(
+        screen.getByTestId('notification-center-title-bar')
+      ).toBeInTheDocument();
     });
 
-    it('displays HUD text in title bar', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
-      expect(screen.getByText('HUD')).toBeInTheDocument();
+    it('displays Notification Center text in title bar', () => {
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+      expect(screen.getByText('Notification Center')).toBeInTheDocument();
     });
 
     it('allows dragging the window via title bar on desktop', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const titleBar = screen.getByTestId('hud-title-bar');
+      const titleBar = screen.getByTestId('notification-center-title-bar');
 
       const initialLeft = parseInt(dialog.style.left, 10);
       const initialTop = parseInt(dialog.style.top, 10);
@@ -115,9 +123,9 @@ describe('HUD', () => {
     });
 
     it('handles touch-based dragging on desktop', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const titleBar = screen.getByTestId('hud-title-bar');
+      const titleBar = screen.getByTestId('notification-center-title-bar');
 
       const initialLeft = parseInt(dialog.style.left, 10);
       const initialTop = parseInt(dialog.style.top, 10);
@@ -142,25 +150,27 @@ describe('HUD', () => {
 
   describe('resize handles', () => {
     it('renders all 4 corner resize handles on desktop', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       expect(
-        screen.getByTestId('hud-resize-handle-top-left')
+        screen.getByTestId('notification-center-resize-handle-top-left')
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId('hud-resize-handle-top-right')
+        screen.getByTestId('notification-center-resize-handle-top-right')
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId('hud-resize-handle-bottom-left')
+        screen.getByTestId('notification-center-resize-handle-bottom-left')
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId('hud-resize-handle-bottom-right')
+        screen.getByTestId('notification-center-resize-handle-bottom-right')
       ).toBeInTheDocument();
     });
 
     it('changes size when bottom-right corner is dragged', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const handle = screen.getByTestId('hud-resize-handle-bottom-right');
+      const handle = screen.getByTestId(
+        'notification-center-resize-handle-bottom-right'
+      );
 
       const initialWidth = parseInt(dialog.style.width, 10);
       const initialHeight = parseInt(dialog.style.height, 10);
@@ -177,9 +187,11 @@ describe('HUD', () => {
     });
 
     it('changes size when top-left corner is dragged', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const handle = screen.getByTestId('hud-resize-handle-top-left');
+      const handle = screen.getByTestId(
+        'notification-center-resize-handle-top-left'
+      );
 
       const initialWidth = parseInt(dialog.style.width, 10);
       const initialHeight = parseInt(dialog.style.height, 10);
@@ -202,9 +214,11 @@ describe('HUD', () => {
     });
 
     it('respects minimum size constraints', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const handle = screen.getByTestId('hud-resize-handle-bottom-right');
+      const handle = screen.getByTestId(
+        'notification-center-resize-handle-bottom-right'
+      );
 
       fireEvent.mouseDown(handle, { clientX: 500, clientY: 400 });
       fireEvent.mouseMove(document, { clientX: 0, clientY: 0 });
@@ -218,9 +232,11 @@ describe('HUD', () => {
     });
 
     it('respects maximum size constraints', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const handle = screen.getByTestId('hud-resize-handle-bottom-right');
+      const handle = screen.getByTestId(
+        'notification-center-resize-handle-bottom-right'
+      );
 
       fireEvent.mouseDown(handle, { clientX: 500, clientY: 400 });
       fireEvent.mouseMove(document, { clientX: 2000, clientY: 2000 });
@@ -234,9 +250,11 @@ describe('HUD', () => {
     });
 
     it('handles touch-based resizing', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const handle = screen.getByTestId('hud-resize-handle-bottom-right');
+      const handle = screen.getByTestId(
+        'notification-center-resize-handle-bottom-right'
+      );
 
       const initialWidth = parseInt(dialog.style.width, 10);
       const initialHeight = parseInt(dialog.style.height, 10);
@@ -257,9 +275,11 @@ describe('HUD', () => {
     });
 
     it('handles touchStart with no touches', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const handle = screen.getByTestId('hud-resize-handle-bottom-right');
+      const handle = screen.getByTestId(
+        'notification-center-resize-handle-bottom-right'
+      );
 
       const initialWidth = parseInt(dialog.style.width, 10);
 
@@ -270,9 +290,11 @@ describe('HUD', () => {
     });
 
     it('handles touchMove with no touches', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
-      const handle = screen.getByTestId('hud-resize-handle-bottom-right');
+      const handle = screen.getByTestId(
+        'notification-center-resize-handle-bottom-right'
+      );
 
       const initialWidth = parseInt(dialog.style.width, 10);
 
@@ -287,7 +309,7 @@ describe('HUD', () => {
     });
 
     it('ignores move events when not dragging', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -299,7 +321,7 @@ describe('HUD', () => {
     });
 
     it('handles drag end when not dragging', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       const dialog = screen.getByRole('dialog');
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -321,18 +343,20 @@ describe('HUD', () => {
     });
 
     it('does not render corner resize handles on mobile', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       expect(
-        screen.queryByTestId('hud-resize-handle-top-left')
+        screen.queryByTestId('notification-center-resize-handle-top-left')
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByTestId('hud-resize-handle-bottom-right')
+        screen.queryByTestId('notification-center-resize-handle-bottom-right')
       ).not.toBeInTheDocument();
     });
 
     it('renders title bar on mobile', () => {
-      render(<HUD isOpen={true} onClose={() => {}} />);
-      expect(screen.getByTestId('hud-title-bar')).toBeInTheDocument();
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+      expect(
+        screen.getByTestId('notification-center-title-bar')
+      ).toBeInTheDocument();
     });
   });
 
@@ -344,11 +368,11 @@ describe('HUD', () => {
         value: 1024
       });
 
-      render(<HUD isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
 
       // Desktop: resize handles should be visible
       expect(
-        screen.getByTestId('hud-resize-handle-bottom-right')
+        screen.getByTestId('notification-center-resize-handle-bottom-right')
       ).toBeInTheDocument();
 
       // Resize to mobile
@@ -361,7 +385,7 @@ describe('HUD', () => {
 
       // Mobile: resize handles should not be visible
       expect(
-        screen.queryByTestId('hud-resize-handle-bottom-right')
+        screen.queryByTestId('notification-center-resize-handle-bottom-right')
       ).not.toBeInTheDocument();
     });
   });

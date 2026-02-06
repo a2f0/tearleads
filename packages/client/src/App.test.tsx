@@ -47,8 +47,10 @@ vi.mock('./components/audio/MiniPlayer', () => ({
   MiniPlayer: () => <div data-testid="mini-player" />
 }));
 
-vi.mock('./components/hud', () => ({
-  HUDTrigger: () => <div data-testid="hud-trigger" />
+vi.mock('./components/notification-center', () => ({
+  NotificationCenterTrigger: () => (
+    <div data-testid="notification-center-trigger" />
+  )
 }));
 
 vi.mock('./components/MobileMenu', () => ({
@@ -133,15 +135,17 @@ describe('App', () => {
     );
   });
 
-  it('renders HUDTrigger outside the header', () => {
+  it('renders NotificationCenterTrigger outside the header', () => {
     mockUseSSEContext.mockReturnValue(null);
 
     renderApp();
 
     const header = screen.getByRole('banner');
-    const hudTrigger = screen.getByTestId('hud-trigger');
-    expect(hudTrigger).toBeInTheDocument();
-    expect(header).not.toContainElement(hudTrigger);
+    const notificationCenterTrigger = screen.getByTestId(
+      'notification-center-trigger'
+    );
+    expect(notificationCenterTrigger).toBeInTheDocument();
+    expect(header).not.toContainElement(notificationCenterTrigger);
   });
 
   it('renders taskbar in the footer', () => {
