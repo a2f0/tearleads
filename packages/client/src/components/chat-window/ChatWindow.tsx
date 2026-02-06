@@ -5,8 +5,10 @@ import { FloatingWindow } from '@/components/floating-window';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { useDatabaseContext } from '@/db/hooks';
+import { useConversations } from '@/hooks/useConversations';
 import { useLLM } from '@/hooks/useLLM';
 import { ChatInterface } from '@/pages/chat/ChatInterface';
+import { ConversationsSidebar } from '@/pages/chat/ConversationsSidebar';
 import { NoModelLoadedContent } from '@/pages/chat/NoModelLoadedContent';
 import { ModelsContent } from '@/pages/models/ModelsContent';
 import { ChatWindowMenuBar } from './ChatWindowMenuBar';
@@ -47,13 +49,30 @@ export function ChatWindow({
 }: ChatWindowProps) {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { loadedModel, modelType, generate } = useLLM();
-  const [chatKey, setChatKey] = useState(0);
+  const {
+    conversations,
+    loading: conversationsLoading,
+    error: conversationsError,
+    currentConversationId,
+    selectConversation,
+    createConversation,
+    renameConversation,
+    deleteConversation
+  } = useConversations();
+
+  const [sidebarWidth, setSidebarWidth] = useState(200);
   const [activeView, setActiveView] = useState<'chat' | 'models'>('chat');
 
-  const handleNewChat = useCallback(() => {
-    setChatKey((prev) => prev + 1);
-    setActiveView('chat');
-  }, []);
+  const handleNewConversation = useCallback(async () => {
+    await createConversation();
+  }, [createConversation]);
+
+  const handleConversationSelect = useCallback(
+    async (conversationId: string | null) => {
+      await selectConversation(conversationId);
+    },
+    [selectConversation]
+  );
 
   const handleOpenModels = useCallback(() => {
     setActiveView('models');
@@ -75,7 +94,7 @@ export function ChatWindow({
 
   const isVisionModel = modelType === 'vision' || modelType === 'paligemma';
 
-  const title = modelDisplayName ? `Chat - ${modelDisplayName}` : 'Chat';
+  const title = modelDisplayName ? `AI - ${modelDisplayName}` : 'AI';
 
   return (
     <FloatingWindow
@@ -87,12 +106,12 @@ export function ChatWindow({
       onFocus={onFocus}
       zIndex={zIndex}
       {...(initialDimensions !== undefined && { initialDimensions })}
-      defaultWidth={500}
+      defaultWidth={700}
       defaultHeight={550}
-      minWidth={400}
+      minWidth={500}
       minHeight={400}
     >
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col overflow-hidden">
         {isDatabaseLoading && (
           <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
             Loading database...
@@ -101,44 +120,58 @@ export function ChatWindow({
 
         {!isDatabaseLoading && !isUnlocked && (
           <div className="flex flex-1 items-center justify-center p-4">
-            <InlineUnlock description="chat" />
+            <InlineUnlock description="AI chat" />
           </div>
         )}
 
         {isUnlocked && (
           <>
             <ChatWindowMenuBar
-              onNewChat={handleNewChat}
+              onNewChat={handleNewConversation}
               onClose={onClose}
               modelDisplayName={modelDisplayName}
             />
-            <div className="flex-1 overflow-hidden">
-              {activeView === 'models' ? (
-                <div className="flex h-full flex-col">
-                  <div className="border-b bg-muted/30 px-2 py-1">
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleBackToChat}
-                    >
-                      <ArrowLeft className="mr-2 h-4 w-4" />
-                      Back to Chat
-                    </Button>
+            <div className="flex flex-1 overflow-hidden">
+              <ConversationsSidebar
+                width={sidebarWidth}
+                onWidthChange={setSidebarWidth}
+                conversations={conversations}
+                selectedConversationId={currentConversationId}
+                onConversationSelect={handleConversationSelect}
+                onNewConversation={handleNewConversation}
+                onRenameConversation={renameConversation}
+                onDeleteConversation={deleteConversation}
+                loading={conversationsLoading}
+                error={conversationsError}
+              />
+              <div className="flex flex-1 flex-col overflow-hidden">
+                {activeView === 'models' ? (
+                  <div className="flex h-full flex-col">
+                    <div className="border-b bg-muted/30 px-2 py-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={handleBackToChat}
+                      >
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Back to Chat
+                      </Button>
+                    </div>
+                    <div className="flex-1 overflow-auto p-4">
+                      <ModelsContent showBackLink={false} />
+                    </div>
                   </div>
-                  <div className="flex-1 overflow-auto p-4">
-                    <ModelsContent showBackLink={false} />
-                  </div>
-                </div>
-              ) : loadedModel ? (
-                <ChatInterface
-                  key={chatKey}
-                  generate={generate}
-                  isVisionModel={isVisionModel}
-                />
-              ) : (
-                <NoModelLoadedContent onOpenModels={handleOpenModels} />
-              )}
+                ) : loadedModel ? (
+                  <ChatInterface
+                    key={currentConversationId ?? 'default'}
+                    generate={generate}
+                    isVisionModel={isVisionModel}
+                  />
+                ) : (
+                  <NoModelLoadedContent onOpenModels={handleOpenModels} />
+                )}
+              </div>
             </div>
           </>
         )}

@@ -7,11 +7,15 @@
 
 // Components
 export {
+  AddMemberDialog,
+  type AddMemberDialogProps,
   GroupList,
   MemberList,
   MlsChatWindow,
   MlsComposer,
-  MlsMessage
+  MlsMessage,
+  NewGroupDialog,
+  type NewGroupDialogProps
 } from './components/index.js';
 // Context and provider
 export {
