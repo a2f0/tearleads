@@ -43,10 +43,10 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Store `baseRefName` for rebase.
    - Detect `high-priority` label.
    - If all files are non-code types, set `gemini_can_review = false`:
-     - Config: `.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.env*`
      - Docs: `.md`, `.txt`, `.rst`
      - Assets: `.png`, `.jpg`, `.svg`, `.ico`, `.gif`
-     - Build/CI: `Dockerfile`, `.dockerignore`, `.gitignore`
+     - Ignore files: `.gitignore`, `.dockerignore`
+     - Note: Gemini CAN review `.json`, `.yaml`, `.yml`, and other config files - don't skip these.
 
    Handle issue tracking (if applicable):
 
