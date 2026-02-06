@@ -4,6 +4,20 @@ description: Guarantee PR merge by cycling until merged
 
 # Enter Merge Queue
 
+## CRITICAL: Continuous Loop Until Merged
+
+**This skill MUST run continuously until the PR state is `MERGED`.** Do NOT exit after:
+
+- Running `/address-gemini-feedback` - continue the loop
+- Running `/follow-up-with-gemini` - continue the loop
+- Running `/fix-tests` - continue the loop
+- CI completing successfully - continue to enable auto-merge, then keep polling
+- Enabling auto-merge - keep polling until `state` is `MERGED`
+
+**The ONLY valid exit condition is `gh pr view --json state` returning `"state":"MERGED"`.**
+
+---
+
 **First**: Determine the repository for all `gh` commands:
 
 ```bash
@@ -79,6 +93,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    ```
 
 4. **Main loop** - Repeat until PR is merged:
+
+   **LOOP STRUCTURE**: After completing ANY sub-step below, ALWAYS return to step 4c to re-check PR state. Never exit the loop until `state` is `MERGED`.
 
    ### 4a. Wait for base PR (roll-up PRs only)
 
@@ -271,6 +287,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
       - Run `/address-gemini-feedback` to fetch and address any unresolved comments
       - If code changes were made, push and continue polling (CI will restart)
       - If Gemini has responded with confirmations, resolve those threads via `/follow-up-with-gemini`
+      - **IMPORTANT**: After these sub-skills complete, continue the polling loop - do NOT exit
 
    3. **Check individual job statuses** (in priority order):
 
@@ -294,7 +311,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    4. **Check overall workflow status**:
       - If ALL jobs completed AND ALL succeeded → continue to step 4f
-      - If ANY jobs still running → continue polling
+      - If ANY jobs still running → wait (with jitter) and repeat from step 4e.1 (check if behind)
 
    #### Workflow cancellation
 
@@ -329,15 +346,16 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    gh pr merge --auto --squash
    ```
 
-   Then poll for merge completion (30 seconds with jitter):
+   Then poll for merge completion (30 seconds with jitter). **Keep polling until merged**:
 
    ```bash
    gh pr view --json state,mergeStateStatus
    ```
 
-   - If `state` is `MERGED`: Exit loop
-   - If `mergeStateStatus` is `BEHIND`: Go back to step 4d
-   - Otherwise: Wait and check again
+   - If `state` is `MERGED`: Exit loop and proceed to step 5
+   - If `mergeStateStatus` is `BEHIND`: Go back to step 4d (rebase)
+   - If `mergeStateStatus` is `BLOCKED`: Go back to step 4e (CI not done yet)
+   - Otherwise: Wait 30 seconds (with jitter) and poll again - **do NOT exit**
 
 5. **Refresh workspace**: Once the PR is merged, run:
 
