@@ -128,7 +128,7 @@ else
             | . as $lines
             | ("\n" + ($lines | join("\n")) + "\n") as $text
             | (if ($text | test("\\n##?\\s*Release Notes\\s*\\n"; "i")) then
-                ($text | capture("\\n##?\\s*Release Notes\\s*\\n(?<section>[\\s\\S]*?)(\\n##\\s|$)").section)
+                ($text | capture("\\n##?\\s*Release Notes\\s*\\n(?<section>[\\s\\S]*?)(\\n##\\s|$)"; "i").section)
               else ""
               end)
           )
