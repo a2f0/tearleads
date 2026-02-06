@@ -66,12 +66,11 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Log: "Roll-up PR detected. Base PR: #<base_pr_number> (<baseRefName>)"
 
    **Early Gemini skip detection**: Check the file extensions in the PR. If ALL files are non-code types, set `gemini_can_review = false`:
-   - Config files: `.json`, `.yaml`, `.yml`, `.toml`, `.ini`, `.env*`
    - Docs: `.md`, `.txt`, `.rst`
    - Assets: `.png`, `.jpg`, `.svg`, `.ico`, `.gif`
-   - Build/CI: `Dockerfile`, `.dockerignore`, `.gitignore`
+   - Ignore files: `.gitignore`, `.dockerignore`
 
-   This avoids waiting 5 minutes for Gemini to respond with "unsupported file types".
+   Note: Gemini CAN review `.json`, `.yaml`, `.yml`, and other config files - don't skip these.
 
    **Issue tracking (if applicable)**: If a PR has an associated issue, it gets marked `needs-qa` after merge. Issues are NOT created automatically - only when the user explicitly requests one. Do NOT create separate "QA: ..." issues.
 
