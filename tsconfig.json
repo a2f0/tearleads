@@ -27,6 +27,8 @@
     { "path": "./packages/cli" },
     { "path": "./packages/db" },
     { "path": "./packages/db/tsconfig.test.json" },
+    { "path": "./packages/db-test-utils" },
+    { "path": "./packages/db-test-utils/tsconfig.test.json" },
     { "path": "./packages/mls-chat" },
     { "path": "./packages/smtp-listener" },
     { "path": "./packages/smtp-listener/tsconfig.test.json" },

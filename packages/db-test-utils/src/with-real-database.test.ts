@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { DatabaseAdapter } from './adapters/types.js';
 import { createTestDatabase, withRealDatabase } from './with-real-database.js';
 
 describe('createTestDatabase', () => {
@@ -36,7 +37,7 @@ describe('createTestDatabase', () => {
     const migrations = [
       {
         version: 1,
-        up: async (adapter: { execute: (sql: string) => Promise<void> }) => {
+        up: async (adapter: DatabaseAdapter) => {
           await adapter.execute(`
             CREATE TABLE IF NOT EXISTS test_table (
               id TEXT PRIMARY KEY,
@@ -77,18 +78,22 @@ describe('withRealDatabase', () => {
   });
 
   it('closes adapter after callback completes', async () => {
-    let capturedAdapter: { isOpen: () => boolean } | null = null;
+    let capturedAdapter: DatabaseAdapter | undefined;
 
     await withRealDatabase(async ({ adapter }) => {
       capturedAdapter = adapter;
       expect(adapter.isOpen()).toBe(true);
     });
 
-    expect(capturedAdapter?.isOpen()).toBe(false);
+    expect(capturedAdapter).toBeDefined();
+    // Use explicit type check after vitest assertion
+    if (capturedAdapter) {
+      expect(capturedAdapter.isOpen()).toBe(false);
+    }
   });
 
   it('closes adapter even if callback throws', async () => {
-    let capturedAdapter: { isOpen: () => boolean } | null = null;
+    let capturedAdapter: DatabaseAdapter | undefined;
 
     await expect(
       withRealDatabase(async ({ adapter }) => {
@@ -97,14 +102,18 @@ describe('withRealDatabase', () => {
       })
     ).rejects.toThrow('Test error');
 
-    expect(capturedAdapter?.isOpen()).toBe(false);
+    expect(capturedAdapter).toBeDefined();
+    // Use explicit type check after vitest assertion
+    if (capturedAdapter) {
+      expect(capturedAdapter.isOpen()).toBe(false);
+    }
   });
 
   it('allows database operations', async () => {
     const migrations = [
       {
         version: 1,
-        up: async (adapter: { execute: (sql: string) => Promise<void> }) => {
+        up: async (adapter: DatabaseAdapter) => {
           await adapter.execute(`
             CREATE TABLE users (id TEXT PRIMARY KEY, name TEXT)
           `);

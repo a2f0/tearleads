@@ -1,6 +1,7 @@
 import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import type { DatabaseAdapter } from '../adapters/types.js';
 import { withRealDatabase } from '../with-real-database.js';
 import {
   ensureVfsRoot,
@@ -14,7 +15,7 @@ import {
 const vfsMigrations = [
   {
     version: 1,
-    up: async (adapter: { execute: (sql: string) => Promise<void> }) => {
+    up: async (adapter: DatabaseAdapter) => {
       await adapter.execute(`
         CREATE TABLE IF NOT EXISTS vfs_registry (
           id TEXT PRIMARY KEY,

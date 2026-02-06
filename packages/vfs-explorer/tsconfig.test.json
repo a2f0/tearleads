@@ -13,5 +13,8 @@
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
   "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["node_modules", "dist"]
+  "exclude": ["node_modules", "dist"],
+  "references": [
+    { "path": "../db-test-utils" }
+  ]
 }
