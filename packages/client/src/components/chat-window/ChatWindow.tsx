@@ -120,7 +120,7 @@ export function ChatWindow({
 
         {!isDatabaseLoading && !isUnlocked && (
           <div className="flex flex-1 items-center justify-center p-4">
-            <InlineUnlock description="AI chat" />
+            <InlineUnlock description="AI" />
           </div>
         )}
 
@@ -155,7 +155,7 @@ export function ChatWindow({
                         onClick={handleBackToChat}
                       >
                         <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to Chat
+                        Back to AI
                       </Button>
                     </div>
                     <div className="flex-1 overflow-auto p-4">

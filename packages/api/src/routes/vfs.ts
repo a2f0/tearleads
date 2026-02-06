@@ -156,8 +156,13 @@ vfsRouter.get('/keys/me', async (req: Request, res: Response) => {
     const result = await pool.query<{
       public_encryption_key: string;
       public_signing_key: string;
+      encrypted_private_keys: string;
+      argon2_salt: string;
     }>(
-      `SELECT public_encryption_key, public_signing_key
+      `SELECT public_encryption_key,
+              public_signing_key,
+              encrypted_private_keys,
+              argon2_salt
        FROM user_keys
        WHERE user_id = $1`,
       [claims.sub]
@@ -171,7 +176,9 @@ vfsRouter.get('/keys/me', async (req: Request, res: Response) => {
 
     const response: VfsUserKeysResponse = {
       publicEncryptionKey: row.public_encryption_key,
-      publicSigningKey: row.public_signing_key
+      publicSigningKey: row.public_signing_key,
+      encryptedPrivateKeys: row.encrypted_private_keys,
+      argon2Salt: row.argon2_salt
     };
 
     res.json(response);

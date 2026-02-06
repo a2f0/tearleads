@@ -38,14 +38,14 @@ describe('LoginForm', () => {
   it('renders with custom title and description', () => {
     render(
       <LoginForm
-        title="Chat Requires Login"
-        description="Sign in to access AI chat features"
+        title="AI Requires Login"
+        description="Sign in to access AI features"
       />
     );
 
-    expect(screen.getByText('Chat Requires Login')).toBeInTheDocument();
+    expect(screen.getByText('AI Requires Login')).toBeInTheDocument();
     expect(
-      screen.getByText('Sign in to access AI chat features')
+      screen.getByText('Sign in to access AI features')
     ).toBeInTheDocument();
   });
 

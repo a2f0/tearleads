@@ -308,11 +308,11 @@ if (rootElement) {
                                         element={<ApiDocsPage />}
                                       />
                                       <Route
-                                        path="chat"
+                                        path="ai"
                                         element={
                                           <RequireAuth
-                                            loginTitle="Chat Requires Login"
-                                            loginDescription="Sign in to access AI chat features"
+                                            loginTitle="AI Requires Login"
+                                            loginDescription="Sign in to access AI features"
                                           >
                                             <Chat />
                                           </RequireAuth>

@@ -113,24 +113,18 @@ export function ModelSelector({
           aria-orientation="vertical"
           aria-labelledby="model-selector-trigger"
           className={`absolute top-full right-0 z-50 rounded-lg border bg-background shadow-lg ${
-            isCompact ? 'mt-1.5 min-w-56' : 'mt-2 min-w-64'
+            isCompact ? 'mt-1.5 min-w-72' : 'mt-2 min-w-64'
           }`}
         >
-          <div className={isCompact ? 'p-1.5' : 'p-2'}>
-            <p
-              className={`mb-2 px-2 font-medium text-muted-foreground uppercase tracking-wider ${
-                isCompact ? 'text-[10px]' : 'text-xs'
-              }`}
-            >
-              Available Models
-            </p>
-            <div className="space-y-1">
+          <div className={isCompact ? 'p-1' : 'p-2'}>
+            <div className={isCompact ? 'space-y-0.5' : 'space-y-1'}>
               <p className={sectionHeaderClasses}>Local Models</p>
               {localModels.map((model) => (
                 <ModelOption
                   key={model.id}
                   model={model}
                   isLoaded={loadedModel === model.id}
+                  layout={isCompact ? 'table' : 'list'}
                   onSelect={() => handleSelectModel(model.id)}
                 />
               ))}
@@ -143,6 +137,7 @@ export function ModelSelector({
                     key={model.id}
                     model={model}
                     isLoaded={loadedModel === model.id}
+                    layout={isCompact ? 'table' : 'list'}
                     onSelect={() => handleSelectModel(model.id)}
                   />
                 ))}

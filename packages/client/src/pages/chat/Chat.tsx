@@ -84,7 +84,7 @@ export function Chat() {
   if (!isUnlocked) {
     return (
       <div className="flex h-full items-center justify-center p-4">
-        <InlineUnlock description="chat" />
+        <InlineUnlock description="AI" />
       </div>
     );
   }

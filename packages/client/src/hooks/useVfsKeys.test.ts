@@ -1,6 +1,8 @@
+import { decrypt } from '@rapid/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearVfsKeysCache,
+  ensureVfsKeyPair,
   ensureVfsKeys,
   generateSessionKey,
   getVfsPublicKey,
@@ -21,6 +23,7 @@ vi.mock('@rapid/shared', () => ({
       mlKemPublicKey: new Uint8Array(800)
     })
   ),
+  decrypt: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
   encrypt: vi.fn(async () => new Uint8Array([1, 2, 3, 4])),
   generateKeyPair: vi.fn(() => ({
     x25519PublicKey: new Uint8Array(32).fill(1),
@@ -196,6 +199,42 @@ describe('useVfsKeys', () => {
       mockKeyManager.getCurrentKey.mockReturnValueOnce(null as any);
 
       await expect(ensureVfsKeys()).rejects.toThrow('Database is not unlocked');
+    });
+  });
+
+  describe('ensureVfsKeyPair', () => {
+    it('returns decrypted private keys when available', async () => {
+      const privateKeyPayload = JSON.stringify({
+        x25519PrivateKey: 'dGVzdA==',
+        mlKemPrivateKey: 'dGVzdA=='
+      });
+
+      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+        publicEncryptionKey: 'server-key',
+        publicSigningKey: 'sign',
+        encryptedPrivateKeys: 'ZW5jcnlwdGVk',
+        argon2Salt: 'argon2'
+      });
+
+      vi.mocked(decrypt).mockResolvedValueOnce(
+        new TextEncoder().encode(privateKeyPayload)
+      );
+
+      const keyPair = await ensureVfsKeyPair();
+
+      expect(keyPair.x25519PrivateKey).toBeInstanceOf(Uint8Array);
+      expect(keyPair.mlKemPrivateKey).toBeInstanceOf(Uint8Array);
+    });
+
+    it('throws when private keys are unavailable', async () => {
+      vi.mocked(api.vfs.getMyKeys).mockResolvedValueOnce({
+        publicEncryptionKey: 'server-key',
+        publicSigningKey: 'sign'
+      });
+
+      await expect(ensureVfsKeyPair()).rejects.toThrow(
+        'VFS private keys not available'
+      );
     });
   });
 

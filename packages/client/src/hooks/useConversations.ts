@@ -9,7 +9,6 @@ import type {
   DecryptedAiConversation,
   DecryptedAiMessage
 } from '@rapid/shared';
-import { splitEncapsulation, unwrapKeyWithKeyPair } from '@rapid/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import {
@@ -18,9 +17,10 @@ import {
   decryptMessages,
   encryptMessage,
   encryptTitle,
-  generateTitleFromMessage
+  generateTitleFromMessage,
+  unwrapConversationSessionKey
 } from '@/lib/conversation-crypto';
-import { ensureVfsKeys } from './useVfsKeys';
+import { ensureVfsKeyPair } from './useVfsKeys';
 
 export interface ConversationWithKey {
   conversation: DecryptedAiConversation;
@@ -58,9 +58,7 @@ const sessionKeyCache = new Map<string, Uint8Array>();
  * Unwrap a session key for a conversation.
  * Uses cache to avoid repeated crypto operations.
  *
- * Note: For now, this only works for conversations created in this session
- * (where we have the session key cached). For older conversations loaded
- * from the server, we'd need to implement proper private key retrieval.
+ * Note: Requires the user's private keys to be available (database unlocked).
  */
 async function getSessionKey(
   conversation: AiConversation
@@ -70,36 +68,21 @@ async function getSessionKey(
     return cached;
   }
 
-  // Get the user's VFS public keys
-  const vfsPublicKeys = await ensureVfsKeys();
-
-  // For unwrapping, we need the full keypair including private keys.
-  // Since ensureVfsKeys returns public keys only after refresh,
-  // we use placeholder private keys. This means decryption will fail
-  // for conversations loaded from the server after a browser refresh.
-
-  // Try to unwrap the session key
-  const encapsulation = splitEncapsulation(conversation.encryptedSessionKey);
-
-  // Create a placeholder keypair with public keys from VFS and zeroed private keys
-  // In a full implementation, we'd retrieve the actual private keys from local storage
-  const placeholderKeyPair = {
-    x25519PublicKey: vfsPublicKeys.x25519PublicKey,
-    x25519PrivateKey: new Uint8Array(32),
-    mlKemPublicKey: vfsPublicKeys.mlKemPublicKey,
-    mlKemPrivateKey: new Uint8Array(2400)
-  };
+  const keyPair = await ensureVfsKeyPair();
 
   try {
-    const sessionKey = unwrapKeyWithKeyPair(encapsulation, placeholderKeyPair);
+    const sessionKey = await unwrapConversationSessionKey(
+      conversation.encryptedSessionKey,
+      keyPair
+    );
     sessionKeyCache.set(conversation.id, sessionKey);
     return sessionKey;
-  } catch {
-    // If unwrapping fails (placeholder keys), we can't decrypt
-    // This happens for conversations loaded from server after refresh
+  } catch (error) {
+    // If unwrapping fails, we can't decrypt the conversation.
+    console.error('Failed to unwrap conversation session key:', error);
     throw new Error(
-      'Cannot decrypt conversation - session key not available. ' +
-        'Please create a new conversation.'
+      'Cannot decrypt conversation - private keys not available. ' +
+        'Please unlock your database or create a new conversation.'
     );
   }
 }
@@ -212,6 +195,7 @@ export function useConversations(): UseConversationsResult {
   // Create a new conversation
   const createConversation = useCallback(
     async (firstMessage?: string): Promise<string> => {
+      setError(null);
       const title = firstMessage
         ? generateTitleFromMessage(firstMessage)
         : 'New Conversation';
@@ -252,6 +236,7 @@ export function useConversations(): UseConversationsResult {
         return;
       }
 
+      setError(null);
       setCurrentConversationId(id);
       setMessagesLoading(true);
       setCurrentMessages([]);
@@ -275,6 +260,7 @@ export function useConversations(): UseConversationsResult {
         if (mountedRef.current) {
           setCurrentMessages(decryptedMessages);
           setCurrentSessionKey(sessionKey);
+          setError(null);
         }
       } catch (err) {
         if (mountedRef.current) {

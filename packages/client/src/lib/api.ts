@@ -206,7 +206,18 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
       );
     }
 
-    const data = await response.json();
+    if (response.status === 204 || response.status === 205) {
+      success = true;
+      return undefined as T;
+    }
+
+    const text = await response.text();
+    if (!text) {
+      success = true;
+      return undefined as T;
+    }
+
+    const data = JSON.parse(text) as T;
     success = true;
     return data;
   } finally {

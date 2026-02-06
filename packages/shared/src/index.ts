@@ -284,6 +284,8 @@ export interface SSEMessage {
 export interface VfsUserKeysResponse {
   publicEncryptionKey: string;
   publicSigningKey: string;
+  encryptedPrivateKeys?: string;
+  argon2Salt?: string;
 }
 
 export interface VfsKeySetupRequest {

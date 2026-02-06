@@ -51,7 +51,7 @@ const WINDOW_LAUNCH_PATHS = new Set([
   '/analytics',
   '/audio',
   '/cache-storage',
-  '/chat',
+  '/ai',
   '/console',
   '/contacts',
   '/debug',

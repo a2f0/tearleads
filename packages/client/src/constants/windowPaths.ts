@@ -17,7 +17,7 @@ export const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/debug': 'debug',
   '/cache-storage': 'cache-storage',
   '/local-storage': 'local-storage',
-  '/chat': 'chat',
+  '/ai': 'chat',
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',
