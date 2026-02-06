@@ -146,6 +146,7 @@ jobs:
       - name: Download desktop artifacts
         uses: actions/download-artifact@v4
         with:
+          pattern: desktop-*
           path: downloads
 
       - name: Setup SSH
