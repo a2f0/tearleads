@@ -131,7 +131,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: desktop-${{ matrix.os }}
-          path: packages/client/dist-electron/**
+          path: |
+            packages/client/dist-electron/*.dmg
+            packages/client/dist-electron/*.exe
+            packages/client/dist-electron/*.AppImage
+            packages/client/dist-electron/*.deb
 
   publish-downloads:
     name: Publish Desktop Downloads
@@ -167,3 +171,11 @@ jobs:
             downloads/ ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }}:/var/www/downloads/desktop/${APP_VERSION}/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }} \
             "ln -sfn /var/www/downloads/desktop/${APP_VERSION} /var/www/downloads/desktop/latest"
+
+      - name: Cleanup old versions (keep last 5)
+        run: |
+          ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@download.${{ secrets.DEPLOY_DOMAIN }} '
+            cd /var/www/downloads/desktop
+            # List version directories (exclude latest symlink), sort by version, keep newest 5
+            ls -d 0.* 2>/dev/null | sort -V | head -n -5 | xargs -r rm -rf
+          '
