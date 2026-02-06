@@ -131,6 +131,7 @@ else
                 ($text | capture("\\n##?\\s*Release Notes\\s*\\n(?<section>[\\s\\S]*?)(\\n##\\s|$)").section)
               else ""
               end)
+          )
         end;
 
       def is_internal_label($labels):
