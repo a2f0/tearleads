@@ -1,23 +1,19 @@
 import type {Configuration} from 'electron-builder';
 import {desktopAppId} from './electron/desktop-app-id';
 
+const sqliteModulePaths = [
+  'node_modules/better-sqlite3-multiple-ciphers/**',
+  'node_modules/.pnpm/better-sqlite3-multiple-ciphers@*/node_modules/better-sqlite3-multiple-ciphers/**',
+];
+
 const config: Configuration = {
   appId: desktopAppId,
   productName: 'Rapid',
   directories: {
     output: 'dist-electron',
   },
-  files: [
-    'out/**/*',
-    'build/icons/**/*',
-    'package.json',
-    'node_modules/better-sqlite3-multiple-ciphers/**',
-    'node_modules/.pnpm/better-sqlite3-multiple-ciphers@*/node_modules/better-sqlite3-multiple-ciphers/**',
-  ],
-  asarUnpack: [
-    'node_modules/better-sqlite3-multiple-ciphers/**',
-    'node_modules/.pnpm/better-sqlite3-multiple-ciphers@*/node_modules/better-sqlite3-multiple-ciphers/**',
-  ],
+  files: ['out/**/*', 'build/icons/**/*', 'package.json', ...sqliteModulePaths],
+  asarUnpack: sqliteModulePaths,
   npmRebuild: false,
   icon: 'build/icons/icon',
   mac: {
