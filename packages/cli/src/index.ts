@@ -4,8 +4,8 @@
  * Tearleads CLI - Database management for Tearleads.
  */
 
+import { createRequire } from 'node:module';
 import { Command } from 'commander';
-import { createRequire } from 'module';
 import { backupCommand } from './commands/backup.js';
 import { dumpCommand } from './commands/dump.js';
 import { lockCommand } from './commands/lock.js';
