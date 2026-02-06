@@ -16,6 +16,7 @@ export interface ItemContextMenuProps {
   onOpen: (item: DisplayItem) => void;
   onDownload: (item: DisplayItem) => void;
   onShare?: ((item: DisplayItem) => void) | undefined;
+  hideCut?: boolean;
 }
 
 export function ItemContextMenu({
@@ -25,7 +26,8 @@ export function ItemContextMenu({
   onClose,
   onOpen,
   onDownload,
-  onShare
+  onShare,
+  hideCut
 }: ItemContextMenuProps) {
   const {
     ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator },
@@ -60,15 +62,17 @@ export function ItemContextMenu({
         Download
       </ContextMenuItem>
       <ContextMenuSeparator />
-      <ContextMenuItem
-        icon={<ClipboardCopy className="h-4 w-4" />}
-        onClick={() => {
-          cut([clipboardItem]);
-          onClose();
-        }}
-      >
-        Cut
-      </ContextMenuItem>
+      {!hideCut && (
+        <ContextMenuItem
+          icon={<ClipboardCopy className="h-4 w-4" />}
+          onClick={() => {
+            cut([clipboardItem]);
+            onClose();
+          }}
+        >
+          Cut
+        </ContextMenuItem>
+      )}
       <ContextMenuItem
         icon={<Copy className="h-4 w-4" />}
         onClick={() => {
