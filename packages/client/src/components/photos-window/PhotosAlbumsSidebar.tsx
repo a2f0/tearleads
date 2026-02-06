@@ -2,7 +2,8 @@ import { ImagePlus, Images, Loader2, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { zIndex } from '@/constants/zIndex';
-import { cn } from '@/lib/utils';
+import { filterFilesByAccept } from '@/lib/file-filter';
+import { cn, detectPlatform } from '@/lib/utils';
 import { DeleteAlbumDialog } from './DeleteAlbumDialog';
 import { NewAlbumDialog } from './NewAlbumDialog';
 import { RenameAlbumDialog } from './RenameAlbumDialog';
@@ -29,6 +30,8 @@ interface PhotosAlbumsSidebarProps {
   onAlbumSelect: (albumId: string | null) => void;
   refreshToken?: number;
   onAlbumChanged?: () => void;
+  /** Callback when files are dropped onto an album */
+  onDropToAlbum?: (albumId: string, files: File[]) => void | Promise<void>;
 }
 
 export function PhotosAlbumsSidebar({
@@ -37,7 +40,8 @@ export function PhotosAlbumsSidebar({
   selectedAlbumId,
   onAlbumSelect,
   refreshToken,
-  onAlbumChanged
+  onAlbumChanged,
+  onDropToAlbum
 }: PhotosAlbumsSidebarProps) {
   const { albums, loading, error, refetch, deleteAlbum, renameAlbum } =
     usePhotoAlbums();
@@ -45,6 +49,72 @@ export function PhotosAlbumsSidebar({
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
+
+  // Track which album is being dragged over for visual feedback
+  const [dragOverAlbumId, setDragOverAlbumId] = useState<string | null>(null);
+  const dragCounterRef = useRef<Record<string, number>>({});
+  const platform = detectPlatform();
+  const isNativePlatform = platform === 'ios' || platform === 'android';
+
+  const handleAlbumDragOver = useCallback(
+    (e: React.DragEvent, _albumId: string) => {
+      if (!onDropToAlbum || isNativePlatform) return;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    [onDropToAlbum, isNativePlatform]
+  );
+
+  const handleAlbumDragEnter = useCallback(
+    (e: React.DragEvent, albumId: string) => {
+      if (!onDropToAlbum || isNativePlatform) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      dragCounterRef.current[albumId] =
+        (dragCounterRef.current[albumId] ?? 0) + 1;
+      if (dragCounterRef.current[albumId] === 1) {
+        setDragOverAlbumId(albumId);
+      }
+    },
+    [onDropToAlbum, isNativePlatform]
+  );
+
+  const handleAlbumDragLeave = useCallback(
+    (e: React.DragEvent, albumId: string) => {
+      if (!onDropToAlbum || isNativePlatform) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      dragCounterRef.current[albumId] =
+        (dragCounterRef.current[albumId] ?? 0) - 1;
+      if (dragCounterRef.current[albumId] === 0) {
+        setDragOverAlbumId(null);
+      }
+    },
+    [onDropToAlbum, isNativePlatform]
+  );
+
+  const handleAlbumDrop = useCallback(
+    (e: React.DragEvent, albumId: string) => {
+      if (!onDropToAlbum || isNativePlatform) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Reset drag state
+      dragCounterRef.current[albumId] = 0;
+      setDragOverAlbumId(null);
+
+      // Get files and filter for images
+      const files = Array.from(e.dataTransfer.files);
+      const imageFiles = filterFilesByAccept(files, 'image/*');
+
+      if (imageFiles.length > 0) {
+        void onDropToAlbum(albumId, imageFiles);
+      }
+    },
+    [onDropToAlbum, isNativePlatform]
+  );
 
   // Dialog states
   const [newAlbumDialogOpen, setNewAlbumDialogOpen] = useState(false);
@@ -194,11 +264,17 @@ export function PhotosAlbumsSidebar({
                 'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
                 selectedAlbumId === album.id
                   ? 'bg-accent text-accent-foreground'
-                  : 'hover:bg-accent/50'
+                  : 'hover:bg-accent/50',
+                dragOverAlbumId === album.id &&
+                  'bg-primary/10 ring-2 ring-primary ring-inset'
               )}
               style={{ paddingLeft: '8px' }}
               onClick={() => onAlbumSelect(album.id)}
               onContextMenu={(e) => handleContextMenu(e, album)}
+              onDragOver={(e) => handleAlbumDragOver(e, album.id)}
+              onDragEnter={(e) => handleAlbumDragEnter(e, album.id)}
+              onDragLeave={(e) => handleAlbumDragLeave(e, album.id)}
+              onDrop={(e) => handleAlbumDrop(e, album.id)}
             >
               <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
               <Images className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />

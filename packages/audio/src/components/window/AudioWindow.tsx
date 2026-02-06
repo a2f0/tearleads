@@ -1,6 +1,8 @@
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
+import { useDropZone } from '../../hooks/useDropZone';
+import { DropZoneOverlay } from '../DropZoneOverlay';
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
 import { AudioWindowDetail } from './AudioWindowDetail';
 import { AudioWindowList } from './AudioWindowList';
@@ -53,8 +55,9 @@ export function AudioWindow({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  const handleUploadFiles = useCallback(
-    async (files: File[]) => {
+  // Handler for uploading files with optional target playlist override
+  const handleUploadFilesToPlaylist = useCallback(
+    async (files: File[], targetPlaylistId?: string | null) => {
       const uploadedIds: string[] = [];
 
       setUploading(true);
@@ -80,10 +83,11 @@ export function AudioWindow({
           })
         );
 
-        // Add uploaded files to selected playlist if one is selected
-        if (selectedPlaylistId && selectedPlaylistId !== ALL_AUDIO_ID) {
+        // Use target playlist if provided, otherwise use currently selected playlist
+        const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
+        if (playlistToUse && playlistToUse !== ALL_AUDIO_ID) {
           await Promise.all(
-            uploadedIds.map((id) => addTrackToPlaylist(selectedPlaylistId, id))
+            uploadedIds.map((id) => addTrackToPlaylist(playlistToUse, id))
           );
         }
 
@@ -94,6 +98,29 @@ export function AudioWindow({
       }
     },
     [uploadFile, selectedPlaylistId, addTrackToPlaylist]
+  );
+
+  // Main content area drop zone
+  const { isDragging, dropZoneProps } = useDropZone({
+    accept: 'audio/*',
+    onDrop: handleUploadFilesToPlaylist,
+    disabled: !isUnlocked || uploading
+  });
+
+  // Handler for dropping files onto a specific playlist in the sidebar
+  const handleDropToPlaylist = useCallback(
+    async (playlistId: string, files: File[]) => {
+      await handleUploadFilesToPlaylist(files, playlistId);
+    },
+    [handleUploadFilesToPlaylist]
+  );
+
+  // Wrapper for existing upload patterns (no playlist override)
+  const handleUploadFiles = useCallback(
+    async (files: File[]) => {
+      await handleUploadFilesToPlaylist(files);
+    },
+    [handleUploadFilesToPlaylist]
   );
 
   const handleFileInputChange = useCallback(
@@ -167,9 +194,10 @@ export function AudioWindow({
               onPlaylistSelect={setSelectedPlaylistId}
               refreshToken={refreshToken}
               onPlaylistChanged={handlePlaylistChanged}
+              onDropToPlaylist={handleDropToPlaylist}
             />
           )}
-          <div className="flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
             {selectedTrackId ? (
               <AudioWindowDetail
                 audioId={selectedTrackId}
@@ -194,6 +222,7 @@ export function AudioWindow({
                 selectedPlaylistId={selectedPlaylistId}
               />
             )}
+            <DropZoneOverlay isVisible={isDragging} label="audio tracks" />
           </div>
         </div>
       </div>

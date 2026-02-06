@@ -3,9 +3,11 @@ import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { UploadProgress } from '@/components/ui/upload-progress';
 import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { isVideoMimeType } from '@/lib/thumbnail';
 import { VideoPage } from '@/pages/Video';
@@ -82,8 +84,9 @@ function VideoWindowInner({
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  const handleUploadFiles = useCallback(
-    async (files: File[]) => {
+  // Handler for uploading files with optional target playlist override
+  const handleUploadFilesToPlaylist = useCallback(
+    async (files: File[], targetPlaylistId?: string | null) => {
       const uploadedIds: string[] = [];
 
       setUploading(true);
@@ -119,10 +122,11 @@ function VideoWindowInner({
           })
         );
 
-        // Add uploaded files to selected playlist if one is selected
-        if (selectedPlaylistId && selectedPlaylistId !== ALL_VIDEO_ID) {
+        // Use target playlist if provided, otherwise use currently selected playlist
+        const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
+        if (playlistToUse && playlistToUse !== ALL_VIDEO_ID) {
           await Promise.all(
-            uploadedIds.map((id) => addTrackToPlaylist(selectedPlaylistId, id))
+            uploadedIds.map((id) => addTrackToPlaylist(playlistToUse, id))
           );
         }
 
@@ -133,6 +137,29 @@ function VideoWindowInner({
       }
     },
     [uploadFile, selectedPlaylistId, addTrackToPlaylist]
+  );
+
+  // Main content area drop zone
+  const { isDragging, dropZoneProps } = useDropZone({
+    accept: 'video/*',
+    onDrop: handleUploadFilesToPlaylist,
+    disabled: uploading
+  });
+
+  // Handler for dropping files onto a specific playlist in the sidebar
+  const handleDropToPlaylist = useCallback(
+    async (playlistId: string, files: File[]) => {
+      await handleUploadFilesToPlaylist(files, playlistId);
+    },
+    [handleUploadFilesToPlaylist]
+  );
+
+  // Wrapper for existing upload patterns (no playlist override)
+  const handleUploadFiles = useCallback(
+    async (files: File[]) => {
+      await handleUploadFilesToPlaylist(files);
+    },
+    [handleUploadFilesToPlaylist]
   );
 
   const handleFileInputChange = useCallback(
@@ -190,8 +217,9 @@ function VideoWindowInner({
             onPlaylistSelect={setSelectedPlaylistId}
             refreshToken={refreshToken}
             onPlaylistChanged={handlePlaylistChanged}
+            onDropToPlaylist={handleDropToPlaylist}
           />
-          <div className="flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
             {uploading ? (
               <div className="flex h-full flex-col items-center justify-center gap-4 p-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -224,6 +252,7 @@ function VideoWindowInner({
                 />
               </div>
             )}
+            <DropZoneOverlay isVisible={isDragging} label="videos" />
           </div>
         </div>
       </div>
