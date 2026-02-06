@@ -1,5 +1,7 @@
 import { FolderPlus, Pencil, Trash2 } from 'lucide-react';
-import { useEffect, useRef } from 'react';
+import { useCallback } from 'react';
+import { createPortal } from 'react-dom';
+import { zIndex } from '../../constants/zIndex';
 import type { EmailFolder } from '../../types/folder.js';
 import { canDeleteFolder, canRenameFolder } from '../../types/folder.js';
 
@@ -22,68 +24,76 @@ export function EmailFolderContextMenu({
   onRename,
   onDelete
 }: EmailFolderContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        onClose();
-      }
-    };
-
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('keydown', handleEscape);
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('keydown', handleEscape);
-    };
+  const handleBackdropClick = useCallback(() => {
+    onClose();
   }, [onClose]);
 
   const canRename = canRenameFolder(folder);
   const canDelete = canDeleteFolder(folder);
 
-  return (
-    <div
-      ref={menuRef}
-      className="fixed z-50 min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
-      style={{ left: x, top: y }}
-      data-testid="email-folder-context-menu"
-    >
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-        onClick={onCreateSubfolder}
+  // Use portal to escape FloatingWindow's backdrop-filter containing block
+  return createPortal(
+    <>
+      <div
+        className="fixed inset-0"
+        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
+        onClick={handleBackdropClick}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') {
+            onClose();
+          }
+        }}
+        aria-hidden="true"
+        data-testid="email-folder-context-menu-backdrop"
+      />
+      <div
+        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+        style={{
+          left: x,
+          top: y,
+          zIndex: zIndex.floatingWindowContextMenu
+        }}
+        data-testid="email-folder-context-menu"
       >
-        <FolderPlus className="h-4 w-4" />
-        New Subfolder
-      </button>
-      {canRename && (
         <button
           type="button"
           className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-          onClick={() => onRename(folder)}
+          onClick={() => {
+            onCreateSubfolder();
+            onClose();
+          }}
         >
-          <Pencil className="h-4 w-4" />
-          Rename
+          <FolderPlus className="h-4 w-4" />
+          New Subfolder
         </button>
-      )}
-      {canDelete && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
-          onClick={() => onDelete(folder)}
-        >
-          <Trash2 className="h-4 w-4" />
-          Delete
-        </button>
-      )}
-    </div>
+        {canRename && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onRename(folder);
+              onClose();
+            }}
+          >
+            <Pencil className="h-4 w-4" />
+            Rename
+          </button>
+        )}
+        {canDelete && (
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+            onClick={() => {
+              onDelete(folder);
+              onClose();
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete
+          </button>
+        )}
+      </div>
+    </>,
+    document.body
   );
 }

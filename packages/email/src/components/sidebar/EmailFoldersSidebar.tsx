@@ -326,13 +326,11 @@ export function EmailFoldersSidebar({
             if (canRenameFolder(folder)) {
               setRenameDialogFolder(folder);
             }
-            setContextMenu(null);
           }}
           onDelete={(folder) => {
             if (canDeleteFolder(folder)) {
               setDeleteDialogFolder(folder);
             }
-            setContextMenu(null);
           }}
         />
       )}

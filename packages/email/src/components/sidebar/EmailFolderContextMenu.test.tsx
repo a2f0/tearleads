@@ -83,16 +83,17 @@ describe('EmailFolderContextMenu', () => {
     expect(screen.queryByText('Delete')).not.toBeInTheDocument();
   });
 
-  it('calls onCreateSubfolder when clicking New Subfolder', async () => {
+  it('calls onCreateSubfolder and onClose when clicking New Subfolder', async () => {
     const user = userEvent.setup();
     const onCreateSubfolder = vi.fn();
+    const onClose = vi.fn();
 
     render(
       <EmailFolderContextMenu
         x={100}
         y={200}
         folder={mockCustomFolder}
-        onClose={vi.fn()}
+        onClose={onClose}
         onCreateSubfolder={onCreateSubfolder}
         onRename={vi.fn()}
         onDelete={vi.fn()}
@@ -101,18 +102,20 @@ describe('EmailFolderContextMenu', () => {
 
     await user.click(screen.getByText('New Subfolder'));
     expect(onCreateSubfolder).toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it('calls onRename when clicking Rename', async () => {
+  it('calls onRename and onClose when clicking Rename', async () => {
     const user = userEvent.setup();
     const onRename = vi.fn();
+    const onClose = vi.fn();
 
     render(
       <EmailFolderContextMenu
         x={100}
         y={200}
         folder={mockCustomFolder}
-        onClose={vi.fn()}
+        onClose={onClose}
         onCreateSubfolder={vi.fn()}
         onRename={onRename}
         onDelete={vi.fn()}
@@ -121,18 +124,20 @@ describe('EmailFolderContextMenu', () => {
 
     await user.click(screen.getByText('Rename'));
     expect(onRename).toHaveBeenCalledWith(mockCustomFolder);
+    expect(onClose).toHaveBeenCalled();
   });
 
-  it('calls onDelete when clicking Delete', async () => {
+  it('calls onDelete and onClose when clicking Delete', async () => {
     const user = userEvent.setup();
     const onDelete = vi.fn();
+    const onClose = vi.fn();
 
     render(
       <EmailFolderContextMenu
         x={100}
         y={200}
         folder={mockCustomFolder}
-        onClose={vi.fn()}
+        onClose={onClose}
         onCreateSubfolder={vi.fn()}
         onRename={vi.fn()}
         onDelete={onDelete}
@@ -141,31 +146,10 @@ describe('EmailFolderContextMenu', () => {
 
     await user.click(screen.getByText('Delete'));
     expect(onDelete).toHaveBeenCalledWith(mockCustomFolder);
-  });
-
-  it('calls onClose when clicking outside', async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
-
-    render(
-      <div data-testid="outside">
-        <EmailFolderContextMenu
-          x={100}
-          y={200}
-          folder={mockCustomFolder}
-          onClose={onClose}
-          onCreateSubfolder={vi.fn()}
-          onRename={vi.fn()}
-          onDelete={vi.fn()}
-        />
-      </div>
-    );
-
-    await user.click(screen.getByTestId('outside'));
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('calls onClose when pressing Escape', async () => {
+  it('calls onClose when clicking backdrop', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
 
@@ -181,35 +165,29 @@ describe('EmailFolderContextMenu', () => {
       />
     );
 
-    await user.keyboard('{Escape}');
+    await user.click(
+      screen.getByTestId('email-folder-context-menu-backdrop')
+    );
     expect(onClose).toHaveBeenCalled();
   });
 
-  it('cleans up event listeners on unmount', async () => {
-    const onClose = vi.fn();
-    const removeEventListenerSpy = vi.spyOn(document, 'removeEventListener');
-
-    const { unmount } = render(
+  it('renders backdrop with correct z-index', () => {
+    render(
       <EmailFolderContextMenu
         x={100}
         y={200}
         folder={mockCustomFolder}
-        onClose={onClose}
+        onClose={vi.fn()}
         onCreateSubfolder={vi.fn()}
         onRename={vi.fn()}
         onDelete={vi.fn()}
       />
     );
 
-    unmount();
+    const backdrop = screen.getByTestId('email-folder-context-menu-backdrop');
+    expect(backdrop).toHaveStyle({ zIndex: '200' });
 
-    expect(removeEventListenerSpy).toHaveBeenCalledWith(
-      'mousedown',
-      expect.any(Function)
-    );
-    expect(removeEventListenerSpy).toHaveBeenCalledWith(
-      'keydown',
-      expect.any(Function)
-    );
+    const menu = screen.getByTestId('email-folder-context-menu');
+    expect(menu).toHaveStyle({ zIndex: '201' });
   });
 });

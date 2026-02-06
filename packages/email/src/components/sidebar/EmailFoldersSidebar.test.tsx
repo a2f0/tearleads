@@ -794,7 +794,7 @@ describe('EmailFoldersSidebar', () => {
     });
   });
 
-  it('closes context menu when clicking elsewhere', async () => {
+  it('closes context menu when clicking backdrop', async () => {
     const user = userEvent.setup();
     const context = createMockContext();
 
@@ -823,8 +823,10 @@ describe('EmailFoldersSidebar', () => {
       ).toBeInTheDocument();
     });
 
-    // Click somewhere else (All Mail)
-    await user.click(screen.getByTestId('email-folder-all-mail'));
+    // Click on backdrop to close
+    await user.click(
+      screen.getByTestId('email-folder-context-menu-backdrop')
+    );
 
     // Context menu should close
     await waitFor(() => {
