@@ -2,18 +2,21 @@ interface ContextMenuItemProps {
   icon?: React.ReactNode;
   onClick: () => void;
   children: React.ReactNode;
+  'data-testid'?: string;
 }
 
 export function ContextMenuItem({
   icon,
   onClick,
-  children
+  children,
+  'data-testid': testId
 }: ContextMenuItemProps) {
   return (
     <button
       type="button"
       className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm hover:bg-accent"
       onClick={onClick}
+      data-testid={testId}
     >
       {icon}
       {children}

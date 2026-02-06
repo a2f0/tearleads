@@ -131,6 +131,7 @@ export interface ContextMenuItemProps {
   icon?: ReactNode;
   onClick: () => void;
   children: ReactNode;
+  'data-testid'?: string;
 }
 
 export type ContextMenuSeparatorProps = Record<string, never>;

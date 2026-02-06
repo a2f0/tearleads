@@ -57,7 +57,7 @@ interface VfsDetailsPanelProps {
   /** Callback when paste is requested via context menu */
   onPaste?: ((targetFolderId: string) => void) | undefined;
   /** Callback when upload is requested via context menu */
-  onUpload?: (() => void) | undefined;
+  onUpload?: ((folderId: string) => void) | undefined;
 }
 
 interface EmptySpaceContextMenuState {
@@ -208,13 +208,14 @@ export function VfsDetailsPanel({
         y={emptySpaceContextMenu.y}
         onClose={() => setEmptySpaceContextMenu(null)}
       >
-        {onUpload && (
+        {onUpload && folderId && (
           <ContextMenuItem
             icon={<Upload className="h-4 w-4" />}
             onClick={() => {
-              onUpload();
+              onUpload(folderId);
               setEmptySpaceContextMenu(null);
             }}
+            data-testid="vfs-upload-context-menu-item"
           >
             Upload
           </ContextMenuItem>

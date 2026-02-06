@@ -36,7 +36,7 @@ interface VfsExplorerProps {
   /** Callback when download is requested via context menu */
   onItemDownload?: ((item: VfsOpenItem) => void) | undefined;
   /** Callback when upload is requested via context menu */
-  onUpload?: (() => void) | undefined;
+  onUpload?: ((folderId: string) => void) | undefined;
 }
 
 export function VfsExplorer(props: VfsExplorerProps) {
@@ -194,10 +194,14 @@ function VfsExplorerInner({
 
   const handlePaste = useCallback(
     async (targetFolderId: string) => {
-      if (clipboard.items.length === 0) return;
+      if (clipboard.items.length === 0) {
+        return;
+      }
 
       // Don't allow pasting to unfiled folder
-      if (targetFolderId === UNFILED_FOLDER_ID) return;
+      if (targetFolderId === UNFILED_FOLDER_ID) {
+        return;
+      }
 
       try {
         const itemsToPaste = clipboard.items.filter(
@@ -205,7 +209,9 @@ function VfsExplorerInner({
             !(item.objectType === 'folder' && item.id === targetFolderId)
         );
 
-        if (itemsToPaste.length === 0) return;
+        if (itemsToPaste.length === 0) {
+          return;
+        }
 
         // Run paste operations concurrently for better performance
         const pasteOperations = itemsToPaste.map((item) => {
