@@ -27,6 +27,18 @@ export interface UseDropZoneReturn {
 }
 
 /**
+ * Detect the current platform.
+ * Returns 'ios', 'android', or 'web'.
+ */
+function detectPlatform(): 'ios' | 'android' | 'web' {
+  if (typeof navigator === 'undefined') return 'web';
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'web';
+}
+
+/**
  * Hook for creating a drag-and-drop file zone.
  * Uses a drag counter pattern to handle nested elements properly.
  */
@@ -39,19 +51,23 @@ export function useDropZone({
 }: UseDropZoneOptions): UseDropZoneReturn {
   const [isDragging, setIsDragging] = useState(false);
   const dragCounterRef = useRef(0);
+  const platform = detectPlatform();
+
+  // Drag-drop not supported on iOS/Android
+  const isNative = platform === 'ios' || platform === 'android';
 
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
-      if (disabled) return;
+      if (disabled || isNative) return;
       e.preventDefault();
       e.stopPropagation();
     },
-    [disabled]
+    [disabled, isNative]
   );
 
   const handleDragEnter = useCallback(
     (e: React.DragEvent) => {
-      if (disabled) return;
+      if (disabled || isNative) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -61,12 +77,12 @@ export function useDropZone({
         onDragEnter?.();
       }
     },
-    [disabled, onDragEnter]
+    [disabled, isNative, onDragEnter]
   );
 
   const handleDragLeave = useCallback(
     (e: React.DragEvent) => {
-      if (disabled) return;
+      if (disabled || isNative) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -76,12 +92,12 @@ export function useDropZone({
         onDragLeave?.();
       }
     },
-    [disabled, onDragLeave]
+    [disabled, isNative, onDragLeave]
   );
 
   const handleDrop = useCallback(
     (e: React.DragEvent) => {
-      if (disabled) return;
+      if (disabled || isNative) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -100,7 +116,7 @@ export function useDropZone({
         void onDrop(validFiles);
       }
     },
-    [disabled, accept, onDrop, onDragLeave]
+    [disabled, isNative, accept, onDrop, onDragLeave]
   );
 
   return {

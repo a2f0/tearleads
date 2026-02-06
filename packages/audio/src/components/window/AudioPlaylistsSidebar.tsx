@@ -1,5 +1,5 @@
 import { List, Loader2, Music, Plus } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
 import { cn } from '../../lib/cn';
 import { filterFilesByAccept } from '../../lib/file-filter';
@@ -11,6 +11,18 @@ import { RenamePlaylistDialog } from './RenamePlaylistDialog';
 import { useAudioPlaylists } from './useAudioPlaylists';
 
 export const ALL_AUDIO_ID = '__all__';
+
+/**
+ * Detect the current platform.
+ * Returns 'ios', 'android', or 'web'.
+ */
+function detectPlatform(): 'ios' | 'android' | 'web' {
+  if (typeof navigator === 'undefined') return 'web';
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'web';
+}
 
 interface AudioPlaylistsSidebarProps {
   width: number;
@@ -42,6 +54,12 @@ export function AudioPlaylistsSidebar({
   const startX = useRef(0);
   const startWidth = useRef(0);
 
+  // Detect platform to disable drag-drop on mobile
+  const isNativePlatform = useMemo(() => {
+    const platform = detectPlatform();
+    return platform === 'ios' || platform === 'android';
+  }, []);
+
   // Track which playlist is being dragged over for visual feedback
   const [dragOverPlaylistId, setDragOverPlaylistId] = useState<string | null>(
     null
@@ -50,16 +68,16 @@ export function AudioPlaylistsSidebar({
 
   const handlePlaylistDragOver = useCallback(
     (e: React.DragEvent, _playlistId: string) => {
-      if (!onDropToPlaylist) return;
+      if (!onDropToPlaylist || isNativePlatform) return;
       e.preventDefault();
       e.stopPropagation();
     },
-    [onDropToPlaylist]
+    [onDropToPlaylist, isNativePlatform]
   );
 
   const handlePlaylistDragEnter = useCallback(
     (e: React.DragEvent, playlistId: string) => {
-      if (!onDropToPlaylist) return;
+      if (!onDropToPlaylist || isNativePlatform) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -69,12 +87,12 @@ export function AudioPlaylistsSidebar({
         setDragOverPlaylistId(playlistId);
       }
     },
-    [onDropToPlaylist]
+    [onDropToPlaylist, isNativePlatform]
   );
 
   const handlePlaylistDragLeave = useCallback(
     (e: React.DragEvent, playlistId: string) => {
-      if (!onDropToPlaylist) return;
+      if (!onDropToPlaylist || isNativePlatform) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -84,12 +102,12 @@ export function AudioPlaylistsSidebar({
         setDragOverPlaylistId(null);
       }
     },
-    [onDropToPlaylist]
+    [onDropToPlaylist, isNativePlatform]
   );
 
   const handlePlaylistDrop = useCallback(
     (e: React.DragEvent, playlistId: string) => {
-      if (!onDropToPlaylist) return;
+      if (!onDropToPlaylist || isNativePlatform) return;
       e.preventDefault();
       e.stopPropagation();
 
@@ -105,7 +123,7 @@ export function AudioPlaylistsSidebar({
         void onDropToPlaylist(playlistId, audioFiles);
       }
     },
-    [onDropToPlaylist]
+    [onDropToPlaylist, isNativePlatform]
   );
 
   const [newPlaylistDialogOpen, setNewPlaylistDialogOpen] = useState(false);
