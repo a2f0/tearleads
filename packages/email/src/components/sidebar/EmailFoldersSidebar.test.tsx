@@ -241,7 +241,8 @@ describe('EmailFoldersSidebar', () => {
 
     await waitFor(() => {
       const inboxItem = screen.getByTestId('email-folder-1');
-      expect(inboxItem).toHaveClass('bg-accent');
+      const button = inboxItem.querySelector('button');
+      expect(button).toHaveClass('bg-accent');
     });
   });
 
