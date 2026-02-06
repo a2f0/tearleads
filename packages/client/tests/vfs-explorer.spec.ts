@@ -15,7 +15,7 @@ async function navigateInApp(page: Page, path: string) {
     window.history.pushState({}, '', route);
     window.dispatchEvent(new PopStateEvent('popstate'));
   }, path);
-  await page.waitForTimeout(500);
+  await page.waitForURL(`**${path}`);
 }
 
 // Helper to reset, setup, and unlock the database
@@ -144,7 +144,6 @@ test.describe('VFS Explorer linking', () => {
       exact: true
     });
     await folderButton.click();
-    await page.waitForTimeout(500);
 
     // Verify folder is empty initially
     await expect(page.getByText('This folder is empty')).toBeVisible({
@@ -159,9 +158,6 @@ test.describe('VFS Explorer linking', () => {
     const pasteButton = page.getByRole('button', { name: 'Paste', exact: true });
     await expect(pasteButton).toBeVisible({ timeout: 5000 });
     await pasteButton.click();
-
-    // Wait for the paste operation to complete
-    await page.waitForTimeout(1000);
 
     // Verify the photo now appears in the folder
     await expect(page.getByText('test-photo.png')).toBeVisible({
