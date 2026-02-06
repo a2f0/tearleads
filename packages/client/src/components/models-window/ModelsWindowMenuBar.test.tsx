@@ -67,4 +67,21 @@ describe('ModelsWindowMenuBar', () => {
 
     expect(onViewModeChange).toHaveBeenCalledWith('table');
   });
+
+  it('calls onViewModeChange when Cards is selected', async () => {
+    const user = userEvent.setup();
+    const onViewModeChange = vi.fn();
+    render(
+      <ModelsWindowMenuBar
+        {...defaultProps}
+        viewMode="table"
+        onViewModeChange={onViewModeChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Cards' }));
+
+    expect(onViewModeChange).toHaveBeenCalledWith('cards');
+  });
 });
