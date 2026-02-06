@@ -22,6 +22,12 @@ describe('windowStatePreference', () => {
     expect(getPreserveWindowState()).toBe(false);
   });
 
+  it('returns true when stored preference is true', () => {
+    localStorage.setItem('window-state-preserve', 'true');
+
+    expect(getPreserveWindowState()).toBe(true);
+  });
+
   it('falls back to default for invalid stored values', () => {
     localStorage.setItem('window-state-preserve', 'maybe');
 
@@ -40,6 +46,18 @@ describe('windowStatePreference', () => {
     expect(localStorage.getItem('window-state-preserve')).toBe('false');
     expect(localStorage.getItem('window-dimensions:notes')).toBeNull();
     expect(localStorage.getItem('other-key')).toBe('keep');
+  });
+
+  it('preserves window dimensions when enabled', () => {
+    localStorage.setItem(
+      'window-dimensions:notes',
+      JSON.stringify({ width: 400, height: 300, x: 10, y: 20 })
+    );
+
+    setPreserveWindowState(true);
+
+    expect(localStorage.getItem('window-state-preserve')).toBe('true');
+    expect(localStorage.getItem('window-dimensions:notes')).not.toBeNull();
   });
 
   it('notifies subscribers when preference changes', () => {

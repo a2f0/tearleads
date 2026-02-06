@@ -98,6 +98,14 @@ export interface PostgresRowsResponse {
   offset: number;
 }
 
+export interface AdminUserAccounting {
+  totalPromptTokens: number;
+  totalCompletionTokens: number;
+  totalTokens: number;
+  requestCount: number;
+  lastUsedAt: string | null;
+}
+
 export interface AdminUser {
   id: string;
   email: string;
@@ -106,6 +114,7 @@ export interface AdminUser {
   organizationIds: string[];
   createdAt: string | null;
   lastActiveAt: string | null;
+  accounting: AdminUserAccounting;
 }
 
 export interface AdminUsersResponse {

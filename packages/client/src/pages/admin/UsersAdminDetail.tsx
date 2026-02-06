@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { api } from '@/lib/api';
-import { cn } from '@/lib/utils';
+import { cn, formatNumber, formatTimestamp } from '@/lib/utils';
 
 interface UsersAdminDetailProps {
   userId?: string | null;
@@ -436,6 +436,52 @@ export function UsersAdminDetail({
           >
             Reset
           </Button>
+        </div>
+      </div>
+
+      <div className="space-y-4 rounded-lg border bg-card p-4">
+        <h2 className="font-medium text-lg">AI Usage</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-muted-foreground text-xs uppercase tracking-wide">
+              Total Tokens
+            </p>
+            <p className="mt-1 font-semibold text-lg">
+              {formatNumber(user.accounting.totalTokens)}
+            </p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-muted-foreground text-xs uppercase tracking-wide">
+              Prompt Tokens
+            </p>
+            <p className="mt-1 font-semibold text-lg">
+              {formatNumber(user.accounting.totalPromptTokens)}
+            </p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-muted-foreground text-xs uppercase tracking-wide">
+              Completion Tokens
+            </p>
+            <p className="mt-1 font-semibold text-lg">
+              {formatNumber(user.accounting.totalCompletionTokens)}
+            </p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-muted-foreground text-xs uppercase tracking-wide">
+              Requests
+            </p>
+            <p className="mt-1 font-semibold text-lg">
+              {formatNumber(user.accounting.requestCount)}
+            </p>
+          </div>
+          <div className="rounded-lg border bg-muted/30 p-3">
+            <p className="text-muted-foreground text-xs uppercase tracking-wide">
+              Last Usage
+            </p>
+            <p className="mt-1 text-muted-foreground text-sm">
+              {formatTimestamp(user.accounting.lastUsedAt)}
+            </p>
+          </div>
         </div>
       </div>
 

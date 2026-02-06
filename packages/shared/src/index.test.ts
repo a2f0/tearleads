@@ -183,6 +183,17 @@ describe('validateChatMessages', () => {
       'messages[0].content[0].image_url.url must be a non-empty string'
     );
   });
+
+  it('rejects non-object content parts', () => {
+    const payload: unknown = [{ role: 'user', content: ['bad'] }];
+    const result = validateChatMessages(payload);
+
+    if (result.ok) {
+      throw new Error('Expected error result');
+    }
+
+    expect(result.error).toBe('messages[0].content[0] must be an object');
+  });
 });
 
 describe('OpenRouter models', () => {

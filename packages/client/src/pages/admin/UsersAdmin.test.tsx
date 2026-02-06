@@ -30,7 +30,14 @@ describe('UsersAdmin', () => {
         admin: true,
         organizationIds: ['org-1'],
         createdAt: '2024-01-01T12:00:00.000Z',
-        lastActiveAt: '2024-01-10T18:30:00.000Z'
+        lastActiveAt: '2024-01-10T18:30:00.000Z',
+        accounting: {
+          totalPromptTokens: 120,
+          totalCompletionTokens: 80,
+          totalTokens: 200,
+          requestCount: 3,
+          lastUsedAt: '2024-01-09T12:00:00.000Z'
+        }
       },
       {
         id: 'user-2',
@@ -39,7 +46,14 @@ describe('UsersAdmin', () => {
         admin: false,
         organizationIds: [],
         createdAt: '2024-02-14T08:15:00.000Z',
-        lastActiveAt: null
+        lastActiveAt: null,
+        accounting: {
+          totalPromptTokens: 0,
+          totalCompletionTokens: 0,
+          totalTokens: 0,
+          requestCount: 0,
+          lastUsedAt: null
+        }
       }
     ]
   };
@@ -63,7 +77,8 @@ describe('UsersAdmin', () => {
     expect(screen.getByText('regular@example.com')).toBeVisible();
     expect(screen.getByText('Account Created')).toBeInTheDocument();
     expect(screen.getByText('Last Active')).toBeInTheDocument();
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('Total Tokens')).toBeInTheDocument();
+    expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 
   it('shows back link by default', async () => {
@@ -181,7 +196,14 @@ describe('UsersAdmin', () => {
           admin: false,
           organizationIds: ['org-2'],
           createdAt: '2024-03-01T09:00:00.000Z',
-          lastActiveAt: '2024-03-05T12:30:00.000Z'
+          lastActiveAt: '2024-03-05T12:30:00.000Z',
+          accounting: {
+            totalPromptTokens: 20,
+            totalCompletionTokens: 10,
+            totalTokens: 30,
+            requestCount: 1,
+            lastUsedAt: '2024-03-04T12:30:00.000Z'
+          }
         }
       ]
     });

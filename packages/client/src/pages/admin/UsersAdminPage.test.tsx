@@ -39,7 +39,14 @@ describe('UsersAdminPage', () => {
         admin: true,
         organizationIds: ['org-1'],
         createdAt: '2024-01-01T12:00:00.000Z',
-        lastActiveAt: '2024-01-10T18:30:00.000Z'
+        lastActiveAt: '2024-01-10T18:30:00.000Z',
+        accounting: {
+          totalPromptTokens: 120,
+          totalCompletionTokens: 80,
+          totalTokens: 200,
+          requestCount: 3,
+          lastUsedAt: '2024-01-09T12:00:00.000Z'
+        }
       }
     ]
   };

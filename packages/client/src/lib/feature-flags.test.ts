@@ -58,4 +58,24 @@ describe('feature flags', () => {
     expect(getFeatureFlagValue('vfsServerRegistration')).toBe(false);
     expect(getFeatureFlagOverrides()).toEqual({});
   });
+
+  it('ignores non-boolean overrides', () => {
+    localStorage.setItem(
+      FEATURE_FLAGS_STORAGE_KEY,
+      JSON.stringify({ vfsServerRegistration: 'yes' })
+    );
+
+    expect(getFeatureFlagOverrides()).toEqual({});
+    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(false);
+  });
+
+  it('ignores non-record overrides', () => {
+    localStorage.setItem(
+      FEATURE_FLAGS_STORAGE_KEY,
+      JSON.stringify(['vfsServerRegistration'])
+    );
+
+    expect(getFeatureFlagOverrides()).toEqual({});
+    expect(getFeatureFlagValue('vfsServerRegistration')).toBe(false);
+  });
 });
