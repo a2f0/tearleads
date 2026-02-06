@@ -1,6 +1,6 @@
 {
-  "name": "@rapid/cli",
-  "version": "0.0.1",
+  "name": "@tearleads/cli",
+  "version": "0.0.3",
   "description": "Tearleads CLI for database management",
   "type": "module",
   "bin": {
@@ -19,7 +19,8 @@
     "prepublishOnly": "pnpm build"
   },
   "publishConfig": {
-    "access": "public"
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
   },
   "keywords": [
     "cli",
