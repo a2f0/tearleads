@@ -1,0 +1,64 @@
+---
+import Layout from '../../../layouts/Layout.astro';
+import { isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
+import type { SupportedLanguage } from '../../../i18n/config';
+import { getStaticPathsForLocales, getHref } from '../../../i18n/utils';
+import { getDownloadUrl, getReleases, PLATFORM_LABELS } from '../../../utils/downloads';
+
+export const getStaticPaths = getStaticPathsForLocales;
+
+const { lang } = Astro.params;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+const allReleases = getReleases();
+const platforms = ['macos', 'windows', 'linux'] as const;
+---
+
+<Layout title="Download Archive - Rapid" lang={currentLang}>
+  <div class="container mx-auto px-4 py-16">
+    <h1 class="font-bold text-4xl">Download Archive</h1>
+    <p class="mt-4 text-muted-foreground text-lg">
+      Previous versions of Rapid for desktop.
+    </p>
+
+    <div class="mt-4">
+      <a
+        href={getHref('/downloads', currentLang)}
+        class="text-muted-foreground hover:text-foreground hover:underline"
+      >
+        &larr; Back to latest version
+      </a>
+    </div>
+
+    {allReleases.length > 0 ? (
+      <div class="mt-12 space-y-8">
+        {allReleases.map((release) => (
+          <div class="rounded-lg border bg-card p-6">
+            <div class="flex flex-wrap items-center justify-between gap-4">
+              <div>
+                <h2 class="font-semibold text-xl">Version {release.version}</h2>
+                <p class="text-muted-foreground text-sm">Released {release.date}</p>
+              </div>
+            </div>
+            <div class="mt-4 flex flex-wrap gap-4">
+              {platforms.map((platform) => {
+                const info = release.platforms[platform];
+                const url = getDownloadUrl(release.version, platform, info);
+                return (
+                  <a
+                    href={url}
+                    class="inline-flex items-center gap-2 rounded-md border px-4 py-2 text-sm transition-colors hover:bg-muted"
+                  >
+                    <span>{PLATFORM_LABELS[platform]}</span>
+                    <span class="text-muted-foreground">(.{info.ext})</span>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <p class="mt-8 text-muted-foreground">No releases available yet.</p>
+    )}
+  </div>
+</Layout>

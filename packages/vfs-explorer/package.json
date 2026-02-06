@@ -1,6 +1,6 @@
 {
   "name": "@rapid/vfs-explorer",
-  "version": "0.0.62",
+  "version": "0.0.63",
   "description": "VFS Explorer components for Rapid",
   "type": "module",
   "main": "dist/index.js",
