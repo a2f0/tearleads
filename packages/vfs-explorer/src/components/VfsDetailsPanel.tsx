@@ -149,11 +149,16 @@ export function VfsDetailsPanel({
       e.preventDefault();
       // Show context menu for real folders (not unfiled or all items)
       // when upload or paste actions are available
-      if (!isUnfiled && !isAllItems && folderId && (onUpload || hasItems)) {
+      if (
+        !isUnfiled &&
+        !isAllItems &&
+        folderId &&
+        (onUpload || (onPaste && hasItems))
+      ) {
         setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
       }
     },
-    [isUnfiled, isAllItems, folderId, onUpload, hasItems]
+    [isUnfiled, isAllItems, folderId, onUpload, onPaste, hasItems]
   );
 
   const handleContextMenu = useCallback(
@@ -194,6 +199,40 @@ export function VfsDetailsPanel({
     },
     [onItemShare]
   );
+
+  const renderEmptySpaceContextMenu = () => {
+    if (!emptySpaceContextMenu) return null;
+    return (
+      <ContextMenu
+        x={emptySpaceContextMenu.x}
+        y={emptySpaceContextMenu.y}
+        onClose={() => setEmptySpaceContextMenu(null)}
+      >
+        {onUpload && (
+          <ContextMenuItem
+            icon={<Upload className="h-4 w-4" />}
+            onClick={() => {
+              onUpload();
+              setEmptySpaceContextMenu(null);
+            }}
+          >
+            Upload
+          </ContextMenuItem>
+        )}
+        {hasItems && onPaste && folderId && (
+          <ContextMenuItem
+            icon={<Clipboard className="h-4 w-4" />}
+            onClick={() => {
+              onPaste(folderId);
+              setEmptySpaceContextMenu(null);
+            }}
+          >
+            Paste
+          </ContextMenuItem>
+        )}
+      </ContextMenu>
+    );
+  };
 
   // Use the appropriate hook based on selection
   const folderContents = useVfsFolderContents(
@@ -281,36 +320,7 @@ export function VfsDetailsPanel({
             )}
           </div>
         </div>
-        {emptySpaceContextMenu && (
-          <ContextMenu
-            x={emptySpaceContextMenu.x}
-            y={emptySpaceContextMenu.y}
-            onClose={() => setEmptySpaceContextMenu(null)}
-          >
-            {onUpload && (
-              <ContextMenuItem
-                icon={<Upload className="h-4 w-4" />}
-                onClick={() => {
-                  onUpload();
-                  setEmptySpaceContextMenu(null);
-                }}
-              >
-                Upload
-              </ContextMenuItem>
-            )}
-            {hasItems && onPaste && folderId && (
-              <ContextMenuItem
-                icon={<Clipboard className="h-4 w-4" />}
-                onClick={() => {
-                  onPaste(folderId);
-                  setEmptySpaceContextMenu(null);
-                }}
-              >
-                Paste
-              </ContextMenuItem>
-            )}
-          </ContextMenu>
-        )}
+        {renderEmptySpaceContextMenu()}
       </>
     );
   }
@@ -454,36 +464,7 @@ export function VfsDetailsPanel({
           onShare={handleContextMenuShare}
         />
       )}
-      {emptySpaceContextMenu && (
-        <ContextMenu
-          x={emptySpaceContextMenu.x}
-          y={emptySpaceContextMenu.y}
-          onClose={() => setEmptySpaceContextMenu(null)}
-        >
-          {onUpload && (
-            <ContextMenuItem
-              icon={<Upload className="h-4 w-4" />}
-              onClick={() => {
-                onUpload();
-                setEmptySpaceContextMenu(null);
-              }}
-            >
-              Upload
-            </ContextMenuItem>
-          )}
-          {hasItems && onPaste && folderId && (
-            <ContextMenuItem
-              icon={<Clipboard className="h-4 w-4" />}
-              onClick={() => {
-                onPaste(folderId);
-                setEmptySpaceContextMenu(null);
-              }}
-            >
-              Paste
-            </ContextMenuItem>
-          )}
-        </ContextMenu>
-      )}
+      {renderEmptySpaceContextMenu()}
     </div>
   );
 }

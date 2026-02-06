@@ -2,6 +2,7 @@ import type { VfsOpenItem } from '@rapid/vfs-explorer';
 import { VfsWindow as VfsWindowBase } from '@rapid/vfs-explorer';
 import type { WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { FloatingWindow } from '@/components/floating-window';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
@@ -55,6 +56,7 @@ export function VfsWindow({
               await uploadFile(file);
             } catch (err) {
               console.error(`Failed to upload ${file.name}:`, err);
+              toast.error(`Failed to upload ${file.name}. Please try again.`);
             }
           })
         );
