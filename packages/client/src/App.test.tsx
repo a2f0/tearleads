@@ -188,6 +188,34 @@ describe('App', () => {
     expect(footer).not.toContainElement(indicator);
   });
 
+  describe('Start menu context menu', () => {
+    it('shows context menu on right-click of start button', () => {
+      mockUseSSEContext.mockReturnValue(null);
+
+      renderApp();
+
+      const startButton = screen.getByTestId('start-button');
+      fireEvent.contextMenu(startButton);
+
+      expect(screen.getByText('Lock Instance')).toBeInTheDocument();
+    });
+
+    it('closes context menu when pressing Escape', () => {
+      mockUseSSEContext.mockReturnValue(null);
+
+      renderApp();
+
+      const startButton = screen.getByTestId('start-button');
+      fireEvent.contextMenu(startButton);
+
+      expect(screen.getByText('Lock Instance')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByText('Lock Instance')).not.toBeInTheDocument();
+    });
+  });
+
   describe('SSE context menu', () => {
     it('shows context menu on right-click of connection indicator', () => {
       mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
