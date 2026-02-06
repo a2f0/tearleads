@@ -87,6 +87,7 @@
   },
   "devDependencies": {
     "@capacitor/android": "8.0.2",
+    "@rapid/db-test-utils": "workspace:*",
     "@capacitor/cli": "8.0.2",
     "@capacitor/ios": "8.0.2",
     "@electron-toolkit/preload": "3.0.2",

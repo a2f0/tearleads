@@ -1,0 +1,53 @@
+{
+  "name": "@rapid/db-test-utils",
+  "version": "0.0.1",
+  "description": "Database testing utilities for Rapid integration tests",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "keywords": [
+    "database",
+    "testing",
+    "sqlite",
+    "vitest"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@rapid/db": "workspace:*",
+    "@rapid/shared": "workspace:*",
+    "drizzle-orm": "0.45.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.2",
+    "@types/node": "22.15.29",
+    "@types/react": "19.2.10",
+    "@vitest/coverage-v8": "4.0.18",
+    "jsdom": "28.0.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18",
+    "vitest-fail-on-console": "0.10.1"
+  },
+  "peerDependencies": {
+    "react": "^19.0.0",
+    "vitest": "^4.0.0"
+  }
+}

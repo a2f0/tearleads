@@ -11,5 +11,8 @@
     "outDir": "./dist-tests",
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
-  "include": ["tests/**/*"]
+  "include": ["tests/**/*"],
+  "references": [
+    { "path": "../db-test-utils" }
+  ]
 }
