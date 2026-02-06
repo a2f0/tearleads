@@ -14,7 +14,7 @@ interface VfsWindowProps {
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
   onItemOpen?: ((item: VfsOpenItem) => void) | undefined;
-  onUpload?: (() => void) | undefined;
+  onUpload?: ((folderId: string) => void) | undefined;
   refreshToken?: number | undefined;
 }
 

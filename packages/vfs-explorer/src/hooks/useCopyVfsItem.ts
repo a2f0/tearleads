@@ -39,7 +39,9 @@ export function useCopyVfsItem(): UseCopyVfsItemResult {
           )
         });
 
-        if (existingLink) {
+        // Check for actual link existence by verifying id is defined
+        // (Drizzle may return an object with undefined properties instead of null)
+        if (existingLink?.id) {
           // Item already exists in this folder
           return;
         }

@@ -5,6 +5,7 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import { useDatabaseContext } from '@/db/hooks';
+import { useVfsUploader } from '@/hooks/useVfsUploader';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
   type FileOpenTarget,
@@ -15,6 +16,8 @@ import {
 export function Vfs() {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const navigateWithFrom = useNavigateWithFrom();
+  const { fileInputRef, refreshToken, handleUpload, handleFileInputChange } =
+    useVfsUploader();
 
   const handleItemOpen = useCallback(
     async (item: VfsOpenItem) => {
@@ -88,8 +91,21 @@ export function Vfs() {
       {isUnlocked && (
         <ClientVfsExplorerProvider>
           <div className="min-h-0 flex-1 rounded-lg border">
-            <VfsExplorer className="h-full" onItemOpen={handleItemOpen} />
+            <VfsExplorer
+              className="h-full"
+              onItemOpen={handleItemOpen}
+              onUpload={handleUpload}
+              refreshToken={refreshToken}
+            />
           </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            multiple
+            className="hidden"
+            onChange={handleFileInputChange}
+            data-testid="vfs-file-input"
+          />
         </ClientVfsExplorerProvider>
       )}
     </div>

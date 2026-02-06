@@ -9,11 +9,24 @@ const mockRequestWindowOpen = vi.fn();
 
 const mockResolveFileOpenTarget = vi.fn();
 const mockResolvePlaylistType = vi.fn();
+const mockHandleUpload = vi.fn();
+const mockHandleFileInputChange = vi.fn();
+const mockFileInputRef = { current: null };
 
 // Mock database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+// Mock useVfsUploader hook
+vi.mock('@/hooks/useVfsUploader', () => ({
+  useVfsUploader: () => ({
+    fileInputRef: mockFileInputRef,
+    refreshToken: 0,
+    handleUpload: mockHandleUpload,
+    handleFileInputChange: mockHandleFileInputChange
+  })
 }));
 
 // Mock InlineUnlock component
@@ -30,10 +43,16 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-let latestProps: { onItemOpen?: (item: VfsOpenItem) => void } | null = null;
+let latestProps: {
+  onItemOpen?: (item: VfsOpenItem) => void;
+  onUpload?: (folderId: string) => void;
+} | null = null;
 
 vi.mock('@rapid/vfs-explorer', () => ({
-  VfsWindow: (props: { onItemOpen?: (item: VfsOpenItem) => void }) => {
+  VfsWindow: (props: {
+    onItemOpen?: (item: VfsOpenItem) => void;
+    onUpload?: (folderId: string) => void;
+  }) => {
     latestProps = props;
     return <div data-testid="vfs-window-base" />;
   }
@@ -74,7 +93,10 @@ describe('VfsWindow', () => {
     mockRequestWindowOpen.mockReset();
     mockResolveFileOpenTarget.mockReset();
     mockResolvePlaylistType.mockReset();
+    mockHandleUpload.mockReset();
+    mockHandleFileInputChange.mockReset();
     latestProps = null;
+
     mockUseDatabaseContext.mockReturnValue({
       isUnlocked: true,
       isLoading: false,
@@ -515,5 +537,23 @@ describe('VfsWindow', () => {
 
     expect(mockOpenWindow).not.toHaveBeenCalled();
     expect(mockRequestWindowOpen).not.toHaveBeenCalled();
+  });
+
+  it('passes handleUpload to VfsWindowBase onUpload prop', () => {
+    render(
+      <VfsWindow
+        id="vfs-upload-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={100}
+      />
+    );
+
+    // Call onUpload from VfsWindowBase props
+    latestProps?.onUpload?.('folder-123');
+
+    // Should call the mocked handleUpload from useVfsUploader
+    expect(mockHandleUpload).toHaveBeenCalledWith('folder-123');
   });
 });
