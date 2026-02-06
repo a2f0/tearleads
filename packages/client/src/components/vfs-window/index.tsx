@@ -1,13 +1,15 @@
 import type { VfsOpenItem } from '@rapid/vfs-explorer';
 import { VfsWindow as VfsWindowBase } from '@rapid/vfs-explorer';
 import type { WindowDimensions } from '@rapid/window-manager';
-import { useCallback } from 'react';
+import { useCallback, useRef, useState } from 'react';
+import { toast } from 'sonner';
 import { FloatingWindow } from '@/components/floating-window';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
+import { useFileUpload } from '@/hooks/useFileUpload';
 import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfs-open';
 
 interface VfsWindowProps {
@@ -36,6 +38,34 @@ export function VfsWindow({
 }: VfsWindowProps) {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { openWindow, requestWindowOpen } = useWindowManager();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadFile } = useFileUpload();
+  const [refreshToken, setRefreshToken] = useState(0);
+
+  const handleUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleFileInputChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) {
+        await Promise.all(
+          files.map(async (file) => {
+            try {
+              await uploadFile(file);
+            } catch (err) {
+              console.error(`Failed to upload ${file.name}:`, err);
+              toast.error(`Failed to upload ${file.name}. Please try again.`);
+            }
+          })
+        );
+        setRefreshToken((value) => value + 1);
+      }
+      e.target.value = '';
+    },
+    [uploadFile]
+  );
 
   const handleItemOpen = useCallback(
     async (item: VfsOpenItem) => {
@@ -156,7 +186,20 @@ export function VfsWindow({
 
   return (
     <ClientVfsExplorerProvider>
-      <VfsWindowBase {...windowProps} onItemOpen={handleItemOpen} />
+      <VfsWindowBase
+        {...windowProps}
+        onItemOpen={handleItemOpen}
+        onUpload={handleUpload}
+        refreshToken={refreshToken}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        className="hidden"
+        onChange={handleFileInputChange}
+        data-testid="vfs-file-input"
+      />
     </ClientVfsExplorerProvider>
   );
 }

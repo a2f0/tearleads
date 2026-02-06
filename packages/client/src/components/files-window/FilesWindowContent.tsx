@@ -10,13 +10,14 @@ interface FilesWindowContentProps {
   showDropzone: boolean;
   onSelectFile?: (fileId: string) => void;
   refreshToken?: number;
+  onUpload?: () => void;
 }
 
 export const FilesWindowContent = forwardRef<
   FilesWindowContentRef,
   FilesWindowContentProps
 >(function FilesWindowContent(
-  { showDeleted, showDropzone, onSelectFile, refreshToken },
+  { showDeleted, showDropzone, onSelectFile, refreshToken, onUpload },
   ref
 ) {
   const filesListRef = useRef<FilesListRef>(null);
@@ -40,6 +41,7 @@ export const FilesWindowContent = forwardRef<
         showDropzone={showDropzone}
         {...(onSelectFile && { onSelectFile })}
         {...(refreshToken !== undefined && { refreshToken })}
+        {...(onUpload && { onUpload })}
       />
     </div>
   );

@@ -7,7 +7,15 @@ import {
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
-import { ChevronRight, Film, Info, Loader2, Play, Trash2 } from 'lucide-react';
+import {
+  ChevronRight,
+  Film,
+  Info,
+  Loader2,
+  Play,
+  Trash2,
+  Upload
+} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -91,13 +99,15 @@ interface VideoPageProps {
   hideBackLink?: boolean | undefined;
   viewMode?: ViewMode | undefined;
   playlistId?: string | null | undefined;
+  onUpload?: (() => void) | undefined;
 }
 
 export function VideoPage({
   onOpenVideo,
   hideBackLink = false,
   viewMode = 'list',
-  playlistId = null
+  playlistId = null,
+  onUpload
 }: VideoPageProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -111,6 +121,10 @@ export function VideoPage({
   const { uploadFile } = useFileUpload();
   const parentRef = useRef<HTMLDivElement>(null);
   const tableParentRef = useRef<HTMLDivElement>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     video: VideoWithThumbnail;
     x: number;
@@ -351,9 +365,19 @@ export function VideoPage({
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, video: VideoWithThumbnail) => {
       e.preventDefault();
+      e.stopPropagation();
       setContextMenu({ video, x: e.clientX, y: e.clientY });
     },
     []
+  );
+
+  const handleBlankSpaceContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!onUpload) return;
+      e.preventDefault();
+      setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
+    },
+    [onUpload]
   );
 
   const handleCloseContextMenu = useCallback(() => {
@@ -518,7 +542,11 @@ export function VideoPage({
             <UploadProgress progress={uploadProgress} />
           </div>
         ) : videos.length === 0 && hasFetched ? (
-          <div className="space-y-4">
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
+          <div
+            className="space-y-4"
+            onContextMenu={handleBlankSpaceContextMenu}
+          >
             <Dropzone
               onFilesSelected={handleFilesSelected}
               accept="video/*"
@@ -542,7 +570,12 @@ export function VideoPage({
                   itemLabel="video"
                 />
                 <div className="flex-1 rounded-lg border">
-                  <div ref={parentRef} className="h-full overflow-auto">
+                  {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
+                  <div
+                    ref={parentRef}
+                    className="h-full overflow-auto"
+                    onContextMenu={handleBlankSpaceContextMenu}
+                  >
                     <div
                       className="relative w-full"
                       style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -630,9 +663,11 @@ export function VideoPage({
                   loadedCount={videos.length}
                   itemLabel="video"
                 />
+                {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
                 <div
                   ref={tableParentRef}
                   className="flex-1 overflow-auto rounded-lg border"
+                  onContextMenu={handleBlankSpaceContextMenu}
                 >
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-muted/60 text-muted-foreground text-xs">
@@ -731,6 +766,24 @@ export function VideoPage({
             onClick={() => handleDelete(contextMenu.video)}
           >
             {t('delete')}
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {blankSpaceMenu && onUpload && (
+        <ContextMenu
+          x={blankSpaceMenu.x}
+          y={blankSpaceMenu.y}
+          onClose={() => setBlankSpaceMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<Upload className="h-4 w-4" />}
+            onClick={() => {
+              onUpload();
+              setBlankSpaceMenu(null);
+            }}
+          >
+            Upload
           </ContextMenuItem>
         </ContextMenu>
       )}

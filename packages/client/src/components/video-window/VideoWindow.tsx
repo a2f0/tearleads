@@ -215,6 +215,7 @@ function VideoWindowInner({
                   onOpenVideo={handleOpenVideo}
                   hideBackLink
                   viewMode={viewMode}
+                  onUpload={handleUpload}
                   playlistId={
                     selectedPlaylistId === ALL_VIDEO_ID
                       ? null

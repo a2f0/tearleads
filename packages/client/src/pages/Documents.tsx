@@ -8,7 +8,8 @@ import {
   Info,
   Loader2,
   Share2,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -81,6 +82,7 @@ interface DocumentsProps {
   refreshToken?: number;
   viewMode?: ViewMode;
   showDropzone?: boolean;
+  onUpload?: () => void;
 }
 
 export function Documents({
@@ -88,7 +90,8 @@ export function Documents({
   onSelectDocument,
   refreshToken,
   viewMode = 'list',
-  showDropzone = true
+  showDropzone = true,
+  onUpload
 }: DocumentsProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -103,6 +106,10 @@ export function Documents({
     y: number;
   } | null>(null);
   const [canShare, setCanShare] = useState(false);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [sortColumn, setSortColumn] = useState<SortColumn>('uploadDate');
@@ -375,9 +382,19 @@ export function Documents({
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, document: DocumentWithUrl) => {
       e.preventDefault();
+      e.stopPropagation();
       setContextMenu({ document, x: e.clientX, y: e.clientY });
     },
     []
+  );
+
+  const handleBlankSpaceContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!onUpload) return;
+      e.preventDefault();
+      setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
+    },
+    [onUpload]
   );
 
   const handleGetInfo = useCallback(() => {
@@ -502,13 +519,21 @@ export function Documents({
               source="files"
             />
           ) : (
-            <div className="rounded-lg border p-8 text-center text-muted-foreground">
+            // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
+            <div
+              className="rounded-lg border p-8 text-center text-muted-foreground"
+              onContextMenu={handleBlankSpaceContextMenu}
+            >
               No documents yet. Use Upload to add documents.
             </div>
           )
         ) : isTableView ? (
           <div className="flex min-h-0 flex-1 flex-col">
-            <div className="flex-1 overflow-auto rounded-lg border">
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
+            <div
+              className="flex-1 overflow-auto rounded-lg border"
+              onContextMenu={handleBlankSpaceContextMenu}
+            >
               <table className="w-full text-sm" data-testid="documents-table">
                 <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
                   <tr>
@@ -664,7 +689,12 @@ export function Documents({
               itemLabel="document"
             />
             <div className="flex-1 rounded-lg border">
-              <div ref={parentRef} className="h-full overflow-auto">
+              {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
+              <div
+                ref={parentRef}
+                className="h-full overflow-auto"
+                onContextMenu={handleBlankSpaceContextMenu}
+              >
                 <div
                   className="relative w-full"
                   style={{ height: `${virtualizer.getTotalSize()}px` }}
@@ -771,6 +801,24 @@ export function Documents({
             onClick={handleDelete}
           >
             {t('delete')}
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {blankSpaceMenu && onUpload && (
+        <ContextMenu
+          x={blankSpaceMenu.x}
+          y={blankSpaceMenu.y}
+          onClose={() => setBlankSpaceMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<Upload className="h-4 w-4" />}
+            onClick={() => {
+              onUpload();
+              setBlankSpaceMenu(null);
+            }}
+          >
+            Upload
           </ContextMenuItem>
         </ContextMenu>
       )}
