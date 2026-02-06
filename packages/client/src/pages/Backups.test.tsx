@@ -1,25 +1,15 @@
 import { ThemeProvider } from '@rapid/ui';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
 import { Backups } from './Backups';
 
-vi.mock('@/components/backup-window', () => ({
-  CreateBackupTab: ({
-    onSuccess
-  }: {
-    onSuccess?: (options: { stored: boolean }) => void;
-  }) => (
-    <div>
-      <button type="button" onClick={() => onSuccess?.({ stored: true })}>
-        Trigger Success
-      </button>
-      <div data-testid="create-tab">Create Tab</div>
-    </div>
-  ),
-  RestoreBackupTab: () => <div data-testid="restore-tab">Restore Tab</div>,
-  StoredBackupsTab: () => <div data-testid="stored-tab">Stored Tab</div>
+// Mock BackupManagerView to avoid testing its internals here
+vi.mock('@/components/backup-window/BackupManagerView', () => ({
+  BackupManagerView: () => (
+    <div data-testid="backup-manager-view">BackupManagerView</div>
+  )
 }));
 
 vi.mock('@/i18n', () => ({
@@ -29,54 +19,40 @@ vi.mock('@/i18n', () => ({
 }));
 
 describe('Backups page', () => {
-  it('renders tabs and defaults to create', () => {
+  const renderBackups = (props = {}) =>
     render(
       <MemoryRouter>
         <ThemeProvider>
-          <Backups />
+          <Backups {...props} />
         </ThemeProvider>
       </MemoryRouter>
     );
 
-    expect(screen.getByText('menu:backups')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'common:create' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'common:restore' })
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'common:stored' })
-    ).toBeInTheDocument();
-    expect(screen.getByTestId('create-tab')).toBeInTheDocument();
+  it('renders page title', async () => {
+    renderBackups();
+    await waitFor(() => {
+      expect(screen.getByText('menu:backups')).toBeInTheDocument();
+    });
   });
 
-  it('switches tabs when selected', () => {
-    render(
-      <MemoryRouter>
-        <ThemeProvider>
-          <Backups />
-        </ThemeProvider>
-      </MemoryRouter>
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'common:restore' }));
-    expect(screen.getByTestId('restore-tab')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole('button', { name: 'common:stored' }));
-    expect(screen.getByTestId('stored-tab')).toBeInTheDocument();
+  it('renders BackupManagerView', async () => {
+    renderBackups();
+    await waitFor(() => {
+      expect(screen.getByTestId('backup-manager-view')).toBeInTheDocument();
+    });
   });
 
-  it('switches to stored after create success', () => {
-    render(
-      <MemoryRouter>
-        <ThemeProvider>
-          <Backups />
-        </ThemeProvider>
-      </MemoryRouter>
-    );
+  it('shows back link by default', async () => {
+    renderBackups();
+    await waitFor(() => {
+      expect(screen.getByTestId('back-link')).toBeInTheDocument();
+    });
+  });
 
-    fireEvent.click(screen.getByRole('button', { name: 'Trigger Success' }));
-    expect(screen.getByTestId('stored-tab')).toBeInTheDocument();
+  it('hides back link when showBackLink is false', async () => {
+    renderBackups({ showBackLink: false });
+    await waitFor(() => {
+      expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
+    });
   });
 });
