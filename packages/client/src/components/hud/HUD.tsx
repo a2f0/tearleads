@@ -13,15 +13,17 @@ import {
   MIN_WIDTH
 } from './constants';
 import { LogsTab } from './LogsTab';
+import { NotificationsTab } from './NotificationsTab';
 
 export type { Corner } from '@rapid/window-manager';
 export { MIN_HEIGHT, MIN_WIDTH } from './constants';
 
-type TabId = 'analytics' | 'logs';
+type TabId = 'analytics' | 'logs' | 'notifications';
 
 const TABS: { id: TabId; label: string }[] = [
   { id: 'analytics', label: 'Analytics' },
-  { id: 'logs', label: 'Logs' }
+  { id: 'logs', label: 'Logs' },
+  { id: 'notifications', label: 'Notifications' }
 ];
 
 interface HUDProps {
@@ -206,6 +208,7 @@ export function HUD({ isOpen, onClose }: HUDProps) {
         <div className="flex-1 overflow-auto p-3">
           {activeTab === 'analytics' && <AnalyticsTab />}
           {activeTab === 'logs' && <LogsTab />}
+          {activeTab === 'notifications' && <NotificationsTab />}
         </div>
       </div>
     </>

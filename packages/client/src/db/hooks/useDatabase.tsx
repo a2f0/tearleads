@@ -13,7 +13,6 @@ import {
   useRef,
   useState
 } from 'react';
-import { toast } from 'sonner';
 import {
   clearSessionActive,
   markSessionActive,
@@ -23,6 +22,7 @@ import { emitInstanceChange } from '@/hooks/useInstanceChange';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import { logStore } from '@/stores/logStore';
+import { notificationStore } from '@/stores/notificationStore';
 import { validateAndPruneOrphanedInstances } from '../crypto/key-manager';
 import type { Database } from '../index';
 import {
@@ -133,7 +133,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
   const [instances, setInstances] = useState<InstanceMetadata[]>([]);
 
   // Track if we've shown the recovery toast (to avoid duplicates)
-  const hasShownRecoveryToast = useRef(false);
+  const hasShownRecoveryNotification = useRef(false);
 
   // Initialize registry and check for active instance on mount
   useEffect(() => {
@@ -215,19 +215,19 @@ export function DatabaseProvider({ children }: DatabaseProviderProps) {
           } else {
             // Session restore failed, clear the invalid session
             setHasPersisted(false);
-            showUnexpectedReloadToast();
+            showUnexpectedReloadNotification();
           }
         } else if (setup) {
-          showUnexpectedReloadToast();
+          showUnexpectedReloadNotification();
         }
 
-        // Helper to show toast for unexpected reloads (DRY)
-        function showUnexpectedReloadToast() {
-          if (hadActiveSession && !hasShownRecoveryToast.current) {
-            hasShownRecoveryToast.current = true;
-            toast.warning(
-              'App reloaded unexpectedly. Please unlock your database to continue.',
-              { duration: 5000 }
+        // Helper to show notification for unexpected reloads (DRY)
+        function showUnexpectedReloadNotification() {
+          if (hadActiveSession && !hasShownRecoveryNotification.current) {
+            hasShownRecoveryNotification.current = true;
+            notificationStore.warning(
+              'Unexpected Reload',
+              'App reloaded unexpectedly. Please unlock your database to continue.'
             );
           }
         }
