@@ -240,6 +240,25 @@ describe('App', () => {
       expect(screen.queryByText('Connection Details')).not.toBeInTheDocument();
     });
 
+    it('closes context menu when pressing Escape', () => {
+      mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
+
+      renderApp();
+
+      const indicatorContainer = screen.getByTestId(
+        'connection-indicator'
+      ).parentElement;
+      if (indicatorContainer) {
+        fireEvent.contextMenu(indicatorContainer);
+      }
+
+      expect(screen.getByText('Connection Details')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByText('Connection Details')).not.toBeInTheDocument();
+    });
+
     it('closes SSE connection dialog when onClose is called', async () => {
       const user = userEvent.setup();
       mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
