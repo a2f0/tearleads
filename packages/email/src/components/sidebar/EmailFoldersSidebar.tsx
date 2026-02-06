@@ -189,31 +189,34 @@ export function EmailFoldersSidebar({
             if (!isSystem) handleContextMenu(e, folder);
           }}
         >
-          {/* biome-ignore lint/a11y/useSemanticElements: span with role=button used to avoid nested button elements */}
-          <span
-            role="button"
-            tabIndex={hasChildren ? 0 : -1}
-            className="flex h-4 w-4 shrink-0 items-center justify-center"
-            aria-label={hasChildren ? (isExpanded ? 'Collapse' : 'Expand') : undefined}
-            onClick={(e) => {
-              e.stopPropagation();
-              if (hasChildren) toggleExpanded(folder.id);
-            }}
-            onKeyDown={(e) => {
-              if ((e.key === 'Enter' || e.key === ' ') && hasChildren) {
+          {/* Only show chevron spacer for custom folders (system folders are not expandable) */}
+          {isCustomFolder && (
+            // biome-ignore lint/a11y/useSemanticElements: span with role=button used to avoid nested button elements
+            <span
+              role="button"
+              tabIndex={hasChildren ? 0 : -1}
+              className="flex h-4 w-4 shrink-0 items-center justify-center"
+              aria-label={hasChildren ? (isExpanded ? 'Collapse' : 'Expand') : undefined}
+              onClick={(e) => {
                 e.stopPropagation();
-                toggleExpanded(folder.id);
-              }
-            }}
-          >
-            {hasChildren ? (
-              isExpanded ? (
-                <ChevronDown className="h-3 w-3" />
-              ) : (
-                <ChevronRight className="h-3 w-3" />
-              )
-            ) : null}
-          </span>
+                if (hasChildren) toggleExpanded(folder.id);
+              }}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && hasChildren) {
+                  e.stopPropagation();
+                  toggleExpanded(folder.id);
+                }
+              }}
+            >
+              {hasChildren ? (
+                isExpanded ? (
+                  <ChevronDown className="h-3 w-3" />
+                ) : (
+                  <ChevronRight className="h-3 w-3" />
+                )
+              ) : null}
+            </span>
+          )}
           <Icon
             className={`h-4 w-4 shrink-0 ${
               isCustomFolder
@@ -266,7 +269,6 @@ export function EmailFoldersSidebar({
           onClick={() => onFolderSelect(ALL_MAIL_ID)}
           data-testid="email-folder-all-mail"
         >
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
           <Mail className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
           <span className="truncate">All Mail</span>
         </button>
