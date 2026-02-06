@@ -11,11 +11,15 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsup",
     "dev": "tsx src/index.ts",
     "clean": "rm -rf dist",
     "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "prepublishOnly": "pnpm build"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "cli",
@@ -23,16 +27,17 @@
     "sqlite"
   ],
   "author": "",
-  "license": "UNLICENSED",
+  "license": "MIT",
   "dependencies": {
-    "@rapid/shared": "workspace:*",
     "better-sqlite3-multiple-ciphers": "12.6.2",
     "commander": "14.0.3"
   },
   "devDependencies": {
+    "@rapid/shared": "workspace:*",
     "@types/better-sqlite3": "7.6.13",
     "@types/node": "25.2.0",
     "@vitest/coverage-v8": "4.0.18",
+    "tsup": "8.5.1",
     "tsx": "4.21.0",
     "typescript": "5.9.3",
     "vitest": "4.0.18",

@@ -36,6 +36,9 @@ check_var "ANDROID_KEYSTORE_KEY_PASS"
 # Anthropic (for release notes generation)
 check_var "ANTHROPIC_API_KEY"
 
+# npm (for CLI publishing)
+check_var "NPM_TOKEN"
+
 # Server Deploy
 check_var "TF_VAR_domain"
 check_var "TF_VAR_server_username"
@@ -100,6 +103,9 @@ set_secret "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
 
 # Anthropic
 set_secret "ANTHROPIC_API_KEY" "$ANTHROPIC_API_KEY"
+
+# npm
+set_secret "NPM_TOKEN" "$NPM_TOKEN"
 
 # Deploy
 set_secret "DEPLOY_SSH_KEY" "$DEPLOY_SSH_KEY"
