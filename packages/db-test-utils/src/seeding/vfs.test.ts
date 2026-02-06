@@ -1,7 +1,6 @@
 import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import type { DatabaseAdapter } from '../adapters/types.js';
 import { withRealDatabase } from '../with-real-database.js';
 import {
   ensureVfsRoot,
@@ -10,50 +9,7 @@ import {
   seedVfsLink,
   VFS_ROOT_ID
 } from './vfs.js';
-
-// Simple migration to create VFS tables
-const vfsMigrations = [
-  {
-    version: 1,
-    up: async (adapter: DatabaseAdapter) => {
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS vfs_registry (
-          id TEXT PRIMARY KEY,
-          object_type TEXT NOT NULL,
-          owner_id TEXT,
-          encrypted_session_key TEXT,
-          public_hierarchical_key TEXT,
-          encrypted_private_hierarchical_key TEXT,
-          created_at INTEGER NOT NULL
-        )
-      `);
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS vfs_folders (
-          id TEXT PRIMARY KEY REFERENCES vfs_registry(id) ON DELETE CASCADE,
-          encrypted_name TEXT,
-          icon TEXT,
-          view_mode TEXT,
-          default_sort TEXT,
-          sort_direction TEXT
-        )
-      `);
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS vfs_links (
-          id TEXT PRIMARY KEY,
-          parent_id TEXT NOT NULL REFERENCES vfs_registry(id) ON DELETE CASCADE,
-          child_id TEXT NOT NULL REFERENCES vfs_registry(id) ON DELETE CASCADE,
-          wrapped_session_key TEXT NOT NULL,
-          wrapped_hierarchical_key TEXT,
-          visible_children TEXT,
-          position INTEGER,
-          created_at INTEGER NOT NULL
-        )
-      `);
-      // Enable foreign keys
-      await adapter.execute('PRAGMA foreign_keys = ON');
-    }
-  }
-];
+import { vfsTestMigrations } from './vfs-test-migrations.js';
 
 describe('VFS_ROOT_ID', () => {
   it('is a well-known UUID', () => {
@@ -80,7 +36,7 @@ describe('ensureVfsRoot', () => {
           .where(eq(vfsFolders.id, VFS_ROOT_ID));
         expect(folder.length).toBe(1);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -96,7 +52,7 @@ describe('ensureVfsRoot', () => {
           .where(eq(vfsRegistry.id, VFS_ROOT_ID));
         expect(registry.length).toBe(1);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 });
@@ -127,7 +83,7 @@ describe('seedFolder', () => {
         expect(links.length).toBe(1);
         expect(links[0]?.parentId).toBe(VFS_ROOT_ID);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -139,7 +95,7 @@ describe('seedFolder', () => {
 
         expect(folderId).toBe(customId);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -154,7 +110,7 @@ describe('seedFolder', () => {
           .where(eq(vfsFolders.id, folderId));
         expect(folder[0]?.encryptedName).toBe('My Custom Folder');
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -173,7 +129,7 @@ describe('seedFolder', () => {
           .where(eq(vfsLinks.childId, childId));
         expect(links[0]?.parentId).toBe(parentId);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -188,7 +144,7 @@ describe('seedFolder', () => {
           .where(eq(vfsFolders.id, folderId));
         expect(folder[0]?.icon).toBe('star');
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -203,7 +159,7 @@ describe('seedFolder', () => {
           .where(eq(vfsFolders.id, folderId));
         expect(folder[0]?.viewMode).toBe('grid');
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 });
@@ -221,7 +177,7 @@ describe('seedVfsItem', () => {
         expect(registry.length).toBe(1);
         expect(registry[0]?.objectType).toBe('file');
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -241,7 +197,7 @@ describe('seedVfsItem', () => {
         expect(links.length).toBe(1);
         expect(links[0]?.parentId).toBe(folderId);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -261,7 +217,7 @@ describe('seedVfsItem', () => {
           .where(eq(vfsLinks.childId, itemId));
         expect(links.length).toBe(0);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -276,7 +232,7 @@ describe('seedVfsItem', () => {
 
         expect(itemId).toBe(customId);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -294,7 +250,7 @@ describe('seedVfsItem', () => {
           .where(eq(vfsRegistry.id, itemId));
         expect(registry[0]?.ownerId).toBe('user-123');
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 });
@@ -319,7 +275,7 @@ describe('seedVfsLink', () => {
         expect(links[0]?.parentId).toBe(parentId);
         expect(links[0]?.childId).toBe(childId);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 
@@ -341,7 +297,7 @@ describe('seedVfsLink', () => {
 
         expect(linkId).toBe(customId);
       },
-      { migrations: vfsMigrations }
+      { migrations: vfsTestMigrations }
     );
   });
 });
