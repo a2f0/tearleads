@@ -825,9 +825,7 @@ describe('EmailFoldersSidebar', () => {
     });
 
     // Click on backdrop to close
-    await user.click(
-      screen.getByTestId('email-folder-context-menu-backdrop')
-    );
+    await user.click(screen.getByTestId('email-folder-context-menu-backdrop'));
 
     // Context menu should close
     await waitFor(() => {

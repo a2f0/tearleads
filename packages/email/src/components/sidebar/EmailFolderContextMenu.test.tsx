@@ -165,9 +165,7 @@ describe('EmailFolderContextMenu', () => {
       />
     );
 
-    await user.click(
-      screen.getByTestId('email-folder-context-menu-backdrop')
-    );
+    await user.click(screen.getByTestId('email-folder-context-menu-backdrop'));
     expect(onClose).toHaveBeenCalled();
   });
 

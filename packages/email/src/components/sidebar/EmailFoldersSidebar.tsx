@@ -191,7 +191,9 @@ export function EmailFoldersSidebar({
         <button
           type="button"
           className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
-            isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-accent/50'
+            isSelected
+              ? 'bg-accent text-accent-foreground'
+              : 'hover:bg-accent/50'
           }`}
           style={{ paddingLeft: `${depth * 16 + 8}px` }}
           onClick={() => onFolderSelect(folder.id)}
@@ -207,7 +209,9 @@ export function EmailFoldersSidebar({
               role="button"
               tabIndex={hasChildren ? 0 : -1}
               className="flex h-4 w-4 shrink-0 items-center justify-center"
-              aria-label={hasChildren ? (isExpanded ? 'Collapse' : 'Expand') : undefined}
+              aria-label={
+                hasChildren ? (isExpanded ? 'Collapse' : 'Expand') : undefined
+              }
               onClick={(e) => {
                 e.stopPropagation();
                 if (hasChildren) toggleExpanded(folder.id);
