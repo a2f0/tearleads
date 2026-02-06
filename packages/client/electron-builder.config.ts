@@ -7,7 +7,17 @@ const config: Configuration = {
   directories: {
     output: 'dist-electron',
   },
-  files: ['out/**/*', 'build/icons/**/*', 'package.json'],
+  files: [
+    'out/**/*',
+    'build/icons/**/*',
+    'package.json',
+    'node_modules/better-sqlite3-multiple-ciphers/**',
+    'node_modules/.pnpm/better-sqlite3-multiple-ciphers@*/node_modules/better-sqlite3-multiple-ciphers/**',
+  ],
+  asarUnpack: [
+    'node_modules/better-sqlite3-multiple-ciphers/**',
+    'node_modules/.pnpm/better-sqlite3-multiple-ciphers@*/node_modules/better-sqlite3-multiple-ciphers/**',
+  ],
   npmRebuild: false,
   icon: 'build/icons/icon',
   mac: {
