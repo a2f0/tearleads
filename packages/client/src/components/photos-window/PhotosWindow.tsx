@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
+import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
 import { PhotosWindowContent } from './PhotosWindowContent';
@@ -46,20 +48,12 @@ export function PhotosWindow({
   );
   const { uploadFile } = useFileUpload();
   const { addPhotoToAlbum } = usePhotoAlbums();
-
-  const handleUpload = useCallback(() => {
-    fileInputRef.current?.click();
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
-
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  const handleUploadFiles = useCallback(
-    async (files: File[]) => {
+  // Handler for uploading files with optional target album override
+  const handleUploadFilesToAlbum = useCallback(
+    async (files: File[], targetAlbumId?: string | null) => {
       const uploadedIds: string[] = [];
 
       setUploading(true);
@@ -85,10 +79,11 @@ export function PhotosWindow({
           })
         );
 
-        // Add uploaded files to selected album if one is selected
-        if (selectedAlbumId && selectedAlbumId !== ALL_PHOTOS_ID) {
+        // Use target album if provided, otherwise use currently selected album
+        const albumToUse = targetAlbumId ?? selectedAlbumId;
+        if (albumToUse && albumToUse !== ALL_PHOTOS_ID) {
           await Promise.all(
-            uploadedIds.map((id) => addPhotoToAlbum(selectedAlbumId, id))
+            uploadedIds.map((id) => addPhotoToAlbum(albumToUse, id))
           );
         }
 
@@ -99,6 +94,37 @@ export function PhotosWindow({
       }
     },
     [uploadFile, selectedAlbumId, addPhotoToAlbum]
+  );
+
+  // Main content area drop zone
+  const { isDragging, dropZoneProps } = useDropZone({
+    accept: 'image/*',
+    onDrop: handleUploadFilesToAlbum,
+    disabled: !isUnlocked || uploading
+  });
+
+  // Handler for dropping files onto a specific album in the sidebar
+  const handleDropToAlbum = useCallback(
+    async (albumId: string, files: File[]) => {
+      await handleUploadFilesToAlbum(files, albumId);
+    },
+    [handleUploadFilesToAlbum]
+  );
+
+  const handleUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshToken((value) => value + 1);
+  }, []);
+
+  // Wrapper for existing upload patterns (no album override)
+  const handleUploadFiles = useCallback(
+    async (files: File[]) => {
+      await handleUploadFilesToAlbum(files);
+    },
+    [handleUploadFilesToAlbum]
   );
 
   const handleFileInputChange = useCallback(
@@ -170,9 +196,10 @@ export function PhotosWindow({
               onAlbumSelect={setSelectedAlbumId}
               refreshToken={refreshToken}
               onAlbumChanged={handleRefresh}
+              onDropToAlbum={handleDropToAlbum}
             />
           )}
-          <div className="flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
             {selectedPhotoId ? (
               <PhotosWindowDetail
                 photoId={selectedPhotoId}
@@ -214,6 +241,7 @@ export function PhotosWindow({
                 )}
               </>
             )}
+            <DropZoneOverlay isVisible={isDragging} label="photos" />
           </div>
         </div>
       </div>

@@ -1,6 +1,8 @@
 import { List, Loader2, Plus, Video } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
+import { filterFilesByAccept } from '@/lib/file-filter';
+import { cn, detectPlatform } from '@/lib/utils';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 import { DeleteVideoPlaylistDialog } from './DeleteVideoPlaylistDialog';
 import { NewVideoPlaylistDialog } from './NewVideoPlaylistDialog';
@@ -17,6 +19,11 @@ interface VideoPlaylistsSidebarProps {
   onPlaylistSelect: (playlistId: string | null) => void;
   refreshToken?: number;
   onPlaylistChanged?: () => void;
+  /** Callback when files are dropped onto a playlist */
+  onDropToPlaylist?: (
+    playlistId: string,
+    files: File[]
+  ) => void | Promise<void>;
 }
 
 export function VideoPlaylistsSidebar({
@@ -25,7 +32,8 @@ export function VideoPlaylistsSidebar({
   selectedPlaylistId,
   onPlaylistSelect,
   refreshToken,
-  onPlaylistChanged
+  onPlaylistChanged,
+  onDropToPlaylist
 }: VideoPlaylistsSidebarProps) {
   const { playlists, loading, error, refetch, deletePlaylist, renamePlaylist } =
     useVideoPlaylists();
@@ -33,6 +41,74 @@ export function VideoPlaylistsSidebar({
   const isDragging = useRef(false);
   const startX = useRef(0);
   const startWidth = useRef(0);
+
+  // Track which playlist is being dragged over for visual feedback
+  const [dragOverPlaylistId, setDragOverPlaylistId] = useState<string | null>(
+    null
+  );
+  const dragCounterRef = useRef<Record<string, number>>({});
+  const platform = detectPlatform();
+  const isNativePlatform = platform === 'ios' || platform === 'android';
+
+  const handlePlaylistDragOver = useCallback(
+    (e: React.DragEvent, _playlistId: string) => {
+      if (!onDropToPlaylist || isNativePlatform) return;
+      e.preventDefault();
+      e.stopPropagation();
+    },
+    [onDropToPlaylist, isNativePlatform]
+  );
+
+  const handlePlaylistDragEnter = useCallback(
+    (e: React.DragEvent, playlistId: string) => {
+      if (!onDropToPlaylist || isNativePlatform) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      dragCounterRef.current[playlistId] =
+        (dragCounterRef.current[playlistId] ?? 0) + 1;
+      if (dragCounterRef.current[playlistId] === 1) {
+        setDragOverPlaylistId(playlistId);
+      }
+    },
+    [onDropToPlaylist, isNativePlatform]
+  );
+
+  const handlePlaylistDragLeave = useCallback(
+    (e: React.DragEvent, playlistId: string) => {
+      if (!onDropToPlaylist || isNativePlatform) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      dragCounterRef.current[playlistId] =
+        (dragCounterRef.current[playlistId] ?? 0) - 1;
+      if (dragCounterRef.current[playlistId] === 0) {
+        setDragOverPlaylistId(null);
+      }
+    },
+    [onDropToPlaylist, isNativePlatform]
+  );
+
+  const handlePlaylistDrop = useCallback(
+    (e: React.DragEvent, playlistId: string) => {
+      if (!onDropToPlaylist || isNativePlatform) return;
+      e.preventDefault();
+      e.stopPropagation();
+
+      // Reset drag state
+      dragCounterRef.current[playlistId] = 0;
+      setDragOverPlaylistId(null);
+
+      // Get files and filter for videos
+      const files = Array.from(e.dataTransfer.files);
+      const videoFiles = filterFilesByAccept(files, 'video/*');
+
+      if (videoFiles.length > 0) {
+        void onDropToPlaylist(playlistId, videoFiles);
+      }
+    },
+    [onDropToPlaylist, isNativePlatform]
+  );
 
   const [newPlaylistDialogOpen, setNewPlaylistDialogOpen] = useState(false);
   const [renameDialogPlaylist, setRenameDialogPlaylist] =
@@ -189,14 +265,21 @@ export function VideoPlaylistsSidebar({
             <button
               key={playlist.id}
               type="button"
-              className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
+              className={cn(
+                'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
                 selectedPlaylistId === playlist.id
                   ? 'bg-accent text-accent-foreground'
-                  : 'hover:bg-accent/50'
-              }`}
+                  : 'hover:bg-accent/50',
+                dragOverPlaylistId === playlist.id &&
+                  'bg-primary/10 ring-2 ring-primary ring-inset'
+              )}
               style={{ paddingLeft: '8px' }}
               onClick={() => onPlaylistSelect(playlist.id)}
               onContextMenu={(e) => handleContextMenu(e, playlist)}
+              onDragOver={(e) => handlePlaylistDragOver(e, playlist.id)}
+              onDragEnter={(e) => handlePlaylistDragEnter(e, playlist.id)}
+              onDragLeave={(e) => handlePlaylistDragLeave(e, playlist.id)}
+              onDrop={(e) => handlePlaylistDrop(e, playlist.id)}
             >
               <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
               <List className="h-4 w-4 shrink-0 text-primary" />

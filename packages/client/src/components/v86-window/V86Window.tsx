@@ -1,6 +1,8 @@
 import { useCallback, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
+import { useDropZone } from '@/hooks/useDropZone';
 import { isOpfsSupported, uploadIso } from '@/lib/v86/iso-storage';
 import type { IsoCatalogEntry } from '@/lib/v86/types';
 import { IsoDirectory } from './IsoDirectory';
@@ -71,6 +73,12 @@ export function V86Window({
     fileInputRef.current?.click();
   }, []);
 
+  // Main content area drop zone
+  const { isDragging, dropZoneProps } = useDropZone({
+    accept: '.iso,application/x-iso9660-image',
+    onDrop: handleUploadFiles
+  });
+
   const handleFileInputChange = useCallback(
     async (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
@@ -102,7 +110,7 @@ export function V86Window({
           onUpload={handleUpload}
           onClose={onClose}
         />
-        <div className="min-h-0 flex-1">
+        <div className="relative min-h-0 flex-1" {...dropZoneProps}>
           {selectedIso ? (
             <V86Emulator
               iso={selectedIso}
@@ -123,6 +131,7 @@ export function V86Window({
               />
             </div>
           )}
+          <DropZoneOverlay isVisible={isDragging} label="ISO files" />
         </div>
       </div>
       <input

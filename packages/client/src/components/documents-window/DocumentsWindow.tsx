@@ -2,8 +2,10 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { UploadProgress } from '@/components/ui/upload-progress';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { DocumentDetail } from '@/pages/DocumentDetail';
 import { Documents } from '@/pages/Documents';
@@ -51,55 +53,69 @@ export function DocumentsWindow({
     setRefreshToken((value) => value + 1);
   }, []);
 
-  const handleFileInputChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadFiles = useCallback(
+    async (files: File[]) => {
       setUploadError(null);
+      let uploadedCount = 0;
+      const errors: string[] = [];
+
+      setUploading(true);
+      setUploadProgress(0);
+      const progresses = Array<number>(files.length).fill(0);
+      const updateOverall = () => {
+        const total = progresses.reduce((sum, p) => sum + p, 0);
+        setUploadProgress(Math.round(total / files.length));
+      };
+
+      try {
+        await Promise.all(
+          files.map(async (file, index) => {
+            try {
+              await uploadFile(file, (progress) => {
+                progresses[index] = progress;
+                updateOverall();
+              });
+              uploadedCount++;
+            } catch (err) {
+              console.error(`Failed to upload ${file.name}:`, err);
+              errors.push(
+                `"${file.name}": ${
+                  err instanceof Error ? err.message : String(err)
+                }`
+              );
+            }
+          })
+        );
+        if (uploadedCount > 0) {
+          setRefreshToken((value) => value + 1);
+        }
+        if (errors.length > 0) {
+          setUploadError(errors.join('\n'));
+        }
+      } finally {
+        setUploading(false);
+        setUploadProgress(0);
+      }
+    },
+    [uploadFile]
+  );
+
+  // Main content area drop zone
+  const { isDragging, dropZoneProps } = useDropZone({
+    accept: 'application/pdf,text/*',
+    onDrop: handleUploadFiles,
+    disabled: uploading
+  });
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       if (files.length > 0) {
-        let uploadedCount = 0;
-        const errors: string[] = [];
-
-        setUploading(true);
-        setUploadProgress(0);
-        const progresses = Array<number>(files.length).fill(0);
-        const updateOverall = () => {
-          const total = progresses.reduce((sum, p) => sum + p, 0);
-          setUploadProgress(Math.round(total / files.length));
-        };
-
-        try {
-          await Promise.all(
-            files.map(async (file, index) => {
-              try {
-                await uploadFile(file, (progress) => {
-                  progresses[index] = progress;
-                  updateOverall();
-                });
-                uploadedCount++;
-              } catch (err) {
-                console.error(`Failed to upload ${file.name}:`, err);
-                errors.push(
-                  `"${file.name}": ${
-                    err instanceof Error ? err.message : String(err)
-                  }`
-                );
-              }
-            })
-          );
-          if (uploadedCount > 0) {
-            setRefreshToken((value) => value + 1);
-          }
-          if (errors.length > 0) {
-            setUploadError(errors.join('\n'));
-          }
-        } finally {
-          setUploading(false);
-          setUploadProgress(0);
-        }
+        void handleUploadFiles(files);
       }
       e.target.value = '';
     },
-    [uploadFile]
+    [handleUploadFiles]
   );
 
   const handleBack = useCallback(() => {
@@ -138,7 +154,7 @@ export function DocumentsWindow({
             onClose={onClose}
           />
         )}
-        <div className="flex-1 overflow-hidden">
+        <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
           {uploadError && (
             <div className="mx-3 mt-3 whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-3 text-destructive text-sm">
               {uploadError}
@@ -171,6 +187,7 @@ export function DocumentsWindow({
               />
             </div>
           )}
+          <DropZoneOverlay isVisible={isDragging} label="documents" />
         </div>
       </div>
       <input

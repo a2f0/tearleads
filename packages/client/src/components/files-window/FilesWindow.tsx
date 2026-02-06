@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useDropZone } from '@/hooks/useDropZone';
 import type { FilesWindowContentRef } from './FilesWindowContent';
 import { FilesWindowContent } from './FilesWindowContent';
 import { FilesWindowDetail } from './FilesWindowDetail';
@@ -42,15 +44,24 @@ export function FilesWindow({
     fileInputRef.current?.click();
   }, []);
 
+  const handleUploadFiles = useCallback((files: File[]) => {
+    contentRef.current?.uploadFiles(files);
+  }, []);
+
+  // Main content area drop zone (accepts all file types)
+  const { isDragging, dropZoneProps } = useDropZone({
+    onDrop: handleUploadFiles
+  });
+
   const handleFileInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(e.target.files ?? []);
       if (files.length > 0) {
-        contentRef.current?.uploadFiles(files);
+        handleUploadFiles(files);
       }
       e.target.value = '';
     },
-    []
+    [handleUploadFiles]
   );
 
   const handleSelectFile = useCallback((fileId: string) => {
@@ -97,7 +108,7 @@ export function FilesWindow({
           onUpload={handleUpload}
           onClose={onClose}
         />
-        <div className="flex-1 overflow-hidden">
+        <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
           {selectedFileId ? (
             <FilesWindowDetail
               fileId={selectedFileId}
@@ -121,6 +132,7 @@ export function FilesWindow({
               refreshToken={refreshToken}
             />
           )}
+          <DropZoneOverlay isVisible={isDragging} label="files" />
         </div>
       </div>
       <input
