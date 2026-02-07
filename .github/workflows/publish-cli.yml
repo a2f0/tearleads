@@ -67,8 +67,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
+          registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
-        # Note: NOT using registry-url to avoid creating .npmrc with token reference
 
       - name: Install dependencies
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
@@ -80,11 +80,7 @@ jobs:
 
       - name: Publish to npm with provenance
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
-        run: |
-          # Create clean npmrc with just the registry (no auth token references)
-          echo "registry=https://registry.npmjs.org/" > ~/.npmrc
-          # Publish using OIDC trusted publishing (no token needed)
-          npm publish --provenance --access public
+        run: npm publish --provenance --access public
         working-directory: packages/cli
 
       - name: Summary
