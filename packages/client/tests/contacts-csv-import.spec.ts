@@ -110,11 +110,13 @@ const SAMPLE_DATA_ROW = [
 ];
 
 function createGoogleContactsCsv(): string {
-  const headerLine = GOOGLE_CONTACTS_HEADERS.join(',');
-  const dataLine = SAMPLE_DATA_ROW.map((val) =>
-    val.includes(',') ? `"${val}"` : val
-  ).join(',');
-  return `${headerLine}\n${dataLine}`;
+  const escape = (val: string) =>
+    val.includes(',') || val.includes('"') || val.includes('\n')
+      ? '"' + val.replace(/"/g, '""') + '"'
+      : val;
+  const headerLine = GOOGLE_CONTACTS_HEADERS.map(escape).join(',');
+  const dataLine = SAMPLE_DATA_ROW.map(escape).join(',');
+  return headerLine + '\n' + dataLine;
 }
 
 async function unlockIfNeeded(page: Page): Promise<void> {
