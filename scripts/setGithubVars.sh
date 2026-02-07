@@ -9,6 +9,16 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 cd "$SCRIPT_DIR/.."
 
+# Parse arguments
+DELETE_EXTRA=false
+for arg in "$@"; do
+  case $arg in
+    --delete)
+      DELETE_EXTRA=true
+      ;;
+  esac
+done
+
 check_var() {
   var_name="$1"
   eval "var_value=\$$var_name"
@@ -36,8 +46,7 @@ check_var "ANDROID_KEYSTORE_KEY_PASS"
 # Anthropic (for release notes generation)
 check_var "ANTHROPIC_API_KEY"
 
-# npm (for CLI publishing)
-check_var "NPM_TOKEN"
+# npm: No longer needed - using OIDC trusted publishing
 
 # Server Deploy
 check_var "TF_VAR_domain"
@@ -104,9 +113,6 @@ set_secret "GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
 # Anthropic
 set_secret "ANTHROPIC_API_KEY" "$ANTHROPIC_API_KEY"
 
-# npm
-set_secret "NPM_TOKEN" "$NPM_TOKEN"
-
 # Deploy
 set_secret "DEPLOY_SSH_KEY" "$DEPLOY_SSH_KEY"
 # shellcheck disable=SC2154 # validated by check_var
@@ -118,3 +124,51 @@ set_secret "VITE_API_URL" "$VITE_API_URL"
 
 echo ""
 echo "All secrets have been set successfully!"
+
+# Delete extra secrets if --delete flag is set
+if [ "$DELETE_EXTRA" = true ]; then
+  echo ""
+  echo "Checking for extra secrets to delete..."
+
+  # List of secrets managed by this script (must match set_secret calls above)
+  MANAGED_SECRETS="
+    APPLE_ID
+    TEAM_ID
+    ITC_TEAM_ID
+    APP_STORE_CONNECT_KEY_ID
+    APP_STORE_CONNECT_ISSUER_ID
+    APP_STORE_CONNECT_API_KEY
+    MATCH_GIT_URL
+    MATCH_PASSWORD
+    MATCH_GIT_BASIC_AUTHORIZATION
+    ANDROID_KEYSTORE_BASE64
+    ANDROID_KEYSTORE_STORE_PASS
+    ANDROID_KEYSTORE_KEY_PASS
+    GOOGLE_PLAY_SERVICE_ACCOUNT_JSON
+    ANTHROPIC_API_KEY
+    DEPLOY_SSH_KEY
+    DEPLOY_DOMAIN
+    DEPLOY_USER
+    VITE_API_URL
+  "
+
+  # Get current secrets from GitHub
+  CURRENT_SECRETS=$(gh secret list -R "$GITHUB_REPO" --json name -q '.[].name')
+
+  # Delete secrets not in managed list
+  for secret in $CURRENT_SECRETS; do
+    is_managed=false
+    for managed in $MANAGED_SECRETS; do
+      if [ "$secret" = "$managed" ]; then
+        is_managed=true
+        break
+      fi
+    done
+    if [ "$is_managed" = false ]; then
+      echo "Deleting extra secret: $secret"
+      gh secret delete "$secret" -R "$GITHUB_REPO"
+    fi
+  done
+
+  echo "Extra secrets cleanup complete."
+fi
