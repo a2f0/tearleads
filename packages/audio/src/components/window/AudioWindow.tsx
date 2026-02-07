@@ -185,7 +185,7 @@ export function AudioWindow({
           showDropzone={showDropzone}
           onShowDropzoneChange={setShowDropzone}
         />
-        <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1">
           {isUnlocked && (
             <AudioPlaylistsSidebar
               width={sidebarWidth}
