@@ -87,26 +87,30 @@ describe('executeSearchTool', () => {
     const { getCurrentInstanceId } = await import('@/db');
     vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
-    mockSearch.mockResolvedValue([
-      {
-        id: 'doc-1',
-        entityType: 'contact',
-        score: 0.95,
-        document: {
+    mockSearch.mockResolvedValue({
+      hits: [
+        {
           id: 'doc-1',
           entityType: 'contact',
-          title: 'John Doe',
-          content: 'Contact details for John Doe',
-          createdAt: 1000,
-          updatedAt: 1000
+          score: 0.95,
+          document: {
+            id: 'doc-1',
+            entityType: 'contact',
+            title: 'John Doe',
+            content: 'Contact details for John Doe',
+            createdAt: 1000,
+            updatedAt: 1000
+          }
         }
-      }
-    ]);
+      ],
+      count: 1
+    });
 
     const result = await executeSearchTool({ query: 'john' });
 
     expect(mockSearch).toHaveBeenCalledWith('john', { limit: 5 });
     expect(result.results).toHaveLength(1);
+    expect(result.totalFound).toBe(1);
     expect(result.results[0]?.id).toBe('doc-1');
     expect(result.results[0]?.type).toBe('contact');
     expect(result.results[0]?.title).toBe('John Doe');
@@ -117,7 +121,7 @@ describe('executeSearchTool', () => {
     const { getCurrentInstanceId } = await import('@/db');
     vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
-    mockSearch.mockResolvedValue([]);
+    mockSearch.mockResolvedValue({ hits: [], count: 0 });
 
     await executeSearchTool({ query: 'test', limit: 10 });
 
@@ -128,7 +132,7 @@ describe('executeSearchTool', () => {
     const { getCurrentInstanceId } = await import('@/db');
     vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
-    mockSearch.mockResolvedValue([]);
+    mockSearch.mockResolvedValue({ hits: [], count: 0 });
 
     await executeSearchTool({ query: 'test', limit: 100 });
 
@@ -139,7 +143,7 @@ describe('executeSearchTool', () => {
     const { getCurrentInstanceId } = await import('@/db');
     vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
-    mockSearch.mockResolvedValue([]);
+    mockSearch.mockResolvedValue({ hits: [], count: 0 });
 
     await executeSearchTool({ query: 'test', limit: 0 });
 
@@ -150,7 +154,7 @@ describe('executeSearchTool', () => {
     const { getCurrentInstanceId } = await import('@/db');
     vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
-    mockSearch.mockResolvedValue([]);
+    mockSearch.mockResolvedValue({ hits: [], count: 0 });
 
     await executeSearchTool({
       query: 'test',
@@ -168,21 +172,24 @@ describe('executeSearchTool', () => {
     vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
     const longContent = 'A'.repeat(200);
-    mockSearch.mockResolvedValue([
-      {
-        id: 'doc-1',
-        entityType: 'note',
-        score: 0.9,
-        document: {
+    mockSearch.mockResolvedValue({
+      hits: [
+        {
           id: 'doc-1',
           entityType: 'note',
-          title: 'Long Note',
-          content: longContent,
-          createdAt: 1000,
-          updatedAt: 1000
+          score: 0.9,
+          document: {
+            id: 'doc-1',
+            entityType: 'note',
+            title: 'Long Note',
+            content: longContent,
+            createdAt: 1000,
+            updatedAt: 1000
+          }
         }
-      }
-    ]);
+      ],
+      count: 1
+    });
 
     const result = await executeSearchTool({ query: 'test' });
 
@@ -193,21 +200,24 @@ describe('executeSearchTool', () => {
     const { getCurrentInstanceId } = await import('@/db');
     vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
-    mockSearch.mockResolvedValue([
-      {
-        id: 'doc-1',
-        entityType: 'contact',
-        score: 0.9,
-        document: {
+    mockSearch.mockResolvedValue({
+      hits: [
+        {
           id: 'doc-1',
           entityType: 'contact',
-          title: 'Jane Doe',
-          metadata: 'email: jane@example.com, phone: 555-1234',
-          createdAt: 1000,
-          updatedAt: 1000
+          score: 0.9,
+          document: {
+            id: 'doc-1',
+            entityType: 'contact',
+            title: 'Jane Doe',
+            metadata: 'email: jane@example.com, phone: 555-1234',
+            createdAt: 1000,
+            updatedAt: 1000
+          }
         }
-      }
-    ]);
+      ],
+      count: 1
+    });
 
     const result = await executeSearchTool({ query: 'jane' });
 
@@ -220,24 +230,55 @@ describe('executeSearchTool', () => {
     const { getCurrentInstanceId } = await import('@/db');
     vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
     mockGetState.mockReturnValue({ isInitialized: true });
-    mockSearch.mockResolvedValue([
-      {
-        id: 'doc-1',
-        entityType: 'file',
-        score: 0.8,
-        document: {
+    mockSearch.mockResolvedValue({
+      hits: [
+        {
           id: 'doc-1',
           entityType: 'file',
-          title: 'document.pdf',
-          createdAt: 1000,
-          updatedAt: 1000
+          score: 0.8,
+          document: {
+            id: 'doc-1',
+            entityType: 'file',
+            title: 'document.pdf',
+            createdAt: 1000,
+            updatedAt: 1000
+          }
         }
-      }
-    ]);
+      ],
+      count: 1
+    });
 
     const result = await executeSearchTool({ query: 'document' });
 
     expect(result.results[0]?.preview).toBeUndefined();
+  });
+
+  it('should return correct totalFound when limited', async () => {
+    const { getCurrentInstanceId } = await import('@/db');
+    vi.mocked(getCurrentInstanceId).mockReturnValue('test-instance');
+    mockGetState.mockReturnValue({ isInitialized: true });
+    mockSearch.mockResolvedValue({
+      hits: [
+        {
+          id: 'doc-1',
+          entityType: 'contact',
+          score: 0.9,
+          document: {
+            id: 'doc-1',
+            entityType: 'contact',
+            title: 'Contact 1',
+            createdAt: 1000,
+            updatedAt: 1000
+          }
+        }
+      ],
+      count: 100
+    });
+
+    const result = await executeSearchTool({ query: 'contact', limit: 1 });
+
+    expect(result.results).toHaveLength(1);
+    expect(result.totalFound).toBe(100);
   });
 });
 

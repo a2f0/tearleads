@@ -119,7 +119,10 @@ export async function executeSearchTool(
     searchOptions.entityTypes = args.entityTypes;
   }
 
-  const searchResults = await store.search(args.query, searchOptions);
+  const { hits: searchResults, count: totalCount } = await store.search(
+    args.query,
+    searchOptions
+  );
 
   const results: SearchToolResultItem[] = searchResults.map((r) => {
     // Create a preview from content or metadata
@@ -149,7 +152,7 @@ export async function executeSearchTool(
 
   return {
     results,
-    totalFound: results.length,
+    totalFound: totalCount,
     query: args.query
   };
 }
@@ -179,15 +182,16 @@ export function formatSearchResultsForDisplay(
   return lines.join('\n');
 }
 
+const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {
+  contact: 'Contact',
+  note: 'Note',
+  email: 'Email',
+  file: 'File',
+  playlist: 'Playlist',
+  album: 'Album',
+  ai_conversation: 'AI Chat'
+};
+
 function formatEntityType(type: SearchableEntityType): string {
-  const labels: Record<SearchableEntityType, string> = {
-    contact: 'Contact',
-    note: 'Note',
-    email: 'Email',
-    file: 'File',
-    playlist: 'Playlist',
-    album: 'Album',
-    ai_conversation: 'AI Chat'
-  };
-  return labels[type] || type;
+  return ENTITY_TYPE_LABELS[type] || type;
 }

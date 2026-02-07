@@ -86,7 +86,7 @@ describe('SearchStore', () => {
       const state = store.getState();
       expect(state.documentCount).toBe(1);
 
-      const results = await store.search('Jane');
+      const { hits: results } = await store.search('Jane');
       expect(results).toHaveLength(1);
       expect(results[0]?.document.title).toBe('Jane Doe');
     });
@@ -181,46 +181,48 @@ describe('SearchStore', () => {
     });
 
     it('should find documents by title', async () => {
-      const results = await store.search('John');
+      const { hits: results } = await store.search('John');
 
       expect(results.length).toBeGreaterThan(0);
       expect(results.some((r) => r.id === 'contact-1')).toBe(true);
     });
 
     it('should find documents by content', async () => {
-      const results = await store.search('project timeline');
+      const { hits: results } = await store.search('project timeline');
 
       expect(results.length).toBeGreaterThan(0);
       expect(results.some((r) => r.id === 'note-1')).toBe(true);
     });
 
     it('should find documents by metadata', async () => {
-      const results = await store.search('jane@example.com');
+      const { hits: results } = await store.search('jane@example.com');
 
       expect(results.length).toBeGreaterThan(0);
       expect(results.some((r) => r.id === 'contact-2')).toBe(true);
     });
 
     it('should filter by entity type', async () => {
-      const results = await store.search('John', { entityTypes: ['note'] });
+      const { hits: results } = await store.search('John', {
+        entityTypes: ['note']
+      });
 
       expect(results.every((r) => r.entityType === 'note')).toBe(true);
     });
 
     it('should respect limit option', async () => {
-      const results = await store.search('example.com', { limit: 1 });
+      const { hits: results } = await store.search('example.com', { limit: 1 });
 
       expect(results).toHaveLength(1);
     });
 
     it('should return empty array for empty query', async () => {
-      const results = await store.search('');
+      const { hits: results } = await store.search('');
 
       expect(results).toHaveLength(0);
     });
 
     it('should return empty array for whitespace query', async () => {
-      const results = await store.search('   ');
+      const { hits: results } = await store.search('   ');
 
       expect(results).toHaveLength(0);
     });
@@ -302,11 +304,11 @@ describe('SearchStore', () => {
       expect(store.getState().documentCount).toBe(2);
 
       // Old document should not be findable
-      const oldResults = await store.search('Old Contact');
+      const { hits: oldResults } = await store.search('Old Contact');
       expect(oldResults).toHaveLength(0);
 
       // New documents should be findable
-      const newResults = await store.search('New Note');
+      const { hits: newResults } = await store.search('New Note');
       expect(newResults).toHaveLength(2);
     });
 

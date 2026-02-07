@@ -9,7 +9,7 @@ import { getSearchStoreForInstance } from './SearchStore';
 import type {
   SearchableEntityType,
   SearchOptions,
-  SearchResult,
+  SearchResponse,
   SearchStoreState
 } from './types';
 
@@ -21,8 +21,8 @@ interface UseSearchOptions {
 }
 
 interface UseSearchReturn {
-  /** Execute a search query */
-  search: (query: string, offset?: number) => Promise<SearchResult[]>;
+  /** Execute a search query, returns hits and total count */
+  search: (query: string, offset?: number) => Promise<SearchResponse>;
   /** Whether the search store is initialized */
   isInitialized: boolean;
   /** Whether a full index rebuild is in progress */
@@ -75,8 +75,8 @@ export function useSearch(options?: UseSearchOptions): UseSearchReturn {
 
   // Search function with options baked in
   const search = useCallback(
-    async (query: string, offset = 0): Promise<SearchResult[]> => {
-      if (!store) return [];
+    async (query: string, offset = 0): Promise<SearchResponse> => {
+      if (!store) return { hits: [], count: 0 };
 
       const searchOptions: SearchOptions = {
         limit: options?.limit ?? 50,

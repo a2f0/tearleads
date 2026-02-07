@@ -42,17 +42,7 @@ interface ToolMessage {
 interface AssistantToolCallMessage {
   role: 'assistant';
   content: string | null;
-  tool_calls: OpenRouterToolCall[];
-}
-
-/** Tool call from OpenRouter response */
-interface OpenRouterToolCall {
-  id: string;
-  type: 'function';
-  function: {
-    name: string;
-    arguments: string;
-  };
+  tool_calls: ToolCall[];
 }
 
 type OpenRouterContentPart =
@@ -196,7 +186,7 @@ const listeners = new Set<() => void>();
 
 interface OpenRouterResponse {
   content: string | null;
-  toolCalls: OpenRouterToolCall[] | null;
+  toolCalls: ToolCall[] | null;
 }
 
 function extractOpenRouterResponse(payload: unknown): OpenRouterResponse {
@@ -222,12 +212,12 @@ function extractOpenRouterResponse(payload: unknown): OpenRouterResponse {
 
   // Extract tool calls
   const toolCalls = message['tool_calls'];
-  let parsedToolCalls: OpenRouterToolCall[] | null = null;
+  let parsedToolCalls: ToolCall[] | null = null;
 
   if (Array.isArray(toolCalls) && toolCalls.length > 0) {
     parsedToolCalls = toolCalls
       .filter(
-        (tc): tc is OpenRouterToolCall =>
+        (tc): tc is ToolCall =>
           isRecord(tc) &&
           typeof tc['id'] === 'string' &&
           tc['type'] === 'function' &&
@@ -736,16 +726,7 @@ async function generateInternal(
           conversationMessages = [...conversationMessages, assistantMessage];
 
           // Execute all tool calls
-          const toolCallsForExecution: ToolCall[] = toolCalls.map((tc) => ({
-            id: tc.id,
-            type: 'function' as const,
-            function: {
-              name: tc.function.name,
-              arguments: tc.function.arguments
-            }
-          }));
-
-          const toolResults = await executeTools(toolCallsForExecution);
+          const toolResults = await executeTools(toolCalls);
 
           // Add tool results to conversation
           for (const result of toolResults) {

@@ -45,6 +45,16 @@ export interface SearchResult {
 }
 
 /**
+ * Search response with hits and total count.
+ */
+export interface SearchResponse {
+  /** Array of search results */
+  hits: SearchResult[];
+  /** Total number of matching documents (may be more than hits.length if limited) */
+  count: number;
+}
+
+/**
  * Options for search queries.
  */
 export interface SearchOptions {

@@ -7,6 +7,7 @@ import {
   count,
   create,
   insert,
+  insertMultiple,
   load,
   type Orama,
   type Result,
@@ -25,6 +26,7 @@ import {
 import type {
   SearchableDocument,
   SearchOptions,
+  SearchResponse,
   SearchResult,
   SearchStoreState
 } from './types';
@@ -160,31 +162,38 @@ export class SearchStore {
 
   /**
    * Upsert multiple documents in batch.
-   * More efficient for bulk operations.
+   * More efficient for bulk operations using insertMultiple.
    */
   async upsertBatch(docs: SearchableDocument[]): Promise<void> {
     if (!this.db) {
       throw new Error('Search store not initialized');
     }
 
-    for (const doc of docs) {
-      try {
-        await remove(this.db, doc.id);
-      } catch {
-        // Document didn't exist
-      }
+    const db = this.db;
 
-      const oramaDoc: OramaDocument = {
-        id: doc.id,
-        entityType: doc.entityType,
-        title: doc.title,
-        content: doc.content ?? '',
-        metadata: doc.metadata ?? '',
-        createdAt: doc.createdAt,
-        updatedAt: doc.updatedAt
-      };
+    // Parallelize remove operations
+    await Promise.all(
+      docs.map((doc) =>
+        Promise.resolve(remove(db, doc.id)).catch(() => {
+          /* ignore */
+        })
+      )
+    );
 
-      await insert(this.db, oramaDoc);
+    // Convert to Orama documents
+    const oramaDocs: OramaDocument[] = docs.map((doc) => ({
+      id: doc.id,
+      entityType: doc.entityType,
+      title: doc.title,
+      content: doc.content ?? '',
+      metadata: doc.metadata ?? '',
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt
+    }));
+
+    // Batch insert
+    if (oramaDocs.length > 0) {
+      await insertMultiple(this.db, oramaDocs);
     }
 
     const docCount = await count(this.db);
@@ -215,13 +224,14 @@ export class SearchStore {
 
   /**
    * Search the index.
+   * Returns both hits and total count for accurate pagination/display.
    */
   async search(
     query: string,
     options?: SearchOptions
-  ): Promise<SearchResult[]> {
+  ): Promise<SearchResponse> {
     if (!this.db || !query.trim()) {
-      return [];
+      return { hits: [], count: 0 };
     }
 
     const searchParams: SearchParams<Orama<OramaSchema>> = {
@@ -239,29 +249,35 @@ export class SearchStore {
 
     const results = await search(this.db, searchParams);
 
-    return results.hits.map((hit: Result<OramaDocument>): SearchResult => {
-      const doc: SearchableDocument = {
-        id: hit.document.id,
-        entityType: hit.document.entityType as SearchableDocument['entityType'],
-        title: hit.document.title,
-        createdAt: hit.document.createdAt,
-        updatedAt: hit.document.updatedAt
-      };
+    const hits = results.hits.map(
+      (hit: Result<OramaDocument>): SearchResult => {
+        const doc: SearchableDocument = {
+          id: hit.document.id,
+          entityType: hit.document
+            .entityType as SearchableDocument['entityType'],
+          title: hit.document.title,
+          createdAt: hit.document.createdAt,
+          updatedAt: hit.document.updatedAt
+        };
 
-      if (hit.document.content) {
-        doc.content = hit.document.content;
-      }
-      if (hit.document.metadata) {
-        doc.metadata = hit.document.metadata;
-      }
+        if (hit.document.content) {
+          doc.content = hit.document.content;
+        }
+        if (hit.document.metadata) {
+          doc.metadata = hit.document.metadata;
+        }
 
-      return {
-        id: hit.document.id,
-        entityType: hit.document.entityType as SearchableDocument['entityType'],
-        score: hit.score,
-        document: doc
-      };
-    });
+        return {
+          id: hit.document.id,
+          entityType: hit.document
+            .entityType as SearchableDocument['entityType'],
+          score: hit.score,
+          document: doc
+        };
+      }
+    );
+
+    return { hits, count: results.count };
   }
 
   /**

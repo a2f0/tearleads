@@ -26,9 +26,21 @@ export async function executeTool(toolCall: ToolCall): Promise<ToolResult> {
     let result: unknown;
 
     switch (name) {
-      case 'search_user_data':
-        result = await executeSearchTool(args as SearchToolArgs);
+      case 'search_user_data': {
+        // Validate required 'query' parameter
+        if (
+          typeof args !== 'object' ||
+          args === null ||
+          typeof args.query !== 'string'
+        ) {
+          result = {
+            error: 'Invalid arguments: query is required and must be a string'
+          };
+        } else {
+          result = await executeSearchTool(args as SearchToolArgs);
+        }
         break;
+      }
 
       default:
         result = { error: `Unknown tool: ${name}` };

@@ -42,6 +42,7 @@ export type {
   SearchableDocument,
   SearchableEntityType,
   SearchOptions,
+  SearchResponse,
   SearchResult,
   SearchStoreState,
   StoredSearchIndex
