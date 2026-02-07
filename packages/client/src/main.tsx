@@ -159,6 +159,9 @@ const PhotoDetail = lazy(() =>
 const Photos = lazy(() =>
   import('./pages/Photos').then((m) => ({ default: m.PhotosPage }))
 );
+const Search = lazy(() =>
+  import('./pages/search').then((m) => ({ default: m.Search }))
+);
 const Settings = lazy(() =>
   import('./pages/Settings').then((m) => ({ default: m.Settings }))
 );
@@ -233,6 +236,10 @@ if (rootElement) {
                                     <Routes>
                                       <Route path="/" element={<App />}>
                                         <Route index element={<Home />} />
+                                        <Route
+                                          path="search"
+                                          element={<Search />}
+                                        />
                                         <Route
                                           path="files"
                                           element={<Files />}
