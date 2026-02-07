@@ -29,15 +29,20 @@ vi.mock('./EmailWindowMenuBar', () => ({
   EmailWindowMenuBar: ({
     viewMode,
     onViewModeChange,
-    onRefresh
+    onRefresh,
+    onCompose
   }: {
     viewMode: string;
     onViewModeChange: (mode: 'list' | 'table') => void;
     onRefresh: () => void;
+    onCompose: () => void;
     onClose: () => void;
   }) => (
     <div data-testid="menu-bar">
       <span data-testid="current-view-mode">{viewMode}</span>
+      <button type="button" onClick={onCompose} data-testid="compose">
+        Compose
+      </button>
       <button
         type="button"
         onClick={() => onViewModeChange('table')}
@@ -109,6 +114,17 @@ describe('EmailWindow', () => {
     vi.clearAllMocks();
     global.fetch = vi.fn();
   });
+
+  const renderLoadedWindow = async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ emails: mockEmails })
+    });
+    renderWithProvider();
+    await waitFor(() => {
+      expect(screen.getByText('Test Subject')).toBeInTheDocument();
+    });
+  };
 
   it('renders with loading state initially', async () => {
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
@@ -346,6 +362,31 @@ describe('EmailWindow', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+    });
+  });
+
+  it('opens compose in the right pane', async () => {
+    const user = userEvent.setup();
+    await renderLoadedWindow();
+    expect(screen.queryByTestId('compose-dialog')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('compose'));
+
+    expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
+    expect(screen.getByText('Test Subject')).toBeInTheDocument();
+  });
+
+  it('closes compose pane from close button', async () => {
+    const user = userEvent.setup();
+    await renderLoadedWindow();
+
+    await user.click(screen.getByTestId('compose'));
+    expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('compose-close'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('compose-dialog')).not.toBeInTheDocument();
     });
   });
 });
