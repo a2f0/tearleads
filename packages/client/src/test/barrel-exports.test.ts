@@ -20,16 +20,16 @@ vi.mock('@/components/duration-chart/DurationChart', () => ({
   DurationChart: () => null
 }));
 
-vi.mock('@/components/hud/AnalyticsTab', () => ({
+vi.mock('@/components/notification-center/AnalyticsTab', () => ({
   AnalyticsTab: () => null
 }));
-vi.mock('@/components/hud/HUD', () => ({
-  HUD: () => null
+vi.mock('@/components/notification-center/NotificationCenter', () => ({
+  NotificationCenter: () => null
 }));
-vi.mock('@/components/hud/HUDTrigger', () => ({
-  HUDTrigger: () => null
+vi.mock('@/components/notification-center/NotificationCenterTrigger', () => ({
+  NotificationCenterTrigger: () => null
 }));
-vi.mock('@/components/hud/LogsTab', () => ({
+vi.mock('@/components/notification-center/LogsTab', () => ({
   LogsTab: () => null
 }));
 
@@ -106,7 +106,7 @@ vi.mock('@/pages/opfs/Opfs', () => ({
 
 import * as columnMapper from '@/components/contacts/column-mapper/index';
 import * as durationChart from '@/components/duration-chart/index';
-import * as hud from '@/components/hud/index';
+import * as notificationCenter from '@/components/notification-center/index';
 import * as pdf from '@/components/pdf/index';
 import * as settings from '@/components/settings/index';
 import * as backLink from '@/components/ui/back-link/index';
@@ -139,10 +139,10 @@ describe('barrel exports', () => {
     expect(durationChart.DurationChart).toBeDefined();
     expect(durationChart.formatDuration).toBeDefined();
 
-    expect(hud.AnalyticsTab).toBeDefined();
-    expect(hud.HUD).toBeDefined();
-    expect(hud.HUDTrigger).toBeDefined();
-    expect(hud.LogsTab).toBeDefined();
+    expect(notificationCenter.AnalyticsTab).toBeDefined();
+    expect(notificationCenter.NotificationCenter).toBeDefined();
+    expect(notificationCenter.NotificationCenterTrigger).toBeDefined();
+    expect(notificationCenter.LogsTab).toBeDefined();
 
     expect(pdf.PdfViewer).toBeDefined();
 

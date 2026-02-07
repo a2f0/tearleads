@@ -1,6 +1,6 @@
 export { AnalyticsTab } from './AnalyticsTab';
-export { HUD } from './HUD';
-export { HUDTrigger } from './HUDTrigger';
 export { LogsTab } from './LogsTab';
 export { NotificationBadge } from './NotificationBadge';
+export { NotificationCenter } from './NotificationCenter';
+export { NotificationCenterTrigger } from './NotificationCenterTrigger';
 export { NotificationsTab } from './NotificationsTab';

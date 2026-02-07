@@ -9,17 +9,17 @@ import { clearOriginStorage } from './test-utils';
 type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
 
 /**
- * HUD minimum size constraints.
- * Must stay in sync with MIN_WIDTH/MIN_HEIGHT from @/components/hud/constants
+ * Notification Center minimum size constraints.
+ * Must stay in sync with MIN_WIDTH/MIN_HEIGHT from @/components/notification-center/constants
  */
 const MIN_WIDTH = 280;
 const MIN_HEIGHT = 150;
 
 /**
- * Get the current dimensions and position of the HUD dialog
+ * Get the current dimensions and position of the Notification Center dialog
  */
-async function getHUDDimensions(page: Page) {
-  const dialog = page.getByRole('dialog', { name: "Head's Up Display" });
+async function getNotificationCenterDimensions(page: Page) {
+  const dialog = page.getByRole('dialog', { name: 'Notification Center' });
   const box = await dialog.boundingBox();
   return {
     width: box?.width ?? 0,
@@ -54,7 +54,7 @@ async function simulateDrag(
 }
 
 /**
- * Simulate a corner resize drag on the HUD.
+ * Simulate a corner resize drag on the Notification Center.
  */
 async function dragCorner(
   page: Page,
@@ -63,7 +63,7 @@ async function dragCorner(
   deltaY: number,
   { steps = 10 }: { steps?: number } = {}
 ) {
-  const handle = page.getByTestId(`hud-resize-handle-${corner}`);
+  const handle = page.getByTestId(`notification-center-resize-handle-${corner}`);
   await expect(handle).toBeVisible();
   const box = await handle.boundingBox();
   if (!box) throw new Error(`Resize handle ${corner} not found`);
@@ -75,7 +75,7 @@ async function dragCorner(
 }
 
 /**
- * Simulate a title bar drag to move the HUD.
+ * Simulate a title bar drag to move the Notification Center.
  */
 async function dragTitleBar(
   page: Page,
@@ -83,7 +83,7 @@ async function dragTitleBar(
   deltaY: number,
   { steps = 10 }: { steps?: number } = {}
 ) {
-  const titleBar = page.getByTestId('hud-title-bar');
+  const titleBar = page.getByTestId('notification-center-title-bar');
   await expect(titleBar).toBeVisible();
   const box = await titleBar.boundingBox();
   if (!box) throw new Error('Title bar not found');
@@ -94,41 +94,41 @@ async function dragTitleBar(
   await simulateDrag(page, startX, startY, deltaX, deltaY, { steps });
 }
 
-test.describe('HUD Floating Window', () => {
+test.describe('Notification Center Floating Window', () => {
   test.beforeEach(async ({ page }) => {
     await clearOriginStorage(page);
     await page.goto('/');
     // Set viewport to ensure desktop mode
     await page.setViewportSize({ width: 1280, height: 800 });
-    // Open the HUD by clicking the trigger button
-    await page.getByRole('button', { name: 'Open HUD' }).click();
-    // Wait for the HUD dialog to be visible
+    // Open the Notification Center by clicking the trigger button
+    await page.getByRole('button', { name: 'Open Notification Center' }).click();
+    // Wait for the Notification Center dialog to be visible
     await expect(
-      page.getByRole('dialog', { name: "Head's Up Display" })
+      page.getByRole('dialog', { name: 'Notification Center' })
     ).toBeVisible();
   });
 
-  test('should display the HUD with all 4 resize handles', async ({ page }) => {
+  test('should display the Notification Center with all 4 resize handles', async ({ page }) => {
     // Verify all 4 corner handles are visible
-    await expect(page.getByTestId('hud-resize-handle-top-left')).toBeVisible();
-    await expect(page.getByTestId('hud-resize-handle-top-right')).toBeVisible();
+    await expect(page.getByTestId('notification-center-resize-handle-top-left')).toBeVisible();
+    await expect(page.getByTestId('notification-center-resize-handle-top-right')).toBeVisible();
     await expect(
-      page.getByTestId('hud-resize-handle-bottom-left')
+      page.getByTestId('notification-center-resize-handle-bottom-left')
     ).toBeVisible();
     await expect(
-      page.getByTestId('hud-resize-handle-bottom-right')
+      page.getByTestId('notification-center-resize-handle-bottom-right')
     ).toBeVisible();
   });
 
   test('should increase size when bottom-right corner is dragged outward', async ({
     page
   }) => {
-    const initial = await getHUDDimensions(page);
+    const initial = await getNotificationCenterDimensions(page);
 
     // Drag bottom-right corner outward (positive X and Y)
     await dragCorner(page, 'bottom-right', 100, 100);
 
-    const final = await getHUDDimensions(page);
+    const final = await getNotificationCenterDimensions(page);
 
     // Width and height should increase
     expect(final.width).toBeGreaterThan(initial.width);
@@ -138,12 +138,12 @@ test.describe('HUD Floating Window', () => {
   test('should decrease size when bottom-right corner is dragged inward', async ({
     page
   }) => {
-    const initial = await getHUDDimensions(page);
+    const initial = await getNotificationCenterDimensions(page);
 
     // Drag bottom-right corner inward (negative X and Y)
     await dragCorner(page, 'bottom-right', -50, -50);
 
-    const final = await getHUDDimensions(page);
+    const final = await getNotificationCenterDimensions(page);
 
     // Width and height should decrease (but stay above minimum)
     expect(final.width).toBeLessThan(initial.width);
@@ -153,12 +153,12 @@ test.describe('HUD Floating Window', () => {
   test('should resize and move position when top-left corner is dragged', async ({
     page
   }) => {
-    const initial = await getHUDDimensions(page);
+    const initial = await getNotificationCenterDimensions(page);
 
     // Drag top-left corner outward (negative X and Y = expands and moves)
     await dragCorner(page, 'top-left', -50, -50);
 
-    const final = await getHUDDimensions(page);
+    const final = await getNotificationCenterDimensions(page);
 
     // Width and height should increase
     expect(final.width).toBeGreaterThan(initial.width);
@@ -169,12 +169,12 @@ test.describe('HUD Floating Window', () => {
   });
 
   test('should move when title bar is dragged', async ({ page }) => {
-    const initial = await getHUDDimensions(page);
+    const initial = await getNotificationCenterDimensions(page);
 
     // Drag title bar to move the window
     await dragTitleBar(page, -100, -50);
 
-    const final = await getHUDDimensions(page);
+    const final = await getNotificationCenterDimensions(page);
 
     // Position should change
     expect(final.x).toBeLessThan(initial.x);
@@ -188,7 +188,7 @@ test.describe('HUD Floating Window', () => {
     // Drag bottom-right corner way inward to test minimum size
     await dragCorner(page, 'bottom-right', -500, -500);
 
-    const final = await getHUDDimensions(page);
+    const final = await getNotificationCenterDimensions(page);
 
     // Should not go below minimum constraints
     expect(final.width).toBeGreaterThanOrEqual(MIN_WIDTH);
@@ -196,16 +196,16 @@ test.describe('HUD Floating Window', () => {
   });
 
   test('should close when backdrop is clicked', async ({ page }) => {
-    await page.getByTestId('hud-backdrop').click();
+    await page.getByTestId('notification-center-backdrop').click();
     await expect(
-      page.getByRole('dialog', { name: "Head's Up Display" })
+      page.getByRole('dialog', { name: 'Notification Center' })
     ).toBeHidden();
   });
 
   test('should close when X button is clicked', async ({ page }) => {
-    await page.getByRole('button', { name: 'Close HUD' }).click();
+    await page.getByRole('button', { name: 'Close Notification Center' }).click();
     await expect(
-      page.getByRole('dialog', { name: "Head's Up Display" })
+      page.getByRole('dialog', { name: 'Notification Center' })
     ).toBeHidden();
   });
 });

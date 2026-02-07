@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -47,8 +48,10 @@ vi.mock('./components/audio/MiniPlayer', () => ({
   MiniPlayer: () => <div data-testid="mini-player" />
 }));
 
-vi.mock('./components/hud', () => ({
-  HUDTrigger: () => <div data-testid="hud-trigger" />
+vi.mock('./components/notification-center', () => ({
+  NotificationCenterTrigger: () => (
+    <div data-testid="notification-center-trigger" />
+  )
 }));
 
 vi.mock('./components/MobileMenu', () => ({
@@ -65,6 +68,24 @@ vi.mock('./components/screensaver', () => ({
 
 vi.mock('./components/SettingsButton', () => ({
   SettingsButton: () => <div data-testid="settings-button" />
+}));
+
+vi.mock('./components/SSEConnectionDialog', () => ({
+  SSEConnectionDialog: ({
+    isOpen,
+    onClose
+  }: {
+    isOpen: boolean;
+    onClose: () => void;
+    connectionState: string;
+  }) =>
+    isOpen ? (
+      <div data-testid="sse-connection-dialog">
+        <button type="button" onClick={onClose}>
+          Close
+        </button>
+      </div>
+    ) : null
 }));
 
 vi.mock('./components/Sidebar', () => ({
@@ -133,15 +154,17 @@ describe('App', () => {
     );
   });
 
-  it('renders HUDTrigger outside the header', () => {
+  it('renders NotificationCenterTrigger outside the header', () => {
     mockUseSSEContext.mockReturnValue(null);
 
     renderApp();
 
     const header = screen.getByRole('banner');
-    const hudTrigger = screen.getByTestId('hud-trigger');
-    expect(hudTrigger).toBeInTheDocument();
-    expect(header).not.toContainElement(hudTrigger);
+    const notificationCenterTrigger = screen.getByTestId(
+      'notification-center-trigger'
+    );
+    expect(notificationCenterTrigger).toBeInTheDocument();
+    expect(header).not.toContainElement(notificationCenterTrigger);
   });
 
   it('renders taskbar in the footer', () => {
@@ -163,5 +186,99 @@ describe('App', () => {
     const indicator = screen.getByTestId('connection-indicator');
     expect(indicator).toBeInTheDocument();
     expect(footer).not.toContainElement(indicator);
+  });
+
+  describe('Start menu context menu', () => {
+    it('shows context menu on right-click of start button', () => {
+      mockUseSSEContext.mockReturnValue(null);
+
+      renderApp();
+
+      const startButton = screen.getByTestId('start-button');
+      fireEvent.contextMenu(startButton);
+
+      expect(screen.getByText('Lock Instance')).toBeInTheDocument();
+    });
+
+    it('closes context menu when pressing Escape', () => {
+      mockUseSSEContext.mockReturnValue(null);
+
+      renderApp();
+
+      const startButton = screen.getByTestId('start-button');
+      fireEvent.contextMenu(startButton);
+
+      expect(screen.getByText('Lock Instance')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByText('Lock Instance')).not.toBeInTheDocument();
+    });
+  });
+
+  describe('SSE context menu', () => {
+    beforeEach(() => {
+      mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
+      renderApp();
+    });
+
+    function openContextMenu() {
+      const indicatorContainer = screen.getByTestId(
+        'connection-indicator'
+      ).parentElement;
+      if (indicatorContainer) {
+        fireEvent.contextMenu(indicatorContainer);
+      }
+    }
+
+    it('shows context menu on right-click of connection indicator', () => {
+      openContextMenu();
+
+      expect(screen.getByText('Connection Details')).toBeInTheDocument();
+    });
+
+    it('opens SSE connection dialog when clicking Connection Details', async () => {
+      const user = userEvent.setup();
+
+      openContextMenu();
+
+      await user.click(screen.getByText('Connection Details'));
+
+      expect(screen.getByTestId('sse-connection-dialog')).toBeInTheDocument();
+    });
+
+    it('closes context menu when clicking Connection Details', async () => {
+      const user = userEvent.setup();
+
+      openContextMenu();
+
+      await user.click(screen.getByText('Connection Details'));
+
+      expect(screen.queryByText('Connection Details')).not.toBeInTheDocument();
+    });
+
+    it('closes context menu when pressing Escape', () => {
+      openContextMenu();
+
+      expect(screen.getByText('Connection Details')).toBeInTheDocument();
+
+      fireEvent.keyDown(document, { key: 'Escape' });
+
+      expect(screen.queryByText('Connection Details')).not.toBeInTheDocument();
+    });
+
+    it('closes SSE connection dialog when onClose is called', async () => {
+      const user = userEvent.setup();
+
+      openContextMenu();
+
+      await user.click(screen.getByText('Connection Details'));
+      expect(screen.getByTestId('sse-connection-dialog')).toBeInTheDocument();
+
+      await user.click(screen.getByRole('button', { name: /close/i }));
+      expect(
+        screen.queryByTestId('sse-connection-dialog')
+      ).not.toBeInTheDocument();
+    });
   });
 });

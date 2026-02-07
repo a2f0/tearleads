@@ -26,7 +26,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: 'notifications', label: 'Notifications' }
 ];
 
-interface HUDProps {
+interface NotificationCenterProps {
   isOpen: boolean;
   onClose: () => void;
 }
@@ -64,12 +64,15 @@ function ResizeHandle({ corner, handlers }: ResizeHandleProps) {
       )}
       onMouseDown={handlers.onMouseDown}
       onTouchStart={handlers.onTouchStart}
-      data-testid={`hud-resize-handle-${corner}`}
+      data-testid={`notification-center-resize-handle-${corner}`}
     />
   );
 }
 
-export function HUD({ isOpen, onClose }: HUDProps) {
+export function NotificationCenter({
+  isOpen,
+  onClose
+}: NotificationCenterProps) {
   const [activeTab, setActiveTab] = useState<TabId>('logs');
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== 'undefined' && window.innerWidth >= DESKTOP_BREAKPOINT
@@ -113,7 +116,7 @@ export function HUD({ isOpen, onClose }: HUDProps) {
         className="fixed inset-0 z-40"
         onClick={onClose}
         aria-hidden="true"
-        data-testid="hud-backdrop"
+        data-testid="notification-center-backdrop"
       />
       <div
         className={cn(
@@ -137,7 +140,7 @@ export function HUD({ isOpen, onClose }: HUDProps) {
         }
         role="dialog"
         aria-modal="true"
-        aria-label="Head's Up Display"
+        aria-label="Notification Center"
       >
         {/* Desktop: 4 corner resize handles */}
         {isDesktop && (
@@ -170,16 +173,16 @@ export function HUD({ isOpen, onClose }: HUDProps) {
           )}
           onMouseDown={isDesktop ? dragHandlers.onMouseDown : undefined}
           onTouchStart={isDesktop ? dragHandlers.onTouchStart : undefined}
-          data-testid="hud-title-bar"
+          data-testid="notification-center-title-bar"
         >
           <span className="select-none font-medium text-muted-foreground text-xs">
-            HUD
+            Notification Center
           </span>
           <button
             type="button"
             onClick={onClose}
             className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Close HUD"
+            aria-label="Close Notification Center"
           >
             <X className="h-3.5 w-3.5" />
           </button>

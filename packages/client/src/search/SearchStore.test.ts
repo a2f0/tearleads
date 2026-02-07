@@ -5,9 +5,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   closeSearchStoreForInstance,
+  deleteSearchIndexForInstance,
   getSearchStoreForInstance,
   SearchStore
 } from './SearchStore';
+import { deleteSearchIndexFromStorage } from './searchIndexStorage';
 import type { SearchableDocument } from './types';
 
 // Mock the storage module
@@ -268,6 +270,16 @@ describe('SearchStore', () => {
     });
   });
 
+  describe('deleteStorageForInstance', () => {
+    it('should call deleteSearchIndexFromStorage', async () => {
+      await store.deleteStorageForInstance('some-instance');
+
+      expect(deleteSearchIndexFromStorage).toHaveBeenCalledWith(
+        'some-instance'
+      );
+    });
+  });
+
   describe('rebuildFromDatabase', () => {
     it('should replace all documents', async () => {
       // Add initial documents
@@ -357,5 +369,31 @@ describe('closeSearchStoreForInstance', () => {
     // Getting it again should return a new (uninitialized) instance
     const store2 = getSearchStoreForInstance('close-test');
     expect(store2.getState().isInitialized).toBe(false);
+  });
+});
+
+describe('deleteSearchIndexForInstance', () => {
+  it('should close store and delete storage for existing instance', async () => {
+    const store = getSearchStoreForInstance('delete-test');
+    await store.initialize(new Uint8Array(32), 'delete-test');
+
+    await deleteSearchIndexForInstance('delete-test');
+
+    // Getting it again should return a new (uninitialized) instance
+    const store2 = getSearchStoreForInstance('delete-test');
+    expect(store2.getState().isInitialized).toBe(false);
+
+    // Clean up
+    await closeSearchStoreForInstance('delete-test');
+  });
+
+  it('should delete storage for non-existing instance', async () => {
+    // Call delete on instance that was never created
+    await deleteSearchIndexForInstance('non-existent-instance');
+
+    // Should call deleteSearchIndexFromStorage directly
+    expect(deleteSearchIndexFromStorage).toHaveBeenCalledWith(
+      'non-existent-instance'
+    );
   });
 });
