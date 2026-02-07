@@ -106,33 +106,40 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
                 const label = `${table.schema}.${table.name}`;
                 const tablePath = `/admin/postgres/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}`;
                 return (
-                  <div
-                    key={label}
-                    className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3"
-                  >
+                  <div key={label}>
                     {onTableSelect ? (
                       <button
                         type="button"
                         onClick={() => onTableSelect(table.schema, table.name)}
-                        className="truncate text-left font-mono text-muted-foreground hover:text-foreground hover:underline"
+                        className="group grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded px-2 py-1 text-left hover:bg-accent"
                       >
-                        {label}
+                        <span className="truncate font-mono text-muted-foreground group-hover:text-foreground">
+                          {label}
+                        </span>
+                        <span className="shrink-0 text-right font-mono text-xs">
+                          {formatBytes(table.totalBytes)}
+                        </span>
+                        <span className="shrink-0 text-right font-mono text-xs">
+                          {formatRowCount(table.rowCount)}
+                        </span>
                       </button>
                     ) : (
                       <LinkWithFrom
                         to={tablePath}
                         fromLabel="Back to Postgres"
-                        className="truncate font-mono text-muted-foreground hover:text-foreground hover:underline"
+                        className="group grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded px-2 py-1 hover:bg-accent"
                       >
-                        {label}
+                        <span className="truncate font-mono text-muted-foreground group-hover:text-foreground">
+                          {label}
+                        </span>
+                        <span className="shrink-0 text-right font-mono text-xs">
+                          {formatBytes(table.totalBytes)}
+                        </span>
+                        <span className="shrink-0 text-right font-mono text-xs">
+                          {formatRowCount(table.rowCount)}
+                        </span>
                       </LinkWithFrom>
                     )}
-                    <span className="shrink-0 text-right font-mono text-xs">
-                      {formatBytes(table.totalBytes)}
-                    </span>
-                    <span className="shrink-0 text-right font-mono text-xs">
-                      {formatRowCount(table.rowCount)}
-                    </span>
                   </div>
                 );
               })}
