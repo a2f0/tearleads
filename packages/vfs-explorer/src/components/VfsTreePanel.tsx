@@ -7,10 +7,17 @@ import {
   FolderOpen,
   FolderPlus,
   Layers,
-  Loader2
+  Loader2,
+  Share2,
+  UserCheck
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
+import {
+  ALL_ITEMS_FOLDER_ID,
+  SHARED_BY_ME_FOLDER_ID,
+  SHARED_WITH_ME_FOLDER_ID,
+  UNFILED_FOLDER_ID
+} from '../constants';
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import { useEnsureVfsRoot, useVfsFolders, type VfsFolderNode } from '../hooks';
 import { cn } from '../lib';
@@ -284,6 +291,44 @@ export function VfsTreePanel({
           </button>
         </VfsDroppableFolder>
 
+        {/* Items I've Shared - always shown, not a drop target */}
+        <VfsDroppableFolder folderId={SHARED_BY_ME_FOLDER_ID} disabled>
+          <button
+            type="button"
+            className={cn(
+              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
+              selectedFolderId === SHARED_BY_ME_FOLDER_ID
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent/50'
+            )}
+            style={{ paddingLeft: '8px' }}
+            onClick={() => onFolderSelect(SHARED_BY_ME_FOLDER_ID)}
+          >
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
+            <Share2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+            <span className="truncate">Items I&apos;ve Shared</span>
+          </button>
+        </VfsDroppableFolder>
+
+        {/* Shared With Me - always shown, not a drop target */}
+        <VfsDroppableFolder folderId={SHARED_WITH_ME_FOLDER_ID} disabled>
+          <button
+            type="button"
+            className={cn(
+              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
+              selectedFolderId === SHARED_WITH_ME_FOLDER_ID
+                ? 'bg-accent text-accent-foreground'
+                : 'hover:bg-accent/50'
+            )}
+            style={{ paddingLeft: '8px' }}
+            onClick={() => onFolderSelect(SHARED_WITH_ME_FOLDER_ID)}
+          >
+            <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
+            <UserCheck className="h-4 w-4 shrink-0 text-cyan-600 dark:text-cyan-400" />
+            <span className="truncate">Shared With Me</span>
+          </button>
+        </VfsDroppableFolder>
+
         {loading && (
           <div className="flex items-center justify-center py-4">
             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
@@ -337,7 +382,9 @@ export function VfsTreePanel({
             onPaste &&
             selectedFolderId &&
             selectedFolderId !== UNFILED_FOLDER_ID &&
-            selectedFolderId !== ALL_ITEMS_FOLDER_ID && (
+            selectedFolderId !== ALL_ITEMS_FOLDER_ID &&
+            selectedFolderId !== SHARED_BY_ME_FOLDER_ID &&
+            selectedFolderId !== SHARED_WITH_ME_FOLDER_ID && (
               <>
                 <ContextMenuSeparator />
                 <ContextMenuItem

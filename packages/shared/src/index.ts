@@ -391,9 +391,42 @@ export interface ShareTargetSearchResponse {
   results: ShareTargetSearchResult[];
 }
 
-// =============================================================================
-// MLS (RFC 9420) Encrypted Chat Types
-// =============================================================================
+/**
+ * Item shared by the current user with others (outgoing share).
+ * Includes the item details plus share metadata about who it was shared with.
+ */
+export interface VfsSharedByMeItem {
+  id: string;
+  objectType: VfsObjectType;
+  name: string;
+  createdAt: string;
+  shareId: string;
+  targetId: string;
+  targetName: string;
+  shareType: VfsShareType;
+  permissionLevel: VfsPermissionLevel;
+  sharedAt: string;
+  expiresAt: string | null;
+}
+
+/**
+ * Item shared with the current user by others (incoming share).
+ * Includes the item details plus share metadata about who shared it.
+ */
+export interface VfsSharedWithMeItem {
+  id: string;
+  objectType: VfsObjectType;
+  name: string;
+  createdAt: string;
+  shareId: string;
+  sharedById: string;
+  sharedByEmail: string;
+  shareType: VfsShareType;
+  permissionLevel: VfsPermissionLevel;
+  sharedAt: string;
+  expiresAt: string | null;
+}
+
 // =============================================================================
 // MLS (RFC 9420) Encrypted Chat Types
 // =============================================================================
