@@ -171,7 +171,15 @@ export default defineConfig({
       '@rapid/vfs-explorer/package.json': path.resolve(
         __dirname,
         '../vfs-explorer/package.json'
-      )
+      ),
+      // Alias workspace packages to source for consistent React context resolution
+      // Without this, hooks load from dist/ while providers load from src/,
+      // creating duplicate React context objects that cause "useContext is null" errors
+      '@rapid/mls-chat/package.json': path.resolve(
+        __dirname,
+        '../mls-chat/package.json'
+      ),
+      '@rapid/mls-chat': path.resolve(__dirname, '../mls-chat/src/index.ts')
     }
   }
 });

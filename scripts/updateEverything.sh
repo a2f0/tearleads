@@ -52,6 +52,40 @@ if [ -n "$PINNED_MATCHES" ]; then
   exit 1
 fi
 
+# Check for peerDependency version mismatches in workspace packages.
+# Only checks PINNED peerDependencies (no ^/~ ranges) against client versions.
+# Pinned peer versions must match the client to prevent "useContext is null" errors.
+# Packages can use ranges (^/~) for flexibility - those are allowed to differ.
+CLIENT_PKG="packages/client/package.json"
+PEER_MISMATCHES=""
+for pkg in packages/*/package.json; do
+  [ -f "$pkg" ] || continue
+  [ "$pkg" = "$CLIENT_PKG" ] && continue
+
+  # Get PINNED peerDependencies (no ^/~ and not workspace:*) that are in client's deps
+  PEERS=$(jq -r '.peerDependencies // {} | to_entries[] | select(.value | test("^[\\^~]|^workspace:") | not) | "\(.key)=\(.value)"' "$pkg" 2>/dev/null || true)
+  [ -z "$PEERS" ] && continue
+
+  for peer in $PEERS; do
+    DEP_NAME="${peer%%=*}"
+    PEER_VER="${peer#*=}"
+
+    # Check client's dependencies and devDependencies for the actual version
+    CLIENT_VER=$(jq -r --arg dep "$DEP_NAME" '(.dependencies[$dep] // .devDependencies[$dep]) // empty' "$CLIENT_PKG" 2>/dev/null || true)
+
+    # If client has this dependency and versions don't match, flag it
+    if [ -n "$CLIENT_VER" ] && [ "$PEER_VER" != "$CLIENT_VER" ]; then
+      PEER_MISMATCHES="${PEER_MISMATCHES}${pkg}: ${DEP_NAME} (peer: ${PEER_VER}, client: ${CLIENT_VER})
+"
+    fi
+  done
+done
+if [ -n "$PEER_MISMATCHES" ]; then
+  echo "peerDependency version mismatches detected. Update peerDependencies to match client:" >&2
+  echo "$PEER_MISMATCHES" >&2
+  exit 1
+fi
+
 if [ "${SKIP_LINT:-0}" -ne 1 ]; then
   pnpm lint:fix
   pnpm lint
