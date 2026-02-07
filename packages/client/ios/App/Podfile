@@ -13,7 +13,7 @@ def capacitor_pods
   pod 'CapacitorCordova', :path => '../../../../node_modules/.pnpm/@capacitor+ios@8.0.2_@capacitor+core@8.0.2/node_modules/@capacitor/ios'
   pod 'CapacitorCommunitySqlite', :path => '../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor-community/sqlite'
   pod 'CapacitorApp', :path => '../../../../node_modules/.pnpm/@capacitor+app@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/app'
-  pod 'CapacitorFilesystem', :path => '../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.0_patch_hash=aut6cbkxlnmlqy7q2fq7jcg5ue_@capacitor+core@8.0.2/node_modules/@capacitor/filesystem'
+  pod 'CapacitorFilesystem', :path => '../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.0_@capacitor+core@8.0.2/node_modules/@capacitor/filesystem'
   pod 'CapacitorKeyboard', :path => '../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/keyboard'
   pod 'CapacitorPreferences', :path => '../../../../node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/preferences'
   pod 'CapacitorShare', :path => '../../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/share'
@@ -28,15 +28,4 @@ end
 
 post_install do |installer|
   assertDeploymentTarget(installer)
-
-  installer.pods_project.targets.each do |target|
-    next unless ['CapacitorFilesystem', 'IONFilesystemLib'].include?(target.name)
-
-    target.build_configurations.each do |config|
-      # Ensure the compiler loads the text-based interface for IONFilesystemLib.
-      config.build_settings['SWIFT_FORCE_LOAD_TEXT_BASED_INTERFACE_FILES'] = 'YES'
-      # Align Swift version with the binary framework metadata.
-      config.build_settings['SWIFT_VERSION'] = '5.9'
-    end
-  end
 end

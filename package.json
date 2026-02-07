@@ -56,9 +56,6 @@
     "overrides": {
       "@esbuild-kit/core-utils>esbuild": ">=0.25.0",
       "pg": "8.18.0"
-    },
-    "patchedDependencies": {
-      "@capacitor/filesystem@8.1.0": "patches/@capacitor__filesystem@8.1.0.patch"
     }
   }
 }

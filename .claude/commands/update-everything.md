@@ -14,6 +14,7 @@ Update all of the dependencies in the `packages` folder and:
 - Make sure all dependencies are pinned.
 - Provide a summary of any warnings / deprecations.
 - Make sure Capacitor's Podfile.lock is sync'd (`cap:sync` should pass).
+- Clean and reinstall CocoaPods to ensure fresh native dependencies (see CocoaPods section below).
 - Update Ruby dependencies in `packages/client` (Gemfile and Gemfile.lock).
 - Update the Gradle wrapper if a new version is available (see Gradle Version Update section below).
 - Make sure Maestro tests pass (both iOS and Android).
@@ -28,7 +29,31 @@ Use the shared update script:
 ./scripts/updateEverything.sh
 ```
 
-Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+
+## CocoaPods Clean Install
+
+When Capacitor plugins update their native iOS dependencies (e.g., xcframeworks like `IONFilesystemLib`), stale CocoaPods caches can cause build failures even when the upstream library is correctly packaged. Symptoms include:
+
+- Swift compiler errors about missing methods that should exist
+- "No such module" errors for vendored frameworks
+- Build failures that don't reproduce on clean machines
+
+The update script performs a clean pod install:
+
+```bash
+cd packages/client/ios/App
+rm -rf Pods Podfile.lock
+pod install --repo-update
+```
+
+This ensures:
+
+1. Fresh pod specs from the CocoaPods trunk repo (`--repo-update`)
+2. No stale cached frameworks or build artifacts
+3. Proper resolution of xcframework Swift interface files
+
+Skip with `SKIP_POD_CLEAN=1` if you need to preserve local pod modifications.
 
 ## Node.js Version Alignment
 
