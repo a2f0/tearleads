@@ -109,10 +109,17 @@ export function AudioWindow({
 
   // Handler for dropping files onto a specific playlist in the sidebar
   const handleDropToPlaylist = useCallback(
-    async (playlistId: string, files: File[]) => {
+    async (playlistId: string, files: File[], audioIds?: string[]) => {
+      if (audioIds && audioIds.length > 0) {
+        await Promise.all(
+          audioIds.map((audioId) => addTrackToPlaylist(playlistId, audioId))
+        );
+        setRefreshToken((value) => value + 1);
+        return;
+      }
       await handleUploadFilesToPlaylist(files, playlistId);
     },
-    [handleUploadFilesToPlaylist]
+    [addTrackToPlaylist, handleUploadFilesToPlaylist]
   );
 
   // Wrapper for existing upload patterns (no playlist override)

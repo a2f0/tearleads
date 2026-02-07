@@ -14,6 +14,7 @@ import {
   type AudioWithUrl,
   useAudioUIContext
 } from '../../context/AudioUIContext';
+import { setMediaDragData } from '../../lib/mediaDragData';
 import { ALL_AUDIO_ID } from './AudioPlaylistsSidebar';
 
 type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
@@ -461,6 +462,10 @@ export function AudioWindowTableView({
                             : undefined
                         }
                         onContextMenu={(e) => handleContextMenu(e, track)}
+                        draggable
+                        onDragStart={(event) =>
+                          setMediaDragData(event, 'audio', [track.id])
+                        }
                         data-testid={`window-audio-table-track-${track.id}`}
                       >
                         <td className="px-2 py-1.5">
