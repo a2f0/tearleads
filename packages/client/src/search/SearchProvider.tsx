@@ -3,8 +3,14 @@
  * Handles initialization on unlock and cleanup on lock/instance switch.
  */
 
-import { contacts, files, notes } from '@rapid/db/sqlite';
-import { eq } from 'drizzle-orm';
+import {
+  contactEmails,
+  contactPhones,
+  contacts,
+  files,
+  notes
+} from '@rapid/db/sqlite';
+import { eq, inArray } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -58,14 +64,53 @@ async function fetchAllDocuments(): Promise<SearchableDocument[]> {
     .from(contacts)
     .where(eq(contacts.deleted, false));
 
+  const contactIds = contactRows.map((c) => c.id);
+
+  // Fetch emails and phones for all contacts in parallel
+  const [emailRows, phoneRows] =
+    contactIds.length > 0
+      ? await Promise.all([
+          db
+            .select()
+            .from(contactEmails)
+            .where(inArray(contactEmails.contactId, contactIds)),
+          db
+            .select()
+            .from(contactPhones)
+            .where(inArray(contactPhones.contactId, contactIds))
+        ])
+      : [[], []];
+
+  // Group emails by contact ID
+  const emailsByContact = emailRows.reduce<Record<string, string[]>>(
+    (acc, row) => {
+      const existing = acc[row.contactId] ?? [];
+      existing.push(row.email);
+      acc[row.contactId] = existing;
+      return acc;
+    },
+    {}
+  );
+
+  // Group phones by contact ID
+  const phonesByContact = phoneRows.reduce<Record<string, string[]>>(
+    (acc, row) => {
+      const existing = acc[row.contactId] ?? [];
+      existing.push(row.phoneNumber);
+      acc[row.contactId] = existing;
+      return acc;
+    },
+    {}
+  );
+
   for (const contact of contactRows) {
     docs.push(
       createContactDocument(
         contact.id,
         contact.firstName,
         contact.lastName,
-        null, // email - would need join with contactEmails
-        null, // phone - would need join with contactPhones
+        emailsByContact[contact.id]?.join(' ') ?? null,
+        phonesByContact[contact.id]?.join(' ') ?? null,
         contact.createdAt.getTime(),
         contact.updatedAt.getTime()
       )

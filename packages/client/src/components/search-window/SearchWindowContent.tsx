@@ -123,13 +123,6 @@ export function SearchWindowContent() {
     };
   }, [query, performSearch]);
 
-  // Re-search when filter changes (performSearch identity changes with filter)
-  useEffect(() => {
-    if (query.trim()) {
-      performSearch(query);
-    }
-  }, [query, performSearch]);
-
   const handleResultClick = (result: SearchResult) => {
     const route = ENTITY_TYPE_ROUTES[result.entityType](result.id);
     navigate(route);
