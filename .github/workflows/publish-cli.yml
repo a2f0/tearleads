@@ -68,8 +68,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
-          registry-url: 'https://registry.npmjs.org'
-        # Note: Do NOT set NODE_AUTH_TOKEN for trusted publishing
+        # Note: NOT using registry-url to avoid creating .npmrc with token reference
 
       - name: Install dependencies
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
@@ -82,8 +81,9 @@ jobs:
       - name: Publish to npm with provenance
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
         run: |
-          # Clear any auth token to force OIDC-only authentication
-          npm config delete //registry.npmjs.org/:_authToken || true
+          # Create clean npmrc with just the registry (no auth token references)
+          echo "registry=https://registry.npmjs.org/" > ~/.npmrc
+          # Publish using OIDC trusted publishing (no token needed)
           npm publish --provenance --access public
         working-directory: packages/cli
 
