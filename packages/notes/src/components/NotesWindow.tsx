@@ -152,7 +152,7 @@ export function NotesWindow({
           onNewNote={handleNewNote}
           onClose={onClose}
         />
-        <div className="flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {selectedNoteId ? (
             <NotesWindowDetail
               noteId={selectedNoteId}
