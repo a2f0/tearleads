@@ -68,10 +68,8 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
-
-      - name: Configure npm registry (no token for OIDC)
-        if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
-        run: npm config set registry https://registry.npmjs.org/
+          registry-url: 'https://registry.npmjs.org'
+        # Note: Do NOT set NODE_AUTH_TOKEN for trusted publishing
 
       - name: Install dependencies
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
