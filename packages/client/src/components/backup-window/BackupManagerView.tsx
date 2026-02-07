@@ -372,6 +372,7 @@ export function BackupManagerView() {
                   </label>
                   <Input
                     id="backup-password"
+                    data-testid="backup-password-input"
                     type="password"
                     autoComplete="new-password"
                     value={password}
@@ -389,6 +390,7 @@ export function BackupManagerView() {
                   </label>
                   <Input
                     id="confirm-password"
+                    data-testid="backup-confirm-password-input"
                     type="password"
                     autoComplete="new-password"
                     value={confirmPassword}
@@ -403,6 +405,7 @@ export function BackupManagerView() {
                 <label className="flex items-center gap-2">
                   <input
                     type="checkbox"
+                    data-testid="backup-include-blobs"
                     checked={includeBlobs}
                     onChange={(e) => setIncludeBlobs(e.target.checked)}
                     disabled={isCreating}
@@ -421,6 +424,7 @@ export function BackupManagerView() {
                 <Button
                   type="submit"
                   size="sm"
+                  data-testid="backup-create-button"
                   disabled={!password || !confirmPassword}
                 >
                   Create Backup
@@ -454,13 +458,19 @@ export function BackupManagerView() {
           )}
 
           {createSuccess && (
-            <div className="rounded border border-green-500/30 bg-green-500/10 p-2 text-green-400 text-xs">
+            <div
+              data-testid="backup-success"
+              className="rounded border border-green-500/30 bg-green-500/10 p-2 text-green-400 text-xs"
+            >
               {createSuccess}
             </div>
           )}
 
           {createError && (
-            <div className="rounded border border-red-500/30 bg-red-500/10 p-2 text-red-400 text-xs">
+            <div
+              data-testid="backup-error"
+              className="rounded border border-red-500/30 bg-red-500/10 p-2 text-red-400 text-xs"
+            >
               {createError}
             </div>
           )}
