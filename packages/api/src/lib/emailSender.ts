@@ -106,7 +106,8 @@ export async function verifySmtpConnection(): Promise<boolean> {
     const transport = getEmailTransporter();
     await transport.verify();
     return true;
-  } catch {
+  } catch (error) {
+    console.error('Failed to verify SMTP connection:', error);
     return false;
   }
 }

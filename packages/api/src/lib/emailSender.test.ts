@@ -150,6 +150,7 @@ describe('emailSender', () => {
     });
 
     it('returns false when connection fails', async () => {
+      mockConsoleError();
       mockVerify.mockRejectedValue(new Error('Connection failed'));
 
       const result = await verifySmtpConnection();
