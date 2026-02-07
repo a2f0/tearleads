@@ -56,6 +56,20 @@ vi.mock('../hooks', () => ({
     error: null,
     hasFetched: true,
     refetch: vi.fn()
+  })),
+  useVfsSharedByMe: vi.fn(() => ({
+    items: [],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    refetch: vi.fn()
+  })),
+  useVfsSharedWithMe: vi.fn(() => ({
+    items: [],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    refetch: vi.fn()
   }))
 }));
 

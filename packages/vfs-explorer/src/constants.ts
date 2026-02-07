@@ -19,3 +19,15 @@ export const UNFILED_FOLDER_ID = '__unfiled__';
  * This is a UI-only concept and does not exist in the database.
  */
 export const ALL_ITEMS_FOLDER_ID = '__all__';
+
+/**
+ * Virtual folder ID for viewing items the current user has shared with others.
+ * This is a UI-only concept and does not exist in the database.
+ */
+export const SHARED_BY_ME_FOLDER_ID = '__shared_by_me__';
+
+/**
+ * Virtual folder ID for viewing items shared with the current user.
+ * This is a UI-only concept and does not exist in the database.
+ */
+export const SHARED_WITH_ME_FOLDER_ID = '__shared_with_me__';

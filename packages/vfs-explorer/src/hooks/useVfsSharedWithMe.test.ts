@@ -1,0 +1,329 @@
+import { act, renderHook, waitFor } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+  createMockDatabase,
+  createMockDatabaseState,
+  createWrapper
+} from '../test/testUtils';
+import { useVfsSharedWithMe } from './useVfsSharedWithMe';
+
+describe('useVfsSharedWithMe', () => {
+  let mockDb: ReturnType<typeof createMockDatabase>;
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockDb = createMockDatabase();
+  });
+
+  it('returns empty items when not unlocked', () => {
+    const wrapper = createWrapper({
+      databaseState: { isUnlocked: false, currentInstanceId: null }
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    expect(result.current.items).toEqual([]);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('returns empty items when not enabled', () => {
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(
+      () => useVfsSharedWithMe({ enabled: false }),
+      {
+        wrapper
+      }
+    );
+
+    expect(result.current.items).toEqual([]);
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('returns error when not logged in', async () => {
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb,
+      auth: {
+        readStoredAuth: vi.fn(() => ({ user: null }))
+      }
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Not logged in');
+    });
+  });
+
+  it('fetches shared items when unlocked and logged in', async () => {
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'item-1',
+        objectType: 'folder',
+        name: 'Shared Folder',
+        createdAt: new Date(),
+        shareId: 'share-1',
+        sharedById: 'user-1',
+        sharedByEmail: 'user1@example.com',
+        shareType: 'user',
+        permissionLevel: 'view',
+        sharedAt: new Date(),
+        expiresAt: null
+      },
+      {
+        id: 'item-2',
+        objectType: 'note',
+        name: 'Shared Note',
+        createdAt: new Date(),
+        shareId: 'share-2',
+        sharedById: 'user-2',
+        sharedByEmail: 'user2@example.com',
+        shareType: 'user',
+        permissionLevel: 'edit',
+        sharedAt: new Date(),
+        expiresAt: new Date('2025-12-31')
+      }
+    ]);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.items[0]?.name).toBe('Shared Folder');
+    expect(result.current.items[0]?.sharedByEmail).toBe('user1@example.com');
+    expect(result.current.items[1]?.name).toBe('Shared Note');
+    expect(result.current.items[1]?.permissionLevel).toBe('edit');
+  });
+
+  it('returns empty items when nothing is shared with user', async () => {
+    mockDb.orderBy.mockResolvedValueOnce([]);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.items).toEqual([]);
+  });
+
+  it('handles fetch errors', async () => {
+    mockDb.orderBy.mockRejectedValueOnce(new Error('Database error'));
+
+    const consoleErrorSpy = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('Database error');
+    });
+
+    expect(result.current.items).toEqual([]);
+    expect(consoleErrorSpy).toHaveBeenCalledWith(
+      'Failed to fetch VFS shared with me items:',
+      expect.any(Error)
+    );
+
+    consoleErrorSpy.mockRestore();
+  });
+
+  it('returns refetch function', () => {
+    const wrapper = createWrapper({
+      databaseState: { isUnlocked: false, currentInstanceId: null }
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    expect(typeof result.current.refetch).toBe('function');
+  });
+
+  it('refetch function works', async () => {
+    mockDb.orderBy.mockResolvedValueOnce([]);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    mockDb.orderBy.mockResolvedValueOnce([]);
+
+    await act(async () => {
+      await result.current.refetch();
+    });
+
+    expect(result.current.loading).toBe(false);
+  });
+
+  it('handles non-Error exceptions', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    mockDb.orderBy.mockRejectedValueOnce('String error');
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.error).toBe('String error');
+    });
+
+    consoleError.mockRestore();
+  });
+
+  it('converts date strings to Date objects', async () => {
+    const createdAtStr = '2024-01-15T10:00:00.000Z';
+    const sharedAtStr = '2024-01-20T10:00:00.000Z';
+    const expiresAtStr = '2025-12-31T23:59:59.000Z';
+
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'item-1',
+        objectType: 'folder',
+        name: 'Shared Folder',
+        createdAt: createdAtStr,
+        shareId: 'share-1',
+        sharedById: 'user-1',
+        sharedByEmail: 'user1@example.com',
+        shareType: 'user',
+        permissionLevel: 'view',
+        sharedAt: sharedAtStr,
+        expiresAt: expiresAtStr
+      }
+    ]);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.items[0]?.createdAt).toBeInstanceOf(Date);
+    expect(result.current.items[0]?.sharedAt).toBeInstanceOf(Date);
+    expect(result.current.items[0]?.expiresAt).toBeInstanceOf(Date);
+  });
+
+  it('handles null expiresAt', async () => {
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'item-1',
+        objectType: 'folder',
+        name: 'Shared Folder',
+        createdAt: new Date(),
+        shareId: 'share-1',
+        sharedById: 'user-1',
+        sharedByEmail: 'user1@example.com',
+        shareType: 'user',
+        permissionLevel: 'view',
+        sharedAt: new Date(),
+        expiresAt: null
+      }
+    ]);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.items[0]?.expiresAt).toBeNull();
+  });
+
+  it('includes sharedById and sharedByEmail fields', async () => {
+    mockDb.orderBy.mockResolvedValueOnce([
+      {
+        id: 'item-1',
+        objectType: 'note',
+        name: 'Shared Document',
+        createdAt: new Date(),
+        shareId: 'share-1',
+        sharedById: 'user-abc-123',
+        sharedByEmail: 'sharer@example.com',
+        shareType: 'user',
+        permissionLevel: 'view',
+        sharedAt: new Date(),
+        expiresAt: null
+      }
+    ]);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsSharedWithMe(), {
+      wrapper
+    });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.items[0]?.sharedById).toBe('user-abc-123');
+    expect(result.current.items[0]?.sharedByEmail).toBe('sharer@example.com');
+  });
+});

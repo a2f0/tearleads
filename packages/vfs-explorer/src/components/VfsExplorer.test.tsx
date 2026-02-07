@@ -87,12 +87,30 @@ const mockEnsureVfsRoot = {
   ensureRoot: vi.fn()
 };
 
+const mockSharedByMe = {
+  items: [],
+  loading: false,
+  error: null,
+  hasFetched: true,
+  refetch: vi.fn()
+};
+
+const mockSharedWithMe = {
+  items: [],
+  loading: false,
+  error: null,
+  hasFetched: true,
+  refetch: vi.fn()
+};
+
 // Mock the hooks
 vi.mock('../hooks', () => ({
   useVfsFolders: vi.fn(),
   useVfsFolderContents: vi.fn(),
   useVfsUnfiledItems: vi.fn(() => mockUnfiledItems),
   useVfsAllItems: vi.fn(() => mockAllItems),
+  useVfsSharedByMe: vi.fn(() => mockSharedByMe),
+  useVfsSharedWithMe: vi.fn(() => mockSharedWithMe),
   useMoveVfsItem: vi.fn(() => mockMoveVfsItem),
   useCopyVfsItem: vi.fn(() => mockCopyVfsItem),
   useEnsureVfsRoot: vi.fn(() => mockEnsureVfsRoot)

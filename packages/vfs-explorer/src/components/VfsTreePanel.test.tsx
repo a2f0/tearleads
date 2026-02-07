@@ -92,7 +92,7 @@ const mockFolders = [
   },
   {
     id: 'root-2',
-    name: 'Shared With Me',
+    name: 'Team Files',
     parentId: null,
     childCount: 0
   }
@@ -125,7 +125,7 @@ describe('VfsTreePanel', () => {
   it('renders folders from hook', () => {
     render(<VfsTreePanel {...defaultProps} />);
     expect(screen.getByText('My Documents')).toBeInTheDocument();
-    expect(screen.getByText('Shared With Me')).toBeInTheDocument();
+    expect(screen.getByText('Team Files')).toBeInTheDocument();
   });
 
   it('shows loading state', () => {

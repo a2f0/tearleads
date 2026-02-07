@@ -7,14 +7,23 @@ import {
   Folder,
   Layers,
   Loader2,
-  Upload
+  Share2,
+  Upload,
+  UserCheck
 } from 'lucide-react';
 import { type MouseEvent, useCallback, useEffect, useState } from 'react';
-import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
+import {
+  ALL_ITEMS_FOLDER_ID,
+  SHARED_BY_ME_FOLDER_ID,
+  SHARED_WITH_ME_FOLDER_ID,
+  UNFILED_FOLDER_ID
+} from '../constants';
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import {
   useVfsAllItems,
   useVfsFolderContents,
+  useVfsSharedByMe,
+  useVfsSharedWithMe,
   useVfsUnfiledItems,
   type VfsItem,
   type VfsObjectType
@@ -95,6 +104,8 @@ export function VfsDetailsPanel({
   // Treat null folderId as unfiled (default view)
   const isUnfiled = folderId === UNFILED_FOLDER_ID || folderId === null;
   const isAllItems = folderId === ALL_ITEMS_FOLDER_ID;
+  const isSharedByMe = folderId === SHARED_BY_ME_FOLDER_ID;
+  const isSharedWithMe = folderId === SHARED_WITH_ME_FOLDER_ID;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
@@ -147,18 +158,29 @@ export function VfsDetailsPanel({
   const handleEmptySpaceContextMenu = useCallback(
     (e: MouseEvent) => {
       e.preventDefault();
-      // Show context menu for real folders (not unfiled or all items)
+      // Show context menu for real folders (not virtual folders)
       // when upload or paste actions are available
       if (
         !isUnfiled &&
         !isAllItems &&
+        !isSharedByMe &&
+        !isSharedWithMe &&
         folderId &&
         (onUpload || (onPaste && hasItems))
       ) {
         setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
       }
     },
-    [isUnfiled, isAllItems, folderId, onUpload, onPaste, hasItems]
+    [
+      isUnfiled,
+      isAllItems,
+      isSharedByMe,
+      isSharedWithMe,
+      folderId,
+      onUpload,
+      onPaste,
+      hasItems
+    ]
   );
 
   const handleContextMenu = useCallback(
@@ -236,18 +258,26 @@ export function VfsDetailsPanel({
   };
 
   // Use the appropriate hook based on selection
+  const isVirtualFolder =
+    isUnfiled || isAllItems || isSharedByMe || isSharedWithMe;
   const folderContents = useVfsFolderContents(
-    isUnfiled || isAllItems ? null : folderId,
+    isVirtualFolder ? null : folderId,
     sort
   );
   const unfiledItems = useVfsUnfiledItems(sort);
   const allItems = useVfsAllItems({ enabled: isAllItems, sort });
+  const sharedByMe = useVfsSharedByMe({ enabled: isSharedByMe, sort });
+  const sharedWithMe = useVfsSharedWithMe({ enabled: isSharedWithMe, sort });
 
   // Refetch when refreshToken changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: refetch functions are stable, including full objects causes infinite loops
   useEffect(() => {
     if (refreshToken !== undefined && refreshToken > 0) {
-      if (isAllItems) {
+      if (isSharedByMe) {
+        sharedByMe.refetch();
+      } else if (isSharedWithMe) {
+        sharedWithMe.refetch();
+      } else if (isAllItems) {
         allItems.refetch();
       } else if (isUnfiled) {
         unfiledItems.refetch();
@@ -258,11 +288,15 @@ export function VfsDetailsPanel({
   }, [refreshToken]);
 
   // Select the appropriate data source
-  const { items, loading, error } = isAllItems
-    ? allItems
-    : isUnfiled
-      ? unfiledItems
-      : folderContents;
+  const { items, loading, error } = isSharedByMe
+    ? sharedByMe
+    : isSharedWithMe
+      ? sharedWithMe
+      : isAllItems
+        ? allItems
+        : isUnfiled
+          ? unfiledItems
+          : folderContents;
 
   // Report items to parent for status bar
   useEffect(() => {
@@ -296,7 +330,23 @@ export function VfsDetailsPanel({
           onContextMenu={handleEmptySpaceContextMenu}
         >
           <div className="text-center">
-            {isAllItems ? (
+            {isSharedByMe ? (
+              <>
+                <Share2 className="mx-auto h-12 w-12 opacity-50" />
+                <p className="mt-2 text-sm">No items shared</p>
+                <p className="mt-1 text-xs">
+                  Items you share with others will appear here
+                </p>
+              </>
+            ) : isSharedWithMe ? (
+              <>
+                <UserCheck className="mx-auto h-12 w-12 opacity-50" />
+                <p className="mt-2 text-sm">No shared items</p>
+                <p className="mt-1 text-xs">
+                  Items shared with you will appear here
+                </p>
+              </>
+            ) : isAllItems ? (
               <>
                 <Layers className="mx-auto h-12 w-12 opacity-50" />
                 <p className="mt-2 text-sm">No items in registry</p>
@@ -463,7 +513,9 @@ export function VfsDetailsPanel({
           onOpen={handleContextMenuOpen}
           onDownload={handleContextMenuDownload}
           onShare={handleContextMenuShare}
-          hiddenItems={isAllItems ? ['cut'] : undefined}
+          hiddenItems={
+            isAllItems || isSharedByMe || isSharedWithMe ? ['cut'] : undefined
+          }
         />
       )}
       {renderEmptySpaceContextMenu()}
