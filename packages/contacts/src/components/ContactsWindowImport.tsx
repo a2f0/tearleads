@@ -90,7 +90,7 @@ export function ContactsWindowImport({
   }, []);
 
   return (
-    <div className="flex h-full flex-col space-y-3 p-3">
+    <div className="flex flex-col space-y-3 p-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Upload className="h-5 w-5 text-muted-foreground" />
