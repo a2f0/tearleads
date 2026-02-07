@@ -81,13 +81,12 @@ jobs:
       - name: Publish to npm with provenance
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
         run: |
-          # Remove authToken line from npmrc (keep registry setting)
-          sed -i '/_authToken/d' ~/.npmrc || true
-          # Unset NODE_AUTH_TOKEN to force OIDC
-          unset NODE_AUTH_TOKEN
+          # Remove authToken line from npmrc created by setup-node
+          NPMRC="${NPM_CONFIG_USERCONFIG:-$HOME/.npmrc}"
+          sed -i '/_authToken/d' "$NPMRC" || true
           # Debug
-          echo "npmrc contents:"
-          cat ~/.npmrc
+          echo "npmrc at $NPMRC:"
+          cat "$NPMRC" || echo "(empty)"
           # Publish with provenance (OIDC auth)
           npm publish --provenance --access public
         working-directory: packages/cli
