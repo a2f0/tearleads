@@ -217,33 +217,30 @@ describe('App', () => {
   });
 
   describe('SSE context menu', () => {
-    it('shows context menu on right-click of connection indicator', () => {
+    beforeEach(() => {
       mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
-
       renderApp();
+    });
 
+    function openContextMenu() {
       const indicatorContainer = screen.getByTestId(
         'connection-indicator'
       ).parentElement;
       if (indicatorContainer) {
         fireEvent.contextMenu(indicatorContainer);
       }
+    }
+
+    it('shows context menu on right-click of connection indicator', () => {
+      openContextMenu();
 
       expect(screen.getByText('Connection Details')).toBeInTheDocument();
     });
 
     it('opens SSE connection dialog when clicking Connection Details', async () => {
       const user = userEvent.setup();
-      mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
 
-      renderApp();
-
-      const indicatorContainer = screen.getByTestId(
-        'connection-indicator'
-      ).parentElement;
-      if (indicatorContainer) {
-        fireEvent.contextMenu(indicatorContainer);
-      }
+      openContextMenu();
 
       await user.click(screen.getByText('Connection Details'));
 
@@ -252,16 +249,8 @@ describe('App', () => {
 
     it('closes context menu when clicking Connection Details', async () => {
       const user = userEvent.setup();
-      mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
 
-      renderApp();
-
-      const indicatorContainer = screen.getByTestId(
-        'connection-indicator'
-      ).parentElement;
-      if (indicatorContainer) {
-        fireEvent.contextMenu(indicatorContainer);
-      }
+      openContextMenu();
 
       await user.click(screen.getByText('Connection Details'));
 
@@ -269,16 +258,7 @@ describe('App', () => {
     });
 
     it('closes context menu when pressing Escape', () => {
-      mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
-
-      renderApp();
-
-      const indicatorContainer = screen.getByTestId(
-        'connection-indicator'
-      ).parentElement;
-      if (indicatorContainer) {
-        fireEvent.contextMenu(indicatorContainer);
-      }
+      openContextMenu();
 
       expect(screen.getByText('Connection Details')).toBeInTheDocument();
 
@@ -289,16 +269,8 @@ describe('App', () => {
 
     it('closes SSE connection dialog when onClose is called', async () => {
       const user = userEvent.setup();
-      mockUseSSEContext.mockReturnValue({ connectionState: 'connected' });
 
-      renderApp();
-
-      const indicatorContainer = screen.getByTestId(
-        'connection-indicator'
-      ).parentElement;
-      if (indicatorContainer) {
-        fireEvent.contextMenu(indicatorContainer);
-      }
+      openContextMenu();
 
       await user.click(screen.getByText('Connection Details'));
       expect(screen.getByTestId('sse-connection-dialog')).toBeInTheDocument();

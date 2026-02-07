@@ -31,37 +31,19 @@ describe('SSEConnectionDialog', () => {
     expect(screen.getByText('Connection Details')).toBeInTheDocument();
   });
 
-  it('displays connected state correctly', () => {
+  it.each([
+    ['connected', 'Connected'],
+    ['connecting', 'Connecting...'],
+    ['disconnected', 'Disconnected']
+  ] as const)('displays %s state correctly', (connectionState, expectedText) => {
     render(
       <SSEConnectionDialog
         isOpen={true}
         onClose={() => {}}
-        connectionState="connected"
+        connectionState={connectionState}
       />
     );
-    expect(screen.getByText('Connected')).toBeInTheDocument();
-  });
-
-  it('displays connecting state correctly', () => {
-    render(
-      <SSEConnectionDialog
-        isOpen={true}
-        onClose={() => {}}
-        connectionState="connecting"
-      />
-    );
-    expect(screen.getByText('Connecting...')).toBeInTheDocument();
-  });
-
-  it('displays disconnected state correctly', () => {
-    render(
-      <SSEConnectionDialog
-        isOpen={true}
-        onClose={() => {}}
-        connectionState="disconnected"
-      />
-    );
-    expect(screen.getByText('Disconnected')).toBeInTheDocument();
+    expect(screen.getByText(expectedText)).toBeInTheDocument();
   });
 
   it('displays server URL', () => {

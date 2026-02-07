@@ -115,6 +115,10 @@ function App() {
     setSseContextMenu(null);
   }, []);
 
+  const handleCloseSseDialog = useCallback(() => {
+    setIsSseDialogOpen(false);
+  }, []);
+
   return (
     <div
       className="safe-area-inset flex h-dvh max-h-dvh flex-col bg-background"
@@ -231,7 +235,7 @@ function App() {
       {sse && (
         <SSEConnectionDialog
           isOpen={isSseDialogOpen}
-          onClose={() => setIsSseDialogOpen(false)}
+          onClose={handleCloseSseDialog}
           connectionState={sse.connectionState}
         />
       )}
