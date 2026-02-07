@@ -397,7 +397,7 @@ export interface ShareTargetSearchResponse {
  */
 export interface VfsSharedByMeItem {
   id: string;
-  objectType: string;
+  objectType: VfsObjectType;
   name: string;
   createdAt: string;
   shareId: string;
@@ -415,7 +415,7 @@ export interface VfsSharedByMeItem {
  */
 export interface VfsSharedWithMeItem {
   id: string;
-  objectType: string;
+  objectType: VfsObjectType;
   name: string;
   createdAt: string;
   shareId: string;

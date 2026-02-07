@@ -9,6 +9,17 @@ import { useVfsExplorerContext } from '../context';
 import { querySharedWithMe } from '../lib/vfsSharesQuery';
 import type { VfsObjectType, VfsSortState } from '../lib/vfsTypes';
 
+/** Convert a string or Date to a Date object. */
+function toDate(value: string | Date): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
+/** Convert a nullable string or Date to a nullable Date object. */
+function toNullableDate(value: string | Date | null): Date | null {
+  if (!value) return null;
+  return value instanceof Date ? value : new Date(value);
+}
+
 export interface VfsSharedWithMeItem {
   id: string;
   objectType: VfsObjectType;
@@ -71,22 +82,14 @@ export function useVfsSharedWithMe(
         id: row.id,
         objectType: row.objectType as VfsObjectType,
         name: row.name,
-        createdAt:
-          row.createdAt instanceof Date
-            ? row.createdAt
-            : new Date(row.createdAt),
+        createdAt: toDate(row.createdAt),
         shareId: row.shareId,
         sharedById: row.sharedById,
         sharedByEmail: row.sharedByEmail,
         shareType: row.shareType as VfsShareType,
         permissionLevel: row.permissionLevel as VfsPermissionLevel,
-        sharedAt:
-          row.sharedAt instanceof Date ? row.sharedAt : new Date(row.sharedAt),
-        expiresAt: row.expiresAt
-          ? row.expiresAt instanceof Date
-            ? row.expiresAt
-            : new Date(row.expiresAt)
-          : null
+        sharedAt: toDate(row.sharedAt),
+        expiresAt: toNullableDate(row.expiresAt)
       }));
 
       setItems(resultItems);

@@ -288,15 +288,13 @@ export function VfsDetailsPanel({
   }, [refreshToken]);
 
   // Select the appropriate data source
-  const { items, loading, error } = isSharedByMe
-    ? sharedByMe
-    : isSharedWithMe
-      ? sharedWithMe
-      : isAllItems
-        ? allItems
-        : isUnfiled
-          ? unfiledItems
-          : folderContents;
+  const { items, loading, error } = (() => {
+    if (isSharedByMe) return sharedByMe;
+    if (isSharedWithMe) return sharedWithMe;
+    if (isAllItems) return allItems;
+    if (isUnfiled) return unfiledItems;
+    return folderContents;
+  })();
 
   // Report items to parent for status bar
   useEffect(() => {
