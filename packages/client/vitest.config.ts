@@ -152,10 +152,6 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
-      // Force a single React instance in tests across workspace package aliases.
-      react: path.resolve(__dirname, 'node_modules/react'),
-      'react-dom': path.resolve(__dirname, 'node_modules/react-dom'),
-      'react/jsx-runtime': path.resolve(__dirname, 'node_modules/react/jsx-runtime.js'),
       '@rapid/api/dist/openapi.json': path.resolve(
         __dirname,
         '../api/dist/openapi.json'
