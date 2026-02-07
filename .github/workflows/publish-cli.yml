@@ -68,18 +68,7 @@ jobs:
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
-
-      - name: Configure npm for OIDC publishing
-        if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
-        run: |
-          # Clear any existing npmrc files that might have stale tokens
-          rm -f ~/.npmrc
-          rm -f /home/runner/work/_temp/.npmrc
-          # Create minimal npmrc without auth token (OIDC will handle auth)
-          echo "registry=https://registry.npmjs.org/" > ~/.npmrc
-        env:
-          # Unset any token env vars to force OIDC
-          NODE_AUTH_TOKEN: ''
+          registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
@@ -93,6 +82,8 @@ jobs:
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
         run: npm publish --provenance --access public
         working-directory: packages/cli
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Summary
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
