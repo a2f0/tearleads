@@ -44,15 +44,15 @@ Backups use strong encryption to protect your data:
 2. **Encryption**: AES-256-GCM (authenticated encryption)
 3. **Compression**: Gzip before encryption
 
-Each encrypted chunk has this structure:
+Each encrypted chunk has a 20-byte header followed by ciphertext:
 
 | Size | Field | Description |
 | ---- | ----- | ----------- |
-| 4 | Chunk Type | 0=Manifest, 1=Database, 2=Blob |
-| 4 | Original Size | Uncompressed size |
+| 4 | Payload Length | Size of the following ciphertext in bytes |
+| 1 | Chunk Type | 0=Manifest, 1=Database, 2=Blob |
+| 3 | Reserved | Reserved for future use |
 | 12 | IV | Initialization vector for AES-GCM |
-| N | Ciphertext | Encrypted + compressed data |
-| 16 | Auth Tag | GCM authentication tag |
+| N | Ciphertext | Encrypted and compressed data, including the 16-byte GCM authentication tag |
 
 ### Chunk Types
 
@@ -238,4 +238,4 @@ If your backup is very large:
 
 ### Restore creates a new instance
 
-This is by design. Restoring creates a new instance named "Backup (Month Day, Year)" to prevent overwriting your current data. You can switch between instances from the instance selector.
+This is by design. Restoring from the application UI creates a new instance named "Backup (Month Day, Year)" to prevent overwriting your current data. You can switch between instances from the instance selector. In contrast, restoring from the CLI overwrites the current database.
