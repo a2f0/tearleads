@@ -17,9 +17,9 @@ const stateLabels: Record<SSEConnectionState, string> = {
 };
 
 const stateColors: Record<SSEConnectionState, string> = {
-  connected: 'text-green-500',
-  connecting: 'text-yellow-500',
-  disconnected: 'text-red-500'
+  connected: 'text-success',
+  connecting: 'text-warning',
+  disconnected: 'text-destructive'
 };
 
 export function SSEConnectionDialog({
