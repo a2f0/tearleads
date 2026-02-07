@@ -13,6 +13,7 @@ vi.mock('@/components/video-window/VideoPlaylistsSidebar', () => ({
       selectedPlaylistId,
       onPlaylistSelect,
       onPlaylistChanged,
+      onDropToPlaylist,
       onWidthChange,
       width
     }) => (
@@ -39,6 +40,15 @@ vi.mock('@/components/video-window/VideoPlaylistsSidebar', () => ({
           onClick={() => onWidthChange?.(300)}
         >
           Change Width
+        </button>
+        <button
+          type="button"
+          data-testid="drop-to-playlist"
+          onClick={() =>
+            onDropToPlaylist?.('playlist-1', [], ['video-1', 'video-2'])
+          }
+        >
+          Drop To Playlist
         </button>
       </div>
     )
@@ -76,10 +86,13 @@ vi.mock('@/db/hooks', () => ({
 // Mock the database
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();
+const mockInsertValues = vi.fn();
+const mockInsert = vi.fn(() => ({ values: mockInsertValues }));
 vi.mock('@/db', () => ({
   getDatabase: () => ({
     select: mockSelect,
-    update: mockUpdate
+    update: mockUpdate,
+    insert: mockInsert
   })
 }));
 
@@ -166,11 +179,16 @@ const TEST_VIDEO_DATA = new Uint8Array([
 const TEST_ENCRYPTION_KEY = new Uint8Array([1, 2, 3, 4]);
 
 function createMockQueryChain(result: unknown[]) {
+  const whereResult = {
+    orderBy: vi.fn().mockResolvedValue(result)
+  };
+  Object.defineProperty(whereResult, 'then', {
+    value: (resolve: (value: unknown[]) => void) => resolve([]),
+    enumerable: false
+  });
   return {
     from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        orderBy: vi.fn().mockResolvedValue(result)
-      })
+      where: vi.fn().mockReturnValue(whereResult)
     })
   };
 }
@@ -238,6 +256,7 @@ describe('VideoPage', () => {
     mockRetrieve.mockResolvedValue(TEST_VIDEO_DATA);
     mockSelect.mockReturnValue(createMockQueryChain([TEST_VIDEO]));
     mockUpdate.mockReturnValue(createMockUpdateChain());
+    mockInsertValues.mockResolvedValue(undefined);
     mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
     mockDetectPlatform.mockReturnValue('web');
   });
@@ -1037,11 +1056,16 @@ describe('Video (wrapper with sidebar)', () => {
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(new Uint8Array([0x00]));
+    const whereResult = {
+      orderBy: vi.fn().mockResolvedValue([])
+    };
+    Object.defineProperty(whereResult, 'then', {
+      value: (resolve: (value: unknown[]) => void) => resolve([]),
+      enumerable: false
+    });
     mockSelect.mockReturnValue({
       from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockResolvedValue([])
-        })
+        where: vi.fn().mockReturnValue(whereResult)
       })
     });
     mockDetectPlatform.mockReturnValue('web');
@@ -1101,6 +1125,24 @@ describe('Video (wrapper with sidebar)', () => {
 
       // Navigation is now handled via URL routing
       expect(mockNavigate).toHaveBeenCalledWith('/videos/playlists/playlist-1');
+    });
+
+    it('links dropped video ids to playlist', async () => {
+      const user = userEvent.setup();
+      renderVideo();
+
+      await user.click(screen.getByTestId('drop-to-playlist'));
+
+      await waitFor(() => {
+        expect(mockInsert).toHaveBeenCalled();
+        expect(mockInsertValues).toHaveBeenCalledTimes(1);
+        expect(mockInsertValues).toHaveBeenCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({ childId: 'video-1' }),
+            expect.objectContaining({ childId: 'video-2' })
+          ])
+        );
+      });
     });
 
     it('updates width when onWidthChange is called', async () => {

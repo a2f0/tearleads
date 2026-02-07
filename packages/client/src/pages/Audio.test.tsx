@@ -28,6 +28,7 @@ vi.mock('@rapid/audio', () => ({
       selectedPlaylistId,
       onPlaylistSelect,
       onPlaylistChanged,
+      onDropToPlaylist,
       onWidthChange,
       width
     }) => (
@@ -54,6 +55,15 @@ vi.mock('@rapid/audio', () => ({
           onClick={() => onWidthChange?.(300)}
         >
           Change Width
+        </button>
+        <button
+          type="button"
+          data-testid="drop-to-playlist"
+          onClick={() =>
+            onDropToPlaylist?.('playlist-1', [], ['track-1', 'track-2'])
+          }
+        >
+          Drop To Playlist
         </button>
       </div>
     )
@@ -91,10 +101,13 @@ vi.mock('@/db/hooks', () => ({
 // Mock the database
 const mockSelect = vi.fn();
 const mockUpdate = vi.fn();
+const mockInsertValues = vi.fn();
+const mockInsert = vi.fn(() => ({ values: mockInsertValues }));
 vi.mock('@/db', () => ({
   getDatabase: () => ({
     select: mockSelect,
-    update: mockUpdate
+    update: mockUpdate,
+    insert: mockInsert
   })
 }));
 
@@ -250,6 +263,7 @@ describe('AudioPage', () => {
     mockRetrieve.mockResolvedValue(TEST_AUDIO_DATA);
     mockSelect.mockReturnValue(createMockQueryChain([TEST_AUDIO_TRACK]));
     mockUpdate.mockReturnValue(createMockUpdateChain());
+    mockInsertValues.mockResolvedValue(undefined);
     mockUploadFile.mockResolvedValue({ id: 'new-id', isDuplicate: false });
     mockDetectPlatform.mockReturnValue('web');
   });
@@ -1123,6 +1137,24 @@ describe('Audio wrapper with sidebar', () => {
 
       // Navigation is now handled via URL routing
       expect(mockNavigate).toHaveBeenCalledWith('/audio/playlists/playlist-1');
+    });
+
+    it('links dropped track ids to playlist', async () => {
+      const user = userEvent.setup();
+      renderAudioWrapper();
+
+      await user.click(screen.getByTestId('drop-to-playlist'));
+
+      await waitFor(() => {
+        expect(mockInsert).toHaveBeenCalled();
+        expect(mockInsertValues).toHaveBeenCalledTimes(1);
+        expect(mockInsertValues).toHaveBeenCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({ childId: 'track-1' }),
+            expect.objectContaining({ childId: 'track-2' })
+          ])
+        );
+      });
     });
 
     it('updates width when onWidthChange is called', async () => {

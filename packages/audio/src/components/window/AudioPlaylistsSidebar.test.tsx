@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
@@ -245,5 +245,38 @@ describe('AudioPlaylistsSidebar', () => {
 
   it('exports ALL_AUDIO_ID constant', () => {
     expect(ALL_AUDIO_ID).toBe('__all__');
+  });
+
+  it('drops dragged tracks into a playlist', async () => {
+    const onDropToPlaylist = vi.fn();
+    render(
+      <AudioPlaylistsSidebar
+        {...defaultProps}
+        onDropToPlaylist={onDropToPlaylist}
+      />
+    );
+
+    const playlistButton = screen.getByText('Road Trip').closest('button');
+    if (!playlistButton) throw new Error('Playlist button not found');
+
+    const payload = JSON.stringify({
+      mediaType: 'audio',
+      ids: ['audio-1', 'audio-2']
+    });
+    const dataTransfer = {
+      files: [],
+      getData: (type: string) =>
+        type === 'application/x-rapid-media-ids' ? payload : ''
+    };
+
+    fireEvent.drop(playlistButton, { dataTransfer });
+
+    await waitFor(() => {
+      expect(onDropToPlaylist).toHaveBeenCalledWith(
+        'playlist-1',
+        [],
+        ['audio-1', 'audio-2']
+      );
+    });
   });
 });

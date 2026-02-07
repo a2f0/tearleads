@@ -1,6 +1,6 @@
 {
   "name": "@rapid/notes",
-  "version": "0.0.13",
+  "version": "0.0.14",
   "description": "Notes management components for Rapid",
   "type": "module",
   "main": "dist/index.js",

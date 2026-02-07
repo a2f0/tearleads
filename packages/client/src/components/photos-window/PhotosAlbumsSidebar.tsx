@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { zIndex } from '@/constants/zIndex';
 import { filterFilesByAccept } from '@/lib/file-filter';
+import { getMediaDragIds } from '@/lib/mediaDragData';
 import { cn, detectPlatform } from '@/lib/utils';
 import { DeleteAlbumDialog } from './DeleteAlbumDialog';
 import { NewAlbumDialog } from './NewAlbumDialog';
@@ -31,7 +32,11 @@ interface PhotosAlbumsSidebarProps {
   refreshToken?: number;
   onAlbumChanged?: () => void;
   /** Callback when files are dropped onto an album */
-  onDropToAlbum?: (albumId: string, files: File[]) => void | Promise<void>;
+  onDropToAlbum?: (
+    albumId: string,
+    files: File[],
+    photoIds?: string[]
+  ) => void | Promise<void>;
 }
 
 export function PhotosAlbumsSidebar({
@@ -104,6 +109,12 @@ export function PhotosAlbumsSidebar({
       // Reset drag state
       dragCounterRef.current[albumId] = 0;
       setDragOverAlbumId(null);
+
+      const photoIds = getMediaDragIds(e.dataTransfer, 'image');
+      if (photoIds.length > 0) {
+        void onDropToAlbum(albumId, [], photoIds);
+        return;
+      }
 
       // Get files and filter for images
       const files = Array.from(e.dataTransfer.files);

@@ -14,6 +14,7 @@ vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
       selectedAlbumId,
       onAlbumSelect,
       onAlbumChanged,
+      onDropToAlbum,
       onWidthChange,
       width
     }) => (
@@ -40,6 +41,13 @@ vi.mock('@/components/photos-window/PhotosAlbumsSidebar', () => ({
           onClick={() => onWidthChange?.(300)}
         >
           Change Width
+        </button>
+        <button
+          type="button"
+          data-testid="drop-to-album"
+          onClick={() => onDropToAlbum?.('album-1', [], ['photo-1', 'photo-2'])}
+        >
+          Drop To Album
         </button>
       </div>
     )
@@ -79,6 +87,8 @@ vi.mock('@/db/hooks', () => ({
 
 // Mock getDatabase
 const mockUpdate = vi.fn();
+const mockInsert = vi.fn();
+const mockInsertValues = vi.fn();
 const mockSet = vi.fn();
 const mockUpdateWhere = vi.fn();
 const mockDb = {
@@ -86,12 +96,18 @@ const mockDb = {
   from: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
   orderBy: vi.fn(),
-  update: mockUpdate
+  update: mockUpdate,
+  insert: mockInsert
 };
+Object.defineProperty(mockDb, 'then', {
+  value: (resolve: (value: unknown[]) => void) => resolve([]),
+  enumerable: false
+});
 
 // Chain the update mock
 mockUpdate.mockReturnValue({ set: mockSet });
 mockSet.mockReturnValue({ where: mockUpdateWhere });
+mockInsert.mockReturnValue({ values: mockInsertValues });
 
 vi.mock('@/db', () => ({
   getDatabase: vi.fn(() => mockDb)
@@ -199,6 +215,7 @@ describe('Photos', () => {
     mockUpdate.mockReturnValue({ set: mockSet });
     mockSet.mockReturnValue({ where: mockUpdateWhere });
     mockUpdateWhere.mockResolvedValue(undefined);
+    mockInsertValues.mockResolvedValue(undefined);
   });
 
   describe('page rendering', () => {
@@ -1183,6 +1200,24 @@ describe('PhotosPage (wrapper with sidebar)', () => {
 
       // Navigation is now handled via URL routing
       expect(mockNavigate).toHaveBeenCalledWith('/photos/albums/album-1');
+    });
+
+    it('links dropped photo ids to album', async () => {
+      const user = userEvent.setup();
+      renderPhotosPage();
+
+      await user.click(screen.getByTestId('drop-to-album'));
+
+      await waitFor(() => {
+        expect(mockInsert).toHaveBeenCalled();
+        expect(mockInsertValues).toHaveBeenCalledTimes(1);
+        expect(mockInsertValues).toHaveBeenCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({ childId: 'photo-1' }),
+            expect.objectContaining({ childId: 'photo-2' })
+          ])
+        );
+      });
     });
 
     it('updates width when onWidthChange is called', async () => {

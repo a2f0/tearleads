@@ -29,6 +29,7 @@ import { files, vfsLinks } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
   getFileStorage,
@@ -600,7 +601,11 @@ export function Photos({
                               key={item.id}
                               role="button"
                               tabIndex={0}
+                              draggable
                               onClick={() => handlePhotoClick(item)}
+                              onDragStart={(event) =>
+                                setMediaDragData(event, 'image', [item.id])
+                              }
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
@@ -699,6 +704,45 @@ export function PhotosPage() {
     [navigate]
   );
 
+  const handleDropToAlbum = useCallback(
+    async (albumId: string, files: File[], photoIds?: string[]) => {
+      void files;
+      if (!photoIds || photoIds.length === 0) return;
+      const db = getDatabase();
+      const uniquePhotoIds = Array.from(new Set(photoIds));
+      const existingLinks = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(
+          and(
+            eq(vfsLinks.parentId, albumId),
+            inArray(vfsLinks.childId, uniquePhotoIds)
+          )
+        );
+
+      const existingChildIds = new Set(
+        existingLinks.map((link) => link.childId)
+      );
+      const newPhotoIds = uniquePhotoIds.filter(
+        (id) => !existingChildIds.has(id)
+      );
+
+      if (newPhotoIds.length > 0) {
+        await db.insert(vfsLinks).values(
+          newPhotoIds.map((photoId) => ({
+            id: crypto.randomUUID(),
+            parentId: albumId,
+            childId: photoId,
+            wrappedSessionKey: '',
+            createdAt: new Date()
+          }))
+        );
+      }
+      setRefreshToken((value) => value + 1);
+    },
+    []
+  );
+
   return (
     <div className="flex h-full flex-col space-y-4">
       <BackLink defaultTo="/" defaultLabel="Back to Home" />
@@ -712,6 +756,7 @@ export function PhotosPage() {
               onAlbumSelect={handleAlbumSelect}
               refreshToken={refreshToken}
               onAlbumChanged={() => setRefreshToken((t) => t + 1)}
+              onDropToAlbum={handleDropToAlbum}
             />
           </div>
         )}

@@ -12,6 +12,7 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { useTypedTranslation } from '@/i18n';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatFileSize } from '@/lib/utils';
 import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
 
@@ -280,6 +281,10 @@ export function PhotosWindowTableView({
                       className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                       onClick={() => onSelectPhoto?.(photo.id)}
                       onContextMenu={(event) => handleContextMenu(event, photo)}
+                      draggable
+                      onDragStart={(event) =>
+                        setMediaDragData(event, 'image', [photo.id])
+                      }
                     >
                       <td className="px-2 py-1.5">
                         <div className="flex items-center gap-1.5">

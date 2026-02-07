@@ -2,6 +2,7 @@ import { List, Loader2, Plus, Video } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
 import { filterFilesByAccept } from '@/lib/file-filter';
+import { getMediaDragIds } from '@/lib/mediaDragData';
 import { cn, detectPlatform } from '@/lib/utils';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 import { DeleteVideoPlaylistDialog } from './DeleteVideoPlaylistDialog';
@@ -22,7 +23,8 @@ interface VideoPlaylistsSidebarProps {
   /** Callback when files are dropped onto a playlist */
   onDropToPlaylist?: (
     playlistId: string,
-    files: File[]
+    files: File[],
+    videoIds?: string[]
   ) => void | Promise<void>;
 }
 
@@ -98,6 +100,12 @@ export function VideoPlaylistsSidebar({
       // Reset drag state
       dragCounterRef.current[playlistId] = 0;
       setDragOverPlaylistId(null);
+
+      const videoIds = getMediaDragIds(e.dataTransfer, 'video');
+      if (videoIds.length > 0) {
+        void onDropToPlaylist(playlistId, [], videoIds);
+        return;
+      }
 
       // Get files and filter for videos
       const files = Array.from(e.dataTransfer.files);

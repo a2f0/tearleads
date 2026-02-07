@@ -33,6 +33,7 @@ import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
+import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
@@ -547,6 +548,10 @@ export function AudioPage({
                             }
                             className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
                             data-testid={`audio-play-${track.id}`}
+                            draggable
+                            onDragStart={(event) =>
+                              setMediaDragData(event, 'audio', [track.id])
+                            }
                           >
                             <div className="relative shrink-0">
                               {track.thumbnailUrl ? (
@@ -662,6 +667,45 @@ function AudioWithSidebar() {
     [navigate]
   );
 
+  const handleDropToPlaylist = useCallback(
+    async (playlistId: string, files: File[], audioIds?: string[]) => {
+      void files;
+      if (!audioIds || audioIds.length === 0) return;
+      const db = getDatabase();
+      const uniqueAudioIds = Array.from(new Set(audioIds));
+      const existingLinks = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(
+          and(
+            eq(vfsLinks.parentId, playlistId),
+            inArray(vfsLinks.childId, uniqueAudioIds)
+          )
+        );
+
+      const existingChildIds = new Set(
+        existingLinks.map((link) => link.childId)
+      );
+      const newAudioIds = uniqueAudioIds.filter(
+        (id) => !existingChildIds.has(id)
+      );
+
+      if (newAudioIds.length > 0) {
+        await db.insert(vfsLinks).values(
+          newAudioIds.map((audioId) => ({
+            id: crypto.randomUUID(),
+            parentId: playlistId,
+            childId: audioId,
+            wrappedSessionKey: '',
+            createdAt: new Date()
+          }))
+        );
+      }
+      setRefreshToken((value) => value + 1);
+    },
+    []
+  );
+
   return (
     <div className="flex h-full flex-col space-y-4">
       <BackLink defaultTo="/" defaultLabel="Back to Home" />
@@ -675,6 +719,7 @@ function AudioWithSidebar() {
               onPlaylistSelect={handlePlaylistSelect}
               refreshToken={refreshToken}
               onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
+              onDropToPlaylist={handleDropToPlaylist}
             />
           </div>
         )}

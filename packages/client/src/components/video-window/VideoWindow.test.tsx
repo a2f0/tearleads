@@ -23,10 +23,16 @@ vi.mock('./VideoPlaylistsSidebar', () => ({
   ALL_VIDEO_ID: '__ALL_VIDEO__',
   VideoPlaylistsSidebar: ({
     selectedPlaylistId,
-    onPlaylistSelect
+    onPlaylistSelect,
+    onDropToPlaylist
   }: {
     selectedPlaylistId: string | null;
     onPlaylistSelect: (id: string | null) => void;
+    onDropToPlaylist?: (
+      playlistId: string,
+      files: File[],
+      videoIds?: string[]
+    ) => void | Promise<void>;
   }) => (
     <div data-testid="video-playlists-sidebar">
       <button
@@ -37,6 +43,15 @@ vi.mock('./VideoPlaylistsSidebar', () => ({
         Select Playlist
       </button>
       <span data-testid="selected-playlist">{selectedPlaylistId}</span>
+      <button
+        type="button"
+        data-testid="drop-video-ids"
+        onClick={() =>
+          onDropToPlaylist?.('test-playlist-id', [], ['video-1', 'video-2'])
+        }
+      >
+        Drop Video Ids
+      </button>
     </div>
   )
 }));
@@ -300,6 +315,24 @@ describe('VideoWindow', () => {
 
     // Should NOT call addTrackToPlaylist when "All Videos" is selected
     expect(mockAddTrackToPlaylist).not.toHaveBeenCalled();
+  });
+
+  it('adds dropped existing videos to target playlist', async () => {
+    const user = userEvent.setup();
+    render(<VideoWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('drop-video-ids'));
+
+    await waitFor(() => {
+      expect(mockAddTrackToPlaylist).toHaveBeenCalledWith(
+        'test-playlist-id',
+        'video-1'
+      );
+      expect(mockAddTrackToPlaylist).toHaveBeenCalledWith(
+        'test-playlist-id',
+        'video-2'
+      );
+    });
   });
 
   it('opens the file picker from the menu upload action', async () => {
