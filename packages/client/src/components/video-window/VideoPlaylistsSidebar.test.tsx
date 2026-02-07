@@ -756,10 +756,11 @@ describe('VideoPlaylistsSidebar', () => {
     fireEvent.drop(playlistButton, { dataTransfer });
 
     await waitFor(() => {
-      expect(onDropToPlaylist).toHaveBeenCalledWith('playlist-1', [], [
-        'video-1',
-        'video-2'
-      ]);
+      expect(onDropToPlaylist).toHaveBeenCalledWith(
+        'playlist-1',
+        [],
+        ['video-1', 'video-2']
+      );
     });
   });
 });

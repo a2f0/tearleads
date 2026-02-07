@@ -272,10 +272,11 @@ describe('AudioPlaylistsSidebar', () => {
     fireEvent.drop(playlistButton, { dataTransfer });
 
     await waitFor(() => {
-      expect(onDropToPlaylist).toHaveBeenCalledWith('playlist-1', [], [
-        'audio-1',
-        'audio-2'
-      ]);
+      expect(onDropToPlaylist).toHaveBeenCalledWith(
+        'playlist-1',
+        [],
+        ['audio-1', 'audio-2']
+      );
     });
   });
 });

@@ -36,8 +36,7 @@ export function getMediaDragIds(
     const parsed: unknown = JSON.parse(raw);
     if (!parsed || typeof parsed !== 'object') return [];
 
-    const mediaTypeValue =
-      'mediaType' in parsed ? parsed.mediaType : undefined;
+    const mediaTypeValue = 'mediaType' in parsed ? parsed.mediaType : undefined;
     if (mediaTypeValue !== mediaType) return [];
 
     const idsValue = 'ids' in parsed ? parsed.ids : undefined;

@@ -107,7 +107,9 @@ export function PhotosWindow({
   const handleDropToAlbum = useCallback(
     async (albumId: string, files: File[], photoIds?: string[]) => {
       if (photoIds && photoIds.length > 0) {
-        await Promise.all(photoIds.map((photoId) => addPhotoToAlbum(albumId, photoId)));
+        await Promise.all(
+          photoIds.map((photoId) => addPhotoToAlbum(albumId, photoId))
+        );
         setRefreshToken((value) => value + 1);
         return;
       }

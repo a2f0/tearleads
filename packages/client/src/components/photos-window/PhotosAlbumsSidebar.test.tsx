@@ -479,10 +479,11 @@ describe('PhotosAlbumsSidebar', () => {
     fireEvent.drop(albumButton, { dataTransfer });
 
     await waitFor(() => {
-      expect(onDropToAlbum).toHaveBeenCalledWith('album-1', [], [
-        'photo-1',
-        'photo-2'
-      ]);
+      expect(onDropToAlbum).toHaveBeenCalledWith(
+        'album-1',
+        [],
+        ['photo-1', 'photo-2']
+      );
     });
   });
 
