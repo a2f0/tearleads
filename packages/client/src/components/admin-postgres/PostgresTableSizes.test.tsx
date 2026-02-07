@@ -147,4 +147,31 @@ describe('PostgresTableSizes', () => {
 
     expect(onTableSelect).toHaveBeenCalledWith('public', 'users');
   });
+
+  it('calls onTableSelect when row count is clicked', async () => {
+    const user = userEvent.setup();
+    const onTableSelect = vi.fn();
+    mockGetTables.mockResolvedValue({
+      tables: [
+        {
+          schema: 'public',
+          name: 'users',
+          rowCount: 12,
+          totalBytes: 2048,
+          tableBytes: 1024,
+          indexBytes: 1024
+        }
+      ]
+    });
+
+    renderWithRouter(<PostgresTableSizes onTableSelect={onTableSelect} />);
+
+    await waitFor(() => {
+      expect(screen.getByText('public.users')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('12'));
+
+    expect(onTableSelect).toHaveBeenCalledWith('public', 'users');
+  });
 });
