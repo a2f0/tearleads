@@ -100,7 +100,7 @@ export function SessionList() {
                 </span>
               )}
               {session.isAdmin && (
-                <span className="rounded-full bg-amber-500/10 px-2 py-0.5 font-medium text-amber-600 text-xs dark:text-amber-400">
+                <span className="rounded-full bg-warning/10 px-2 py-0.5 font-medium text-warning text-xs">
                   Admin
                 </span>
               )}

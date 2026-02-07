@@ -9,7 +9,7 @@ export function AssistantMessage() {
         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted">
           <Bot className="h-4 w-4" />
         </div>
-        <div className="rounded-lg bg-muted px-4 py-2">
+        <div className="chat-bubble-content rounded-lg bg-muted px-4 py-2">
           <MessagePrimitive.Content components={{ Text: CustomText }} />
         </div>
       </div>
