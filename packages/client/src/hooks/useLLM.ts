@@ -6,6 +6,13 @@ import {
 } from '@rapid/shared';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
+import {
+  executeTools,
+  formatSearchResultsForDisplay,
+  isToolCallingEnabled,
+  type ToolCall,
+  toolDefinitions
+} from '@/ai/tools';
 import { getCurrentInstanceId, getDatabase } from '@/db';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
@@ -24,14 +31,41 @@ interface ChatMessage {
   content: string;
 }
 
+/** Message with tool role for tool call results */
+interface ToolMessage {
+  role: 'tool';
+  tool_call_id: string;
+  content: string;
+}
+
+/** Assistant message with tool calls */
+interface AssistantToolCallMessage {
+  role: 'assistant';
+  content: string | null;
+  tool_calls: OpenRouterToolCall[];
+}
+
+/** Tool call from OpenRouter response */
+interface OpenRouterToolCall {
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
+}
+
 type OpenRouterContentPart =
   | { type: 'text'; text: string }
   | { type: 'image_url'; image_url: { url: string } };
 
-type OpenRouterMessage = {
-  role: 'system' | 'user' | 'assistant';
-  content: string | OpenRouterContentPart[];
-};
+type OpenRouterMessage =
+  | {
+      role: 'system' | 'user' | 'assistant';
+      content: string | OpenRouterContentPart[];
+    }
+  | AssistantToolCallMessage
+  | ToolMessage;
 
 type WorkerRequest =
   | { type: 'load'; modelId: string }
@@ -160,24 +194,62 @@ let snapshot: LLMState = { ...store };
 // Pub-sub mechanism for useSyncExternalStore
 const listeners = new Set<() => void>();
 
-function extractOpenRouterContent(payload: unknown): string | null {
+interface OpenRouterResponse {
+  content: string | null;
+  toolCalls: OpenRouterToolCall[] | null;
+}
+
+function extractOpenRouterResponse(payload: unknown): OpenRouterResponse {
   if (!isRecord(payload)) {
-    return null;
+    return { content: null, toolCalls: null };
   }
   const choices = payload['choices'];
   if (!Array.isArray(choices) || choices.length === 0) {
-    return null;
+    return { content: null, toolCalls: null };
   }
   const firstChoice = choices[0];
   if (!isRecord(firstChoice)) {
-    return null;
+    return { content: null, toolCalls: null };
   }
   const message = firstChoice['message'];
   if (!isRecord(message)) {
-    return null;
+    return { content: null, toolCalls: null };
   }
+
+  // Extract content
   const content = message['content'];
-  return typeof content === 'string' ? content : null;
+  const textContent = typeof content === 'string' ? content : null;
+
+  // Extract tool calls
+  const toolCalls = message['tool_calls'];
+  let parsedToolCalls: OpenRouterToolCall[] | null = null;
+
+  if (Array.isArray(toolCalls) && toolCalls.length > 0) {
+    parsedToolCalls = toolCalls
+      .filter(
+        (tc): tc is OpenRouterToolCall =>
+          isRecord(tc) &&
+          typeof tc['id'] === 'string' &&
+          tc['type'] === 'function' &&
+          isRecord(tc['function']) &&
+          typeof tc['function']['name'] === 'string' &&
+          typeof tc['function']['arguments'] === 'string'
+      )
+      .map((tc) => ({
+        id: tc.id,
+        type: 'function' as const,
+        function: {
+          name: tc.function.name,
+          arguments: tc.function.arguments
+        }
+      }));
+
+    if (parsedToolCalls.length === 0) {
+      parsedToolCalls = null;
+    }
+  }
+
+  return { content: textContent, toolCalls: parsedToolCalls };
 }
 
 /**
@@ -590,8 +662,14 @@ async function generateInternal(
     const start = performance.now();
     const requestUrl = `${API_BASE_URL}/chat/completions`;
     let loggedApiError = false;
+
     try {
-      const openRouterMessages = buildOpenRouterMessages(messages, image);
+      // Build message history including any tool results
+      let conversationMessages: OpenRouterMessage[] = buildOpenRouterMessages(
+        messages,
+        image
+      );
+
       const authHeader = getAuthHeaderValue();
       const headers: Record<string, string> = {
         'Content-Type': 'application/json'
@@ -599,40 +677,113 @@ async function generateInternal(
       if (authHeader) {
         headers['Authorization'] = authHeader;
       }
-      const response = await fetch(requestUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
+
+      // Tool calling loop - max 5 iterations to prevent infinite loops
+      const maxToolIterations = 5;
+      let iteration = 0;
+
+      while (iteration < maxToolIterations) {
+        iteration++;
+
+        // Build request body - include tools only if enabled
+        const requestBody: Record<string, unknown> = {
           model: store.loadedModel,
-          messages: openRouterMessages
-        })
-      });
+          messages: conversationMessages
+        };
 
-      if (!response.ok) {
-        const errorBody = await readErrorBody(response);
-        if (DEV_ERROR_LOGGING) {
-          console.error('OpenRouter chat API error', {
-            status: response.status,
-            statusText: response.statusText,
-            url: requestUrl,
-            body: errorBody
-          });
+        // Add tools if enabled and this is the first iteration or we're continuing
+        if (isToolCallingEnabled() && toolDefinitions.length > 0) {
+          requestBody['tools'] = toolDefinitions;
+          requestBody['tool_choice'] = 'auto';
         }
-        loggedApiError = true;
-        const detail = getErrorDetail(errorBody);
-        const detailSuffix = detail ? ` ${detail}` : '';
-        throw new Error(`API error: ${response.status}${detailSuffix}`);
+
+        const response = await fetch(requestUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorBody = await readErrorBody(response);
+          if (DEV_ERROR_LOGGING) {
+            console.error('OpenRouter chat API error', {
+              status: response.status,
+              statusText: response.statusText,
+              url: requestUrl,
+              body: errorBody
+            });
+          }
+          loggedApiError = true;
+          const detail = getErrorDetail(errorBody);
+          const detailSuffix = detail ? ` ${detail}` : '';
+          throw new Error(`API error: ${response.status}${detailSuffix}`);
+        }
+
+        const payload = await response.json();
+        const { content, toolCalls } = extractOpenRouterResponse(payload);
+
+        // If there are tool calls, execute them and continue the loop
+        if (toolCalls && toolCalls.length > 0) {
+          // Notify user that tools are being used
+          onToken('🔍 Searching your data...\n\n');
+
+          // Add assistant message with tool calls to conversation
+          const assistantMessage: AssistantToolCallMessage = {
+            role: 'assistant',
+            content: content,
+            tool_calls: toolCalls
+          };
+          conversationMessages = [...conversationMessages, assistantMessage];
+
+          // Execute all tool calls
+          const toolCallsForExecution: ToolCall[] = toolCalls.map((tc) => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: {
+              name: tc.function.name,
+              arguments: tc.function.arguments
+            }
+          }));
+
+          const toolResults = await executeTools(toolCallsForExecution);
+
+          // Add tool results to conversation
+          for (const result of toolResults) {
+            const toolMessage: ToolMessage = {
+              role: 'tool',
+              tool_call_id: result.tool_call_id,
+              content: result.content
+            };
+            conversationMessages = [...conversationMessages, toolMessage];
+
+            // Show formatted search results to user
+            try {
+              const parsed = JSON.parse(result.content);
+              if (parsed.results) {
+                const formatted = formatSearchResultsForDisplay(parsed);
+                onToken(`${formatted}\n\n---\n\n`);
+              }
+            } catch {
+              // Ignore parsing errors
+            }
+          }
+
+          // Continue loop to get final response
+          continue;
+        }
+
+        // No tool calls - we have the final response
+        if (!content) {
+          throw new Error('OpenRouter response missing content');
+        }
+
+        onToken(content);
+        logLLMAnalytics('llm_prompt_text', performance.now() - start, true);
+        return;
       }
 
-      const payload = await response.json();
-      const content = extractOpenRouterContent(payload);
-      if (!content) {
-        throw new Error('OpenRouter response missing content');
-      }
-
-      onToken(content);
-      logLLMAnalytics('llm_prompt_text', performance.now() - start, true);
-      return;
+      // If we hit max iterations, return what we have
+      throw new Error('Tool calling exceeded maximum iterations');
     } catch (error) {
       logLLMAnalytics('llm_prompt_text', performance.now() - start, false);
       if (DEV_ERROR_LOGGING && !loggedApiError) {

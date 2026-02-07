@@ -271,7 +271,7 @@ describe('useLLM', () => {
       }
 
       const parsedBody = JSON.parse(body);
-      expect(parsedBody).toEqual({
+      expect(parsedBody).toMatchObject({
         model: visionModelId,
         messages: [
           {
@@ -286,6 +286,9 @@ describe('useLLM', () => {
           }
         ]
       });
+      // Tool calling should also be included for OpenRouter
+      expect(parsedBody.tools).toBeDefined();
+      expect(parsedBody.tool_choice).toBe('auto');
 
       vi.unstubAllGlobals();
       vi.unstubAllEnvs();

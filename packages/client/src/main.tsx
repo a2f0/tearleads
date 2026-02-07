@@ -23,6 +23,7 @@ import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { DatabaseProvider, SettingsProvider } from './db/hooks';
 import { i18n } from './i18n';
 import { installConsoleErrorCapture } from './lib/console-error-capture';
+import { SearchProvider } from './search';
 import { SSEProvider } from './sse';
 import { VideoProvider } from './video';
 import './index.css';
@@ -213,229 +214,240 @@ if (rootElement) {
               <Toaster richColors closeButton position="top-center" />
               <DatabaseProvider>
                 <SettingsProvider>
-                  <AppTooltipProvider>
-                    <InstanceChangeHandler />
-                    <AudioProvider>
-                      <VideoProvider>
-                        <AuthProvider>
-                          <SSEProvider>
-                            <WindowManagerProvider>
-                              <BrowserRouter>
-                                <Suspense
-                                  fallback={
-                                    <div className="p-8 text-center text-muted-foreground">
-                                      Loading...
-                                    </div>
-                                  }
-                                >
-                                  <Routes>
-                                    <Route path="/" element={<App />}>
-                                      <Route index element={<Home />} />
-                                      <Route path="files" element={<Files />} />
-                                      <Route
-                                        path="contacts"
-                                        element={<Contacts />}
-                                      />
-                                      <Route
-                                        path="contacts/new"
-                                        element={<ContactNew />}
-                                      />
-                                      <Route
-                                        path="contacts/:id"
-                                        element={<ContactDetail />}
-                                      />
-                                      <Route
-                                        path="documents"
-                                        element={<Documents />}
-                                      />
-                                      <Route
-                                        path="documents/:id"
-                                        element={<DocumentDetail />}
-                                      />
-                                      <Route path="notes" element={<Notes />} />
-                                      <Route
-                                        path="notes/:id"
-                                        element={<NoteDetail />}
-                                      />
-                                      <Route
-                                        path="photos"
-                                        element={<Photos />}
-                                      />
-                                      <Route
-                                        path="photos/albums/:albumId"
-                                        element={<Photos />}
-                                      />
-                                      <Route
-                                        path="photos/:id"
-                                        element={<PhotoDetail />}
-                                      />
-                                      <Route
-                                        path="audio"
-                                        element={<AudioPage />}
-                                      />
-                                      <Route
-                                        path="audio/playlists/:playlistId"
-                                        element={<AudioPage />}
-                                      />
-                                      <Route
-                                        path="audio/:id"
-                                        element={<AudioDetail />}
-                                      />
-                                      <Route
-                                        path="videos"
-                                        element={<VideoPage />}
-                                      />
-                                      <Route
-                                        path="videos/playlists/:playlistId"
-                                        element={<VideoPage />}
-                                      />
-                                      <Route
-                                        path="videos/:id"
-                                        element={<VideoDetail />}
-                                      />
-                                      <Route
-                                        path="sqlite"
-                                        element={<Sqlite />}
-                                      />
-                                      <Route
-                                        path="console"
-                                        element={<Console />}
-                                      />
-                                      <Route path="debug" element={<Debug />} />
-                                      <Route path="help" element={<Help />} />
-                                      <Route
-                                        path="help/api"
-                                        element={<ApiDocsPage />}
-                                      />
-                                      <Route
-                                        path="ai"
-                                        element={
-                                          <RequireAuth
-                                            loginTitle="AI Requires Login"
-                                            loginDescription="Sign in to access AI features"
-                                          >
-                                            <Chat />
-                                          </RequireAuth>
-                                        }
-                                      />
-                                      <Route
-                                        path="email"
-                                        element={
-                                          <RequireAuth
-                                            loginTitle="Email Requires Login"
-                                            loginDescription="Sign in to access your email"
-                                          >
-                                            <Email />
-                                          </RequireAuth>
-                                        }
-                                      />
-                                      <Route
-                                        path="mls-chat"
-                                        element={
-                                          <RequireAuth
-                                            loginTitle="MLS Chat Requires Login"
-                                            loginDescription="Sign in to access encrypted chat"
-                                          >
-                                            <MlsChat />
-                                          </RequireAuth>
-                                        }
-                                      />
-                                      <Route
-                                        path="models"
-                                        element={<Models />}
-                                      />
-                                      <Route
-                                        path="settings"
-                                        element={<Settings />}
-                                      />
-                                      <Route
-                                        path="licenses"
-                                        element={<Licenses />}
-                                      />
-                                      <Route
-                                        path="sqlite/tables"
-                                        element={<Tables />}
-                                      />
-                                      <Route
-                                        path="sqlite/tables/:tableName"
-                                        element={<TableRows />}
-                                      />
-                                      <Route
-                                        path="analytics"
-                                        element={<Analytics />}
-                                      />
-                                      <Route path="opfs" element={<Opfs />} />
-                                      <Route
-                                        path="cache-storage"
-                                        element={<CacheStorage />}
-                                      />
-                                      <Route
-                                        path="local-storage"
-                                        element={<LocalStorage />}
-                                      />
-                                      <Route
-                                        path="keychain"
-                                        element={<Keychain />}
-                                      />
-                                      <Route
-                                        path="keychain/:id"
-                                        element={<KeychainDetail />}
-                                      />
-                                      <Route
-                                        path="admin"
-                                        element={<AdminLauncher />}
-                                      />
-                                      <Route
-                                        path="admin/redis"
-                                        element={<Admin />}
-                                      />
-                                      <Route
-                                        path="admin/postgres"
-                                        element={<PostgresAdmin />}
-                                      />
-                                      <Route
-                                        path="admin/groups"
-                                        element={<GroupsAdminPage />}
-                                      />
-                                      <Route
-                                        path="admin/groups/:id"
-                                        element={<GroupDetailPageRoute />}
-                                      />
-                                      <Route
-                                        path="admin/organizations"
-                                        element={<OrganizationsAdminPage />}
-                                      />
-                                      <Route
-                                        path="admin/organizations/:id"
-                                        element={
-                                          <OrganizationDetailPageRoute />
-                                        }
-                                      />
-                                      <Route
-                                        path="admin/users"
-                                        element={<UsersAdminPage />}
-                                      />
-                                      <Route
-                                        path="admin/users/:id"
-                                        element={<UsersAdminDetail />}
-                                      />
-                                      <Route path="sync" element={<Sync />} />
-                                      <Route path="vfs" element={<Vfs />} />
-                                      <Route
-                                        path="backups"
-                                        element={<Backups />}
-                                      />
-                                    </Route>
-                                  </Routes>
-                                </Suspense>
-                                <WindowRenderer />
-                              </BrowserRouter>
-                            </WindowManagerProvider>
-                          </SSEProvider>
-                        </AuthProvider>
-                      </VideoProvider>
-                    </AudioProvider>
-                  </AppTooltipProvider>
+                  <SearchProvider>
+                    <AppTooltipProvider>
+                      <InstanceChangeHandler />
+                      <AudioProvider>
+                        <VideoProvider>
+                          <AuthProvider>
+                            <SSEProvider>
+                              <WindowManagerProvider>
+                                <BrowserRouter>
+                                  <Suspense
+                                    fallback={
+                                      <div className="p-8 text-center text-muted-foreground">
+                                        Loading...
+                                      </div>
+                                    }
+                                  >
+                                    <Routes>
+                                      <Route path="/" element={<App />}>
+                                        <Route index element={<Home />} />
+                                        <Route
+                                          path="files"
+                                          element={<Files />}
+                                        />
+                                        <Route
+                                          path="contacts"
+                                          element={<Contacts />}
+                                        />
+                                        <Route
+                                          path="contacts/new"
+                                          element={<ContactNew />}
+                                        />
+                                        <Route
+                                          path="contacts/:id"
+                                          element={<ContactDetail />}
+                                        />
+                                        <Route
+                                          path="documents"
+                                          element={<Documents />}
+                                        />
+                                        <Route
+                                          path="documents/:id"
+                                          element={<DocumentDetail />}
+                                        />
+                                        <Route
+                                          path="notes"
+                                          element={<Notes />}
+                                        />
+                                        <Route
+                                          path="notes/:id"
+                                          element={<NoteDetail />}
+                                        />
+                                        <Route
+                                          path="photos"
+                                          element={<Photos />}
+                                        />
+                                        <Route
+                                          path="photos/albums/:albumId"
+                                          element={<Photos />}
+                                        />
+                                        <Route
+                                          path="photos/:id"
+                                          element={<PhotoDetail />}
+                                        />
+                                        <Route
+                                          path="audio"
+                                          element={<AudioPage />}
+                                        />
+                                        <Route
+                                          path="audio/playlists/:playlistId"
+                                          element={<AudioPage />}
+                                        />
+                                        <Route
+                                          path="audio/:id"
+                                          element={<AudioDetail />}
+                                        />
+                                        <Route
+                                          path="videos"
+                                          element={<VideoPage />}
+                                        />
+                                        <Route
+                                          path="videos/playlists/:playlistId"
+                                          element={<VideoPage />}
+                                        />
+                                        <Route
+                                          path="videos/:id"
+                                          element={<VideoDetail />}
+                                        />
+                                        <Route
+                                          path="sqlite"
+                                          element={<Sqlite />}
+                                        />
+                                        <Route
+                                          path="console"
+                                          element={<Console />}
+                                        />
+                                        <Route
+                                          path="debug"
+                                          element={<Debug />}
+                                        />
+                                        <Route path="help" element={<Help />} />
+                                        <Route
+                                          path="help/api"
+                                          element={<ApiDocsPage />}
+                                        />
+                                        <Route
+                                          path="ai"
+                                          element={
+                                            <RequireAuth
+                                              loginTitle="AI Requires Login"
+                                              loginDescription="Sign in to access AI features"
+                                            >
+                                              <Chat />
+                                            </RequireAuth>
+                                          }
+                                        />
+                                        <Route
+                                          path="email"
+                                          element={
+                                            <RequireAuth
+                                              loginTitle="Email Requires Login"
+                                              loginDescription="Sign in to access your email"
+                                            >
+                                              <Email />
+                                            </RequireAuth>
+                                          }
+                                        />
+                                        <Route
+                                          path="mls-chat"
+                                          element={
+                                            <RequireAuth
+                                              loginTitle="MLS Chat Requires Login"
+                                              loginDescription="Sign in to access encrypted chat"
+                                            >
+                                              <MlsChat />
+                                            </RequireAuth>
+                                          }
+                                        />
+                                        <Route
+                                          path="models"
+                                          element={<Models />}
+                                        />
+                                        <Route
+                                          path="settings"
+                                          element={<Settings />}
+                                        />
+                                        <Route
+                                          path="licenses"
+                                          element={<Licenses />}
+                                        />
+                                        <Route
+                                          path="sqlite/tables"
+                                          element={<Tables />}
+                                        />
+                                        <Route
+                                          path="sqlite/tables/:tableName"
+                                          element={<TableRows />}
+                                        />
+                                        <Route
+                                          path="analytics"
+                                          element={<Analytics />}
+                                        />
+                                        <Route path="opfs" element={<Opfs />} />
+                                        <Route
+                                          path="cache-storage"
+                                          element={<CacheStorage />}
+                                        />
+                                        <Route
+                                          path="local-storage"
+                                          element={<LocalStorage />}
+                                        />
+                                        <Route
+                                          path="keychain"
+                                          element={<Keychain />}
+                                        />
+                                        <Route
+                                          path="keychain/:id"
+                                          element={<KeychainDetail />}
+                                        />
+                                        <Route
+                                          path="admin"
+                                          element={<AdminLauncher />}
+                                        />
+                                        <Route
+                                          path="admin/redis"
+                                          element={<Admin />}
+                                        />
+                                        <Route
+                                          path="admin/postgres"
+                                          element={<PostgresAdmin />}
+                                        />
+                                        <Route
+                                          path="admin/groups"
+                                          element={<GroupsAdminPage />}
+                                        />
+                                        <Route
+                                          path="admin/groups/:id"
+                                          element={<GroupDetailPageRoute />}
+                                        />
+                                        <Route
+                                          path="admin/organizations"
+                                          element={<OrganizationsAdminPage />}
+                                        />
+                                        <Route
+                                          path="admin/organizations/:id"
+                                          element={
+                                            <OrganizationDetailPageRoute />
+                                          }
+                                        />
+                                        <Route
+                                          path="admin/users"
+                                          element={<UsersAdminPage />}
+                                        />
+                                        <Route
+                                          path="admin/users/:id"
+                                          element={<UsersAdminDetail />}
+                                        />
+                                        <Route path="sync" element={<Sync />} />
+                                        <Route path="vfs" element={<Vfs />} />
+                                        <Route
+                                          path="backups"
+                                          element={<Backups />}
+                                        />
+                                      </Route>
+                                    </Routes>
+                                  </Suspense>
+                                  <WindowRenderer />
+                                </BrowserRouter>
+                              </WindowManagerProvider>
+                            </SSEProvider>
+                          </AuthProvider>
+                        </VideoProvider>
+                      </AudioProvider>
+                    </AppTooltipProvider>
+                  </SearchProvider>
                 </SettingsProvider>
               </DatabaseProvider>
               <LaserScreensaver />
