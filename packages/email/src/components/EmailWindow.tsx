@@ -5,6 +5,7 @@ import { useHasEmailFolderOperations } from '../context/EmailContext.js';
 import { useEmails } from '../hooks';
 import { formatEmailDate, formatEmailSize } from '../lib';
 import { ALL_MAIL_ID } from '../types/folder.js';
+import { ComposeDialog } from './compose/ComposeDialog.js';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailWindowMenuBar } from './EmailWindowMenuBar';
 import { EmailFoldersSidebar } from './sidebar/EmailFoldersSidebar.js';
@@ -39,10 +40,19 @@ export function EmailWindow({
     ALL_MAIL_ID
   );
   const [folderRefreshToken, setFolderRefreshToken] = useState(0);
+  const [isComposeOpen, setIsComposeOpen] = useState(false);
 
   const handleFolderChanged = useCallback(() => {
     setFolderRefreshToken((t) => t + 1);
   }, []);
+
+  const handleCompose = useCallback(() => {
+    setIsComposeOpen(true);
+  }, []);
+
+  const handleEmailSent = useCallback(() => {
+    fetchEmails();
+  }, [fetchEmails]);
 
   useEffect(() => {
     fetchEmails();
@@ -71,6 +81,12 @@ export function EmailWindow({
           onViewModeChange={setViewMode}
           onRefresh={fetchEmails}
           onClose={onClose}
+          onCompose={handleCompose}
+        />
+        <ComposeDialog
+          open={isComposeOpen}
+          onOpenChange={setIsComposeOpen}
+          onEmailSent={handleEmailSent}
         />
         <div className="flex flex-1 overflow-hidden">
           {hasFolderOperations && (

@@ -1,4 +1,4 @@
-import { List, RefreshCw, Table2 } from 'lucide-react';
+import { Edit, List, RefreshCw, Table2 } from 'lucide-react';
 import { useEmailUI } from '../context';
 
 export type ViewMode = 'list' | 'table';
@@ -8,13 +8,15 @@ interface EmailWindowMenuBarProps {
   onViewModeChange: (mode: ViewMode) => void;
   onRefresh: () => void;
   onClose: () => void;
+  onCompose: () => void;
 }
 
 export function EmailWindowMenuBar({
   viewMode,
   onViewModeChange,
   onRefresh,
-  onClose
+  onClose,
+  onCompose
 }: EmailWindowMenuBarProps) {
   const {
     AboutMenuItem,
@@ -27,6 +29,13 @@ export function EmailWindowMenuBar({
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
+        <DropdownMenuItem
+          onClick={onCompose}
+          icon={<Edit className="h-3 w-3" />}
+        >
+          Compose
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
           onClick={onRefresh}
           icon={<RefreshCw className="h-3 w-3" />}

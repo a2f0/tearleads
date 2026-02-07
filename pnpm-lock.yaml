@@ -63,6 +63,9 @@ importers:
       morgan:
         specifier: 1.10.1
         version: 1.10.1
+      nodemailer:
+        specifier: 7.0.3
+        version: 7.0.3
       pg:
         specifier: 8.18.0
         version: 8.18.0
@@ -88,6 +91,9 @@ importers:
       '@types/node':
         specifier: 25.2.0
         version: 25.2.0
+      '@types/nodemailer':
+        specifier: 6.4.17
+        version: 6.4.17
       '@types/pg':
         specifier: 8.16.0
         version: 8.16.0
@@ -4056,8 +4062,8 @@ packages:
   '@types/node@25.2.0':
     resolution: {integrity: sha512-DZ8VwRFUNzuqJ5khrvwMXHmvPe+zGayJhr2CDNiKB1WBE1ST8Djl00D0IC4vvNmHMdj6DlbYRIaFE7WHjlDl5w==}
 
-  '@types/nodemailer@7.0.9':
-    resolution: {integrity: sha512-vI8oF1M+8JvQhsId0Pc38BdUP2evenIIys7c7p+9OZXSPOH5c1dyINP1jT8xQ2xPuBUXmIC87s+91IZMDjH8Ow==}
+  '@types/nodemailer@6.4.17':
+    resolution: {integrity: sha512-I9CCaIp6DTldEg7vyUTZi8+9Vo0hi1/T8gv3C89yk1rSAAzoKQ8H8ki/jBYJSFoH/BisgLP8tkZMlQ91CIquww==}
 
   '@types/papaparse@5.5.2':
     resolution: {integrity: sha512-gFnFp/JMzLHCwRf7tQHrNnfhN4eYBVYYI897CGX4MY1tzY9l2aLkVyx2IlKZ/SAqDbB3I1AOZW5gTMGGsqWliA==}
@@ -7020,6 +7026,10 @@ packages:
 
   nodemailer@7.0.13:
     resolution: {integrity: sha512-PNDFSJdP+KFgdsG3ZzMXCgquO7I6McjY2vlqILjtJd0hy8wEvtugS9xKRF2NWlPNGxvLCXlTNIae4serI7dinw==}
+    engines: {node: '>=6.0.0'}
+
+  nodemailer@7.0.3:
+    resolution: {integrity: sha512-Ajq6Sz1x7cIK3pN6KesGTah+1gnwMnx5gKl3piQlQQE/PwyJ4Mbc8is2psWYxK3RJTVeqsDaCv8ZzXLCDHMTZw==}
     engines: {node: '>=6.0.0'}
 
   nopt@6.0.0:
@@ -12164,7 +12174,7 @@ snapshots:
     dependencies:
       undici-types: 7.16.0
 
-  '@types/nodemailer@7.0.9':
+  '@types/nodemailer@6.4.17':
     dependencies:
       '@types/node': 25.2.0
 
@@ -12218,7 +12228,7 @@ snapshots:
   '@types/smtp-server@3.5.12':
     dependencies:
       '@types/node': 25.2.0
-      '@types/nodemailer': 7.0.9
+      '@types/nodemailer': 6.4.17
 
   '@types/statuses@2.0.6': {}
 
@@ -15945,6 +15955,8 @@ snapshots:
   node-releases@2.0.27: {}
 
   nodemailer@7.0.13: {}
+
+  nodemailer@7.0.3: {}
 
   nopt@6.0.0:
     dependencies:
