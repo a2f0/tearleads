@@ -39,6 +39,7 @@ import { files, vfsLinks } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
+import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatDate, formatFileSize } from '@/lib/utils';
 import {
@@ -47,6 +48,7 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+import { useVideoPlaylistContext } from '@/video/VideoPlaylistContext';
 
 const VIDEO_MIME_TYPES = [
   'video/mp4',
@@ -612,6 +614,10 @@ export function VideoPage({
                                 }
                                 className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
                                 data-testid={`video-open-${video.id}`}
+                                draggable
+                                onDragStart={(event) =>
+                                  setMediaDragData(event, 'video', [video.id])
+                                }
                               >
                                 <div className="relative shrink-0">
                                   {video.thumbnailUrl ? (
@@ -708,6 +714,10 @@ export function VideoPage({
                                 ? () => handleNavigateToDetail(video.id)
                                 : undefined
                             }
+                            draggable
+                            onDragStart={(event) =>
+                              setMediaDragData(event, 'video', [video.id])
+                            }
                           >
                             {row.getVisibleCells().map((cell) => (
                               <td
@@ -795,6 +805,7 @@ function VideoWithSidebar() {
   const { playlistId } = useParams<{ playlistId?: string }>();
   const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
+  const { addTrackToPlaylist } = useVideoPlaylistContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -813,6 +824,18 @@ function VideoWithSidebar() {
     [navigate]
   );
 
+  const handleDropToPlaylist = useCallback(
+    async (playlistId: string, files: File[], videoIds?: string[]) => {
+      void files;
+      if (!videoIds || videoIds.length === 0) return;
+      await Promise.all(
+        videoIds.map((videoId) => addTrackToPlaylist(playlistId, videoId))
+      );
+      setRefreshToken((value) => value + 1);
+    },
+    [addTrackToPlaylist]
+  );
+
   return (
     <div className="flex h-full flex-col space-y-4">
       <BackLink defaultTo="/" defaultLabel="Back to Home" />
@@ -826,6 +849,7 @@ function VideoWithSidebar() {
               onPlaylistSelect={handlePlaylistSelect}
               refreshToken={refreshToken}
               onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
+              onDropToPlaylist={handleDropToPlaylist}
             />
           </div>
         )}

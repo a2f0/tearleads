@@ -15,6 +15,7 @@ import {
   ALL_PHOTOS_ID,
   PhotosAlbumsSidebar
 } from '@/components/photos-window/PhotosAlbumsSidebar';
+import { usePhotoAlbums } from '@/components/photos-window/usePhotoAlbums';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -29,6 +30,7 @@ import { files, vfsLinks } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
   getFileStorage,
@@ -600,7 +602,11 @@ export function Photos({
                               key={item.id}
                               role="button"
                               tabIndex={0}
+                              draggable
                               onClick={() => handlePhotoClick(item)}
+                              onDragStart={(event) =>
+                                setMediaDragData(event, 'image', [item.id])
+                              }
                               onKeyDown={(e) => {
                                 if (e.key === 'Enter' || e.key === ' ') {
                                   e.preventDefault();
@@ -681,6 +687,7 @@ export function PhotosPage() {
   const { albumId } = useParams<{ albumId?: string }>();
   const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
+  const { addPhotoToAlbum } = usePhotoAlbums();
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -699,6 +706,18 @@ export function PhotosPage() {
     [navigate]
   );
 
+  const handleDropToAlbum = useCallback(
+    async (albumId: string, files: File[], photoIds?: string[]) => {
+      void files;
+      if (!photoIds || photoIds.length === 0) return;
+      await Promise.all(
+        photoIds.map((photoId) => addPhotoToAlbum(albumId, photoId))
+      );
+      setRefreshToken((value) => value + 1);
+    },
+    [addPhotoToAlbum]
+  );
+
   return (
     <div className="flex h-full flex-col space-y-4">
       <BackLink defaultTo="/" defaultLabel="Back to Home" />
@@ -712,6 +731,7 @@ export function PhotosPage() {
               onAlbumSelect={handleAlbumSelect}
               refreshToken={refreshToken}
               onAlbumChanged={() => setRefreshToken((t) => t + 1)}
+              onDropToAlbum={handleDropToAlbum}
             />
           </div>
         )}

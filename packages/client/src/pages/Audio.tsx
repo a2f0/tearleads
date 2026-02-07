@@ -1,4 +1,8 @@
-import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@rapid/audio';
+import {
+  ALL_AUDIO_ID,
+  AudioPlaylistsSidebar,
+  useAudioUIContext
+} from '@rapid/audio';
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
@@ -33,6 +37,7 @@ import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
+import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
@@ -547,6 +552,10 @@ export function AudioPage({
                             }
                             className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
                             data-testid={`audio-play-${track.id}`}
+                            draggable
+                            onDragStart={(event) =>
+                              setMediaDragData(event, 'audio', [track.id])
+                            }
                           >
                             <div className="relative shrink-0">
                               {track.thumbnailUrl ? (
@@ -644,6 +653,7 @@ function AudioWithSidebar() {
   const { playlistId } = useParams<{ playlistId?: string }>();
   const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
+  const { addTrackToPlaylist } = useAudioUIContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -662,6 +672,18 @@ function AudioWithSidebar() {
     [navigate]
   );
 
+  const handleDropToPlaylist = useCallback(
+    async (playlistId: string, files: File[], audioIds?: string[]) => {
+      void files;
+      if (!audioIds || audioIds.length === 0) return;
+      await Promise.all(
+        audioIds.map((audioId) => addTrackToPlaylist(playlistId, audioId))
+      );
+      setRefreshToken((value) => value + 1);
+    },
+    [addTrackToPlaylist]
+  );
+
   return (
     <div className="flex h-full flex-col space-y-4">
       <BackLink defaultTo="/" defaultLabel="Back to Home" />
@@ -675,6 +697,7 @@ function AudioWithSidebar() {
               onPlaylistSelect={handlePlaylistSelect}
               refreshToken={refreshToken}
               onPlaylistChanged={() => setRefreshToken((t) => t + 1)}
+              onDropToPlaylist={handleDropToPlaylist}
             />
           </div>
         )}

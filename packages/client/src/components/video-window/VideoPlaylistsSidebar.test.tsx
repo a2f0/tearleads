@@ -715,4 +715,51 @@ describe('VideoPlaylistsSidebar', () => {
 
     expect(onWidthChange).not.toHaveBeenCalled();
   });
+
+  it('drops dragged videos into a playlist', async () => {
+    const fetchPlaylists = vi.fn(async () => mockPlaylists);
+    const onDropToPlaylist = vi.fn();
+    const Wrapper = createVideoPlaylistWrapper({
+      databaseState: { isUnlocked: true },
+      fetchPlaylists
+    });
+
+    render(
+      <Wrapper>
+        <VideoPlaylistsSidebar
+          width={200}
+          onWidthChange={vi.fn()}
+          selectedPlaylistId={null}
+          onPlaylistSelect={vi.fn()}
+          onDropToPlaylist={onDropToPlaylist}
+        />
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Action')).toBeInTheDocument();
+    });
+
+    const playlistButton = screen.getByText('Action').closest('button');
+    if (!playlistButton) throw new Error('Playlist button not found');
+
+    const payload = JSON.stringify({
+      mediaType: 'video',
+      ids: ['video-1', 'video-2']
+    });
+    const dataTransfer = {
+      files: [],
+      getData: (type: string) =>
+        type === 'application/x-rapid-media-ids' ? payload : ''
+    };
+
+    fireEvent.drop(playlistButton, { dataTransfer });
+
+    await waitFor(() => {
+      expect(onDropToPlaylist).toHaveBeenCalledWith('playlist-1', [], [
+        'video-1',
+        'video-2'
+      ]);
+    });
+  });
 });

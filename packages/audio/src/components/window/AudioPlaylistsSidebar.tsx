@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
 import { cn } from '../../lib/cn';
 import { filterFilesByAccept } from '../../lib/file-filter';
+import { getMediaDragIds } from '../../lib/mediaDragData';
 import { AudioPlaylistsContextMenu } from './AudioPlaylistsContextMenu';
 import { DeletePlaylistDialog } from './DeletePlaylistDialog';
 import { EmptySpaceContextMenu } from './EmptySpaceContextMenu';
@@ -34,7 +35,8 @@ interface AudioPlaylistsSidebarProps {
   /** Callback when files are dropped onto a playlist */
   onDropToPlaylist?: (
     playlistId: string,
-    files: File[]
+    files: File[],
+    audioIds?: string[]
   ) => void | Promise<void>;
 }
 
@@ -114,6 +116,12 @@ export function AudioPlaylistsSidebar({
       // Reset drag state
       dragCounterRef.current[playlistId] = 0;
       setDragOverPlaylistId(null);
+
+      const audioIds = getMediaDragIds(e.dataTransfer, 'audio');
+      if (audioIds.length > 0) {
+        void onDropToPlaylist(playlistId, [], audioIds);
+        return;
+      }
 
       // Get files and filter for audio
       const files = Array.from(e.dataTransfer.files);

@@ -148,10 +148,17 @@ function VideoWindowInner({
 
   // Handler for dropping files onto a specific playlist in the sidebar
   const handleDropToPlaylist = useCallback(
-    async (playlistId: string, files: File[]) => {
+    async (playlistId: string, files: File[], videoIds?: string[]) => {
+      if (videoIds && videoIds.length > 0) {
+        await Promise.all(
+          videoIds.map((videoId) => addTrackToPlaylist(playlistId, videoId))
+        );
+        setRefreshToken((value) => value + 1);
+        return;
+      }
       await handleUploadFilesToPlaylist(files, playlistId);
     },
-    [handleUploadFilesToPlaylist]
+    [addTrackToPlaylist, handleUploadFilesToPlaylist]
   );
 
   // Wrapper for existing upload patterns (no playlist override)

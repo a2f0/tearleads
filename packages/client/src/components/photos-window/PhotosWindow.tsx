@@ -105,10 +105,15 @@ export function PhotosWindow({
 
   // Handler for dropping files onto a specific album in the sidebar
   const handleDropToAlbum = useCallback(
-    async (albumId: string, files: File[]) => {
+    async (albumId: string, files: File[], photoIds?: string[]) => {
+      if (photoIds && photoIds.length > 0) {
+        await Promise.all(photoIds.map((photoId) => addPhotoToAlbum(albumId, photoId)));
+        setRefreshToken((value) => value + 1);
+        return;
+      }
       await handleUploadFilesToAlbum(files, albumId);
     },
-    [handleUploadFilesToAlbum]
+    [addPhotoToAlbum, handleUploadFilesToAlbum]
   );
 
   const handleUpload = useCallback(() => {

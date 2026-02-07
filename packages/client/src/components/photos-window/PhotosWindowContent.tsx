@@ -19,6 +19,7 @@ import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatFileSize } from '@/lib/utils';
 import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
 
@@ -257,6 +258,10 @@ export function PhotosWindowContent({
                               type="button"
                               className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden text-left"
                               onClick={() => handleSelect(photo)}
+                              draggable
+                              onDragStart={(event) =>
+                                setMediaDragData(event, 'image', [photo.id])
+                              }
                             >
                               <img
                                 src={photo.objectUrl}

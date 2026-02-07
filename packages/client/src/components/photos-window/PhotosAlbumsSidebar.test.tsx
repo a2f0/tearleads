@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
@@ -454,6 +454,35 @@ describe('PhotosAlbumsSidebar', () => {
       expect(
         screen.getByTestId('empty-space-context-menu')
       ).toBeInTheDocument();
+    });
+  });
+
+  it('drops dragged photos into an album', async () => {
+    const onDropToAlbum = vi.fn();
+    render(
+      <PhotosAlbumsSidebar {...defaultProps} onDropToAlbum={onDropToAlbum} />
+    );
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+
+    const payload = JSON.stringify({
+      mediaType: 'image',
+      ids: ['photo-1', 'photo-2']
+    });
+    const dataTransfer = {
+      files: [],
+      getData: (type: string) =>
+        type === 'application/x-rapid-media-ids' ? payload : ''
+    };
+
+    fireEvent.drop(albumButton, { dataTransfer });
+
+    await waitFor(() => {
+      expect(onDropToAlbum).toHaveBeenCalledWith('album-1', [], [
+        'photo-1',
+        'photo-2'
+      ]);
     });
   });
 

@@ -14,6 +14,7 @@ import {
   type AudioWithUrl,
   useAudioUIContext
 } from '../../context/AudioUIContext';
+import { setMediaDragData } from '../../lib/mediaDragData';
 import { ALL_AUDIO_ID } from './AudioPlaylistsSidebar';
 
 const ROW_HEIGHT_ESTIMATE = 56;
@@ -459,6 +460,10 @@ export function AudioWindowList({
                             }
                             className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden text-left"
                             data-testid={`window-audio-play-${track.id}`}
+                            draggable
+                            onDragStart={(event) =>
+                              setMediaDragData(event, 'audio', [track.id])
+                            }
                           >
                             <div className="relative shrink-0">
                               {track.thumbnailUrl ? (
