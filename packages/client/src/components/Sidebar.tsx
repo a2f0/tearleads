@@ -24,6 +24,7 @@ import {
   Music,
   RefreshCw,
   Save,
+  Search,
   Settings,
   Shield,
   StickyNote,
@@ -64,6 +65,13 @@ export const navItems: NavItem[] = [
     labelKey: 'files',
     inMobileMenu: true,
     testId: 'files-link'
+  },
+  {
+    path: '/search',
+    icon: Search,
+    labelKey: 'search',
+    inMobileMenu: true,
+    testId: 'search-link'
   },
   {
     path: '/contacts',

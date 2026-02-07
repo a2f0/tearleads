@@ -14,6 +14,7 @@ export const en = {
   },
   menu: {
     home: 'Home',
+    search: 'Search',
     files: 'Files',
     contacts: 'Contacts',
     photos: 'Photos',

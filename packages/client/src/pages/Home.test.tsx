@@ -43,6 +43,7 @@ setupScreensaverMock();
 const STORAGE_KEY = 'desktop-icon-positions';
 
 const MOCK_SAVED_POSITIONS = {
+  '/search': { x: 200, y: 100 },
   '/files': { x: 300, y: 300 },
   '/contacts': { x: 400, y: 100 },
   '/photos': { x: 100, y: 200 },
@@ -931,15 +932,15 @@ describe('Home', () => {
     const parsedPositions: Record<string, { x: number; y: number }> =
       JSON.parse(storedPositions ?? '{}');
     const filesPosition = parsedPositions['/files'];
-    const contactsPosition = parsedPositions['/contacts'];
+    const searchPosition = parsedPositions['/search'];
     expect(filesPosition).toBeDefined();
-    expect(contactsPosition).toBeDefined();
+    expect(searchPosition).toBeDefined();
 
     const expectedSpacing = Math.max(ICON_SIZE, wideLabelWidth) + GAP;
-    expect(contactsPosition?.x).toBeCloseTo(
+    expect(searchPosition?.x).toBeCloseTo(
       (filesPosition?.x ?? 0) + expectedSpacing
     );
-    expect(contactsPosition?.y).toBeCloseTo(filesPosition?.y ?? 0);
+    expect(searchPosition?.y).toBeCloseTo(filesPosition?.y ?? 0);
   });
 
   it('clusters icons using icon size when labels are unmeasured', async () => {

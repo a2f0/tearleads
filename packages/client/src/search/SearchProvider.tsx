@@ -3,11 +3,31 @@
  * Handles initialization on unlock and cleanup on lock/instance switch.
  */
 
+import {
+  contactEmails,
+  contactPhones,
+  contacts,
+  files,
+  notes
+} from '@rapid/db/sqlite';
+import { eq, inArray } from 'drizzle-orm';
 import type { ReactNode } from 'react';
-import { createContext, useCallback, useContext, useEffect } from 'react';
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef
+} from 'react';
+import { getDatabase } from '@/db';
 import { getKeyManagerForInstance } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
 import { useOnInstanceChange } from '@/hooks/useInstanceChange';
+import {
+  createContactDocument,
+  createFileDocument,
+  createNoteDocument
+} from './integration';
 import {
   closeSearchStoreForInstance,
   getSearchStoreForInstance
@@ -31,11 +51,118 @@ interface SearchProviderProps {
 }
 
 /**
+ * Fetch all searchable documents from the database.
+ * Queries contacts, notes, and files that are not deleted.
+ */
+async function fetchAllDocuments(): Promise<SearchableDocument[]> {
+  const db = getDatabase();
+  const docs: SearchableDocument[] = [];
+
+  // Fetch all non-deleted contacts
+  const contactRows = await db
+    .select()
+    .from(contacts)
+    .where(eq(contacts.deleted, false));
+
+  const contactIds = contactRows.map((c) => c.id);
+
+  // Fetch emails and phones for all contacts in parallel
+  const [emailRows, phoneRows] =
+    contactIds.length > 0
+      ? await Promise.all([
+          db
+            .select()
+            .from(contactEmails)
+            .where(inArray(contactEmails.contactId, contactIds)),
+          db
+            .select()
+            .from(contactPhones)
+            .where(inArray(contactPhones.contactId, contactIds))
+        ])
+      : [[], []];
+
+  // Group emails by contact ID
+  const emailsByContact = emailRows.reduce<Record<string, string[]>>(
+    (acc, row) => {
+      const existing = acc[row.contactId] ?? [];
+      existing.push(row.email);
+      acc[row.contactId] = existing;
+      return acc;
+    },
+    {}
+  );
+
+  // Group phones by contact ID
+  const phonesByContact = phoneRows.reduce<Record<string, string[]>>(
+    (acc, row) => {
+      const existing = acc[row.contactId] ?? [];
+      existing.push(row.phoneNumber);
+      acc[row.contactId] = existing;
+      return acc;
+    },
+    {}
+  );
+
+  for (const contact of contactRows) {
+    docs.push(
+      createContactDocument(
+        contact.id,
+        contact.firstName,
+        contact.lastName,
+        emailsByContact[contact.id]?.join(' ') ?? null,
+        phonesByContact[contact.id]?.join(' ') ?? null,
+        contact.createdAt.getTime(),
+        contact.updatedAt.getTime()
+      )
+    );
+  }
+
+  // Fetch all non-deleted notes
+  const noteRows = await db
+    .select()
+    .from(notes)
+    .where(eq(notes.deleted, false));
+
+  for (const note of noteRows) {
+    docs.push(
+      createNoteDocument(
+        note.id,
+        note.title,
+        note.content,
+        note.createdAt.getTime(),
+        note.updatedAt.getTime()
+      )
+    );
+  }
+
+  // Fetch all non-deleted files
+  const fileRows = await db
+    .select()
+    .from(files)
+    .where(eq(files.deleted, false));
+
+  for (const file of fileRows) {
+    docs.push(
+      createFileDocument(
+        file.id,
+        file.name,
+        file.mimeType,
+        file.uploadDate.getTime(),
+        file.uploadDate.getTime()
+      )
+    );
+  }
+
+  return docs;
+}
+
+/**
  * Provider that manages search index lifecycle.
  * Must be placed inside DatabaseProvider.
  */
 export function SearchProvider({ children }: SearchProviderProps) {
   const { currentInstanceId, isUnlocked } = useDatabaseContext();
+  const hasRebuiltRef = useRef(false);
 
   // Initialize search store when database is unlocked
   useEffect(() => {
@@ -60,10 +187,22 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
         if (mounted) {
           const state = store.getState();
-          if (state.documentCount === 0 && state.isInitialized) {
+          // Auto-rebuild when index is empty (first time setup)
+          if (
+            state.documentCount === 0 &&
+            state.isInitialized &&
+            !hasRebuiltRef.current
+          ) {
+            hasRebuiltRef.current = true;
             console.info(
-              'Search: Empty index initialized, rebuild recommended'
+              'Search: Empty index detected, starting initial rebuild...'
             );
+            try {
+              await store.rebuildFromDatabase(fetchAllDocuments);
+              console.info('Search: Initial rebuild complete');
+            } catch (rebuildErr) {
+              console.error('Search: Initial rebuild failed:', rebuildErr);
+            }
           }
         }
       } catch (err) {
@@ -78,11 +217,12 @@ export function SearchProvider({ children }: SearchProviderProps) {
     };
   }, [currentInstanceId, isUnlocked]);
 
-  // Close search store when instance changes
+  // Close search store when instance changes and reset rebuild flag
   useOnInstanceChange(
     useCallback(
       async (newInstanceId: string | null, prevInstanceId: string | null) => {
         if (prevInstanceId && prevInstanceId !== newInstanceId) {
+          hasRebuiltRef.current = false;
           await closeSearchStoreForInstance(prevInstanceId);
         }
       },

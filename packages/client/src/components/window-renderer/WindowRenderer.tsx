@@ -26,6 +26,7 @@ import { ModelsWindow } from '@/components/models-window';
 import { NotesWindow } from '@/components/notes-window';
 import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
+import { SearchWindow } from '@/components/search-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
 import { SyncWindow } from '@/components/sync-window';
@@ -95,7 +96,8 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   v86: { Component: V86Window },
   vfs: { Component: VfsWindow },
   backup: { Component: BackupWindow },
-  'mls-chat': { Component: MlsChatWindow }
+  'mls-chat': { Component: MlsChatWindow },
+  search: { Component: SearchWindow }
 };
 
 export function WindowRenderer() {

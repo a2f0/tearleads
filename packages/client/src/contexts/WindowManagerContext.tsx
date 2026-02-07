@@ -51,7 +51,8 @@ export type WindowType =
   | 'v86'
   | 'vfs'
   | 'backup'
-  | 'mls-chat';
+  | 'mls-chat'
+  | 'search';
 
 export interface WindowOpenRequestPayloads {
   contacts: { contactId: string };

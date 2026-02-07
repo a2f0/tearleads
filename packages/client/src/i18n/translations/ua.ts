@@ -14,6 +14,7 @@ export const ua = {
   },
   menu: {
     home: 'Головна',
+    search: 'Пошук',
     files: 'Файли',
     contacts: 'Контакти',
     photos: 'Фото',
