@@ -4,11 +4,14 @@ import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from './fixtures';
 import { clearOriginStorage, MINIMAL_PNG } from './test-utils';
-
-const TEST_PASSWORD = 'testpassword123';
-const BACKUP_PASSWORD = 'testpassword123';
-const DB_OPERATION_TIMEOUT = 15000;
-const BACKUP_TIMEOUT = 30000;
+import {
+  BACKUP_PASSWORD,
+  BACKUP_TIMEOUT,
+  DB_OPERATION_TIMEOUT,
+  navigateInApp,
+  setupDatabaseForBackup,
+  writeDatabaseTestData
+} from '../src/lib/testing/backupRestoreE2eHelpers';
 
 // Artifact directory for backup files - CI will upload these
 const BACKUP_ARTIFACT_DIR = join(
@@ -21,49 +24,9 @@ test.beforeEach(async ({ page }) => {
   await clearOriginStorage(page);
 });
 
-// Helper to navigate using in-app routing (preserves React state)
-async function navigateInApp(page: Page, path: string) {
-  await page.evaluate((route) => {
-    window.history.pushState({}, '', route);
-    window.dispatchEvent(new PopStateEvent('popstate'));
-  }, path);
-  await page.waitForURL(`**${path}`);
-}
-
-// Helper to setup and unlock the database
-async function setupDatabase(page: Page, password = TEST_PASSWORD) {
-  await navigateInApp(page, '/sqlite');
-
-  // Reset database to ensure clean state
-  await page.getByTestId('db-reset-button').click();
-  await expect(page.getByTestId('db-status')).toContainText('Not Set Up', {
-    timeout: DB_OPERATION_TIMEOUT
-  });
-
-  // Setup with password
-  await page.getByTestId('db-password-input').fill(password);
-  await page.getByTestId('db-setup-button').click();
-  await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
-    timeout: DB_OPERATION_TIMEOUT
-  });
-}
-
-// Helper to write test data to the database
-async function writeTestData(page: Page) {
-  await page.getByTestId('db-write-button').click();
-  await expect(page.getByTestId('db-test-result')).toHaveAttribute(
-    'data-status',
-    'success',
-    { timeout: DB_OPERATION_TIMEOUT }
-  );
-  const testData = page.getByTestId('db-test-data');
-  await expect(testData).toBeVisible();
-  return await testData.textContent();
-}
-
 // Helper to upload a test photo (creates blob data in VFS)
 async function uploadTestPhoto(page: Page, name = 'test-photo.png') {
-  await navigateInApp(page, '/photos');
+  await navigateInApp(page, '/photos', true);
 
   const fileInput = page.getByTestId('dropzone-input');
   await expect(fileInput).toBeAttached({ timeout: 10000 });
@@ -82,17 +45,27 @@ test.describe('Backup and Restore', () => {
     test.slow();
 
     await page.goto('/');
-    await setupDatabase(page);
+    await setupDatabaseForBackup(page, async (path) =>
+      navigateInApp(page, path, true)
+    );
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
 
     // Write some test data
-    const writtenValue = await writeTestData(page);
+    const writtenValue = await writeDatabaseTestData(page);
+    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
     expect(writtenValue).toMatch(/^test-value-\d+$/);
 
     // Upload a test photo to have blob data
     await uploadTestPhoto(page);
 
     // Navigate to backups page
-    await navigateInApp(page, '/backups');
+    await navigateInApp(page, '/backups', true);
 
     // Wait for backup form to be visible
     const passwordInput = page.getByLabel('Password');
@@ -154,13 +127,23 @@ test.describe('Backup and Restore', () => {
     test.slow();
 
     await page.goto('/');
-    await setupDatabase(page);
+    await setupDatabaseForBackup(page, async (path) =>
+      navigateInApp(page, path, true)
+    );
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
 
     // Write test data and store the value
-    const writtenValue = await writeTestData(page);
+    const writtenValue = await writeDatabaseTestData(page);
+    await expect(page.getByTestId('db-test-result')).toHaveAttribute(
+      'data-status',
+      'success',
+      { timeout: DB_OPERATION_TIMEOUT }
+    );
 
     // Navigate to backups and create backup
-    await navigateInApp(page, '/backups');
+    await navigateInApp(page, '/backups', true);
     await page.getByLabel('Password').fill(BACKUP_PASSWORD);
     await page.getByLabel('Confirm').fill(BACKUP_PASSWORD);
     await page.getByRole('button', { name: 'Create Backup' }).click();
@@ -169,7 +152,7 @@ test.describe('Backup and Restore', () => {
     });
 
     // Navigate back to SQLite page
-    await navigateInApp(page, '/sqlite');
+    await navigateInApp(page, '/sqlite', true);
     await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
       timeout: DB_OPERATION_TIMEOUT
     });
@@ -189,7 +172,12 @@ test.describe('Backup and Restore', () => {
     page
   }) => {
     await page.goto('/');
-    await setupDatabase(page);
+    await setupDatabaseForBackup(page, async (path) =>
+      navigateInApp(page, path, true)
+    );
+    await expect(page.getByTestId('db-status')).toContainText('Unlocked', {
+      timeout: DB_OPERATION_TIMEOUT
+    });
 
     // Lock the database
     await page.getByTestId('db-lock-button').click();
@@ -198,7 +186,7 @@ test.describe('Backup and Restore', () => {
     });
 
     // Navigate to backups
-    await navigateInApp(page, '/backups');
+    await navigateInApp(page, '/backups', true);
 
     // Fill in backup form
     await expect(page.getByLabel('Password')).toBeVisible({

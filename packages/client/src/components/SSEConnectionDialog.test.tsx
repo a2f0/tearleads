@@ -108,7 +108,7 @@ describe('SSEConnectionDialog', () => {
       />
     );
 
-    fireEvent.keyDown(document, { key: 'Escape' });
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
     expect(onClose).toHaveBeenCalled();
   });
 
@@ -122,7 +122,49 @@ describe('SSEConnectionDialog', () => {
       />
     );
 
-    fireEvent.keyDown(document, { key: 'Enter' });
+    fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Enter' });
     expect(onClose).not.toHaveBeenCalled();
+  });
+
+  it('focuses close button when dialog opens', () => {
+    render(
+      <SSEConnectionDialog
+        isOpen={true}
+        onClose={() => {}}
+        connectionState="connected"
+      />
+    );
+
+    expect(screen.getByRole('button', { name: /close dialog/i })).toHaveFocus();
+  });
+
+  it('traps focus on Tab when only one focusable element exists', () => {
+    render(
+      <SSEConnectionDialog
+        isOpen={true}
+        onClose={() => {}}
+        connectionState="connected"
+      />
+    );
+
+    const closeButton = screen.getByRole('button', { name: /close dialog/i });
+    closeButton.focus();
+    fireEvent.keyDown(closeButton, { key: 'Tab' });
+    expect(closeButton).toHaveFocus();
+  });
+
+  it('traps focus on Shift+Tab when only one focusable element exists', () => {
+    render(
+      <SSEConnectionDialog
+        isOpen={true}
+        onClose={() => {}}
+        connectionState="connected"
+      />
+    );
+
+    const closeButton = screen.getByRole('button', { name: /close dialog/i });
+    closeButton.focus();
+    fireEvent.keyDown(closeButton, { key: 'Tab', shiftKey: true });
+    expect(closeButton).toHaveFocus();
   });
 });

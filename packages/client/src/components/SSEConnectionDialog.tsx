@@ -1,6 +1,7 @@
 import type { SSEConnectionState } from '@rapid/shared';
 import { X } from 'lucide-react';
-import { useCallback, useEffect } from 'react';
+import { useEffect, useRef } from 'react';
+import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
 import { API_BASE_URL } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -27,20 +28,19 @@ export function SSEConnectionDialog({
   onClose,
   connectionState
 }: SSEConnectionDialogProps) {
-  const handleEscape = useCallback(
-    (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    },
-    [onClose]
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const { handleKeyDown } = useDialogAccessibility(
+    dialogRef,
+    isOpen,
+    false,
+    onClose
   );
 
   useEffect(() => {
     if (!isOpen) return;
-    document.addEventListener('keydown', handleEscape);
-    return () => document.removeEventListener('keydown', handleEscape);
-  }, [isOpen, handleEscape]);
+    closeButtonRef.current?.focus();
+  }, [isOpen]);
 
   if (!isOpen) {
     return null;
@@ -56,14 +56,17 @@ export function SSEConnectionDialog({
       />
       <div
         className="fixed top-1/2 left-1/2 z-50 w-80 max-w-[90vw] -translate-x-1/2 -translate-y-1/2 rounded-lg border bg-background p-4 shadow-lg"
+        ref={dialogRef}
         role="dialog"
         aria-modal="true"
         aria-label="SSE Connection Details"
         data-testid="sse-dialog"
+        onKeyDown={handleKeyDown}
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="font-semibold text-lg">Connection Details</h2>
           <button
+            ref={closeButtonRef}
             type="button"
             onClick={onClose}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"

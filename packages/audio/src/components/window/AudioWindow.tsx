@@ -2,6 +2,7 @@ import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
 import { useDropZone } from '../../hooks/useDropZone';
+import { useMultiFileUpload } from '../../hooks/useMultiFileUpload';
 import { DropZoneOverlay } from '../DropZoneOverlay';
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
 import { AudioWindowDetail } from './AudioWindowDetail';
@@ -47,57 +48,35 @@ export function AudioWindow({
     ALL_AUDIO_ID
   );
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { uploadMany, uploading, uploadProgress } = useMultiFileUpload({
+    uploadFile
+  });
 
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click();
   }, []);
 
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
   // Handler for uploading files with optional target playlist override
   const handleUploadFilesToPlaylist = useCallback(
     async (files: File[], targetPlaylistId?: string | null) => {
-      const uploadedIds: string[] = [];
+      const { results, errors } = await uploadMany(files);
+      for (const error of errors) {
+        console.error(`Failed to upload ${error.fileName}:`, error.message);
+      }
 
-      setUploading(true);
-      setUploadProgress(0);
-      const progresses = Array<number>(files.length).fill(0);
-      const updateOverall = () => {
-        const total = progresses.reduce((sum, p) => sum + p, 0);
-        setUploadProgress(Math.round(total / files.length));
-      };
-
-      try {
+      // Use target playlist if provided, otherwise use currently selected playlist
+      const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
+      if (playlistToUse && playlistToUse !== ALL_AUDIO_ID) {
         await Promise.all(
-          files.map(async (file, index) => {
-            try {
-              const fileId = await uploadFile(file, (progress) => {
-                progresses[index] = progress;
-                updateOverall();
-              });
-              uploadedIds.push(fileId);
-            } catch (err) {
-              console.error(`Failed to upload ${file.name}:`, err);
-            }
-          })
+          results.map((fileId) => addTrackToPlaylist(playlistToUse, fileId))
         );
+      }
 
-        // Use target playlist if provided, otherwise use currently selected playlist
-        const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
-        if (playlistToUse && playlistToUse !== ALL_AUDIO_ID) {
-          await Promise.all(
-            uploadedIds.map((id) => addTrackToPlaylist(playlistToUse, id))
-          );
-        }
-
+      if (results.length > 0) {
         setRefreshToken((value) => value + 1);
-      } finally {
-        setUploading(false);
-        setUploadProgress(0);
       }
     },
-    [uploadFile, selectedPlaylistId, addTrackToPlaylist]
+    [uploadMany, selectedPlaylistId, addTrackToPlaylist]
   );
 
   // Main content area drop zone
