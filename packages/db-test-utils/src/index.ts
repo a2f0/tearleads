@@ -30,11 +30,13 @@ export type { SeedFolderOptions, SeedVfsItemOptions } from './seeding/index.js';
 
 // Seeding utilities
 export {
+  commonTestMigrations,
   ensureVfsRoot,
   seedFolder,
   seedVfsItem,
   seedVfsLink,
-  VFS_ROOT_ID
+  VFS_ROOT_ID,
+  vfsTestMigrations
 } from './seeding/index.js';
 // Key manager
 export {
