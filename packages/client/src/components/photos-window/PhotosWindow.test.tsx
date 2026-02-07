@@ -178,10 +178,16 @@ vi.mock('./PhotosAlbumsSidebar', () => ({
   ALL_PHOTOS_ID: '__all__',
   PhotosAlbumsSidebar: ({
     selectedAlbumId,
-    onAlbumSelect
+    onAlbumSelect,
+    onDropToAlbum
   }: {
     selectedAlbumId: string | null;
     onAlbumSelect: (id: string | null) => void;
+    onDropToAlbum?: (
+      albumId: string,
+      files: File[],
+      photoIds?: string[]
+    ) => void | Promise<void>;
   }) => (
     <div data-testid="photos-albums-sidebar">
       <button
@@ -192,6 +198,15 @@ vi.mock('./PhotosAlbumsSidebar', () => ({
         Select Album
       </button>
       <span data-testid="selected-album">{selectedAlbumId}</span>
+      <button
+        type="button"
+        data-testid="drop-photo-ids"
+        onClick={() =>
+          onDropToAlbum?.('test-album-id', [], ['photo-1', 'photo-2'])
+        }
+      >
+        Drop Photo Ids
+      </button>
     </div>
   )
 }));
@@ -491,7 +506,7 @@ describe('PhotosWindow', () => {
       });
     });
 
-    it('does not add to album when "All Photos" is selected', async () => {
+  it('does not add to album when "All Photos" is selected', async () => {
       const user = userEvent.setup();
       render(<PhotosWindow {...defaultProps} />);
 
@@ -511,7 +526,25 @@ describe('PhotosWindow', () => {
       });
 
       // Should NOT call addPhotoToAlbum when "All Photos" is selected
-      expect(mockAddPhotoToAlbum).not.toHaveBeenCalled();
+    expect(mockAddPhotoToAlbum).not.toHaveBeenCalled();
+  });
+
+  it('adds dropped existing photos to target album', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('drop-photo-ids'));
+
+    await waitFor(() => {
+      expect(mockAddPhotoToAlbum).toHaveBeenCalledWith(
+        'test-album-id',
+        'photo-1'
+      );
+      expect(mockAddPhotoToAlbum).toHaveBeenCalledWith(
+        'test-album-id',
+        'photo-2'
+      );
     });
+  });
   });
 });
