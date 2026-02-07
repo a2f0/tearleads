@@ -44,4 +44,22 @@ describe('mediaDragData', () => {
     event.dataTransfer.setData('application/x-rapid-media-ids', 'not-json');
     expect(getMediaDragIds(event.dataTransfer, 'video')).toEqual([]);
   });
+
+  it('returns empty ids when payload ids are not an array', () => {
+    const event = createDragEventStub();
+    event.dataTransfer.setData(
+      'application/x-rapid-media-ids',
+      JSON.stringify({ mediaType: 'image', ids: 'photo-1' })
+    );
+
+    expect(getMediaDragIds(event.dataTransfer, 'image')).toEqual([]);
+  });
+
+  it('does not set drag data when ids are empty', () => {
+    const event = createDragEventStub();
+    setMediaDragData(event, 'image', []);
+
+    expect(event.data.size).toBe(0);
+    expect(event.dataTransfer.effectAllowed).toBe('none');
+  });
 });
