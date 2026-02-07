@@ -39,7 +39,7 @@ DEPENDENCIES:
   - "CapacitorPreferences (from `../../../../node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/preferences`)"
   - "CapacitorShare (from `../../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/share`)"
   - "CapawesomeCapacitorFilePicker (from `../../../../node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.1_@capacitor+core@8.0.2/node_modules/@capawesome/capacitor-file-picker`)"
-  - "CapgoCapacitorNativeBiometric (from `../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.4_@capacitor+core@8.0.2/node_modules/@capgo/capacitor-native-biometric`)"
+  - "CapgoCapacitorNativeBiometric (from `../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.7_@capacitor+core@8.0.2/node_modules/@capgo/capacitor-native-biometric`)"
 
 SPEC REPOS:
   trunk:
@@ -67,7 +67,7 @@ EXTERNAL SOURCES:
   CapawesomeCapacitorFilePicker:
     :path: "../../../../node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.1_@capacitor+core@8.0.2/node_modules/@capawesome/capacitor-file-picker"
   CapgoCapacitorNativeBiometric:
-    :path: "../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.4_@capacitor+core@8.0.2/node_modules/@capgo/capacitor-native-biometric"
+    :path: "../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.7_@capacitor+core@8.0.2/node_modules/@capgo/capacitor-native-biometric"
 
 SPEC CHECKSUMS:
   Capacitor: 2b79172ad27f3be2d103cce88b8eb9803fdcc744
@@ -84,6 +84,6 @@ SPEC CHECKSUMS:
   SQLCipher: eb79c64049cb002b4e9fcb30edb7979bf4706dfc
   ZIPFoundation: dfd3d681c4053ff7e2f7350bc4e53b5dba3f5351
 
-PODFILE CHECKSUM: ecef6ce5089bd89a0b7ade1032845da9342a0f06
+PODFILE CHECKSUM: 2e8d75cb220f02788958bf045c77da1041deeb18
 
 COCOAPODS: 1.16.2

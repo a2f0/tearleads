@@ -1,6 +1,6 @@
 {
   "name": "@rapid/chrome-extension",
-  "version": "0.0.143",
+  "version": "0.0.144",
   "description": "Chrome extension for Rapid",
   "type": "module",
   "scripts": {
@@ -16,7 +16,7 @@
   },
   "devDependencies": {
     "@types/chrome": "0.1.36",
-    "@types/node": "25.2.0",
+    "@types/node": "25.2.1",
     "@vitest/coverage-v8": "4.0.18",
     "jsdom": "28.0.0",
     "typescript": "5.9.3",
