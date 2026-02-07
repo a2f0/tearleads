@@ -1,3 +1,4 @@
+import { useMultiFileUpload } from '@rapid/audio';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -6,7 +7,6 @@ import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
-import { useMultiFileUpload } from '@/hooks/useMultiFileUpload';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
 import { PhotosWindowContent } from './PhotosWindowContent';
 import { PhotosWindowDetail } from './PhotosWindowDetail';
@@ -65,7 +65,16 @@ export function PhotosWindow({
       const albumToUse = targetAlbumId ?? selectedAlbumId;
       if (albumToUse && albumToUse !== ALL_PHOTOS_ID) {
         await Promise.all(
-          results.map((result) => addPhotoToAlbum(albumToUse, result.id))
+          results.map(async (result) => {
+            try {
+              await addPhotoToAlbum(albumToUse, result.id);
+            } catch (error) {
+              console.error(
+                `Failed to add photo ${result.id} to album ${albumToUse}:`,
+                error
+              );
+            }
+          })
         );
       }
 

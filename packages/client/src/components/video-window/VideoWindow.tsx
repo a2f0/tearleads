@@ -1,3 +1,4 @@
+import { useMultiFileUpload } from '@rapid/audio';
 import { Loader2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -9,7 +10,6 @@ import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
-import { useMultiFileUpload } from '@/hooks/useMultiFileUpload';
 import { isVideoMimeType } from '@/lib/thumbnail';
 import { VideoPage } from '@/pages/Video';
 import { VideoDetail } from '@/pages/VideoDetail';
@@ -104,7 +104,16 @@ function VideoWindowInner({
       const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
       if (playlistToUse && playlistToUse !== ALL_VIDEO_ID) {
         await Promise.all(
-          results.map((result) => addTrackToPlaylist(playlistToUse, result.id))
+          results.map(async (result) => {
+            try {
+              await addTrackToPlaylist(playlistToUse, result.id);
+            } catch (error) {
+              console.error(
+                `Failed to add track ${result.id} to playlist ${playlistToUse}:`,
+                error
+              );
+            }
+          })
         );
       }
 

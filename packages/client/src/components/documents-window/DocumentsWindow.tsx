@@ -1,3 +1,4 @@
+import { useMultiFileUpload } from '@rapid/audio';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -7,7 +8,6 @@ import { UploadProgress } from '@/components/ui/upload-progress';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
-import { useMultiFileUpload } from '@/hooks/useMultiFileUpload';
 import { DocumentDetail } from '@/pages/DocumentDetail';
 import { Documents } from '@/pages/Documents';
 import type { ViewMode } from './DocumentsWindowMenuBar';

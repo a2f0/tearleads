@@ -68,7 +68,16 @@ export function AudioWindow({
       const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
       if (playlistToUse && playlistToUse !== ALL_AUDIO_ID) {
         await Promise.all(
-          results.map((fileId) => addTrackToPlaylist(playlistToUse, fileId))
+          results.map(async (fileId) => {
+            try {
+              await addTrackToPlaylist(playlistToUse, fileId);
+            } catch (error) {
+              console.error(
+                `Failed to add track ${fileId} to playlist ${playlistToUse}:`,
+                error
+              );
+            }
+          })
         );
       }
 
