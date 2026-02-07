@@ -81,8 +81,17 @@ jobs:
       - name: Publish to npm with provenance
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
         run: |
-          # Configure npm registry without auth token (OIDC handles auth)
-          npm config set registry https://registry.npmjs.org/
+          # Clear any existing npm auth configuration
+          rm -f ~/.npmrc
+          rm -f .npmrc
+          # Set registry without auth token - OIDC handles authentication
+          echo "registry=https://registry.npmjs.org/" > ~/.npmrc
+          # Debug: show npm config
+          echo "npm config:"
+          npm config list
+          echo "npmrc contents:"
+          cat ~/.npmrc || true
+          # Publish with provenance (triggers OIDC auth)
           npm publish --provenance --access public
         working-directory: packages/cli
 
