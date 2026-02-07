@@ -506,7 +506,7 @@ describe('PhotosWindow', () => {
       });
     });
 
-  it('does not add to album when "All Photos" is selected', async () => {
+    it('does not add to album when "All Photos" is selected', async () => {
       const user = userEvent.setup();
       render(<PhotosWindow {...defaultProps} />);
 
@@ -526,25 +526,25 @@ describe('PhotosWindow', () => {
       });
 
       // Should NOT call addPhotoToAlbum when "All Photos" is selected
-    expect(mockAddPhotoToAlbum).not.toHaveBeenCalled();
-  });
-
-  it('adds dropped existing photos to target album', async () => {
-    const user = userEvent.setup();
-    render(<PhotosWindow {...defaultProps} />);
-
-    await user.click(screen.getByTestId('drop-photo-ids'));
-
-    await waitFor(() => {
-      expect(mockAddPhotoToAlbum).toHaveBeenCalledWith(
-        'test-album-id',
-        'photo-1'
-      );
-      expect(mockAddPhotoToAlbum).toHaveBeenCalledWith(
-        'test-album-id',
-        'photo-2'
-      );
+      expect(mockAddPhotoToAlbum).not.toHaveBeenCalled();
     });
-  });
+
+    it('adds dropped existing photos to target album', async () => {
+      const user = userEvent.setup();
+      render(<PhotosWindow {...defaultProps} />);
+
+      await user.click(screen.getByTestId('drop-photo-ids'));
+
+      await waitFor(() => {
+        expect(mockAddPhotoToAlbum).toHaveBeenCalledWith(
+          'test-album-id',
+          'photo-1'
+        );
+        expect(mockAddPhotoToAlbum).toHaveBeenCalledWith(
+          'test-album-id',
+          'photo-2'
+        );
+      });
+    });
   });
 });
