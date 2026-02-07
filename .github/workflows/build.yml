@@ -2,6 +2,8 @@ name: build
 
 on:
   push:
+    branches-ignore:
+      - fix/npm-publish-oidc  # TEMPORARY: skip for npm publish testing
     paths-ignore:
       - '**.md'
       - 'docs/**'
