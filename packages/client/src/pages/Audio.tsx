@@ -1,8 +1,4 @@
-import {
-  ALL_AUDIO_ID,
-  AudioPlaylistsSidebar,
-  useAudioUIContext
-} from '@rapid/audio';
+import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@rapid/audio';
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
@@ -653,7 +649,6 @@ function AudioWithSidebar() {
   const { playlistId } = useParams<{ playlistId?: string }>();
   const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
-  const { addTrackToPlaylist } = useAudioUIContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -676,12 +671,34 @@ function AudioWithSidebar() {
     async (playlistId: string, files: File[], audioIds?: string[]) => {
       void files;
       if (!audioIds || audioIds.length === 0) return;
+      const db = getDatabase();
+
       await Promise.all(
-        audioIds.map((audioId) => addTrackToPlaylist(playlistId, audioId))
+        audioIds.map(async (audioId) => {
+          const existing = await db
+            .select({ id: vfsLinks.id })
+            .from(vfsLinks)
+            .where(
+              and(
+                eq(vfsLinks.parentId, playlistId),
+                eq(vfsLinks.childId, audioId)
+              )
+            );
+
+          if (existing.length > 0) return;
+
+          await db.insert(vfsLinks).values({
+            id: crypto.randomUUID(),
+            parentId: playlistId,
+            childId: audioId,
+            wrappedSessionKey: '',
+            createdAt: new Date()
+          });
+        })
       );
       setRefreshToken((value) => value + 1);
     },
-    [addTrackToPlaylist]
+    []
   );
 
   return (

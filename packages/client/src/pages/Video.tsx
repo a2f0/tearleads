@@ -48,7 +48,6 @@ import {
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
-import { useVideoPlaylistContext } from '@/video/VideoPlaylistContext';
 
 const VIDEO_MIME_TYPES = [
   'video/mp4',
@@ -805,7 +804,6 @@ function VideoWithSidebar() {
   const { playlistId } = useParams<{ playlistId?: string }>();
   const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
-  const { addTrackToPlaylist } = useVideoPlaylistContext();
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -828,12 +826,34 @@ function VideoWithSidebar() {
     async (playlistId: string, files: File[], videoIds?: string[]) => {
       void files;
       if (!videoIds || videoIds.length === 0) return;
+      const db = getDatabase();
+
       await Promise.all(
-        videoIds.map((videoId) => addTrackToPlaylist(playlistId, videoId))
+        videoIds.map(async (videoId) => {
+          const existing = await db
+            .select({ id: vfsLinks.id })
+            .from(vfsLinks)
+            .where(
+              and(
+                eq(vfsLinks.parentId, playlistId),
+                eq(vfsLinks.childId, videoId)
+              )
+            );
+
+          if (existing.length > 0) return;
+
+          await db.insert(vfsLinks).values({
+            id: crypto.randomUUID(),
+            parentId: playlistId,
+            childId: videoId,
+            wrappedSessionKey: '',
+            createdAt: new Date()
+          });
+        })
       );
       setRefreshToken((value) => value + 1);
     },
-    [addTrackToPlaylist]
+    []
   );
 
   return (

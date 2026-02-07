@@ -15,7 +15,6 @@ import {
   ALL_PHOTOS_ID,
   PhotosAlbumsSidebar
 } from '@/components/photos-window/PhotosAlbumsSidebar';
-import { usePhotoAlbums } from '@/components/photos-window/usePhotoAlbums';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
@@ -687,7 +686,6 @@ export function PhotosPage() {
   const { albumId } = useParams<{ albumId?: string }>();
   const navigate = useNavigate();
   const { isUnlocked } = useDatabaseContext();
-  const { addPhotoToAlbum } = usePhotoAlbums();
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [refreshToken, setRefreshToken] = useState(0);
 
@@ -710,12 +708,31 @@ export function PhotosPage() {
     async (albumId: string, files: File[], photoIds?: string[]) => {
       void files;
       if (!photoIds || photoIds.length === 0) return;
+      const db = getDatabase();
+
       await Promise.all(
-        photoIds.map((photoId) => addPhotoToAlbum(albumId, photoId))
+        photoIds.map(async (photoId) => {
+          const existing = await db
+            .select({ id: vfsLinks.id })
+            .from(vfsLinks)
+            .where(
+              and(eq(vfsLinks.parentId, albumId), eq(vfsLinks.childId, photoId))
+            );
+
+          if (existing.length > 0) return;
+
+          await db.insert(vfsLinks).values({
+            id: crypto.randomUUID(),
+            parentId: albumId,
+            childId: photoId,
+            wrappedSessionKey: '',
+            createdAt: new Date()
+          });
+        })
       );
       setRefreshToken((value) => value + 1);
     },
-    [addPhotoToAlbum]
+    []
   );
 
   return (
