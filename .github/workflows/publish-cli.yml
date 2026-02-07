@@ -67,8 +67,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
-          registry-url: 'https://registry.npmjs.org'
           cache: 'pnpm'
+        # Note: NOT using registry-url to avoid NODE_AUTH_TOKEN override
 
       - name: Install dependencies
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
@@ -80,7 +80,10 @@ jobs:
 
       - name: Publish to npm with provenance
         if: (steps.version-check.outputs.changed == 'true' || github.event_name == 'workflow_dispatch') && steps.npm-check.outputs.exists != 'true'
-        run: npm publish --provenance --access public
+        run: |
+          # Configure npm registry without auth token (OIDC handles auth)
+          npm config set registry https://registry.npmjs.org/
+          npm publish --provenance --access public
         working-directory: packages/cli
 
       - name: Summary
