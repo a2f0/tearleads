@@ -178,7 +178,12 @@ export function ContactsWindow({
             isNewContactDisabled={currentView === 'create'}
             isImportDisabled={!isUnlocked}
           />
-          <div className="flex-1 overflow-hidden">{renderContent()}</div>
+          <div
+            className="min-h-0 flex-1 overflow-y-auto"
+            data-testid="contacts-window-content"
+          >
+            {renderContent()}
+          </div>
         </div>
       </FloatingWindow>
       <input
