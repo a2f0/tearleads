@@ -63,10 +63,9 @@ for pkg in packages/*/package.json; do
   [ "$pkg" = "$CLIENT_PKG" ] && continue
 
   # Get PINNED peerDependencies (no ^/~ and not workspace:*) that are in client's deps
-  PEERS=$(jq -r '.peerDependencies // {} | to_entries[] | select(.value | test("^[\\^~]|^workspace:") | not) | "\(.key)=\(.value)"' "$pkg" 2>/dev/null || true)
-  [ -z "$PEERS" ] && continue
-
-  for peer in $PEERS; do
+  # Use process substitution to avoid subshell variable scope issues with while read
+  while IFS= read -r peer || [ -n "$peer" ]; do
+    [ -z "$peer" ] && continue
     DEP_NAME="${peer%%=*}"
     PEER_VER="${peer#*=}"
 
@@ -78,7 +77,9 @@ for pkg in packages/*/package.json; do
       PEER_MISMATCHES="${PEER_MISMATCHES}${pkg}: ${DEP_NAME} (peer: ${PEER_VER}, client: ${CLIENT_VER})
 "
     fi
-  done
+  done <<EOF
+$(jq -r '.peerDependencies // {} | to_entries[] | select(.value | test("^[\\^~]|^workspace:") | not) | "\(.key)=\(.value)"' "$pkg" 2>/dev/null || true)
+EOF
 done
 if [ -n "$PEER_MISMATCHES" ]; then
   echo "peerDependency version mismatches detected. Update peerDependencies to match client:" >&2
