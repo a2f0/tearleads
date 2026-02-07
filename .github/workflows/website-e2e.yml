@@ -13,6 +13,33 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Capture runner hardware specs
+        run: |
+          mkdir -p packages/website/playwright-report
+          {
+            echo "=== Runner Hardware Specs ==="
+            echo "Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo ""
+            echo "=== CPU ==="
+            lscpu | grep -E "Model name|CPU\(s\)|Thread|Core|Socket"
+            echo ""
+            echo "=== Memory ==="
+            free -h
+            echo ""
+            echo "=== Disk ==="
+            df -h /
+            echo ""
+            echo "=== Load Average ==="
+            uptime
+            echo ""
+            echo "=== Runner Info ==="
+            echo "Runner OS: $RUNNER_OS"
+            echo "Runner Arch: $RUNNER_ARCH"
+            echo "Runner Name: $RUNNER_NAME"
+            cat /etc/os-release | head -5
+          } > packages/website/playwright-report/hardware-specs.txt
+          cat packages/website/playwright-report/hardware-specs.txt
+
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
