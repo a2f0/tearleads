@@ -19,7 +19,6 @@ jobs:
     # OIDC trusted publishing requires cloud-hosted runners (not self-hosted)
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    environment: npm-publish
     permissions:
       contents: read
       id-token: write
