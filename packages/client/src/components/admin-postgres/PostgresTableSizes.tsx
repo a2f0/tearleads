@@ -105,39 +105,38 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
               {tables.map((table) => {
                 const label = `${table.schema}.${table.name}`;
                 const tablePath = `/admin/postgres/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}`;
+                const rowClassName =
+                  'group grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded px-2 py-1 hover:bg-accent';
+                const rowContent = (
+                  <>
+                    <span className="truncate font-mono text-muted-foreground group-hover:text-foreground">
+                      {label}
+                    </span>
+                    <span className="shrink-0 text-right font-mono text-xs">
+                      {formatBytes(table.totalBytes)}
+                    </span>
+                    <span className="shrink-0 text-right font-mono text-xs">
+                      {formatRowCount(table.rowCount)}
+                    </span>
+                  </>
+                );
                 return (
                   <div key={label}>
                     {onTableSelect ? (
                       <button
                         type="button"
                         onClick={() => onTableSelect(table.schema, table.name)}
-                        className="group grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded px-2 py-1 text-left hover:bg-accent"
+                        className={`${rowClassName} text-left`}
                       >
-                        <span className="truncate font-mono text-muted-foreground group-hover:text-foreground">
-                          {label}
-                        </span>
-                        <span className="shrink-0 text-right font-mono text-xs">
-                          {formatBytes(table.totalBytes)}
-                        </span>
-                        <span className="shrink-0 text-right font-mono text-xs">
-                          {formatRowCount(table.rowCount)}
-                        </span>
+                        {rowContent}
                       </button>
                     ) : (
                       <LinkWithFrom
                         to={tablePath}
                         fromLabel="Back to Postgres"
-                        className="group grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded px-2 py-1 hover:bg-accent"
+                        className={rowClassName}
                       >
-                        <span className="truncate font-mono text-muted-foreground group-hover:text-foreground">
-                          {label}
-                        </span>
-                        <span className="shrink-0 text-right font-mono text-xs">
-                          {formatBytes(table.totalBytes)}
-                        </span>
-                        <span className="shrink-0 text-right font-mono text-xs">
-                          {formatRowCount(table.rowCount)}
-                        </span>
+                        {rowContent}
                       </LinkWithFrom>
                     )}
                   </div>
