@@ -6,8 +6,6 @@ on:
 
 jobs:
   ios-maestro-release:
-    # TEMPORARY: skip for npm publish testing
-    if: github.head_ref != 'fix/npm-publish-oidc'
     name: iOS Maestro Tests (Release)
     runs-on: macos-latest
     timeout-minutes: 35

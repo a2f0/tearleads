@@ -6,8 +6,6 @@ on:
 
 jobs:
   electron-e2e:
-    # TEMPORARY: skip for npm publish testing
-    if: github.head_ref != 'fix/npm-publish-oidc'
     name: Electron E2E Tests (Release)
     runs-on: ubuntu-latest
     timeout-minutes: 15

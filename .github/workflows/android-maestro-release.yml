@@ -6,8 +6,6 @@ on:
 
 jobs:
   android-maestro-release:
-    # TEMPORARY: skip for npm publish testing
-    if: github.head_ref != 'fix/npm-publish-oidc'
     name: Android Maestro Tests (Release)
     runs-on: ubuntu-latest
     timeout-minutes: 25
