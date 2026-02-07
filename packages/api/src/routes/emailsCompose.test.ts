@@ -15,6 +15,7 @@ describe('emailsCompose routes', () => {
   const userId = 'test-user-id';
 
   beforeEach(async () => {
+    vi.stubEnv('JWT_SECRET', 'test-secret');
     authHeader = await createAuthHeader({
       id: userId,
       email: 'test@example.com'
