@@ -353,8 +353,8 @@ describe('notesTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 35 tables', () => {
-    expect(allTables).toHaveLength(35);
+  it('contains all 40 tables', () => {
+    expect(allTables).toHaveLength(40);
   });
 
   it('contains all table definitions', () => {

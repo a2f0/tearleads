@@ -34,7 +34,18 @@ if [ "${SKIP_INSTALL:-0}" -ne 1 ]; then
   pnpm install
 fi
 
-PINNED_MATCHES=$(rg -n '"[^"]+": "[\^~]' package.json packages/**/package.json || true)
+# Check for unpinned dependencies (carets/tildes) in dependencies and devDependencies only.
+# peerDependencies are allowed to have ranges.
+PINNED_MATCHES=""
+for pkg in package.json packages/*/package.json; do
+  [ -f "$pkg" ] || continue
+  DEPS=$(jq -r '(.dependencies // {}) + (.devDependencies // {}) | to_entries[] | select(.value | test("^[\\^~]")) | "\(.key): \(.value)"' "$pkg" 2>/dev/null || true)
+  if [ -n "$DEPS" ]; then
+    PINNED_MATCHES="${PINNED_MATCHES}${pkg}:
+${DEPS}
+"
+  fi
+done
 if [ -n "$PINNED_MATCHES" ]; then
   echo "Unpinned dependencies detected (caret/tilde). Please pin them:" >&2
   echo "$PINNED_MATCHES" >&2
@@ -64,8 +75,8 @@ if [ "${SKIP_CAP_SYNC:-0}" -ne 1 ]; then
 fi
 
 if [ "${SKIP_MAESTRO:-0}" -ne 1 ]; then
-  pnpm --filter @rapid/client test:maestro:ios
-  pnpm --filter @rapid/client test:maestro:android
+  "$SCRIPT_DIR/runMaestroIosTests.sh" --headless
+  "$SCRIPT_DIR/runMaestroAndroidTests.sh" --headless
 fi
 
 echo "Update-everything script completed. Review warnings/deprecations from command output." >&2
