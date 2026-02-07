@@ -221,6 +221,11 @@
   filter: grayscale(1) contrast(1.1);
 }
 
+/* Monochrome theme: grayscale chat bubble content (for emojis) */
+.monochrome .chat-bubble-content {
+  filter: grayscale(1) contrast(1.1);
+}
+
 /* MDEditor theme integration - override library defaults with theme variables.
    The library uses selectors like [data-color-mode*='dark'] .wmde-markdown which
    have higher specificity than simple class selectors. We need to match or exceed

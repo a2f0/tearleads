@@ -240,7 +240,7 @@ export function PhotosAlbumsSidebar({
           onClick={() => onAlbumSelect(ALL_PHOTOS_ID)}
         >
           <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-          <Images className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+          <Images className="h-4 w-4 shrink-0 text-success" />
           <span className="truncate">All Photos</span>
         </button>
 
@@ -277,7 +277,7 @@ export function PhotosAlbumsSidebar({
               onDrop={(e) => handleAlbumDrop(e, album.id)}
             >
               <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-              <Images className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
+              <Images className="h-4 w-4 shrink-0 text-success" />
               <span className="flex-1 truncate">{album.name}</span>
               <span className="text-muted-foreground text-xs">
                 {album.photoCount}
