@@ -179,7 +179,10 @@ export default defineConfig({
         __dirname,
         '../mls-chat/package.json'
       ),
-      '@rapid/mls-chat': path.resolve(__dirname, '../mls-chat/src/index.ts')
+      '@rapid/mls-chat': path.resolve(__dirname, '../mls-chat/src/index.ts'),
+      // Force a single React instance across client and workspace package source aliases.
+      react: path.resolve(__dirname, './node_modules/react'),
+      'react-dom': path.resolve(__dirname, './node_modules/react-dom')
     }
   }
 });
