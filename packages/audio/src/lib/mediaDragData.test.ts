@@ -3,12 +3,20 @@ import { getMediaDragIds, setMediaDragData } from './mediaDragData';
 
 function createDragEventStub() {
   const data = new Map<string, string>();
-  return {
-    dataTransfer: {
-      effectAllowed: 'none',
-      setData: (type: string, value: string) => data.set(type, value),
-      getData: (type: string) => data.get(type) ?? ''
+  const dataTransfer: {
+    effectAllowed: DataTransfer['effectAllowed'];
+    setData: (type: string, value: string) => void;
+    getData: (type: string) => string;
+  } = {
+    effectAllowed: 'none',
+    setData: (type: string, value: string) => {
+      data.set(type, value);
     },
+    getData: (type: string) => data.get(type) ?? ''
+  };
+
+  return {
+    dataTransfer,
     data
   };
 }
