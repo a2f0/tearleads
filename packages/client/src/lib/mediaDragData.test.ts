@@ -16,16 +16,16 @@ function createDragEventStub() {
 describe('mediaDragData', () => {
   it('stores and retrieves ids for matching media type', () => {
     const event = createDragEventStub();
-    setMediaDragData(
-      event as unknown as React.DragEvent,
-      'image',
-      ['photo-1', 'photo-2', 'photo-1']
-    );
+    setMediaDragData(event as unknown as React.DragEvent, 'image', [
+      'photo-1',
+      'photo-2',
+      'photo-1'
+    ]);
 
     expect(event.dataTransfer.effectAllowed).toBe('copy');
-    expect(getMediaDragIds(event.dataTransfer as DataTransfer, 'image')).toEqual(
-      ['photo-1', 'photo-2']
-    );
+    expect(
+      getMediaDragIds(event.dataTransfer as DataTransfer, 'image')
+    ).toEqual(['photo-1', 'photo-2']);
   });
 
   it('returns empty ids for invalid or mismatched payloads', () => {
@@ -34,13 +34,13 @@ describe('mediaDragData', () => {
       'application/x-rapid-media-ids',
       JSON.stringify({ mediaType: 'video', ids: ['video-1'] })
     );
-    expect(getMediaDragIds(event.dataTransfer as DataTransfer, 'image')).toEqual(
-      []
-    );
+    expect(
+      getMediaDragIds(event.dataTransfer as DataTransfer, 'image')
+    ).toEqual([]);
 
     event.dataTransfer.setData('application/x-rapid-media-ids', 'not-json');
-    expect(getMediaDragIds(event.dataTransfer as DataTransfer, 'video')).toEqual(
-      []
-    );
+    expect(
+      getMediaDragIds(event.dataTransfer as DataTransfer, 'video')
+    ).toEqual([]);
   });
 });
