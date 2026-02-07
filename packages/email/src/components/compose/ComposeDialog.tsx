@@ -89,19 +89,13 @@ export function ComposeDialog({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center"
+      className="flex h-full w-[420px] min-w-[360px] shrink-0 flex-col border-l bg-background"
       data-testid="compose-dialog"
     >
-      <div
-        className="fixed inset-0 bg-black/50"
-        onClick={handleClose}
-        aria-hidden="true"
-      />
-      <div
+      <section
         ref={dialogRef}
-        className="relative z-10 flex h-[80vh] w-full max-w-2xl flex-col rounded-lg border bg-background shadow-lg"
+        className="flex h-full flex-col"
         role="dialog"
-        aria-modal="true"
         aria-labelledby="compose-dialog-title"
         onKeyDown={handleKeyDown}
       >
@@ -265,7 +259,7 @@ export function ComposeDialog({
             </button>
           </div>
         </div>
-      </div>
+      </section>
     </div>
   );
 }
