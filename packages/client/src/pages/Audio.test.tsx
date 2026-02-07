@@ -1147,7 +1147,13 @@ describe('Audio wrapper with sidebar', () => {
 
       await waitFor(() => {
         expect(mockInsert).toHaveBeenCalled();
-        expect(mockInsertValues).toHaveBeenCalledTimes(2);
+        expect(mockInsertValues).toHaveBeenCalledTimes(1);
+        expect(mockInsertValues).toHaveBeenCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({ childId: 'track-1' }),
+            expect.objectContaining({ childId: 'track-2' })
+          ])
+        );
       });
     });
 

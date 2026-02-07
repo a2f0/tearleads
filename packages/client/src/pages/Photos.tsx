@@ -709,27 +709,35 @@ export function PhotosPage() {
       void files;
       if (!photoIds || photoIds.length === 0) return;
       const db = getDatabase();
+      const uniquePhotoIds = Array.from(new Set(photoIds));
+      const existingLinks = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(
+          and(
+            eq(vfsLinks.parentId, albumId),
+            inArray(vfsLinks.childId, uniquePhotoIds)
+          )
+        );
 
-      await Promise.all(
-        photoIds.map(async (photoId) => {
-          const existing = await db
-            .select({ id: vfsLinks.id })
-            .from(vfsLinks)
-            .where(
-              and(eq(vfsLinks.parentId, albumId), eq(vfsLinks.childId, photoId))
-            );
+      const existingChildIds = new Set(
+        existingLinks.map((link) => link.childId)
+      );
+      const newPhotoIds = uniquePhotoIds.filter(
+        (id) => !existingChildIds.has(id)
+      );
 
-          if (existing.length > 0) return;
-
-          await db.insert(vfsLinks).values({
+      if (newPhotoIds.length > 0) {
+        await db.insert(vfsLinks).values(
+          newPhotoIds.map((photoId) => ({
             id: crypto.randomUUID(),
             parentId: albumId,
             childId: photoId,
             wrappedSessionKey: '',
             createdAt: new Date()
-          });
-        })
-      );
+          }))
+        );
+      }
       setRefreshToken((value) => value + 1);
     },
     []

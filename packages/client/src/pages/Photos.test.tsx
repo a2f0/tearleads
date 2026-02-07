@@ -99,6 +99,10 @@ const mockDb = {
   update: mockUpdate,
   insert: mockInsert
 };
+Object.defineProperty(mockDb, 'then', {
+  value: (resolve: (value: unknown[]) => void) => resolve([]),
+  enumerable: false
+});
 
 // Chain the update mock
 mockUpdate.mockReturnValue({ set: mockSet });
@@ -1206,7 +1210,13 @@ describe('PhotosPage (wrapper with sidebar)', () => {
 
       await waitFor(() => {
         expect(mockInsert).toHaveBeenCalled();
-        expect(mockInsertValues).toHaveBeenCalledTimes(2);
+        expect(mockInsertValues).toHaveBeenCalledTimes(1);
+        expect(mockInsertValues).toHaveBeenCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({ childId: 'photo-1' }),
+            expect.objectContaining({ childId: 'photo-2' })
+          ])
+        );
       });
     });
 

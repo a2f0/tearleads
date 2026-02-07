@@ -179,11 +179,16 @@ const TEST_VIDEO_DATA = new Uint8Array([
 const TEST_ENCRYPTION_KEY = new Uint8Array([1, 2, 3, 4]);
 
 function createMockQueryChain(result: unknown[]) {
+  const whereResult = {
+    orderBy: vi.fn().mockResolvedValue(result)
+  };
+  Object.defineProperty(whereResult, 'then', {
+    value: (resolve: (value: unknown[]) => void) => resolve([]),
+    enumerable: false
+  });
   return {
     from: vi.fn().mockReturnValue({
-      where: vi.fn().mockReturnValue({
-        orderBy: vi.fn().mockResolvedValue(result)
-      })
+      where: vi.fn().mockReturnValue(whereResult)
     })
   };
 }
@@ -1051,11 +1056,16 @@ describe('Video (wrapper with sidebar)', () => {
     mockGetCurrentKey.mockReturnValue(new Uint8Array([1, 2, 3, 4]));
     mockIsFileStorageInitialized.mockReturnValue(true);
     mockRetrieve.mockResolvedValue(new Uint8Array([0x00]));
+    const whereResult = {
+      orderBy: vi.fn().mockResolvedValue([])
+    };
+    Object.defineProperty(whereResult, 'then', {
+      value: (resolve: (value: unknown[]) => void) => resolve([]),
+      enumerable: false
+    });
     mockSelect.mockReturnValue({
       from: vi.fn().mockReturnValue({
-        where: vi.fn().mockReturnValue({
-          orderBy: vi.fn().mockResolvedValue([])
-        })
+        where: vi.fn().mockReturnValue(whereResult)
       })
     });
     mockDetectPlatform.mockReturnValue('web');
@@ -1125,7 +1135,13 @@ describe('Video (wrapper with sidebar)', () => {
 
       await waitFor(() => {
         expect(mockInsert).toHaveBeenCalled();
-        expect(mockInsertValues).toHaveBeenCalledTimes(2);
+        expect(mockInsertValues).toHaveBeenCalledTimes(1);
+        expect(mockInsertValues).toHaveBeenCalledWith(
+          expect.arrayContaining([
+            expect.objectContaining({ childId: 'video-1' }),
+            expect.objectContaining({ childId: 'video-2' })
+          ])
+        );
       });
     });
 

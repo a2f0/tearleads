@@ -672,30 +672,35 @@ function AudioWithSidebar() {
       void files;
       if (!audioIds || audioIds.length === 0) return;
       const db = getDatabase();
+      const uniqueAudioIds = Array.from(new Set(audioIds));
+      const existingLinks = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(
+          and(
+            eq(vfsLinks.parentId, playlistId),
+            inArray(vfsLinks.childId, uniqueAudioIds)
+          )
+        );
 
-      await Promise.all(
-        audioIds.map(async (audioId) => {
-          const existing = await db
-            .select({ id: vfsLinks.id })
-            .from(vfsLinks)
-            .where(
-              and(
-                eq(vfsLinks.parentId, playlistId),
-                eq(vfsLinks.childId, audioId)
-              )
-            );
+      const existingChildIds = new Set(
+        existingLinks.map((link) => link.childId)
+      );
+      const newAudioIds = uniqueAudioIds.filter(
+        (id) => !existingChildIds.has(id)
+      );
 
-          if (existing.length > 0) return;
-
-          await db.insert(vfsLinks).values({
+      if (newAudioIds.length > 0) {
+        await db.insert(vfsLinks).values(
+          newAudioIds.map((audioId) => ({
             id: crypto.randomUUID(),
             parentId: playlistId,
             childId: audioId,
             wrappedSessionKey: '',
             createdAt: new Date()
-          });
-        })
-      );
+          }))
+        );
+      }
       setRefreshToken((value) => value + 1);
     },
     []

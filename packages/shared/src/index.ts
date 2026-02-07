@@ -21,6 +21,8 @@ export interface LicenseInfo {
 export * from './ai-conversations.js';
 // Chat validation helpers
 export * from './chat.js';
+// Media drag-and-drop helpers
+export * from './media-drag-data.js';
 // OpenRouter model options
 export * from './openrouter.js';
 // Tree utilities

@@ -827,30 +827,35 @@ function VideoWithSidebar() {
       void files;
       if (!videoIds || videoIds.length === 0) return;
       const db = getDatabase();
+      const uniqueVideoIds = Array.from(new Set(videoIds));
+      const existingLinks = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(
+          and(
+            eq(vfsLinks.parentId, playlistId),
+            inArray(vfsLinks.childId, uniqueVideoIds)
+          )
+        );
 
-      await Promise.all(
-        videoIds.map(async (videoId) => {
-          const existing = await db
-            .select({ id: vfsLinks.id })
-            .from(vfsLinks)
-            .where(
-              and(
-                eq(vfsLinks.parentId, playlistId),
-                eq(vfsLinks.childId, videoId)
-              )
-            );
+      const existingChildIds = new Set(
+        existingLinks.map((link) => link.childId)
+      );
+      const newVideoIds = uniqueVideoIds.filter(
+        (id) => !existingChildIds.has(id)
+      );
 
-          if (existing.length > 0) return;
-
-          await db.insert(vfsLinks).values({
+      if (newVideoIds.length > 0) {
+        await db.insert(vfsLinks).values(
+          newVideoIds.map((videoId) => ({
             id: crypto.randomUUID(),
             parentId: playlistId,
             childId: videoId,
             wrappedSessionKey: '',
             createdAt: new Date()
-          });
-        })
-      );
+          }))
+        );
+      }
       setRefreshToken((value) => value + 1);
     },
     []
