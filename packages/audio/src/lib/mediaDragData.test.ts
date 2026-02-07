@@ -16,16 +16,13 @@ function createDragEventStub() {
 describe('mediaDragData', () => {
   it('stores and retrieves ids for matching media type', () => {
     const event = createDragEventStub();
-    setMediaDragData(event as unknown as React.DragEvent, 'audio', [
-      'audio-1',
-      'audio-2',
-      'audio-1'
-    ]);
+    setMediaDragData(event, 'audio', ['audio-1', 'audio-2', 'audio-1']);
 
     expect(event.dataTransfer.effectAllowed).toBe('copy');
-    expect(
-      getMediaDragIds(event.dataTransfer as DataTransfer, 'audio')
-    ).toEqual(['audio-1', 'audio-2']);
+    expect(getMediaDragIds(event.dataTransfer, 'audio')).toEqual([
+      'audio-1',
+      'audio-2'
+    ]);
   });
 
   it('returns empty ids for invalid payloads', () => {
@@ -34,13 +31,9 @@ describe('mediaDragData', () => {
       'application/x-rapid-media-ids',
       JSON.stringify({ mediaType: 'video', ids: ['video-1'] })
     );
-    expect(
-      getMediaDragIds(event.dataTransfer as DataTransfer, 'audio')
-    ).toEqual([]);
+    expect(getMediaDragIds(event.dataTransfer, 'audio')).toEqual([]);
 
     event.dataTransfer.setData('application/x-rapid-media-ids', 'not-json');
-    expect(
-      getMediaDragIds(event.dataTransfer as DataTransfer, 'audio')
-    ).toEqual([]);
+    expect(getMediaDragIds(event.dataTransfer, 'audio')).toEqual([]);
   });
 });

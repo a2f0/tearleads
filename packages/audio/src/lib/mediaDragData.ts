@@ -1,5 +1,3 @@
-import type { DragEvent } from 'react';
-
 export type MediaDragType = 'audio' | 'video' | 'image';
 
 const MEDIA_DRAG_MIME_TYPE = 'application/x-rapid-media-ids';
@@ -10,7 +8,9 @@ function parseIds(value: unknown): string[] {
 }
 
 export function setMediaDragData(
-  event: DragEvent,
+  event: {
+    dataTransfer: Pick<DataTransfer, 'effectAllowed' | 'setData'>;
+  },
   mediaType: MediaDragType,
   ids: string[]
 ): void {
@@ -26,7 +26,7 @@ export function setMediaDragData(
 }
 
 export function getMediaDragIds(
-  dataTransfer: DataTransfer,
+  dataTransfer: Pick<DataTransfer, 'getData'>,
   mediaType: MediaDragType
 ): string[] {
   const raw = dataTransfer.getData(MEDIA_DRAG_MIME_TYPE);
