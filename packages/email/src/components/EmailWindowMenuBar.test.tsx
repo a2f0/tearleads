@@ -9,7 +9,8 @@ describe('EmailWindowMenuBar', () => {
     viewMode: 'list' as const,
     onViewModeChange: vi.fn(),
     onRefresh: vi.fn(),
-    onClose: vi.fn()
+    onClose: vi.fn(),
+    onCompose: vi.fn()
   };
 
   const renderWithProvider = (props = defaultProps) => {

@@ -451,6 +451,56 @@ export const emails = pgTable(
 );
 
 /**
+ * Composed emails - extends registry for draft and sent email items.
+ * Stores encrypted composed email content for drafts and sent messages.
+ */
+export const composedEmails = pgTable(
+  'composed_emails',
+  {
+    id: text('id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    encryptedTo: jsonb('encrypted_to'),
+    encryptedCc: jsonb('encrypted_cc'),
+    encryptedBcc: jsonb('encrypted_bcc'),
+    encryptedSubject: text('encrypted_subject'),
+    encryptedBody: text('encrypted_body'),
+    status: text('status', {
+      enum: ['draft', 'sending', 'sent', 'failed']
+    })
+      .notNull()
+      .default('draft'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('composed_emails_status_idx').on(table.status),
+    index('composed_emails_updated_idx').on(table.updatedAt)
+  ]
+);
+
+/**
+ * Email attachments - file references for composed emails.
+ * Links attachments to composed emails with metadata.
+ */
+export const emailAttachments = pgTable(
+  'email_attachments',
+  {
+    id: text('id').primaryKey(),
+    composedEmailId: text('composed_email_id')
+      .notNull()
+      .references(() => composedEmails.id, { onDelete: 'cascade' }),
+    encryptedFileName: text('encrypted_file_name').notNull(),
+    mimeType: text('mime_type').notNull(),
+    size: integer('size').notNull(),
+    encryptedStoragePath: text('encrypted_storage_path').notNull(),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [index('email_attachments_email_idx').on(table.composedEmailId)]
+);
+
+/**
  * VFS shares - sharing items with users, groups, and organizations.
  * Supports permission levels and optional expiration dates.
  */

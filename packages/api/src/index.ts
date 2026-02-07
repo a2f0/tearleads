@@ -20,6 +20,7 @@ import { aiConversationsRouter } from './routes/ai-conversations.js';
 import { authRouter } from './routes/auth.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
+import { emailsComposeRouter } from './routes/emailsCompose.js';
 import { mlsRouter } from './routes/mls.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 import { vfsRouter } from './routes/vfs.js';
@@ -122,6 +123,7 @@ app.use('/v1/chat', chatRouter);
 app.use('/v1/ai', aiConversationsRouter);
 
 // Email routes
+app.use('/v1/emails', emailsComposeRouter);
 app.use('/v1/emails', emailsRouter);
 
 // SSE route

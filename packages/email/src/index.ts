@@ -1,5 +1,12 @@
 // Components
-export { EmailWindow, EmailWindowMenuBar, type ViewMode } from './components';
+export {
+  AttachmentInput,
+  AttachmentList,
+  ComposeDialog,
+  EmailWindow,
+  EmailWindowMenuBar,
+  type ViewMode
+} from './components';
 
 // Context
 export {
@@ -23,7 +30,7 @@ export {
 } from './context';
 
 // Hooks
-export { useEmailFolders, useEmails } from './hooks';
+export { useCompose, useDrafts, useEmailFolders, useEmails } from './hooks';
 
 // Lib
 export { type EmailItem, formatEmailDate, formatEmailSize } from './lib';
@@ -34,13 +41,23 @@ export { Email } from './pages';
 // Types
 export {
   ALL_MAIL_ID,
+  type Attachment,
+  type ComposeState,
   canDeleteFolder,
   canHaveChildren,
   canRenameFolder,
+  type DraftEmail,
+  type DraftListItem,
   type EmailFolder,
   type EmailFolderType,
   type EmailFolderWithChildren,
+  formatEmailAddresses,
+  formatFileSize,
+  initialComposeState,
   isSystemFolder,
+  isValidEmail,
+  parseEmailAddresses,
   SYSTEM_FOLDER_NAMES,
-  SYSTEM_FOLDER_TYPES
+  SYSTEM_FOLDER_TYPES,
+  validateEmailAddresses
 } from './types';
