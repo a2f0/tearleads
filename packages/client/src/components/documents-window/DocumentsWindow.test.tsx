@@ -6,7 +6,8 @@ import { DocumentsWindow } from './DocumentsWindow';
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
-    windowOpenRequests: {}
+    windowOpenRequests: {},
+    openWindow: vi.fn()
   })
 }));
 

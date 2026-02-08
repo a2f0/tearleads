@@ -5,13 +5,15 @@ interface PhotosWindowThumbnailViewProps {
   onSelectPhoto?: (photoId: string) => void;
   showDropzone?: boolean;
   selectedAlbumId?: string | null;
+  onOpenAIChat?: () => void;
 }
 
 export function PhotosWindowThumbnailView({
   refreshToken,
   onSelectPhoto,
   showDropzone,
-  selectedAlbumId
+  selectedAlbumId,
+  onOpenAIChat
 }: PhotosWindowThumbnailViewProps) {
   return (
     <div className="h-full overflow-auto p-3">
@@ -21,6 +23,7 @@ export function PhotosWindowThumbnailView({
         showBackLink={false}
         showDropzone={showDropzone}
         selectedAlbumId={selectedAlbumId}
+        onOpenAIChat={onOpenAIChat}
       />
     </div>
   );

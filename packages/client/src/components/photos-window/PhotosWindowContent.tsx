@@ -18,7 +18,9 @@ import { UploadProgress } from '@/components/ui/upload-progress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
+import { uint8ArrayToDataUrl } from '@/lib/chat-attachments';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { setAttachedImage } from '@/lib/llm-runtime';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatFileSize } from '@/lib/utils';
 import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
@@ -34,6 +36,7 @@ interface PhotosWindowContentProps {
   uploading?: boolean;
   uploadProgress?: number;
   onUpload?: () => void;
+  onOpenAIChat?: () => void;
 }
 
 export function PhotosWindowContent({
@@ -44,7 +47,8 @@ export function PhotosWindowContent({
   selectedAlbumId,
   uploading = false,
   uploadProgress = 0,
-  onUpload
+  onUpload,
+  onOpenAIChat
 }: PhotosWindowContentProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -161,6 +165,24 @@ export function PhotosWindowContent({
     },
     [sharePhoto]
   );
+
+  const handleAddToAIChat = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const data = await downloadPhoto(contextMenu.photo);
+      const imageDataUrl = await uint8ArrayToDataUrl(
+        data,
+        contextMenu.photo.mimeType
+      );
+      setAttachedImage(imageDataUrl);
+      onOpenAIChat?.();
+    } catch (err) {
+      console.error('Failed to add photo to AI chat:', err);
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, downloadPhoto, onOpenAIChat]);
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
@@ -342,6 +364,9 @@ export function PhotosWindowContent({
             onClick={() => handleDownload(contextMenu.photo)}
           >
             {t('download')}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleAddToAIChat}>
+            Add to AI chat
           </ContextMenuItem>
           {canShare && (
             <ContextMenuItem

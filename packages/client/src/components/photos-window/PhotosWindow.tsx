@@ -36,7 +36,7 @@ export function PhotosWindow({
   initialDimensions
 }: PhotosWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { windowOpenRequests } = useWindowManager();
+  const { windowOpenRequests, openWindow } = useWindowManager();
   const { isUnlocked } = useDatabaseContext();
   const openRequest = windowOpenRequests.photos;
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
@@ -147,6 +147,10 @@ export function PhotosWindow({
     setRefreshToken((value) => value + 1);
   }, []);
 
+  const handleOpenAIChat = useCallback(() => {
+    openWindow('chat');
+  }, [openWindow]);
+
   useEffect(() => {
     if (!openRequest) return;
     if (openRequest.albumId) {
@@ -216,6 +220,7 @@ export function PhotosWindow({
                         uploading={uploading}
                         uploadProgress={uploadProgress}
                         onUpload={handleUpload}
+                        onOpenAIChat={handleOpenAIChat}
                       />
                     )}
                     {viewMode === 'table' && (
@@ -223,6 +228,7 @@ export function PhotosWindow({
                         onSelectPhoto={handleSelectPhoto}
                         refreshToken={refreshToken}
                         selectedAlbumId={selectedAlbumId}
+                        onOpenAIChat={handleOpenAIChat}
                       />
                     )}
                   </div>
@@ -233,6 +239,7 @@ export function PhotosWindow({
                     refreshToken={refreshToken}
                     showDropzone={showDropzone}
                     selectedAlbumId={selectedAlbumId}
+                    onOpenAIChat={handleOpenAIChat}
                   />
                 )}
               </>

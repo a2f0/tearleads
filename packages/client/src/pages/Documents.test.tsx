@@ -90,6 +90,16 @@ vi.mock('@/lib/file-utils', () => ({
   shareFile: (...args: unknown[]) => mockShareFile(...args)
 }));
 
+const mockSetAttachedImage = vi.fn();
+vi.mock('@/lib/llm-runtime', () => ({
+  setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
+}));
+
+const mockObjectUrlToDataUrl = vi.fn();
+vi.mock('@/lib/chat-attachments', () => ({
+  objectUrlToDataUrl: (objectUrl: string) => mockObjectUrlToDataUrl(objectUrl)
+}));
+
 const mockDocuments = [
   {
     id: 'doc-1',
@@ -140,6 +150,8 @@ describe('Documents', () => {
     mockCanShareFiles.mockReturnValue(false);
     mockDownloadFile.mockReturnValue(undefined);
     mockShareFile.mockResolvedValue(undefined);
+    mockSetAttachedImage.mockReset();
+    mockObjectUrlToDataUrl.mockResolvedValue('data:image/jpeg;base64,thumb');
     mockUploadFile.mockResolvedValue(undefined);
 
     // Reset update chain mocks
@@ -400,6 +412,23 @@ describe('Documents', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+    });
+
+    it('opens AI chat from context menu', async () => {
+      const user = userEvent.setup();
+      await renderDocuments();
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+      await user.click(screen.getByText('Add to AI chat'));
+
+      expect(mockNavigate).toHaveBeenCalledWith('/chat', {
+        state: { from: '/', fromLabel: 'Back to Documents' }
       });
     });
 

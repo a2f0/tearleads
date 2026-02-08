@@ -10,6 +10,8 @@ const mockCanShareFiles = vi.fn(() => false);
 const mockDeletePhoto = vi.fn();
 const mockDownloadPhoto = vi.fn();
 const mockSharePhoto = vi.fn();
+const mockSetAttachedImage = vi.fn();
+const mockUint8ArrayToDataUrl = vi.fn();
 
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: () => ({
@@ -34,6 +36,15 @@ vi.mock('@/lib/file-utils', () => ({
     mockDownloadFile(data, name),
   shareFile: (data: ArrayBuffer, name: string, mimeType: string) =>
     mockShareFile(data, name, mimeType)
+}));
+
+vi.mock('@/lib/llm-runtime', () => ({
+  setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
+}));
+
+vi.mock('@/lib/chat-attachments', () => ({
+  uint8ArrayToDataUrl: (data: Uint8Array, mimeType: string) =>
+    mockUint8ArrayToDataUrl(data, mimeType)
 }));
 
 vi.mock('@/i18n', () => ({
@@ -70,6 +81,7 @@ describe('PhotosWindowContent', () => {
     vi.clearAllMocks();
     mockDownloadPhoto.mockResolvedValue(new ArrayBuffer(8));
     mockSharePhoto.mockResolvedValue(new ArrayBuffer(8));
+    mockUint8ArrayToDataUrl.mockResolvedValue('data:image/jpeg;base64,photo');
   });
 
   it('shows empty state when no photos are available', () => {
@@ -407,6 +419,36 @@ describe('PhotosWindowContent', () => {
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(mockDeletePhoto).toHaveBeenCalledWith('photo-1');
+  });
+
+  it('adds photo to AI chat from context menu', async () => {
+    const onOpenAIChat = vi.fn();
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(
+      <PhotosWindowContent refreshToken={0} onOpenAIChat={onOpenAIChat} />
+    );
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+    await user.click(screen.getByRole('button', { name: 'Add to AI chat' }));
+
+    expect(mockSetAttachedImage).toHaveBeenCalledWith(
+      'data:image/jpeg;base64,photo'
+    );
+    expect(onOpenAIChat).toHaveBeenCalled();
   });
 
   it('shows upload progress when uploading', () => {

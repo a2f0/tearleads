@@ -150,6 +150,17 @@ vi.mock('@/lib/file-utils', () => ({
   shareFile: (...args: unknown[]) => mockShareFile(...args)
 }));
 
+const mockSetAttachedImage = vi.fn();
+vi.mock('@/lib/llm-runtime', () => ({
+  setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
+}));
+
+const mockUint8ArrayToDataUrl = vi.fn();
+vi.mock('@/lib/chat-attachments', () => ({
+  uint8ArrayToDataUrl: (data: Uint8Array, mimeType: string) =>
+    mockUint8ArrayToDataUrl(data, mimeType)
+}));
+
 const mockPhotos = [
   {
     id: 'photo-1',
@@ -205,6 +216,10 @@ describe('Photos', () => {
     mockCanShareFiles.mockReturnValue(false);
     mockDownloadFile.mockReturnValue(undefined);
     mockShareFile.mockResolvedValue(undefined);
+    mockSetAttachedImage.mockReset();
+    mockUint8ArrayToDataUrl.mockResolvedValue(
+      'data:image/jpeg;base64,test-image'
+    );
     mockUploadFile.mockResolvedValue(undefined);
 
     // Mock URL.createObjectURL
@@ -407,6 +422,28 @@ describe('Photos', () => {
 
       await waitFor(() => {
         expect(screen.getByText('Delete')).toBeInTheDocument();
+      });
+    });
+
+    it('adds photo to AI chat from context menu', async () => {
+      const user = userEvent.setup();
+      await renderPhotos();
+
+      await waitFor(() => {
+        expect(screen.getByAltText('test-image.jpg')).toBeInTheDocument();
+      });
+
+      const photo = screen.getByAltText('test-image.jpg');
+      await user.pointer({ keys: '[MouseRight]', target: photo });
+      await user.click(screen.getByText('Add to AI chat'));
+
+      await waitFor(() => {
+        expect(mockSetAttachedImage).toHaveBeenCalledWith(
+          'data:image/jpeg;base64,test-image'
+        );
+      });
+      expect(mockNavigate).toHaveBeenCalledWith('/chat', {
+        state: { from: '/', fromLabel: 'Back to Photos' }
       });
     });
 
