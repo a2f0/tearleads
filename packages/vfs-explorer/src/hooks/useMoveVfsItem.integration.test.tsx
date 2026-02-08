@@ -179,7 +179,9 @@ describe('useMoveVfsItem integration', () => {
     await withRealDatabase(
       async ({ db }) => {
         const sourceFolderId = await seedFolder(db, { name: 'Unfiled Source' });
-        const targetFolderId = await seedFolder(db, { name: 'Link Test Folder' });
+        const targetFolderId = await seedFolder(db, {
+          name: 'Link Test Folder'
+        });
         const itemId = await seedVfsItem(db, {
           objectType: 'file',
           parentId: sourceFolderId
