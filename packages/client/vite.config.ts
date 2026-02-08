@@ -38,6 +38,11 @@ export default defineConfig(({ mode }) => ({
       '@rapid/ui/logo.svg': path.resolve(__dirname, '../ui/src/images/logo.svg'),
       '@rapid/audio/package.json': path.resolve(__dirname, '../audio/package.json'),
       '@rapid/audio': path.resolve(__dirname, '../audio/src/index.ts'),
+      '@rapid/classic/package.json': path.resolve(
+        __dirname,
+        '../classic/package.json'
+      ),
+      '@rapid/classic': path.resolve(__dirname, '../classic/src/index.ts'),
       '@rapid/email/package.json': path.resolve(__dirname, '../email/package.json'),
       '@rapid/email': path.resolve(__dirname, '../email/src/index.ts'),
       '@rapid/notes/package.json': path.resolve(__dirname, '../notes/package.json'),

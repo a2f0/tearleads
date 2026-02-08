@@ -47,6 +47,7 @@ export const es = {
     sync: 'Sincronizar',
     v86: 'v86',
     vfs: 'Explorador VFS',
+    classic: 'Clásico',
     backups: 'Copias de Seguridad'
   },
   audio: {

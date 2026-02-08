@@ -50,6 +50,7 @@ export type WindowType =
   | 'sync'
   | 'v86'
   | 'vfs'
+  | 'classic'
   | 'backup'
   | 'mls-chat'
   | 'search';

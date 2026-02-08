@@ -12,6 +12,8 @@
     "paths": {
       "@/*": ["./src/*"],
       "@rapid/audio/package.json": ["../audio/package.json"],
+      "@rapid/classic/package.json": ["../classic/package.json"],
+      "@rapid/classic": ["../classic/src/index.ts"],
       "@rapid/contacts/package.json": ["../contacts/package.json"],
       "@rapid/email/package.json": ["../email/package.json"],
       "@rapid/notes/package.json": ["../notes/package.json"],

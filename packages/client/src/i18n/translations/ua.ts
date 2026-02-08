@@ -47,6 +47,7 @@ export const ua = {
     sync: 'Синхронізація',
     v86: 'v86',
     vfs: 'Провідник VFS',
+    classic: 'Класичний',
     backups: 'Резервні копії'
   },
   audio: {

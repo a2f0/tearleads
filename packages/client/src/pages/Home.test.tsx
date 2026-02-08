@@ -71,7 +71,8 @@ const MOCK_SAVED_POSITIONS = {
   '/sync': { x: 100, y: 700 },
   '/v86': { x: 200, y: 700 },
   '/vfs': { x: 300, y: 700 },
-  '/backups': { x: 400, y: 700 }
+  '/classic': { x: 400, y: 700 },
+  '/backups': { x: 500, y: 700 }
 };
 
 describe('Home', () => {
