@@ -160,7 +160,6 @@ export default defineConfig({
         __dirname,
         '../audio/package.json'
       ),
-<<<<<<< HEAD
       '@rapid/audio': path.resolve(__dirname, '../audio/src/index.ts'),
       '@rapid/classic/package.json': path.resolve(
         __dirname,
