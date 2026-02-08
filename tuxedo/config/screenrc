@@ -20,12 +20,11 @@ setenv COLORFGBG "15;0"
 # Scrollback buffer - reduced to prevent memory issues with many workspaces
 defscrollback 5000
 
-# Alternate screen mode (default: enabled)
-# When enabled, full-screen apps (vim, less, man) use a temporary screen
-# and don't pollute the scrollback buffer - saves significant memory.
-# Disabled (ti@:te@) would allow tmux to capture all output but causes
-# memory bloat with long-running sessions.
-# termcapinfo * ti@:te@
+# Disable alternate screen mode.
+# This keeps full-screen app output visible to tmux/screen scrollback,
+# which restores expected selection and scroll behavior in tuxedo panes.
+# Trade-off: more scrollback retention can increase memory usage over time.
+termcapinfo * ti@:te@
 
 # Disable screen's own visual bell and other UI that might interfere
 vbell off
