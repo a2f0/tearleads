@@ -25,7 +25,8 @@ export function AudioWindowMenuBar({
     DropdownMenu,
     DropdownMenuItem,
     DropdownMenuSeparator,
-    WindowOptionsMenuItem
+    WindowOptionsMenuItem,
+    AboutMenuItem
   } = ui;
 
   return (
@@ -63,6 +64,9 @@ export function AudioWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <AboutMenuItem />
       </DropdownMenu>
     </div>
   );
