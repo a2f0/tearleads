@@ -68,14 +68,14 @@ test.describe('Backup and Restore', () => {
     await navigateInApp(page, '/backups', true);
 
     // Wait for backup form to be visible
-    const passwordInput = page.getByLabel('Password');
+    const passwordInput = page.getByLabel('Password', { exact: true });
     await expect(passwordInput).toBeVisible({
       timeout: 10000
     });
 
     // Fill in backup password
     await passwordInput.fill(BACKUP_PASSWORD);
-    await page.getByLabel('Confirm').fill(BACKUP_PASSWORD);
+    await page.getByLabel('Confirm', { exact: true }).fill(BACKUP_PASSWORD);
 
     // Ensure "Include files" checkbox is checked
     const includeBlobsCheckbox = page.getByRole('checkbox', {
@@ -144,8 +144,8 @@ test.describe('Backup and Restore', () => {
 
     // Navigate to backups and create backup
     await navigateInApp(page, '/backups', true);
-    await page.getByLabel('Password').fill(BACKUP_PASSWORD);
-    await page.getByLabel('Confirm').fill(BACKUP_PASSWORD);
+    await page.getByLabel('Password', { exact: true }).fill(BACKUP_PASSWORD);
+    await page.getByLabel('Confirm', { exact: true }).fill(BACKUP_PASSWORD);
     await page.getByRole('button', { name: 'Create Backup' }).click();
     await expect(page.getByText(/Backup saved as.*\.rbu/)).toBeVisible({
       timeout: BACKUP_TIMEOUT
@@ -189,11 +189,11 @@ test.describe('Backup and Restore', () => {
     await navigateInApp(page, '/backups', true);
 
     // Fill in backup form
-    await expect(page.getByLabel('Password')).toBeVisible({
+    await expect(page.getByLabel('Password', { exact: true })).toBeVisible({
       timeout: 10000
     });
-    await page.getByLabel('Password').fill(BACKUP_PASSWORD);
-    await page.getByLabel('Confirm').fill(BACKUP_PASSWORD);
+    await page.getByLabel('Password', { exact: true }).fill(BACKUP_PASSWORD);
+    await page.getByLabel('Confirm', { exact: true }).fill(BACKUP_PASSWORD);
 
     // Attempt to create backup with locked database
     await page.getByRole('button', { name: 'Create Backup' }).click();
