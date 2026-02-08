@@ -1,11 +1,41 @@
 import { logStore } from '@/stores/logStore';
+import type { LogLevel } from '@/stores/logStore';
 
 let installed = false;
-let originalConsoleError: typeof console.error | null = null;
-let originalConsoleWarn: typeof console.warn | null = null;
-let originalConsoleInfo: typeof console.info | null = null;
-let originalConsoleDebug: typeof console.debug | null = null;
-let originalConsoleLog: typeof console.log | null = null;
+type CapturedMethod = 'error' | 'warn' | 'info' | 'debug' | 'log';
+
+const originalConsoleMethods: {
+  error: typeof console.error | null;
+  warn: typeof console.warn | null;
+  info: typeof console.info | null;
+  debug: typeof console.debug | null;
+  log: typeof console.log | null;
+} = {
+  error: null,
+  warn: null,
+  info: null,
+  debug: null,
+  log: null
+};
+
+const CAPTURED_METHODS: CapturedMethod[] = [
+  'error',
+  'warn',
+  'info',
+  'debug',
+  'log'
+];
+
+const CAPTURE_CONFIG: Record<
+  CapturedMethod,
+  { level: LogLevel; fallbackMessage: string }
+> = {
+  error: { level: 'error', fallbackMessage: 'Console error' },
+  warn: { level: 'warn', fallbackMessage: 'Console warning' },
+  info: { level: 'info', fallbackMessage: 'Console info' },
+  debug: { level: 'debug', fallbackMessage: 'Console debug' },
+  log: { level: 'info', fallbackMessage: 'Console log' }
+};
 
 function formatConsoleArg(arg: unknown): string {
   if (arg instanceof Error) {
@@ -52,62 +82,26 @@ export function installConsoleErrorCapture(): () => void {
   }
 
   installed = true;
-  originalConsoleError = console.error.bind(console);
-  originalConsoleWarn = console.warn.bind(console);
-  originalConsoleInfo = console.info.bind(console);
-  originalConsoleDebug = console.debug.bind(console);
-  originalConsoleLog = console.log.bind(console);
-
-  console.error = (...args: Parameters<typeof console.error>) => {
-    const { message, details } = formatConsoleArgs(args, 'Console error');
-    logStore.error(message, details);
-    originalConsoleError?.(...args);
-  };
-
-  console.warn = (...args: Parameters<typeof console.warn>) => {
-    const { message, details } = formatConsoleArgs(args, 'Console warning');
-    logStore.warn(message, details);
-    originalConsoleWarn?.(...args);
-  };
-
-  console.info = (...args: Parameters<typeof console.info>) => {
-    const { message, details } = formatConsoleArgs(args, 'Console info');
-    logStore.info(message, details);
-    originalConsoleInfo?.(...args);
-  };
-
-  console.debug = (...args: Parameters<typeof console.debug>) => {
-    const { message, details } = formatConsoleArgs(args, 'Console debug');
-    logStore.debug(message, details);
-    originalConsoleDebug?.(...args);
-  };
-
-  console.log = (...args: Parameters<typeof console.log>) => {
-    const { message, details } = formatConsoleArgs(args, 'Console log');
-    logStore.info(message, details);
-    originalConsoleLog?.(...args);
-  };
+  for (const method of CAPTURED_METHODS) {
+    originalConsoleMethods[method] = console[method].bind(console);
+    console[method] = (...args: unknown[]) => {
+      const config = CAPTURE_CONFIG[method];
+      const { message, details } = formatConsoleArgs(args, config.fallbackMessage);
+      logStore.addLog(config.level, message, details);
+      originalConsoleMethods[method]?.(...args);
+    };
+  }
 
   return () => {
-    if (
-      installed &&
-      originalConsoleError &&
-      originalConsoleWarn &&
-      originalConsoleInfo &&
-      originalConsoleDebug &&
-      originalConsoleLog
-    ) {
-      console.error = originalConsoleError;
-      console.warn = originalConsoleWarn;
-      console.info = originalConsoleInfo;
-      console.debug = originalConsoleDebug;
-      console.log = originalConsoleLog;
+    if (installed) {
+      for (const method of CAPTURED_METHODS) {
+        const originalMethod = originalConsoleMethods[method];
+        if (originalMethod) {
+          console[method] = originalMethod;
+        }
+        originalConsoleMethods[method] = null;
+      }
     }
     installed = false;
-    originalConsoleError = null;
-    originalConsoleWarn = null;
-    originalConsoleInfo = null;
-    originalConsoleDebug = null;
-    originalConsoleLog = null;
   };
 }
