@@ -55,6 +55,7 @@
     "@ionic/core": "8.7.17",
     "@orama/orama": "3.1.18",
     "@radix-ui/react-slot": "1.2.4",
+    "@rapid/calendar": "workspace:*",
     "@rapid/audio": "workspace:*",
     "@rapid/classic": "workspace:*",
     "@rapid/contacts": "workspace:*",

@@ -22,6 +22,8 @@
     { "path": "./packages/classic/tsconfig.test.json" },
     { "path": "./packages/email" },
     { "path": "./packages/email/tsconfig.test.json" },
+    { "path": "./packages/calendar" },
+    { "path": "./packages/calendar/tsconfig.test.json" },
     { "path": "./packages/contacts" },
     { "path": "./packages/contacts/tsconfig.test.json" },
     { "path": "./packages/api" },

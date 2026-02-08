@@ -10,6 +10,7 @@ import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
 import { BackupWindow } from '@/components/backup-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
+import { CalendarWindow } from '@/components/calendar-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ClassicWindow } from '@/components/classic-window';
 import { ConsoleWindow } from '@/components/console-window';
@@ -99,7 +100,8 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   classic: { Component: ClassicWindow },
   backup: { Component: BackupWindow },
   'mls-chat': { Component: MlsChatWindow },
-  search: { Component: SearchWindow }
+  search: { Component: SearchWindow },
+  calendar: { Component: CalendarWindow }
 };
 
 export function WindowRenderer() {

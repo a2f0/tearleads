@@ -90,6 +90,9 @@ const Classic = lazy(() =>
 const CacheStorage = lazy(() =>
   import('./pages/cache-storage').then((m) => ({ default: m.CacheStorage }))
 );
+const Calendar = lazy(() =>
+  import('./pages/Calendar').then((m) => ({ default: m.Calendar }))
+);
 const Chat = lazy(() =>
   import('./pages/chat').then((m) => ({ default: m.Chat }))
 );
@@ -250,6 +253,10 @@ if (rootElement) {
                                         <Route
                                           path="contacts"
                                           element={<Contacts />}
+                                        />
+                                        <Route
+                                          path="calendar"
+                                          element={<Calendar />}
                                         />
                                         <Route
                                           path="contacts/new"

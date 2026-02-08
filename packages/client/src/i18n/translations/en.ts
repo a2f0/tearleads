@@ -15,6 +15,7 @@ export const en = {
   menu: {
     home: 'Home',
     search: 'Search',
+    calendar: 'Calendar',
     files: 'Files',
     contacts: 'Contacts',
     photos: 'Photos',

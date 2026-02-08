@@ -66,7 +66,7 @@ const renderSidebar = () =>
     </I18nextProvider>
   );
 
-const windowedLabels = ['Console', 'Notes'];
+const windowedLabels = ['Console', 'Notes', 'Calendar'];
 
 describe('Sidebar launch behavior', () => {
   beforeEach(() => {

@@ -15,6 +15,7 @@ export const ua = {
   menu: {
     home: 'Головна',
     search: 'Пошук',
+    calendar: 'Календар',
     files: 'Файли',
     contacts: 'Контакти',
     photos: 'Фото',

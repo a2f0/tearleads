@@ -618,6 +618,41 @@ vi.mock('@/components/cache-storage-window', () => ({
   )
 }));
 
+vi.mock('@/components/calendar-window', () => ({
+  CalendarWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`calendar-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 900, height: 640 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/analytics-window', () => ({
   AnalyticsWindow: ({
     id,
@@ -1543,6 +1578,18 @@ describe('WindowRenderer', () => {
       }
     },
     {
+      label: 'calendar',
+      type: 'calendar',
+      id: 'calendar-1',
+      windowTestId: 'calendar-window-calendar-1',
+      closeTestId: 'close-calendar-1',
+      focusTestId: 'calendar-window-calendar-1',
+      minimize: {
+        testId: 'minimize-calendar-1',
+        dimensions: { x: 0, y: 0, width: 900, height: 640 }
+      }
+    },
+    {
       label: 'chat',
       type: 'chat',
       id: 'chat-1',
@@ -1647,7 +1694,7 @@ describe('WindowRenderer', () => {
     expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
   });
 
-  it('renders all twenty-one window types together', () => {
+  it('renders all twenty-two window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -1669,7 +1716,8 @@ describe('WindowRenderer', () => {
       { id: 'documents-1', type: 'documents', zIndex: 117 },
       { id: 'help-1', type: 'help', zIndex: 118 },
       { id: 'local-storage-1', type: 'local-storage', zIndex: 119 },
-      { id: 'opfs-1', type: 'opfs', zIndex: 120 }
+      { id: 'opfs-1', type: 'opfs', zIndex: 120 },
+      { id: 'calendar-1', type: 'calendar', zIndex: 121 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -1690,6 +1738,9 @@ describe('WindowRenderer', () => {
     ).toBeInTheDocument();
     expect(screen.getByTestId('sqlite-window-sqlite-1')).toBeInTheDocument();
     expect(screen.getByTestId('opfs-window-opfs-1')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('calendar-window-calendar-1')
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('local-storage-window-local-storage-1')
     ).toBeInTheDocument();
