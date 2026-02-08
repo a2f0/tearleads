@@ -26,7 +26,7 @@ export default defineConfig({
           replacement: path.resolve(import.meta.dirname, '../ui/src/styles/theme.css'),
         },
         {
-          find: '@rapid/ui/logo.svg',
+          find: /^@rapid\/ui\/logo\.svg(\?.*)?$/,
           replacement: path.resolve(import.meta.dirname, '../ui/src/images/logo.svg'),
         },
         {
