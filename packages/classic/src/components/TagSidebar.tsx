@@ -29,7 +29,7 @@ export function TagSidebar({
                     type="button"
                     className={
                       isActive
-                        ? 'rounded px-2 py-1 text-left text-sm font-semibold text-zinc-950'
+                        ? 'rounded px-2 py-1 text-left font-semibold text-sm text-zinc-950'
                         : 'rounded px-2 py-1 text-left text-sm text-zinc-700'
                     }
                     onClick={() => onSelectTag(tag.id)}

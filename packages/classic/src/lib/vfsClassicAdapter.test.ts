@@ -1,9 +1,9 @@
-import {
-  buildClassicStateFromVfs,
-  serializeOrderState,
-  type BuildClassicStateFromVfsArgs
-} from './vfsClassicAdapter';
 import type { ClassicState } from './types';
+import {
+  type BuildClassicStateFromVfsArgs,
+  buildClassicStateFromVfs,
+  serializeOrderState
+} from './vfsClassicAdapter';
 
 function createArgs(): BuildClassicStateFromVfsArgs {
   return {

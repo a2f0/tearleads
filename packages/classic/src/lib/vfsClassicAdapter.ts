@@ -117,7 +117,9 @@ export interface SerializableOrderState {
   noteOrderByTagId: Record<string, string[]>;
 }
 
-export function serializeOrderState(state: ClassicState): SerializableOrderState {
+export function serializeOrderState(
+  state: ClassicState
+): SerializableOrderState {
   return {
     tagOrder: state.tags.map((tag) => tag.id),
     noteOrderByTagId: state.noteOrderByTagId

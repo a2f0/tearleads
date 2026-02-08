@@ -1,6 +1,10 @@
 import type { ClassicState } from './types';
 
-export function moveItem<T>(items: readonly T[], from: number, to: number): T[] {
+export function moveItem<T>(
+  items: readonly T[],
+  from: number,
+  to: number
+): T[] {
   if (from < 0 || to < 0 || from >= items.length || to >= items.length) {
     return [...items];
   }
@@ -51,7 +55,7 @@ export function reorderNoteInTag(
     return state;
   }
 
-  const fromIndex = noteOrder.findIndex((id) => id === noteId);
+  const fromIndex = noteOrder.indexOf(noteId);
   if (fromIndex === -1) {
     return state;
   }

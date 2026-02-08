@@ -61,7 +61,9 @@ function getLastState(onStateChange: Mock): ClassicState {
 describe('ClassicApp', () => {
   it('reorders tags, selects tags, and reorders notes', () => {
     const onStateChange = vi.fn();
-    render(<ClassicApp initialState={createState()} onStateChange={onStateChange} />);
+    render(
+      <ClassicApp initialState={createState()} onStateChange={onStateChange} />
+    );
 
     fireEvent.click(screen.getByLabelText('Move note Beta up'));
     let latest = getLastState(onStateChange);

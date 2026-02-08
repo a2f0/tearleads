@@ -38,7 +38,9 @@ export function ClassicApp({ initialState, onStateChange }: ClassicAppProps) {
   };
 
   const handleMoveNote = (noteId: string, direction: 'up' | 'down') => {
-    updateState(reorderNoteInTag(state, String(state.activeTagId), noteId, direction));
+    updateState(
+      reorderNoteInTag(state, String(state.activeTagId), noteId, direction)
+    );
   };
 
   return (
