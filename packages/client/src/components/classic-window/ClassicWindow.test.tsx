@@ -63,6 +63,39 @@ describe('ClassicWindow', () => {
     expect(screen.getByTestId('classic-app')).toBeInTheDocument();
   });
 
+  it('renders File, Edit, Tags, Entries, View, and Help menus', () => {
+    render(<ClassicWindow {...defaultProps} />);
+
+    expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Edit' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Tags' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Entries' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
+  });
+
+  it('calls onClose from File menu Close item', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(<ClassicWindow {...defaultProps} onClose={onClose} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Close' }));
+
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows About option in Help menu', async () => {
+    const user = userEvent.setup();
+
+    render(<ClassicWindow {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+
+    expect(screen.getByRole('menuitem', { name: 'About' })).toBeInTheDocument();
+  });
+
   it('calls onClose when window close is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
