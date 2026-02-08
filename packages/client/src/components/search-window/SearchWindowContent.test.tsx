@@ -15,13 +15,9 @@ vi.mock('react-router-dom', async () => {
 });
 
 const mockSearch = vi.fn();
+const mockUseSearch = vi.fn();
 vi.mock('@/search', () => ({
-  useSearch: () => ({
-    search: mockSearch,
-    isInitialized: true,
-    isIndexing: false,
-    documentCount: 10
-  })
+  useSearch: (options: unknown) => mockUseSearch(options)
 }));
 
 function renderContent() {
@@ -38,6 +34,12 @@ describe('SearchWindowContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockSearch.mockResolvedValue({ hits: [], count: 0 });
+    mockUseSearch.mockImplementation(() => ({
+      search: mockSearch,
+      isInitialized: true,
+      isIndexing: false,
+      documentCount: 10
+    }));
   });
 
   describe('rendering', () => {
@@ -191,12 +193,57 @@ describe('SearchWindowContent', () => {
   });
 
   describe('filtering', () => {
-    it('changes filter when clicking tab', async () => {
+    it('toggles multiple filters on and off', async () => {
       const user = userEvent.setup();
       renderContent();
 
       await user.click(screen.getByText('Contacts'));
       expect(screen.getByText('Contacts')).toHaveClass('bg-primary');
+
+      await user.click(screen.getByText('Notes'));
+      expect(screen.getByText('Notes')).toHaveClass('bg-primary');
+
+      await user.click(screen.getByText('Contacts'));
+      expect(screen.getByText('Contacts')).not.toHaveClass('bg-primary');
+      expect(screen.getByText('Notes')).toHaveClass('bg-primary');
+    });
+
+    it('clears other selected filters when clicking All', async () => {
+      const user = userEvent.setup();
+      renderContent();
+
+      await user.click(screen.getByText('Contacts'));
+      await user.click(screen.getByText('Notes'));
+
+      expect(screen.getByText('Contacts')).toHaveClass('bg-primary');
+      expect(screen.getByText('Notes')).toHaveClass('bg-primary');
+
+      await user.click(screen.getByText('All'));
+
+      expect(screen.getByText('All')).toHaveClass('bg-primary');
+      expect(screen.getByText('Contacts')).not.toHaveClass('bg-primary');
+      expect(screen.getByText('Notes')).not.toHaveClass('bg-primary');
+    });
+
+    it('passes multiple entity types to search hook options', async () => {
+      const user = userEvent.setup();
+      renderContent();
+
+      await user.click(screen.getByText('Contacts'));
+      await user.click(screen.getByText('Notes'));
+
+      await waitFor(() => {
+        expect(mockUseSearch).toHaveBeenLastCalledWith({
+          entityTypes: ['contact', 'note'],
+          limit: 50
+        });
+      });
+
+      await user.click(screen.getByText('All'));
+
+      await waitFor(() => {
+        expect(mockUseSearch).toHaveBeenLastCalledWith({ limit: 50 });
+      });
     });
   });
 

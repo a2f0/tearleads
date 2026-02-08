@@ -62,7 +62,9 @@ const FILTER_OPTIONS: { label: string; value: SearchableEntityType | 'all' }[] =
 export function SearchWindowContent() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<SearchableEntityType | 'all'>('all');
+  const [selectedFilters, setSelectedFilters] = useState<
+    SearchableEntityType[]
+  >([]);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
@@ -73,9 +75,26 @@ export function SearchWindowContent() {
   );
 
   const searchOptions =
-    filter === 'all' ? { limit: 50 } : { entityTypes: [filter], limit: 50 };
+    selectedFilters.length === 0
+      ? { limit: 50 }
+      : { entityTypes: selectedFilters, limit: 50 };
   const { search, isInitialized, isIndexing, documentCount } =
     useSearch(searchOptions);
+
+  const isAllSelected = selectedFilters.length === 0;
+
+  const handleFilterToggle = (value: SearchableEntityType | 'all') => {
+    if (value === 'all') {
+      setSelectedFilters([]);
+      return;
+    }
+
+    setSelectedFilters((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : [...current, value]
+    );
+  };
 
   // Auto-focus input on mount
   useEffect(() => {
@@ -159,9 +178,18 @@ export function SearchWindowContent() {
           <button
             key={option.value}
             type="button"
-            onClick={() => setFilter(option.value)}
+            onClick={() => handleFilterToggle(option.value)}
+            data-selected={
+              option.value === 'all'
+                ? isAllSelected
+                : selectedFilters.includes(option.value)
+            }
             className={`shrink-0 rounded-full px-3 py-1 text-sm transition-colors ${
-              filter === option.value
+              (
+                option.value === 'all'
+                  ? isAllSelected
+                  : selectedFilters.includes(option.value)
+              )
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted hover:bg-muted/80'
             }`}
