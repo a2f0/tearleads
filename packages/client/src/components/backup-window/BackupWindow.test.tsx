@@ -38,8 +38,9 @@ describe('BackupWindow', () => {
   it('renders menu bar', async () => {
     render(<BackupWindow {...defaultProps} />);
     await waitFor(() => {
-      // Menu bar renders File menu
+      // Menu bar renders File and View menus
       expect(screen.getByText('File')).toBeInTheDocument();
+      expect(screen.getByText('View')).toBeInTheDocument();
     });
   });
 });
