@@ -9,6 +9,7 @@ describe('TagSidebar', () => {
         activeTagId={null}
         onSelectTag={() => {}}
         onMoveTag={() => {}}
+        onReorderTag={() => {}}
         searchValue=""
         onSearchChange={() => {}}
       />
@@ -30,6 +31,7 @@ describe('TagSidebar', () => {
         activeTagId="tag-2"
         onSelectTag={onSelectTag}
         onMoveTag={onMoveTag}
+        onReorderTag={() => {}}
         searchValue=""
         onSearchChange={() => {}}
       />
@@ -52,9 +54,7 @@ describe('TagSidebar', () => {
     expect(screen.getByLabelText('Move tag Personal down')).toBeDisabled();
   });
 
-  it('renders tag handle controls and emits move events', () => {
-    const onMoveTag = vi.fn();
-
+  it('renders left-side drag handles for tags', () => {
     render(
       <TagSidebar
         tags={[
@@ -63,22 +63,14 @@ describe('TagSidebar', () => {
         ]}
         activeTagId={null}
         onSelectTag={() => {}}
-        onMoveTag={onMoveTag}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
         searchValue=""
         onSearchChange={() => {}}
       />
     );
 
-    fireEvent.click(screen.getByLabelText('Move tag Work down via handle'));
-    expect(onMoveTag).toHaveBeenCalledWith('tag-1', 'down');
-
-    fireEvent.click(screen.getByLabelText('Move tag Personal up via handle'));
-    expect(onMoveTag).toHaveBeenCalledWith('tag-2', 'up');
-
-    expect(screen.getByLabelText('Move tag Work up via handle')).toBeDisabled();
-    expect(
-      screen.getByLabelText('Move tag Personal down via handle')
-    ).toBeDisabled();
+    expect(screen.getAllByTitle('Drag tag')).toHaveLength(2);
   });
 
   it('renders search input and calls onSearchChange', () => {
@@ -90,6 +82,7 @@ describe('TagSidebar', () => {
         activeTagId={null}
         onSelectTag={() => {}}
         onMoveTag={() => {}}
+        onReorderTag={() => {}}
         searchValue="test"
         onSearchChange={onSearchChange}
       />
@@ -102,5 +95,42 @@ describe('TagSidebar', () => {
     });
 
     expect(onSearchChange).toHaveBeenCalledWith('work');
+  });
+
+  it('reorders tags while hovering dragged tag over a target', () => {
+    const onReorderTag = vi.fn();
+    const dataTransfer = {
+      effectAllowed: 'move',
+      setData: vi.fn()
+    } as unknown as DataTransfer;
+
+    render(
+      <TagSidebar
+        tags={[
+          { id: 'tag-1', name: 'Work' },
+          { id: 'tag-2', name: 'Personal' }
+        ]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={onReorderTag}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const firstHandle = screen.getAllByTitle('Drag tag')[0];
+    fireEvent.mouseDown(firstHandle);
+    fireEvent.dragStart(firstHandle, { dataTransfer });
+
+    const personalItem = screen
+      .getByLabelText('Select tag Personal')
+      .closest('li');
+    if (!personalItem) {
+      throw new Error('Expected personal tag list item');
+    }
+    fireEvent.dragOver(personalItem);
+
+    expect(onReorderTag).toHaveBeenCalledWith('tag-1', 'tag-2');
   });
 });

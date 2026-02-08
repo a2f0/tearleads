@@ -7,6 +7,7 @@ interface NotesPaneProps {
   noteIds: string[];
   notesById: Record<string, ClassicNote>;
   onMoveNote: (noteId: string, direction: 'up' | 'down') => void;
+  onReorderNote: (noteId: string, targetNoteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
 }
@@ -25,12 +26,16 @@ export function NotesPane({
   noteIds,
   notesById,
   onMoveNote,
+  onReorderNote,
   searchValue,
   onSearchChange
 }: NotesPaneProps) {
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
     null
   );
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [lastHoverNoteId, setLastHoverNoteId] = useState<string | null>(null);
+  const [dragArmedNoteId, setDragArmedNoteId] = useState<string | null>(null);
 
   const closeContextMenu = () => setContextMenu(null);
 
@@ -54,6 +59,42 @@ export function NotesPane({
                 <li
                   key={note.id}
                   className="rounded border p-3"
+                  draggable
+                  onDragStart={(event) => {
+                    const target = event.target;
+                    if (
+                      dragArmedNoteId !== note.id &&
+                      (!(target instanceof HTMLElement) ||
+                        !target.closest('[data-drag-handle="true"]'))
+                    ) {
+                      event.preventDefault();
+                      return;
+                    }
+                    setDraggedNoteId(note.id);
+                    setLastHoverNoteId(null);
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', note.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedNoteId(null);
+                    setLastHoverNoteId(null);
+                    setDragArmedNoteId(null);
+                  }}
+                  onDragOver={(event) => {
+                    if (!draggedNoteId || draggedNoteId === note.id) {
+                      return;
+                    }
+                    event.preventDefault();
+                    if (lastHoverNoteId === note.id) {
+                      return;
+                    }
+                    onReorderNote(draggedNoteId, note.id);
+                    setLastHoverNoteId(note.id);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setDragArmedNoteId(null);
+                  }}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     setContextMenu({
@@ -66,37 +107,30 @@ export function NotesPane({
                     });
                   }}
                 >
-                  <div className="mb-2 flex items-center justify-between gap-2">
-                    <h3 className="min-w-0 flex-1 text-sm">{note.title}</h3>
-                    <div className="flex items-center gap-1">
+                  <div className="flex items-stretch gap-2">
+                    <div
+                      aria-hidden="true"
+                      data-drag-handle="true"
+                      onMouseDown={() => setDragArmedNoteId(note.id)}
+                      onMouseUp={() => setDragArmedNoteId(null)}
+                      className="flex w-4 shrink-0 items-center justify-center"
+                      title="Drag entry"
+                    >
                       <span
-                        aria-hidden="true"
-                        className="select-none text-zinc-400 text-xs"
-                        title="Move entry"
+                        className={
+                          draggedNoteId === note.id
+                            ? 'cursor-grabbing select-none text-center text-zinc-500 text-xs'
+                            : 'cursor-grab select-none text-center text-zinc-400 text-xs'
+                        }
                       >
                         ⋮⋮
                       </span>
-                      <button
-                        type="button"
-                        className="rounded border border-zinc-200 px-1 py-0 text-xs text-zinc-600 disabled:opacity-40"
-                        onClick={() => onMoveNote(note.id, 'up')}
-                        disabled={!canMoveUp}
-                        aria-label={`Move note ${note.title} up via handle`}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded border border-zinc-200 px-1 py-0 text-xs text-zinc-600 disabled:opacity-40"
-                        onClick={() => onMoveNote(note.id, 'down')}
-                        disabled={!canMoveDown}
-                        aria-label={`Move note ${note.title} down via handle`}
-                      >
-                        ↓
-                      </button>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm">{note.title}</h3>
+                      <p className="text-xs text-zinc-600">{note.body}</p>
                     </div>
                   </div>
-                  <p className="text-xs text-zinc-600">{note.body}</p>
                 </li>
               );
             })}

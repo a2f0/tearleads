@@ -9,6 +9,7 @@ describe('NotesPane', () => {
         noteIds={[]}
         notesById={{}}
         onMoveNote={() => {}}
+        onReorderNote={() => {}}
         searchValue=""
         onSearchChange={() => {}}
       />
@@ -24,6 +25,7 @@ describe('NotesPane', () => {
         noteIds={[]}
         notesById={{}}
         onMoveNote={() => {}}
+        onReorderNote={() => {}}
         searchValue=""
         onSearchChange={() => {}}
       />
@@ -44,6 +46,7 @@ describe('NotesPane', () => {
           'note-2': { id: 'note-2', title: 'Beta', body: 'B body' }
         }}
         onMoveNote={onMoveNote}
+        onReorderNote={() => {}}
         searchValue=""
         onSearchChange={() => {}}
       />
@@ -63,9 +66,7 @@ describe('NotesPane', () => {
     expect(screen.getByLabelText('Move note Beta down')).toBeDisabled();
   });
 
-  it('renders note handle controls and emits move events', () => {
-    const onMoveNote = vi.fn();
-
+  it('renders left-side drag handles for notes', () => {
     render(
       <NotesPane
         activeTagName="Work"
@@ -74,24 +75,14 @@ describe('NotesPane', () => {
           'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' },
           'note-2': { id: 'note-2', title: 'Beta', body: 'B body' }
         }}
-        onMoveNote={onMoveNote}
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
         searchValue=""
         onSearchChange={() => {}}
       />
     );
 
-    fireEvent.click(screen.getByLabelText('Move note Alpha down via handle'));
-    expect(onMoveNote).toHaveBeenCalledWith('note-1', 'down');
-
-    fireEvent.click(screen.getByLabelText('Move note Beta up via handle'));
-    expect(onMoveNote).toHaveBeenCalledWith('note-2', 'up');
-
-    expect(
-      screen.getByLabelText('Move note Alpha up via handle')
-    ).toBeDisabled();
-    expect(
-      screen.getByLabelText('Move note Beta down via handle')
-    ).toBeDisabled();
+    expect(screen.getAllByTitle('Drag entry')).toHaveLength(2);
   });
 
   it('disables down for last visible note when trailing ids are missing', () => {
@@ -103,6 +94,7 @@ describe('NotesPane', () => {
           'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
         }}
         onMoveNote={() => {}}
+        onReorderNote={() => {}}
         searchValue=""
         onSearchChange={() => {}}
       />
@@ -121,6 +113,7 @@ describe('NotesPane', () => {
         noteIds={[]}
         notesById={{}}
         onMoveNote={() => {}}
+        onReorderNote={() => {}}
         searchValue="alpha"
         onSearchChange={onSearchChange}
       />
@@ -133,5 +126,40 @@ describe('NotesPane', () => {
     });
 
     expect(onSearchChange).toHaveBeenCalledWith('beta');
+  });
+
+  it('reorders notes while hovering dragged note over a target', () => {
+    const onReorderNote = vi.fn();
+    const dataTransfer = {
+      effectAllowed: 'move',
+      setData: vi.fn()
+    } as unknown as DataTransfer;
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1', 'note-2']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' },
+          'note-2': { id: 'note-2', title: 'Beta', body: 'B body' }
+        }}
+        onMoveNote={() => {}}
+        onReorderNote={onReorderNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const firstHandle = screen.getAllByTitle('Drag entry')[0];
+    fireEvent.mouseDown(firstHandle);
+    fireEvent.dragStart(firstHandle, { dataTransfer });
+
+    const betaItem = screen.getByText('Beta').closest('li');
+    if (!betaItem) {
+      throw new Error('Expected beta note list item');
+    }
+    fireEvent.dragOver(betaItem);
+
+    expect(onReorderNote).toHaveBeenCalledWith('note-1', 'note-2');
   });
 });

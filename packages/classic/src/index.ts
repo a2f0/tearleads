@@ -4,6 +4,8 @@ export {
   getActiveTagNoteIds,
   moveItem,
   reorderNoteInTag,
+  reorderNoteInTagToTarget,
+  reorderTagToTarget,
   reorderTags,
   selectTag
 } from './lib/ordering';

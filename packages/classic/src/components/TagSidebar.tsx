@@ -7,6 +7,7 @@ interface TagSidebarProps {
   activeTagId: string | null;
   onSelectTag: (tagId: string) => void;
   onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
+  onReorderTag: (tagId: string, targetTagId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
 }
@@ -25,12 +26,16 @@ export function TagSidebar({
   activeTagId,
   onSelectTag,
   onMoveTag,
+  onReorderTag,
   searchValue,
   onSearchChange
 }: TagSidebarProps) {
   const [contextMenu, setContextMenu] = useState<TagContextMenuState | null>(
     null
   );
+  const [draggedTagId, setDraggedTagId] = useState<string | null>(null);
+  const [lastHoverTagId, setLastHoverTagId] = useState<string | null>(null);
+  const [dragArmedTagId, setDragArmedTagId] = useState<string | null>(null);
 
   const closeContextMenu = () => setContextMenu(null);
 
@@ -49,6 +54,42 @@ export function TagSidebar({
                 <li
                   key={tag.id}
                   className="rounded border px-2 py-1.5"
+                  draggable
+                  onDragStart={(event) => {
+                    const target = event.target;
+                    if (
+                      dragArmedTagId !== tag.id &&
+                      (!(target instanceof HTMLElement) ||
+                        !target.closest('[data-drag-handle="true"]'))
+                    ) {
+                      event.preventDefault();
+                      return;
+                    }
+                    setDraggedTagId(tag.id);
+                    setLastHoverTagId(null);
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', tag.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedTagId(null);
+                    setLastHoverTagId(null);
+                    setDragArmedTagId(null);
+                  }}
+                  onDragOver={(event) => {
+                    if (!draggedTagId || draggedTagId === tag.id) {
+                      return;
+                    }
+                    event.preventDefault();
+                    if (lastHoverTagId === tag.id) {
+                      return;
+                    }
+                    onReorderTag(draggedTagId, tag.id);
+                    setLastHoverTagId(tag.id);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setDragArmedTagId(null);
+                  }}
                   onContextMenu={(event) => {
                     event.preventDefault();
                     setContextMenu({
@@ -61,7 +102,21 @@ export function TagSidebar({
                     });
                   }}
                 >
-                  <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      data-drag-handle="true"
+                      onMouseDown={() => setDragArmedTagId(tag.id)}
+                      onMouseUp={() => setDragArmedTagId(null)}
+                      className={
+                        draggedTagId === tag.id
+                          ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-zinc-500 text-xs'
+                          : 'w-4 shrink-0 cursor-grab select-none text-center text-zinc-400 text-xs'
+                      }
+                      title="Drag tag"
+                    >
+                      ⋮⋮
+                    </span>
                     <button
                       type="button"
                       className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
@@ -79,33 +134,6 @@ export function TagSidebar({
                         {tag.name}
                       </span>
                     </button>
-                    <div className="flex items-center gap-1">
-                      <span
-                        aria-hidden="true"
-                        className="select-none text-zinc-400 text-xs"
-                        title="Move tag"
-                      >
-                        ⋮⋮
-                      </span>
-                      <button
-                        type="button"
-                        className="rounded border border-zinc-200 px-1 py-0 text-xs text-zinc-600 disabled:opacity-40"
-                        onClick={() => onMoveTag(tag.id, 'up')}
-                        disabled={!canMoveUp}
-                        aria-label={`Move tag ${tag.name} up via handle`}
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded border border-zinc-200 px-1 py-0 text-xs text-zinc-600 disabled:opacity-40"
-                        onClick={() => onMoveTag(tag.id, 'down')}
-                        disabled={!canMoveDown}
-                        aria-label={`Move tag ${tag.name} down via handle`}
-                      >
-                        ↓
-                      </button>
-                    </div>
                   </div>
                 </li>
               );
