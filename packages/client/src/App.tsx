@@ -104,7 +104,7 @@ function App() {
   }, [isSidebarOpen]);
 
   const handleStartMenuContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
+    (event: React.MouseEvent<HTMLElement>) => {
       event.preventDefault();
       setStartMenuContextMenu({ x: event.clientX, y: event.clientY });
     },
@@ -116,14 +116,6 @@ function App() {
       if (event.target !== event.currentTarget) {
         return;
       }
-      event.preventDefault();
-      setStartMenuContextMenu({ x: event.clientX, y: event.clientY });
-    },
-    []
-  );
-
-  const handleTaskbarContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
       event.preventDefault();
       setStartMenuContextMenu({ x: event.clientX, y: event.clientY });
     },
@@ -234,7 +226,7 @@ function App() {
                 <img src={logo} alt="" className="h-6 w-6" aria-hidden="true" />
               </button>
             </div>
-            <Taskbar onContextMenu={handleTaskbarContextMenu} />
+            <Taskbar onContextMenu={handleStartMenuContextMenu} />
           </section>
         }
         copyrightText=""
