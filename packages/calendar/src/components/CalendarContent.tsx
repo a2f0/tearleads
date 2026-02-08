@@ -53,14 +53,17 @@ export function CalendarContent({
     [normalizedNames]
   );
 
-  useEffect(() => {
-    const handleCreateCalendarSubmit = (event: Event) => {
+  const handleCreateCalendarSubmit = useCallback(
+    (event: Event) => {
       if (!(event instanceof CustomEvent)) return;
       const detail = event.detail as { name?: string } | undefined;
       if (!detail?.name) return;
       createCalendar(detail.name);
-    };
+    },
+    [createCalendar]
+  );
 
+  useEffect(() => {
     window.addEventListener(
       CALENDAR_CREATE_SUBMIT_EVENT,
       handleCreateCalendarSubmit
@@ -71,7 +74,7 @@ export function CalendarContent({
         handleCreateCalendarSubmit
       );
     };
-  }, [createCalendar]);
+  }, [handleCreateCalendarSubmit]);
 
   const dayLabel = useMemo(
     () =>
@@ -365,20 +368,21 @@ export function CalendarContent({
       setSelectedDate((previousDate) => {
         const nextDate = new Date(previousDate);
 
-        if (viewMode === 'Day') {
-          nextDate.setDate(previousDate.getDate() + direction);
-          return nextDate;
-        }
-        if (viewMode === 'Week') {
-          nextDate.setDate(previousDate.getDate() + direction * 7);
-          return nextDate;
-        }
-        if (viewMode === 'Month') {
-          nextDate.setMonth(previousDate.getMonth() + direction);
-          return nextDate;
+        switch (viewMode) {
+          case 'Day':
+            nextDate.setDate(previousDate.getDate() + direction);
+            break;
+          case 'Week':
+            nextDate.setDate(previousDate.getDate() + direction * 7);
+            break;
+          case 'Month':
+            nextDate.setMonth(previousDate.getMonth() + direction);
+            break;
+          case 'Year':
+            nextDate.setFullYear(previousDate.getFullYear() + direction);
+            break;
         }
 
-        nextDate.setFullYear(previousDate.getFullYear() + direction);
         return nextDate;
       });
     },

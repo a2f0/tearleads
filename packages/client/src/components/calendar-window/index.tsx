@@ -86,11 +86,7 @@ export function CalendarWindow({
     >
       <div className="flex h-full flex-col">
         <CalendarWindowMenuBar onClose={onClose} />
-        <CalendarContent
-          onSidebarContextMenuRequest={(position) => {
-            setSidebarContextMenu(position);
-          }}
-        />
+        <CalendarContent onSidebarContextMenuRequest={setSidebarContextMenu} />
       </div>
       {sidebarContextMenu ? (
         <ContextMenu
