@@ -56,17 +56,24 @@ import {
   clearStoredAuth,
   getAuthHeaderValue,
   getStoredRefreshToken,
+  isRefreshInProgress,
+  releaseRefreshLock,
   setSessionExpiredError,
-  updateStoredTokens
+  tryAcquireRefreshLock,
+  updateStoredTokens,
+  waitForRefreshCompletion
 } from '@/lib/auth-storage';
 
 export const API_BASE_URL: string | undefined = import.meta.env.VITE_API_URL;
 
 let refreshPromise: Promise<boolean> | null = null;
 
-async function attemptTokenRefresh(): Promise<boolean> {
-  const refreshToken = getStoredRefreshToken();
-  if (!refreshToken || !API_BASE_URL) {
+/**
+ * Core token refresh logic. Makes a single refresh request to the server.
+ * Returns true if refresh succeeded, false otherwise.
+ */
+async function executeTokenRefresh(refreshToken: string): Promise<boolean> {
+  if (!API_BASE_URL) {
     return false;
   }
 
@@ -98,9 +105,77 @@ async function attemptTokenRefresh(): Promise<boolean> {
 }
 
 /**
+ * Attempts to refresh the token with cross-tab coordination.
+ * Handles the case where another tab may have already refreshed the token.
+ */
+async function attemptTokenRefresh(): Promise<boolean> {
+  const originalRefreshToken = getStoredRefreshToken();
+  if (!originalRefreshToken) {
+    return false;
+  }
+
+  // Check if another tab is already refreshing
+  if (isRefreshInProgress()) {
+    // Wait for the other tab to finish
+    const otherTabSucceeded = await waitForRefreshCompletion(
+      originalRefreshToken,
+      5000
+    );
+    if (otherTabSucceeded) {
+      // Another tab refreshed successfully - we have new tokens in localStorage
+      return true;
+    }
+    // Other tab's refresh didn't complete or failed - try ourselves
+  }
+
+  // Try to acquire the refresh lock
+  if (!tryAcquireRefreshLock(originalRefreshToken)) {
+    // Another tab just acquired the lock - wait for it
+    const otherTabSucceeded = await waitForRefreshCompletion(
+      originalRefreshToken,
+      5000
+    );
+    if (otherTabSucceeded) {
+      return true;
+    }
+    // Fall through to attempt refresh ourselves
+  }
+
+  try {
+    // First attempt with the original refresh token
+    const refreshed = await executeTokenRefresh(originalRefreshToken);
+    if (refreshed) {
+      return true;
+    }
+
+    // First attempt failed - check if another tab already updated the token
+    // This handles the race condition where:
+    // 1. Tab A reads refresh token X
+    // 2. Tab B reads refresh token X
+    // 3. Tab A refreshes successfully, gets token Y
+    // 4. Tab B's refresh fails (token X was invalidated)
+    // 5. Tab B should re-read localStorage and find token Y
+    const currentRefreshToken = getStoredRefreshToken();
+    if (currentRefreshToken && currentRefreshToken !== originalRefreshToken) {
+      // Token was updated by another tab - our refresh "succeeded" via the other tab
+      return true;
+    }
+
+    // No luck - refresh truly failed
+    return false;
+  } finally {
+    releaseRefreshLock();
+  }
+}
+
+/**
  * Attempts to refresh the token. Returns true if successful.
  * Can be called from SSE or other contexts that don't go through the API wrapper.
- * Uses deduplication to prevent concurrent refresh attempts.
+ * Uses deduplication to prevent concurrent refresh attempts within the same tab,
+ * and cross-tab coordination to handle multiple browser tabs.
+ *
+ * IMPORTANT: This function only clears auth state when the refresh token is truly
+ * expired or invalid across all tabs, not when another tab has already rotated it.
  */
 export async function tryRefreshToken(): Promise<boolean> {
   if (!refreshPromise) {
@@ -110,6 +185,16 @@ export async function tryRefreshToken(): Promise<boolean> {
   }
   const refreshed = await refreshPromise;
   if (!refreshed) {
+    // Final check: ensure we didn't miss an update from another tab
+    // that happened while we were processing
+    const finalToken = getStoredRefreshToken();
+    if (finalToken) {
+      // There's still a token - another tab may have refreshed
+      // Don't clear auth, just report failure for this attempt
+      // The next API call will retry with the potentially-new token
+      return false;
+    }
+    // No token at all - session is truly expired
     setSessionExpiredError();
     clearStoredAuth();
   }
@@ -192,8 +277,13 @@ async function request<T>(endpoint: string, params: RequestParams): Promise<T> {
         }
       }
 
-      setSessionExpiredError();
-      clearStoredAuth();
+      // Check if there's still a token - another tab may have refreshed
+      // Only clear auth if there's truly no valid token
+      const remainingToken = getStoredRefreshToken();
+      if (!remainingToken) {
+        setSessionExpiredError();
+        clearStoredAuth();
+      }
       throw new Error('API error: 401');
     }
 

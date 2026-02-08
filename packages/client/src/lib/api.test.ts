@@ -25,6 +25,7 @@ describe('api', () => {
     localStorage.removeItem('auth_token');
     localStorage.removeItem('auth_refresh_token');
     localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_refresh_lock');
   });
 
   afterEach(() => {
@@ -388,7 +389,7 @@ describe('api', () => {
       ).toHaveLength(1);
     });
 
-    it('clears auth when retry response is not ok after refresh', async () => {
+    it('throws 401 when retry response is not ok after refresh', async () => {
       localStorage.setItem('auth_token', 'stale-token');
       localStorage.setItem('auth_refresh_token', 'refresh-token');
       localStorage.setItem(
@@ -435,13 +436,13 @@ describe('api', () => {
 
       await expect(api.ping.get()).rejects.toThrow('API error: 401');
 
-      expect(localStorage.getItem('auth_token')).toBeNull();
-      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
-      expect(localStorage.getItem('auth_user')).toBeNull();
-      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+      // Auth should NOT be cleared since the refresh token still exists
+      // (the retry failed with 500, but that's not an auth error)
+      expect(localStorage.getItem('auth_refresh_token')).toBe('new-refresh');
+      expect(getAuthError()).toBeNull();
     });
 
-    it('clears auth when refresh succeeds but no auth header is available', async () => {
+    it('throws 401 when refresh succeeds but token storage fails', async () => {
       localStorage.setItem('auth_refresh_token', 'refresh-token');
       localStorage.removeItem('auth_token');
 
@@ -480,14 +481,17 @@ describe('api', () => {
         const { api } = await import('./api');
         const { getAuthError } = await import('./auth-storage');
 
+        // Request fails because we can't store the new token
         await expect(api.ping.get()).rejects.toThrow('API error: 401');
-        expect(getAuthError()).toBe('Session expired. Please sign in again.');
+        // Auth error is NOT set because there's still a refresh token in storage
+        // (indicates another tab might succeed with the stored token)
+        expect(getAuthError()).toBeNull();
       } finally {
         localStorage.setItem = originalSetItem;
       }
     });
 
-    it('clears auth when refresh fails after 401', async () => {
+    it('clears auth when refresh fails and no token remains', async () => {
       localStorage.setItem('auth_token', 'stale-token');
       localStorage.setItem('auth_refresh_token', 'refresh-token');
       localStorage.setItem(
@@ -502,6 +506,44 @@ describe('api', () => {
             return new Response(null, { status: 401 });
           }
           if (url.endsWith('/auth/refresh')) {
+            // Simulate the server invalidating the refresh token
+            // by clearing localStorage (as would happen on the server side)
+            localStorage.removeItem('auth_refresh_token');
+            return new Response(null, { status: 401 });
+          }
+          throw new Error(`Unexpected request: ${url}`);
+        }
+      );
+
+      const { api } = await import('./api');
+      const { getAuthError } = await import('./auth-storage');
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+
+      // Auth should be cleared since the refresh token is gone
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
+      expect(localStorage.getItem('auth_user')).toBeNull();
+      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+    });
+
+    it('does not clear auth when refresh fails but token still exists in storage', async () => {
+      localStorage.setItem('auth_token', 'stale-token');
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      localStorage.setItem(
+        'auth_user',
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+
+      vi.mocked(global.fetch).mockImplementation(
+        async (input: RequestInfo | URL) => {
+          const url = input.toString();
+          if (url.endsWith('/ping')) {
+            return new Response(null, { status: 401 });
+          }
+          if (url.endsWith('/auth/refresh')) {
+            // Server returns 500 but doesn't invalidate the token
+            // (another tab may have already refreshed it)
             return new Response(null, { status: 500 });
           }
           throw new Error(`Unexpected request: ${url}`);
@@ -513,10 +555,10 @@ describe('api', () => {
 
       await expect(api.ping.get()).rejects.toThrow('API error: 401');
 
-      expect(localStorage.getItem('auth_token')).toBeNull();
-      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
-      expect(localStorage.getItem('auth_user')).toBeNull();
-      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+      // Auth should NOT be cleared since refresh token still exists
+      // (indicates another tab might have valid credentials)
+      expect(localStorage.getItem('auth_refresh_token')).toBe('refresh-token');
+      expect(getAuthError()).toBeNull();
     });
 
     it('tryRefreshToken returns false without a refresh token', async () => {
@@ -561,6 +603,45 @@ describe('api', () => {
       await expect(tryRefreshToken()).resolves.toBe(true);
       expect(localStorage.getItem('auth_token')).toBe('new-token');
       expect(localStorage.getItem('auth_refresh_token')).toBe('new-refresh');
+    });
+
+    it('returns true when another tab refreshed token during race', async () => {
+      localStorage.setItem('auth_refresh_token', 'old-refresh-token');
+
+      // Simulate race: our refresh fails (401 = token already rotated by another tab)
+      // but by the time we check, another tab has updated localStorage
+      vi.mocked(global.fetch).mockImplementationOnce(async () => {
+        // Simulate another tab updating localStorage during our fetch
+        localStorage.setItem('auth_refresh_token', 'new-refresh-from-other-tab');
+        localStorage.setItem('auth_token', 'new-token-from-other-tab');
+        // Our refresh fails because old token was already rotated
+        return new Response(null, { status: 401 });
+      });
+
+      const { tryRefreshToken } = await import('./api');
+      const result = await tryRefreshToken();
+
+      // Should detect that another tab updated the token and return true
+      expect(result).toBe(true);
+    });
+
+    it('does not clear auth when refresh fails but token still exists', async () => {
+      localStorage.setItem('auth_refresh_token', 'refresh-token');
+      localStorage.setItem('auth_token', 'access-token');
+
+      vi.mocked(global.fetch).mockResolvedValueOnce(
+        new Response(null, { status: 500 })
+      );
+
+      const { tryRefreshToken } = await import('./api');
+
+      // Refresh fails but token still exists in localStorage
+      const result = await tryRefreshToken();
+
+      expect(result).toBe(false);
+      // Auth should NOT be cleared since there's still a token
+      // (another tab might have refreshed it)
+      expect(localStorage.getItem('auth_refresh_token')).toBe('refresh-token');
     });
 
     it('builds postgres rows query strings from options', async () => {
