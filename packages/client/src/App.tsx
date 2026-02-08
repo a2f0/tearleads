@@ -17,6 +17,7 @@ import { ContextMenu } from './components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from './components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from './components/ui/desktop-background';
 import { FOOTER_HEIGHT } from './constants/layout';
+import { useWindowManager } from './contexts/WindowManagerContext';
 import { useDatabaseContext } from './db/hooks';
 import { useKeyboardHeight } from './hooks/useKeyboardHeight';
 import { useSSEContext } from './sse';
@@ -37,7 +38,10 @@ function App() {
   const navigate = useNavigate();
   const pathname = location.pathname;
   const isHome = pathname === '/';
+  const { openWindow } = useWindowManager();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [startMenuContextMenu, setStartMenuContextMenu] = useState<{
     x: number;
     y: number;
@@ -52,12 +56,35 @@ function App() {
   const keyboardHeight = useKeyboardHeight();
   const { isUnlocked, lock } = useDatabaseContext();
   const { activate: activateScreensaver } = useScreensaver();
+  const isDesktop = !isMobile && !isTouchDevice;
 
   useEffect(() => {
     if (pathname) {
       setIsSidebarOpen(false);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(max-width: 1023px)');
+    const pointerQuery = window.matchMedia('(pointer: coarse)');
+
+    const handleMediaChange = (event: MediaQueryListEvent) =>
+      setIsMobile(event.matches);
+    const updateTouchState = () => {
+      const hasTouch = pointerQuery.matches || navigator.maxTouchPoints > 0;
+      setIsTouchDevice(hasTouch);
+    };
+
+    setIsMobile(mediaQuery.matches);
+    mediaQuery.addEventListener('change', handleMediaChange);
+    updateTouchState();
+    pointerQuery.addEventListener('change', updateTouchState);
+
+    return () => {
+      mediaQuery.removeEventListener('change', handleMediaChange);
+      pointerQuery.removeEventListener('change', updateTouchState);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSidebarOpen) return;
@@ -77,7 +104,7 @@ function App() {
   }, [isSidebarOpen]);
 
   const handleStartMenuContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLButtonElement>) => {
+    (event: React.MouseEvent<HTMLElement>) => {
       event.preventDefault();
       setStartMenuContextMenu({ x: event.clientX, y: event.clientY });
     },
@@ -111,9 +138,13 @@ function App() {
   }, [activateScreensaver, isUnlocked, lock]);
 
   const handleOpenSearch = useCallback(() => {
-    navigate('/search');
+    if (isDesktop) {
+      openWindow('search');
+    } else {
+      navigate('/search');
+    }
     setStartMenuContextMenu(null);
-  }, [navigate]);
+  }, [isDesktop, navigate, openWindow]);
 
   const handleSseContextMenu = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -195,7 +226,7 @@ function App() {
                 <img src={logo} alt="" className="h-6 w-6" aria-hidden="true" />
               </button>
             </div>
-            <Taskbar />
+            <Taskbar onContextMenu={handleStartMenuContextMenu} />
           </section>
         }
         copyrightText=""
