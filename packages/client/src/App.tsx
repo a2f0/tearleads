@@ -174,6 +174,7 @@ function App() {
       <Footer
         version={undefined}
         leftAction={
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on start bar
           <section
             className="flex items-center gap-2"
             onContextMenu={handleStartBarContextMenu}
