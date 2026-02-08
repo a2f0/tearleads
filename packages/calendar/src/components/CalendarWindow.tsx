@@ -5,10 +5,10 @@ interface CalendarWindowProps {
   id: string;
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
-  onDimensionsChange?: (dimensions: WindowDimensions) => void;
+  onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
   onFocus: () => void;
   zIndex: number;
-  initialDimensions?: WindowDimensions;
+  initialDimensions?: WindowDimensions | undefined;
 }
 
 export function CalendarWindow({
@@ -29,7 +29,7 @@ export function CalendarWindow({
       onDimensionsChange={onDimensionsChange}
       onFocus={onFocus}
       zIndex={zIndex}
-      {...(initialDimensions && { initialDimensions })}
+      initialDimensions={initialDimensions}
       defaultWidth={900}
       defaultHeight={640}
       minWidth={680}

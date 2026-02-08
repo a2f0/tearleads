@@ -1,3 +1,4 @@
+import { clsx } from 'clsx';
 import { CalendarPlus, Plus } from 'lucide-react';
 import { useMemo, useState } from 'react';
 
@@ -49,11 +50,12 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
                   key={name}
                   type="button"
                   onClick={() => setActiveCalendar(name)}
-                  className={`w-full rounded-md px-2 py-1 text-left text-sm transition-colors ${
+                  className={clsx(
+                    'w-full rounded-md px-2 py-1 text-left text-sm transition-colors',
                     isActive
                       ? 'bg-primary text-primary-foreground'
                       : 'hover:bg-accent hover:text-accent-foreground'
-                  }`}
+                  )}
                 >
                   {name}
                 </button>
