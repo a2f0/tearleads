@@ -21,10 +21,14 @@ function SidebarDropHarness() {
   const handleDropToPlaylist = useCallback(
     async (playlistId: string, _droppedFiles: File[], audioIds?: string[]) => {
       if (!audioIds || audioIds.length === 0) return;
-      await Promise.all(
-        audioIds.map((audioId) => addTrackToPlaylist(playlistId, audioId))
-      );
-      setRefreshToken((value) => value + 1);
+      try {
+        await Promise.all(
+          audioIds.map((audioId) => addTrackToPlaylist(playlistId, audioId))
+        );
+        setRefreshToken((value) => value + 1);
+      } catch (_error) {
+        // Keep harness resilient to fire-and-forget invocation from sidebar drop handler.
+      }
     },
     [addTrackToPlaylist]
   );
