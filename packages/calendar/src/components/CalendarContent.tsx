@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react';
 const defaultCalendars = ['Personal'];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
 type CalendarViewMode = (typeof viewModes)[number];
+const calendarLocale = 'en-US';
 const weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const yearMonthNames = [
   'January',
@@ -30,7 +31,7 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
   const [activeCalendar, setActiveCalendar] = useState(defaultCalendars[0]);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
-  const [selectedDate] = useState(() => new Date());
+  const selectedDate = useMemo(() => new Date(), []);
 
   const normalizedNames = useMemo(
     () => new Set(calendars.map((name) => name.toLowerCase())),
@@ -47,62 +48,111 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
     setCalendarName('');
   };
 
-  const dayLabel = selectedDate.toLocaleDateString(undefined, {
-    weekday: 'long',
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric'
-  });
+  const dayLabel = useMemo(
+    () =>
+      selectedDate.toLocaleDateString(calendarLocale, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric'
+      }),
+    [selectedDate]
+  );
+
+  const monthLabel = useMemo(
+    () =>
+      selectedDate.toLocaleDateString(calendarLocale, {
+        month: 'long',
+        year: 'numeric'
+      }),
+    [selectedDate]
+  );
+
+  const weekDates = useMemo(() => {
+    const weekStart = new Date(selectedDate);
+    weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + index);
+      return date;
+    });
+  }, [selectedDate]);
+
+  const monthCells = useMemo(() => {
+    const monthStart = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth(),
+      1
+    );
+    const monthEnd = new Date(
+      selectedDate.getFullYear(),
+      selectedDate.getMonth() + 1,
+      0
+    );
+    const monthLeadingDays = monthStart.getDay();
+    const monthTrailingDays = 6 - monthEnd.getDay();
+    const cells: Array<{ date: Date; inMonth: boolean }> = [];
+
+    for (let i = monthLeadingDays; i > 0; i -= 1) {
+      cells.push({
+        date: new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          1 - i
+        ),
+        inMonth: false
+      });
+    }
+    for (let day = 1; day <= monthEnd.getDate(); day += 1) {
+      cells.push({
+        date: new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth(),
+          day
+        ),
+        inMonth: true
+      });
+    }
+    for (let i = 1; i <= monthTrailingDays; i += 1) {
+      cells.push({
+        date: new Date(
+          selectedDate.getFullYear(),
+          selectedDate.getMonth() + 1,
+          i
+        ),
+        inMonth: false
+      });
+    }
+
+    return cells;
+  }, [selectedDate]);
+
+  const yearData = useMemo(() => {
+    const currentYear = selectedDate.getFullYear();
+
+    return yearMonthNames.map((monthName, monthIndex) => {
+      const start = new Date(currentYear, monthIndex, 1);
+      const end = new Date(currentYear, monthIndex + 1, 0);
+      const leading = start.getDay();
+      const cells: Array<{ day: number; inMonth: boolean; key: string }> = [];
+
+      for (let i = leading; i > 0; i -= 1) {
+        cells.push({ day: 0, inMonth: false, key: `leading-${i}` });
+      }
+      for (let day = 1; day <= end.getDate(); day += 1) {
+        cells.push({ day, inMonth: true, key: `day-${day}` });
+      }
+      let trailing = 0;
+      while (cells.length % 7 !== 0) {
+        trailing += 1;
+        cells.push({ day: 0, inMonth: false, key: `trailing-${trailing}` });
+      }
+
+      return { monthName, cells };
+    });
+  }, [selectedDate]);
 
   const currentYear = selectedDate.getFullYear();
-  const monthStart = new Date(
-    selectedDate.getFullYear(),
-    selectedDate.getMonth(),
-    1
-  );
-  const monthEnd = new Date(
-    selectedDate.getFullYear(),
-    selectedDate.getMonth() + 1,
-    0
-  );
-  const monthLeadingDays = monthStart.getDay();
-  const monthTrailingDays = 6 - monthEnd.getDay();
-  const monthCells: Array<{ date: Date; inMonth: boolean }> = [];
-
-  for (let i = monthLeadingDays; i > 0; i -= 1) {
-    monthCells.push({
-      date: new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth(),
-        1 - i
-      ),
-      inMonth: false
-    });
-  }
-  for (let day = 1; day <= monthEnd.getDate(); day += 1) {
-    monthCells.push({
-      date: new Date(selectedDate.getFullYear(), selectedDate.getMonth(), day),
-      inMonth: true
-    });
-  }
-  for (let i = 1; i <= monthTrailingDays; i += 1) {
-    monthCells.push({
-      date: new Date(
-        selectedDate.getFullYear(),
-        selectedDate.getMonth() + 1,
-        i
-      ),
-      inMonth: false
-    });
-  }
-
-  const weekStart = new Date(selectedDate);
-  weekStart.setDate(selectedDate.getDate() - selectedDate.getDay());
-  const weekDates = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(weekStart);
-    date.setDate(weekStart.getDate() + index);
-    return date;
-  });
 
   const isSameDay = (date: Date, other: Date) =>
     date.getFullYear() === other.getFullYear() &&
@@ -131,7 +181,7 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
   const renderWeekView = () => (
     <div className="h-full overflow-auto rounded-xl border bg-card p-4">
       <p className="font-medium text-sm uppercase tracking-wide">
-        Week of {weekDates[0]?.toLocaleDateString()}
+        Week of {weekDates[0]?.toLocaleDateString(calendarLocale)}
       </p>
       <div className="mt-4 grid grid-cols-7 gap-2">
         {weekDates.map((date) => (
@@ -143,7 +193,7 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
             )}
           >
             <p className="text-[11px] text-muted-foreground uppercase">
-              {date.toLocaleDateString(undefined, { weekday: 'short' })}
+              {date.toLocaleDateString(calendarLocale, { weekday: 'short' })}
             </p>
             <p className="mt-1 font-medium text-sm">{date.getDate()}</p>
           </div>
@@ -155,10 +205,7 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
   const renderMonthView = () => (
     <div className="h-full overflow-auto rounded-xl border bg-card p-4">
       <p className="font-medium text-sm uppercase tracking-wide">
-        {selectedDate.toLocaleDateString(undefined, {
-          month: 'long',
-          year: 'numeric'
-        })}
+        {monthLabel}
       </p>
       <div className="mt-4 grid grid-cols-7 gap-2">
         {weekDayHeaders.map((day) => (
@@ -196,65 +243,45 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
         {currentYear}
       </p>
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {yearMonthNames.map((monthName, monthIndex) => {
-          const start = new Date(currentYear, monthIndex, 1);
-          const end = new Date(currentYear, monthIndex + 1, 0);
-          const leading = start.getDay();
-          const cells: Array<{ day: number; inMonth: boolean; key: string }> =
-            [];
-
-          for (let i = leading; i > 0; i -= 1) {
-            cells.push({ day: 0, inMonth: false, key: `leading-${i}` });
-          }
-          for (let day = 1; day <= end.getDate(); day += 1) {
-            cells.push({ day, inMonth: true, key: `day-${day}` });
-          }
-          let trailing = 0;
-          while (cells.length % 7 !== 0) {
-            trailing += 1;
-            cells.push({ day: 0, inMonth: false, key: `trailing-${trailing}` });
-          }
-
-          return (
-            <div
-              key={monthName}
-              className="rounded-md border bg-background p-2"
-            >
-              <p className="mb-1 font-medium text-sm">{monthName}</p>
-              <div className="grid grid-cols-7 gap-1">
-                {weekDayHeaders.map((day) => (
-                  <span
-                    key={`${monthName}-${day}`}
-                    className="text-center text-[10px] text-muted-foreground"
-                  >
-                    {day[0]}
-                  </span>
-                ))}
-                {cells.map((cell) => (
-                  <span
-                    key={`${monthName}-${cell.key}`}
-                    className={clsx(
-                      'text-center text-[10px]',
-                      cell.inMonth ? 'text-foreground' : 'text-muted-foreground'
-                    )}
-                  >
-                    {cell.day || ''}
-                  </span>
-                ))}
-              </div>
+        {yearData.map(({ monthName, cells }) => (
+          <div key={monthName} className="rounded-md border bg-background p-2">
+            <p className="mb-1 font-medium text-sm">{monthName}</p>
+            <div className="grid grid-cols-7 gap-1">
+              {weekDayHeaders.map((day) => (
+                <span
+                  key={`${monthName}-${day}`}
+                  className="text-center text-[10px] text-muted-foreground"
+                >
+                  {day[0]}
+                </span>
+              ))}
+              {cells.map((cell) => (
+                <span
+                  key={`${monthName}-${cell.key}`}
+                  className={clsx(
+                    'text-center text-[10px]',
+                    cell.inMonth ? 'text-foreground' : 'text-muted-foreground'
+                  )}
+                >
+                  {cell.day || ''}
+                </span>
+              ))}
             </div>
-          );
-        })}
+          </div>
+        ))}
       </div>
     </div>
   );
 
-  const renderActiveView = () => {
-    if (viewMode === 'Day') return renderDayView();
-    if (viewMode === 'Week') return renderWeekView();
-    if (viewMode === 'Year') return renderYearView();
-    return renderMonthView();
-  };
+  const renderActiveView = () =>
+    (
+      ({
+        Day: renderDayView,
+        Week: renderWeekView,
+        Month: renderMonthView,
+        Year: renderYearView
+      }) as const
+    )[viewMode]();
 
   return (
     <div className="flex h-full min-h-0 flex-col">
