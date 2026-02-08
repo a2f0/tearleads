@@ -28,7 +28,9 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files, vfsLinks } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
+import { uint8ArrayToDataUrl } from '@/lib/chat-attachments';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { setAttachedImage } from '@/lib/llm-runtime';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
@@ -97,6 +99,7 @@ interface PhotosProps {
   showBackLink?: boolean | undefined;
   showDropzone?: boolean | undefined;
   selectedAlbumId?: string | null | undefined;
+  onOpenAIChat?: (() => void) | undefined;
 }
 
 export function Photos({
@@ -104,7 +107,8 @@ export function Photos({
   refreshToken,
   showBackLink = true,
   showDropzone = true,
-  selectedAlbumId
+  selectedAlbumId,
+  onOpenAIChat
 }: PhotosProps = {}) {
   const [searchParams] = useSearchParams();
   const navigateWithFrom = useNavigateWithFrom();
@@ -492,6 +496,43 @@ export function Photos({
     setContextMenu(null);
   }, []);
 
+  const openAIChat = useCallback(() => {
+    if (onOpenAIChat) {
+      onOpenAIChat();
+      return;
+    }
+    navigateWithFrom('/chat', { fromLabel: 'Back to Photos' });
+  }, [navigateWithFrom, onOpenAIChat]);
+
+  const handleAddToAIChat = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!currentInstanceId) throw new Error('No active instance');
+
+      if (!isFileStorageInitialized()) {
+        await initializeFileStorage(encryptionKey, currentInstanceId);
+      }
+
+      const storage = getFileStorage();
+      const data = await storage.retrieve(contextMenu.photo.storagePath);
+      const imageDataUrl = await uint8ArrayToDataUrl(
+        data,
+        contextMenu.photo.mimeType
+      );
+      setAttachedImage(imageDataUrl);
+      openAIChat();
+    } catch (err) {
+      console.error('Failed to add photo to AI chat:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, currentInstanceId, openAIChat]);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -669,6 +710,9 @@ export function Photos({
             onClick={handleGetInfo}
           >
             {t('getInfo')}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleAddToAIChat}>
+            Add to AI chat
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}

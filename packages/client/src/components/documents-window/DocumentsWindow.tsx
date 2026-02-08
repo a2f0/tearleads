@@ -33,7 +33,7 @@ export function DocumentsWindow({
   initialDimensions
 }: DocumentsWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { windowOpenRequests } = useWindowManager();
+  const { windowOpenRequests, openWindow } = useWindowManager();
   const openRequest = windowOpenRequests.documents;
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     null
@@ -103,6 +103,10 @@ export function DocumentsWindow({
     setSelectedDocumentId(openRequest.documentId);
   }, [openRequest]);
 
+  const handleOpenAIChat = useCallback(() => {
+    openWindow('chat');
+  }, [openWindow]);
+
   return (
     <FloatingWindow
       id={id}
@@ -160,6 +164,7 @@ export function DocumentsWindow({
                 viewMode={viewMode}
                 showDropzone={showDropzone}
                 onUpload={handleUpload}
+                onOpenAIChat={handleOpenAIChat}
               />
             </div>
           )}

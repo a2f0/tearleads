@@ -6,7 +6,8 @@ import { PhotosWindow } from './PhotosWindow';
 const mockWindowOpenRequests = vi.fn();
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
-    windowOpenRequests: mockWindowOpenRequests()
+    windowOpenRequests: mockWindowOpenRequests(),
+    openWindow: vi.fn()
   })
 }));
 

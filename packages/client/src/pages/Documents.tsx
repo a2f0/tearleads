@@ -28,8 +28,10 @@ import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
+import { objectUrlToDataUrl } from '@/lib/chat-attachments';
 import { retrieveFileData } from '@/lib/data-retrieval';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { setAttachedImage } from '@/lib/llm-runtime';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatFileSize } from '@/lib/utils';
 import {
@@ -83,6 +85,7 @@ interface DocumentsProps {
   viewMode?: ViewMode;
   showDropzone?: boolean;
   onUpload?: () => void;
+  onOpenAIChat?: () => void;
 }
 
 export function Documents({
@@ -91,7 +94,8 @@ export function Documents({
   refreshToken,
   viewMode = 'list',
   showDropzone = true,
-  onUpload
+  onUpload,
+  onOpenAIChat
 }: DocumentsProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -464,6 +468,33 @@ export function Documents({
     return sortDirection === 'asc' ? sorted : sorted.reverse();
   }, [documents, sortColumn, sortDirection]);
 
+  const openAIChat = useCallback(() => {
+    if (onOpenAIChat) {
+      onOpenAIChat();
+      return;
+    }
+    navigateWithFrom('/chat', { fromLabel: 'Back to Documents' });
+  }, [navigateWithFrom, onOpenAIChat]);
+
+  const handleAddToAIChat = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      if (contextMenu.document.thumbnailUrl) {
+        const imageDataUrl = await objectUrlToDataUrl(
+          contextMenu.document.thumbnailUrl
+        );
+        setAttachedImage(imageDataUrl);
+      }
+      openAIChat();
+    } catch (err) {
+      console.error('Failed to add document to AI chat:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, openAIChat]);
+
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
@@ -795,6 +826,9 @@ export function Documents({
             onClick={handleGetInfo}
           >
             {t('getInfo')}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleAddToAIChat}>
+            Add to AI chat
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}

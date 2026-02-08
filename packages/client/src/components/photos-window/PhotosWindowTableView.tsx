@@ -11,7 +11,9 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { useTypedTranslation } from '@/i18n';
+import { uint8ArrayToDataUrl } from '@/lib/chat-attachments';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { setAttachedImage } from '@/lib/llm-runtime';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatFileSize } from '@/lib/utils';
 import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
@@ -23,6 +25,7 @@ interface PhotosWindowTableViewProps {
   onSelectPhoto?: (photoId: string) => void;
   refreshToken: number;
   selectedAlbumId?: string | null;
+  onOpenAIChat?: () => void;
 }
 
 interface SortHeaderProps {
@@ -86,7 +89,8 @@ function getPhotoTypeDisplay(mimeType: string): string {
 export function PhotosWindowTableView({
   onSelectPhoto,
   refreshToken,
-  selectedAlbumId
+  selectedAlbumId,
+  onOpenAIChat
 }: PhotosWindowTableViewProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -199,6 +203,24 @@ export function PhotosWindowTableView({
     },
     [sharePhoto]
   );
+
+  const handleAddToAIChat = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const data = await downloadPhoto(contextMenu.photo);
+      const imageDataUrl = await uint8ArrayToDataUrl(
+        data,
+        contextMenu.photo.mimeType
+      );
+      setAttachedImage(imageDataUrl);
+      onOpenAIChat?.();
+    } catch (err) {
+      console.error('Failed to add photo to AI chat:', err);
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, downloadPhoto, onOpenAIChat]);
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
@@ -331,6 +353,9 @@ export function PhotosWindowTableView({
             onClick={() => handleDownload(contextMenu.photo)}
           >
             {t('download')}
+          </ContextMenuItem>
+          <ContextMenuItem onClick={handleAddToAIChat}>
+            Add to AI chat
           </ContextMenuItem>
           {canShare && (
             <ContextMenuItem
