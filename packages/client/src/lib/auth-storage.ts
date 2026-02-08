@@ -261,7 +261,9 @@ export async function waitForRefreshCompletion(
     if (!isRefreshInProgress()) {
       // Lock released - check if tokens were updated
       const newRefreshToken = getStoredRefreshToken();
-      return newRefreshToken !== null && newRefreshToken !== originalRefreshToken;
+      return (
+        newRefreshToken !== null && newRefreshToken !== originalRefreshToken
+      );
     }
 
     // Wait a bit before checking again

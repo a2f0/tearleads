@@ -612,7 +612,10 @@ describe('api', () => {
       // but by the time we check, another tab has updated localStorage
       vi.mocked(global.fetch).mockImplementationOnce(async () => {
         // Simulate another tab updating localStorage during our fetch
-        localStorage.setItem('auth_refresh_token', 'new-refresh-from-other-tab');
+        localStorage.setItem(
+          'auth_refresh_token',
+          'new-refresh-from-other-tab'
+        );
         localStorage.setItem('auth_token', 'new-token-from-other-tab');
         // Our refresh fails because old token was already rotated
         return new Response(null, { status: 401 });
