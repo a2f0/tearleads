@@ -43,6 +43,11 @@ export default defineConfig(({ mode }) => ({
         '../classic/package.json'
       ),
       '@rapid/classic': path.resolve(__dirname, '../classic/src/index.ts'),
+      '@rapid/calendar/package.json': path.resolve(
+        __dirname,
+        '../calendar/package.json'
+      ),
+      '@rapid/calendar': path.resolve(__dirname, '../calendar/src/index.ts'),
       '@rapid/email/package.json': path.resolve(__dirname, '../email/package.json'),
       '@rapid/email': path.resolve(__dirname, '../email/src/index.ts'),
       '@rapid/notes/package.json': path.resolve(__dirname, '../notes/package.json'),
