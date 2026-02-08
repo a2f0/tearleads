@@ -5,6 +5,7 @@ import {
   Bot,
   Bug,
   Building2,
+  CalendarDays,
   ChevronRight,
   CircleHelp,
   Cpu,
@@ -72,6 +73,13 @@ export const navItems: NavItem[] = [
     labelKey: 'search',
     inMobileMenu: true,
     testId: 'search-link'
+  },
+  {
+    path: '/calendar',
+    icon: CalendarDays,
+    labelKey: 'calendar',
+    inMobileMenu: true,
+    testId: 'calendar-link'
   },
   {
     path: '/contacts',

@@ -13,6 +13,7 @@ export interface CommonTranslations {
 export interface MenuTranslations {
   home: string;
   search: string;
+  calendar: string;
   files: string;
   contacts: string;
   photos: string;

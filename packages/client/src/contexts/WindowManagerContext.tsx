@@ -53,7 +53,8 @@ export type WindowType =
   | 'classic'
   | 'backup'
   | 'mls-chat'
-  | 'search';
+  | 'search'
+  | 'calendar';
 
 export interface WindowOpenRequestPayloads {
   contacts: { contactId: string };
