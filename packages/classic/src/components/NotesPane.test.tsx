@@ -49,13 +49,17 @@ describe('NotesPane', () => {
       />
     );
 
+    fireEvent.contextMenu(screen.getByText('Beta'));
     fireEvent.click(screen.getByLabelText('Move note Beta up'));
     expect(onMoveNote).toHaveBeenCalledWith('note-2', 'up');
 
+    fireEvent.contextMenu(screen.getByText('Alpha'));
     fireEvent.click(screen.getByLabelText('Move note Alpha down'));
     expect(onMoveNote).toHaveBeenCalledWith('note-1', 'down');
 
+    fireEvent.contextMenu(screen.getByText('Alpha'));
     expect(screen.getByLabelText('Move note Alpha up')).toBeDisabled();
+    fireEvent.contextMenu(screen.getByText('Beta'));
     expect(screen.getByLabelText('Move note Beta down')).toBeDisabled();
   });
 
@@ -73,6 +77,7 @@ describe('NotesPane', () => {
       />
     );
 
+    fireEvent.contextMenu(screen.getByText('Alpha'));
     expect(screen.getByLabelText('Move note Alpha down')).toBeDisabled();
   });
 

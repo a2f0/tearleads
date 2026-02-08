@@ -65,10 +65,12 @@ describe('ClassicApp', () => {
       <ClassicApp initialState={createState()} onStateChange={onStateChange} />
     );
 
+    fireEvent.contextMenu(screen.getByText('Beta'));
     fireEvent.click(screen.getByLabelText('Move note Beta up'));
     let latest = getLastState(onStateChange);
     expect(latest.noteOrderByTagId['tag-1']).toEqual(['note-2', 'note-1']);
 
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
     fireEvent.click(screen.getByLabelText('Move tag Work down'));
     latest = getLastState(onStateChange);
     expect(latest.tags.map((tag) => tag.id)).toEqual(['tag-2', 'tag-1']);
@@ -77,6 +79,7 @@ describe('ClassicApp', () => {
     latest = getLastState(onStateChange);
     expect(latest.activeTagId).toBe('tag-2');
 
+    fireEvent.contextMenu(screen.getByText('Beta'));
     fireEvent.click(screen.getByLabelText('Move note Beta down'));
     latest = getLastState(onStateChange);
     expect(latest.noteOrderByTagId['tag-2']).toEqual(['note-2']);

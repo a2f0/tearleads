@@ -1,3 +1,5 @@
+import { useState } from 'react';
+import { ClassicContextMenu } from './ClassicContextMenu';
 import type { ClassicTag } from '../lib/types';
 
 interface TagSidebarProps {
@@ -17,6 +19,17 @@ export function TagSidebar({
   searchValue,
   onSearchChange
 }: TagSidebarProps) {
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+    tagId: string;
+    tagName: string;
+    canMoveUp: boolean;
+    canMoveDown: boolean;
+  } | null>(null);
+
+  const closeContextMenu = () => setContextMenu(null);
+
   return (
     <aside className="flex w-72 flex-col border-r" aria-label="Tags Sidebar">
       <div className="flex-1 overflow-auto p-3">
@@ -28,7 +41,21 @@ export function TagSidebar({
             {tags.map((tag, index) => {
               const isActive = tag.id === activeTagId;
               return (
-                <li key={tag.id} className="rounded border p-2">
+                <li
+                  key={tag.id}
+                  className="rounded border p-2"
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setContextMenu({
+                      x: event.clientX,
+                      y: event.clientY,
+                      tagId: tag.id,
+                      tagName: tag.name,
+                      canMoveUp: index > 0,
+                      canMoveDown: index < tags.length - 1
+                    });
+                  }}
+                >
                   <div className="flex items-center justify-between gap-2">
                     <button
                       type="button"
@@ -43,26 +70,6 @@ export function TagSidebar({
                     >
                       {tag.name}
                     </button>
-                    <div className="flex gap-1">
-                      <button
-                        type="button"
-                        className="rounded border px-2 py-1 text-xs"
-                        onClick={() => onMoveTag(tag.id, 'up')}
-                        disabled={index === 0}
-                        aria-label={`Move tag ${tag.name} up`}
-                      >
-                        Up
-                      </button>
-                      <button
-                        type="button"
-                        className="rounded border px-2 py-1 text-xs"
-                        onClick={() => onMoveTag(tag.id, 'down')}
-                        disabled={index === tags.length - 1}
-                        aria-label={`Move tag ${tag.name} down`}
-                      >
-                        Down
-                      </button>
-                    </div>
                   </div>
                 </li>
               );
@@ -80,6 +87,28 @@ export function TagSidebar({
           aria-label="Search tags"
         />
       </div>
+      {contextMenu && (
+        <ClassicContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          ariaLabel={`Tag actions for ${contextMenu.tagName}`}
+          onClose={closeContextMenu}
+          actions={[
+            {
+              label: 'Move Up',
+              onClick: () => onMoveTag(contextMenu.tagId, 'up'),
+              disabled: !contextMenu.canMoveUp,
+              ariaLabel: `Move tag ${contextMenu.tagName} up`
+            },
+            {
+              label: 'Move Down',
+              onClick: () => onMoveTag(contextMenu.tagId, 'down'),
+              disabled: !contextMenu.canMoveDown,
+              ariaLabel: `Move tag ${contextMenu.tagName} down`
+            }
+          ]}
+        />
+      )}
     </aside>
   );
 }
