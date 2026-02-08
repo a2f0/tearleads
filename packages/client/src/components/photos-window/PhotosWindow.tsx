@@ -1,3 +1,4 @@
+import { useMultiFileUpload } from '@rapid/audio';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -48,52 +49,40 @@ export function PhotosWindow({
   );
   const { uploadFile } = useFileUpload();
   const { addPhotoToAlbum } = usePhotoAlbums();
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const { uploadMany, uploading, uploadProgress } = useMultiFileUpload({
+    uploadFile
+  });
 
   // Handler for uploading files with optional target album override
   const handleUploadFilesToAlbum = useCallback(
     async (files: File[], targetAlbumId?: string | null) => {
-      const uploadedIds: string[] = [];
+      const { results, errors } = await uploadMany(files);
+      for (const error of errors) {
+        console.error(`Failed to upload ${error.fileName}:`, error.message);
+      }
 
-      setUploading(true);
-      setUploadProgress(0);
-      const progresses = Array<number>(files.length).fill(0);
-      const updateOverall = () => {
-        const total = progresses.reduce((sum, p) => sum + p, 0);
-        setUploadProgress(Math.round(total / files.length));
-      };
-
-      try {
+      // Use target album if provided, otherwise use currently selected album
+      const albumToUse = targetAlbumId ?? selectedAlbumId;
+      if (albumToUse && albumToUse !== ALL_PHOTOS_ID) {
         await Promise.all(
-          files.map(async (file, index) => {
+          results.map(async (result) => {
             try {
-              const result = await uploadFile(file, (progress) => {
-                progresses[index] = progress;
-                updateOverall();
-              });
-              uploadedIds.push(result.id);
-            } catch (err) {
-              console.error(`Failed to upload ${file.name}:`, err);
+              await addPhotoToAlbum(albumToUse, result.id);
+            } catch (error) {
+              console.error(
+                `Failed to add photo ${result.id} to album ${albumToUse}:`,
+                error
+              );
             }
           })
         );
+      }
 
-        // Use target album if provided, otherwise use currently selected album
-        const albumToUse = targetAlbumId ?? selectedAlbumId;
-        if (albumToUse && albumToUse !== ALL_PHOTOS_ID) {
-          await Promise.all(
-            uploadedIds.map((id) => addPhotoToAlbum(albumToUse, id))
-          );
-        }
-
+      if (results.length > 0) {
         setRefreshToken((value) => value + 1);
-      } finally {
-        setUploading(false);
-        setUploadProgress(0);
       }
     },
-    [uploadFile, selectedAlbumId, addPhotoToAlbum]
+    [uploadMany, selectedAlbumId, addPhotoToAlbum]
   );
 
   // Main content area drop zone

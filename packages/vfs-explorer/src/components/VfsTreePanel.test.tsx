@@ -164,6 +164,15 @@ describe('VfsTreePanel', () => {
     expect(screen.getByText('Unfiled Items')).toBeInTheDocument();
   });
 
+  it('renders all virtual folder entries', () => {
+    render(<VfsTreePanel {...defaultProps} />);
+
+    expect(screen.getByText('Unfiled Items')).toBeInTheDocument();
+    expect(screen.getByText('All Items')).toBeInTheDocument();
+    expect(screen.getByText("Items I've Shared")).toBeInTheDocument();
+    expect(screen.getByText('Shared With Me')).toBeInTheDocument();
+  });
+
   it('calls onFolderSelect when folder is clicked', async () => {
     const user = userEvent.setup();
     const onFolderSelect = vi.fn();

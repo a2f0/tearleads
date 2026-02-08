@@ -1,3 +1,4 @@
+import { useMultiFileUpload } from '@rapid/audio';
 import { Loader2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -53,6 +54,13 @@ function VideoWindowInner({
   const [refreshToken, setRefreshToken] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile } = useFileUpload();
+  const { uploadMany, uploading, uploadProgress } = useMultiFileUpload({
+    uploadFile,
+    validateFile: (file) =>
+      isVideoMimeType(file.type)
+        ? null
+        : `"${file.name}" has an unsupported video format. Supported formats: MP4, WebM, OGG, MOV, AVI, MKV, MPEG, 3GP.`
+  });
   const [sidebarWidth, setSidebarWidth] = useState(200);
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
     ALL_VIDEO_ID
@@ -81,62 +89,39 @@ function VideoWindowInner({
     fileInputRef.current?.click();
   }, []);
 
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-
   // Handler for uploading files with optional target playlist override
   const handleUploadFilesToPlaylist = useCallback(
     async (files: File[], targetPlaylistId?: string | null) => {
-      const uploadedIds: string[] = [];
+      const { results, errors } = await uploadMany(files);
+      for (const error of errors) {
+        console.error(
+          `Failed to upload ${error.fileName}:`,
+          new Error(error.message)
+        );
+      }
 
-      setUploading(true);
-      setUploadProgress(0);
-      const progresses = Array<number>(files.length).fill(0);
-      const updateOverall = () => {
-        const total = progresses.reduce((sum, p) => sum + p, 0);
-        setUploadProgress(Math.round(total / files.length));
-      };
-
-      try {
+      // Use target playlist if provided, otherwise use currently selected playlist
+      const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
+      if (playlistToUse && playlistToUse !== ALL_VIDEO_ID) {
         await Promise.all(
-          files.map(async (file, index) => {
-            if (!isVideoMimeType(file.type)) {
-              console.error(
-                `Failed to upload ${file.name}:`,
-                new Error(
-                  `"${file.name}" has an unsupported video format. Supported formats: MP4, WebM, OGG, MOV, AVI, MKV, MPEG, 3GP.`
-                )
-              );
-              return;
-            }
-
+          results.map(async (result) => {
             try {
-              const result = await uploadFile(file, (progress) => {
-                progresses[index] = progress;
-                updateOverall();
-              });
-              uploadedIds.push(result.id);
-            } catch (err) {
-              console.error(`Failed to upload ${file.name}:`, err);
+              await addTrackToPlaylist(playlistToUse, result.id);
+            } catch (error) {
+              console.error(
+                `Failed to add track ${result.id} to playlist ${playlistToUse}:`,
+                error
+              );
             }
           })
         );
+      }
 
-        // Use target playlist if provided, otherwise use currently selected playlist
-        const playlistToUse = targetPlaylistId ?? selectedPlaylistId;
-        if (playlistToUse && playlistToUse !== ALL_VIDEO_ID) {
-          await Promise.all(
-            uploadedIds.map((id) => addTrackToPlaylist(playlistToUse, id))
-          );
-        }
-
+      if (results.length > 0) {
         setRefreshToken((value) => value + 1);
-      } finally {
-        setUploading(false);
-        setUploadProgress(0);
       }
     },
-    [uploadFile, selectedPlaylistId, addTrackToPlaylist]
+    [uploadMany, selectedPlaylistId, addTrackToPlaylist]
   );
 
   // Main content area drop zone

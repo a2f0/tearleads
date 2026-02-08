@@ -52,6 +52,42 @@ interface VfsTreePanelProps {
   onPaste?: ((targetFolderId: string) => void) | undefined;
 }
 
+interface VirtualFolderConfig {
+  id: string;
+  label: string;
+  icon: typeof FileBox;
+  iconClassName: string;
+}
+
+const VIRTUAL_FOLDERS: VirtualFolderConfig[] = [
+  {
+    id: UNFILED_FOLDER_ID,
+    label: 'Unfiled Items',
+    icon: FileBox,
+    iconClassName: 'text-blue-600 dark:text-blue-400'
+  },
+  {
+    id: ALL_ITEMS_FOLDER_ID,
+    label: 'All Items',
+    icon: Layers,
+    iconClassName: 'text-purple-600 dark:text-purple-400'
+  },
+  {
+    id: SHARED_BY_ME_FOLDER_ID,
+    label: "Items I've Shared",
+    icon: Share2,
+    iconClassName: 'text-emerald-600 dark:text-emerald-400'
+  },
+  {
+    id: SHARED_WITH_ME_FOLDER_ID,
+    label: 'Shared With Me',
+    icon: UserCheck,
+    iconClassName: 'text-cyan-600 dark:text-cyan-400'
+  }
+];
+
+const NON_PASTE_FOLDERS = new Set(VIRTUAL_FOLDERS.map(({ id }) => id));
+
 export function VfsTreePanel({
   width,
   onWidthChange,
@@ -178,6 +214,29 @@ export function VfsTreePanel({
     [selectedFolderId, onFolderSelect, handleFolderChanged]
   );
 
+  const renderVirtualFolder = useCallback(
+    ({ id, label, icon: Icon, iconClassName }: VirtualFolderConfig) => (
+      <VfsDroppableFolder key={id} folderId={id} disabled>
+        <button
+          type="button"
+          className={cn(
+            'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
+            selectedFolderId === id
+              ? 'bg-accent text-accent-foreground'
+              : 'hover:bg-accent/50'
+          )}
+          style={{ paddingLeft: '8px' }}
+          onClick={() => onFolderSelect(id)}
+        >
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
+          <Icon className={cn('h-4 w-4 shrink-0', iconClassName)} />
+          <span className="truncate">{label}</span>
+        </button>
+      </VfsDroppableFolder>
+    ),
+    [selectedFolderId, onFolderSelect]
+  );
+
   const renderFolder = (folder: VfsFolderNode, depth: number) => {
     const isSelected = folder.id === selectedFolderId;
     const isExpanded = expandedFolderIds.has(folder.id);
@@ -253,81 +312,7 @@ export function VfsTreePanel({
         className="flex-1 overflow-y-auto p-1"
         onContextMenu={handleEmptySpaceContextMenu}
       >
-        {/* Unfiled Items - always shown, not a drop target */}
-        <VfsDroppableFolder folderId={UNFILED_FOLDER_ID} disabled>
-          <button
-            type="button"
-            className={cn(
-              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
-              selectedFolderId === UNFILED_FOLDER_ID
-                ? 'bg-accent text-accent-foreground'
-                : 'hover:bg-accent/50'
-            )}
-            style={{ paddingLeft: '8px' }}
-            onClick={() => onFolderSelect(UNFILED_FOLDER_ID)}
-          >
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-            <FileBox className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
-            <span className="truncate">Unfiled Items</span>
-          </button>
-        </VfsDroppableFolder>
-
-        {/* All Items - always shown, not a drop target */}
-        <VfsDroppableFolder folderId={ALL_ITEMS_FOLDER_ID} disabled>
-          <button
-            type="button"
-            className={cn(
-              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
-              selectedFolderId === ALL_ITEMS_FOLDER_ID
-                ? 'bg-accent text-accent-foreground'
-                : 'hover:bg-accent/50'
-            )}
-            style={{ paddingLeft: '8px' }}
-            onClick={() => onFolderSelect(ALL_ITEMS_FOLDER_ID)}
-          >
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-            <Layers className="h-4 w-4 shrink-0 text-purple-600 dark:text-purple-400" />
-            <span className="truncate">All Items</span>
-          </button>
-        </VfsDroppableFolder>
-
-        {/* Items I've Shared - always shown, not a drop target */}
-        <VfsDroppableFolder folderId={SHARED_BY_ME_FOLDER_ID} disabled>
-          <button
-            type="button"
-            className={cn(
-              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
-              selectedFolderId === SHARED_BY_ME_FOLDER_ID
-                ? 'bg-accent text-accent-foreground'
-                : 'hover:bg-accent/50'
-            )}
-            style={{ paddingLeft: '8px' }}
-            onClick={() => onFolderSelect(SHARED_BY_ME_FOLDER_ID)}
-          >
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-            <Share2 className="h-4 w-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-            <span className="truncate">Items I&apos;ve Shared</span>
-          </button>
-        </VfsDroppableFolder>
-
-        {/* Shared With Me - always shown, not a drop target */}
-        <VfsDroppableFolder folderId={SHARED_WITH_ME_FOLDER_ID} disabled>
-          <button
-            type="button"
-            className={cn(
-              'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
-              selectedFolderId === SHARED_WITH_ME_FOLDER_ID
-                ? 'bg-accent text-accent-foreground'
-                : 'hover:bg-accent/50'
-            )}
-            style={{ paddingLeft: '8px' }}
-            onClick={() => onFolderSelect(SHARED_WITH_ME_FOLDER_ID)}
-          >
-            <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-            <UserCheck className="h-4 w-4 shrink-0 text-cyan-600 dark:text-cyan-400" />
-            <span className="truncate">Shared With Me</span>
-          </button>
-        </VfsDroppableFolder>
+        {VIRTUAL_FOLDERS.map(renderVirtualFolder)}
 
         {loading && (
           <div className="flex items-center justify-center py-4">
@@ -381,10 +366,7 @@ export function VfsTreePanel({
           {hasItems &&
             onPaste &&
             selectedFolderId &&
-            selectedFolderId !== UNFILED_FOLDER_ID &&
-            selectedFolderId !== ALL_ITEMS_FOLDER_ID &&
-            selectedFolderId !== SHARED_BY_ME_FOLDER_ID &&
-            selectedFolderId !== SHARED_WITH_ME_FOLDER_ID && (
+            !NON_PASTE_FOLDERS.has(selectedFolderId) && (
               <>
                 <ContextMenuSeparator />
                 <ContextMenuItem

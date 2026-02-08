@@ -1,3 +1,4 @@
+import { useMultiFileUpload } from '@rapid/audio';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -40,10 +41,11 @@ export function DocumentsWindow({
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [refreshToken, setRefreshToken] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
   const [showDropzone, setShowDropzone] = useState(false);
   const { uploadFile } = useFileUpload();
+  const { uploadMany, uploading, uploadProgress } = useMultiFileUpload({
+    uploadFile
+  });
 
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click();
@@ -56,48 +58,22 @@ export function DocumentsWindow({
   const handleUploadFiles = useCallback(
     async (files: File[]) => {
       setUploadError(null);
-      let uploadedCount = 0;
-      const errors: string[] = [];
+      const { results, errors } = await uploadMany(files);
+      for (const error of errors) {
+        console.error(`Failed to upload ${error.fileName}:`, error.message);
+      }
 
-      setUploading(true);
-      setUploadProgress(0);
-      const progresses = Array<number>(files.length).fill(0);
-      const updateOverall = () => {
-        const total = progresses.reduce((sum, p) => sum + p, 0);
-        setUploadProgress(Math.round(total / files.length));
-      };
-
-      try {
-        await Promise.all(
-          files.map(async (file, index) => {
-            try {
-              await uploadFile(file, (progress) => {
-                progresses[index] = progress;
-                updateOverall();
-              });
-              uploadedCount++;
-            } catch (err) {
-              console.error(`Failed to upload ${file.name}:`, err);
-              errors.push(
-                `"${file.name}": ${
-                  err instanceof Error ? err.message : String(err)
-                }`
-              );
-            }
-          })
+      if (results.length > 0) {
+        setRefreshToken((value) => value + 1);
+      }
+      if (errors.length > 0) {
+        const errorMessages = errors.map(
+          (error) => `"${error.fileName}": ${error.message}`
         );
-        if (uploadedCount > 0) {
-          setRefreshToken((value) => value + 1);
-        }
-        if (errors.length > 0) {
-          setUploadError(errors.join('\n'));
-        }
-      } finally {
-        setUploading(false);
-        setUploadProgress(0);
+        setUploadError(errorMessages.join('\n'));
       }
     },
-    [uploadFile]
+    [uploadMany]
   );
 
   // Main content area drop zone

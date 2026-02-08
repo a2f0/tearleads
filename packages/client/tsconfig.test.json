@@ -11,7 +11,7 @@
     "outDir": "./dist-tests",
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
-  "include": ["tests/**/*"],
+  "include": ["tests/**/*", "src/lib/testing/backupRestoreE2eHelpers.ts"],
   "references": [
     { "path": "../db-test-utils" }
   ]

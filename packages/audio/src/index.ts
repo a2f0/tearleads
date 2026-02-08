@@ -77,4 +77,8 @@ export {
   type WindowOptionsMenuItemProps
 } from './context';
 // Hooks exports
-export { useAudioAnalyser } from './hooks';
+export {
+  type UploadError,
+  useAudioAnalyser,
+  useMultiFileUpload
+} from './hooks';

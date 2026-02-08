@@ -160,6 +160,7 @@ export default defineConfig({
         __dirname,
         '../audio/package.json'
       ),
+      '@rapid/audio': path.resolve(__dirname, '../audio/src/index.ts'),
       '@rapid/email/package.json': path.resolve(
         __dirname,
         '../email/package.json'
@@ -179,7 +180,10 @@ export default defineConfig({
         __dirname,
         '../mls-chat/package.json'
       ),
-      '@rapid/mls-chat': path.resolve(__dirname, '../mls-chat/src/index.ts')
+      '@rapid/mls-chat': path.resolve(__dirname, '../mls-chat/src/index.ts'),
+      // Force a single React instance across client and workspace package source aliases.
+      react: path.resolve(__dirname, './node_modules/react'),
+      'react-dom': path.resolve(__dirname, './node_modules/react-dom')
     }
   }
 });
