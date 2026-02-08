@@ -132,27 +132,30 @@ export function EmailWindow({
                   type="button"
                   role="tab"
                   aria-selected={activeTab === 'compose'}
-                  onClick={() => setActiveTab('compose')}
-                  className="group flex items-center gap-2 rounded-t-md py-2 pl-3 pr-2 text-sm hover:bg-muted/50 data-[active=true]:bg-background data-[active=true]:font-medium"
+                  onClick={(e) => {
+                    if (
+                      e.target instanceof HTMLElement &&
+                      e.target.closest('[data-close-tab="true"]')
+                    ) {
+                      closeComposeTab();
+                      return;
+                    }
+                    setActiveTab('compose');
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Delete' || e.key === 'Backspace') {
+                      e.preventDefault();
+                      closeComposeTab();
+                    }
+                  }}
+                  className="group flex items-center gap-2 rounded-t-md py-2 pr-2 pl-3 text-sm hover:bg-muted/50 data-[active=true]:bg-background data-[active=true]:font-medium"
                   data-active={activeTab === 'compose'}
                   data-testid="email-tab-compose"
                 >
                   New Message
                   <span
-                    role="button"
-                    aria-label="Close New Message tab"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      closeComposeTab();
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        closeComposeTab();
-                      }
-                    }}
+                    aria-hidden="true"
+                    data-close-tab="true"
                     className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                     data-testid="email-tab-compose-close"
                   >
