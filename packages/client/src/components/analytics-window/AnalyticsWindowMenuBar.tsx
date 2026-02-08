@@ -4,6 +4,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
+import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
 interface AnalyticsWindowMenuBarProps {
   onClose: () => void;
@@ -32,6 +33,9 @@ export function AnalyticsWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+      </DropdownMenu>
+      <DropdownMenu trigger="View">
+        <WindowOptionsMenuItem />
       </DropdownMenu>
     </div>
   );

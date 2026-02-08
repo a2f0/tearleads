@@ -12,9 +12,10 @@ describe('AnalyticsWindowMenuBar', () => {
     vi.clearAllMocks();
   });
 
-  it('renders File menu trigger', () => {
+  it('renders menu triggers', () => {
     render(<AnalyticsWindowMenuBar {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
 
   it('shows Close option in File menu', async () => {
@@ -70,5 +71,16 @@ describe('AnalyticsWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows Options option in View menu', async () => {
+    const user = userEvent.setup();
+    render(<AnalyticsWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Options' })
+    ).toBeInTheDocument();
   });
 });
