@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ClassicContextMenu } from './ClassicContextMenu';
 import type { ClassicNote } from '../lib/types';
+import { ClassicContextMenu } from './ClassicContextMenu';
 
 interface NotesPaneProps {
   activeTagName: string | null;

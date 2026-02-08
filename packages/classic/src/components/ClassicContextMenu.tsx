@@ -72,20 +72,15 @@ export function ClassicContextMenu({
         ref={menuRef}
         role="menu"
         aria-label={ariaLabel}
-        className="fixed z-[10001] min-w-32 rounded border py-1 shadow"
-        style={{
-          top: position.top,
-          left: position.left,
-          backgroundColor: '#ffffff',
-          borderColor: '#d4d4d8'
-        }}
+        className="fixed z-[10001] min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+        style={{ top: position.top, left: position.left }}
       >
         {actions.map((action) => (
           <button
             key={action.ariaLabel}
             type="button"
             role="menuitem"
-            className="block w-full px-3 py-1 text-left text-sm hover:bg-zinc-100 disabled:text-zinc-400"
+            className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground disabled:text-muted-foreground"
             disabled={action.disabled}
             onClick={() => {
               action.onClick();
