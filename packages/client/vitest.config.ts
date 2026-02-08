@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { createViteAliases } from './vite.aliases';
 
 export default defineConfig({
   plugins: [react()],
@@ -151,62 +152,10 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
-      '@rapid/api/dist/openapi.json': path.resolve(
-        __dirname,
-        '../api/dist/openapi.json'
-      ),
-      '@rapid/audio/package.json': path.resolve(
-        __dirname,
-        '../audio/package.json'
-      ),
-      '@rapid/audio': path.resolve(__dirname, '../audio/src/index.ts'),
-      '@rapid/classic/package.json': path.resolve(
-        __dirname,
-        '../classic/package.json'
-      ),
-      '@rapid/classic': path.resolve(__dirname, '../classic/src/index.ts'),
-      '@rapid/contacts/package.json': path.resolve(
-        __dirname,
-        '../contacts/package.json'
-      ),
-      '@rapid/contacts': path.resolve(__dirname, '../contacts/src/index.ts'),
-      '@rapid/calendar/package.json': path.resolve(
-        __dirname,
-        '../calendar/package.json'
-      ),
-      '@rapid/calendar': path.resolve(__dirname, '../calendar/src/index.ts'),
-      '@rapid/email/package.json': path.resolve(
-        __dirname,
-        '../email/package.json'
-      ),
-      '@rapid/email': path.resolve(__dirname, '../email/src/index.ts'),
-      '@rapid/notes/package.json': path.resolve(
-        __dirname,
-        '../notes/package.json'
-      ),
-      '@rapid/notes': path.resolve(__dirname, '../notes/src/index.ts'),
-      '@rapid/vfs-explorer/package.json': path.resolve(
-        __dirname,
-        '../vfs-explorer/package.json'
-      ),
-      '@rapid/vfs-explorer': path.resolve(
-        __dirname,
-        '../vfs-explorer/src/index.ts'
-      ),
-      // Alias workspace packages to source for consistent React context resolution
+      ...createViteAliases(__dirname),
+      // Force a single React instance across client and workspace package source aliases.
       // Without this, hooks load from dist/ while providers load from src/,
       // creating duplicate React context objects that cause "useContext is null" errors
-      '@rapid/mls-chat/package.json': path.resolve(
-        __dirname,
-        '../mls-chat/package.json'
-      ),
-      '@rapid/mls-chat': path.resolve(__dirname, '../mls-chat/src/index.ts'),
-      '@rapid/window-manager': path.resolve(
-        __dirname,
-        '../window-manager/src/index.ts'
-      ),
-      // Force a single React instance across client and workspace package source aliases.
       react: path.resolve(__dirname, './node_modules/react'),
       'react-dom': path.resolve(__dirname, './node_modules/react-dom')
     }
