@@ -89,4 +89,98 @@ describe('ClassicApp', () => {
     fireEvent.click(screen.getByLabelText('Select tag Work'));
     expect(screen.getByText('Notes in Work')).toBeInTheDocument();
   });
+
+  it('filters tags based on tag search input', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    expect(screen.getByLabelText('Select tag Work')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select tag Personal')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search tags...'), {
+      target: { value: 'work' }
+    });
+
+    expect(screen.getByLabelText('Select tag Work')).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Select tag Personal')
+    ).not.toBeInTheDocument();
+  });
+
+  it('filters notes based on entry search input', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+    expect(screen.getByText('Beta')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+      target: { value: 'alpha' }
+    });
+
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument();
+  });
+
+  it('filters notes by body content', () => {
+    const stateWithBody = createState();
+    const note1 = stateWithBody.notesById['note-1'];
+    const note2 = stateWithBody.notesById['note-2'];
+    if (note1) note1.body = 'Contains keyword xyz';
+    if (note2) note2.body = 'Other content';
+
+    render(<ClassicApp initialState={stateWithBody} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+      target: { value: 'xyz' }
+    });
+
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+    expect(screen.queryByText('Beta')).not.toBeInTheDocument();
+  });
+
+  it('shows all items when search is cleared', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagInput = screen.getByPlaceholderText('Search tags...');
+    fireEvent.change(tagInput, { target: { value: 'work' } });
+    expect(
+      screen.queryByLabelText('Select tag Personal')
+    ).not.toBeInTheDocument();
+
+    fireEvent.change(tagInput, { target: { value: '' } });
+    expect(screen.getByLabelText('Select tag Personal')).toBeInTheDocument();
+  });
+
+  it('handles case-insensitive search', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search tags...'), {
+      target: { value: 'WORK' }
+    });
+
+    expect(screen.getByLabelText('Select tag Work')).toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Select tag Personal')
+    ).not.toBeInTheDocument();
+  });
+
+  it('handles missing note in notesById during entry search', () => {
+    const stateWithMissingNote: ClassicState = {
+      tags: [{ id: 'tag-1', name: 'Work' }],
+      notesById: {
+        'note-1': { id: 'note-1', title: 'Alpha', body: 'A' }
+      },
+      noteOrderByTagId: {
+        'tag-1': ['note-1', 'note-missing']
+      },
+      activeTagId: 'tag-1'
+    };
+
+    render(<ClassicApp initialState={stateWithMissingNote} />);
+
+    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+      target: { value: 'alpha' }
+    });
+
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+  });
 });

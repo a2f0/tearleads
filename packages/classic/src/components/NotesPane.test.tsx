@@ -9,6 +9,8 @@ describe('NotesPane', () => {
         noteIds={[]}
         notesById={{}}
         onMoveNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
       />
     );
 
@@ -22,6 +24,8 @@ describe('NotesPane', () => {
         noteIds={[]}
         notesById={{}}
         onMoveNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
       />
     );
 
@@ -40,6 +44,8 @@ describe('NotesPane', () => {
           'note-2': { id: 'note-2', title: 'Beta', body: 'B body' }
         }}
         onMoveNote={onMoveNote}
+        searchValue=""
+        onSearchChange={() => {}}
       />
     );
 
@@ -62,9 +68,34 @@ describe('NotesPane', () => {
           'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
         }}
         onMoveNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
       />
     );
 
     expect(screen.getByLabelText('Move note Alpha down')).toBeDisabled();
+  });
+
+  it('renders search input and calls onSearchChange', () => {
+    const onSearchChange = vi.fn();
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={[]}
+        notesById={{}}
+        onMoveNote={() => {}}
+        searchValue="alpha"
+        onSearchChange={onSearchChange}
+      />
+    );
+
+    expect(screen.getByDisplayValue('alpha')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+      target: { value: 'beta' }
+    });
+
+    expect(onSearchChange).toHaveBeenCalledWith('beta');
   });
 });
