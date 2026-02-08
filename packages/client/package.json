@@ -56,6 +56,7 @@
     "@orama/orama": "3.1.18",
     "@radix-ui/react-slot": "1.2.4",
     "@rapid/audio": "workspace:*",
+    "@rapid/classic": "workspace:*",
     "@rapid/contacts": "workspace:*",
     "@rapid/db": "workspace:*",
     "@rapid/email": "workspace:*",

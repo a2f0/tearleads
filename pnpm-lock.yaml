@@ -367,6 +367,9 @@ importers:
       '@rapid/audio':
         specifier: workspace:*
         version: link:../audio
+      '@rapid/classic':
+        specifier: workspace:*
+        version: link:../classic
       '@rapid/contacts':
         specifier: workspace:*
         version: link:../contacts

@@ -924,6 +924,41 @@ vi.mock('@/components/chat-window', () => ({
   )
 }));
 
+vi.mock('@/components/classic-window', () => ({
+  ClassicWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`classic-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 980, height: 700 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/tables-window', () => ({
   TablesWindow: ({
     id,
@@ -1529,6 +1564,18 @@ describe('WindowRenderer', () => {
       minimize: {
         testId: 'minimize-help-1',
         dimensions: { x: 0, y: 0, width: 900, height: 700 }
+      }
+    },
+    {
+      label: 'classic',
+      type: 'classic',
+      id: 'classic-1',
+      windowTestId: 'classic-window-classic-1',
+      closeTestId: 'close-classic-1',
+      focusTestId: 'classic-window-classic-1',
+      minimize: {
+        testId: 'minimize-classic-1',
+        dimensions: { x: 0, y: 0, width: 980, height: 700 }
       }
     }
   ].sort((left, right) => left.label.localeCompare(right.label));

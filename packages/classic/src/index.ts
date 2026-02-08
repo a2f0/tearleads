@@ -24,3 +24,8 @@ export {
   buildClassicStateFromVfs,
   serializeOrderState
 } from './lib/vfsClassicAdapter';
+export type { VfsLinkPositionUpdate } from './lib/vfsPositionUpdates';
+export {
+  buildClassicPositionUpdates,
+  computePositionUpdatesForParent
+} from './lib/vfsPositionUpdates';

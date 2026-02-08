@@ -11,6 +11,7 @@ import { AudioWindow } from '@/components/audio-window';
 import { BackupWindow } from '@/components/backup-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { ChatWindow } from '@/components/chat-window';
+import { ClassicWindow } from '@/components/classic-window';
 import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { DebugWindow } from '@/components/debug-window';
@@ -95,6 +96,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   sync: { Component: SyncWindow },
   v86: { Component: V86Window },
   vfs: { Component: VfsWindow },
+  classic: { Component: ClassicWindow },
   backup: { Component: BackupWindow },
   'mls-chat': { Component: MlsChatWindow },
   search: { Component: SearchWindow }

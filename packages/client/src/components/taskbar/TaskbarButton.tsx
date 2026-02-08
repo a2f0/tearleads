@@ -1,4 +1,5 @@
 import {
+  AppWindow,
   Archive,
   BarChart2,
   Bot,
@@ -70,6 +71,7 @@ const WINDOW_ICONS: Record<WindowType, React.ReactNode> = {
   sync: <RefreshCw className="h-3 w-3" />,
   v86: <Cpu className="h-3 w-3" />,
   vfs: <FolderTree className="h-3 w-3" />,
+  classic: <AppWindow className="h-3 w-3" />,
   backup: <Save className="h-3 w-3" />,
   'mls-chat': <Lock className="h-3 w-3" />
 };
@@ -106,6 +108,7 @@ const WINDOW_LABELS: Record<WindowType, string> = {
   sync: 'Sync',
   v86: 'v86',
   vfs: 'VFS Explorer',
+  classic: 'Classic',
   backup: 'Backups',
   'mls-chat': 'MLS Chat'
 };

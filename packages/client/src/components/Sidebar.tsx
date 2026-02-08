@@ -249,6 +249,13 @@ export const navItems: NavItem[] = [
     testId: 'vfs-link'
   },
   {
+    path: '/classic',
+    icon: AppWindow,
+    labelKey: 'classic',
+    inMobileMenu: true,
+    testId: 'classic-link'
+  },
+  {
     path: '/backups',
     icon: Save,
     labelKey: 'backups',
