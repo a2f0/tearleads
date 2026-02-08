@@ -17,7 +17,7 @@ import { ContextMenu } from './components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from './components/ui/context-menu/ContextMenuItem';
 import { DesktopBackground } from './components/ui/desktop-background';
 import { FOOTER_HEIGHT } from './constants/layout';
-import { useWindowManager } from './contexts/WindowManagerContext';
+import { useWindowManagerActions } from './contexts/WindowManagerContext';
 import { useDatabaseContext } from './db/hooks';
 import { useKeyboardHeight } from './hooks/useKeyboardHeight';
 import { useSSEContext } from './sse';
@@ -38,7 +38,7 @@ function App() {
   const navigate = useNavigate();
   const pathname = location.pathname;
   const isHome = pathname === '/';
-  const { openWindow } = useWindowManager();
+  const { openWindow } = useWindowManagerActions();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
