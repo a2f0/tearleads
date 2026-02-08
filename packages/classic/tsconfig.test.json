@@ -4,6 +4,7 @@
     "composite": true,
     "module": "ESNext",
     "moduleResolution": "bundler",
+    "types": ["vitest/globals", "node"],
     "noEmit": false,
     "emitDeclarationOnly": true,
     "rootDir": "./src",
