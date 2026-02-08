@@ -31,7 +31,7 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
   const [activeCalendar, setActiveCalendar] = useState(defaultCalendars[0]);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
-  const selectedDate = useMemo(() => new Date(), []);
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
 
   const normalizedNames = useMemo(
     () => new Set(calendars.map((name) => name.toLowerCase())),
@@ -217,13 +217,25 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
           </p>
         ))}
         {monthCells.map(({ date, inMonth }) => (
-          <div
+          <button
+            type="button"
             key={date.toISOString()}
+            onDoubleClick={() => {
+              setSelectedDate(date);
+              setViewMode('Day');
+            }}
+            aria-label={`Open day view for ${date.toLocaleDateString(calendarLocale, {
+              weekday: 'long',
+              month: 'long',
+              day: 'numeric',
+              year: 'numeric'
+            })}`}
             className={clsx(
               'h-12 rounded-md border px-1 py-1 text-right text-sm',
               inMonth
                 ? 'border-border bg-background'
-                : 'border-border/60 bg-muted/20 text-muted-foreground'
+                : 'border-border/60 bg-muted/20 text-muted-foreground',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
             )}
           >
             <span
@@ -231,7 +243,7 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
             >
               {date.getDate()}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>

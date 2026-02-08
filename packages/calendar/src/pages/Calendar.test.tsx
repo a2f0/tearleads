@@ -36,4 +36,20 @@ describe('Calendar', () => {
     expect(screen.getByText('January')).toBeInTheDocument();
     expect(screen.getByText('December')).toBeInTheDocument();
   });
+
+  it('routes to day view when a month day is double-clicked', () => {
+    render(<Calendar />);
+
+    const monthDayButton = screen.getAllByRole('button', {
+      name: /Open day view for/
+    })[0];
+
+    fireEvent.doubleClick(monthDayButton);
+
+    expect(screen.getByRole('tab', { name: 'Day' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByText('08:00')).toBeInTheDocument();
+  });
 });
