@@ -127,8 +127,8 @@ export function ComposeDialog({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-3">
+        <div className="flex-1 overflow-hidden p-4">
+          <div className="flex h-full flex-col gap-3">
             <div className="flex items-center gap-2">
               <label
                 htmlFor="compose-to"
@@ -209,13 +209,13 @@ export function ComposeDialog({
               />
             </div>
 
-            <div>
+            <div className="min-h-0 flex-1">
               <textarea
                 id="compose-body"
                 value={state.body}
                 onChange={(e) => setBody(e.target.value)}
                 placeholder="Write your message..."
-                className="min-h-[200px] w-full resize-y rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ring"
+                className="h-full w-full resize-none rounded-md border bg-background px-3 py-2 text-base focus:outline-none focus:ring-2 focus:ring-ring"
                 disabled={state.isSending}
                 data-testid="compose-body"
               />
