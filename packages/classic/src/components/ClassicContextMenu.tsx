@@ -1,0 +1,173 @@
+import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+
+interface ClassicContextMenuAction {
+  label: string;
+  onClick: () => void;
+  disabled?: boolean;
+  ariaLabel: string;
+}
+
+interface ClassicContextMenuProps {
+  x: number;
+  y: number;
+  ariaLabel: string;
+  onClose: () => void;
+  actions: ClassicContextMenuAction[];
+}
+
+export function ClassicContextMenu({
+  x,
+  y,
+  ariaLabel,
+  onClose,
+  actions
+}: ClassicContextMenuProps) {
+  const menuRef = useRef<HTMLDivElement>(null);
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  const [position, setPosition] = useState({ top: y, left: x });
+
+  useLayoutEffect(() => {
+    if (!menuRef.current) {
+      return;
+    }
+
+    const rect = menuRef.current.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+
+    let adjustedX = x;
+    let adjustedY = y;
+
+    if (x + rect.width > viewportWidth) {
+      adjustedX = Math.max(0, viewportWidth - rect.width - 8);
+    }
+
+    if (y + rect.height > viewportHeight) {
+      adjustedY = Math.max(0, viewportHeight - rect.height - 8);
+    }
+
+    setPosition({ top: adjustedY, left: adjustedX });
+  }, [x, y]);
+
+  useEffect(() => {
+    const firstEnabled = itemRefs.current.find(
+      (item) => item && !item.disabled
+    );
+    firstEnabled?.focus();
+  }, []);
+
+  useEffect(() => {
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
+
+  const moveFocus = (direction: 'first' | 'last' | 'next' | 'previous') => {
+    const enabledItems = itemRefs.current.filter(
+      (item): item is HTMLButtonElement => Boolean(item && !item.disabled)
+    );
+    if (enabledItems.length === 0) {
+      return;
+    }
+
+    const activeElement = document.activeElement;
+    const activeIndex =
+      activeElement instanceof HTMLButtonElement
+        ? enabledItems.indexOf(activeElement)
+        : -1;
+
+    if (direction === 'first') {
+      enabledItems[0]?.focus();
+      return;
+    }
+
+    if (direction === 'last') {
+      enabledItems[enabledItems.length - 1]?.focus();
+      return;
+    }
+
+    if (activeIndex === -1) {
+      enabledItems[0]?.focus();
+      return;
+    }
+
+    const nextIndex =
+      direction === 'next'
+        ? (activeIndex + 1) % enabledItems.length
+        : (activeIndex - 1 + enabledItems.length) % enabledItems.length;
+
+    enabledItems[nextIndex]?.focus();
+  };
+
+  const handleMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (event.key === 'ArrowDown') {
+      event.preventDefault();
+      moveFocus('next');
+      return;
+    }
+
+    if (event.key === 'ArrowUp') {
+      event.preventDefault();
+      moveFocus('previous');
+      return;
+    }
+
+    if (event.key === 'Home') {
+      event.preventDefault();
+      moveFocus('first');
+      return;
+    }
+
+    if (event.key === 'End') {
+      event.preventDefault();
+      moveFocus('last');
+    }
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[10000]">
+      <button
+        type="button"
+        className="fixed inset-0 cursor-default"
+        onClick={onClose}
+        aria-label="Close context menu"
+      />
+      <div
+        ref={menuRef}
+        role="menu"
+        aria-label={ariaLabel}
+        className="fixed z-[10001] min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
+        style={{ top: position.top, left: position.left }}
+        onKeyDown={handleMenuKeyDown}
+      >
+        {actions.map((action, index) => (
+          <button
+            key={action.label}
+            type="button"
+            role="menuitem"
+            ref={(element) => {
+              itemRefs.current[index] = element;
+            }}
+            className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground disabled:text-muted-foreground"
+            disabled={action.disabled}
+            onClick={() => {
+              action.onClick();
+              onClose();
+            }}
+            aria-label={action.ariaLabel}
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+    </div>,
+    document.body
+  );
+}

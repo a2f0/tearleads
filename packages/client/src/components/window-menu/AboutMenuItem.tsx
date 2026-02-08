@@ -1,5 +1,8 @@
 import { useState } from 'react';
-import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import {
+  DropdownMenuItem,
+  useDropdownMenuContext
+} from '@/components/ui/dropdown-menu';
 import { useAppVersion } from '@/hooks/useAppVersion';
 import { AboutDialog } from './AboutDialog';
 
@@ -14,9 +17,17 @@ export function AboutMenuItem({
   version,
   closeLabel
 }: AboutMenuItemProps) {
+  const dropdownMenu = useDropdownMenuContext();
   const [dialogOpen, setDialogOpen] = useState(false);
   const hookVersion = useAppVersion();
   const displayVersion = version ?? hookVersion ?? 'Unknown';
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setDialogOpen(open);
+    if (!open) {
+      dropdownMenu?.close();
+    }
+  };
 
   return (
     <>
@@ -25,7 +36,7 @@ export function AboutMenuItem({
       </DropdownMenuItem>
       <AboutDialog
         open={dialogOpen}
-        onOpenChange={setDialogOpen}
+        onOpenChange={handleDialogOpenChange}
         version={displayVersion}
         appName={appName}
         closeLabel={closeLabel}

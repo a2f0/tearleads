@@ -2,12 +2,23 @@ import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import * as dropdownMenuModule from '@/components/ui/dropdown-menu';
 import * as useAppVersionModule from '@/hooks/useAppVersion';
 import { AboutMenuItem } from './AboutMenuItem';
 
 vi.mock('@/hooks/useAppVersion', () => ({
   useAppVersion: vi.fn(() => '1.2.3')
 }));
+
+vi.mock('@/components/ui/dropdown-menu', async () => {
+  const actual = await vi.importActual<
+    typeof import('@/components/ui/dropdown-menu')
+  >('@/components/ui/dropdown-menu');
+  return {
+    ...actual,
+    useDropdownMenuContext: vi.fn(() => null)
+  };
+});
 
 function renderMenuItem(
   props: { appName?: string; version?: string; closeLabel?: string } = {}
@@ -129,5 +140,21 @@ describe('AboutMenuItem', () => {
     await user.click(screen.getByText('About'));
 
     expect(screen.getByTestId('about-version')).toHaveTextContent('Unknown');
+  });
+
+  it('closes parent dropdown when dialog is dismissed', async () => {
+    const close = vi.fn();
+    vi.mocked(dropdownMenuModule.useDropdownMenuContext).mockReturnValue({
+      close,
+      getContainerElement: () => null
+    });
+
+    const user = userEvent.setup();
+    renderMenuItem();
+
+    await user.click(screen.getByText('About'));
+    await user.click(screen.getByTestId('about-ok'));
+
+    expect(close).toHaveBeenCalledTimes(1);
   });
 });

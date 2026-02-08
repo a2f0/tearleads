@@ -1,4 +1,6 @@
+import { useState } from 'react';
 import type { ClassicNote } from '../lib/types';
+import { ClassicContextMenu } from './ClassicContextMenu';
 
 interface NotesPaneProps {
   activeTagName: string | null;
@@ -9,6 +11,15 @@ interface NotesPaneProps {
   onSearchChange: (value: string) => void;
 }
 
+interface NotesContextMenuState {
+  x: number;
+  y: number;
+  noteId: string;
+  noteTitle: string;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+}
+
 export function NotesPane({
   activeTagName,
   noteIds,
@@ -17,6 +28,12 @@ export function NotesPane({
   searchValue,
   onSearchChange
 }: NotesPaneProps) {
+  const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
+    null
+  );
+
+  const closeContextMenu = () => setContextMenu(null);
+
   const visibleNotes = noteIds
     .map((noteId) => notesById[noteId])
     .filter((note): note is ClassicNote => Boolean(note));
@@ -24,10 +41,6 @@ export function NotesPane({
   return (
     <section className="flex flex-1 flex-col" aria-label="Notes Pane">
       <div className="flex-1 overflow-auto p-4">
-        <h2 className="mb-3 font-semibold text-lg">
-          {activeTagName ? `Notes in ${activeTagName}` : 'Notes'}
-        </h2>
-
         {!activeTagName ? (
           <p className="text-sm text-zinc-500">Select a tag to view notes.</p>
         ) : noteIds.length === 0 ? (
@@ -35,29 +48,23 @@ export function NotesPane({
         ) : (
           <ol className="space-y-2" aria-label="Note List">
             {visibleNotes.map((note, index) => (
-              <li key={note.id} className="rounded border p-3">
+              <li
+                key={note.id}
+                className="rounded border p-3"
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  setContextMenu({
+                    x: event.clientX,
+                    y: event.clientY,
+                    noteId: note.id,
+                    noteTitle: note.title,
+                    canMoveUp: index > 0,
+                    canMoveDown: index < visibleNotes.length - 1
+                  });
+                }}
+              >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="font-medium text-sm">{note.title}</h3>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      className="rounded border px-2 py-1 text-xs"
-                      onClick={() => onMoveNote(note.id, 'up')}
-                      disabled={index === 0}
-                      aria-label={`Move note ${note.title} up`}
-                    >
-                      Up
-                    </button>
-                    <button
-                      type="button"
-                      className="rounded border px-2 py-1 text-xs"
-                      onClick={() => onMoveNote(note.id, 'down')}
-                      disabled={index === visibleNotes.length - 1}
-                      aria-label={`Move note ${note.title} down`}
-                    >
-                      Down
-                    </button>
-                  </div>
+                  <h3 className="text-sm">{note.title}</h3>
                 </div>
                 <p className="text-xs text-zinc-600">{note.body}</p>
               </li>
@@ -75,6 +82,28 @@ export function NotesPane({
           aria-label="Search entries"
         />
       </div>
+      {contextMenu && (
+        <ClassicContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          ariaLabel={`Note actions for ${contextMenu.noteTitle}`}
+          onClose={closeContextMenu}
+          actions={[
+            {
+              label: 'Move Up',
+              onClick: () => onMoveNote(contextMenu.noteId, 'up'),
+              disabled: !contextMenu.canMoveUp,
+              ariaLabel: `Move note ${contextMenu.noteTitle} up`
+            },
+            {
+              label: 'Move Down',
+              onClick: () => onMoveNote(contextMenu.noteId, 'down'),
+              disabled: !contextMenu.canMoveDown,
+              ariaLabel: `Move note ${contextMenu.noteTitle} down`
+            }
+          ]}
+        />
+      )}
     </section>
   );
 }

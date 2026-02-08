@@ -38,12 +38,17 @@ describe('TagSidebar', () => {
     fireEvent.click(screen.getByLabelText('Select tag Work'));
     expect(onSelectTag).toHaveBeenCalledWith('tag-1');
 
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
     fireEvent.click(screen.getByLabelText('Move tag Work down'));
     expect(onMoveTag).toHaveBeenCalledWith('tag-1', 'down');
+
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Personal'));
     fireEvent.click(screen.getByLabelText('Move tag Personal up'));
     expect(onMoveTag).toHaveBeenCalledWith('tag-2', 'up');
 
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
     expect(screen.getByLabelText('Move tag Work up')).toBeDisabled();
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Personal'));
     expect(screen.getByLabelText('Move tag Personal down')).toBeDisabled();
   });
 
