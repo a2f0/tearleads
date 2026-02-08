@@ -12,6 +12,7 @@ type FooterProps = {
   rightAction?: ReactNode;
   version?: string;
   className?: string;
+  copyrightText?: string;
 };
 
 const mockUseSSEContext = vi.fn();
