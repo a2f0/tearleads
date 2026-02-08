@@ -9,6 +9,8 @@ describe('TagSidebar', () => {
         activeTagId={null}
         onSelectTag={() => {}}
         onMoveTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
       />
     );
 
@@ -28,6 +30,8 @@ describe('TagSidebar', () => {
         activeTagId="tag-2"
         onSelectTag={onSelectTag}
         onMoveTag={onMoveTag}
+        searchValue=""
+        onSearchChange={() => {}}
       />
     );
 
@@ -41,5 +45,28 @@ describe('TagSidebar', () => {
 
     expect(screen.getByLabelText('Move tag Work up')).toBeDisabled();
     expect(screen.getByLabelText('Move tag Personal down')).toBeDisabled();
+  });
+
+  it('renders search input and calls onSearchChange', () => {
+    const onSearchChange = vi.fn();
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        searchValue="test"
+        onSearchChange={onSearchChange}
+      />
+    );
+
+    expect(screen.getByDisplayValue('test')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByPlaceholderText('Search tags...'), {
+      target: { value: 'work' }
+    });
+
+    expect(onSearchChange).toHaveBeenCalledWith('work');
   });
 });
