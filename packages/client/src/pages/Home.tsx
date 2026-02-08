@@ -19,7 +19,7 @@ import { DesktopBackground } from '@/components/ui/desktop-background';
 import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import { WINDOW_PATHS } from '@/constants/windowPaths';
 import {
-  useWindowManager,
+  useWindowManagerActions,
   type WindowType
 } from '@/contexts/WindowManagerContext';
 import { useSettings } from '@/db/SettingsProvider';
@@ -466,7 +466,7 @@ function getIconButtonMeasurements(
 export function Home() {
   const { t } = useTypedTranslation('menu');
   const navigate = useNavigate();
-  const { openWindow } = useWindowManager();
+  const { openWindow } = useWindowManagerActions();
   const { getSetting } = useSettings();
   const { activate: activateScreensaver } = useScreensaver();
 

@@ -113,7 +113,15 @@ interface WindowManagerContextValue {
   getWindow: (id: string) => WindowInstance | undefined;
 }
 
+type WindowManagerActions = Omit<
+  WindowManagerContextValue,
+  'windows' | 'windowOpenRequests' | 'isWindowOpen' | 'getWindow'
+>;
+
 const WindowManagerContext = createContext<WindowManagerContextValue | null>(
+  null
+);
+const WindowManagerActionsContext = createContext<WindowManagerActions | null>(
   null
 );
 
@@ -130,6 +138,8 @@ export function WindowManagerProvider({
   const [windowOpenRequests, setWindowOpenRequests] =
     useState<WindowOpenRequests>({});
   const requestCounterRef = useRef(0);
+  const windowsRef = useRef<WindowInstance[]>(windows);
+  windowsRef.current = windows;
 
   const getNextZIndex = useCallback((currentWindows: WindowInstance[]) => {
     if (currentWindows.length === 0) {
@@ -163,7 +173,7 @@ export function WindowManagerProvider({
       const id = customId ?? generateUniqueId(type);
       const existingWindow = customId
         ? undefined
-        : windows.find((window) => window.type === type);
+        : windowsRef.current.find((window) => window.type === type);
       let resolvedId = existingWindow?.id ?? id;
 
       // Load saved dimensions for this window type if preservation is enabled
@@ -206,7 +216,7 @@ export function WindowManagerProvider({
 
       return resolvedId;
     },
-    [getNextZIndex, windows]
+    [getNextZIndex]
   );
 
   const requestWindowOpen = useCallback(
@@ -316,10 +326,35 @@ export function WindowManagerProvider({
     ]
   );
 
+  const actionsValue = useMemo<WindowManagerActions>(
+    () => ({
+      openWindow,
+      requestWindowOpen,
+      closeWindow,
+      focusWindow,
+      minimizeWindow,
+      restoreWindow,
+      updateWindowDimensions,
+      saveWindowDimensionsForType
+    }),
+    [
+      openWindow,
+      requestWindowOpen,
+      closeWindow,
+      focusWindow,
+      minimizeWindow,
+      restoreWindow,
+      updateWindowDimensions,
+      saveWindowDimensionsForType
+    ]
+  );
+
   return (
-    <WindowManagerContext.Provider value={value}>
-      {children}
-    </WindowManagerContext.Provider>
+    <WindowManagerActionsContext.Provider value={actionsValue}>
+      <WindowManagerContext.Provider value={value}>
+        {children}
+      </WindowManagerContext.Provider>
+    </WindowManagerActionsContext.Provider>
   );
 }
 
@@ -328,6 +363,16 @@ export function useWindowManager(): WindowManagerContextValue {
   if (!context) {
     throw new Error(
       'useWindowManager must be used within a WindowManagerProvider'
+    );
+  }
+  return context;
+}
+
+export function useWindowManagerActions(): WindowManagerActions {
+  const context = useContext(WindowManagerActionsContext);
+  if (!context) {
+    throw new Error(
+      'useWindowManagerActions must be used within a WindowManagerProvider'
     );
   }
   return context;
