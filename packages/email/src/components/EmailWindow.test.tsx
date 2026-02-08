@@ -428,7 +428,9 @@ describe('EmailWindow', () => {
     await renderLoadedWindow();
 
     await user.click(screen.getByTestId('compose'));
-    expect(screen.getByRole('tab', { name: 'New Message' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: 'New Message' })
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('email-tab-compose-close'));
 

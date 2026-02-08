@@ -1,5 +1,5 @@
-import { Save, Send, X } from 'lucide-react';
 import { clsx } from 'clsx';
+import { Save, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useCompose } from '../../hooks';
 import { validateEmailAddresses } from '../../types';
