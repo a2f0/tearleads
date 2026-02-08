@@ -58,6 +58,11 @@ export default defineConfig({
           __dirname,
           '../api/dist/openapi.json'
         ),
+        '@rapid/classic/package.json': path.resolve(
+          __dirname,
+          '../classic/package.json'
+        ),
+        '@rapid/classic': path.resolve(__dirname, '../classic/src/index.ts'),
         '@rapid/email/package.json': path.resolve(__dirname, '../email/package.json'),
         '@rapid/notes/package.json': path.resolve(__dirname, '../notes/package.json'),
         '@rapid/mls-chat/package.json': path.resolve(
