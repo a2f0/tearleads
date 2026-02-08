@@ -128,45 +128,44 @@ export function EmailWindow({
                 Inbox
               </button>
               {isComposeTabOpen && (
-                <div
-                  className="flex items-center rounded-t-md data-[active=true]:bg-background"
+                <button
+                  type="button"
+                  role="tab"
+                  aria-selected={activeTab === 'compose'}
+                  onClick={() => setActiveTab('compose')}
+                  className="group flex items-center gap-2 rounded-t-md py-2 pl-3 pr-2 text-sm hover:bg-muted/50 data-[active=true]:bg-background data-[active=true]:font-medium"
                   data-active={activeTab === 'compose'}
+                  data-testid="email-tab-compose"
                 >
-                  <button
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === 'compose'}
-                    onClick={() => setActiveTab('compose')}
-                    className="px-3 py-2 text-sm hover:bg-muted/50 data-[active=true]:font-medium"
-                    data-active={activeTab === 'compose'}
-                    data-testid="email-tab-compose"
-                  >
-                    New Message
-                  </button>
-                  <button
-                    type="button"
+                  New Message
+                  <span
+                    role="button"
                     aria-label="Close New Message tab"
-                    onClick={closeComposeTab}
-                    className="mr-1 rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      closeComposeTab();
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        closeComposeTab();
+                      }
+                    }}
+                    className="flex items-center justify-center rounded p-1 text-muted-foreground hover:bg-muted/80 hover:text-foreground"
                     data-testid="email-tab-compose-close"
                   >
                     <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
+                  </span>
+                </button>
               )}
             </div>
             <div className="flex-1 overflow-hidden">
               {activeTab === 'compose' ? (
                 <ComposeDialog
                   open
-                  onOpenChange={(open) => {
-                    if (open) {
-                      setIsComposeTabOpen(true);
-                      setActiveTab('compose');
-                      return;
-                    }
-                    closeComposeTab();
-                  }}
+                  onOpenChange={closeComposeTab}
                   onEmailSent={handleEmailSent}
                 />
               ) : loading ? (
