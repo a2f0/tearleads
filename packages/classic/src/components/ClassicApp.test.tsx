@@ -90,7 +90,7 @@ describe('ClassicApp', () => {
     expect(screen.getByText('Select a tag to view notes.')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Select tag Work'));
-    expect(screen.getByText('Notes in Work')).toBeInTheDocument();
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
   });
 
   it('filters tags based on tag search input', () => {

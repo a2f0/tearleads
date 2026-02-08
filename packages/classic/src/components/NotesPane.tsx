@@ -37,10 +37,6 @@ export function NotesPane({
   return (
     <section className="flex flex-1 flex-col" aria-label="Notes Pane">
       <div className="flex-1 overflow-auto p-4">
-        <h2 className="mb-3 font-semibold text-lg">
-          {activeTagName ? `Notes in ${activeTagName}` : 'Notes'}
-        </h2>
-
         {!activeTagName ? (
           <p className="text-sm text-zinc-500">Select a tag to view notes.</p>
         ) : noteIds.length === 0 ? (

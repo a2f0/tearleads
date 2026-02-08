@@ -33,7 +33,6 @@ export function TagSidebar({
   return (
     <aside className="flex w-72 flex-col border-r" aria-label="Tags Sidebar">
       <div className="flex-1 overflow-auto p-3">
-        <h2 className="mb-3 font-semibold text-lg">Tags</h2>
         {tags.length === 0 ? (
           <p className="text-sm text-zinc-500">No tags found.</p>
         ) : (
