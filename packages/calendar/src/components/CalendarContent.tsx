@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
-import { CalendarPlus, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CalendarPlus } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CALENDAR_CREATE_EVENT } from '../events';
 
 const defaultCalendars = ['Personal'];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
@@ -27,26 +28,46 @@ export interface CalendarContentProps {
 }
 
 export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
-  const [calendarName, setCalendarName] = useState('');
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
   const [activeCalendar, setActiveCalendar] = useState(defaultCalendars[0]);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
-  const selectedDate = useMemo(() => new Date(), []);
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
 
   const normalizedNames = useMemo(
     () => new Set(calendars.map((name) => name.toLowerCase())),
     [calendars]
   );
 
-  const handleCreateCalendar = () => {
-    const trimmedName = calendarName.trim();
-    if (!trimmedName) return;
-    if (normalizedNames.has(trimmedName.toLowerCase())) return;
+  const createCalendar = useCallback(
+    (name: string) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) return;
+      if (normalizedNames.has(trimmedName.toLowerCase())) return;
 
-    setCalendars((prev) => [...prev, trimmedName]);
-    setActiveCalendar(trimmedName);
-    setCalendarName('');
-  };
+      setCalendars((prev) => [...prev, trimmedName]);
+      setActiveCalendar(trimmedName);
+    },
+    [normalizedNames]
+  );
+
+  const handleCreateCalendarFromMenu = useCallback(() => {
+    const proposedName = window.prompt('New calendar');
+    if (!proposedName) return;
+    createCalendar(proposedName);
+  }, [createCalendar]);
+
+  useEffect(() => {
+    window.addEventListener(
+      CALENDAR_CREATE_EVENT,
+      handleCreateCalendarFromMenu
+    );
+    return () => {
+      window.removeEventListener(
+        CALENDAR_CREATE_EVENT,
+        handleCreateCalendarFromMenu
+      );
+    };
+  }, [handleCreateCalendarFromMenu]);
 
   const dayLabel = useMemo(
     () =>
@@ -217,13 +238,28 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
           </p>
         ))}
         {monthCells.map(({ date, inMonth }) => (
-          <div
+          <button
+            type="button"
             key={date.toISOString()}
+            onDoubleClick={() => {
+              setSelectedDate(date);
+              setViewMode('Day');
+            }}
+            aria-label={`Open day view for ${date.toLocaleDateString(
+              calendarLocale,
+              {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+              }
+            )}`}
             className={clsx(
               'h-12 rounded-md border px-1 py-1 text-right text-sm',
               inMonth
                 ? 'border-border bg-background'
-                : 'border-border/60 bg-muted/20 text-muted-foreground'
+                : 'border-border/60 bg-muted/20 text-muted-foreground',
+              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
             )}
           >
             <span
@@ -231,7 +267,7 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
             >
               {date.getDate()}
             </span>
-          </div>
+          </button>
         ))}
       </div>
     </div>
@@ -243,9 +279,19 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
         {currentYear}
       </p>
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {yearData.map(({ monthName, cells }) => (
+        {yearData.map(({ monthName, cells }, monthIndex) => (
           <div key={monthName} className="rounded-md border bg-background p-2">
-            <p className="mb-1 font-medium text-sm">{monthName}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDate(new Date(currentYear, monthIndex, 1));
+                setViewMode('Month');
+              }}
+              aria-label={`Open month view for ${monthName} ${currentYear}`}
+              className="mb-1 font-medium text-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              {monthName}
+            </button>
             <div className="grid grid-cols-7 gap-1">
               {weekDayHeaders.map((day) => (
                 <span
@@ -255,17 +301,44 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
                   {day[0]}
                 </span>
               ))}
-              {cells.map((cell) => (
-                <span
-                  key={`${monthName}-${cell.key}`}
-                  className={clsx(
-                    'text-center text-[10px]',
-                    cell.inMonth ? 'text-foreground' : 'text-muted-foreground'
-                  )}
-                >
-                  {cell.day || ''}
-                </span>
-              ))}
+              {cells.map((cell) => {
+                if (!cell.inMonth || cell.day === 0) {
+                  return (
+                    <span
+                      key={`${monthName}-${cell.key}`}
+                      className="text-center text-[10px] text-muted-foreground"
+                    >
+                      {cell.day || ''}
+                    </span>
+                  );
+                }
+
+                const monthDate = new Date(currentYear, monthIndex, cell.day);
+                return (
+                  <button
+                    type="button"
+                    key={`${monthName}-${cell.key}`}
+                    onClick={() => {
+                      setSelectedDate(monthDate);
+                      setViewMode('Day');
+                    }}
+                    aria-label={`Open day view for ${monthDate.toLocaleDateString(
+                      calendarLocale,
+                      {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      }
+                    )}`}
+                    className={clsx(
+                      'rounded text-center text-[10px] text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                    )}
+                  >
+                    {cell.day}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
@@ -316,36 +389,6 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
                 </button>
               );
             })}
-          </div>
-
-          <div className="mt-3 border-t pt-3">
-            <label htmlFor="new-calendar" className="sr-only">
-              New calendar
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                id="new-calendar"
-                type="text"
-                value={calendarName}
-                onChange={(event) => setCalendarName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    handleCreateCalendar();
-                  }
-                }}
-                placeholder="New calendar"
-                className="h-9 w-full rounded-md border bg-background px-2 text-base"
-              />
-              <button
-                type="button"
-                onClick={handleCreateCalendar}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border hover:bg-accent"
-                aria-label="Create calendar"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
           </div>
         </aside>
 
