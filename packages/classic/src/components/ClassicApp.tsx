@@ -3,8 +3,8 @@ import {
   getActiveTagNoteIds,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
-  reorderTagToTarget,
   reorderTags,
+  reorderTagToTarget,
   selectTag
 } from '../lib/ordering';
 import type { ClassicState } from '../lib/types';

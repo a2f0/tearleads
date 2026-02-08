@@ -90,7 +90,7 @@ describe('TagSidebar', () => {
 
     expect(screen.getByDisplayValue('test')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Search tags...'), {
+    fireEvent.change(screen.getByLabelText('Search tags'), {
       target: { value: 'work' }
     });
 

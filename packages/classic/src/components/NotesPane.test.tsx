@@ -121,7 +121,7 @@ describe('NotesPane', () => {
 
     expect(screen.getByDisplayValue('alpha')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+    fireEvent.change(screen.getByLabelText('Search entries'), {
       target: { value: 'beta' }
     });
 

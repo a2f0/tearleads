@@ -119,8 +119,8 @@ export function NotesPane({
                       <span
                         className={
                           draggedNoteId === note.id
-                            ? 'cursor-grabbing select-none text-center text-zinc-500 text-xs'
-                            : 'cursor-grab select-none text-center text-zinc-400 text-xs'
+                            ? 'cursor-grabbing select-none text-center text-xs text-zinc-500'
+                            : 'cursor-grab select-none text-center text-xs text-zinc-400'
                         }
                       >
                         ⋮⋮
@@ -142,7 +142,6 @@ export function NotesPane({
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search entries..."
           className="w-64 rounded border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
           aria-label="Search entries"
         />

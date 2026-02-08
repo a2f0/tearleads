@@ -110,8 +110,8 @@ export function TagSidebar({
                       onMouseUp={() => setDragArmedTagId(null)}
                       className={
                         draggedTagId === tag.id
-                          ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-zinc-500 text-xs'
-                          : 'w-4 shrink-0 cursor-grab select-none text-center text-zinc-400 text-xs'
+                          ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-xs text-zinc-500'
+                          : 'w-4 shrink-0 cursor-grab select-none text-center text-xs text-zinc-400'
                       }
                       title="Drag tag"
                     >
@@ -146,7 +146,6 @@ export function TagSidebar({
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search tags..."
           className="w-full rounded border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
           aria-label="Search tags"
         />

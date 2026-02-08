@@ -3,8 +3,8 @@ import {
   moveItem,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
-  reorderTagToTarget,
   reorderTags,
+  reorderTagToTarget,
   selectTag
 } from './ordering';
 import type { ClassicState } from './types';
@@ -126,9 +126,9 @@ describe('ordering', () => {
       expect(
         reorderNoteInTagToTarget(state, 'tag-1', 'note-1', 'missing')
       ).toBe(state);
-      expect(
-        reorderNoteInTagToTarget(state, 'tag-1', 'note-1', 'note-1')
-      ).toBe(state);
+      expect(reorderNoteInTagToTarget(state, 'tag-1', 'note-1', 'note-1')).toBe(
+        state
+      );
     });
   });
 

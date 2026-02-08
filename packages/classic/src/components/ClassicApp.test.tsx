@@ -99,7 +99,9 @@ describe('ClassicApp', () => {
     const firstTagHandle = screen.getAllByTitle('Drag tag')[0];
     fireEvent.mouseDown(firstTagHandle);
     fireEvent.dragStart(firstTagHandle, { dataTransfer });
-    const personalTag = screen.getByLabelText('Select tag Personal').closest('li');
+    const personalTag = screen
+      .getByLabelText('Select tag Personal')
+      .closest('li');
     if (!personalTag) {
       throw new Error('Expected personal tag list item');
     }
@@ -135,7 +137,7 @@ describe('ClassicApp', () => {
     expect(screen.getByLabelText('Select tag Work')).toBeInTheDocument();
     expect(screen.getByLabelText('Select tag Personal')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Search tags...'), {
+    fireEvent.change(screen.getByLabelText('Search tags'), {
       target: { value: 'work' }
     });
 
@@ -151,7 +153,7 @@ describe('ClassicApp', () => {
     expect(screen.getByText('Alpha')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+    fireEvent.change(screen.getByLabelText('Search entries'), {
       target: { value: 'alpha' }
     });
 
@@ -168,7 +170,7 @@ describe('ClassicApp', () => {
 
     render(<ClassicApp initialState={stateWithBody} />);
 
-    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+    fireEvent.change(screen.getByLabelText('Search entries'), {
       target: { value: 'xyz' }
     });
 
@@ -179,7 +181,7 @@ describe('ClassicApp', () => {
   it('shows all items when search is cleared', () => {
     render(<ClassicApp initialState={createState()} />);
 
-    const tagInput = screen.getByPlaceholderText('Search tags...');
+    const tagInput = screen.getByLabelText('Search tags');
     fireEvent.change(tagInput, { target: { value: 'work' } });
     expect(
       screen.queryByLabelText('Select tag Personal')
@@ -192,7 +194,7 @@ describe('ClassicApp', () => {
   it('handles case-insensitive search', () => {
     render(<ClassicApp initialState={createState()} />);
 
-    fireEvent.change(screen.getByPlaceholderText('Search tags...'), {
+    fireEvent.change(screen.getByLabelText('Search tags'), {
       target: { value: 'WORK' }
     });
 
@@ -216,7 +218,7 @@ describe('ClassicApp', () => {
 
     render(<ClassicApp initialState={stateWithMissingNote} />);
 
-    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+    fireEvent.change(screen.getByLabelText('Search entries'), {
       target: { value: 'alpha' }
     });
 

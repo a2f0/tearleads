@@ -5,8 +5,8 @@ export {
   moveItem,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
-  reorderTagToTarget,
   reorderTags,
+  reorderTagToTarget,
   selectTag
 } from './lib/ordering';
 export type {
