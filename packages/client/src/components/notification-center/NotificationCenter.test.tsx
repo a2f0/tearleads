@@ -65,6 +65,29 @@ describe('NotificationCenter', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('closes from File > Close menu item', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<NotificationCenter isOpen={true} onClose={onClose} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Close' }));
+
+    expect(onClose).toHaveBeenCalled();
+  });
+
+  it('opens about dialog from Help > About', async () => {
+    const user = userEvent.setup();
+    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+    await user.click(screen.getByRole('menuitem', { name: 'About' }));
+
+    expect(
+      screen.getByRole('dialog', { name: 'About Notification Center' })
+    ).toBeInTheDocument();
+  });
+
   it('renders backdrop when open', () => {
     render(<NotificationCenter isOpen={true} onClose={() => {}} />);
     expect(

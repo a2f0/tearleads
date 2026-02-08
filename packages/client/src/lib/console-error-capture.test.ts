@@ -80,4 +80,33 @@ describe('installConsoleErrorCapture', () => {
     uninstall();
     consoleSpy.mockRestore();
   });
+
+  it('logs warn/info/debug/log levels to the log store', () => {
+    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const debugSpy = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+    const uninstall = installConsoleErrorCapture();
+
+    console.warn('Warned');
+    console.info('Informed');
+    console.debug('Debugged');
+    console.log('Logged');
+
+    const entries = logStore.getRecentLogs(4);
+    expect(entries[0]?.level).toBe('info');
+    expect(entries[0]?.message).toBe('Logged');
+    expect(entries[1]?.level).toBe('debug');
+    expect(entries[1]?.message).toBe('Debugged');
+    expect(entries[2]?.level).toBe('info');
+    expect(entries[2]?.message).toBe('Informed');
+    expect(entries[3]?.level).toBe('warn');
+    expect(entries[3]?.message).toBe('Warned');
+
+    uninstall();
+    warnSpy.mockRestore();
+    infoSpy.mockRestore();
+    debugSpy.mockRestore();
+    logSpy.mockRestore();
+  });
 });

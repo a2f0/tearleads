@@ -1,6 +1,8 @@
 import { type Corner, useFloatingWindow } from '@rapid/window-manager';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { cn } from '@/lib/utils';
 import { AnalyticsTab } from './AnalyticsTab';
 import {
@@ -186,6 +188,16 @@ export function NotificationCenter({
           >
             <X className="h-3.5 w-3.5" />
           </button>
+        </div>
+
+        {/* Menu bar */}
+        <div className="flex shrink-0 border-b bg-muted/30 px-1">
+          <DropdownMenu trigger="File">
+            <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+          </DropdownMenu>
+          <DropdownMenu trigger="Help">
+            <AboutMenuItem appName="Notification Center" closeLabel="Close" />
+          </DropdownMenu>
         </div>
 
         {/* Tab navigation */}
