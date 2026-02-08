@@ -430,7 +430,7 @@ export class SearchStore {
    * Get current state snapshot.
    */
   getState(): SearchStoreState {
-    return { ...this.state };
+    return this.state;
   }
 
   private updateState(partial: Partial<SearchStoreState>): void {

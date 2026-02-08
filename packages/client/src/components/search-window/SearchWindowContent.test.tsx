@@ -62,7 +62,13 @@ describe('SearchWindowContent', () => {
       expect(
         screen.getByText('Enter a search term to find your data')
       ).toBeInTheDocument();
-      expect(screen.getByText('10 items indexed')).toBeInTheDocument();
+      expect(screen.getAllByText('10 items indexed')).toHaveLength(2);
+    });
+
+    it('shows indexed count in status bar when query is empty', () => {
+      renderContent();
+      const statusLine = screen.getAllByText('10 items indexed')[1];
+      expect(statusLine).toHaveClass('border-t');
     });
   });
 
@@ -167,6 +173,19 @@ describe('SearchWindowContent', () => {
 
       await waitFor(() => {
         expect(screen.getByText('1 result')).toBeInTheDocument();
+      });
+    });
+
+    it('shows search duration in status bar after searching', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({ hits: [], count: 0 });
+      renderContent();
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.type(input, 'timing');
+
+      await waitFor(() => {
+        expect(screen.getByText(/Search took \d+ ms/)).toBeInTheDocument();
       });
     });
   });
