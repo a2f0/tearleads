@@ -3,6 +3,7 @@
 @import "@rapid/ui/theme.css";
 
 @source "../../ui/src";
+@source "../../calendar/src";
 
 /* Edge-to-edge safe area handling */
 .safe-area-inset {
@@ -183,4 +184,3 @@
   background: var(--audio-slider-progress);
   box-shadow: inset 0 0 0 1px var(--background);
 }
-
