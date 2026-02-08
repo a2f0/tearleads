@@ -1,6 +1,7 @@
 import { clsx } from 'clsx';
-import { CalendarPlus, Plus } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { CalendarPlus } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { CALENDAR_CREATE_EVENT } from '../events';
 
 const defaultCalendars = ['Personal'];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
@@ -27,7 +28,6 @@ export interface CalendarContentProps {
 }
 
 export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
-  const [calendarName, setCalendarName] = useState('');
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
   const [activeCalendar, setActiveCalendar] = useState(defaultCalendars[0]);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
@@ -38,15 +38,36 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
     [calendars]
   );
 
-  const handleCreateCalendar = () => {
-    const trimmedName = calendarName.trim();
-    if (!trimmedName) return;
-    if (normalizedNames.has(trimmedName.toLowerCase())) return;
+  const createCalendar = useCallback(
+    (name: string) => {
+      const trimmedName = name.trim();
+      if (!trimmedName) return;
+      if (normalizedNames.has(trimmedName.toLowerCase())) return;
 
-    setCalendars((prev) => [...prev, trimmedName]);
-    setActiveCalendar(trimmedName);
-    setCalendarName('');
-  };
+      setCalendars((prev) => [...prev, trimmedName]);
+      setActiveCalendar(trimmedName);
+    },
+    [normalizedNames]
+  );
+
+  const handleCreateCalendarFromMenu = useCallback(() => {
+    const proposedName = window.prompt('New calendar');
+    if (!proposedName) return;
+    createCalendar(proposedName);
+  }, [createCalendar]);
+
+  useEffect(() => {
+    window.addEventListener(
+      CALENDAR_CREATE_EVENT,
+      handleCreateCalendarFromMenu
+    );
+    return () => {
+      window.removeEventListener(
+        CALENDAR_CREATE_EVENT,
+        handleCreateCalendarFromMenu
+      );
+    };
+  }, [handleCreateCalendarFromMenu]);
 
   const dayLabel = useMemo(
     () =>
@@ -224,12 +245,15 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
               setSelectedDate(date);
               setViewMode('Day');
             }}
-            aria-label={`Open day view for ${date.toLocaleDateString(calendarLocale, {
-              weekday: 'long',
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric'
-            })}`}
+            aria-label={`Open day view for ${date.toLocaleDateString(
+              calendarLocale,
+              {
+                weekday: 'long',
+                month: 'long',
+                day: 'numeric',
+                year: 'numeric'
+              }
+            )}`}
             className={clsx(
               'h-12 rounded-md border px-1 py-1 text-right text-sm',
               inMonth
@@ -328,36 +352,6 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
                 </button>
               );
             })}
-          </div>
-
-          <div className="mt-3 border-t pt-3">
-            <label htmlFor="new-calendar" className="sr-only">
-              New calendar
-            </label>
-            <div className="flex items-center gap-2">
-              <input
-                id="new-calendar"
-                type="text"
-                value={calendarName}
-                onChange={(event) => setCalendarName(event.target.value)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') {
-                    event.preventDefault();
-                    handleCreateCalendar();
-                  }
-                }}
-                placeholder="New calendar"
-                className="h-9 w-full rounded-md border bg-background px-2 text-base"
-              />
-              <button
-                type="button"
-                onClick={handleCreateCalendar}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md border hover:bg-accent"
-                aria-label="Create calendar"
-              >
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
           </div>
         </aside>
 

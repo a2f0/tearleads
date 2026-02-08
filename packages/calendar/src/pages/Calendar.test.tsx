@@ -1,20 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { CALENDAR_CREATE_EVENT } from '../events';
 import { Calendar } from './Calendar';
 
 describe('Calendar', () => {
-  it('creates and selects a new calendar from the sidebar', () => {
-    render(<Calendar />);
+  it('creates and selects a new calendar from the file menu event', () => {
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Work');
+    try {
+      render(<Calendar />);
 
-    const input = screen.getByLabelText('New calendar');
-    fireEvent.change(input, { target: { value: 'Work' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Create calendar' }));
+      fireEvent(window, new Event(CALENDAR_CREATE_EVENT));
 
-    expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Month' })).toHaveAttribute(
-      'aria-selected',
-      'true'
-    );
+      expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument();
+      expect(screen.getByRole('tab', { name: 'Month' })).toHaveAttribute(
+        'aria-selected',
+        'true'
+      );
+    } finally {
+      promptSpy.mockRestore();
+    }
   });
 
   it('switches between day, week, month, and year views', () => {
@@ -40,9 +44,13 @@ describe('Calendar', () => {
   it('routes to day view when a month day is double-clicked', () => {
     render(<Calendar />);
 
-    const monthDayButton = screen.getAllByRole('button', {
+    const monthDayButtons = screen.getAllByRole('button', {
       name: /Open day view for/
-    })[0];
+    });
+    const monthDayButton = monthDayButtons[0];
+    if (!monthDayButton) {
+      throw new Error('Expected at least one month day button');
+    }
 
     fireEvent.doubleClick(monthDayButton);
 
