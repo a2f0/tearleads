@@ -342,7 +342,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    Enable auto-merge:
 
    ```bash
-   gh pr merge --auto --squash
+   gh pr merge --auto --merge
    ```
 
    Then poll for merge completion (30 seconds with jitter). **Keep polling until merged**:

@@ -32,10 +32,13 @@ echo "Installing Ruby gems..."
 cd "$CLIENT_DIR"
 bundle install
 
-# Update CocoaPods
-echo "Updating CocoaPods..."
+# Clean install CocoaPods to ensure fresh native dependencies.
+# This prevents stale xcframework caches from causing build failures
+# when native libraries are updated in merged PRs.
+echo "Clean installing CocoaPods..."
 cd "$CLIENT_DIR/ios/App"
-bundle exec pod install
+rm -rf Pods Podfile.lock
+bundle exec pod install --repo-update
 
 # Return to repo root
 cd "$REPO_ROOT"

@@ -115,7 +115,7 @@ If conflicts are complex or you're unsure, abort and ask for help rather than ri
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
-- **Use squash merge**: When creating PRs or enabling automerge, always use squash merge to combine commits into a single commit on main. Use `gh pr merge --squash --auto` for automerge.
+- **Use merge commits**: When creating PRs or enabling automerge, use merge commits (not squash). Use `gh pr merge --merge --auto` for automerge.
 
 ## Token Efficiency (CRITICAL)
 

@@ -4,6 +4,7 @@
 # Optional environment toggles:
 #   SKIP_RUBY=1       Skip bundle update/install
 #   SKIP_CAP_SYNC=1   Skip pnpm cap:sync
+#   SKIP_POD_CLEAN=1  Skip clean pod install (removes Pods/ and Podfile.lock)
 #   SKIP_MAESTRO=1    Skip Maestro tests
 #   SKIP_TESTS=1      Skip pnpm test
 #   SKIP_BUILD=1      Skip pnpm build
@@ -107,6 +108,17 @@ fi
 
 if [ "${SKIP_CAP_SYNC:-0}" -ne 1 ]; then
   pnpm --filter @rapid/client cap:sync
+fi
+
+# Clean pod install to ensure fresh CocoaPods dependencies.
+# This prevents stale xcframework caches from causing build failures
+# when native libraries (like IONFilesystemLib) are updated.
+if [ "${SKIP_POD_CLEAN:-0}" -ne 1 ]; then
+  (
+    cd packages/client/ios/App
+    rm -rf Pods Podfile.lock
+    pod install --repo-update
+  )
 fi
 
 if [ "${SKIP_MAESTRO:-0}" -ne 1 ]; then

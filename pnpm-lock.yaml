@@ -284,8 +284,8 @@ importers:
         specifier: 8.0.2
         version: 8.0.2
       '@capacitor/filesystem':
-        specifier: 8.0.0
-        version: 8.0.0(@capacitor/core@8.0.2)
+        specifier: 8.1.0
+        version: 8.1.0(@capacitor/core@8.0.2)
       '@capacitor/keyboard':
         specifier: 8.0.0
         version: 8.0.0(@capacitor/core@8.0.2)
@@ -1934,8 +1934,8 @@ packages:
   '@capacitor/core@8.0.2':
     resolution: {integrity: sha512-EXZfxkL6GFJS2cb7TIBR7RiHA5iz6ufDcl1VmUpI2pga3lJ5Ck2+iqbx7N+osL3XYem9ad4XCidJEMm64DX6UQ==}
 
-  '@capacitor/filesystem@8.0.0':
-    resolution: {integrity: sha512-RRGNLW9xEqvVVHGyGlfS4Oy0R3Na+bEefwZElKbex22S9eZr5cg8wc750BPPVwbcv5lf5fJymkY8x8y6UwKPyg==}
+  '@capacitor/filesystem@8.1.0':
+    resolution: {integrity: sha512-AfawIxQ8xBmKsEn/vEpgurGQB9+hFXRtwEiCXR+SSS0MkTw4bJrvLGnloZ/PblegYefvnay1q079Yz3PQ6y1dA==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
 
@@ -10131,7 +10131,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@capacitor/filesystem@8.0.0(@capacitor/core@8.0.2)':
+  '@capacitor/filesystem@8.1.0(@capacitor/core@8.0.2)':
     dependencies:
       '@capacitor/core': 8.0.2
       '@capacitor/synapse': 1.0.4
