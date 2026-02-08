@@ -11,6 +11,15 @@ interface NotesPaneProps {
   onSearchChange: (value: string) => void;
 }
 
+interface NotesContextMenuState {
+  x: number;
+  y: number;
+  noteId: string;
+  noteTitle: string;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+}
+
 export function NotesPane({
   activeTagName,
   noteIds,
@@ -19,14 +28,9 @@ export function NotesPane({
   searchValue,
   onSearchChange
 }: NotesPaneProps) {
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    noteId: string;
-    noteTitle: string;
-    canMoveUp: boolean;
-    canMoveDown: boolean;
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
+    null
+  );
 
   const closeContextMenu = () => setContextMenu(null);
 

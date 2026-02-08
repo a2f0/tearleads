@@ -11,6 +11,15 @@ interface TagSidebarProps {
   onSearchChange: (value: string) => void;
 }
 
+interface TagContextMenuState {
+  x: number;
+  y: number;
+  tagId: string;
+  tagName: string;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
+}
+
 export function TagSidebar({
   tags,
   activeTagId,
@@ -19,14 +28,9 @@ export function TagSidebar({
   searchValue,
   onSearchChange
 }: TagSidebarProps) {
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    tagId: string;
-    tagName: string;
-    canMoveUp: boolean;
-    canMoveDown: boolean;
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<TagContextMenuState | null>(
+    null
+  );
 
   const closeContextMenu = () => setContextMenu(null);
 
