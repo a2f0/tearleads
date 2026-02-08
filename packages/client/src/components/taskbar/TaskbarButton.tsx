@@ -137,6 +137,7 @@ export function TaskbarButton({
   const handleContextMenu = useCallback(
     (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
+      event.stopPropagation();
       setContextMenu({ x: event.clientX, y: event.clientY });
     },
     []

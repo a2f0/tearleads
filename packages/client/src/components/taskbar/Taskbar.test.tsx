@@ -133,6 +133,27 @@ describe('Taskbar', () => {
     expect(screen.getByTestId('taskbar')).toHaveClass('custom-class');
   });
 
+  it('calls onContextMenu when right-clicking the taskbar', () => {
+    const onContextMenu = vi.fn();
+    render(<Taskbar onContextMenu={onContextMenu} />);
+
+    fireEvent.contextMenu(screen.getByTestId('taskbar'));
+
+    expect(onContextMenu).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not bubble taskbar button context menu to taskbar', () => {
+    const onContextMenu = vi.fn();
+    render(<Taskbar onContextMenu={onContextMenu} />);
+
+    const firstButton = screen.getAllByTestId(/taskbar-button/)[0];
+    if (firstButton) {
+      fireEvent.contextMenu(firstButton);
+    }
+
+    expect(onContextMenu).not.toHaveBeenCalled();
+  });
+
   it('maximizes a minimized window from the context menu', async () => {
     const user = userEvent.setup();
     const firstWindow = mockWindows[0];

@@ -16,6 +16,7 @@ type FooterProps = {
 
 const mockUseSSEContext = vi.fn();
 const mockUseAppVersion = vi.fn();
+const mockOpenWindow = vi.fn();
 
 vi.mock('@rapid/ui', () => ({
   ConnectionIndicator: ({ state }: { state: string }) => (
@@ -111,6 +112,12 @@ vi.mock('./db/hooks', () => ({
   })
 }));
 
+vi.mock('./contexts/WindowManagerContext', () => ({
+  useWindowManager: () => ({
+    openWindow: mockOpenWindow
+  })
+}));
+
 vi.mock('./hooks/useAppVersion', () => ({
   useAppVersion: () => mockUseAppVersion()
 }));
@@ -134,6 +141,7 @@ function renderApp() {
 describe('App', () => {
   beforeEach(() => {
     mockUseAppVersion.mockReturnValue('1.2.3');
+    mockOpenWindow.mockReset();
   });
 
   it('hides the connection indicator without SSE', () => {

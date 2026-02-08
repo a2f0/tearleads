@@ -228,6 +228,26 @@ describe('App Integration', () => {
       expect(mockActivateScreensaver).toHaveBeenCalledTimes(1);
     });
 
+    it('opens Search in a window from the start menu context menu on desktop', async () => {
+      const startButton = screen.getByTestId('start-button');
+      fireEvent.contextMenu(startButton);
+
+      const openSearchItem = await screen.findByText('Open Search');
+      await user.click(openSearchItem);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('taskbar-button-search')).toBeInTheDocument();
+      });
+    });
+
+    it('shows the start context menu when right-clicking the taskbar', async () => {
+      const taskbar = screen.getByTestId('taskbar');
+      fireEvent.contextMenu(taskbar);
+
+      expect(await screen.findByText('Open Search')).toBeInTheDocument();
+      expect(screen.getByText('Lock Instance')).toBeInTheDocument();
+    });
+
     describe('mobile menu navigation', () => {
       beforeEach(async () => {
         // Open mobile menu for all tests in this block

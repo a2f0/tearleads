@@ -6,9 +6,10 @@ import { TaskbarButton } from './TaskbarButton';
 
 interface TaskbarProps {
   className?: string;
+  onContextMenu?: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-export function Taskbar({ className }: TaskbarProps) {
+export function Taskbar({ className, onContextMenu }: TaskbarProps) {
   const {
     windows,
     focusWindow,
@@ -77,7 +78,12 @@ export function Taskbar({ className }: TaskbarProps) {
   const hasWindows = windows.length > 0;
 
   return (
-    <div className={cn('min-h-6', className)} data-testid="taskbar">
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on taskbar
+    <div
+      className={cn('min-h-6', className)}
+      data-testid="taskbar"
+      onContextMenu={onContextMenu}
+    >
       <div className="flex items-center gap-1">
         {hasWindows &&
           sortedWindows.map((window) => (
