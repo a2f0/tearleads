@@ -60,4 +60,45 @@ describe('Calendar', () => {
     );
     expect(screen.getByText('08:00')).toBeInTheDocument();
   });
+
+  it('routes to day view when a year day is clicked', () => {
+    render(<Calendar />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
+
+    const yearDayButtons = screen.getAllByRole('button', {
+      name: /Open day view for/
+    });
+    const yearDayButton = yearDayButtons[0];
+    if (!yearDayButton) {
+      throw new Error('Expected at least one year day button');
+    }
+
+    fireEvent.click(yearDayButton);
+
+    expect(screen.getByRole('tab', { name: 'Day' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByText('08:00')).toBeInTheDocument();
+  });
+
+  it('routes to month view when a year month is clicked', () => {
+    render(<Calendar />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
+    const year = new Date().getFullYear();
+
+    fireEvent.click(
+      screen.getByRole('button', {
+        name: `Open month view for January ${year}`
+      })
+    );
+
+    expect(screen.getByRole('tab', { name: 'Month' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByText(new RegExp(`January ${year}`))).toBeInTheDocument();
+  });
 });

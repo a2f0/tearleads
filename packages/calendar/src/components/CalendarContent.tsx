@@ -279,9 +279,19 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
         {currentYear}
       </p>
       <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {yearData.map(({ monthName, cells }) => (
+        {yearData.map(({ monthName, cells }, monthIndex) => (
           <div key={monthName} className="rounded-md border bg-background p-2">
-            <p className="mb-1 font-medium text-sm">{monthName}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedDate(new Date(currentYear, monthIndex, 1));
+                setViewMode('Month');
+              }}
+              aria-label={`Open month view for ${monthName} ${currentYear}`}
+              className="mb-1 font-medium text-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              {monthName}
+            </button>
             <div className="grid grid-cols-7 gap-1">
               {weekDayHeaders.map((day) => (
                 <span
@@ -291,17 +301,44 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
                   {day[0]}
                 </span>
               ))}
-              {cells.map((cell) => (
-                <span
-                  key={`${monthName}-${cell.key}`}
-                  className={clsx(
-                    'text-center text-[10px]',
-                    cell.inMonth ? 'text-foreground' : 'text-muted-foreground'
-                  )}
-                >
-                  {cell.day || ''}
-                </span>
-              ))}
+              {cells.map((cell) => {
+                if (!cell.inMonth || cell.day === 0) {
+                  return (
+                    <span
+                      key={`${monthName}-${cell.key}`}
+                      className="text-center text-[10px] text-muted-foreground"
+                    >
+                      {cell.day || ''}
+                    </span>
+                  );
+                }
+
+                const monthDate = new Date(currentYear, monthIndex, cell.day);
+                return (
+                  <button
+                    type="button"
+                    key={`${monthName}-${cell.key}`}
+                    onClick={() => {
+                      setSelectedDate(monthDate);
+                      setViewMode('Day');
+                    }}
+                    aria-label={`Open day view for ${monthDate.toLocaleDateString(
+                      calendarLocale,
+                      {
+                        weekday: 'long',
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric'
+                      }
+                    )}`}
+                    className={clsx(
+                      'rounded text-center text-[10px] text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+                    )}
+                  >
+                    {cell.day}
+                  </button>
+                );
+              })}
             </div>
           </div>
         ))}
