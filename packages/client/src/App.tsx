@@ -1,9 +1,9 @@
 import { ConnectionIndicator, Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
-import { Info, Lock } from 'lucide-react';
+import { Info, Lock, Search } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Outlet, useLocation } from 'react-router-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
 import { MobileMenu } from './components/MobileMenu';
@@ -34,6 +34,7 @@ function App() {
   const { t } = useTranslation('tooltips');
   const sse = useSSEContext();
   const location = useLocation();
+  const navigate = useNavigate();
   const pathname = location.pathname;
   const isHome = pathname === '/';
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -83,6 +84,17 @@ function App() {
     []
   );
 
+  const handleStartBarContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLDivElement>) => {
+      if (event.target !== event.currentTarget) {
+        return;
+      }
+      event.preventDefault();
+      setStartMenuContextMenu({ x: event.clientX, y: event.clientY });
+    },
+    []
+  );
+
   const handleCloseStartMenuContextMenu = useCallback(() => {
     setStartMenuContextMenu(null);
   }, []);
@@ -97,6 +109,11 @@ function App() {
       setStartMenuContextMenu(null);
     }
   }, [activateScreensaver, isUnlocked, lock]);
+
+  const handleOpenSearch = useCallback(() => {
+    navigate('/search');
+    setStartMenuContextMenu(null);
+  }, [navigate]);
 
   const handleSseContextMenu = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -157,7 +174,11 @@ function App() {
       <Footer
         version={undefined}
         leftAction={
-          <div className="flex items-center gap-2">
+          <section
+            className="flex items-center gap-2"
+            onContextMenu={handleStartBarContextMenu}
+            data-testid="start-bar"
+          >
             <div className="hidden items-center lg:flex lg:w-[calc(16rem-1cm)]">
               <button
                 type="button"
@@ -174,7 +195,7 @@ function App() {
               </button>
             </div>
             <Taskbar />
-          </div>
+          </section>
         }
         copyrightText=""
       />
@@ -184,6 +205,12 @@ function App() {
           y={startMenuContextMenu.y}
           onClose={handleCloseStartMenuContextMenu}
         >
+          <ContextMenuItem
+            icon={<Search className="h-4 w-4" />}
+            onClick={handleOpenSearch}
+          >
+            Open Search
+          </ContextMenuItem>
           <ContextMenuItem
             icon={<Lock className="h-4 w-4" />}
             onClick={handleLockInstance}

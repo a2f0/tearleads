@@ -197,6 +197,19 @@ describe('App', () => {
       const startButton = screen.getByTestId('start-button');
       fireEvent.contextMenu(startButton);
 
+      expect(screen.getByText('Open Search')).toBeInTheDocument();
+      expect(screen.getByText('Lock Instance')).toBeInTheDocument();
+    });
+
+    it('shows context menu on right-click of start bar', () => {
+      mockUseSSEContext.mockReturnValue(null);
+
+      renderApp();
+
+      const startBar = screen.getByTestId('start-bar');
+      fireEvent.contextMenu(startBar);
+
+      expect(screen.getByText('Open Search')).toBeInTheDocument();
       expect(screen.getByText('Lock Instance')).toBeInTheDocument();
     });
 
@@ -208,10 +221,12 @@ describe('App', () => {
       const startButton = screen.getByTestId('start-button');
       fireEvent.contextMenu(startButton);
 
+      expect(screen.getByText('Open Search')).toBeInTheDocument();
       expect(screen.getByText('Lock Instance')).toBeInTheDocument();
 
       fireEvent.keyDown(document, { key: 'Escape' });
 
+      expect(screen.queryByText('Open Search')).not.toBeInTheDocument();
       expect(screen.queryByText('Lock Instance')).not.toBeInTheDocument();
     });
   });
