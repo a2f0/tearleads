@@ -50,6 +50,12 @@ describe('SearchStore', () => {
     expect(stateBefore).toEqual(stateAfter);
   });
 
+  it('should return a stable state snapshot when unchanged', () => {
+    const stateBefore = store.getState();
+    const stateAfter = store.getState();
+    expect(stateAfter).toBe(stateBefore);
+  });
+
   describe('upsert', () => {
     it('should add a document and update count', async () => {
       const doc: SearchableDocument = {

@@ -66,6 +66,7 @@ export function SearchWindowContent() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
+  const [searchDurationMs, setSearchDurationMs] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
     undefined
@@ -87,10 +88,12 @@ export function SearchWindowContent() {
       if (!searchQuery.trim()) {
         setResults([]);
         setTotalCount(0);
+        setSearchDurationMs(null);
         return;
       }
 
       setIsSearching(true);
+      const startTime = performance.now();
       try {
         const response = await search(searchQuery);
         setResults(response.hits);
@@ -100,6 +103,11 @@ export function SearchWindowContent() {
         setResults([]);
         setTotalCount(0);
       } finally {
+        const elapsedMs = Math.max(
+          0,
+          Math.round(performance.now() - startTime)
+        );
+        setSearchDurationMs(elapsedMs);
         setIsSearching(false);
       }
     },
@@ -237,6 +245,20 @@ export function SearchWindowContent() {
             })}
           </div>
         )}
+      </div>
+
+      <div className="border-t px-3 py-1 text-muted-foreground text-xs">
+        {!isInitialized
+          ? 'Initializing search...'
+          : isIndexing
+            ? 'Building search index...'
+            : isSearching
+              ? 'Searching...'
+              : !query.trim()
+                ? `${documentCount} items indexed`
+                : searchDurationMs === null
+                  ? 'Ready'
+                  : `Search took ${searchDurationMs} ms`}
       </div>
     </div>
   );
