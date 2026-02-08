@@ -92,8 +92,12 @@ jobs:
       - name: Make workspace accessible to NGINX
         run: |
           # NGINX runs as www-data and needs execute permission on ALL parent directories
-          sudo chmod a+x /home/runner /home/runner/work /home/runner/work/rapid /home/runner/work/rapid/rapid
-          sudo chmod -R a+rX $GITHUB_WORKSPACE
+          current="$GITHUB_WORKSPACE"
+          while [ "$current" != "/" ]; do
+            sudo chmod a+x "$current"
+            current="$(dirname "$current")"
+          done
+          sudo chmod -R a+rX "$GITHUB_WORKSPACE"
 
       - name: Install and configure NGINX
         run: |

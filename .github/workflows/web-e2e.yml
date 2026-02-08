@@ -118,8 +118,12 @@ jobs:
         run: |
           # NGINX runs as www-data and needs execute permission on ALL parent directories
           # to traverse the path, plus read permission on files
-          sudo chmod a+x /home/runner /home/runner/work /home/runner/work/rapid /home/runner/work/rapid/rapid
-          sudo chmod -R a+rX $GITHUB_WORKSPACE
+          current="$GITHUB_WORKSPACE"
+          while [ "$current" != "/" ]; do
+            sudo chmod a+x "$current"
+            current="$(dirname "$current")"
+          done
+          sudo chmod -R a+rX "$GITHUB_WORKSPACE"
 
       - name: Cache Ansible collections
         uses: actions/cache@v4
