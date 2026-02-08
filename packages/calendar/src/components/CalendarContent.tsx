@@ -1,7 +1,6 @@
 import { clsx } from 'clsx';
-import { CalendarPlus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CALENDAR_CREATE_EVENT } from '../events';
+import { CALENDAR_CREATE_SUBMIT_EVENT } from '../events';
 
 const defaultCalendars = ['Personal'];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
@@ -23,11 +22,15 @@ const yearMonthNames = [
   'December'
 ];
 
-export interface CalendarContentProps {
-  title?: string;
+interface CalendarContentProps {
+  onSidebarContextMenuRequest?:
+    | ((position: { x: number; y: number }) => void)
+    | undefined;
 }
 
-export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
+export function CalendarContent({
+  onSidebarContextMenuRequest
+}: CalendarContentProps = {}) {
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
   const [activeCalendar, setActiveCalendar] = useState(defaultCalendars[0]);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
@@ -50,24 +53,25 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
     [normalizedNames]
   );
 
-  const handleCreateCalendarFromMenu = useCallback(() => {
-    const proposedName = window.prompt('New calendar');
-    if (!proposedName) return;
-    createCalendar(proposedName);
-  }, [createCalendar]);
-
   useEffect(() => {
+    const handleCreateCalendarSubmit = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const detail = event.detail as { name?: string } | undefined;
+      if (!detail?.name) return;
+      createCalendar(detail.name);
+    };
+
     window.addEventListener(
-      CALENDAR_CREATE_EVENT,
-      handleCreateCalendarFromMenu
+      CALENDAR_CREATE_SUBMIT_EVENT,
+      handleCreateCalendarSubmit
     );
     return () => {
       window.removeEventListener(
-        CALENDAR_CREATE_EVENT,
-        handleCreateCalendarFromMenu
+        CALENDAR_CREATE_SUBMIT_EVENT,
+        handleCreateCalendarSubmit
       );
     };
-  }, [handleCreateCalendarFromMenu]);
+  }, [createCalendar]);
 
   const dayLabel = useMemo(
     () =>
@@ -356,15 +360,33 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
       }) as const
     )[viewMode]();
 
+  const handlePeriodNavigation = useCallback(
+    (direction: -1 | 1) => {
+      setSelectedDate((previousDate) => {
+        const nextDate = new Date(previousDate);
+
+        if (viewMode === 'Day') {
+          nextDate.setDate(previousDate.getDate() + direction);
+          return nextDate;
+        }
+        if (viewMode === 'Week') {
+          nextDate.setDate(previousDate.getDate() + direction * 7);
+          return nextDate;
+        }
+        if (viewMode === 'Month') {
+          nextDate.setMonth(previousDate.getMonth() + direction);
+          return nextDate;
+        }
+
+        nextDate.setFullYear(previousDate.getFullYear() + direction);
+        return nextDate;
+      });
+    },
+    [viewMode]
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="border-b px-4 py-3">
-        <div className="flex items-center gap-2">
-          <CalendarPlus className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-sm">{title}</h2>
-        </div>
-      </div>
-
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <aside className="flex w-64 shrink-0 flex-col border-r bg-muted/20 p-3">
           <p className="mb-2 font-medium text-muted-foreground text-xs uppercase tracking-wide">
@@ -390,33 +412,66 @@ export function CalendarContent({ title = 'Calendar' }: CalendarContentProps) {
               );
             })}
           </div>
+          <button
+            type="button"
+            className="mt-2 flex-1"
+            data-testid="calendar-sidebar-empty-space"
+            onContextMenu={(event) => {
+              event.preventDefault();
+              onSidebarContextMenuRequest?.({
+                x: event.clientX,
+                y: event.clientY
+              });
+            }}
+            aria-label="Calendar sidebar empty space"
+          />
         </aside>
 
         <section className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="font-medium text-base">{activeCalendar}</p>
-            <div
-              className="inline-flex items-center rounded-full border bg-muted/30 p-1"
-              role="tablist"
-              aria-label="Calendar view mode"
-            >
-              {viewModes.map((mode) => (
+            <div className="flex items-center gap-2">
+              <div
+                className="inline-flex items-center rounded-full border bg-muted/30 p-1"
+                role="tablist"
+                aria-label="Calendar view mode"
+              >
+                {viewModes.map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    role="tab"
+                    aria-selected={viewMode === mode}
+                    onClick={() => setViewMode(mode)}
+                    className={clsx(
+                      'rounded-full px-3 py-1 font-medium text-xs transition-colors',
+                      viewMode === mode
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    {mode}
+                  </button>
+                ))}
+              </div>
+              <div className="inline-flex items-center rounded-full border bg-muted/30 p-1">
                 <button
-                  key={mode}
                   type="button"
-                  role="tab"
-                  aria-selected={viewMode === mode}
-                  onClick={() => setViewMode(mode)}
-                  className={clsx(
-                    'rounded-full px-3 py-1 font-medium text-xs transition-colors',
-                    viewMode === mode
-                      ? 'bg-background text-foreground shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
+                  aria-label="Go to previous period"
+                  onClick={() => handlePeriodNavigation(-1)}
+                  className="rounded-full px-2 py-1 font-medium text-muted-foreground/60 text-xs transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  {mode}
+                  {'<'}
                 </button>
-              ))}
+                <button
+                  type="button"
+                  aria-label="Go to next period"
+                  onClick={() => handlePeriodNavigation(1)}
+                  className="rounded-full px-2 py-1 font-medium text-muted-foreground/60 text-xs transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  {'>'}
+                </button>
+              </div>
             </div>
           </div>
           <div className="min-h-0 flex-1">{renderActiveView()}</div>

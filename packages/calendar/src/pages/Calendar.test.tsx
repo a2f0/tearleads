@@ -1,24 +1,25 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { CALENDAR_CREATE_EVENT } from '../events';
+import { CalendarContent } from '../components/CalendarContent';
+import { CALENDAR_CREATE_SUBMIT_EVENT } from '../events';
 import { Calendar } from './Calendar';
 
 describe('Calendar', () => {
-  it('creates and selects a new calendar from the file menu event', () => {
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Work');
-    try {
-      render(<Calendar />);
+  it('creates and selects a new calendar from create submit event', () => {
+    render(<Calendar />);
 
-      fireEvent(window, new Event(CALENDAR_CREATE_EVENT));
+    fireEvent(
+      window,
+      new CustomEvent(CALENDAR_CREATE_SUBMIT_EVENT, {
+        detail: { name: 'Work' }
+      })
+    );
 
-      expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument();
-      expect(screen.getByRole('tab', { name: 'Month' })).toHaveAttribute(
-        'aria-selected',
-        'true'
-      );
-    } finally {
-      promptSpy.mockRestore();
-    }
+    expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Month' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
   });
 
   it('switches between day, week, month, and year views', () => {
@@ -100,5 +101,70 @@ describe('Calendar', () => {
       'true'
     );
     expect(screen.getByText(new RegExp(`January ${year}`))).toBeInTheDocument();
+  });
+
+  it('emits sidebar blank-space context menu coordinates', () => {
+    const onSidebarContextMenuRequest = vi.fn();
+    render(
+      <CalendarContent
+        onSidebarContextMenuRequest={onSidebarContextMenuRequest}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByTestId('calendar-sidebar-empty-space'), {
+      clientX: 120,
+      clientY: 140
+    });
+
+    expect(onSidebarContextMenuRequest).toHaveBeenCalledTimes(1);
+    expect(onSidebarContextMenuRequest).toHaveBeenCalledWith({
+      x: 120,
+      y: 140
+    });
+  });
+
+  it('navigates month view with previous and next controls', () => {
+    render(<Calendar />);
+
+    const currentDate = new Date();
+    const currentMonthLabel = currentDate.toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric'
+    });
+    const nextMonthDate = new Date(currentDate);
+    nextMonthDate.setMonth(currentDate.getMonth() + 1);
+    const nextMonthLabel = nextMonthDate.toLocaleDateString('en-US', {
+      month: 'long',
+      year: 'numeric'
+    });
+
+    expect(screen.getByText(currentMonthLabel)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next period' }));
+
+    expect(screen.getByText(nextMonthLabel)).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Go to previous period' })
+    );
+
+    expect(screen.getByText(currentMonthLabel)).toBeInTheDocument();
+  });
+
+  it('navigates year view with previous and next controls', () => {
+    render(<Calendar />);
+
+    const currentYear = new Date().getFullYear();
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
+    expect(screen.getByText(String(currentYear))).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Go to next period' }));
+    expect(screen.getByText(String(currentYear + 1))).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole('button', { name: 'Go to previous period' })
+    );
+    expect(screen.getByText(String(currentYear))).toBeInTheDocument();
   });
 });
