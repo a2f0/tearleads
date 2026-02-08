@@ -16,20 +16,32 @@ export default defineConfig({
   vite: {
     plugins: [tailwindcss()],
     resolve: {
-      alias: {
-        '@rapid/ui/logo.svg': path.resolve(
-          import.meta.dirname,
-          '../ui/src/images/logo.svg'
-        ),
-        '@rapid/api/dist/openapi.json': path.resolve(
-          import.meta.dirname,
-          '../api/dist/openapi.json'
-        ),
-        '@rapid/shared/licenses.json': path.resolve(
-          import.meta.dirname,
-          '../shared/dist/licenses.json'
-        ),
-      },
+      alias: [
+        {
+          find: '@rapid/ui/styles.css',
+          replacement: path.resolve(import.meta.dirname, '../ui/src/styles/index.css'),
+        },
+        {
+          find: '@rapid/ui/theme.css',
+          replacement: path.resolve(import.meta.dirname, '../ui/src/styles/theme.css'),
+        },
+        {
+          find: /^@rapid\/ui\/logo\.svg(\?.*)?$/,
+          replacement: path.resolve(import.meta.dirname, '../ui/src/images/logo.svg'),
+        },
+        {
+          find: /^@rapid\/ui$/,
+          replacement: path.resolve(import.meta.dirname, '../ui/src/index.ts'),
+        },
+        {
+          find: '@rapid/api/dist/openapi.json',
+          replacement: path.resolve(import.meta.dirname, '../api/dist/openapi.json'),
+        },
+        {
+          find: '@rapid/shared/licenses.json',
+          replacement: path.resolve(import.meta.dirname, '../shared/dist/licenses.json'),
+        },
+      ],
     },
     server: {
       strictPort: true,

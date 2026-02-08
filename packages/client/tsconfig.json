@@ -18,6 +18,7 @@
       "@rapid/classic/package.json": ["../classic/package.json"],
       "@rapid/classic": ["../classic/src/index.ts"],
       "@rapid/contacts/package.json": ["../contacts/package.json"],
+      "@rapid/contacts": ["../contacts/src/index.ts"],
       "@rapid/email/package.json": ["../email/package.json"],
       "@rapid/email": ["../email/src/index.ts"],
       "@rapid/notes/package.json": ["../notes/package.json"],
