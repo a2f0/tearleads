@@ -103,7 +103,10 @@ export function SearchWindowContent() {
         setResults([]);
         setTotalCount(0);
       } finally {
-        const elapsedMs = Math.max(0, Math.round(performance.now() - startTime));
+        const elapsedMs = Math.max(
+          0,
+          Math.round(performance.now() - startTime)
+        );
         setSearchDurationMs(elapsedMs);
         setIsSearching(false);
       }
