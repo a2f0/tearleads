@@ -68,6 +68,7 @@ export function SearchWindowContent() {
   const [results, setResults] = useState<SearchResult[]>([]);
   const [totalCount, setTotalCount] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
+  const [hasSearched, setHasSearched] = useState(false);
   const [searchDurationMs, setSearchDurationMs] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
@@ -104,17 +105,12 @@ export function SearchWindowContent() {
   // Debounced search
   const performSearch = useCallback(
     async (searchQuery: string) => {
-      if (!searchQuery.trim()) {
-        setResults([]);
-        setTotalCount(0);
-        setSearchDurationMs(null);
-        return;
-      }
+      const normalizedQuery = searchQuery.trim();
 
       setIsSearching(true);
       const startTime = performance.now();
       try {
-        const response = await search(searchQuery);
+        const response = await search(normalizedQuery);
         setResults(response.hits);
         setTotalCount(response.count);
       } catch (err) {
@@ -127,6 +123,7 @@ export function SearchWindowContent() {
           Math.round(performance.now() - startTime)
         );
         setSearchDurationMs(elapsedMs);
+        setHasSearched(true);
         setIsSearching(false);
       }
     },
@@ -219,21 +216,24 @@ export function SearchWindowContent() {
               Add some contacts, notes, or emails to get started
             </p>
           </div>
-        ) : !query.trim() ? (
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
-            <Search className="h-12 w-12" />
-            <p>Enter a search term to find your data</p>
-            <p className="text-sm">{documentCount} items indexed</p>
-          </div>
         ) : isSearching ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
             Searching...
           </div>
+        ) : !hasSearched ? (
+          <div className="flex h-full items-center justify-center text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Loading items...
+          </div>
         ) : results.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <Search className="h-12 w-12" />
-            <p>No results found for "{query}"</p>
+            <p>
+              {query.trim()
+                ? `No results found for "${query}"`
+                : 'No results found'}
+            </p>
           </div>
         ) : (
           <div className="divide-y">
@@ -282,11 +282,9 @@ export function SearchWindowContent() {
             ? 'Building search index...'
             : isSearching
               ? 'Searching...'
-              : !query.trim()
-                ? `${documentCount} items indexed`
-                : searchDurationMs === null
-                  ? 'Ready'
-                  : `Search took ${searchDurationMs} ms`}
+              : searchDurationMs === null
+                ? 'Ready'
+                : `Search took ${searchDurationMs} ms`}
       </div>
     </div>
   );
