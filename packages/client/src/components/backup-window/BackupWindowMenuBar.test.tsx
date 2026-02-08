@@ -31,6 +31,8 @@ describe('BackupWindowMenuBar', () => {
 
     await user.click(screen.getByText('View'));
 
-    expect(screen.getByRole('menuitem', { name: 'Options' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Options' })
+    ).toBeInTheDocument();
   });
 });
