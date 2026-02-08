@@ -1,5 +1,5 @@
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
-import { Loader2, Mail } from 'lucide-react';
+import { Loader2, Mail, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';
 import { useEmails } from '../hooks';
@@ -31,6 +31,8 @@ export function EmailWindow({
   zIndex,
   initialDimensions
 }: EmailWindowProps) {
+  type MainTab = 'inbox' | 'compose';
+
   const hasFolderOperations = useHasEmailFolderOperations();
   const { emails, loading, error, fetchEmails } = useEmails();
   const [viewMode, setViewMode] = useState<ViewMode>('list');
@@ -40,19 +42,27 @@ export function EmailWindow({
     ALL_MAIL_ID
   );
   const [folderRefreshToken, setFolderRefreshToken] = useState(0);
-  const [isComposeOpen, setIsComposeOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<MainTab>('inbox');
+  const [isComposeTabOpen, setIsComposeTabOpen] = useState(false);
 
   const handleFolderChanged = useCallback(() => {
     setFolderRefreshToken((t) => t + 1);
   }, []);
 
+  const closeComposeTab = useCallback(() => {
+    setIsComposeTabOpen(false);
+    setActiveTab('inbox');
+  }, []);
+
   const handleCompose = useCallback(() => {
-    setIsComposeOpen(true);
+    setIsComposeTabOpen(true);
+    setActiveTab('compose');
   }, []);
 
   const handleEmailSent = useCallback(() => {
     fetchEmails();
-  }, [fetchEmails]);
+    closeComposeTab();
+  }, [fetchEmails, closeComposeTab]);
 
   useEffect(() => {
     fetchEmails();
@@ -63,7 +73,13 @@ export function EmailWindow({
   return (
     <FloatingWindow
       id={id}
-      title={selectedEmail ? 'Email' : 'Inbox'}
+      title={
+        selectedEmail
+          ? 'Email'
+          : activeTab === 'compose'
+            ? 'New Message'
+            : 'Inbox'
+      }
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}
@@ -94,9 +110,66 @@ export function EmailWindow({
               onFolderChanged={handleFolderChanged}
             />
           )}
-          <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 flex-col overflow-hidden">
+            <div
+              role="tablist"
+              aria-label="Email panel tabs"
+              className="flex shrink-0 border-b bg-muted/20 px-2"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'inbox'}
+                onClick={() => setActiveTab('inbox')}
+                className="rounded-t-md px-3 py-2 text-sm hover:bg-muted/50 data-[active=true]:bg-background data-[active=true]:font-medium"
+                data-active={activeTab === 'inbox'}
+                data-testid="email-tab-inbox"
+              >
+                Inbox
+              </button>
+              {isComposeTabOpen && (
+                <div
+                  className="flex items-center rounded-t-md data-[active=true]:bg-background"
+                  data-active={activeTab === 'compose'}
+                >
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === 'compose'}
+                    onClick={() => setActiveTab('compose')}
+                    className="px-3 py-2 text-sm hover:bg-muted/50 data-[active=true]:font-medium"
+                    data-active={activeTab === 'compose'}
+                    data-testid="email-tab-compose"
+                  >
+                    New Message
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Close New Message tab"
+                    onClick={closeComposeTab}
+                    className="mr-1 rounded p-1 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+                    data-testid="email-tab-compose-close"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
             <div className="flex-1 overflow-hidden">
-              {loading ? (
+              {activeTab === 'compose' ? (
+                <ComposeDialog
+                  open
+                  onOpenChange={(open) => {
+                    if (open) {
+                      setIsComposeTabOpen(true);
+                      setActiveTab('compose');
+                      return;
+                    }
+                    closeComposeTab();
+                  }}
+                  onEmailSent={handleEmailSent}
+                />
+              ) : loading ? (
                 <div className="flex h-full items-center justify-center">
                   <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
                 </div>
@@ -198,11 +271,6 @@ export function EmailWindow({
                 </div>
               )}
             </div>
-            <ComposeDialog
-              open={isComposeOpen}
-              onOpenChange={setIsComposeOpen}
-              onEmailSent={handleEmailSent}
-            />
           </div>
         </div>
       </div>

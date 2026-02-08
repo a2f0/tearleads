@@ -365,18 +365,26 @@ describe('EmailWindow', () => {
     });
   });
 
-  it('opens compose in the right pane', async () => {
+  it('opens compose in the main panel tab', async () => {
     const user = userEvent.setup();
     await renderLoadedWindow();
     expect(screen.queryByTestId('compose-dialog')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', { name: 'New Message' })
+    ).not.toBeInTheDocument();
 
     await user.click(screen.getByTestId('compose'));
 
     expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
-    expect(screen.getByText('Test Subject')).toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'New Message' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByTestId('window-title')).toHaveTextContent('New Message');
+    expect(screen.queryByText('Test Subject')).not.toBeInTheDocument();
   });
 
-  it('closes compose pane from close button', async () => {
+  it('closes compose tab from close button', async () => {
     const user = userEvent.setup();
     await renderLoadedWindow();
 
@@ -388,5 +396,69 @@ describe('EmailWindow', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('compose-dialog')).not.toBeInTheDocument();
     });
+
+    expect(
+      screen.queryByRole('tab', { name: 'New Message' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Inbox' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByText('Test Subject')).toBeInTheDocument();
+  });
+
+  it('switches between inbox and compose tabs', async () => {
+    const user = userEvent.setup();
+    await renderLoadedWindow();
+
+    await user.click(screen.getByTestId('compose'));
+    await user.click(screen.getByRole('tab', { name: 'New Message' }));
+    expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('tab', { name: 'Inbox' }));
+    expect(screen.queryByTestId('compose-dialog')).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('tab', { name: 'New Message' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('Test Subject')).toBeInTheDocument();
+  });
+
+  it('closes compose tab from tab close button', async () => {
+    const user = userEvent.setup();
+    await renderLoadedWindow();
+
+    await user.click(screen.getByTestId('compose'));
+    expect(screen.getByRole('tab', { name: 'New Message' })).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('email-tab-compose-close'));
+
+    expect(screen.queryByTestId('compose-dialog')).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('tab', { name: 'New Message' })
+    ).not.toBeInTheDocument();
+    expect(screen.getByRole('tab', { name: 'Inbox' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+  });
+
+  it('disables autofill for compose address fields', async () => {
+    const user = userEvent.setup();
+    await renderLoadedWindow();
+
+    await user.click(screen.getByTestId('compose'));
+
+    expect(screen.getByTestId('compose-to')).toHaveAttribute(
+      'autocomplete',
+      'off'
+    );
+    expect(screen.getByTestId('compose-cc')).toHaveAttribute(
+      'autocomplete',
+      'off'
+    );
+    expect(screen.getByTestId('compose-bcc')).toHaveAttribute(
+      'autocomplete',
+      'off'
+    );
   });
 });

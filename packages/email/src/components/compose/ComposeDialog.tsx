@@ -1,4 +1,5 @@
 import { Save, Send, X } from 'lucide-react';
+import { clsx } from 'clsx';
 import { useCallback, useEffect, useRef } from 'react';
 import { useCompose } from '../../hooks';
 import { validateEmailAddresses } from '../../types';
@@ -10,13 +11,15 @@ interface ComposeDialogProps {
   onOpenChange: (open: boolean) => void;
   draftId?: string | null;
   onEmailSent?: () => void;
+  className?: string;
 }
 
 export function ComposeDialog({
   open,
   onOpenChange,
   draftId = null,
-  onEmailSent
+  onEmailSent,
+  className
 }: ComposeDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
@@ -89,7 +92,7 @@ export function ComposeDialog({
 
   return (
     <div
-      className="flex h-full w-[420px] min-w-[360px] shrink-0 flex-col border-l bg-background"
+      className={clsx('flex h-full flex-col bg-background', className)}
       data-testid="compose-dialog"
     >
       <section
@@ -137,6 +140,7 @@ export function ComposeDialog({
                 ref={toInputRef}
                 id="compose-to"
                 type="text"
+                autoComplete="off"
                 value={state.to}
                 onChange={(e) => setTo(e.target.value)}
                 placeholder="recipient@example.com"
@@ -156,6 +160,7 @@ export function ComposeDialog({
               <input
                 id="compose-cc"
                 type="text"
+                autoComplete="off"
                 value={state.cc}
                 onChange={(e) => setCc(e.target.value)}
                 placeholder="cc@example.com"
@@ -175,6 +180,7 @@ export function ComposeDialog({
               <input
                 id="compose-bcc"
                 type="text"
+                autoComplete="off"
                 value={state.bcc}
                 onChange={(e) => setBcc(e.target.value)}
                 placeholder="bcc@example.com"
