@@ -29,7 +29,24 @@ const COOLDOWN_MS = 10_000; // 10 seconds
 const PORT_RELEASE_MAX_WAIT_MS = 2000;
 const PORT_RELEASE_POLL_INTERVAL_MS = 100;
 
-const repoRoot = realpathSync(process.cwd());
+const resolveRepoRoot = (): string => {
+  try {
+    const output = execFileSync('git', ['rev-parse', '--show-toplevel'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+
+    if (output) {
+      return realpathSync(output);
+    }
+  } catch {
+    // Fall back to cwd if git isn't available (e.g. non-git execution context).
+  }
+
+  return realpathSync(process.cwd());
+};
+
+const repoRoot = resolveRepoRoot();
 
 // Create a unique marker file path based on repo root
 const repoHash = createHash('md5').update(repoRoot).digest('hex').slice(0, 8);
@@ -185,6 +202,10 @@ const sleep = (ms: number): Promise<void> =>
   });
 
 const main = async (): Promise<void> => {
+  if (process.env.RAPID_SKIP_DEV_KILL === '1') {
+    return;
+  }
+
   // Skip if another dev process in this repo ran kill recently
   // Use --force flag to bypass cooldown (for root dev script)
   if (!process.argv.includes('--force') && isWithinCooldown()) {
