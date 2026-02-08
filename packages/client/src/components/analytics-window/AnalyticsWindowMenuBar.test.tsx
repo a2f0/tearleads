@@ -12,13 +12,9 @@ describe('AnalyticsWindowMenuBar', () => {
     vi.clearAllMocks();
   });
 
-  it('renders File menu trigger', () => {
+  it('renders menu triggers', () => {
     render(<AnalyticsWindowMenuBar {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
-  });
-
-  it('renders View menu trigger', () => {
-    render(<AnalyticsWindowMenuBar {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
 
