@@ -60,7 +60,7 @@ export function NotesPane({
                 }}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="font-medium text-sm">{note.title}</h3>
+                  <h3 className="text-sm">{note.title}</h3>
                 </div>
                 <p className="text-xs text-zinc-600">{note.body}</p>
               </li>
