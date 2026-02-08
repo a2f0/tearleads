@@ -2,7 +2,9 @@ import {
   getActiveTagNoteIds,
   moveItem,
   reorderNoteInTag,
+  reorderNoteInTagToTarget,
   reorderTags,
+  reorderTagToTarget,
   selectTag
 } from './ordering';
 import type { ClassicState } from './types';
@@ -69,6 +71,18 @@ describe('ordering', () => {
       expect(reorderTags(state, 'tag-1', 'up')).toBe(state);
       expect(reorderTags(state, 'tag-2', 'down')).toBe(state);
     });
+
+    it('moves a tag to a target tag position', () => {
+      const next = reorderTagToTarget(createState(), 'tag-1', 'tag-2');
+      expect(next.tags.map((tag) => tag.id)).toEqual(['tag-2', 'tag-1']);
+    });
+
+    it('returns same state for invalid target reorder', () => {
+      const state = createState();
+      expect(reorderTagToTarget(state, 'missing', 'tag-2')).toBe(state);
+      expect(reorderTagToTarget(state, 'tag-1', 'missing')).toBe(state);
+      expect(reorderTagToTarget(state, 'tag-1', 'tag-1')).toBe(state);
+    });
   });
 
   describe('reorderNoteInTag', () => {
@@ -92,6 +106,29 @@ describe('ordering', () => {
       const state = createState();
       expect(reorderNoteInTag(state, 'tag-1', 'note-1', 'up')).toBe(state);
       expect(reorderNoteInTag(state, 'tag-1', 'note-2', 'down')).toBe(state);
+    });
+
+    it('moves a note to a target note position', () => {
+      const next = reorderNoteInTagToTarget(
+        createState(),
+        'tag-1',
+        'note-1',
+        'note-2'
+      );
+      expect(next.noteOrderByTagId['tag-1']).toEqual(['note-2', 'note-1']);
+    });
+
+    it('returns same state for invalid note target reorder', () => {
+      const state = createState();
+      expect(
+        reorderNoteInTagToTarget(state, 'tag-1', 'missing', 'note-2')
+      ).toBe(state);
+      expect(
+        reorderNoteInTagToTarget(state, 'tag-1', 'note-1', 'missing')
+      ).toBe(state);
+      expect(reorderNoteInTagToTarget(state, 'tag-1', 'note-1', 'note-1')).toBe(
+        state
+      );
     });
   });
 

@@ -85,6 +85,50 @@ describe('ClassicApp', () => {
     expect(latest.noteOrderByTagId['tag-2']).toEqual(['note-2']);
   });
 
+  it('reorders tags and notes via drag handle hover', () => {
+    const onStateChange = vi.fn();
+    const dataTransfer = {
+      effectAllowed: 'move',
+      setData: vi.fn()
+    } as unknown as DataTransfer;
+
+    render(
+      <ClassicApp initialState={createState()} onStateChange={onStateChange} />
+    );
+
+    const [firstTagHandle] = screen.getAllByTitle('Drag tag');
+    if (!firstTagHandle) {
+      throw new Error('Expected first tag drag handle');
+    }
+    fireEvent.mouseDown(firstTagHandle);
+    fireEvent.dragStart(firstTagHandle, { dataTransfer });
+    const personalTag = screen
+      .getByLabelText('Select tag Personal')
+      .closest('li');
+    if (!personalTag) {
+      throw new Error('Expected personal tag list item');
+    }
+    fireEvent.dragOver(personalTag);
+
+    let latest = getLastState(onStateChange);
+    expect(latest.tags.map((tag) => tag.id)).toEqual(['tag-2', 'tag-1']);
+
+    const [firstNoteHandle] = screen.getAllByTitle('Drag entry');
+    if (!firstNoteHandle) {
+      throw new Error('Expected first note drag handle');
+    }
+    fireEvent.mouseDown(firstNoteHandle);
+    fireEvent.dragStart(firstNoteHandle, { dataTransfer });
+    const betaNote = screen.getByText('Beta').closest('li');
+    if (!betaNote) {
+      throw new Error('Expected beta note list item');
+    }
+    fireEvent.dragOver(betaNote);
+
+    latest = getLastState(onStateChange);
+    expect(latest.noteOrderByTagId['tag-1']).toEqual(['note-2', 'note-1']);
+  });
+
   it('renders with no active tag and supports optional callback omission', () => {
     render(<ClassicApp initialState={createState(null)} />);
     expect(screen.getByText('Select a tag to view notes.')).toBeInTheDocument();
@@ -99,7 +143,7 @@ describe('ClassicApp', () => {
     expect(screen.getByLabelText('Select tag Work')).toBeInTheDocument();
     expect(screen.getByLabelText('Select tag Personal')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Search tags...'), {
+    fireEvent.change(screen.getByLabelText('Search tags'), {
       target: { value: 'work' }
     });
 
@@ -115,7 +159,7 @@ describe('ClassicApp', () => {
     expect(screen.getByText('Alpha')).toBeInTheDocument();
     expect(screen.getByText('Beta')).toBeInTheDocument();
 
-    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+    fireEvent.change(screen.getByLabelText('Search entries'), {
       target: { value: 'alpha' }
     });
 
@@ -132,7 +176,7 @@ describe('ClassicApp', () => {
 
     render(<ClassicApp initialState={stateWithBody} />);
 
-    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+    fireEvent.change(screen.getByLabelText('Search entries'), {
       target: { value: 'xyz' }
     });
 
@@ -143,7 +187,7 @@ describe('ClassicApp', () => {
   it('shows all items when search is cleared', () => {
     render(<ClassicApp initialState={createState()} />);
 
-    const tagInput = screen.getByPlaceholderText('Search tags...');
+    const tagInput = screen.getByLabelText('Search tags');
     fireEvent.change(tagInput, { target: { value: 'work' } });
     expect(
       screen.queryByLabelText('Select tag Personal')
@@ -156,7 +200,7 @@ describe('ClassicApp', () => {
   it('handles case-insensitive search', () => {
     render(<ClassicApp initialState={createState()} />);
 
-    fireEvent.change(screen.getByPlaceholderText('Search tags...'), {
+    fireEvent.change(screen.getByLabelText('Search tags'), {
       target: { value: 'WORK' }
     });
 
@@ -180,7 +224,7 @@ describe('ClassicApp', () => {
 
     render(<ClassicApp initialState={stateWithMissingNote} />);
 
-    fireEvent.change(screen.getByPlaceholderText('Search entries...'), {
+    fireEvent.change(screen.getByLabelText('Search entries'), {
       target: { value: 'alpha' }
     });
 

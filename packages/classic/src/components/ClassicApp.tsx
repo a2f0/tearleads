@@ -2,7 +2,9 @@ import { useMemo, useState } from 'react';
 import {
   getActiveTagNoteIds,
   reorderNoteInTag,
+  reorderNoteInTagToTarget,
   reorderTags,
+  reorderTagToTarget,
   selectTag
 } from '../lib/ordering';
 import type { ClassicState } from '../lib/types';
@@ -64,11 +66,24 @@ export function ClassicApp({ initialState, onStateChange }: ClassicAppProps) {
     updateState(reorderTags(state, tagId, direction));
   };
 
+  const handleReorderTag = (tagId: string, targetTagId: string) => {
+    updateState(reorderTagToTarget(state, tagId, targetTagId));
+  };
+
   const handleMoveNote = (noteId: string, direction: 'up' | 'down') => {
     if (!state.activeTagId) {
       return;
     }
     updateState(reorderNoteInTag(state, state.activeTagId, noteId, direction));
+  };
+
+  const handleReorderNote = (noteId: string, targetNoteId: string) => {
+    if (!state.activeTagId) {
+      return;
+    }
+    updateState(
+      reorderNoteInTagToTarget(state, state.activeTagId, noteId, targetNoteId)
+    );
   };
 
   return (
@@ -78,6 +93,7 @@ export function ClassicApp({ initialState, onStateChange }: ClassicAppProps) {
         activeTagId={state.activeTagId}
         onSelectTag={handleSelectTag}
         onMoveTag={handleMoveTag}
+        onReorderTag={handleReorderTag}
         searchValue={tagSearch}
         onSearchChange={setTagSearch}
       />
@@ -86,6 +102,7 @@ export function ClassicApp({ initialState, onStateChange }: ClassicAppProps) {
         noteIds={filteredNoteIds}
         notesById={state.notesById}
         onMoveNote={handleMoveNote}
+        onReorderNote={handleReorderNote}
         searchValue={entrySearch}
         onSearchChange={setEntrySearch}
       />

@@ -44,6 +44,23 @@ export function reorderTags(
   };
 }
 
+export function reorderTagToTarget(
+  state: ClassicState,
+  tagId: string,
+  targetTagId: string
+): ClassicState {
+  const fromIndex = state.tags.findIndex((tag) => tag.id === tagId);
+  const toIndex = state.tags.findIndex((tag) => tag.id === targetTagId);
+  if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+    return state;
+  }
+
+  return {
+    ...state,
+    tags: moveItem(state.tags, fromIndex, toIndex)
+  };
+}
+
 export function reorderNoteInTag(
   state: ClassicState,
   tagId: string,
@@ -62,6 +79,32 @@ export function reorderNoteInTag(
 
   const toIndex = direction === 'up' ? fromIndex - 1 : fromIndex + 1;
   if (toIndex < 0 || toIndex >= noteOrder.length) {
+    return state;
+  }
+
+  return {
+    ...state,
+    noteOrderByTagId: {
+      ...state.noteOrderByTagId,
+      [tagId]: moveItem(noteOrder, fromIndex, toIndex)
+    }
+  };
+}
+
+export function reorderNoteInTagToTarget(
+  state: ClassicState,
+  tagId: string,
+  noteId: string,
+  targetNoteId: string
+): ClassicState {
+  const noteOrder = state.noteOrderByTagId[tagId];
+  if (!noteOrder) {
+    return state;
+  }
+
+  const fromIndex = noteOrder.indexOf(noteId);
+  const toIndex = noteOrder.indexOf(targetNoteId);
+  if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
     return state;
   }
 

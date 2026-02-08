@@ -7,6 +7,7 @@ interface NotesPaneProps {
   noteIds: string[];
   notesById: Record<string, ClassicNote>;
   onMoveNote: (noteId: string, direction: 'up' | 'down') => void;
+  onReorderNote: (noteId: string, targetNoteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
 }
@@ -25,12 +26,16 @@ export function NotesPane({
   noteIds,
   notesById,
   onMoveNote,
+  onReorderNote,
   searchValue,
   onSearchChange
 }: NotesPaneProps) {
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
     null
   );
+  const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
+  const [lastHoverNoteId, setLastHoverNoteId] = useState<string | null>(null);
+  const [dragArmedNoteId, setDragArmedNoteId] = useState<string | null>(null);
 
   const closeContextMenu = () => setContextMenu(null);
 
@@ -47,28 +52,88 @@ export function NotesPane({
           <p className="text-sm text-zinc-500">No notes in this tag.</p>
         ) : (
           <ol className="space-y-2" aria-label="Note List">
-            {visibleNotes.map((note, index) => (
-              <li
-                key={note.id}
-                className="rounded border p-3"
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  setContextMenu({
-                    x: event.clientX,
-                    y: event.clientY,
-                    noteId: note.id,
-                    noteTitle: note.title,
-                    canMoveUp: index > 0,
-                    canMoveDown: index < visibleNotes.length - 1
-                  });
-                }}
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="text-sm">{note.title}</h3>
-                </div>
-                <p className="text-xs text-zinc-600">{note.body}</p>
-              </li>
-            ))}
+            {visibleNotes.map((note, index) => {
+              const canMoveUp = index > 0;
+              const canMoveDown = index < visibleNotes.length - 1;
+              return (
+                <li
+                  key={note.id}
+                  className="rounded border p-3"
+                  draggable
+                  onDragStart={(event) => {
+                    const target = event.target;
+                    if (
+                      dragArmedNoteId !== note.id &&
+                      (!(target instanceof HTMLElement) ||
+                        !target.closest('[data-drag-handle="true"]'))
+                    ) {
+                      event.preventDefault();
+                      return;
+                    }
+                    setDraggedNoteId(note.id);
+                    setLastHoverNoteId(null);
+                    event.dataTransfer.effectAllowed = 'move';
+                    event.dataTransfer.setData('text/plain', note.id);
+                  }}
+                  onDragEnd={() => {
+                    setDraggedNoteId(null);
+                    setLastHoverNoteId(null);
+                    setDragArmedNoteId(null);
+                  }}
+                  onDragOver={(event) => {
+                    if (!draggedNoteId || draggedNoteId === note.id) {
+                      return;
+                    }
+                    event.preventDefault();
+                    if (lastHoverNoteId === note.id) {
+                      return;
+                    }
+                    onReorderNote(draggedNoteId, note.id);
+                    setLastHoverNoteId(note.id);
+                  }}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    setDragArmedNoteId(null);
+                  }}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setContextMenu({
+                      x: event.clientX,
+                      y: event.clientY,
+                      noteId: note.id,
+                      noteTitle: note.title,
+                      canMoveUp,
+                      canMoveDown
+                    });
+                  }}
+                >
+                  <div className="flex items-stretch gap-2">
+                    <div
+                      aria-hidden="true"
+                      data-drag-handle="true"
+                      onMouseDown={() => setDragArmedNoteId(note.id)}
+                      onMouseUp={() => setDragArmedNoteId(null)}
+                      className="flex w-4 shrink-0 items-center justify-center"
+                      title="Drag entry"
+                    >
+                      <span
+                        className={
+                          draggedNoteId === note.id
+                            ? 'cursor-grabbing select-none text-center text-xs text-zinc-500'
+                            : 'cursor-grab select-none text-center text-xs text-zinc-400'
+                        }
+                      >
+                        ⋮⋮
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm">{note.title}</h3>
+                      <p className="text-xs text-zinc-600">{note.body}</p>
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
           </ol>
         )}
       </div>
@@ -77,7 +142,6 @@ export function NotesPane({
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          placeholder="Search entries..."
           className="w-64 rounded border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
           aria-label="Search entries"
         />
