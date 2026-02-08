@@ -14,7 +14,7 @@ import {
   withRealDatabase
 } from '@rapid/db-test-utils';
 import { act, renderHook } from '@testing-library/react';
-import { and, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { VfsExplorerProviderProps } from '../context';
@@ -141,32 +141,17 @@ describe('useMoveVfsItem integration', () => {
           await result.current.moveItem(itemTwoId, targetFolderId);
         });
 
-        const targetItemOneLink = await db
-          .select()
-          .from(vfsLinks)
-          .where(
-            and(
-              eq(vfsLinks.childId, itemOneId),
-              eq(vfsLinks.parentId, targetFolderId)
-            )
-          );
-        const targetItemTwoLink = await db
-          .select()
-          .from(vfsLinks)
-          .where(
-            and(
-              eq(vfsLinks.childId, itemTwoId),
-              eq(vfsLinks.parentId, targetFolderId)
-            )
-          );
-
-        expect(targetItemOneLink).toHaveLength(1);
-        expect(targetItemTwoLink).toHaveLength(1);
+        const sourceContents = await queryFolderContents(db, sourceFolderId, {
+          column: null,
+          direction: null
+        });
+        expect(sourceContents).toHaveLength(0);
 
         const targetContents = await queryFolderContents(db, targetFolderId, {
           column: null,
           direction: null
         });
+        expect(targetContents).toHaveLength(2);
         const targetIds = targetContents.map((item) => item.id);
         expect(targetIds).toContain(itemOneId);
         expect(targetIds).toContain(itemTwoId);
@@ -200,6 +185,12 @@ describe('useMoveVfsItem integration', () => {
         await act(async () => {
           await result.current.moveItem(itemId, targetFolderId);
         });
+
+        const sourceContents = await queryFolderContents(db, sourceFolderId, {
+          column: null,
+          direction: null
+        });
+        expect(sourceContents).toHaveLength(0);
 
         const targetContents = await queryFolderContents(db, targetFolderId, {
           column: null,
