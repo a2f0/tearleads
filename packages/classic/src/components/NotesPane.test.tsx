@@ -52,4 +52,19 @@ describe('NotesPane', () => {
     expect(screen.getByLabelText('Move note Alpha up')).toBeDisabled();
     expect(screen.getByLabelText('Move note Beta down')).toBeDisabled();
   });
+
+  it('disables down for last visible note when trailing ids are missing', () => {
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1', 'missing']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        onMoveNote={() => {}}
+      />
+    );
+
+    expect(screen.getByLabelText('Move note Alpha down')).toBeDisabled();
+  });
 });
