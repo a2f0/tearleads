@@ -52,6 +52,35 @@ describe('TagSidebar', () => {
     expect(screen.getByLabelText('Move tag Personal down')).toBeDisabled();
   });
 
+  it('renders tag handle controls and emits move events', () => {
+    const onMoveTag = vi.fn();
+
+    render(
+      <TagSidebar
+        tags={[
+          { id: 'tag-1', name: 'Work' },
+          { id: 'tag-2', name: 'Personal' }
+        ]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={onMoveTag}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Move tag Work down via handle'));
+    expect(onMoveTag).toHaveBeenCalledWith('tag-1', 'down');
+
+    fireEvent.click(screen.getByLabelText('Move tag Personal up via handle'));
+    expect(onMoveTag).toHaveBeenCalledWith('tag-2', 'up');
+
+    expect(screen.getByLabelText('Move tag Work up via handle')).toBeDisabled();
+    expect(
+      screen.getByLabelText('Move tag Personal down via handle')
+    ).toBeDisabled();
+  });
+
   it('renders search input and calls onSearchChange', () => {
     const onSearchChange = vi.fn();
 

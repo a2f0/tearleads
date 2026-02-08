@@ -63,6 +63,37 @@ describe('NotesPane', () => {
     expect(screen.getByLabelText('Move note Beta down')).toBeDisabled();
   });
 
+  it('renders note handle controls and emits move events', () => {
+    const onMoveNote = vi.fn();
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1', 'note-2']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' },
+          'note-2': { id: 'note-2', title: 'Beta', body: 'B body' }
+        }}
+        onMoveNote={onMoveNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Move note Alpha down via handle'));
+    expect(onMoveNote).toHaveBeenCalledWith('note-1', 'down');
+
+    fireEvent.click(screen.getByLabelText('Move note Beta up via handle'));
+    expect(onMoveNote).toHaveBeenCalledWith('note-2', 'up');
+
+    expect(
+      screen.getByLabelText('Move note Alpha up via handle')
+    ).toBeDisabled();
+    expect(
+      screen.getByLabelText('Move note Beta down via handle')
+    ).toBeDisabled();
+  });
+
   it('disables down for last visible note when trailing ids are missing', () => {
     render(
       <NotesPane

@@ -47,28 +47,59 @@ export function NotesPane({
           <p className="text-sm text-zinc-500">No notes in this tag.</p>
         ) : (
           <ol className="space-y-2" aria-label="Note List">
-            {visibleNotes.map((note, index) => (
-              <li
-                key={note.id}
-                className="rounded border p-3"
-                onContextMenu={(event) => {
-                  event.preventDefault();
-                  setContextMenu({
-                    x: event.clientX,
-                    y: event.clientY,
-                    noteId: note.id,
-                    noteTitle: note.title,
-                    canMoveUp: index > 0,
-                    canMoveDown: index < visibleNotes.length - 1
-                  });
-                }}
-              >
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <h3 className="text-sm">{note.title}</h3>
-                </div>
-                <p className="text-xs text-zinc-600">{note.body}</p>
-              </li>
-            ))}
+            {visibleNotes.map((note, index) => {
+              const canMoveUp = index > 0;
+              const canMoveDown = index < visibleNotes.length - 1;
+              return (
+                <li
+                  key={note.id}
+                  className="rounded border p-3"
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    setContextMenu({
+                      x: event.clientX,
+                      y: event.clientY,
+                      noteId: note.id,
+                      noteTitle: note.title,
+                      canMoveUp,
+                      canMoveDown
+                    });
+                  }}
+                >
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <h3 className="min-w-0 flex-1 text-sm">{note.title}</h3>
+                    <div className="flex items-center gap-1">
+                      <span
+                        aria-hidden="true"
+                        className="select-none text-zinc-400 text-xs"
+                        title="Move entry"
+                      >
+                        ⋮⋮
+                      </span>
+                      <button
+                        type="button"
+                        className="rounded border border-zinc-200 px-1 py-0 text-xs text-zinc-600 disabled:opacity-40"
+                        onClick={() => onMoveNote(note.id, 'up')}
+                        disabled={!canMoveUp}
+                        aria-label={`Move note ${note.title} up via handle`}
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="rounded border border-zinc-200 px-1 py-0 text-xs text-zinc-600 disabled:opacity-40"
+                        onClick={() => onMoveNote(note.id, 'down')}
+                        disabled={!canMoveDown}
+                        aria-label={`Move note ${note.title} down via handle`}
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
+                  <p className="text-xs text-zinc-600">{note.body}</p>
+                </li>
+              );
+            })}
           </ol>
         )}
       </div>
