@@ -240,12 +240,12 @@ describe('App Integration', () => {
       });
     });
 
-    it('shows the start context menu when right-clicking the taskbar', async () => {
+    it('shows search-only context menu when right-clicking the taskbar', async () => {
       const taskbar = screen.getByTestId('taskbar');
       fireEvent.contextMenu(taskbar);
 
       expect(await screen.findByText('Open Search')).toBeInTheDocument();
-      expect(screen.getByText('Lock Instance')).toBeInTheDocument();
+      expect(screen.queryByText('Lock Instance')).not.toBeInTheDocument();
     });
 
     describe('mobile menu navigation', () => {
