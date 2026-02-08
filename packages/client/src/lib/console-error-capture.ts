@@ -21,7 +21,10 @@ function formatConsoleArg(arg: unknown): string {
   }
 }
 
-function formatConsoleArgs(args: unknown[], fallbackMessage: string): {
+function formatConsoleArgs(
+  args: unknown[],
+  fallbackMessage: string
+): {
   message: string;
   details: string | undefined;
 } {
