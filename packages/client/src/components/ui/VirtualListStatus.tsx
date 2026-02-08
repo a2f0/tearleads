@@ -38,11 +38,9 @@ export function VirtualListStatus({
         lastVisible + 1
       )}`;
 
-      // If we have a total count (e.g., from Redis DBSIZE), show loaded vs total
+      // If we have a total count (e.g., from Redis DBSIZE), show visible range and total
       if (totalCount != null && totalCount !== loadedCount) {
-        return `${rangeText} of ${formatNumber(loadedCount)} loaded (${formatNumber(
-          totalCount
-        )} total)`;
+        return `${rangeText} (${formatNumber(totalCount)} total)`;
       }
 
       // Simple case: all data is loaded (no pagination)

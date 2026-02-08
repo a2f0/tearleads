@@ -62,7 +62,7 @@ describe('VirtualListStatus', () => {
       );
 
       expect(
-        screen.getByText('Viewing 1-50 of 50 loaded (1,000 total)')
+        screen.getByText('Viewing 1-50 (1,000 total)')
       ).toBeInTheDocument();
     });
 
