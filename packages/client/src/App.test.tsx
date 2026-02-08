@@ -115,6 +115,9 @@ vi.mock('./db/hooks', () => ({
 vi.mock('./contexts/WindowManagerContext', () => ({
   useWindowManager: () => ({
     openWindow: mockOpenWindow
+  }),
+  useWindowManagerActions: () => ({
+    openWindow: mockOpenWindow
   })
 }));
 
