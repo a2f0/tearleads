@@ -1,5 +1,5 @@
-import { logStore } from '@/stores/logStore';
 import type { LogLevel } from '@/stores/logStore';
+import { logStore } from '@/stores/logStore';
 
 let installed = false;
 type CapturedMethod = 'error' | 'warn' | 'info' | 'debug' | 'log';
@@ -86,7 +86,10 @@ export function installConsoleErrorCapture(): () => void {
     originalConsoleMethods[method] = console[method].bind(console);
     console[method] = (...args: unknown[]) => {
       const config = CAPTURE_CONFIG[method];
-      const { message, details } = formatConsoleArgs(args, config.fallbackMessage);
+      const { message, details } = formatConsoleArgs(
+        args,
+        config.fallbackMessage
+      );
       logStore.addLog(config.level, message, details);
       originalConsoleMethods[method]?.(...args);
     };
