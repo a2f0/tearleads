@@ -119,7 +119,10 @@ describe('TagSidebar', () => {
       />
     );
 
-    const firstHandle = screen.getAllByTitle('Drag tag')[0];
+    const [firstHandle] = screen.getAllByTitle('Drag tag');
+    if (!firstHandle) {
+      throw new Error('Expected first tag drag handle');
+    }
     fireEvent.mouseDown(firstHandle);
     fireEvent.dragStart(firstHandle, { dataTransfer });
 

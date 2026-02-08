@@ -150,7 +150,10 @@ describe('NotesPane', () => {
       />
     );
 
-    const firstHandle = screen.getAllByTitle('Drag entry')[0];
+    const [firstHandle] = screen.getAllByTitle('Drag entry');
+    if (!firstHandle) {
+      throw new Error('Expected first note drag handle');
+    }
     fireEvent.mouseDown(firstHandle);
     fireEvent.dragStart(firstHandle, { dataTransfer });
 

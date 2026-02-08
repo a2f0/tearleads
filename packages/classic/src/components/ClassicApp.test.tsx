@@ -96,7 +96,10 @@ describe('ClassicApp', () => {
       <ClassicApp initialState={createState()} onStateChange={onStateChange} />
     );
 
-    const firstTagHandle = screen.getAllByTitle('Drag tag')[0];
+    const [firstTagHandle] = screen.getAllByTitle('Drag tag');
+    if (!firstTagHandle) {
+      throw new Error('Expected first tag drag handle');
+    }
     fireEvent.mouseDown(firstTagHandle);
     fireEvent.dragStart(firstTagHandle, { dataTransfer });
     const personalTag = screen
@@ -110,7 +113,10 @@ describe('ClassicApp', () => {
     let latest = getLastState(onStateChange);
     expect(latest.tags.map((tag) => tag.id)).toEqual(['tag-2', 'tag-1']);
 
-    const firstNoteHandle = screen.getAllByTitle('Drag entry')[0];
+    const [firstNoteHandle] = screen.getAllByTitle('Drag entry');
+    if (!firstNoteHandle) {
+      throw new Error('Expected first note drag handle');
+    }
     fireEvent.mouseDown(firstNoteHandle);
     fireEvent.dragStart(firstNoteHandle, { dataTransfer });
     const betaNote = screen.getByText('Beta').closest('li');
