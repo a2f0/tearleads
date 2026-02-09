@@ -82,7 +82,9 @@ describe('DeleteFileDialog', () => {
 
     await user.click(screen.getByTestId('confirm-delete-file-button'));
 
-    expect(screen.getByText('Deleting...')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Deleting...')).toBeInTheDocument();
+    });
   });
 
   it('disables buttons while deletion is in progress', async () => {
@@ -94,8 +96,10 @@ describe('DeleteFileDialog', () => {
 
     await user.click(screen.getByTestId('confirm-delete-file-button'));
 
-    expect(screen.getByTestId('confirm-delete-file-button')).toBeDisabled();
-    expect(screen.getByTestId('cancel-delete-file-button')).toBeDisabled();
+    await waitFor(() => {
+      expect(screen.getByTestId('confirm-delete-file-button')).toBeDisabled();
+      expect(screen.getByTestId('cancel-delete-file-button')).toBeDisabled();
+    });
   });
 
   it('closes dialog after successful deletion', async () => {
