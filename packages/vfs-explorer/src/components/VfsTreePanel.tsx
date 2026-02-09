@@ -12,7 +12,8 @@ import {
   Trash2,
   UserCheck
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useResizableSidebar } from '@rapid/window-manager';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,
@@ -127,9 +128,11 @@ export function VfsTreePanel({
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     new Set([VFS_ROOT_ID])
   );
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
+  const { resizeHandleProps } = useResizableSidebar({
+    width,
+    onWidthChange,
+    ariaLabel: 'Resize folders sidebar'
+  });
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -144,34 +147,6 @@ export function VfsTreePanel({
   const [newSubfolderParent, setNewSubfolderParent] =
     useState<VfsFolderNode | null>(null);
   const [showNewRootFolderDialog, setShowNewRootFolderDialog] = useState(false);
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      isDragging.current = true;
-      startX.current = e.clientX;
-      startWidth.current = width;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!isDragging.current) return;
-        const delta = e.clientX - startX.current;
-        const newWidth = Math.max(
-          150,
-          Math.min(400, startWidth.current + delta)
-        );
-        onWidthChange(newWidth);
-      };
-
-      const handleMouseUp = () => {
-        isDragging.current = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [width, onWidthChange]
-  );
 
   const toggleExpand = useCallback((folderId: string) => {
     setExpandedFolderIds((prev) => {
@@ -338,7 +313,7 @@ export function VfsTreePanel({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for panel width */}
       <div
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"
-        onMouseDown={handleMouseDown}
+        {...resizeHandleProps}
       />
 
       {/* Folder Context Menu */}

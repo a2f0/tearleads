@@ -1,4 +1,5 @@
 import type { VfsPermissionLevel, VfsShareType } from '@rapid/shared';
+import { useResizableSidebar } from '@rapid/window-manager';
 import {
   Building2,
   Calendar,
@@ -10,13 +11,7 @@ import {
   Users,
   X
 } from 'lucide-react';
-import {
-  type MouseEvent,
-  useCallback,
-  useEffect,
-  useRef,
-  useState
-} from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import { useShareTargetSearch, useVfsShares } from '../hooks';
 import { cn } from '../lib';
@@ -87,37 +82,14 @@ export function SharingPanel({
   const [expiresAt, setExpiresAt] = useState<string>('');
   const [isAdding, setIsAdding] = useState(false);
 
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
-
-  const handleMouseDown = useCallback(
-    (e: MouseEvent) => {
-      isDragging.current = true;
-      startX.current = e.clientX;
-      startWidth.current = width;
-
-      const handleMouseMove = (e: globalThis.MouseEvent) => {
-        if (!isDragging.current) return;
-        const delta = startX.current - e.clientX;
-        const newWidth = Math.max(
-          250,
-          Math.min(500, startWidth.current + delta)
-        );
-        onWidthChange(newWidth);
-      };
-
-      const handleMouseUp = () => {
-        isDragging.current = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [width, onWidthChange]
-  );
+  const { resizeHandleProps } = useResizableSidebar({
+    width,
+    onWidthChange,
+    resizeFrom: 'left',
+    minWidth: 250,
+    maxWidth: 500,
+    ariaLabel: 'Resize sharing panel'
+  });
 
   useEffect(() => {
     if (searchQuery.trim()) {
@@ -193,7 +165,7 @@ export function SharingPanel({
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Resize handle */}
       <div
         className="absolute top-0 bottom-0 left-0 w-1 cursor-col-resize hover:bg-accent"
-        onMouseDown={handleMouseDown}
+        {...resizeHandleProps}
       />
 
       {/* Header */}

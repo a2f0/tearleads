@@ -1,3 +1,4 @@
+import { useResizableSidebar } from '@rapid/window-manager';
 import { List, Loader2, Music, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
@@ -51,10 +52,6 @@ export function AudioPlaylistsSidebar({
 }: AudioPlaylistsSidebarProps) {
   const { playlists, loading, error, refetch, deletePlaylist, renamePlaylist } =
     useAudioPlaylists();
-
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
 
   // Detect platform to disable drag-drop on mobile
   const isNativePlatform = useMemo(() => {
@@ -166,44 +163,11 @@ export function AudioPlaylistsSidebar({
     lastRefreshTokenRef.current = refreshToken;
   }, [refreshToken, refetch]);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      isDragging.current = true;
-      startX.current = e.clientX;
-      startWidth.current = width;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!isDragging.current) return;
-        const delta = e.clientX - startX.current;
-        const newWidth = Math.max(
-          150,
-          Math.min(400, startWidth.current + delta)
-        );
-        onWidthChange(newWidth);
-      };
-
-      const handleMouseUp = () => {
-        isDragging.current = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [onWidthChange, width]
-  );
-
-  const handleResizeKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      e.preventDefault();
-      const delta = e.key === 'ArrowRight' ? 10 : -10;
-      const newWidth = Math.max(150, Math.min(400, width + delta));
-      onWidthChange(newWidth);
-    },
-    [onWidthChange, width]
-  );
+  const { resizeHandleProps } = useResizableSidebar({
+    width,
+    onWidthChange,
+    ariaLabel: 'Resize playlist sidebar'
+  });
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, playlist: AudioPlaylist) => {
@@ -316,14 +280,7 @@ export function AudioPlaylistsSidebar({
       </div>
       <hr
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize border-0 bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-        onMouseDown={handleMouseDown}
-        onKeyDown={handleResizeKeyDown}
-        tabIndex={0}
-        aria-orientation="vertical"
-        aria-valuenow={width}
-        aria-valuemin={150}
-        aria-valuemax={400}
-        aria-label="Resize playlist sidebar"
+        {...resizeHandleProps}
       />
 
       {contextMenu && (

@@ -1,7 +1,5 @@
+import { WindowContextMenu } from '@rapid/window-manager';
 import { FolderPlus, Pencil, Trash2 } from 'lucide-react';
-import { useCallback, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { zIndex } from '../../constants/zIndex';
 import type { EmailFolder } from '../../types/folder.js';
 import { canDeleteFolder, canRenameFolder } from '../../types/folder.js';
 
@@ -24,83 +22,54 @@ export function EmailFolderContextMenu({
   onRename,
   onDelete
 }: EmailFolderContextMenuProps) {
-  const handleBackdropClick = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [onClose]);
-
   const canRename = canRenameFolder(folder);
   const canDelete = canDeleteFolder(folder);
 
-  // Use portal to escape FloatingWindow's backdrop-filter containing block
-  return createPortal(
-    <>
-      <div
-        className="fixed inset-0"
-        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
-        onClick={handleBackdropClick}
-        aria-hidden="true"
-        data-testid="email-folder-context-menu-backdrop"
-      />
-      <div
-        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
-        style={{
-          left: x,
-          top: y,
-          zIndex: zIndex.floatingWindowContextMenu
+  return (
+    <WindowContextMenu
+      x={x}
+      y={y}
+      onClose={onClose}
+      backdropTestId="email-folder-context-menu-backdrop"
+      menuTestId="email-folder-context-menu"
+    >
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        onClick={() => {
+          onCreateSubfolder();
+          onClose();
         }}
-        data-testid="email-folder-context-menu"
       >
+        <FolderPlus className="h-4 w-4" />
+        New Subfolder
+      </button>
+      {canRename && (
         <button
           type="button"
           className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
-            onCreateSubfolder();
+            onRename(folder);
             onClose();
           }}
         >
-          <FolderPlus className="h-4 w-4" />
-          New Subfolder
+          <Pencil className="h-4 w-4" />
+          Rename
         </button>
-        {canRename && (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onRename(folder);
-              onClose();
-            }}
-          >
-            <Pencil className="h-4 w-4" />
-            Rename
-          </button>
-        )}
-        {canDelete && (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
-            onClick={() => {
-              onDelete(folder);
-              onClose();
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete
-          </button>
-        )}
-      </div>
-    </>,
-    document.body
+      )}
+      {canDelete && (
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+          onClick={() => {
+            onDelete(folder);
+            onClose();
+          }}
+        >
+          <Trash2 className="h-4 w-4" />
+          Delete
+        </button>
+      )}
+    </WindowContextMenu>
   );
 }
