@@ -54,6 +54,7 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
     pause,
     resume,
     seek,
+    setPlaybackQueue,
     setVolume
   } = useAudio();
 
@@ -175,6 +176,10 @@ export function AudioPlayer({ tracks }: AudioPlayerProps) {
       }
     };
   }, []);
+
+  useEffect(() => {
+    setPlaybackQueue?.(tracks);
+  }, [setPlaybackQueue, tracks]);
 
   if (!currentTrack) {
     return null;

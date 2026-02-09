@@ -37,6 +37,7 @@ export type RepeatMode = 'off' | 'all' | 'one';
 
 interface AudioState {
   currentTrack: AudioTrack | null;
+  playbackQueue: AudioTrack[];
   isPlaying: boolean;
   currentTime: number;
   duration: number;
@@ -70,6 +71,14 @@ interface AudioContextValue extends AudioState {
   onTrackEnd?: () => void;
   /** Register callback for track end */
   setOnTrackEnd: (callback: (() => void) | undefined) => void;
+  /** Update the active playback queue used for transport next/previous */
+  setPlaybackQueue?: (tracks: AudioTrack[]) => void;
+  /** Skip to next track in playback queue */
+  skipToNextTrack?: () => void;
+  /** Skip to previous track in playback queue */
+  skipToPreviousTrack?: () => void;
+  /** Play specific queue track by id */
+  playTrackById?: (trackId: string) => void;
 }
 
 const AudioContext = createContext<AudioContextValue | null>(null);
@@ -94,6 +103,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const [error, setError] = useState<AudioError | null>(null);
   const [repeatMode, setRepeatModeState] = useState<RepeatMode>('off');
   const onTrackEndRef = useRef<(() => void) | undefined>(undefined);
+  const [playbackQueue, setPlaybackQueueState] = useState<AudioTrack[]>([]);
 
   const clearError = useCallback(() => {
     setError(null);
@@ -183,6 +193,61 @@ export function AudioProvider({ children }: AudioProviderProps) {
     onTrackEndRef.current = callback;
   }, []);
 
+  const setPlaybackQueue = useCallback((tracks: AudioTrack[]) => {
+    setPlaybackQueueState(tracks);
+  }, []);
+
+  const skipToNextTrack = useCallback(() => {
+    if (playbackQueue.length === 0) return;
+
+    const firstTrack = playbackQueue[0];
+    if (!currentTrack) {
+      if (firstTrack) play(firstTrack);
+      return;
+    }
+
+    const currentIndex = playbackQueue.findIndex(
+      (track) => track.id === currentTrack.id
+    );
+    if (currentIndex < 0) return;
+
+    const nextTrack =
+      playbackQueue[currentIndex + 1] ??
+      (repeatMode === 'all' ? firstTrack : undefined);
+    if (nextTrack) play(nextTrack);
+  }, [currentTrack, playbackQueue, play, repeatMode]);
+
+  const skipToPreviousTrack = useCallback(() => {
+    if (playbackQueue.length === 0) return;
+
+    const firstTrack = playbackQueue[0];
+    if (!currentTrack) {
+      if (firstTrack) play(firstTrack);
+      return;
+    }
+
+    const currentIndex = playbackQueue.findIndex(
+      (track) => track.id === currentTrack.id
+    );
+    if (currentIndex < 0) return;
+
+    const lastTrack = playbackQueue[playbackQueue.length - 1];
+    const previousTrack =
+      playbackQueue[currentIndex - 1] ??
+      (repeatMode === 'all' ? lastTrack : undefined);
+    if (previousTrack) play(previousTrack);
+  }, [currentTrack, playbackQueue, play, repeatMode]);
+
+  const playTrackById = useCallback(
+    (trackId: string) => {
+      const matchingTrack = playbackQueue.find((track) => track.id === trackId);
+      if (matchingTrack) {
+        play(matchingTrack);
+      }
+    },
+    [play, playbackQueue]
+  );
+
   // Keep currentTrackRef in sync with currentTrack for error handler
   useEffect(() => {
     currentTrackRef.current = currentTrack;
@@ -266,6 +331,7 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const value = useMemo<AudioContextValue>(
     () => ({
       currentTrack,
+      playbackQueue,
       isPlaying,
       currentTime,
       duration,
@@ -282,10 +348,15 @@ export function AudioProvider({ children }: AudioProviderProps) {
       setRepeatMode,
       cycleRepeatMode,
       setOnTrackEnd,
+      setPlaybackQueue,
+      skipToNextTrack,
+      skipToPreviousTrack,
+      playTrackById,
       audioElementRef: audioRef
     }),
     [
       currentTrack,
+      playbackQueue,
       isPlaying,
       currentTime,
       duration,
@@ -301,7 +372,11 @@ export function AudioProvider({ children }: AudioProviderProps) {
       clearError,
       setRepeatMode,
       cycleRepeatMode,
-      setOnTrackEnd
+      setOnTrackEnd,
+      setPlaybackQueue,
+      skipToNextTrack,
+      skipToPreviousTrack,
+      playTrackById
     ]
   );
 

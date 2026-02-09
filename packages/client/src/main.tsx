@@ -7,6 +7,7 @@ import { Toaster } from 'sonner';
 import App from './App';
 import { AudioProvider } from './audio';
 import { AppTooltipProvider } from './components/AppTooltipProvider';
+import { AndroidMediaSessionBridge } from './components/audio/AndroidMediaSessionBridge';
 import { RequireAuth } from './components/auth';
 import { InstanceChangeHandler } from './components/InstanceChangeHandler';
 import {
@@ -227,6 +228,7 @@ if (rootElement) {
                     <AppTooltipProvider>
                       <InstanceChangeHandler />
                       <AudioProvider>
+                        <AndroidMediaSessionBridge />
                         <VideoProvider>
                           <AuthProvider>
                             <SSEProvider>
