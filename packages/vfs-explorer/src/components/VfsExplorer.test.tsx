@@ -103,6 +103,14 @@ const mockSharedWithMe = {
   refetch: vi.fn()
 };
 
+const mockTrashItems = {
+  items: [],
+  loading: false,
+  error: null,
+  hasFetched: true,
+  refetch: vi.fn()
+};
+
 // Mock the hooks
 vi.mock('../hooks', () => ({
   useVfsFolders: vi.fn(),
@@ -111,6 +119,7 @@ vi.mock('../hooks', () => ({
   useVfsAllItems: vi.fn(() => mockAllItems),
   useVfsSharedByMe: vi.fn(() => mockSharedByMe),
   useVfsSharedWithMe: vi.fn(() => mockSharedWithMe),
+  useVfsTrashItems: vi.fn(() => mockTrashItems),
   useMoveVfsItem: vi.fn(() => mockMoveVfsItem),
   useCopyVfsItem: vi.fn(() => mockCopyVfsItem),
   useEnsureVfsRoot: vi.fn(() => mockEnsureVfsRoot)

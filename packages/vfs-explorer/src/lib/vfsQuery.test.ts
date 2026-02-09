@@ -255,4 +255,51 @@ describe('vfsQuery', () => {
       expect(mockDb.orderBy).toHaveBeenCalled();
     });
   });
+
+  describe('queryDeletedItems', () => {
+    it('calls the complete query chain and returns rows', async () => {
+      const { queryDeletedItems } = await import('./vfsQuery');
+
+      const mockRows = [
+        {
+          id: 'item-1',
+          objectType: 'file',
+          name: 'Deleted File',
+          createdAt: new Date()
+        }
+      ];
+      mockDb.orderBy.mockResolvedValueOnce(mockRows);
+
+      const sort: VfsSortState = { column: null, direction: null };
+      const result = await queryDeletedItems(mockDb as never, sort);
+
+      expect(result).toEqual(mockRows);
+      expect(mockDb.select).toHaveBeenCalled();
+      expect(mockDb.leftJoin).toHaveBeenCalled();
+      expect(mockDb.where).toHaveBeenCalled();
+      expect(mockDb.orderBy).toHaveBeenCalled();
+    });
+
+    it('returns empty array when no deleted items exist', async () => {
+      const { queryDeletedItems } = await import('./vfsQuery');
+
+      mockDb.orderBy.mockResolvedValueOnce([]);
+
+      const sort: VfsSortState = { column: null, direction: null };
+      const result = await queryDeletedItems(mockDb as never, sort);
+
+      expect(result).toEqual([]);
+    });
+
+    it('propagates database errors', async () => {
+      const { queryDeletedItems } = await import('./vfsQuery');
+
+      mockDb.orderBy.mockRejectedValueOnce(new Error('DB failure'));
+
+      const sort: VfsSortState = { column: null, direction: null };
+      await expect(queryDeletedItems(mockDb as never, sort)).rejects.toThrow(
+        'DB failure'
+      );
+    });
+  });
 });

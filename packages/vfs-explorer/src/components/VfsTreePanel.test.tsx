@@ -181,6 +181,7 @@ describe('VfsTreePanel', () => {
     expect(screen.getByText('All Items')).toBeInTheDocument();
     expect(screen.getByText('My Shared Items')).toBeInTheDocument();
     expect(screen.getByText('Shared With Me')).toBeInTheDocument();
+    expect(screen.getByText('Trash')).toBeInTheDocument();
   });
 
   it('calls onFolderSelect when folder is clicked', async () => {

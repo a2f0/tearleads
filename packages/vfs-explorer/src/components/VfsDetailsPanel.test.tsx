@@ -70,13 +70,25 @@ vi.mock('../hooks', () => ({
     error: null,
     hasFetched: true,
     refetch: vi.fn()
+  })),
+  useVfsTrashItems: vi.fn(() => ({
+    items: [],
+    loading: false,
+    error: null,
+    hasFetched: true,
+    refetch: vi.fn()
   }))
 }));
 
-import { ALL_ITEMS_FOLDER_ID, UNFILED_FOLDER_ID } from '../constants';
+import {
+  ALL_ITEMS_FOLDER_ID,
+  TRASH_FOLDER_ID,
+  UNFILED_FOLDER_ID
+} from '../constants';
 import {
   useVfsAllItems,
   useVfsFolderContents,
+  useVfsTrashItems,
   useVfsUnfiledItems
 } from '../hooks';
 import { VfsDetailsPanel } from './VfsDetailsPanel';
@@ -329,6 +341,23 @@ describe('VfsDetailsPanel', () => {
       );
 
       expect(mockRefetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('trash items', () => {
+    it('shows trash empty state', () => {
+      vi.mocked(useVfsTrashItems).mockReturnValue({
+        items: [],
+        loading: false,
+        error: null,
+        hasFetched: true,
+        refetch: vi.fn()
+      });
+      render(<VfsDetailsPanel folderId={TRASH_FOLDER_ID} />);
+      expect(screen.getByText('Trash is empty')).toBeInTheDocument();
+      expect(
+        screen.getByText('Items marked for deletion will appear here')
+      ).toBeInTheDocument();
     });
   });
 

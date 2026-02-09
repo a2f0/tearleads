@@ -42,3 +42,5 @@ export type {
   VfsUnfiledItem
 } from './useVfsUnfiledItems';
 export { useVfsUnfiledItems } from './useVfsUnfiledItems';
+export type { UseVfsTrashItemsResult, VfsTrashItem } from './useVfsTrashItems';
+export { useVfsTrashItems } from './useVfsTrashItems';

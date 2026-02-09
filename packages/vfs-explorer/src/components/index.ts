@@ -1,5 +1,6 @@
 export {
   ALL_ITEMS_FOLDER_ID,
+  TRASH_FOLDER_ID,
   UNFILED_FOLDER_ID,
   VFS_ROOT_ID
 } from '../constants';

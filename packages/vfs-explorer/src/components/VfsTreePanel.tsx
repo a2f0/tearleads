@@ -9,6 +9,7 @@ import {
   Layers,
   Loader2,
   Share2,
+  Trash2,
   UserCheck
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -16,6 +17,7 @@ import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,
   SHARED_WITH_ME_FOLDER_ID,
+  TRASH_FOLDER_ID,
   UNFILED_FOLDER_ID,
   VFS_ROOT_ID
 } from '../constants';
@@ -84,6 +86,12 @@ const VIRTUAL_FOLDERS: VirtualFolderConfig[] = [
     label: 'Shared With Me',
     icon: UserCheck,
     iconClassName: 'text-cyan-600 dark:text-cyan-400'
+  },
+  {
+    id: TRASH_FOLDER_ID,
+    label: 'Trash',
+    icon: Trash2,
+    iconClassName: 'text-rose-600 dark:text-rose-400'
   }
 ];
 

@@ -19,7 +19,7 @@ import {
   vfsRegistry
 } from '@rapid/db/sqlite';
 import type { SQL } from 'drizzle-orm';
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { VFS_ROOT_ID } from '../constants';
 import type { VfsSortState } from './vfsTypes';
 
@@ -356,6 +356,100 @@ export async function queryAllItems(
       and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
     )
     .where(ne(vfsRegistry.id, VFS_ROOT_ID))
+    .orderBy(...orderExprs);
+
+  return rows as VfsQueryRow[];
+}
+
+/**
+ * Query items marked as deleted in entity tables, sorted at the database level.
+ * Currently includes files, contacts, and notes (the VFS-backed types with a
+ * soft-delete column).
+ */
+export async function queryDeletedItems(
+  db: Database,
+  sort: VfsSortState
+): Promise<VfsQueryRow[]> {
+  const nameExpr = nameCoalesce();
+  const orderExprs = buildOrderBy(sort, nameExpr);
+
+  // Explicit "name" alias required: see queryFolderContents comment.
+  const rows = await db
+    .select({
+      id: vfsRegistry.id,
+      objectType: vfsRegistry.objectType,
+      name: sql<string>`${nameExpr} as "name"`,
+      createdAt: vfsRegistry.createdAt
+    })
+    .from(vfsRegistry)
+    .leftJoin(
+      vfsFolders,
+      and(
+        eq(vfsRegistry.id, vfsFolders.id),
+        eq(vfsRegistry.objectType, 'folder')
+      )
+    )
+    .leftJoin(
+      files,
+      and(
+        eq(vfsRegistry.id, files.id),
+        inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
+      )
+    )
+    .leftJoin(
+      contacts,
+      and(
+        eq(vfsRegistry.id, contacts.id),
+        eq(vfsRegistry.objectType, 'contact')
+      )
+    )
+    .leftJoin(
+      notes,
+      and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
+    )
+    .leftJoin(
+      playlists,
+      and(
+        eq(vfsRegistry.id, playlists.id),
+        eq(vfsRegistry.objectType, 'playlist')
+      )
+    )
+    .leftJoin(
+      albums,
+      and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
+    )
+    .leftJoin(
+      contactGroups,
+      and(
+        eq(vfsRegistry.id, contactGroups.id),
+        eq(vfsRegistry.objectType, 'contactGroup')
+      )
+    )
+    .leftJoin(
+      emailFolders,
+      and(
+        eq(vfsRegistry.id, emailFolders.id),
+        eq(vfsRegistry.objectType, 'emailFolder')
+      )
+    )
+    .leftJoin(
+      tags,
+      and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
+    )
+    .leftJoin(
+      emails,
+      and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
+    )
+    .where(
+      and(
+        ne(vfsRegistry.id, VFS_ROOT_ID),
+        or(
+          eq(files.deleted, true),
+          eq(contacts.deleted, true),
+          eq(notes.deleted, true)
+        )
+      )
+    )
     .orderBy(...orderExprs);
 
   return rows as VfsQueryRow[];
