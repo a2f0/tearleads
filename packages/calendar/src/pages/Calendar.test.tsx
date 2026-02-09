@@ -2,7 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarContent } from '../components/CalendarContent';
-import { CALENDAR_CREATE_SUBMIT_EVENT } from '../events';
+import {
+  CALENDAR_CREATE_ITEM_EVENT,
+  CALENDAR_CREATE_SUBMIT_EVENT
+} from '../events';
 import { Calendar } from './Calendar';
 
 describe('Calendar', () => {
@@ -192,7 +195,7 @@ describe('Calendar', () => {
     expect(screen.getByText('Team Standup')).toBeInTheDocument();
   });
 
-  it('creates an event from day quick-add form', async () => {
+  it('creates an event from create-item modal', async () => {
     const user = userEvent.setup();
     const onCreateEvent = vi.fn<
       (input: {
@@ -204,7 +207,7 @@ describe('Calendar', () => {
     >(async () => {});
     render(<CalendarContent onCreateEvent={onCreateEvent} />);
 
-    await user.click(screen.getByRole('tab', { name: 'Day' }));
+    await user.click(screen.getByRole('button', { name: 'New Item' }));
     await user.type(screen.getByLabelText('Event title'), 'Dentist');
     await user.clear(screen.getByLabelText('Event start time'));
     await user.type(screen.getByLabelText('Event start time'), '14:30');
@@ -218,5 +221,76 @@ describe('Calendar', () => {
       calendarName: 'Personal',
       title: 'Dentist'
     });
+  });
+
+  it('opens create event modal from create item event', () => {
+    render(<CalendarContent />);
+
+    fireEvent(
+      window,
+      new CustomEvent(CALENDAR_CREATE_ITEM_EVENT, {
+        detail: { date: new Date().toISOString() }
+      })
+    );
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByText('New Calendar Item')).toBeInTheDocument();
+  });
+
+  it('emits view context menu coordinates from day/week/month/year views', () => {
+    const onViewContextMenuRequest = vi.fn();
+    render(
+      <CalendarContent onViewContextMenuRequest={onViewContextMenuRequest} />
+    );
+
+    fireEvent.contextMenu(screen.getByTestId('calendar-month-view'), {
+      clientX: 10,
+      clientY: 20
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Week' }));
+    fireEvent.contextMenu(screen.getByTestId('calendar-week-view'), {
+      clientX: 30,
+      clientY: 40
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
+    fireEvent.contextMenu(screen.getByTestId('calendar-day-view'), {
+      clientX: 50,
+      clientY: 60
+    });
+    fireEvent.click(screen.getByRole('tab', { name: 'Year' }));
+    fireEvent.contextMenu(screen.getByTestId('calendar-year-view'), {
+      clientX: 70,
+      clientY: 80
+    });
+
+    expect(onViewContextMenuRequest).toHaveBeenCalledTimes(4);
+    expect(onViewContextMenuRequest).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        x: 10,
+        y: 20
+      })
+    );
+    expect(onViewContextMenuRequest).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        x: 30,
+        y: 40
+      })
+    );
+    expect(onViewContextMenuRequest).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        x: 50,
+        y: 60
+      })
+    );
+    expect(onViewContextMenuRequest).toHaveBeenNthCalledWith(
+      4,
+      expect.objectContaining({
+        x: 70,
+        y: 80
+      })
+    );
   });
 });
