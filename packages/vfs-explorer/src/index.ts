@@ -12,6 +12,7 @@ export type {
 export {
   ALL_ITEMS_FOLDER_ID,
   NewFolderDialog,
+  TRASH_FOLDER_ID,
   UNFILED_FOLDER_ID,
   VFS_ROOT_ID,
   VfsDetailsPanel,
@@ -57,7 +58,9 @@ export type {
   UseRenameVfsFolderResult,
   UseVfsFolderContentsResult,
   UseVfsFoldersResult,
+  UseVfsTrashItemsResult,
   UseVfsUnfiledItemsResult,
+  VfsTrashItem,
   VfsUnfiledItem
 } from './hooks';
 // Hooks
@@ -69,6 +72,7 @@ export {
   useRenameVfsFolder,
   useVfsFolderContents,
   useVfsFolders,
+  useVfsTrashItems,
   useVfsUnfiledItems
 } from './hooks';
 

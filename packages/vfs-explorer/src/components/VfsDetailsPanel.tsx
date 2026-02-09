@@ -8,6 +8,7 @@ import {
   Layers,
   Loader2,
   Share2,
+  Trash2,
   Upload,
   UserCheck
 } from 'lucide-react';
@@ -16,6 +17,7 @@ import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,
   SHARED_WITH_ME_FOLDER_ID,
+  TRASH_FOLDER_ID,
   UNFILED_FOLDER_ID
 } from '../constants';
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
@@ -24,6 +26,7 @@ import {
   useVfsFolderContents,
   useVfsSharedByMe,
   useVfsSharedWithMe,
+  useVfsTrashItems,
   useVfsUnfiledItems,
   type VfsItem,
   type VfsObjectType
@@ -106,6 +109,7 @@ export function VfsDetailsPanel({
   const isAllItems = folderId === ALL_ITEMS_FOLDER_ID;
   const isSharedByMe = folderId === SHARED_BY_ME_FOLDER_ID;
   const isSharedWithMe = folderId === SHARED_WITH_ME_FOLDER_ID;
+  const isTrash = folderId === TRASH_FOLDER_ID;
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
@@ -165,6 +169,7 @@ export function VfsDetailsPanel({
         !isAllItems &&
         !isSharedByMe &&
         !isSharedWithMe &&
+        !isTrash &&
         folderId &&
         (onUpload || (onPaste && hasItems))
       ) {
@@ -176,6 +181,7 @@ export function VfsDetailsPanel({
       isAllItems,
       isSharedByMe,
       isSharedWithMe,
+      isTrash,
       folderId,
       onUpload,
       onPaste,
@@ -259,7 +265,7 @@ export function VfsDetailsPanel({
 
   // Use the appropriate hook based on selection
   const isVirtualFolder =
-    isUnfiled || isAllItems || isSharedByMe || isSharedWithMe;
+    isUnfiled || isAllItems || isSharedByMe || isSharedWithMe || isTrash;
   const folderContents = useVfsFolderContents(
     isVirtualFolder ? null : folderId,
     sort
@@ -268,6 +274,7 @@ export function VfsDetailsPanel({
   const allItems = useVfsAllItems({ enabled: isAllItems, sort });
   const sharedByMe = useVfsSharedByMe({ enabled: isSharedByMe, sort });
   const sharedWithMe = useVfsSharedWithMe({ enabled: isSharedWithMe, sort });
+  const trashItems = useVfsTrashItems({ enabled: isTrash, sort });
 
   // Refetch when refreshToken changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: refetch functions are stable, including full objects causes infinite loops
@@ -277,6 +284,8 @@ export function VfsDetailsPanel({
         sharedByMe.refetch();
       } else if (isSharedWithMe) {
         sharedWithMe.refetch();
+      } else if (isTrash) {
+        trashItems.refetch();
       } else if (isAllItems) {
         allItems.refetch();
       } else if (isUnfiled) {
@@ -291,6 +300,7 @@ export function VfsDetailsPanel({
   const { items, loading, error } = (() => {
     if (isSharedByMe) return sharedByMe;
     if (isSharedWithMe) return sharedWithMe;
+    if (isTrash) return trashItems;
     if (isAllItems) return allItems;
     if (isUnfiled) return unfiledItems;
     return folderContents;
@@ -349,6 +359,14 @@ export function VfsDetailsPanel({
                 <Layers className="mx-auto h-12 w-12 opacity-50" />
                 <p className="mt-2 text-sm">No items in registry</p>
                 <p className="mt-1 text-xs">Upload files to get started</p>
+              </>
+            ) : isTrash ? (
+              <>
+                <Trash2 className="mx-auto h-12 w-12 opacity-50" />
+                <p className="mt-2 text-sm">Trash is empty</p>
+                <p className="mt-1 text-xs">
+                  Items marked for deletion will appear here
+                </p>
               </>
             ) : isUnfiled ? (
               <>

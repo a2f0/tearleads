@@ -31,3 +31,9 @@ export const SHARED_BY_ME_FOLDER_ID = '__shared_by_me__';
  * This is a UI-only concept and does not exist in the database.
  */
 export const SHARED_WITH_ME_FOLDER_ID = '__shared_with_me__';
+
+/**
+ * Virtual folder ID for viewing items marked as deleted.
+ * This is a UI-only concept and does not exist in the database.
+ */
+export const TRASH_FOLDER_ID = '__trash__';

@@ -37,6 +37,8 @@ export type {
 export { useVfsSharedWithMe } from './useVfsSharedWithMe';
 export type { UseVfsSharesResult } from './useVfsShares';
 export { useVfsShares } from './useVfsShares';
+export type { UseVfsTrashItemsResult, VfsTrashItem } from './useVfsTrashItems';
+export { useVfsTrashItems } from './useVfsTrashItems';
 export type {
   UseVfsUnfiledItemsResult,
   VfsUnfiledItem

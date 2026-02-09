@@ -19,7 +19,7 @@ import {
   vfsRegistry
 } from '@rapid/db/sqlite';
 import type { SQL } from 'drizzle-orm';
-import { and, asc, desc, eq, inArray, isNull, ne, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { VFS_ROOT_ID } from '../constants';
 import type { VfsSortState } from './vfsTypes';
 
@@ -356,6 +356,70 @@ export async function queryAllItems(
       and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
     )
     .where(ne(vfsRegistry.id, VFS_ROOT_ID))
+    .orderBy(...orderExprs);
+
+  return rows as VfsQueryRow[];
+}
+
+/**
+ * Query items marked as deleted in entity tables, sorted at the database level.
+ * Currently includes files, contacts, and notes (the VFS-backed types with a
+ * soft-delete column).
+ */
+export async function queryDeletedItems(
+  db: Database,
+  sort: VfsSortState
+): Promise<VfsQueryRow[]> {
+  const nameExpr = sql<string>`COALESCE(
+    NULLIF(${files.name}, ''),
+    CASE WHEN ${contacts.id} IS NOT NULL THEN
+      CASE WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
+        THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
+        ELSE ${contacts.firstName}
+      END
+    END,
+    NULLIF(${notes.title}, ''),
+    'Unknown'
+  )`;
+  const orderExprs = buildOrderBy(sort, nameExpr);
+
+  // Explicit "name" alias required: see queryFolderContents comment.
+  const rows = await db
+    .select({
+      id: vfsRegistry.id,
+      objectType: vfsRegistry.objectType,
+      name: sql<string>`${nameExpr} as "name"`,
+      createdAt: vfsRegistry.createdAt
+    })
+    .from(vfsRegistry)
+    .leftJoin(
+      files,
+      and(
+        eq(vfsRegistry.id, files.id),
+        inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
+      )
+    )
+    .leftJoin(
+      contacts,
+      and(
+        eq(vfsRegistry.id, contacts.id),
+        eq(vfsRegistry.objectType, 'contact')
+      )
+    )
+    .leftJoin(
+      notes,
+      and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
+    )
+    .where(
+      and(
+        ne(vfsRegistry.id, VFS_ROOT_ID),
+        or(
+          eq(files.deleted, true),
+          eq(contacts.deleted, true),
+          eq(notes.deleted, true)
+        )
+      )
+    )
     .orderBy(...orderExprs);
 
   return rows as VfsQueryRow[];
