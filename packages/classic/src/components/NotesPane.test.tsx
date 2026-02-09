@@ -165,4 +165,25 @@ describe('NotesPane', () => {
 
     expect(onReorderNote).toHaveBeenCalledWith('note-1', 'note-2');
   });
+
+  it('opens empty-space context menu and creates a new entry', () => {
+    const onCreateNote = vi.fn();
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={[]}
+        notesById={{}}
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onCreateNote={onCreateNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText('No notes in this tag.'));
+    fireEvent.click(screen.getByLabelText('Create new entry'));
+    expect(onCreateNote).toHaveBeenCalledTimes(1);
+  });
 });

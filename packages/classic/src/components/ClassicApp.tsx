@@ -8,15 +8,25 @@ import {
   selectTag
 } from '../lib/ordering';
 import type { ClassicState } from '../lib/types';
+import type { ClassicContextMenuComponents } from './ClassicContextMenu';
 import { NotesPane } from './NotesPane';
 import { TagSidebar } from './TagSidebar';
 
 export interface ClassicAppProps {
   initialState: ClassicState;
   onStateChange?: ((state: ClassicState) => void) | undefined;
+  onCreateTag?: (() => void | Promise<void>) | undefined;
+  onCreateNote?: ((tagId: string) => void | Promise<void>) | undefined;
+  contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
-export function ClassicApp({ initialState, onStateChange }: ClassicAppProps) {
+export function ClassicApp({
+  initialState,
+  onStateChange,
+  onCreateTag,
+  onCreateNote,
+  contextMenuComponents
+}: ClassicAppProps) {
   const [state, setState] = useState<ClassicState>(initialState);
   const [tagSearch, setTagSearch] = useState('');
   const [entrySearch, setEntrySearch] = useState('');
@@ -86,6 +96,13 @@ export function ClassicApp({ initialState, onStateChange }: ClassicAppProps) {
     );
   };
 
+  const handleCreateNote = () => {
+    if (!state.activeTagId || !onCreateNote) {
+      return;
+    }
+    void onCreateNote(state.activeTagId);
+  };
+
   return (
     <div className="flex h-full min-h-[420px] w-full overflow-hidden rounded border bg-white">
       <TagSidebar
@@ -94,8 +111,10 @@ export function ClassicApp({ initialState, onStateChange }: ClassicAppProps) {
         onSelectTag={handleSelectTag}
         onMoveTag={handleMoveTag}
         onReorderTag={handleReorderTag}
+        onCreateTag={onCreateTag}
         searchValue={tagSearch}
         onSearchChange={setTagSearch}
+        contextMenuComponents={contextMenuComponents}
       />
       <NotesPane
         activeTagName={activeTag?.name ?? null}
@@ -103,8 +122,10 @@ export function ClassicApp({ initialState, onStateChange }: ClassicAppProps) {
         notesById={state.notesById}
         onMoveNote={handleMoveNote}
         onReorderNote={handleReorderNote}
+        onCreateNote={handleCreateNote}
         searchValue={entrySearch}
         onSearchChange={setEntrySearch}
+        contextMenuComponents={contextMenuComponents}
       />
     </div>
   );

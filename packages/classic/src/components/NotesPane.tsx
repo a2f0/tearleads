@@ -1,6 +1,13 @@
 import { useState } from 'react';
+import {
+  CREATE_CLASSIC_NOTE_ARIA_LABEL,
+  DEFAULT_CLASSIC_NOTE_TITLE
+} from '../lib/constants';
 import type { ClassicNote } from '../lib/types';
-import { ClassicContextMenu } from './ClassicContextMenu';
+import {
+  ClassicContextMenu,
+  type ClassicContextMenuComponents
+} from './ClassicContextMenu';
 
 interface NotesPaneProps {
   activeTagName: string | null;
@@ -8,17 +15,22 @@ interface NotesPaneProps {
   notesById: Record<string, ClassicNote>;
   onMoveNote: (noteId: string, direction: 'up' | 'down') => void;
   onReorderNote: (noteId: string, targetNoteId: string) => void;
+  onCreateNote?: (() => void | Promise<void>) | undefined;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
 interface NotesContextMenuState {
   x: number;
   y: number;
-  noteId: string;
-  noteTitle: string;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
+  actions: Array<{
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    ariaLabel: string;
+  }>;
+  ariaLabel: string;
 }
 
 export function NotesPane({
@@ -27,8 +39,10 @@ export function NotesPane({
   notesById,
   onMoveNote,
   onReorderNote,
+  onCreateNote,
   searchValue,
-  onSearchChange
+  onSearchChange,
+  contextMenuComponents
 }: NotesPaneProps) {
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
     null
@@ -38,6 +52,23 @@ export function NotesPane({
   const [dragArmedNoteId, setDragArmedNoteId] = useState<string | null>(null);
 
   const closeContextMenu = () => setContextMenu(null);
+  const openEmptySpaceContextMenu = (x: number, y: number) => {
+    setContextMenu({
+      x,
+      y,
+      ariaLabel: 'Entry list actions',
+      actions: [
+        {
+          label: DEFAULT_CLASSIC_NOTE_TITLE,
+          onClick: () => {
+            void onCreateNote?.();
+          },
+          ariaLabel: CREATE_CLASSIC_NOTE_ARIA_LABEL,
+          disabled: onCreateNote === undefined
+        }
+      ]
+    });
+  };
 
   const visibleNotes = noteIds
     .map((noteId) => notesById[noteId])
@@ -45,7 +76,28 @@ export function NotesPane({
 
   return (
     <section className="flex flex-1 flex-col" aria-label="Notes Pane">
-      <div className="flex-1 overflow-auto p-4">
+      {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
+      <div
+        role="button"
+        aria-label="Entry list, press Shift+F10 for context menu"
+        tabIndex={0}
+        className="flex-1 overflow-auto p-4"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openEmptySpaceContextMenu(event.clientX, event.clientY);
+        }}
+        onKeyDown={(event) => {
+          const isContextMenuKey =
+            event.key === 'ContextMenu' ||
+            (event.key === 'F10' && event.shiftKey);
+          if (!isContextMenuKey) {
+            return;
+          }
+          event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          openEmptySpaceContextMenu(rect.left + 8, rect.top + 8);
+        }}
+      >
         {!activeTagName ? (
           <p className="text-sm text-zinc-500">Select a tag to view notes.</p>
         ) : noteIds.length === 0 ? (
@@ -97,13 +149,25 @@ export function NotesPane({
                   }}
                   onContextMenu={(event) => {
                     event.preventDefault();
+                    event.stopPropagation();
                     setContextMenu({
                       x: event.clientX,
                       y: event.clientY,
-                      noteId: note.id,
-                      noteTitle: note.title,
-                      canMoveUp,
-                      canMoveDown
+                      ariaLabel: `Note actions for ${note.title}`,
+                      actions: [
+                        {
+                          label: 'Move Up',
+                          onClick: () => onMoveNote(note.id, 'up'),
+                          disabled: !canMoveUp,
+                          ariaLabel: `Move note ${note.title} up`
+                        },
+                        {
+                          label: 'Move Down',
+                          onClick: () => onMoveNote(note.id, 'down'),
+                          disabled: !canMoveDown,
+                          ariaLabel: `Move note ${note.title} down`
+                        }
+                      ]
                     });
                   }}
                 >
@@ -150,22 +214,12 @@ export function NotesPane({
         <ClassicContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          ariaLabel={`Note actions for ${contextMenu.noteTitle}`}
+          ariaLabel={contextMenu.ariaLabel}
           onClose={closeContextMenu}
-          actions={[
-            {
-              label: 'Move Up',
-              onClick: () => onMoveNote(contextMenu.noteId, 'up'),
-              disabled: !contextMenu.canMoveUp,
-              ariaLabel: `Move note ${contextMenu.noteTitle} up`
-            },
-            {
-              label: 'Move Down',
-              onClick: () => onMoveNote(contextMenu.noteId, 'down'),
-              disabled: !contextMenu.canMoveDown,
-              ariaLabel: `Move note ${contextMenu.noteTitle} down`
-            }
-          ]}
+          actions={contextMenu.actions}
+          {...(contextMenuComponents
+            ? { components: contextMenuComponents }
+            : {})}
         />
       )}
     </section>

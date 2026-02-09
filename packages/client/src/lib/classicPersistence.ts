@@ -2,6 +2,8 @@ import {
   buildClassicPositionUpdates,
   buildClassicStateFromVfs,
   type ClassicState,
+  DEFAULT_CLASSIC_NOTE_TITLE,
+  DEFAULT_CLASSIC_TAG_NAME,
   type VfsLinkLikeRow
 } from '@rapid/classic';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -119,4 +121,98 @@ export async function persistClassicOrderToDatabase(
       position: nextPosition
     };
   });
+}
+
+async function getNextChildPosition(parentId: string): Promise<number> {
+  const db = getDatabase();
+  const rows = await db
+    .select({ position: vfsLinks.position })
+    .from(vfsLinks)
+    .where(eq(vfsLinks.parentId, parentId));
+
+  const maxPosition = rows.reduce((max, row) => {
+    if (row.position === null) {
+      return max;
+    }
+    return Math.max(max, row.position);
+  }, -1);
+
+  return maxPosition + 1;
+}
+
+export async function createClassicTag(
+  name: string = DEFAULT_CLASSIC_TAG_NAME
+): Promise<string> {
+  const db = getDatabase();
+  const tagId = crypto.randomUUID();
+  const linkId = crypto.randomUUID();
+  const now = new Date();
+  const nextPosition = await getNextChildPosition(CLASSIC_TAG_PARENT_ID);
+
+  await db.transaction(async (tx) => {
+    await tx.insert(vfsRegistry).values({
+      id: tagId,
+      objectType: 'tag',
+      ownerId: null,
+      createdAt: now
+    });
+
+    await tx.insert(tags).values({
+      id: tagId,
+      encryptedName: name,
+      color: null,
+      icon: null
+    });
+
+    await tx.insert(vfsLinks).values({
+      id: linkId,
+      parentId: CLASSIC_TAG_PARENT_ID,
+      childId: tagId,
+      wrappedSessionKey: '',
+      position: nextPosition,
+      createdAt: now
+    });
+  });
+
+  return tagId;
+}
+
+export async function createClassicNote(
+  tagId: string,
+  title: string = DEFAULT_CLASSIC_NOTE_TITLE
+): Promise<string> {
+  const db = getDatabase();
+  const noteId = crypto.randomUUID();
+  const linkId = crypto.randomUUID();
+  const now = new Date();
+  const nextPosition = await getNextChildPosition(tagId);
+
+  await db.transaction(async (tx) => {
+    await tx.insert(vfsRegistry).values({
+      id: noteId,
+      objectType: 'note',
+      ownerId: null,
+      createdAt: now
+    });
+
+    await tx.insert(notes).values({
+      id: noteId,
+      title,
+      content: '',
+      createdAt: now,
+      updatedAt: now,
+      deleted: false
+    });
+
+    await tx.insert(vfsLinks).values({
+      id: linkId,
+      parentId: tagId,
+      childId: noteId,
+      wrappedSessionKey: '',
+      position: nextPosition,
+      createdAt: now
+    });
+  });
+
+  return noteId;
 }
