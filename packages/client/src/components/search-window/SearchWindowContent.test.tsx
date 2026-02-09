@@ -430,6 +430,45 @@ describe('SearchWindowContent', () => {
   });
 
   describe('keyboard navigation', () => {
+    it('resets the search state when pressing Escape', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await user.click(screen.getByText('Contacts'));
+      await searchFor(user, 'john');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const input = screen.getByPlaceholderText(
+        'Search...'
+      ) as HTMLInputElement;
+      expect(input.value).toBe('john');
+      expect(screen.getByText('Contacts')).toHaveClass('bg-primary');
+
+      await user.keyboard('{Escape}');
+
+      await waitFor(() => {
+        expect(input.value).toBe('');
+        expect(screen.getByText('Start typing to search')).toBeInTheDocument();
+      });
+      expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
+      expect(screen.getByText('All')).toHaveClass('bg-primary');
+      expect(screen.getByText('Contacts')).not.toHaveClass('bg-primary');
+      expect(screen.getByText('Ready')).toBeInTheDocument();
+    });
+
     it('highlights first result when pressing ArrowDown', async () => {
       const user = userEvent.setup();
       mockSearch.mockResolvedValue({
