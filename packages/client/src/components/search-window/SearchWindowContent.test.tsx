@@ -539,47 +539,44 @@ describe('SearchWindowContent', () => {
         expectedWindow: 'photos',
         expectedPayload: { photoId: 'photo-456' }
       }
-    ])(
-      'opens $expectedWindow window when file resolves to $fileTarget on desktop',
-      async ({
-        fileTarget,
-        fileId,
-        fileTitle,
-        query,
+    ])('opens $expectedWindow window when file resolves to $fileTarget on desktop', async ({
+      fileTarget,
+      fileId,
+      fileTitle,
+      query,
+      expectedWindow,
+      expectedPayload
+    }) => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockResolveFileOpenTarget.mockResolvedValue(fileTarget);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: fileId,
+            entityType: 'file',
+            document: { title: fileTitle }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, query);
+
+      await waitFor(() => {
+        expect(screen.getByText(fileTitle)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText(fileTitle));
+      await waitFor(() => {
+        expect(mockOpenWindow).toHaveBeenCalledWith(expectedWindow);
+      });
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith(
         expectedWindow,
         expectedPayload
-      }) => {
-        const user = userEvent.setup();
-        mockUseIsMobile.mockReturnValue(false);
-        mockResolveFileOpenTarget.mockResolvedValue(fileTarget);
-        mockSearch.mockResolvedValue({
-          hits: [
-            {
-              id: fileId,
-              entityType: 'file',
-              document: { title: fileTitle }
-            }
-          ],
-          count: 1
-        });
-        renderContent();
-
-        await searchFor(user, query);
-
-        await waitFor(() => {
-          expect(screen.getByText(fileTitle)).toBeInTheDocument();
-        });
-
-        await user.click(screen.getByText(fileTitle));
-        await waitFor(() => {
-          expect(mockOpenWindow).toHaveBeenCalledWith(expectedWindow);
-        });
-        expect(mockRequestWindowOpen).toHaveBeenCalledWith(
-          expectedWindow,
-          expectedPayload
-        );
-      }
-    );
+      );
+    });
 
     it('navigates to contact when clicking contact result', async () => {
       const user = userEvent.setup();
@@ -704,35 +701,38 @@ describe('SearchWindowContent', () => {
         query: 'image',
         expectedRoute: '/photos/photo-101'
       }
-    ])(
-      'navigates to $expectedRoute when file resolves to $fileTarget',
-      async ({ fileTarget, fileId, fileTitle, query, expectedRoute }) => {
-        const user = userEvent.setup();
-        mockResolveFileOpenTarget.mockResolvedValue(fileTarget);
-        mockSearch.mockResolvedValue({
-          hits: [
-            {
-              id: fileId,
-              entityType: 'file',
-              document: { title: fileTitle }
-            }
-          ],
-          count: 1
-        });
-        renderContent();
+    ])('navigates to $expectedRoute when file resolves to $fileTarget', async ({
+      fileTarget,
+      fileId,
+      fileTitle,
+      query,
+      expectedRoute
+    }) => {
+      const user = userEvent.setup();
+      mockResolveFileOpenTarget.mockResolvedValue(fileTarget);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: fileId,
+            entityType: 'file',
+            document: { title: fileTitle }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
 
-        await searchFor(user, query);
+      await searchFor(user, query);
 
-        await waitFor(() => {
-          expect(screen.getByText(fileTitle)).toBeInTheDocument();
-        });
+      await waitFor(() => {
+        expect(screen.getByText(fileTitle)).toBeInTheDocument();
+      });
 
-        await user.click(screen.getByText(fileTitle));
-        await waitFor(() => {
-          expect(mockNavigate).toHaveBeenCalledWith(expectedRoute);
-        });
-      }
-    );
+      await user.click(screen.getByText(fileTitle));
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith(expectedRoute);
+      });
+    });
 
     it('navigates to playlist when clicking playlist result', async () => {
       const user = userEvent.setup();

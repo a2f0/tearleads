@@ -14,10 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import {
-  type FileOpenTarget,
-  resolveFileOpenTarget
-} from '@/lib/vfs-open';
+import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfs-open';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import type { SearchViewMode } from './SearchWindowMenuBar';
