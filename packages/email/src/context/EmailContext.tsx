@@ -69,6 +69,20 @@ export interface EmailFolderOperations {
   getFolderByType: (type: EmailFolderType) => Promise<EmailFolder | null>;
 }
 
+export interface EmailContactEmail {
+  contactId: string;
+  firstName: string;
+  lastName: string | null;
+  email: string;
+  label: string | null;
+  isPrimary: boolean;
+}
+
+export interface EmailContactOperations {
+  /** Fetch flattened contact-email rows from the address book */
+  fetchContactEmails: () => Promise<EmailContactEmail[]>;
+}
+
 /**
  * Context value interface
  */
@@ -81,6 +95,8 @@ export interface EmailContextValue {
   ui: EmailUIComponents;
   /** Folder operations (optional - provided by client with database access) */
   folderOperations?: EmailFolderOperations;
+  /** Contact operations (optional - provided by client with database access) */
+  contactOperations?: EmailContactOperations;
 }
 
 export const EmailContext = createContext<EmailContextValue | null>(null);
@@ -91,6 +107,7 @@ export interface EmailProviderProps {
   getAuthHeader?: () => string | null;
   ui: EmailUIComponents;
   folderOperations?: EmailFolderOperations;
+  contactOperations?: EmailContactOperations;
 }
 
 /**
@@ -101,13 +118,15 @@ export function EmailProvider({
   apiBaseUrl,
   getAuthHeader,
   ui,
-  folderOperations
+  folderOperations,
+  contactOperations
 }: EmailProviderProps) {
   const contextValue: EmailContextValue = {
     apiBaseUrl,
     ui,
     ...(getAuthHeader !== undefined && { getAuthHeader }),
-    ...(folderOperations !== undefined && { folderOperations })
+    ...(folderOperations !== undefined && { folderOperations }),
+    ...(contactOperations !== undefined && { contactOperations })
   };
 
   return (
@@ -171,4 +190,26 @@ export function useEmailFolderOperations(): EmailFolderOperations {
 export function useHasEmailFolderOperations(): boolean {
   const { folderOperations } = useEmailContext();
   return folderOperations !== undefined;
+}
+
+/**
+ * Hook to access contact operations
+ * @throws Error if contact operations are not provided
+ */
+export function useEmailContactOperations(): EmailContactOperations {
+  const { contactOperations } = useEmailContext();
+  if (!contactOperations) {
+    throw new Error(
+      'Email contact operations are not available. Ensure EmailProvider is configured with contactOperations.'
+    );
+  }
+  return contactOperations;
+}
+
+/**
+ * Hook to check if contact operations are available
+ */
+export function useHasEmailContactOperations(): boolean {
+  const { contactOperations } = useEmailContext();
+  return contactOperations !== undefined;
 }

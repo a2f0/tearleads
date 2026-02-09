@@ -6,8 +6,10 @@ import {
   type EmailContextValue,
   EmailProvider,
   type EmailUIComponents,
+  useEmailContactOperations,
   useEmailContext,
   useEmailFolderOperations,
+  useHasEmailContactOperations,
   useHasEmailFolderOperations
 } from './EmailContext.js';
 
@@ -141,6 +143,84 @@ describe('EmailContext', () => {
       );
 
       const { result } = renderHook(() => useHasEmailFolderOperations(), {
+        wrapper
+      });
+
+      expect(result.current).toBe(true);
+    });
+  });
+
+  describe('useEmailContactOperations', () => {
+    it('throws error when contactOperations not provided', () => {
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <EmailProvider apiBaseUrl="http://test" ui={mockUI}>
+          {children}
+        </EmailProvider>
+      );
+
+      expect(() => {
+        renderHook(() => useEmailContactOperations(), { wrapper });
+      }).toThrow('Email contact operations are not available');
+    });
+
+    it('returns contact operations when provided', () => {
+      const mockContactOps = {
+        fetchContactEmails: vi.fn().mockResolvedValue([])
+      };
+
+      const contextValue: EmailContextValue = {
+        apiBaseUrl: 'http://test',
+        ui: mockUI,
+        contactOperations: mockContactOps
+      };
+
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <EmailContext.Provider value={contextValue}>
+          {children}
+        </EmailContext.Provider>
+      );
+
+      const { result } = renderHook(() => useEmailContactOperations(), {
+        wrapper
+      });
+
+      expect(result.current).toBe(mockContactOps);
+    });
+  });
+
+  describe('useHasEmailContactOperations', () => {
+    it('returns false when contactOperations not provided', () => {
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <EmailProvider apiBaseUrl="http://test" ui={mockUI}>
+          {children}
+        </EmailProvider>
+      );
+
+      const { result } = renderHook(() => useHasEmailContactOperations(), {
+        wrapper
+      });
+
+      expect(result.current).toBe(false);
+    });
+
+    it('returns true when contactOperations provided', () => {
+      const mockContactOps = {
+        fetchContactEmails: vi.fn().mockResolvedValue([])
+      };
+
+      const contextValue: EmailContextValue = {
+        apiBaseUrl: 'http://test',
+        ui: mockUI,
+        contactOperations: mockContactOps
+      };
+
+      const wrapper = ({ children }: { children: ReactNode }) => (
+        <EmailContext.Provider value={contextValue}>
+          {children}
+        </EmailContext.Provider>
+      );
+
+      const { result } = renderHook(() => useHasEmailContactOperations(), {
         wrapper
       });
 
