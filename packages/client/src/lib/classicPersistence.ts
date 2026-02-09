@@ -86,19 +86,21 @@ export async function persistClassicOrderToDatabase(
 
   const db = getDatabase();
 
-  await Promise.all(
-    updates.map((update) =>
-      db
-        .update(vfsLinks)
-        .set({ position: update.position })
-        .where(
-          and(
-            eq(vfsLinks.parentId, update.parentId),
-            eq(vfsLinks.childId, update.childId)
+  await db.transaction(async (tx) => {
+    await Promise.all(
+      updates.map((update) =>
+        tx
+          .update(vfsLinks)
+          .set({ position: update.position })
+          .where(
+            and(
+              eq(vfsLinks.parentId, update.parentId),
+              eq(vfsLinks.childId, update.childId)
+            )
           )
-        )
-    )
-  );
+      )
+    );
+  });
 
   const updateLookup = new Map(
     updates.map((update) => [

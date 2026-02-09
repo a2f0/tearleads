@@ -62,18 +62,19 @@ export function ClassicWorkspace() {
   }, [isUnlocked, workspaceLoading, currentInstanceId, fetchClassicState]);
 
   const handleStateChange = useCallback((nextState: ClassicState) => {
-    saveQueueRef.current = saveQueueRef.current.then(async () => {
-      const updatedLinkRows = await persistClassicOrderToDatabase(
-        nextState,
-        linkRowsRef.current
-      );
-      linkRowsRef.current = updatedLinkRows;
-    });
-
-    saveQueueRef.current = saveQueueRef.current.catch((err) => {
-      console.error('Failed to persist classic ordering:', err);
-      setWorkspaceError(err instanceof Error ? err.message : String(err));
-    });
+    saveQueueRef.current = saveQueueRef.current
+      .then(async () => {
+        const updatedLinkRows = await persistClassicOrderToDatabase(
+          nextState,
+          linkRowsRef.current
+        );
+        linkRowsRef.current = updatedLinkRows;
+        setWorkspaceError(null);
+      })
+      .catch((err) => {
+        console.error('Failed to persist classic ordering:', err);
+        setWorkspaceError(err instanceof Error ? err.message : String(err));
+      });
   }, []);
 
   if (isLoading) {
