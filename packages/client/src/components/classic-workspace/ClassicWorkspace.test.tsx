@@ -99,7 +99,9 @@ describe('ClassicWorkspace', () => {
 
     render(<ClassicWorkspace />);
 
-    expect(screen.getByTestId('inline-unlock')).toHaveTextContent('classic data');
+    expect(screen.getByTestId('inline-unlock')).toHaveTextContent(
+      'classic data'
+    );
   });
 
   it('loads and renders classic app when unlocked', async () => {
@@ -120,7 +122,9 @@ describe('ClassicWorkspace', () => {
       expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
     });
 
-    await user.click(screen.getByRole('button', { name: 'Trigger State Change' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Trigger State Change' })
+    );
 
     await waitFor(() => {
       expect(mockPersistClassicOrderToDatabase).toHaveBeenCalledTimes(1);
@@ -129,7 +133,9 @@ describe('ClassicWorkspace', () => {
 
   it('shows sync error when load fails', async () => {
     const consoleErrorSpy = mockConsoleError();
-    mockLoadClassicStateFromDatabase.mockRejectedValue(new Error('load failed'));
+    mockLoadClassicStateFromDatabase.mockRejectedValue(
+      new Error('load failed')
+    );
 
     render(<ClassicWorkspace />);
 
