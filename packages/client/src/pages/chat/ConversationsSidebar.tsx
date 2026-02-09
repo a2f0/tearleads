@@ -1,6 +1,7 @@
 import type { DecryptedAiConversation } from '@rapid/shared';
+import { useResizableSidebar } from '@rapid/window-manager';
 import { Loader2, MessageSquare, Plus } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { ConversationsContextMenu } from './ConversationsContextMenu';
 import { DeleteConversationDialog } from './DeleteConversationDialog';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -31,10 +32,6 @@ export function ConversationsSidebar({
   loading,
   error
 }: ConversationsSidebarProps) {
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
-
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [renameDialogConversation, setRenameDialogConversation] =
     useState<DecryptedAiConversation | null>(null);
@@ -47,44 +44,11 @@ export function ConversationsSidebar({
     conversation: DecryptedAiConversation;
   } | null>(null);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      isDragging.current = true;
-      startX.current = e.clientX;
-      startWidth.current = width;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!isDragging.current) return;
-        const delta = e.clientX - startX.current;
-        const newWidth = Math.max(
-          150,
-          Math.min(400, startWidth.current + delta)
-        );
-        onWidthChange(newWidth);
-      };
-
-      const handleMouseUp = () => {
-        isDragging.current = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [onWidthChange, width]
-  );
-
-  const handleResizeKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      e.preventDefault();
-      const delta = e.key === 'ArrowRight' ? 10 : -10;
-      const newWidth = Math.max(150, Math.min(400, width + delta));
-      onWidthChange(newWidth);
-    },
-    [onWidthChange, width]
-  );
+  const { resizeHandleProps } = useResizableSidebar({
+    width,
+    onWidthChange,
+    ariaLabel: 'Resize conversations sidebar'
+  });
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, conversation: DecryptedAiConversation) => {
@@ -191,14 +155,7 @@ export function ConversationsSidebar({
       </div>
       <hr
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize border-0 bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-        onMouseDown={handleMouseDown}
-        onKeyDown={handleResizeKeyDown}
-        tabIndex={0}
-        aria-orientation="vertical"
-        aria-valuenow={width}
-        aria-valuemin={150}
-        aria-valuemax={400}
-        aria-label="Resize conversations sidebar"
+        {...resizeHandleProps}
       />
 
       {contextMenu && (

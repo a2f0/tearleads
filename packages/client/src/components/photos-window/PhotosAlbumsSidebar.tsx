@@ -1,7 +1,6 @@
+import { useResizableSidebar, WindowContextMenu } from '@rapid/window-manager';
 import { ImagePlus, Images, Loader2, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { zIndex } from '@/constants/zIndex';
 import { filterFilesByAccept } from '@/lib/file-filter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
 import { cn, detectPlatform } from '@/lib/utils';
@@ -50,10 +49,6 @@ export function PhotosAlbumsSidebar({
 }: PhotosAlbumsSidebarProps) {
   const { albums, loading, error, refetch, deleteAlbum, renameAlbum } =
     usePhotoAlbums();
-
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
 
   // Track which album is being dragged over for visual feedback
   const [dragOverAlbumId, setDragOverAlbumId] = useState<string | null>(null);
@@ -158,33 +153,11 @@ export function PhotosAlbumsSidebar({
     lastRefreshTokenRef.current = refreshToken;
   }, [refreshToken, refetch]);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      isDragging.current = true;
-      startX.current = e.clientX;
-      startWidth.current = width;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!isDragging.current) return;
-        const delta = e.clientX - startX.current;
-        const newWidth = Math.max(
-          150,
-          Math.min(400, startWidth.current + delta)
-        );
-        onWidthChange(newWidth);
-      };
-
-      const handleMouseUp = () => {
-        isDragging.current = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [width, onWidthChange]
-  );
+  const { resizeHandleProps } = useResizableSidebar({
+    width,
+    onWidthChange,
+    ariaLabel: 'Resize albums sidebar'
+  });
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, album: PhotoAlbum) => {
@@ -297,10 +270,9 @@ export function PhotosAlbumsSidebar({
           ))}
       </div>
       {/* Resize handle */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for panel width */}
       <div
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"
-        onMouseDown={handleMouseDown}
+        {...resizeHandleProps}
       />
 
       {/* Context Menu */}
@@ -378,56 +350,35 @@ function AlbumContextMenu({
   onRename,
   onDelete
 }: AlbumContextMenuProps) {
-  const menuRef = useRef<HTMLDivElement>(null);
-
-  // Close on click outside
-  const handleBackdropClick = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  // Use portal to escape FloatingWindow's backdrop-filter containing block
-  return createPortal(
-    <>
-      <div
-        className="fixed inset-0"
-        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
-        onClick={handleBackdropClick}
-        aria-hidden="true"
-        data-testid="album-context-menu-backdrop"
-      />
-      <div
-        ref={menuRef}
-        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
-        style={{
-          left: x,
-          top: y,
-          zIndex: zIndex.floatingWindowContextMenu
+  return (
+    <WindowContextMenu
+      x={x}
+      y={y}
+      onClose={onClose}
+      backdropTestId="album-context-menu-backdrop"
+      menuTestId="album-context-menu"
+    >
+      <button
+        type="button"
+        className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        onClick={() => {
+          onRename(album);
+          onClose();
         }}
-        data-testid="album-context-menu"
       >
-        <button
-          type="button"
-          className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-          onClick={() => {
-            onRename(album);
-            onClose();
-          }}
-        >
-          Rename
-        </button>
-        <button
-          type="button"
-          className="flex w-full items-center rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
-          onClick={() => {
-            onDelete(album);
-            onClose();
-          }}
-        >
-          Delete
-        </button>
-      </div>
-    </>,
-    document.body
+        Rename
+      </button>
+      <button
+        type="button"
+        className="flex w-full items-center rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+        onClick={() => {
+          onDelete(album);
+          onClose();
+        }}
+      >
+        Delete
+      </button>
+    </WindowContextMenu>
   );
 }
 
@@ -445,39 +396,22 @@ function EmptySpaceContextMenu({
   onClose,
   onNewAlbum
 }: EmptySpaceContextMenuProps) {
-  const handleBackdropClick = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  // Use portal to escape FloatingWindow's backdrop-filter containing block
-  return createPortal(
-    <>
-      <div
-        className="fixed inset-0"
-        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
-        onClick={handleBackdropClick}
-        aria-hidden="true"
-        data-testid="empty-space-context-menu-backdrop"
-      />
-      <div
-        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
-        style={{
-          left: x,
-          top: y,
-          zIndex: zIndex.floatingWindowContextMenu
-        }}
-        data-testid="empty-space-context-menu"
+  return (
+    <WindowContextMenu
+      x={x}
+      y={y}
+      onClose={onClose}
+      backdropTestId="empty-space-context-menu-backdrop"
+      menuTestId="empty-space-context-menu"
+    >
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        onClick={onNewAlbum}
       >
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-          onClick={onNewAlbum}
-        >
-          <Plus className="h-4 w-4" />
-          New Album
-        </button>
-      </div>
-    </>,
-    document.body
+        <Plus className="h-4 w-4" />
+        New Album
+      </button>
+    </WindowContextMenu>
   );
 }

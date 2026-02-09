@@ -1,3 +1,4 @@
+import { WindowContextMenu } from '@rapid/window-manager';
 import {
   ChevronDown,
   ChevronUp,
@@ -103,14 +104,7 @@ export function AudioWindowTableView({
     detectPlatform
   } = useAudioUIContext();
   const { isUnlocked, isLoading, currentInstanceId } = databaseState;
-  const {
-    RefreshButton,
-    InlineUnlock,
-    ContextMenu,
-    ContextMenuItem,
-    Input,
-    AudioPlayer
-  } = ui;
+  const { RefreshButton, InlineUnlock, Input, AudioPlayer } = ui;
 
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
   const currentTrackRef = useRef(currentTrack);
@@ -513,38 +507,42 @@ export function AudioWindowTableView({
         ))}
 
       {contextMenu && (
-        <ContextMenu
+        <WindowContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
-          <ContextMenuItem
-            icon={
-              contextMenu.track.id === currentTrack?.id && isPlaying ? (
-                <Pause className="h-4 w-4" />
-              ) : (
-                <Play className="h-4 w-4" />
-              )
-            }
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => handleContextMenuPlay(contextMenu.track)}
           >
+            {contextMenu.track.id === currentTrack?.id && isPlaying ? (
+              <Pause className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
             {contextMenu.track.id === currentTrack?.id && isPlaying
               ? t('pause')
               : t('play')}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Info className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={handleContextMenuInfo}
           >
+            <Info className="h-4 w-4" />
             {t('getInfo')}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Trash2 className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
             onClick={() => handleDelete(contextMenu.track)}
           >
+            <Trash2 className="h-4 w-4" />
             {t('delete')}
-          </ContextMenuItem>
-        </ContextMenu>
+          </button>
+        </WindowContextMenu>
       )}
     </div>
   );

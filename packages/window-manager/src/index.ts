@@ -2,6 +2,8 @@
 export {
   FloatingWindow,
   type FloatingWindowProps,
+  WindowContextMenu,
+  type WindowContextMenuProps,
   type WindowDimensions
 } from './components/index.js';
 
@@ -15,7 +17,12 @@ export {
 } from './context/index.js';
 
 // Hooks
-export { type Corner, useFloatingWindow } from './hooks/index.js';
+export {
+  type Corner,
+  type UseResizableSidebarResult,
+  useFloatingWindow,
+  useResizableSidebar
+} from './hooks/index.js';
 
 // Utilities
 export { cn, generateUniqueId, WINDOW_FIT_CONTENT_EVENT } from './lib/index.js';

@@ -1,8 +1,7 @@
 import type { ActiveGroup } from '@rapid/mls-chat';
+import { useResizableSidebar, WindowContextMenu } from '@rapid/window-manager';
 import { Loader2, MessageCircle, Plus } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
-import { createPortal } from 'react-dom';
-import { zIndex } from '@/constants/zIndex';
+import { useCallback, useState } from 'react';
 
 const MIN_SIDEBAR_WIDTH = 150;
 const MAX_SIDEBAR_WIDTH = 400;
@@ -28,10 +27,6 @@ export function MlsChatGroupsSidebar({
   isLoading = false,
   error = null
 }: MlsChatGroupsSidebarProps) {
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
-
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -43,47 +38,13 @@ export function MlsChatGroupsSidebar({
     y: number;
   } | null>(null);
 
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      isDragging.current = true;
-      startX.current = e.clientX;
-      startWidth.current = width;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!isDragging.current) return;
-        const delta = e.clientX - startX.current;
-        const newWidth = Math.max(
-          MIN_SIDEBAR_WIDTH,
-          Math.min(MAX_SIDEBAR_WIDTH, startWidth.current + delta)
-        );
-        onWidthChange(newWidth);
-      };
-
-      const handleMouseUp = () => {
-        isDragging.current = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [onWidthChange, width]
-  );
-
-  const handleResizeKeyDown = useCallback(
-    (e: React.KeyboardEvent<HTMLDivElement>) => {
-      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-      e.preventDefault();
-      const delta = e.key === 'ArrowRight' ? 10 : -10;
-      const newWidth = Math.max(
-        MIN_SIDEBAR_WIDTH,
-        Math.min(MAX_SIDEBAR_WIDTH, width + delta)
-      );
-      onWidthChange(newWidth);
-    },
-    [onWidthChange, width]
-  );
+  const { resizeHandleProps } = useResizableSidebar({
+    width,
+    onWidthChange,
+    minWidth: MIN_SIDEBAR_WIDTH,
+    maxWidth: MAX_SIDEBAR_WIDTH,
+    ariaLabel: 'Resize groups sidebar'
+  });
 
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, group: ActiveGroup) => {
@@ -171,14 +132,7 @@ export function MlsChatGroupsSidebar({
       </div>
       <hr
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize border-0 bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
-        onMouseDown={handleMouseDown}
-        onKeyDown={handleResizeKeyDown}
-        tabIndex={0}
-        aria-orientation="vertical"
-        aria-valuenow={width}
-        aria-valuemin={150}
-        aria-valuemax={400}
-        aria-label="Resize groups sidebar"
+        {...resizeHandleProps}
       />
 
       {contextMenu && (
@@ -213,34 +167,18 @@ interface GroupContextMenuProps {
 }
 
 function GroupContextMenu({ x, y, group, onClose }: GroupContextMenuProps) {
-  const handleBackdropClick = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  return createPortal(
-    <>
-      <div
-        className="fixed inset-0"
-        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
-        onClick={handleBackdropClick}
-        aria-hidden="true"
-        data-testid="group-context-menu-backdrop"
-      />
-      <div
-        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
-        style={{
-          left: x,
-          top: y,
-          zIndex: zIndex.floatingWindowContextMenu
-        }}
-        data-testid="group-context-menu"
-      >
-        <div className="px-2 py-1.5 text-muted-foreground text-sm">
-          {group.memberCount} member{group.memberCount !== 1 ? 's' : ''}
-        </div>
+  return (
+    <WindowContextMenu
+      x={x}
+      y={y}
+      onClose={onClose}
+      backdropTestId="group-context-menu-backdrop"
+      menuTestId="group-context-menu"
+    >
+      <div className="px-2 py-1.5 text-muted-foreground text-sm">
+        {group.memberCount} member{group.memberCount !== 1 ? 's' : ''}
       </div>
-    </>,
-    document.body
+    </WindowContextMenu>
   );
 }
 
@@ -257,38 +195,22 @@ function EmptySpaceContextMenu({
   onClose,
   onNewGroup
 }: EmptySpaceContextMenuProps) {
-  const handleBackdropClick = useCallback(() => {
-    onClose();
-  }, [onClose]);
-
-  return createPortal(
-    <>
-      <div
-        className="fixed inset-0"
-        style={{ zIndex: zIndex.floatingWindowContextMenuBackdrop }}
-        onClick={handleBackdropClick}
-        aria-hidden="true"
-        data-testid="empty-space-context-menu-backdrop"
-      />
-      <div
-        className="fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md"
-        style={{
-          left: x,
-          top: y,
-          zIndex: zIndex.floatingWindowContextMenu
-        }}
-        data-testid="empty-space-context-menu"
+  return (
+    <WindowContextMenu
+      x={x}
+      y={y}
+      onClose={onClose}
+      backdropTestId="empty-space-context-menu-backdrop"
+      menuTestId="empty-space-context-menu"
+    >
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        onClick={onNewGroup}
       >
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-          onClick={onNewGroup}
-        >
-          <Plus className="h-4 w-4" />
-          New Group
-        </button>
-      </div>
-    </>,
-    document.body
+        <Plus className="h-4 w-4" />
+        New Group
+      </button>
+    </WindowContextMenu>
   );
 }

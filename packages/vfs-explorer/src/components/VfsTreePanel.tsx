@@ -1,3 +1,4 @@
+import { useResizableSidebar, WindowContextMenu } from '@rapid/window-manager';
 import {
   ChevronDown,
   ChevronRight,
@@ -12,7 +13,7 @@ import {
   Trash2,
   UserCheck
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,
@@ -21,7 +22,7 @@ import {
   UNFILED_FOLDER_ID,
   VFS_ROOT_ID
 } from '../constants';
-import { useVfsClipboard, useVfsExplorerContext } from '../context';
+import { useVfsClipboard } from '../context';
 import { useEnsureVfsRoot, useVfsFolders, type VfsFolderNode } from '../hooks';
 import { cn } from '../lib';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
@@ -111,9 +112,6 @@ export function VfsTreePanel({
   // Ensure the VFS root exists before loading folders
   useEnsureVfsRoot();
 
-  const {
-    ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator }
-  } = useVfsExplorerContext();
   const { folders, loading, error, refetch } = useVfsFolders();
   const { hasItems } = useVfsClipboard();
 
@@ -127,9 +125,11 @@ export function VfsTreePanel({
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     new Set([VFS_ROOT_ID])
   );
-  const isDragging = useRef(false);
-  const startX = useRef(0);
-  const startWidth = useRef(0);
+  const { resizeHandleProps } = useResizableSidebar({
+    width,
+    onWidthChange,
+    ariaLabel: 'Resize folders sidebar'
+  });
 
   // Context menu state
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -144,34 +144,6 @@ export function VfsTreePanel({
   const [newSubfolderParent, setNewSubfolderParent] =
     useState<VfsFolderNode | null>(null);
   const [showNewRootFolderDialog, setShowNewRootFolderDialog] = useState(false);
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
-      isDragging.current = true;
-      startX.current = e.clientX;
-      startWidth.current = width;
-
-      const handleMouseMove = (e: MouseEvent) => {
-        if (!isDragging.current) return;
-        const delta = e.clientX - startX.current;
-        const newWidth = Math.max(
-          150,
-          Math.min(400, startWidth.current + delta)
-        );
-        onWidthChange(newWidth);
-      };
-
-      const handleMouseUp = () => {
-        isDragging.current = false;
-        document.removeEventListener('mousemove', handleMouseMove);
-        document.removeEventListener('mouseup', handleMouseUp);
-      };
-
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [width, onWidthChange]
-  );
 
   const toggleExpand = useCallback((folderId: string) => {
     setExpandedFolderIds((prev) => {
@@ -335,10 +307,9 @@ export function VfsTreePanel({
         )}
         {!loading && !error && folders.map((folder) => renderFolder(folder, 0))}
       </div>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for panel width */}
       <div
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"
-        onMouseDown={handleMouseDown}
+        {...resizeHandleProps}
       />
 
       {/* Folder Context Menu */}
@@ -358,38 +329,42 @@ export function VfsTreePanel({
 
       {/* Empty Space Context Menu */}
       {emptySpaceContextMenu && (
-        <ContextMenu
+        <WindowContextMenu
           x={emptySpaceContextMenu.x}
           y={emptySpaceContextMenu.y}
           onClose={() => setEmptySpaceContextMenu(null)}
         >
-          <ContextMenuItem
-            icon={<FolderPlus className="h-4 w-4" />}
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               setShowNewRootFolderDialog(true);
               setEmptySpaceContextMenu(null);
             }}
           >
+            <FolderPlus className="h-4 w-4" />
             New Folder
-          </ContextMenuItem>
+          </button>
           {hasItems &&
             onPaste &&
             selectedFolderId &&
             !NON_PASTE_FOLDERS.has(selectedFolderId) && (
               <>
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  icon={<Clipboard className="h-4 w-4" />}
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
                   onClick={() => {
                     onPaste(selectedFolderId);
                     setEmptySpaceContextMenu(null);
                   }}
                 >
+                  <Clipboard className="h-4 w-4" />
                   Paste
-                </ContextMenuItem>
+                </button>
               </>
             )}
-        </ContextMenu>
+        </WindowContextMenu>
       )}
 
       {/* New Subfolder Dialog */}

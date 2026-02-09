@@ -1,3 +1,4 @@
+import { WindowContextMenu } from '@rapid/window-manager';
 import {
   ClipboardCopy,
   Copy,
@@ -31,10 +32,7 @@ export function ItemContextMenu({
   onShare,
   hiddenItems = []
 }: ItemContextMenuProps) {
-  const {
-    ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator },
-    vfsShareApi
-  } = useVfsExplorerContext();
+  const { vfsShareApi } = useVfsExplorerContext();
   const { cut, copy } = useVfsClipboard();
 
   const clipboardItem = {
@@ -44,60 +42,70 @@ export function ItemContextMenu({
   };
 
   return (
-    <ContextMenu x={x} y={y} onClose={onClose}>
-      <ContextMenuItem
-        icon={<ExternalLink className="h-4 w-4" />}
+    <WindowContextMenu x={x} y={y} onClose={onClose}>
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
         onClick={() => {
           onOpen(item);
           onClose();
         }}
       >
+        <ExternalLink className="h-4 w-4" />
         Open
-      </ContextMenuItem>
-      <ContextMenuItem
-        icon={<Download className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
         onClick={() => {
           onDownload(item);
           onClose();
         }}
       >
+        <Download className="h-4 w-4" />
         Download
-      </ContextMenuItem>
-      <ContextMenuSeparator />
+      </button>
+      <div className="my-1 h-px bg-border" />
       {!hiddenItems.includes('cut') && (
-        <ContextMenuItem
-          icon={<ClipboardCopy className="h-4 w-4" />}
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             cut([clipboardItem]);
             onClose();
           }}
         >
+          <ClipboardCopy className="h-4 w-4" />
           Cut
-        </ContextMenuItem>
+        </button>
       )}
-      <ContextMenuItem
-        icon={<Copy className="h-4 w-4" />}
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
         onClick={() => {
           copy([clipboardItem]);
           onClose();
         }}
       >
+        <Copy className="h-4 w-4" />
         Copy
-      </ContextMenuItem>
+      </button>
       {vfsShareApi && onShare && (
         <>
-          <ContextMenuSeparator />
-          <ContextMenuItem
-            icon={<Share2 className="h-4 w-4" />}
+          <div className="my-1 h-px bg-border" />
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               onShare(item);
               onClose();
             }}
           >
+            <Share2 className="h-4 w-4" />
             Sharing
-          </ContextMenuItem>
+          </button>
         </>
       )}
-    </ContextMenu>
+    </WindowContextMenu>
   );
 }
