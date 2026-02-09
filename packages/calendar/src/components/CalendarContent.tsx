@@ -216,7 +216,8 @@ export function CalendarContent({
   );
 
   const getDateKey = useCallback(
-    (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+    (date: Date) =>
+      `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
     []
   );
 
