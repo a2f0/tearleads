@@ -84,6 +84,7 @@ export function SearchWindowContent({
   const [searchDurationMs, setSearchDurationMs] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchGenerationRef = useRef(0);
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const searchOptions =
     selectedFilters.length === 0
@@ -112,7 +113,7 @@ export function SearchWindowContent({
     inputRef.current?.focus();
   }, []);
 
-  // Debounced search
+  // Search function
   const performSearch = useCallback(
     async (searchQuery: string) => {
       const normalizedQuery = searchQuery.trim();
@@ -148,6 +149,26 @@ export function SearchWindowContent({
     },
     [search]
   );
+
+  // Typeahead: search as user types (only for non-empty queries)
+  useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+    }
+
+    const trimmedQuery = query.trim();
+    if (trimmedQuery.length > 0) {
+      debounceTimerRef.current = setTimeout(() => {
+        void performSearch(query);
+      }, 300);
+    }
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [query, performSearch]);
 
   const handleSearchSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -274,10 +295,8 @@ export function SearchWindowContent({
         ) : !hasSearched ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <Search className="h-12 w-12" />
-            <p>Press Enter to search</p>
-            <p className="text-sm">
-              Leave the field blank and press Enter to list all objects
-            </p>
+            <p>Start typing to search</p>
+            <p className="text-sm">Press Enter to list all objects</p>
           </div>
         ) : results.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
