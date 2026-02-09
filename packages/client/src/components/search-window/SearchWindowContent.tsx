@@ -8,12 +8,13 @@ import {
   Search,
   StickyNote
 } from 'lucide-react';
-import type { FormEvent, MouseEvent } from 'react';
+import type { FormEvent, KeyboardEvent, MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfs-open';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import type { SearchViewMode } from './SearchWindowMenuBar';
@@ -46,7 +47,7 @@ const ENTITY_TYPE_ROUTES: Record<SearchableEntityType, (id: string) => string> =
     contact: (id) => `/contacts/${id}`,
     note: (id) => `/notes/${id}`,
     email: (id) => `/emails/${id}`,
-    file: (id) => `/documents/${id}`,
+    file: (_id) => `/files`,
     playlist: (id) => `/audio?playlist=${id}`,
     album: (id) => `/audio?album=${id}`,
     ai_conversation: (id) => `/ai?conversation=${id}`
@@ -68,7 +69,7 @@ interface SearchWindowContentProps {
 }
 
 export function SearchWindowContent({
-  viewMode = 'view'
+  viewMode = 'list'
 }: SearchWindowContentProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -82,7 +83,9 @@ export function SearchWindowContent({
   const [isSearching, setIsSearching] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [searchDurationMs, setSearchDurationMs] = useState<number | null>(null);
+  const [selectedIndex, setSelectedIndex] = useState(-1);
   const inputRef = useRef<HTMLInputElement>(null);
+  const resultsContainerRef = useRef<HTMLDivElement>(null);
   const searchGenerationRef = useRef(0);
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -112,6 +115,11 @@ export function SearchWindowContent({
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset selection when results array changes
+  useEffect(() => {
+    setSelectedIndex(-1);
+  }, [results]);
 
   // Search function
   const performSearch = useCallback(
@@ -181,48 +189,134 @@ export function SearchWindowContent({
     [performSearch, query]
   );
 
-  const handleResultClick = (
-    result: SearchResult,
-    event?: MouseEvent<HTMLElement>
-  ) => {
-    event?.stopPropagation();
+  const handleResultClick = useCallback(
+    async (result: SearchResult, event?: MouseEvent<HTMLElement>) => {
+      event?.stopPropagation();
 
-    const route = ENTITY_TYPE_ROUTES[result.entityType](result.id);
-    if (isMobile) {
-      navigate(route);
-      return;
-    }
+      if (result.entityType === 'file') {
+        const fileTarget = await resolveFileOpenTarget(result.id);
 
-    switch (result.entityType) {
-      case 'contact':
-        openWindow('contacts');
-        requestWindowOpen('contacts', { contactId: result.id });
-        return;
-      case 'note':
-        openWindow('notes');
-        requestWindowOpen('notes', { noteId: result.id });
-        return;
-      case 'email':
+        if (isMobile) {
+          const fileMobileRouteMap: Partial<Record<FileOpenTarget, string>> = {
+            audio: `/audio/${result.id}`,
+            photo: `/photos/${result.id}`,
+            video: `/videos/${result.id}`,
+            document: `/documents/${result.id}`
+          };
+          navigate(fileMobileRouteMap[fileTarget] ?? '/files');
+          return;
+        }
+
+        switch (fileTarget) {
+          case 'audio':
+            openWindow('audio');
+            requestWindowOpen('audio', { audioId: result.id });
+            return;
+          case 'photo':
+            openWindow('photos');
+            requestWindowOpen('photos', { photoId: result.id });
+            return;
+          case 'video':
+            openWindow('videos');
+            requestWindowOpen('videos', { videoId: result.id });
+            return;
+          case 'document':
+            openWindow('documents');
+            requestWindowOpen('documents', { documentId: result.id });
+            return;
+          default:
+            openWindow('files');
+            requestWindowOpen('files', { fileId: result.id });
+            return;
+        }
+      }
+
+      const route = ENTITY_TYPE_ROUTES[result.entityType](result.id);
+      if (isMobile) {
         navigate(route);
         return;
-      case 'file':
-        openWindow('documents');
-        requestWindowOpen('documents', { documentId: result.id });
-        return;
-      case 'playlist':
-        openWindow('audio');
-        requestWindowOpen('audio', { playlistId: result.id });
-        return;
-      case 'album':
-        navigate(route);
-        return;
-      case 'ai_conversation':
-        navigate(route);
-        return;
-      default:
-        navigate(route);
-    }
-  };
+      }
+
+      switch (result.entityType) {
+        case 'contact':
+          openWindow('contacts');
+          requestWindowOpen('contacts', { contactId: result.id });
+          return;
+        case 'note':
+          openWindow('notes');
+          requestWindowOpen('notes', { noteId: result.id });
+          return;
+        case 'email':
+          navigate(route);
+          return;
+        case 'playlist':
+          openWindow('audio');
+          requestWindowOpen('audio', { playlistId: result.id });
+          return;
+        case 'album':
+          navigate(route);
+          return;
+        case 'ai_conversation':
+          navigate(route);
+          return;
+        default:
+          navigate(route);
+      }
+    },
+    [isMobile, navigate, openWindow, requestWindowOpen]
+  );
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLInputElement>) => {
+      if (results.length === 0) return;
+
+      switch (event.key) {
+        case 'ArrowDown':
+          event.preventDefault();
+          setSelectedIndex((prev) => {
+            const next = prev < results.length - 1 ? prev + 1 : prev;
+            // Scroll selected item into view
+            requestAnimationFrame(() => {
+              const container = resultsContainerRef.current;
+              const selectedElement = container?.querySelector(
+                `[data-result-index="${next}"]`
+              );
+              if (selectedElement && 'scrollIntoView' in selectedElement) {
+                selectedElement.scrollIntoView({ block: 'nearest' });
+              }
+            });
+            return next;
+          });
+          break;
+        case 'ArrowUp':
+          event.preventDefault();
+          setSelectedIndex((prev) => {
+            const next = prev > 0 ? prev - 1 : prev;
+            // Scroll selected item into view
+            requestAnimationFrame(() => {
+              const container = resultsContainerRef.current;
+              const selectedElement = container?.querySelector(
+                `[data-result-index="${next}"]`
+              );
+              if (selectedElement && 'scrollIntoView' in selectedElement) {
+                selectedElement.scrollIntoView({ block: 'nearest' });
+              }
+            });
+            return next;
+          });
+          break;
+        case 'Enter': {
+          const selectedResult = results[selectedIndex];
+          if (selectedIndex >= 0 && selectedResult) {
+            event.preventDefault();
+            void handleResultClick(selectedResult);
+          }
+          break;
+        }
+      }
+    },
+    [results, selectedIndex, handleResultClick]
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -237,6 +331,7 @@ export function SearchWindowContent({
               placeholder="Search..."
               value={query}
               onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
               className="pl-9"
             />
           </div>
@@ -311,7 +406,7 @@ export function SearchWindowContent({
             </p>
           </div>
         ) : (
-          <div className="divide-y">
+          <div ref={resultsContainerRef} className="divide-y">
             <div className="px-3 py-2 text-muted-foreground text-xs">
               {totalCount === results.length
                 ? `${totalCount} result${totalCount === 1 ? '' : 's'}`
@@ -328,11 +423,16 @@ export function SearchWindowContent({
                     </tr>
                   </thead>
                   <tbody>
-                    {results.map((result) => (
+                    {results.map((result, index) => (
                       <tr
                         key={result.id}
-                        className="cursor-pointer border-b hover:bg-muted/50"
-                        onClick={(event) => handleResultClick(result, event)}
+                        data-result-index={index}
+                        className={`cursor-pointer border-b hover:bg-muted/50 ${
+                          selectedIndex === index ? 'bg-accent' : ''
+                        }`}
+                        onClick={(event) => {
+                          void handleResultClick(result, event);
+                        }}
                       >
                         <td className="px-3 py-2 font-medium">
                           {result.document.title}
@@ -351,14 +451,19 @@ export function SearchWindowContent({
                 </table>
               </div>
             ) : (
-              results.map((result) => {
+              results.map((result, index) => {
                 const Icon = ENTITY_TYPE_ICONS[result.entityType];
                 return (
                   <button
                     key={result.id}
                     type="button"
-                    onClick={(event) => handleResultClick(result, event)}
-                    className="flex w-full items-start gap-3 px-3 py-3 text-left hover:bg-muted/50"
+                    data-result-index={index}
+                    onClick={(event) => {
+                      void handleResultClick(result, event);
+                    }}
+                    className={`flex w-full items-start gap-3 px-3 py-3 text-left hover:bg-muted/50 ${
+                      selectedIndex === index ? 'bg-accent' : ''
+                    }`}
                   >
                     <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
                     <div className="min-w-0 flex-1">

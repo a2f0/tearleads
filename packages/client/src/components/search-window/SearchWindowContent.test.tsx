@@ -9,6 +9,7 @@ const mockNavigate = vi.fn();
 const mockOpenWindow = vi.fn();
 const mockRequestWindowOpen = vi.fn();
 const mockUseIsMobile = vi.fn();
+const mockResolveFileOpenTarget = vi.fn();
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -46,7 +47,11 @@ vi.mock('@/hooks/useIsMobile', () => ({
   useIsMobile: () => mockUseIsMobile()
 }));
 
-function renderContent(viewMode?: 'view' | 'table') {
+vi.mock('@/lib/vfs-open', () => ({
+  resolveFileOpenTarget: (fileId: string) => mockResolveFileOpenTarget(fileId)
+}));
+
+function renderContent(viewMode?: 'list' | 'table') {
   return render(
     <MemoryRouter>
       <ThemeProvider>
@@ -69,6 +74,7 @@ describe('SearchWindowContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseIsMobile.mockReturnValue(true);
+    mockResolveFileOpenTarget.mockResolvedValue('document');
     mockSearch.mockImplementation(async (query: string) =>
       query === '' ? blankQueryResults : { hits: [], count: 0 }
     );
@@ -423,6 +429,285 @@ describe('SearchWindowContent', () => {
     });
   });
 
+  describe('keyboard navigation', () => {
+    it('highlights first result when pressing ArrowDown', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          },
+          {
+            id: 'contact-2',
+            entityType: 'contact',
+            document: { title: 'Jane Doe' }
+          }
+        ],
+        count: 2
+      });
+      renderContent();
+
+      await searchFor(user, 'doe');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+
+      const firstResult = screen.getByText('John Doe').closest('button');
+      expect(firstResult).toHaveClass('bg-accent');
+    });
+
+    it('moves selection down with ArrowDown and up with ArrowUp', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          },
+          {
+            id: 'contact-2',
+            entityType: 'contact',
+            document: { title: 'Jane Doe' }
+          }
+        ],
+        count: 2
+      });
+      renderContent();
+
+      await searchFor(user, 'doe');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+
+      const secondResult = screen.getByText('Jane Doe').closest('button');
+      expect(secondResult).toHaveClass('bg-accent');
+
+      await user.keyboard('{ArrowUp}');
+
+      const firstResult = screen.getByText('John Doe').closest('button');
+      expect(firstResult).toHaveClass('bg-accent');
+    });
+
+    it('opens selected result when pressing Enter', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          },
+          {
+            id: 'note-1',
+            entityType: 'note',
+            document: { title: 'Meeting Notes' }
+          }
+        ],
+        count: 2
+      });
+      renderContent();
+
+      await searchFor(user, 'test');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{Enter}');
+
+      expect(mockNavigate).toHaveBeenCalledWith('/notes/note-1');
+    });
+
+    it('does not move selection past the last result', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          },
+          {
+            id: 'contact-2',
+            entityType: 'contact',
+            document: { title: 'Jane Doe' }
+          }
+        ],
+        count: 2
+      });
+      renderContent();
+
+      await searchFor(user, 'doe');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+
+      const secondResult = screen.getByText('Jane Doe').closest('button');
+      expect(secondResult).toHaveClass('bg-accent');
+    });
+
+    it('does not move selection above first result', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'doe');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowUp}');
+      await user.keyboard('{ArrowUp}');
+
+      const firstResult = screen.getByText('John Doe').closest('button');
+      expect(firstResult).toHaveClass('bg-accent');
+    });
+
+    it('resets selection when results change', async () => {
+      const user = userEvent.setup();
+      mockSearch
+        .mockResolvedValueOnce({
+          hits: [
+            {
+              id: 'contact-1',
+              entityType: 'contact',
+              document: { title: 'John Doe' }
+            }
+          ],
+          count: 1
+        })
+        .mockResolvedValueOnce({
+          hits: [
+            {
+              id: 'note-1',
+              entityType: 'note',
+              document: { title: 'New Note' }
+            }
+          ],
+          count: 1
+        });
+      renderContent();
+
+      await searchFor(user, 'john');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      expect(screen.getByText('John Doe').closest('button')).toHaveClass(
+        'bg-accent'
+      );
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.clear(input);
+      await searchFor(user, 'note');
+
+      await waitFor(() => {
+        expect(screen.getByText('New Note')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('New Note').closest('button')).not.toHaveClass(
+        'bg-accent'
+      );
+    });
+
+    it('keeps focus in input while navigating', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'john');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.keyboard('{ArrowDown}');
+
+      expect(document.activeElement).toBe(input);
+    });
+
+    it('highlights selected row in table view', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          }
+        ],
+        count: 1
+      });
+      renderContent('table');
+
+      await searchFor(user, 'john');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+
+      const row = screen.getByText('John Doe').closest('tr');
+      expect(row).toHaveClass('bg-accent');
+    });
+
+    it('submits search form when Enter pressed with no selection', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({ hits: [], count: 0 });
+      renderContent();
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.type(input, 'test');
+      await user.keyboard('{Enter}');
+
+      await waitFor(() => {
+        expect(mockSearch).toHaveBeenCalledWith('test');
+      });
+    });
+  });
+
   describe('navigation', () => {
     it('opens note in floating window on desktop', async () => {
       const user = userEvent.setup();
@@ -516,6 +801,62 @@ describe('SearchWindowContent', () => {
       expect(mockOpenWindow).not.toHaveBeenCalledWith('chat');
     });
 
+    it.each([
+      {
+        fileTarget: 'audio',
+        fileId: 'audio-456',
+        fileTitle: 'mix.flac',
+        query: 'mix',
+        expectedWindow: 'audio',
+        expectedPayload: { audioId: 'audio-456' }
+      },
+      {
+        fileTarget: 'photo',
+        fileId: 'photo-456',
+        fileTitle: 'cover.png',
+        query: 'cover',
+        expectedWindow: 'photos',
+        expectedPayload: { photoId: 'photo-456' }
+      }
+    ])('opens $expectedWindow window when file resolves to $fileTarget on desktop', async ({
+      fileTarget,
+      fileId,
+      fileTitle,
+      query,
+      expectedWindow,
+      expectedPayload
+    }) => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockResolveFileOpenTarget.mockResolvedValue(fileTarget);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: fileId,
+            entityType: 'file',
+            document: { title: fileTitle }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, query);
+
+      await waitFor(() => {
+        expect(screen.getByText(fileTitle)).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText(fileTitle));
+      await waitFor(() => {
+        expect(mockOpenWindow).toHaveBeenCalledWith(expectedWindow);
+      });
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith(
+        expectedWindow,
+        expectedPayload
+      );
+    });
+
     it('navigates to contact when clicking contact result', async () => {
       const user = userEvent.setup();
       mockSearch.mockResolvedValue({
@@ -538,6 +879,35 @@ describe('SearchWindowContent', () => {
 
       await user.click(screen.getByText('John Doe'));
       expect(mockNavigate).toHaveBeenCalledWith('/contacts/contact-123');
+    });
+
+    it('opens contact detail in floating window on desktop', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-777',
+            entityType: 'contact',
+            document: { title: 'Jane Doe' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'jane');
+
+      await waitFor(() => {
+        expect(screen.getByText('Jane Doe')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Jane Doe'));
+      expect(mockOpenWindow).toHaveBeenCalledWith('contacts');
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith('contacts', {
+        contactId: 'contact-777'
+      });
+      expect(mockNavigate).not.toHaveBeenCalledWith('/contacts/contact-777');
     });
 
     it('navigates to note when clicking note result', async () => {
@@ -588,28 +958,59 @@ describe('SearchWindowContent', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/emails/email-789');
     });
 
-    it('navigates to file when clicking file result', async () => {
+    it.each([
+      {
+        fileTarget: 'document',
+        fileId: 'file-101',
+        fileTitle: 'document.pdf',
+        query: 'document',
+        expectedRoute: '/documents/file-101'
+      },
+      {
+        fileTarget: 'audio',
+        fileId: 'audio-101',
+        fileTitle: 'track.mp3',
+        query: 'track',
+        expectedRoute: '/audio/audio-101'
+      },
+      {
+        fileTarget: 'photo',
+        fileId: 'photo-101',
+        fileTitle: 'image.jpg',
+        query: 'image',
+        expectedRoute: '/photos/photo-101'
+      }
+    ])('navigates to $expectedRoute when file resolves to $fileTarget', async ({
+      fileTarget,
+      fileId,
+      fileTitle,
+      query,
+      expectedRoute
+    }) => {
       const user = userEvent.setup();
+      mockResolveFileOpenTarget.mockResolvedValue(fileTarget);
       mockSearch.mockResolvedValue({
         hits: [
           {
-            id: 'file-101',
+            id: fileId,
             entityType: 'file',
-            document: { title: 'document.pdf' }
+            document: { title: fileTitle }
           }
         ],
         count: 1
       });
       renderContent();
 
-      await searchFor(user, 'document');
+      await searchFor(user, query);
 
       await waitFor(() => {
-        expect(screen.getByText('document.pdf')).toBeInTheDocument();
+        expect(screen.getByText(fileTitle)).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText('document.pdf'));
-      expect(mockNavigate).toHaveBeenCalledWith('/documents/file-101');
+      await user.click(screen.getByText(fileTitle));
+      await waitFor(() => {
+        expect(mockNavigate).toHaveBeenCalledWith(expectedRoute);
+      });
     });
 
     it('navigates to playlist when clicking playlist result', async () => {

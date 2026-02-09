@@ -1,6 +1,7 @@
 import { ContactsWindow as ContactsWindowBase } from '@rapid/contacts';
 import type { WindowDimensions } from '@rapid/window-manager';
 import { ClientContactsProvider } from '@/contexts/ClientContactsProvider';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 
 interface ContactsWindowProps {
   id: string;
@@ -18,9 +19,16 @@ interface ContactsWindowProps {
  * required by the @rapid/contacts package.
  */
 export function ContactsWindow(props: ContactsWindowProps) {
+  const { windowOpenRequests } = useWindowManager();
+
   return (
     <ClientContactsProvider>
-      <ContactsWindowBase {...props} />
+      <ContactsWindowBase
+        {...props}
+        {...(windowOpenRequests.contacts && {
+          openContactRequest: windowOpenRequests.contacts
+        })}
+      />
     </ClientContactsProvider>
   );
 }

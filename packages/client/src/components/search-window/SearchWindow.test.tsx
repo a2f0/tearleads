@@ -29,7 +29,7 @@ vi.mock('./SearchWindowMenuBar', () => ({
     onViewModeChange
   }: {
     onClose: () => void;
-    onViewModeChange: (mode: 'view' | 'table') => void;
+    onViewModeChange: (mode: 'list' | 'table') => void;
   }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onClose} data-testid="menu-close-button">

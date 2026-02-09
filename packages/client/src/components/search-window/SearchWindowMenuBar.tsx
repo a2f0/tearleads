@@ -1,4 +1,4 @@
-import { Eye, Table2 } from 'lucide-react';
+import { List, Table2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -6,7 +6,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 
-export type SearchViewMode = 'view' | 'table';
+export type SearchViewMode = 'list' | 'table';
 
 interface SearchWindowMenuBarProps {
   viewMode: SearchViewMode;
@@ -26,18 +26,18 @@ export function SearchWindowMenuBar({
       </DropdownMenu>
       <DropdownMenu trigger="View">
         <DropdownMenuItem
+          onClick={() => onViewModeChange('list')}
+          checked={viewMode === 'list'}
+          icon={<List className="h-3 w-3" />}
+        >
+          List
+        </DropdownMenuItem>
+        <DropdownMenuItem
           onClick={() => onViewModeChange('table')}
           checked={viewMode === 'table'}
           icon={<Table2 className="h-3 w-3" />}
         >
           Table
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onClick={() => onViewModeChange('view')}
-          checked={viewMode === 'view'}
-          icon={<Eye className="h-3 w-3" />}
-        >
-          View
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
