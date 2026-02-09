@@ -1,4 +1,4 @@
-import { useResizableSidebar } from '@rapid/window-manager';
+import { useResizableSidebar, WindowContextMenu } from '@rapid/window-manager';
 import {
   ChevronDown,
   ChevronRight,
@@ -22,7 +22,7 @@ import {
   UNFILED_FOLDER_ID,
   VFS_ROOT_ID
 } from '../constants';
-import { useVfsClipboard, useVfsExplorerContext } from '../context';
+import { useVfsClipboard } from '../context';
 import { useEnsureVfsRoot, useVfsFolders, type VfsFolderNode } from '../hooks';
 import { cn } from '../lib';
 import { DeleteFolderDialog } from './DeleteFolderDialog';
@@ -112,9 +112,6 @@ export function VfsTreePanel({
   // Ensure the VFS root exists before loading folders
   useEnsureVfsRoot();
 
-  const {
-    ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator }
-  } = useVfsExplorerContext();
   const { folders, loading, error, refetch } = useVfsFolders();
   const { hasItems } = useVfsClipboard();
 
@@ -332,38 +329,42 @@ export function VfsTreePanel({
 
       {/* Empty Space Context Menu */}
       {emptySpaceContextMenu && (
-        <ContextMenu
+        <WindowContextMenu
           x={emptySpaceContextMenu.x}
           y={emptySpaceContextMenu.y}
           onClose={() => setEmptySpaceContextMenu(null)}
         >
-          <ContextMenuItem
-            icon={<FolderPlus className="h-4 w-4" />}
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               setShowNewRootFolderDialog(true);
               setEmptySpaceContextMenu(null);
             }}
           >
+            <FolderPlus className="h-4 w-4" />
             New Folder
-          </ContextMenuItem>
+          </button>
           {hasItems &&
             onPaste &&
             selectedFolderId &&
             !NON_PASTE_FOLDERS.has(selectedFolderId) && (
               <>
-                <ContextMenuSeparator />
-                <ContextMenuItem
-                  icon={<Clipboard className="h-4 w-4" />}
+                <div className="my-1 h-px bg-border" />
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
                   onClick={() => {
                     onPaste(selectedFolderId);
                     setEmptySpaceContextMenu(null);
                   }}
                 >
+                  <Clipboard className="h-4 w-4" />
                   Paste
-                </ContextMenuItem>
+                </button>
               </>
             )}
-        </ContextMenu>
+        </WindowContextMenu>
       )}
 
       {/* New Subfolder Dialog */}

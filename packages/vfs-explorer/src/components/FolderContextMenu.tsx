@@ -1,3 +1,4 @@
+import { WindowContextMenu } from '@rapid/window-manager';
 import {
   Clipboard,
   ClipboardCopy,
@@ -34,10 +35,7 @@ export function FolderContextMenu({
   onShare,
   onPaste
 }: FolderContextMenuProps) {
-  const {
-    ui: { ContextMenu, ContextMenuItem, ContextMenuSeparator },
-    vfsShareApi
-  } = useVfsExplorerContext();
+  const { vfsShareApi } = useVfsExplorerContext();
   const { cut, copy, hasItems } = useVfsClipboard();
 
   const clipboardItem = {
@@ -48,84 +46,98 @@ export function FolderContextMenu({
   const isRootFolder = folder.id === VFS_ROOT_ID;
 
   return (
-    <ContextMenu x={x} y={y} onClose={onClose}>
-      <ContextMenuItem
-        icon={<FolderPlus className="h-4 w-4" />}
+    <WindowContextMenu x={x} y={y} onClose={onClose}>
+      <button
+        type="button"
+        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
         onClick={() => {
           onNewSubfolder(folder);
           onClose();
         }}
       >
+        <FolderPlus className="h-4 w-4" />
         New Subfolder
-      </ContextMenuItem>
+      </button>
       {!isRootFolder && (
-        <ContextMenuItem
-          icon={<Pencil className="h-4 w-4" />}
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             onRename(folder);
             onClose();
           }}
         >
+          <Pencil className="h-4 w-4" />
           Rename
-        </ContextMenuItem>
+        </button>
       )}
       {!isRootFolder && vfsShareApi && onShare && (
-        <ContextMenuItem
-          icon={<Share2 className="h-4 w-4" />}
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             onShare(folder);
             onClose();
           }}
         >
+          <Share2 className="h-4 w-4" />
           Sharing
-        </ContextMenuItem>
+        </button>
       )}
-      <ContextMenuSeparator />
+      <div className="my-1 h-px bg-border" />
       {!isRootFolder && (
-        <ContextMenuItem
-          icon={<ClipboardCopy className="h-4 w-4" />}
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             cut([clipboardItem]);
             onClose();
           }}
         >
+          <ClipboardCopy className="h-4 w-4" />
           Cut
-        </ContextMenuItem>
+        </button>
       )}
       {!isRootFolder && (
-        <ContextMenuItem
-          icon={<Copy className="h-4 w-4" />}
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             copy([clipboardItem]);
             onClose();
           }}
         >
+          <Copy className="h-4 w-4" />
           Copy
-        </ContextMenuItem>
+        </button>
       )}
       {hasItems && onPaste && (
-        <ContextMenuItem
-          icon={<Clipboard className="h-4 w-4" />}
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
           onClick={() => {
             onPaste(folder.id);
             onClose();
           }}
         >
+          <Clipboard className="h-4 w-4" />
           Paste
-        </ContextMenuItem>
+        </button>
       )}
-      {!isRootFolder && <ContextMenuSeparator />}
+      {!isRootFolder && <div className="my-1 h-px bg-border" />}
       {!isRootFolder && (
-        <ContextMenuItem
-          icon={<Trash2 className="h-4 w-4" />}
+        <button
+          type="button"
+          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
           onClick={() => {
             onDelete(folder);
             onClose();
           }}
         >
+          <Trash2 className="h-4 w-4" />
           Delete
-        </ContextMenuItem>
+        </button>
       )}
-    </ContextMenu>
+    </WindowContextMenu>
   );
 }

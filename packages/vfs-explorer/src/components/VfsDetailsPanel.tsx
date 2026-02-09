@@ -1,3 +1,4 @@
+import { WindowContextMenu } from '@rapid/window-manager';
 import {
   ArrowDown,
   ArrowUp,
@@ -20,7 +21,7 @@ import {
   TRASH_FOLDER_ID,
   UNFILED_FOLDER_ID
 } from '../constants';
-import { useVfsClipboard, useVfsExplorerContext } from '../context';
+import { useVfsClipboard } from '../context';
 import {
   useVfsAllItems,
   useVfsFolderContents,
@@ -100,9 +101,6 @@ export function VfsDetailsPanel({
   onPaste,
   onUpload
 }: VfsDetailsPanelProps) {
-  const {
-    ui: { ContextMenu, ContextMenuItem }
-  } = useVfsExplorerContext();
   const { hasItems } = useVfsClipboard();
   // Treat null folderId as unfiled (default view)
   const isUnfiled = folderId === UNFILED_FOLDER_ID || folderId === null;
@@ -231,35 +229,39 @@ export function VfsDetailsPanel({
   const renderEmptySpaceContextMenu = () => {
     if (!emptySpaceContextMenu) return null;
     return (
-      <ContextMenu
+      <WindowContextMenu
         x={emptySpaceContextMenu.x}
         y={emptySpaceContextMenu.y}
         onClose={() => setEmptySpaceContextMenu(null)}
       >
         {onUpload && folderId && (
-          <ContextMenuItem
-            icon={<Upload className="h-4 w-4" />}
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               onUpload(folderId);
               setEmptySpaceContextMenu(null);
             }}
             data-testid="vfs-upload-context-menu-item"
           >
+            <Upload className="h-4 w-4" />
             Upload
-          </ContextMenuItem>
+          </button>
         )}
         {hasItems && onPaste && folderId && (
-          <ContextMenuItem
-            icon={<Clipboard className="h-4 w-4" />}
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               onPaste(folderId);
               setEmptySpaceContextMenu(null);
             }}
           >
+            <Clipboard className="h-4 w-4" />
             Paste
-          </ContextMenuItem>
+          </button>
         )}
-      </ContextMenu>
+      </WindowContextMenu>
     );
   };
 
