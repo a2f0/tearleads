@@ -366,7 +366,6 @@ describe('SearchWindowContent', () => {
 
     it('stops click propagation when opening result on desktop', async () => {
       const user = userEvent.setup();
-      const onContainerClick = vi.fn();
       mockUseIsMobile.mockReturnValue(false);
       mockSearch.mockResolvedValue({
         hits: [
@@ -380,18 +379,11 @@ describe('SearchWindowContent', () => {
       });
 
       render(
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={onContainerClick}
-          onKeyDown={() => {}}
-        >
-          <MemoryRouter>
-            <ThemeProvider>
-              <SearchWindowContent />
-            </ThemeProvider>
-          </MemoryRouter>
-        </div>
+        <MemoryRouter>
+          <ThemeProvider>
+            <SearchWindowContent />
+          </ThemeProvider>
+        </MemoryRouter>
       );
 
       const input = screen.getByPlaceholderText('Search...');
@@ -401,10 +393,12 @@ describe('SearchWindowContent', () => {
         expect(screen.getByText('Meeting Notes')).toBeInTheDocument();
       });
 
-      onContainerClick.mockClear();
-      await user.click(screen.getByText('Meeting Notes'));
+      const resultButton = screen.getByText('Meeting Notes');
+      const clickEvent = new MouseEvent('click', { bubbles: true });
+      const stopPropagationSpy = vi.spyOn(clickEvent, 'stopPropagation');
+      resultButton.dispatchEvent(clickEvent);
 
-      expect(onContainerClick).not.toHaveBeenCalled();
+      expect(stopPropagationSpy).toHaveBeenCalled();
       expect(mockOpenWindow).toHaveBeenCalledWith('notes');
     });
 
