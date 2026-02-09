@@ -24,7 +24,56 @@ describe('AiRequestsAdminPage', () => {
     vi.clearAllMocks();
   });
 
-  it('renders AI usage rows with request IDs and token usage', async () => {
+  it('renders first page of AI usage rows with request IDs and token usage', async () => {
+    mockGetUsage.mockResolvedValueOnce({
+      usage: [
+        {
+          id: 'usage-1',
+          conversationId: null,
+          messageId: null,
+          userId: 'user-1',
+          organizationId: null,
+          modelId: 'openai/gpt-4o-mini',
+          promptTokens: 120,
+          completionTokens: 80,
+          totalTokens: 200,
+          openrouterRequestId: 'req-1',
+          createdAt: '2026-02-09T12:00:00.000Z'
+        }
+      ],
+      summary: {
+        totalPromptTokens: 120,
+        totalCompletionTokens: 80,
+        totalTokens: 200,
+        requestCount: 1,
+        periodStart: '2026-02-01T00:00:00.000Z',
+        periodEnd: '2026-02-09T23:59:59.999Z'
+      },
+      hasMore: true,
+      cursor: 'cursor-2'
+    });
+
+    render(
+      <MemoryRouter>
+        <AiRequestsAdminPage />
+      </MemoryRouter>
+    );
+
+    expect(
+      await screen.findByRole('heading', { name: 'AI Requests Admin' })
+    ).toBeInTheDocument();
+    expect(screen.getByText('usage-1')).toBeInTheDocument();
+    expect(screen.getByText('req-1')).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Load more' })
+    ).toBeInTheDocument();
+
+    expect(mockGetUsage).toHaveBeenCalledTimes(1);
+    expect(mockGetUsage).toHaveBeenCalledWith({ limit: 100 });
+  });
+
+  it('loads more data when Load more button is clicked', async () => {
+    const user = userEvent.setup();
     mockGetUsage
       .mockResolvedValueOnce({
         usage: [
@@ -87,13 +136,16 @@ describe('AiRequestsAdminPage', () => {
       </MemoryRouter>
     );
 
-    expect(
-      await screen.findByRole('heading', { name: 'AI Requests Admin' })
-    ).toBeInTheDocument();
-    expect(screen.getByText('usage-1')).toBeInTheDocument();
-    expect(screen.getByText('usage-2')).toBeInTheDocument();
-    expect(screen.getByText('req-1')).toBeInTheDocument();
+    await screen.findByText('usage-1');
+    expect(screen.queryByText('usage-2')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Load more' }));
+
+    expect(await screen.findByText('usage-2')).toBeInTheDocument();
     expect(screen.getByText('N/A')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Load more' })
+    ).not.toBeInTheDocument();
 
     expect(mockGetUsage).toHaveBeenNthCalledWith(1, { limit: 100 });
     expect(mockGetUsage).toHaveBeenNthCalledWith(2, {

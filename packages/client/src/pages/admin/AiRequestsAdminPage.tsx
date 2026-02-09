@@ -1,9 +1,10 @@
 import type { AiUsage } from '@rapid/shared';
 import { Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
@@ -51,44 +52,57 @@ export function AiRequestsAdminPage({
   const initialFilterUserId = (initialUserId?.trim() || queryUserId).trim();
   const [usageRows, setUsageRows] = useState<AiUsage[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [userIdFilter, setUserIdFilter] = useState(initialFilterUserId);
+  const [hasMore, setHasMore] = useState(false);
+  const cursorRef = useRef<string | undefined>(undefined);
 
-  const fetchAllUsage = useCallback(async () => {
-    setLoading(true);
+  const fetchUsage = useCallback(async (isLoadMore = false) => {
+    if (isLoadMore) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+      cursorRef.current = undefined;
+    }
     setError(null);
+
     try {
-      const collectedRows: AiUsage[] = [];
-      let cursor: string | undefined;
-      let hasMore = true;
+      const response = await api.ai.getUsage({
+        ...(cursorRef.current ? { cursor: cursorRef.current } : {}),
+        limit: PAGE_SIZE
+      });
 
-      while (hasMore) {
-        const response = await api.ai.getUsage({
-          ...(cursor ? { cursor } : {}),
-          limit: PAGE_SIZE
-        });
-
-        collectedRows.push(...response.usage);
-        hasMore = response.hasMore;
-        cursor = response.cursor;
-
-        if (hasMore && !cursor) {
-          break;
-        }
+      if (isLoadMore) {
+        setUsageRows((prev) => [...prev, ...response.usage]);
+      } else {
+        setUsageRows(response.usage);
       }
-
-      setUsageRows(collectedRows);
+      setHasMore(response.hasMore);
+      cursorRef.current = response.cursor;
     } catch (err) {
       console.error('Failed to fetch AI request usage:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
-      setLoading(false);
+      if (isLoadMore) {
+        setLoadingMore(false);
+      } else {
+        setLoading(false);
+      }
     }
   }, []);
 
+  const handleLoadMore = useCallback(() => {
+    void fetchUsage(true);
+  }, [fetchUsage]);
+
+  const handleRefresh = useCallback(() => {
+    void fetchUsage(false);
+  }, [fetchUsage]);
+
   useEffect(() => {
-    void fetchAllUsage();
-  }, [fetchAllUsage]);
+    void fetchUsage(false);
+  }, [fetchUsage]);
 
   const filteredUsageRows = useMemo(() => {
     const filter = userIdFilter.trim();
@@ -121,7 +135,7 @@ export function AiRequestsAdminPage({
               Request IDs and token usage for all AI requests
             </p>
           </div>
-          <RefreshButton onClick={fetchAllUsage} loading={loading} />
+          <RefreshButton onClick={handleRefresh} loading={loading} />
         </div>
       </div>
 
@@ -196,35 +210,56 @@ export function AiRequestsAdminPage({
               No AI usage requests found.
             </div>
           ) : (
-            filteredUsageRows.map((row) => (
-              <div
-                key={row.id}
-                className="grid grid-cols-[minmax(180px,1.2fr)_minmax(220px,1.4fr)_minmax(160px,1fr)_minmax(180px,1fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(180px,1fr)] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0"
-              >
-                <div className="truncate font-mono text-xs">{row.id}</div>
-                <div className="truncate font-mono text-muted-foreground text-xs">
-                  {row.openrouterRequestId ?? 'N/A'}
+            <>
+              {filteredUsageRows.map((row) => (
+                <div
+                  key={row.id}
+                  className="grid grid-cols-[minmax(180px,1.2fr)_minmax(220px,1.4fr)_minmax(160px,1fr)_minmax(180px,1fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(180px,1fr)] items-center gap-3 border-b px-4 py-3 text-sm last:border-b-0"
+                >
+                  <div className="truncate font-mono text-xs">{row.id}</div>
+                  <div className="truncate font-mono text-muted-foreground text-xs">
+                    {row.openrouterRequestId ?? 'N/A'}
+                  </div>
+                  <div className="truncate font-mono text-muted-foreground text-xs">
+                    {row.userId}
+                  </div>
+                  <div className="truncate text-muted-foreground text-xs">
+                    {row.modelId}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    {formatNumber(row.promptTokens)}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    {formatNumber(row.completionTokens)}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    {formatNumber(row.totalTokens)}
+                  </div>
+                  <div className="text-muted-foreground text-xs">
+                    {formatTimestamp(row.createdAt)}
+                  </div>
                 </div>
-                <div className="truncate font-mono text-muted-foreground text-xs">
-                  {row.userId}
+              ))}
+              {hasMore && !userIdFilter.trim() && (
+                <div className="flex justify-center border-t px-4 py-4">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleLoadMore}
+                    disabled={loadingMore}
+                  >
+                    {loadingMore ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Load more'
+                    )}
+                  </Button>
                 </div>
-                <div className="truncate text-muted-foreground text-xs">
-                  {row.modelId}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {formatNumber(row.promptTokens)}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {formatNumber(row.completionTokens)}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {formatNumber(row.totalTokens)}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {formatTimestamp(row.createdAt)}
-                </div>
-              </div>
-            ))
+              )}
+            </>
           )}
         </div>
       </div>

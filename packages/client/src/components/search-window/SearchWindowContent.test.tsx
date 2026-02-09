@@ -675,9 +675,11 @@ describe('SearchWindowContent', () => {
         expect(screen.getByText('New Note')).toBeInTheDocument();
       });
 
-      expect(screen.getByText('New Note').closest('button')).not.toHaveClass(
-        'bg-accent'
-      );
+      await waitFor(() => {
+        expect(screen.getByText('New Note').closest('button')).not.toHaveClass(
+          'bg-accent'
+        );
+      });
     });
 
     it('keeps focus in input while navigating', async () => {
