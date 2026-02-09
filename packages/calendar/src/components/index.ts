@@ -1,2 +1,2 @@
-export { CalendarContent, type CalendarContentProps } from './CalendarContent';
+export { CalendarContent } from './CalendarContent';
 export { CalendarWindow } from './CalendarWindow';

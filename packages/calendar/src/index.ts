@@ -1,7 +1,6 @@
 export {
   CalendarContent,
-  type CalendarContentProps,
   CalendarWindow
 } from './components';
-export { CALENDAR_CREATE_EVENT } from './events';
+export { CALENDAR_CREATE_EVENT, CALENDAR_CREATE_SUBMIT_EVENT } from './events';
 export { Calendar } from './pages';
