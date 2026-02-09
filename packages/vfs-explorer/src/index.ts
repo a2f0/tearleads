@@ -59,8 +59,8 @@ export type {
   UseVfsFolderContentsResult,
   UseVfsFoldersResult,
   UseVfsTrashItemsResult,
-  VfsTrashItem,
   UseVfsUnfiledItemsResult,
+  VfsTrashItem,
   VfsUnfiledItem
 } from './hooks';
 // Hooks

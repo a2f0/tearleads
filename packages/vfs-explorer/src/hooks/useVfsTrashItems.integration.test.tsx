@@ -1,7 +1,4 @@
-import {
-  seedVfsItem,
-  withRealDatabase
-} from '@rapid/db-test-utils';
+import { seedVfsItem, withRealDatabase } from '@rapid/db-test-utils';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { VfsExplorerProviderProps } from '../context';
@@ -11,25 +8,15 @@ import { useVfsTrashItems } from './useVfsTrashItems';
 
 function createMockUI(): VfsExplorerProviderProps['ui'] {
   return {
-    Button: ({ children }) => (
-      <button type="button">{children}</button>
-    ),
+    Button: ({ children }) => <button type="button">{children}</button>,
     Input: (props) => <input {...props} />,
-    DropdownMenu: ({ children }) => (
-      <div>{children}</div>
-    ),
-    DropdownMenuItem: ({ children }) => (
-      <div>{children}</div>
-    ),
+    DropdownMenu: ({ children }) => <div>{children}</div>,
+    DropdownMenuItem: ({ children }) => <div>{children}</div>,
     DropdownMenuSeparator: () => <hr />,
     WindowOptionsMenuItem: () => <div>Options</div>,
     AboutMenuItem: () => <div>About</div>,
-    FloatingWindow: ({ children }) => (
-      <div>{children}</div>
-    ),
-    ContextMenu: ({ children }) => (
-      <div>{children}</div>
-    ),
+    FloatingWindow: ({ children }) => <div>{children}</div>,
+    ContextMenu: ({ children }) => <div>{children}</div>,
     ContextMenuItem: ({ children, onClick }) => (
       <button type="button" onClick={onClick}>
         {children}

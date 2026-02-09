@@ -1,7 +1,4 @@
-import {
-  seedVfsItem,
-  withRealDatabase
-} from '@rapid/db-test-utils';
+import { seedVfsItem, withRealDatabase } from '@rapid/db-test-utils';
 import { describe, expect, it } from 'vitest';
 import { trashTestMigrations } from '../test/trashTestMigrations';
 import { queryDeletedItems } from './vfsQuery';
