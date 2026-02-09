@@ -129,6 +129,12 @@ describe('VFS Folder Integration: Create and Fetch', () => {
 
         expect(foldersResult.current.folders).toHaveLength(1);
         expect(foldersResult.current.folders[0]).toMatchObject({
+          id: VFS_ROOT_ID,
+          name: 'VFS Root',
+          parentId: null
+        });
+        expect(foldersResult.current.folders[0]?.children).toHaveLength(1);
+        expect(foldersResult.current.folders[0]?.children?.[0]).toMatchObject({
           id: createdFolder?.id,
           name: folderName,
           parentId: VFS_ROOT_ID
@@ -213,7 +219,10 @@ describe('VFS Folder Integration: Create and Fetch', () => {
         });
 
         expect(foldersResult.current.folders).toHaveLength(1);
-        const parentNode = foldersResult.current.folders[0];
+        const rootNode = foldersResult.current.folders[0];
+        expect(rootNode?.id).toBe(VFS_ROOT_ID);
+        expect(rootNode?.children).toHaveLength(1);
+        const parentNode = rootNode?.children?.[0];
         expect(parentNode?.name).toBe('Parent Folder');
         expect(parentNode?.children).toHaveLength(1);
         expect(parentNode?.children?.[0]).toMatchObject({
@@ -420,8 +429,9 @@ describe('VFS Folder Integration: Create and Fetch', () => {
           expect(foldersResult.current.hasFetched).toBe(true);
         });
 
-        expect(foldersResult.current.folders).toHaveLength(3);
-        const folderNames = foldersResult.current.folders.map((f) => f.name);
+        expect(foldersResult.current.folders).toHaveLength(1);
+        const folderNames =
+          foldersResult.current.folders[0]?.children?.map((f) => f.name) ?? [];
         expect(folderNames).toContain('Folder A');
         expect(folderNames).toContain('Folder B');
         expect(folderNames).toContain('Folder C');

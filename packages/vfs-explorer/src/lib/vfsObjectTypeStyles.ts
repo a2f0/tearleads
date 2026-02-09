@@ -45,7 +45,7 @@ export const OBJECT_TYPE_COLORS: Record<VfsObjectType, string> = {
   // Collections
   folder: 'text-yellow-600 dark:text-yellow-500',
   playlist: 'text-purple-600 dark:text-purple-400',
-  album: 'text-green-600 dark:text-green-400',
+  album: 'text-success',
   contactGroup: 'text-blue-600 dark:text-blue-400',
   emailFolder: 'text-sky-600 dark:text-sky-400',
   tag: 'text-pink-600 dark:text-pink-400'

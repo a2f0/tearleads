@@ -7,6 +7,7 @@ import {
   Share2,
   Trash2
 } from 'lucide-react';
+import { VFS_ROOT_ID } from '../constants';
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import type { VfsFolderNode } from '../hooks';
 
@@ -44,6 +45,7 @@ export function FolderContextMenu({
     objectType: 'folder' as const,
     name: folder.name
   };
+  const isRootFolder = folder.id === VFS_ROOT_ID;
 
   return (
     <ContextMenu x={x} y={y} onClose={onClose}>
@@ -56,16 +58,18 @@ export function FolderContextMenu({
       >
         New Subfolder
       </ContextMenuItem>
-      <ContextMenuItem
-        icon={<Pencil className="h-4 w-4" />}
-        onClick={() => {
-          onRename(folder);
-          onClose();
-        }}
-      >
-        Rename
-      </ContextMenuItem>
-      {vfsShareApi && onShare && (
+      {!isRootFolder && (
+        <ContextMenuItem
+          icon={<Pencil className="h-4 w-4" />}
+          onClick={() => {
+            onRename(folder);
+            onClose();
+          }}
+        >
+          Rename
+        </ContextMenuItem>
+      )}
+      {!isRootFolder && vfsShareApi && onShare && (
         <ContextMenuItem
           icon={<Share2 className="h-4 w-4" />}
           onClick={() => {
@@ -77,24 +81,28 @@ export function FolderContextMenu({
         </ContextMenuItem>
       )}
       <ContextMenuSeparator />
-      <ContextMenuItem
-        icon={<ClipboardCopy className="h-4 w-4" />}
-        onClick={() => {
-          cut([clipboardItem]);
-          onClose();
-        }}
-      >
-        Cut
-      </ContextMenuItem>
-      <ContextMenuItem
-        icon={<Copy className="h-4 w-4" />}
-        onClick={() => {
-          copy([clipboardItem]);
-          onClose();
-        }}
-      >
-        Copy
-      </ContextMenuItem>
+      {!isRootFolder && (
+        <ContextMenuItem
+          icon={<ClipboardCopy className="h-4 w-4" />}
+          onClick={() => {
+            cut([clipboardItem]);
+            onClose();
+          }}
+        >
+          Cut
+        </ContextMenuItem>
+      )}
+      {!isRootFolder && (
+        <ContextMenuItem
+          icon={<Copy className="h-4 w-4" />}
+          onClick={() => {
+            copy([clipboardItem]);
+            onClose();
+          }}
+        >
+          Copy
+        </ContextMenuItem>
+      )}
       {hasItems && onPaste && (
         <ContextMenuItem
           icon={<Clipboard className="h-4 w-4" />}
@@ -106,16 +114,18 @@ export function FolderContextMenu({
           Paste
         </ContextMenuItem>
       )}
-      <ContextMenuSeparator />
-      <ContextMenuItem
-        icon={<Trash2 className="h-4 w-4" />}
-        onClick={() => {
-          onDelete(folder);
-          onClose();
-        }}
-      >
-        Delete
-      </ContextMenuItem>
+      {!isRootFolder && <ContextMenuSeparator />}
+      {!isRootFolder && (
+        <ContextMenuItem
+          icon={<Trash2 className="h-4 w-4" />}
+          onClick={() => {
+            onDelete(folder);
+            onClose();
+          }}
+        >
+          Delete
+        </ContextMenuItem>
+      )}
     </ContextMenu>
   );
 }

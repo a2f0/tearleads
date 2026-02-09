@@ -1,7 +1,6 @@
 import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
 import { eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';
 
 export interface VfsFolderNode {
@@ -88,13 +87,9 @@ export function useVfsFolders(): UseVfsFoldersResult {
         );
       }
 
-      // Build flat list of folder nodes (excluding the VFS root)
+      // Build flat list of folder nodes
       const nodeMap = new Map<string, VfsFolderNode>();
       for (const folder of folderRows) {
-        // Skip the VFS root - it's hidden from the UI
-        if (folder.id === VFS_ROOT_ID) {
-          continue;
-        }
         nodeMap.set(folder.id, {
           id: folder.id,
           name: folder.name || 'Unnamed Folder',

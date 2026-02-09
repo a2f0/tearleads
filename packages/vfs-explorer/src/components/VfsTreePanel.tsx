@@ -16,7 +16,8 @@ import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,
   SHARED_WITH_ME_FOLDER_ID,
-  UNFILED_FOLDER_ID
+  UNFILED_FOLDER_ID,
+  VFS_ROOT_ID
 } from '../constants';
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
 import { useEnsureVfsRoot, useVfsFolders, type VfsFolderNode } from '../hooks';
@@ -74,7 +75,7 @@ const VIRTUAL_FOLDERS: VirtualFolderConfig[] = [
   },
   {
     id: SHARED_BY_ME_FOLDER_ID,
-    label: "Items I've Shared",
+    label: 'My Shared Items',
     icon: Share2,
     iconClassName: 'text-emerald-600 dark:text-emerald-400'
   },
@@ -116,7 +117,7 @@ export function VfsTreePanel({
     }
   }, [refreshToken]);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
-    new Set()
+    new Set([VFS_ROOT_ID])
   );
   const isDragging = useRef(false);
   const startX = useRef(0);
