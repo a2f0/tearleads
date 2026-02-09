@@ -2,7 +2,8 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CALENDAR_CREATE_SUBMIT_EVENT } from '../events';
 
-const defaultCalendars = ['Personal'];
+const defaultCalendarName = 'Personal';
+const defaultCalendars = [defaultCalendarName];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
 type CalendarViewMode = (typeof viewModes)[number];
 const calendarLocale = 'en-US';
@@ -53,7 +54,8 @@ export function CalendarContent({
   onSidebarContextMenuRequest
 }: CalendarContentProps = {}) {
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
-  const [activeCalendar, setActiveCalendar] = useState(defaultCalendars[0]);
+  const [activeCalendar, setActiveCalendar] =
+    useState<string>(defaultCalendarName);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [newEventTitle, setNewEventTitle] = useState('');

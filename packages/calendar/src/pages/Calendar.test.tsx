@@ -194,7 +194,14 @@ describe('Calendar', () => {
 
   it('creates an event from day quick-add form', async () => {
     const user = userEvent.setup();
-    const onCreateEvent = vi.fn(async () => {});
+    const onCreateEvent = vi.fn<
+      (input: {
+        calendarName: string;
+        title: string;
+        startAt: Date;
+        endAt?: Date | null | undefined;
+      }) => Promise<void>
+    >(async () => {});
     render(<CalendarContent onCreateEvent={onCreateEvent} />);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
