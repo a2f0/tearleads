@@ -1,4 +1,4 @@
-import { WindowContextMenu } from '@rapid/window-manager';
+import { WindowContextMenu, WindowContextMenuItem } from '@rapid/window-manager';
 import {
   Clipboard,
   ClipboardCopy,
@@ -47,96 +47,83 @@ export function FolderContextMenu({
 
   return (
     <WindowContextMenu x={x} y={y} onClose={onClose}>
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+      <WindowContextMenuItem
+        icon={<FolderPlus className="h-4 w-4" />}
         onClick={() => {
           onNewSubfolder(folder);
           onClose();
         }}
       >
-        <FolderPlus className="h-4 w-4" />
         New Subfolder
-      </button>
+      </WindowContextMenuItem>
       {!isRootFolder && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        <WindowContextMenuItem
+          icon={<Pencil className="h-4 w-4" />}
           onClick={() => {
             onRename(folder);
             onClose();
           }}
         >
-          <Pencil className="h-4 w-4" />
           Rename
-        </button>
+        </WindowContextMenuItem>
       )}
       {!isRootFolder && vfsShareApi && onShare && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        <WindowContextMenuItem
+          icon={<Share2 className="h-4 w-4" />}
           onClick={() => {
             onShare(folder);
             onClose();
           }}
         >
-          <Share2 className="h-4 w-4" />
           Sharing
-        </button>
+        </WindowContextMenuItem>
       )}
       <div className="my-1 h-px bg-border" />
       {!isRootFolder && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        <WindowContextMenuItem
+          icon={<ClipboardCopy className="h-4 w-4" />}
           onClick={() => {
             cut([clipboardItem]);
             onClose();
           }}
         >
-          <ClipboardCopy className="h-4 w-4" />
           Cut
-        </button>
+        </WindowContextMenuItem>
       )}
       {!isRootFolder && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        <WindowContextMenuItem
+          icon={<Copy className="h-4 w-4" />}
           onClick={() => {
             copy([clipboardItem]);
             onClose();
           }}
         >
-          <Copy className="h-4 w-4" />
           Copy
-        </button>
+        </WindowContextMenuItem>
       )}
       {hasItems && onPaste && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        <WindowContextMenuItem
+          icon={<Clipboard className="h-4 w-4" />}
           onClick={() => {
             onPaste(folder.id);
             onClose();
           }}
         >
-          <Clipboard className="h-4 w-4" />
           Paste
-        </button>
+        </WindowContextMenuItem>
       )}
       {!isRootFolder && <div className="my-1 h-px bg-border" />}
       {!isRootFolder && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+        <WindowContextMenuItem
+          icon={<Trash2 className="h-4 w-4" />}
+          variant="destructive"
           onClick={() => {
             onDelete(folder);
             onClose();
           }}
         >
-          <Trash2 className="h-4 w-4" />
           Delete
-        </button>
+        </WindowContextMenuItem>
       )}
     </WindowContextMenu>
   );

@@ -1,4 +1,4 @@
-import { WindowContextMenu } from '@rapid/window-manager';
+import { WindowContextMenu, WindowContextMenuItem } from '@rapid/window-manager';
 import {
   ClipboardCopy,
   Copy,
@@ -43,67 +43,57 @@ export function ItemContextMenu({
 
   return (
     <WindowContextMenu x={x} y={y} onClose={onClose}>
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+      <WindowContextMenuItem
+        icon={<ExternalLink className="h-4 w-4" />}
         onClick={() => {
           onOpen(item);
           onClose();
         }}
       >
-        <ExternalLink className="h-4 w-4" />
         Open
-      </button>
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+      </WindowContextMenuItem>
+      <WindowContextMenuItem
+        icon={<Download className="h-4 w-4" />}
         onClick={() => {
           onDownload(item);
           onClose();
         }}
       >
-        <Download className="h-4 w-4" />
         Download
-      </button>
+      </WindowContextMenuItem>
       <div className="my-1 h-px bg-border" />
       {!hiddenItems.includes('cut') && (
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        <WindowContextMenuItem
+          icon={<ClipboardCopy className="h-4 w-4" />}
           onClick={() => {
             cut([clipboardItem]);
             onClose();
           }}
         >
-          <ClipboardCopy className="h-4 w-4" />
           Cut
-        </button>
+        </WindowContextMenuItem>
       )}
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+      <WindowContextMenuItem
+        icon={<Copy className="h-4 w-4" />}
         onClick={() => {
           copy([clipboardItem]);
           onClose();
         }}
       >
-        <Copy className="h-4 w-4" />
         Copy
-      </button>
+      </WindowContextMenuItem>
       {vfsShareApi && onShare && (
         <>
           <div className="my-1 h-px bg-border" />
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+          <WindowContextMenuItem
+            icon={<Share2 className="h-4 w-4" />}
             onClick={() => {
               onShare(item);
               onClose();
             }}
           >
-            <Share2 className="h-4 w-4" />
             Sharing
-          </button>
+          </WindowContextMenuItem>
         </>
       )}
     </WindowContextMenu>

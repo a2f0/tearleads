@@ -1,7 +1,11 @@
 // Components
 export {
   FloatingWindow,
+  WindowContextMenuItem,
+  type WindowContextMenuItemProps,
   type FloatingWindowProps,
+  WindowStatusBar,
+  type WindowStatusBarProps,
   WindowContextMenu,
   type WindowContextMenuProps,
   type WindowDimensions

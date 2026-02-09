@@ -1,4 +1,4 @@
-import { WindowContextMenu } from '@rapid/window-manager';
+import { WindowContextMenu, WindowContextMenuItem } from '@rapid/window-manager';
 import {
   ArrowDown,
   ArrowUp,
@@ -235,31 +235,27 @@ export function VfsDetailsPanel({
         onClose={() => setEmptySpaceContextMenu(null)}
       >
         {onUpload && folderId && (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+          <WindowContextMenuItem
+            icon={<Upload className="h-4 w-4" />}
             onClick={() => {
               onUpload(folderId);
               setEmptySpaceContextMenu(null);
             }}
             data-testid="vfs-upload-context-menu-item"
           >
-            <Upload className="h-4 w-4" />
             Upload
-          </button>
+          </WindowContextMenuItem>
         )}
         {hasItems && onPaste && folderId && (
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+          <WindowContextMenuItem
+            icon={<Clipboard className="h-4 w-4" />}
             onClick={() => {
               onPaste(folderId);
               setEmptySpaceContextMenu(null);
             }}
           >
-            <Clipboard className="h-4 w-4" />
             Paste
-          </button>
+          </WindowContextMenuItem>
         )}
       </WindowContextMenu>
     );
