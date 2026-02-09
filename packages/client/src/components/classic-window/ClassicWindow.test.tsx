@@ -24,17 +24,10 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@rapid/classic', () => ({
-  ClassicApp: () => <div data-testid="classic-app">Classic App</div>
-}));
-
-vi.mock('@/lib/classicState', () => ({
-  CLASSIC_INITIAL_STATE: {
-    tags: [],
-    notesById: {},
-    noteOrderByTagId: {},
-    activeTagId: null
-  }
+vi.mock('@/components/classic-workspace/ClassicWorkspace', () => ({
+  ClassicWorkspace: () => (
+    <div data-testid="classic-workspace">Classic Workspace</div>
+  )
 }));
 
 describe('ClassicWindow', () => {
@@ -57,10 +50,10 @@ describe('ClassicWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Classic');
   });
 
-  it('renders ClassicApp content', () => {
+  it('renders Classic workspace content', () => {
     render(<ClassicWindow {...defaultProps} />);
 
-    expect(screen.getByTestId('classic-app')).toBeInTheDocument();
+    expect(screen.getByTestId('classic-workspace')).toBeInTheDocument();
   });
 
   it('renders File, Edit, Tags, Entries, View, and Help menus', () => {
