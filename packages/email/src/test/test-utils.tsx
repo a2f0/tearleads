@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import {
   type EmailContactOperations,
+  type EmailFolderOperations,
   EmailProvider,
   type EmailUIComponents
 } from '../context';
@@ -50,6 +51,7 @@ interface TestEmailProviderProps {
   getAuthHeader?: () => string | null;
   ui?: EmailUIComponents;
   contactOperations?: EmailContactOperations;
+  folderOperations?: EmailFolderOperations;
 }
 
 export function TestEmailProvider({
@@ -57,7 +59,8 @@ export function TestEmailProvider({
   apiBaseUrl = 'http://localhost:5001/v1',
   getAuthHeader,
   ui = mockUIComponents,
-  contactOperations
+  contactOperations,
+  folderOperations
 }: TestEmailProviderProps) {
   return (
     <EmailProvider
@@ -65,6 +68,7 @@ export function TestEmailProvider({
       ui={ui}
       {...(getAuthHeader !== undefined && { getAuthHeader })}
       {...(contactOperations !== undefined && { contactOperations })}
+      {...(folderOperations !== undefined && { folderOperations })}
     >
       {children}
     </EmailProvider>

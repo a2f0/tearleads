@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { EmailContactOperations } from '../context';
+import type { EmailContactOperations, EmailFolderOperations } from '../context';
 import { mockConsoleError } from '../test/console-mocks';
 import { TestEmailProvider } from '../test/test-utils';
 import { EmailWindow } from './EmailWindow';
@@ -94,6 +94,44 @@ const mockEmailSmallSize = {
   size: 500
 };
 
+const mockFolderOperations: EmailFolderOperations = {
+  fetchFolders: vi.fn().mockResolvedValue([
+    {
+      id: 'folder-inbox',
+      name: 'Inbox',
+      folderType: 'inbox',
+      parentId: null,
+      unreadCount: 0
+    },
+    {
+      id: 'folder-sent',
+      name: 'Sent',
+      folderType: 'sent',
+      parentId: null,
+      unreadCount: 0
+    },
+    {
+      id: 'folder-trash',
+      name: 'Trash',
+      folderType: 'trash',
+      parentId: null,
+      unreadCount: 0
+    }
+  ]),
+  createFolder: vi.fn().mockResolvedValue({
+    id: 'new-folder',
+    name: 'New Folder',
+    folderType: 'custom',
+    parentId: null,
+    unreadCount: 0
+  }),
+  renameFolder: vi.fn().mockResolvedValue(undefined),
+  deleteFolder: vi.fn().mockResolvedValue(undefined),
+  moveFolder: vi.fn().mockResolvedValue(undefined),
+  initializeSystemFolders: vi.fn().mockResolvedValue(undefined),
+  getFolderByType: vi.fn().mockResolvedValue(null)
+};
+
 describe('EmailWindow', () => {
   const defaultProps = {
     id: 'test-window',
@@ -105,12 +143,18 @@ describe('EmailWindow', () => {
 
   const renderWithProvider = (
     props = defaultProps,
-    options?: { contactOperations?: EmailContactOperations }
+    options?: {
+      contactOperations?: EmailContactOperations;
+      folderOperations?: EmailFolderOperations;
+    }
   ) => {
     return render(
       <TestEmailProvider
         {...(options?.contactOperations && {
           contactOperations: options.contactOperations
+        })}
+        {...(options?.folderOperations && {
+          folderOperations: options.folderOperations
         })}
       >
         <EmailWindow {...props} />
@@ -142,7 +186,7 @@ describe('EmailWindow', () => {
     renderWithProvider();
 
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
-    expect(screen.getByTestId('window-title')).toHaveTextContent('Inbox');
+    expect(screen.getByTestId('window-title')).toHaveTextContent('All Mail');
   });
 
   it('displays emails after loading', async () => {
@@ -252,7 +296,7 @@ describe('EmailWindow', () => {
     await user.click(screen.getByText(/Back to Inbox/));
 
     await waitFor(() => {
-      expect(screen.getByTestId('window-title')).toHaveTextContent('Inbox');
+      expect(screen.getByTestId('window-title')).toHaveTextContent('All Mail');
     });
 
     expect(screen.queryByText(/Back to Inbox/)).not.toBeInTheDocument();
@@ -408,7 +452,7 @@ describe('EmailWindow', () => {
     expect(
       screen.queryByRole('tab', { name: 'New Message' })
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Inbox' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'All Mail' })).toHaveAttribute(
       'aria-selected',
       'true'
     );
@@ -423,7 +467,7 @@ describe('EmailWindow', () => {
     await user.click(screen.getByRole('tab', { name: 'New Message' }));
     expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('tab', { name: 'Inbox' }));
+    await user.click(screen.getByRole('tab', { name: 'All Mail' }));
     expect(screen.queryByTestId('compose-dialog')).not.toBeInTheDocument();
     expect(
       screen.getByRole('tab', { name: 'New Message' })
@@ -446,7 +490,7 @@ describe('EmailWindow', () => {
     expect(
       screen.queryByRole('tab', { name: 'New Message' })
     ).not.toBeInTheDocument();
-    expect(screen.getByRole('tab', { name: 'Inbox' })).toHaveAttribute(
+    expect(screen.getByRole('tab', { name: 'All Mail' })).toHaveAttribute(
       'aria-selected',
       'true'
     );
@@ -517,5 +561,28 @@ describe('EmailWindow', () => {
       screen.getByRole('button', { name: /add ada lovelace to bcc/i })
     );
     expect(screen.getByTestId('compose-bcc')).toHaveValue('ada@example.com');
+  });
+
+  it('switches right panel when selecting Sent folder', async () => {
+    const user = userEvent.setup();
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ emails: mockEmails })
+    });
+
+    renderWithProvider(defaultProps, {
+      folderOperations: mockFolderOperations
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Sent')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Sent'));
+
+    await waitFor(() => {
+      expect(screen.getByText('No emails in Sent')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Sent');
   });
 });
