@@ -70,4 +70,42 @@ describe('WindowContextMenu', () => {
     await user.keyboard('{Escape}');
     expect(onClose).toHaveBeenCalled();
   });
+
+  it('repositions to stay within viewport bounds', () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalInnerHeight = window.innerHeight;
+    const getBoundingClientRectSpy = vi
+      .spyOn(HTMLElement.prototype, 'getBoundingClientRect')
+      .mockImplementation(() => DOMRect.fromRect({ width: 120, height: 120 }));
+
+    try {
+      Object.defineProperty(window, 'innerWidth', {
+        value: 200,
+        configurable: true
+      });
+      Object.defineProperty(window, 'innerHeight', {
+        value: 200,
+        configurable: true
+      });
+
+      render(
+        <WindowContextMenu x={190} y={190} onClose={vi.fn()} menuTestId="menu">
+          <button type="button">Item</button>
+        </WindowContextMenu>
+      );
+
+      const menu = screen.getByTestId('menu');
+      expect(menu).toHaveStyle({ left: '72px', top: '72px' });
+    } finally {
+      getBoundingClientRectSpy.mockRestore();
+      Object.defineProperty(window, 'innerWidth', {
+        value: originalInnerWidth,
+        configurable: true
+      });
+      Object.defineProperty(window, 'innerHeight', {
+        value: originalInnerHeight,
+        configurable: true
+      });
+    }
+  });
 });

@@ -95,4 +95,18 @@ describe('useResizableSidebar', () => {
 
     expect(onWidthChange).toHaveBeenCalled();
   });
+
+  it('ignores non-arrow keyboard input', async () => {
+    const user = userEvent.setup();
+    const onWidthChange = vi.fn();
+    render(<TestSidebar onWidthChange={onWidthChange} />);
+
+    const handle = screen.getByRole('separator', {
+      name: 'Resize test sidebar'
+    });
+    handle.focus();
+
+    await user.keyboard('{Enter}');
+    expect(onWidthChange).not.toHaveBeenCalled();
+  });
 });
