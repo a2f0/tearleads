@@ -22,6 +22,27 @@ export function AndroidMediaSessionBridge() {
   } = useAudio();
 
   const syncTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const audioStateRef = useRef({
+    isPlaying,
+    pause,
+    resume,
+    seek,
+    playTrackById,
+    skipToNextTrack,
+    skipToPreviousTrack,
+    stop
+  });
+
+  audioStateRef.current = {
+    isPlaying,
+    pause,
+    resume,
+    seek,
+    playTrackById,
+    skipToNextTrack,
+    skipToPreviousTrack,
+    stop
+  };
 
   useEffect(() => {
     if (!isAndroidNativePlatform()) return;
@@ -29,36 +50,47 @@ export function AndroidMediaSessionBridge() {
     const listenerPromise = MediaSessionBridge.addListener(
       'transportControl',
       (event) => {
+        const {
+          isPlaying: latestIsPlaying,
+          pause: latestPause,
+          resume: latestResume,
+          seek: latestSeek,
+          playTrackById: latestPlayTrackById,
+          skipToNextTrack: latestSkipToNextTrack,
+          skipToPreviousTrack: latestSkipToPreviousTrack,
+          stop: latestStop
+        } = audioStateRef.current;
+
         switch (event.action) {
           case 'play':
             if (event.mediaId) {
-              playTrackById?.(event.mediaId);
+              latestPlayTrackById?.(event.mediaId);
             } else {
-              resume();
+              latestResume();
             }
             break;
           case 'pause':
-            pause();
+            latestPause();
             break;
           case 'togglePlayPause':
-            if (isPlaying) {
-              pause();
+            if (latestIsPlaying) {
+              latestPause();
             } else {
-              resume();
+              latestResume();
             }
             break;
           case 'next':
-            skipToNextTrack?.();
+            latestSkipToNextTrack?.();
             break;
           case 'previous':
-            skipToPreviousTrack?.();
+            latestSkipToPreviousTrack?.();
             break;
           case 'stop':
-            stop();
+            latestStop();
             break;
           case 'seekTo':
             if (typeof event.positionMs === 'number') {
-              seek(event.positionMs / 1000);
+              latestSeek(event.positionMs / 1000);
             }
             break;
         }
@@ -68,16 +100,7 @@ export function AndroidMediaSessionBridge() {
     return () => {
       listenerPromise.then((listener) => listener.remove());
     };
-  }, [
-    isPlaying,
-    pause,
-    resume,
-    seek,
-    playTrackById,
-    skipToNextTrack,
-    skipToPreviousTrack,
-    stop
-  ]);
+  }, []);
 
   useEffect(() => {
     if (!isAndroidNativePlatform()) return;

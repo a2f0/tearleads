@@ -200,11 +200,9 @@ export function AudioProvider({ children }: AudioProviderProps) {
   const skipToNextTrack = useCallback(() => {
     if (playbackQueue.length === 0) return;
 
+    const firstTrack = playbackQueue[0];
     if (!currentTrack) {
-      const firstTrack = playbackQueue[0];
-      if (firstTrack) {
-        play(firstTrack);
-      }
+      if (firstTrack) play(firstTrack);
       return;
     }
 
@@ -213,28 +211,18 @@ export function AudioProvider({ children }: AudioProviderProps) {
     );
     if (currentIndex < 0) return;
 
-    const nextTrack = playbackQueue[currentIndex + 1];
-    if (nextTrack) {
-      play(nextTrack);
-      return;
-    }
-
-    if (repeatMode === 'all') {
-      const firstTrack = playbackQueue[0];
-      if (firstTrack) {
-        play(firstTrack);
-      }
-    }
+    const nextTrack =
+      playbackQueue[currentIndex + 1] ??
+      (repeatMode === 'all' ? firstTrack : undefined);
+    if (nextTrack) play(nextTrack);
   }, [currentTrack, playbackQueue, play, repeatMode]);
 
   const skipToPreviousTrack = useCallback(() => {
     if (playbackQueue.length === 0) return;
 
+    const firstTrack = playbackQueue[0];
     if (!currentTrack) {
-      const firstTrack = playbackQueue[0];
-      if (firstTrack) {
-        play(firstTrack);
-      }
+      if (firstTrack) play(firstTrack);
       return;
     }
 
@@ -243,18 +231,11 @@ export function AudioProvider({ children }: AudioProviderProps) {
     );
     if (currentIndex < 0) return;
 
-    const previousTrack = playbackQueue[currentIndex - 1];
-    if (previousTrack) {
-      play(previousTrack);
-      return;
-    }
-
-    if (repeatMode === 'all') {
-      const lastTrack = playbackQueue[playbackQueue.length - 1];
-      if (lastTrack) {
-        play(lastTrack);
-      }
-    }
+    const lastTrack = playbackQueue[playbackQueue.length - 1];
+    const previousTrack =
+      playbackQueue[currentIndex - 1] ??
+      (repeatMode === 'all' ? lastTrack : undefined);
+    if (previousTrack) play(previousTrack);
   }, [currentTrack, playbackQueue, play, repeatMode]);
 
   const playTrackById = useCallback(
