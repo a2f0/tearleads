@@ -173,6 +173,9 @@ export function SearchWindowContent({
   const handleSearchSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
       event.preventDefault();
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
       void performSearch(query);
     },
     [performSearch, query]
