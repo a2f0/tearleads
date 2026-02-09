@@ -251,4 +251,45 @@ describe('classicPersistence integration', () => {
       expect(updatedTagANoteA1Link?.position).toBe(0);
     });
   });
+
+  it('returns empty state when no classic data exists', async () => {
+    await withClassicTestDatabase(async () => {
+      const { state, linkRows } = await loadClassicStateFromDatabase();
+
+      expect(state.tags).toEqual([]);
+      expect(state.notesById).toEqual({});
+      expect(state.noteOrderByTagId).toEqual({});
+      expect(state.activeTagId).toBeNull();
+      expect(linkRows).toEqual([]);
+    });
+  });
+
+  it('does not mutate links when ordering is unchanged', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+      const { state, linkRows } = await loadClassicStateFromDatabase();
+
+      const updatedRows = await persistClassicOrderToDatabase(state, linkRows);
+
+      expect(updatedRows).toEqual(linkRows);
+
+      const rootLinks = await db
+        .select({
+          childId: vfsLinks.childId,
+          position: vfsLinks.position
+        })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.parentId, CLASSIC_TAG_PARENT_ID));
+
+      const rootTagAPosition = rootLinks.find(
+        (row) => row.childId === 'tag-a'
+      )?.position;
+      const rootTagBPosition = rootLinks.find(
+        (row) => row.childId === 'tag-b'
+      )?.position;
+
+      expect(rootTagAPosition).toBe(1);
+      expect(rootTagBPosition).toBe(0);
+    });
+  });
 });
