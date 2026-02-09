@@ -1,3 +1,4 @@
+import { WindowContextMenu } from '@rapid/window-manager';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   Download,
@@ -11,7 +12,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { UploadProgress } from '@/components/ui/upload-progress';
@@ -350,59 +350,73 @@ export function PhotosWindowContent({
       )}
 
       {contextMenu && (
-        <ContextMenu
+        <WindowContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
-          <ContextMenuItem
-            icon={<Info className="h-4 w-4" />}
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={handleGetInfo}
           >
+            <Info className="h-4 w-4" />
             {t('getInfo')}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Download className="h-4 w-4" />}
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => handleDownload(contextMenu.photo)}
           >
+            <Download className="h-4 w-4" />
             {t('download')}
-          </ContextMenuItem>
-          <ContextMenuItem onClick={handleAddToAIChat}>
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+            onClick={handleAddToAIChat}
+          >
             Add to AI chat
-          </ContextMenuItem>
+          </button>
           {canShare && (
-            <ContextMenuItem
-              icon={<Share2 className="h-4 w-4" />}
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
               onClick={() => handleShare(contextMenu.photo)}
             >
+              <Share2 className="h-4 w-4" />
               {t('share')}
-            </ContextMenuItem>
+            </button>
           )}
-          <ContextMenuItem
-            icon={<Trash2 className="h-4 w-4" />}
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
             onClick={handleDelete}
           >
+            <Trash2 className="h-4 w-4" />
             {t('delete')}
-          </ContextMenuItem>
-        </ContextMenu>
+          </button>
+        </WindowContextMenu>
       )}
 
       {blankSpaceMenu && onUpload && (
-        <ContextMenu
+        <WindowContextMenu
           x={blankSpaceMenu.x}
           y={blankSpaceMenu.y}
           onClose={() => setBlankSpaceMenu(null)}
         >
-          <ContextMenuItem
-            icon={<Upload className="h-4 w-4" />}
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
             onClick={() => {
               onUpload();
               setBlankSpaceMenu(null);
             }}
           >
+            <Upload className="h-4 w-4" />
             Upload
-          </ContextMenuItem>
-        </ContextMenu>
+          </button>
+        </WindowContextMenu>
       )}
     </div>
   );
