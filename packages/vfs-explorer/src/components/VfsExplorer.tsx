@@ -235,15 +235,16 @@ function VfsExplorerInner({
           return;
         }
 
-        // Run paste operations concurrently for better performance
-        const pasteOperations = itemsToPaste.map((item) => {
-          if (isCut) {
-            return moveItem(item.id, targetFolderId);
+        if (isCut) {
+          for (const item of itemsToPaste) {
+            await moveItem(item.id, targetFolderId);
           }
-          return copyItem(item.id, targetFolderId);
-        });
-
-        await Promise.all(pasteOperations);
+        } else {
+          // Copy can run in parallel because it does not remove existing links.
+          await Promise.all(
+            itemsToPaste.map((item) => copyItem(item.id, targetFolderId))
+          );
+        }
 
         // Clear clipboard after cut (but not after copy)
         if (isCut) {

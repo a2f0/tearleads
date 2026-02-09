@@ -372,6 +372,15 @@ export function VfsDetailsPanel({
     [items, selectedItemIds]
   );
 
+  const createDraggableItem = useCallback(
+    (item: DisplayItem, isSelected: boolean) => ({
+      ...item,
+      sourceFolderId: folderId,
+      ...(isSelected ? { selectedItems: selectedItemsForDrag } : {})
+    }),
+    [folderId, selectedItemsForDrag]
+  );
+
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center text-muted-foreground">
@@ -519,17 +528,10 @@ export function VfsDetailsPanel({
                 const Icon = OBJECT_TYPE_ICONS[item.objectType];
                 const colorClass = OBJECT_TYPE_COLORS[item.objectType];
                 const isSelected = selectedItemIds.includes(item.id);
-                const draggableItem = {
-                  ...item,
-                  sourceFolderId: folderId,
-                  ...(isSelected && selectedItemsForDrag.length > 0
-                    ? { selectedItems: selectedItemsForDrag }
-                    : {})
-                };
                 return (
                   <VfsDraggableItem
                     key={item.id}
-                    item={draggableItem}
+                    item={createDraggableItem(item, isSelected)}
                     asTableRow
                     className="border-b"
                     isSelected={isSelected}
@@ -564,17 +566,10 @@ export function VfsDetailsPanel({
               const Icon = OBJECT_TYPE_ICONS[item.objectType];
               const colorClass = OBJECT_TYPE_COLORS[item.objectType];
               const isSelected = selectedItemIds.includes(item.id);
-              const draggableItem = {
-                ...item,
-                sourceFolderId: folderId,
-                ...(isSelected && selectedItemsForDrag.length > 0
-                  ? { selectedItems: selectedItemsForDrag }
-                  : {})
-              };
               return (
                 <VfsDraggableItem
                   key={item.id}
-                  item={draggableItem}
+                  item={createDraggableItem(item, isSelected)}
                   className="flex items-center gap-3 rounded-md px-3 py-2"
                   isSelected={isSelected}
                   onClick={(e) => handleItemClick(e, item.id)}
