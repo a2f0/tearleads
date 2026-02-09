@@ -62,7 +62,10 @@ function VfsExplorerInner({
   const [internalSelectedFolderId, setInternalSelectedFolderId] = useState<
     string | null
   >(UNFILED_FOLDER_ID);
-  const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
+  const [selectedItemIds, setSelectedItemIds] = useState<string[]>([]);
+  const [selectionAnchorId, setSelectionAnchorId] = useState<string | null>(
+    null
+  );
   const [treePanelWidth, setTreePanelWidth] = useState(240);
   const [sharingPanelWidth, setSharingPanelWidth] = useState(320);
   const [sharingItem, setSharingItem] = useState<DisplayItem | null>(null);
@@ -105,10 +108,10 @@ function VfsExplorerInner({
 
   // Get selected item name for status bar
   const selectedItemName = useMemo(() => {
-    if (!selectedItemId) return null;
-    const item = items.find((i) => i.id === selectedItemId);
+    if (selectedItemIds.length !== 1) return null;
+    const item = items.find((i) => i.id === selectedItemIds[0]);
     return item?.name ?? null;
-  }, [selectedItemId, items]);
+  }, [selectedItemIds, items]);
 
   // Use controlled state if provided, otherwise use internal state
   const selectedFolderId =
@@ -119,7 +122,8 @@ function VfsExplorerInner({
   // Clear item selection when folder changes
   // biome-ignore lint/correctness/useExhaustiveDependencies: intentional - we want to clear selection when folder changes
   useEffect(() => {
-    setSelectedItemId(null);
+    setSelectedItemIds([]);
+    setSelectionAnchorId(null);
   }, [selectedFolderId]);
 
   const handleFolderSelect = useCallback(
@@ -176,12 +180,30 @@ function VfsExplorerInner({
       const itemData = active.data.current as DragItemData | undefined;
       if (!itemData) return;
 
-      // Don't allow dropping a folder into itself
-      if (itemData.objectType === 'folder' && itemData.id === targetFolderId)
-        return;
+      const draggedItems = itemData.selectedItems?.length
+        ? itemData.selectedItems
+        : [
+            {
+              id: itemData.id,
+              objectType: itemData.objectType,
+              name: itemData.name
+            }
+          ];
+      const movableItems = draggedItems.filter(
+        (item) => !(item.objectType === 'folder' && item.id === targetFolderId)
+      );
+      if (movableItems.length === 0) return;
 
       try {
-        await moveItem(itemData.id, targetFolderId);
+        for (const item of movableItems) {
+          await moveItem(item.id, targetFolderId);
+        }
+        if (itemData.sourceFolderId === UNFILED_FOLDER_ID) {
+          showStatusMessage(
+            `${movableItems.length} item${movableItems.length !== 1 ? 's' : ''} linked`,
+            'info'
+          );
+        }
         onItemMoved?.();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -275,8 +297,12 @@ function VfsExplorerInner({
             viewMode={viewMode}
             compact={compact}
             refreshToken={combinedRefreshToken}
-            selectedItemId={selectedItemId}
-            onItemSelect={setSelectedItemId}
+            selectedItemIds={selectedItemIds}
+            selectionAnchorId={selectionAnchorId}
+            onItemSelectionChange={(itemIds, anchorId) => {
+              setSelectedItemIds(itemIds);
+              setSelectionAnchorId(anchorId);
+            }}
             onFolderSelect={handleFolderSelect}
             onItemOpen={onItemOpen}
             onItemDownload={onItemDownload}
@@ -296,6 +322,7 @@ function VfsExplorerInner({
         </div>
         <VfsStatusBar
           itemCount={items.length}
+          selectedItemCount={selectedItemIds.length}
           selectedItemName={selectedItemName}
           message={statusMessage}
         />

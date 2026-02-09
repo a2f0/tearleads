@@ -7,6 +7,12 @@ export interface DragItemData {
   id: string;
   objectType: VfsObjectType;
   name: string;
+  sourceFolderId?: string | null;
+  selectedItems?: {
+    id: string;
+    objectType: VfsObjectType;
+    name: string;
+  }[];
 }
 
 interface VfsDraggableItemProps {

@@ -202,4 +202,51 @@ describe('useMoveVfsItem integration', () => {
       { migrations: vfsTestMigrations }
     );
   });
+
+  it('links three unfiled items into target folder for batch drag', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const targetFolderId = await seedFolder(db, { name: 'Target Folder' });
+        const unfiledItemOneId = await seedVfsItem(db, {
+          objectType: 'file',
+          createLink: false
+        });
+        const unfiledItemTwoId = await seedVfsItem(db, {
+          objectType: 'photo',
+          createLink: false
+        });
+        const unfiledItemThreeId = await seedVfsItem(db, {
+          objectType: 'note',
+          createLink: false
+        });
+
+        const { result } = renderHook(() => useMoveVfsItem(), {
+          wrapper: createWrapper(db)
+        });
+
+        await act(async () => {
+          await result.current.moveItem(unfiledItemOneId, targetFolderId);
+          await result.current.moveItem(unfiledItemTwoId, targetFolderId);
+          await result.current.moveItem(unfiledItemThreeId, targetFolderId);
+        });
+
+        const targetContents = await queryFolderContents(db, targetFolderId, {
+          column: null,
+          direction: null
+        });
+        expect(targetContents).toHaveLength(3);
+        const targetIds = targetContents.map((item) => item.id);
+        expect(targetIds).toContain(unfiledItemOneId);
+        expect(targetIds).toContain(unfiledItemTwoId);
+        expect(targetIds).toContain(unfiledItemThreeId);
+
+        const links = await db.select().from(vfsLinks);
+        expect(links).toHaveLength(3);
+        expect(links.every((link) => link.parentId === targetFolderId)).toBe(
+          true
+        );
+      },
+      { migrations: vfsTestMigrations }
+    );
+  });
 });

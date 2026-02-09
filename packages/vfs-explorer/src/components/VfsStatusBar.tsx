@@ -2,6 +2,7 @@ import { WindowStatusBar } from '@rapid/window-manager';
 
 interface VfsStatusBarProps {
   itemCount: number;
+  selectedItemCount?: number;
   selectedItemName?: string | null;
   /** Transient message to display (e.g., paste error) */
   message?: { text: string; type: 'error' | 'info' } | null;
@@ -9,6 +10,7 @@ interface VfsStatusBarProps {
 
 export function VfsStatusBar({
   itemCount,
+  selectedItemCount = 0,
   selectedItemName,
   message
 }: VfsStatusBarProps) {
@@ -24,6 +26,10 @@ export function VfsStatusBar({
     <WindowStatusBar>
       {selectedItemName ? (
         <span className="truncate">{selectedItemName}</span>
+      ) : selectedItemCount > 1 ? (
+        <span>
+          {selectedItemCount} items selected
+        </span>
       ) : (
         <span>
           {itemCount} item{itemCount !== 1 ? 's' : ''}

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseState } from '../context';
 
@@ -256,6 +256,38 @@ describe('VfsDetailsPanel', () => {
     });
     render(<VfsDetailsPanel folderId="1" />);
     expect(screen.getByText('1 item')).toBeInTheDocument();
+  });
+
+  it('supports shift-click range selection', () => {
+    const onItemSelectionChange = vi.fn();
+    render(
+      <VfsDetailsPanel
+        folderId="1"
+        selectedItemIds={['2']}
+        selectionAnchorId="2"
+        onItemSelectionChange={onItemSelectionChange}
+      />
+    );
+
+    fireEvent.click(screen.getByText('document.pdf'), { shiftKey: true });
+
+    expect(onItemSelectionChange).toHaveBeenCalledWith(['2', '3', '4'], '2');
+  });
+
+  it('supports ctrl-click toggle selection', () => {
+    const onItemSelectionChange = vi.fn();
+    render(
+      <VfsDetailsPanel
+        folderId="1"
+        selectedItemIds={['2']}
+        selectionAnchorId="2"
+        onItemSelectionChange={onItemSelectionChange}
+      />
+    );
+
+    fireEvent.click(screen.getByText('Meeting Notes'), { ctrlKey: true });
+
+    expect(onItemSelectionChange).toHaveBeenCalledWith(['2', '3'], '3');
   });
 
   describe('unfiled items', () => {

@@ -16,7 +16,7 @@ import {
   Upload,
   UserCheck
 } from 'lucide-react';
-import { type MouseEvent, useCallback, useEffect, useState } from 'react';
+import { type MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,
@@ -56,10 +56,14 @@ interface VfsDetailsPanelProps {
   viewMode?: VfsViewMode | undefined;
   compact?: boolean | undefined;
   refreshToken?: number | undefined;
-  /** Currently selected item ID */
-  selectedItemId?: string | null | undefined;
-  /** Callback when an item is selected */
-  onItemSelect?: ((itemId: string | null) => void) | undefined;
+  /** Currently selected item IDs */
+  selectedItemIds?: string[] | undefined;
+  /** Selection anchor used for shift-range selection */
+  selectionAnchorId?: string | null | undefined;
+  /** Callback when selection changes */
+  onItemSelectionChange?:
+    | ((itemIds: string[], anchorId: string | null) => void)
+    | undefined;
   /** Callback when a folder item is double-clicked (to navigate into it) */
   onFolderSelect?: ((folderId: string) => void) | undefined;
   /** Callback when a non-folder item is double-clicked (to open it) */
@@ -94,8 +98,9 @@ export function VfsDetailsPanel({
   viewMode = 'list',
   compact: _compact,
   refreshToken,
-  selectedItemId,
-  onItemSelect,
+  selectedItemIds = [],
+  selectionAnchorId = null,
+  onItemSelectionChange,
   onFolderSelect,
   onItemOpen,
   onItemsChange,
@@ -134,14 +139,6 @@ export function VfsDetailsPanel({
     });
   }, []);
 
-  const handleItemClick = useCallback(
-    (e: MouseEvent, itemId: string) => {
-      e.stopPropagation();
-      onItemSelect?.(itemId);
-    },
-    [onItemSelect]
-  );
-
   const handleItemDoubleClick = useCallback(
     (e: MouseEvent, item: DisplayItem) => {
       e.stopPropagation();
@@ -155,10 +152,10 @@ export function VfsDetailsPanel({
   );
 
   const handleContainerClick = useCallback(() => {
-    onItemSelect?.(null);
+    onItemSelectionChange?.([], null);
     setContextMenu(null);
     setEmptySpaceContextMenu(null);
-  }, [onItemSelect]);
+  }, [onItemSelectionChange]);
 
   const handleEmptySpaceContextMenu = useCallback(
     (e: MouseEvent) => {
@@ -194,10 +191,12 @@ export function VfsDetailsPanel({
     (e: MouseEvent, item: DisplayItem) => {
       e.preventDefault();
       e.stopPropagation();
-      onItemSelect?.(item.id);
+      if (!selectedItemIds.includes(item.id)) {
+        onItemSelectionChange?.([item.id], item.id);
+      }
       setContextMenu({ x: e.clientX, y: e.clientY, item });
     },
-    [onItemSelect]
+    [onItemSelectionChange, selectedItemIds]
   );
 
   const handleContextMenuClose = useCallback(() => {
@@ -305,10 +304,67 @@ export function VfsDetailsPanel({
     return folderContents;
   })();
 
+  const getRangeSelection = useCallback(
+    (anchorId: string, itemId: string) => {
+      const anchorIndex = items.findIndex((item) => item.id === anchorId);
+      const itemIndex = items.findIndex((item) => item.id === itemId);
+      if (anchorIndex === -1 || itemIndex === -1) {
+        return [itemId];
+      }
+      const start = Math.min(anchorIndex, itemIndex);
+      const end = Math.max(anchorIndex, itemIndex);
+      return items.slice(start, end + 1).map((item) => item.id);
+    },
+    [items]
+  );
+
+  const handleItemClick = useCallback(
+    (e: MouseEvent, itemId: string) => {
+      e.stopPropagation();
+
+      if (e.shiftKey) {
+        const anchorId = selectionAnchorId ?? itemId;
+        onItemSelectionChange?.(getRangeSelection(anchorId, itemId), anchorId);
+        return;
+      }
+
+      if (e.ctrlKey || e.metaKey) {
+        const selected = new Set(selectedItemIds);
+        if (selected.has(itemId)) {
+          selected.delete(itemId);
+        } else {
+          selected.add(itemId);
+        }
+        onItemSelectionChange?.([...selected], itemId);
+        return;
+      }
+
+      onItemSelectionChange?.([itemId], itemId);
+    },
+    [
+      getRangeSelection,
+      onItemSelectionChange,
+      selectedItemIds,
+      selectionAnchorId
+    ]
+  );
+
   // Report items to parent for status bar
   useEffect(() => {
     onItemsChange?.(items);
   }, [items, onItemsChange]);
+
+  const selectedItemsForDrag = useMemo(
+    () =>
+      items
+        .filter((item) => selectedItemIds.includes(item.id))
+        .map((item) => ({
+          id: item.id,
+          objectType: item.objectType,
+          name: item.name
+        })),
+    [items, selectedItemIds]
+  );
 
   if (loading) {
     return (
@@ -456,13 +512,21 @@ export function VfsDetailsPanel({
               {items.map((item) => {
                 const Icon = OBJECT_TYPE_ICONS[item.objectType];
                 const colorClass = OBJECT_TYPE_COLORS[item.objectType];
+                const isSelected = selectedItemIds.includes(item.id);
+                const draggableItem = {
+                  ...item,
+                  sourceFolderId: folderId,
+                  ...(isSelected && selectedItemsForDrag.length > 0
+                    ? { selectedItems: selectedItemsForDrag }
+                    : {})
+                };
                 return (
                   <VfsDraggableItem
                     key={item.id}
-                    item={item}
+                    item={draggableItem}
                     asTableRow
                     className="border-b"
-                    isSelected={item.id === selectedItemId}
+                    isSelected={isSelected}
                     onClick={(e) => handleItemClick(e, item.id)}
                     onDoubleClick={(e) => handleItemDoubleClick(e, item)}
                     onContextMenu={(e) => handleContextMenu(e, item)}
@@ -493,12 +557,20 @@ export function VfsDetailsPanel({
             {items.map((item) => {
               const Icon = OBJECT_TYPE_ICONS[item.objectType];
               const colorClass = OBJECT_TYPE_COLORS[item.objectType];
+              const isSelected = selectedItemIds.includes(item.id);
+              const draggableItem = {
+                ...item,
+                sourceFolderId: folderId,
+                ...(isSelected && selectedItemsForDrag.length > 0
+                  ? { selectedItems: selectedItemsForDrag }
+                  : {})
+              };
               return (
                 <VfsDraggableItem
                   key={item.id}
-                  item={item}
+                  item={draggableItem}
                   className="flex items-center gap-3 rounded-md px-3 py-2"
-                  isSelected={item.id === selectedItemId}
+                  isSelected={isSelected}
                   onClick={(e) => handleItemClick(e, item.id)}
                   onDoubleClick={(e) => handleItemDoubleClick(e, item)}
                   onContextMenu={(e) => handleContextMenu(e, item)}
