@@ -304,7 +304,7 @@ describe('Vfs', () => {
     });
   });
 
-  it('navigates to contacts list for contact groups', async () => {
+  it('navigates to contact group route for contact groups', async () => {
     render(
       <MemoryRouter>
         <Vfs />
@@ -318,9 +318,12 @@ describe('Vfs', () => {
       createdAt: new Date()
     });
 
-    expect(mockNavigateWithFrom).toHaveBeenCalledWith('/contacts', {
-      fromLabel: 'Back to VFS Explorer'
-    });
+    expect(mockNavigateWithFrom).toHaveBeenCalledWith(
+      '/contacts/groups/group-1',
+      {
+        fromLabel: 'Back to VFS Explorer'
+      }
+    );
   });
 
   it('navigates to audio playlist for audio playlists', async () => {

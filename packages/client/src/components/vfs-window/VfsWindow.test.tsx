@@ -442,6 +442,9 @@ describe('VfsWindow', () => {
     });
 
     expect(mockOpenWindow).toHaveBeenCalledWith('contacts');
+    expect(mockRequestWindowOpen).toHaveBeenCalledWith('contacts', {
+      groupId: 'group-1'
+    });
   });
 
   it('opens audio window for audio playlist items', async () => {

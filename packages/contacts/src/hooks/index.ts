@@ -1,4 +1,9 @@
 export {
+  type ContactGroup,
+  type UseContactGroupsResult,
+  useContactGroups
+} from './useContactGroups';
+export {
   type SaveContactParams,
   type SaveContactResult,
   useContactSave

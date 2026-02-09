@@ -2,6 +2,10 @@ import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';
 import type { ImportResult } from '../hooks/useContactsImport';
+import {
+  ALL_CONTACTS_ID,
+  ContactsGroupsSidebar
+} from './ContactsGroupsSidebar';
 import { ContactsWindowDetail } from './ContactsWindowDetail';
 import { ContactsWindowImport } from './ContactsWindowImport';
 import { ContactsWindowList } from './ContactsWindowList';
@@ -20,7 +24,11 @@ interface ContactsWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
-  openContactRequest?: { contactId: string; requestId: number };
+  openContactRequest?: {
+    contactId?: string;
+    groupId?: string;
+    requestId: number;
+  };
 }
 
 export function ContactsWindow({
@@ -42,6 +50,10 @@ export function ContactsWindow({
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [importFile, setImportFile] = useState<File | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
+  const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [selectedGroupId, setSelectedGroupId] = useState<string | null>(
+    openContactRequest?.groupId ?? ALL_CONTACTS_ID
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleSelectContact = useCallback((contactId: string) => {
@@ -95,10 +107,28 @@ export function ContactsWindow({
     setCurrentView('detail');
   }, []);
 
+  const handleGroupChanged = useCallback(() => {
+    setRefreshToken((value) => value + 1);
+  }, []);
+
+  const resolvedGroupId =
+    selectedGroupId && selectedGroupId !== ALL_CONTACTS_ID
+      ? selectedGroupId
+      : undefined;
+
   useEffect(() => {
-    if (!openContactRequest?.contactId) return;
-    setSelectedContactId(openContactRequest.contactId);
-    setCurrentView('detail');
+    if (openContactRequest?.requestId === undefined) return;
+
+    if (openContactRequest.groupId) {
+      setSelectedGroupId(openContactRequest.groupId);
+      setCurrentView('list');
+      setSelectedContactId(null);
+    }
+
+    if (openContactRequest.contactId) {
+      setSelectedContactId(openContactRequest.contactId);
+      setCurrentView('detail');
+    }
   }, [openContactRequest]);
 
   const getTitle = () => {
@@ -147,6 +177,7 @@ export function ContactsWindow({
           onSelectContact={handleSelectContact}
           onCreateContact={handleNewContact}
           refreshToken={refreshToken}
+          groupId={resolvedGroupId}
         />
       );
     }
@@ -156,6 +187,7 @@ export function ContactsWindow({
         onSelectContact={handleSelectContact}
         onCreateContact={handleNewContact}
         refreshToken={refreshToken}
+        groupId={resolvedGroupId}
       />
     );
   };
@@ -186,11 +218,22 @@ export function ContactsWindow({
             isNewContactDisabled={currentView === 'create'}
             isImportDisabled={!isUnlocked}
           />
-          <div
-            className="min-h-0 flex-1 overflow-y-auto"
-            data-testid="contacts-window-content"
-          >
-            {renderContent()}
+          <div className="flex min-h-0 flex-1 overflow-hidden">
+            {isUnlocked && (
+              <ContactsGroupsSidebar
+                width={sidebarWidth}
+                onWidthChange={setSidebarWidth}
+                selectedGroupId={selectedGroupId}
+                onGroupSelect={setSelectedGroupId}
+                onGroupChanged={handleGroupChanged}
+              />
+            )}
+            <div
+              className="min-h-0 flex-1 overflow-y-auto"
+              data-testid="contacts-window-content"
+            >
+              {renderContent()}
+            </div>
           </div>
         </div>
       </FloatingWindow>

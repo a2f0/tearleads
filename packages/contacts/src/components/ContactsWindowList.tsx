@@ -12,12 +12,14 @@ interface ContactsWindowListProps {
   onSelectContact: (contactId: string) => void;
   onCreateContact: () => void;
   refreshToken?: number;
+  groupId?: string | undefined;
 }
 
 export function ContactsWindowList({
   onSelectContact,
   onCreateContact,
-  refreshToken
+  refreshToken,
+  groupId
 }: ContactsWindowListProps) {
   const { databaseState, getDatabase, t } = useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
@@ -39,7 +41,7 @@ export function ContactsWindowList({
     hasFetched,
     fetchContacts,
     setHasFetched
-  } = useContacts({ refreshToken });
+  } = useContacts({ refreshToken, groupId });
   const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{
     contact: ContactInfo;

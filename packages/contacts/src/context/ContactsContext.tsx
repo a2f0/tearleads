@@ -36,6 +36,7 @@ export interface NavigateOptions {
  * UI component props interfaces
  */
 export interface ButtonProps {
+  type?: 'button' | 'submit' | 'reset';
   variant?:
     | 'default'
     | 'ghost'
@@ -57,6 +58,9 @@ export interface InputProps {
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   className?: string;
+  disabled?: boolean;
+  autoFocus?: boolean;
+  autoComplete?: string;
   'data-testid'?: string;
 }
 

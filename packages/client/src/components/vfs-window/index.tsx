@@ -84,7 +84,7 @@ export function VfsWindow({
           return;
         }
         case 'contactGroup':
-          openWindow('contacts');
+          openWithPayload('contacts', { groupId: id });
           return;
         case 'tag':
           openWindow('files');

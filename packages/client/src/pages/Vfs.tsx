@@ -31,7 +31,7 @@ export function Vfs() {
         video: `/videos/${item.id}`,
         email: '/email',
         emailFolder: '/email',
-        contactGroup: '/contacts',
+        contactGroup: `/contacts/groups/${item.id}`,
         tag: '/files'
       };
 

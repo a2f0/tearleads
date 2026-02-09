@@ -1,6 +1,8 @@
 export type { ViewMode } from './components';
 export {
+  ALL_CONTACTS_ID,
   ColumnMapper,
+  ContactsGroupsSidebar,
   ContactsWindow,
   ContactsWindowDetail,
   ContactsWindowImport,
@@ -25,12 +27,18 @@ export {
 } from './context';
 export type {
   ColumnMapping,
+  ContactGroup,
   ContactInfo,
   ImportResult,
   ParsedCSV,
   SortColumn,
   SortDirection
 } from './hooks';
-export { useContacts, useContactsExport, useContactsImport } from './hooks';
+export {
+  useContactGroups,
+  useContacts,
+  useContactsExport,
+  useContactsImport
+} from './hooks';
 
 export { cn, generateVCard } from './lib';

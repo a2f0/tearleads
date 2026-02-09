@@ -24,6 +24,7 @@ interface ContactsWindowTableViewProps {
   onSelectContact: (contactId: string) => void;
   onCreateContact: () => void;
   refreshToken?: number;
+  groupId?: string | undefined;
 }
 
 interface SortHeaderProps {
@@ -66,7 +67,8 @@ function SortHeader({
 export function ContactsWindowTableView({
   onSelectContact,
   onCreateContact,
-  refreshToken
+  refreshToken,
+  groupId
 }: ContactsWindowTableViewProps) {
   const { databaseState, getDatabase, t } = useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
@@ -82,7 +84,7 @@ export function ContactsWindowTableView({
     hasFetched,
     fetchContacts,
     setHasFetched
-  } = useContacts({ refreshToken, sortColumn, sortDirection });
+  } = useContacts({ refreshToken, sortColumn, sortDirection, groupId });
   const [contextMenu, setContextMenu] = useState<{
     contact: ContactInfo;
     x: number;

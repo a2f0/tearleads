@@ -1,7 +1,8 @@
 import {
   contactEmails,
   contactPhones,
-  contacts as contactsTable
+  contacts as contactsTable,
+  vfsLinks
 } from '@rapid/db/sqlite';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -22,6 +23,7 @@ export interface UseContactsOptions {
   refreshToken?: number | undefined;
   sortColumn?: SortColumn;
   sortDirection?: SortDirection;
+  groupId?: string | null | undefined;
 }
 
 export interface UseContactsResult {
@@ -39,7 +41,8 @@ export function useContacts(
   const {
     refreshToken,
     sortColumn = 'firstName',
-    sortDirection = 'asc'
+    sortDirection = 'asc',
+    groupId
   } = options;
 
   const { databaseState, getDatabase } = useContactsContext();
@@ -67,8 +70,8 @@ export function useContacts(
       }[sortColumn];
 
       const orderFn = sortDirection === 'asc' ? asc : desc;
-
-      const result = await db
+      const baseCondition = eq(contactsTable.deleted, false);
+      let query = db
         .select({
           id: contactsTable.id,
           firstName: contactsTable.firstName,
@@ -90,8 +93,20 @@ export function useContacts(
             eq(contactPhones.contactId, contactsTable.id),
             eq(contactPhones.isPrimary, true)
           )
-        )
-        .where(eq(contactsTable.deleted, false))
+        );
+
+      if (groupId) {
+        query = query.innerJoin(
+          vfsLinks,
+          and(
+            eq(vfsLinks.childId, contactsTable.id),
+            eq(vfsLinks.parentId, groupId)
+          )
+        );
+      }
+
+      const result = await query
+        .where(baseCondition)
         .orderBy(orderFn(orderByColumn));
 
       setContactsList(
@@ -110,7 +125,7 @@ export function useContacts(
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, sortColumn, sortDirection, getDatabase]);
+  }, [isUnlocked, sortColumn, sortDirection, groupId, getDatabase]);
 
   useEffect(() => {
     if (refreshToken === undefined) return;
