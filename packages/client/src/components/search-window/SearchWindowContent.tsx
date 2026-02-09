@@ -219,7 +219,6 @@ export function SearchWindowContent({
           openWindow('documents');
           requestWindowOpen('documents', { documentId: result.id });
           return;
-        case 'file':
         default:
           openWindow('files');
           requestWindowOpen('files', { fileId: result.id });
