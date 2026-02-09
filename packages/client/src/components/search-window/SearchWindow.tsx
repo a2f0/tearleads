@@ -3,8 +3,8 @@ import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { SearchWindowContent } from './SearchWindowContent';
 import {
-  SearchWindowMenuBar,
-  type SearchViewMode
+  type SearchViewMode,
+  SearchWindowMenuBar
 } from './SearchWindowMenuBar';
 
 const DEFAULT_WIDTH = 600;

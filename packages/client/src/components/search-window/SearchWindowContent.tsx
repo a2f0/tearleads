@@ -8,8 +8,8 @@ import {
   Search,
   StickyNote
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import type { MouseEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
@@ -67,7 +67,9 @@ interface SearchWindowContentProps {
   viewMode?: SearchViewMode;
 }
 
-export function SearchWindowContent({ viewMode = 'view' }: SearchWindowContentProps) {
+export function SearchWindowContent({
+  viewMode = 'view'
+}: SearchWindowContentProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { openWindow, requestWindowOpen } = useWindowManagerActions();
@@ -343,7 +345,8 @@ export function SearchWindowContent({ viewMode = 'view' }: SearchWindowContentPr
                           {ENTITY_TYPE_LABELS[result.entityType]}
                         </span>
                       </div>
-                      {(result.document.content || result.document.metadata) && (
+                      {(result.document.content ||
+                        result.document.metadata) && (
                         <p className="mt-0.5 truncate text-muted-foreground text-sm">
                           {result.document.content?.slice(0, 100) ||
                             result.document.metadata?.slice(0, 100)}

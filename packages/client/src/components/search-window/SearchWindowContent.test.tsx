@@ -380,7 +380,12 @@ describe('SearchWindowContent', () => {
       });
 
       render(
-        <div onClick={onContainerClick}>
+        <div
+          role="button"
+          tabIndex={0}
+          onClick={onContainerClick}
+          onKeyDown={() => {}}
+        >
           <MemoryRouter>
             <ThemeProvider>
               <SearchWindowContent />
