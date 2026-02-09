@@ -13,6 +13,13 @@ vi.mock('@/search', () => ({
   })
 }));
 
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManagerActions: () => ({
+    openWindow: vi.fn(),
+    requestWindowOpen: vi.fn()
+  })
+}));
+
 function renderSearch() {
   return render(
     <MemoryRouter>

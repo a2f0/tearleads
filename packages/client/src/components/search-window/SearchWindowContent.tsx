@@ -8,11 +8,15 @@ import {
   Search,
   StickyNote
 } from 'lucide-react';
+import type { MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
+import type { SearchViewMode } from './SearchWindowMenuBar';
 
 const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {
   contact: 'Contact',
@@ -59,8 +63,16 @@ const FILTER_OPTIONS: { label: string; value: SearchableEntityType | 'all' }[] =
     { label: 'AI Chats', value: 'ai_conversation' }
   ];
 
-export function SearchWindowContent() {
+interface SearchWindowContentProps {
+  viewMode?: SearchViewMode;
+}
+
+export function SearchWindowContent({
+  viewMode = 'view'
+}: SearchWindowContentProps) {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const { openWindow, requestWindowOpen } = useWindowManagerActions();
   const [query, setQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState<
     SearchableEntityType[]
@@ -147,9 +159,47 @@ export function SearchWindowContent() {
     };
   }, [query, performSearch]);
 
-  const handleResultClick = (result: SearchResult) => {
+  const handleResultClick = (
+    result: SearchResult,
+    event?: MouseEvent<HTMLElement>
+  ) => {
+    event?.stopPropagation();
+
     const route = ENTITY_TYPE_ROUTES[result.entityType](result.id);
-    navigate(route);
+    if (isMobile) {
+      navigate(route);
+      return;
+    }
+
+    switch (result.entityType) {
+      case 'contact':
+        openWindow('contacts');
+        requestWindowOpen('contacts', { contactId: result.id });
+        return;
+      case 'note':
+        openWindow('notes');
+        requestWindowOpen('notes', { noteId: result.id });
+        return;
+      case 'email':
+        navigate(route);
+        return;
+      case 'file':
+        openWindow('documents');
+        requestWindowOpen('documents', { documentId: result.id });
+        return;
+      case 'playlist':
+        openWindow('audio');
+        requestWindowOpen('audio', { playlistId: result.id });
+        return;
+      case 'album':
+        navigate(route);
+        return;
+      case 'ai_conversation':
+        navigate(route);
+        return;
+      default:
+        navigate(route);
+    }
   };
 
   return (
@@ -242,35 +292,71 @@ export function SearchWindowContent() {
                 ? `${totalCount} result${totalCount === 1 ? '' : 's'}`
                 : `Showing ${results.length} of ${totalCount} results`}
             </div>
-            {results.map((result) => {
-              const Icon = ENTITY_TYPE_ICONS[result.entityType];
-              return (
-                <button
-                  key={result.id}
-                  type="button"
-                  onClick={() => handleResultClick(result)}
-                  className="flex w-full items-start gap-3 px-3 py-3 text-left hover:bg-muted/50"
-                >
-                  <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate font-medium">
-                        {result.document.title}
-                      </span>
-                      <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
-                        {ENTITY_TYPE_LABELS[result.entityType]}
-                      </span>
+            {viewMode === 'table' ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b bg-muted/30">
+                    <tr>
+                      <th className="px-3 py-2 font-medium">Title</th>
+                      <th className="px-3 py-2 font-medium">Type</th>
+                      <th className="px-3 py-2 font-medium">Preview</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {results.map((result) => (
+                      <tr
+                        key={result.id}
+                        className="cursor-pointer border-b hover:bg-muted/50"
+                        onClick={(event) => handleResultClick(result, event)}
+                      >
+                        <td className="px-3 py-2 font-medium">
+                          {result.document.title}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground text-xs">
+                          {ENTITY_TYPE_LABELS[result.entityType]}
+                        </td>
+                        <td className="max-w-[300px] truncate px-3 py-2 text-muted-foreground text-xs">
+                          {result.document.content?.slice(0, 100) ||
+                            result.document.metadata?.slice(0, 100) ||
+                            '—'}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              results.map((result) => {
+                const Icon = ENTITY_TYPE_ICONS[result.entityType];
+                return (
+                  <button
+                    key={result.id}
+                    type="button"
+                    onClick={(event) => handleResultClick(result, event)}
+                    className="flex w-full items-start gap-3 px-3 py-3 text-left hover:bg-muted/50"
+                  >
+                    <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="truncate font-medium">
+                          {result.document.title}
+                        </span>
+                        <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
+                          {ENTITY_TYPE_LABELS[result.entityType]}
+                        </span>
+                      </div>
+                      {(result.document.content ||
+                        result.document.metadata) && (
+                        <p className="mt-0.5 truncate text-muted-foreground text-sm">
+                          {result.document.content?.slice(0, 100) ||
+                            result.document.metadata?.slice(0, 100)}
+                        </p>
+                      )}
                     </div>
-                    {(result.document.content || result.document.metadata) && (
-                      <p className="mt-0.5 truncate text-muted-foreground text-sm">
-                        {result.document.content?.slice(0, 100) ||
-                          result.document.metadata?.slice(0, 100)}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              );
-            })}
+                  </button>
+                );
+              })
+            )}
           </div>
         )}
       </div>
