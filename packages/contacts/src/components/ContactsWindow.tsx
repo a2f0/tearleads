@@ -99,7 +99,7 @@ export function ContactsWindow({
     if (!openContactRequest?.contactId) return;
     setSelectedContactId(openContactRequest.contactId);
     setCurrentView('detail');
-  }, [openContactRequest?.requestId, openContactRequest?.contactId]);
+  }, [openContactRequest]);
 
   const getTitle = () => {
     switch (currentView) {

@@ -47,7 +47,7 @@ const ENTITY_TYPE_ROUTES: Record<SearchableEntityType, (id: string) => string> =
     contact: (id) => `/contacts/${id}`,
     note: (id) => `/notes/${id}`,
     email: (id) => `/emails/${id}`,
-    file: (id) => `/files`,
+    file: (_id) => `/files`,
     playlist: (id) => `/audio?playlist=${id}`,
     album: (id) => `/audio?album=${id}`,
     ai_conversation: (id) => `/ai?conversation=${id}`
