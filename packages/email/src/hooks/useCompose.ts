@@ -36,7 +36,7 @@ interface UseComposeReturn {
 
 export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
   const { draftId, onSent } = options;
-  const { apiBaseUrl, getAuthHeader } = useEmailApi();
+  const { apiBaseUrl, getAuthHeader, draftOperations } = useEmailApi();
   const [state, setState] = useState<ComposeState>(initialComposeState);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const currentDraftIdRef = useRef<string | null>(draftId ?? null);
@@ -138,25 +138,37 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
         })
       );
 
-      const response = await fetch(`${apiBaseUrl}/emails/drafts`, {
-        method: 'POST',
-        headers: getHeaders(),
-        body: JSON.stringify({
-          id: currentDraftIdRef.current,
-          to: parseEmailAddresses(state.to),
-          cc: parseEmailAddresses(state.cc),
-          bcc: parseEmailAddresses(state.bcc),
-          subject: state.subject,
-          body: state.body,
-          attachments: attachmentsWithContent
-        })
-      });
+      const data = draftOperations
+        ? await draftOperations.saveDraft({
+            id: currentDraftIdRef.current,
+            to: parseEmailAddresses(state.to),
+            cc: parseEmailAddresses(state.cc),
+            bcc: parseEmailAddresses(state.bcc),
+            subject: state.subject,
+            body: state.body,
+            attachments: attachmentsWithContent
+          })
+        : await (async () => {
+            const response = await fetch(`${apiBaseUrl}/emails/drafts`, {
+              method: 'POST',
+              headers: getHeaders(),
+              body: JSON.stringify({
+                id: currentDraftIdRef.current,
+                to: parseEmailAddresses(state.to),
+                cc: parseEmailAddresses(state.cc),
+                bcc: parseEmailAddresses(state.bcc),
+                subject: state.subject,
+                body: state.body,
+                attachments: attachmentsWithContent
+              })
+            });
 
-      if (!response.ok) {
-        throw new Error('Failed to save draft');
-      }
+            if (!response.ok) {
+              throw new Error('Failed to save draft');
+            }
 
-      const data = await response.json();
+            return response.json();
+          })();
       currentDraftIdRef.current = data.id;
 
       setState((prev) => ({
@@ -177,7 +189,7 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
       }));
       return null;
     }
-  }, [apiBaseUrl, getHeaders, state]);
+  }, [apiBaseUrl, draftOperations, getHeaders, state]);
 
   const send = useCallback(async (): Promise<boolean> => {
     setState((prev) => ({ ...prev, isSending: true, error: null }));
@@ -254,15 +266,26 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
   const loadDraft = useCallback(
     async (id: string): Promise<void> => {
       try {
-        const response = await fetch(`${apiBaseUrl}/emails/drafts/${id}`, {
-          headers: getHeaders()
-        });
+        const draft: DraftEmail | null = draftOperations
+          ? await draftOperations.getDraft(id)
+          : await (async () => {
+              const response = await fetch(
+                `${apiBaseUrl}/emails/drafts/${id}`,
+                {
+                  headers: getHeaders()
+                }
+              );
 
-        if (!response.ok) {
+              if (!response.ok) {
+                throw new Error('Failed to load draft');
+              }
+
+              return response.json();
+            })();
+
+        if (!draft) {
           throw new Error('Failed to load draft');
         }
-
-        const draft: DraftEmail = await response.json();
         currentDraftIdRef.current = draft.id;
 
         setState({
@@ -287,7 +310,7 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
         }));
       }
     },
-    [apiBaseUrl, getHeaders]
+    [apiBaseUrl, draftOperations, getHeaders]
   );
 
   useEffect(() => {
@@ -333,7 +356,7 @@ export function useCompose(options: UseComposeOptions = {}): UseComposeReturn {
 }
 
 export function useDrafts() {
-  const { apiBaseUrl, getAuthHeader } = useEmailApi();
+  const { apiBaseUrl, getAuthHeader, draftOperations } = useEmailApi();
   const [drafts, setDrafts] = useState<DraftListItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -343,36 +366,48 @@ export function useDrafts() {
     setError(null);
 
     try {
-      const authHeader = getAuthHeader?.();
-      const response = await fetch(`${apiBaseUrl}/emails/drafts`, {
-        headers: authHeader ? { Authorization: authHeader } : {}
-      });
+      if (draftOperations) {
+        const data = await draftOperations.fetchDrafts();
+        setDrafts(data);
+      } else {
+        const authHeader = getAuthHeader?.();
+        const response = await fetch(`${apiBaseUrl}/emails/drafts`, {
+          headers: authHeader ? { Authorization: authHeader } : {}
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch drafts');
+        if (!response.ok) {
+          throw new Error('Failed to fetch drafts');
+        }
+
+        const data = await response.json();
+        setDrafts(data.drafts ?? []);
       }
-
-      const data = await response.json();
-      setDrafts(data.drafts ?? []);
     } catch (err) {
       console.error('Failed to fetch drafts:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoading(false);
     }
-  }, [apiBaseUrl, getAuthHeader]);
+  }, [apiBaseUrl, draftOperations, getAuthHeader]);
 
   const deleteDraft = useCallback(
     async (id: string): Promise<boolean> => {
       try {
-        const authHeader = getAuthHeader?.();
-        const response = await fetch(`${apiBaseUrl}/emails/drafts/${id}`, {
-          method: 'DELETE',
-          headers: authHeader ? { Authorization: authHeader } : {}
-        });
+        if (draftOperations) {
+          const ok = await draftOperations.deleteDraft(id);
+          if (!ok) {
+            throw new Error('Failed to delete draft');
+          }
+        } else {
+          const authHeader = getAuthHeader?.();
+          const response = await fetch(`${apiBaseUrl}/emails/drafts/${id}`, {
+            method: 'DELETE',
+            headers: authHeader ? { Authorization: authHeader } : {}
+          });
 
-        if (!response.ok) {
-          throw new Error('Failed to delete draft');
+          if (!response.ok) {
+            throw new Error('Failed to delete draft');
+          }
         }
 
         setDrafts((prev) => prev.filter((d) => d.id !== id));
@@ -382,7 +417,7 @@ export function useDrafts() {
         return false;
       }
     },
-    [apiBaseUrl, getAuthHeader]
+    [apiBaseUrl, draftOperations, getAuthHeader]
   );
 
   return { drafts, loading, error, fetchDrafts, deleteDraft };

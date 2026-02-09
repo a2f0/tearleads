@@ -80,12 +80,12 @@ export function ComposeDialog({
     await saveDraft();
   }, [saveDraft]);
 
-  const handleClose = useCallback(() => {
-    if (state.isDirty && !state.isSaving) {
-      saveDraft();
+  const handleClose = useCallback(async () => {
+    if (state.isDirty && !state.isSaving && !state.isSending) {
+      await saveDraft();
     }
     onOpenChange(false);
-  }, [state.isDirty, state.isSaving, saveDraft, onOpenChange]);
+  }, [state.isDirty, state.isSaving, state.isSending, saveDraft, onOpenChange]);
 
   const addRecipientToField = useCallback(
     (field: 'to' | 'cc' | 'bcc', email: string) => {
