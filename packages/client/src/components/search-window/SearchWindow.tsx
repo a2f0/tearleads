@@ -33,7 +33,7 @@ export function SearchWindow({
   zIndex,
   initialDimensions
 }: SearchWindowProps) {
-  const [viewMode, setViewMode] = useState<SearchViewMode>('view');
+  const [viewMode, setViewMode] = useState<SearchViewMode>('list');
 
   return (
     <FloatingWindow

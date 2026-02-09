@@ -14,6 +14,7 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { resolveFileOpenTarget } from '@/lib/vfs-open';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import type { SearchViewMode } from './SearchWindowMenuBar';
@@ -46,7 +47,7 @@ const ENTITY_TYPE_ROUTES: Record<SearchableEntityType, (id: string) => string> =
     contact: (id) => `/contacts/${id}`,
     note: (id) => `/notes/${id}`,
     email: (id) => `/emails/${id}`,
-    file: (id) => `/documents/${id}`,
+    file: (id) => `/files`,
     playlist: (id) => `/audio?playlist=${id}`,
     album: (id) => `/audio?album=${id}`,
     ai_conversation: (id) => `/ai?conversation=${id}`
@@ -68,7 +69,7 @@ interface SearchWindowContentProps {
 }
 
 export function SearchWindowContent({
-  viewMode = 'view'
+  viewMode = 'list'
 }: SearchWindowContentProps) {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -181,11 +182,65 @@ export function SearchWindowContent({
     [performSearch, query]
   );
 
-  const handleResultClick = (
+  const handleResultClick = async (
     result: SearchResult,
     event?: MouseEvent<HTMLElement>
   ) => {
     event?.stopPropagation();
+
+    if (result.entityType === 'file') {
+      const fileTarget = await resolveFileOpenTarget(result.id);
+
+      if (isMobile) {
+        switch (fileTarget) {
+          case 'audio':
+            navigate(`/audio/${result.id}`);
+            return;
+          case 'photo':
+            navigate(`/photos/${result.id}`);
+            return;
+          case 'video':
+            navigate(`/videos/${result.id}`);
+            return;
+          case 'document':
+            navigate(`/documents/${result.id}`);
+            return;
+          case 'file':
+            navigate(ENTITY_TYPE_ROUTES.file(result.id));
+            return;
+          default:
+            navigate(ENTITY_TYPE_ROUTES.file(result.id));
+            return;
+        }
+      }
+
+      switch (fileTarget) {
+        case 'audio':
+          openWindow('audio');
+          requestWindowOpen('audio', { audioId: result.id });
+          return;
+        case 'photo':
+          openWindow('photos');
+          requestWindowOpen('photos', { photoId: result.id });
+          return;
+        case 'video':
+          openWindow('videos');
+          requestWindowOpen('videos', { videoId: result.id });
+          return;
+        case 'document':
+          openWindow('documents');
+          requestWindowOpen('documents', { documentId: result.id });
+          return;
+        case 'file':
+          openWindow('files');
+          requestWindowOpen('files', { fileId: result.id });
+          return;
+        default:
+          openWindow('files');
+          requestWindowOpen('files', { fileId: result.id });
+          return;
+      }
+    }
 
     const route = ENTITY_TYPE_ROUTES[result.entityType](result.id);
     if (isMobile) {
@@ -204,10 +259,6 @@ export function SearchWindowContent({
         return;
       case 'email':
         navigate(route);
-        return;
-      case 'file':
-        openWindow('documents');
-        requestWindowOpen('documents', { documentId: result.id });
         return;
       case 'playlist':
         openWindow('audio');
@@ -332,7 +383,9 @@ export function SearchWindowContent({
                       <tr
                         key={result.id}
                         className="cursor-pointer border-b hover:bg-muted/50"
-                        onClick={(event) => handleResultClick(result, event)}
+                        onClick={(event) => {
+                          void handleResultClick(result, event);
+                        }}
                       >
                         <td className="px-3 py-2 font-medium">
                           {result.document.title}
@@ -357,7 +410,9 @@ export function SearchWindowContent({
                   <button
                     key={result.id}
                     type="button"
-                    onClick={(event) => handleResultClick(result, event)}
+                    onClick={(event) => {
+                      void handleResultClick(result, event);
+                    }}
                     className="flex w-full items-start gap-3 px-3 py-3 text-left hover:bg-muted/50"
                   >
                     <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />

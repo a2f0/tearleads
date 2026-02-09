@@ -42,7 +42,7 @@ describe('SearchWindowMenuBar', () => {
   it('renders File and View menus', () => {
     render(
       <SearchWindowMenuBar
-        viewMode="view"
+        viewMode="list"
         onViewModeChange={vi.fn()}
         onClose={vi.fn()}
       />
@@ -55,7 +55,7 @@ describe('SearchWindowMenuBar', () => {
   it('renders Close option in File menu', () => {
     render(
       <SearchWindowMenuBar
-        viewMode="view"
+        viewMode="list"
         onViewModeChange={vi.fn()}
         onClose={vi.fn()}
       />
@@ -64,23 +64,23 @@ describe('SearchWindowMenuBar', () => {
     expect(screen.getByText('Close')).toBeInTheDocument();
   });
 
-  it('renders Table and View options in View menu', () => {
+  it('renders Table and List options in View menu', () => {
     render(
       <SearchWindowMenuBar
-        viewMode="view"
+        viewMode="list"
         onViewModeChange={vi.fn()}
         onClose={vi.fn()}
       />
     );
 
     expect(screen.getByRole('button', { name: 'Table' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'List' })).toBeInTheDocument();
   });
 
   it('renders WindowOptionsMenuItem in View menu', () => {
     render(
       <SearchWindowMenuBar
-        viewMode="view"
+        viewMode="list"
         onViewModeChange={vi.fn()}
         onClose={vi.fn()}
       />
@@ -94,7 +94,7 @@ describe('SearchWindowMenuBar', () => {
     const onClose = vi.fn();
     render(
       <SearchWindowMenuBar
-        viewMode="view"
+        viewMode="list"
         onViewModeChange={vi.fn()}
         onClose={onClose}
       />
@@ -109,7 +109,7 @@ describe('SearchWindowMenuBar', () => {
     const onViewModeChange = vi.fn();
     render(
       <SearchWindowMenuBar
-        viewMode="view"
+        viewMode="list"
         onViewModeChange={onViewModeChange}
         onClose={vi.fn()}
       />
@@ -119,7 +119,7 @@ describe('SearchWindowMenuBar', () => {
     expect(onViewModeChange).toHaveBeenCalledWith('table');
   });
 
-  it('calls onViewModeChange with view when View is clicked', async () => {
+  it('calls onViewModeChange with list when List is clicked', async () => {
     const user = userEvent.setup();
     const onViewModeChange = vi.fn();
     render(
@@ -130,7 +130,7 @@ describe('SearchWindowMenuBar', () => {
       />
     );
 
-    await user.click(screen.getByRole('button', { name: 'View' }));
-    expect(onViewModeChange).toHaveBeenCalledWith('view');
+    await user.click(screen.getByRole('button', { name: 'List' }));
+    expect(onViewModeChange).toHaveBeenCalledWith('list');
   });
 });

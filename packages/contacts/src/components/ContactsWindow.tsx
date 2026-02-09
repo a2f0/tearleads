@@ -1,5 +1,5 @@
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';
 import type { ImportResult } from '../hooks/useContactsImport';
 import { ContactsWindowDetail } from './ContactsWindowDetail';
@@ -20,6 +20,7 @@ interface ContactsWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
+  openContactRequest?: { contactId: string; requestId: number };
 }
 
 export function ContactsWindow({
@@ -29,7 +30,8 @@ export function ContactsWindow({
   onDimensionsChange,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  openContactRequest
 }: ContactsWindowProps) {
   const { databaseState } = useContactsContext();
   const { isUnlocked } = databaseState;
@@ -92,6 +94,12 @@ export function ContactsWindow({
     setSelectedContactId(contactId);
     setCurrentView('detail');
   }, []);
+
+  useEffect(() => {
+    if (!openContactRequest?.contactId) return;
+    setSelectedContactId(openContactRequest.contactId);
+    setCurrentView('detail');
+  }, [openContactRequest?.requestId, openContactRequest?.contactId]);
 
   const getTitle = () => {
     switch (currentView) {
