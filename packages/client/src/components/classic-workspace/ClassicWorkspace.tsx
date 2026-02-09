@@ -4,11 +4,8 @@ import {
   type VfsLinkLikeRow
 } from '@rapid/classic';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  ContextMenu,
-  ContextMenuItem
-} from '@/components/ui/context-menu';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   CLASSIC_EMPTY_STATE,

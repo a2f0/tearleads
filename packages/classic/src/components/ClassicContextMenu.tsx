@@ -43,41 +43,17 @@ export function ClassicContextMenu({
   actions,
   components
 }: ClassicContextMenuProps) {
-  if (components) {
-    const { ContextMenu, ContextMenuItem } = components;
-    return (
-      <ContextMenu x={x} y={y} onClose={onClose}>
-        {actions.map((action) =>
-          action.disabled ? (
-            <span
-              key={action.label}
-              role="menuitem"
-              aria-label={action.ariaLabel}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-muted-foreground text-sm"
-            >
-              {action.label}
-            </span>
-          ) : (
-            <ContextMenuItem
-              key={action.label}
-              onClick={() => {
-                action.onClick();
-                onClose();
-              }}
-            >
-              {action.label}
-            </ContextMenuItem>
-          )
-        )}
-      </ContextMenu>
-    );
-  }
+  const standardContextMenu = components?.ContextMenu;
+  const standardContextMenuItem = components?.ContextMenuItem;
 
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [position, setPosition] = useState({ top: y, left: x });
 
   useLayoutEffect(() => {
+    if (standardContextMenu) {
+      return;
+    }
     if (!menuRef.current) {
       return;
     }
@@ -98,14 +74,17 @@ export function ClassicContextMenu({
     }
 
     setPosition({ top: adjustedY, left: adjustedX });
-  }, [x, y]);
+  }, [standardContextMenu, x, y]);
 
   useEffect(() => {
+    if (standardContextMenu) {
+      return;
+    }
     const firstEnabled = itemRefs.current.find(
       (item) => item && !item.disabled
     );
     firstEnabled?.focus();
-  }, []);
+  }, [standardContextMenu]);
 
   useEffect(() => {
     const handleEscape = (event: KeyboardEvent) => {
@@ -179,6 +158,39 @@ export function ClassicContextMenu({
       moveFocus('last');
     }
   };
+
+  if (standardContextMenu && standardContextMenuItem) {
+    const StandardContextMenu = standardContextMenu;
+    const StandardContextMenuItem = standardContextMenuItem;
+
+    return (
+      <StandardContextMenu x={x} y={y} onClose={onClose}>
+        {actions.map((action) =>
+          action.disabled ? (
+            <button
+              key={action.label}
+              type="button"
+              disabled
+              aria-label={action.ariaLabel}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-muted-foreground text-sm"
+            >
+              {action.label}
+            </button>
+          ) : (
+            <StandardContextMenuItem
+              key={action.label}
+              onClick={() => {
+                action.onClick();
+                onClose();
+              }}
+            >
+              {action.label}
+            </StandardContextMenuItem>
+          )
+        )}
+      </StandardContextMenu>
+    );
+  }
 
   return createPortal(
     <div className="fixed inset-0 z-[10000]">

@@ -51,6 +51,7 @@ export function TagSidebar({
 
   return (
     <aside className="flex w-64 flex-col border-r" aria-label="Tags Sidebar">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
       <div
         className="flex-1 overflow-auto p-3"
         onContextMenu={(event) => {

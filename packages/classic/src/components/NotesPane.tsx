@@ -55,6 +55,7 @@ export function NotesPane({
 
   return (
     <section className="flex flex-1 flex-col" aria-label="Notes Pane">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
       <div
         className="flex-1 overflow-auto p-4"
         onContextMenu={(event) => {

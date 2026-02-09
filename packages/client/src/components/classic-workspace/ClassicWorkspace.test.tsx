@@ -173,7 +173,9 @@ describe('ClassicWorkspace', () => {
       expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
     });
 
-    await user.click(screen.getByRole('button', { name: 'Trigger Create Tag' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Trigger Create Tag' })
+    );
 
     await waitFor(() => {
       expect(mockCreateClassicTag).toHaveBeenCalledTimes(1);
