@@ -173,8 +173,8 @@ describe('Home', () => {
     );
     assertIconDebossedColors(
       'Settings',
-      'from-primary-foreground/60',
-      'text-muted-foreground'
+      'from-primary-foreground/80',
+      'text-primary'
     );
   });
 
