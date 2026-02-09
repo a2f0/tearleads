@@ -31,7 +31,7 @@ Always pass `-R "$REPO"` where supported.
 gh pr view --json number,title,url,headRefName,baseRefName -R "$REPO"
 ```
 
-2. Fetch unresolved review threads (GraphQL, paginate as needed):
+1. Fetch unresolved review threads (GraphQL, paginate as needed):
 
 ```bash
 gh api graphql -f query='\
@@ -60,17 +60,17 @@ gh api graphql -f query='\
   }' -f owner=OWNER -f repo=REPO -F pr=PR_NUMBER
 ```
 
-3. Implement fixes for important unresolved feedback.
+1. Implement fixes for important unresolved feedback.
 
-4. Run relevant tests/lint/type-check.
+1. Run relevant tests/lint/type-check.
 
-5. Commit and push fixes directly (do not invoke commit-and-push recursively).
+1. Commit and push fixes directly (do not invoke commit-and-push recursively).
 
-6. Reply in each addressed thread via REST API:
+1. Reply in each addressed thread via REST API:
 
 ```bash
 gh api -X POST /repos/$REPO/pulls/<pr_number>/comments/<comment_id>/replies \
   -f body="@gemini-code-assist Fixed in <commit_sha>. Please confirm this addresses the issue."
 ```
 
-7. Repeat until no actionable unresolved Gemini comments remain.
+1. Repeat until no actionable unresolved Gemini comments remain.
