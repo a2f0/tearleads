@@ -24,10 +24,23 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('./SearchWindowMenuBar', () => ({
-  SearchWindowMenuBar: ({ onClose }: { onClose: () => void }) => (
+  SearchWindowMenuBar: ({
+    onClose,
+    onViewModeChange
+  }: {
+    onClose: () => void;
+    onViewModeChange: (mode: 'view' | 'table') => void;
+  }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onClose} data-testid="menu-close-button">
         Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onViewModeChange('table')}
+        data-testid="menu-table-button"
+      >
+        Table
       </button>
     </div>
   )

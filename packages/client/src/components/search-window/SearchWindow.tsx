@@ -1,7 +1,11 @@
+import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { SearchWindowContent } from './SearchWindowContent';
-import { SearchWindowMenuBar } from './SearchWindowMenuBar';
+import {
+  SearchWindowMenuBar,
+  type SearchViewMode
+} from './SearchWindowMenuBar';
 
 const DEFAULT_WIDTH = 600;
 const DEFAULT_HEIGHT = 500;
@@ -29,6 +33,8 @@ export function SearchWindow({
   zIndex,
   initialDimensions
 }: SearchWindowProps) {
+  const [viewMode, setViewMode] = useState<SearchViewMode>('view');
+
   return (
     <FloatingWindow
       id={id}
@@ -47,8 +53,12 @@ export function SearchWindow({
       maxHeightPercent={MAX_HEIGHT_PERCENT}
     >
       <div className="flex h-full flex-col">
-        <SearchWindowMenuBar onClose={onClose} />
-        <SearchWindowContent />
+        <SearchWindowMenuBar
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onClose={onClose}
+        />
+        <SearchWindowContent viewMode={viewMode} />
       </div>
     </FloatingWindow>
   );

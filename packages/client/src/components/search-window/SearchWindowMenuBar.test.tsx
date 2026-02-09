@@ -26,7 +26,8 @@ vi.mock('@/components/ui/dropdown-menu', () => ({
     <button type="button" onClick={onClick} data-testid="dropdown-item">
       {children}
     </button>
-  )
+  ),
+  DropdownMenuSeparator: () => <div data-testid="dropdown-separator" />
 }));
 
 vi.mock('@/components/window-menu/WindowOptionsMenuItem', () => ({
@@ -39,20 +40,51 @@ describe('SearchWindowMenuBar', () => {
   });
 
   it('renders File and View menus', () => {
-    render(<SearchWindowMenuBar onClose={vi.fn()} />);
+    render(
+      <SearchWindowMenuBar
+        viewMode="view"
+        onViewModeChange={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
 
     expect(screen.getByTestId('dropdown-file')).toBeInTheDocument();
     expect(screen.getByTestId('dropdown-view')).toBeInTheDocument();
   });
 
   it('renders Close option in File menu', () => {
-    render(<SearchWindowMenuBar onClose={vi.fn()} />);
+    render(
+      <SearchWindowMenuBar
+        viewMode="view"
+        onViewModeChange={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
 
     expect(screen.getByText('Close')).toBeInTheDocument();
   });
 
+  it('renders Table and View options in View menu', () => {
+    render(
+      <SearchWindowMenuBar
+        viewMode="view"
+        onViewModeChange={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole('button', { name: 'Table' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
   it('renders WindowOptionsMenuItem in View menu', () => {
-    render(<SearchWindowMenuBar onClose={vi.fn()} />);
+    render(
+      <SearchWindowMenuBar
+        viewMode="view"
+        onViewModeChange={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
 
     expect(screen.getByTestId('window-options')).toBeInTheDocument();
   });
@@ -60,9 +92,45 @@ describe('SearchWindowMenuBar', () => {
   it('calls onClose when Close is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<SearchWindowMenuBar onClose={onClose} />);
+    render(
+      <SearchWindowMenuBar
+        viewMode="view"
+        onViewModeChange={vi.fn()}
+        onClose={onClose}
+      />
+    );
 
     await user.click(screen.getByText('Close'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('calls onViewModeChange with table when Table is clicked', async () => {
+    const user = userEvent.setup();
+    const onViewModeChange = vi.fn();
+    render(
+      <SearchWindowMenuBar
+        viewMode="view"
+        onViewModeChange={onViewModeChange}
+        onClose={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByText('Table'));
+    expect(onViewModeChange).toHaveBeenCalledWith('table');
+  });
+
+  it('calls onViewModeChange with view when View is clicked', async () => {
+    const user = userEvent.setup();
+    const onViewModeChange = vi.fn();
+    render(
+      <SearchWindowMenuBar
+        viewMode="table"
+        onViewModeChange={onViewModeChange}
+        onClose={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    expect(onViewModeChange).toHaveBeenCalledWith('view');
   });
 });

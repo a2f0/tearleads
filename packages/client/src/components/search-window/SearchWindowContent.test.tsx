@@ -6,6 +6,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SearchWindowContent } from './SearchWindowContent';
 
 const mockNavigate = vi.fn();
+const mockOpenWindow = vi.fn();
+const mockRequestWindowOpen = vi.fn();
+const mockUseIsMobile = vi.fn();
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {
@@ -31,11 +35,22 @@ const blankQueryResults = {
   count: 1
 };
 
-function renderContent() {
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManagerActions: () => ({
+    openWindow: mockOpenWindow,
+    requestWindowOpen: mockRequestWindowOpen
+  })
+}));
+
+vi.mock('@/hooks/useIsMobile', () => ({
+  useIsMobile: () => mockUseIsMobile()
+}));
+
+function renderContent(viewMode?: 'view' | 'table') {
   return render(
     <MemoryRouter>
       <ThemeProvider>
-        <SearchWindowContent />
+        <SearchWindowContent {...(viewMode ? { viewMode } : {})} />
       </ThemeProvider>
     </MemoryRouter>
   );
@@ -44,6 +59,7 @@ function renderContent() {
 describe('SearchWindowContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(true);
     mockSearch.mockImplementation(async (query: string) =>
       query === '' ? blankQueryResults : { hits: [], count: 0 }
     );
@@ -88,6 +104,31 @@ describe('SearchWindowContent', () => {
           screen.queryByText('Enter a search term to find your data')
         ).not.toBeInTheDocument();
       });
+    });
+
+    it('renders table view when mode is table', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe', content: 'john@example.com' }
+          }
+        ],
+        count: 1
+      });
+      renderContent('table');
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.type(input, 'john');
+
+      await waitFor(() => {
+        expect(screen.getByRole('table')).toBeInTheDocument();
+      });
+      expect(screen.getByText('Title')).toBeInTheDocument();
+      expect(screen.getByText('Type')).toBeInTheDocument();
+      expect(screen.getByText('Preview')).toBeInTheDocument();
     });
   });
 
@@ -293,6 +334,36 @@ describe('SearchWindowContent', () => {
   });
 
   describe('navigation', () => {
+    it('opens note in floating window on desktop', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'note-456',
+            entityType: 'note',
+            document: { title: 'Meeting Notes' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.type(input, 'meeting');
+
+      await waitFor(() => {
+        expect(screen.getByText('Meeting Notes')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Meeting Notes'));
+      expect(mockOpenWindow).toHaveBeenCalledWith('notes');
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith('notes', {
+        noteId: 'note-456'
+      });
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
     it('navigates to contact when clicking contact result', async () => {
       const user = userEvent.setup();
       mockSearch.mockResolvedValue({
