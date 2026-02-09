@@ -70,6 +70,7 @@ export const en = {
     seek: 'Seek',
     getInfo: 'Get info',
     delete: 'Delete',
+    restore: 'Restore',
     download: 'Download',
     share: 'Share'
   },

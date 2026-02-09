@@ -70,6 +70,7 @@ export const ua = {
     seek: 'Перемотати',
     getInfo: 'Інформація',
     delete: 'Видалити',
+    restore: 'Відновити',
     download: 'Завантажити',
     share: 'Поділитися'
   },

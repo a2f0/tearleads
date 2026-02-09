@@ -511,6 +511,14 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
       [handleDelete]
     );
 
+    const handleContextMenuRestore = useCallback(
+      async (file: FileWithThumbnail) => {
+        await handleRestore(file);
+        setContextMenu(null);
+      },
+      [handleRestore]
+    );
+
     const handleContextMenuPlayPause = useCallback(
       async (file: FileWithThumbnail) => {
         if (!currentInstanceId) return;
@@ -752,11 +760,7 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                           >
                             <ListRow
                               className={`${file.deleted ? 'opacity-60' : ''}`}
-                              onContextMenu={
-                                file.deleted
-                                  ? undefined
-                                  : (e) => handleContextMenu(e, file)
-                              }
+                              onContextMenu={(e) => handleContextMenu(e, file)}
                             >
                               {isClickable ? (
                                 <button
@@ -842,48 +846,67 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                 y={contextMenu.y}
                 onClose={handleCloseContextMenu}
               >
-                {contextMenu.file.mimeType.startsWith('audio/') && (
+                {contextMenu.file.deleted ? (
                   <ContextMenuItem
-                    icon={
-                      isPlayingCurrentFile ? (
-                        <Pause className="h-4 w-4" />
-                      ) : (
-                        <Play className="h-4 w-4" />
-                      )
-                    }
-                    onClick={() => handleContextMenuPlayPause(contextMenu.file)}
+                    icon={<RotateCcw className="h-4 w-4" />}
+                    onClick={() => handleContextMenuRestore(contextMenu.file)}
                   >
-                    {isPlayingCurrentFile ? t('pause') : t('play')}
+                    {t('restore')}
                   </ContextMenuItem>
+                ) : (
+                  <>
+                    {contextMenu.file.mimeType.startsWith('audio/') && (
+                      <ContextMenuItem
+                        icon={
+                          isPlayingCurrentFile ? (
+                            <Pause className="h-4 w-4" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )
+                        }
+                        onClick={() =>
+                          handleContextMenuPlayPause(contextMenu.file)
+                        }
+                      >
+                        {isPlayingCurrentFile ? t('pause') : t('play')}
+                      </ContextMenuItem>
+                    )}
+                    {contextMenu.file.mimeType.startsWith('video/') && (
+                      <ContextMenuItem
+                        icon={<Play className="h-4 w-4" />}
+                        onClick={() =>
+                          handleContextMenuGetInfo(contextMenu.file)
+                        }
+                      >
+                        {t('play')}
+                      </ContextMenuItem>
+                    )}
+                    {isViewable && (
+                      <ContextMenuItem
+                        icon={<Info className="h-4 w-4" />}
+                        onClick={() =>
+                          handleContextMenuGetInfo(contextMenu.file)
+                        }
+                      >
+                        {t('getInfo')}
+                      </ContextMenuItem>
+                    )}
+                    <ContextMenuItem
+                      icon={<Download className="h-4 w-4" />}
+                      onClick={() =>
+                        handleContextMenuDownload(contextMenu.file)
+                      }
+                    >
+                      {t('download')}
+                    </ContextMenuItem>
+                    <ContextMenuItem
+                      icon={<Trash2 className="h-4 w-4" />}
+                      onClick={() => handleContextMenuDelete(contextMenu.file)}
+                    >
+                      {t('delete')}
+                    </ContextMenuItem>
+                  </>
                 )}
-                {contextMenu.file.mimeType.startsWith('video/') && (
-                  <ContextMenuItem
-                    icon={<Play className="h-4 w-4" />}
-                    onClick={() => handleContextMenuGetInfo(contextMenu.file)}
-                  >
-                    {t('play')}
-                  </ContextMenuItem>
-                )}
-                {isViewable && (
-                  <ContextMenuItem
-                    icon={<Info className="h-4 w-4" />}
-                    onClick={() => handleContextMenuGetInfo(contextMenu.file)}
-                  >
-                    {t('getInfo')}
-                  </ContextMenuItem>
-                )}
-                <ContextMenuItem
-                  icon={<Download className="h-4 w-4" />}
-                  onClick={() => handleContextMenuDownload(contextMenu.file)}
-                >
-                  {t('download')}
-                </ContextMenuItem>
-                <ContextMenuItem
-                  icon={<Trash2 className="h-4 w-4" />}
-                  onClick={() => handleContextMenuDelete(contextMenu.file)}
-                >
-                  {t('delete')}
-                </ContextMenuItem>
               </ContextMenu>
             );
           })()}

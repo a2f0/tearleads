@@ -8,6 +8,7 @@ const mockDownloadFile = vi.fn();
 const mockShareFile = vi.fn();
 const mockCanShareFiles = vi.fn(() => false);
 const mockDeletePhoto = vi.fn();
+const mockRestorePhoto = vi.fn();
 const mockDownloadPhoto = vi.fn();
 const mockSharePhoto = vi.fn();
 const mockSetAttachedImage = vi.fn();
@@ -25,6 +26,7 @@ vi.mock('./usePhotosWindowData', () => ({
   usePhotosWindowData: () => ({
     ...mockUsePhotosWindowData(),
     deletePhoto: mockDeletePhoto,
+    restorePhoto: mockRestorePhoto,
     downloadPhoto: mockDownloadPhoto,
     sharePhoto: mockSharePhoto
   })
@@ -53,6 +55,7 @@ vi.mock('@/i18n', () => ({
       ({
         getInfo: 'Get Info',
         delete: 'Delete',
+        restore: 'Restore',
         download: 'Download',
         share: 'Share'
       })[key] ?? key
@@ -419,6 +422,30 @@ describe('PhotosWindowContent', () => {
     await user.click(screen.getByRole('button', { name: 'Delete' }));
 
     expect(mockDeletePhoto).toHaveBeenCalledWith('photo-1');
+  });
+
+  it('restores deleted photo from context menu', async () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [{ ...photo, deleted: true }],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowContent refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+    await user.click(screen.getByRole('button', { name: 'Restore' }));
+
+    expect(mockRestorePhoto).toHaveBeenCalledWith('photo-1');
   });
 
   it('adds photo to AI chat from context menu', async () => {

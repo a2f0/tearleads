@@ -70,6 +70,7 @@ export const es = {
     seek: 'Buscar',
     getInfo: 'Obtener información',
     delete: 'Eliminar',
+    restore: 'Restaurar',
     download: 'Descargar',
     share: 'Compartir'
   },

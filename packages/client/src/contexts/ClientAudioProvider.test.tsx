@@ -10,6 +10,12 @@ const mockDatabaseState = {
 };
 
 let lastProviderProps: AudioUIProviderProps | null = null;
+const mockUploadFile = vi.fn(async () => ({ id: 'uploaded-id' }));
+const mockDownloadFile = vi.fn();
+const mockShareFile = vi.fn(
+  async (_data: Uint8Array, _filename: string, _mimeType: string) => true
+);
+const mockCanShareFiles = vi.fn(() => true);
 
 const mockDb = {
   select: vi.fn(),
@@ -44,8 +50,16 @@ vi.mock('@/lib/navigation', () => ({
 
 vi.mock('@/hooks/useFileUpload', () => ({
   useFileUpload: () => ({
-    uploadFile: vi.fn()
+    uploadFile: mockUploadFile
   })
+}));
+
+vi.mock('@/lib/file-utils', () => ({
+  downloadFile: (data: Uint8Array, filename: string) =>
+    mockDownloadFile(data, filename),
+  shareFile: (data: Uint8Array, filename: string, mimeType: string) =>
+    mockShareFile(data, filename, mimeType),
+  canShareFiles: () => mockCanShareFiles()
 }));
 
 vi.mock('@rapid/audio', async (importOriginal) => {
@@ -85,6 +99,10 @@ describe('ClientAudioProvider', () => {
     mockDb.insert.mockReset();
     mockDb.update.mockReset();
     mockDb.delete.mockReset();
+    mockUploadFile.mockClear();
+    mockDownloadFile.mockClear();
+    mockShareFile.mockClear();
+    mockCanShareFiles.mockClear();
   });
 
   it('renders children wrapped in AudioUIProvider', () => {
@@ -368,6 +386,28 @@ describe('ClientAudioProvider', () => {
     expect(ids).toEqual(['track-1']);
   });
 
+  it('soft deletes and restores audio files', async () => {
+    const updateWhere = vi.fn(async () => undefined);
+    const updateSet = vi.fn(() => ({ where: updateWhere }));
+
+    mockDb.update.mockReturnValue({ set: updateSet });
+
+    render(
+      <ClientAudioProvider>
+        <div />
+      </ClientAudioProvider>
+    );
+
+    if (!lastProviderProps) throw new Error('AudioUIProvider not captured');
+
+    await lastProviderProps.softDeleteAudio('track-1');
+    await lastProviderProps.restoreAudio('track-1');
+
+    expect(updateSet).toHaveBeenNthCalledWith(1, { deleted: true });
+    expect(updateSet).toHaveBeenNthCalledWith(2, { deleted: false });
+    expect(updateWhere).toHaveBeenCalledTimes(2);
+  });
+
   it('throws when fetching audio urls without an encryption key', async () => {
     mockDb.select.mockReturnValue({
       from: vi.fn(() => ({
@@ -390,6 +430,41 @@ describe('ClientAudioProvider', () => {
     await expect(lastProviderProps.fetchAudioFilesWithUrls()).rejects.toThrow(
       'Database not unlocked'
     );
+  });
+
+  it('exposes upload and file utility handlers', async () => {
+    render(
+      <ClientAudioProvider>
+        <div />
+      </ClientAudioProvider>
+    );
+
+    if (!lastProviderProps) throw new Error('AudioUIProvider not captured');
+
+    const uploadResult = await lastProviderProps.uploadFile(
+      new File(['audio'], 'sample.mp3', { type: 'audio/mpeg' })
+    );
+    expect(uploadResult).toBe('uploaded-id');
+
+    lastProviderProps.downloadFile(new Uint8Array([1, 2, 3]), 'sample.mp3');
+    expect(mockDownloadFile).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      'sample.mp3'
+    );
+
+    const didShare = await lastProviderProps.shareFile(
+      new Uint8Array([1, 2, 3]),
+      'sample.mp3',
+      'audio/mpeg'
+    );
+    expect(didShare).toBe(true);
+    expect(mockShareFile).toHaveBeenCalledWith(
+      expect.any(Uint8Array),
+      'sample.mp3',
+      'audio/mpeg'
+    );
+
+    expect(lastProviderProps.canShareFiles()).toBe(true);
   });
 });
 

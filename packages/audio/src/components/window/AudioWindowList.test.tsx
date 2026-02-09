@@ -328,6 +328,50 @@ describe('AudioWindowList', () => {
     });
   });
 
+  it('calls restoreAudio when restore is clicked for deleted tracks', async () => {
+    const mockTrack = createMockAudioTrack({
+      id: 'track-1',
+      name: 'Deleted Song.mp3',
+      deleted: true
+    });
+    const fetchAudioFilesWithUrls = vi.fn(async () => [mockTrack]);
+    const restoreAudio = vi.fn(async () => {});
+
+    const user = userEvent.setup();
+    const Wrapper = createWrapper({
+      databaseState: { isUnlocked: true },
+      fetchAudioFilesWithUrls,
+      restoreAudio
+    });
+
+    render(
+      <Wrapper>
+        <AudioProvider>
+          <AudioWindowList showDeleted={true} />
+        </AudioProvider>
+      </Wrapper>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Deleted Song.mp3')).toBeInTheDocument();
+    });
+
+    const trackRow = screen.getByText('Deleted Song.mp3').closest('button');
+    if (trackRow) {
+      await user.pointer({ keys: '[MouseRight]', target: trackRow });
+    }
+
+    await waitFor(() => {
+      expect(screen.getByText('restore')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('restore'));
+
+    await waitFor(() => {
+      expect(restoreAudio).toHaveBeenCalledWith('track-1');
+    });
+  });
+
   it('calls onSelectTrack when Get Info is clicked from context menu', async () => {
     const mockTrack = createMockAudioTrack({
       id: 'track-1',

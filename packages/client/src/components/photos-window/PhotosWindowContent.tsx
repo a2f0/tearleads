@@ -5,6 +5,7 @@ import {
   ImageIcon,
   Info,
   Loader2,
+  RotateCcw,
   Share2,
   Trash2,
   Upload
@@ -61,6 +62,7 @@ export function PhotosWindowContent({
     isUnlocked,
     isLoading,
     deletePhoto,
+    restorePhoto,
     downloadPhoto,
     sharePhoto
   } = usePhotosWindowData({ refreshToken, selectedAlbumId, showDeleted });
@@ -136,6 +138,18 @@ export function PhotosWindowContent({
       setContextMenu(null);
     }
   }, [contextMenu, deletePhoto]);
+
+  const handleRestore = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      await restorePhoto(contextMenu.photo.id);
+    } catch (err) {
+      console.error('Failed to restore photo:', err);
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu, restorePhoto]);
 
   const handleDownload = useCallback(
     async (photo: PhotoWithUrl, event?: React.MouseEvent) => {
@@ -355,47 +369,60 @@ export function PhotosWindowContent({
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={handleGetInfo}
-          >
-            <Info className="h-4 w-4" />
-            {t('getInfo')}
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={() => handleDownload(contextMenu.photo)}
-          >
-            <Download className="h-4 w-4" />
-            {t('download')}
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={handleAddToAIChat}
-          >
-            Add to AI chat
-          </button>
-          {canShare && (
+          {contextMenu.photo.deleted ? (
             <button
               type="button"
               className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-              onClick={() => handleShare(contextMenu.photo)}
+              onClick={handleRestore}
             >
-              <Share2 className="h-4 w-4" />
-              {t('share')}
+              <RotateCcw className="h-4 w-4" />
+              {t('restore')}
             </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                onClick={handleGetInfo}
+              >
+                <Info className="h-4 w-4" />
+                {t('getInfo')}
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                onClick={() => handleDownload(contextMenu.photo)}
+              >
+                <Download className="h-4 w-4" />
+                {t('download')}
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                onClick={handleAddToAIChat}
+              >
+                Add to AI chat
+              </button>
+              {canShare && (
+                <button
+                  type="button"
+                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                  onClick={() => handleShare(contextMenu.photo)}
+                >
+                  <Share2 className="h-4 w-4" />
+                  {t('share')}
+                </button>
+              )}
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+                onClick={handleDelete}
+              >
+                <Trash2 className="h-4 w-4" />
+                {t('delete')}
+              </button>
+            </>
           )}
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
-            onClick={handleDelete}
-          >
-            <Trash2 className="h-4 w-4" />
-            {t('delete')}
-          </button>
         </WindowContextMenu>
       )}
 
