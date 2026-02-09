@@ -4,7 +4,7 @@ import {
   vfsLinks,
   vfsRegistry
 } from '@rapid/db/sqlite';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';
 
@@ -45,44 +45,27 @@ export function useContactGroups(): UseContactGroupsResult {
       const groupRows = await db
         .select({
           id: vfsRegistry.id,
-          name: contactGroups.encryptedName
+          name: contactGroups.encryptedName,
+          contactCount: sql<number>`COUNT(DISTINCT ${contacts.id})`.mapWith(
+            Number
+          )
         })
         .from(vfsRegistry)
         .innerJoin(contactGroups, eq(contactGroups.id, vfsRegistry.id))
-        .where(eq(vfsRegistry.objectType, 'contactGroup'));
+        .leftJoin(vfsLinks, eq(vfsLinks.parentId, vfsRegistry.id))
+        .leftJoin(
+          contacts,
+          and(eq(contacts.id, vfsLinks.childId), eq(contacts.deleted, false))
+        )
+        .where(eq(vfsRegistry.objectType, 'contactGroup'))
+        .groupBy(vfsRegistry.id, contactGroups.encryptedName)
+        .orderBy(asc(contactGroups.encryptedName));
 
-      if (groupRows.length === 0) {
-        setGroups([]);
-        setHasFetched(true);
-        return;
-      }
-
-      const groupIds = groupRows.map((group) => group.id);
-      const linkRows = await db
-        .select({
-          parentId: vfsLinks.parentId
-        })
-        .from(vfsLinks)
-        .innerJoin(contacts, eq(contacts.id, vfsLinks.childId))
-        .where(
-          and(inArray(vfsLinks.parentId, groupIds), eq(contacts.deleted, false))
-        );
-
-      const countByGroup = new Map<string, number>();
-      for (const link of linkRows) {
-        countByGroup.set(
-          link.parentId,
-          (countByGroup.get(link.parentId) ?? 0) + 1
-        );
-      }
-
-      const contactGroupsList = groupRows
-        .map((group) => ({
-          id: group.id,
-          name: group.name || 'Unnamed Group',
-          contactCount: countByGroup.get(group.id) ?? 0
-        }))
-        .sort((a, b) => a.name.localeCompare(b.name));
+      const contactGroupsList = groupRows.map((group) => ({
+        id: group.id,
+        name: group.name || 'Unnamed Group',
+        contactCount: group.contactCount
+      }));
 
       setGroups(contactGroupsList);
       setHasFetched(true);

@@ -112,8 +112,13 @@ export function Contacts() {
   }, [searchQuery]);
 
   useEffect(() => {
-    setSelectedGroupId(routeGroupId ?? ALL_CONTACTS_ID);
-  }, [routeGroupId]);
+    const newGroupId = routeGroupId ?? ALL_CONTACTS_ID;
+    if (selectedGroupId !== newGroupId) {
+      setSelectedGroupId(newGroupId);
+      setContacts([]);
+      setHasFetched(false);
+    }
+  }, [routeGroupId, selectedGroupId]);
 
   // CSV parsing and mapping state
   const [parsedData, setParsedData] = useState<ParsedCSV | null>(null);
@@ -374,9 +379,11 @@ export function Contacts() {
   const handleGroupSelect = useCallback(
     (groupId: string | null) => {
       const resolvedGroupId = groupId ?? ALL_CONTACTS_ID;
-      setSelectedGroupId(resolvedGroupId);
-      setContacts([]);
-      setHasFetched(false);
+      const currentGroupId = routeGroupId ?? ALL_CONTACTS_ID;
+
+      if (resolvedGroupId === currentGroupId) {
+        return;
+      }
 
       if (resolvedGroupId === ALL_CONTACTS_ID) {
         navigate('/contacts');
@@ -385,7 +392,7 @@ export function Contacts() {
 
       navigate(`/contacts/groups/${resolvedGroupId}`);
     },
-    [navigate]
+    [navigate, routeGroupId]
   );
 
   const handleGroupChanged = useCallback(() => {
