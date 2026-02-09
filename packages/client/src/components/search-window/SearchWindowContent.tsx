@@ -98,6 +98,23 @@ export function SearchWindowContent({
 
   const isAllSelected = selectedFilters.length === 0;
 
+  const resetSearch = useCallback(() => {
+    searchGenerationRef.current += 1;
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
+    setQuery('');
+    setSelectedFilters([]);
+    setResults([]);
+    setTotalCount(0);
+    setIsSearching(false);
+    setHasSearched(false);
+    setSearchDurationMs(null);
+    setSelectedIndex(-1);
+  }, []);
+
   const handleFilterToggle = (value: SearchableEntityType | 'all') => {
     if (value === 'all') {
       setSelectedFilters([]);
@@ -268,6 +285,12 @@ export function SearchWindowContent({
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLInputElement>) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        resetSearch();
+        return;
+      }
+
       if (results.length === 0) return;
 
       switch (event.key) {
@@ -315,7 +338,7 @@ export function SearchWindowContent({
         }
       }
     },
-    [results, selectedIndex, handleResultClick]
+    [results, selectedIndex, handleResultClick, resetSearch]
   );
 
   return (
