@@ -143,7 +143,7 @@ describe('AudioWindowList', () => {
       expect(getTrackIdsInPlaylist).toHaveBeenCalledWith('playlist-1');
     });
 
-    expect(fetchAudioFilesWithUrls).toHaveBeenCalledWith(['track-1']);
+    expect(fetchAudioFilesWithUrls).toHaveBeenCalledWith(['track-1'], false);
 
     await waitFor(() => {
       expect(screen.getByText('Playlist Song.mp3')).toBeInTheDocument();
