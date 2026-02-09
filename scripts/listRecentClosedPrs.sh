@@ -47,7 +47,7 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || true)
 render_closed_prs() {
     now=$(date '+%Y-%m-%d %H:%M:%S')
     printf 'Recent Closed PRs (%s)\nRepo: %s\n\n' "$now" "$REPO"
-    gh pr list -R "$REPO" --search "is:pr is:closed sort:updated-desc" --limit "$LIMIT"
+    gh pr list -R "$REPO" --search "is:pr is:closed sort:created-desc" --limit "$LIMIT"
 }
 
 if [ "$WATCH" = "1" ]; then
