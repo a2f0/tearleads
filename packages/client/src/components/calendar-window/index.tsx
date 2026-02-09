@@ -9,10 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
-import {
-  createCalendarEvent,
-  getCalendarEvents
-} from '@/db/calendar-events';
+import { createCalendarEvent, getCalendarEvents } from '@/db/calendar-events';
 import { useDatabaseContext } from '@/db/hooks';
 import { CalendarWindowMenuBar } from './CalendarWindowMenuBar';
 import { NewCalendarDialog } from './NewCalendarDialog';

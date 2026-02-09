@@ -1,6 +1,6 @@
-export { CalendarContent } from './CalendarContent';
 export type {
   CalendarEventItem,
   CreateCalendarEventInput
 } from './CalendarContent';
+export { CalendarContent } from './CalendarContent';
 export { CalendarWindow } from './CalendarWindow';

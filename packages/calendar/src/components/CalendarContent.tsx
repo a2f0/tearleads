@@ -207,13 +207,18 @@ export function CalendarContent({
 
   const currentYear = selectedDate.getFullYear();
 
-  const isSameDay = (date: Date, other: Date) =>
-    date.getFullYear() === other.getFullYear() &&
-    date.getMonth() === other.getMonth() &&
-    date.getDate() === other.getDate();
+  const isSameDay = useCallback(
+    (date: Date, other: Date) =>
+      date.getFullYear() === other.getFullYear() &&
+      date.getMonth() === other.getMonth() &&
+      date.getDate() === other.getDate(),
+    []
+  );
 
-  const getDateKey = (date: Date) =>
-    `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`;
+  const getDateKey = useCallback(
+    (date: Date) => `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+    []
+  );
 
   const calendarEvents = useMemo(
     () => events.filter((event) => event.calendarName === activeCalendar),
@@ -226,7 +231,7 @@ export function CalendarContent({
         .filter((event) => isSameDay(event.startAt, selectedDate))
         .slice()
         .sort((a, b) => a.startAt.getTime() - b.startAt.getTime()),
-    [calendarEvents, selectedDate]
+    [calendarEvents, isSameDay, selectedDate]
   );
 
   const dayEventCount = dayEvents.length;
@@ -239,7 +244,7 @@ export function CalendarContent({
       countMap.set(key, previousCount + 1);
     }
     return countMap;
-  }, [calendarEvents]);
+  }, [calendarEvents, getDateKey]);
 
   const handleCreateEvent = useCallback(async () => {
     const title = newEventTitle.trim();
@@ -346,7 +351,9 @@ export function CalendarContent({
             </div>
           ))
         ) : (
-          <p className="text-muted-foreground text-xs">No events for this day.</p>
+          <p className="text-muted-foreground text-xs">
+            No events for this day.
+          </p>
         )}
       </div>
       <div className="mt-4 space-y-2">
@@ -601,7 +608,9 @@ export function CalendarContent({
         <section className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="font-medium text-base">{activeCalendar}</p>
-            <p className="text-muted-foreground text-xs">{dayEventCount} events on selected day</p>
+            <p className="text-muted-foreground text-xs">
+              {dayEventCount} events on selected day
+            </p>
             <div className="flex items-center gap-2">
               <div
                 className="inline-flex items-center rounded-full border bg-muted/30 p-1"
