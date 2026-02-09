@@ -1,12 +1,29 @@
-import type { KeyboardEvent as ReactKeyboardEvent } from 'react';
+import type {
+  ComponentType,
+  KeyboardEvent as ReactKeyboardEvent,
+  ReactNode
+} from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
-interface ClassicContextMenuAction {
+export interface ClassicContextMenuAction {
   label: string;
   onClick: () => void;
   disabled?: boolean;
   ariaLabel: string;
+}
+
+export interface ClassicContextMenuComponents {
+  ContextMenu: ComponentType<{
+    x: number;
+    y: number;
+    onClose: () => void;
+    children: ReactNode;
+  }>;
+  ContextMenuItem: ComponentType<{
+    onClick: () => void;
+    children: ReactNode;
+  }>;
 }
 
 interface ClassicContextMenuProps {
@@ -15,6 +32,7 @@ interface ClassicContextMenuProps {
   ariaLabel: string;
   onClose: () => void;
   actions: ClassicContextMenuAction[];
+  components?: ClassicContextMenuComponents;
 }
 
 export function ClassicContextMenu({
@@ -22,8 +40,39 @@ export function ClassicContextMenu({
   y,
   ariaLabel,
   onClose,
-  actions
+  actions,
+  components
 }: ClassicContextMenuProps) {
+  if (components) {
+    const { ContextMenu, ContextMenuItem } = components;
+    return (
+      <ContextMenu x={x} y={y} onClose={onClose}>
+        {actions.map((action) =>
+          action.disabled ? (
+            <span
+              key={action.label}
+              role="menuitem"
+              aria-label={action.ariaLabel}
+              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-muted-foreground text-sm"
+            >
+              {action.label}
+            </span>
+          ) : (
+            <ContextMenuItem
+              key={action.label}
+              onClick={() => {
+                action.onClick();
+                onClose();
+              }}
+            >
+              {action.label}
+            </ContextMenuItem>
+          )
+        )}
+      </ContextMenu>
+    );
+  }
+
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [position, setPosition] = useState({ top: y, left: x });

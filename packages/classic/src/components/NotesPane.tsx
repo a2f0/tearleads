@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { ClassicNote } from '../lib/types';
-import { ClassicContextMenu } from './ClassicContextMenu';
+import {
+  ClassicContextMenu,
+  type ClassicContextMenuComponents
+} from './ClassicContextMenu';
 
 interface NotesPaneProps {
   activeTagName: string | null;
@@ -8,17 +11,22 @@ interface NotesPaneProps {
   notesById: Record<string, ClassicNote>;
   onMoveNote: (noteId: string, direction: 'up' | 'down') => void;
   onReorderNote: (noteId: string, targetNoteId: string) => void;
+  onCreateNote?: (() => void | Promise<void>) | undefined;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
 interface NotesContextMenuState {
   x: number;
   y: number;
-  noteId: string;
-  noteTitle: string;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
+  actions: Array<{
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    ariaLabel: string;
+  }>;
+  ariaLabel: string;
 }
 
 export function NotesPane({
@@ -27,8 +35,10 @@ export function NotesPane({
   notesById,
   onMoveNote,
   onReorderNote,
+  onCreateNote,
   searchValue,
-  onSearchChange
+  onSearchChange,
+  contextMenuComponents
 }: NotesPaneProps) {
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
     null
@@ -45,7 +55,27 @@ export function NotesPane({
 
   return (
     <section className="flex flex-1 flex-col" aria-label="Notes Pane">
-      <div className="flex-1 overflow-auto p-4">
+      <div
+        className="flex-1 overflow-auto p-4"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            ariaLabel: 'Entry list actions',
+            actions: [
+              {
+                label: 'New Entry',
+                onClick: () => {
+                  void onCreateNote?.();
+                },
+                ariaLabel: 'Create new entry',
+                disabled: onCreateNote === undefined
+              }
+            ]
+          });
+        }}
+      >
         {!activeTagName ? (
           <p className="text-sm text-zinc-500">Select a tag to view notes.</p>
         ) : noteIds.length === 0 ? (
@@ -97,13 +127,25 @@ export function NotesPane({
                   }}
                   onContextMenu={(event) => {
                     event.preventDefault();
+                    event.stopPropagation();
                     setContextMenu({
                       x: event.clientX,
                       y: event.clientY,
-                      noteId: note.id,
-                      noteTitle: note.title,
-                      canMoveUp,
-                      canMoveDown
+                      ariaLabel: `Note actions for ${note.title}`,
+                      actions: [
+                        {
+                          label: 'Move Up',
+                          onClick: () => onMoveNote(note.id, 'up'),
+                          disabled: !canMoveUp,
+                          ariaLabel: `Move note ${note.title} up`
+                        },
+                        {
+                          label: 'Move Down',
+                          onClick: () => onMoveNote(note.id, 'down'),
+                          disabled: !canMoveDown,
+                          ariaLabel: `Move note ${note.title} down`
+                        }
+                      ]
                     });
                   }}
                 >
@@ -150,22 +192,12 @@ export function NotesPane({
         <ClassicContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          ariaLabel={`Note actions for ${contextMenu.noteTitle}`}
+          ariaLabel={contextMenu.ariaLabel}
           onClose={closeContextMenu}
-          actions={[
-            {
-              label: 'Move Up',
-              onClick: () => onMoveNote(contextMenu.noteId, 'up'),
-              disabled: !contextMenu.canMoveUp,
-              ariaLabel: `Move note ${contextMenu.noteTitle} up`
-            },
-            {
-              label: 'Move Down',
-              onClick: () => onMoveNote(contextMenu.noteId, 'down'),
-              disabled: !contextMenu.canMoveDown,
-              ariaLabel: `Move note ${contextMenu.noteTitle} down`
-            }
-          ]}
+          actions={contextMenu.actions}
+          {...(contextMenuComponents
+            ? { components: contextMenuComponents }
+            : {})}
         />
       )}
     </section>

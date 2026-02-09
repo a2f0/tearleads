@@ -23,6 +23,8 @@ vi.mock('@/db', () => ({
 
 import {
   CLASSIC_TAG_PARENT_ID,
+  createClassicNote,
+  createClassicTag,
   loadClassicStateFromDatabase,
   persistClassicOrderToDatabase
 } from './classicPersistence';
@@ -290,6 +292,66 @@ describe('classicPersistence integration', () => {
 
       expect(rootTagAPosition).toBe(1);
       expect(rootTagBPosition).toBe(0);
+    });
+  });
+
+  it('creates a classic tag and links it under root with next position', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      const createdTagId = await createClassicTag('Inbox');
+
+      const createdTagRows = await db
+        .select({
+          name: tags.encryptedName
+        })
+        .from(tags)
+        .where(eq(tags.id, createdTagId));
+
+      const createdLinkRows = await db
+        .select({
+          parentId: vfsLinks.parentId,
+          childId: vfsLinks.childId,
+          position: vfsLinks.position
+        })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.childId, createdTagId));
+
+      expect(createdTagRows[0]?.name).toBe('Inbox');
+      expect(createdLinkRows[0]?.parentId).toBe(CLASSIC_TAG_PARENT_ID);
+      expect(createdLinkRows[0]?.position).toBe(2);
+    });
+  });
+
+  it('creates a classic note and links it under the selected tag', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      const createdNoteId = await createClassicNote('tag-a', 'Quick note');
+
+      const createdNoteRows = await db
+        .select({
+          title: notes.title,
+          content: notes.content,
+          deleted: notes.deleted
+        })
+        .from(notes)
+        .where(eq(notes.id, createdNoteId));
+
+      const createdLinkRows = await db
+        .select({
+          parentId: vfsLinks.parentId,
+          childId: vfsLinks.childId,
+          position: vfsLinks.position
+        })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.childId, createdNoteId));
+
+      expect(createdNoteRows[0]?.title).toBe('Quick note');
+      expect(createdNoteRows[0]?.content).toBe('');
+      expect(createdNoteRows[0]?.deleted).toBe(false);
+      expect(createdLinkRows[0]?.parentId).toBe('tag-a');
+      expect(createdLinkRows[0]?.position).toBe(3);
     });
   });
 });

@@ -230,4 +230,25 @@ describe('ClassicApp', () => {
 
     expect(screen.getByText('Alpha')).toBeInTheDocument();
   });
+
+  it('creates tags and entries from empty-space context menus', () => {
+    const onCreateTag = vi.fn();
+    const onCreateNote = vi.fn();
+
+    render(
+      <ClassicApp
+        initialState={createState()}
+        onCreateTag={onCreateTag}
+        onCreateNote={onCreateNote}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByLabelText('Tag List'));
+    fireEvent.click(screen.getByLabelText('Create new tag'));
+    expect(onCreateTag).toHaveBeenCalledTimes(1);
+
+    fireEvent.contextMenu(screen.getByLabelText('Note List'));
+    fireEvent.click(screen.getByLabelText('Create new entry'));
+    expect(onCreateNote).toHaveBeenCalledWith('tag-1');
+  });
 });

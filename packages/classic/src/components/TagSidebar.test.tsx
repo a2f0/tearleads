@@ -136,4 +136,25 @@ describe('TagSidebar', () => {
 
     expect(onReorderTag).toHaveBeenCalledWith('tag-1', 'tag-2');
   });
+
+  it('opens empty-space context menu and creates a new tag', () => {
+    const onCreateTag = vi.fn();
+
+    render(
+      <TagSidebar
+        tags={[]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onCreateTag={onCreateTag}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByText('No tags found.'));
+    fireEvent.click(screen.getByLabelText('Create new tag'));
+    expect(onCreateTag).toHaveBeenCalledTimes(1);
+  });
 });

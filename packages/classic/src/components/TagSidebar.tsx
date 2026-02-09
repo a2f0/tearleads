@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { ClassicTag } from '../lib/types';
-import { ClassicContextMenu } from './ClassicContextMenu';
+import {
+  ClassicContextMenu,
+  type ClassicContextMenuComponents
+} from './ClassicContextMenu';
 
 interface TagSidebarProps {
   tags: ClassicTag[];
@@ -8,17 +11,22 @@ interface TagSidebarProps {
   onSelectTag: (tagId: string) => void;
   onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
   onReorderTag: (tagId: string, targetTagId: string) => void;
+  onCreateTag?: (() => void | Promise<void>) | undefined;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
 interface TagContextMenuState {
   x: number;
   y: number;
-  tagId: string;
-  tagName: string;
-  canMoveUp: boolean;
-  canMoveDown: boolean;
+  actions: Array<{
+    label: string;
+    onClick: () => void;
+    disabled?: boolean;
+    ariaLabel: string;
+  }>;
+  ariaLabel: string;
 }
 
 export function TagSidebar({
@@ -27,8 +35,10 @@ export function TagSidebar({
   onSelectTag,
   onMoveTag,
   onReorderTag,
+  onCreateTag,
   searchValue,
-  onSearchChange
+  onSearchChange,
+  contextMenuComponents
 }: TagSidebarProps) {
   const [contextMenu, setContextMenu] = useState<TagContextMenuState | null>(
     null
@@ -41,7 +51,27 @@ export function TagSidebar({
 
   return (
     <aside className="flex w-64 flex-col border-r" aria-label="Tags Sidebar">
-      <div className="flex-1 overflow-auto p-3">
+      <div
+        className="flex-1 overflow-auto p-3"
+        onContextMenu={(event) => {
+          event.preventDefault();
+          setContextMenu({
+            x: event.clientX,
+            y: event.clientY,
+            ariaLabel: 'Tag list actions',
+            actions: [
+              {
+                label: 'New Tag',
+                onClick: () => {
+                  void onCreateTag?.();
+                },
+                ariaLabel: 'Create new tag',
+                disabled: onCreateTag === undefined
+              }
+            ]
+          });
+        }}
+      >
         {tags.length === 0 ? (
           <p className="text-sm text-zinc-500">No tags found.</p>
         ) : (
@@ -92,13 +122,25 @@ export function TagSidebar({
                   }}
                   onContextMenu={(event) => {
                     event.preventDefault();
+                    event.stopPropagation();
                     setContextMenu({
                       x: event.clientX,
                       y: event.clientY,
-                      tagId: tag.id,
-                      tagName: tag.name,
-                      canMoveUp,
-                      canMoveDown
+                      ariaLabel: `Tag actions for ${tag.name}`,
+                      actions: [
+                        {
+                          label: 'Move Up',
+                          onClick: () => onMoveTag(tag.id, 'up'),
+                          disabled: !canMoveUp,
+                          ariaLabel: `Move tag ${tag.name} up`
+                        },
+                        {
+                          label: 'Move Down',
+                          onClick: () => onMoveTag(tag.id, 'down'),
+                          disabled: !canMoveDown,
+                          ariaLabel: `Move tag ${tag.name} down`
+                        }
+                      ]
                     });
                   }}
                 >
@@ -154,22 +196,12 @@ export function TagSidebar({
         <ClassicContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          ariaLabel={`Tag actions for ${contextMenu.tagName}`}
+          ariaLabel={contextMenu.ariaLabel}
           onClose={closeContextMenu}
-          actions={[
-            {
-              label: 'Move Up',
-              onClick: () => onMoveTag(contextMenu.tagId, 'up'),
-              disabled: !contextMenu.canMoveUp,
-              ariaLabel: `Move tag ${contextMenu.tagName} up`
-            },
-            {
-              label: 'Move Down',
-              onClick: () => onMoveTag(contextMenu.tagId, 'down'),
-              disabled: !contextMenu.canMoveDown,
-              ariaLabel: `Move tag ${contextMenu.tagName} down`
-            }
-          ]}
+          actions={contextMenu.actions}
+          {...(contextMenuComponents
+            ? { components: contextMenuComponents }
+            : {})}
         />
       )}
     </aside>

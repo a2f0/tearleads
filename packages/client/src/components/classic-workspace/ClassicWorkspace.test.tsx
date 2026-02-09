@@ -6,6 +6,8 @@ import { mockConsoleError } from '@/test/console-mocks';
 const mockUseDatabaseContext = vi.fn();
 const mockLoadClassicStateFromDatabase = vi.fn();
 const mockPersistClassicOrderToDatabase = vi.fn();
+const mockCreateClassicTag = vi.fn();
+const mockCreateClassicNote = vi.fn();
 
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
@@ -25,15 +27,21 @@ vi.mock('@/lib/classicPersistence', () => ({
     activeTagId: null
   },
   loadClassicStateFromDatabase: () => mockLoadClassicStateFromDatabase(),
+  createClassicTag: () => mockCreateClassicTag(),
+  createClassicNote: (...args: unknown[]) => mockCreateClassicNote(...args),
   persistClassicOrderToDatabase: (...args: unknown[]) =>
     mockPersistClassicOrderToDatabase(...args)
 }));
 
 vi.mock('@rapid/classic', () => ({
   ClassicApp: ({
-    onStateChange
+    onStateChange,
+    onCreateTag,
+    onCreateNote
   }: {
     onStateChange?: ((state: unknown) => void) | undefined;
+    onCreateTag?: (() => void | Promise<void>) | undefined;
+    onCreateNote?: ((tagId: string) => void | Promise<void>) | undefined;
   }) => (
     <div>
       <div data-testid="classic-app">Classic App</div>
@@ -49,6 +57,12 @@ vi.mock('@rapid/classic', () => ({
         }
       >
         Trigger State Change
+      </button>
+      <button type="button" onClick={() => onCreateTag?.()}>
+        Trigger Create Tag
+      </button>
+      <button type="button" onClick={() => onCreateNote?.('tag-a')}>
+        Trigger Create Note
       </button>
     </div>
   )
@@ -76,6 +90,8 @@ describe('ClassicWorkspace', () => {
     mockPersistClassicOrderToDatabase.mockResolvedValue([
       { parentId: '__vfs_root__', childId: 'tag-a', position: 0 }
     ]);
+    mockCreateClassicTag.mockResolvedValue('tag-new');
+    mockCreateClassicNote.mockResolvedValue('note-new');
   });
 
   it('renders loading state while database is loading', () => {
@@ -147,5 +163,39 @@ describe('ClassicWorkspace', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
+  });
+
+  it('creates a tag from classic app callback', async () => {
+    const user = userEvent.setup();
+    render(<ClassicWorkspace />);
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Trigger Create Tag' }));
+
+    await waitFor(() => {
+      expect(mockCreateClassicTag).toHaveBeenCalledTimes(1);
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('creates a note from classic app callback', async () => {
+    const user = userEvent.setup();
+    render(<ClassicWorkspace />);
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Trigger Create Note' })
+    );
+
+    await waitFor(() => {
+      expect(mockCreateClassicNote).toHaveBeenCalledWith('tag-a');
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(2);
+    });
   });
 });
