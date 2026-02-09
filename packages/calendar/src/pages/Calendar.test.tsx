@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarContent } from '../components/CalendarContent';
 import { CALENDAR_CREATE_SUBMIT_EVENT } from '../events';
@@ -166,5 +167,53 @@ describe('Calendar', () => {
       screen.getByRole('button', { name: 'Go to previous period' })
     );
     expect(screen.getByText(String(currentYear))).toBeInTheDocument();
+  });
+
+  it('displays day events for active calendar', () => {
+    const selectedDate = new Date();
+    const eventDate = new Date(selectedDate);
+    eventDate.setHours(9, 0, 0, 0);
+
+    render(
+      <CalendarContent
+        events={[
+          {
+            id: 'event-1',
+            calendarName: 'Personal',
+            title: 'Team Standup',
+            startAt: eventDate,
+            endAt: new Date(eventDate.getTime() + 30 * 60 * 1000)
+          }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
+    expect(screen.getByText('Team Standup')).toBeInTheDocument();
+  });
+
+  it('creates an event from day quick-add form', async () => {
+    const user = userEvent.setup();
+    const onCreateEvent = vi.fn(async () => {});
+    render(<CalendarContent onCreateEvent={onCreateEvent} />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
+    fireEvent.change(screen.getByLabelText('Event title'), {
+      target: { value: 'Dentist' }
+    });
+    fireEvent.change(screen.getByLabelText('Event start time'), {
+      target: { value: '14:30' }
+    });
+    fireEvent.change(screen.getByLabelText('Event duration in minutes'), {
+      target: { value: '45' }
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Add Event' }));
+
+    expect(onCreateEvent).toHaveBeenCalledTimes(1);
+    expect(onCreateEvent.mock.calls[0]?.[0]).toMatchObject({
+      calendarName: 'Personal',
+      title: 'Dentist'
+    });
   });
 });

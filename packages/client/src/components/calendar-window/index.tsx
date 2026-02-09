@@ -1,13 +1,19 @@
 import {
   CALENDAR_CREATE_EVENT,
   CALENDAR_CREATE_SUBMIT_EVENT,
-  CalendarContent
+  CalendarContent,
+  type CalendarEventItem
 } from '@rapid/calendar';
 import { CalendarPlus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  createCalendarEvent,
+  getCalendarEvents
+} from '@/db/calendar-events';
+import { useDatabaseContext } from '@/db/hooks';
 import { CalendarWindowMenuBar } from './CalendarWindowMenuBar';
 import { NewCalendarDialog } from './NewCalendarDialog';
 
@@ -35,11 +41,26 @@ export function CalendarWindow({
   zIndex,
   initialDimensions
 }: CalendarWindowProps) {
+  const { isUnlocked } = useDatabaseContext();
   const [sidebarContextMenu, setSidebarContextMenu] = useState<{
     x: number;
     y: number;
   } | null>(null);
   const [newCalendarDialogOpen, setNewCalendarDialogOpen] = useState(false);
+  const [events, setEvents] = useState<CalendarEventItem[]>([]);
+
+  const refreshEvents = useCallback(async () => {
+    if (!isUnlocked) {
+      setEvents([]);
+      return;
+    }
+    const nextEvents = await getCalendarEvents();
+    setEvents(nextEvents);
+  }, [isUnlocked]);
+
+  useEffect(() => {
+    void refreshEvents();
+  }, [refreshEvents]);
 
   useEffect(() => {
     const handleCreateRequest = () => {
@@ -69,6 +90,19 @@ export function CalendarWindow({
     );
   }, []);
 
+  const handleCreateEvent = useCallback(
+    async (input: {
+      calendarName: string;
+      title: string;
+      startAt: Date;
+      endAt?: Date | null | undefined;
+    }) => {
+      await createCalendarEvent(input);
+      await refreshEvents();
+    },
+    [refreshEvents]
+  );
+
   return (
     <FloatingWindow
       id={id}
@@ -86,7 +120,11 @@ export function CalendarWindow({
     >
       <div className="flex h-full flex-col">
         <CalendarWindowMenuBar onClose={onClose} />
-        <CalendarContent onSidebarContextMenuRequest={setSidebarContextMenu} />
+        <CalendarContent
+          events={events}
+          onCreateEvent={handleCreateEvent}
+          onSidebarContextMenuRequest={setSidebarContextMenu}
+        />
       </div>
       {sidebarContextMenu ? (
         <ContextMenu
