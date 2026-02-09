@@ -232,7 +232,6 @@ export function CalendarContent({
     () =>
       calendarEvents
         .filter((event) => isSameDay(event.startAt, selectedDate))
-        .slice()
         .sort((a, b) => a.startAt.getTime() - b.startAt.getTime()),
     [calendarEvents, isSameDay, selectedDate]
   );
@@ -416,43 +415,47 @@ export function CalendarContent({
             {day}
           </p>
         ))}
-        {monthCells.map(({ date, inMonth }) => (
-          <button
-            type="button"
-            key={date.toISOString()}
-            onDoubleClick={() => {
-              setSelectedDate(date);
-              setViewMode('Day');
-            }}
-            aria-label={`Open day view for ${date.toLocaleDateString(
-              calendarLocale,
-              {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric'
-              }
-            )}`}
-            className={clsx(
-              'h-12 rounded-md border px-1 py-1 text-right text-sm',
-              inMonth
-                ? 'border-border bg-background'
-                : 'border-border/60 bg-muted/20 text-muted-foreground',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-            )}
-          >
-            <span
-              className={clsx(isSameDay(date, selectedDate) && 'font-bold')}
+        {monthCells.map(({ date, inMonth }) => {
+          const eventCount = eventCountByDay.get(getDateKey(date));
+
+          return (
+            <button
+              type="button"
+              key={date.toISOString()}
+              onDoubleClick={() => {
+                setSelectedDate(date);
+                setViewMode('Day');
+              }}
+              aria-label={`Open day view for ${date.toLocaleDateString(
+                calendarLocale,
+                {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric'
+                }
+              )}`}
+              className={clsx(
+                'h-12 rounded-md border px-1 py-1 text-right text-sm',
+                inMonth
+                  ? 'border-border bg-background'
+                  : 'border-border/60 bg-muted/20 text-muted-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+              )}
             >
-              {date.getDate()}
-            </span>
-            {eventCountByDay.get(getDateKey(date)) ? (
-              <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
-                {eventCountByDay.get(getDateKey(date))}
+              <span
+                className={clsx(isSameDay(date, selectedDate) && 'font-bold')}
+              >
+                {date.getDate()}
               </span>
-            ) : null}
-          </button>
-        ))}
+              {eventCount ? (
+                <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
+                  {eventCount}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -204,16 +204,12 @@ describe('Calendar', () => {
     >(async () => {});
     render(<CalendarContent onCreateEvent={onCreateEvent} />);
 
-    fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
-    fireEvent.change(screen.getByLabelText('Event title'), {
-      target: { value: 'Dentist' }
-    });
-    fireEvent.change(screen.getByLabelText('Event start time'), {
-      target: { value: '14:30' }
-    });
-    fireEvent.change(screen.getByLabelText('Event duration in minutes'), {
-      target: { value: '45' }
-    });
+    await user.click(screen.getByRole('tab', { name: 'Day' }));
+    await user.type(screen.getByLabelText('Event title'), 'Dentist');
+    await user.clear(screen.getByLabelText('Event start time'));
+    await user.type(screen.getByLabelText('Event start time'), '14:30');
+    await user.clear(screen.getByLabelText('Event duration in minutes'));
+    await user.type(screen.getByLabelText('Event duration in minutes'), '45');
 
     await user.click(screen.getByRole('button', { name: 'Add Event' }));
 
