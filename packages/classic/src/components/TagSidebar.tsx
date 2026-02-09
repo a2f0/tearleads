@@ -72,8 +72,11 @@ export function TagSidebar({
 
   return (
     <aside className="flex w-64 flex-col border-r" aria-label="Tags Sidebar">
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
+      {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
       <div
+        role="button"
+        aria-label="Tag list, press Shift+F10 for context menu"
+        tabIndex={0}
         className="flex-1 overflow-auto p-3"
         onContextMenu={(event) => {
           event.preventDefault();

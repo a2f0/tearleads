@@ -76,8 +76,11 @@ export function NotesPane({
 
   return (
     <section className="flex flex-1 flex-col" aria-label="Notes Pane">
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
+      {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
       <div
+        role="button"
+        aria-label="Entry list, press Shift+F10 for context menu"
+        tabIndex={0}
         className="flex-1 overflow-auto p-4"
         onContextMenu={(event) => {
           event.preventDefault();
