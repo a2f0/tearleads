@@ -43,24 +43,22 @@ export function ItemContextMenu({
     objectType: item.objectType,
     name: item.name
   };
+  const createActionHandler = (action: () => void) => () => {
+    action();
+    onClose();
+  };
 
   return (
     <WindowContextMenu x={x} y={y} onClose={onClose}>
       <WindowContextMenuItem
         icon={<ExternalLink className="h-4 w-4" />}
-        onClick={() => {
-          onOpen(item);
-          onClose();
-        }}
+        onClick={createActionHandler(() => onOpen(item))}
       >
         Open
       </WindowContextMenuItem>
       <WindowContextMenuItem
         icon={<Download className="h-4 w-4" />}
-        onClick={() => {
-          onDownload(item);
-          onClose();
-        }}
+        onClick={createActionHandler(() => onDownload(item))}
       >
         Download
       </WindowContextMenuItem>
@@ -68,20 +66,14 @@ export function ItemContextMenu({
       {!hiddenItems.includes('cut') && (
         <WindowContextMenuItem
           icon={<ClipboardCopy className="h-4 w-4" />}
-          onClick={() => {
-            cut([clipboardItem]);
-            onClose();
-          }}
+          onClick={createActionHandler(() => cut([clipboardItem]))}
         >
           Cut
         </WindowContextMenuItem>
       )}
       <WindowContextMenuItem
         icon={<Copy className="h-4 w-4" />}
-        onClick={() => {
-          copy([clipboardItem]);
-          onClose();
-        }}
+        onClick={createActionHandler(() => copy([clipboardItem]))}
       >
         Copy
       </WindowContextMenuItem>
@@ -90,10 +82,7 @@ export function ItemContextMenu({
           <div className="my-1 h-px bg-border" />
           <WindowContextMenuItem
             icon={<Share2 className="h-4 w-4" />}
-            onClick={() => {
-              onShare(item);
-              onClose();
-            }}
+            onClick={createActionHandler(() => onShare(item))}
           >
             Sharing
           </WindowContextMenuItem>

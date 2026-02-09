@@ -228,6 +228,10 @@ export function VfsDetailsPanel({
     },
     [onItemShare]
   );
+  const createEmptySpaceActionHandler = (action: () => void) => () => {
+    action();
+    setEmptySpaceContextMenu(null);
+  };
 
   const renderEmptySpaceContextMenu = () => {
     if (!emptySpaceContextMenu) return null;
@@ -240,10 +244,7 @@ export function VfsDetailsPanel({
         {onUpload && folderId && (
           <WindowContextMenuItem
             icon={<Upload className="h-4 w-4" />}
-            onClick={() => {
-              onUpload(folderId);
-              setEmptySpaceContextMenu(null);
-            }}
+            onClick={createEmptySpaceActionHandler(() => onUpload(folderId))}
             data-testid="vfs-upload-context-menu-item"
           >
             Upload
@@ -252,10 +253,7 @@ export function VfsDetailsPanel({
         {hasItems && onPaste && folderId && (
           <WindowContextMenuItem
             icon={<Clipboard className="h-4 w-4" />}
-            onClick={() => {
-              onPaste(folderId);
-              setEmptySpaceContextMenu(null);
-            }}
+            onClick={createEmptySpaceActionHandler(() => onPaste(folderId))}
           >
             Paste
           </WindowContextMenuItem>

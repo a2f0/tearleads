@@ -47,25 +47,23 @@ export function FolderContextMenu({
     name: folder.name
   };
   const isRootFolder = folder.id === VFS_ROOT_ID;
+  const createActionHandler = (action: () => void) => () => {
+    action();
+    onClose();
+  };
 
   return (
     <WindowContextMenu x={x} y={y} onClose={onClose}>
       <WindowContextMenuItem
         icon={<FolderPlus className="h-4 w-4" />}
-        onClick={() => {
-          onNewSubfolder(folder);
-          onClose();
-        }}
+        onClick={createActionHandler(() => onNewSubfolder(folder))}
       >
         New Subfolder
       </WindowContextMenuItem>
       {!isRootFolder && (
         <WindowContextMenuItem
           icon={<Pencil className="h-4 w-4" />}
-          onClick={() => {
-            onRename(folder);
-            onClose();
-          }}
+          onClick={createActionHandler(() => onRename(folder))}
         >
           Rename
         </WindowContextMenuItem>
@@ -73,10 +71,7 @@ export function FolderContextMenu({
       {!isRootFolder && vfsShareApi && onShare && (
         <WindowContextMenuItem
           icon={<Share2 className="h-4 w-4" />}
-          onClick={() => {
-            onShare(folder);
-            onClose();
-          }}
+          onClick={createActionHandler(() => onShare(folder))}
         >
           Sharing
         </WindowContextMenuItem>
@@ -85,10 +80,7 @@ export function FolderContextMenu({
       {!isRootFolder && (
         <WindowContextMenuItem
           icon={<ClipboardCopy className="h-4 w-4" />}
-          onClick={() => {
-            cut([clipboardItem]);
-            onClose();
-          }}
+          onClick={createActionHandler(() => cut([clipboardItem]))}
         >
           Cut
         </WindowContextMenuItem>
@@ -96,10 +88,7 @@ export function FolderContextMenu({
       {!isRootFolder && (
         <WindowContextMenuItem
           icon={<Copy className="h-4 w-4" />}
-          onClick={() => {
-            copy([clipboardItem]);
-            onClose();
-          }}
+          onClick={createActionHandler(() => copy([clipboardItem]))}
         >
           Copy
         </WindowContextMenuItem>
@@ -107,10 +96,7 @@ export function FolderContextMenu({
       {hasItems && onPaste && (
         <WindowContextMenuItem
           icon={<Clipboard className="h-4 w-4" />}
-          onClick={() => {
-            onPaste(folder.id);
-            onClose();
-          }}
+          onClick={createActionHandler(() => onPaste(folder.id))}
         >
           Paste
         </WindowContextMenuItem>
@@ -120,10 +106,7 @@ export function FolderContextMenu({
         <WindowContextMenuItem
           icon={<Trash2 className="h-4 w-4" />}
           variant="destructive"
-          onClick={() => {
-            onDelete(folder);
-            onClose();
-          }}
+          onClick={createActionHandler(() => onDelete(folder))}
         >
           Delete
         </WindowContextMenuItem>
