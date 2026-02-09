@@ -50,6 +50,10 @@ assert_eq "/tmp/tux/config/neovim.lua" "$NVIM_INIT"
 assert_eq "vi" "$EDITOR"
 assert_eq "/tmp/tux/config/tmux.conf" "$TUXEDO_TMUX_CONF"
 
+unset TUXEDO_WORKSPACES
+tuxedo_init "/tmp/tux"
+assert_eq "10" "$NUM_WORKSPACES"
+
 BASE_PATH="/base"
 assert_eq "/tmp/ws/scripts:/tmp/ws/scripts/agents:/base" "$(workspace_path /tmp/ws)"
 assert_eq "/base" "$(workspace_path "")"
@@ -242,7 +246,28 @@ sync_all_titles() {
 tuxedo_attach_or_create
 assert_contains "$(cat "$TMUX_CALLS")" "new-session -d -s tuxedo -c $SHARED_DIR -n rapid-shared -e PATH="
 assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo: -c $MAIN_DIR -n rapid-main -e PATH="
+assert_contains "$(cat "$TMUX_CALLS")" "send-keys -t tuxedo:0.0 C-c /tmp/tux/scripts/listOpenPrs.sh --watch --interval 30 --limit 20 Enter"
+assert_contains "$(cat "$TMUX_CALLS")" "send-keys -t tuxedo:1.0 C-c /tmp/tux/scripts/listRecentClosedPrs.sh --watch --interval 30 --limit 20 Enter"
 assert_contains "$(cat "$TMUX_CALLS")" "attach-session -t tuxedo"
+
+TMUX_DASHBOARD_CALLS="$TEMP_DIR/tmux.dashboard.calls"
+export TMUX_DASHBOARD_CALLS
+cat <<'EOF' > "$TEMP_DIR/bin/tmux"
+#!/bin/sh
+echo "$@" >> "$TMUX_DASHBOARD_CALLS"
+exit 0
+EOF
+chmod +x "$TEMP_DIR/bin/tmux"
+
+PATH="$TEMP_DIR/bin:$PATH_BACKUP"
+SESSION_NAME="tuxedo"
+TUXEDO_PR_REFRESH_SECONDS='30; rm -rf ~'
+TUXEDO_PR_LIST_LIMIT='20 && whoami'
+tuxedo_start_pr_dashboards
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "send-keys -t tuxedo:0.0 C-c /tmp/tux/scripts/listOpenPrs.sh --watch --interval 30 --limit 20 Enter"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "send-keys -t tuxedo:1.0 C-c /tmp/tux/scripts/listRecentClosedPrs.sh --watch --interval 30 --limit 20 Enter"
+unset TUXEDO_PR_REFRESH_SECONDS
+unset TUXEDO_PR_LIST_LIMIT
 
 test_tmux_attach_existing_session() {
     TMUX_ATTACH_CALLS="$TEMP_DIR/tmux.attach.calls"

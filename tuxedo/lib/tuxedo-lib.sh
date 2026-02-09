@@ -8,7 +8,7 @@ tuxedo_init() {
     GHOSTTY_CONF="$CONFIG_DIR/ghostty.conf"
 
     BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/github}"
-    NUM_WORKSPACES="${TUXEDO_WORKSPACES:-20}"
+    NUM_WORKSPACES="${TUXEDO_WORKSPACES:-10}"
     # Workspace naming: prefix-main, prefix-shared, prefix1, prefix2, etc.
     # Defaults to "rapid" for backward compatibility (rapid-main, rapid2, ...)
     WORKSPACE_PREFIX="${TUXEDO_WORKSPACE_PREFIX:-rapid}"
@@ -249,6 +249,18 @@ workspace_path() {
     echo "$workspace/scripts:$workspace/scripts/agents:$BASE_PATH"
 }
 
+tuxedo_start_pr_dashboards() {
+    [ "${TUXEDO_ENABLE_PR_DASHBOARDS:-1}" = "1" ] || return 0
+
+    refresh_seconds="${TUXEDO_PR_REFRESH_SECONDS:-30}"
+    pr_limit="${TUXEDO_PR_LIST_LIMIT:-20}"
+    case $refresh_seconds in ''|*[!0-9]*) refresh_seconds=30 ;; esac
+    case $pr_limit in ''|*[!0-9]*) pr_limit=20 ;; esac
+
+    tmux send-keys -t "$SESSION_NAME:0.0" C-c "$SCRIPT_DIR/scripts/listOpenPrs.sh --watch --interval $refresh_seconds --limit $pr_limit" Enter
+    tmux send-keys -t "$SESSION_NAME:1.0" C-c "$SCRIPT_DIR/scripts/listRecentClosedPrs.sh --watch --interval $refresh_seconds --limit $pr_limit" Enter
+}
+
 tuxedo_prepare_shared_dirs() {
     if [ -d "$SHARED_DIR" ]; then
         mkdir -p "$SHARED_DIR/.test_files" "$SHARED_DIR/.secrets" "$SHARED_DIR/packages/api"
@@ -314,6 +326,8 @@ tuxedo_attach_or_create() {
         tmux split-window -h -t "$SESSION_NAME:$window_name" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
         i=$((i + 1))
     done
+
+    tuxedo_start_pr_dashboards
 
     # Sync VS Code titles to tmux window names
     sync_all_titles
