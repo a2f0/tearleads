@@ -2,6 +2,8 @@ import {
   buildClassicPositionUpdates,
   buildClassicStateFromVfs,
   type ClassicState,
+  DEFAULT_CLASSIC_NOTE_TITLE,
+  DEFAULT_CLASSIC_TAG_NAME,
   type VfsLinkLikeRow
 } from '@rapid/classic';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -139,7 +141,7 @@ async function getNextChildPosition(parentId: string): Promise<number> {
 }
 
 export async function createClassicTag(
-  name: string = 'New Tag'
+  name: string = DEFAULT_CLASSIC_TAG_NAME
 ): Promise<string> {
   const db = getDatabase();
   const tagId = crypto.randomUUID();
@@ -177,7 +179,7 @@ export async function createClassicTag(
 
 export async function createClassicNote(
   tagId: string,
-  title: string = 'New Entry'
+  title: string = DEFAULT_CLASSIC_NOTE_TITLE
 ): Promise<string> {
   const db = getDatabase();
   const noteId = crypto.randomUUID();

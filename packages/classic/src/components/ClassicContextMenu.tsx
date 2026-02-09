@@ -49,6 +49,8 @@ export function ClassicContextMenu({
   const menuRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const [position, setPosition] = useState({ top: y, left: x });
+  const standardMenuItemClassName =
+    'flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm';
 
   useLayoutEffect(() => {
     if (standardContextMenu) {
@@ -172,7 +174,7 @@ export function ClassicContextMenu({
               type="button"
               disabled
               aria-label={action.ariaLabel}
-              className="flex w-full items-center gap-2 px-3 py-1.5 text-left text-muted-foreground text-sm"
+              className={`${standardMenuItemClassName} text-muted-foreground`}
             >
               {action.label}
             </button>

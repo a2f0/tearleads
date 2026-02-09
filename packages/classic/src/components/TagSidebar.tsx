@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import {
+  CREATE_CLASSIC_TAG_ARIA_LABEL,
+  DEFAULT_CLASSIC_TAG_NAME
+} from '../lib/constants';
 import type { ClassicTag } from '../lib/types';
 import {
   ClassicContextMenu,
@@ -48,6 +52,23 @@ export function TagSidebar({
   const [dragArmedTagId, setDragArmedTagId] = useState<string | null>(null);
 
   const closeContextMenu = () => setContextMenu(null);
+  const openEmptySpaceContextMenu = (x: number, y: number) => {
+    setContextMenu({
+      x,
+      y,
+      ariaLabel: 'Tag list actions',
+      actions: [
+        {
+          label: DEFAULT_CLASSIC_TAG_NAME,
+          onClick: () => {
+            void onCreateTag?.();
+          },
+          ariaLabel: CREATE_CLASSIC_TAG_ARIA_LABEL,
+          disabled: onCreateTag === undefined
+        }
+      ]
+    });
+  };
 
   return (
     <aside className="flex w-64 flex-col border-r" aria-label="Tags Sidebar">
@@ -56,21 +77,18 @@ export function TagSidebar({
         className="flex-1 overflow-auto p-3"
         onContextMenu={(event) => {
           event.preventDefault();
-          setContextMenu({
-            x: event.clientX,
-            y: event.clientY,
-            ariaLabel: 'Tag list actions',
-            actions: [
-              {
-                label: 'New Tag',
-                onClick: () => {
-                  void onCreateTag?.();
-                },
-                ariaLabel: 'Create new tag',
-                disabled: onCreateTag === undefined
-              }
-            ]
-          });
+          openEmptySpaceContextMenu(event.clientX, event.clientY);
+        }}
+        onKeyDown={(event) => {
+          const isContextMenuKey =
+            event.key === 'ContextMenu' ||
+            (event.key === 'F10' && event.shiftKey);
+          if (!isContextMenuKey) {
+            return;
+          }
+          event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          openEmptySpaceContextMenu(rect.left + 8, rect.top + 8);
         }}
       >
         {tags.length === 0 ? (

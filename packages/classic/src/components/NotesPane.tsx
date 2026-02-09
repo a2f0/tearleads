@@ -1,4 +1,8 @@
 import { useState } from 'react';
+import {
+  CREATE_CLASSIC_NOTE_ARIA_LABEL,
+  DEFAULT_CLASSIC_NOTE_TITLE
+} from '../lib/constants';
 import type { ClassicNote } from '../lib/types';
 import {
   ClassicContextMenu,
@@ -48,6 +52,23 @@ export function NotesPane({
   const [dragArmedNoteId, setDragArmedNoteId] = useState<string | null>(null);
 
   const closeContextMenu = () => setContextMenu(null);
+  const openEmptySpaceContextMenu = (x: number, y: number) => {
+    setContextMenu({
+      x,
+      y,
+      ariaLabel: 'Entry list actions',
+      actions: [
+        {
+          label: DEFAULT_CLASSIC_NOTE_TITLE,
+          onClick: () => {
+            void onCreateNote?.();
+          },
+          ariaLabel: CREATE_CLASSIC_NOTE_ARIA_LABEL,
+          disabled: onCreateNote === undefined
+        }
+      ]
+    });
+  };
 
   const visibleNotes = noteIds
     .map((noteId) => notesById[noteId])
@@ -60,21 +81,18 @@ export function NotesPane({
         className="flex-1 overflow-auto p-4"
         onContextMenu={(event) => {
           event.preventDefault();
-          setContextMenu({
-            x: event.clientX,
-            y: event.clientY,
-            ariaLabel: 'Entry list actions',
-            actions: [
-              {
-                label: 'New Entry',
-                onClick: () => {
-                  void onCreateNote?.();
-                },
-                ariaLabel: 'Create new entry',
-                disabled: onCreateNote === undefined
-              }
-            ]
-          });
+          openEmptySpaceContextMenu(event.clientX, event.clientY);
+        }}
+        onKeyDown={(event) => {
+          const isContextMenuKey =
+            event.key === 'ContextMenu' ||
+            (event.key === 'F10' && event.shiftKey);
+          if (!isContextMenuKey) {
+            return;
+          }
+          event.preventDefault();
+          const rect = event.currentTarget.getBoundingClientRect();
+          openEmptySpaceContextMenu(rect.left + 8, rect.top + 8);
         }}
       >
         {!activeTagName ? (

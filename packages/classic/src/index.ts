@@ -1,6 +1,12 @@
 export type { ClassicAppProps } from './components/ClassicApp';
 export { ClassicApp } from './components/ClassicApp';
 export {
+  CREATE_CLASSIC_NOTE_ARIA_LABEL,
+  CREATE_CLASSIC_TAG_ARIA_LABEL,
+  DEFAULT_CLASSIC_NOTE_TITLE,
+  DEFAULT_CLASSIC_TAG_NAME
+} from './lib/constants';
+export {
   getActiveTagNoteIds,
   moveItem,
   reorderNoteInTag,
