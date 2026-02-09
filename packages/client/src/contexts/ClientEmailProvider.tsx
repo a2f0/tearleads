@@ -1,4 +1,5 @@
 import {
+  type EmailContactOperations,
   type EmailFolder,
   type EmailFolderOperations,
   type EmailFolderType,
@@ -8,7 +9,7 @@ import {
   SYSTEM_FOLDER_TYPES
 } from '@rapid/email';
 import emailPackageJson from '@rapid/email/package.json';
-import { eq } from 'drizzle-orm';
+import { asc, desc, eq } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import {
@@ -21,7 +22,13 @@ import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
-import { emailFolders, vfsLinks, vfsRegistry } from '@/db/schema';
+import {
+  contactEmails,
+  contacts,
+  emailFolders,
+  vfsLinks,
+  vfsRegistry
+} from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
 import { getAuthHeaderValue } from '@/lib/auth-storage';
 
@@ -266,10 +273,43 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
     ]
   );
 
+  const fetchContactEmails = useCallback(async () => {
+    const db = getDatabase();
+
+    const rows = await db
+      .select({
+        contactId: contacts.id,
+        firstName: contacts.firstName,
+        lastName: contacts.lastName,
+        email: contactEmails.email,
+        label: contactEmails.label,
+        isPrimary: contactEmails.isPrimary
+      })
+      .from(contacts)
+      .innerJoin(contactEmails, eq(contactEmails.contactId, contacts.id))
+      .where(eq(contacts.deleted, false))
+      .orderBy(
+        asc(contacts.firstName),
+        asc(contacts.lastName),
+        desc(contactEmails.isPrimary),
+        asc(contactEmails.email)
+      );
+
+    return rows;
+  }, []);
+
+  const contactOperations: EmailContactOperations = useMemo(
+    () => ({
+      fetchContactEmails
+    }),
+    [fetchContactEmails]
+  );
+
   const providerProps = {
     apiBaseUrl: API_BASE_URL,
     getAuthHeader: getAuthHeaderValue,
     ui: emailUIComponents,
+    ...(isUnlocked && { contactOperations }),
     ...(isUnlocked && { folderOperations })
   };
 

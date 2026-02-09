@@ -4,6 +4,8 @@ export {
   type DropdownMenuItemProps,
   type DropdownMenuProps,
   type DropdownMenuSeparatorProps,
+  type EmailContactEmail,
+  type EmailContactOperations,
   EmailContext,
   type EmailContextValue,
   type EmailFolderOperations,
@@ -12,9 +14,11 @@ export {
   type EmailUIComponents,
   type RefreshButtonProps,
   useEmailApi,
+  useEmailContactOperations,
   useEmailContext,
   useEmailFolderOperations,
   useEmailUI,
+  useHasEmailContactOperations,
   useHasEmailFolderOperations,
   type WindowOptionsMenuItemProps
 } from './EmailContext';

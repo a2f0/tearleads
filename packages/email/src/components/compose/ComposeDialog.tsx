@@ -2,7 +2,12 @@ import { clsx } from 'clsx';
 import { Save, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef } from 'react';
 import { useCompose } from '../../hooks';
-import { validateEmailAddresses } from '../../types';
+import {
+  formatEmailAddresses,
+  parseEmailAddresses,
+  validateEmailAddresses
+} from '../../types';
+import { AddressBookPicker } from './AddressBookPicker';
 import { AttachmentInput } from './AttachmentInput';
 import { AttachmentList } from './AttachmentList';
 
@@ -81,6 +86,30 @@ export function ComposeDialog({
     }
     onOpenChange(false);
   }, [state.isDirty, state.isSaving, saveDraft, onOpenChange]);
+
+  const addRecipientToField = useCallback(
+    (field: 'to' | 'cc' | 'bcc', email: string) => {
+      const appendEmail = (value: string): string => {
+        const parsed = parseEmailAddresses(value);
+        const normalized = email.trim().toLowerCase();
+        if (parsed.some((entry) => entry.toLowerCase() === normalized)) {
+          return formatEmailAddresses(parsed);
+        }
+        return formatEmailAddresses([...parsed, email.trim()]);
+      };
+
+      if (field === 'to') {
+        setTo(appendEmail(state.to));
+        return;
+      }
+      if (field === 'cc') {
+        setCc(appendEmail(state.cc));
+        return;
+      }
+      setBcc(appendEmail(state.bcc));
+    },
+    [setTo, setCc, setBcc, state.to, state.cc, state.bcc]
+  );
 
   const canSend =
     state.to.trim().length > 0 &&
@@ -208,6 +237,11 @@ export function ComposeDialog({
                 data-testid="compose-subject"
               />
             </div>
+
+            <AddressBookPicker
+              disabled={state.isSending || state.isSaving}
+              onSelect={addRecipientToField}
+            />
 
             <div className="min-h-0 flex-1">
               <textarea

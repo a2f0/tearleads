@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { EmailContactOperations } from '../context';
 import { mockConsoleError } from '../test/console-mocks';
 import { TestEmailProvider } from '../test/test-utils';
 import { EmailWindow } from './EmailWindow';
@@ -102,9 +103,16 @@ describe('EmailWindow', () => {
     zIndex: 100
   };
 
-  const renderWithProvider = (props = defaultProps) => {
+  const renderWithProvider = (
+    props = defaultProps,
+    options?: { contactOperations?: EmailContactOperations }
+  ) => {
     return render(
-      <TestEmailProvider>
+      <TestEmailProvider
+        {...(options?.contactOperations && {
+          contactOperations: options.contactOperations
+        })}
+      >
         <EmailWindow {...props} />
       </TestEmailProvider>
     );
@@ -462,5 +470,52 @@ describe('EmailWindow', () => {
       'autocomplete',
       'off'
     );
+  });
+
+  it('adds address-book contacts to recipient fields from compose', async () => {
+    const user = userEvent.setup();
+    const contactOperations: EmailContactOperations = {
+      fetchContactEmails: vi.fn().mockResolvedValue([
+        {
+          contactId: 'contact-1',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          email: 'ada@example.com',
+          label: 'Work',
+          isPrimary: true
+        }
+      ])
+    };
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ emails: mockEmails })
+    });
+    renderWithProvider(defaultProps, { contactOperations });
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Subject')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('compose'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('address-book-picker')).toBeInTheDocument();
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: /add ada lovelace to to/i })
+    );
+    expect(screen.getByTestId('compose-to')).toHaveValue('ada@example.com');
+
+    await user.click(
+      screen.getByRole('button', { name: /add ada lovelace to cc/i })
+    );
+    expect(screen.getByTestId('compose-cc')).toHaveValue('ada@example.com');
+
+    await user.click(
+      screen.getByRole('button', { name: /add ada lovelace to bcc/i })
+    );
+    expect(screen.getByTestId('compose-bcc')).toHaveValue('ada@example.com');
   });
 });
