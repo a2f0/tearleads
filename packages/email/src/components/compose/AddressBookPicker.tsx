@@ -157,6 +157,7 @@ export function AddressBookPicker({
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search contacts"
+          aria-label="Search contacts"
           className="w-52 rounded-md border bg-background px-2 py-1 text-base focus:outline-none focus:ring-2 focus:ring-ring"
           disabled={disabled || loading}
           data-testid="address-book-search"
@@ -240,6 +241,7 @@ export function AddressBookPicker({
                       onClick={() => onSelect('to', row.email)}
                       className="rounded border px-1.5 py-0.5 text-xs hover:bg-accent disabled:opacity-50"
                       disabled={disabled || loading}
+                      aria-label={`Add ${getDisplayName(row)} to To (${row.email})`}
                     >
                       To
                     </button>
@@ -248,6 +250,7 @@ export function AddressBookPicker({
                       onClick={() => onSelect('cc', row.email)}
                       className="rounded border px-1.5 py-0.5 text-xs hover:bg-accent disabled:opacity-50"
                       disabled={disabled || loading}
+                      aria-label={`Add ${getDisplayName(row)} to Cc (${row.email})`}
                     >
                       Cc
                     </button>
@@ -256,6 +259,7 @@ export function AddressBookPicker({
                       onClick={() => onSelect('bcc', row.email)}
                       className="rounded border px-1.5 py-0.5 text-xs hover:bg-accent disabled:opacity-50"
                       disabled={disabled || loading}
+                      aria-label={`Add ${getDisplayName(row)} to Bcc (${row.email})`}
                     >
                       Bcc
                     </button>

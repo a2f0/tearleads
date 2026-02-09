@@ -295,14 +295,7 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
         asc(contactEmails.email)
       );
 
-    return rows.map((row) => ({
-      contactId: row.contactId,
-      firstName: row.firstName,
-      lastName: row.lastName,
-      email: row.email,
-      label: row.label,
-      isPrimary: row.isPrimary
-    }));
+    return rows;
   }, []);
 
   const contactOperations: EmailContactOperations = useMemo(

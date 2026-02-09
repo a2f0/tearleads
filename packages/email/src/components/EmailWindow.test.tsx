@@ -503,13 +503,19 @@ describe('EmailWindow', () => {
       expect(screen.getByTestId('address-book-picker')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'To' }));
+    await user.click(
+      screen.getByRole('button', { name: /add ada lovelace to to/i })
+    );
     expect(screen.getByTestId('compose-to')).toHaveValue('ada@example.com');
 
-    await user.click(screen.getByRole('button', { name: 'Cc' }));
+    await user.click(
+      screen.getByRole('button', { name: /add ada lovelace to cc/i })
+    );
     expect(screen.getByTestId('compose-cc')).toHaveValue('ada@example.com');
 
-    await user.click(screen.getByRole('button', { name: 'Bcc' }));
+    await user.click(
+      screen.getByRole('button', { name: /add ada lovelace to bcc/i })
+    );
     expect(screen.getByTestId('compose-bcc')).toHaveValue('ada@example.com');
   });
 });
