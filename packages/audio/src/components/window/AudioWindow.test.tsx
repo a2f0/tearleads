@@ -95,6 +95,11 @@ describe('AudioWindow', () => {
     expect(screen.getByTestId('dropdown-view')).toBeInTheDocument();
   });
 
+  it('renders the Help dropdown menu', () => {
+    renderWithProviders();
+    expect(screen.getByTestId('dropdown-help')).toBeInTheDocument();
+  });
+
   it('renders without error when database is unlocked', () => {
     renderWithProviders({
       databaseState: { isUnlocked: true }
