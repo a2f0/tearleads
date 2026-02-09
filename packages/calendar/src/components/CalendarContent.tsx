@@ -1,6 +1,16 @@
 import { clsx } from 'clsx';
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CALENDAR_CREATE_SUBMIT_EVENT } from '../events';
+import {
+  type MouseEvent as ReactMouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
+import {
+  CALENDAR_CREATE_ITEM_EVENT,
+  CALENDAR_CREATE_SUBMIT_EVENT
+} from '../events';
+import { NewCalendarEventModal } from './NewCalendarEventModal';
 
 const defaultCalendarName = 'Personal';
 const defaultCalendars = [defaultCalendarName];
@@ -31,6 +41,9 @@ interface CalendarContentProps {
   onSidebarContextMenuRequest?:
     | ((position: { x: number; y: number }) => void)
     | undefined;
+  onViewContextMenuRequest?:
+    | ((position: { x: number; y: number; date: Date }) => void)
+    | undefined;
 }
 
 export interface CalendarEventItem {
@@ -51,17 +64,18 @@ export interface CreateCalendarEventInput {
 export function CalendarContent({
   events = [],
   onCreateEvent,
-  onSidebarContextMenuRequest
+  onSidebarContextMenuRequest,
+  onViewContextMenuRequest
 }: CalendarContentProps = {}) {
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
   const [activeCalendar, setActiveCalendar] =
     useState<string>(defaultCalendarName);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
-  const [newEventTitle, setNewEventTitle] = useState('');
-  const [newEventTime, setNewEventTime] = useState('09:00');
-  const [newEventDurationMinutes, setNewEventDurationMinutes] = useState('60');
-  const [creatingEvent, setCreatingEvent] = useState(false);
+  const [createEventModalOpen, setCreateEventModalOpen] = useState(false);
+  const [createEventModalDate, setCreateEventModalDate] = useState(
+    () => new Date()
+  );
 
   const normalizedNames = useMemo(
     () => new Set(calendars.map((name) => name.toLowerCase())),
@@ -102,6 +116,41 @@ export function CalendarContent({
       );
     };
   }, [handleCreateCalendarSubmit]);
+
+  const handleOpenCreateItemModal = useCallback((date: Date) => {
+    setSelectedDate(date);
+    setCreateEventModalDate(date);
+    setCreateEventModalOpen(true);
+  }, []);
+
+  const handleCreateItemRequest = useCallback(
+    (event: Event) => {
+      if (!(event instanceof CustomEvent)) return;
+      const detail = event.detail as { date?: string } | undefined;
+      if (detail?.date) {
+        const date = new Date(detail.date);
+        if (!Number.isNaN(date.getTime())) {
+          handleOpenCreateItemModal(date);
+          return;
+        }
+      }
+      handleOpenCreateItemModal(selectedDate);
+    },
+    [handleOpenCreateItemModal, selectedDate]
+  );
+
+  useEffect(() => {
+    window.addEventListener(
+      CALENDAR_CREATE_ITEM_EVENT,
+      handleCreateItemRequest
+    );
+    return () => {
+      window.removeEventListener(
+        CALENDAR_CREATE_ITEM_EVENT,
+        handleCreateItemRequest
+      );
+    };
+  }, [handleCreateItemRequest]);
 
   const dayLabel = useMemo(
     () =>
@@ -248,88 +297,29 @@ export function CalendarContent({
     return countMap;
   }, [calendarEvents, getDateKey]);
 
-  const handleCreateEvent = useCallback(async () => {
-    const title = newEventTitle.trim();
-    if (!title || !onCreateEvent || creatingEvent) return;
-
-    const [hoursPart, minutesPart] = newEventTime.split(':');
-    const hours = Number(hoursPart);
-    const minutes = Number(minutesPart);
-    const durationMinutes = Number(newEventDurationMinutes);
-
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return;
-    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return;
-
-    const startAt = new Date(selectedDate);
-    startAt.setHours(hours, minutes, 0, 0);
-
-    const endAt = new Date(startAt);
-    endAt.setMinutes(endAt.getMinutes() + durationMinutes);
-
-    try {
-      setCreatingEvent(true);
-      await onCreateEvent({
-        calendarName: activeCalendar,
-        title,
-        startAt,
-        endAt
+  const handleViewContextMenuRequest = useCallback(
+    (event: ReactMouseEvent<HTMLElement>, date: Date) => {
+      event.preventDefault();
+      setSelectedDate(date);
+      onViewContextMenuRequest?.({
+        x: event.clientX,
+        y: event.clientY,
+        date
       });
-      setNewEventTitle('');
-    } finally {
-      setCreatingEvent(false);
-    }
-  }, [
-    activeCalendar,
-    creatingEvent,
-    newEventDurationMinutes,
-    newEventTime,
-    newEventTitle,
-    onCreateEvent,
-    selectedDate
-  ]);
+    },
+    [onViewContextMenuRequest]
+  );
 
   const renderDayView = () => (
-    <div className="h-full overflow-auto rounded-xl border bg-card p-4">
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
+    <div
+      className="h-full overflow-auto rounded-xl border bg-card p-4"
+      data-testid="calendar-day-view"
+      onContextMenu={(event) =>
+        handleViewContextMenuRequest(event, selectedDate)
+      }
+    >
       <p className="font-medium text-sm uppercase tracking-wide">{dayLabel}</p>
-      <form
-        className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-4"
-        onSubmit={(event) => {
-          event.preventDefault();
-          void handleCreateEvent();
-        }}
-      >
-        <input
-          type="text"
-          value={newEventTitle}
-          onChange={(event) => setNewEventTitle(event.target.value)}
-          placeholder="Event title"
-          className="rounded-md border bg-background px-2 py-1 text-base"
-          aria-label="Event title"
-        />
-        <input
-          type="time"
-          value={newEventTime}
-          onChange={(event) => setNewEventTime(event.target.value)}
-          className="rounded-md border bg-background px-2 py-1 text-base"
-          aria-label="Event start time"
-        />
-        <input
-          type="number"
-          min={1}
-          step={1}
-          value={newEventDurationMinutes}
-          onChange={(event) => setNewEventDurationMinutes(event.target.value)}
-          className="rounded-md border bg-background px-2 py-1 text-base"
-          aria-label="Event duration in minutes"
-        />
-        <button
-          type="submit"
-          disabled={!newEventTitle.trim() || creatingEvent || !onCreateEvent}
-          className="rounded-md bg-primary px-3 py-1 font-medium text-primary-foreground text-sm disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          Add Event
-        </button>
-      </form>
       <div className="mt-3 space-y-2">
         {dayEvents.length > 0 ? (
           dayEvents.map((event) => (
@@ -375,18 +365,30 @@ export function CalendarContent({
   );
 
   const renderWeekView = () => (
-    <div className="h-full overflow-auto rounded-xl border bg-card p-4">
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
+    <div
+      className="h-full overflow-auto rounded-xl border bg-card p-4"
+      data-testid="calendar-week-view"
+      onContextMenu={(event) =>
+        handleViewContextMenuRequest(event, selectedDate)
+      }
+    >
       <p className="font-medium text-sm uppercase tracking-wide">
         Week of {weekDates[0]?.toLocaleDateString(calendarLocale)}
       </p>
       <div className="mt-4 grid grid-cols-7 gap-2">
         {weekDates.map((date) => (
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu per day card
           <div
             key={date.toISOString()}
             className={clsx(
               'rounded-md border p-2 text-center',
               isSameDay(date, selectedDate) && 'border-primary bg-primary/10'
             )}
+            onContextMenu={(event) => {
+              event.stopPropagation();
+              handleViewContextMenuRequest(event, date);
+            }}
           >
             <p className="text-[11px] text-muted-foreground uppercase">
               {date.toLocaleDateString(calendarLocale, { weekday: 'short' })}
@@ -402,7 +404,14 @@ export function CalendarContent({
   );
 
   const renderMonthView = () => (
-    <div className="h-full overflow-auto rounded-xl border bg-card p-4">
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
+    <div
+      className="h-full overflow-auto rounded-xl border bg-card p-4"
+      data-testid="calendar-month-view"
+      onContextMenu={(event) =>
+        handleViewContextMenuRequest(event, selectedDate)
+      }
+    >
       <p className="font-medium text-sm uppercase tracking-wide">
         {monthLabel}
       </p>
@@ -425,6 +434,10 @@ export function CalendarContent({
               onDoubleClick={() => {
                 setSelectedDate(date);
                 setViewMode('Day');
+              }}
+              onContextMenu={(event) => {
+                event.stopPropagation();
+                handleViewContextMenuRequest(event, date);
               }}
               aria-label={`Open day view for ${date.toLocaleDateString(
                 calendarLocale,
@@ -461,7 +474,14 @@ export function CalendarContent({
   );
 
   const renderYearView = () => (
-    <div className="h-full overflow-auto rounded-xl border bg-card p-4">
+    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
+    <div
+      className="h-full overflow-auto rounded-xl border bg-card p-4"
+      data-testid="calendar-year-view"
+      onContextMenu={(event) =>
+        handleViewContextMenuRequest(event, selectedDate)
+      }
+    >
       <p className="font-medium text-sm uppercase tracking-wide">
         {currentYear}
       </p>
@@ -518,6 +538,10 @@ export function CalendarContent({
                         year: 'numeric'
                       }
                     )}`}
+                    onContextMenu={(event) => {
+                      event.stopPropagation();
+                      handleViewContextMenuRequest(event, monthDate);
+                    }}
                     className={clsx(
                       'rounded text-center text-[10px] text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
                     )}
@@ -618,6 +642,13 @@ export function CalendarContent({
               {dayEventCount} events on selected day
             </p>
             <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleOpenCreateItemModal(selectedDate)}
+                className="rounded-md border bg-background px-3 py-1 font-medium text-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+              >
+                New Item
+              </button>
               <div
                 className="inline-flex items-center rounded-full border bg-muted/30 p-1"
                 role="tablist"
@@ -664,6 +695,13 @@ export function CalendarContent({
           <div className="min-h-0 flex-1">{renderActiveView()}</div>
         </section>
       </div>
+      <NewCalendarEventModal
+        open={createEventModalOpen}
+        onOpenChange={setCreateEventModalOpen}
+        calendarName={activeCalendar}
+        selectedDate={createEventModalDate}
+        onCreateEvent={onCreateEvent}
+      />
     </div>
   );
 }

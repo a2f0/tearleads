@@ -1,5 +1,6 @@
 import {
   CALENDAR_CREATE_EVENT,
+  CALENDAR_CREATE_ITEM_EVENT,
   CALENDAR_CREATE_SUBMIT_EVENT
 } from '@rapid/calendar';
 import { fireEvent, render, screen } from '@testing-library/react';
@@ -12,6 +13,9 @@ interface MockCalendarContentProps {
   onSidebarContextMenuRequest?:
     | ((position: { x: number; y: number }) => void)
     | undefined;
+  onViewContextMenuRequest?:
+    | ((position: { x: number; y: number; date: Date }) => void)
+    | undefined;
 }
 
 interface MockFloatingWindowProps {
@@ -20,17 +24,34 @@ interface MockFloatingWindowProps {
 
 vi.mock('@rapid/calendar', () => ({
   CALENDAR_CREATE_EVENT: 'rapid:calendar:create',
+  CALENDAR_CREATE_ITEM_EVENT: 'rapid:calendar:item:create',
   CALENDAR_CREATE_SUBMIT_EVENT: 'rapid:calendar:create:submit',
   CalendarContent: ({
-    onSidebarContextMenuRequest
+    onSidebarContextMenuRequest,
+    onViewContextMenuRequest
   }: MockCalendarContentProps) => (
-    <button
-      type="button"
-      data-testid="sidebar-context-trigger"
-      onClick={() => onSidebarContextMenuRequest?.({ x: 120, y: 140 })}
-    >
-      Trigger Sidebar Context Menu
-    </button>
+    <div>
+      <button
+        type="button"
+        data-testid="sidebar-context-trigger"
+        onClick={() => onSidebarContextMenuRequest?.({ x: 120, y: 140 })}
+      >
+        Trigger Sidebar Context Menu
+      </button>
+      <button
+        type="button"
+        data-testid="view-context-trigger"
+        onClick={() =>
+          onViewContextMenuRequest?.({
+            x: 220,
+            y: 240,
+            date: new Date('2026-02-09T00:00:00.000Z')
+          })
+        }
+      >
+        Trigger View Context Menu
+      </button>
+    </div>
   )
 }));
 
@@ -108,5 +129,36 @@ describe('CalendarWindow', () => {
     expect(
       await screen.findByTestId('new-calendar-dialog')
     ).toBeInTheDocument();
+  });
+
+  it('dispatches create-item event from view context menu', async () => {
+    const user = userEvent.setup();
+    const listener = vi.fn();
+    window.addEventListener(CALENDAR_CREATE_ITEM_EVENT, listener);
+    try {
+      render(
+        <CalendarWindow
+          id="calendar-window"
+          onClose={vi.fn()}
+          onMinimize={vi.fn()}
+          onFocus={vi.fn()}
+          zIndex={200}
+        />
+      );
+
+      await user.click(screen.getByTestId('view-context-trigger'));
+      await user.click(screen.getByRole('button', { name: 'New Item' }));
+
+      expect(listener).toHaveBeenCalledTimes(1);
+      const createItemEvent = listener.mock.calls[0]?.[0];
+      if (!(createItemEvent instanceof CustomEvent)) {
+        throw new Error('Expected create item event');
+      }
+      expect(createItemEvent.detail).toEqual({
+        date: '2026-02-09T00:00:00.000Z'
+      });
+    } finally {
+      window.removeEventListener(CALENDAR_CREATE_ITEM_EVENT, listener);
+    }
   });
 });

@@ -1,5 +1,6 @@
 import {
   CALENDAR_CREATE_EVENT,
+  CALENDAR_CREATE_ITEM_EVENT,
   CALENDAR_CREATE_SUBMIT_EVENT,
   CalendarContent,
   type CalendarEventItem
@@ -43,6 +44,11 @@ export function CalendarWindow({
     x: number;
     y: number;
   } | null>(null);
+  const [viewContextMenu, setViewContextMenu] = useState<{
+    x: number;
+    y: number;
+    date: Date;
+  } | null>(null);
   const [newCalendarDialogOpen, setNewCalendarDialogOpen] = useState(false);
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
 
@@ -74,10 +80,26 @@ export function CalendarWindow({
     setSidebarContextMenu(null);
   }, []);
 
+  const handleCloseViewContextMenu = useCallback(() => {
+    setViewContextMenu(null);
+  }, []);
+
   const handleCreateCalendar = useCallback(() => {
     setNewCalendarDialogOpen(true);
     setSidebarContextMenu(null);
   }, []);
+
+  const handleCreateItem = useCallback(() => {
+    if (!viewContextMenu) {
+      return;
+    }
+    window.dispatchEvent(
+      new CustomEvent(CALENDAR_CREATE_ITEM_EVENT, {
+        detail: { date: viewContextMenu.date.toISOString() }
+      })
+    );
+    setViewContextMenu(null);
+  }, [viewContextMenu]);
 
   const handleCreateCalendarSubmit = useCallback((name: string) => {
     window.dispatchEvent(
@@ -121,6 +143,7 @@ export function CalendarWindow({
           events={events}
           onCreateEvent={handleCreateEvent}
           onSidebarContextMenuRequest={setSidebarContextMenu}
+          onViewContextMenuRequest={setViewContextMenu}
         />
       </div>
       {sidebarContextMenu ? (
@@ -134,6 +157,20 @@ export function CalendarWindow({
             onClick={handleCreateCalendar}
           >
             New Calendar
+          </ContextMenuItem>
+        </ContextMenu>
+      ) : null}
+      {viewContextMenu ? (
+        <ContextMenu
+          x={viewContextMenu.x}
+          y={viewContextMenu.y}
+          onClose={handleCloseViewContextMenu}
+        >
+          <ContextMenuItem
+            icon={<CalendarPlus className="h-4 w-4" />}
+            onClick={handleCreateItem}
+          >
+            New Item
           </ContextMenuItem>
         </ContextMenu>
       ) : null}
