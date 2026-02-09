@@ -61,31 +61,27 @@ type Position = { x: number; y: number };
 type Positions = Record<string, Position>;
 
 function getIconStyleClasses(
-  isSettings: boolean,
   iconDepth?: DesktopIconDepthValue,
   iconBackground?: DesktopIconBackgroundValue
 ) {
   if (iconBackground === 'transparent') {
     return {
       iconBgClasses: 'bg-transparent',
-      iconFgClass: isSettings ? 'text-muted-foreground' : 'text-foreground'
+      iconFgClass: 'text-foreground'
     };
   }
 
   const isDebossed = iconDepth === 'debossed';
   if (isDebossed) {
     return {
-      iconBgClasses: isSettings
-        ? 'bg-primary-foreground from-primary-foreground/60 to-primary-foreground'
-        : 'bg-primary-foreground from-primary-foreground/80 to-primary-foreground',
-      iconFgClass: isSettings ? 'text-muted-foreground' : 'text-primary'
+      iconBgClasses:
+        'bg-primary-foreground from-primary-foreground/80 to-primary-foreground',
+      iconFgClass: 'text-primary'
     };
   }
 
   return {
-    iconBgClasses: isSettings
-      ? 'bg-muted-foreground from-muted-foreground/60 to-muted-foreground'
-      : 'bg-primary from-primary/80 to-primary',
+    iconBgClasses: 'bg-primary from-primary/80 to-primary',
     iconFgClass: 'text-primary-foreground'
   };
 }
@@ -885,9 +881,7 @@ export function Home() {
         >
           {appItems.map((item) => {
             const Icon = item.icon;
-            const isSettings = item.path === '/settings';
             const { iconBgClasses, iconFgClass } = getIconStyleClasses(
-              isSettings,
               iconDepth,
               iconBackground
             );
