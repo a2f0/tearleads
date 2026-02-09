@@ -198,6 +198,32 @@ describe('Home', () => {
     expect(icon).toHaveClass('text-foreground');
   });
 
+  it('renders matching embossed icon colors for files and settings', () => {
+    mockGetSetting.mockImplementation((key: string) => {
+      if (key === 'desktopPattern') return 'solid';
+      if (key === 'desktopIconDepth') return 'embossed';
+      if (key === 'desktopIconBackground') return 'colored';
+      return 'enabled';
+    });
+    renderHome();
+
+    const assertIconEmbossedColors = (name: string) => {
+      const button = screen.getByRole('button', { name });
+      const wrapper = button.querySelector('div');
+      const icon = button.querySelector('svg');
+
+      expect(wrapper).toHaveClass(
+        'bg-primary',
+        'from-primary/80',
+        'to-primary'
+      );
+      expect(icon).toHaveClass('text-primary-foreground');
+    };
+
+    assertIconEmbossedColors('Files');
+    assertIconEmbossedColors('Settings');
+  });
+
   it('renders with canvas layout for draggable icons', () => {
     const { container } = renderHome();
 
