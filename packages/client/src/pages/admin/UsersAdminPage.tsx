@@ -12,5 +12,14 @@ export function UsersAdminPage() {
     [navigate]
   );
 
-  return <UsersAdmin onUserSelect={handleUserSelect} />;
+  const handleViewAiRequests = useCallback(() => {
+    navigate('/admin/users/ai-requests');
+  }, [navigate]);
+
+  return (
+    <UsersAdmin
+      onUserSelect={handleUserSelect}
+      onViewAiRequests={handleViewAiRequests}
+    />
+  );
 }

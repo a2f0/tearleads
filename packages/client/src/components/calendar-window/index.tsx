@@ -6,11 +6,15 @@ import {
   type CalendarEventItem
 } from '@rapid/calendar';
 import { CalendarPlus } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
-import { createCalendarEvent, getCalendarEvents } from '@/db/calendar-events';
+import {
+  createCalendarEvent,
+  getCalendarEvents,
+  getContactBirthdayEvents
+} from '@/db/calendar-events';
 import { useDatabaseContext } from '@/db/hooks';
 import { CalendarWindowMenuBar } from './CalendarWindowMenuBar';
 import { NewCalendarDialog } from './NewCalendarDialog';
@@ -51,14 +55,24 @@ export function CalendarWindow({
   } | null>(null);
   const [newCalendarDialogOpen, setNewCalendarDialogOpen] = useState(false);
   const [events, setEvents] = useState<CalendarEventItem[]>([]);
+  const [birthdayEvents, setBirthdayEvents] = useState<CalendarEventItem[]>([]);
+  const [showBirthdaysFromContacts, setShowBirthdaysFromContacts] =
+    useState(true);
 
   const refreshEvents = useCallback(async () => {
     if (!isUnlocked) {
       setEvents([]);
+      setBirthdayEvents([]);
       return;
     }
-    const nextEvents = await getCalendarEvents();
+
+    const [nextEvents, nextBirthdayEvents] = await Promise.all([
+      getCalendarEvents(),
+      getContactBirthdayEvents()
+    ]);
+
     setEvents(nextEvents);
+    setBirthdayEvents(nextBirthdayEvents);
   }, [isUnlocked]);
 
   useEffect(() => {
@@ -122,6 +136,12 @@ export function CalendarWindow({
     [refreshEvents]
   );
 
+  const visibleEvents = useMemo(
+    () =>
+      showBirthdaysFromContacts ? [...events, ...birthdayEvents] : [...events],
+    [birthdayEvents, events, showBirthdaysFromContacts]
+  );
+
   return (
     <FloatingWindow
       id={id}
@@ -138,9 +158,13 @@ export function CalendarWindow({
       minHeight={CALENDAR_WINDOW_MIN_HEIGHT}
     >
       <div className="flex h-full flex-col">
-        <CalendarWindowMenuBar onClose={onClose} />
+        <CalendarWindowMenuBar
+          onClose={onClose}
+          showBirthdaysFromContacts={showBirthdaysFromContacts}
+          onShowBirthdaysFromContactsChange={setShowBirthdaysFromContacts}
+        />
         <CalendarContent
-          events={events}
+          events={visibleEvents}
           onCreateEvent={handleCreateEvent}
           onSidebarContextMenuRequest={setSidebarContextMenu}
           onViewContextMenuRequest={setViewContextMenu}

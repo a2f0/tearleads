@@ -18,6 +18,14 @@ export interface CreateCalendarEventInput {
   endAt?: Date | null | undefined;
 }
 
+export interface ContactBirthdayEvent {
+  id: string;
+  calendarName: string;
+  title: string;
+  startAt: Date;
+  endAt: Date | null;
+}
+
 interface RawCalendarEventRow {
   id: string;
   calendarName: string;
@@ -27,6 +35,21 @@ interface RawCalendarEventRow {
   createdAt: number;
   updatedAt: number;
 }
+
+interface RawContactBirthdayRow {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  birthday: string;
+}
+
+interface BirthdayDateParts {
+  month: number;
+  day: number;
+}
+
+const BIRTHDAY_CALENDAR_NAME = 'Personal';
+const BIRTHDAY_YEAR_RANGE = 5;
 
 function normalizeCalendarEventRow(value: unknown): RawCalendarEventRow | null {
   if (!isRecord(value)) {
@@ -69,6 +92,79 @@ function normalizeCalendarEventRow(value: unknown): RawCalendarEventRow | null {
     createdAt,
     updatedAt
   };
+}
+
+function normalizeContactBirthdayRow(
+  value: unknown
+): RawContactBirthdayRow | null {
+  if (!isRecord(value)) {
+    return null;
+  }
+
+  const id = value['id'];
+  const firstName = value['firstName'];
+  const lastNameRaw = value['lastName'];
+  const birthday = value['birthday'];
+
+  if (
+    typeof id !== 'string' ||
+    typeof firstName !== 'string' ||
+    typeof birthday !== 'string'
+  ) {
+    return null;
+  }
+
+  if (lastNameRaw !== null && typeof lastNameRaw !== 'string') {
+    return null;
+  }
+
+  return {
+    id,
+    firstName,
+    lastName: lastNameRaw,
+    birthday
+  };
+}
+
+function parseBirthdayDateParts(value: string): BirthdayDateParts | null {
+  const normalized = value.trim();
+  const dashedMatch = normalized.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const compactMatch = normalized.match(/^(\d{4})(\d{2})(\d{2})$/);
+  const match = dashedMatch ?? compactMatch;
+
+  if (!match) {
+    return null;
+  }
+
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+
+  if (!Number.isFinite(month) || !Number.isFinite(day)) {
+    return null;
+  }
+
+  if (month < 1 || month > 12 || day < 1 || day > 31) {
+    return null;
+  }
+
+  return { month, day };
+}
+
+function isValidDate(year: number, month: number, day: number): boolean {
+  const date = new Date(year, month - 1, day);
+  return (
+    date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+  );
+}
+
+function toBirthdayEventTitle(
+  firstName: string,
+  lastName: string | null
+): string {
+  const fullName = [firstName, lastName ?? ''].join(' ').trim();
+  return `${fullName}'s Birthday`;
 }
 
 function toCalendarEvent(row: RawCalendarEventRow): CalendarEvent {
@@ -153,4 +249,61 @@ export async function createCalendarEvent(
     createdAt: new Date(now),
     updatedAt: new Date(now)
   };
+}
+
+export async function getContactBirthdayEvents(
+  referenceDate: Date = new Date()
+): Promise<ContactBirthdayEvent[]> {
+  if (!isDatabaseInitialized()) {
+    return [];
+  }
+
+  const adapter = getDatabaseAdapter();
+  const result = await adapter.execute(
+    `SELECT
+      id,
+      first_name as firstName,
+      last_name as lastName,
+      birthday
+    FROM contacts
+    WHERE deleted = 0
+      AND birthday IS NOT NULL
+      AND TRIM(birthday) != ''`,
+    []
+  );
+
+  const rows = Array.isArray(result.rows) ? result.rows : [];
+  const normalizedRows = rows
+    .map(normalizeContactBirthdayRow)
+    .filter((row): row is RawContactBirthdayRow => row !== null);
+
+  const targetYear = referenceDate.getFullYear();
+  const events: ContactBirthdayEvent[] = [];
+
+  for (const row of normalizedRows) {
+    const dateParts = parseBirthdayDateParts(row.birthday);
+    if (!dateParts) {
+      continue;
+    }
+
+    for (
+      let year = targetYear - BIRTHDAY_YEAR_RANGE;
+      year <= targetYear + BIRTHDAY_YEAR_RANGE;
+      year += 1
+    ) {
+      if (!isValidDate(year, dateParts.month, dateParts.day)) {
+        continue;
+      }
+
+      events.push({
+        id: `birthday:${row.id}:${year}`,
+        calendarName: BIRTHDAY_CALENDAR_NAME,
+        title: toBirthdayEventTitle(row.firstName, row.lastName),
+        startAt: new Date(year, dateParts.month - 1, dateParts.day),
+        endAt: null
+      });
+    }
+  }
+
+  return events.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
 }

@@ -50,6 +50,9 @@ const Admin = lazy(() =>
 const AdminLauncher = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.AdminLauncher }))
 );
+const AiRequestsAdminPage = lazy(() =>
+  import('./pages/admin').then((m) => ({ default: m.AiRequestsAdminPage }))
+);
 const PostgresAdmin = lazy(() =>
   import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
 );
@@ -448,6 +451,10 @@ if (rootElement) {
                                         <Route
                                           path="admin/users"
                                           element={<UsersAdminPage />}
+                                        />
+                                        <Route
+                                          path="admin/users/ai-requests"
+                                          element={<AiRequestsAdminPage />}
                                         />
                                         <Route
                                           path="admin/users/:id"
