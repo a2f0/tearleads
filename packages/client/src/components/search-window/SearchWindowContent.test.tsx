@@ -97,10 +97,10 @@ describe('SearchWindowContent', () => {
       expect(screen.getByText('AI Chats')).toBeInTheDocument();
     });
 
-    it('waits for enter before searching', async () => {
+    it('shows initial search prompt', async () => {
       renderContent();
 
-      expect(screen.getByText('Press Enter to search')).toBeInTheDocument();
+      expect(screen.getByText('Start typing to search')).toBeInTheDocument();
       expect(screen.queryByText('All Contacts')).not.toBeInTheDocument();
       expect(mockSearch).not.toHaveBeenCalled();
     });
@@ -109,9 +109,7 @@ describe('SearchWindowContent', () => {
       renderContent();
 
       expect(
-        screen.getByText(
-          'Leave the field blank and press Enter to list all objects'
-        )
+        screen.getByText('Press Enter to list all objects')
       ).toBeInTheDocument();
     });
 
@@ -141,18 +139,33 @@ describe('SearchWindowContent', () => {
   });
 
   describe('searching', () => {
-    it('performs search only on enter', async () => {
+    it('performs typeahead search as user types', async () => {
       const user = userEvent.setup();
       renderContent();
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'test');
+
+      await waitFor(
+        () => {
+          expect(mockSearch).toHaveBeenCalledWith('test');
+        },
+        { timeout: 500 }
+      );
+    });
+
+    it('requires enter for empty search', async () => {
+      const user = userEvent.setup();
+      renderContent();
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.click(input);
       expect(mockSearch).not.toHaveBeenCalled();
 
       await user.keyboard('{Enter}');
 
       await waitFor(() => {
-        expect(mockSearch).toHaveBeenCalledWith('test');
+        expect(mockSearch).toHaveBeenCalledWith('');
       });
     });
 
