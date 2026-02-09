@@ -76,6 +76,7 @@ export function WindowContextMenu({
     <div className="fixed inset-0" style={{ zIndex: overlayZIndex }}>
       <button
         type="button"
+        tabIndex={-1}
         className="fixed inset-0 cursor-default"
         style={{ zIndex: overlayZIndex }}
         onClick={onClose}

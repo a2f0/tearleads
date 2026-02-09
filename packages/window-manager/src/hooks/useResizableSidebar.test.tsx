@@ -6,14 +6,16 @@ import { useResizableSidebar } from './useResizableSidebar.js';
 
 interface TestSidebarProps {
   onWidthChange?: (width: number) => void;
+  resizeFrom?: 'left' | 'right';
 }
 
-function TestSidebar({ onWidthChange }: TestSidebarProps) {
+function TestSidebar({ onWidthChange, resizeFrom }: TestSidebarProps) {
   const [width, setWidth] = useState(200);
 
   const { resizeHandleProps } = useResizableSidebar({
     width,
     ariaLabel: 'Resize test sidebar',
+    resizeFrom,
     onWidthChange: (nextWidth) => {
       setWidth(nextWidth);
       onWidthChange?.(nextWidth);
@@ -41,6 +43,23 @@ describe('useResizableSidebar', () => {
 
     await user.keyboard('{ArrowRight}');
     expect(onWidthChange).toHaveBeenCalledWith(210);
+
+    await user.keyboard('{ArrowLeft}');
+    expect(onWidthChange).toHaveBeenCalledWith(200);
+  });
+
+  it('inverts keyboard resize for left edge handles', async () => {
+    const user = userEvent.setup();
+    const onWidthChange = vi.fn();
+    render(<TestSidebar onWidthChange={onWidthChange} resizeFrom="left" />);
+
+    const handle = screen.getByRole('separator', {
+      name: 'Resize test sidebar'
+    });
+    handle.focus();
+
+    await user.keyboard('{ArrowRight}');
+    expect(onWidthChange).toHaveBeenCalledWith(190);
 
     await user.keyboard('{ArrowLeft}');
     expect(onWidthChange).toHaveBeenCalledWith(200);

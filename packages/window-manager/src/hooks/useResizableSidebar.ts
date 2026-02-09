@@ -93,11 +93,15 @@ export function useResizableSidebar({
         return;
       }
       event.preventDefault();
-      const delta = event.key === 'ArrowRight' ? keyboardStep : -keyboardStep;
+      const direction = event.key === 'ArrowRight' ? 1 : -1;
+      const delta =
+        resizeFrom === 'left'
+          ? -direction * keyboardStep
+          : direction * keyboardStep;
       const nextWidth = Math.max(minWidth, Math.min(maxWidth, width + delta));
       onWidthChange(nextWidth);
     },
-    [keyboardStep, maxWidth, minWidth, onWidthChange, width]
+    [keyboardStep, maxWidth, minWidth, onWidthChange, resizeFrom, width]
   );
 
   useEffect(() => cleanupDragListeners, [cleanupDragListeners]);

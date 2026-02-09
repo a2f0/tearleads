@@ -39,6 +39,24 @@ describe('WindowContextMenu', () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it('keeps backdrop out of tab order', () => {
+    render(
+      <WindowContextMenu
+        x={100}
+        y={200}
+        onClose={vi.fn()}
+        backdropTestId="window-context-menu-backdrop"
+      >
+        <button type="button">Item</button>
+      </WindowContextMenu>
+    );
+
+    expect(screen.getByTestId('window-context-menu-backdrop')).toHaveAttribute(
+      'tabindex',
+      '-1'
+    );
+  });
+
   it('closes on Escape key', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
