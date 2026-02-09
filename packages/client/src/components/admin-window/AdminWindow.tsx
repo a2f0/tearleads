@@ -6,6 +6,7 @@ import { PostgresTableRowsView } from '@/components/admin-postgres/PostgresTable
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Admin } from '@/pages/admin/Admin';
+import { AiRequestsAdminPage } from '@/pages/admin/AiRequestsAdminPage';
 import { GroupDetailPage } from '@/pages/admin/GroupDetailPage';
 import { GroupsAdmin } from '@/pages/admin/GroupsAdmin';
 import { OrganizationDetailPage } from '@/pages/admin/OrganizationDetailPage';
@@ -21,6 +22,7 @@ type AdminView =
   | { type: 'group-detail'; groupId: string }
   | { type: 'organization-detail'; organizationId: string }
   | { type: 'user-detail'; userId: string }
+  | { type: 'ai-requests'; userId: string | null; from: 'users' | 'user' }
   | { type: 'postgres-table'; schema: string; tableName: string };
 
 interface AdminWindowProps {
@@ -46,6 +48,8 @@ function getViewTitle(view: AdminView): string {
   if (typeof view === 'object' && view.type === 'organization-detail')
     return 'Organization Detail';
   if (typeof view === 'object' && view.type === 'user-detail') return 'User';
+  if (typeof view === 'object' && view.type === 'ai-requests')
+    return 'AI Requests';
   if (typeof view === 'object' && view.type === 'postgres-table')
     return `${view.schema}.${view.tableName}`;
   return 'Admin';
@@ -133,10 +137,35 @@ export function AdminWindow({
       return (
         <UsersAdminDetail
           userId={view.userId}
+          onViewAiRequests={(userId) =>
+            setView({ type: 'ai-requests', userId, from: 'user' })
+          }
           backLink={
             <button
               type="button"
               onClick={() => setView('users')}
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </button>
+          }
+        />
+      );
+    }
+
+    if (typeof view === 'object' && view.type === 'ai-requests') {
+      return (
+        <AiRequestsAdminPage
+          showBackLink={false}
+          initialUserId={view.userId}
+          backLink={
+            <button
+              type="button"
+              onClick={() =>
+                view.from === 'user' && view.userId
+                  ? setView({ type: 'user-detail', userId: view.userId })
+                  : setView('users')
+              }
               className="inline-flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
@@ -185,7 +214,13 @@ export function AdminWindow({
       );
     } else if (view === 'users') {
       content = (
-        <UsersAdmin showBackLink={false} onUserSelect={handleUserSelect} />
+        <UsersAdmin
+          showBackLink={false}
+          onUserSelect={handleUserSelect}
+          onViewAiRequests={() =>
+            setView({ type: 'ai-requests', userId: null, from: 'users' })
+          }
+        />
       );
     }
 

@@ -6,7 +6,7 @@ import type {
 import { Check, Copy, Loader2, Save, UserMinus, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -17,13 +17,16 @@ import { cn, formatNumber, formatTimestamp } from '@/lib/utils';
 interface UsersAdminDetailProps {
   userId?: string | null;
   backLink?: ReactNode;
+  onViewAiRequests?: ((userId: string) => void) | undefined;
 }
 
 export function UsersAdminDetail({
   userId: userIdProp,
-  backLink
+  backLink,
+  onViewAiRequests
 }: UsersAdminDetailProps) {
   const params = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const userId = userIdProp ?? params.id ?? null;
 
   const [user, setUser] = useState<AdminUser | null>(null);
@@ -285,6 +288,14 @@ export function UsersAdminDetail({
       ? Object.keys(buildUpdatePayload(user, draft)).length > 0
       : false;
   const emailIsValid = draft ? draft.email.trim().length > 0 : false;
+  const handleViewAiRequests = useCallback(() => {
+    if (!userId) return;
+    if (onViewAiRequests) {
+      onViewAiRequests(userId);
+      return;
+    }
+    navigate(`/admin/users/ai-requests?userId=${encodeURIComponent(userId)}`);
+  }, [navigate, onViewAiRequests, userId]);
 
   if (loading) {
     return (
@@ -440,7 +451,17 @@ export function UsersAdminDetail({
       </div>
 
       <div className="space-y-4 rounded-lg border bg-card p-4">
-        <h2 className="font-medium text-lg">AI Usage</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="font-medium text-lg">AI Usage</h2>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleViewAiRequests}
+          >
+            View Requests
+          </Button>
+        </div>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <div className="rounded-lg border bg-muted/30 p-3">
             <p className="text-muted-foreground text-xs uppercase tracking-wide">

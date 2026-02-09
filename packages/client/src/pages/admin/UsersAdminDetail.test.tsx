@@ -10,6 +10,7 @@ const mockGroupsList = vi.fn();
 const mockGetMembers = vi.fn();
 const mockAddMember = vi.fn();
 const mockRemoveMember = vi.fn();
+const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -29,6 +30,14 @@ vi.mock('@/lib/api', () => ({
     }
   }
 }));
+
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
 
 describe('UsersAdminDetail', () => {
   beforeEach(() => {
@@ -338,6 +347,43 @@ describe('UsersAdminDetail', () => {
     const saveButton = screen.getByRole('button', { name: 'Save' });
     expect(saveButton).toBeDisabled();
     expect(screen.getByText('Email is required')).toBeInTheDocument();
+  });
+
+  it('navigates to filtered AI requests route from detail view', async () => {
+    const user = userEvent.setup();
+    mockGet.mockResolvedValueOnce(user1Response);
+
+    renderWithRouter('user-1');
+
+    await screen.findByDisplayValue('admin@example.com');
+    await user.click(screen.getByRole('button', { name: 'View Requests' }));
+
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/admin/users/ai-requests?userId=user-1'
+    );
+  });
+
+  it('calls onViewAiRequests callback when provided', async () => {
+    const user = userEvent.setup();
+    const onViewAiRequests = vi.fn();
+    mockGet.mockResolvedValueOnce(user1Response);
+
+    render(
+      <MemoryRouter initialEntries={['/admin/users/user-1']}>
+        <Routes>
+          <Route
+            path="/admin/users/:id"
+            element={<UsersAdminDetail onViewAiRequests={onViewAiRequests} />}
+          />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await screen.findByDisplayValue('admin@example.com');
+    await user.click(screen.getByRole('button', { name: 'View Requests' }));
+
+    expect(onViewAiRequests).toHaveBeenCalledWith('user-1');
+    expect(mockNavigate).not.toHaveBeenCalled();
   });
 
   it('disables save button when no changes', async () => {

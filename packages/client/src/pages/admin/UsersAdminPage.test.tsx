@@ -83,4 +83,20 @@ describe('UsersAdminPage', () => {
     ).toBeInTheDocument();
     expect(await screen.findByText('admin@example.com')).toBeVisible();
   });
+
+  it('navigates to AI requests page when AI Requests is clicked', async () => {
+    const user = userEvent.setup();
+    mockList.mockResolvedValueOnce(usersResponse);
+
+    render(
+      <MemoryRouter>
+        <UsersAdminPage />
+      </MemoryRouter>
+    );
+
+    const button = await screen.findByRole('button', { name: 'AI Requests' });
+    await user.click(button);
+
+    expect(mockNavigate).toHaveBeenCalledWith('/admin/users/ai-requests');
+  });
 });

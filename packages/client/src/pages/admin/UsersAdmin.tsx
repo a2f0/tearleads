@@ -2,6 +2,7 @@ import type { AdminUser } from '@rapid/shared';
 import { Check, Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
+import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
 import { formatNumber, formatTimestamp } from '@/lib/utils';
@@ -9,11 +10,13 @@ import { formatNumber, formatTimestamp } from '@/lib/utils';
 interface UsersAdminProps {
   showBackLink?: boolean;
   onUserSelect: (userId: string) => void;
+  onViewAiRequests?: (() => void) | undefined;
 }
 
 export function UsersAdmin({
   showBackLink = true,
-  onUserSelect
+  onUserSelect,
+  onViewAiRequests
 }: UsersAdminProps) {
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
@@ -55,7 +58,18 @@ export function UsersAdmin({
               Manage user access and profiles
             </p>
           </div>
-          <RefreshButton onClick={fetchUsers} loading={loading} />
+          <div className="flex items-center gap-2">
+            {onViewAiRequests ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={onViewAiRequests}
+              >
+                AI Requests
+              </Button>
+            ) : null}
+            <RefreshButton onClick={fetchUsers} loading={loading} />
+          </div>
         </div>
       </div>
 

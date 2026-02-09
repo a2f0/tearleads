@@ -224,4 +224,21 @@ describe('UsersAdmin', () => {
     });
     expect(screen.queryByText('admin@example.com')).not.toBeInTheDocument();
   });
+
+  it('shows AI Requests button when callback is provided', async () => {
+    const user = userEvent.setup();
+    const onViewAiRequests = vi.fn();
+    mockList.mockResolvedValueOnce(usersResponse);
+
+    render(
+      <MemoryRouter>
+        <UsersAdmin {...defaultProps} onViewAiRequests={onViewAiRequests} />
+      </MemoryRouter>
+    );
+
+    const button = await screen.findByRole('button', { name: 'AI Requests' });
+    await user.click(button);
+
+    expect(onViewAiRequests).toHaveBeenCalledTimes(1);
+  });
 });

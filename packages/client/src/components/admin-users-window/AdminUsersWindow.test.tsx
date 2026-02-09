@@ -33,10 +33,12 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('@/pages/admin/UsersAdmin', () => ({
   UsersAdmin: ({
     showBackLink,
-    onUserSelect
+    onUserSelect,
+    onViewAiRequests
   }: {
     showBackLink?: boolean;
     onUserSelect?: (userId: string) => void;
+    onViewAiRequests?: () => void;
   }) => (
     <div data-testid="users-admin-list">
       <span data-testid="admin-users-backlink">
@@ -49,6 +51,13 @@ vi.mock('@/pages/admin/UsersAdmin', () => ({
       >
         Select User
       </button>
+      <button
+        type="button"
+        data-testid="view-ai-requests-btn"
+        onClick={() => onViewAiRequests?.()}
+      >
+        View AI Requests
+      </button>
     </div>
   )
 }));
@@ -56,13 +65,31 @@ vi.mock('@/pages/admin/UsersAdmin', () => ({
 vi.mock('@/pages/admin/UsersAdminDetail', () => ({
   UsersAdminDetail: ({
     userId,
-    backLink
+    backLink,
+    onViewAiRequests
   }: {
     userId?: string | null;
     backLink?: React.ReactNode;
+    onViewAiRequests?: (userId: string) => void;
   }) => (
     <div data-testid="users-admin-detail">
       <span data-testid="detail-user-id">{userId}</span>
+      <button
+        type="button"
+        data-testid="detail-view-ai-requests-btn"
+        onClick={() => onViewAiRequests?.(userId ?? 'unknown-user')}
+      >
+        Detail View AI Requests
+      </button>
+      {backLink}
+    </div>
+  )
+}));
+
+vi.mock('@/pages/admin/AiRequestsAdminPage', () => ({
+  AiRequestsAdminPage: ({ backLink }: { backLink?: React.ReactNode }) => (
+    <div data-testid="ai-requests-admin-page">
+      <span>AI Requests Page</span>
       {backLink}
     </div>
   )
@@ -117,6 +144,38 @@ describe('AdminUsersWindow', () => {
 
     expect(screen.getByTestId('users-admin-list')).toBeInTheDocument();
     expect(screen.getByTestId('window-title')).toHaveTextContent('Users Admin');
+  });
+
+  it('navigates to AI requests view and back to users list', async () => {
+    const user = userEvent.setup();
+    render(<AdminUsersWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('view-ai-requests-btn'));
+
+    expect(screen.getByTestId('ai-requests-admin-page')).toBeInTheDocument();
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'AI Requests Admin'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Back to Users' }));
+
+    expect(screen.getByTestId('users-admin-list')).toBeInTheDocument();
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Users Admin');
+  });
+
+  it('navigates to AI requests from user detail and back to user detail', async () => {
+    const user = userEvent.setup();
+    render(<AdminUsersWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-user-btn'));
+    await user.click(screen.getByTestId('detail-view-ai-requests-btn'));
+
+    expect(screen.getByTestId('ai-requests-admin-page')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Back to User' })).toBeVisible();
+
+    await user.click(screen.getByRole('button', { name: 'Back to User' }));
+    expect(screen.getByTestId('users-admin-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('detail-user-id')).toHaveTextContent('user-123');
   });
 
   it('calls onClose when close button is clicked', async () => {

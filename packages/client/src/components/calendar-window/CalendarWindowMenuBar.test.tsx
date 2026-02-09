@@ -10,10 +10,22 @@ vi.mock('@/hooks/useAppVersion', () => ({
 }));
 
 describe('CalendarWindowMenuBar', () => {
-  const renderMenuBar = (onClose = vi.fn()) =>
+  const renderMenuBar = ({
+    onClose = vi.fn(),
+    showBirthdaysFromContacts = true,
+    onShowBirthdaysFromContactsChange = vi.fn()
+  }: {
+    onClose?: (() => void) | undefined;
+    showBirthdaysFromContacts?: boolean | undefined;
+    onShowBirthdaysFromContactsChange?: ((show: boolean) => void) | undefined;
+  } = {}) =>
     render(
       <ThemeProvider>
-        <CalendarWindowMenuBar onClose={onClose} />
+        <CalendarWindowMenuBar
+          onClose={onClose}
+          showBirthdaysFromContacts={showBirthdaysFromContacts}
+          onShowBirthdaysFromContactsChange={onShowBirthdaysFromContactsChange}
+        />
       </ThemeProvider>
     );
 
@@ -56,7 +68,7 @@ describe('CalendarWindowMenuBar', () => {
   it('calls onClose when Close is clicked in File menu', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    renderMenuBar(onClose);
+    renderMenuBar({ onClose });
 
     await user.click(screen.getByRole('button', { name: 'File' }));
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
@@ -73,6 +85,33 @@ describe('CalendarWindowMenuBar', () => {
     expect(
       screen.getByRole('menuitem', { name: 'Options' })
     ).toBeInTheDocument();
+  });
+
+  it('shows birthdays toggle in View menu', async () => {
+    const user = userEvent.setup();
+    renderMenuBar();
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Show Birthdays from Contacts' })
+    ).toBeInTheDocument();
+  });
+
+  it('calls onShowBirthdaysFromContactsChange when birthdays toggle is clicked', async () => {
+    const user = userEvent.setup();
+    const onShowBirthdaysFromContactsChange = vi.fn();
+    renderMenuBar({
+      showBirthdaysFromContacts: true,
+      onShowBirthdaysFromContactsChange
+    });
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(
+      screen.getByRole('menuitem', { name: 'Show Birthdays from Contacts' })
+    );
+
+    expect(onShowBirthdaysFromContactsChange).toHaveBeenCalledWith(false);
   });
 
   it('opens About dialog from Help menu', async () => {

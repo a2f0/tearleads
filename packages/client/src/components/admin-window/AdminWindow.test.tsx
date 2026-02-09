@@ -120,10 +120,12 @@ vi.mock('@/pages/admin/OrganizationsAdmin', () => ({
 vi.mock('@/pages/admin/UsersAdmin', () => ({
   UsersAdmin: ({
     showBackLink,
-    onUserSelect
+    onUserSelect,
+    onViewAiRequests
   }: {
     showBackLink?: boolean;
     onUserSelect: (userId: string) => void;
+    onViewAiRequests?: () => void;
   }) => (
     <div data-testid="admin-users-content">
       <span data-testid="users-backlink">
@@ -132,6 +134,18 @@ vi.mock('@/pages/admin/UsersAdmin', () => ({
       <button type="button" onClick={() => onUserSelect('user-1')}>
         Select User 1
       </button>
+      <button type="button" onClick={() => onViewAiRequests?.()}>
+        View AI Requests
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/pages/admin/AiRequestsAdminPage', () => ({
+  AiRequestsAdminPage: ({ backLink }: { backLink?: React.ReactNode }) => (
+    <div data-testid="admin-ai-requests-content">
+      <span>AI Requests</span>
+      <div data-testid="admin-ai-requests-back-link">{backLink}</div>
     </div>
   )
 }));
@@ -179,13 +193,18 @@ vi.mock('@/pages/admin/GroupDetailPage', () => ({
 vi.mock('@/pages/admin/UsersAdminDetail', () => ({
   UsersAdminDetail: ({
     userId,
-    backLink
+    backLink,
+    onViewAiRequests
   }: {
     userId: string;
     backLink: React.ReactNode;
+    onViewAiRequests?: (userId: string) => void;
   }) => (
     <div data-testid="user-detail-content">
       <span data-testid="user-id">{userId}</span>
+      <button type="button" onClick={() => onViewAiRequests?.(userId)}>
+        User Detail AI Requests
+      </button>
       <div data-testid="user-back-link">{backLink}</div>
     </div>
   )
@@ -337,6 +356,48 @@ describe('AdminWindow', () => {
     expect(
       screen.getByTestId('user-back-link').querySelector('button')
     ).toBeInTheDocument();
+  });
+
+  it('navigates to AI Requests view from Users and back', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Users'));
+    await user.click(screen.getByText('View AI Requests'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('AI Requests');
+    expect(screen.getByTestId('admin-ai-requests-content')).toBeInTheDocument();
+
+    const backButton = screen
+      .getByTestId('admin-ai-requests-back-link')
+      .querySelector('button');
+    if (!backButton) throw new Error('Back button not found');
+    await user.click(backButton);
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Users');
+    expect(screen.getByTestId('admin-users-content')).toBeInTheDocument();
+  });
+
+  it('navigates to AI Requests from user detail and back to user detail', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Users'));
+    await user.click(screen.getByText('Select User 1'));
+    await user.click(screen.getByText('User Detail AI Requests'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('AI Requests');
+    expect(screen.getByTestId('admin-ai-requests-content')).toBeInTheDocument();
+
+    const backButton = screen
+      .getByTestId('admin-ai-requests-back-link')
+      .querySelector('button');
+    if (!backButton) throw new Error('Back button not found');
+    await user.click(backButton);
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('User');
+    expect(screen.getByTestId('user-detail-content')).toBeInTheDocument();
+    expect(screen.getByTestId('user-id')).toHaveTextContent('user-1');
   });
 
   it('returns to Groups view from Group Detail when back is clicked', async () => {

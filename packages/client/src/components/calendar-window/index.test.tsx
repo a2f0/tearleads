@@ -7,9 +7,14 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
+import {
+  getCalendarEvents,
+  getContactBirthdayEvents
+} from '@/db/calendar-events';
 import { CalendarWindow } from './index';
 
 interface MockCalendarContentProps {
+  events?: { id: string }[] | undefined;
   onSidebarContextMenuRequest?:
     | ((position: { x: number; y: number }) => void)
     | undefined;
@@ -22,11 +27,17 @@ interface MockFloatingWindowProps {
   children: ReactNode;
 }
 
+interface MockCalendarWindowMenuBarProps {
+  showBirthdaysFromContacts: boolean;
+  onShowBirthdaysFromContactsChange: (show: boolean) => void;
+}
+
 vi.mock('@rapid/calendar', () => ({
   CALENDAR_CREATE_EVENT: 'rapid:calendar:create',
   CALENDAR_CREATE_ITEM_EVENT: 'rapid:calendar:item:create',
   CALENDAR_CREATE_SUBMIT_EVENT: 'rapid:calendar:create:submit',
   CalendarContent: ({
+    events,
     onSidebarContextMenuRequest,
     onViewContextMenuRequest
   }: MockCalendarContentProps) => (
@@ -51,6 +62,7 @@ vi.mock('@rapid/calendar', () => ({
       >
         Trigger View Context Menu
       </button>
+      <p data-testid="event-count">{events?.length ?? 0}</p>
     </div>
   )
 }));
@@ -62,7 +74,20 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('./CalendarWindowMenuBar', () => ({
-  CalendarWindowMenuBar: () => <div>Calendar Menu Bar</div>
+  CalendarWindowMenuBar: ({
+    showBirthdaysFromContacts,
+    onShowBirthdaysFromContactsChange
+  }: MockCalendarWindowMenuBarProps) => (
+    <button
+      type="button"
+      onClick={() =>
+        onShowBirthdaysFromContactsChange(!showBirthdaysFromContacts)
+      }
+      data-testid="toggle-birthdays-menu-item"
+    >
+      Calendar Menu Bar
+    </button>
+  )
 }));
 
 vi.mock('@/db/hooks', () => ({
@@ -73,6 +98,7 @@ vi.mock('@/db/hooks', () => ({
 
 vi.mock('@/db/calendar-events', () => ({
   getCalendarEvents: vi.fn(async () => []),
+  getContactBirthdayEvents: vi.fn(async () => []),
   createCalendarEvent: vi.fn(async () => null)
 }));
 
@@ -160,5 +186,43 @@ describe('CalendarWindow', () => {
     } finally {
       window.removeEventListener(CALENDAR_CREATE_ITEM_EVENT, listener);
     }
+  });
+
+  it('shows birthdays from contacts by default and hides them when toggled off', async () => {
+    const user = userEvent.setup();
+    vi.mocked(getCalendarEvents).mockResolvedValueOnce([
+      {
+        id: 'event-1',
+        calendarName: 'Personal',
+        title: 'Normal Event',
+        startAt: new Date('2026-02-10T10:00:00.000Z'),
+        endAt: null,
+        createdAt: new Date('2026-02-10T09:00:00.000Z'),
+        updatedAt: new Date('2026-02-10T09:00:00.000Z')
+      }
+    ]);
+    vi.mocked(getContactBirthdayEvents).mockResolvedValueOnce([
+      {
+        id: 'birthday:contact-1:2026',
+        calendarName: 'Personal',
+        title: "Alex's Birthday",
+        startAt: new Date('2026-02-10T00:00:00.000Z'),
+        endAt: null
+      }
+    ]);
+
+    render(
+      <CalendarWindow
+        id="calendar-window"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={200}
+      />
+    );
+
+    expect(await screen.findByTestId('event-count')).toHaveTextContent('2');
+    await user.click(screen.getByTestId('toggle-birthdays-menu-item'));
+    expect(screen.getByTestId('event-count')).toHaveTextContent('1');
   });
 });

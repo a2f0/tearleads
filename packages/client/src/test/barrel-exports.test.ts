@@ -67,6 +67,9 @@ vi.mock('@/pages/admin/UsersAdminDetail', () => ({
 vi.mock('@/pages/admin/UsersAdminPage', () => ({
   UsersAdminPage: () => null
 }));
+vi.mock('@/pages/admin/AiRequestsAdminPage', () => ({
+  AiRequestsAdminPage: () => null
+}));
 vi.mock('@/pages/admin/GroupsAdminPage', () => ({
   GroupsAdminPage: () => null
 }));
@@ -176,6 +179,7 @@ describe('barrel exports', () => {
     expect(pagesAdmin.UsersAdmin).toBeDefined();
     expect(pagesAdmin.UsersAdminDetail).toBeDefined();
     expect(pagesAdmin.UsersAdminPage).toBeDefined();
+    expect(pagesAdmin.AiRequestsAdminPage).toBeDefined();
     expect(pagesAdmin.GroupsAdminPage).toBeDefined();
     expect(pagesAdmin.GroupDetailPageRoute).toBeDefined();
     expect(pagesAdmin.OrganizationsAdminPage).toBeDefined();

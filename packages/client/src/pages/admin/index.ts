@@ -1,5 +1,6 @@
 export { Admin } from './Admin';
 export { AdminLauncher } from './AdminLauncher';
+export { AiRequestsAdminPage } from './AiRequestsAdminPage';
 export { GroupDetailPage } from './GroupDetailPage';
 export { GroupDetailPageRoute } from './GroupDetailPageRoute';
 export { GroupsAdmin } from './GroupsAdmin';

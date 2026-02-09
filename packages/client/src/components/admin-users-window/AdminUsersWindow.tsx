@@ -3,10 +3,14 @@ import { useState } from 'react';
 import { AdminWindowMenuBar } from '@/components/admin-window/AdminWindowMenuBar';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { AiRequestsAdminPage } from '@/pages/admin/AiRequestsAdminPage';
 import { UsersAdmin } from '@/pages/admin/UsersAdmin';
 import { UsersAdminDetail } from '@/pages/admin/UsersAdminDetail';
 
-type UsersWindowView = { type: 'index' } | { type: 'user'; userId: string };
+type UsersWindowView =
+  | { type: 'index' }
+  | { type: 'user'; userId: string }
+  | { type: 'ai-requests'; userId: string | null; from: 'index' | 'user' };
 
 interface AdminUsersWindowProps {
   id: string;
@@ -29,13 +33,26 @@ export function AdminUsersWindow({
 }: AdminUsersWindowProps) {
   const [view, setView] = useState<UsersWindowView>({ type: 'index' });
 
-  const title = view.type === 'index' ? 'Users Admin' : 'Edit User';
+  const title =
+    view.type === 'index'
+      ? 'Users Admin'
+      : view.type === 'ai-requests'
+        ? 'AI Requests Admin'
+        : 'Edit User';
 
   const handleUserSelect = (userId: string) => {
     setView({ type: 'user', userId });
   };
 
   const handleBack = () => {
+    setView({ type: 'index' });
+  };
+
+  const handleAiRequestsBack = () => {
+    if (view.type === 'ai-requests' && view.from === 'user' && view.userId) {
+      setView({ type: 'user', userId: view.userId });
+      return;
+    }
     setView({ type: 'index' });
   };
 
@@ -58,10 +75,34 @@ export function AdminUsersWindow({
         <AdminWindowMenuBar onClose={onClose} />
         <div className="flex-1 overflow-auto p-3">
           {view.type === 'index' ? (
-            <UsersAdmin showBackLink={false} onUserSelect={handleUserSelect} />
+            <UsersAdmin
+              showBackLink={false}
+              onUserSelect={handleUserSelect}
+              onViewAiRequests={() =>
+                setView({ type: 'ai-requests', userId: null, from: 'index' })
+              }
+            />
+          ) : view.type === 'ai-requests' ? (
+            <AiRequestsAdminPage
+              showBackLink={false}
+              initialUserId={view.userId}
+              backLink={
+                <button
+                  type="button"
+                  onClick={handleAiRequestsBack}
+                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
+                >
+                  <ArrowLeft className="mr-2 h-4 w-4" />
+                  {view.from === 'user' ? 'Back to User' : 'Back to Users'}
+                </button>
+              }
+            />
           ) : (
             <UsersAdminDetail
               userId={view.userId}
+              onViewAiRequests={(userId) =>
+                setView({ type: 'ai-requests', userId, from: 'user' })
+              }
               backLink={
                 <button
                   type="button"
