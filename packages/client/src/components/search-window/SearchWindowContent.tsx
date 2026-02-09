@@ -133,11 +133,6 @@ export function SearchWindowContent({
     inputRef.current?.focus();
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: intentionally reset selection when results array changes
-  useEffect(() => {
-    setSelectedIndex(-1);
-  }, [results]);
-
   // Search function
   const performSearch = useCallback(
     async (searchQuery: string) => {
