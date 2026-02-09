@@ -162,7 +162,6 @@ export function SharingPanel({
       style={{ width }}
     >
       {/* Resize handle */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: Resize handle */}
       <div
         className="absolute top-0 bottom-0 left-0 w-1 cursor-col-resize hover:bg-accent"
         {...resizeHandleProps}

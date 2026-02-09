@@ -1,3 +1,4 @@
+import { useResizableSidebar } from '@rapid/window-manager';
 import {
   ChevronDown,
   ChevronRight,
@@ -12,7 +13,6 @@ import {
   Trash2,
   UserCheck
 } from 'lucide-react';
-import { useResizableSidebar } from '@rapid/window-manager';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ALL_ITEMS_FOLDER_ID,
@@ -310,7 +310,6 @@ export function VfsTreePanel({
         )}
         {!loading && !error && folders.map((folder) => renderFolder(folder, 0))}
       </div>
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for panel width */}
       <div
         className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize hover:bg-accent"
         {...resizeHandleProps}

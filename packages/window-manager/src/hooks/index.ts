@@ -1,5 +1,5 @@
 export { type Corner, useFloatingWindow } from './useFloatingWindow.js';
 export {
-  useResizableSidebar,
-  type UseResizableSidebarResult
+  type UseResizableSidebarResult,
+  useResizableSidebar
 } from './useResizableSidebar.js';

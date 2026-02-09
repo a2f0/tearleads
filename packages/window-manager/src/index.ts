@@ -2,9 +2,9 @@
 export {
   FloatingWindow,
   type FloatingWindowProps,
+  WindowContextMenu,
   type WindowContextMenuProps,
-  type WindowDimensions,
-  WindowContextMenu
+  type WindowDimensions
 } from './components/index.js';
 
 // Context
