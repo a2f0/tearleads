@@ -385,7 +385,10 @@ export function CalendarContent({
               'rounded-md border p-2 text-center',
               isSameDay(date, selectedDate) && 'border-primary bg-primary/10'
             )}
-            onContextMenu={(event) => handleViewContextMenuRequest(event, date)}
+            onContextMenu={(event) => {
+              event.stopPropagation();
+              handleViewContextMenuRequest(event, date);
+            }}
           >
             <p className="text-[11px] text-muted-foreground uppercase">
               {date.toLocaleDateString(calendarLocale, { weekday: 'short' })}
@@ -432,9 +435,10 @@ export function CalendarContent({
                 setSelectedDate(date);
                 setViewMode('Day');
               }}
-              onContextMenu={(event) =>
-                handleViewContextMenuRequest(event, date)
-              }
+              onContextMenu={(event) => {
+                event.stopPropagation();
+                handleViewContextMenuRequest(event, date);
+              }}
               aria-label={`Open day view for ${date.toLocaleDateString(
                 calendarLocale,
                 {
@@ -534,9 +538,10 @@ export function CalendarContent({
                         year: 'numeric'
                       }
                     )}`}
-                    onContextMenu={(event) =>
-                      handleViewContextMenuRequest(event, monthDate)
-                    }
+                    onContextMenu={(event) => {
+                      event.stopPropagation();
+                      handleViewContextMenuRequest(event, monthDate);
+                    }}
                     className={clsx(
                       'rounded text-center text-[10px] text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
                     )}
