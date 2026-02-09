@@ -11,4 +11,7 @@ export {
   WindowContextMenuItem,
   type WindowContextMenuItemProps
 } from './WindowContextMenuItem.js';
-export { WindowStatusBar, type WindowStatusBarProps } from './WindowStatusBar.js';
+export {
+  WindowStatusBar,
+  type WindowStatusBarProps
+} from './WindowStatusBar.js';

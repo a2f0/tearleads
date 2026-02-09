@@ -8,7 +8,9 @@ describe('WindowContextMenuItem', () => {
     const user = userEvent.setup();
     const onClick = vi.fn();
 
-    render(<WindowContextMenuItem onClick={onClick}>Open</WindowContextMenuItem>);
+    render(
+      <WindowContextMenuItem onClick={onClick}>Open</WindowContextMenuItem>
+    );
     await user.click(screen.getByRole('button', { name: 'Open' }));
 
     expect(onClick).toHaveBeenCalledTimes(1);

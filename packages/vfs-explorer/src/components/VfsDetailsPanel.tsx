@@ -1,4 +1,7 @@
-import { WindowContextMenu, WindowContextMenuItem } from '@rapid/window-manager';
+import {
+  WindowContextMenu,
+  WindowContextMenuItem
+} from '@rapid/window-manager';
 import {
   ArrowDown,
   ArrowUp,

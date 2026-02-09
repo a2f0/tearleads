@@ -14,7 +14,8 @@ export interface WindowContextMenuItemProps {
 
 const VARIANT_CLASSNAMES: Record<WindowContextMenuItemVariant, string> = {
   default: 'hover:bg-accent hover:text-accent-foreground',
-  destructive: 'text-destructive hover:bg-destructive hover:text-destructive-foreground'
+  destructive:
+    'text-destructive hover:bg-destructive hover:text-destructive-foreground'
 };
 
 export function WindowContextMenuItem({
