@@ -56,7 +56,6 @@ import {
   clearStoredAuth,
   getAuthHeaderValue,
   getStoredRefreshToken,
-  isRefreshInProgress,
   releaseRefreshLock,
   setSessionExpiredError,
   tryAcquireRefreshLock,
@@ -114,31 +113,17 @@ async function attemptTokenRefresh(): Promise<boolean> {
     return false;
   }
 
-  // Check if another tab is already refreshing
-  if (isRefreshInProgress()) {
-    // Wait for the other tab to finish
-    const otherTabSucceeded = await waitForRefreshCompletion(
-      originalRefreshToken,
-      5000
-    );
-    if (otherTabSucceeded) {
-      // Another tab refreshed successfully - we have new tokens in localStorage
-      return true;
-    }
-    // Other tab's refresh didn't complete or failed - try ourselves
-  }
-
-  // Try to acquire the refresh lock
+  // Try to acquire the refresh lock. If we fail, it means another tab is
+  // already refreshing, so we should wait for it to complete.
   if (!tryAcquireRefreshLock(originalRefreshToken)) {
-    // Another tab just acquired the lock - wait for it
+    // Wait for the other tab to finish.
     const otherTabSucceeded = await waitForRefreshCompletion(
       originalRefreshToken,
       5000
     );
-    if (otherTabSucceeded) {
-      return true;
-    }
-    // Fall through to attempt refresh ourselves
+    // If the other tab succeeded, we now have new tokens.
+    // If it timed out, we will not proceed to refresh without a lock.
+    return otherTabSucceeded;
   }
 
   try {
