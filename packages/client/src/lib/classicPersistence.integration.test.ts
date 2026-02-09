@@ -46,7 +46,9 @@ async function withClassicTestDatabase(
 
     const unexpectedWarnings = warnSpy.mock.calls.filter((call) => {
       const message = typeof call[0] === 'string' ? call[0] : '';
-      return !message.includes('Ignoring inability to install OPFS sqlite3_vfs');
+      return !message.includes(
+        'Ignoring inability to install OPFS sqlite3_vfs'
+      );
     });
 
     expect(unexpectedWarnings).toEqual([]);
@@ -54,7 +56,9 @@ async function withClassicTestDatabase(
   }
 }
 
-async function seedClassicFixture(db: TestDatabaseContext['db']): Promise<void> {
+async function seedClassicFixture(
+  db: TestDatabaseContext['db']
+): Promise<void> {
   const now = new Date();
 
   await db.insert(vfsRegistry).values({
@@ -221,10 +225,7 @@ describe('classicPersistence integration', () => {
         })
         .from(vfsLinks)
         .where(
-          and(
-            eq(vfsLinks.parentId, 'tag-a'),
-            eq(vfsLinks.childId, 'note-a1')
-          )
+          and(eq(vfsLinks.parentId, 'tag-a'), eq(vfsLinks.childId, 'note-a1'))
         );
 
       const rootTagAPosition = persistedRootLinks.find(

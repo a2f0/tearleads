@@ -1,5 +1,5 @@
-import { BackLink } from '@/components/ui/back-link';
 import { ClassicWorkspace } from '@/components/classic-workspace/ClassicWorkspace';
+import { BackLink } from '@/components/ui/back-link';
 
 export function Classic() {
   return (

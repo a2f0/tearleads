@@ -1,4 +1,8 @@
-import { ClassicApp, type ClassicState, type VfsLinkLikeRow } from '@rapid/classic';
+import {
+  ClassicApp,
+  type ClassicState,
+  type VfsLinkLikeRow
+} from '@rapid/classic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useDatabaseContext } from '@/db/hooks';
@@ -10,7 +14,8 @@ import {
 
 export function ClassicWorkspace() {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
-  const [initialState, setInitialState] = useState<ClassicState>(CLASSIC_EMPTY_STATE);
+  const [initialState, setInitialState] =
+    useState<ClassicState>(CLASSIC_EMPTY_STATE);
   const [workspaceLoading, setWorkspaceLoading] = useState(false);
   const [workspaceError, setWorkspaceError] = useState<string | null>(null);
   const [stateRevision, setStateRevision] = useState(0);

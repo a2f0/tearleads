@@ -1,6 +1,6 @@
+import { ClassicWorkspace } from '@/components/classic-workspace/ClassicWorkspace';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { ClassicWorkspace } from '@/components/classic-workspace/ClassicWorkspace';
 import { ClassicWindowMenuBar } from './ClassicWindowMenuBar';
 
 interface ClassicWindowProps {
