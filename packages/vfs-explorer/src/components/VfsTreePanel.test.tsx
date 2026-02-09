@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { VFS_ROOT_ID } from '../constants';
 
 // Mock hooks
 vi.mock('../hooks', () => ({
@@ -68,33 +69,41 @@ import { VfsTreePanel } from './VfsTreePanel';
 
 const mockFolders = [
   {
-    id: 'root-1',
-    name: 'My Documents',
+    id: VFS_ROOT_ID,
+    name: 'VFS Root',
     parentId: null,
     childCount: 2,
     children: [
-      { id: 'folder-1', name: 'Work', parentId: 'root-1', childCount: 0 },
       {
-        id: 'folder-2',
-        name: 'Personal',
-        parentId: 'root-1',
-        childCount: 1,
+        id: 'root-1',
+        name: 'My Documents',
+        parentId: VFS_ROOT_ID,
+        childCount: 2,
         children: [
+          { id: 'folder-1', name: 'Work', parentId: 'root-1', childCount: 0 },
           {
-            id: 'folder-3',
-            name: 'Photos',
-            parentId: 'folder-2',
-            childCount: 0
+            id: 'folder-2',
+            name: 'Personal',
+            parentId: 'root-1',
+            childCount: 1,
+            children: [
+              {
+                id: 'folder-3',
+                name: 'Photos',
+                parentId: 'folder-2',
+                childCount: 0
+              }
+            ]
           }
         ]
+      },
+      {
+        id: 'root-2',
+        name: 'Team Files',
+        parentId: VFS_ROOT_ID,
+        childCount: 0
       }
     ]
-  },
-  {
-    id: 'root-2',
-    name: 'Team Files',
-    parentId: null,
-    childCount: 0
   }
 ];
 
@@ -124,6 +133,7 @@ describe('VfsTreePanel', () => {
 
   it('renders folders from hook', () => {
     render(<VfsTreePanel {...defaultProps} />);
+    expect(screen.getByText('VFS Root')).toBeInTheDocument();
     expect(screen.getByText('My Documents')).toBeInTheDocument();
     expect(screen.getByText('Team Files')).toBeInTheDocument();
   });
@@ -169,7 +179,7 @@ describe('VfsTreePanel', () => {
 
     expect(screen.getByText('Unfiled Items')).toBeInTheDocument();
     expect(screen.getByText('All Items')).toBeInTheDocument();
-    expect(screen.getByText("Items I've Shared")).toBeInTheDocument();
+    expect(screen.getByText('My Shared Items')).toBeInTheDocument();
     expect(screen.getByText('Shared With Me')).toBeInTheDocument();
   });
 
@@ -284,8 +294,10 @@ describe('VfsTreePanel', () => {
 
     expect(screen.queryByText('Work')).not.toBeInTheDocument();
 
-    const chevrons = document.querySelectorAll('[role="button"]');
-    const myDocsChevron = chevrons.item(0);
+    const myDocumentsButton = screen
+      .getByText('My Documents')
+      .closest('button');
+    const myDocsChevron = myDocumentsButton?.querySelector('[role="button"]');
 
     if (myDocsChevron instanceof HTMLElement) {
       myDocsChevron.focus();
@@ -301,8 +313,10 @@ describe('VfsTreePanel', () => {
 
     expect(screen.queryByText('Work')).not.toBeInTheDocument();
 
-    const chevrons = document.querySelectorAll('[role="button"]');
-    const myDocsChevron = chevrons.item(0);
+    const myDocumentsButton = screen
+      .getByText('My Documents')
+      .closest('button');
+    const myDocsChevron = myDocumentsButton?.querySelector('[role="button"]');
 
     if (myDocsChevron instanceof HTMLElement) {
       myDocsChevron.focus();
@@ -328,8 +342,10 @@ describe('VfsTreePanel', () => {
     expect(screen.queryByText('Work')).not.toBeInTheDocument();
 
     // Find the chevron span by role button
-    const chevrons = document.querySelectorAll('[role="button"]');
-    const myDocsChevron = chevrons.item(0);
+    const myDocumentsButton = screen
+      .getByText('My Documents')
+      .closest('button');
+    const myDocsChevron = myDocumentsButton?.querySelector('[role="button"]');
 
     if (myDocsChevron instanceof HTMLElement) {
       await user.click(myDocsChevron);
