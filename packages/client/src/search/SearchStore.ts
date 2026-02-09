@@ -230,12 +230,14 @@ export class SearchStore {
     query: string,
     options?: SearchOptions
   ): Promise<SearchResponse> {
-    if (!this.db || !query.trim()) {
+    if (!this.db) {
       return { hits: [], count: 0 };
     }
 
+    const normalizedQuery = query.trim();
+
     const searchParams: SearchParams<Orama<OramaSchema>> = {
-      term: query,
+      term: normalizedQuery,
       limit: options?.limit ?? 50,
       offset: options?.offset ?? 0,
       properties: ['title', 'content', 'metadata']

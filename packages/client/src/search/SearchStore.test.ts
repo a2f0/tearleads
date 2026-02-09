@@ -223,16 +223,18 @@ describe('SearchStore', () => {
       expect(results).toHaveLength(1);
     });
 
-    it('should return empty array for empty query', async () => {
-      const { hits: results } = await store.search('');
+    it('should return all documents for empty query', async () => {
+      const { hits: results, count } = await store.search('');
 
-      expect(results).toHaveLength(0);
+      expect(count).toBe(3);
+      expect(results).toHaveLength(3);
     });
 
-    it('should return empty array for whitespace query', async () => {
-      const { hits: results } = await store.search('   ');
+    it('should return all documents for whitespace query', async () => {
+      const { hits: results, count } = await store.search('   ');
 
-      expect(results).toHaveLength(0);
+      expect(count).toBe(3);
+      expect(results).toHaveLength(3);
     });
   });
 

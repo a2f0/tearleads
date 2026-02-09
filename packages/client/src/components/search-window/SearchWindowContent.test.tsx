@@ -15,14 +15,21 @@ vi.mock('react-router-dom', async () => {
 });
 
 const mockSearch = vi.fn();
+const mockUseSearch = vi.fn();
 vi.mock('@/search', () => ({
-  useSearch: () => ({
-    search: mockSearch,
-    isInitialized: true,
-    isIndexing: false,
-    documentCount: 10
-  })
+  useSearch: (options: unknown) => mockUseSearch(options)
 }));
+
+const blankQueryResults = {
+  hits: [
+    {
+      id: 'all-1',
+      entityType: 'contact',
+      document: { title: 'All Contacts' }
+    }
+  ],
+  count: 1
+};
 
 function renderContent() {
   return render(
@@ -37,7 +44,15 @@ function renderContent() {
 describe('SearchWindowContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockSearch.mockResolvedValue({ hits: [], count: 0 });
+    mockSearch.mockImplementation(async (query: string) =>
+      query === '' ? blankQueryResults : { hits: [], count: 0 }
+    );
+    mockUseSearch.mockImplementation(() => ({
+      search: mockSearch,
+      isInitialized: true,
+      isIndexing: false,
+      documentCount: 10
+    }));
   });
 
   describe('rendering', () => {
@@ -57,18 +72,22 @@ describe('SearchWindowContent', () => {
       expect(screen.getByText('AI Chats')).toBeInTheDocument();
     });
 
-    it('shows empty state when no query', () => {
+    it('shows all items when no query is entered', async () => {
       renderContent();
-      expect(
-        screen.getByText('Enter a search term to find your data')
-      ).toBeInTheDocument();
-      expect(screen.getAllByText('10 items indexed')).toHaveLength(2);
+
+      await waitFor(() => {
+        expect(screen.getByText('All Contacts')).toBeInTheDocument();
+      });
     });
 
-    it('shows indexed count in status bar when query is empty', () => {
+    it('does not show the old empty-query prompt', async () => {
       renderContent();
-      const statusLine = screen.getAllByText('10 items indexed')[1];
-      expect(statusLine).toHaveClass('border-t');
+
+      await waitFor(() => {
+        expect(
+          screen.queryByText('Enter a search term to find your data')
+        ).not.toBeInTheDocument();
+      });
     });
   });
 
@@ -85,17 +104,23 @@ describe('SearchWindowContent', () => {
       });
     });
 
-    it('clears results when query is empty', async () => {
+    it('shows all items when query is cleared', async () => {
       const user = userEvent.setup();
-      mockSearch.mockResolvedValue({
-        hits: [
-          {
-            id: 'contact-1',
-            entityType: 'contact',
-            document: { title: 'John' }
-          }
-        ],
-        count: 1
+      mockSearch.mockImplementation(async (query: string) => {
+        if (query === '') return blankQueryResults;
+        if (query === 'john') {
+          return {
+            hits: [
+              {
+                id: 'contact-1',
+                entityType: 'contact',
+                document: { title: 'John' }
+              }
+            ],
+            count: 1
+          };
+        }
+        return { hits: [], count: 0 };
       });
       renderContent();
 
@@ -109,9 +134,7 @@ describe('SearchWindowContent', () => {
       await user.clear(input);
 
       await waitFor(() => {
-        expect(
-          screen.getByText('Enter a search term to find your data')
-        ).toBeInTheDocument();
+        expect(screen.getByText('All Contacts')).toBeInTheDocument();
       });
     });
 
@@ -191,12 +214,57 @@ describe('SearchWindowContent', () => {
   });
 
   describe('filtering', () => {
-    it('changes filter when clicking tab', async () => {
+    it('toggles multiple filters on and off', async () => {
       const user = userEvent.setup();
       renderContent();
 
       await user.click(screen.getByText('Contacts'));
       expect(screen.getByText('Contacts')).toHaveClass('bg-primary');
+
+      await user.click(screen.getByText('Notes'));
+      expect(screen.getByText('Notes')).toHaveClass('bg-primary');
+
+      await user.click(screen.getByText('Contacts'));
+      expect(screen.getByText('Contacts')).not.toHaveClass('bg-primary');
+      expect(screen.getByText('Notes')).toHaveClass('bg-primary');
+    });
+
+    it('clears other selected filters when clicking All', async () => {
+      const user = userEvent.setup();
+      renderContent();
+
+      await user.click(screen.getByText('Contacts'));
+      await user.click(screen.getByText('Notes'));
+
+      expect(screen.getByText('Contacts')).toHaveClass('bg-primary');
+      expect(screen.getByText('Notes')).toHaveClass('bg-primary');
+
+      await user.click(screen.getByText('All'));
+
+      expect(screen.getByText('All')).toHaveClass('bg-primary');
+      expect(screen.getByText('Contacts')).not.toHaveClass('bg-primary');
+      expect(screen.getByText('Notes')).not.toHaveClass('bg-primary');
+    });
+
+    it('passes multiple entity types to search hook options', async () => {
+      const user = userEvent.setup();
+      renderContent();
+
+      await user.click(screen.getByText('Contacts'));
+      await user.click(screen.getByText('Notes'));
+
+      await waitFor(() => {
+        expect(mockUseSearch).toHaveBeenLastCalledWith({
+          entityTypes: ['contact', 'note'],
+          limit: 50
+        });
+      });
+
+      await user.click(screen.getByText('All'));
+
+      await waitFor(() => {
+        expect(mockUseSearch).toHaveBeenLastCalledWith({ limit: 50 });
+      });
     });
   });
 
