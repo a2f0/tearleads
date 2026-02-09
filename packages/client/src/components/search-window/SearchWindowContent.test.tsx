@@ -56,6 +56,15 @@ function renderContent(viewMode?: 'view' | 'table') {
   );
 }
 
+async function searchFor(
+  user: ReturnType<typeof userEvent.setup>,
+  text: string
+) {
+  const input = screen.getByPlaceholderText('Search...');
+  await user.type(input, text);
+  await user.keyboard('{Enter}');
+}
+
 describe('SearchWindowContent', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -168,14 +177,13 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'john');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'john');
 
       await waitFor(() => {
         expect(screen.getByText('John')).toBeInTheDocument();
       });
 
+      const input = screen.getByPlaceholderText('Search...');
       await user.clear(input);
       await user.keyboard('{Enter}');
 
@@ -189,9 +197,7 @@ describe('SearchWindowContent', () => {
       mockSearch.mockResolvedValue({ hits: [], count: 0 });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'nonexistent');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'nonexistent');
 
       await waitFor(() => {
         expect(screen.getByText(/No results found/)).toBeInTheDocument();
@@ -215,9 +221,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'john');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'john');
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -239,9 +243,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'john');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'john');
 
       await waitFor(() => {
         expect(screen.getByText('1 result')).toBeInTheDocument();
@@ -253,12 +255,80 @@ describe('SearchWindowContent', () => {
       mockSearch.mockResolvedValue({ hits: [], count: 0 });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'timing');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'timing');
 
       await waitFor(() => {
         expect(screen.getByText(/Search took \d+ ms/)).toBeInTheDocument();
+      });
+    });
+
+    it('ignores stale results from earlier searches', async () => {
+      const user = userEvent.setup();
+      type MockSearchResponse = {
+        hits: Array<{
+          id: string;
+          entityType: 'contact';
+          document: { title: string };
+        }>;
+        count: number;
+      };
+
+      const unresolved = () => {
+        throw new Error('Resolver was not assigned');
+      };
+      let resolveFirst: (value: {
+        hits: MockSearchResponse['hits'];
+        count: number;
+      }) => void = unresolved;
+      let resolveSecond: (value: {
+        hits: MockSearchResponse['hits'];
+        count: number;
+      }) => void = unresolved;
+
+      mockSearch.mockImplementation(
+        (query: string) =>
+          new Promise((resolve) => {
+            if (query === 'first') {
+              resolveFirst = resolve;
+              return;
+            }
+            resolveSecond = resolve;
+          })
+      );
+
+      renderContent();
+
+      await searchFor(user, 'first');
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.clear(input);
+      await searchFor(user, 'second');
+
+      resolveSecond({
+        hits: [
+          {
+            id: 'second-1',
+            entityType: 'contact',
+            document: { title: 'Second Result' }
+          }
+        ],
+        count: 1
+      });
+
+      resolveFirst({
+        hits: [
+          {
+            id: 'first-1',
+            entityType: 'contact',
+            document: { title: 'First Result' }
+          }
+        ],
+        count: 1
+      });
+
+      await waitFor(() => {
+        expect(screen.getByText('Second Result')).toBeInTheDocument();
+        expect(screen.queryByText('First Result')).not.toBeInTheDocument();
       });
     });
   });
@@ -328,9 +398,7 @@ describe('SearchWindowContent', () => {
 
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'test');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'test');
 
       await waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith(
@@ -453,9 +521,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'john');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'john');
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -479,9 +545,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'meeting');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'meeting');
 
       await waitFor(() => {
         expect(screen.getByText('Meeting Notes')).toBeInTheDocument();
@@ -505,9 +569,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'project');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'project');
 
       await waitFor(() => {
         expect(screen.getByText('Re: Project Update')).toBeInTheDocument();
@@ -531,9 +593,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'document');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'document');
 
       await waitFor(() => {
         expect(screen.getByText('document.pdf')).toBeInTheDocument();
@@ -557,9 +617,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'playlist');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'playlist');
 
       await waitFor(() => {
         expect(screen.getByText('My Playlist')).toBeInTheDocument();
@@ -583,9 +641,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'album');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'album');
 
       await waitFor(() => {
         expect(screen.getByText('Best Album')).toBeInTheDocument();
@@ -609,9 +665,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'code');
-      await user.keyboard('{Enter}');
+      await searchFor(user, 'code');
 
       await waitFor(() => {
         expect(screen.getByText('Chat about code')).toBeInTheDocument();

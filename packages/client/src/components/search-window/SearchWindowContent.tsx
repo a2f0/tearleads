@@ -8,7 +8,7 @@ import {
   Search,
   StickyNote
 } from 'lucide-react';
-import type { MouseEvent } from 'react';
+import type { FormEvent, MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
@@ -83,9 +83,7 @@ export function SearchWindowContent({
   const [hasSearched, setHasSearched] = useState(false);
   const [searchDurationMs, setSearchDurationMs] = useState<number | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | undefined>(
-    undefined
-  );
+  const searchGenerationRef = useRef(0);
 
   const searchOptions =
     selectedFilters.length === 0
@@ -118,46 +116,46 @@ export function SearchWindowContent({
   const performSearch = useCallback(
     async (searchQuery: string) => {
       const normalizedQuery = searchQuery.trim();
+      const generation = ++searchGenerationRef.current;
 
       setIsSearching(true);
       const startTime = performance.now();
       try {
         const response = await search(normalizedQuery);
+        if (generation !== searchGenerationRef.current) {
+          return;
+        }
         setResults(response.hits);
         setTotalCount(response.count);
       } catch (err) {
+        if (generation !== searchGenerationRef.current) {
+          return;
+        }
         console.error('Search failed:', err);
         setResults([]);
         setTotalCount(0);
       } finally {
-        const elapsedMs = Math.max(
-          0,
-          Math.round(performance.now() - startTime)
-        );
-        setSearchDurationMs(elapsedMs);
-        setHasSearched(true);
-        setIsSearching(false);
+        if (generation === searchGenerationRef.current) {
+          const elapsedMs = Math.max(
+            0,
+            Math.round(performance.now() - startTime)
+          );
+          setSearchDurationMs(elapsedMs);
+          setHasSearched(true);
+          setIsSearching(false);
+        }
       }
     },
     [search]
   );
 
-  // Handle query changes with debounce
-  useEffect(() => {
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
-    debounceRef.current = setTimeout(() => {
-      performSearch(query);
-    }, 200);
-
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, [query, performSearch]);
+  const handleSearchSubmit = useCallback(
+    (event: FormEvent<HTMLFormElement>) => {
+      event.preventDefault();
+      void performSearch(query);
+    },
+    [performSearch, query]
+  );
 
   const handleResultClick = (
     result: SearchResult,
@@ -206,17 +204,19 @@ export function SearchWindowContent({
     <div className="flex h-full flex-col">
       {/* Search input */}
       <div className="border-b p-3">
-        <div className="relative">
-          <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            ref={inputRef}
-            type="text"
-            placeholder="Search..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            className="pl-9"
-          />
-        </div>
+        <form onSubmit={handleSearchSubmit}>
+          <div className="relative">
+            <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              ref={inputRef}
+              type="text"
+              placeholder="Search..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9"
+            />
+          </div>
+        </form>
       </div>
 
       {/* Filter tabs */}
@@ -272,9 +272,12 @@ export function SearchWindowContent({
             Searching...
           </div>
         ) : !hasSearched ? (
-          <div className="flex h-full items-center justify-center text-muted-foreground">
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Loading items...
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
+            <Search className="h-12 w-12" />
+            <p>Press Enter to search</p>
+            <p className="text-sm">
+              Leave the field blank and press Enter to list all objects
+            </p>
           </div>
         ) : results.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
