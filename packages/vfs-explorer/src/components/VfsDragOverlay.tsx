@@ -9,7 +9,9 @@ interface VfsDragOverlayProps {
 
 export function VfsDragOverlay({ activeItem }: VfsDragOverlayProps) {
   if (!activeItem) {
-    return <DragOverlay modifiers={[snapCenterToCursor]} dropAnimation={null} />;
+    return (
+      <DragOverlay modifiers={[snapCenterToCursor]} dropAnimation={null} />
+    );
   }
 
   const Icon = OBJECT_TYPE_ICONS[activeItem.objectType];
@@ -21,9 +23,7 @@ export function VfsDragOverlay({ activeItem }: VfsDragOverlayProps) {
       <div className="inline-flex max-w-64 items-center gap-2 rounded-md border bg-background px-2 py-1.5 shadow-md">
         <Icon className={cn('h-4 w-4 shrink-0', colorClass)} />
         <span className="truncate text-sm">
-          {selectedCount > 1
-            ? `${selectedCount} items`
-            : activeItem.name}
+          {selectedCount > 1 ? `${selectedCount} items` : activeItem.name}
         </span>
       </div>
     </DragOverlay>

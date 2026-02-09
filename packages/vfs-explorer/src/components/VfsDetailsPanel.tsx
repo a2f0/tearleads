@@ -16,7 +16,13 @@ import {
   Upload,
   UserCheck
 } from 'lucide-react';
-import { type MouseEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  type MouseEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState
+} from 'react';
 import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,

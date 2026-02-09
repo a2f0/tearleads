@@ -27,9 +27,7 @@ export function VfsStatusBar({
       {selectedItemName ? (
         <span className="truncate">{selectedItemName}</span>
       ) : selectedItemCount > 1 ? (
-        <span>
-          {selectedItemCount} items selected
-        </span>
+        <span>{selectedItemCount} items selected</span>
       ) : (
         <span>
           {itemCount} item{itemCount !== 1 ? 's' : ''}
