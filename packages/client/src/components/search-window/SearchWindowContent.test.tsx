@@ -429,6 +429,285 @@ describe('SearchWindowContent', () => {
     });
   });
 
+  describe('keyboard navigation', () => {
+    it('highlights first result when pressing ArrowDown', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          },
+          {
+            id: 'contact-2',
+            entityType: 'contact',
+            document: { title: 'Jane Doe' }
+          }
+        ],
+        count: 2
+      });
+      renderContent();
+
+      await searchFor(user, 'doe');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+
+      const firstResult = screen.getByText('John Doe').closest('button');
+      expect(firstResult).toHaveClass('bg-accent');
+    });
+
+    it('moves selection down with ArrowDown and up with ArrowUp', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          },
+          {
+            id: 'contact-2',
+            entityType: 'contact',
+            document: { title: 'Jane Doe' }
+          }
+        ],
+        count: 2
+      });
+      renderContent();
+
+      await searchFor(user, 'doe');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+
+      const secondResult = screen.getByText('Jane Doe').closest('button');
+      expect(secondResult).toHaveClass('bg-accent');
+
+      await user.keyboard('{ArrowUp}');
+
+      const firstResult = screen.getByText('John Doe').closest('button');
+      expect(firstResult).toHaveClass('bg-accent');
+    });
+
+    it('opens selected result when pressing Enter', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          },
+          {
+            id: 'note-1',
+            entityType: 'note',
+            document: { title: 'Meeting Notes' }
+          }
+        ],
+        count: 2
+      });
+      renderContent();
+
+      await searchFor(user, 'test');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{Enter}');
+
+      expect(mockNavigate).toHaveBeenCalledWith('/notes/note-1');
+    });
+
+    it('does not move selection past the last result', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          },
+          {
+            id: 'contact-2',
+            entityType: 'contact',
+            document: { title: 'Jane Doe' }
+          }
+        ],
+        count: 2
+      });
+      renderContent();
+
+      await searchFor(user, 'doe');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowDown}');
+
+      const secondResult = screen.getByText('Jane Doe').closest('button');
+      expect(secondResult).toHaveClass('bg-accent');
+    });
+
+    it('does not move selection above first result', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'doe');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      await user.keyboard('{ArrowUp}');
+      await user.keyboard('{ArrowUp}');
+
+      const firstResult = screen.getByText('John Doe').closest('button');
+      expect(firstResult).toHaveClass('bg-accent');
+    });
+
+    it('resets selection when results change', async () => {
+      const user = userEvent.setup();
+      mockSearch
+        .mockResolvedValueOnce({
+          hits: [
+            {
+              id: 'contact-1',
+              entityType: 'contact',
+              document: { title: 'John Doe' }
+            }
+          ],
+          count: 1
+        })
+        .mockResolvedValueOnce({
+          hits: [
+            {
+              id: 'note-1',
+              entityType: 'note',
+              document: { title: 'New Note' }
+            }
+          ],
+          count: 1
+        });
+      renderContent();
+
+      await searchFor(user, 'john');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+      expect(screen.getByText('John Doe').closest('button')).toHaveClass(
+        'bg-accent'
+      );
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.clear(input);
+      await searchFor(user, 'note');
+
+      await waitFor(() => {
+        expect(screen.getByText('New Note')).toBeInTheDocument();
+      });
+
+      expect(screen.getByText('New Note').closest('button')).not.toHaveClass(
+        'bg-accent'
+      );
+    });
+
+    it('keeps focus in input while navigating', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'john');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.keyboard('{ArrowDown}');
+
+      expect(document.activeElement).toBe(input);
+    });
+
+    it('highlights selected row in table view', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'contact-1',
+            entityType: 'contact',
+            document: { title: 'John Doe' }
+          }
+        ],
+        count: 1
+      });
+      renderContent('table');
+
+      await searchFor(user, 'john');
+
+      await waitFor(() => {
+        expect(screen.getByText('John Doe')).toBeInTheDocument();
+      });
+
+      await user.keyboard('{ArrowDown}');
+
+      const row = screen.getByText('John Doe').closest('tr');
+      expect(row).toHaveClass('bg-accent');
+    });
+
+    it('submits search form when Enter pressed with no selection', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({ hits: [], count: 0 });
+      renderContent();
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.type(input, 'test');
+      await user.keyboard('{Enter}');
+
+      await waitFor(() => {
+        expect(mockSearch).toHaveBeenCalledWith('test');
+      });
+    });
+  });
+
   describe('navigation', () => {
     it('opens note in floating window on desktop', async () => {
       const user = userEvent.setup();
