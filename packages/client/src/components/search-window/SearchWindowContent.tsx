@@ -151,6 +151,7 @@ export function SearchWindowContent({
         if (generation !== searchGenerationRef.current) {
           return;
         }
+        setSelectedIndex(-1);
         setResults(response.hits);
         setTotalCount(response.count);
       } catch (err) {
@@ -158,6 +159,7 @@ export function SearchWindowContent({
           return;
         }
         console.error('Search failed:', err);
+        setSelectedIndex(-1);
         setResults([]);
         setTotalCount(0);
       } finally {
