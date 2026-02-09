@@ -25,7 +25,9 @@ export function ContactsWindow(props: ContactsWindowProps) {
     <ClientContactsProvider>
       <ContactsWindowBase
         {...props}
-        openContactRequest={windowOpenRequests.contacts}
+        {...(windowOpenRequests.contacts && {
+          openContactRequest: windowOpenRequests.contacts
+        })}
       />
     </ClientContactsProvider>
   );
