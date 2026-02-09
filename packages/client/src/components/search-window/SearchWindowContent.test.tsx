@@ -129,8 +129,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent('table');
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'john');
+      await searchFor(user, 'john');
 
       await waitFor(() => {
         expect(screen.getByRole('table')).toBeInTheDocument();
@@ -427,8 +426,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'meeting');
+      await searchFor(user, 'meeting');
 
       await waitFor(() => {
         expect(screen.getByText('Meeting Notes')).toBeInTheDocument();
@@ -464,8 +462,7 @@ describe('SearchWindowContent', () => {
         </MemoryRouter>
       );
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'meeting');
+      await searchFor(user, 'meeting');
 
       await waitFor(() => {
         expect(screen.getByText('Meeting Notes')).toBeInTheDocument();
@@ -495,8 +492,7 @@ describe('SearchWindowContent', () => {
       });
       renderContent();
 
-      const input = screen.getByPlaceholderText('Search...');
-      await user.type(input, 'code');
+      await searchFor(user, 'code');
 
       await waitFor(() => {
         expect(screen.getByText('Chat about code')).toBeInTheDocument();
