@@ -7,6 +7,7 @@ ext {
     androidxCoordinatorLayoutVersion = '1.2.0'
     androidxCoreVersion = '1.15.0'
     androidxFragmentVersion = '1.8.4'
+    androidxMediaVersion = '1.7.0'
     coreSplashScreenVersion = '1.0.1'
     androidxWebkitVersion = '1.12.1'
     junitVersion = '4.13.2'
