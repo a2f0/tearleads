@@ -2,14 +2,6 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@rapid/classic', () => ({
-  ClassicApp: ({
-    initialState
-  }: {
-    initialState: { tags: { name: string }[] };
-  }) => <div data-testid="classic-app">{initialState.tags[0]?.name}</div>
-}));
-
 vi.mock('@/components/ui/back-link', () => ({
   BackLink: ({
     defaultTo,
@@ -20,13 +12,8 @@ vi.mock('@/components/ui/back-link', () => ({
   }) => <a href={defaultTo}>{defaultLabel}</a>
 }));
 
-vi.mock('@/lib/classicState', () => ({
-  CLASSIC_INITIAL_STATE: {
-    tags: [{ id: 'tag-1', name: 'Work' }],
-    notesById: {},
-    noteOrderByTagId: {},
-    activeTagId: 'tag-1'
-  }
+vi.mock('@/components/classic-workspace/ClassicWorkspace', () => ({
+  ClassicWorkspace: () => <div data-testid="classic-workspace">Work</div>
 }));
 
 import { Classic } from './Classic';
@@ -52,6 +39,6 @@ describe('Classic page', () => {
     renderPage();
 
     expect(screen.getByText('Back to Home')).toBeInTheDocument();
-    expect(screen.getByTestId('classic-app')).toHaveTextContent('Work');
+    expect(screen.getByTestId('classic-workspace')).toHaveTextContent('Work');
   });
 });

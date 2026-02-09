@@ -1,7 +1,6 @@
-import { ClassicApp } from '@rapid/classic';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { CLASSIC_INITIAL_STATE } from '@/lib/classicState';
+import { ClassicWorkspace } from '@/components/classic-workspace/ClassicWorkspace';
 import { ClassicWindowMenuBar } from './ClassicWindowMenuBar';
 
 interface ClassicWindowProps {
@@ -41,7 +40,7 @@ export function ClassicWindow({
       <div className="flex h-full flex-col">
         <ClassicWindowMenuBar onClose={onClose} />
         <div className="h-full p-3">
-          <ClassicApp initialState={CLASSIC_INITIAL_STATE} />
+          <ClassicWorkspace />
         </div>
       </div>
     </FloatingWindow>

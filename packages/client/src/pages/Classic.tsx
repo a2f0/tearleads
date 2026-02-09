@@ -1,6 +1,5 @@
-import { ClassicApp } from '@rapid/classic';
 import { BackLink } from '@/components/ui/back-link';
-import { CLASSIC_INITIAL_STATE } from '@/lib/classicState';
+import { ClassicWorkspace } from '@/components/classic-workspace/ClassicWorkspace';
 
 export function Classic() {
   return (
@@ -14,7 +13,7 @@ export function Classic() {
       </div>
 
       <div className="min-h-0 flex-1 rounded-lg border">
-        <ClassicApp initialState={CLASSIC_INITIAL_STATE} />
+        <ClassicWorkspace />
       </div>
     </div>
   );
