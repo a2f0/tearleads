@@ -980,7 +980,8 @@ describe('PostgresTableRowsView', () => {
       expect(screen.getByText('public.users')).toBeInTheDocument();
     });
 
-    // Data should have loaded
-    expect(screen.getByText('User 1')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('User 1')).toBeInTheDocument();
+    });
   });
 });
