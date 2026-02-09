@@ -83,6 +83,8 @@ vi.mock('./DocumentsWindowMenuBar', () => ({
   DocumentsWindowMenuBar: ({
     viewMode,
     onViewModeChange,
+    showDeleted,
+    onShowDeletedChange,
     showDropzone,
     onShowDropzoneChange,
     onUpload,
@@ -91,6 +93,8 @@ vi.mock('./DocumentsWindowMenuBar', () => ({
   }: {
     viewMode: 'list' | 'table';
     onViewModeChange: (mode: 'list' | 'table') => void;
+    showDeleted: boolean;
+    onShowDeletedChange: (show: boolean) => void;
     showDropzone: boolean;
     onShowDropzoneChange: (show: boolean) => void;
     onUpload: () => void;
@@ -101,6 +105,9 @@ vi.mock('./DocumentsWindowMenuBar', () => ({
       <div data-testid="menu-view-mode">{viewMode}</div>
       <div data-testid="menu-show-dropzone">
         {showDropzone ? 'true' : 'false'}
+      </div>
+      <div data-testid="menu-show-deleted">
+        {showDeleted ? 'true' : 'false'}
       </div>
       <button
         type="button"
@@ -121,6 +128,13 @@ vi.mock('./DocumentsWindowMenuBar', () => ({
       </button>
       <button type="button" onClick={onRefresh} data-testid="menu-refresh">
         Refresh
+      </button>
+      <button
+        type="button"
+        onClick={() => onShowDeletedChange(!showDeleted)}
+        data-testid="menu-deleted-toggle"
+      >
+        Toggle Deleted
       </button>
       <button
         type="button"
@@ -170,6 +184,7 @@ describe('DocumentsWindow', () => {
     expect(screen.getByTestId('documents-content')).toBeInTheDocument();
     expect(lastDocumentsProps?.['showBackLink']).toBe(false);
     expect(lastDocumentsProps?.['viewMode']).toBe('list');
+    expect(lastDocumentsProps?.['showDeleted']).toBe(false);
     expect(lastDocumentsProps?.['showDropzone']).toBe(false);
   });
 
@@ -187,6 +202,21 @@ describe('DocumentsWindow', () => {
       );
     });
     expect(lastDocumentsProps?.['showDropzone']).toBe(true);
+  });
+
+  it('toggles showDeleted from the menu', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    expect(screen.getByTestId('menu-show-deleted')).toHaveTextContent('false');
+    expect(lastDocumentsProps?.['showDeleted']).toBe(false);
+
+    await user.click(screen.getByTestId('menu-deleted-toggle'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('menu-show-deleted')).toHaveTextContent('true');
+    });
+    expect(lastDocumentsProps?.['showDeleted']).toBe(true);
   });
 
   it('wraps list content in a scrollable container', () => {

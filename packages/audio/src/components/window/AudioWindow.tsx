@@ -40,6 +40,7 @@ export function AudioWindow({
   const { isUnlocked } = databaseState;
 
   const [view, setView] = useState<AudioViewMode>('list');
+  const [showDeleted, setShowDeleted] = useState(false);
   const [selectedTrackId, setSelectedTrackId] = useState<string | null>(null);
   const [refreshToken, setRefreshToken] = useState(0);
   const [showDropzone, setShowDropzone] = useState(false);
@@ -177,6 +178,8 @@ export function AudioWindow({
           onUpload={handleUpload}
           view={view}
           onViewChange={setView}
+          showDeleted={showDeleted}
+          onShowDeletedChange={setShowDeleted}
           showDropzone={showDropzone}
           onShowDropzoneChange={setShowDropzone}
         />
@@ -212,12 +215,14 @@ export function AudioWindow({
                 uploading={uploading}
                 uploadProgress={uploadProgress}
                 onUpload={handleUpload}
+                showDeleted={showDeleted}
               />
             ) : (
               <AudioWindowTableView
                 onSelectTrack={handleSelectTrack}
                 refreshToken={refreshToken}
                 selectedPlaylistId={selectedPlaylistId}
+                showDeleted={showDeleted}
               />
             )}
             <DropZoneOverlay isVisible={isDragging} label="audio tracks" />

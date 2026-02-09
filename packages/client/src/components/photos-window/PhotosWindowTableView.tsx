@@ -26,6 +26,7 @@ interface PhotosWindowTableViewProps {
   refreshToken: number;
   selectedAlbumId?: string | null;
   onOpenAIChat?: () => void;
+  showDeleted?: boolean;
 }
 
 interface SortHeaderProps {
@@ -90,7 +91,8 @@ export function PhotosWindowTableView({
   onSelectPhoto,
   refreshToken,
   selectedAlbumId,
-  onOpenAIChat
+  onOpenAIChat,
+  showDeleted = false
 }: PhotosWindowTableViewProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -103,7 +105,7 @@ export function PhotosWindowTableView({
     deletePhoto,
     downloadPhoto,
     sharePhoto
-  } = usePhotosWindowData({ refreshToken, selectedAlbumId });
+  } = usePhotosWindowData({ refreshToken, selectedAlbumId, showDeleted });
   const [contextMenu, setContextMenu] = useState<{
     photo: PhotoWithUrl;
     x: number;

@@ -1,4 +1,12 @@
-import { Image, List, RefreshCw, Table2, Upload } from 'lucide-react';
+import {
+  Eye,
+  EyeOff,
+  Image,
+  List,
+  RefreshCw,
+  Table2,
+  Upload
+} from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -11,6 +19,8 @@ export type ViewMode = 'list' | 'table' | 'thumbnail';
 interface PhotosWindowMenuBarProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
+  showDeleted: boolean;
+  onShowDeletedChange: (show: boolean) => void;
   showDropzone: boolean;
   onShowDropzoneChange: (show: boolean) => void;
   onRefresh: () => void;
@@ -21,6 +31,8 @@ interface PhotosWindowMenuBarProps {
 export function PhotosWindowMenuBar({
   viewMode,
   onViewModeChange,
+  showDeleted,
+  onShowDeletedChange,
   showDropzone,
   onShowDropzoneChange,
   onRefresh,
@@ -74,6 +86,19 @@ export function PhotosWindowMenuBar({
           icon={<Upload className="h-3 w-3" />}
         >
           Show Dropzone
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onClick={() => onShowDeletedChange(!showDeleted)}
+          checked={showDeleted}
+          icon={
+            showDeleted ? (
+              <Eye className="h-3 w-3" />
+            ) : (
+              <EyeOff className="h-3 w-3" />
+            )
+          }
+        >
+          Show Deleted
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />

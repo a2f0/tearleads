@@ -66,6 +66,7 @@ interface DocumentInfo {
   uploadDate: Date;
   storagePath: string;
   thumbnailPath: string | null;
+  deleted: boolean;
 }
 
 interface DocumentWithUrl extends DocumentInfo {
@@ -83,6 +84,7 @@ interface DocumentsProps {
   onSelectDocument?: (documentId: string) => void;
   refreshToken?: number;
   viewMode?: ViewMode;
+  showDeleted?: boolean;
   showDropzone?: boolean;
   onUpload?: () => void;
   onOpenAIChat?: () => void;
@@ -93,6 +95,7 @@ export function Documents({
   onSelectDocument,
   refreshToken,
   viewMode = 'list',
+  showDeleted = false,
   showDropzone = true,
   onUpload,
   onOpenAIChat
@@ -253,7 +256,8 @@ export function Documents({
           mimeType: files.mimeType,
           uploadDate: files.uploadDate,
           storagePath: files.storagePath,
-          thumbnailPath: files.thumbnailPath
+          thumbnailPath: files.thumbnailPath,
+          deleted: files.deleted
         })
         .from(files)
         .where(
@@ -262,7 +266,7 @@ export function Documents({
               eq(files.mimeType, PDF_MIME_TYPE),
               like(files.mimeType, 'text/%')
             ),
-            eq(files.deleted, false)
+            showDeleted ? undefined : eq(files.deleted, false)
           )
         )
         .orderBy(desc(files.uploadDate));
@@ -274,7 +278,8 @@ export function Documents({
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
         storagePath: row.storagePath,
-        thumbnailPath: row.thumbnailPath
+        thumbnailPath: row.thumbnailPath,
+        deleted: row.deleted
       }));
 
       // Load thumbnails for documents that have them
@@ -312,7 +317,7 @@ export function Documents({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, currentInstanceId]);
+  }, [isUnlocked, currentInstanceId, showDeleted]);
 
   // Track the instance ID for which we've fetched documents
   // Using a ref avoids React's state batching issues

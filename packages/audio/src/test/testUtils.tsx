@@ -177,6 +177,7 @@ export const createMockAudioTrack = (
   uploadDate: new Date('2024-01-15'),
   storagePath: '/audio/test-track.mp3',
   thumbnailPath: null,
+  deleted: false,
   objectUrl: 'blob:test-url',
   thumbnailUrl: null,
   ...overrides
@@ -199,8 +200,14 @@ export const createMockAudioMetadata = (
 export interface MockContextOptions {
   databaseState?: Partial<DatabaseState>;
   ui?: Partial<AudioUIComponents>;
-  fetchAudioFiles?: (ids?: string[] | null) => Promise<AudioInfo[]>;
-  fetchAudioFilesWithUrls?: (ids?: string[] | null) => Promise<AudioWithUrl[]>;
+  fetchAudioFiles?: (
+    ids?: string[] | null,
+    includeDeleted?: boolean
+  ) => Promise<AudioInfo[]>;
+  fetchAudioFilesWithUrls?: (
+    ids?: string[] | null,
+    includeDeleted?: boolean
+  ) => Promise<AudioWithUrl[]>;
   fetchPlaylists?: () => Promise<AudioPlaylist[]>;
   createPlaylist?: (name: string) => Promise<string>;
   renamePlaylist?: (playlistId: string, newName: string) => Promise<void>;
@@ -237,8 +244,14 @@ export interface MockContextValue {
   ui: AudioUIComponents;
   t: (key: string) => string;
   tooltipZIndex: number;
-  fetchAudioFiles: (ids?: string[] | null) => Promise<AudioInfo[]>;
-  fetchAudioFilesWithUrls: (ids?: string[] | null) => Promise<AudioWithUrl[]>;
+  fetchAudioFiles: (
+    ids?: string[] | null,
+    includeDeleted?: boolean
+  ) => Promise<AudioInfo[]>;
+  fetchAudioFilesWithUrls: (
+    ids?: string[] | null,
+    includeDeleted?: boolean
+  ) => Promise<AudioWithUrl[]>;
   fetchPlaylists: () => Promise<AudioPlaylist[]>;
   createPlaylist: (name: string) => Promise<string>;
   renamePlaylist: (playlistId: string, newName: string) => Promise<void>;

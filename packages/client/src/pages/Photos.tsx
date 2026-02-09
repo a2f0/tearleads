@@ -58,6 +58,7 @@ interface PhotoInfo {
   uploadDate: Date;
   storagePath: string;
   thumbnailPath: string | null;
+  deleted: boolean;
 }
 
 interface PhotoWithUrl extends PhotoInfo {
@@ -98,6 +99,7 @@ interface PhotosProps {
   refreshToken?: number | undefined;
   showBackLink?: boolean | undefined;
   showDropzone?: boolean | undefined;
+  showDeleted?: boolean | undefined;
   selectedAlbumId?: string | null | undefined;
   onOpenAIChat?: (() => void) | undefined;
 }
@@ -107,6 +109,7 @@ export function Photos({
   refreshToken,
   showBackLink = true,
   showDropzone = true,
+  showDeleted = false,
   selectedAlbumId,
   onOpenAIChat
 }: PhotosProps = {}) {
@@ -316,7 +319,7 @@ export function Photos({
       // Build the where clause
       const baseConditions = and(
         like(files.mimeType, 'image/%'),
-        eq(files.deleted, false)
+        showDeleted ? undefined : eq(files.deleted, false)
       );
       const whereClause = photoIdsInAlbum
         ? and(baseConditions, inArray(files.id, photoIdsInAlbum))
@@ -330,7 +333,8 @@ export function Photos({
           mimeType: files.mimeType,
           uploadDate: files.uploadDate,
           storagePath: files.storagePath,
-          thumbnailPath: files.thumbnailPath
+          thumbnailPath: files.thumbnailPath,
+          deleted: files.deleted
         })
         .from(files)
         .where(whereClause)
@@ -343,7 +347,8 @@ export function Photos({
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
         storagePath: row.storagePath,
-        thumbnailPath: row.thumbnailPath
+        thumbnailPath: row.thumbnailPath,
+        deleted: row.deleted
       }));
 
       // Load image data and create object URLs
@@ -387,7 +392,7 @@ export function Photos({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, currentInstanceId, resolvedAlbumId]);
+  }, [isUnlocked, currentInstanceId, resolvedAlbumId, showDeleted]);
 
   // Track the instance ID for which we've fetched photos
   // Using a ref avoids React's state batching issues

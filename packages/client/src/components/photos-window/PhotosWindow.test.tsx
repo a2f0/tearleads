@@ -44,10 +44,14 @@ vi.mock('./PhotosWindowMenuBar', () => ({
     onUpload,
     onClose,
     onViewModeChange,
+    showDeleted,
+    onShowDeletedChange,
     showDropzone,
     onShowDropzoneChange
   }: {
     viewMode: 'list' | 'table' | 'thumbnail';
+    showDeleted: boolean;
+    onShowDeletedChange: (show: boolean) => void;
     showDropzone: boolean;
     onShowDropzoneChange: (show: boolean) => void;
     onRefresh: () => void;
@@ -58,6 +62,9 @@ vi.mock('./PhotosWindowMenuBar', () => ({
     <div data-testid="menu-bar">
       <div data-testid="menu-show-dropzone">
         {showDropzone ? 'true' : 'false'}
+      </div>
+      <div data-testid="menu-show-deleted">
+        {showDeleted ? 'true' : 'false'}
       </div>
       <button type="button" onClick={onRefresh} data-testid="refresh-button">
         Refresh
@@ -91,6 +98,13 @@ vi.mock('./PhotosWindowMenuBar', () => ({
       </button>
       <button
         type="button"
+        onClick={() => onShowDeletedChange(!showDeleted)}
+        data-testid="toggle-show-deleted-button"
+      >
+        Toggle Deleted
+      </button>
+      <button
+        type="button"
         onClick={() => onShowDropzoneChange(!showDropzone)}
         data-testid="toggle-dropzone-button"
       >
@@ -102,14 +116,19 @@ vi.mock('./PhotosWindowMenuBar', () => ({
 
 vi.mock('./PhotosWindowContent', () => ({
   PhotosWindowContent: ({
-    onSelectPhoto
+    onSelectPhoto,
+    showDeleted
   }: {
     onSelectPhoto?: (photoId: string) => void;
     refreshToken: number;
+    showDeleted?: boolean;
     showDropzone?: boolean;
     onUploadFiles?: (files: File[]) => void | Promise<void>;
   }) => (
     <div data-testid="photos-content">
+      <span data-testid="content-show-deleted">
+        {showDeleted ? 'true' : 'false'}
+      </span>
       <button
         type="button"
         onClick={() => onSelectPhoto?.('photo-123')}
@@ -156,13 +175,18 @@ vi.mock('./PhotosWindowTableView', () => ({
 
 vi.mock('./PhotosWindowThumbnailView', () => ({
   PhotosWindowThumbnailView: ({
-    onSelectPhoto
+    onSelectPhoto,
+    showDeleted
   }: {
     onSelectPhoto?: (photoId: string) => void;
     refreshToken: number;
+    showDeleted?: boolean;
     showDropzone?: boolean;
   }) => (
     <div data-testid="photos-thumbnail-content">
+      <span data-testid="thumbnail-show-deleted">
+        {showDeleted ? 'true' : 'false'}
+      </span>
       <button
         type="button"
         onClick={() => onSelectPhoto?.('photo-456')}
@@ -285,6 +309,23 @@ describe('PhotosWindow', () => {
     await user.click(screen.getByTestId('toggle-dropzone-button'));
 
     expect(screen.getByTestId('menu-show-dropzone')).toHaveTextContent('true');
+  });
+
+  it('toggles showDeleted from the menu', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    expect(screen.getByTestId('menu-show-deleted')).toHaveTextContent('false');
+    expect(screen.getByTestId('content-show-deleted')).toHaveTextContent(
+      'false'
+    );
+
+    await user.click(screen.getByTestId('toggle-show-deleted-button'));
+
+    expect(screen.getByTestId('menu-show-deleted')).toHaveTextContent('true');
+    expect(screen.getByTestId('content-show-deleted')).toHaveTextContent(
+      'true'
+    );
   });
 
   it('renders photos content', () => {

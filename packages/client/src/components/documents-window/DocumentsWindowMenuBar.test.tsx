@@ -8,6 +8,8 @@ describe('DocumentsWindowMenuBar', () => {
   const defaultProps = {
     viewMode: 'list',
     onViewModeChange: vi.fn(),
+    showDeleted: false,
+    onShowDeletedChange: vi.fn(),
     showDropzone: false,
     onShowDropzoneChange: vi.fn(),
     onUpload: vi.fn(),
@@ -40,7 +42,7 @@ describe('DocumentsWindowMenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
-  it('shows List, Table, and Show Dropzone options in View menu', async () => {
+  it('shows List, Table, Show Dropzone, and Show Deleted options in View menu', async () => {
     const user = userEvent.setup();
     render(<DocumentsWindowMenuBar {...defaultProps} />);
 
@@ -50,6 +52,9 @@ describe('DocumentsWindowMenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'Table' })).toBeInTheDocument();
     expect(
       screen.getByRole('menuitem', { name: 'Show Dropzone' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Show Deleted' })
     ).toBeInTheDocument();
   });
 
@@ -133,5 +138,22 @@ describe('DocumentsWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Show Dropzone' }));
 
     expect(onShowDropzoneChange).toHaveBeenCalledWith(true);
+  });
+
+  it('calls onShowDeletedChange when Show Deleted is clicked', async () => {
+    const user = userEvent.setup();
+    const onShowDeletedChange = vi.fn();
+    render(
+      <DocumentsWindowMenuBar
+        {...defaultProps}
+        showDeleted={false}
+        onShowDeletedChange={onShowDeletedChange}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Show Deleted' }));
+
+    expect(onShowDeletedChange).toHaveBeenCalledWith(true);
   });
 });

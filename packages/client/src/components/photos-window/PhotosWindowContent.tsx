@@ -30,6 +30,7 @@ const ROW_HEIGHT_ESTIMATE = 72;
 interface PhotosWindowContentProps {
   onSelectPhoto?: (photoId: string) => void;
   refreshToken: number;
+  showDeleted?: boolean;
   showDropzone?: boolean;
   onUploadFiles?: (files: File[]) => void | Promise<void>;
   selectedAlbumId?: string | null;
@@ -42,6 +43,7 @@ interface PhotosWindowContentProps {
 export function PhotosWindowContent({
   onSelectPhoto,
   refreshToken,
+  showDeleted = false,
   showDropzone = false,
   onUploadFiles,
   selectedAlbumId,
@@ -61,7 +63,7 @@ export function PhotosWindowContent({
     deletePhoto,
     downloadPhoto,
     sharePhoto
-  } = usePhotosWindowData({ refreshToken, selectedAlbumId });
+  } = usePhotosWindowData({ refreshToken, selectedAlbumId, showDeleted });
   const [contextMenu, setContextMenu] = useState<{
     photo: PhotoWithUrl;
     x: number;

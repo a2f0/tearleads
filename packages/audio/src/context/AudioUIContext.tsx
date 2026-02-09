@@ -18,6 +18,7 @@ export interface AudioInfo {
   uploadDate: Date;
   storagePath: string;
   thumbnailPath: string | null;
+  deleted: boolean;
 }
 
 /**
@@ -273,9 +274,15 @@ export interface AudioUIContextValue {
   /** Navigate to a specific audio file detail */
   navigateToAudio?: NavigateToAudio;
   /** Fetch audio files from the database */
-  fetchAudioFiles: (ids?: string[] | null) => Promise<AudioInfo[]>;
+  fetchAudioFiles: (
+    ids?: string[] | null,
+    includeDeleted?: boolean
+  ) => Promise<AudioInfo[]>;
   /** Fetch audio files with object URLs for playback */
-  fetchAudioFilesWithUrls: (ids?: string[] | null) => Promise<AudioWithUrl[]>;
+  fetchAudioFilesWithUrls: (
+    ids?: string[] | null,
+    includeDeleted?: boolean
+  ) => Promise<AudioWithUrl[]>;
   /** Fetch playlists from the database */
   fetchPlaylists: () => Promise<AudioPlaylist[]>;
   /** Create a new playlist */
@@ -342,8 +349,14 @@ export interface AudioUIProviderProps {
   t: TranslationFunction;
   tooltipZIndex?: number;
   navigateToAudio?: NavigateToAudio;
-  fetchAudioFiles: (ids?: string[] | null) => Promise<AudioInfo[]>;
-  fetchAudioFilesWithUrls: (ids?: string[] | null) => Promise<AudioWithUrl[]>;
+  fetchAudioFiles: (
+    ids?: string[] | null,
+    includeDeleted?: boolean
+  ) => Promise<AudioInfo[]>;
+  fetchAudioFilesWithUrls: (
+    ids?: string[] | null,
+    includeDeleted?: boolean
+  ) => Promise<AudioWithUrl[]>;
   fetchPlaylists: () => Promise<AudioPlaylist[]>;
   createPlaylist: (name: string) => Promise<string>;
   renamePlaylist: (playlistId: string, newName: string) => Promise<void>;

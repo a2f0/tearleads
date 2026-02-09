@@ -20,6 +20,7 @@ export interface PhotoInfo {
   uploadDate: Date;
   storagePath: string;
   thumbnailPath: string | null;
+  deleted: boolean;
 }
 
 export interface PhotoWithUrl extends PhotoInfo {
@@ -29,11 +30,13 @@ export interface PhotoWithUrl extends PhotoInfo {
 interface UsePhotosWindowDataProps {
   refreshToken: number;
   selectedAlbumId?: string | null | undefined;
+  showDeleted?: boolean | undefined;
 }
 
 export function usePhotosWindowData({
   refreshToken,
-  selectedAlbumId
+  selectedAlbumId,
+  showDeleted = false
 }: UsePhotosWindowDataProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
@@ -71,7 +74,7 @@ export function usePhotosWindowData({
       // Build the where clause
       const baseConditions = and(
         like(files.mimeType, 'image/%'),
-        eq(files.deleted, false)
+        showDeleted ? undefined : eq(files.deleted, false)
       );
       const whereClause = photoIdsInAlbum
         ? and(baseConditions, inArray(files.id, photoIdsInAlbum))
@@ -85,7 +88,8 @@ export function usePhotosWindowData({
           mimeType: files.mimeType,
           uploadDate: files.uploadDate,
           storagePath: files.storagePath,
-          thumbnailPath: files.thumbnailPath
+          thumbnailPath: files.thumbnailPath,
+          deleted: files.deleted
         })
         .from(files)
         .where(whereClause)
@@ -98,7 +102,8 @@ export function usePhotosWindowData({
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
         storagePath: row.storagePath,
-        thumbnailPath: row.thumbnailPath
+        thumbnailPath: row.thumbnailPath,
+        deleted: row.deleted
       }));
 
       const keyManager = getKeyManager();
@@ -140,7 +145,7 @@ export function usePhotosWindowData({
     } finally {
       setLoading(false);
     }
-  }, [currentInstanceId, isUnlocked, selectedAlbumId]);
+  }, [currentInstanceId, isUnlocked, selectedAlbumId, showDeleted]);
 
   useEffect(() => {
     if (!isUnlocked) return;
