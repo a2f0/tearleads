@@ -265,6 +265,10 @@ if (rootElement) {
                                           element={<ContactNew />}
                                         />
                                         <Route
+                                          path="contacts/groups/:groupId"
+                                          element={<Contacts />}
+                                        />
+                                        <Route
                                           path="contacts/:id"
                                           element={<ContactDetail />}
                                         />

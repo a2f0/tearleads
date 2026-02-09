@@ -57,7 +57,7 @@ export type WindowType =
   | 'calendar';
 
 export interface WindowOpenRequestPayloads {
-  contacts: { contactId: string };
+  contacts: { contactId?: string; groupId?: string };
   notes: { noteId: string };
   documents: { documentId: string };
   photos: { photoId?: string; albumId?: string };

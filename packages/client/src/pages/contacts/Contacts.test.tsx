@@ -11,6 +11,15 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { Contacts } from './Contacts';
 
+vi.mock('@rapid/contacts', async () => {
+  const actual = await vi.importActual('@rapid/contacts');
+  return {
+    ...actual,
+    ALL_CONTACTS_ID: '__all__',
+    ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />
+  };
+});
+
 // Mock useVirtualizer to simplify testing
 vi.mock('@tanstack/react-virtual', () => ({
   useVirtualizer: vi.fn(({ count }) => ({
@@ -61,7 +70,12 @@ mockUpdate.mockReturnValue({ set: mockSet });
 mockSet.mockReturnValue({ where: mockUpdateWhere });
 
 vi.mock('@/db', () => ({
-  getDatabase: () => dbMock
+  getDatabase: () => dbMock,
+  getDatabaseAdapter: () => ({
+    beginTransaction: vi.fn(),
+    commitTransaction: vi.fn(),
+    rollbackTransaction: vi.fn()
+  })
 }));
 
 // Mock useContactsImport

@@ -25,6 +25,14 @@ import { Sqlite } from './pages/Sqlite';
 const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
 const mockLock = vi.fn().mockResolvedValue(undefined);
 
+vi.mock('@rapid/contacts', async () => {
+  const actual = await vi.importActual('@rapid/contacts');
+  return {
+    ...actual,
+    ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />
+  };
+});
+
 // Mock database context - shared mock factory
 const createDatabaseContextMock = () => ({
   isUnlocked: true,
@@ -62,6 +70,7 @@ const mockOrderBy = vi.fn();
 const dbMock = {
   select: vi.fn().mockReturnThis(),
   from: vi.fn().mockReturnThis(),
+  innerJoin: vi.fn().mockReturnThis(),
   leftJoin: vi.fn().mockReturnThis(),
   where: vi.fn().mockReturnThis(),
   orderBy: mockOrderBy
