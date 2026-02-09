@@ -12,11 +12,11 @@ export {
 export {
   type AboutMenuItemProps,
   type BackLinkProps,
-  type EmailContactEmail,
-  type EmailContactOperations,
   type DropdownMenuItemProps,
   type DropdownMenuProps,
   type DropdownMenuSeparatorProps,
+  type EmailContactEmail,
+  type EmailContactOperations,
   type EmailContextValue,
   type EmailFolderOperations,
   EmailProvider,

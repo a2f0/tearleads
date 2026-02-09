@@ -1,10 +1,7 @@
 import { clsx } from 'clsx';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import {
-  useEmailContext,
-  type EmailContactEmail
-} from '../../context';
+import { type EmailContactEmail, useEmailContext } from '../../context';
 
 type RecipientField = 'to' | 'cc' | 'bcc';
 type SortColumn = 'name' | 'email' | 'label' | 'isPrimary';
@@ -27,7 +24,11 @@ function compareBooleans(
   return direction === 'asc' ? aValue - bValue : bValue - aValue;
 }
 
-function compareStrings(a: string, b: string, direction: SortDirection): number {
+function compareStrings(
+  a: string,
+  b: string,
+  direction: SortDirection
+): number {
   const compared = a.localeCompare(b);
   return direction === 'asc' ? compared : -compared;
 }
@@ -113,7 +114,11 @@ export function AddressBookPicker({
         return compareStrings(a.label ?? '', b.label ?? '', sortDirection);
       }
 
-      return compareStrings(getDisplayName(a), getDisplayName(b), sortDirection);
+      return compareStrings(
+        getDisplayName(a),
+        getDisplayName(b),
+        sortDirection
+      );
     });
   }, [rows, search, sortColumn, sortDirection]);
 
@@ -159,7 +164,10 @@ export function AddressBookPicker({
       </div>
 
       {error && (
-        <p className="mb-2 text-destructive text-sm" data-testid="address-error">
+        <p
+          className="mb-2 text-destructive text-sm"
+          data-testid="address-error"
+        >
           {error}
         </p>
       )}
@@ -261,11 +269,15 @@ export function AddressBookPicker({
 
       {!loading && visibleRows.length === 0 && (
         <p className="mt-2 text-muted-foreground text-xs">
-          {rows.length === 0 ? 'No contacts with email addresses.' : 'No matches.'}
+          {rows.length === 0
+            ? 'No contacts with email addresses.'
+            : 'No matches.'}
         </p>
       )}
       {loading && (
-        <p className="mt-2 text-muted-foreground text-xs">Loading contacts...</p>
+        <p className="mt-2 text-muted-foreground text-xs">
+          Loading contacts...
+        </p>
       )}
     </section>
   );

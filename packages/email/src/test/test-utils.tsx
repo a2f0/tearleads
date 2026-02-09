@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import {
-  EmailProvider,
   type EmailContactOperations,
+  EmailProvider,
   type EmailUIComponents
 } from '../context';
 
