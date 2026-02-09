@@ -370,7 +370,17 @@ export async function queryDeletedItems(
   db: Database,
   sort: VfsSortState
 ): Promise<VfsQueryRow[]> {
-  const nameExpr = nameCoalesce();
+  const nameExpr = sql<string>`COALESCE(
+    NULLIF(${files.name}, ''),
+    CASE WHEN ${contacts.id} IS NOT NULL THEN
+      CASE WHEN ${contacts.lastName} IS NOT NULL AND ${contacts.lastName} != ''
+        THEN ${contacts.firstName} || ' ' || ${contacts.lastName}
+        ELSE ${contacts.firstName}
+      END
+    END,
+    NULLIF(${notes.title}, ''),
+    'Unknown'
+  )`;
   const orderExprs = buildOrderBy(sort, nameExpr);
 
   // Explicit "name" alias required: see queryFolderContents comment.
@@ -382,13 +392,6 @@ export async function queryDeletedItems(
       createdAt: vfsRegistry.createdAt
     })
     .from(vfsRegistry)
-    .leftJoin(
-      vfsFolders,
-      and(
-        eq(vfsRegistry.id, vfsFolders.id),
-        eq(vfsRegistry.objectType, 'folder')
-      )
-    )
     .leftJoin(
       files,
       and(
@@ -406,39 +409,6 @@ export async function queryDeletedItems(
     .leftJoin(
       notes,
       and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
-    )
-    .leftJoin(
-      playlists,
-      and(
-        eq(vfsRegistry.id, playlists.id),
-        eq(vfsRegistry.objectType, 'playlist')
-      )
-    )
-    .leftJoin(
-      albums,
-      and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
-    )
-    .leftJoin(
-      contactGroups,
-      and(
-        eq(vfsRegistry.id, contactGroups.id),
-        eq(vfsRegistry.objectType, 'contactGroup')
-      )
-    )
-    .leftJoin(
-      emailFolders,
-      and(
-        eq(vfsRegistry.id, emailFolders.id),
-        eq(vfsRegistry.objectType, 'emailFolder')
-      )
-    )
-    .leftJoin(
-      tags,
-      and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
-    )
-    .leftJoin(
-      emails,
-      and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
     )
     .where(
       and(
