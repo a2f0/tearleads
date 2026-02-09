@@ -88,22 +88,22 @@ describe('SearchWindowContent', () => {
       expect(screen.getByText('AI Chats')).toBeInTheDocument();
     });
 
-    it('shows all items when no query is entered', async () => {
+    it('waits for enter before searching', async () => {
       renderContent();
 
-      await waitFor(() => {
-        expect(screen.getByText('All Contacts')).toBeInTheDocument();
-      });
+      expect(screen.getByText('Press Enter to search')).toBeInTheDocument();
+      expect(screen.queryByText('All Contacts')).not.toBeInTheDocument();
+      expect(mockSearch).not.toHaveBeenCalled();
     });
 
-    it('does not show the old empty-query prompt', async () => {
+    it('shows prompt for listing all objects', () => {
       renderContent();
 
-      await waitFor(() => {
-        expect(
-          screen.queryByText('Enter a search term to find your data')
-        ).not.toBeInTheDocument();
-      });
+      expect(
+        screen.getByText(
+          'Leave the field blank and press Enter to list all objects'
+        )
+      ).toBeInTheDocument();
     });
 
     it('renders table view when mode is table', async () => {
@@ -133,19 +133,22 @@ describe('SearchWindowContent', () => {
   });
 
   describe('searching', () => {
-    it('performs search on input', async () => {
+    it('performs search only on enter', async () => {
       const user = userEvent.setup();
       renderContent();
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'test');
+      expect(mockSearch).not.toHaveBeenCalled();
+
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(mockSearch).toHaveBeenCalledWith('test');
       });
     });
 
-    it('shows all items when query is cleared', async () => {
+    it('shows all items when submitting an empty query', async () => {
       const user = userEvent.setup();
       mockSearch.mockImplementation(async (query: string) => {
         if (query === '') return blankQueryResults;
@@ -167,12 +170,14 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'john');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('John')).toBeInTheDocument();
       });
 
       await user.clear(input);
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('All Contacts')).toBeInTheDocument();
@@ -186,6 +191,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'nonexistent');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText(/No results found/)).toBeInTheDocument();
@@ -211,6 +217,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'john');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -234,6 +241,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'john');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('1 result')).toBeInTheDocument();
@@ -247,6 +255,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'timing');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText(/Search took \d+ ms/)).toBeInTheDocument();
@@ -321,6 +330,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'test');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(consoleSpy).toHaveBeenCalledWith(
@@ -445,6 +455,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'john');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('John Doe')).toBeInTheDocument();
@@ -470,6 +481,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'meeting');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('Meeting Notes')).toBeInTheDocument();
@@ -495,6 +507,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'project');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('Re: Project Update')).toBeInTheDocument();
@@ -520,6 +533,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'document');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('document.pdf')).toBeInTheDocument();
@@ -545,6 +559,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'playlist');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('My Playlist')).toBeInTheDocument();
@@ -570,6 +585,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'album');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('Best Album')).toBeInTheDocument();
@@ -595,6 +611,7 @@ describe('SearchWindowContent', () => {
 
       const input = screen.getByPlaceholderText('Search...');
       await user.type(input, 'code');
+      await user.keyboard('{Enter}');
 
       await waitFor(() => {
         expect(screen.getByText('Chat about code')).toBeInTheDocument();
