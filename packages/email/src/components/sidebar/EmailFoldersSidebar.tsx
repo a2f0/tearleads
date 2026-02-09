@@ -32,7 +32,10 @@ export interface EmailFoldersSidebarProps {
   width: number;
   onWidthChange: (width: number) => void;
   selectedFolderId: string | null;
-  onFolderSelect: (folderId: string | null) => void;
+  onFolderSelect: (
+    folderId: string | null,
+    folder?: EmailFolder | null
+  ) => void;
   refreshToken?: number;
   onFolderChanged?: () => void;
 }
@@ -123,7 +126,7 @@ export function EmailFoldersSidebar({
   const handleFolderDeleted = useCallback(
     (deletedId: string) => {
       if (selectedFolderId === deletedId) {
-        onFolderSelect(ALL_MAIL_ID);
+        onFolderSelect(ALL_MAIL_ID, null);
       }
       handleFolderChanged();
     },
@@ -183,7 +186,7 @@ export function EmailFoldersSidebar({
               ? 'bg-accent text-accent-foreground'
               : 'hover:bg-accent/50'
           }`}
-          onClick={() => onFolderSelect(folder.id)}
+          onClick={() => onFolderSelect(folder.id, folder)}
           onDoubleClick={() => hasChildren && toggleExpanded(folder.id)}
           onContextMenu={(e) => {
             if (!isSystem) handleContextMenu(e, folder);
@@ -242,7 +245,7 @@ export function EmailFoldersSidebar({
                 ? 'bg-accent text-accent-foreground'
                 : 'hover:bg-accent/50'
             }`}
-            onClick={() => onFolderSelect(ALL_MAIL_ID)}
+            onClick={() => onFolderSelect(ALL_MAIL_ID, null)}
           >
             <Mail className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
             <span className="truncate">All Mail</span>

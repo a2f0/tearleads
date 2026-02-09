@@ -4,7 +4,7 @@ import { EmailFoldersSidebar } from '../components/sidebar/EmailFoldersSidebar.j
 import { useEmailUI, useHasEmailFolderOperations } from '../context';
 import { useEmails } from '../hooks';
 import { formatEmailDate, formatEmailSize } from '../lib';
-import { ALL_MAIL_ID } from '../types/folder.js';
+import { ALL_MAIL_ID, type EmailFolder } from '../types/folder.js';
 
 const DEFAULT_SIDEBAR_WIDTH = 200;
 
@@ -17,6 +17,9 @@ export function Email() {
   const [sidebarWidth, setSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
     ALL_MAIL_ID
+  );
+  const [selectedFolder, setSelectedFolder] = useState<EmailFolder | null>(
+    null
   );
   const [folderRefreshToken, setFolderRefreshToken] = useState(0);
 
@@ -31,7 +34,19 @@ export function Email() {
     }
   }, [hasFetched, fetchEmails]);
 
+  const handleFolderSelect = useCallback(
+    (folderId: string | null, folder?: EmailFolder | null) => {
+      setSelectedFolderId(folderId);
+      setSelectedFolder(folder ?? null);
+      setSelectedEmailId(null);
+    },
+    []
+  );
+
   const selectedEmail = emails.find((email) => email.id === selectedEmailId);
+  const selectedFolderName = selectedFolder?.name ?? 'All Mail';
+  const isListBackedFolder =
+    selectedFolderId === ALL_MAIL_ID || selectedFolder?.folderType === 'inbox';
 
   return (
     <div className="flex h-full flex-col space-y-6">
@@ -58,7 +73,7 @@ export function Email() {
             width={sidebarWidth}
             onWidthChange={setSidebarWidth}
             selectedFolderId={selectedFolderId}
-            onFolderSelect={setSelectedFolderId}
+            onFolderSelect={handleFolderSelect}
             refreshToken={folderRefreshToken}
             onFolderChanged={handleFolderChanged}
           />
@@ -68,6 +83,11 @@ export function Email() {
             <div className="flex h-full items-center justify-center gap-2 text-muted-foreground">
               <Loader2 className="h-5 w-5 animate-spin" />
               Loading emails...
+            </div>
+          ) : !isListBackedFolder ? (
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+              <Mail className="h-12 w-12" />
+              <p>No emails in {selectedFolderName}</p>
             </div>
           ) : emails.length === 0 && hasFetched && !error ? (
             <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">

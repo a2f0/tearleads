@@ -201,7 +201,10 @@ describe('EmailFoldersSidebar', () => {
     });
 
     await user.click(screen.getByText('Inbox'));
-    expect(onFolderSelect).toHaveBeenCalledWith('1');
+    expect(onFolderSelect).toHaveBeenCalledWith(
+      '1',
+      expect.objectContaining({ id: '1', folderType: 'inbox', name: 'Inbox' })
+    );
   });
 
   it('calls onFolderSelect with ALL_MAIL_ID when clicking All Mail', async () => {
@@ -227,7 +230,7 @@ describe('EmailFoldersSidebar', () => {
     const button = allMailItem.querySelector('button');
     if (!button) throw new Error('Button not found in All Mail item');
     await user.click(button);
-    expect(onFolderSelect).toHaveBeenCalledWith('__all_mail__');
+    expect(onFolderSelect).toHaveBeenCalledWith('__all_mail__', null);
   });
 
   it('highlights selected folder', async () => {
@@ -794,7 +797,7 @@ describe('EmailFoldersSidebar', () => {
 
     // Should reset to All Mail since the selected folder was deleted
     await waitFor(() => {
-      expect(onFolderSelect).toHaveBeenCalledWith('__all_mail__');
+      expect(onFolderSelect).toHaveBeenCalledWith('__all_mail__', null);
     });
   });
 

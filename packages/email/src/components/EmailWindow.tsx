@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';
 import { useEmails } from '../hooks';
 import { formatEmailDate, formatEmailSize } from '../lib';
-import { ALL_MAIL_ID } from '../types/folder.js';
+import { ALL_MAIL_ID, type EmailFolder } from '../types/folder.js';
 import { ComposeDialog } from './compose/ComposeDialog.js';
 import type { ViewMode } from './EmailWindowMenuBar';
 import { EmailWindowMenuBar } from './EmailWindowMenuBar';
@@ -41,6 +41,9 @@ export function EmailWindow({
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(
     ALL_MAIL_ID
   );
+  const [selectedFolder, setSelectedFolder] = useState<EmailFolder | null>(
+    null
+  );
   const [folderRefreshToken, setFolderRefreshToken] = useState(0);
   const [activeTab, setActiveTab] = useState<MainTab>('inbox');
   const [isComposeTabOpen, setIsComposeTabOpen] = useState(false);
@@ -59,6 +62,16 @@ export function EmailWindow({
     setActiveTab('compose');
   }, []);
 
+  const handleFolderSelect = useCallback(
+    (folderId: string | null, folder?: EmailFolder | null) => {
+      setSelectedFolderId(folderId);
+      setSelectedFolder(folder ?? null);
+      setSelectedEmailId(null);
+      setActiveTab('inbox');
+    },
+    []
+  );
+
   const handleEmailSent = useCallback(() => {
     fetchEmails();
     closeComposeTab();
@@ -69,6 +82,9 @@ export function EmailWindow({
   }, [fetchEmails]);
 
   const selectedEmail = emails.find((e) => e.id === selectedEmailId);
+  const selectedFolderName = selectedFolder?.name ?? 'All Mail';
+  const isListBackedFolder =
+    selectedFolderId === ALL_MAIL_ID || selectedFolder?.folderType === 'inbox';
 
   return (
     <FloatingWindow
@@ -78,7 +94,7 @@ export function EmailWindow({
           ? 'Email'
           : activeTab === 'compose'
             ? 'New Message'
-            : 'Inbox'
+            : selectedFolderName
       }
       onClose={onClose}
       onMinimize={onMinimize}
@@ -105,7 +121,7 @@ export function EmailWindow({
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
               selectedFolderId={selectedFolderId}
-              onFolderSelect={setSelectedFolderId}
+              onFolderSelect={handleFolderSelect}
               refreshToken={folderRefreshToken}
               onFolderChanged={handleFolderChanged}
             />
@@ -125,7 +141,7 @@ export function EmailWindow({
                 data-active={activeTab === 'inbox'}
                 data-testid="email-tab-inbox"
               >
-                Inbox
+                {selectedFolderName}
               </button>
               {isComposeTabOpen && (
                 <button
@@ -206,6 +222,11 @@ export function EmailWindow({
                       Email body parsing coming soon...
                     </p>
                   </div>
+                </div>
+              ) : !isListBackedFolder ? (
+                <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">
+                  <Mail className="h-8 w-8" />
+                  <p className="text-sm">No emails in {selectedFolderName}</p>
                 </div>
               ) : emails.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center gap-2 text-muted-foreground">

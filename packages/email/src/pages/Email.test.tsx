@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { EmailFolderOperations } from '../context';
 import { mockConsoleError } from '../test/console-mocks';
 import { TestEmailProvider } from '../test/test-utils';
 import { Email } from './Email';
@@ -16,15 +17,53 @@ const mockEmails = [
   }
 ];
 
+const mockFolderOperations: EmailFolderOperations = {
+  fetchFolders: vi.fn().mockResolvedValue([
+    {
+      id: 'folder-inbox',
+      name: 'Inbox',
+      folderType: 'inbox',
+      parentId: null,
+      unreadCount: 0
+    },
+    {
+      id: 'folder-sent',
+      name: 'Sent',
+      folderType: 'sent',
+      parentId: null,
+      unreadCount: 0
+    },
+    {
+      id: 'folder-trash',
+      name: 'Trash',
+      folderType: 'trash',
+      parentId: null,
+      unreadCount: 0
+    }
+  ]),
+  createFolder: vi.fn().mockResolvedValue({
+    id: 'new-folder',
+    name: 'New Folder',
+    folderType: 'custom',
+    parentId: null,
+    unreadCount: 0
+  }),
+  renameFolder: vi.fn().mockResolvedValue(undefined),
+  deleteFolder: vi.fn().mockResolvedValue(undefined),
+  moveFolder: vi.fn().mockResolvedValue(undefined),
+  initializeSystemFolders: vi.fn().mockResolvedValue(undefined),
+  getFolderByType: vi.fn().mockResolvedValue(null)
+};
+
 describe('Email', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     global.fetch = vi.fn();
   });
 
-  const renderWithProvider = () => {
+  const renderWithProvider = (folderOperations?: EmailFolderOperations) => {
     return render(
-      <TestEmailProvider>
+      <TestEmailProvider {...(folderOperations && { folderOperations })}>
         <Email />
       </TestEmailProvider>
     );
@@ -114,5 +153,25 @@ describe('Email', () => {
       screen.getByRole('button', { name: /Back to Email/ })
     ).toBeInTheDocument();
     expect(screen.getByText('To: recipient@example.com')).toBeInTheDocument();
+  });
+
+  it('switches right panel when selecting Sent folder', async () => {
+    const user = userEvent.setup();
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ emails: mockEmails })
+    });
+
+    renderWithProvider(mockFolderOperations);
+
+    await waitFor(() => {
+      expect(screen.getByText('Sent')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByText('Sent'));
+
+    await waitFor(() => {
+      expect(screen.getByText('No emails in Sent')).toBeInTheDocument();
+    });
   });
 });
