@@ -4,7 +4,10 @@
 # Configurable via environment variables:
 #   TUXEDO_BASE_DIR     - Base directory for workspaces (default: $HOME/github)
 #   TUXEDO_EDITOR       - Editor command (default: uses local nvim config)
-#   TUXEDO_WORKSPACES   - Number of workspaces to create (default: 20)
+#   TUXEDO_WORKSPACES   - Number of workspaces to create (default: 10)
+#   TUXEDO_ENABLE_PR_DASHBOARDS - Enable PR dashboards on windows 0/1 (default: 1)
+#   TUXEDO_PR_REFRESH_SECONDS   - Dashboard refresh interval (default: 30)
+#   TUXEDO_PR_LIST_LIMIT        - Dashboard PR list length (default: 20)
 #
 # Shared resources:
 #   rapid-shared/ is the source of truth for shared directories (not version controlled).

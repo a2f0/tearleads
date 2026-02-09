@@ -45,9 +45,12 @@ Tuxedo assumes a `rapid-shared` workspace plus one or more numbered workspaces:
 
 - `TUXEDO_BASE_DIR`: base directory for workspaces (default: `$HOME/github`)
 - `TUXEDO_EDITOR`: editor command for the right tmux pane
-- `TUXEDO_WORKSPACES`: number of workspaces to create (default: 20)
+- `TUXEDO_WORKSPACES`: number of workspaces to create (default: 10)
 - `TUXEDO_FORCE_SCREEN`: force GNU screen on (`1`)
 - `TUXEDO_FORCE_NO_SCREEN`: force GNU screen off (`1`)
+- `TUXEDO_ENABLE_PR_DASHBOARDS`: enable PR dashboards in windows 0/1 (`1` by default)
+- `TUXEDO_PR_REFRESH_SECONDS`: refresh interval for PR dashboards (default: `30`)
+- `TUXEDO_PR_LIST_LIMIT`: PR count per dashboard refresh (default: `20`)
 - `TUXEDO_SKIP_MAIN`: skip running the main flow (`1`, used by tests)
 
 ## Configuration
@@ -79,6 +82,7 @@ scripts directly without specifying the full path.
 ## Behavior notes
 
 - Uses `rapid-shared/` as the source of truth for `.secrets`, `.test_files`, and `packages/api/.env`.
+- Starts `listOpenPrs.sh` in window `0` and `listRecentClosedPrs.sh` in window `1` (left pane) with auto-refresh.
 - Automatically fast-forwards clean `main` workspaces before setting symlinks.
 - When `screen` is available, each workspace runs inside a named screen session
   so long-running processes survive tmux restarts.
