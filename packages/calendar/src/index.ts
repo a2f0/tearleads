@@ -1,3 +1,7 @@
+export type {
+  CalendarEventItem,
+  CreateCalendarEventInput
+} from './components';
 export {
   CalendarContent,
   CalendarWindow

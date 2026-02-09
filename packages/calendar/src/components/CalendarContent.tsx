@@ -2,7 +2,8 @@ import { clsx } from 'clsx';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CALENDAR_CREATE_SUBMIT_EVENT } from '../events';
 
-const defaultCalendars = ['Personal'];
+const defaultCalendarName = 'Personal';
+const defaultCalendars = [defaultCalendarName];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
 type CalendarViewMode = (typeof viewModes)[number];
 const calendarLocale = 'en-US';
@@ -23,18 +24,44 @@ const yearMonthNames = [
 ];
 
 interface CalendarContentProps {
+  events?: CalendarEventItem[] | undefined;
+  onCreateEvent?:
+    | ((input: CreateCalendarEventInput) => Promise<void> | void)
+    | undefined;
   onSidebarContextMenuRequest?:
     | ((position: { x: number; y: number }) => void)
     | undefined;
 }
 
+export interface CalendarEventItem {
+  id: string;
+  calendarName: string;
+  title: string;
+  startAt: Date;
+  endAt?: Date | null | undefined;
+}
+
+export interface CreateCalendarEventInput {
+  calendarName: string;
+  title: string;
+  startAt: Date;
+  endAt?: Date | null | undefined;
+}
+
 export function CalendarContent({
+  events = [],
+  onCreateEvent,
   onSidebarContextMenuRequest
 }: CalendarContentProps = {}) {
   const [calendars, setCalendars] = useState<string[]>(defaultCalendars);
-  const [activeCalendar, setActiveCalendar] = useState(defaultCalendars[0]);
+  const [activeCalendar, setActiveCalendar] =
+    useState<string>(defaultCalendarName);
   const [viewMode, setViewMode] = useState<CalendarViewMode>('Month');
   const [selectedDate, setSelectedDate] = useState(() => new Date());
+  const [newEventTitle, setNewEventTitle] = useState('');
+  const [newEventTime, setNewEventTime] = useState('09:00');
+  const [newEventDurationMinutes, setNewEventDurationMinutes] = useState('60');
+  const [creatingEvent, setCreatingEvent] = useState(false);
 
   const normalizedNames = useMemo(
     () => new Set(calendars.map((name) => name.toLowerCase())),
@@ -182,14 +209,155 @@ export function CalendarContent({
 
   const currentYear = selectedDate.getFullYear();
 
-  const isSameDay = (date: Date, other: Date) =>
-    date.getFullYear() === other.getFullYear() &&
-    date.getMonth() === other.getMonth() &&
-    date.getDate() === other.getDate();
+  const isSameDay = useCallback(
+    (date: Date, other: Date) =>
+      date.getFullYear() === other.getFullYear() &&
+      date.getMonth() === other.getMonth() &&
+      date.getDate() === other.getDate(),
+    []
+  );
+
+  const getDateKey = useCallback(
+    (date: Date) =>
+      `${date.getFullYear()}-${date.getMonth()}-${date.getDate()}`,
+    []
+  );
+
+  const calendarEvents = useMemo(
+    () => events.filter((event) => event.calendarName === activeCalendar),
+    [activeCalendar, events]
+  );
+
+  const dayEvents = useMemo(
+    () =>
+      calendarEvents
+        .filter((event) => isSameDay(event.startAt, selectedDate))
+        .sort((a, b) => a.startAt.getTime() - b.startAt.getTime()),
+    [calendarEvents, isSameDay, selectedDate]
+  );
+
+  const dayEventCount = dayEvents.length;
+
+  const eventCountByDay = useMemo(() => {
+    const countMap = new Map<string, number>();
+    for (const event of calendarEvents) {
+      const key = getDateKey(event.startAt);
+      const previousCount = countMap.get(key) ?? 0;
+      countMap.set(key, previousCount + 1);
+    }
+    return countMap;
+  }, [calendarEvents, getDateKey]);
+
+  const handleCreateEvent = useCallback(async () => {
+    const title = newEventTitle.trim();
+    if (!title || !onCreateEvent || creatingEvent) return;
+
+    const [hoursPart, minutesPart] = newEventTime.split(':');
+    const hours = Number(hoursPart);
+    const minutes = Number(minutesPart);
+    const durationMinutes = Number(newEventDurationMinutes);
+
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return;
+    if (!Number.isFinite(durationMinutes) || durationMinutes <= 0) return;
+
+    const startAt = new Date(selectedDate);
+    startAt.setHours(hours, minutes, 0, 0);
+
+    const endAt = new Date(startAt);
+    endAt.setMinutes(endAt.getMinutes() + durationMinutes);
+
+    try {
+      setCreatingEvent(true);
+      await onCreateEvent({
+        calendarName: activeCalendar,
+        title,
+        startAt,
+        endAt
+      });
+      setNewEventTitle('');
+    } finally {
+      setCreatingEvent(false);
+    }
+  }, [
+    activeCalendar,
+    creatingEvent,
+    newEventDurationMinutes,
+    newEventTime,
+    newEventTitle,
+    onCreateEvent,
+    selectedDate
+  ]);
 
   const renderDayView = () => (
     <div className="h-full overflow-auto rounded-xl border bg-card p-4">
       <p className="font-medium text-sm uppercase tracking-wide">{dayLabel}</p>
+      <form
+        className="mt-3 grid grid-cols-1 gap-2 lg:grid-cols-4"
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handleCreateEvent();
+        }}
+      >
+        <input
+          type="text"
+          value={newEventTitle}
+          onChange={(event) => setNewEventTitle(event.target.value)}
+          placeholder="Event title"
+          className="rounded-md border bg-background px-2 py-1 text-base"
+          aria-label="Event title"
+        />
+        <input
+          type="time"
+          value={newEventTime}
+          onChange={(event) => setNewEventTime(event.target.value)}
+          className="rounded-md border bg-background px-2 py-1 text-base"
+          aria-label="Event start time"
+        />
+        <input
+          type="number"
+          min={1}
+          step={1}
+          value={newEventDurationMinutes}
+          onChange={(event) => setNewEventDurationMinutes(event.target.value)}
+          className="rounded-md border bg-background px-2 py-1 text-base"
+          aria-label="Event duration in minutes"
+        />
+        <button
+          type="submit"
+          disabled={!newEventTitle.trim() || creatingEvent || !onCreateEvent}
+          className="rounded-md bg-primary px-3 py-1 font-medium text-primary-foreground text-sm disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          Add Event
+        </button>
+      </form>
+      <div className="mt-3 space-y-2">
+        {dayEvents.length > 0 ? (
+          dayEvents.map((event) => (
+            <div
+              key={event.id}
+              className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2"
+            >
+              <p className="font-medium text-sm">{event.title}</p>
+              <p className="text-muted-foreground text-xs">
+                {event.startAt.toLocaleTimeString(calendarLocale, {
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+                {event.endAt
+                  ? ` - ${event.endAt.toLocaleTimeString(calendarLocale, {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}`
+                  : ''}
+              </p>
+            </div>
+          ))
+        ) : (
+          <p className="text-muted-foreground text-xs">
+            No events for this day.
+          </p>
+        )}
+      </div>
       <div className="mt-4 space-y-2">
         {Array.from({ length: 12 }, (_, index) => index + 8).map((hour) => (
           <div
@@ -224,6 +392,9 @@ export function CalendarContent({
               {date.toLocaleDateString(calendarLocale, { weekday: 'short' })}
             </p>
             <p className="mt-1 font-medium text-sm">{date.getDate()}</p>
+            <p className="mt-1 text-[10px] text-muted-foreground">
+              {eventCountByDay.get(getDateKey(date)) ?? 0} events
+            </p>
           </div>
         ))}
       </div>
@@ -244,38 +415,47 @@ export function CalendarContent({
             {day}
           </p>
         ))}
-        {monthCells.map(({ date, inMonth }) => (
-          <button
-            type="button"
-            key={date.toISOString()}
-            onDoubleClick={() => {
-              setSelectedDate(date);
-              setViewMode('Day');
-            }}
-            aria-label={`Open day view for ${date.toLocaleDateString(
-              calendarLocale,
-              {
-                weekday: 'long',
-                month: 'long',
-                day: 'numeric',
-                year: 'numeric'
-              }
-            )}`}
-            className={clsx(
-              'h-12 rounded-md border px-1 py-1 text-right text-sm',
-              inMonth
-                ? 'border-border bg-background'
-                : 'border-border/60 bg-muted/20 text-muted-foreground',
-              'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-            )}
-          >
-            <span
-              className={clsx(isSameDay(date, selectedDate) && 'font-bold')}
+        {monthCells.map(({ date, inMonth }) => {
+          const eventCount = eventCountByDay.get(getDateKey(date));
+
+          return (
+            <button
+              type="button"
+              key={date.toISOString()}
+              onDoubleClick={() => {
+                setSelectedDate(date);
+                setViewMode('Day');
+              }}
+              aria-label={`Open day view for ${date.toLocaleDateString(
+                calendarLocale,
+                {
+                  weekday: 'long',
+                  month: 'long',
+                  day: 'numeric',
+                  year: 'numeric'
+                }
+              )}`}
+              className={clsx(
+                'h-12 rounded-md border px-1 py-1 text-right text-sm',
+                inMonth
+                  ? 'border-border bg-background'
+                  : 'border-border/60 bg-muted/20 text-muted-foreground',
+                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
+              )}
             >
-              {date.getDate()}
-            </span>
-          </button>
-        ))}
+              <span
+                className={clsx(isSameDay(date, selectedDate) && 'font-bold')}
+              >
+                {date.getDate()}
+              </span>
+              {eventCount ? (
+                <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
+                  {eventCount}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -434,6 +614,9 @@ export function CalendarContent({
         <section className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="font-medium text-base">{activeCalendar}</p>
+            <p className="text-muted-foreground text-xs">
+              {dayEventCount} events on selected day
+            </p>
             <div className="flex items-center gap-2">
               <div
                 className="inline-flex items-center rounded-full border bg-muted/30 p-1"

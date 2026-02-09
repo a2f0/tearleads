@@ -44,6 +44,17 @@ vi.mock('./CalendarWindowMenuBar', () => ({
   CalendarWindowMenuBar: () => <div>Calendar Menu Bar</div>
 }));
 
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => ({
+    isUnlocked: true
+  })
+}));
+
+vi.mock('@/db/calendar-events', () => ({
+  getCalendarEvents: vi.fn(async () => []),
+  createCalendarEvent: vi.fn(async () => null)
+}));
+
 describe('CalendarWindow', () => {
   it('opens create dialog from shared context menu and submits calendar name', async () => {
     const user = userEvent.setup();

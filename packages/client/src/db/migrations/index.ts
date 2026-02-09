@@ -12,6 +12,7 @@ import { v008 } from './v008';
 import { v009 } from './v009';
 import { v010 } from './v010';
 import { v011 } from './v011';
+import { v012 } from './v012';
 
 export type { Migration, MigrationFn } from './types';
 export { addColumnIfNotExists, tableExists } from './utils';
@@ -31,7 +32,8 @@ export const migrations: Migration[] = [
   v008,
   v009,
   v010,
-  v011
+  v011,
+  v012
 ];
 
 /**

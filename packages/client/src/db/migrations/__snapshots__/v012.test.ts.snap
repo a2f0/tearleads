@@ -1,0 +1,17 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`v012 migration > creates calendar_events table and indexes 1`] = `
+[
+  "CREATE TABLE IF NOT EXISTS "calendar_events" (
+        "id" TEXT PRIMARY KEY NOT NULL,
+        "calendar_name" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "start_at" INTEGER NOT NULL,
+        "end_at" INTEGER,
+        "created_at" INTEGER NOT NULL,
+        "updated_at" INTEGER NOT NULL
+      )",
+  "CREATE INDEX IF NOT EXISTS "calendar_events_calendar_start_idx" ON "calendar_events" ("calendar_name", "start_at")",
+  "CREATE INDEX IF NOT EXISTS "calendar_events_start_idx" ON "calendar_events" ("start_at")",
+]
+`;

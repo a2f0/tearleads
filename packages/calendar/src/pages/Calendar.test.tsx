@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarContent } from '../components/CalendarContent';
 import { CALENDAR_CREATE_SUBMIT_EVENT } from '../events';
@@ -166,5 +167,56 @@ describe('Calendar', () => {
       screen.getByRole('button', { name: 'Go to previous period' })
     );
     expect(screen.getByText(String(currentYear))).toBeInTheDocument();
+  });
+
+  it('displays day events for active calendar', () => {
+    const selectedDate = new Date();
+    const eventDate = new Date(selectedDate);
+    eventDate.setHours(9, 0, 0, 0);
+
+    render(
+      <CalendarContent
+        events={[
+          {
+            id: 'event-1',
+            calendarName: 'Personal',
+            title: 'Team Standup',
+            startAt: eventDate,
+            endAt: new Date(eventDate.getTime() + 30 * 60 * 1000)
+          }
+        ]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
+    expect(screen.getByText('Team Standup')).toBeInTheDocument();
+  });
+
+  it('creates an event from day quick-add form', async () => {
+    const user = userEvent.setup();
+    const onCreateEvent = vi.fn<
+      (input: {
+        calendarName: string;
+        title: string;
+        startAt: Date;
+        endAt?: Date | null | undefined;
+      }) => Promise<void>
+    >(async () => {});
+    render(<CalendarContent onCreateEvent={onCreateEvent} />);
+
+    await user.click(screen.getByRole('tab', { name: 'Day' }));
+    await user.type(screen.getByLabelText('Event title'), 'Dentist');
+    await user.clear(screen.getByLabelText('Event start time'));
+    await user.type(screen.getByLabelText('Event start time'), '14:30');
+    await user.clear(screen.getByLabelText('Event duration in minutes'));
+    await user.type(screen.getByLabelText('Event duration in minutes'), '45');
+
+    await user.click(screen.getByRole('button', { name: 'Add Event' }));
+
+    expect(onCreateEvent).toHaveBeenCalledTimes(1);
+    expect(onCreateEvent.mock.calls[0]?.[0]).toMatchObject({
+      calendarName: 'Personal',
+      title: 'Dentist'
+    });
   });
 });
