@@ -402,6 +402,33 @@ describe('SearchWindowContent', () => {
       expect(mockOpenWindow).toHaveBeenCalledWith('notes');
     });
 
+    it('navigates to AI conversation on desktop to preserve context', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'ai-404',
+            entityType: 'ai_conversation',
+            document: { title: 'Chat about code' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.type(input, 'code');
+
+      await waitFor(() => {
+        expect(screen.getByText('Chat about code')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Chat about code'));
+      expect(mockNavigate).toHaveBeenCalledWith('/ai?conversation=ai-404');
+      expect(mockOpenWindow).not.toHaveBeenCalledWith('chat');
+    });
+
     it('navigates to contact when clicking contact result', async () => {
       const user = userEvent.setup();
       mockSearch.mockResolvedValue({

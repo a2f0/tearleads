@@ -181,7 +181,7 @@ export function SearchWindowContent({
         requestWindowOpen('notes', { noteId: result.id });
         return;
       case 'email':
-        openWindow('email');
+        navigate(route);
         return;
       case 'file':
         openWindow('documents');
@@ -192,10 +192,10 @@ export function SearchWindowContent({
         requestWindowOpen('audio', { playlistId: result.id });
         return;
       case 'album':
-        openWindow('audio');
+        navigate(route);
         return;
       case 'ai_conversation':
-        openWindow('chat');
+        navigate(route);
         return;
       default:
         navigate(route);
