@@ -364,6 +364,45 @@ describe('SearchWindowContent', () => {
       expect(mockNavigate).not.toHaveBeenCalled();
     });
 
+    it('stops click propagation when opening result on desktop', async () => {
+      const user = userEvent.setup();
+      const onContainerClick = vi.fn();
+      mockUseIsMobile.mockReturnValue(false);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'note-456',
+            entityType: 'note',
+            document: { title: 'Meeting Notes' }
+          }
+        ],
+        count: 1
+      });
+
+      render(
+        <div onClick={onContainerClick}>
+          <MemoryRouter>
+            <ThemeProvider>
+              <SearchWindowContent />
+            </ThemeProvider>
+          </MemoryRouter>
+        </div>
+      );
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.type(input, 'meeting');
+
+      await waitFor(() => {
+        expect(screen.getByText('Meeting Notes')).toBeInTheDocument();
+      });
+
+      onContainerClick.mockClear();
+      await user.click(screen.getByText('Meeting Notes'));
+
+      expect(onContainerClick).not.toHaveBeenCalled();
+      expect(mockOpenWindow).toHaveBeenCalledWith('notes');
+    });
+
     it('navigates to contact when clicking contact result', async () => {
       const user = userEvent.setup();
       mockSearch.mockResolvedValue({

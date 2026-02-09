@@ -9,6 +9,7 @@ import {
   StickyNote
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { MouseEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
@@ -156,7 +157,12 @@ export function SearchWindowContent({ viewMode = 'view' }: SearchWindowContentPr
     };
   }, [query, performSearch]);
 
-  const handleResultClick = (result: SearchResult) => {
+  const handleResultClick = (
+    result: SearchResult,
+    event?: MouseEvent<HTMLElement>
+  ) => {
+    event?.stopPropagation();
+
     const route = ENTITY_TYPE_ROUTES[result.entityType](result.id);
     if (isMobile) {
       navigate(route);
@@ -299,7 +305,7 @@ export function SearchWindowContent({ viewMode = 'view' }: SearchWindowContentPr
                       <tr
                         key={result.id}
                         className="cursor-pointer border-b hover:bg-muted/50"
-                        onClick={() => handleResultClick(result)}
+                        onClick={(event) => handleResultClick(result, event)}
                       >
                         <td className="px-3 py-2 font-medium">
                           {result.document.title}
@@ -324,7 +330,7 @@ export function SearchWindowContent({ viewMode = 'view' }: SearchWindowContentPr
                   <button
                     key={result.id}
                     type="button"
-                    onClick={() => handleResultClick(result)}
+                    onClick={(event) => handleResultClick(result, event)}
                     className="flex w-full items-start gap-3 px-3 py-3 text-left hover:bg-muted/50"
                   >
                     <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" />
