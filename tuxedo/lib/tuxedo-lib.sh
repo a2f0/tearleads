@@ -257,8 +257,8 @@ tuxedo_start_pr_dashboards() {
     case $refresh_seconds in ''|*[!0-9]*) refresh_seconds=30 ;; esac
     case $pr_limit in ''|*[!0-9]*) pr_limit=20 ;; esac
 
-    tmux send-keys -t "$SESSION_NAME:0.0" C-c "listOpenPrs.sh --watch --interval $refresh_seconds --limit $pr_limit" Enter
-    tmux send-keys -t "$SESSION_NAME:1.0" C-c "listRecentClosedPrs.sh --watch --interval $refresh_seconds --limit $pr_limit" Enter
+    tmux send-keys -t "$SESSION_NAME:0.0" C-c "$SCRIPT_DIR/scripts/listOpenPrs.sh --watch --interval $refresh_seconds --limit $pr_limit" Enter
+    tmux send-keys -t "$SESSION_NAME:1.0" C-c "$SCRIPT_DIR/scripts/listRecentClosedPrs.sh --watch --interval $refresh_seconds --limit $pr_limit" Enter
 }
 
 tuxedo_prepare_shared_dirs() {

@@ -246,8 +246,8 @@ sync_all_titles() {
 tuxedo_attach_or_create
 assert_contains "$(cat "$TMUX_CALLS")" "new-session -d -s tuxedo -c $SHARED_DIR -n rapid-shared -e PATH="
 assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo: -c $MAIN_DIR -n rapid-main -e PATH="
-assert_contains "$(cat "$TMUX_CALLS")" "send-keys -t tuxedo:0.0 C-c listOpenPrs.sh --watch --interval 30 --limit 20 Enter"
-assert_contains "$(cat "$TMUX_CALLS")" "send-keys -t tuxedo:1.0 C-c listRecentClosedPrs.sh --watch --interval 30 --limit 20 Enter"
+assert_contains "$(cat "$TMUX_CALLS")" "send-keys -t tuxedo:0.0 C-c /tmp/tux/scripts/listOpenPrs.sh --watch --interval 30 --limit 20 Enter"
+assert_contains "$(cat "$TMUX_CALLS")" "send-keys -t tuxedo:1.0 C-c /tmp/tux/scripts/listRecentClosedPrs.sh --watch --interval 30 --limit 20 Enter"
 assert_contains "$(cat "$TMUX_CALLS")" "attach-session -t tuxedo"
 
 TMUX_DASHBOARD_CALLS="$TEMP_DIR/tmux.dashboard.calls"
@@ -264,8 +264,8 @@ SESSION_NAME="tuxedo"
 TUXEDO_PR_REFRESH_SECONDS='30; rm -rf ~'
 TUXEDO_PR_LIST_LIMIT='20 && whoami'
 tuxedo_start_pr_dashboards
-assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "send-keys -t tuxedo:0.0 C-c listOpenPrs.sh --watch --interval 30 --limit 20 Enter"
-assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "send-keys -t tuxedo:1.0 C-c listRecentClosedPrs.sh --watch --interval 30 --limit 20 Enter"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "send-keys -t tuxedo:0.0 C-c /tmp/tux/scripts/listOpenPrs.sh --watch --interval 30 --limit 20 Enter"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "send-keys -t tuxedo:1.0 C-c /tmp/tux/scripts/listRecentClosedPrs.sh --watch --interval 30 --limit 20 Enter"
 unset TUXEDO_PR_REFRESH_SECONDS
 unset TUXEDO_PR_LIST_LIMIT
 
