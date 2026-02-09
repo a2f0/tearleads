@@ -14,7 +14,10 @@ import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { resolveFileOpenTarget } from '@/lib/vfs-open';
+import {
+  type FileOpenTarget,
+  resolveFileOpenTarget
+} from '@/lib/vfs-open';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import type { SearchViewMode } from './SearchWindowMenuBar';
@@ -192,26 +195,14 @@ export function SearchWindowContent({
       const fileTarget = await resolveFileOpenTarget(result.id);
 
       if (isMobile) {
-        switch (fileTarget) {
-          case 'audio':
-            navigate(`/audio/${result.id}`);
-            return;
-          case 'photo':
-            navigate(`/photos/${result.id}`);
-            return;
-          case 'video':
-            navigate(`/videos/${result.id}`);
-            return;
-          case 'document':
-            navigate(`/documents/${result.id}`);
-            return;
-          case 'file':
-            navigate(ENTITY_TYPE_ROUTES.file(result.id));
-            return;
-          default:
-            navigate(ENTITY_TYPE_ROUTES.file(result.id));
-            return;
-        }
+        const fileMobileRouteMap: Partial<Record<FileOpenTarget, string>> = {
+          audio: `/audio/${result.id}`,
+          photo: `/photos/${result.id}`,
+          video: `/videos/${result.id}`,
+          document: `/documents/${result.id}`
+        };
+        navigate(fileMobileRouteMap[fileTarget] ?? '/files');
+        return;
       }
 
       switch (fileTarget) {
@@ -232,9 +223,6 @@ export function SearchWindowContent({
           requestWindowOpen('documents', { documentId: result.id });
           return;
         case 'file':
-          openWindow('files');
-          requestWindowOpen('files', { fileId: result.id });
-          return;
         default:
           openWindow('files');
           requestWindowOpen('files', { fileId: result.id });

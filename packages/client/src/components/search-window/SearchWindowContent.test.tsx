@@ -522,68 +522,64 @@ describe('SearchWindowContent', () => {
       expect(mockOpenWindow).not.toHaveBeenCalledWith('chat');
     });
 
-    it('opens audio window when file resolves to audio on desktop', async () => {
-      const user = userEvent.setup();
-      mockUseIsMobile.mockReturnValue(false);
-      mockResolveFileOpenTarget.mockResolvedValue('audio');
-      mockSearch.mockResolvedValue({
-        hits: [
-          {
-            id: 'audio-456',
-            entityType: 'file',
-            document: { title: 'mix.flac' }
-          }
-        ],
-        count: 1
-      });
-      renderContent();
+    it.each([
+      {
+        fileTarget: 'audio',
+        fileId: 'audio-456',
+        fileTitle: 'mix.flac',
+        query: 'mix',
+        expectedWindow: 'audio',
+        expectedPayload: { audioId: 'audio-456' }
+      },
+      {
+        fileTarget: 'photo',
+        fileId: 'photo-456',
+        fileTitle: 'cover.png',
+        query: 'cover',
+        expectedWindow: 'photos',
+        expectedPayload: { photoId: 'photo-456' }
+      }
+    ])(
+      'opens $expectedWindow window when file resolves to $fileTarget on desktop',
+      async ({
+        fileTarget,
+        fileId,
+        fileTitle,
+        query,
+        expectedWindow,
+        expectedPayload
+      }) => {
+        const user = userEvent.setup();
+        mockUseIsMobile.mockReturnValue(false);
+        mockResolveFileOpenTarget.mockResolvedValue(fileTarget);
+        mockSearch.mockResolvedValue({
+          hits: [
+            {
+              id: fileId,
+              entityType: 'file',
+              document: { title: fileTitle }
+            }
+          ],
+          count: 1
+        });
+        renderContent();
 
-      await searchFor(user, 'mix');
+        await searchFor(user, query);
 
-      await waitFor(() => {
-        expect(screen.getByText('mix.flac')).toBeInTheDocument();
-      });
+        await waitFor(() => {
+          expect(screen.getByText(fileTitle)).toBeInTheDocument();
+        });
 
-      await user.click(screen.getByText('mix.flac'));
-      await waitFor(() => {
-        expect(mockOpenWindow).toHaveBeenCalledWith('audio');
-      });
-      expect(mockRequestWindowOpen).toHaveBeenCalledWith('audio', {
-        audioId: 'audio-456'
-      });
-      expect(mockNavigate).not.toHaveBeenCalledWith('/documents/audio-456');
-    });
-
-    it('opens photos window when file resolves to photo on desktop', async () => {
-      const user = userEvent.setup();
-      mockUseIsMobile.mockReturnValue(false);
-      mockResolveFileOpenTarget.mockResolvedValue('photo');
-      mockSearch.mockResolvedValue({
-        hits: [
-          {
-            id: 'photo-456',
-            entityType: 'file',
-            document: { title: 'cover.png' }
-          }
-        ],
-        count: 1
-      });
-      renderContent();
-
-      await searchFor(user, 'cover');
-
-      await waitFor(() => {
-        expect(screen.getByText('cover.png')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByText('cover.png'));
-      await waitFor(() => {
-        expect(mockOpenWindow).toHaveBeenCalledWith('photos');
-      });
-      expect(mockRequestWindowOpen).toHaveBeenCalledWith('photos', {
-        photoId: 'photo-456'
-      });
-    });
+        await user.click(screen.getByText(fileTitle));
+        await waitFor(() => {
+          expect(mockOpenWindow).toHaveBeenCalledWith(expectedWindow);
+        });
+        expect(mockRequestWindowOpen).toHaveBeenCalledWith(
+          expectedWindow,
+          expectedPayload
+        );
+      }
+    );
 
     it('navigates to contact when clicking contact result', async () => {
       const user = userEvent.setup();
@@ -686,83 +682,57 @@ describe('SearchWindowContent', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/emails/email-789');
     });
 
-    it('navigates to document detail when file resolves to document', async () => {
-      const user = userEvent.setup();
-      mockSearch.mockResolvedValue({
-        hits: [
-          {
-            id: 'file-101',
-            entityType: 'file',
-            document: { title: 'document.pdf' }
-          }
-        ],
-        count: 1
-      });
-      renderContent();
+    it.each([
+      {
+        fileTarget: 'document',
+        fileId: 'file-101',
+        fileTitle: 'document.pdf',
+        query: 'document',
+        expectedRoute: '/documents/file-101'
+      },
+      {
+        fileTarget: 'audio',
+        fileId: 'audio-101',
+        fileTitle: 'track.mp3',
+        query: 'track',
+        expectedRoute: '/audio/audio-101'
+      },
+      {
+        fileTarget: 'photo',
+        fileId: 'photo-101',
+        fileTitle: 'image.jpg',
+        query: 'image',
+        expectedRoute: '/photos/photo-101'
+      }
+    ])(
+      'navigates to $expectedRoute when file resolves to $fileTarget',
+      async ({ fileTarget, fileId, fileTitle, query, expectedRoute }) => {
+        const user = userEvent.setup();
+        mockResolveFileOpenTarget.mockResolvedValue(fileTarget);
+        mockSearch.mockResolvedValue({
+          hits: [
+            {
+              id: fileId,
+              entityType: 'file',
+              document: { title: fileTitle }
+            }
+          ],
+          count: 1
+        });
+        renderContent();
 
-      await searchFor(user, 'document');
+        await searchFor(user, query);
 
-      await waitFor(() => {
-        expect(screen.getByText('document.pdf')).toBeInTheDocument();
-      });
+        await waitFor(() => {
+          expect(screen.getByText(fileTitle)).toBeInTheDocument();
+        });
 
-      await user.click(screen.getByText('document.pdf'));
-      expect(mockNavigate).toHaveBeenCalledWith('/documents/file-101');
-    });
-
-    it('navigates to audio detail when file resolves to audio', async () => {
-      const user = userEvent.setup();
-      mockResolveFileOpenTarget.mockResolvedValue('audio');
-      mockSearch.mockResolvedValue({
-        hits: [
-          {
-            id: 'audio-101',
-            entityType: 'file',
-            document: { title: 'track.mp3' }
-          }
-        ],
-        count: 1
-      });
-      renderContent();
-
-      await searchFor(user, 'track');
-
-      await waitFor(() => {
-        expect(screen.getByText('track.mp3')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByText('track.mp3'));
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/audio/audio-101');
-      });
-    });
-
-    it('navigates to photo detail when file resolves to photo', async () => {
-      const user = userEvent.setup();
-      mockResolveFileOpenTarget.mockResolvedValue('photo');
-      mockSearch.mockResolvedValue({
-        hits: [
-          {
-            id: 'photo-101',
-            entityType: 'file',
-            document: { title: 'image.jpg' }
-          }
-        ],
-        count: 1
-      });
-      renderContent();
-
-      await searchFor(user, 'image');
-
-      await waitFor(() => {
-        expect(screen.getByText('image.jpg')).toBeInTheDocument();
-      });
-
-      await user.click(screen.getByText('image.jpg'));
-      await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/photos/photo-101');
-      });
-    });
+        await user.click(screen.getByText(fileTitle));
+        await waitFor(() => {
+          expect(mockNavigate).toHaveBeenCalledWith(expectedRoute);
+        });
+      }
+    );
 
     it('navigates to playlist when clicking playlist result', async () => {
       const user = userEvent.setup();
