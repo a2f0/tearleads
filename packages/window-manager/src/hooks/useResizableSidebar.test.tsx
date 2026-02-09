@@ -15,7 +15,7 @@ function TestSidebar({ onWidthChange, resizeFrom }: TestSidebarProps) {
   const { resizeHandleProps } = useResizableSidebar({
     width,
     ariaLabel: 'Resize test sidebar',
-    resizeFrom,
+    ...(resizeFrom ? { resizeFrom } : {}),
     onWidthChange: (nextWidth) => {
       setWidth(nextWidth);
       onWidthChange?.(nextWidth);
