@@ -106,14 +106,17 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
   );
 
   const fetchAudioFiles = useCallback(
-    async (ids?: string[] | null): Promise<AudioInfo[]> => {
+    async (
+      ids?: string[] | null,
+      includeDeleted = false
+    ): Promise<AudioInfo[]> => {
       const db = getDatabase();
 
       if (ids && ids.length === 0) return [];
 
       const baseConditions = and(
         like(files.mimeType, 'audio/%'),
-        eq(files.deleted, false)
+        includeDeleted ? undefined : eq(files.deleted, false)
       );
       const whereClause =
         ids && ids.length > 0
@@ -128,7 +131,8 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
           mimeType: files.mimeType,
           uploadDate: files.uploadDate,
           storagePath: files.storagePath,
-          thumbnailPath: files.thumbnailPath
+          thumbnailPath: files.thumbnailPath,
+          deleted: files.deleted
         })
         .from(files)
         .where(whereClause)
@@ -141,15 +145,19 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
         mimeType: row.mimeType,
         uploadDate: row.uploadDate,
         storagePath: row.storagePath,
-        thumbnailPath: row.thumbnailPath
+        thumbnailPath: row.thumbnailPath,
+        deleted: row.deleted
       }));
     },
     []
   );
 
   const fetchAudioFilesWithUrls = useCallback(
-    async (ids?: string[] | null): Promise<AudioWithUrl[]> => {
-      const audioFiles = await fetchAudioFiles(ids);
+    async (
+      ids?: string[] | null,
+      includeDeleted = false
+    ): Promise<AudioWithUrl[]> => {
+      const audioFiles = await fetchAudioFiles(ids, includeDeleted);
 
       const keyManager = getKeyManager();
       const encryptionKey = keyManager.getCurrentKey();

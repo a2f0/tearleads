@@ -65,7 +65,8 @@ describe('usePhotosWindowData', () => {
       mimeType: 'image/jpeg',
       uploadDate: new Date('2024-01-01T00:00:00Z'),
       storagePath: '/photos/photo.jpg',
-      thumbnailPath: null
+      thumbnailPath: null,
+      deleted: false
     }
   ];
 
@@ -175,7 +176,8 @@ describe('usePhotosWindowData', () => {
         mimeType: 'image/png',
         uploadDate: new Date('2024-01-01T00:00:00Z'),
         storagePath: '/photos/photo.jpg',
-        thumbnailPath: '/photos/thumb.jpg'
+        thumbnailPath: '/photos/thumb.jpg',
+        deleted: false
       },
       {
         id: 'photo-2',
@@ -184,7 +186,8 @@ describe('usePhotosWindowData', () => {
         mimeType: 'image/jpeg',
         uploadDate: new Date('2024-01-02T00:00:00Z'),
         storagePath: '/photos/broken.jpg',
-        thumbnailPath: null
+        thumbnailPath: null,
+        deleted: false
       }
     ]);
     mockRetrieve.mockImplementation((path: string) => {

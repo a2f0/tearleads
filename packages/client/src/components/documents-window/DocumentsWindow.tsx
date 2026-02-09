@@ -39,6 +39,7 @@ export function DocumentsWindow({
     null
   );
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [showDeleted, setShowDeleted] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const [showDropzone, setShowDropzone] = useState(false);
@@ -127,6 +128,8 @@ export function DocumentsWindow({
           <DocumentsWindowMenuBar
             viewMode={viewMode}
             onViewModeChange={setViewMode}
+            showDeleted={showDeleted}
+            onShowDeletedChange={setShowDeleted}
             showDropzone={showDropzone}
             onShowDropzoneChange={setShowDropzone}
             onUpload={handleUpload}
@@ -162,6 +165,7 @@ export function DocumentsWindow({
                 onSelectDocument={setSelectedDocumentId}
                 refreshToken={refreshToken}
                 viewMode={viewMode}
+                showDeleted={showDeleted}
                 showDropzone={showDropzone}
                 onUpload={handleUpload}
                 onOpenAIChat={handleOpenAIChat}

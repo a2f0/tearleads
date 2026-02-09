@@ -24,6 +24,7 @@ interface AudioWindowTableViewProps {
   onSelectTrack?: (trackId: string) => void;
   refreshToken?: number;
   selectedPlaylistId?: string | null;
+  showDeleted?: boolean;
 }
 
 interface SortHeaderProps {
@@ -86,7 +87,8 @@ function getAudioTypeDisplay(mimeType: string): string {
 export function AudioWindowTableView({
   onSelectTrack,
   refreshToken = 0,
-  selectedPlaylistId
+  selectedPlaylistId,
+  showDeleted = false
 }: AudioWindowTableViewProps) {
   const {
     databaseState,
@@ -175,7 +177,8 @@ export function AudioWindowTableView({
       }
 
       const tracksWithUrls = await fetchAudioFilesWithUrls(
-        trackIds ?? undefined
+        trackIds ?? undefined,
+        showDeleted
       );
       setTracks(tracksWithUrls);
       setHasFetched(true);
@@ -191,14 +194,15 @@ export function AudioWindowTableView({
     getTrackIdsInPlaylist,
     isUnlocked,
     logError,
-    selectedPlaylistId
+    selectedPlaylistId,
+    showDeleted
   ]);
 
   const fetchedForFilterRef = useRef<string | null>(null);
 
   useEffect(() => {
     const filterKey = selectedPlaylistId ?? ALL_AUDIO_ID;
-    const fetchKey = `${currentInstanceId ?? 'none'}:${filterKey}`;
+    const fetchKey = `${currentInstanceId ?? 'none'}:${filterKey}:${showDeleted ? 'all' : 'active'}`;
 
     const needsFetch =
       isUnlocked &&
@@ -239,6 +243,7 @@ export function AudioWindowTableView({
     isUnlocked,
     loading,
     selectedPlaylistId,
+    showDeleted,
     tracks
   ]);
 

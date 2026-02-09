@@ -22,6 +22,7 @@ const ROW_HEIGHT_ESTIMATE = 56;
 interface AudioWindowListProps {
   onSelectTrack?: (trackId: string) => void;
   refreshToken?: number;
+  showDeleted?: boolean;
   showDropzone?: boolean;
   onUploadFiles?: (files: File[]) => void | Promise<void>;
   selectedPlaylistId?: string | null;
@@ -33,6 +34,7 @@ interface AudioWindowListProps {
 export function AudioWindowList({
   onSelectTrack,
   refreshToken = 0,
+  showDeleted = false,
   showDropzone = false,
   onUploadFiles,
   selectedPlaylistId,
@@ -126,7 +128,8 @@ export function AudioWindowList({
       }
 
       const tracksWithUrls = await fetchAudioFilesWithUrls(
-        trackIds ?? undefined
+        trackIds ?? undefined,
+        showDeleted
       );
       setTracks(tracksWithUrls);
       setHasFetched(true);
@@ -142,14 +145,15 @@ export function AudioWindowList({
     getTrackIdsInPlaylist,
     isUnlocked,
     logError,
-    selectedPlaylistId
+    selectedPlaylistId,
+    showDeleted
   ]);
 
   const fetchedForFilterRef = useRef<string | null>(null);
 
   useEffect(() => {
     const filterKey = selectedPlaylistId ?? ALL_AUDIO_ID;
-    const fetchKey = `${currentInstanceId ?? 'none'}:${filterKey}`;
+    const fetchKey = `${currentInstanceId ?? 'none'}:${filterKey}:${showDeleted ? 'all' : 'active'}`;
 
     const needsFetch =
       isUnlocked &&
@@ -190,6 +194,7 @@ export function AudioWindowList({
     isUnlocked,
     loading,
     selectedPlaylistId,
+    showDeleted,
     tracks
   ]);
 

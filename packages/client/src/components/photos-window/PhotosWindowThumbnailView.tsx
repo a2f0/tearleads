@@ -6,6 +6,7 @@ interface PhotosWindowThumbnailViewProps {
   showDropzone?: boolean;
   selectedAlbumId?: string | null;
   onOpenAIChat?: () => void;
+  showDeleted?: boolean;
 }
 
 export function PhotosWindowThumbnailView({
@@ -13,7 +14,8 @@ export function PhotosWindowThumbnailView({
   onSelectPhoto,
   showDropzone,
   selectedAlbumId,
-  onOpenAIChat
+  onOpenAIChat,
+  showDeleted = false
 }: PhotosWindowThumbnailViewProps) {
   return (
     <div className="h-full overflow-auto p-3">
@@ -24,6 +26,7 @@ export function PhotosWindowThumbnailView({
         showDropzone={showDropzone}
         selectedAlbumId={selectedAlbumId}
         onOpenAIChat={onOpenAIChat}
+        showDeleted={showDeleted}
       />
     </div>
   );

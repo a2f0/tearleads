@@ -41,6 +41,7 @@ export function PhotosWindow({
   const openRequest = windowOpenRequests.photos;
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [showDeleted, setShowDeleted] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const [showDropzone, setShowDropzone] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(200);
@@ -184,6 +185,8 @@ export function PhotosWindow({
           onClose={onClose}
           viewMode={viewMode}
           onViewModeChange={setViewMode}
+          showDeleted={showDeleted}
+          onShowDeletedChange={setShowDeleted}
           showDropzone={showDropzone}
           onShowDropzoneChange={setShowDropzone}
         />
@@ -221,6 +224,7 @@ export function PhotosWindow({
                         uploadProgress={uploadProgress}
                         onUpload={handleUpload}
                         onOpenAIChat={handleOpenAIChat}
+                        showDeleted={showDeleted}
                       />
                     )}
                     {viewMode === 'table' && (
@@ -229,6 +233,7 @@ export function PhotosWindow({
                         refreshToken={refreshToken}
                         selectedAlbumId={selectedAlbumId}
                         onOpenAIChat={handleOpenAIChat}
+                        showDeleted={showDeleted}
                       />
                     )}
                   </div>
@@ -240,6 +245,7 @@ export function PhotosWindow({
                     showDropzone={showDropzone}
                     selectedAlbumId={selectedAlbumId}
                     onOpenAIChat={handleOpenAIChat}
+                    showDeleted={showDeleted}
                   />
                 )}
               </>
