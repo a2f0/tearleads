@@ -12,6 +12,7 @@ type FooterProps = {
   rightAction?: ReactNode;
   version?: string;
   className?: string;
+  copyrightText?: string;
 };
 
 const mockUseSSEContext = vi.fn();
@@ -26,9 +27,11 @@ vi.mock('@rapid/ui', () => ({
     children,
     connectionIndicator,
     leftAction,
-    rightAction
+    rightAction,
+    copyrightText: _copyrightText,
+    ...props
   }: FooterProps) => (
-    <footer>
+    <footer {...props}>
       {leftAction}
       {connectionIndicator}
       {rightAction}
@@ -238,6 +241,18 @@ describe('App', () => {
       fireEvent.keyDown(document, { key: 'Escape' });
 
       expect(screen.queryByText('Open Search')).not.toBeInTheDocument();
+      expect(screen.queryByText('Lock Instance')).not.toBeInTheDocument();
+    });
+
+    it('shows search-only context menu on right-click of footer area', () => {
+      mockUseSSEContext.mockReturnValue(null);
+
+      renderApp();
+
+      const footer = screen.getByRole('contentinfo');
+      fireEvent.contextMenu(footer);
+
+      expect(screen.getByText('Open Search')).toBeInTheDocument();
       expect(screen.queryByText('Lock Instance')).not.toBeInTheDocument();
     });
   });

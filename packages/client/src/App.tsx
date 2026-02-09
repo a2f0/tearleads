@@ -45,6 +45,7 @@ function App() {
   const [startMenuContextMenu, setStartMenuContextMenu] = useState<{
     x: number;
     y: number;
+    showLockAction: boolean;
   } | null>(null);
   const [sseContextMenu, setSseContextMenu] = useState<{
     x: number;
@@ -106,7 +107,11 @@ function App() {
   const handleStartMenuContextMenu = useCallback(
     (event: React.MouseEvent<HTMLElement>) => {
       event.preventDefault();
-      setStartMenuContextMenu({ x: event.clientX, y: event.clientY });
+      setStartMenuContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        showLockAction: true
+      });
     },
     []
   );
@@ -117,7 +122,42 @@ function App() {
         return;
       }
       event.preventDefault();
-      setStartMenuContextMenu({ x: event.clientX, y: event.clientY });
+      setStartMenuContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        showLockAction: true
+      });
+    },
+    []
+  );
+
+  const handleTaskbarContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      event.preventDefault();
+      setStartMenuContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        showLockAction: false
+      });
+    },
+    []
+  );
+
+  const handleFooterContextMenu = useCallback(
+    (event: React.MouseEvent<HTMLElement>) => {
+      const target = event.target;
+      if (
+        target instanceof HTMLElement &&
+        target.closest('[data-testid="start-bar"]')
+      ) {
+        return;
+      }
+      event.preventDefault();
+      setStartMenuContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        showLockAction: false
+      });
     },
     []
   );
@@ -204,6 +244,7 @@ function App() {
       </div>
       <Footer
         version={undefined}
+        onContextMenu={handleFooterContextMenu}
         leftAction={
           // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on start bar
           <section
@@ -226,7 +267,7 @@ function App() {
                 <img src={logo} alt="" className="h-6 w-6" aria-hidden="true" />
               </button>
             </div>
-            <Taskbar onContextMenu={handleStartMenuContextMenu} />
+            <Taskbar onContextMenu={handleTaskbarContextMenu} />
           </section>
         }
         copyrightText=""
@@ -243,12 +284,14 @@ function App() {
           >
             Open Search
           </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Lock className="h-4 w-4" />}
-            onClick={handleLockInstance}
-          >
-            Lock Instance
-          </ContextMenuItem>
+          {startMenuContextMenu.showLockAction && (
+            <ContextMenuItem
+              icon={<Lock className="h-4 w-4" />}
+              onClick={handleLockInstance}
+            >
+              Lock Instance
+            </ContextMenuItem>
+          )}
         </ContextMenu>
       )}
       <div
