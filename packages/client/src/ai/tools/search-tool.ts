@@ -15,7 +15,7 @@ export const searchToolDefinition: ToolDefinition = {
   function: {
     name: 'search_user_data',
     description:
-      "Search across the user's contacts, notes, emails, files, playlists, albums, and AI conversations. " +
+      "Search across the user's apps, contacts, notes, emails, files, playlists, albums, and AI conversations. " +
       'Use this tool when the user asks about their data, wants to find something, or references information ' +
       'that might be stored in their database. Returns relevant results with titles and previews.',
     parameters: {
@@ -32,6 +32,7 @@ export const searchToolDefinition: ToolDefinition = {
           items: {
             type: 'string',
             enum: [
+              'app',
               'contact',
               'note',
               'email',
@@ -183,6 +184,7 @@ export function formatSearchResultsForDisplay(
 }
 
 const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {
+  app: 'App',
   contact: 'Contact',
   note: 'Note',
   email: 'Email',

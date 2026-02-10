@@ -1,5 +1,6 @@
 import { WindowStatusBar } from '@rapid/window-manager';
 import {
+  AppWindow,
   Contact,
   File,
   Loader2,
@@ -16,11 +17,13 @@ import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfs-open';
+import { getSearchableAppById } from '@/search/appCatalog';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import type { SearchViewMode } from './SearchWindowMenuBar';
 
 const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {
+  app: 'App',
   contact: 'Contact',
   note: 'Note',
   email: 'Email',
@@ -34,6 +37,7 @@ const ENTITY_TYPE_ICONS: Record<
   SearchableEntityType,
   React.ComponentType<{ className?: string }>
 > = {
+  app: AppWindow,
   contact: Contact,
   note: StickyNote,
   email: Mail,
@@ -45,6 +49,7 @@ const ENTITY_TYPE_ICONS: Record<
 
 const ENTITY_TYPE_ROUTES: Record<SearchableEntityType, (id: string) => string> =
   {
+    app: (_id) => '/',
     contact: (id) => `/contacts/${id}`,
     note: (id) => `/notes/${id}`,
     email: (id) => `/emails/${id}`,
@@ -57,6 +62,7 @@ const ENTITY_TYPE_ROUTES: Record<SearchableEntityType, (id: string) => string> =
 const FILTER_OPTIONS: { label: string; value: SearchableEntityType | 'all' }[] =
   [
     { label: 'All', value: 'all' },
+    { label: 'Apps', value: 'app' },
     { label: 'Contacts', value: 'contact' },
     { label: 'Notes', value: 'note' },
     { label: 'Emails', value: 'email' },
@@ -207,6 +213,21 @@ export function SearchWindowContent({
   const handleResultClick = useCallback(
     async (result: SearchResult, event?: MouseEvent<HTMLElement>) => {
       event?.stopPropagation();
+
+      if (result.entityType === 'app') {
+        const app = getSearchableAppById(result.id);
+        if (!app) {
+          return;
+        }
+
+        if (isMobile) {
+          navigate(app.path);
+          return;
+        }
+
+        openWindow(app.windowType);
+        return;
+      }
 
       if (result.entityType === 'file') {
         const fileTarget = await resolveFileOpenTarget(result.id);
@@ -520,7 +541,7 @@ export function SearchWindowContent({
             : isSearching
               ? 'Searching...'
               : searchDurationMs === null
-                ? 'Ready'
+                ? `${documentCount} item${documentCount === 1 ? '' : 's'} indexed`
                 : `Search took ${searchDurationMs} ms`}
       </WindowStatusBar>
     </div>

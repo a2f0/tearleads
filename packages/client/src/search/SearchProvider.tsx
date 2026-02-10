@@ -23,6 +23,7 @@ import { getDatabase } from '@/db';
 import { getKeyManagerForInstance } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
 import { useOnInstanceChange } from '@/hooks/useInstanceChange';
+import { createSearchableAppDocuments } from './appCatalog';
 import {
   createContactDocument,
   createFileDocument,
@@ -48,6 +49,35 @@ const SearchContext = createContext<SearchContextValue | null>(null);
 
 interface SearchProviderProps {
   children: ReactNode;
+}
+
+function runAfterUiPaint(callback: () => void): () => void {
+  if (typeof window === 'undefined') {
+    callback();
+    return () => {};
+  }
+
+  let animationFrame1: number | null = null;
+  let animationFrame2: number | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  animationFrame1 = window.requestAnimationFrame(() => {
+    animationFrame2 = window.requestAnimationFrame(() => {
+      timeoutId = setTimeout(callback, 0);
+    });
+  });
+
+  return () => {
+    if (animationFrame1 !== null) {
+      window.cancelAnimationFrame(animationFrame1);
+    }
+    if (animationFrame2 !== null) {
+      window.cancelAnimationFrame(animationFrame2);
+    }
+    if (timeoutId !== null) {
+      clearTimeout(timeoutId);
+    }
+  };
 }
 
 /**
@@ -167,6 +197,7 @@ export function SearchProvider({ children }: SearchProviderProps) {
   // Initialize search store when database is unlocked
   useEffect(() => {
     let mounted = true;
+    let cancelDeferredAppIndex: (() => void) | null = null;
 
     async function initializeSearch() {
       if (!currentInstanceId || !isUnlocked) {
@@ -204,6 +235,17 @@ export function SearchProvider({ children }: SearchProviderProps) {
               console.error('Search: Initial rebuild failed:', rebuildErr);
             }
           }
+
+          cancelDeferredAppIndex = runAfterUiPaint(() => {
+            if (!mounted) {
+              return;
+            }
+            void store
+              .upsertBatch(createSearchableAppDocuments())
+              .catch((appIndexErr) => {
+                console.error('Search: Failed to index app catalog:', appIndexErr);
+              });
+          });
         }
       } catch (err) {
         console.error('Search: Failed to initialize store:', err);
@@ -214,6 +256,9 @@ export function SearchProvider({ children }: SearchProviderProps) {
 
     return () => {
       mounted = false;
+      if (cancelDeferredAppIndex) {
+        cancelDeferredAppIndex();
+      }
     };
   }, [currentInstanceId, isUnlocked]);
 
