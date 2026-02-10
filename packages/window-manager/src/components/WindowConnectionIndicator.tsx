@@ -7,7 +7,7 @@ export type ConnectionState = 'connected' | 'connecting' | 'disconnected';
 export interface WindowConnectionIndicatorProps {
   state: ConnectionState;
   tooltip: string;
-  onContextMenu?: MouseEventHandler<HTMLDivElement> | undefined;
+  onContextMenu?: MouseEventHandler<HTMLButtonElement> | undefined;
   className?: string | undefined;
   indicatorClassName?: string | undefined;
 }
@@ -20,10 +20,10 @@ export function WindowConnectionIndicator({
   indicatorClassName
 }: WindowConnectionIndicatorProps) {
   return (
-    // biome-ignore lint/a11y/noStaticElementInteractions: Context menu handler for indicator wrapper
-    <div
+    <button
+      type="button"
       className={cn(
-        'flex h-6 w-6 cursor-pointer items-center justify-center',
+        'flex h-6 w-6 cursor-pointer items-center justify-center rounded-none border-none bg-transparent p-0',
         className
       )}
       onContextMenu={onContextMenu}
@@ -56,6 +56,6 @@ export function WindowConnectionIndicator({
           </TooltipPrimitive.Portal>
         </TooltipPrimitive.Root>
       </TooltipPrimitive.Provider>
-    </div>
+    </button>
   );
 }

@@ -37,11 +37,11 @@ describe('WindowConnectionIndicator', () => {
       />
     );
 
-    const wrapper = screen.getByLabelText(
-      'Connection status: connecting'
-    ).parentElement;
+    const wrapper = screen
+      .getByLabelText('Connection status: connecting')
+      .closest('button');
     expect(wrapper).not.toBeNull();
-    if (wrapper instanceof HTMLDivElement) {
+    if (wrapper) {
       fireEvent.contextMenu(wrapper);
     }
     expect(onContextMenu).toHaveBeenCalledOnce();
@@ -58,7 +58,7 @@ describe('WindowConnectionIndicator', () => {
     );
 
     const indicator = screen.getByLabelText('Connection status: disconnected');
-    expect(indicator.parentElement).toHaveClass('wrapper-class');
+    expect(indicator.closest('button')).toHaveClass('wrapper-class');
     expect(indicator).toHaveClass('indicator-class');
   });
 });

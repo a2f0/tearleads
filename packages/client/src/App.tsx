@@ -188,7 +188,7 @@ function App() {
   }, [isDesktop, navigate, openWindow]);
 
   const handleSseContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       setSseContextMenu({ x: event.clientX, y: event.clientY });
     },
