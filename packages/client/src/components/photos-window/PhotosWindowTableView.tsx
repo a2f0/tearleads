@@ -283,6 +283,7 @@ export function PhotosWindowTableView({
               Loading photos...
             </div>
           ) : sortedPhotos.length === 0 && hasFetched ? (
+            // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
             <div
               className="rounded-lg border p-6 text-center text-muted-foreground text-xs"
               onContextMenu={handleBlankSpaceContextMenu}
@@ -290,6 +291,7 @@ export function PhotosWindowTableView({
               No photos yet. Use Upload to add images.
             </div>
           ) : (
+            // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space
             <div
               className="flex-1 overflow-auto rounded-lg border"
               data-testid="photos-table-container"

@@ -213,6 +213,7 @@ export function ContactsWindowTableView({
             Loading contacts...
           </div>
         ) : contactsList.length === 0 && hasFetched ? (
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
           <div
             className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center"
             onContextMenu={handleEmptySpaceContextMenu}
@@ -234,6 +235,7 @@ export function ContactsWindowTableView({
             </Button>
           </div>
         ) : (
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space
           <div
             className="flex-1 overflow-auto rounded-lg border"
             data-testid="contacts-table-container"

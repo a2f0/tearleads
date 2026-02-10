@@ -543,6 +543,7 @@ export function FilesWindowTableView({
             Loading files...
           </div>
         ) : filteredFiles.length === 0 && hasFetched ? (
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
           <div
             className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center"
             onContextMenu={handleBlankSpaceContextMenu}
@@ -564,6 +565,7 @@ export function FilesWindowTableView({
             </Button>
           </div>
         ) : (
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space
           <div
             className="flex-1 overflow-auto rounded-lg border"
             data-testid="files-table-container"
