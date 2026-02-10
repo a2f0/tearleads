@@ -1,6 +1,11 @@
 import { useCallback, useState } from 'react';
-import { getDatabase, getDatabaseAdapter } from '../db';
-import { contactEmails, contactPhones, contacts } from '../db/schema';
+import {
+  createContactDocument,
+  indexDocuments,
+  type SearchableDocument
+} from '@/search';
+import { getCurrentInstanceId, getDatabase, getDatabaseAdapter } from '@/db';
+import { contactEmails, contactPhones, contacts } from '@/db/schema';
 
 /** Parsed CSV data with headers and rows */
 export interface ParsedCSV {
@@ -162,6 +167,7 @@ export function useContactsImport() {
       setProgress(0);
 
       const adapter = getDatabaseAdapter();
+      const importedDocs: SearchableDocument[] = [];
 
       let processedCount = 0;
       for (const row of data.rows) {
@@ -269,6 +275,22 @@ export function useContactsImport() {
           }
 
           await adapter.commitTransaction();
+
+          importedDocs.push(
+            createContactDocument(
+              contactId,
+              firstName,
+              lastName,
+              emails.length > 0
+                ? emails.map((email) => email.value).join(' ')
+                : null,
+              phones.length > 0
+                ? phones.map((phone) => phone.value).join(' ')
+                : null,
+              now.getTime(),
+              now.getTime()
+            )
+          );
           result.imported++;
         } catch (err) {
           await adapter.rollbackTransaction();
@@ -280,6 +302,15 @@ export function useContactsImport() {
 
         processedCount++;
         setProgress(Math.round((processedCount / data.rows.length) * 100));
+      }
+
+      const currentInstanceId = getCurrentInstanceId();
+      if (currentInstanceId && importedDocs.length > 0) {
+        try {
+          await indexDocuments(currentInstanceId, importedDocs);
+        } catch (indexErr) {
+          console.warn('Failed to index imported contacts:', indexErr);
+        }
       }
 
       setImporting(false);

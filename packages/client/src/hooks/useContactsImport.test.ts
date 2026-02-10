@@ -11,15 +11,60 @@ import { parseCSV, useContactsImport } from './useContactsImport';
 const mockInsert = vi.fn().mockReturnValue({
   values: vi.fn().mockResolvedValue(undefined)
 });
+const mockCreateContactDocument = vi.fn(
+  (
+    id: string,
+    firstName: string,
+    lastName: string | null,
+    email?: string | null,
+    phone?: string | null,
+    createdAt?: number,
+    updatedAt?: number
+  ) => ({
+    id,
+    entityType: 'contact' as const,
+    title: [firstName, lastName].filter(Boolean).join(' ') || 'Unknown',
+    ...(email && { metadata: email }),
+    ...(phone && { content: phone }),
+    createdAt: createdAt ?? 0,
+    updatedAt: updatedAt ?? 0
+  })
+);
+const mockIndexDocuments = vi.fn().mockResolvedValue(undefined);
+
 vi.mock('@/db', () => ({
   getDatabase: vi.fn(() => ({
     insert: mockInsert
   })),
+  getCurrentInstanceId: vi.fn(() => 'test-instance'),
   getDatabaseAdapter: vi.fn(() => ({
     beginTransaction: vi.fn().mockResolvedValue(undefined),
     commitTransaction: vi.fn().mockResolvedValue(undefined),
     rollbackTransaction: vi.fn().mockResolvedValue(undefined)
   }))
+}));
+
+vi.mock('@/search', () => ({
+  createContactDocument: (
+    id: string,
+    firstName: string,
+    lastName: string | null,
+    email?: string | null,
+    phone?: string | null,
+    createdAt?: number,
+    updatedAt?: number
+  ) =>
+    mockCreateContactDocument(
+      id,
+      firstName,
+      lastName,
+      email,
+      phone,
+      createdAt,
+      updatedAt
+    ),
+  indexDocuments: (instanceId: string, docs: unknown[]) =>
+    mockIndexDocuments(instanceId, docs)
 }));
 
 describe('parseCSV', () => {
@@ -476,6 +521,41 @@ describe('useContactsImport', () => {
       expect(importResult.imported).toBe(1);
       expect(importResult.skipped).toBe(0);
       expect(importResult.errors).toHaveLength(0);
+    });
+
+    it('indexes imported contacts for search after CSV import', async () => {
+      const data: ParsedCSV = {
+        headers: ['FirstName', 'LastName', 'Email1', 'Phone1'],
+        rows: [['Alice', 'Johnson', 'alice@example.com', '555-1234']]
+      };
+      const mapping = createMapping({
+        firstName: 0,
+        lastName: 1,
+        email1Value: 2,
+        phone1Value: 3
+      });
+      const hook = renderHook(() => useContactsImport());
+
+      const importResult = await runImport(hook, data, mapping);
+
+      expect(importResult.imported).toBe(1);
+      expect(mockCreateContactDocument).toHaveBeenCalledTimes(1);
+      expect(mockCreateContactDocument).toHaveBeenCalledWith(
+        expect.any(String),
+        'Alice',
+        'Johnson',
+        'alice@example.com',
+        '555-1234',
+        expect.any(Number),
+        expect.any(Number)
+      );
+      expect(mockIndexDocuments).toHaveBeenCalledTimes(1);
+      expect(mockIndexDocuments).toHaveBeenCalledWith('test-instance', [
+        expect.objectContaining({
+          entityType: 'contact',
+          title: 'Alice Johnson'
+        })
+      ]);
     });
 
     it('imports contacts with birthday', async () => {

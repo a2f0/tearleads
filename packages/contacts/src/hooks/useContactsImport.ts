@@ -1,6 +1,7 @@
 import { contactEmails, contactPhones, contacts } from '@rapid/db/sqlite';
 import Papa from 'papaparse';
 import { useCallback, useState } from 'react';
+import type { ImportedContactRecord } from '../context';
 import { useContactsContext } from '../context';
 
 /** Parsed CSV data with headers and rows */
@@ -65,7 +66,8 @@ export function parseCSV(text: string): ParsedCSV {
 }
 
 export function useContactsImport() {
-  const { getDatabase, getDatabaseAdapter } = useContactsContext();
+  const { getDatabase, getDatabaseAdapter, onContactsImported } =
+    useContactsContext();
   const [importing, setImporting] = useState(false);
   const [progress, setProgress] = useState(0);
 
@@ -158,6 +160,7 @@ export function useContactsImport() {
         label: string | null;
         isPrimary: boolean;
       }[] = [];
+      const importedContacts: ImportedContactRecord[] = [];
       const phonesToInsert: {
         id: string;
         contactId: string;
@@ -197,6 +200,22 @@ export function useContactsImport() {
           firstName,
           lastName,
           birthday,
+          createdAt: now,
+          updatedAt: now
+        });
+
+        importedContacts.push({
+          id: contactId,
+          firstName,
+          lastName,
+          email:
+            emails.length > 0
+              ? emails.map((email) => email.value).join(' ')
+              : null,
+          phone:
+            phones.length > 0
+              ? phones.map((phone) => phone.value).join(' ')
+              : null,
           createdAt: now,
           updatedAt: now
         });
@@ -249,6 +268,14 @@ export function useContactsImport() {
         }
 
         await adapter.commitTransaction();
+
+        if (importedContacts.length > 0) {
+          try {
+            await onContactsImported(importedContacts);
+          } catch (indexErr) {
+            console.warn('Failed to index imported contacts:', indexErr);
+          }
+        }
       } catch (err) {
         await adapter.rollbackTransaction();
         // Reset counts since the entire batch failed
@@ -262,7 +289,7 @@ export function useContactsImport() {
       setImporting(false);
       return result;
     },
-    [getDatabase, getDatabaseAdapter]
+    [getDatabase, getDatabaseAdapter, onContactsImported]
   );
 
   return { parseFile, importContacts, importing, progress };

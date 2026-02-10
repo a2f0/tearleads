@@ -193,6 +193,20 @@ export type RegisterInVfsFunction = (
   createdAt: Date
 ) => Promise<VfsRegistrationResult>;
 
+export interface ImportedContactRecord {
+  id: string;
+  firstName: string;
+  lastName: string | null;
+  email: string | null;
+  phone: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export type OnContactsImportedFunction = (
+  contacts: ImportedContactRecord[]
+) => Promise<void>;
+
 /**
  * Context value interface
  */
@@ -217,6 +231,8 @@ export interface ContactsContextValue {
   saveFile: SaveFileFunction;
   /** Register a contact in VFS for organization and sharing */
   registerInVfs: RegisterInVfsFunction;
+  /** Optional callback after successful CSV import */
+  onContactsImported: OnContactsImportedFunction;
   /** UI components */
   ui: ContactsUIComponents;
   /** Translation function for context menu labels */
@@ -240,6 +256,7 @@ export interface ContactsProviderProps {
   getDatabaseAdapter: () => DatabaseAdapter;
   saveFile: SaveFileFunction;
   registerInVfs: RegisterInVfsFunction;
+  onContactsImported?: OnContactsImportedFunction;
   ui: ContactsUIComponents;
   t: TranslationFunction;
   tooltipZIndex?: number;
@@ -258,6 +275,7 @@ export function ContactsProvider({
   getDatabaseAdapter,
   saveFile,
   registerInVfs,
+  onContactsImported,
   ui,
   t,
   tooltipZIndex = 10050,
@@ -273,6 +291,11 @@ export function ContactsProvider({
         getDatabaseAdapter,
         saveFile,
         registerInVfs,
+        onContactsImported:
+          onContactsImported ??
+          (async () => {
+            return;
+          }),
         ui,
         t,
         tooltipZIndex,
