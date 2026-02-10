@@ -8,7 +8,7 @@ const mockDeleteInstance = vi.fn(async () => {});
 const mockSwitchInstance = vi.fn(async () => true);
 
 // Mock the database context
-vi.mock('@/db/hooks/useDatabase', () => ({
+vi.mock('@/db/hooks', () => ({
   useDatabaseContext: vi.fn(() => ({
     currentInstanceId: 'current-instance',
     instances: [

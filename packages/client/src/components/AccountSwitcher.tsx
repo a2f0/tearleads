@@ -7,7 +7,7 @@ import {
   useRef,
   useState
 } from 'react';
-import { useDatabaseContext } from '@/db/hooks/useDatabase';
+import { useDatabaseContext } from '@/db/hooks';
 import { detectPlatform } from '@/lib/utils';
 import { DeleteInstanceDialog } from './DeleteInstanceDialog';
 import { InstanceItem } from './InstanceItem';

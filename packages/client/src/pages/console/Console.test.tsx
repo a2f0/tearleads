@@ -2,6 +2,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { AccountSwitcher } from '@/components/AccountSwitcher';
 import { Console } from './Console';
 
 const mockSetup = vi.fn();
@@ -11,20 +12,24 @@ const mockLock = vi.fn();
 const mockExportDatabase = vi.fn();
 const mockImportDatabase = vi.fn();
 const mockChangePassword = vi.fn();
+const mockSwitchInstance = vi.fn();
 
 const mockContext = {
   isLoading: false,
   isSetUp: false,
   isUnlocked: false,
   hasPersistedSession: false,
+  currentInstanceId: 'instance-default',
   currentInstanceName: 'Default',
+  instances: [{ id: 'instance-default', name: 'Default' }],
   setup: mockSetup,
   unlock: mockUnlock,
   restoreSession: mockRestoreSession,
   lock: mockLock,
   exportDatabase: mockExportDatabase,
   importDatabase: mockImportDatabase,
-  changePassword: mockChangePassword
+  changePassword: mockChangePassword,
+  switchInstance: mockSwitchInstance
 };
 
 vi.mock('@/db/hooks', () => ({
@@ -46,6 +51,17 @@ function renderConsole() {
   );
 }
 
+function renderConsoleWithAccountSwitcher() {
+  return render(
+    <MemoryRouter>
+      <div>
+        <AccountSwitcher />
+        <Console />
+      </div>
+    </MemoryRouter>
+  );
+}
+
 describe('Console', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -53,7 +69,9 @@ describe('Console', () => {
     mockContext.isSetUp = false;
     mockContext.isUnlocked = false;
     mockContext.hasPersistedSession = false;
+    mockContext.currentInstanceId = 'instance-default';
     mockContext.currentInstanceName = 'Default';
+    mockContext.instances = [{ id: 'instance-default', name: 'Default' }];
     mockSetup.mockResolvedValue(true);
     mockUnlock.mockResolvedValue(true);
     mockRestoreSession.mockResolvedValue(true);
@@ -61,6 +79,7 @@ describe('Console', () => {
     mockExportDatabase.mockResolvedValue(new Uint8Array([1, 2, 3]));
     mockImportDatabase.mockResolvedValue(undefined);
     mockChangePassword.mockResolvedValue(true);
+    mockSwitchInstance.mockResolvedValue(true);
     mockSaveFile.mockResolvedValue(undefined);
   });
 
@@ -86,7 +105,7 @@ describe('Console', () => {
     renderConsole();
 
     await waitFor(() => {
-      expect(screen.getByText(/Rapid Terminal v/)).toBeInTheDocument();
+      expect(screen.getByText('Rapid Terminal')).toBeInTheDocument();
     });
   });
 
@@ -609,6 +628,48 @@ describe('Console', () => {
     });
   });
 
+  it('switches to another instance', async () => {
+    const user = userEvent.setup();
+    mockContext.currentInstanceId = 'instance-1';
+    mockContext.currentInstanceName = 'Instance 1';
+    mockContext.instances = [
+      { id: 'instance-1', name: 'Instance 1' },
+      { id: 'instance-2', name: 'Instance 2' }
+    ];
+    mockSwitchInstance.mockResolvedValue(true);
+    renderConsole();
+
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'switch "Instance 2"{Enter}');
+
+    await waitFor(() => {
+      expect(mockSwitchInstance).toHaveBeenCalledWith('instance-2');
+      expect(
+        screen.getByText('Switched to instance: Instance 2')
+      ).toBeInTheDocument();
+    });
+  });
+
+  it('lists instances and marks the current one', async () => {
+    const user = userEvent.setup();
+    mockContext.currentInstanceId = 'instance-2';
+    mockContext.currentInstanceName = 'Instance 2';
+    mockContext.instances = [
+      { id: 'instance-1', name: 'Instance 1' },
+      { id: 'instance-2', name: 'Instance 2' }
+    ];
+    renderConsole();
+
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'list-instances{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByText('Instances:')).toBeInTheDocument();
+      expect(screen.getByText('Instance 1')).toBeInTheDocument();
+      expect(screen.getByText('* Instance 2 (current)')).toBeInTheDocument();
+    });
+  });
+
   it('shows error for unknown commands', async () => {
     const user = userEvent.setup();
     renderConsole();
@@ -618,6 +679,47 @@ describe('Console', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Unknown command: unknown')).toBeInTheDocument();
+    });
+  });
+
+  it('reflects terminal switch in the account switcher selection', async () => {
+    const user = userEvent.setup();
+    mockContext.isUnlocked = true;
+    mockContext.currentInstanceId = 'instance-1';
+    mockContext.currentInstanceName = 'Instance 1';
+    mockContext.instances = [
+      { id: 'instance-1', name: 'Instance 1' },
+      { id: 'instance-2', name: 'Instance 2' }
+    ];
+    mockSwitchInstance.mockImplementation(async (instanceId: string) => {
+      const target = mockContext.instances.find(
+        (item) => item.id === instanceId
+      );
+      if (!target) {
+        return false;
+      }
+      mockContext.currentInstanceId = target.id;
+      mockContext.currentInstanceName = target.name;
+      return true;
+    });
+    renderConsoleWithAccountSwitcher();
+
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'switch "Instance 2"{Enter}');
+
+    await waitFor(() => {
+      expect(mockSwitchInstance).toHaveBeenCalledWith('instance-2');
+      expect(
+        screen.getByText('Switched to instance: Instance 2')
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('account-switcher-button'));
+
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('instance-unlocked-instance-2')
+      ).toBeInTheDocument();
     });
   });
 });

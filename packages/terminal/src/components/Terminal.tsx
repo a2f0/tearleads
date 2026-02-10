@@ -20,7 +20,7 @@ import { TerminalOutput } from './TerminalOutput';
 interface TerminalProps {
   db: DatabaseOperations;
   utilities: TerminalUtilities;
-  version: string;
+  version?: string;
   appName?: string;
   className?: string;
   autoFocus?: boolean;
@@ -189,7 +189,7 @@ export function Terminal({
   useEffect(() => {
     if (welcomeShownRef.current) return;
     welcomeShownRef.current = true;
-    appendLine(`${appName} v${version}`, 'output');
+    appendLine(version ? `${appName} v${version}` : appName, 'output');
     appendLine('Type "help" for available commands.', 'output');
     appendLine('', 'output');
   }, [appendLine, appName, version]);

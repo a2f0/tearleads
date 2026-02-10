@@ -36,7 +36,7 @@ const defaultMockContext = {
 
 // Mock the database context
 const mockUseDatabaseContext = vi.fn(() => defaultMockContext);
-vi.mock('@/db/hooks/useDatabase', () => ({
+vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 

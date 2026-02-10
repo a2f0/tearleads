@@ -21,14 +21,18 @@ describe('command-executor', () => {
       isSetUp: false,
       isUnlocked: false,
       hasPersistedSession: false,
+      currentInstanceId: 'instance-default',
       currentInstanceName: 'Default',
+      instances: [{ id: 'instance-default', name: 'Default' }],
       setup: vi.fn().mockResolvedValue(true),
       unlock: vi.fn().mockResolvedValue(true),
       restoreSession: vi.fn().mockResolvedValue(true),
       lock: vi.fn().mockResolvedValue(undefined),
       exportDatabase: vi.fn().mockResolvedValue(new Uint8Array([1, 2, 3])),
       importDatabase: vi.fn().mockResolvedValue(undefined),
-      changePassword: vi.fn().mockResolvedValue(true)
+      changePassword: vi.fn().mockResolvedValue(true),
+      switchInstance: vi.fn().mockResolvedValue(true),
+      refreshInstances: vi.fn().mockResolvedValue(undefined)
     };
 
     terminal = {
@@ -103,6 +107,163 @@ describe('command-executor', () => {
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database:          Locked',
         'output'
+      );
+    });
+  });
+
+  describe('list-instances command', () => {
+    it('lists all instances and marks current', async () => {
+      db.currentInstanceId = 'instance-2';
+      db.currentInstanceName = 'Instance 2';
+      db.instances = [
+        { id: 'instance-1', name: 'Instance 1' },
+        { id: 'instance-2', name: 'Instance 2' }
+      ];
+
+      const command = parseCommand('list-instances');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith('Instances:', 'output');
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        '  Instance 1',
+        'output'
+      );
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        '* Instance 2 (current)',
+        'output'
+      );
+    });
+
+    it('falls back to current instance name when instances are unavailable', async () => {
+      db.instances = undefined;
+      db.currentInstanceName = 'Default';
+
+      const command = parseCommand('list-instances');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith('Instances:', 'output');
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        '* Default (current)',
+        'output'
+      );
+    });
+  });
+
+  describe('switch command', () => {
+    it('switches to a target instance by name', async () => {
+      db.currentInstanceId = 'instance-1';
+      db.currentInstanceName = 'Instance 1';
+      db.instances = [
+        { id: 'instance-1', name: 'Instance 1' },
+        { id: 'instance-2', name: 'Instance 2' }
+      ];
+
+      const command = parseCommand('switch "Instance 2"');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(db.switchInstance).toHaveBeenCalledWith('instance-2');
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Switched to instance: Instance 2',
+        'success'
+      );
+    });
+
+    it('shows usage when no target is provided', async () => {
+      const command = parseCommand('switch');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Usage: switch <instance>',
+        'error'
+      );
+    });
+
+    it('shows error for unknown instance', async () => {
+      db.instances = [{ id: 'instance-1', name: 'Instance 1' }];
+
+      const command = parseCommand('switch does-not-exist');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Instance not found: does-not-exist',
+        'error'
+      );
+    });
+
+    it('errors when instance switching is unavailable', async () => {
+      db.switchInstance = undefined;
+      db.instances = [{ id: 'instance-1', name: 'Instance 1' }];
+
+      const command = parseCommand('switch Instance 1');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Instance switching is not available.',
+        'error'
+      );
+    });
+
+    it('errors when no instances are available', async () => {
+      db.instances = [];
+
+      const command = parseCommand('switch Instance 1');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'No instances are available to switch to.',
+        'error'
+      );
+    });
+
+    it('reports when already on the target instance', async () => {
+      db.currentInstanceId = 'instance-1';
+      db.currentInstanceName = 'Instance 1';
+      db.instances = [{ id: 'instance-1', name: 'Instance 1' }];
+
+      const command = parseCommand('switch instance-1');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Already on instance: Instance 1',
+        'output'
+      );
+    });
+
+    it('shows setup guidance when switched to a non-setup instance', async () => {
+      db.currentInstanceId = 'instance-1';
+      db.instances = [
+        { id: 'instance-1', name: 'Instance 1' },
+        { id: 'instance-2', name: 'Instance 2' }
+      ];
+      db.switchInstance = vi.fn().mockResolvedValue(false);
+
+      const command = parseCommand('switch instance-2');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Switched to instance: Instance 2 (not set up)',
+        'output'
+      );
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Run "setup" to initialize this instance.',
+        'output'
+      );
+    });
+
+    it('shows error when switching throws', async () => {
+      db.currentInstanceId = 'instance-1';
+      db.instances = [
+        { id: 'instance-1', name: 'Instance 1' },
+        { id: 'instance-2', name: 'Instance 2' }
+      ];
+      db.switchInstance = vi.fn().mockRejectedValue(new Error('boom'));
+
+      const command = parseCommand('switch instance-2');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Failed to switch instance: boom',
+        'error'
       );
     });
   });

@@ -88,7 +88,7 @@ export async function runRestore(
 }
 
 export const restoreCommand = new Command('restore')
-  .description('Restore database from a backup file')
+  .description('Import a backup to a new instance')
   .argument('<file>', 'Backup file path')
   .option('-f, --force', 'Overwrite without confirmation')
   .option('-p, --password <password>', 'Backup password')
