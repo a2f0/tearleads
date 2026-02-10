@@ -5,6 +5,9 @@ import {
   type Router as RouterType
 } from 'express';
 import { getRedisClient } from '../lib/redis.js';
+import { registerDeleteIdRoute } from './emails/delete-id.js';
+import { registerGetIdRoute } from './emails/get-id.js';
+import { registerGetRootRoute } from './emails/get-root.js';
 
 const EMAIL_PREFIX = 'smtp:email:';
 const EMAIL_LIST_PREFIX = 'smtp:emails:';
@@ -85,8 +88,6 @@ function formatEmailAddress(addr: EmailAddress | false): string {
   return addr.address;
 }
 
-const emailsRouter: RouterType = Router();
-
 /**
  * @openapi
  * /emails:
@@ -145,7 +146,7 @@ const emailsRouter: RouterType = Router();
  *       500:
  *         description: Server error
  */
-emailsRouter.get('/', async (req: Request, res: Response) => {
+export const getRootHandler = async (req: Request, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {
@@ -206,7 +207,7 @@ emailsRouter.get('/', async (req: Request, res: Response) => {
     console.error('Failed to list emails:', error);
     res.status(500).json({ error: 'Failed to list emails' });
   }
-});
+};
 
 /**
  * @openapi
@@ -231,46 +232,46 @@ emailsRouter.get('/', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-emailsRouter.get(
-  '/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const userId = req.authClaims?.sub;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-      const { id } = req.params;
-      const client = await getRedisClient();
-      const usersKey = getEmailUsersKey(id);
-      const hasAccess = await client.sIsMember(usersKey, userId);
-      if (hasAccess !== 1) {
-        res.status(404).json({ error: 'Email not found' });
-        return;
-      }
-      const data = await client.get(`${EMAIL_PREFIX}${id}`);
-
-      if (!data) {
-        res.status(404).json({ error: 'Email not found' });
-        return;
-      }
-
-      const email: StoredEmail = JSON.parse(data);
-      res.json({
-        id: email.id,
-        from: formatEmailAddress(email.envelope.mailFrom),
-        to: email.envelope.rcptTo.map((r) => r.address),
-        subject: extractSubject(email.rawData),
-        receivedAt: email.receivedAt,
-        size: email.size,
-        rawData: email.rawData
-      });
-    } catch (error) {
-      console.error('Failed to get email:', error);
-      res.status(500).json({ error: 'Failed to get email' });
+export const getIdHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
+    const { id } = req.params;
+    const client = await getRedisClient();
+    const usersKey = getEmailUsersKey(id);
+    const hasAccess = await client.sIsMember(usersKey, userId);
+    if (hasAccess !== 1) {
+      res.status(404).json({ error: 'Email not found' });
+      return;
+    }
+    const data = await client.get(`${EMAIL_PREFIX}${id}`);
+
+    if (!data) {
+      res.status(404).json({ error: 'Email not found' });
+      return;
+    }
+
+    const email: StoredEmail = JSON.parse(data);
+    res.json({
+      id: email.id,
+      from: formatEmailAddress(email.envelope.mailFrom),
+      to: email.envelope.rcptTo.map((r) => r.address),
+      subject: extractSubject(email.rawData),
+      receivedAt: email.receivedAt,
+      size: email.size,
+      rawData: email.rawData
+    });
+  } catch (error) {
+    console.error('Failed to get email:', error);
+    res.status(500).json({ error: 'Failed to get email' });
   }
-);
+};
 
 /**
  * @openapi
@@ -295,40 +296,45 @@ emailsRouter.get(
  *       500:
  *         description: Server error
  */
-emailsRouter.delete(
-  '/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const userId = req.authClaims?.sub;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-      const { id } = req.params;
-      const client = await getRedisClient();
-      const key = `${EMAIL_PREFIX}${id}`;
-      const usersKey = getEmailUsersKey(id);
-      const hasAccess = await client.sIsMember(usersKey, userId);
-
-      if (hasAccess !== 1) {
-        res.status(404).json({ error: 'Email not found' });
-        return;
-      }
-
-      const result = await client.eval(EMAIL_DELETE_SCRIPT, {
-        keys: [usersKey, getEmailListKey(userId), key],
-        arguments: [userId, id]
-      });
-      if (result === 1) {
-        res.json({ success: true });
-        return;
-      }
-      res.status(404).json({ error: 'Email not found' });
-    } catch (error) {
-      console.error('Failed to delete email:', error);
-      res.status(500).json({ error: 'Failed to delete email' });
+export const deleteIdHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
+    const { id } = req.params;
+    const client = await getRedisClient();
+    const key = `${EMAIL_PREFIX}${id}`;
+    const usersKey = getEmailUsersKey(id);
+    const hasAccess = await client.sIsMember(usersKey, userId);
+
+    if (hasAccess !== 1) {
+      res.status(404).json({ error: 'Email not found' });
+      return;
+    }
+
+    const result = await client.eval(EMAIL_DELETE_SCRIPT, {
+      keys: [usersKey, getEmailListKey(userId), key],
+      arguments: [userId, id]
+    });
+    if (result === 1) {
+      res.json({ success: true });
+      return;
+    }
+    res.status(404).json({ error: 'Email not found' });
+  } catch (error) {
+    console.error('Failed to delete email:', error);
+    res.status(500).json({ error: 'Failed to delete email' });
   }
-);
+};
+
+const emailsRouter: RouterType = Router();
+registerGetRootRoute(emailsRouter);
+registerGetIdRoute(emailsRouter);
+registerDeleteIdRoute(emailsRouter);
 
 export { emailsRouter };

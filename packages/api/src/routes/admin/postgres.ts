@@ -16,6 +16,10 @@ import {
   getPostgresConnectionInfo,
   getPostgresPool
 } from '../../lib/postgres.js';
+import { registerGetInfoRoute } from './postgres/get-info.js';
+import { registerGetTablesRoute } from './postgres/get-tables.js';
+import { registerGetTablesSchemaTableColumnsRoute } from './postgres/get-tables-schema-table-columns.js';
+import { registerGetTablesSchemaTableRowsRoute } from './postgres/get-tables-schema-table-rows.js';
 
 type PostgresTableRow = {
   schema: string;
@@ -25,8 +29,6 @@ type PostgresTableRow = {
   table_bytes: number | string | null;
   index_bytes: number | string | null;
 };
-
-const postgresRouter: RouterType = Router();
 
 function coerceNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -68,7 +70,7 @@ function coerceNumber(value: unknown): number {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-postgresRouter.get('/info', async (_req: Request, res: Response) => {
+export const getInfoHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const versionResult = await pool.query<{ version: string }>(
@@ -88,7 +90,7 @@ postgresRouter.get('/info', async (_req: Request, res: Response) => {
         err instanceof Error ? err.message : 'Failed to connect to Postgres'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -117,7 +119,7 @@ postgresRouter.get('/info', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-postgresRouter.get('/tables', async (_req: Request, res: Response) => {
+export const getTablesHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<{
@@ -162,7 +164,7 @@ postgresRouter.get('/tables', async (_req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to query Postgres'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -191,60 +193,60 @@ postgresRouter.get('/tables', async (_req: Request, res: Response) => {
  *       500:
  *         description: Postgres connection error
  */
-postgresRouter.get(
-  '/tables/:schema/:table/columns',
-  async (req: Request, res: Response) => {
-    const { schema, table } = req.params;
+export const getTablesSchemaTableColumnsHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const { schema, table } = req.params;
 
-    try {
-      const pool = await getPostgresPool();
+  try {
+    const pool = await getPostgresPool();
 
-      // Validate table exists
-      const tableCheck = await pool.query<{ exists: boolean }>(
-        `SELECT EXISTS (
+    // Validate table exists
+    const tableCheck = await pool.query<{ exists: boolean }>(
+      `SELECT EXISTS (
         SELECT 1 FROM information_schema.tables
         WHERE table_schema = $1 AND table_name = $2
       ) AS exists`,
-        [schema, table]
-      );
+      [schema, table]
+    );
 
-      if (!tableCheck.rows[0]?.exists) {
-        res.status(404).json({ error: 'Table not found' });
-        return;
-      }
+    if (!tableCheck.rows[0]?.exists) {
+      res.status(404).json({ error: 'Table not found' });
+      return;
+    }
 
-      const result = await pool.query<{
-        column_name: string;
-        data_type: string;
-        is_nullable: string;
-        column_default: string | null;
-        ordinal_position: number;
-      }>(
-        `SELECT column_name, data_type, is_nullable, column_default, ordinal_position
+    const result = await pool.query<{
+      column_name: string;
+      data_type: string;
+      is_nullable: string;
+      column_default: string | null;
+      ordinal_position: number;
+    }>(
+      `SELECT column_name, data_type, is_nullable, column_default, ordinal_position
        FROM information_schema.columns
        WHERE table_schema = $1 AND table_name = $2
        ORDER BY ordinal_position`,
-        [schema, table]
-      );
+      [schema, table]
+    );
 
-      const columns: PostgresColumnInfo[] = result.rows.map((row) => ({
-        name: row.column_name,
-        type: row.data_type,
-        nullable: row.is_nullable === 'YES',
-        defaultValue: row.column_default,
-        ordinalPosition: row.ordinal_position
-      }));
+    const columns: PostgresColumnInfo[] = result.rows.map((row) => ({
+      name: row.column_name,
+      type: row.data_type,
+      nullable: row.is_nullable === 'YES',
+      defaultValue: row.column_default,
+      ordinalPosition: row.ordinal_position
+    }));
 
-      const response: PostgresColumnsResponse = { columns };
-      res.json(response);
-    } catch (err) {
-      console.error('Postgres error:', err);
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to query Postgres'
-      });
-    }
+    const response: PostgresColumnsResponse = { columns };
+    res.json(response);
+  } catch (err) {
+    console.error('Postgres error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to query Postgres'
+    });
   }
-);
+};
 
 /**
  * @openapi
@@ -292,96 +294,97 @@ postgresRouter.get(
  *       500:
  *         description: Postgres connection error
  */
-postgresRouter.get(
-  '/tables/:schema/:table/rows',
-  async (req: Request, res: Response) => {
-    const schema = req.params['schema'];
-    const table = req.params['table'];
+export const getTablesSchemaTableRowsHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const schema = req.params['schema'];
+  const table = req.params['table'];
 
-    if (
-      !schema ||
-      !table ||
-      typeof schema !== 'string' ||
-      typeof table !== 'string'
-    ) {
-      res.status(400).json({ error: 'Schema and table are required' });
+  if (
+    !schema ||
+    !table ||
+    typeof schema !== 'string' ||
+    typeof table !== 'string'
+  ) {
+    res.status(400).json({ error: 'Schema and table are required' });
+    return;
+  }
+
+  const limit = Math.min(
+    Math.max(parseInt(req.query['limit'] as string, 10) || 50, 1),
+    1000
+  );
+  const offset = Math.max(parseInt(req.query['offset'] as string, 10) || 0, 0);
+  const sortColumn = req.query['sortColumn'] as string | undefined;
+  const sortDirection = req.query['sortDirection'] as
+    | 'asc'
+    | 'desc'
+    | undefined;
+
+  try {
+    const pool = await getPostgresPool();
+
+    // Validate table exists and get columns to validate sortColumn
+    const columnsResult = await pool.query<{
+      column_name: string;
+    }>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_schema = $1 AND table_name = $2`,
+      [schema, table]
+    );
+
+    if (columnsResult.rows.length === 0) {
+      res.status(404).json({ error: 'Table not found' });
       return;
     }
 
-    const limit = Math.min(
-      Math.max(parseInt(req.query['limit'] as string, 10) || 50, 1),
-      1000
+    const validColumns = new Set(columnsResult.rows.map((r) => r.column_name));
+
+    // Build query with safe identifier quoting
+    const quotedSchema = `"${schema.replace(/"/g, '""')}"`;
+    const quotedTable = `"${table.replace(/"/g, '""')}"`;
+    const fullTableName = `${quotedSchema}.${quotedTable}`;
+
+    // Get total count
+    const countResult = await pool.query<{ count: string }>(
+      `SELECT COUNT(*) as count FROM ${fullTableName}`
     );
-    const offset = Math.max(
-      parseInt(req.query['offset'] as string, 10) || 0,
-      0
-    );
-    const sortColumn = req.query['sortColumn'] as string | undefined;
-    const sortDirection = req.query['sortDirection'] as
-      | 'asc'
-      | 'desc'
-      | undefined;
+    const totalCount = parseInt(countResult.rows[0]?.count ?? '0', 10);
 
-    try {
-      const pool = await getPostgresPool();
+    // Build SELECT query
+    let query = `SELECT * FROM ${fullTableName}`;
 
-      // Validate table exists and get columns to validate sortColumn
-      const columnsResult = await pool.query<{
-        column_name: string;
-      }>(
-        `SELECT column_name FROM information_schema.columns
-       WHERE table_schema = $1 AND table_name = $2`,
-        [schema, table]
-      );
-
-      if (columnsResult.rows.length === 0) {
-        res.status(404).json({ error: 'Table not found' });
-        return;
-      }
-
-      const validColumns = new Set(
-        columnsResult.rows.map((r) => r.column_name)
-      );
-
-      // Build query with safe identifier quoting
-      const quotedSchema = `"${schema.replace(/"/g, '""')}"`;
-      const quotedTable = `"${table.replace(/"/g, '""')}"`;
-      const fullTableName = `${quotedSchema}.${quotedTable}`;
-
-      // Get total count
-      const countResult = await pool.query<{ count: string }>(
-        `SELECT COUNT(*) as count FROM ${fullTableName}`
-      );
-      const totalCount = parseInt(countResult.rows[0]?.count ?? '0', 10);
-
-      // Build SELECT query
-      let query = `SELECT * FROM ${fullTableName}`;
-
-      // Add ORDER BY if valid column provided
-      if (sortColumn && validColumns.has(sortColumn)) {
-        const quotedColumn = `"${sortColumn.replace(/"/g, '""')}"`;
-        const direction = sortDirection === 'desc' ? 'DESC' : 'ASC';
-        query += ` ORDER BY ${quotedColumn} ${direction}`;
-      }
-
-      query += ` LIMIT $1 OFFSET $2`;
-
-      const rowsResult = await pool.query(query, [limit, offset]);
-
-      const response: PostgresRowsResponse = {
-        rows: rowsResult.rows,
-        totalCount,
-        limit,
-        offset
-      };
-      res.json(response);
-    } catch (err) {
-      console.error('Postgres error:', err);
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to query Postgres'
-      });
+    // Add ORDER BY if valid column provided
+    if (sortColumn && validColumns.has(sortColumn)) {
+      const quotedColumn = `"${sortColumn.replace(/"/g, '""')}"`;
+      const direction = sortDirection === 'desc' ? 'DESC' : 'ASC';
+      query += ` ORDER BY ${quotedColumn} ${direction}`;
     }
+
+    query += ` LIMIT $1 OFFSET $2`;
+
+    const rowsResult = await pool.query(query, [limit, offset]);
+
+    const response: PostgresRowsResponse = {
+      rows: rowsResult.rows,
+      totalCount,
+      limit,
+      offset
+    };
+    res.json(response);
+  } catch (err) {
+    console.error('Postgres error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to query Postgres'
+    });
   }
-);
+};
+
+const postgresRouter: RouterType = Router();
+registerGetInfoRoute(postgresRouter);
+registerGetTablesRoute(postgresRouter);
+registerGetTablesSchemaTableColumnsRoute(postgresRouter);
+registerGetTablesSchemaTableRowsRoute(postgresRouter);
 
 export { postgresRouter };

@@ -6,6 +6,11 @@ import {
   type Router as RouterType
 } from 'express';
 import { type EmailAttachment, sendEmail } from '../lib/emailSender.js';
+import { registerDeleteDraftsIdRoute } from './emailsCompose/delete-drafts-id.js';
+import { registerGetDraftsRoute } from './emailsCompose/get-drafts.js';
+import { registerGetDraftsIdRoute } from './emailsCompose/get-drafts-id.js';
+import { registerPostDraftsRoute } from './emailsCompose/post-drafts.js';
+import { registerPostSendRoute } from './emailsCompose/post-send.js';
 
 interface DraftRequest {
   id?: string;
@@ -65,8 +70,6 @@ function getUserDrafts(userId: string): Map<string, Draft> {
   return userDrafts;
 }
 
-const emailsComposeRouter: RouterType = Router();
-
 /**
  * @openapi
  * /emails/drafts:
@@ -116,72 +119,72 @@ const emailsComposeRouter: RouterType = Router();
  *       401:
  *         description: Unauthorized
  */
-emailsComposeRouter.post(
-  '/drafts',
-  async (req: Request<object, object, DraftRequest>, res: Response) => {
-    try {
-      const userId = req.authClaims?.sub;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-
-      const { id, to, cc, bcc, subject, body, attachments } = req.body;
-      const userDrafts = getUserDrafts(userId);
-      const now = new Date().toISOString();
-
-      let draft: Draft;
-
-      const existing = id ? userDrafts.get(id) : undefined;
-      if (existing) {
-        draft = {
-          ...existing,
-          to: to ?? existing.to,
-          cc: cc ?? existing.cc,
-          bcc: bcc ?? existing.bcc,
-          subject: subject ?? existing.subject,
-          body: body ?? existing.body,
-          attachments:
-            attachments?.map((a) => ({
-              id: a.id,
-              fileName: a.fileName,
-              mimeType: a.mimeType,
-              size: a.size
-            })) ?? existing.attachments,
-          updatedAt: now
-        };
-      } else {
-        draft = {
-          id: id ?? randomUUID(),
-          to: to ?? [],
-          cc: cc ?? [],
-          bcc: bcc ?? [],
-          subject: subject ?? '',
-          body: body ?? '',
-          attachments:
-            attachments?.map((a) => ({
-              id: a.id,
-              fileName: a.fileName,
-              mimeType: a.mimeType,
-              size: a.size
-            })) ?? [],
-          createdAt: now,
-          updatedAt: now
-        };
-      }
-
-      userDrafts.set(draft.id, draft);
-
-      res.json({
-        id: draft.id,
-        updatedAt: draft.updatedAt
-      });
-    } catch (error) {
-      console.error('Failed to save draft:', error);
-      res.status(500).json({ error: 'Failed to save draft' });
+export const postDraftsHandler = async (
+  req: Request<object, object, DraftRequest>,
+  res: Response
+) => {
+  try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
+
+    const { id, to, cc, bcc, subject, body, attachments } = req.body;
+    const userDrafts = getUserDrafts(userId);
+    const now = new Date().toISOString();
+
+    let draft: Draft;
+
+    const existing = id ? userDrafts.get(id) : undefined;
+    if (existing) {
+      draft = {
+        ...existing,
+        to: to ?? existing.to,
+        cc: cc ?? existing.cc,
+        bcc: bcc ?? existing.bcc,
+        subject: subject ?? existing.subject,
+        body: body ?? existing.body,
+        attachments:
+          attachments?.map((a) => ({
+            id: a.id,
+            fileName: a.fileName,
+            mimeType: a.mimeType,
+            size: a.size
+          })) ?? existing.attachments,
+        updatedAt: now
+      };
+    } else {
+      draft = {
+        id: id ?? randomUUID(),
+        to: to ?? [],
+        cc: cc ?? [],
+        bcc: bcc ?? [],
+        subject: subject ?? '',
+        body: body ?? '',
+        attachments:
+          attachments?.map((a) => ({
+            id: a.id,
+            fileName: a.fileName,
+            mimeType: a.mimeType,
+            size: a.size
+          })) ?? [],
+        createdAt: now,
+        updatedAt: now
+      };
+    }
+
+    userDrafts.set(draft.id, draft);
+
+    res.json({
+      id: draft.id,
+      updatedAt: draft.updatedAt
+    });
+  } catch (error) {
+    console.error('Failed to save draft:', error);
+    res.status(500).json({ error: 'Failed to save draft' });
   }
-);
+};
 
 /**
  * @openapi
@@ -217,7 +220,7 @@ emailsComposeRouter.post(
  *       401:
  *         description: Unauthorized
  */
-emailsComposeRouter.get('/drafts', async (req: Request, res: Response) => {
+export const getDraftsHandler = async (req: Request, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {
@@ -243,7 +246,7 @@ emailsComposeRouter.get('/drafts', async (req: Request, res: Response) => {
     console.error('Failed to list drafts:', error);
     res.status(500).json({ error: 'Failed to list drafts' });
   }
-});
+};
 
 /**
  * @openapi
@@ -268,32 +271,32 @@ emailsComposeRouter.get('/drafts', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-emailsComposeRouter.get(
-  '/drafts/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const userId = req.authClaims?.sub;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-
-      const { id } = req.params;
-      const userDrafts = getUserDrafts(userId);
-      const draft = userDrafts.get(id);
-
-      if (!draft) {
-        res.status(404).json({ error: 'Draft not found' });
-        return;
-      }
-
-      res.json(draft);
-    } catch (error) {
-      console.error('Failed to get draft:', error);
-      res.status(500).json({ error: 'Failed to get draft' });
+export const getDraftsIdHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
+
+    const { id } = req.params;
+    const userDrafts = getUserDrafts(userId);
+    const draft = userDrafts.get(id);
+
+    if (!draft) {
+      res.status(404).json({ error: 'Draft not found' });
+      return;
+    }
+
+    res.json(draft);
+  } catch (error) {
+    console.error('Failed to get draft:', error);
+    res.status(500).json({ error: 'Failed to get draft' });
   }
-);
+};
 
 /**
  * @openapi
@@ -318,32 +321,32 @@ emailsComposeRouter.get(
  *       401:
  *         description: Unauthorized
  */
-emailsComposeRouter.delete(
-  '/drafts/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const userId = req.authClaims?.sub;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-
-      const { id } = req.params;
-      const userDrafts = getUserDrafts(userId);
-
-      if (!userDrafts.has(id)) {
-        res.status(404).json({ error: 'Draft not found' });
-        return;
-      }
-
-      userDrafts.delete(id);
-      res.json({ success: true });
-    } catch (error) {
-      console.error('Failed to delete draft:', error);
-      res.status(500).json({ error: 'Failed to delete draft' });
+export const deleteDraftsIdHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
+
+    const { id } = req.params;
+    const userDrafts = getUserDrafts(userId);
+
+    if (!userDrafts.has(id)) {
+      res.status(404).json({ error: 'Draft not found' });
+      return;
+    }
+
+    userDrafts.delete(id);
+    res.json({ success: true });
+  } catch (error) {
+    console.error('Failed to delete draft:', error);
+    res.status(500).json({ error: 'Failed to delete draft' });
   }
-);
+};
 
 /**
  * @openapi
@@ -402,64 +405,71 @@ emailsComposeRouter.delete(
  *       500:
  *         description: Failed to send
  */
-emailsComposeRouter.post(
-  '/send',
-  async (req: Request<object, object, SendRequest>, res: Response) => {
-    try {
-      const userId = req.authClaims?.sub;
-      if (!userId) {
-        res.status(401).json({ error: 'Unauthorized' });
-        return;
-      }
-
-      const { draftId, to, cc, bcc, subject, body, attachments } = req.body;
-
-      if (!to || to.length === 0) {
-        res.status(400).json({ error: 'At least one recipient is required' });
-        return;
-      }
-
-      if (!subject?.trim()) {
-        res.status(400).json({ error: 'Subject is required' });
-        return;
-      }
-
-      const emailAttachments: EmailAttachment[] | undefined = attachments?.map(
-        (a) => ({
-          filename: a.fileName,
-          content: Buffer.from(a.content, 'base64'),
-          contentType: a.mimeType
-        })
-      );
-
-      const result = await sendEmail({
-        to,
-        ...(cc && cc.length > 0 ? { cc } : {}),
-        ...(bcc && bcc.length > 0 ? { bcc } : {}),
-        subject,
-        text: body,
-        ...(emailAttachments ? { attachments: emailAttachments } : {})
-      });
-
-      if (!result.success) {
-        res.status(500).json({ error: result.error ?? 'Failed to send email' });
-        return;
-      }
-
-      if (draftId) {
-        const userDrafts = getUserDrafts(userId);
-        userDrafts.delete(draftId);
-      }
-
-      res.json({
-        success: true,
-        messageId: result.messageId
-      });
-    } catch (error) {
-      console.error('Failed to send email:', error);
-      res.status(500).json({ error: 'Failed to send email' });
+export const postSendHandler = async (
+  req: Request<object, object, SendRequest>,
+  res: Response
+) => {
+  try {
+    const userId = req.authClaims?.sub;
+    if (!userId) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
     }
+
+    const { draftId, to, cc, bcc, subject, body, attachments } = req.body;
+
+    if (!to || to.length === 0) {
+      res.status(400).json({ error: 'At least one recipient is required' });
+      return;
+    }
+
+    if (!subject?.trim()) {
+      res.status(400).json({ error: 'Subject is required' });
+      return;
+    }
+
+    const emailAttachments: EmailAttachment[] | undefined = attachments?.map(
+      (a) => ({
+        filename: a.fileName,
+        content: Buffer.from(a.content, 'base64'),
+        contentType: a.mimeType
+      })
+    );
+
+    const result = await sendEmail({
+      to,
+      ...(cc && cc.length > 0 ? { cc } : {}),
+      ...(bcc && bcc.length > 0 ? { bcc } : {}),
+      subject,
+      text: body,
+      ...(emailAttachments ? { attachments: emailAttachments } : {})
+    });
+
+    if (!result.success) {
+      res.status(500).json({ error: result.error ?? 'Failed to send email' });
+      return;
+    }
+
+    if (draftId) {
+      const userDrafts = getUserDrafts(userId);
+      userDrafts.delete(draftId);
+    }
+
+    res.json({
+      success: true,
+      messageId: result.messageId
+    });
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    res.status(500).json({ error: 'Failed to send email' });
   }
-);
+};
+
+const emailsComposeRouter: RouterType = Router();
+registerPostDraftsRoute(emailsComposeRouter);
+registerGetDraftsRoute(emailsComposeRouter);
+registerGetDraftsIdRoute(emailsComposeRouter);
+registerDeleteDraftsIdRoute(emailsComposeRouter);
+registerPostSendRoute(emailsComposeRouter);
 
 export { emailsComposeRouter };

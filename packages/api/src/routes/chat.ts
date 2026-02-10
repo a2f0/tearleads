@@ -13,8 +13,7 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
-
-const chatRouter: RouterType = Router();
+import { registerPostCompletionsRoute } from './chat/post-completions.js';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
@@ -73,7 +72,7 @@ export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;
  *       500:
  *         description: Server configuration error
  */
-chatRouter.post('/completions', async (req: Request, res: Response) => {
+export const postCompletionsHandler = async (req: Request, res: Response) => {
   const messageResult = validateChatMessages(req.body?.['messages']);
   if (!messageResult.ok) {
     res.status(400).json({ error: messageResult.error });
@@ -186,6 +185,9 @@ chatRouter.post('/completions', async (req: Request, res: Response) => {
     console.error('OpenRouter request failed:', error);
     res.status(502).json({ error: 'Failed to contact OpenRouter' });
   }
-});
+};
+
+const chatRouter: RouterType = Router();
+registerPostCompletionsRoute(chatRouter);
 
 export { chatRouter, OPENROUTER_API_URL };

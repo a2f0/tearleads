@@ -25,8 +25,13 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
-
-const vfsSharesRouter: RouterType = Router();
+import { registerDeleteOrgSharesShareidRoute } from './vfs-shares/delete-org-shares-shareId.js';
+import { registerDeleteSharesShareidRoute } from './vfs-shares/delete-shares-shareId.js';
+import { registerGetItemsItemidSharesRoute } from './vfs-shares/get-items-itemId-shares.js';
+import { registerGetShareTargetsSearchRoute } from './vfs-shares/get-share-targets-search.js';
+import { registerPatchSharesShareidRoute } from './vfs-shares/patch-shares-shareId.js';
+import { registerPostItemsItemidOrgSharesRoute } from './vfs-shares/post-items-itemId-org-shares.js';
+import { registerPostItemsItemidSharesRoute } from './vfs-shares/post-items-itemId-shares.js';
 
 const VALID_SHARE_TYPES: VfsShareType[] = ['user', 'group', 'organization'];
 const VALID_PERMISSION_LEVELS: VfsPermissionLevel[] = [
@@ -165,52 +170,53 @@ function parseUpdateSharePayload(body: unknown): UpdateVfsShareRequest | null {
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.get(
-  '/items/:itemId/shares',
-  async (req: Request<{ itemId: string }>, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
+export const getItemsItemidSharesHandler = async (
+  req: Request<{ itemId: string }>,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const { itemId } = req.params;
+    const pool = await getPostgresPool();
+
+    // Verify item exists and user is the owner
+    const itemResult = await pool.query<{ owner_id: string | null }>(
+      'SELECT owner_id FROM vfs_registry WHERE id = $1',
+      [itemId]
+    );
+
+    if (!itemResult.rows[0]) {
+      res.status(404).json({ error: 'Item not found' });
       return;
     }
 
-    try {
-      const { itemId } = req.params;
-      const pool = await getPostgresPool();
+    // Authorization check: only owner can view shares
+    if (itemResult.rows[0].owner_id !== claims.sub) {
+      res
+        .status(403)
+        .json({ error: 'Not authorized to view shares for this item' });
+      return;
+    }
 
-      // Verify item exists and user is the owner
-      const itemResult = await pool.query<{ owner_id: string | null }>(
-        'SELECT owner_id FROM vfs_registry WHERE id = $1',
-        [itemId]
-      );
-
-      if (!itemResult.rows[0]) {
-        res.status(404).json({ error: 'Item not found' });
-        return;
-      }
-
-      // Authorization check: only owner can view shares
-      if (itemResult.rows[0].owner_id !== claims.sub) {
-        res
-          .status(403)
-          .json({ error: 'Not authorized to view shares for this item' });
-        return;
-      }
-
-      // Fetch vfs_shares with resolved target names
-      const sharesResult = await pool.query<{
-        id: string;
-        item_id: string;
-        share_type: VfsShareType;
-        target_id: string;
-        permission_level: VfsPermissionLevel;
-        created_by: string;
-        created_at: Date;
-        expires_at: Date | null;
-        target_name: string | null;
-        created_by_email: string | null;
-      }>(
-        `SELECT
+    // Fetch vfs_shares with resolved target names
+    const sharesResult = await pool.query<{
+      id: string;
+      item_id: string;
+      share_type: VfsShareType;
+      target_id: string;
+      permission_level: VfsPermissionLevel;
+      created_by: string;
+      created_at: Date;
+      expires_at: Date | null;
+      target_name: string | null;
+      created_by_email: string | null;
+    }>(
+      `SELECT
           s.id,
           s.item_id,
           s.share_type,
@@ -228,37 +234,37 @@ vfsSharesRouter.get(
         FROM vfs_shares s
         WHERE s.item_id = $1
         ORDER BY s.created_at DESC`,
-        [itemId]
-      );
+      [itemId]
+    );
 
-      const shares: VfsShare[] = sharesResult.rows.map((row) => ({
-        id: row.id,
-        itemId: row.item_id,
-        shareType: row.share_type,
-        targetId: row.target_id,
-        targetName: row.target_name ?? 'Unknown',
-        permissionLevel: row.permission_level,
-        createdBy: row.created_by,
-        createdByEmail: row.created_by_email ?? 'Unknown',
-        createdAt: row.created_at.toISOString(),
-        expiresAt: row.expires_at ? row.expires_at.toISOString() : null
-      }));
+    const shares: VfsShare[] = sharesResult.rows.map((row) => ({
+      id: row.id,
+      itemId: row.item_id,
+      shareType: row.share_type,
+      targetId: row.target_id,
+      targetName: row.target_name ?? 'Unknown',
+      permissionLevel: row.permission_level,
+      createdBy: row.created_by,
+      createdByEmail: row.created_by_email ?? 'Unknown',
+      createdAt: row.created_at.toISOString(),
+      expiresAt: row.expires_at ? row.expires_at.toISOString() : null
+    }));
 
-      // Fetch org_shares
-      const orgSharesResult = await pool.query<{
-        id: string;
-        source_org_id: string;
-        target_org_id: string;
-        item_id: string;
-        permission_level: VfsPermissionLevel;
-        created_by: string;
-        created_at: Date;
-        expires_at: Date | null;
-        source_org_name: string | null;
-        target_org_name: string | null;
-        created_by_email: string | null;
-      }>(
-        `SELECT
+    // Fetch org_shares
+    const orgSharesResult = await pool.query<{
+      id: string;
+      source_org_id: string;
+      target_org_id: string;
+      item_id: string;
+      permission_level: VfsPermissionLevel;
+      created_by: string;
+      created_at: Date;
+      expires_at: Date | null;
+      source_org_name: string | null;
+      target_org_name: string | null;
+      created_by_email: string | null;
+    }>(
+      `SELECT
           os.id,
           os.source_org_id,
           os.target_org_id,
@@ -273,31 +279,30 @@ vfsSharesRouter.get(
         FROM org_shares os
         WHERE os.item_id = $1
         ORDER BY os.created_at DESC`,
-        [itemId]
-      );
+      [itemId]
+    );
 
-      const orgShares: VfsOrgShare[] = orgSharesResult.rows.map((row) => ({
-        id: row.id,
-        sourceOrgId: row.source_org_id,
-        sourceOrgName: row.source_org_name ?? 'Unknown',
-        targetOrgId: row.target_org_id,
-        targetOrgName: row.target_org_name ?? 'Unknown',
-        itemId: row.item_id,
-        permissionLevel: row.permission_level,
-        createdBy: row.created_by,
-        createdByEmail: row.created_by_email ?? 'Unknown',
-        createdAt: row.created_at.toISOString(),
-        expiresAt: row.expires_at ? row.expires_at.toISOString() : null
-      }));
+    const orgShares: VfsOrgShare[] = orgSharesResult.rows.map((row) => ({
+      id: row.id,
+      sourceOrgId: row.source_org_id,
+      sourceOrgName: row.source_org_name ?? 'Unknown',
+      targetOrgId: row.target_org_id,
+      targetOrgName: row.target_org_name ?? 'Unknown',
+      itemId: row.item_id,
+      permissionLevel: row.permission_level,
+      createdBy: row.created_by,
+      createdByEmail: row.created_by_email ?? 'Unknown',
+      createdAt: row.created_at.toISOString(),
+      expiresAt: row.expires_at ? row.expires_at.toISOString() : null
+    }));
 
-      const response: VfsSharesResponse = { shares, orgShares };
-      res.json(response);
-    } catch (error) {
-      console.error('Failed to get VFS shares:', error);
-      res.status(500).json({ error: 'Failed to get shares' });
-    }
+    const response: VfsSharesResponse = { shares, orgShares };
+    res.json(response);
+  } catch (error) {
+    console.error('Failed to get VFS shares:', error);
+    res.status(500).json({ error: 'Failed to get shares' });
   }
-);
+};
 
 /**
  * @openapi
@@ -351,152 +356,150 @@ vfsSharesRouter.get(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.post(
-  '/items/:itemId/shares',
-  async (req: Request<{ itemId: string }>, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const postItemsItemidSharesHandler = async (
+  req: Request<{ itemId: string }>,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const payload = parseCreateSharePayload({
-      ...req.body,
-      itemId: req.params.itemId
+  const payload = parseCreateSharePayload({
+    ...req.body,
+    itemId: req.params.itemId
+  });
+  if (!payload) {
+    res.status(400).json({
+      error: 'shareType, targetId, and permissionLevel are required'
     });
-    if (!payload) {
-      res.status(400).json({
-        error: 'shareType, targetId, and permissionLevel are required'
-      });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+
+    // Verify item exists and user is the owner
+    const itemResult = await pool.query<{
+      id: string;
+      owner_id: string | null;
+    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [payload.itemId]);
+    if (!itemResult.rows[0]) {
+      res.status(404).json({ error: 'Item not found' });
       return;
     }
 
-    try {
-      const pool = await getPostgresPool();
+    // Authorization check: only owner can create shares
+    if (itemResult.rows[0].owner_id !== claims.sub) {
+      res.status(403).json({ error: 'Not authorized to share this item' });
+      return;
+    }
 
-      // Verify item exists and user is the owner
-      const itemResult = await pool.query<{
-        id: string;
-        owner_id: string | null;
-      }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [
-        payload.itemId
-      ]);
-      if (!itemResult.rows[0]) {
-        res.status(404).json({ error: 'Item not found' });
-        return;
+    // Verify target exists
+    let targetExists = false;
+    let targetName = 'Unknown';
+    if (payload.shareType === 'user') {
+      const result = await pool.query<{ email: string }>(
+        'SELECT email FROM users WHERE id = $1',
+        [payload.targetId]
+      );
+      if (result.rows[0]) {
+        targetExists = true;
+        targetName = result.rows[0].email;
       }
-
-      // Authorization check: only owner can create shares
-      if (itemResult.rows[0].owner_id !== claims.sub) {
-        res.status(403).json({ error: 'Not authorized to share this item' });
-        return;
+    } else if (payload.shareType === 'group') {
+      const result = await pool.query<{ name: string }>(
+        'SELECT name FROM groups WHERE id = $1',
+        [payload.targetId]
+      );
+      if (result.rows[0]) {
+        targetExists = true;
+        targetName = result.rows[0].name;
       }
-
-      // Verify target exists
-      let targetExists = false;
-      let targetName = 'Unknown';
-      if (payload.shareType === 'user') {
-        const result = await pool.query<{ email: string }>(
-          'SELECT email FROM users WHERE id = $1',
-          [payload.targetId]
-        );
-        if (result.rows[0]) {
-          targetExists = true;
-          targetName = result.rows[0].email;
-        }
-      } else if (payload.shareType === 'group') {
-        const result = await pool.query<{ name: string }>(
-          'SELECT name FROM groups WHERE id = $1',
-          [payload.targetId]
-        );
-        if (result.rows[0]) {
-          targetExists = true;
-          targetName = result.rows[0].name;
-        }
-      } else if (payload.shareType === 'organization') {
-        const result = await pool.query<{ name: string }>(
-          'SELECT name FROM organizations WHERE id = $1',
-          [payload.targetId]
-        );
-        if (result.rows[0]) {
-          targetExists = true;
-          targetName = result.rows[0].name;
-        }
+    } else if (payload.shareType === 'organization') {
+      const result = await pool.query<{ name: string }>(
+        'SELECT name FROM organizations WHERE id = $1',
+        [payload.targetId]
+      );
+      if (result.rows[0]) {
+        targetExists = true;
+        targetName = result.rows[0].name;
       }
+    }
 
-      if (!targetExists) {
-        res.status(404).json({ error: `${payload.shareType} not found` });
-        return;
-      }
+    if (!targetExists) {
+      res.status(404).json({ error: `${payload.shareType} not found` });
+      return;
+    }
 
-      const id = randomUUID();
-      const now = new Date();
-      const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
+    const id = randomUUID();
+    const now = new Date();
+    const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
 
-      const result = await pool.query<{
-        id: string;
-        item_id: string;
-        share_type: VfsShareType;
-        target_id: string;
-        permission_level: VfsPermissionLevel;
-        created_by: string;
-        created_at: Date;
-        expires_at: Date | null;
-      }>(
-        `INSERT INTO vfs_shares (id, item_id, share_type, target_id, permission_level, created_by, created_at, expires_at)
+    const result = await pool.query<{
+      id: string;
+      item_id: string;
+      share_type: VfsShareType;
+      target_id: string;
+      permission_level: VfsPermissionLevel;
+      created_by: string;
+      created_at: Date;
+      expires_at: Date | null;
+    }>(
+      `INSERT INTO vfs_shares (id, item_id, share_type, target_id, permission_level, created_by, created_at, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id, item_id, share_type, target_id, permission_level, created_by, created_at, expires_at`,
-        [
-          id,
-          payload.itemId,
-          payload.shareType,
-          payload.targetId,
-          payload.permissionLevel,
-          claims.sub,
-          now,
-          expiresAt
-        ]
-      );
+      [
+        id,
+        payload.itemId,
+        payload.shareType,
+        payload.targetId,
+        payload.permissionLevel,
+        claims.sub,
+        now,
+        expiresAt
+      ]
+    );
 
-      const row = result.rows[0];
-      if (!row) {
-        res.status(500).json({ error: 'Failed to create share' });
-        return;
-      }
-
-      // Get creator email
-      const creatorResult = await pool.query<{ email: string }>(
-        'SELECT email FROM users WHERE id = $1',
-        [claims.sub]
-      );
-
-      const share: VfsShare = {
-        id: row.id,
-        itemId: row.item_id,
-        shareType: row.share_type,
-        targetId: row.target_id,
-        targetName,
-        permissionLevel: row.permission_level,
-        createdBy: row.created_by,
-        createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
-        createdAt: row.created_at.toISOString(),
-        expiresAt: row.expires_at ? row.expires_at.toISOString() : null
-      };
-
-      res.status(201).json({ share });
-    } catch (error) {
-      console.error('Failed to create VFS share:', error);
-      if (
-        error instanceof Error &&
-        error.message.includes('duplicate key value violates unique constraint')
-      ) {
-        res.status(409).json({ error: 'Share already exists' });
-        return;
-      }
+    const row = result.rows[0];
+    if (!row) {
       res.status(500).json({ error: 'Failed to create share' });
+      return;
     }
+
+    // Get creator email
+    const creatorResult = await pool.query<{ email: string }>(
+      'SELECT email FROM users WHERE id = $1',
+      [claims.sub]
+    );
+
+    const share: VfsShare = {
+      id: row.id,
+      itemId: row.item_id,
+      shareType: row.share_type,
+      targetId: row.target_id,
+      targetName,
+      permissionLevel: row.permission_level,
+      createdBy: row.created_by,
+      createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
+      createdAt: row.created_at.toISOString(),
+      expiresAt: row.expires_at ? row.expires_at.toISOString() : null
+    };
+
+    res.status(201).json({ share });
+  } catch (error) {
+    console.error('Failed to create VFS share:', error);
+    if (
+      error instanceof Error &&
+      error.message.includes('duplicate key value violates unique constraint')
+    ) {
+      res.status(409).json({ error: 'Share already exists' });
+      return;
+    }
+    res.status(500).json({ error: 'Failed to create share' });
   }
-);
+};
 
 /**
  * @openapi
@@ -539,136 +542,136 @@ vfsSharesRouter.post(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.patch(
-  '/shares/:shareId',
-  async (req: Request<{ shareId: string }>, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const patchSharesShareidHandler = async (
+  req: Request<{ shareId: string }>,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const payload = parseUpdateSharePayload(req.body);
-    if (!payload) {
-      res.status(400).json({ error: 'Invalid update payload' });
-      return;
-    }
+  const payload = parseUpdateSharePayload(req.body);
+  if (!payload) {
+    res.status(400).json({ error: 'Invalid update payload' });
+    return;
+  }
 
-    if (
-      payload.permissionLevel === undefined &&
-      payload.expiresAt === undefined
-    ) {
-      res.status(400).json({ error: 'No fields to update' });
-      return;
-    }
+  if (
+    payload.permissionLevel === undefined &&
+    payload.expiresAt === undefined
+  ) {
+    res.status(400).json({ error: 'No fields to update' });
+    return;
+  }
 
-    try {
-      const { shareId } = req.params;
-      const pool = await getPostgresPool();
+  try {
+    const { shareId } = req.params;
+    const pool = await getPostgresPool();
 
-      // Authorization check: verify user owns the item associated with this share
-      const authCheckResult = await pool.query<{ owner_id: string | null }>(
-        `SELECT r.owner_id
+    // Authorization check: verify user owns the item associated with this share
+    const authCheckResult = await pool.query<{ owner_id: string | null }>(
+      `SELECT r.owner_id
          FROM vfs_shares s
          JOIN vfs_registry r ON r.id = s.item_id
          WHERE s.id = $1`,
-        [shareId]
-      );
-      if (!authCheckResult.rows[0]) {
-        res.status(404).json({ error: 'Share not found' });
-        return;
-      }
-      if (authCheckResult.rows[0].owner_id !== claims.sub) {
-        res.status(403).json({ error: 'Not authorized to update this share' });
-        return;
-      }
+      [shareId]
+    );
+    if (!authCheckResult.rows[0]) {
+      res.status(404).json({ error: 'Share not found' });
+      return;
+    }
+    if (authCheckResult.rows[0].owner_id !== claims.sub) {
+      res.status(403).json({ error: 'Not authorized to update this share' });
+      return;
+    }
 
-      const updates: string[] = [];
-      const values: (string | Date | null)[] = [];
-      let paramIndex = 1;
+    const updates: string[] = [];
+    const values: (string | Date | null)[] = [];
+    let paramIndex = 1;
 
-      if (payload.permissionLevel !== undefined) {
-        updates.push(`permission_level = $${paramIndex++}`);
-        values.push(payload.permissionLevel);
-      }
+    if (payload.permissionLevel !== undefined) {
+      updates.push(`permission_level = $${paramIndex++}`);
+      values.push(payload.permissionLevel);
+    }
 
-      if (payload.expiresAt !== undefined) {
-        updates.push(`expires_at = $${paramIndex++}`);
-        values.push(payload.expiresAt ? new Date(payload.expiresAt) : null);
-      }
+    if (payload.expiresAt !== undefined) {
+      updates.push(`expires_at = $${paramIndex++}`);
+      values.push(payload.expiresAt ? new Date(payload.expiresAt) : null);
+    }
 
-      values.push(shareId);
+    values.push(shareId);
 
-      const result = await pool.query<{
-        id: string;
-        item_id: string;
-        share_type: VfsShareType;
-        target_id: string;
-        permission_level: VfsPermissionLevel;
-        created_by: string;
-        created_at: Date;
-        expires_at: Date | null;
-      }>(
-        `UPDATE vfs_shares
+    const result = await pool.query<{
+      id: string;
+      item_id: string;
+      share_type: VfsShareType;
+      target_id: string;
+      permission_level: VfsPermissionLevel;
+      created_by: string;
+      created_at: Date;
+      expires_at: Date | null;
+    }>(
+      `UPDATE vfs_shares
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
          RETURNING id, item_id, share_type, target_id, permission_level, created_by, created_at, expires_at`,
-        values
-      );
+      values
+    );
 
-      const row = result.rows[0];
-      if (!row) {
-        res.status(404).json({ error: 'Share not found' });
-        return;
-      }
-
-      // Get target name and creator email
-      let targetName = 'Unknown';
-      if (row.share_type === 'user') {
-        const r = await pool.query<{ email: string }>(
-          'SELECT email FROM users WHERE id = $1',
-          [row.target_id]
-        );
-        targetName = r.rows[0]?.email ?? 'Unknown';
-      } else if (row.share_type === 'group') {
-        const r = await pool.query<{ name: string }>(
-          'SELECT name FROM groups WHERE id = $1',
-          [row.target_id]
-        );
-        targetName = r.rows[0]?.name ?? 'Unknown';
-      } else if (row.share_type === 'organization') {
-        const r = await pool.query<{ name: string }>(
-          'SELECT name FROM organizations WHERE id = $1',
-          [row.target_id]
-        );
-        targetName = r.rows[0]?.name ?? 'Unknown';
-      }
-
-      const creatorResult = await pool.query<{ email: string }>(
-        'SELECT email FROM users WHERE id = $1',
-        [row.created_by]
-      );
-
-      const share: VfsShare = {
-        id: row.id,
-        itemId: row.item_id,
-        shareType: row.share_type,
-        targetId: row.target_id,
-        targetName,
-        permissionLevel: row.permission_level,
-        createdBy: row.created_by,
-        createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
-        createdAt: row.created_at.toISOString(),
-        expiresAt: row.expires_at ? row.expires_at.toISOString() : null
-      };
-
-      res.json({ share });
-    } catch (error) {
-      console.error('Failed to update VFS share:', error);
-      res.status(500).json({ error: 'Failed to update share' });
+    const row = result.rows[0];
+    if (!row) {
+      res.status(404).json({ error: 'Share not found' });
+      return;
     }
+
+    // Get target name and creator email
+    let targetName = 'Unknown';
+    if (row.share_type === 'user') {
+      const r = await pool.query<{ email: string }>(
+        'SELECT email FROM users WHERE id = $1',
+        [row.target_id]
+      );
+      targetName = r.rows[0]?.email ?? 'Unknown';
+    } else if (row.share_type === 'group') {
+      const r = await pool.query<{ name: string }>(
+        'SELECT name FROM groups WHERE id = $1',
+        [row.target_id]
+      );
+      targetName = r.rows[0]?.name ?? 'Unknown';
+    } else if (row.share_type === 'organization') {
+      const r = await pool.query<{ name: string }>(
+        'SELECT name FROM organizations WHERE id = $1',
+        [row.target_id]
+      );
+      targetName = r.rows[0]?.name ?? 'Unknown';
+    }
+
+    const creatorResult = await pool.query<{ email: string }>(
+      'SELECT email FROM users WHERE id = $1',
+      [row.created_by]
+    );
+
+    const share: VfsShare = {
+      id: row.id,
+      itemId: row.item_id,
+      shareType: row.share_type,
+      targetId: row.target_id,
+      targetName,
+      permissionLevel: row.permission_level,
+      createdBy: row.created_by,
+      createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
+      createdAt: row.created_at.toISOString(),
+      expiresAt: row.expires_at ? row.expires_at.toISOString() : null
+    };
+
+    res.json({ share });
+  } catch (error) {
+    console.error('Failed to update VFS share:', error);
+    res.status(500).json({ error: 'Failed to update share' });
   }
-);
+};
 
 /**
  * @openapi
@@ -694,47 +697,47 @@ vfsSharesRouter.patch(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.delete(
-  '/shares/:shareId',
-  async (req: Request<{ shareId: string }>, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const deleteSharesShareidHandler = async (
+  req: Request<{ shareId: string }>,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    try {
-      const { shareId } = req.params;
-      const pool = await getPostgresPool();
+  try {
+    const { shareId } = req.params;
+    const pool = await getPostgresPool();
 
-      // Authorization check: verify user owns the item associated with this share
-      const authCheckResult = await pool.query<{ owner_id: string | null }>(
-        `SELECT r.owner_id
+    // Authorization check: verify user owns the item associated with this share
+    const authCheckResult = await pool.query<{ owner_id: string | null }>(
+      `SELECT r.owner_id
          FROM vfs_shares s
          JOIN vfs_registry r ON r.id = s.item_id
          WHERE s.id = $1`,
-        [shareId]
-      );
-      if (!authCheckResult.rows[0]) {
-        res.status(404).json({ error: 'Share not found' });
-        return;
-      }
-      if (authCheckResult.rows[0].owner_id !== claims.sub) {
-        res.status(403).json({ error: 'Not authorized to delete this share' });
-        return;
-      }
-
-      const result = await pool.query('DELETE FROM vfs_shares WHERE id = $1', [
-        shareId
-      ]);
-
-      res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
-    } catch (error) {
-      console.error('Failed to delete VFS share:', error);
-      res.status(500).json({ error: 'Failed to delete share' });
+      [shareId]
+    );
+    if (!authCheckResult.rows[0]) {
+      res.status(404).json({ error: 'Share not found' });
+      return;
     }
+    if (authCheckResult.rows[0].owner_id !== claims.sub) {
+      res.status(403).json({ error: 'Not authorized to delete this share' });
+      return;
+    }
+
+    const result = await pool.query('DELETE FROM vfs_shares WHERE id = $1', [
+      shareId
+    ]);
+
+    res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
+  } catch (error) {
+    console.error('Failed to delete VFS share:', error);
+    res.status(500).json({ error: 'Failed to delete share' });
   }
-);
+};
 
 /**
  * @openapi
@@ -787,138 +790,136 @@ vfsSharesRouter.delete(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.post(
-  '/items/:itemId/org-shares',
-  async (req: Request<{ itemId: string }>, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const postItemsItemidOrgSharesHandler = async (
+  req: Request<{ itemId: string }>,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const payload = parseCreateOrgSharePayload({
-      ...req.body,
-      itemId: req.params.itemId
+  const payload = parseCreateOrgSharePayload({
+    ...req.body,
+    itemId: req.params.itemId
+  });
+  if (!payload) {
+    res.status(400).json({
+      error: 'sourceOrgId, targetOrgId, and permissionLevel are required'
     });
-    if (!payload) {
-      res.status(400).json({
-        error: 'sourceOrgId, targetOrgId, and permissionLevel are required'
-      });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+
+    // Verify item exists and user is the owner
+    const itemResult = await pool.query<{
+      id: string;
+      owner_id: string | null;
+    }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [payload.itemId]);
+    if (!itemResult.rows[0]) {
+      res.status(404).json({ error: 'Item not found' });
       return;
     }
 
-    try {
-      const pool = await getPostgresPool();
+    // Authorization check: only owner can create org shares
+    if (itemResult.rows[0].owner_id !== claims.sub) {
+      res.status(403).json({ error: 'Not authorized to share this item' });
+      return;
+    }
 
-      // Verify item exists and user is the owner
-      const itemResult = await pool.query<{
-        id: string;
-        owner_id: string | null;
-      }>('SELECT id, owner_id FROM vfs_registry WHERE id = $1', [
-        payload.itemId
-      ]);
-      if (!itemResult.rows[0]) {
-        res.status(404).json({ error: 'Item not found' });
-        return;
-      }
+    // Verify source org exists
+    const sourceOrgResult = await pool.query<{ name: string }>(
+      'SELECT name FROM organizations WHERE id = $1',
+      [payload.sourceOrgId]
+    );
+    if (!sourceOrgResult.rows[0]) {
+      res.status(404).json({ error: 'Source organization not found' });
+      return;
+    }
+    const sourceOrgName = sourceOrgResult.rows[0].name;
 
-      // Authorization check: only owner can create org shares
-      if (itemResult.rows[0].owner_id !== claims.sub) {
-        res.status(403).json({ error: 'Not authorized to share this item' });
-        return;
-      }
+    // Verify target org exists
+    const targetOrgResult = await pool.query<{ name: string }>(
+      'SELECT name FROM organizations WHERE id = $1',
+      [payload.targetOrgId]
+    );
+    if (!targetOrgResult.rows[0]) {
+      res.status(404).json({ error: 'Target organization not found' });
+      return;
+    }
+    const targetOrgName = targetOrgResult.rows[0].name;
 
-      // Verify source org exists
-      const sourceOrgResult = await pool.query<{ name: string }>(
-        'SELECT name FROM organizations WHERE id = $1',
-        [payload.sourceOrgId]
-      );
-      if (!sourceOrgResult.rows[0]) {
-        res.status(404).json({ error: 'Source organization not found' });
-        return;
-      }
-      const sourceOrgName = sourceOrgResult.rows[0].name;
+    const id = randomUUID();
+    const now = new Date();
+    const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
 
-      // Verify target org exists
-      const targetOrgResult = await pool.query<{ name: string }>(
-        'SELECT name FROM organizations WHERE id = $1',
-        [payload.targetOrgId]
-      );
-      if (!targetOrgResult.rows[0]) {
-        res.status(404).json({ error: 'Target organization not found' });
-        return;
-      }
-      const targetOrgName = targetOrgResult.rows[0].name;
-
-      const id = randomUUID();
-      const now = new Date();
-      const expiresAt = payload.expiresAt ? new Date(payload.expiresAt) : null;
-
-      const result = await pool.query<{
-        id: string;
-        source_org_id: string;
-        target_org_id: string;
-        item_id: string;
-        permission_level: VfsPermissionLevel;
-        created_by: string;
-        created_at: Date;
-        expires_at: Date | null;
-      }>(
-        `INSERT INTO org_shares (id, source_org_id, target_org_id, item_id, permission_level, created_by, created_at, expires_at)
+    const result = await pool.query<{
+      id: string;
+      source_org_id: string;
+      target_org_id: string;
+      item_id: string;
+      permission_level: VfsPermissionLevel;
+      created_by: string;
+      created_at: Date;
+      expires_at: Date | null;
+    }>(
+      `INSERT INTO org_shares (id, source_org_id, target_org_id, item_id, permission_level, created_by, created_at, expires_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
          RETURNING id, source_org_id, target_org_id, item_id, permission_level, created_by, created_at, expires_at`,
-        [
-          id,
-          payload.sourceOrgId,
-          payload.targetOrgId,
-          payload.itemId,
-          payload.permissionLevel,
-          claims.sub,
-          now,
-          expiresAt
-        ]
-      );
+      [
+        id,
+        payload.sourceOrgId,
+        payload.targetOrgId,
+        payload.itemId,
+        payload.permissionLevel,
+        claims.sub,
+        now,
+        expiresAt
+      ]
+    );
 
-      const row = result.rows[0];
-      if (!row) {
-        res.status(500).json({ error: 'Failed to create org share' });
-        return;
-      }
-
-      // Get creator email
-      const creatorResult = await pool.query<{ email: string }>(
-        'SELECT email FROM users WHERE id = $1',
-        [claims.sub]
-      );
-
-      const orgShare: VfsOrgShare = {
-        id: row.id,
-        sourceOrgId: row.source_org_id,
-        sourceOrgName,
-        targetOrgId: row.target_org_id,
-        targetOrgName,
-        itemId: row.item_id,
-        permissionLevel: row.permission_level,
-        createdBy: row.created_by,
-        createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
-        createdAt: row.created_at.toISOString(),
-        expiresAt: row.expires_at ? row.expires_at.toISOString() : null
-      };
-
-      res.status(201).json({ orgShare });
-    } catch (error) {
-      console.error('Failed to create org share:', error);
-      if (
-        error instanceof Error &&
-        error.message.includes('duplicate key value violates unique constraint')
-      ) {
-        res.status(409).json({ error: 'Org share already exists' });
-        return;
-      }
+    const row = result.rows[0];
+    if (!row) {
       res.status(500).json({ error: 'Failed to create org share' });
+      return;
     }
+
+    // Get creator email
+    const creatorResult = await pool.query<{ email: string }>(
+      'SELECT email FROM users WHERE id = $1',
+      [claims.sub]
+    );
+
+    const orgShare: VfsOrgShare = {
+      id: row.id,
+      sourceOrgId: row.source_org_id,
+      sourceOrgName,
+      targetOrgId: row.target_org_id,
+      targetOrgName,
+      itemId: row.item_id,
+      permissionLevel: row.permission_level,
+      createdBy: row.created_by,
+      createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
+      createdAt: row.created_at.toISOString(),
+      expiresAt: row.expires_at ? row.expires_at.toISOString() : null
+    };
+
+    res.status(201).json({ orgShare });
+  } catch (error) {
+    console.error('Failed to create org share:', error);
+    if (
+      error instanceof Error &&
+      error.message.includes('duplicate key value violates unique constraint')
+    ) {
+      res.status(409).json({ error: 'Org share already exists' });
+      return;
+    }
+    res.status(500).json({ error: 'Failed to create org share' });
   }
-);
+};
 
 /**
  * @openapi
@@ -944,49 +945,49 @@ vfsSharesRouter.post(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.delete(
-  '/org-shares/:shareId',
-  async (req: Request<{ shareId: string }>, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const deleteOrgSharesShareidHandler = async (
+  req: Request<{ shareId: string }>,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    try {
-      const { shareId } = req.params;
-      const pool = await getPostgresPool();
+  try {
+    const { shareId } = req.params;
+    const pool = await getPostgresPool();
 
-      // Authorization check: verify user owns the item associated with this org share
-      const authCheckResult = await pool.query<{ owner_id: string | null }>(
-        `SELECT r.owner_id
+    // Authorization check: verify user owns the item associated with this org share
+    const authCheckResult = await pool.query<{ owner_id: string | null }>(
+      `SELECT r.owner_id
          FROM org_shares os
          JOIN vfs_registry r ON r.id = os.item_id
          WHERE os.id = $1`,
-        [shareId]
-      );
-      if (!authCheckResult.rows[0]) {
-        res.status(404).json({ error: 'Org share not found' });
-        return;
-      }
-      if (authCheckResult.rows[0].owner_id !== claims.sub) {
-        res
-          .status(403)
-          .json({ error: 'Not authorized to delete this org share' });
-        return;
-      }
-
-      const result = await pool.query('DELETE FROM org_shares WHERE id = $1', [
-        shareId
-      ]);
-
-      res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
-    } catch (error) {
-      console.error('Failed to delete org share:', error);
-      res.status(500).json({ error: 'Failed to delete org share' });
+      [shareId]
+    );
+    if (!authCheckResult.rows[0]) {
+      res.status(404).json({ error: 'Org share not found' });
+      return;
     }
+    if (authCheckResult.rows[0].owner_id !== claims.sub) {
+      res
+        .status(403)
+        .json({ error: 'Not authorized to delete this org share' });
+      return;
+    }
+
+    const result = await pool.query('DELETE FROM org_shares WHERE id = $1', [
+      shareId
+    ]);
+
+    res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
+  } catch (error) {
+    console.error('Failed to delete org share:', error);
+    res.status(500).json({ error: 'Failed to delete org share' });
   }
-);
+};
 
 /**
  * @openapi
@@ -1022,106 +1023,112 @@ vfsSharesRouter.delete(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.get(
-  '/share-targets/search',
-  async (
-    req: Request<unknown, unknown, unknown, { q?: string; type?: string }>,
-    res: Response
-  ) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const getShareTargetsSearchHandler = async (
+  req: Request<unknown, unknown, unknown, { q?: string; type?: string }>,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const { q, type } = req.query;
+  const { q, type } = req.query;
 
-    if (!q || typeof q !== 'string' || q.trim().length < 1) {
-      res.status(400).json({ error: 'Search query is required' });
-      return;
-    }
+  if (!q || typeof q !== 'string' || q.trim().length < 1) {
+    res.status(400).json({ error: 'Search query is required' });
+    return;
+  }
 
-    const searchQuery = `%${q.trim().toLowerCase()}%`;
-    const filterType =
-      type && isValidShareType(type) ? (type as VfsShareType) : null;
+  const searchQuery = `%${q.trim().toLowerCase()}%`;
+  const filterType =
+    type && isValidShareType(type) ? (type as VfsShareType) : null;
 
-    try {
-      const pool = await getPostgresPool();
-      const results: ShareTargetSearchResult[] = [];
+  try {
+    const pool = await getPostgresPool();
+    const results: ShareTargetSearchResult[] = [];
 
-      // Search users
-      if (!filterType || filterType === 'user') {
-        const usersResult = await pool.query<{ id: string; email: string }>(
-          `SELECT id, email FROM users
+    // Search users
+    if (!filterType || filterType === 'user') {
+      const usersResult = await pool.query<{ id: string; email: string }>(
+        `SELECT id, email FROM users
            WHERE LOWER(email) LIKE $1
            ORDER BY email
            LIMIT 10`,
-          [searchQuery]
-        );
-        for (const row of usersResult.rows) {
-          results.push({
-            id: row.id,
-            type: 'user',
-            name: row.email
-          });
-        }
+        [searchQuery]
+      );
+      for (const row of usersResult.rows) {
+        results.push({
+          id: row.id,
+          type: 'user',
+          name: row.email
+        });
       }
+    }
 
-      // Search groups
-      if (!filterType || filterType === 'group') {
-        const groupsResult = await pool.query<{
-          id: string;
-          name: string;
-          org_name: string | null;
-        }>(
-          `SELECT g.id, g.name, o.name AS org_name
+    // Search groups
+    if (!filterType || filterType === 'group') {
+      const groupsResult = await pool.query<{
+        id: string;
+        name: string;
+        org_name: string | null;
+      }>(
+        `SELECT g.id, g.name, o.name AS org_name
            FROM groups g
            LEFT JOIN organizations o ON o.id = g.organization_id
            WHERE LOWER(g.name) LIKE $1
            ORDER BY g.name
            LIMIT 10`,
-          [searchQuery]
-        );
-        for (const row of groupsResult.rows) {
-          results.push({
-            id: row.id,
-            type: 'group',
-            name: row.name,
-            description: row.org_name ?? undefined
-          });
-        }
+        [searchQuery]
+      );
+      for (const row of groupsResult.rows) {
+        results.push({
+          id: row.id,
+          type: 'group',
+          name: row.name,
+          description: row.org_name ?? undefined
+        });
       }
+    }
 
-      // Search organizations
-      if (!filterType || filterType === 'organization') {
-        const orgsResult = await pool.query<{
-          id: string;
-          name: string;
-          description: string | null;
-        }>(
-          `SELECT id, name, description FROM organizations
+    // Search organizations
+    if (!filterType || filterType === 'organization') {
+      const orgsResult = await pool.query<{
+        id: string;
+        name: string;
+        description: string | null;
+      }>(
+        `SELECT id, name, description FROM organizations
            WHERE LOWER(name) LIKE $1
            ORDER BY name
            LIMIT 10`,
-          [searchQuery]
-        );
-        for (const row of orgsResult.rows) {
-          results.push({
-            id: row.id,
-            type: 'organization',
-            name: row.name,
-            description: row.description ?? undefined
-          });
-        }
+        [searchQuery]
+      );
+      for (const row of orgsResult.rows) {
+        results.push({
+          id: row.id,
+          type: 'organization',
+          name: row.name,
+          description: row.description ?? undefined
+        });
       }
-
-      const response: ShareTargetSearchResponse = { results };
-      res.json(response);
-    } catch (error) {
-      console.error('Failed to search share targets:', error);
-      res.status(500).json({ error: 'Failed to search' });
     }
+
+    const response: ShareTargetSearchResponse = { results };
+    res.json(response);
+  } catch (error) {
+    console.error('Failed to search share targets:', error);
+    res.status(500).json({ error: 'Failed to search' });
   }
-);
+};
+
+const vfsSharesRouter: RouterType = Router();
+registerGetItemsItemidSharesRoute(vfsSharesRouter);
+registerPostItemsItemidSharesRoute(vfsSharesRouter);
+registerPatchSharesShareidRoute(vfsSharesRouter);
+registerDeleteSharesShareidRoute(vfsSharesRouter);
+registerPostItemsItemidOrgSharesRoute(vfsSharesRouter);
+registerDeleteOrgSharesShareidRoute(vfsSharesRouter);
+registerGetShareTargetsSearchRoute(vfsSharesRouter);
 
 export { vfsSharesRouter };

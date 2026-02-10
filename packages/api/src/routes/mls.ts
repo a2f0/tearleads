@@ -45,8 +45,24 @@ import {
 } from 'express';
 import { broadcast } from '../lib/broadcast.js';
 import { getPostgresPool } from '../lib/postgres.js';
-
-const router: RouterType = Router();
+import { registerDeleteGroupsGroupidRoute } from './mls/delete-groups-groupId.js';
+import { registerDeleteGroupsGroupidMembersUseridRoute } from './mls/delete-groups-groupId-members-userId.js';
+import { registerDeleteKeyPackagesIdRoute } from './mls/delete-key-packages-id.js';
+import { registerGetGroupsRoute } from './mls/get-groups.js';
+import { registerGetGroupsGroupidRoute } from './mls/get-groups-groupId.js';
+import { registerGetGroupsGroupidMembersRoute } from './mls/get-groups-groupId-members.js';
+import { registerGetGroupsGroupidMessagesRoute } from './mls/get-groups-groupId-messages.js';
+import { registerGetGroupsGroupidStateRoute } from './mls/get-groups-groupId-state.js';
+import { registerGetKeyPackagesMeRoute } from './mls/get-key-packages-me.js';
+import { registerGetKeyPackagesUseridRoute } from './mls/get-key-packages-userId.js';
+import { registerGetWelcomeMessagesRoute } from './mls/get-welcome-messages.js';
+import { registerPatchGroupsGroupidRoute } from './mls/patch-groups-groupId.js';
+import { registerPostGroupsRoute } from './mls/post-groups.js';
+import { registerPostGroupsGroupidMembersRoute } from './mls/post-groups-groupId-members.js';
+import { registerPostGroupsGroupidMessagesRoute } from './mls/post-groups-groupId-messages.js';
+import { registerPostGroupsGroupidStateRoute } from './mls/post-groups-groupId-state.js';
+import { registerPostKeyPackagesRoute } from './mls/post-key-packages.js';
+import { registerPostWelcomeMessagesIdAckRoute } from './mls/post-welcome-messages-id-ack.js';
 
 // =============================================================================
 // Validation helpers
@@ -303,7 +319,7 @@ function parseAckWelcomePayload(body: unknown): AckMlsWelcomeRequest | null {
  *       401:
  *         description: Unauthorized
  */
-router.post('/key-packages', async (req: Request, res: Response) => {
+export const postKeyPackagesHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -352,7 +368,7 @@ router.post('/key-packages', async (req: Request, res: Response) => {
     console.error('Failed to upload key packages:', error);
     res.status(500).json({ error: 'Failed to upload key packages' });
   }
-});
+};
 
 /**
  * @openapi
@@ -367,7 +383,7 @@ router.post('/key-packages', async (req: Request, res: Response) => {
  *       200:
  *         description: User's key packages
  */
-router.get('/key-packages/me', async (req: Request, res: Response) => {
+export const getKeyPackagesMeHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -407,7 +423,7 @@ router.get('/key-packages/me', async (req: Request, res: Response) => {
     console.error('Failed to get key packages:', error);
     res.status(500).json({ error: 'Failed to get key packages' });
   }
-});
+};
 
 /**
  * @openapi
@@ -429,7 +445,10 @@ router.get('/key-packages/me', async (req: Request, res: Response) => {
  *       200:
  *         description: Available key packages
  */
-router.get('/key-packages/:userId', async (req: Request, res: Response) => {
+export const getKeyPackagesUseridHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -476,7 +495,7 @@ router.get('/key-packages/:userId', async (req: Request, res: Response) => {
     console.error('Failed to get key packages:', error);
     res.status(500).json({ error: 'Failed to get key packages' });
   }
-});
+};
 
 /**
  * @openapi
@@ -497,7 +516,10 @@ router.get('/key-packages/:userId', async (req: Request, res: Response) => {
  *       204:
  *         description: Key package deleted
  */
-router.delete('/key-packages/:id', async (req: Request, res: Response) => {
+export const deleteKeyPackagesIdHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -531,7 +553,7 @@ router.delete('/key-packages/:id', async (req: Request, res: Response) => {
     console.error('Failed to delete key package:', error);
     res.status(500).json({ error: 'Failed to delete key package' });
   }
-});
+};
 
 // =============================================================================
 // Group Endpoints
@@ -550,7 +572,7 @@ router.delete('/key-packages/:id', async (req: Request, res: Response) => {
  *       201:
  *         description: Group created
  */
-router.post('/groups', async (req: Request, res: Response) => {
+export const postGroupsHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -629,7 +651,7 @@ router.post('/groups', async (req: Request, res: Response) => {
     console.error('Failed to create group:', error);
     res.status(500).json({ error: 'Failed to create group' });
   }
-});
+};
 
 /**
  * @openapi
@@ -644,7 +666,7 @@ router.post('/groups', async (req: Request, res: Response) => {
  *       200:
  *         description: List of groups
  */
-router.get('/groups', async (req: Request, res: Response) => {
+export const getGroupsHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -697,7 +719,7 @@ router.get('/groups', async (req: Request, res: Response) => {
     console.error('Failed to list groups:', error);
     res.status(500).json({ error: 'Failed to list groups' });
   }
-});
+};
 
 /**
  * @openapi
@@ -718,7 +740,7 @@ router.get('/groups', async (req: Request, res: Response) => {
  *       200:
  *         description: Group details with members
  */
-router.get('/groups/:groupId', async (req: Request, res: Response) => {
+export const getGroupsGroupidHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -820,7 +842,7 @@ router.get('/groups/:groupId', async (req: Request, res: Response) => {
     console.error('Failed to get group:', error);
     res.status(500).json({ error: 'Failed to get group' });
   }
-});
+};
 
 /**
  * @openapi
@@ -841,7 +863,10 @@ router.get('/groups/:groupId', async (req: Request, res: Response) => {
  *       200:
  *         description: Group updated
  */
-router.patch('/groups/:groupId', async (req: Request, res: Response) => {
+export const patchGroupsGroupidHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -944,7 +969,7 @@ router.patch('/groups/:groupId', async (req: Request, res: Response) => {
     console.error('Failed to update group:', error);
     res.status(500).json({ error: 'Failed to update group' });
   }
-});
+};
 
 /**
  * @openapi
@@ -965,7 +990,10 @@ router.patch('/groups/:groupId', async (req: Request, res: Response) => {
  *       204:
  *         description: Left/deleted group
  */
-router.delete('/groups/:groupId', async (req: Request, res: Response) => {
+export const deleteGroupsGroupidHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1006,7 +1034,7 @@ router.delete('/groups/:groupId', async (req: Request, res: Response) => {
     console.error('Failed to leave group:', error);
     res.status(500).json({ error: 'Failed to leave group' });
   }
-});
+};
 
 // =============================================================================
 // Membership Endpoints
@@ -1031,7 +1059,10 @@ router.delete('/groups/:groupId', async (req: Request, res: Response) => {
  *       201:
  *         description: Member added
  */
-router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
+export const postGroupsGroupidMembersHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1184,7 +1215,7 @@ router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
     console.error('Failed to add member:', error);
     res.status(500).json({ error: 'Failed to add member' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1205,7 +1236,10 @@ router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
  *       200:
  *         description: List of members
  */
-router.get('/groups/:groupId/members', async (req: Request, res: Response) => {
+export const getGroupsGroupidMembersHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1265,7 +1299,7 @@ router.get('/groups/:groupId/members', async (req: Request, res: Response) => {
     console.error('Failed to list members:', error);
     res.status(500).json({ error: 'Failed to list members' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1291,118 +1325,118 @@ router.get('/groups/:groupId/members', async (req: Request, res: Response) => {
  *       204:
  *         description: Member removed
  */
-router.delete(
-  '/groups/:groupId/members/:userId',
-  async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const deleteGroupsGroupidMembersUseridHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const groupIdParam = req.params['groupId'];
-    const userIdParam = req.params['userId'];
-    if (
-      !groupIdParam ||
-      typeof groupIdParam !== 'string' ||
-      !userIdParam ||
-      typeof userIdParam !== 'string'
-    ) {
-      res.status(400).json({ error: 'groupId and userId are required' });
-      return;
-    }
-    const groupId = groupIdParam;
-    const userId = userIdParam;
+  const groupIdParam = req.params['groupId'];
+  const userIdParam = req.params['userId'];
+  if (
+    !groupIdParam ||
+    typeof groupIdParam !== 'string' ||
+    !userIdParam ||
+    typeof userIdParam !== 'string'
+  ) {
+    res.status(400).json({ error: 'groupId and userId are required' });
+    return;
+  }
+  const groupId = groupIdParam;
+  const userId = userIdParam;
 
-    const payload = parseRemoveMemberPayload(req.body);
-    if (!payload) {
-      res.status(400).json({ error: 'Invalid remove member payload' });
-      return;
-    }
+  const payload = parseRemoveMemberPayload(req.body);
+  if (!payload) {
+    res.status(400).json({ error: 'Invalid remove member payload' });
+    return;
+  }
 
-    try {
-      const pool = await getPostgresPool();
+  try {
+    const pool = await getPostgresPool();
 
-      // Check admin membership
-      const memberCheck = await pool.query<{ role: string }>(
-        `SELECT role FROM mls_group_members
+    // Check admin membership
+    const memberCheck = await pool.query<{ role: string }>(
+      `SELECT role FROM mls_group_members
          WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-        [groupId, claims.sub]
+      [groupId, claims.sub]
+    );
+
+    if (memberCheck.rows.length === 0) {
+      res.status(403).json({ error: 'Not a member of this group' });
+      return;
+    }
+
+    const role = memberCheck.rows[0]?.role;
+    if (role !== 'admin') {
+      res.status(403).json({ error: 'Only admins can remove members' });
+      return;
+    }
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Mark as removed
+      const result = await client.query(
+        `UPDATE mls_group_members SET removed_at = NOW()
+           WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
+        [groupId, userId]
       );
 
-      if (memberCheck.rows.length === 0) {
-        res.status(403).json({ error: 'Not a member of this group' });
+      if (result.rowCount === 0) {
+        await client.query('ROLLBACK');
+        res.status(404).json({ error: 'Member not found' });
         return;
       }
 
-      const role = memberCheck.rows[0]?.role;
-      if (role !== 'admin') {
-        res.status(403).json({ error: 'Only admins can remove members' });
-        return;
-      }
-
-      const client = await pool.connect();
-      try {
-        await client.query('BEGIN');
-
-        // Mark as removed
-        const result = await client.query(
-          `UPDATE mls_group_members SET removed_at = NOW()
-           WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-          [groupId, userId]
-        );
-
-        if (result.rowCount === 0) {
-          await client.query('ROLLBACK');
-          res.status(404).json({ error: 'Member not found' });
-          return;
-        }
-
-        // Store commit with atomic sequence number generation
-        const commitId = randomUUID();
-        await client.query(
-          `INSERT INTO mls_messages (
+      // Store commit with atomic sequence number generation
+      const commitId = randomUUID();
+      await client.query(
+        `INSERT INTO mls_messages (
             id, group_id, sender_user_id, epoch, ciphertext, message_type, sequence_number, created_at
           ) VALUES (
             $1, $2, $3, $4, $5, 'commit',
             COALESCE((SELECT MAX(sequence_number) FROM mls_messages WHERE group_id = $2), 0) + 1,
             NOW()
           )`,
-          [commitId, groupId, claims.sub, payload.newEpoch, payload.commit]
-        );
+        [commitId, groupId, claims.sub, payload.newEpoch, payload.commit]
+      );
 
-        // Update group epoch
-        await client.query(
-          `UPDATE mls_groups SET current_epoch = $1, updated_at = NOW() WHERE id = $2`,
-          [payload.newEpoch, groupId]
-        );
+      // Update group epoch
+      await client.query(
+        `UPDATE mls_groups SET current_epoch = $1, updated_at = NOW() WHERE id = $2`,
+        [payload.newEpoch, groupId]
+      );
 
-        await client.query('COMMIT');
-      } catch (error) {
-        try {
-          await client.query('ROLLBACK');
-        } catch {
-          // Ignore rollback errors
-        }
-        throw error;
-      } finally {
-        client.release();
-      }
-
-      // Broadcast to group
-      await broadcast(`mls:group:${groupId}`, {
-        type: 'mls:member_removed',
-        payload: { groupId, userId },
-        timestamp: new Date().toISOString()
-      });
-
-      res.status(204).send();
+      await client.query('COMMIT');
     } catch (error) {
-      console.error('Failed to remove member:', error);
-      res.status(500).json({ error: 'Failed to remove member' });
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // Ignore rollback errors
+      }
+      throw error;
+    } finally {
+      client.release();
     }
+
+    // Broadcast to group
+    await broadcast(`mls:group:${groupId}`, {
+      type: 'mls:member_removed',
+      payload: { groupId, userId },
+      timestamp: new Date().toISOString()
+    });
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Failed to remove member:', error);
+    res.status(500).json({ error: 'Failed to remove member' });
   }
-);
+};
 
 // =============================================================================
 // Message Endpoints
@@ -1427,51 +1461,52 @@ router.delete(
  *       201:
  *         description: Message sent
  */
-router.post(
-  '/groups/:groupId/messages',
-  async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const postGroupsGroupidMessagesHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const groupIdParam = req.params['groupId'];
-    if (!groupIdParam || typeof groupIdParam !== 'string') {
-      res.status(400).json({ error: 'groupId is required' });
-      return;
-    }
-    const groupId = groupIdParam;
+  const groupIdParam = req.params['groupId'];
+  if (!groupIdParam || typeof groupIdParam !== 'string') {
+    res.status(400).json({ error: 'groupId is required' });
+    return;
+  }
+  const groupId = groupIdParam;
 
-    const payload = parseSendMessagePayload(req.body);
-    if (!payload) {
-      res.status(400).json({ error: 'Invalid message payload' });
-      return;
-    }
+  const payload = parseSendMessagePayload(req.body);
+  if (!payload) {
+    res.status(400).json({ error: 'Invalid message payload' });
+    return;
+  }
 
-    try {
-      const pool = await getPostgresPool();
+  try {
+    const pool = await getPostgresPool();
 
-      // Check membership
-      const memberCheck = await pool.query(
-        `SELECT 1 FROM mls_group_members
+    // Check membership
+    const memberCheck = await pool.query(
+      `SELECT 1 FROM mls_group_members
          WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-        [groupId, claims.sub]
-      );
+      [groupId, claims.sub]
+    );
 
-      if (memberCheck.rows.length === 0) {
-        res.status(403).json({ error: 'Not a member of this group' });
-        return;
-      }
+    if (memberCheck.rows.length === 0) {
+      res.status(403).json({ error: 'Not a member of this group' });
+      return;
+    }
 
-      // Insert message with atomic sequence number assignment
-      // Uses subquery to avoid race condition on concurrent inserts
-      const id = randomUUID();
-      const result = await pool.query<{
-        sequence_number: number;
-        created_at: Date;
-      }>(
-        `INSERT INTO mls_messages (
+    // Insert message with atomic sequence number assignment
+    // Uses subquery to avoid race condition on concurrent inserts
+    const id = randomUUID();
+    const result = await pool.query<{
+      sequence_number: number;
+      created_at: Date;
+    }>(
+      `INSERT INTO mls_messages (
           id, group_id, sender_user_id, epoch, ciphertext, message_type, content_type, sequence_number, created_at
         ) VALUES (
           $1, $2, $3, $4, $5, $6, $7,
@@ -1479,50 +1514,49 @@ router.post(
           NOW()
         )
         RETURNING sequence_number, created_at`,
-        [
-          id,
-          groupId,
-          claims.sub,
-          payload.epoch,
-          payload.ciphertext,
-          payload.messageType,
-          payload.contentType ?? 'text/plain'
-        ]
-      );
-
-      const row = result.rows[0];
-      if (!row) {
-        throw new Error('Failed to insert message');
-      }
-
-      const message: MlsMessage = {
+      [
         id,
         groupId,
-        senderUserId: claims.sub,
-        epoch: payload.epoch,
-        ciphertext: payload.ciphertext,
-        messageType: payload.messageType,
-        contentType: payload.contentType ?? 'text/plain',
-        sequenceNumber: row.sequence_number,
-        sentAt: row.created_at.toISOString(),
-        createdAt: row.created_at.toISOString()
-      };
+        claims.sub,
+        payload.epoch,
+        payload.ciphertext,
+        payload.messageType,
+        payload.contentType ?? 'text/plain'
+      ]
+    );
 
-      // Broadcast to group channel
-      await broadcast(`mls:group:${groupId}`, {
-        type: 'mls:message',
-        payload: message,
-        timestamp: row.created_at.toISOString()
-      });
-
-      const response: SendMlsMessageResponse = { message };
-      res.status(201).json(response);
-    } catch (error) {
-      console.error('Failed to send message:', error);
-      res.status(500).json({ error: 'Failed to send message' });
+    const row = result.rows[0];
+    if (!row) {
+      throw new Error('Failed to insert message');
     }
+
+    const message: MlsMessage = {
+      id,
+      groupId,
+      senderUserId: claims.sub,
+      epoch: payload.epoch,
+      ciphertext: payload.ciphertext,
+      messageType: payload.messageType,
+      contentType: payload.contentType ?? 'text/plain',
+      sequenceNumber: row.sequence_number,
+      sentAt: row.created_at.toISOString(),
+      createdAt: row.created_at.toISOString()
+    };
+
+    // Broadcast to group channel
+    await broadcast(`mls:group:${groupId}`, {
+      type: 'mls:message',
+      payload: message,
+      timestamp: row.created_at.toISOString()
+    });
+
+    const response: SendMlsMessageResponse = { message };
+    res.status(201).json(response);
+  } catch (error) {
+    console.error('Failed to send message:', error);
+    res.status(500).json({ error: 'Failed to send message' });
   }
-);
+};
 
 /**
  * @openapi
@@ -1552,7 +1586,10 @@ router.post(
  *       200:
  *         description: Message history
  */
-router.get('/groups/:groupId/messages', async (req: Request, res: Response) => {
+export const getGroupsGroupidMessagesHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1653,7 +1690,7 @@ router.get('/groups/:groupId/messages', async (req: Request, res: Response) => {
     console.error('Failed to get messages:', error);
     res.status(500).json({ error: 'Failed to get messages' });
   }
-});
+};
 
 // =============================================================================
 // Welcome Message Endpoints
@@ -1672,7 +1709,10 @@ router.get('/groups/:groupId/messages', async (req: Request, res: Response) => {
  *       200:
  *         description: Pending welcome messages
  */
-router.get('/welcome-messages', async (req: Request, res: Response) => {
+export const getWelcomeMessagesHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1715,7 +1755,7 @@ router.get('/welcome-messages', async (req: Request, res: Response) => {
     console.error('Failed to get welcome messages:', error);
     res.status(500).json({ error: 'Failed to get welcome messages' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1736,50 +1776,50 @@ router.get('/welcome-messages', async (req: Request, res: Response) => {
  *       200:
  *         description: Welcome acknowledged
  */
-router.post(
-  '/welcome-messages/:id/ack',
-  async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    const idParam = req.params['id'];
-    if (!idParam || typeof idParam !== 'string') {
-      res.status(400).json({ error: 'id is required' });
-      return;
-    }
-    const id = idParam;
-
-    const payload = parseAckWelcomePayload(req.body);
-    if (!payload) {
-      res.status(400).json({ error: 'groupId is required' });
-      return;
-    }
-
-    try {
-      const pool = await getPostgresPool();
-      const result = await pool.query(
-        `UPDATE mls_welcome_messages SET consumed_at = NOW()
-       WHERE id = $1 AND recipient_user_id = $2 AND consumed_at IS NULL`,
-        [id, claims.sub]
-      );
-
-      if (result.rowCount === 0) {
-        res
-          .status(404)
-          .json({ error: 'Welcome message not found or already acknowledged' });
-        return;
-      }
-
-      res.json({ acknowledged: true });
-    } catch (error) {
-      console.error('Failed to acknowledge welcome:', error);
-      res.status(500).json({ error: 'Failed to acknowledge welcome' });
-    }
+export const postWelcomeMessagesIdAckHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
-);
+
+  const idParam = req.params['id'];
+  if (!idParam || typeof idParam !== 'string') {
+    res.status(400).json({ error: 'id is required' });
+    return;
+  }
+  const id = idParam;
+
+  const payload = parseAckWelcomePayload(req.body);
+  if (!payload) {
+    res.status(400).json({ error: 'groupId is required' });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+    const result = await pool.query(
+      `UPDATE mls_welcome_messages SET consumed_at = NOW()
+       WHERE id = $1 AND recipient_user_id = $2 AND consumed_at IS NULL`,
+      [id, claims.sub]
+    );
+
+    if (result.rowCount === 0) {
+      res
+        .status(404)
+        .json({ error: 'Welcome message not found or already acknowledged' });
+      return;
+    }
+
+    res.json({ acknowledged: true });
+  } catch (error) {
+    console.error('Failed to acknowledge welcome:', error);
+    res.status(500).json({ error: 'Failed to acknowledge welcome' });
+  }
+};
 
 // =============================================================================
 // State Management Endpoints (Multi-device sync)
@@ -1804,7 +1844,10 @@ router.post(
  *       201:
  *         description: State uploaded
  */
-router.post('/groups/:groupId/state', async (req: Request, res: Response) => {
+export const postGroupsGroupidStateHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1885,7 +1928,7 @@ router.post('/groups/:groupId/state', async (req: Request, res: Response) => {
     console.error('Failed to upload state:', error);
     res.status(500).json({ error: 'Failed to upload state' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1906,7 +1949,10 @@ router.post('/groups/:groupId/state', async (req: Request, res: Response) => {
  *       200:
  *         description: Latest state snapshot
  */
-router.get('/groups/:groupId/state', async (req: Request, res: Response) => {
+export const getGroupsGroupidStateHandler = async (
+  req: Request,
+  res: Response
+) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1979,6 +2025,26 @@ router.get('/groups/:groupId/state', async (req: Request, res: Response) => {
     console.error('Failed to get state:', error);
     res.status(500).json({ error: 'Failed to get state' });
   }
-});
+};
+
+const router: RouterType = Router();
+registerPostKeyPackagesRoute(router);
+registerGetKeyPackagesMeRoute(router);
+registerGetKeyPackagesUseridRoute(router);
+registerDeleteKeyPackagesIdRoute(router);
+registerPostGroupsRoute(router);
+registerGetGroupsRoute(router);
+registerGetGroupsGroupidRoute(router);
+registerPatchGroupsGroupidRoute(router);
+registerDeleteGroupsGroupidRoute(router);
+registerPostGroupsGroupidMembersRoute(router);
+registerGetGroupsGroupidMembersRoute(router);
+registerDeleteGroupsGroupidMembersUseridRoute(router);
+registerPostGroupsGroupidMessagesRoute(router);
+registerGetGroupsGroupidMessagesRoute(router);
+registerGetWelcomeMessagesRoute(router);
+registerPostWelcomeMessagesIdAckRoute(router);
+registerPostGroupsGroupidStateRoute(router);
+registerGetGroupsGroupidStateRoute(router);
 
 export { router as mlsRouter };

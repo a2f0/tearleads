@@ -6,8 +6,7 @@ import {
   type Router as RouterType
 } from 'express';
 import { getRedisSubscriberClient } from '../lib/redisPubSub.js';
-
-const sseRouter: RouterType = Router();
+import { registerGetRootRoute } from './sse/get-root.js';
 
 const activeConnections = new Set<Response>();
 
@@ -90,7 +89,7 @@ export function cleanupSseClient(
  *             schema:
  *               type: string
  */
-sseRouter.get('/', async (req: Request, res: Response) => {
+export const getRootHandler = async (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -152,6 +151,9 @@ sseRouter.get('/', async (req: Request, res: Response) => {
     );
     res.end();
   }
-});
+};
+
+const sseRouter: RouterType = Router();
+registerGetRootRoute(sseRouter);
 
 export { sseRouter };
