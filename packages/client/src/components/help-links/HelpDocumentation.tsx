@@ -1,6 +1,6 @@
 import { useTheme } from '@rapid/ui';
 import MDEditor from '@uiw/react-md-editor';
-import { Download, Puzzle, Terminal } from 'lucide-react';
+import { Download, type LucideIcon, Puzzle, Terminal } from 'lucide-react';
 import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
 import type { SupportedLanguage } from '@/i18n';
 import { useTypedTranslation } from '@/i18n';
@@ -42,6 +42,12 @@ const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
     'Full guide for secure backup and restore workflows across platforms.'
 };
 
+const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
+  cli: Terminal,
+  chromeExtension: Puzzle,
+  backupRestore: Download
+};
+
 function resolveLanguage(language: string | undefined): SupportedLanguage {
   if (language === 'es') return 'es';
   if (language === 'ua') return 'ua';
@@ -60,12 +66,7 @@ export function HelpDocumentation({ docId }: HelpDocumentationProps) {
   const documentation = HELP_DOC_MARKDOWN[docId][language];
   const title = `${getHelpDocLabel(docId)} Documentation`;
   const description = HELP_DOC_DESCRIPTIONS[docId];
-  const Icon =
-    docId === 'cli'
-      ? Terminal
-      : docId === 'chromeExtension'
-        ? Puzzle
-        : Download;
+  const Icon = HELP_DOC_ICONS[docId];
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-4">

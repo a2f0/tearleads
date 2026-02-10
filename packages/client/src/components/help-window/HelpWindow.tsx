@@ -18,6 +18,17 @@ import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
 type HelpView = 'index' | 'api' | HelpDocId;
 
+function getHelpWindowTitle(view: HelpView): string {
+  switch (view) {
+    case 'index':
+      return 'Help';
+    case 'api':
+      return 'API Docs';
+    default:
+      return getHelpDocLabel(view);
+  }
+}
+
 interface HelpWindowProps {
   id: string;
   onClose: () => void;
@@ -47,12 +58,7 @@ export function HelpWindow({
     return getDocsWindowDefaults(window.innerWidth, window.innerHeight);
   }, []);
 
-  const title =
-    view === 'index'
-      ? 'Help'
-      : view === 'api'
-        ? 'API Docs'
-        : getHelpDocLabel(view);
+  const title = getHelpWindowTitle(view);
 
   return (
     <FloatingWindow

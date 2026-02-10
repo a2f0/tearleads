@@ -12,6 +12,12 @@ const HELP_DOC_LABELS: Record<HelpDocId, string> = {
   backupRestore: 'Backup & Restore'
 };
 
+const HELP_DOC_IDS_BY_ROUTE_SEGMENT: Record<string, HelpDocId> = {
+  [HELP_DOC_ROUTE_SEGMENTS.cli]: 'cli',
+  [HELP_DOC_ROUTE_SEGMENTS.chromeExtension]: 'chromeExtension',
+  [HELP_DOC_ROUTE_SEGMENTS.backupRestore]: 'backupRestore'
+};
+
 export function getHelpDocRouteSegment(docId: HelpDocId): string {
   return HELP_DOC_ROUTE_SEGMENTS[docId];
 }
@@ -23,12 +29,5 @@ export function getHelpDocLabel(docId: HelpDocId): string {
 export function getHelpDocIdFromRouteSegment(
   routeSegment: string
 ): HelpDocId | null {
-  if (routeSegment === HELP_DOC_ROUTE_SEGMENTS.cli) return 'cli';
-  if (routeSegment === HELP_DOC_ROUTE_SEGMENTS.chromeExtension) {
-    return 'chromeExtension';
-  }
-  if (routeSegment === HELP_DOC_ROUTE_SEGMENTS.backupRestore) {
-    return 'backupRestore';
-  }
-  return null;
+  return HELP_DOC_IDS_BY_ROUTE_SEGMENT[routeSegment] ?? null;
 }
