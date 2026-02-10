@@ -1,6 +1,182 @@
-/* istanbul ignore file */
-import type { Router as RouterType } from 'express';
-import { postRegisterHandler } from '../auth.js';
+import { randomUUID } from 'node:crypto';
+import type { Request, Response, Router as RouterType } from 'express';
+import { createJwt } from '../../lib/jwt.js';
+import { hashPassword } from '../../lib/passwords.js';
+import { getPostgresPool } from '../../lib/postgres.js';
+import { getClientIp } from '../../lib/request-utils.js';
+import { createSession, storeRefreshToken } from '../../lib/sessions.js';
+import {
+  ACCESS_TOKEN_TTL_SECONDS,
+  EMAIL_REGEX,
+  getAllowedEmailDomains,
+  MIN_PASSWORD_LENGTH,
+  parseAuthPayload,
+  REFRESH_TOKEN_TTL_SECONDS
+} from './shared.js';
+
+/**
+ * @openapi
+ * /auth/register:
+ *   post:
+ *     summary: Register a new user
+ *     description: Creates a new user account and returns access tokens for immediate login.
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *             required:
+ *               - email
+ *               - password
+ *     responses:
+ *       200:
+ *         description: Registration successful, user logged in
+ *       400:
+ *         description: Invalid request payload or email domain not allowed
+ *       409:
+ *         description: Email already registered
+ *       500:
+ *         description: Server error
+ */
+export const postRegisterHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const payload = parseAuthPayload(req.body);
+  if (!payload) {
+    res.status(400).json({ error: 'email and password are required' });
+    return;
+  }
+
+  if (!EMAIL_REGEX.test(payload.email)) {
+    res.status(400).json({ error: 'Invalid email format' });
+    return;
+  }
+
+  const allowedDomains = getAllowedEmailDomains();
+  if (allowedDomains.length > 0) {
+    const emailDomain = payload.email.split('@')[1]?.toLowerCase();
+    if (!emailDomain || !allowedDomains.includes(emailDomain)) {
+      res.status(400).json({
+        error: `Email domain not allowed. Allowed domains: ${allowedDomains.join(', ')}`
+      });
+      return;
+    }
+  }
+
+  if (payload.password.length < MIN_PASSWORD_LENGTH) {
+    res.status(400).json({
+      error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
+    });
+    return;
+  }
+
+  const jwtSecret = process.env['JWT_SECRET'];
+  if (!jwtSecret) {
+    console.error('Authentication setup error: JWT_SECRET is not configured.');
+    res.status(500).json({ error: 'Failed to register' });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+
+    const existingUser = await pool.query<{ id: string }>(
+      `SELECT id FROM users WHERE lower(email) = $1 LIMIT 1`,
+      [payload.email]
+    );
+    if (existingUser.rows[0]) {
+      res.status(409).json({ error: 'Email already registered' });
+      return;
+    }
+
+    const { salt, hash } = await hashPassword(payload.password);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const userId = randomUUID();
+      const now = new Date().toISOString();
+
+      await client.query(
+        `INSERT INTO users (id, email, email_confirmed, admin, created_at, updated_at)
+         VALUES ($1, $2, true, false, $3, $3)`,
+        [userId, payload.email, now]
+      );
+
+      await client.query(
+        `INSERT INTO user_credentials (user_id, password_hash, password_salt, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $4)`,
+        [userId, hash, salt, now]
+      );
+
+      await client.query('COMMIT');
+
+      const sessionId = randomUUID();
+      const ipAddress = getClientIp(req);
+      await createSession(
+        sessionId,
+        {
+          userId,
+          email: payload.email,
+          admin: false,
+          ipAddress
+        },
+        REFRESH_TOKEN_TTL_SECONDS
+      );
+
+      const accessToken = createJwt(
+        { sub: userId, email: payload.email, jti: sessionId },
+        jwtSecret,
+        ACCESS_TOKEN_TTL_SECONDS
+      );
+
+      const refreshTokenId = randomUUID();
+      await storeRefreshToken(
+        refreshTokenId,
+        { sessionId, userId },
+        REFRESH_TOKEN_TTL_SECONDS
+      );
+
+      const refreshToken = createJwt(
+        { sub: userId, jti: refreshTokenId, sid: sessionId, type: 'refresh' },
+        jwtSecret,
+        REFRESH_TOKEN_TTL_SECONDS
+      );
+
+      res.json({
+        accessToken,
+        refreshToken,
+        tokenType: 'Bearer',
+        expiresIn: ACCESS_TOKEN_TTL_SECONDS,
+        refreshExpiresIn: REFRESH_TOKEN_TTL_SECONDS,
+        user: {
+          id: userId,
+          email: payload.email
+        }
+      });
+    } catch (txError) {
+      await client.query('ROLLBACK');
+      throw txError;
+    } finally {
+      client.release();
+    }
+  } catch (error) {
+    console.error('Registration failed:', error);
+    res.status(500).json({ error: 'Failed to register' });
+  }
+};
 
 export function registerPostRegisterRoute(authRouter: RouterType): void {
   authRouter.post('/register', postRegisterHandler);
