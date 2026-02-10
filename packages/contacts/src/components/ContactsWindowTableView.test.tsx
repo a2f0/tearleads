@@ -1,0 +1,59 @@
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { TestContactsProvider } from '../test/test-utils';
+import { ContactsWindowTableView } from './ContactsWindowTableView';
+
+const mockUseContacts = vi.fn();
+
+vi.mock('../hooks/useContacts', () => ({
+  useContacts: () => mockUseContacts()
+}));
+
+describe('ContactsWindowTableView', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseContacts.mockReturnValue({
+      contactsList: [
+        {
+          id: 'contact-1',
+          firstName: 'Ada',
+          lastName: 'Lovelace',
+          primaryEmail: 'ada@example.com',
+          primaryPhone: null
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      fetchContacts: vi.fn(),
+      setHasFetched: vi.fn()
+    });
+  });
+
+  it('sends email to the primary email from context menu', () => {
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(
+      <TestContactsProvider>
+        <ContactsWindowTableView
+          onSelectContact={vi.fn()}
+          onCreateContact={vi.fn()}
+          groupId={undefined}
+        />
+      </TestContactsProvider>
+    );
+
+    const row = screen.getByText('Ada Lovelace').closest('tr');
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+    fireEvent.click(screen.getByText('Send email'));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'mailto:ada%40example.com',
+      '_blank',
+      'noopener,noreferrer'
+    );
+  });
+});

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TestContactsProvider } from '../test/test-utils';
+import { createMockDatabase, TestContactsProvider } from '../test/test-utils';
 import {
   ALL_CONTACTS_ID,
   ContactsGroupsSidebar
@@ -145,5 +145,52 @@ describe('ContactsGroupsSidebar', () => {
     await waitFor(() => {
       expect(onDropToGroup).toHaveBeenCalledWith('group-1', ['contact-1']);
     });
+  });
+
+  it('sends email to all group primary email recipients', async () => {
+    const mockDb = createMockDatabase();
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    mockDb.select.mockImplementation(() => ({
+      from: () => ({
+        innerJoin: () => ({
+          innerJoin: () => ({
+            where: () => ({
+              orderBy: () =>
+                Promise.resolve([
+                  { email: 'family@example.com' },
+                  { email: 'family@example.com' },
+                  { email: 'work@example.com' }
+                ])
+            })
+          })
+        })
+      })
+    }));
+
+    render(
+      <TestContactsProvider database={mockDb}>
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+        />
+      </TestContactsProvider>
+    );
+
+    const groupButton = screen.getByText('Family').closest('button');
+    expect(groupButton).not.toBeNull();
+    if (!groupButton) return;
+
+    fireEvent.contextMenu(groupButton);
+    await user.click(screen.getByText('Send email'));
+
+    expect(openSpy).toHaveBeenCalledWith(
+      'mailto:family%40example.com,work%40example.com',
+      '_blank',
+      'noopener,noreferrer'
+    );
   });
 });

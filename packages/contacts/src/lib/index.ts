@@ -1,3 +1,4 @@
+export { buildMailtoUrl, openComposeEmail } from './contactEmail';
 export { cn } from './utils';
 export {
   type ContactFormData,
