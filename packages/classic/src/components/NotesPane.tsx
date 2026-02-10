@@ -17,6 +17,7 @@ interface NotesPaneProps {
   onMoveNote: (noteId: string, direction: 'up' | 'down') => void;
   onReorderNote: (noteId: string, targetNoteId: string) => void;
   onCreateNote?: (() => void | Promise<void>) | undefined;
+  onStartEditNote?: (noteId: string) => void;
   onUpdateNote?: (noteId: string, title: string, body: string) => void;
   onCancelEditNote?: () => void;
   searchValue: string;
@@ -44,6 +45,7 @@ export function NotesPane({
   onMoveNote,
   onReorderNote,
   onCreateNote,
+  onStartEditNote,
   onUpdateNote,
   onCancelEditNote,
   searchValue,
@@ -209,6 +211,12 @@ export function NotesPane({
                       y: event.clientY,
                       ariaLabel: `Note actions for ${note.title}`,
                       actions: [
+                        {
+                          label: 'Edit',
+                          onClick: () => onStartEditNote?.(note.id),
+                          disabled: !onStartEditNote,
+                          ariaLabel: `Edit note ${note.title}`
+                        },
                         {
                           label: 'Move Up',
                           onClick: () => onMoveNote(note.id, 'up'),

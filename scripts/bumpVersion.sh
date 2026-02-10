@@ -23,6 +23,7 @@ sedi() {
 ANDROID_GRADLE="$REPO_ROOT/packages/client/android/app/build.gradle"
 IOS_PBXPROJ="$REPO_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxproj"
 API_PACKAGE="$REPO_ROOT/packages/api/package.json"
+CLASSIC_PACKAGE="$REPO_ROOT/packages/classic/package.json"
 CLI_PACKAGE="$REPO_ROOT/packages/cli/package.json"
 CLIENT_PACKAGE="$REPO_ROOT/packages/client/package.json"
 CHROME_EXT_PACKAGE="$REPO_ROOT/packages/chrome-extension/package.json"
@@ -117,6 +118,7 @@ has_changes() {
 }
 
 API_CHANGED=false
+CLASSIC_CHANGED=false
 CLI_CHANGED=false
 CHROME_EXT_CHANGED=false
 CLIENT_CHANGED=false
@@ -128,6 +130,7 @@ VFS_EXPLORER_CHANGED=false
 WEBSITE_CHANGED=false
 
 has_changes "packages/api" "packages/api/package.json" && API_CHANGED=true
+has_changes "packages/classic" "packages/classic/package.json" && CLASSIC_CHANGED=true
 has_changes "packages/cli" "packages/cli/package.json" && CLI_CHANGED=true
 has_changes "packages/chrome-extension" \
   "packages/chrome-extension/package.json" \
@@ -219,6 +222,7 @@ else
 fi
 
 bump_npm_package_version "API" "$API_PACKAGE" "$API_CHANGED"
+bump_npm_package_version "Classic" "$CLASSIC_PACKAGE" "$CLASSIC_CHANGED"
 bump_npm_package_version "CLI" "$CLI_PACKAGE" "$CLI_CHANGED"
 bump_npm_package_version "Email" "$EMAIL_PACKAGE" "$EMAIL_CHANGED"
 bump_npm_package_version "Notes" "$NOTES_PACKAGE" "$NOTES_CHANGED"

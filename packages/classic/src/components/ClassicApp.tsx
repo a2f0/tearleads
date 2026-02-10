@@ -229,6 +229,7 @@ export function ClassicApp({
         onMoveTag={handleMoveTag}
         onReorderTag={handleReorderTag}
         onCreateTag={handleCreateTag}
+        onStartEditTag={setEditingTagId}
         onRenameTag={handleRenameTag}
         onCancelEditTag={handleCancelEditTag}
         searchValue={tagSearch}
@@ -243,6 +244,7 @@ export function ClassicApp({
         onMoveNote={handleMoveNote}
         onReorderNote={handleReorderNote}
         onCreateNote={handleCreateNote}
+        onStartEditNote={setEditingNoteId}
         onUpdateNote={handleUpdateNote}
         onCancelEditNote={handleCancelEditNote}
         searchValue={entrySearch}

@@ -17,6 +17,7 @@ interface TagSidebarProps {
   onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
   onReorderTag: (tagId: string, targetTagId: string) => void;
   onCreateTag?: (() => void | Promise<void>) | undefined;
+  onStartEditTag?: (tagId: string) => void;
   onRenameTag?: (tagId: string, newName: string) => void;
   onCancelEditTag?: () => void;
   searchValue: string;
@@ -44,6 +45,7 @@ export function TagSidebar({
   onMoveTag,
   onReorderTag,
   onCreateTag,
+  onStartEditTag,
   onRenameTag,
   onCancelEditTag,
   searchValue,
@@ -151,8 +153,8 @@ export function TagSidebar({
                   key={tag.id}
                   className={
                     isActive
-                      ? 'border bg-zinc-200 px-2 py-0.5'
-                      : 'border bg-white px-2 py-0.5'
+                      ? 'border bg-zinc-200 pr-2 py-0.5'
+                      : 'border bg-white pr-2 py-0.5'
                   }
                   draggable
                   onDragStart={(event) => {
@@ -198,6 +200,12 @@ export function TagSidebar({
                       y: event.clientY,
                       ariaLabel: `Tag actions for ${tag.name}`,
                       actions: [
+                        {
+                          label: 'Edit',
+                          onClick: () => onStartEditTag?.(tag.id),
+                          disabled: !onStartEditTag,
+                          ariaLabel: `Edit tag ${tag.name}`
+                        },
                         {
                           label: 'Move Up',
                           onClick: () => onMoveTag(tag.id, 'up'),

@@ -1,3 +1,4 @@
+import classicPackageJson from '@rapid/classic/package.json';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -30,27 +31,19 @@ export function ClassicWindowMenuBar({ onClose }: ClassicWindowMenuBarProps) {
       </DropdownMenu>
       <DropdownMenu trigger="Tags">
         <DropdownMenuItem onClick={NOOP}>New Tag</DropdownMenuItem>
-        <DropdownMenuItem onClick={NOOP} disabled>
-          Rename Tag
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={NOOP} disabled>
-          Delete Tag
-        </DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="Entries">
         <DropdownMenuItem onClick={NOOP}>New Entry</DropdownMenuItem>
-        <DropdownMenuItem onClick={NOOP} disabled>
-          Rename Entry
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={NOOP} disabled>
-          Delete Entry
-        </DropdownMenuItem>
       </DropdownMenu>
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
       </DropdownMenu>
       <DropdownMenu trigger="Help">
-        <AboutMenuItem appName="Classic" closeLabel="Close" />
+        <AboutMenuItem
+          appName="Classic"
+          version={classicPackageJson.version}
+          closeLabel="Close"
+        />
       </DropdownMenu>
     </div>
   );
