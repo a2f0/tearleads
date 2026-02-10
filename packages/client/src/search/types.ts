@@ -6,6 +6,7 @@
  * Searchable entity types in the system.
  */
 export type SearchableEntityType =
+  | 'app'
   | 'contact'
   | 'note'
   | 'file'

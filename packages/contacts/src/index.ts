@@ -16,6 +16,8 @@ export type {
   ContactsProviderProps,
   ContactsUIComponents,
   DatabaseState,
+  ImportedContactRecord,
+  OnContactsImportedFunction,
   RegisterInVfsFunction,
   VfsRegistrationResult
 } from './context';

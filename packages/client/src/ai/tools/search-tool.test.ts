@@ -46,6 +46,7 @@ describe('searchToolDefinition', () => {
     const entityTypes =
       searchToolDefinition.function.parameters.properties['entityTypes'];
     expect(entityTypes?.type).toBe('array');
+    expect(entityTypes?.items?.enum).toContain('app');
     expect(entityTypes?.items?.enum).toContain('contact');
     expect(entityTypes?.items?.enum).toContain('note');
     expect(entityTypes?.items?.enum).toContain('email');

@@ -95,6 +95,7 @@ describe('SearchWindowContent', () => {
     it('renders filter tabs', () => {
       renderContent();
       expect(screen.getByText('All')).toBeInTheDocument();
+      expect(screen.getByText('Apps')).toBeInTheDocument();
       expect(screen.getByText('Contacts')).toBeInTheDocument();
       expect(screen.getByText('Notes')).toBeInTheDocument();
       expect(screen.getByText('Emails')).toBeInTheDocument();
@@ -107,6 +108,7 @@ describe('SearchWindowContent', () => {
       renderContent();
 
       expect(screen.getByText('Start typing to search')).toBeInTheDocument();
+      expect(screen.getByText('10 items indexed')).toBeInTheDocument();
       expect(screen.queryByText('All Contacts')).not.toBeInTheDocument();
       expect(mockSearch).not.toHaveBeenCalled();
     });
@@ -466,7 +468,7 @@ describe('SearchWindowContent', () => {
       expect(screen.queryByText('John Doe')).not.toBeInTheDocument();
       expect(screen.getByText('All')).toHaveClass('bg-primary');
       expect(screen.getByText('Contacts')).not.toHaveClass('bg-primary');
-      expect(screen.getByText('Ready')).toBeInTheDocument();
+      expect(screen.getByText('10 items indexed')).toBeInTheDocument();
     });
 
     it('highlights first result when pressing ArrowDown', async () => {
@@ -1132,6 +1134,39 @@ describe('SearchWindowContent', () => {
 
       await user.click(screen.getByText('Chat about code'));
       expect(mockNavigate).toHaveBeenCalledWith('/ai?conversation=ai-404');
+    });
+
+    it('opens app window on desktop when clicking app result', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'app:notes',
+            entityType: 'app',
+            document: { title: 'Notes' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      const input = screen.getByPlaceholderText('Search...');
+      await user.type(input, 'note');
+
+      await waitFor(() => {
+        expect(mockSearch).toHaveBeenCalledWith('note');
+        expect(screen.getByText('App')).toBeInTheDocument();
+      });
+
+      const appResultButton = screen.getByText('App').closest('button');
+      expect(appResultButton).toBeTruthy();
+      if (!appResultButton) {
+        throw new Error('App result button was not found');
+      }
+
+      await user.click(appResultButton);
+      expect(mockOpenWindow).toHaveBeenCalledWith('notes');
     });
   });
 });

@@ -5,11 +5,13 @@
 import {
   ContactsProvider,
   type ContactsUIComponents,
+  type ImportedContactRecord,
   type VfsRegistrationResult
 } from '@rapid/contacts';
 import contactsPackageJson from '@rapid/contacts/package.json';
 import { vfsRegistry } from '@rapid/db/sqlite';
 import type { ReactNode } from 'react';
+import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -38,6 +40,7 @@ import { getFeatureFlagValue } from '@/lib/feature-flags';
 import { saveFile as saveFileUtil } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatDate } from '@/lib/utils';
+import { createContactDocument, indexDocuments } from '@/search';
 
 export function ContactsAboutMenuItem() {
   return (
@@ -149,6 +152,31 @@ export function ClientContactsProvider({
     currentInstanceId: databaseContext.currentInstanceId
   };
 
+  const handleContactsImported = useCallback(
+    async (importedContacts: ImportedContactRecord[]) => {
+      const instanceId = databaseContext.currentInstanceId;
+      if (!instanceId || importedContacts.length === 0) {
+        return;
+      }
+
+      await indexDocuments(
+        instanceId,
+        importedContacts.map((contact) =>
+          createContactDocument(
+            contact.id,
+            contact.firstName,
+            contact.lastName,
+            contact.email,
+            contact.phone,
+            contact.createdAt.getTime(),
+            contact.updatedAt.getTime()
+          )
+        )
+      );
+    },
+    [databaseContext.currentInstanceId]
+  );
+
   return (
     <ContactsProvider
       databaseState={databaseState}
@@ -156,6 +184,7 @@ export function ClientContactsProvider({
       getDatabaseAdapter={getDatabaseAdapter}
       saveFile={saveFile}
       registerInVfs={registerInVfs}
+      onContactsImported={handleContactsImported}
       ui={contactsUIComponents}
       t={t}
       tooltipZIndex={zIndex.tooltip}
