@@ -62,6 +62,35 @@ describe('ContactsGroupsSidebar', () => {
     expect(onGroupSelect).toHaveBeenCalledWith('group-1');
   });
 
+  it('renders 0 when group contact count is NaN', () => {
+    mockUseContactGroups.mockReturnValue({
+      groups: [
+        { id: 'group-1', name: 'Empty Group', contactCount: Number.NaN }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      refetch,
+      createGroup,
+      renameGroup,
+      deleteGroup
+    });
+
+    render(
+      <TestContactsProvider>
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+        />
+      </TestContactsProvider>
+    );
+
+    expect(screen.getByText('Empty Group')).toBeInTheDocument();
+    expect(screen.getByText('0')).toBeInTheDocument();
+    expect(screen.queryByText('NaN')).not.toBeInTheDocument();
+  });
   it('creates a new group from dialog', async () => {
     const user = userEvent.setup();
 

@@ -184,7 +184,7 @@ export function ContactsGroupsSidebar({
               <Folder className="h-4 w-4 shrink-0 text-primary" />
               <span className="flex-1 truncate">{group.name}</span>
               <span className="text-muted-foreground text-xs">
-                {group.contactCount}
+                {Number.isFinite(group.contactCount) ? group.contactCount : 0}
               </span>
             </button>
           ))}
