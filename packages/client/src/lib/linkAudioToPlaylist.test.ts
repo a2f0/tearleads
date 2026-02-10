@@ -1,8 +1,8 @@
 import '@/test/setup-integration';
 import { withRealDatabase } from '@rapid/db-test-utils';
-import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
+import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { migrations } from '../db/migrations';
 import { linkAudioToPlaylist } from './linkAudioToPlaylist';
 

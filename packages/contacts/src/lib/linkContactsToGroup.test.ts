@@ -1,5 +1,10 @@
+import {
+  contactGroups,
+  contacts,
+  vfsLinks,
+  vfsRegistry
+} from '@rapid/db/sqlite';
 import { withRealDatabase } from '@rapid/db-test-utils';
-import { contactGroups, contacts, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { migrations } from '../../../client/src/db/migrations';
@@ -59,9 +64,11 @@ describe('linkContactsToGroup', () => {
           .where(eq(vfsLinks.parentId, 'group-1'));
         expect(linksAfterFirstDrop).toHaveLength(1);
 
-        const duplicateInsertedCount = await linkContactsToGroup(db, 'group-1', [
-          'contact-1'
-        ]);
+        const duplicateInsertedCount = await linkContactsToGroup(
+          db,
+          'group-1',
+          ['contact-1']
+        );
         expect(duplicateInsertedCount).toBe(0);
 
         const linksAfterSecondDrop = await db

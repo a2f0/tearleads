@@ -33,9 +33,9 @@ import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
+import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
-import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,
