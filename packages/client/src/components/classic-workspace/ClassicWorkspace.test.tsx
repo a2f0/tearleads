@@ -148,4 +148,31 @@ describe('ClassicWorkspace', () => {
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
   });
+
+  it('shows sync error when persist fails', async () => {
+    const user = userEvent.setup();
+    const consoleErrorSpy = mockConsoleError();
+    mockPersistClassicOrderToDatabase.mockRejectedValue(
+      new Error('persist failed')
+    );
+
+    render(<ClassicWorkspace />);
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    await user.click(
+      screen.getByRole('button', { name: 'Trigger State Change' })
+    );
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('Failed to sync Classic state: persist failed')
+      ).toBeInTheDocument();
+    });
+
+    expect(consoleErrorSpy).toHaveBeenCalled();
+    consoleErrorSpy.mockRestore();
+  });
 });
