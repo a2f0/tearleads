@@ -138,6 +138,15 @@ export function ContactsWindowList({
     setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
   }, []);
 
+  const clearEmptySpaceContextMenu = useCallback(() => {
+    setEmptySpaceContextMenu(null);
+  }, []);
+
+  const handleNewContactFromEmptySpace = useCallback(() => {
+    onCreateContact();
+    setEmptySpaceContextMenu(null);
+  }, [onCreateContact]);
+
   const getDisplayName = (contact: ContactInfo) => {
     return `${contact.firstName}${contact.lastName ? ` ${contact.lastName}` : ''}`;
   };
@@ -322,14 +331,11 @@ export function ContactsWindowList({
         <ContextMenu
           x={emptySpaceContextMenu.x}
           y={emptySpaceContextMenu.y}
-          onClose={() => setEmptySpaceContextMenu(null)}
+          onClose={clearEmptySpaceContextMenu}
         >
           <ContextMenuItem
             icon={<UserPlus className="h-4 w-4" />}
-            onClick={() => {
-              onCreateContact();
-              setEmptySpaceContextMenu(null);
-            }}
+            onClick={handleNewContactFromEmptySpace}
           >
             New Contact
           </ContextMenuItem>

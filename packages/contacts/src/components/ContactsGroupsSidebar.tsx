@@ -83,6 +83,15 @@ export function ContactsGroupsSidebar({
     setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
   }, []);
 
+  const clearEmptySpaceContextMenu = useCallback(() => {
+    setEmptySpaceContextMenu(null);
+  }, []);
+
+  const handleNewGroupFromEmptySpace = useCallback(() => {
+    setNewGroupDialogOpen(true);
+    setEmptySpaceContextMenu(null);
+  }, []);
+
   const clearContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
@@ -215,14 +224,11 @@ export function ContactsGroupsSidebar({
         <ContextMenu
           x={emptySpaceContextMenu.x}
           y={emptySpaceContextMenu.y}
-          onClose={() => setEmptySpaceContextMenu(null)}
+          onClose={clearEmptySpaceContextMenu}
         >
           <ContextMenuItem
             icon={<FolderPlus className="h-4 w-4" />}
-            onClick={() => {
-              setNewGroupDialogOpen(true);
-              setEmptySpaceContextMenu(null);
-            }}
+            onClick={handleNewGroupFromEmptySpace}
           >
             New Group
           </ContextMenuItem>
