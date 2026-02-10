@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { HELP_EXTERNAL_LINKS } from '@/constants/help';
 import { HelpWindow } from './HelpWindow';
 
 vi.mock('@rapid/api/dist/openapi.json', () => ({
@@ -62,6 +63,18 @@ vi.mock('@/components/ui/grid-square', () => ({
 }));
 
 describe('HelpWindow', () => {
+  const externalLinkCases = [
+    { label: 'CLI', href: HELP_EXTERNAL_LINKS.cli },
+    {
+      label: 'Chrome Extension',
+      href: HELP_EXTERNAL_LINKS.chromeExtension
+    },
+    {
+      label: 'Backup & Restore',
+      href: HELP_EXTERNAL_LINKS.backupRestore
+    }
+  ] as const;
+
   it('renders the help index view initially', () => {
     render(
       <HelpWindow
@@ -135,22 +148,12 @@ describe('HelpWindow', () => {
       />
     );
 
-    await user.click(screen.getByText('CLI'));
-    expect(openSpy).toHaveBeenCalledWith('/products/cli', '_blank', 'noopener');
+    for (const { label, href } of externalLinkCases) {
+      await user.click(screen.getByText(label));
+      expect(openSpy).toHaveBeenLastCalledWith(href, '_blank', 'noopener');
+    }
 
-    await user.click(screen.getByText('Chrome Extension'));
-    expect(openSpy).toHaveBeenCalledWith(
-      '/products/chrome-extension',
-      '_blank',
-      'noopener'
-    );
-
-    await user.click(screen.getByText('Backup & Restore'));
-    expect(openSpy).toHaveBeenCalledWith(
-      '/docs/backup-restore',
-      '_blank',
-      'noopener'
-    );
+    expect(openSpy).toHaveBeenCalledTimes(externalLinkCases.length);
 
     openSpy.mockRestore();
   });
