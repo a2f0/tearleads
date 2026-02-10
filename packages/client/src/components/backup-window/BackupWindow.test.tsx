@@ -76,9 +76,13 @@ describe('BackupWindow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Help' }));
     await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
-    await user.click(screen.getByRole('button', { name: 'Back to Backup Manager' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Back to Backup Manager' })
+    );
 
     expect(screen.getByTestId('backup-manager-view')).toBeInTheDocument();
-    expect(screen.queryByTestId('backup-documentation')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('backup-documentation')
+    ).not.toBeInTheDocument();
   });
 });

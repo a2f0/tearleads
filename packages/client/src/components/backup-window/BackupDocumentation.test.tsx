@@ -30,7 +30,9 @@ describe('BackupDocumentation', () => {
     const onBack = vi.fn();
     render(<BackupDocumentation onBack={onBack} />);
 
-    await user.click(screen.getByRole('button', { name: 'Back to Backup Manager' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Back to Backup Manager' })
+    );
 
     expect(onBack).toHaveBeenCalledTimes(1);
   });
