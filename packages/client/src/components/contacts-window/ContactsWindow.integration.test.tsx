@@ -6,6 +6,7 @@ import {
   useContactsContext
 } from '@rapid/contacts';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { and, eq, inArray } from 'drizzle-orm';
 import { useCallback } from 'react';
 import { describe, expect, it } from 'vitest';
@@ -13,6 +14,7 @@ import { ClientContactsProvider } from '@/contexts/ClientContactsProvider';
 import { getDatabase } from '@/db';
 import { contactGroups, contacts, vfsLinks, vfsRegistry } from '@/db/schema';
 import { renderWithDatabase } from '../../test/render-with-database';
+import { ContactsWindow } from './index';
 
 function ContactsSidebarDropHarness() {
   const { getDatabase: getContactsDatabase } = useContactsContext();
@@ -133,6 +135,98 @@ describe('Contacts drag and drop integration', () => {
         .from(vfsLinks)
         .where(eq(vfsLinks.parentId, 'group-1'));
       expect(links).toHaveLength(1);
+    });
+  });
+
+  it('updates table view when switching to a contact group', async () => {
+    const user = userEvent.setup();
+
+    await renderWithDatabase(
+      <ContactsWindow
+        id="contacts-window"
+        onClose={() => {}}
+        onMinimize={() => {}}
+        onFocus={() => {}}
+        zIndex={100}
+      />,
+      {
+        beforeRender: async () => {
+          const db = getDatabase();
+          const now = new Date();
+
+          await db.insert(vfsRegistry).values([
+            {
+              id: 'group-1',
+              objectType: 'contactGroup',
+              ownerId: null,
+              createdAt: now
+            },
+            {
+              id: 'contact-1',
+              objectType: 'contact',
+              ownerId: null,
+              createdAt: now
+            },
+            {
+              id: 'contact-2',
+              objectType: 'contact',
+              ownerId: null,
+              createdAt: now
+            }
+          ]);
+
+          await db.insert(contactGroups).values({
+            id: 'group-1',
+            encryptedName: 'Family',
+            color: null,
+            icon: null
+          });
+
+          await db.insert(contacts).values([
+            {
+              id: 'contact-1',
+              firstName: 'Alice',
+              lastName: 'Grouped',
+              birthday: null,
+              createdAt: now,
+              updatedAt: now,
+              deleted: false
+            },
+            {
+              id: 'contact-2',
+              firstName: 'Bob',
+              lastName: 'Ungrouped',
+              birthday: null,
+              createdAt: now,
+              updatedAt: now,
+              deleted: false
+            }
+          ]);
+
+          await db.insert(vfsLinks).values({
+            id: 'link-1',
+            parentId: 'group-1',
+            childId: 'contact-1',
+            wrappedSessionKey: '',
+            createdAt: now
+          });
+        }
+      }
+    );
+
+    await user.click(screen.getByRole('button', { name: 'View' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Table' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Grouped')).toBeInTheDocument();
+      expect(screen.getByText('Bob Ungrouped')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByRole('button', { name: /Family/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText('Alice Grouped')).toBeInTheDocument();
+      expect(screen.queryByText('Bob Ungrouped')).not.toBeInTheDocument();
     });
   });
 });
