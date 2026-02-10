@@ -32,6 +32,11 @@ interface MockCalendarWindowMenuBarProps {
   onShowBirthdaysFromContactsChange: (show: boolean) => void;
 }
 
+interface MockContextMenuProps {
+  children: ReactNode;
+  onClose: () => void;
+}
+
 vi.mock('@rapid/calendar', () => ({
   CALENDAR_CREATE_EVENT: 'rapid:calendar:create',
   CALENDAR_CREATE_ITEM_EVENT: 'rapid:calendar:item:create',
@@ -70,6 +75,28 @@ vi.mock('@rapid/calendar', () => ({
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({ children }: MockFloatingWindowProps) => (
     <div>{children}</div>
+  )
+}));
+
+vi.mock('@/components/ui/context-menu', () => ({
+  ContextMenu: ({ children, onClose }: MockContextMenuProps) => (
+    <div>
+      <button type="button" data-testid="context-menu-close" onClick={onClose}>
+        Close Context Menu
+      </button>
+      {children}
+    </div>
+  ),
+  ContextMenuItem: ({
+    children,
+    onClick
+  }: {
+    children: ReactNode;
+    onClick: () => void;
+  }) => (
+    <button type="button" onClick={onClick}>
+      {children}
+    </button>
   )
 }));
 
@@ -224,5 +251,47 @@ describe('CalendarWindow', () => {
     expect(await screen.findByTestId('event-count')).toHaveTextContent('2');
     await user.click(screen.getByTestId('toggle-birthdays-menu-item'));
     expect(screen.getByTestId('event-count')).toHaveTextContent('1');
+  });
+
+  it('closes sidebar context menu when context menu requests close', async () => {
+    const user = userEvent.setup();
+    render(
+      <CalendarWindow
+        id="calendar-window"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={200}
+      />
+    );
+
+    await user.click(screen.getByTestId('sidebar-context-trigger'));
+    expect(screen.getByRole('button', { name: 'New Calendar' })).toBeVisible();
+
+    await user.click(screen.getByTestId('context-menu-close'));
+    expect(
+      screen.queryByRole('button', { name: 'New Calendar' })
+    ).not.toBeInTheDocument();
+  });
+
+  it('closes view context menu when context menu requests close', async () => {
+    const user = userEvent.setup();
+    render(
+      <CalendarWindow
+        id="calendar-window"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={200}
+      />
+    );
+
+    await user.click(screen.getByTestId('view-context-trigger'));
+    expect(screen.getByRole('button', { name: 'New Item' })).toBeVisible();
+
+    await user.click(screen.getByTestId('context-menu-close'));
+    expect(
+      screen.queryByRole('button', { name: 'New Item' })
+    ).not.toBeInTheDocument();
   });
 });
