@@ -248,3 +248,11 @@ export async function linkNoteToTag(
 
   return linkId;
 }
+
+export async function deleteClassicTag(tagId: string): Promise<void> {
+  const db = getDatabase();
+
+  await db
+    .delete(vfsRegistry)
+    .where(and(eq(vfsRegistry.id, tagId), eq(vfsRegistry.objectType, 'tag')));
+}

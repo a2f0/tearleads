@@ -25,6 +25,7 @@ import {
   CLASSIC_TAG_PARENT_ID,
   createClassicNote,
   createClassicTag,
+  deleteClassicTag,
   linkNoteToTag,
   loadClassicStateFromDatabase,
   persistClassicOrderToDatabase
@@ -192,6 +193,37 @@ describe('classicPersistence integration', () => {
     });
   });
 
+  it('includes untagged notes when tagged notes and tags exist', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      const now = new Date();
+      await db.insert(vfsRegistry).values({
+        id: 'note-untagged',
+        objectType: 'note',
+        ownerId: null,
+        createdAt: now
+      });
+      await db.insert(notes).values({
+        id: 'note-untagged',
+        title: 'No Tag',
+        content: 'untagged body',
+        createdAt: now,
+        updatedAt: now,
+        deleted: false
+      });
+
+      const { state } = await loadClassicStateFromDatabase();
+
+      expect(state.notesById['note-untagged']).toMatchObject({
+        id: 'note-untagged',
+        title: 'No Tag'
+      });
+      expect(state.noteOrderByTagId['tag-a']).not.toContain('note-untagged');
+      expect(state.noteOrderByTagId['tag-b']).not.toContain('note-untagged');
+    });
+  });
+
   it('persists reordered positions into vfs_links', async () => {
     await withClassicTestDatabase(async ({ db }) => {
       await seedClassicFixture(db);
@@ -252,6 +284,33 @@ describe('classicPersistence integration', () => {
 
       expect(updatedRootTagALink?.position).toBe(0);
       expect(updatedTagANoteA1Link?.position).toBe(0);
+    });
+  });
+
+  it('deletes tag rows and links across reloads', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      await deleteClassicTag('tag-a');
+
+      const { state: reloadedState } = await loadClassicStateFromDatabase();
+
+      expect(reloadedState.tags.map((tag) => tag.id)).not.toContain('tag-a');
+      expect(reloadedState.notesById['note-a1']).toBeDefined();
+      expect(reloadedState.notesById['note-a2']).toBeDefined();
+      expect(reloadedState.noteOrderByTagId['tag-a']).toBeUndefined();
+
+      const orphanedTagLinks = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.childId, 'tag-a'));
+      const tagANoteLinks = await db
+        .select({ parentId: vfsLinks.parentId })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.parentId, 'tag-a'));
+
+      expect(orphanedTagLinks).toHaveLength(0);
+      expect(tagANoteLinks).toHaveLength(0);
     });
   });
 
