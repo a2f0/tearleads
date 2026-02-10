@@ -1,11 +1,3 @@
-import { registerGetRootRoute } from './groups/get-root.js';
-import { registerPostRootRoute } from './groups/post-root.js';
-import { registerGetIdRoute } from './groups/get-id.js';
-import { registerPutIdRoute } from './groups/put-id.js';
-import { registerDeleteIdRoute } from './groups/delete-id.js';
-import { registerGetIdMembersRoute } from './groups/get-id-members.js';
-import { registerPostIdMembersRoute } from './groups/post-id-members.js';
-import { registerDeleteIdMembersUseridRoute } from './groups/delete-id-members-userId.js';
 import { randomUUID } from 'node:crypto';
 import type {
   AddMemberRequest,
@@ -25,8 +17,14 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-
-
+import { registerDeleteIdRoute } from './groups/delete-id.js';
+import { registerDeleteIdMembersUseridRoute } from './groups/delete-id-members-userId.js';
+import { registerGetIdRoute } from './groups/get-id.js';
+import { registerGetIdMembersRoute } from './groups/get-id-members.js';
+import { registerGetRootRoute } from './groups/get-root.js';
+import { registerPostIdMembersRoute } from './groups/post-id-members.js';
+import { registerPostRootRoute } from './groups/post-root.js';
+import { registerPutIdRoute } from './groups/put-id.js';
 
 /**
  * @openapi
@@ -167,85 +165,88 @@ export const getRootHandler = async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const postRootHandler = async (req: Request<unknown, unknown, CreateGroupRequest>, res: Response) => {
-    try {
-      const { name, description, organizationId } = req.body;
+export const postRootHandler = async (
+  req: Request<unknown, unknown, CreateGroupRequest>,
+  res: Response
+) => {
+  try {
+    const { name, description, organizationId } = req.body;
 
-      if (!name || typeof name !== 'string' || name.trim() === '') {
-        res.status(400).json({ error: 'Name is required' });
-        return;
-      }
+    if (!name || typeof name !== 'string' || name.trim() === '') {
+      res.status(400).json({ error: 'Name is required' });
+      return;
+    }
 
-      if (typeof organizationId !== 'string' || organizationId.trim() === '') {
-        res.status(400).json({ error: 'Organization ID is required' });
-        return;
-      }
+    if (typeof organizationId !== 'string' || organizationId.trim() === '') {
+      res.status(400).json({ error: 'Organization ID is required' });
+      return;
+    }
 
-      const trimmedOrganizationId = organizationId.trim();
+    const trimmedOrganizationId = organizationId.trim();
 
-      const pool = await getPostgresPool();
-      const orgResult = await pool.query<{ id: string }>(
-        'SELECT id FROM organizations WHERE id = $1',
-        [trimmedOrganizationId]
-      );
-      if (!orgResult.rows[0]) {
-        res.status(404).json({ error: 'Organization not found' });
-        return;
-      }
-      const id = randomUUID();
-      const now = new Date();
+    const pool = await getPostgresPool();
+    const orgResult = await pool.query<{ id: string }>(
+      'SELECT id FROM organizations WHERE id = $1',
+      [trimmedOrganizationId]
+    );
+    if (!orgResult.rows[0]) {
+      res.status(404).json({ error: 'Organization not found' });
+      return;
+    }
+    const id = randomUUID();
+    const now = new Date();
 
-      const result = await pool.query<{
-        id: string;
-        organization_id: string;
-        name: string;
-        description: string | null;
-        created_at: Date;
-        updated_at: Date;
-      }>(
-        `INSERT INTO groups (id, organization_id, name, description, created_at, updated_at)
+    const result = await pool.query<{
+      id: string;
+      organization_id: string;
+      name: string;
+      description: string | null;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `INSERT INTO groups (id, organization_id, name, description, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, organization_id, name, description, created_at, updated_at`,
-        [
-          id,
-          trimmedOrganizationId,
-          name.trim(),
-          description?.trim() || null,
-          now,
-          now
-        ]
-      );
+      [
+        id,
+        trimmedOrganizationId,
+        name.trim(),
+        description?.trim() || null,
+        now,
+        now
+      ]
+    );
 
-      const row = result.rows[0];
-      if (!row) {
-        res.status(500).json({ error: 'Failed to create group' });
-        return;
-      }
-
-      const group: Group = {
-        id: row.id,
-        organizationId: row.organization_id,
-        name: row.name,
-        description: row.description,
-        createdAt: row.created_at.toISOString(),
-        updatedAt: row.updated_at.toISOString()
-      };
-
-      res.status(201).json({ group });
-    } catch (err) {
-      console.error('Groups error:', err);
-      if (
-        err instanceof Error &&
-        err.message.includes('duplicate key value violates unique constraint')
-      ) {
-        res.status(409).json({ error: 'Group name already exists' });
-        return;
-      }
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to create group'
-      });
+    const row = result.rows[0];
+    if (!row) {
+      res.status(500).json({ error: 'Failed to create group' });
+      return;
     }
-  };
+
+    const group: Group = {
+      id: row.id,
+      organizationId: row.organization_id,
+      name: row.name,
+      description: row.description,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString()
+    };
+
+    res.status(201).json({ group });
+  } catch (err) {
+    console.error('Groups error:', err);
+    if (
+      err instanceof Error &&
+      err.message.includes('duplicate key value violates unique constraint')
+    ) {
+      res.status(409).json({ error: 'Group name already exists' });
+      return;
+    }
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to create group'
+    });
+  }
+};
 
 /**
  * @openapi
@@ -287,66 +288,69 @@ export const postRootHandler = async (req: Request<unknown, unknown, CreateGroup
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const { id } = req.params;
-      const pool = await getPostgresPool();
+export const getIdHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const pool = await getPostgresPool();
 
-      const groupResult = await pool.query<{
-        id: string;
-        organization_id: string;
-        name: string;
-        description: string | null;
-        created_at: Date;
-        updated_at: Date;
-      }>(
-        'SELECT id, organization_id, name, description, created_at, updated_at FROM groups WHERE id = $1',
-        [id]
-      );
+    const groupResult = await pool.query<{
+      id: string;
+      organization_id: string;
+      name: string;
+      description: string | null;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      'SELECT id, organization_id, name, description, created_at, updated_at FROM groups WHERE id = $1',
+      [id]
+    );
 
-      const groupRow = groupResult.rows[0];
-      if (!groupRow) {
-        res.status(404).json({ error: 'Group not found' });
-        return;
-      }
+    const groupRow = groupResult.rows[0];
+    if (!groupRow) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
 
-      const membersResult = await pool.query<{
-        user_id: string;
-        email: string;
-        joined_at: Date;
-      }>(
-        `SELECT ug.user_id, u.email, ug.joined_at
+    const membersResult = await pool.query<{
+      user_id: string;
+      email: string;
+      joined_at: Date;
+    }>(
+      `SELECT ug.user_id, u.email, ug.joined_at
        FROM user_groups ug
        JOIN users u ON u.id = ug.user_id
        WHERE ug.group_id = $1
        ORDER BY ug.joined_at`,
-        [id]
-      );
+      [id]
+    );
 
-      const group: Group = {
-        id: groupRow.id,
-        organizationId: groupRow.organization_id,
-        name: groupRow.name,
-        description: groupRow.description,
-        createdAt: groupRow.created_at.toISOString(),
-        updatedAt: groupRow.updated_at.toISOString()
-      };
+    const group: Group = {
+      id: groupRow.id,
+      organizationId: groupRow.organization_id,
+      name: groupRow.name,
+      description: groupRow.description,
+      createdAt: groupRow.created_at.toISOString(),
+      updatedAt: groupRow.updated_at.toISOString()
+    };
 
-      const members: GroupMember[] = membersResult.rows.map((row) => ({
-        userId: row.user_id,
-        email: row.email,
-        joinedAt: row.joined_at.toISOString()
-      }));
+    const members: GroupMember[] = membersResult.rows.map((row) => ({
+      userId: row.user_id,
+      email: row.email,
+      joinedAt: row.joined_at.toISOString()
+    }));
 
-      const response: GroupDetailResponse = { group, members };
-      res.json(response);
-    } catch (err) {
-      console.error('Groups error:', err);
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to fetch group'
-      });
-    }
-  };
+    const response: GroupDetailResponse = { group, members };
+    res.json(response);
+  } catch (err) {
+    console.error('Groups error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to fetch group'
+    });
+  }
+};
 
 /**
  * @openapi
@@ -404,106 +408,103 @@ export const getIdHandler = async (req: Request<{ id: string }>, res: Response) 
  *               $ref: '#/components/schemas/Error'
  */
 export const putIdHandler = async (
-    req: Request<{ id: string }, unknown, UpdateGroupRequest>,
-    res: Response
-  ) => {
-    try {
-      const { id } = req.params;
-      const { name, description, organizationId } = req.body;
-      const pool = await getPostgresPool();
+  req: Request<{ id: string }, unknown, UpdateGroupRequest>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const { name, description, organizationId } = req.body;
+    const pool = await getPostgresPool();
 
-      const updates: string[] = [];
-      const values: (string | Date | null)[] = [];
-      let paramIndex = 1;
+    const updates: string[] = [];
+    const values: (string | Date | null)[] = [];
+    let paramIndex = 1;
 
-      if (name !== undefined) {
-        if (typeof name !== 'string' || name.trim() === '') {
-          res.status(400).json({ error: 'Name cannot be empty' });
-          return;
-        }
-        updates.push(`name = $${paramIndex++}`);
-        values.push(name.trim());
-      }
-
-      if (description !== undefined) {
-        updates.push(`description = $${paramIndex++}`);
-        values.push(description?.trim() || null);
-      }
-
-      if (organizationId !== undefined) {
-        if (
-          typeof organizationId !== 'string' ||
-          organizationId.trim() === ''
-        ) {
-          res.status(400).json({ error: 'Organization ID cannot be empty' });
-          return;
-        }
-        const orgExists = await pool.query<{ id: string }>(
-          'SELECT id FROM organizations WHERE id = $1',
-          [organizationId]
-        );
-        if (!orgExists.rows[0]) {
-          res.status(404).json({ error: 'Organization not found' });
-          return;
-        }
-        updates.push(`organization_id = $${paramIndex++}`);
-        values.push(organizationId);
-      }
-
-      if (updates.length === 0) {
-        res.status(400).json({ error: 'No fields to update' });
+    if (name !== undefined) {
+      if (typeof name !== 'string' || name.trim() === '') {
+        res.status(400).json({ error: 'Name cannot be empty' });
         return;
       }
+      updates.push(`name = $${paramIndex++}`);
+      values.push(name.trim());
+    }
 
-      updates.push(`updated_at = $${paramIndex++}`);
-      values.push(new Date());
-      values.push(id);
+    if (description !== undefined) {
+      updates.push(`description = $${paramIndex++}`);
+      values.push(description?.trim() || null);
+    }
 
-      const result = await pool.query<{
-        id: string;
-        organization_id: string;
-        name: string;
-        description: string | null;
-        created_at: Date;
-        updated_at: Date;
-      }>(
-        `UPDATE groups
+    if (organizationId !== undefined) {
+      if (typeof organizationId !== 'string' || organizationId.trim() === '') {
+        res.status(400).json({ error: 'Organization ID cannot be empty' });
+        return;
+      }
+      const orgExists = await pool.query<{ id: string }>(
+        'SELECT id FROM organizations WHERE id = $1',
+        [organizationId]
+      );
+      if (!orgExists.rows[0]) {
+        res.status(404).json({ error: 'Organization not found' });
+        return;
+      }
+      updates.push(`organization_id = $${paramIndex++}`);
+      values.push(organizationId);
+    }
+
+    if (updates.length === 0) {
+      res.status(400).json({ error: 'No fields to update' });
+      return;
+    }
+
+    updates.push(`updated_at = $${paramIndex++}`);
+    values.push(new Date());
+    values.push(id);
+
+    const result = await pool.query<{
+      id: string;
+      organization_id: string;
+      name: string;
+      description: string | null;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `UPDATE groups
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
          RETURNING id, organization_id, name, description, created_at, updated_at`,
-        values
-      );
+      values
+    );
 
-      const row = result.rows[0];
-      if (!row) {
-        res.status(404).json({ error: 'Group not found' });
-        return;
-      }
-
-      const group: Group = {
-        id: row.id,
-        organizationId: row.organization_id,
-        name: row.name,
-        description: row.description,
-        createdAt: row.created_at.toISOString(),
-        updatedAt: row.updated_at.toISOString()
-      };
-
-      res.json({ group });
-    } catch (err) {
-      console.error('Groups error:', err);
-      if (
-        err instanceof Error &&
-        err.message.includes('duplicate key value violates unique constraint')
-      ) {
-        res.status(409).json({ error: 'Group name already exists' });
-        return;
-      }
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to update group'
-      });
+    const row = result.rows[0];
+    if (!row) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
     }
-  };
+
+    const group: Group = {
+      id: row.id,
+      organizationId: row.organization_id,
+      name: row.name,
+      description: row.description,
+      createdAt: row.created_at.toISOString(),
+      updatedAt: row.updated_at.toISOString()
+    };
+
+    res.json({ group });
+  } catch (err) {
+    console.error('Groups error:', err);
+    if (
+      err instanceof Error &&
+      err.message.includes('duplicate key value violates unique constraint')
+    ) {
+      res.status(409).json({ error: 'Group name already exists' });
+      return;
+    }
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to update group'
+    });
+  }
+};
 
 /**
  * @openapi
@@ -537,20 +538,23 @@ export const putIdHandler = async (
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const { id } = req.params;
-      const pool = await getPostgresPool();
+export const deleteIdHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const pool = await getPostgresPool();
 
-      const result = await pool.query('DELETE FROM groups WHERE id = $1', [id]);
-      res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
-    } catch (err) {
-      console.error('Groups error:', err);
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to delete group'
-      });
-    }
-  };
+    const result = await pool.query('DELETE FROM groups WHERE id = $1', [id]);
+    res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
+  } catch (err) {
+    console.error('Groups error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to delete group'
+    });
+  }
+};
 
 /**
  * @openapi
@@ -590,49 +594,52 @@ export const deleteIdHandler = async (req: Request<{ id: string }>, res: Respons
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getIdMembersHandler = async (req: Request<{ id: string }>, res: Response) => {
-    try {
-      const { id } = req.params;
-      const pool = await getPostgresPool();
+export const getIdMembersHandler = async (
+  req: Request<{ id: string }>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const pool = await getPostgresPool();
 
-      const groupResult = await pool.query<{ organization_id: string }>(
-        'SELECT organization_id FROM groups WHERE id = $1',
-        [id]
-      );
-      const groupRow = groupResult.rows[0];
-      if (!groupRow) {
-        res.status(404).json({ error: 'Group not found' });
-        return;
-      }
+    const groupResult = await pool.query<{ organization_id: string }>(
+      'SELECT organization_id FROM groups WHERE id = $1',
+      [id]
+    );
+    const groupRow = groupResult.rows[0];
+    if (!groupRow) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
 
-      const result = await pool.query<{
-        user_id: string;
-        email: string;
-        joined_at: Date;
-      }>(
-        `SELECT ug.user_id, u.email, ug.joined_at
+    const result = await pool.query<{
+      user_id: string;
+      email: string;
+      joined_at: Date;
+    }>(
+      `SELECT ug.user_id, u.email, ug.joined_at
          FROM user_groups ug
          JOIN users u ON u.id = ug.user_id
          WHERE ug.group_id = $1
          ORDER BY ug.joined_at`,
-        [id]
-      );
+      [id]
+    );
 
-      const members: GroupMember[] = result.rows.map((row) => ({
-        userId: row.user_id,
-        email: row.email,
-        joinedAt: row.joined_at.toISOString()
-      }));
+    const members: GroupMember[] = result.rows.map((row) => ({
+      userId: row.user_id,
+      email: row.email,
+      joinedAt: row.joined_at.toISOString()
+    }));
 
-      const response: GroupMembersResponse = { members };
-      res.json(response);
-    } catch (err) {
-      console.error('Groups error:', err);
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to fetch members'
-      });
-    }
-  };
+    const response: GroupMembersResponse = { members };
+    res.json(response);
+  } catch (err) {
+    console.error('Groups error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to fetch members'
+    });
+  }
+};
 
 /**
  * @openapi
@@ -696,68 +703,66 @@ export const getIdMembersHandler = async (req: Request<{ id: string }>, res: Res
  *               $ref: '#/components/schemas/Error'
  */
 export const postIdMembersHandler = async (
-    req: Request<{ id: string }, unknown, AddMemberRequest>,
-    res: Response
-  ) => {
-    try {
-      const { id } = req.params;
-      const { userId } = req.body;
+  req: Request<{ id: string }, unknown, AddMemberRequest>,
+  res: Response
+) => {
+  try {
+    const { id } = req.params;
+    const { userId } = req.body;
 
-      if (!userId || typeof userId !== 'string') {
-        res.status(400).json({ error: 'userId is required' });
-        return;
-      }
+    if (!userId || typeof userId !== 'string') {
+      res.status(400).json({ error: 'userId is required' });
+      return;
+    }
 
-      const pool = await getPostgresPool();
+    const pool = await getPostgresPool();
 
-      const groupResult = await pool.query<{ organization_id: string }>(
-        'SELECT organization_id FROM groups WHERE id = $1',
-        [id]
-      );
-      const groupRow = groupResult.rows[0];
-      if (!groupRow) {
-        res.status(404).json({ error: 'Group not found' });
-        return;
-      }
+    const groupResult = await pool.query<{ organization_id: string }>(
+      'SELECT organization_id FROM groups WHERE id = $1',
+      [id]
+    );
+    const groupRow = groupResult.rows[0];
+    if (!groupRow) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
 
-      const userExists = await pool.query('SELECT 1 FROM users WHERE id = $1', [
-        userId
-      ]);
-      if (userExists.rowCount === 0) {
-        res.status(404).json({ error: 'User not found' });
-        return;
-      }
+    const userExists = await pool.query('SELECT 1 FROM users WHERE id = $1', [
+      userId
+    ]);
+    if (userExists.rowCount === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
 
-      await pool.query(
-        `INSERT INTO user_organizations (user_id, organization_id, joined_at)
+    await pool.query(
+      `INSERT INTO user_organizations (user_id, organization_id, joined_at)
          VALUES ($1, $2, $3)
          ON CONFLICT DO NOTHING`,
-        [userId, groupRow.organization_id, new Date()]
-      );
+      [userId, groupRow.organization_id, new Date()]
+    );
 
-      await pool.query(
-        `INSERT INTO user_groups (user_id, group_id, joined_at)
+    await pool.query(
+      `INSERT INTO user_groups (user_id, group_id, joined_at)
          VALUES ($1, $2, $3)`,
-        [userId, id, new Date()]
-      );
+      [userId, id, new Date()]
+    );
 
-      res.status(201).json({ added: true });
-    } catch (err) {
-      console.error('Groups error:', err);
-      if (
-        err instanceof Error &&
-        err.message.includes('duplicate key value violates unique constraint')
-      ) {
-        res
-          .status(409)
-          .json({ error: 'User is already a member of this group' });
-        return;
-      }
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to add member'
-      });
+    res.status(201).json({ added: true });
+  } catch (err) {
+    console.error('Groups error:', err);
+    if (
+      err instanceof Error &&
+      err.message.includes('duplicate key value violates unique constraint')
+    ) {
+      res.status(409).json({ error: 'User is already a member of this group' });
+      return;
     }
-  };
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to add member'
+    });
+  }
+};
 
 /**
  * @openapi
@@ -797,24 +802,27 @@ export const postIdMembersHandler = async (
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const deleteIdMembersUseridHandler = async (req: Request<{ id: string; userId: string }>, res: Response) => {
-    try {
-      const { id, userId } = req.params;
-      const pool = await getPostgresPool();
+export const deleteIdMembersUseridHandler = async (
+  req: Request<{ id: string; userId: string }>,
+  res: Response
+) => {
+  try {
+    const { id, userId } = req.params;
+    const pool = await getPostgresPool();
 
-      const result = await pool.query(
-        'DELETE FROM user_groups WHERE group_id = $1 AND user_id = $2',
-        [id, userId]
-      );
+    const result = await pool.query(
+      'DELETE FROM user_groups WHERE group_id = $1 AND user_id = $2',
+      [id, userId]
+    );
 
-      res.json({ removed: result.rowCount !== null && result.rowCount > 0 });
-    } catch (err) {
-      console.error('Groups error:', err);
-      res.status(500).json({
-        error: err instanceof Error ? err.message : 'Failed to remove member'
-      });
-    }
-  };
+    res.json({ removed: result.rowCount !== null && result.rowCount > 0 });
+  } catch (err) {
+    console.error('Groups error:', err);
+    res.status(500).json({
+      error: err instanceof Error ? err.message : 'Failed to remove member'
+    });
+  }
+};
 
 const groupsRouter: RouterType = Router();
 registerGetRootRoute(groupsRouter);

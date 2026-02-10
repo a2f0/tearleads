@@ -4,15 +4,6 @@
  * Handles conversation management and usage tracking for AI features.
  */
 
-import { registerPostConversationsRoute } from './ai-conversations/post-conversations.js';
-import { registerGetConversationsRoute } from './ai-conversations/get-conversations.js';
-import { registerGetConversationsIdRoute } from './ai-conversations/get-conversations-id.js';
-import { registerPatchConversationsIdRoute } from './ai-conversations/patch-conversations-id.js';
-import { registerDeleteConversationsIdRoute } from './ai-conversations/delete-conversations-id.js';
-import { registerPostConversationsIdMessagesRoute } from './ai-conversations/post-conversations-id-messages.js';
-import { registerPostUsageRoute } from './ai-conversations/post-usage.js';
-import { registerGetUsageRoute } from './ai-conversations/get-usage.js';
-import { registerGetUsageSummaryRoute } from './ai-conversations/get-usage-summary.js';
 import { randomUUID } from 'node:crypto';
 import type {
   AddAiMessageRequest,
@@ -37,8 +28,15 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
-
-
+import { registerDeleteConversationsIdRoute } from './ai-conversations/delete-conversations-id.js';
+import { registerGetConversationsRoute } from './ai-conversations/get-conversations.js';
+import { registerGetConversationsIdRoute } from './ai-conversations/get-conversations-id.js';
+import { registerGetUsageRoute } from './ai-conversations/get-usage.js';
+import { registerGetUsageSummaryRoute } from './ai-conversations/get-usage-summary.js';
+import { registerPatchConversationsIdRoute } from './ai-conversations/patch-conversations-id.js';
+import { registerPostConversationsRoute } from './ai-conversations/post-conversations.js';
+import { registerPostConversationsIdMessagesRoute } from './ai-conversations/post-conversations-id-messages.js';
+import { registerPostUsageRoute } from './ai-conversations/post-usage.js';
 
 const VALID_MESSAGE_ROLES: AiMessageRole[] = ['system', 'user', 'assistant'];
 
@@ -224,79 +222,79 @@ async function getUserOrganizationId(userId: string): Promise<string | null> {
  *         description: Unauthorized
  */
 export const postConversationsHandler = async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const payload = parseCreateConversationPayload(req.body);
-    if (!payload) {
-      res.status(400).json({
-        error: 'encryptedTitle and encryptedSessionKey are required'
-      });
-      return;
-    }
+  const payload = parseCreateConversationPayload(req.body);
+  if (!payload) {
+    res.status(400).json({
+      error: 'encryptedTitle and encryptedSessionKey are required'
+    });
+    return;
+  }
 
-    try {
-      const pool = await getPostgresPool();
-      const orgId = await getUserOrganizationId(claims.sub);
-      const id = randomUUID();
-      const now = new Date();
+  try {
+    const pool = await getPostgresPool();
+    const orgId = await getUserOrganizationId(claims.sub);
+    const id = randomUUID();
+    const now = new Date();
 
-      const result = await pool.query<{
-        id: string;
-        user_id: string;
-        organization_id: string | null;
-        encrypted_title: string;
-        encrypted_session_key: string;
-        model_id: string | null;
-        message_count: number;
-        created_at: Date;
-        updated_at: Date;
-      }>(
-        `INSERT INTO ai_conversations (
+    const result = await pool.query<{
+      id: string;
+      user_id: string;
+      organization_id: string | null;
+      encrypted_title: string;
+      encrypted_session_key: string;
+      model_id: string | null;
+      message_count: number;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `INSERT INTO ai_conversations (
         id, user_id, organization_id, encrypted_title, encrypted_session_key,
         model_id, message_count, created_at, updated_at, deleted
       ) VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $7, FALSE)
       RETURNING *`,
-        [
-          id,
-          claims.sub,
-          orgId,
-          payload.encryptedTitle,
-          payload.encryptedSessionKey,
-          payload.modelId ?? null,
-          now
-        ]
-      );
+      [
+        id,
+        claims.sub,
+        orgId,
+        payload.encryptedTitle,
+        payload.encryptedSessionKey,
+        payload.modelId ?? null,
+        now
+      ]
+    );
 
-      const row = result.rows[0];
-      if (!row) {
-        res.status(500).json({ error: 'Failed to create conversation' });
-        return;
-      }
-
-      const response: CreateAiConversationResponse = {
-        conversation: {
-          id: row.id,
-          userId: row.user_id,
-          organizationId: row.organization_id,
-          encryptedTitle: row.encrypted_title,
-          encryptedSessionKey: row.encrypted_session_key,
-          modelId: row.model_id,
-          messageCount: row.message_count,
-          createdAt: row.created_at.toISOString(),
-          updatedAt: row.updated_at.toISOString()
-        }
-      };
-
-      res.status(201).json(response);
-    } catch (error) {
-      console.error('Failed to create conversation:', error);
+    const row = result.rows[0];
+    if (!row) {
       res.status(500).json({ error: 'Failed to create conversation' });
+      return;
     }
-  };
+
+    const response: CreateAiConversationResponse = {
+      conversation: {
+        id: row.id,
+        userId: row.user_id,
+        organizationId: row.organization_id,
+        encryptedTitle: row.encrypted_title,
+        encryptedSessionKey: row.encrypted_session_key,
+        modelId: row.model_id,
+        messageCount: row.message_count,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString()
+      }
+    };
+
+    res.status(201).json(response);
+  } catch (error) {
+    console.error('Failed to create conversation:', error);
+    res.status(500).json({ error: 'Failed to create conversation' });
+  }
+};
 
 /**
  * @openapi
@@ -324,77 +322,77 @@ export const postConversationsHandler = async (req: Request, res: Response) => {
  *         description: Unauthorized
  */
 export const getConversationsHandler = async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    try {
-      const pool = await getPostgresPool();
-      const limit = Math.min(
-        Math.max(1, parseInt(String(req.query['limit']), 10) || 50),
-        100
-      );
-      const cursor =
-        typeof req.query['cursor'] === 'string' ? req.query['cursor'] : null;
+  try {
+    const pool = await getPostgresPool();
+    const limit = Math.min(
+      Math.max(1, parseInt(String(req.query['limit']), 10) || 50),
+      100
+    );
+    const cursor =
+      typeof req.query['cursor'] === 'string' ? req.query['cursor'] : null;
 
-      let query = `
+    let query = `
       SELECT id, user_id, organization_id, encrypted_title, encrypted_session_key,
              model_id, message_count, created_at, updated_at
       FROM ai_conversations
       WHERE user_id = $1 AND deleted = FALSE
     `;
-      const params: (string | number)[] = [claims.sub];
+    const params: (string | number)[] = [claims.sub];
 
-      if (cursor) {
-        query += ` AND updated_at < $2`;
-        params.push(cursor);
-      }
-
-      query += ` ORDER BY updated_at DESC LIMIT $${params.length + 1}`;
-      params.push(limit + 1);
-
-      const result = await pool.query<{
-        id: string;
-        user_id: string;
-        organization_id: string | null;
-        encrypted_title: string;
-        encrypted_session_key: string;
-        model_id: string | null;
-        message_count: number;
-        created_at: Date;
-        updated_at: Date;
-      }>(query, params);
-
-      const hasMore = result.rows.length > limit;
-      const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
-      const lastRow = rows[rows.length - 1];
-
-      const response: AiConversationsListResponse = {
-        conversations: rows.map((row) => ({
-          id: row.id,
-          userId: row.user_id,
-          organizationId: row.organization_id,
-          encryptedTitle: row.encrypted_title,
-          encryptedSessionKey: row.encrypted_session_key,
-          modelId: row.model_id,
-          messageCount: row.message_count,
-          createdAt: row.created_at.toISOString(),
-          updatedAt: row.updated_at.toISOString()
-        })),
-        hasMore,
-        ...(hasMore && lastRow
-          ? { cursor: lastRow.updated_at.toISOString() }
-          : {})
-      };
-
-      res.json(response);
-    } catch (error) {
-      console.error('Failed to list conversations:', error);
-      res.status(500).json({ error: 'Failed to list conversations' });
+    if (cursor) {
+      query += ` AND updated_at < $2`;
+      params.push(cursor);
     }
-  };
+
+    query += ` ORDER BY updated_at DESC LIMIT $${params.length + 1}`;
+    params.push(limit + 1);
+
+    const result = await pool.query<{
+      id: string;
+      user_id: string;
+      organization_id: string | null;
+      encrypted_title: string;
+      encrypted_session_key: string;
+      model_id: string | null;
+      message_count: number;
+      created_at: Date;
+      updated_at: Date;
+    }>(query, params);
+
+    const hasMore = result.rows.length > limit;
+    const rows = hasMore ? result.rows.slice(0, limit) : result.rows;
+    const lastRow = rows[rows.length - 1];
+
+    const response: AiConversationsListResponse = {
+      conversations: rows.map((row) => ({
+        id: row.id,
+        userId: row.user_id,
+        organizationId: row.organization_id,
+        encryptedTitle: row.encrypted_title,
+        encryptedSessionKey: row.encrypted_session_key,
+        modelId: row.model_id,
+        messageCount: row.message_count,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString()
+      })),
+      hasMore,
+      ...(hasMore && lastRow
+        ? { cursor: lastRow.updated_at.toISOString() }
+        : {})
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Failed to list conversations:', error);
+    res.status(500).json({ error: 'Failed to list conversations' });
+  }
+};
 
 /**
  * @openapi
@@ -419,93 +417,96 @@ export const getConversationsHandler = async (req: Request, res: Response) => {
  *       404:
  *         description: Conversation not found
  */
-export const getConversationsIdHandler = async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const getConversationsIdHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const { id } = req.params;
-    if (!id) {
-      res.status(400).json({ error: 'Conversation ID is required' });
-      return;
-    }
+  const { id } = req.params;
+  if (!id) {
+    res.status(400).json({ error: 'Conversation ID is required' });
+    return;
+  }
 
-    try {
-      const pool = await getPostgresPool();
+  try {
+    const pool = await getPostgresPool();
 
-      // Get conversation
-      const convResult = await pool.query<{
-        id: string;
-        user_id: string;
-        organization_id: string | null;
-        encrypted_title: string;
-        encrypted_session_key: string;
-        model_id: string | null;
-        message_count: number;
-        created_at: Date;
-        updated_at: Date;
-      }>(
-        `SELECT id, user_id, organization_id, encrypted_title, encrypted_session_key,
+    // Get conversation
+    const convResult = await pool.query<{
+      id: string;
+      user_id: string;
+      organization_id: string | null;
+      encrypted_title: string;
+      encrypted_session_key: string;
+      model_id: string | null;
+      message_count: number;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `SELECT id, user_id, organization_id, encrypted_title, encrypted_session_key,
               model_id, message_count, created_at, updated_at
        FROM ai_conversations
        WHERE id = $1 AND user_id = $2 AND deleted = FALSE`,
-        [id, claims.sub]
-      );
+      [id, claims.sub]
+    );
 
-      const conv = convResult.rows[0];
-      if (!conv) {
-        res.status(404).json({ error: 'Conversation not found' });
-        return;
-      }
+    const conv = convResult.rows[0];
+    if (!conv) {
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
+    }
 
-      // Get messages
-      const msgResult = await pool.query<{
-        id: string;
-        conversation_id: string;
-        role: AiMessageRole;
-        encrypted_content: string;
-        model_id: string | null;
-        sequence_number: number;
-        created_at: Date;
-      }>(
-        `SELECT id, conversation_id, role, encrypted_content, model_id, sequence_number, created_at
+    // Get messages
+    const msgResult = await pool.query<{
+      id: string;
+      conversation_id: string;
+      role: AiMessageRole;
+      encrypted_content: string;
+      model_id: string | null;
+      sequence_number: number;
+      created_at: Date;
+    }>(
+      `SELECT id, conversation_id, role, encrypted_content, model_id, sequence_number, created_at
        FROM ai_messages
        WHERE conversation_id = $1
        ORDER BY sequence_number ASC`,
-        [id]
-      );
+      [id]
+    );
 
-      const response: AiConversationDetailResponse = {
-        conversation: {
-          id: conv.id,
-          userId: conv.user_id,
-          organizationId: conv.organization_id,
-          encryptedTitle: conv.encrypted_title,
-          encryptedSessionKey: conv.encrypted_session_key,
-          modelId: conv.model_id,
-          messageCount: conv.message_count,
-          createdAt: conv.created_at.toISOString(),
-          updatedAt: conv.updated_at.toISOString()
-        },
-        messages: msgResult.rows.map((row) => ({
-          id: row.id,
-          conversationId: row.conversation_id,
-          role: row.role,
-          encryptedContent: row.encrypted_content,
-          modelId: row.model_id,
-          sequenceNumber: row.sequence_number,
-          createdAt: row.created_at.toISOString()
-        }))
-      };
+    const response: AiConversationDetailResponse = {
+      conversation: {
+        id: conv.id,
+        userId: conv.user_id,
+        organizationId: conv.organization_id,
+        encryptedTitle: conv.encrypted_title,
+        encryptedSessionKey: conv.encrypted_session_key,
+        modelId: conv.model_id,
+        messageCount: conv.message_count,
+        createdAt: conv.created_at.toISOString(),
+        updatedAt: conv.updated_at.toISOString()
+      },
+      messages: msgResult.rows.map((row) => ({
+        id: row.id,
+        conversationId: row.conversation_id,
+        role: row.role,
+        encryptedContent: row.encrypted_content,
+        modelId: row.model_id,
+        sequenceNumber: row.sequence_number,
+        createdAt: row.created_at.toISOString()
+      }))
+    };
 
-      res.json(response);
-    } catch (error) {
-      console.error('Failed to get conversation:', error);
-      res.status(500).json({ error: 'Failed to get conversation' });
-    }
-  };
+    res.json(response);
+  } catch (error) {
+    console.error('Failed to get conversation:', error);
+    res.status(500).json({ error: 'Failed to get conversation' });
+  }
+};
 
 /**
  * @openapi
@@ -542,99 +543,102 @@ export const getConversationsIdHandler = async (req: Request, res: Response) => 
  *       404:
  *         description: Conversation not found
  */
-export const patchConversationsIdHandler = async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
+export const patchConversationsIdHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const { id } = req.params;
+  if (!id) {
+    res.status(400).json({ error: 'Conversation ID is required' });
+    return;
+  }
+
+  const payload = parseUpdateConversationPayload(req.body);
+  if (!payload) {
+    res
+      .status(400)
+      .json({ error: 'At least encryptedTitle or modelId is required' });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+
+    const updates: string[] = ['updated_at = NOW()'];
+    const params: (string | null)[] = [];
+    let paramIndex = 1;
+
+    if (payload.encryptedTitle !== undefined) {
+      updates.push(`encrypted_title = $${paramIndex}`);
+      params.push(payload.encryptedTitle);
+      paramIndex++;
     }
 
-    const { id } = req.params;
-    if (!id) {
-      res.status(400).json({ error: 'Conversation ID is required' });
-      return;
+    if (payload.modelId !== undefined) {
+      updates.push(`model_id = $${paramIndex}`);
+      params.push(payload.modelId ?? null);
+      paramIndex++;
     }
 
-    const payload = parseUpdateConversationPayload(req.body);
-    if (!payload) {
-      res
-        .status(400)
-        .json({ error: 'At least encryptedTitle or modelId is required' });
+    const conversationId = Array.isArray(id) ? id[0] : id;
+    const userId = claims.sub;
+    if (!conversationId || !userId) {
+      res.status(400).json({ error: 'Invalid request' });
       return;
     }
+    params.push(conversationId);
+    params.push(userId);
 
-    try {
-      const pool = await getPostgresPool();
-
-      const updates: string[] = ['updated_at = NOW()'];
-      const params: (string | null)[] = [];
-      let paramIndex = 1;
-
-      if (payload.encryptedTitle !== undefined) {
-        updates.push(`encrypted_title = $${paramIndex}`);
-        params.push(payload.encryptedTitle);
-        paramIndex++;
-      }
-
-      if (payload.modelId !== undefined) {
-        updates.push(`model_id = $${paramIndex}`);
-        params.push(payload.modelId ?? null);
-        paramIndex++;
-      }
-
-      const conversationId = Array.isArray(id) ? id[0] : id;
-      const userId = claims.sub;
-      if (!conversationId || !userId) {
-        res.status(400).json({ error: 'Invalid request' });
-        return;
-      }
-      params.push(conversationId);
-      params.push(userId);
-
-      const result = await pool.query<{
-        id: string;
-        user_id: string;
-        organization_id: string | null;
-        encrypted_title: string;
-        encrypted_session_key: string;
-        model_id: string | null;
-        message_count: number;
-        created_at: Date;
-        updated_at: Date;
-      }>(
-        `UPDATE ai_conversations
+    const result = await pool.query<{
+      id: string;
+      user_id: string;
+      organization_id: string | null;
+      encrypted_title: string;
+      encrypted_session_key: string;
+      model_id: string | null;
+      message_count: number;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `UPDATE ai_conversations
        SET ${updates.join(', ')}
        WHERE id = $${paramIndex} AND user_id = $${paramIndex + 1} AND deleted = FALSE
        RETURNING *`,
-        params
-      );
+      params
+    );
 
-      const row = result.rows[0];
-      if (!row) {
-        res.status(404).json({ error: 'Conversation not found' });
-        return;
-      }
-
-      const response: AiConversationResponse = {
-        conversation: {
-          id: row.id,
-          userId: row.user_id,
-          organizationId: row.organization_id,
-          encryptedTitle: row.encrypted_title,
-          encryptedSessionKey: row.encrypted_session_key,
-          modelId: row.model_id,
-          messageCount: row.message_count,
-          createdAt: row.created_at.toISOString(),
-          updatedAt: row.updated_at.toISOString()
-        }
-      };
-
-      res.json(response);
-    } catch (error) {
-      console.error('Failed to update conversation:', error);
-      res.status(500).json({ error: 'Failed to update conversation' });
+    const row = result.rows[0];
+    if (!row) {
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
     }
-  };
+
+    const response: AiConversationResponse = {
+      conversation: {
+        id: row.id,
+        userId: row.user_id,
+        organizationId: row.organization_id,
+        encryptedTitle: row.encrypted_title,
+        encryptedSessionKey: row.encrypted_session_key,
+        modelId: row.model_id,
+        messageCount: row.message_count,
+        createdAt: row.created_at.toISOString(),
+        updatedAt: row.updated_at.toISOString()
+      }
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Failed to update conversation:', error);
+    res.status(500).json({ error: 'Failed to update conversation' });
+  }
+};
 
 /**
  * @openapi
@@ -659,40 +663,43 @@ export const patchConversationsIdHandler = async (req: Request, res: Response) =
  *       404:
  *         description: Conversation not found
  */
-export const deleteConversationsIdHandler = async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
+export const deleteConversationsIdHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
 
-    const { id } = req.params;
-    if (!id) {
-      res.status(400).json({ error: 'Conversation ID is required' });
-      return;
-    }
+  const { id } = req.params;
+  if (!id) {
+    res.status(400).json({ error: 'Conversation ID is required' });
+    return;
+  }
 
-    try {
-      const pool = await getPostgresPool();
+  try {
+    const pool = await getPostgresPool();
 
-      const result = await pool.query(
-        `UPDATE ai_conversations
+    const result = await pool.query(
+      `UPDATE ai_conversations
        SET deleted = TRUE, updated_at = NOW()
        WHERE id = $1 AND user_id = $2 AND deleted = FALSE`,
-        [id, claims.sub]
-      );
+      [id, claims.sub]
+    );
 
-      if (result.rowCount === 0) {
-        res.status(404).json({ error: 'Conversation not found' });
-        return;
-      }
-
-      res.status(204).send();
-    } catch (error) {
-      console.error('Failed to delete conversation:', error);
-      res.status(500).json({ error: 'Failed to delete conversation' });
+    if (result.rowCount === 0) {
+      res.status(404).json({ error: 'Conversation not found' });
+      return;
     }
-  };
+
+    res.status(204).send();
+  } catch (error) {
+    console.error('Failed to delete conversation:', error);
+    res.status(500).json({ error: 'Failed to delete conversation' });
+  }
+};
 
 /**
  * @openapi
@@ -736,131 +743,134 @@ export const deleteConversationsIdHandler = async (req: Request, res: Response) 
  *       404:
  *         description: Conversation not found
  */
-export const postConversationsIdMessagesHandler = async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
+export const postConversationsIdMessagesHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const { id: conversationId } = req.params;
+  if (!conversationId) {
+    res.status(400).json({ error: 'Conversation ID is required' });
+    return;
+  }
+
+  const payload = parseAddMessagePayload(req.body);
+  if (!payload) {
+    res.status(400).json({ error: 'role and encryptedContent are required' });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+
+    // Verify conversation exists and belongs to user
+    const convCheck = await pool.query<{ id: string; message_count: number }>(
+      'SELECT id, message_count FROM ai_conversations WHERE id = $1 AND user_id = $2 AND deleted = FALSE',
+      [conversationId, claims.sub]
+    );
+
+    if (convCheck.rows.length === 0) {
+      res.status(404).json({ error: 'Conversation not found' });
       return;
     }
 
-    const { id: conversationId } = req.params;
-    if (!conversationId) {
-      res.status(400).json({ error: 'Conversation ID is required' });
-      return;
-    }
+    const currentCount = convCheck.rows[0]?.message_count ?? 0;
+    const messageId = randomUUID();
+    const now = new Date();
 
-    const payload = parseAddMessagePayload(req.body);
-    if (!payload) {
-      res.status(400).json({ error: 'role and encryptedContent are required' });
-      return;
-    }
+    // Insert message and update conversation in a transaction
+    await pool.query('BEGIN');
 
     try {
-      const pool = await getPostgresPool();
-
-      // Verify conversation exists and belongs to user
-      const convCheck = await pool.query<{ id: string; message_count: number }>(
-        'SELECT id, message_count FROM ai_conversations WHERE id = $1 AND user_id = $2 AND deleted = FALSE',
-        [conversationId, claims.sub]
-      );
-
-      if (convCheck.rows.length === 0) {
-        res.status(404).json({ error: 'Conversation not found' });
-        return;
-      }
-
-      const currentCount = convCheck.rows[0]?.message_count ?? 0;
-      const messageId = randomUUID();
-      const now = new Date();
-
-      // Insert message and update conversation in a transaction
-      await pool.query('BEGIN');
-
-      try {
-        const msgResult = await pool.query<{
-          id: string;
-          conversation_id: string;
-          role: AiMessageRole;
-          encrypted_content: string;
-          model_id: string | null;
-          sequence_number: number;
-          created_at: Date;
-        }>(
-          `INSERT INTO ai_messages (id, conversation_id, role, encrypted_content, model_id, sequence_number, created_at)
+      const msgResult = await pool.query<{
+        id: string;
+        conversation_id: string;
+        role: AiMessageRole;
+        encrypted_content: string;
+        model_id: string | null;
+        sequence_number: number;
+        created_at: Date;
+      }>(
+        `INSERT INTO ai_messages (id, conversation_id, role, encrypted_content, model_id, sequence_number, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7)
          RETURNING *`,
-          [
-            messageId,
-            conversationId,
-            payload.role,
-            payload.encryptedContent,
-            payload.modelId ?? null,
-            currentCount + 1,
-            now
-          ]
-        );
+        [
+          messageId,
+          conversationId,
+          payload.role,
+          payload.encryptedContent,
+          payload.modelId ?? null,
+          currentCount + 1,
+          now
+        ]
+      );
 
-        const convResult = await pool.query<{
-          id: string;
-          user_id: string;
-          organization_id: string | null;
-          encrypted_title: string;
-          encrypted_session_key: string;
-          model_id: string | null;
-          message_count: number;
-          created_at: Date;
-          updated_at: Date;
-        }>(
-          `UPDATE ai_conversations
+      const convResult = await pool.query<{
+        id: string;
+        user_id: string;
+        organization_id: string | null;
+        encrypted_title: string;
+        encrypted_session_key: string;
+        model_id: string | null;
+        message_count: number;
+        created_at: Date;
+        updated_at: Date;
+      }>(
+        `UPDATE ai_conversations
          SET message_count = message_count + 1, updated_at = $1
          WHERE id = $2
          RETURNING *`,
-          [now, conversationId]
-        );
+        [now, conversationId]
+      );
 
-        await pool.query('COMMIT');
+      await pool.query('COMMIT');
 
-        const msg = msgResult.rows[0];
-        const conv = convResult.rows[0];
+      const msg = msgResult.rows[0];
+      const conv = convResult.rows[0];
 
-        if (!msg || !conv) {
-          res.status(500).json({ error: 'Failed to add message' });
-          return;
-        }
-
-        const response: AddAiMessageResponse = {
-          message: {
-            id: msg.id,
-            conversationId: msg.conversation_id,
-            role: msg.role,
-            encryptedContent: msg.encrypted_content,
-            modelId: msg.model_id,
-            sequenceNumber: msg.sequence_number,
-            createdAt: msg.created_at.toISOString()
-          },
-          conversation: {
-            id: conv.id,
-            userId: conv.user_id,
-            organizationId: conv.organization_id,
-            encryptedTitle: conv.encrypted_title,
-            encryptedSessionKey: conv.encrypted_session_key,
-            modelId: conv.model_id,
-            messageCount: conv.message_count,
-            createdAt: conv.created_at.toISOString(),
-            updatedAt: conv.updated_at.toISOString()
-          }
-        };
-
-        res.status(201).json(response);
-      } catch (e) {
-        await pool.query('ROLLBACK');
-        throw e;
+      if (!msg || !conv) {
+        res.status(500).json({ error: 'Failed to add message' });
+        return;
       }
-    } catch (error) {
-      console.error('Failed to add message:', error);
-      res.status(500).json({ error: 'Failed to add message' });
+
+      const response: AddAiMessageResponse = {
+        message: {
+          id: msg.id,
+          conversationId: msg.conversation_id,
+          role: msg.role,
+          encryptedContent: msg.encrypted_content,
+          modelId: msg.model_id,
+          sequenceNumber: msg.sequence_number,
+          createdAt: msg.created_at.toISOString()
+        },
+        conversation: {
+          id: conv.id,
+          userId: conv.user_id,
+          organizationId: conv.organization_id,
+          encryptedTitle: conv.encrypted_title,
+          encryptedSessionKey: conv.encrypted_session_key,
+          modelId: conv.model_id,
+          messageCount: conv.message_count,
+          createdAt: conv.created_at.toISOString(),
+          updatedAt: conv.updated_at.toISOString()
+        }
+      };
+
+      res.status(201).json(response);
+    } catch (e) {
+      await pool.query('ROLLBACK');
+      throw e;
     }
-  };
+  } catch (error) {
+    console.error('Failed to add message:', error);
+    res.status(500).json({ error: 'Failed to add message' });
+  }
+};
 
 /**
  * @openapi
@@ -1194,44 +1204,44 @@ export const getUsageHandler = async (req: Request, res: Response) => {
  *         description: Unauthorized
  */
 export const getUsageSummaryHandler = async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  try {
+    const pool = await getPostgresPool();
+    const startDate =
+      typeof req.query['startDate'] === 'string'
+        ? req.query['startDate']
+        : null;
+    const endDate =
+      typeof req.query['endDate'] === 'string' ? req.query['endDate'] : null;
+
+    let whereClause = 'WHERE user_id = $1';
+    const params: string[] = [claims.sub];
+
+    if (startDate) {
+      whereClause += ` AND created_at >= $${params.length + 1}`;
+      params.push(startDate);
     }
 
-    try {
-      const pool = await getPostgresPool();
-      const startDate =
-        typeof req.query['startDate'] === 'string'
-          ? req.query['startDate']
-          : null;
-      const endDate =
-        typeof req.query['endDate'] === 'string' ? req.query['endDate'] : null;
+    if (endDate) {
+      whereClause += ` AND created_at < $${params.length + 1}`;
+      params.push(endDate);
+    }
 
-      let whereClause = 'WHERE user_id = $1';
-      const params: string[] = [claims.sub];
-
-      if (startDate) {
-        whereClause += ` AND created_at >= $${params.length + 1}`;
-        params.push(startDate);
-      }
-
-      if (endDate) {
-        whereClause += ` AND created_at < $${params.length + 1}`;
-        params.push(endDate);
-      }
-
-      // Overall summary
-      const summaryResult = await pool.query<{
-        total_prompt_tokens: string;
-        total_completion_tokens: string;
-        total_tokens: string;
-        request_count: string;
-        period_start: Date | null;
-        period_end: Date | null;
-      }>(
-        `SELECT
+    // Overall summary
+    const summaryResult = await pool.query<{
+      total_prompt_tokens: string;
+      total_completion_tokens: string;
+      total_tokens: string;
+      request_count: string;
+      period_start: Date | null;
+      period_end: Date | null;
+    }>(
+      `SELECT
         COALESCE(SUM(prompt_tokens), 0) as total_prompt_tokens,
         COALESCE(SUM(completion_tokens), 0) as total_completion_tokens,
         COALESCE(SUM(total_tokens), 0) as total_tokens,
@@ -1240,20 +1250,20 @@ export const getUsageSummaryHandler = async (req: Request, res: Response) => {
         MAX(created_at) as period_end
       FROM ai_usage
       ${whereClause}`,
-        params
-      );
+      params
+    );
 
-      // Summary by model
-      const byModelResult = await pool.query<{
-        model_id: string;
-        total_prompt_tokens: string;
-        total_completion_tokens: string;
-        total_tokens: string;
-        request_count: string;
-        period_start: Date | null;
-        period_end: Date | null;
-      }>(
-        `SELECT
+    // Summary by model
+    const byModelResult = await pool.query<{
+      model_id: string;
+      total_prompt_tokens: string;
+      total_completion_tokens: string;
+      total_tokens: string;
+      request_count: string;
+      period_start: Date | null;
+      period_end: Date | null;
+    }>(
+      `SELECT
         model_id,
         COALESCE(SUM(prompt_tokens), 0) as total_prompt_tokens,
         COALESCE(SUM(completion_tokens), 0) as total_completion_tokens,
@@ -1264,61 +1274,58 @@ export const getUsageSummaryHandler = async (req: Request, res: Response) => {
       FROM ai_usage
       ${whereClause}
       GROUP BY model_id`,
-        params
-      );
+      params
+    );
 
-      const summaryRow = summaryResult.rows[0];
+    const summaryRow = summaryResult.rows[0];
 
-      const byModel: Record<
-        string,
-        {
-          totalPromptTokens: number;
-          totalCompletionTokens: number;
-          totalTokens: number;
-          requestCount: number;
-          periodStart: string;
-          periodEnd: string;
-        }
-      > = {};
-
-      for (const row of byModelResult.rows) {
-        byModel[row.model_id] = {
-          totalPromptTokens: parseInt(row.total_prompt_tokens, 10),
-          totalCompletionTokens: parseInt(row.total_completion_tokens, 10),
-          totalTokens: parseInt(row.total_tokens, 10),
-          requestCount: parseInt(row.request_count, 10),
-          periodStart:
-            row.period_start?.toISOString() ?? new Date().toISOString(),
-          periodEnd: row.period_end?.toISOString() ?? new Date().toISOString()
-        };
+    const byModel: Record<
+      string,
+      {
+        totalPromptTokens: number;
+        totalCompletionTokens: number;
+        totalTokens: number;
+        requestCount: number;
+        periodStart: string;
+        periodEnd: string;
       }
+    > = {};
 
-      const response: AiUsageSummaryResponse = {
-        summary: {
-          totalPromptTokens: parseInt(
-            summaryRow?.total_prompt_tokens ?? '0',
-            10
-          ),
-          totalCompletionTokens: parseInt(
-            summaryRow?.total_completion_tokens ?? '0',
-            10
-          ),
-          totalTokens: parseInt(summaryRow?.total_tokens ?? '0', 10),
-          requestCount: parseInt(summaryRow?.request_count ?? '0', 10),
-          periodStart:
-            summaryRow?.period_start?.toISOString() ?? new Date().toISOString(),
-          periodEnd:
-            summaryRow?.period_end?.toISOString() ?? new Date().toISOString()
-        },
-        byModel
+    for (const row of byModelResult.rows) {
+      byModel[row.model_id] = {
+        totalPromptTokens: parseInt(row.total_prompt_tokens, 10),
+        totalCompletionTokens: parseInt(row.total_completion_tokens, 10),
+        totalTokens: parseInt(row.total_tokens, 10),
+        requestCount: parseInt(row.request_count, 10),
+        periodStart:
+          row.period_start?.toISOString() ?? new Date().toISOString(),
+        periodEnd: row.period_end?.toISOString() ?? new Date().toISOString()
       };
-
-      res.json(response);
-    } catch (error) {
-      console.error('Failed to get usage summary:', error);
-      res.status(500).json({ error: 'Failed to get usage summary' });
     }
-  };
+
+    const response: AiUsageSummaryResponse = {
+      summary: {
+        totalPromptTokens: parseInt(summaryRow?.total_prompt_tokens ?? '0', 10),
+        totalCompletionTokens: parseInt(
+          summaryRow?.total_completion_tokens ?? '0',
+          10
+        ),
+        totalTokens: parseInt(summaryRow?.total_tokens ?? '0', 10),
+        requestCount: parseInt(summaryRow?.request_count ?? '0', 10),
+        periodStart:
+          summaryRow?.period_start?.toISOString() ?? new Date().toISOString(),
+        periodEnd:
+          summaryRow?.period_end?.toISOString() ?? new Date().toISOString()
+      },
+      byModel
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error('Failed to get usage summary:', error);
+    res.status(500).json({ error: 'Failed to get usage summary' });
+  }
+};
 
 const aiConversationsRouter: RouterType = Router();
 registerPostConversationsRoute(aiConversationsRouter);

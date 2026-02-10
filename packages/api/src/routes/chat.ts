@@ -1,4 +1,3 @@
-import { registerPostCompletionsRoute } from './chat/post-completions.js';
 import { randomUUID } from 'node:crypto';
 import {
   type ChatMessage,
@@ -14,8 +13,7 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
-
-
+import { registerPostCompletionsRoute } from './chat/post-completions.js';
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_OPENROUTER_MODEL = DEFAULT_OPENROUTER_MODEL_ID;

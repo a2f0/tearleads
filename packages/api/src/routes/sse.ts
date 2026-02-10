@@ -1,4 +1,3 @@
-import { registerGetRootRoute } from './sse/get-root.js';
 import { type BroadcastMessage, isRecord } from '@rapid/shared';
 import {
   type Request,
@@ -7,8 +6,7 @@ import {
   type Router as RouterType
 } from 'express';
 import { getRedisSubscriberClient } from '../lib/redisPubSub.js';
-
-
+import { registerGetRootRoute } from './sse/get-root.js';
 
 const activeConnections = new Set<Response>();
 

@@ -4,9 +4,6 @@
  * Handles user key management and VFS item registration.
  */
 
-import { registerGetKeysMeRoute } from './vfs/get-keys-me.js';
-import { registerPostKeysRoute } from './vfs/post-keys.js';
-import { registerPostRegisterRoute } from './vfs/post-register.js';
 import type {
   VfsKeySetupRequest,
   VfsObjectType,
@@ -22,8 +19,9 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
-
-
+import { registerGetKeysMeRoute } from './vfs/get-keys-me.js';
+import { registerPostKeysRoute } from './vfs/post-keys.js';
+import { registerPostRegisterRoute } from './vfs/post-register.js';
 
 // Valid VFS object types
 const VALID_OBJECT_TYPES: VfsObjectType[] = [

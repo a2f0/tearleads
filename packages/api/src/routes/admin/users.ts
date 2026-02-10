@@ -1,6 +1,3 @@
-import { registerGetRootRoute } from './users/get-root.js';
-import { registerGetIdRoute } from './users/get-id.js';
-import { registerPatchIdRoute } from './users/patch-id.js';
 import type {
   AdminUser,
   AdminUserAccounting,
@@ -18,6 +15,9 @@ import {
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { getLatestLastActiveByUserIds } from '../../lib/sessions.js';
+import { registerGetIdRoute } from './users/get-id.js';
+import { registerGetRootRoute } from './users/get-root.js';
+import { registerPatchIdRoute } from './users/patch-id.js';
 
 type UserRow = {
   id: string;
@@ -27,8 +27,6 @@ type UserRow = {
   organization_ids: string[] | null;
   created_at?: Date | string | null;
 };
-
-
 
 type AdminUserOverrides = {
   createdAt?: string | null;
