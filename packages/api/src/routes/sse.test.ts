@@ -76,8 +76,7 @@ describe('SSE Routes', () => {
       const token = authHeader.replace('Bearer ', '');
       const response = await request(app)
         .get('/v1/sse')
-        .set('x-auth-token', token)
-        .send();
+        .set('x-auth-token', token);
 
       expect(response.status).toBe(401);
       expect(response.body).toEqual({ error: 'Unauthorized' });
