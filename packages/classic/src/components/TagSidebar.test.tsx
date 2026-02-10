@@ -236,4 +236,56 @@ describe('TagSidebar', () => {
     const button = screen.getByLabelText('Select Untagged Items');
     expect(button).toHaveAttribute('aria-pressed', 'true');
   });
+
+  it('displays note counts for tags when provided', () => {
+    render(
+      <TagSidebar
+        tags={[
+          { id: 'tag-1', name: 'Work' },
+          { id: 'tag-2', name: 'Personal' }
+        ]}
+        activeTagId={null}
+        noteCountByTagId={{ 'tag-1': 5, 'tag-2': 0 }}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Work (5)')).toBeInTheDocument();
+    expect(screen.getByText('Personal (0)')).toBeInTheDocument();
+  });
+
+  it('calls onTagNote when a note is dropped on a tag', () => {
+    const onTagNote = vi.fn();
+    const dataTransfer = {
+      types: ['application/x-classic-note'],
+      getData: vi.fn().mockReturnValue('note-1'),
+      effectAllowed: 'move',
+      setData: vi.fn()
+    } as unknown as DataTransfer;
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onTagNote={onTagNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const tagItem = screen.getByLabelText('Select tag Work').closest('li');
+    if (!tagItem) throw new Error('Expected tag list item');
+
+    fireEvent.dragOver(tagItem, { dataTransfer });
+    fireEvent.drop(tagItem, { dataTransfer });
+
+    expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
+  });
 });

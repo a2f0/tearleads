@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import {
   CREATE_CLASSIC_TAG_ARIA_LABEL,
   DEFAULT_CLASSIC_TAG_NAME,
+  DRAG_TYPE_NOTE,
+  DRAG_TYPE_TAG,
   UNTAGGED_TAG_ID,
   UNTAGGED_TAG_NAME
 } from '../lib/constants';
@@ -17,6 +19,7 @@ interface TagSidebarProps {
   editingTagId?: string | null;
   autoFocusSearch?: boolean;
   untaggedCount?: number;
+  noteCountByTagId?: Record<string, number>;
   onSelectTag: (tagId: string) => void;
   onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
   onReorderTag: (tagId: string, targetTagId: string) => void;
@@ -25,6 +28,7 @@ interface TagSidebarProps {
   onRenameTag?: (tagId: string, newName: string) => void;
   onCancelEditTag?: () => void;
   onDeleteTag?: (tagId: string) => void;
+  onTagNote?: (tagId: string, noteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
@@ -48,6 +52,7 @@ export function TagSidebar({
   editingTagId,
   autoFocusSearch,
   untaggedCount = 0,
+  noteCountByTagId = {},
   onSelectTag,
   onMoveTag,
   onReorderTag,
@@ -56,6 +61,7 @@ export function TagSidebar({
   onRenameTag,
   onCancelEditTag,
   onDeleteTag,
+  onTagNote,
   searchValue,
   onSearchChange,
   contextMenuComponents
@@ -220,6 +226,7 @@ export function TagSidebar({
                       setLastHoverTagId(null);
                       event.dataTransfer.effectAllowed = 'move';
                       event.dataTransfer.setData('text/plain', tag.id);
+                      event.dataTransfer.setData(DRAG_TYPE_TAG, tag.id);
                     }}
                     onDragEnd={() => {
                       setDraggedTagId(null);
@@ -227,6 +234,12 @@ export function TagSidebar({
                       setDragArmedTagId(null);
                     }}
                     onDragOver={(event) => {
+                      const types = event.dataTransfer?.types ?? [];
+                      const hasNote = types.includes(DRAG_TYPE_NOTE);
+                      if (hasNote && onTagNote) {
+                        event.preventDefault();
+                        return;
+                      }
                       if (!draggedTagId || draggedTagId === tag.id) {
                         return;
                       }
@@ -240,6 +253,10 @@ export function TagSidebar({
                     onDrop={(event) => {
                       event.preventDefault();
                       setDragArmedTagId(null);
+                      const noteId = event.dataTransfer.getData(DRAG_TYPE_NOTE);
+                      if (noteId && onTagNote) {
+                        onTagNote(tag.id, noteId);
+                      }
                     }}
                     onContextMenu={(event) => {
                       event.preventDefault();
@@ -315,7 +332,11 @@ export function TagSidebar({
                           aria-pressed={isActive}
                           aria-label={`Select tag ${tag.name}`}
                         >
-                          <span className="text-zinc-700">{tag.name}</span>
+                          <span className="text-zinc-700">
+                            {tag.name}
+                            {noteCountByTagId[tag.id] !== undefined &&
+                              ` (${noteCountByTagId[tag.id]})`}
+                          </span>
                         </button>
                       )}
                     </div>

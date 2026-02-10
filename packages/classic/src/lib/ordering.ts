@@ -168,3 +168,42 @@ export function getUntaggedNoteIds(state: ClassicState): string[] {
     (noteId) => !taggedNoteIds.has(noteId)
   );
 }
+
+export function tagNote(
+  state: ClassicState,
+  tagId: string,
+  noteId: string
+): ClassicState {
+  const tagExists = state.tags.some((tag) => tag.id === tagId);
+  if (!tagExists) {
+    return state;
+  }
+
+  const noteExists = state.notesById[noteId] !== undefined;
+  if (!noteExists) {
+    return state;
+  }
+
+  const currentNoteOrder = state.noteOrderByTagId[tagId] ?? [];
+  if (currentNoteOrder.includes(noteId)) {
+    return state;
+  }
+
+  return {
+    ...state,
+    noteOrderByTagId: {
+      ...state.noteOrderByTagId,
+      [tagId]: [...currentNoteOrder, noteId]
+    }
+  };
+}
+
+export function getNoteCountByTagId(
+  state: ClassicState
+): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const tag of state.tags) {
+    counts[tag.id] = state.noteOrderByTagId[tag.id]?.length ?? 0;
+  }
+  return counts;
+}

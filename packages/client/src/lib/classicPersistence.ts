@@ -216,3 +216,35 @@ export async function createClassicNote(
 
   return noteId;
 }
+
+export async function linkNoteToTag(
+  tagId: string,
+  noteId: string
+): Promise<string> {
+  const db = getDatabase();
+
+  const existingLink = await db
+    .select({ id: vfsLinks.id })
+    .from(vfsLinks)
+    .where(and(eq(vfsLinks.parentId, tagId), eq(vfsLinks.childId, noteId)))
+    .limit(1);
+
+  if (existingLink.length > 0 && existingLink[0]) {
+    return existingLink[0].id;
+  }
+
+  const linkId = crypto.randomUUID();
+  const now = new Date();
+  const nextPosition = await getNextChildPosition(tagId);
+
+  await db.insert(vfsLinks).values({
+    id: linkId,
+    parentId: tagId,
+    childId: noteId,
+    wrappedSessionKey: '',
+    position: nextPosition,
+    createdAt: now
+  });
+
+  return linkId;
+}

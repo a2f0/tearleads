@@ -7,12 +7,14 @@ import {
 import {
   deleteTag,
   getActiveTagNoteIds,
+  getNoteCountByTagId,
   getUntaggedNoteIds,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
   reorderTags,
   reorderTagToTarget,
-  selectTag
+  selectTag,
+  tagNote
 } from '../lib/ordering';
 import type { ClassicState } from '../lib/types';
 import type { ClassicContextMenuComponents } from './ClassicContextMenu';
@@ -61,6 +63,8 @@ export function ClassicApp({
 
   const untaggedNoteIds = useMemo(() => getUntaggedNoteIds(state), [state]);
 
+  const noteCountByTagId = useMemo(() => getNoteCountByTagId(state), [state]);
+
   const noteIds = useMemo(() => {
     if (state.activeTagId === UNTAGGED_TAG_ID) {
       return untaggedNoteIds;
@@ -102,6 +106,13 @@ export function ClassicApp({
   const handleDeleteTag = useCallback(
     (tagId: string) => {
       updateState(deleteTag(state, tagId));
+    },
+    [state, updateState]
+  );
+
+  const handleTagNote = useCallback(
+    (tagId: string, noteId: string) => {
+      updateState(tagNote(state, tagId, noteId));
     },
     [state, updateState]
   );
@@ -252,6 +263,7 @@ export function ClassicApp({
         editingTagId={editingTagId}
         {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
         untaggedCount={untaggedNoteIds.length}
+        noteCountByTagId={noteCountByTagId}
         onSelectTag={handleSelectTag}
         onMoveTag={handleMoveTag}
         onReorderTag={handleReorderTag}
@@ -260,6 +272,7 @@ export function ClassicApp({
         onRenameTag={handleRenameTag}
         onCancelEditTag={handleCancelEditTag}
         onDeleteTag={handleDeleteTag}
+        onTagNote={handleTagNote}
         searchValue={tagSearch}
         onSearchChange={setTagSearch}
         contextMenuComponents={contextMenuComponents}
@@ -275,6 +288,7 @@ export function ClassicApp({
         onStartEditNote={setEditingNoteId}
         onUpdateNote={handleUpdateNote}
         onCancelEditNote={handleCancelEditNote}
+        onTagNote={handleTagNote}
         searchValue={entrySearch}
         onSearchChange={setEntrySearch}
         contextMenuComponents={contextMenuComponents}

@@ -1,13 +1,15 @@
 import {
   deleteTag,
   getActiveTagNoteIds,
+  getNoteCountByTagId,
   getUntaggedNoteIds,
   moveItem,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
   reorderTags,
   reorderTagToTarget,
-  selectTag
+  selectTag,
+  tagNote
 } from './ordering';
 import type { ClassicState } from './types';
 
@@ -224,6 +226,53 @@ describe('ordering', () => {
         activeTagId: null
       };
       expect(getUntaggedNoteIds(state)).toEqual(['note-1', 'note-2']);
+    });
+  });
+
+  describe('tagNote', () => {
+    it('adds note to tag noteOrderByTagId', () => {
+      const state = createState();
+      state.notesById['note-3'] = { id: 'note-3', title: 'C', body: 'Gamma' };
+      const next = tagNote(state, 'tag-2', 'note-3');
+      expect(next.noteOrderByTagId['tag-2']).toEqual(['note-3']);
+    });
+
+    it('appends note to existing notes in tag', () => {
+      const state = createState();
+      const next = tagNote(state, 'tag-2', 'note-1');
+      expect(next.noteOrderByTagId['tag-2']).toEqual(['note-1']);
+    });
+
+    it('returns same state when tag does not exist', () => {
+      const state = createState();
+      expect(tagNote(state, 'missing', 'note-1')).toBe(state);
+    });
+
+    it('returns same state when note does not exist', () => {
+      const state = createState();
+      expect(tagNote(state, 'tag-1', 'missing')).toBe(state);
+    });
+
+    it('returns same state when note is already in tag', () => {
+      const state = createState();
+      expect(tagNote(state, 'tag-1', 'note-1')).toBe(state);
+    });
+  });
+
+  describe('getNoteCountByTagId', () => {
+    it('returns counts for all tags', () => {
+      const counts = getNoteCountByTagId(createState());
+      expect(counts).toEqual({ 'tag-1': 2, 'tag-2': 0 });
+    });
+
+    it('returns 0 for tags with no noteOrderByTagId entry', () => {
+      const state: ClassicState = {
+        tags: [{ id: 'tag-1', name: 'Work' }],
+        notesById: {},
+        noteOrderByTagId: {},
+        activeTagId: null
+      };
+      expect(getNoteCountByTagId(state)).toEqual({ 'tag-1': 0 });
     });
   });
 });

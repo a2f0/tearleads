@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CREATE_CLASSIC_NOTE_ARIA_LABEL,
-  DEFAULT_CLASSIC_NOTE_TITLE
+  DEFAULT_CLASSIC_NOTE_TITLE,
+  DRAG_TYPE_NOTE,
+  DRAG_TYPE_TAG
 } from '../lib/constants';
 import type { ClassicNote } from '../lib/types';
 import {
@@ -20,6 +22,7 @@ interface NotesPaneProps {
   onStartEditNote?: (noteId: string) => void;
   onUpdateNote?: (noteId: string, title: string, body: string) => void;
   onCancelEditNote?: () => void;
+  onTagNote?: (tagId: string, noteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
@@ -48,6 +51,7 @@ export function NotesPane({
   onStartEditNote,
   onUpdateNote,
   onCancelEditNote,
+  onTagNote,
   searchValue,
   onSearchChange,
   contextMenuComponents
@@ -182,6 +186,7 @@ export function NotesPane({
                     setLastHoverNoteId(null);
                     event.dataTransfer.effectAllowed = 'move';
                     event.dataTransfer.setData('text/plain', note.id);
+                    event.dataTransfer.setData(DRAG_TYPE_NOTE, note.id);
                   }}
                   onDragEnd={() => {
                     setDraggedNoteId(null);
@@ -189,6 +194,12 @@ export function NotesPane({
                     setDragArmedNoteId(null);
                   }}
                   onDragOver={(event) => {
+                    const types = event.dataTransfer?.types ?? [];
+                    const hasTag = types.includes(DRAG_TYPE_TAG);
+                    if (hasTag && onTagNote) {
+                      event.preventDefault();
+                      return;
+                    }
                     if (!draggedNoteId || draggedNoteId === note.id) {
                       return;
                     }
@@ -202,6 +213,10 @@ export function NotesPane({
                   onDrop={(event) => {
                     event.preventDefault();
                     setDragArmedNoteId(null);
+                    const tagId = event.dataTransfer.getData(DRAG_TYPE_TAG);
+                    if (tagId && onTagNote) {
+                      onTagNote(tagId, note.id);
+                    }
                   }}
                   onContextMenu={(event) => {
                     event.preventDefault();
