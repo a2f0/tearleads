@@ -35,16 +35,24 @@ function parseSSEEvents(chunk: string, buffer: string): [SSEEvent[], string] {
     if (!block.trim()) continue;
 
     let eventType = 'message';
-    let data = '';
+    const dataParts: string[] = [];
 
     for (const line of block.split('\n')) {
       if (line.startsWith('event:')) {
         eventType = line.slice(6).trim();
       } else if (line.startsWith('data:')) {
-        data = line.slice(5).trim();
+        // SSE spec: strip only a single leading space from the value
+        let value = line.slice(5);
+        if (value.startsWith(' ')) {
+          value = value.slice(1);
+        }
+        dataParts.push(value);
       }
       // Ignore comments (lines starting with :) and other fields
     }
+
+    // SSE spec: multiple data lines are joined with newlines
+    const data = dataParts.join('\n');
 
     if (data || eventType !== 'message') {
       events.push({ event: eventType, data });
@@ -67,6 +75,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
+  const reconnectAttemptRef = useRef(0);
 
   const connect = useCallback(() => {
     if (abortControllerRef.current) {
@@ -98,10 +107,13 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
       setConnectionState('error');
       abortControllerRef.current = null;
 
-      // Reconnect after delay
+      // Exponential backoff: 1s, 2s, 4s, 8s, ... up to 30s max
+      const delay = Math.min(1000 * 2 ** reconnectAttemptRef.current, 30000);
+      reconnectAttemptRef.current++;
+
       reconnectTimeoutRef.current = setTimeout(() => {
         connect();
-      }, 5000);
+      }, delay);
     };
 
     const startStream = async () => {
@@ -124,6 +136,7 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
         }
 
         setConnectionState('connected');
+        reconnectAttemptRef.current = 0;
 
         const reader = response.body?.getReader();
         if (!reader) {

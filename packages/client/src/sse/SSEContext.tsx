@@ -69,16 +69,24 @@ function parseSSEEvents(chunk: string, buffer: string): [SSEEvent[], string] {
     if (!block.trim()) continue;
 
     let eventType = 'message';
-    let data = '';
+    const dataParts: string[] = [];
 
     for (const line of block.split('\n')) {
       if (line.startsWith('event:')) {
         eventType = line.slice(6).trim();
       } else if (line.startsWith('data:')) {
-        data = line.slice(5).trim();
+        // SSE spec: strip only a single leading space from the value
+        let value = line.slice(5);
+        if (value.startsWith(' ')) {
+          value = value.slice(1);
+        }
+        dataParts.push(value);
       }
       // Ignore comments (lines starting with :) and other fields
     }
+
+    // SSE spec: multiple data lines are joined with newlines
+    const data = dataParts.join('\n');
 
     if (data || eventType !== 'message') {
       events.push({ event: eventType, data });
