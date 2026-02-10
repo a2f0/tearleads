@@ -672,7 +672,9 @@ describe('PostgresTableRowsView', () => {
     });
 
     const exportButton = screen.getByTitle('Export as CSV');
-    expect(exportButton).not.toBeDisabled();
+    await waitFor(() => {
+      expect(exportButton).not.toBeDisabled();
+    });
     await user.click(exportButton);
 
     await waitFor(() => {
