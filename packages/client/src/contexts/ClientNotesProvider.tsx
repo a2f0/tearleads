@@ -8,7 +8,7 @@ import {
   type NotesUIComponents
 } from '@rapid/notes';
 import notesPackageJson from '@rapid/notes/package.json';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
@@ -66,11 +66,55 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
   const { t } = useTypedTranslation('contextMenu');
   const navigateWithFrom = useNavigateWithFrom();
 
-  const databaseState = {
-    isUnlocked: databaseContext.isUnlocked,
-    isLoading: databaseContext.isLoading,
-    currentInstanceId: databaseContext.currentInstanceId
-  };
+  const databaseState = useMemo(
+    () => ({
+      isUnlocked: databaseContext.isUnlocked,
+      isLoading: databaseContext.isLoading,
+      currentInstanceId: databaseContext.currentInstanceId
+    }),
+    [
+      databaseContext.isUnlocked,
+      databaseContext.isLoading,
+      databaseContext.currentInstanceId
+    ]
+  );
+
+  const vfsKeys = useMemo(
+    () => ({
+      generateSessionKey,
+      wrapSessionKey
+    }),
+    []
+  );
+
+  const auth = useMemo(
+    () => ({
+      isLoggedIn,
+      readStoredAuth
+    }),
+    []
+  );
+
+  const featureFlags = useMemo(
+    () => ({
+      getFeatureFlagValue: (key: string) =>
+        key === 'vfsServerRegistration' ? getFeatureFlagValue(key) : false
+    }),
+    []
+  );
+
+  const vfsApi = useMemo(
+    () => ({
+      register: async (params: {
+        id: string;
+        objectType: 'file' | 'folder' | 'contact' | 'note' | 'photo';
+        encryptedSessionKey: string;
+      }) => {
+        await api.vfs.register(params);
+      }
+    }),
+    []
+  );
 
   const navigateToNote: NavigateToNote = useCallback(
     (noteId, options) => {
@@ -89,23 +133,10 @@ export function ClientNotesProvider({ children }: ClientNotesProviderProps) {
       ui={notesUIComponents}
       t={t}
       tooltipZIndex={zIndex.tooltip}
-      vfsKeys={{
-        generateSessionKey,
-        wrapSessionKey
-      }}
-      auth={{
-        isLoggedIn,
-        readStoredAuth
-      }}
-      featureFlags={{
-        getFeatureFlagValue: (key: string) =>
-          key === 'vfsServerRegistration' ? getFeatureFlagValue(key) : false
-      }}
-      vfsApi={{
-        register: async (params) => {
-          await api.vfs.register(params);
-        }
-      }}
+      vfsKeys={vfsKeys}
+      auth={auth}
+      featureFlags={featureFlags}
+      vfsApi={vfsApi}
       navigateToNote={navigateToNote}
     >
       {children}

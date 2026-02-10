@@ -103,6 +103,25 @@ describe('FloatingWindow', () => {
     expect(onFocus).toHaveBeenCalled();
   });
 
+  it('does not call onFocus when clicking no-focus child content', async () => {
+    const user = userEvent.setup();
+    const onFocus = vi.fn();
+    render(
+      <FloatingWindow {...defaultProps} onFocus={onFocus}>
+        <button
+          type="button"
+          data-testid="no-focus-target"
+          data-no-window-focus="true"
+        >
+          Menu Trigger
+        </button>
+      </FloatingWindow>
+    );
+
+    await user.click(screen.getByTestId('no-focus-target'));
+    expect(onFocus).not.toHaveBeenCalled();
+  });
+
   it('allows dragging via title bar', () => {
     render(<FloatingWindow {...defaultProps} />);
     const dialog = screen.getByRole('dialog');

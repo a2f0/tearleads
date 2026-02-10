@@ -4,7 +4,7 @@
  */
 
 import type { ComponentType, ReactNode } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import type { AudioTrack } from './AudioContext';
 
 /**
@@ -432,37 +432,70 @@ export function AudioUIProvider({
   canShareFiles,
   setError
 }: AudioUIProviderProps) {
-  const value: AudioUIContextValue = {
-    databaseState,
-    ui,
-    t,
-    tooltipZIndex,
-    fetchAudioFiles,
-    fetchAudioFilesWithUrls,
-    fetchPlaylists,
-    createPlaylist,
-    renamePlaylist,
-    deletePlaylist,
-    addTrackToPlaylist,
-    removeTrackFromPlaylist,
-    getTrackIdsInPlaylist,
-    retrieveFile,
-    softDeleteAudio,
-    restoreAudio,
-    updateAudioName,
-    uploadFile,
-    formatFileSize,
-    formatDate,
-    logError,
-    logWarn,
-    detectPlatform,
-    extractAudioMetadata,
-    downloadFile,
-    shareFile,
-    canShareFiles,
-    ...(navigateToAudio && { navigateToAudio }),
-    ...(setError && { setError })
-  };
+  const value = useMemo<AudioUIContextValue>(
+    () => ({
+      databaseState,
+      ui,
+      t,
+      tooltipZIndex,
+      fetchAudioFiles,
+      fetchAudioFilesWithUrls,
+      fetchPlaylists,
+      createPlaylist,
+      renamePlaylist,
+      deletePlaylist,
+      addTrackToPlaylist,
+      removeTrackFromPlaylist,
+      getTrackIdsInPlaylist,
+      retrieveFile,
+      softDeleteAudio,
+      restoreAudio,
+      updateAudioName,
+      uploadFile,
+      formatFileSize,
+      formatDate,
+      logError,
+      logWarn,
+      detectPlatform,
+      extractAudioMetadata,
+      downloadFile,
+      shareFile,
+      canShareFiles,
+      ...(navigateToAudio && { navigateToAudio }),
+      ...(setError && { setError })
+    }),
+    [
+      databaseState,
+      ui,
+      t,
+      tooltipZIndex,
+      navigateToAudio,
+      fetchAudioFiles,
+      fetchAudioFilesWithUrls,
+      fetchPlaylists,
+      createPlaylist,
+      renamePlaylist,
+      deletePlaylist,
+      addTrackToPlaylist,
+      removeTrackFromPlaylist,
+      getTrackIdsInPlaylist,
+      retrieveFile,
+      softDeleteAudio,
+      restoreAudio,
+      updateAudioName,
+      uploadFile,
+      formatFileSize,
+      formatDate,
+      logError,
+      logWarn,
+      detectPlatform,
+      extractAudioMetadata,
+      downloadFile,
+      shareFile,
+      canShareFiles,
+      setError
+    ]
+  );
 
   return (
     <AudioUIContext.Provider value={value}>{children}</AudioUIContext.Provider>

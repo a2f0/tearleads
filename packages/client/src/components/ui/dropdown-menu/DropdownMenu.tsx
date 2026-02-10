@@ -6,6 +6,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useRef,
   useState
@@ -34,6 +35,13 @@ interface DropdownMenuContextValue {
   getContainerElement: () => HTMLElement | null;
 }
 
+const HIDDEN_MENU_STYLE: React.CSSProperties = {
+  position: 'fixed',
+  top: -9999,
+  left: -9999,
+  visibility: 'hidden'
+};
+
 const DropdownMenuContext = createContext<DropdownMenuContextValue | null>(
   null
 );
@@ -51,7 +59,8 @@ export function DropdownMenu({
   const containerRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const [focusedIndex, setFocusedIndex] = useState(-1);
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
+  const [menuStyle, setMenuStyle] =
+    useState<React.CSSProperties>(HIDDEN_MENU_STYLE);
 
   const close = useCallback(() => {
     setIsOpen(false);
@@ -59,7 +68,14 @@ export function DropdownMenu({
   }, []);
 
   const toggle = useCallback(() => {
-    setIsOpen((prev) => !prev);
+    setIsOpen((prev) => {
+      const nextIsOpen = !prev;
+      if (nextIsOpen) {
+        // Keep menu hidden offscreen until we compute exact coordinates.
+        setMenuStyle(HIDDEN_MENU_STYLE);
+      }
+      return nextIsOpen;
+    });
     setFocusedIndex(-1);
   }, []);
 
@@ -92,27 +108,33 @@ export function DropdownMenu({
     };
   }, [isOpen, close]);
 
-  useEffect(() => {
+  const updatePosition = useCallback(() => {
+    if (!containerRef.current) return;
+    const rect = containerRef.current.getBoundingClientRect();
+    const style: React.CSSProperties = {
+      position: 'fixed',
+      top: rect.bottom + 2,
+      visibility: 'visible'
+    };
+    if (align === 'right') {
+      style.right = window.innerWidth - rect.right;
+    } else {
+      style.left = rect.left;
+    }
+    setMenuStyle(style);
+  }, [align]);
+
+  useLayoutEffect(() => {
     if (!isOpen || !containerRef.current) {
       return;
     }
-
-    const updatePosition = () => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      const style: React.CSSProperties = {
-        position: 'fixed',
-        top: rect.bottom + 2
-      };
-      if (align === 'right') {
-        style.right = window.innerWidth - rect.right;
-      } else {
-        style.left = rect.left;
-      }
-      setMenuStyle(style);
-    };
-
     updatePosition();
+  }, [isOpen, updatePosition]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      return undefined;
+    }
 
     window.addEventListener('resize', updatePosition);
     document.addEventListener('scroll', updatePosition, true);
@@ -121,9 +143,9 @@ export function DropdownMenu({
       window.removeEventListener('resize', updatePosition);
       document.removeEventListener('scroll', updatePosition, true);
     };
-  }, [isOpen, align]);
+  }, [isOpen, updatePosition]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isOpen && menuRef.current) {
       menuRef.current.focus();
     }
@@ -165,7 +187,7 @@ export function DropdownMenu({
 
   return (
     <DropdownMenuContext.Provider value={contextValue}>
-      <div ref={containerRef} className="relative">
+      <div ref={containerRef} className="relative" data-no-window-focus="true">
         {isValidElement<TriggerElementProps>(trigger) ? (
           cloneElement(trigger, {
             onClick: (e: React.MouseEvent) => {
@@ -193,6 +215,7 @@ export function DropdownMenu({
               role="menu"
               tabIndex={-1}
               onKeyDown={handleMenuKeyDown}
+              data-no-window-focus="true"
               style={menuStyle}
               className="dropdown-menu z-[10000] min-w-32 whitespace-nowrap border bg-background py-1 shadow-md outline-none"
               data-align={align}

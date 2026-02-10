@@ -4,7 +4,7 @@
  */
 
 import { and, eq, sql } from 'drizzle-orm';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
@@ -19,11 +19,18 @@ interface ClientVideoProviderProps {
 export function ClientVideoProvider({ children }: ClientVideoProviderProps) {
   const databaseContext = useDatabaseContext();
 
-  const databaseState = {
-    isUnlocked: databaseContext.isUnlocked,
-    isLoading: databaseContext.isLoading,
-    currentInstanceId: databaseContext.currentInstanceId
-  };
+  const databaseState = useMemo(
+    () => ({
+      isUnlocked: databaseContext.isUnlocked,
+      isLoading: databaseContext.isLoading,
+      currentInstanceId: databaseContext.currentInstanceId
+    }),
+    [
+      databaseContext.isUnlocked,
+      databaseContext.isLoading,
+      databaseContext.currentInstanceId
+    ]
+  );
 
   const fetchPlaylists = useCallback(async (): Promise<VideoPlaylist[]> => {
     const db = getDatabase();

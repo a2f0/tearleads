@@ -353,7 +353,14 @@ export function FloatingWindow({
     footerHeight
   ]);
 
-  const handleWindowClick = () => {
+  const handleWindowClick = (event: React.MouseEvent<HTMLDivElement>) => {
+    const target = event.target;
+    if (
+      target instanceof Element &&
+      target.closest('[data-no-window-focus="true"]')
+    ) {
+      return;
+    }
     onFocus?.();
   };
 
