@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
+import { setContactDragData } from '../lib/contactDragData';
 import {
   type ContactInfo,
   type SortColumn,
@@ -242,6 +243,10 @@ export function ContactsWindowTableView({
                     className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                     onClick={() => onSelectContact(contact.id)}
                     onContextMenu={(e) => handleContextMenu(e, contact)}
+                    draggable
+                    onDragStart={(event) =>
+                      setContactDragData(event, [contact.id])
+                    }
                   >
                     <td className="px-2 py-1.5">
                       <div className="flex items-center gap-1.5">

@@ -1,4 +1,6 @@
+import { vfsLinks } from '@rapid/db/sqlite';
 import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
+import { and, eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';
 import type { ImportResult } from '../hooks/useContactsImport';
@@ -41,7 +43,7 @@ export function ContactsWindow({
   initialDimensions,
   openContactRequest
 }: ContactsWindowProps) {
-  const { databaseState } = useContactsContext();
+  const { databaseState, getDatabase } = useContactsContext();
   const { isUnlocked } = databaseState;
   const [currentView, setCurrentView] = useState<WindowView>('list');
   const [selectedContactId, setSelectedContactId] = useState<string | null>(
@@ -110,6 +112,41 @@ export function ContactsWindow({
   const handleGroupChanged = useCallback(() => {
     setRefreshToken((value) => value + 1);
   }, []);
+
+  const handleDropToGroup = useCallback(
+    async (groupId: string, contactIds: string[]) => {
+      const uniqueContactIds = Array.from(new Set(contactIds.filter(Boolean)));
+      if (uniqueContactIds.length === 0) return;
+
+      const db = getDatabase();
+      const existingLinks = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(
+          and(
+            eq(vfsLinks.parentId, groupId),
+            inArray(vfsLinks.childId, uniqueContactIds)
+          )
+        );
+
+      const existingChildIds = new Set(existingLinks.map((link) => link.childId));
+      const linksToInsert = uniqueContactIds
+        .filter((contactId) => !existingChildIds.has(contactId))
+        .map((contactId) => ({
+          id: crypto.randomUUID(),
+          parentId: groupId,
+          childId: contactId,
+          wrappedSessionKey: '',
+          createdAt: new Date()
+        }));
+
+      if (linksToInsert.length === 0) return;
+
+      await db.insert(vfsLinks).values(linksToInsert);
+      setRefreshToken((value) => value + 1);
+    },
+    [getDatabase]
+  );
 
   const resolvedGroupId =
     selectedGroupId && selectedGroupId !== ALL_CONTACTS_ID
@@ -226,6 +263,7 @@ export function ContactsWindow({
                 selectedGroupId={selectedGroupId}
                 onGroupSelect={setSelectedGroupId}
                 onGroupChanged={handleGroupChanged}
+                onDropToGroup={handleDropToGroup}
               />
             )}
             <div
