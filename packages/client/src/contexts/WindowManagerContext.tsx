@@ -394,7 +394,5 @@ export function useWindowOpenRequest<K extends keyof WindowOpenRequestPayloads>(
       'useWindowOpenRequest must be used within a WindowManagerProvider'
     );
   }
-  return context[type] as
-    | (WindowOpenRequestPayloads[K] & { requestId: number })
-    | undefined;
+  return context[type];
 }
