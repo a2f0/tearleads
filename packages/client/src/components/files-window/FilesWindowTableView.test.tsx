@@ -487,6 +487,25 @@ describe('FilesWindowTableView', () => {
     expect(onUpload).toHaveBeenCalled();
   });
 
+  it('calls onUpload from blank-space context menu in table view', async () => {
+    mockDb.orderBy.mockResolvedValue(mockFiles);
+    const onUpload = vi.fn();
+    const user = userEvent.setup();
+    render(<FilesWindowTableView {...defaultProps} onUpload={onUpload} />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('files-table-container')).toBeInTheDocument();
+    });
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByTestId('files-table-container')
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Upload' }));
+    expect(onUpload).toHaveBeenCalled();
+  });
+
   it('displays different file type labels correctly', async () => {
     const filesWithVariousTypes = [
       { ...mockFiles[0], mimeType: 'image/png', name: 'image.png' },

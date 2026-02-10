@@ -9,8 +9,8 @@ import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
-const MINI_PLAYER_WIDTH = 256; // w-64
-const MINI_PLAYER_HEIGHT = 64; // p-3 (12px) * 2 + h-10 button (40px)
+const MINI_PLAYER_WIDTH = 224; // w-56
+const MINI_PLAYER_HEIGHT = 56; // p-2 (8px) * 2 + h-8 button (32px)
 const MINI_PLAYER_MARGIN = 16;
 const DRAG_THRESHOLD = 3;
 
@@ -234,7 +234,7 @@ export function MiniPlayer() {
     <>
       <aside
         ref={elementRef}
-        className="fixed z-50 flex w-64 items-center gap-3 rounded-lg border bg-background p-3 shadow-lg"
+        className="fixed z-50 flex w-56 items-center gap-2 rounded-md border bg-background p-2 shadow-lg"
         style={
           positionReady
             ? { left: position.left, top: position.top, cursor: 'grab' }
@@ -247,42 +247,49 @@ export function MiniPlayer() {
         onMouseDown={handleMouseDown}
         onContextMenu={handleContextMenu}
       >
-        <Music className="h-8 w-8 shrink-0 text-muted-foreground" />
+        <Music className="h-6 w-6 shrink-0 text-muted-foreground" />
         <div className="min-w-0 flex-1">
-          <p className="truncate font-medium text-sm" title={currentTrack.name}>
+          <p className="truncate font-medium text-xs" title={currentTrack.name}>
             {currentTrack.name}
           </p>
         </div>
-        <div className="flex shrink-0 items-center gap-1">
+        <div className="flex shrink-0 items-center gap-0.5">
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8"
             onClick={() => seek(0)}
             aria-label={t('rewind')}
             title={t('rewind')}
             data-testid="mini-player-rewind"
           >
-            <SkipBack />
+            <SkipBack className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8"
             onClick={isPlaying ? pause : resume}
             aria-label={isPlaying ? t('pause') : t('play')}
             title={isPlaying ? t('pause') : t('play')}
             data-testid="mini-player-play-pause"
           >
-            {isPlaying ? <Pause /> : <Play />}
+            {isPlaying ? (
+              <Pause className="h-4 w-4" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
           </Button>
           <Button
             variant="ghost"
             size="icon"
+            className="h-8 w-8"
             onClick={stop}
             aria-label={t('close')}
             title={t('close')}
             data-testid="mini-player-close"
           >
-            <X />
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </aside>

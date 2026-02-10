@@ -9,7 +9,8 @@ import {
   Phone,
   Plus,
   Trash2,
-  User
+  User,
+  UserPlus
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
@@ -92,6 +93,10 @@ export function ContactsWindowTableView({
     x: number;
     y: number;
   } | null>(null);
+  const [emptySpaceContextMenu, setEmptySpaceContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
 
   const handleSortChange = useCallback(
     (column: SortColumn) => {
@@ -111,10 +116,16 @@ export function ContactsWindowTableView({
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, contact: ContactInfo) => {
       e.preventDefault();
+      e.stopPropagation();
       setContextMenu({ contact, x: e.clientX, y: e.clientY });
     },
     []
   );
+
+  const handleEmptySpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
 
   const handleGetInfo = useCallback(() => {
     if (contextMenu) {
@@ -202,7 +213,11 @@ export function ContactsWindowTableView({
             Loading contacts...
           </div>
         ) : contactsList.length === 0 && hasFetched ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center">
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
+          <div
+            className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center"
+            onContextMenu={handleEmptySpaceContextMenu}
+          >
             <User className="h-8 w-8 text-muted-foreground" />
             <div>
               <p className="font-medium text-sm">No contacts yet</p>
@@ -220,7 +235,12 @@ export function ContactsWindowTableView({
             </Button>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto rounded-lg border">
+          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space
+          <div
+            className="flex-1 overflow-auto rounded-lg border"
+            data-testid="contacts-table-container"
+            onContextMenu={handleEmptySpaceContextMenu}
+          >
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
                 <tr>
@@ -315,6 +335,24 @@ export function ContactsWindowTableView({
             onClick={handleDelete}
           >
             {t('delete')}
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {emptySpaceContextMenu && (
+        <ContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<UserPlus className="h-4 w-4" />}
+            onClick={() => {
+              onCreateContact();
+              setEmptySpaceContextMenu(null);
+            }}
+          >
+            New Contact
           </ContextMenuItem>
         </ContextMenu>
       )}
