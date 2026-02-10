@@ -1,22 +1,20 @@
-import { Calendar, Key, Loader2, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
+import { Button } from '@client/components/ui/button';
 import {
   deleteSessionKeysForInstance,
   getKeyManagerForInstance,
   getKeyStatusForInstance,
   type KeyStatus
-} from '@/db/crypto/key-manager';
+} from '@client/db/crypto/key-manager';
 import {
   deleteInstanceFromRegistry,
-  getInstances,
+  getInstance,
   type InstanceMetadata
-} from '@/db/instance-registry';
-import { DeleteKeychainInstanceDialog } from './DeleteKeychainInstanceDialog';
-import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
-import { KeyStatusIndicator } from './KeyStatusIndicator';
+} from '@client/db/instance-registry';
+import { ArrowLeft, Calendar, Key, Loader2, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { DeleteKeychainInstanceDialog } from '../../pages/keychain/DeleteKeychainInstanceDialog';
+import { DeleteSessionKeysDialog } from '../../pages/keychain/DeleteSessionKeysDialog';
+import { KeyStatusIndicator } from '../../pages/keychain/KeyStatusIndicator';
 
 function formatDate(timestamp: number): string {
   return new Date(timestamp).toLocaleString();
@@ -27,9 +25,17 @@ interface InstanceKeyInfo {
   keyStatus: KeyStatus;
 }
 
-export function KeychainDetail() {
-  const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
+interface KeychainWindowDetailProps {
+  instanceId: string;
+  onBack: () => void;
+  onDeleted: () => void;
+}
+
+export function KeychainWindowDetail({
+  instanceId,
+  onBack,
+  onDeleted
+}: KeychainWindowDetailProps) {
   const [instanceInfo, setInstanceInfo] = useState<InstanceKeyInfo | null>(
     null
   );
@@ -39,21 +45,20 @@ export function KeychainDetail() {
   const [sessionKeysDialogOpen, setSessionKeysDialogOpen] = useState(false);
 
   const fetchInstanceInfo = useCallback(async () => {
-    if (!id) return;
+    if (!instanceId) return;
 
     setLoading(true);
     setError(null);
 
     try {
-      const instances = await getInstances();
-      const instance = instances.find((i) => i.id === id);
+      const instance = await getInstance(instanceId);
 
       if (!instance) {
         setError('Instance not found');
         return;
       }
 
-      const keyStatus = await getKeyStatusForInstance(id);
+      const keyStatus = await getKeyStatusForInstance(instanceId);
       setInstanceInfo({ instance, keyStatus });
     } catch (err) {
       console.error('Failed to fetch instance info:', err);
@@ -61,7 +66,7 @@ export function KeychainDetail() {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [instanceId]);
 
   useEffect(() => {
     fetchInstanceInfo();
@@ -72,13 +77,18 @@ export function KeychainDetail() {
 
     try {
       await deleteSessionKeysForInstance(instanceInfo.instance.id);
-      await fetchInstanceInfo();
+      const newKeyStatus = await getKeyStatusForInstance(
+        instanceInfo.instance.id
+      );
+      setInstanceInfo((prev) =>
+        prev ? { ...prev, keyStatus: newKeyStatus } : prev
+      );
     } catch (err) {
       console.error('Failed to delete session keys:', err);
       setError(err instanceof Error ? err.message : String(err));
       throw err;
     }
-  }, [instanceInfo, fetchInstanceInfo]);
+  }, [instanceInfo]);
 
   const handleDeleteInstance = useCallback(async () => {
     if (!instanceInfo) return;
@@ -87,20 +97,29 @@ export function KeychainDetail() {
       const keyManager = getKeyManagerForInstance(instanceInfo.instance.id);
       await keyManager.reset();
       await deleteInstanceFromRegistry(instanceInfo.instance.id);
-      navigate('/keychain');
+      onDeleted();
     } catch (err) {
       console.error('Failed to delete instance:', err);
       setError(err instanceof Error ? err.message : String(err));
+      throw err;
     }
-  }, [instanceInfo, navigate]);
+  }, [instanceInfo, onDeleted]);
 
   const hasSessionKeys =
     instanceInfo?.keyStatus.wrappingKey || instanceInfo?.keyStatus.wrappedKey;
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-4">
-        <BackLink defaultTo="/keychain" defaultLabel="Back to Keychain" />
+    <div className="flex h-full flex-col space-y-4 overflow-auto p-3">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onBack}
+          className="h-7 px-2"
+          data-testid="window-keychain-back"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
       </div>
 
       {error && (
@@ -110,7 +129,7 @@ export function KeychainDetail() {
       )}
 
       {loading && (
-        <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
+        <div className="flex items-center justify-center gap-2 rounded-lg border p-6 text-muted-foreground text-sm">
           <Loader2 className="h-5 w-5 animate-spin" />
           Loading instance...
         </div>
@@ -120,14 +139,14 @@ export function KeychainDetail() {
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <Key className="h-6 w-6 text-chart-5" />
-            <h1 className="font-bold text-2xl tracking-tight">
+            <h2 className="font-bold text-xl tracking-tight">
               {instanceInfo.instance.name}
-            </h1>
+            </h2>
           </div>
 
           <div className="rounded-lg border">
             <div className="border-b px-4 py-3">
-              <h2 className="font-semibold">Instance Details</h2>
+              <h3 className="font-semibold">Instance Details</h3>
             </div>
             <div className="divide-y">
               <div className="flex items-center gap-3 px-4 py-3">
@@ -160,7 +179,7 @@ export function KeychainDetail() {
 
           <div className="rounded-lg border">
             <div className="border-b px-4 py-3">
-              <h2 className="font-semibold">Key Status</h2>
+              <h3 className="font-semibold">Key Status</h3>
             </div>
             <div className="grid grid-cols-2 gap-2 p-4">
               <KeyStatusIndicator
@@ -199,6 +218,7 @@ export function KeychainDetail() {
           </div>
         </div>
       )}
+
       {instanceInfo && (
         <>
           <DeleteSessionKeysDialog

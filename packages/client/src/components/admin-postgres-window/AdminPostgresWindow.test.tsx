@@ -124,6 +124,19 @@ describe('AdminPostgresWindow', () => {
     );
   });
 
+  it('returns to index view from table view when clicking back', async () => {
+    const user = userEvent.setup();
+    render(<AdminPostgresWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-table'));
+    await user.click(screen.getByRole('button', { name: 'Back to Postgres' }));
+
+    expect(screen.getByTestId('postgres-admin-content')).toBeInTheDocument();
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Postgres Admin'
+    );
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

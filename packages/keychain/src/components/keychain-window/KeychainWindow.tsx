@@ -1,6 +1,6 @@
+import type { WindowDimensions } from '@rapid/window-manager';
+import { FloatingWindow } from '@rapid/window-manager';
 import { useCallback, useRef, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindowContent } from './KeychainWindowContent';
 import { KeychainWindowDetail } from './KeychainWindowDetail';

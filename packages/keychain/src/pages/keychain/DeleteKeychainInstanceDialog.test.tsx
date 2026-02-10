@@ -1,4 +1,3 @@
-import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -17,11 +16,7 @@ function renderDialog(props: {
     onDelete: vi.fn().mockResolvedValue(undefined)
   };
 
-  return render(
-    <ThemeProvider>
-      <DeleteKeychainInstanceDialog {...defaultProps} {...props} />
-    </ThemeProvider>
-  );
+  return render(<DeleteKeychainInstanceDialog {...defaultProps} {...props} />);
 }
 
 describe('DeleteKeychainInstanceDialog', () => {

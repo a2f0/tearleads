@@ -140,10 +140,10 @@ const Home = lazy(() =>
   import('./pages/Home').then((m) => ({ default: m.Home }))
 );
 const Keychain = lazy(() =>
-  import('./pages/keychain').then((m) => ({ default: m.Keychain }))
+  import('@rapid/keychain').then((m) => ({ default: m.Keychain }))
 );
 const KeychainDetail = lazy(() =>
-  import('./pages/keychain').then((m) => ({ default: m.KeychainDetail }))
+  import('@rapid/keychain').then((m) => ({ default: m.KeychainDetail }))
 );
 const Licenses = lazy(() =>
   import('./pages/Licenses').then((m) => ({ default: m.Licenses }))

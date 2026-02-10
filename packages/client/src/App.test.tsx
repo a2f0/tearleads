@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -179,6 +179,40 @@ describe('App', () => {
     );
     expect(notificationCenterTrigger).toBeInTheDocument();
     expect(header).not.toContainElement(notificationCenterTrigger);
+  });
+
+  it('updates mobile state when media query change fires', () => {
+    const mediaListeners: Array<(event: MediaQueryListEvent) => void> = [];
+    const pointerListeners: Array<(event: MediaQueryListEvent) => void> = [];
+
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => {
+      const isMobileQuery = query === '(max-width: 1023px)';
+      const listeners = isMobileQuery ? mediaListeners : pointerListeners;
+      return {
+        matches: false,
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn((_type: string, cb: EventListener) => {
+          listeners.push(cb as (event: MediaQueryListEvent) => void);
+        }),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn()
+      } as MediaQueryList;
+    });
+
+    mockUseSSEContext.mockReturnValue(null);
+    renderApp();
+
+    const mobileListener = mediaListeners[0];
+    if (mobileListener) {
+      act(() => {
+        mobileListener({ matches: true } as MediaQueryListEvent);
+      });
+    }
+
+    expect(screen.getByTestId('mobile-menu')).toBeInTheDocument();
   });
 
   it('renders taskbar in the footer', () => {

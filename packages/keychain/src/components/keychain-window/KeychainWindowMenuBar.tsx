@@ -1,10 +1,10 @@
-import { RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+} from '@client/components/ui/dropdown-menu';
+import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
+import { RefreshCw } from 'lucide-react';
 
 interface KeychainWindowMenuBarProps {
   onRefresh: () => void;

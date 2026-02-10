@@ -11,6 +11,7 @@ type AliasMap = Record<string, string>;
  */
 export const createViteAliases = (dirname: string): AliasMap => ({
   '@': path.resolve(dirname, './src'),
+  '@client': path.resolve(dirname, './src'),
   // UI package - styles, theme, and assets
   '@rapid/ui/styles.css': path.resolve(dirname, '../ui/src/styles/index.css'),
   '@rapid/ui/theme.css': path.resolve(dirname, '../ui/src/styles/theme.css'),
@@ -29,6 +30,11 @@ export const createViteAliases = (dirname: string): AliasMap => ({
   '@rapid/contacts': path.resolve(dirname, '../contacts/src/index.ts'),
   '@rapid/email/package.json': path.resolve(dirname, '../email/package.json'),
   '@rapid/email': path.resolve(dirname, '../email/src/index.ts'),
+  '@rapid/keychain/package.json': path.resolve(
+    dirname,
+    '../keychain/package.json'
+  ),
+  '@rapid/keychain': path.resolve(dirname, '../keychain/src/index.ts'),
   '@rapid/mls-chat/package.json': path.resolve(dirname, '../mls-chat/package.json'),
   '@rapid/mls-chat': path.resolve(dirname, '../mls-chat/src/index.ts'),
   '@rapid/notes/package.json': path.resolve(dirname, '../notes/package.json'),

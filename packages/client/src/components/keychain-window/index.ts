@@ -1,1 +1,1 @@
-export { KeychainWindow } from './KeychainWindow';
+export { KeychainWindow } from '@rapid/keychain';

@@ -1,4 +1,4 @@
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { ConfirmDialog } from '@client/components/ui/confirm-dialog';
 
 interface DeleteSessionKeysDialogProps {
   open: boolean;

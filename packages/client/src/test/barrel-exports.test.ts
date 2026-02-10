@@ -91,10 +91,8 @@ vi.mock('@/pages/contacts/Contacts', () => ({
 vi.mock('@/pages/debug/Debug', () => ({
   Debug: () => null
 }));
-vi.mock('@/pages/keychain/Keychain', () => ({
-  Keychain: () => null
-}));
-vi.mock('@/pages/keychain/KeychainDetail', () => ({
+vi.mock('@rapid/keychain', () => ({
+  Keychain: () => null,
   KeychainDetail: () => null
 }));
 vi.mock('@/pages/local-storage/LocalStorage', () => ({
