@@ -4,7 +4,9 @@ import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { HelpDocumentation } from '@/components/help-links/HelpDocumentation';
 import { HelpLinksGrid } from '@/components/help-links/HelpLinksGrid';
+import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
 import {
   DOCS_WINDOW_MAX_HEIGHT_PERCENT,
   DOCS_WINDOW_MAX_WIDTH_PERCENT,
@@ -14,7 +16,18 @@ import {
 } from '@/lib/docsWindowSizing';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
-type HelpView = 'index' | 'api';
+type HelpView = 'index' | 'api' | HelpDocId;
+
+function getHelpWindowTitle(view: HelpView): string {
+  switch (view) {
+    case 'index':
+      return 'Help';
+    case 'api':
+      return 'API Docs';
+    default:
+      return getHelpDocLabel(view);
+  }
+}
 
 interface HelpWindowProps {
   id: string;
@@ -45,7 +58,7 @@ export function HelpWindow({
     return getDocsWindowDefaults(window.innerWidth, window.innerHeight);
   }, []);
 
-  const title = view === 'index' ? 'Help' : 'API Docs';
+  const title = getHelpWindowTitle(view);
 
   return (
     <FloatingWindow
@@ -74,8 +87,23 @@ export function HelpWindow({
                 <h1 className="font-bold text-2xl tracking-tight">Help</h1>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                <HelpLinksGrid onApiDocsClick={() => setView('api')} />
+                <HelpLinksGrid
+                  onApiDocsClick={() => setView('api')}
+                  onDocClick={(docId) => setView(docId)}
+                />
               </div>
+            </div>
+          ) : view === 'api' ? (
+            <div className="space-y-6">
+              <button
+                type="button"
+                onClick={() => setView('index')}
+                className="inline-flex items-center text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Help
+              </button>
+              <ApiDocs spec={openapiSpec} />
             </div>
           ) : (
             <div className="space-y-6">
@@ -87,7 +115,7 @@ export function HelpWindow({
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Help
               </button>
-              <ApiDocs spec={openapiSpec} />
+              <HelpDocumentation docId={view} />
             </div>
           )}
         </div>

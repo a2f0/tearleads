@@ -1,8 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
-import { HELP_EXTERNAL_LINKS } from '@/constants/help';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Help } from './Help';
 
 const mockNavigate = vi.fn();
@@ -15,16 +14,14 @@ vi.mock('react-router-dom', async () => {
 });
 
 describe('Help', () => {
-  const externalLinkCases = [
-    { label: 'CLI', href: HELP_EXTERNAL_LINKS.cli },
-    {
-      label: 'Chrome Extension',
-      href: HELP_EXTERNAL_LINKS.chromeExtension
-    },
-    {
-      label: 'Backup & Restore',
-      href: HELP_EXTERNAL_LINKS.backupRestore
-    }
+  beforeEach(() => {
+    mockNavigate.mockReset();
+  });
+
+  const docCases = [
+    { label: 'CLI', path: '/help/docs/cli' },
+    { label: 'Chrome Extension', path: '/help/docs/chrome-extension' },
+    { label: 'Backup & Restore', path: '/help/docs/backup-restore' }
   ] as const;
 
   it('renders help page with all help options', () => {
@@ -54,9 +51,8 @@ describe('Help', () => {
     expect(mockNavigate).toHaveBeenCalledWith('/help/api');
   });
 
-  it('opens external docs links in a new tab', async () => {
+  it('navigates to help documentation pages', async () => {
     const user = userEvent.setup();
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
     render(
       <MemoryRouter>
@@ -64,13 +60,11 @@ describe('Help', () => {
       </MemoryRouter>
     );
 
-    for (const { label, href } of externalLinkCases) {
+    for (const { label, path } of docCases) {
       await user.click(screen.getByText(label));
-      expect(openSpy).toHaveBeenLastCalledWith(href, '_blank', 'noopener');
+      expect(mockNavigate).toHaveBeenLastCalledWith(path);
     }
 
-    expect(openSpy).toHaveBeenCalledTimes(externalLinkCases.length);
-
-    openSpy.mockRestore();
+    expect(mockNavigate).toHaveBeenCalledTimes(docCases.length);
   });
 });

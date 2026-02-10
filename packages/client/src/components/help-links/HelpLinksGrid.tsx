@@ -1,30 +1,34 @@
 import { Download, FileText, Puzzle, Terminal } from 'lucide-react';
 import { GridSquare } from '@/components/ui/grid-square';
-import { HELP_EXTERNAL_LINKS } from '@/constants/help';
+import type { HelpDocId } from '@/constants/help';
 
 interface HelpLinksGridProps {
   onApiDocsClick: () => void;
+  onDocClick: (docId: HelpDocId) => void;
 }
 
-const HELP_EXTERNAL_ITEMS = [
+const HELP_DOC_ITEMS = [
   {
+    docId: 'cli',
     label: 'CLI',
-    href: HELP_EXTERNAL_LINKS.cli,
     Icon: Terminal
   },
   {
+    docId: 'chromeExtension',
     label: 'Chrome Extension',
-    href: HELP_EXTERNAL_LINKS.chromeExtension,
     Icon: Puzzle
   },
   {
+    docId: 'backupRestore',
     label: 'Backup & Restore',
-    href: HELP_EXTERNAL_LINKS.backupRestore,
     Icon: Download
   }
 ] as const;
 
-export function HelpLinksGrid({ onApiDocsClick }: HelpLinksGridProps) {
+export function HelpLinksGrid({
+  onApiDocsClick,
+  onDocClick
+}: HelpLinksGridProps) {
   return (
     <>
       <GridSquare onClick={onApiDocsClick}>
@@ -33,11 +37,8 @@ export function HelpLinksGrid({ onApiDocsClick }: HelpLinksGridProps) {
           <span className="text-center font-medium text-sm">API Docs</span>
         </div>
       </GridSquare>
-      {HELP_EXTERNAL_ITEMS.map(({ label, href, Icon }) => (
-        <GridSquare
-          key={label}
-          onClick={() => window.open(href, '_blank', 'noopener')}
-        >
+      {HELP_DOC_ITEMS.map(({ docId, label, Icon }) => (
+        <GridSquare key={label} onClick={() => onDocClick(docId)}>
           <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
             <Icon className="h-12 w-12 text-muted-foreground" />
             <span className="text-center font-medium text-sm">{label}</span>

@@ -118,6 +118,9 @@ const Debug = lazy(() =>
 const ApiDocsPage = lazy(() =>
   import('./pages/help/ApiDocs').then((m) => ({ default: m.ApiDocsPage }))
 );
+const HelpDocPage = lazy(() =>
+  import('./pages/help/HelpDoc').then((m) => ({ default: m.HelpDocPage }))
+);
 const Help = lazy(() =>
   import('./pages/help/Help').then((m) => ({ default: m.Help }))
 );
@@ -343,6 +346,10 @@ if (rootElement) {
                                         <Route
                                           path="help/api"
                                           element={<ApiDocsPage />}
+                                        />
+                                        <Route
+                                          path="help/docs/:docId"
+                                          element={<HelpDocPage />}
                                         />
                                         <Route
                                           path="ai"
