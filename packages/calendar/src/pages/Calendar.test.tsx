@@ -224,7 +224,12 @@ describe('Calendar', () => {
     >(async () => {});
     render(<CalendarContent onCreateEvent={onCreateEvent} />);
 
-    await user.click(screen.getByRole('button', { name: 'New Item' }));
+    fireEvent(
+      window,
+      new CustomEvent(CALENDAR_CREATE_ITEM_EVENT, {
+        detail: { date: new Date().toISOString() }
+      })
+    );
     await user.type(screen.getByLabelText('Event title'), 'Dentist');
     await user.clear(screen.getByLabelText('Event start time'));
     await user.type(screen.getByLabelText('Event start time'), '14:30');
