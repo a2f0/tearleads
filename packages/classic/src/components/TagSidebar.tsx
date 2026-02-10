@@ -195,30 +195,40 @@ export function TagSidebar({
                   onContextMenu={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
+                    const actions = [
+                      ...(onStartEditTag
+                        ? [
+                            {
+                              label: 'Edit',
+                              onClick: () => onStartEditTag(tag.id),
+                              ariaLabel: `Edit tag ${tag.name}`
+                            }
+                          ]
+                        : []),
+                      ...(canMoveUp
+                        ? [
+                            {
+                              label: 'Move Up',
+                              onClick: () => onMoveTag(tag.id, 'up'),
+                              ariaLabel: `Move tag ${tag.name} up`
+                            }
+                          ]
+                        : []),
+                      ...(canMoveDown
+                        ? [
+                            {
+                              label: 'Move Down',
+                              onClick: () => onMoveTag(tag.id, 'down'),
+                              ariaLabel: `Move tag ${tag.name} down`
+                            }
+                          ]
+                        : [])
+                    ];
                     setContextMenu({
                       x: event.clientX,
                       y: event.clientY,
                       ariaLabel: `Tag actions for ${tag.name}`,
-                      actions: [
-                        {
-                          label: 'Edit',
-                          onClick: () => onStartEditTag?.(tag.id),
-                          disabled: !onStartEditTag,
-                          ariaLabel: `Edit tag ${tag.name}`
-                        },
-                        {
-                          label: 'Move Up',
-                          onClick: () => onMoveTag(tag.id, 'up'),
-                          disabled: !canMoveUp,
-                          ariaLabel: `Move tag ${tag.name} up`
-                        },
-                        {
-                          label: 'Move Down',
-                          onClick: () => onMoveTag(tag.id, 'down'),
-                          disabled: !canMoveDown,
-                          ariaLabel: `Move tag ${tag.name} down`
-                        }
-                      ]
+                      actions
                     });
                   }}
                 >

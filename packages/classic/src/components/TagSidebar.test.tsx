@@ -49,9 +49,13 @@ describe('TagSidebar', () => {
     expect(onMoveTag).toHaveBeenCalledWith('tag-2', 'up');
 
     fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
-    expect(screen.getByLabelText('Move tag Work up')).toBeDisabled();
+    expect(
+      screen.queryByLabelText('Move tag Work up')
+    ).not.toBeInTheDocument();
     fireEvent.contextMenu(screen.getByLabelText('Select tag Personal'));
-    expect(screen.getByLabelText('Move tag Personal down')).toBeDisabled();
+    expect(
+      screen.queryByLabelText('Move tag Personal down')
+    ).not.toBeInTheDocument();
   });
 
   it('renders left-side drag handles for tags', () => {
