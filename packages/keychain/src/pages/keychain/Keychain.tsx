@@ -11,6 +11,7 @@ import {
 import { getInstances } from '@client/db/instance-registry';
 import { useTypedTranslation } from '@client/i18n';
 import { useNavigateWithFrom } from '@client/lib/navigation';
+import { WindowStatusBar } from '@rapid/window-manager';
 import { Info, Key, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
@@ -120,52 +121,55 @@ export function Keychain() {
   const instanceLabel = instanceCount === 1 ? 'instance' : 'instances';
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-2">
-        <BackLink defaultTo="/" defaultLabel="Back to Home" />
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-bold text-2xl tracking-tight">
-              Keychain Browser
-            </h1>
-            <p className="text-muted-foreground text-sm">
-              {instanceCount} {instanceLabel}
-            </p>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="space-y-6 overflow-y-auto pb-2">
+        <div className="space-y-2">
+          <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-bold text-2xl tracking-tight">
+                Keychain Browser
+              </h1>
+            </div>
+            <RefreshButton onClick={fetchKeychainData} loading={loading} />
           </div>
-          <RefreshButton onClick={fetchKeychainData} loading={loading} />
         </div>
-      </div>
 
-      {error && (
-        <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          {error}
-        </div>
-      )}
-
-      <div className="rounded-lg border">
-        {loading && instanceKeyInfos.length === 0 ? (
-          <div className="flex items-center justify-center p-8 text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-            Loading keychain contents...
+        {error && (
+          <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
+            {error}
           </div>
-        ) : instanceKeyInfos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
-            <Key className="mb-2 h-8 w-8" />
-            <p>No instances found.</p>
-          </div>
-        ) : (
-          instanceKeyInfos.map((info) => (
-            <InstanceKeyRow
-              key={info.instance.id}
-              info={info}
-              onDeleteSessionKeys={handleDeleteSessionKeysClick}
-              isExpanded={expandedIds.has(info.instance.id)}
-              onToggle={() => handleToggle(info.instance.id)}
-              onContextMenu={handleContextMenu}
-            />
-          ))
         )}
+
+        <div className="rounded-lg border">
+          {loading && instanceKeyInfos.length === 0 ? (
+            <div className="flex items-center justify-center p-8 text-muted-foreground">
+              <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              Loading keychain contents...
+            </div>
+          ) : instanceKeyInfos.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
+              <Key className="mb-2 h-8 w-8" />
+              <p>No instances found.</p>
+            </div>
+          ) : (
+            instanceKeyInfos.map((info) => (
+              <InstanceKeyRow
+                key={info.instance.id}
+                info={info}
+                onDeleteSessionKeys={handleDeleteSessionKeysClick}
+                isExpanded={expandedIds.has(info.instance.id)}
+                onToggle={() => handleToggle(info.instance.id)}
+                onContextMenu={handleContextMenu}
+              />
+            ))
+          )}
+        </div>
       </div>
+
+      <WindowStatusBar>
+        {instanceCount} {instanceLabel}
+      </WindowStatusBar>
 
       {contextMenu && (
         <ContextMenu
