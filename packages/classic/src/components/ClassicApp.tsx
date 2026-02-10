@@ -2,7 +2,8 @@ import { useCallback, useMemo, useState } from 'react';
 import {
   DEFAULT_CLASSIC_NOTE_TITLE,
   DEFAULT_CLASSIC_TAG_NAME,
-  UNTAGGED_TAG_ID
+  UNTAGGED_TAG_ID,
+  UNTAGGED_TAG_NAME
 } from '../lib/constants';
 import {
   deleteTag,
@@ -46,7 +47,7 @@ export function ClassicApp({
 
   const activeTagName = useMemo(() => {
     if (state.activeTagId === UNTAGGED_TAG_ID) {
-      return 'Untagged Items';
+      return UNTAGGED_TAG_NAME;
     }
     return state.tags.find((tag) => tag.id === state.activeTagId)?.name ?? null;
   }, [state.activeTagId, state.tags]);
@@ -95,13 +96,16 @@ export function ClassicApp({
     [onStateChange]
   );
 
-  const handleSelectTag = (tagId: string) => {
-    if (tagId === UNTAGGED_TAG_ID) {
-      updateState({ ...state, activeTagId: UNTAGGED_TAG_ID });
-      return;
-    }
-    updateState(selectTag(state, tagId));
-  };
+  const handleSelectTag = useCallback(
+    (tagId: string) => {
+      if (tagId === UNTAGGED_TAG_ID) {
+        updateState({ ...state, activeTagId: UNTAGGED_TAG_ID });
+        return;
+      }
+      updateState(selectTag(state, tagId));
+    },
+    [state, updateState]
+  );
 
   const handleDeleteTag = useCallback(
     (tagId: string) => {
