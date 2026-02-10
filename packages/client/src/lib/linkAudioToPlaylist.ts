@@ -11,7 +11,9 @@ export async function linkAudioToPlaylist(
     return 0;
   }
 
-  const run = async (tx: Database): Promise<number> => {
+  const run = async (
+    tx: Pick<Database, 'select' | 'insert'>
+  ): Promise<number> => {
     const now = new Date();
 
     const existingRegistryRows = await tx
@@ -66,7 +68,7 @@ export async function linkAudioToPlaylist(
   };
 
   if (typeof db.transaction === 'function') {
-    return db.transaction(run);
+    return db.transaction(async (tx) => run(tx));
   }
 
   return run(db);
