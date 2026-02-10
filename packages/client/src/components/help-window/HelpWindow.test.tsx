@@ -1,7 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { HELP_EXTERNAL_LINKS } from '@/constants/help';
 import { HelpWindow } from './HelpWindow';
 
 vi.mock('@rapid/api/dist/openapi.json', () => ({
@@ -48,6 +47,12 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
+vi.mock('@/components/help-links/HelpDocumentation', () => ({
+  HelpDocumentation: ({ docId }: { docId: string }) => (
+    <div data-testid="help-documentation">{docId}</div>
+  )
+}));
+
 vi.mock('@/components/ui/grid-square', () => ({
   GridSquare: ({
     children,
@@ -63,15 +68,17 @@ vi.mock('@/components/ui/grid-square', () => ({
 }));
 
 describe('HelpWindow', () => {
-  const externalLinkCases = [
-    { label: 'CLI', href: HELP_EXTERNAL_LINKS.cli },
+  const docCases = [
+    { label: 'CLI', title: 'CLI', docId: 'cli' },
     {
       label: 'Chrome Extension',
-      href: HELP_EXTERNAL_LINKS.chromeExtension
+      title: 'Chrome Extension',
+      docId: 'chromeExtension'
     },
     {
       label: 'Backup & Restore',
-      href: HELP_EXTERNAL_LINKS.backupRestore
+      title: 'Backup & Restore',
+      docId: 'backupRestore'
     }
   ] as const;
 
@@ -134,9 +141,8 @@ describe('HelpWindow', () => {
     expect(screen.queryByTestId('api-docs')).not.toBeInTheDocument();
   });
 
-  it('opens external docs links in a new tab', async () => {
+  it('navigates to documentation views when clicking docs links', async () => {
     const user = userEvent.setup();
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
 
     render(
       <HelpWindow
@@ -148,13 +154,11 @@ describe('HelpWindow', () => {
       />
     );
 
-    for (const { label, href } of externalLinkCases) {
+    for (const { label, title, docId } of docCases) {
       await user.click(screen.getByText(label));
-      expect(openSpy).toHaveBeenLastCalledWith(href, '_blank', 'noopener');
+      expect(screen.getByTestId('window-title')).toHaveTextContent(title);
+      expect(screen.getByTestId('help-documentation')).toHaveTextContent(docId);
+      await user.click(screen.getByText('Back to Help'));
     }
-
-    expect(openSpy).toHaveBeenCalledTimes(externalLinkCases.length);
-
-    openSpy.mockRestore();
   });
 });
