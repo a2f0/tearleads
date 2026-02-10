@@ -1,3 +1,11 @@
+import { registerGetRootRoute } from './groups/get-root.js';
+import { registerPostRootRoute } from './groups/post-root.js';
+import { registerGetIdRoute } from './groups/get-id.js';
+import { registerPutIdRoute } from './groups/put-id.js';
+import { registerDeleteIdRoute } from './groups/delete-id.js';
+import { registerGetIdMembersRoute } from './groups/get-id-members.js';
+import { registerPostIdMembersRoute } from './groups/post-id-members.js';
+import { registerDeleteIdMembersUseridRoute } from './groups/delete-id-members-userId.js';
 import { randomUUID } from 'node:crypto';
 import type {
   AddMemberRequest,
@@ -18,7 +26,7 @@ import {
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
-const groupsRouter: RouterType = Router();
+
 
 /**
  * @openapi
@@ -60,7 +68,7 @@ const groupsRouter: RouterType = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-groupsRouter.get('/', async (_req: Request, res: Response) => {
+export const getRootHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<{
@@ -104,7 +112,7 @@ groupsRouter.get('/', async (_req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to fetch groups'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -159,9 +167,7 @@ groupsRouter.get('/', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-groupsRouter.post(
-  '/',
-  async (req: Request<unknown, unknown, CreateGroupRequest>, res: Response) => {
+export const postRootHandler = async (req: Request<unknown, unknown, CreateGroupRequest>, res: Response) => {
     try {
       const { name, description, organizationId } = req.body;
 
@@ -239,8 +245,7 @@ groupsRouter.post(
         error: err instanceof Error ? err.message : 'Failed to create group'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -282,9 +287,7 @@ groupsRouter.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-groupsRouter.get(
-  '/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const { id } = req.params;
       const pool = await getPostgresPool();
@@ -343,8 +346,7 @@ groupsRouter.get(
         error: err instanceof Error ? err.message : 'Failed to fetch group'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -401,9 +403,7 @@ groupsRouter.get(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-groupsRouter.put(
-  '/:id',
-  async (
+export const putIdHandler = async (
     req: Request<{ id: string }, unknown, UpdateGroupRequest>,
     res: Response
   ) => {
@@ -503,8 +503,7 @@ groupsRouter.put(
         error: err instanceof Error ? err.message : 'Failed to update group'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -538,9 +537,7 @@ groupsRouter.put(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-groupsRouter.delete(
-  '/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const { id } = req.params;
       const pool = await getPostgresPool();
@@ -553,8 +550,7 @@ groupsRouter.delete(
         error: err instanceof Error ? err.message : 'Failed to delete group'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -594,9 +590,7 @@ groupsRouter.delete(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-groupsRouter.get(
-  '/:id/members',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const getIdMembersHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const { id } = req.params;
       const pool = await getPostgresPool();
@@ -638,8 +632,7 @@ groupsRouter.get(
         error: err instanceof Error ? err.message : 'Failed to fetch members'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -702,9 +695,7 @@ groupsRouter.get(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-groupsRouter.post(
-  '/:id/members',
-  async (
+export const postIdMembersHandler = async (
     req: Request<{ id: string }, unknown, AddMemberRequest>,
     res: Response
   ) => {
@@ -766,8 +757,7 @@ groupsRouter.post(
         error: err instanceof Error ? err.message : 'Failed to add member'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -807,9 +797,7 @@ groupsRouter.post(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-groupsRouter.delete(
-  '/:id/members/:userId',
-  async (req: Request<{ id: string; userId: string }>, res: Response) => {
+export const deleteIdMembersUseridHandler = async (req: Request<{ id: string; userId: string }>, res: Response) => {
     try {
       const { id, userId } = req.params;
       const pool = await getPostgresPool();
@@ -826,7 +814,16 @@ groupsRouter.delete(
         error: err instanceof Error ? err.message : 'Failed to remove member'
       });
     }
-  }
-);
+  };
+
+const groupsRouter: RouterType = Router();
+registerGetRootRoute(groupsRouter);
+registerPostRootRoute(groupsRouter);
+registerGetIdRoute(groupsRouter);
+registerPutIdRoute(groupsRouter);
+registerDeleteIdRoute(groupsRouter);
+registerGetIdMembersRoute(groupsRouter);
+registerPostIdMembersRoute(groupsRouter);
+registerDeleteIdMembersUseridRoute(groupsRouter);
 
 export { groupsRouter };

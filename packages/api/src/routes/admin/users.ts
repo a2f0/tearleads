@@ -1,3 +1,6 @@
+import { registerGetRootRoute } from './users/get-root.js';
+import { registerGetIdRoute } from './users/get-id.js';
+import { registerPatchIdRoute } from './users/patch-id.js';
 import type {
   AdminUser,
   AdminUserAccounting,
@@ -25,7 +28,7 @@ type UserRow = {
   created_at?: Date | string | null;
 };
 
-const usersRouter: RouterType = Router();
+
 
 type AdminUserOverrides = {
   createdAt?: string | null;
@@ -205,7 +208,7 @@ function parseUserUpdatePayload(body: unknown): AdminUserUpdatePayload | null {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-usersRouter.get('/', async (_req: Request, res: Response) => {
+export const getRootHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<UserRow>(
@@ -242,7 +245,7 @@ usersRouter.get('/', async (_req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to query users'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -277,7 +280,7 @@ usersRouter.get('/', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-usersRouter.get('/:id', async (req: Request, res: Response) => {
+export const getIdHandler = async (req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<UserRow>(
@@ -321,7 +324,7 @@ usersRouter.get('/:id', async (req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to query user'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -375,7 +378,7 @@ usersRouter.get('/:id', async (req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-usersRouter.patch('/:id', async (req: Request, res: Response) => {
+export const patchIdHandler = async (req: Request, res: Response) => {
   const updates = parseUserUpdatePayload(req.body);
   if (!updates) {
     res.status(400).json({ error: 'Invalid user update payload' });
@@ -506,6 +509,11 @@ usersRouter.patch('/:id', async (req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to update user'
     });
   }
-});
+};
+
+const usersRouter: RouterType = Router();
+registerGetRootRoute(usersRouter);
+registerGetIdRoute(usersRouter);
+registerPatchIdRoute(usersRouter);
 
 export { usersRouter };

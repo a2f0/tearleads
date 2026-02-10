@@ -4,6 +4,9 @@
  * Handles user key management and VFS item registration.
  */
 
+import { registerGetKeysMeRoute } from './vfs/get-keys-me.js';
+import { registerPostKeysRoute } from './vfs/post-keys.js';
+import { registerPostRegisterRoute } from './vfs/post-register.js';
 import type {
   VfsKeySetupRequest,
   VfsObjectType,
@@ -20,7 +23,7 @@ import {
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
 
-const vfsRouter: RouterType = Router();
+
 
 // Valid VFS object types
 const VALID_OBJECT_TYPES: VfsObjectType[] = [
@@ -144,7 +147,7 @@ function parseRegisterPayload(body: unknown): VfsRegisterRequest | null {
  *       500:
  *         description: Server error
  */
-vfsRouter.get('/keys/me', async (req: Request, res: Response) => {
+export const getKeysMeHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -186,7 +189,7 @@ vfsRouter.get('/keys/me', async (req: Request, res: Response) => {
     console.error('Failed to get VFS keys:', error);
     res.status(500).json({ error: 'Failed to get VFS keys' });
   }
-});
+};
 
 /**
  * @openapi
@@ -230,7 +233,7 @@ vfsRouter.get('/keys/me', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-vfsRouter.post('/keys', async (req: Request, res: Response) => {
+export const postKeysHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -284,7 +287,7 @@ vfsRouter.post('/keys', async (req: Request, res: Response) => {
     console.error('Failed to set up VFS keys:', error);
     res.status(500).json({ error: 'Failed to set up VFS keys' });
   }
-});
+};
 
 /**
  * @openapi
@@ -338,7 +341,7 @@ vfsRouter.post('/keys', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-vfsRouter.post('/register', async (req: Request, res: Response) => {
+export const postRegisterHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -392,6 +395,11 @@ vfsRouter.post('/register', async (req: Request, res: Response) => {
     console.error('Failed to register VFS item:', error);
     res.status(500).json({ error: 'Failed to register VFS item' });
   }
-});
+};
+
+const vfsRouter: RouterType = Router();
+registerGetKeysMeRoute(vfsRouter);
+registerPostKeysRoute(vfsRouter);
+registerPostRegisterRoute(vfsRouter);
 
 export { vfsRouter };

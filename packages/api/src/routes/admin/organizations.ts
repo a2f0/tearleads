@@ -1,3 +1,10 @@
+import { registerGetRootRoute } from './organizations/get-root.js';
+import { registerPostRootRoute } from './organizations/post-root.js';
+import { registerGetIdRoute } from './organizations/get-id.js';
+import { registerGetIdUsersRoute } from './organizations/get-id-users.js';
+import { registerGetIdGroupsRoute } from './organizations/get-id-groups.js';
+import { registerPutIdRoute } from './organizations/put-id.js';
+import { registerDeleteIdRoute } from './organizations/delete-id.js';
 import { randomUUID } from 'node:crypto';
 import type {
   CreateOrganizationRequest,
@@ -16,7 +23,7 @@ import {
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
-const organizationsRouter: RouterType = Router();
+
 
 async function checkOrganizationExists(
   id: string,
@@ -48,7 +55,7 @@ async function checkOrganizationExists(
  *       500:
  *         description: Database error
  */
-organizationsRouter.get('/', async (_req: Request, res: Response) => {
+export const getRootHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<{
@@ -80,7 +87,7 @@ organizationsRouter.get('/', async (_req: Request, res: Response) => {
         err instanceof Error ? err.message : 'Failed to fetch organizations'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -100,9 +107,7 @@ organizationsRouter.get('/', async (_req: Request, res: Response) => {
  *       500:
  *         description: Database error
  */
-organizationsRouter.post(
-  '/',
-  async (
+export const postRootHandler = async (
     req: Request<unknown, unknown, CreateOrganizationRequest>,
     res: Response
   ) => {
@@ -160,8 +165,7 @@ organizationsRouter.post(
           err instanceof Error ? err.message : 'Failed to create organization'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -179,9 +183,7 @@ organizationsRouter.post(
  *       500:
  *         description: Database error
  */
-organizationsRouter.get(
-  '/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const pool = await getPostgresPool();
       const result = await pool.query<{
@@ -220,8 +222,7 @@ organizationsRouter.get(
           err instanceof Error ? err.message : 'Failed to fetch organization'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -246,9 +247,7 @@ organizationsRouter.get(
  *       500:
  *         description: Database error
  */
-organizationsRouter.get(
-  '/:id/users',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const getIdUsersHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const { id } = req.params;
       if (!(await checkOrganizationExists(id, res))) return;
@@ -284,8 +283,7 @@ organizationsRouter.get(
             : 'Failed to fetch organization users'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -310,9 +308,7 @@ organizationsRouter.get(
  *       500:
  *         description: Database error
  */
-organizationsRouter.get(
-  '/:id/groups',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const getIdGroupsHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const { id } = req.params;
       if (!(await checkOrganizationExists(id, res))) return;
@@ -351,8 +347,7 @@ organizationsRouter.get(
             : 'Failed to fetch organization groups'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -374,9 +369,7 @@ organizationsRouter.get(
  *       500:
  *         description: Database error
  */
-organizationsRouter.put(
-  '/:id',
-  async (
+export const putIdHandler = async (
     req: Request<{ id: string }, unknown, UpdateOrganizationRequest>,
     res: Response
   ) => {
@@ -457,8 +450,7 @@ organizationsRouter.put(
           err instanceof Error ? err.message : 'Failed to update organization'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -474,9 +466,7 @@ organizationsRouter.put(
  *       500:
  *         description: Database error
  */
-organizationsRouter.delete(
-  '/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const { id } = req.params;
       const pool = await getPostgresPool();
@@ -493,7 +483,15 @@ organizationsRouter.delete(
           err instanceof Error ? err.message : 'Failed to delete organization'
       });
     }
-  }
-);
+  };
+
+const organizationsRouter: RouterType = Router();
+registerGetRootRoute(organizationsRouter);
+registerPostRootRoute(organizationsRouter);
+registerGetIdRoute(organizationsRouter);
+registerGetIdUsersRoute(organizationsRouter);
+registerGetIdGroupsRoute(organizationsRouter);
+registerPutIdRoute(organizationsRouter);
+registerDeleteIdRoute(organizationsRouter);
 
 export { organizationsRouter };

@@ -4,6 +4,13 @@
  * Handles sharing VFS items with users, groups, and organizations.
  */
 
+import { registerGetItemsItemidSharesRoute } from './vfs-shares/get-items-itemId-shares.js';
+import { registerPostItemsItemidSharesRoute } from './vfs-shares/post-items-itemId-shares.js';
+import { registerPatchSharesShareidRoute } from './vfs-shares/patch-shares-shareId.js';
+import { registerDeleteSharesShareidRoute } from './vfs-shares/delete-shares-shareId.js';
+import { registerPostItemsItemidOrgSharesRoute } from './vfs-shares/post-items-itemId-org-shares.js';
+import { registerDeleteOrgSharesShareidRoute } from './vfs-shares/delete-org-shares-shareId.js';
+import { registerGetShareTargetsSearchRoute } from './vfs-shares/get-share-targets-search.js';
 import { randomUUID } from 'node:crypto';
 import type {
   CreateOrgShareRequest,
@@ -26,7 +33,7 @@ import {
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
 
-const vfsSharesRouter: RouterType = Router();
+
 
 const VALID_SHARE_TYPES: VfsShareType[] = ['user', 'group', 'organization'];
 const VALID_PERMISSION_LEVELS: VfsPermissionLevel[] = [
@@ -165,9 +172,7 @@ function parseUpdateSharePayload(body: unknown): UpdateVfsShareRequest | null {
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.get(
-  '/items/:itemId/shares',
-  async (req: Request<{ itemId: string }>, res: Response) => {
+export const getItemsItemidSharesHandler = async (req: Request<{ itemId: string }>, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -296,8 +301,7 @@ vfsSharesRouter.get(
       console.error('Failed to get VFS shares:', error);
       res.status(500).json({ error: 'Failed to get shares' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -351,9 +355,7 @@ vfsSharesRouter.get(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.post(
-  '/items/:itemId/shares',
-  async (req: Request<{ itemId: string }>, res: Response) => {
+export const postItemsItemidSharesHandler = async (req: Request<{ itemId: string }>, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -495,8 +497,7 @@ vfsSharesRouter.post(
       }
       res.status(500).json({ error: 'Failed to create share' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -539,9 +540,7 @@ vfsSharesRouter.post(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.patch(
-  '/shares/:shareId',
-  async (req: Request<{ shareId: string }>, res: Response) => {
+export const patchSharesShareidHandler = async (req: Request<{ shareId: string }>, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -667,8 +666,7 @@ vfsSharesRouter.patch(
       console.error('Failed to update VFS share:', error);
       res.status(500).json({ error: 'Failed to update share' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -694,9 +692,7 @@ vfsSharesRouter.patch(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.delete(
-  '/shares/:shareId',
-  async (req: Request<{ shareId: string }>, res: Response) => {
+export const deleteSharesShareidHandler = async (req: Request<{ shareId: string }>, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -733,8 +729,7 @@ vfsSharesRouter.delete(
       console.error('Failed to delete VFS share:', error);
       res.status(500).json({ error: 'Failed to delete share' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -787,9 +782,7 @@ vfsSharesRouter.delete(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.post(
-  '/items/:itemId/org-shares',
-  async (req: Request<{ itemId: string }>, res: Response) => {
+export const postItemsItemidOrgSharesHandler = async (req: Request<{ itemId: string }>, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -917,8 +910,7 @@ vfsSharesRouter.post(
       }
       res.status(500).json({ error: 'Failed to create org share' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -944,9 +936,7 @@ vfsSharesRouter.post(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.delete(
-  '/org-shares/:shareId',
-  async (req: Request<{ shareId: string }>, res: Response) => {
+export const deleteOrgSharesShareidHandler = async (req: Request<{ shareId: string }>, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -985,8 +975,7 @@ vfsSharesRouter.delete(
       console.error('Failed to delete org share:', error);
       res.status(500).json({ error: 'Failed to delete org share' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -1022,9 +1011,7 @@ vfsSharesRouter.delete(
  *       500:
  *         description: Server error
  */
-vfsSharesRouter.get(
-  '/share-targets/search',
-  async (
+export const getShareTargetsSearchHandler = async (
     req: Request<unknown, unknown, unknown, { q?: string; type?: string }>,
     res: Response
   ) => {
@@ -1121,7 +1108,15 @@ vfsSharesRouter.get(
       console.error('Failed to search share targets:', error);
       res.status(500).json({ error: 'Failed to search' });
     }
-  }
-);
+  };
+
+const vfsSharesRouter: RouterType = Router();
+registerGetItemsItemidSharesRoute(vfsSharesRouter);
+registerPostItemsItemidSharesRoute(vfsSharesRouter);
+registerPatchSharesShareidRoute(vfsSharesRouter);
+registerDeleteSharesShareidRoute(vfsSharesRouter);
+registerPostItemsItemidOrgSharesRoute(vfsSharesRouter);
+registerDeleteOrgSharesShareidRoute(vfsSharesRouter);
+registerGetShareTargetsSearchRoute(vfsSharesRouter);
 
 export { vfsSharesRouter };

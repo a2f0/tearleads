@@ -4,6 +4,15 @@
  * Handles conversation management and usage tracking for AI features.
  */
 
+import { registerPostConversationsRoute } from './ai-conversations/post-conversations.js';
+import { registerGetConversationsRoute } from './ai-conversations/get-conversations.js';
+import { registerGetConversationsIdRoute } from './ai-conversations/get-conversations-id.js';
+import { registerPatchConversationsIdRoute } from './ai-conversations/patch-conversations-id.js';
+import { registerDeleteConversationsIdRoute } from './ai-conversations/delete-conversations-id.js';
+import { registerPostConversationsIdMessagesRoute } from './ai-conversations/post-conversations-id-messages.js';
+import { registerPostUsageRoute } from './ai-conversations/post-usage.js';
+import { registerGetUsageRoute } from './ai-conversations/get-usage.js';
+import { registerGetUsageSummaryRoute } from './ai-conversations/get-usage-summary.js';
 import { randomUUID } from 'node:crypto';
 import type {
   AddAiMessageRequest,
@@ -29,7 +38,7 @@ import {
 } from 'express';
 import { getPostgresPool } from '../lib/postgres.js';
 
-const aiConversationsRouter: RouterType = Router();
+
 
 const VALID_MESSAGE_ROLES: AiMessageRole[] = ['system', 'user', 'assistant'];
 
@@ -214,9 +223,7 @@ async function getUserOrganizationId(userId: string): Promise<string | null> {
  *       401:
  *         description: Unauthorized
  */
-aiConversationsRouter.post(
-  '/conversations',
-  async (req: Request, res: Response) => {
+export const postConversationsHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -289,8 +296,7 @@ aiConversationsRouter.post(
       console.error('Failed to create conversation:', error);
       res.status(500).json({ error: 'Failed to create conversation' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -317,9 +323,7 @@ aiConversationsRouter.post(
  *       401:
  *         description: Unauthorized
  */
-aiConversationsRouter.get(
-  '/conversations',
-  async (req: Request, res: Response) => {
+export const getConversationsHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -390,8 +394,7 @@ aiConversationsRouter.get(
       console.error('Failed to list conversations:', error);
       res.status(500).json({ error: 'Failed to list conversations' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -416,9 +419,7 @@ aiConversationsRouter.get(
  *       404:
  *         description: Conversation not found
  */
-aiConversationsRouter.get(
-  '/conversations/:id',
-  async (req: Request, res: Response) => {
+export const getConversationsIdHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -504,8 +505,7 @@ aiConversationsRouter.get(
       console.error('Failed to get conversation:', error);
       res.status(500).json({ error: 'Failed to get conversation' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -542,9 +542,7 @@ aiConversationsRouter.get(
  *       404:
  *         description: Conversation not found
  */
-aiConversationsRouter.patch(
-  '/conversations/:id',
-  async (req: Request, res: Response) => {
+export const patchConversationsIdHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -636,8 +634,7 @@ aiConversationsRouter.patch(
       console.error('Failed to update conversation:', error);
       res.status(500).json({ error: 'Failed to update conversation' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -662,9 +659,7 @@ aiConversationsRouter.patch(
  *       404:
  *         description: Conversation not found
  */
-aiConversationsRouter.delete(
-  '/conversations/:id',
-  async (req: Request, res: Response) => {
+export const deleteConversationsIdHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -697,8 +692,7 @@ aiConversationsRouter.delete(
       console.error('Failed to delete conversation:', error);
       res.status(500).json({ error: 'Failed to delete conversation' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -742,9 +736,7 @@ aiConversationsRouter.delete(
  *       404:
  *         description: Conversation not found
  */
-aiConversationsRouter.post(
-  '/conversations/:id/messages',
-  async (req: Request, res: Response) => {
+export const postConversationsIdMessagesHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -868,8 +860,7 @@ aiConversationsRouter.post(
       console.error('Failed to add message:', error);
       res.status(500).json({ error: 'Failed to add message' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -914,7 +905,7 @@ aiConversationsRouter.post(
  *       401:
  *         description: Unauthorized
  */
-aiConversationsRouter.post('/usage', async (req: Request, res: Response) => {
+export const postUsageHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -997,7 +988,7 @@ aiConversationsRouter.post('/usage', async (req: Request, res: Response) => {
     console.error('Failed to record usage:', error);
     res.status(500).json({ error: 'Failed to record usage' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1034,7 +1025,7 @@ aiConversationsRouter.post('/usage', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-aiConversationsRouter.get('/usage', async (req: Request, res: Response) => {
+export const getUsageHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1174,7 +1165,7 @@ aiConversationsRouter.get('/usage', async (req: Request, res: Response) => {
     console.error('Failed to get usage:', error);
     res.status(500).json({ error: 'Failed to get usage' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1202,9 +1193,7 @@ aiConversationsRouter.get('/usage', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-aiConversationsRouter.get(
-  '/usage/summary',
-  async (req: Request, res: Response) => {
+export const getUsageSummaryHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -1329,7 +1318,17 @@ aiConversationsRouter.get(
       console.error('Failed to get usage summary:', error);
       res.status(500).json({ error: 'Failed to get usage summary' });
     }
-  }
-);
+  };
+
+const aiConversationsRouter: RouterType = Router();
+registerPostConversationsRoute(aiConversationsRouter);
+registerGetConversationsRoute(aiConversationsRouter);
+registerGetConversationsIdRoute(aiConversationsRouter);
+registerPatchConversationsIdRoute(aiConversationsRouter);
+registerDeleteConversationsIdRoute(aiConversationsRouter);
+registerPostConversationsIdMessagesRoute(aiConversationsRouter);
+registerPostUsageRoute(aiConversationsRouter);
+registerGetUsageRoute(aiConversationsRouter);
+registerGetUsageSummaryRoute(aiConversationsRouter);
 
 export { aiConversationsRouter };

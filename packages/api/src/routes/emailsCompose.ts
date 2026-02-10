@@ -1,3 +1,8 @@
+import { registerPostDraftsRoute } from './emailsCompose/post-drafts.js';
+import { registerGetDraftsRoute } from './emailsCompose/get-drafts.js';
+import { registerGetDraftsIdRoute } from './emailsCompose/get-drafts-id.js';
+import { registerDeleteDraftsIdRoute } from './emailsCompose/delete-drafts-id.js';
+import { registerPostSendRoute } from './emailsCompose/post-send.js';
 import { randomUUID } from 'node:crypto';
 import {
   type Request,
@@ -65,7 +70,7 @@ function getUserDrafts(userId: string): Map<string, Draft> {
   return userDrafts;
 }
 
-const emailsComposeRouter: RouterType = Router();
+
 
 /**
  * @openapi
@@ -116,9 +121,7 @@ const emailsComposeRouter: RouterType = Router();
  *       401:
  *         description: Unauthorized
  */
-emailsComposeRouter.post(
-  '/drafts',
-  async (req: Request<object, object, DraftRequest>, res: Response) => {
+export const postDraftsHandler = async (req: Request<object, object, DraftRequest>, res: Response) => {
     try {
       const userId = req.authClaims?.sub;
       if (!userId) {
@@ -180,8 +183,7 @@ emailsComposeRouter.post(
       console.error('Failed to save draft:', error);
       res.status(500).json({ error: 'Failed to save draft' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -217,7 +219,7 @@ emailsComposeRouter.post(
  *       401:
  *         description: Unauthorized
  */
-emailsComposeRouter.get('/drafts', async (req: Request, res: Response) => {
+export const getDraftsHandler = async (req: Request, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {
@@ -243,7 +245,7 @@ emailsComposeRouter.get('/drafts', async (req: Request, res: Response) => {
     console.error('Failed to list drafts:', error);
     res.status(500).json({ error: 'Failed to list drafts' });
   }
-});
+};
 
 /**
  * @openapi
@@ -268,9 +270,7 @@ emailsComposeRouter.get('/drafts', async (req: Request, res: Response) => {
  *       401:
  *         description: Unauthorized
  */
-emailsComposeRouter.get(
-  '/drafts/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const getDraftsIdHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const userId = req.authClaims?.sub;
       if (!userId) {
@@ -292,8 +292,7 @@ emailsComposeRouter.get(
       console.error('Failed to get draft:', error);
       res.status(500).json({ error: 'Failed to get draft' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -318,9 +317,7 @@ emailsComposeRouter.get(
  *       401:
  *         description: Unauthorized
  */
-emailsComposeRouter.delete(
-  '/drafts/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const deleteDraftsIdHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const userId = req.authClaims?.sub;
       if (!userId) {
@@ -342,8 +339,7 @@ emailsComposeRouter.delete(
       console.error('Failed to delete draft:', error);
       res.status(500).json({ error: 'Failed to delete draft' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -402,9 +398,7 @@ emailsComposeRouter.delete(
  *       500:
  *         description: Failed to send
  */
-emailsComposeRouter.post(
-  '/send',
-  async (req: Request<object, object, SendRequest>, res: Response) => {
+export const postSendHandler = async (req: Request<object, object, SendRequest>, res: Response) => {
     try {
       const userId = req.authClaims?.sub;
       if (!userId) {
@@ -459,7 +453,13 @@ emailsComposeRouter.post(
       console.error('Failed to send email:', error);
       res.status(500).json({ error: 'Failed to send email' });
     }
-  }
-);
+  };
+
+const emailsComposeRouter: RouterType = Router();
+registerPostDraftsRoute(emailsComposeRouter);
+registerGetDraftsRoute(emailsComposeRouter);
+registerGetDraftsIdRoute(emailsComposeRouter);
+registerDeleteDraftsIdRoute(emailsComposeRouter);
+registerPostSendRoute(emailsComposeRouter);
 
 export { emailsComposeRouter };

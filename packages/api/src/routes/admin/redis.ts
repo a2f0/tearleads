@@ -1,3 +1,7 @@
+import { registerGetKeysRoute } from './redis/get-keys.js';
+import { registerGetDbsizeRoute } from './redis/get-dbsize.js';
+import { registerGetKeysKeyRoute } from './redis/get-keys-key.js';
+import { registerDeleteKeysKeyRoute } from './redis/delete-keys-key.js';
 import type {
   RedisKeyInfo,
   RedisKeysResponse,
@@ -11,7 +15,7 @@ import {
 } from 'express';
 import { getRedisClient } from '../../lib/redis.js';
 
-const redisRouter: RouterType = Router();
+
 
 /**
  * @openapi
@@ -66,7 +70,7 @@ const redisRouter: RouterType = Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-redisRouter.get('/keys', async (req: Request, res: Response) => {
+export const getKeysHandler = async (req: Request, res: Response) => {
   try {
     const client = await getRedisClient();
     const cursor = String(req.query['cursor'] ?? '0');
@@ -115,7 +119,7 @@ redisRouter.get('/keys', async (req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to connect to Redis'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -143,7 +147,7 @@ redisRouter.get('/keys', async (req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-redisRouter.get('/dbsize', async (_req: Request, res: Response) => {
+export const getDbsizeHandler = async (_req: Request, res: Response) => {
   try {
     const client = await getRedisClient();
     const count = await client.dbSize();
@@ -154,7 +158,7 @@ redisRouter.get('/dbsize', async (_req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to connect to Redis'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -208,9 +212,7 @@ redisRouter.get('/dbsize', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-redisRouter.get(
-  '/keys/:key',
-  async (req: Request<{ key: string }>, res: Response) => {
+export const getKeysKeyHandler = async (req: Request<{ key: string }>, res: Response) => {
     try {
       const client = await getRedisClient();
       const { key } = req.params;
@@ -252,8 +254,7 @@ redisRouter.get(
         error: err instanceof Error ? err.message : 'Failed to connect to Redis'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -288,9 +289,7 @@ redisRouter.get(
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-redisRouter.delete(
-  '/keys/:key',
-  async (req: Request<{ key: string }>, res: Response) => {
+export const deleteKeysKeyHandler = async (req: Request<{ key: string }>, res: Response) => {
     try {
       const client = await getRedisClient();
       const { key } = req.params;
@@ -302,7 +301,12 @@ redisRouter.delete(
         error: err instanceof Error ? err.message : 'Failed to connect to Redis'
       });
     }
-  }
-);
+  };
+
+const redisRouter: RouterType = Router();
+registerGetKeysRoute(redisRouter);
+registerGetDbsizeRoute(redisRouter);
+registerGetKeysKeyRoute(redisRouter);
+registerDeleteKeysKeyRoute(redisRouter);
 
 export { redisRouter };

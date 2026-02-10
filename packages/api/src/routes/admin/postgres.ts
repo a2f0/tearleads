@@ -1,3 +1,7 @@
+import { registerGetInfoRoute } from './postgres/get-info.js';
+import { registerGetTablesRoute } from './postgres/get-tables.js';
+import { registerGetTablesSchemaTableColumnsRoute } from './postgres/get-tables-schema-table-columns.js';
+import { registerGetTablesSchemaTableRowsRoute } from './postgres/get-tables-schema-table-rows.js';
 import type {
   PostgresAdminInfoResponse,
   PostgresColumnInfo,
@@ -26,7 +30,7 @@ type PostgresTableRow = {
   index_bytes: number | string | null;
 };
 
-const postgresRouter: RouterType = Router();
+
 
 function coerceNumber(value: unknown): number {
   if (typeof value === 'number' && Number.isFinite(value)) {
@@ -68,7 +72,7 @@ function coerceNumber(value: unknown): number {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-postgresRouter.get('/info', async (_req: Request, res: Response) => {
+export const getInfoHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const versionResult = await pool.query<{ version: string }>(
@@ -88,7 +92,7 @@ postgresRouter.get('/info', async (_req: Request, res: Response) => {
         err instanceof Error ? err.message : 'Failed to connect to Postgres'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -117,7 +121,7 @@ postgresRouter.get('/info', async (_req: Request, res: Response) => {
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-postgresRouter.get('/tables', async (_req: Request, res: Response) => {
+export const getTablesHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<{
@@ -162,7 +166,7 @@ postgresRouter.get('/tables', async (_req: Request, res: Response) => {
       error: err instanceof Error ? err.message : 'Failed to query Postgres'
     });
   }
-});
+};
 
 /**
  * @openapi
@@ -191,9 +195,7 @@ postgresRouter.get('/tables', async (_req: Request, res: Response) => {
  *       500:
  *         description: Postgres connection error
  */
-postgresRouter.get(
-  '/tables/:schema/:table/columns',
-  async (req: Request, res: Response) => {
+export const getTablesSchemaTableColumnsHandler = async (req: Request, res: Response) => {
     const { schema, table } = req.params;
 
     try {
@@ -243,8 +245,7 @@ postgresRouter.get(
         error: err instanceof Error ? err.message : 'Failed to query Postgres'
       });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -292,9 +293,7 @@ postgresRouter.get(
  *       500:
  *         description: Postgres connection error
  */
-postgresRouter.get(
-  '/tables/:schema/:table/rows',
-  async (req: Request, res: Response) => {
+export const getTablesSchemaTableRowsHandler = async (req: Request, res: Response) => {
     const schema = req.params['schema'];
     const table = req.params['table'];
 
@@ -381,7 +380,12 @@ postgresRouter.get(
         error: err instanceof Error ? err.message : 'Failed to query Postgres'
       });
     }
-  }
-);
+  };
+
+const postgresRouter: RouterType = Router();
+registerGetInfoRoute(postgresRouter);
+registerGetTablesRoute(postgresRouter);
+registerGetTablesSchemaTableColumnsRoute(postgresRouter);
+registerGetTablesSchemaTableRowsRoute(postgresRouter);
 
 export { postgresRouter };

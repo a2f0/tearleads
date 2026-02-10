@@ -6,6 +6,12 @@ import {
   Router,
   type Router as RouterType
 } from 'express';
+import { registerDeleteSessionsSessionIdRoute } from './auth/delete-sessions-sessionId.js';
+import { registerGetSessionsRoute } from './auth/get-sessions.js';
+import { registerPostLoginRoute } from './auth/post-login.js';
+import { registerPostLogoutRoute } from './auth/post-logout.js';
+import { registerPostRefreshRoute } from './auth/post-refresh.js';
+import { registerPostRegisterRoute } from './auth/post-register.js';
 import {
   getAccessTokenTtlSeconds,
   getRefreshTokenTtlSeconds
@@ -25,7 +31,6 @@ import {
   storeRefreshToken
 } from '../lib/sessions.js';
 
-const authRouter: RouterType = Router();
 const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
 const REFRESH_TOKEN_TTL_SECONDS = getRefreshTokenTtlSeconds();
 
@@ -106,7 +111,10 @@ function parseLoginPayload(body: unknown): LoginPayload | null {
  *       500:
  *         description: Server error
  */
-authRouter.post('/login', async (req: Request, res: Response) => {
+export const postLoginHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const payload = parseLoginPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'email and password are required' });
@@ -199,7 +207,7 @@ authRouter.post('/login', async (req: Request, res: Response) => {
     console.error('Login failed:', error);
     res.status(500).json({ error: 'Failed to authenticate' });
   }
-});
+};
 
 type RegisterPayload = RegisterRequest;
 
@@ -285,7 +293,10 @@ function getAllowedEmailDomains(): string[] {
  *       500:
  *         description: Server error
  */
-authRouter.post('/register', async (req: Request, res: Response) => {
+export const postRegisterHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const payload = parseRegisterPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'email and password are required' });
@@ -420,7 +431,7 @@ authRouter.post('/register', async (req: Request, res: Response) => {
     console.error('Registration failed:', error);
     res.status(500).json({ error: 'Failed to register' });
   }
-});
+};
 
 type RefreshPayload = {
   refreshToken: string;
@@ -488,7 +499,10 @@ function parseRefreshPayload(body: unknown): RefreshPayload | null {
  *       500:
  *         description: Server error
  */
-authRouter.post('/refresh', async (req: Request, res: Response) => {
+export const postRefreshHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const payload = parseRefreshPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'refreshToken is required' });
@@ -574,7 +588,7 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
     console.error('Token refresh failed:', error);
     res.status(500).json({ error: 'Failed to refresh token' });
   }
-});
+};
 
 /**
  * @openapi
@@ -616,7 +630,10 @@ authRouter.post('/refresh', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-authRouter.get('/sessions', async (req: Request, res: Response) => {
+export const getSessionsHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -639,7 +656,7 @@ authRouter.get('/sessions', async (req: Request, res: Response) => {
     console.error('Failed to list sessions:', error);
     res.status(500).json({ error: 'Failed to list sessions' });
   }
-});
+};
 
 /**
  * @openapi
@@ -676,40 +693,40 @@ authRouter.get('/sessions', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-authRouter.delete(
-  '/sessions/:sessionId',
-  async (req: Request, res: Response) => {
-    const claims = req.authClaims;
-    if (!claims) {
-      res.status(401).json({ error: 'Unauthorized' });
-      return;
-    }
-
-    const { sessionId } = req.params;
-    if (!sessionId || typeof sessionId !== 'string') {
-      res.status(400).json({ error: 'Session ID is required' });
-      return;
-    }
-
-    if (sessionId === claims.jti) {
-      res.status(403).json({ error: 'Cannot delete current session' });
-      return;
-    }
-
-    try {
-      const deleted = await deleteSession(sessionId, claims.sub);
-      if (!deleted) {
-        res.status(404).json({ error: 'Session not found' });
-        return;
-      }
-
-      res.json({ deleted: true });
-    } catch (error) {
-      console.error('Failed to delete session:', error);
-      res.status(500).json({ error: 'Failed to delete session' });
-    }
+export const deleteSessionsSessionIdHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
   }
-);
+
+  const { sessionId } = req.params;
+  if (!sessionId || typeof sessionId !== 'string') {
+    res.status(400).json({ error: 'Session ID is required' });
+    return;
+  }
+
+  if (sessionId === claims.jti) {
+    res.status(403).json({ error: 'Cannot delete current session' });
+    return;
+  }
+
+  try {
+    const deleted = await deleteSession(sessionId, claims.sub);
+    if (!deleted) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
+
+    res.json({ deleted: true });
+  } catch (error) {
+    console.error('Failed to delete session:', error);
+    res.status(500).json({ error: 'Failed to delete session' });
+  }
+};
 
 /**
  * @openapi
@@ -736,7 +753,10 @@ authRouter.delete(
  *       500:
  *         description: Server error
  */
-authRouter.post('/logout', async (req: Request, res: Response) => {
+export const postLogoutHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -751,6 +771,14 @@ authRouter.post('/logout', async (req: Request, res: Response) => {
     console.error('Failed to logout:', error);
     res.status(500).json({ error: 'Failed to logout' });
   }
-});
+};
+
+const authRouter: RouterType = Router();
+registerPostLoginRoute(authRouter);
+registerPostRegisterRoute(authRouter);
+registerPostRefreshRoute(authRouter);
+registerGetSessionsRoute(authRouter);
+registerDeleteSessionsSessionIdRoute(authRouter);
+registerPostLogoutRoute(authRouter);
 
 export { authRouter };

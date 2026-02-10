@@ -1,3 +1,6 @@
+import { registerGetRootRoute } from './emails/get-root.js';
+import { registerGetIdRoute } from './emails/get-id.js';
+import { registerDeleteIdRoute } from './emails/delete-id.js';
 import {
   type Request,
   type Response,
@@ -85,7 +88,7 @@ function formatEmailAddress(addr: EmailAddress | false): string {
   return addr.address;
 }
 
-const emailsRouter: RouterType = Router();
+
 
 /**
  * @openapi
@@ -145,7 +148,7 @@ const emailsRouter: RouterType = Router();
  *       500:
  *         description: Server error
  */
-emailsRouter.get('/', async (req: Request, res: Response) => {
+export const getRootHandler = async (req: Request, res: Response) => {
   try {
     const userId = req.authClaims?.sub;
     if (!userId) {
@@ -206,7 +209,7 @@ emailsRouter.get('/', async (req: Request, res: Response) => {
     console.error('Failed to list emails:', error);
     res.status(500).json({ error: 'Failed to list emails' });
   }
-});
+};
 
 /**
  * @openapi
@@ -231,9 +234,7 @@ emailsRouter.get('/', async (req: Request, res: Response) => {
  *       500:
  *         description: Server error
  */
-emailsRouter.get(
-  '/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const getIdHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const userId = req.authClaims?.sub;
       if (!userId) {
@@ -269,8 +270,7 @@ emailsRouter.get(
       console.error('Failed to get email:', error);
       res.status(500).json({ error: 'Failed to get email' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -295,9 +295,7 @@ emailsRouter.get(
  *       500:
  *         description: Server error
  */
-emailsRouter.delete(
-  '/:id',
-  async (req: Request<{ id: string }>, res: Response) => {
+export const deleteIdHandler = async (req: Request<{ id: string }>, res: Response) => {
     try {
       const userId = req.authClaims?.sub;
       if (!userId) {
@@ -328,7 +326,11 @@ emailsRouter.delete(
       console.error('Failed to delete email:', error);
       res.status(500).json({ error: 'Failed to delete email' });
     }
-  }
-);
+  };
+
+const emailsRouter: RouterType = Router();
+registerGetRootRoute(emailsRouter);
+registerGetIdRoute(emailsRouter);
+registerDeleteIdRoute(emailsRouter);
 
 export { emailsRouter };

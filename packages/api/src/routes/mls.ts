@@ -5,6 +5,24 @@
  * All cryptographic operations happen client-side - server only stores ciphertext.
  */
 
+import { registerPostKeyPackagesRoute } from './mls/post-key-packages.js';
+import { registerGetKeyPackagesMeRoute } from './mls/get-key-packages-me.js';
+import { registerGetKeyPackagesUseridRoute } from './mls/get-key-packages-userId.js';
+import { registerDeleteKeyPackagesIdRoute } from './mls/delete-key-packages-id.js';
+import { registerPostGroupsRoute } from './mls/post-groups.js';
+import { registerGetGroupsRoute } from './mls/get-groups.js';
+import { registerGetGroupsGroupidRoute } from './mls/get-groups-groupId.js';
+import { registerPatchGroupsGroupidRoute } from './mls/patch-groups-groupId.js';
+import { registerDeleteGroupsGroupidRoute } from './mls/delete-groups-groupId.js';
+import { registerPostGroupsGroupidMembersRoute } from './mls/post-groups-groupId-members.js';
+import { registerGetGroupsGroupidMembersRoute } from './mls/get-groups-groupId-members.js';
+import { registerDeleteGroupsGroupidMembersUseridRoute } from './mls/delete-groups-groupId-members-userId.js';
+import { registerPostGroupsGroupidMessagesRoute } from './mls/post-groups-groupId-messages.js';
+import { registerGetGroupsGroupidMessagesRoute } from './mls/get-groups-groupId-messages.js';
+import { registerGetWelcomeMessagesRoute } from './mls/get-welcome-messages.js';
+import { registerPostWelcomeMessagesIdAckRoute } from './mls/post-welcome-messages-id-ack.js';
+import { registerPostGroupsGroupidStateRoute } from './mls/post-groups-groupId-state.js';
+import { registerGetGroupsGroupidStateRoute } from './mls/get-groups-groupId-state.js';
 import { randomUUID } from 'node:crypto';
 import type {
   AckMlsWelcomeRequest,
@@ -46,7 +64,7 @@ import {
 import { broadcast } from '../lib/broadcast.js';
 import { getPostgresPool } from '../lib/postgres.js';
 
-const router: RouterType = Router();
+
 
 // =============================================================================
 // Validation helpers
@@ -303,7 +321,7 @@ function parseAckWelcomePayload(body: unknown): AckMlsWelcomeRequest | null {
  *       401:
  *         description: Unauthorized
  */
-router.post('/key-packages', async (req: Request, res: Response) => {
+export const postKeyPackagesHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -352,7 +370,7 @@ router.post('/key-packages', async (req: Request, res: Response) => {
     console.error('Failed to upload key packages:', error);
     res.status(500).json({ error: 'Failed to upload key packages' });
   }
-});
+};
 
 /**
  * @openapi
@@ -367,7 +385,7 @@ router.post('/key-packages', async (req: Request, res: Response) => {
  *       200:
  *         description: User's key packages
  */
-router.get('/key-packages/me', async (req: Request, res: Response) => {
+export const getKeyPackagesMeHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -407,7 +425,7 @@ router.get('/key-packages/me', async (req: Request, res: Response) => {
     console.error('Failed to get key packages:', error);
     res.status(500).json({ error: 'Failed to get key packages' });
   }
-});
+};
 
 /**
  * @openapi
@@ -429,7 +447,7 @@ router.get('/key-packages/me', async (req: Request, res: Response) => {
  *       200:
  *         description: Available key packages
  */
-router.get('/key-packages/:userId', async (req: Request, res: Response) => {
+export const getKeyPackagesUseridHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -476,7 +494,7 @@ router.get('/key-packages/:userId', async (req: Request, res: Response) => {
     console.error('Failed to get key packages:', error);
     res.status(500).json({ error: 'Failed to get key packages' });
   }
-});
+};
 
 /**
  * @openapi
@@ -497,7 +515,7 @@ router.get('/key-packages/:userId', async (req: Request, res: Response) => {
  *       204:
  *         description: Key package deleted
  */
-router.delete('/key-packages/:id', async (req: Request, res: Response) => {
+export const deleteKeyPackagesIdHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -531,7 +549,7 @@ router.delete('/key-packages/:id', async (req: Request, res: Response) => {
     console.error('Failed to delete key package:', error);
     res.status(500).json({ error: 'Failed to delete key package' });
   }
-});
+};
 
 // =============================================================================
 // Group Endpoints
@@ -550,7 +568,7 @@ router.delete('/key-packages/:id', async (req: Request, res: Response) => {
  *       201:
  *         description: Group created
  */
-router.post('/groups', async (req: Request, res: Response) => {
+export const postGroupsHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -629,7 +647,7 @@ router.post('/groups', async (req: Request, res: Response) => {
     console.error('Failed to create group:', error);
     res.status(500).json({ error: 'Failed to create group' });
   }
-});
+};
 
 /**
  * @openapi
@@ -644,7 +662,7 @@ router.post('/groups', async (req: Request, res: Response) => {
  *       200:
  *         description: List of groups
  */
-router.get('/groups', async (req: Request, res: Response) => {
+export const getGroupsHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -697,7 +715,7 @@ router.get('/groups', async (req: Request, res: Response) => {
     console.error('Failed to list groups:', error);
     res.status(500).json({ error: 'Failed to list groups' });
   }
-});
+};
 
 /**
  * @openapi
@@ -718,7 +736,7 @@ router.get('/groups', async (req: Request, res: Response) => {
  *       200:
  *         description: Group details with members
  */
-router.get('/groups/:groupId', async (req: Request, res: Response) => {
+export const getGroupsGroupidHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -820,7 +838,7 @@ router.get('/groups/:groupId', async (req: Request, res: Response) => {
     console.error('Failed to get group:', error);
     res.status(500).json({ error: 'Failed to get group' });
   }
-});
+};
 
 /**
  * @openapi
@@ -841,7 +859,7 @@ router.get('/groups/:groupId', async (req: Request, res: Response) => {
  *       200:
  *         description: Group updated
  */
-router.patch('/groups/:groupId', async (req: Request, res: Response) => {
+export const patchGroupsGroupidHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -944,7 +962,7 @@ router.patch('/groups/:groupId', async (req: Request, res: Response) => {
     console.error('Failed to update group:', error);
     res.status(500).json({ error: 'Failed to update group' });
   }
-});
+};
 
 /**
  * @openapi
@@ -965,7 +983,7 @@ router.patch('/groups/:groupId', async (req: Request, res: Response) => {
  *       204:
  *         description: Left/deleted group
  */
-router.delete('/groups/:groupId', async (req: Request, res: Response) => {
+export const deleteGroupsGroupidHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1006,7 +1024,7 @@ router.delete('/groups/:groupId', async (req: Request, res: Response) => {
     console.error('Failed to leave group:', error);
     res.status(500).json({ error: 'Failed to leave group' });
   }
-});
+};
 
 // =============================================================================
 // Membership Endpoints
@@ -1031,7 +1049,7 @@ router.delete('/groups/:groupId', async (req: Request, res: Response) => {
  *       201:
  *         description: Member added
  */
-router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
+export const postGroupsGroupidMembersHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1184,7 +1202,7 @@ router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
     console.error('Failed to add member:', error);
     res.status(500).json({ error: 'Failed to add member' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1205,7 +1223,7 @@ router.post('/groups/:groupId/members', async (req: Request, res: Response) => {
  *       200:
  *         description: List of members
  */
-router.get('/groups/:groupId/members', async (req: Request, res: Response) => {
+export const getGroupsGroupidMembersHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1265,7 +1283,7 @@ router.get('/groups/:groupId/members', async (req: Request, res: Response) => {
     console.error('Failed to list members:', error);
     res.status(500).json({ error: 'Failed to list members' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1291,9 +1309,7 @@ router.get('/groups/:groupId/members', async (req: Request, res: Response) => {
  *       204:
  *         description: Member removed
  */
-router.delete(
-  '/groups/:groupId/members/:userId',
-  async (req: Request, res: Response) => {
+export const deleteGroupsGroupidMembersUseridHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -1401,8 +1417,7 @@ router.delete(
       console.error('Failed to remove member:', error);
       res.status(500).json({ error: 'Failed to remove member' });
     }
-  }
-);
+  };
 
 // =============================================================================
 // Message Endpoints
@@ -1427,9 +1442,7 @@ router.delete(
  *       201:
  *         description: Message sent
  */
-router.post(
-  '/groups/:groupId/messages',
-  async (req: Request, res: Response) => {
+export const postGroupsGroupidMessagesHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -1521,8 +1534,7 @@ router.post(
       console.error('Failed to send message:', error);
       res.status(500).json({ error: 'Failed to send message' });
     }
-  }
-);
+  };
 
 /**
  * @openapi
@@ -1552,7 +1564,7 @@ router.post(
  *       200:
  *         description: Message history
  */
-router.get('/groups/:groupId/messages', async (req: Request, res: Response) => {
+export const getGroupsGroupidMessagesHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1653,7 +1665,7 @@ router.get('/groups/:groupId/messages', async (req: Request, res: Response) => {
     console.error('Failed to get messages:', error);
     res.status(500).json({ error: 'Failed to get messages' });
   }
-});
+};
 
 // =============================================================================
 // Welcome Message Endpoints
@@ -1672,7 +1684,7 @@ router.get('/groups/:groupId/messages', async (req: Request, res: Response) => {
  *       200:
  *         description: Pending welcome messages
  */
-router.get('/welcome-messages', async (req: Request, res: Response) => {
+export const getWelcomeMessagesHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1715,7 +1727,7 @@ router.get('/welcome-messages', async (req: Request, res: Response) => {
     console.error('Failed to get welcome messages:', error);
     res.status(500).json({ error: 'Failed to get welcome messages' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1736,9 +1748,7 @@ router.get('/welcome-messages', async (req: Request, res: Response) => {
  *       200:
  *         description: Welcome acknowledged
  */
-router.post(
-  '/welcome-messages/:id/ack',
-  async (req: Request, res: Response) => {
+export const postWelcomeMessagesIdAckHandler = async (req: Request, res: Response) => {
     const claims = req.authClaims;
     if (!claims) {
       res.status(401).json({ error: 'Unauthorized' });
@@ -1778,8 +1788,7 @@ router.post(
       console.error('Failed to acknowledge welcome:', error);
       res.status(500).json({ error: 'Failed to acknowledge welcome' });
     }
-  }
-);
+  };
 
 // =============================================================================
 // State Management Endpoints (Multi-device sync)
@@ -1804,7 +1813,7 @@ router.post(
  *       201:
  *         description: State uploaded
  */
-router.post('/groups/:groupId/state', async (req: Request, res: Response) => {
+export const postGroupsGroupidStateHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1885,7 +1894,7 @@ router.post('/groups/:groupId/state', async (req: Request, res: Response) => {
     console.error('Failed to upload state:', error);
     res.status(500).json({ error: 'Failed to upload state' });
   }
-});
+};
 
 /**
  * @openapi
@@ -1906,7 +1915,7 @@ router.post('/groups/:groupId/state', async (req: Request, res: Response) => {
  *       200:
  *         description: Latest state snapshot
  */
-router.get('/groups/:groupId/state', async (req: Request, res: Response) => {
+export const getGroupsGroupidStateHandler = async (req: Request, res: Response) => {
   const claims = req.authClaims;
   if (!claims) {
     res.status(401).json({ error: 'Unauthorized' });
@@ -1979,6 +1988,26 @@ router.get('/groups/:groupId/state', async (req: Request, res: Response) => {
     console.error('Failed to get state:', error);
     res.status(500).json({ error: 'Failed to get state' });
   }
-});
+};
+
+const router: RouterType = Router();
+registerPostKeyPackagesRoute(router);
+registerGetKeyPackagesMeRoute(router);
+registerGetKeyPackagesUseridRoute(router);
+registerDeleteKeyPackagesIdRoute(router);
+registerPostGroupsRoute(router);
+registerGetGroupsRoute(router);
+registerGetGroupsGroupidRoute(router);
+registerPatchGroupsGroupidRoute(router);
+registerDeleteGroupsGroupidRoute(router);
+registerPostGroupsGroupidMembersRoute(router);
+registerGetGroupsGroupidMembersRoute(router);
+registerDeleteGroupsGroupidMembersUseridRoute(router);
+registerPostGroupsGroupidMessagesRoute(router);
+registerGetGroupsGroupidMessagesRoute(router);
+registerGetWelcomeMessagesRoute(router);
+registerPostWelcomeMessagesIdAckRoute(router);
+registerPostGroupsGroupidStateRoute(router);
+registerGetGroupsGroupidStateRoute(router);
 
 export { router as mlsRouter };
