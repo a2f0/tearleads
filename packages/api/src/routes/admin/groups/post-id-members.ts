@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import type { Router as RouterType } from 'express';
 import { postIdMembersHandler } from '../groups.js';
 

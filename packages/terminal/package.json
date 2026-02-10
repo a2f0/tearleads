@@ -1,6 +1,6 @@
 {
   "name": "@rapid/terminal",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "Terminal UI components and command engine for Rapid",
   "type": "module",
   "main": "dist/index.js",

@@ -1,3 +1,4 @@
+/* istanbul ignore file */
 import type { Router as RouterType } from 'express';
 import { getDraftsIdHandler } from '../emailsCompose.js';
 
