@@ -21,11 +21,11 @@ export default defineConfig({
         'src/**/index.ts'
       ],
       thresholds: {
-        // Thresholds will be baselined after migration
-        statements: 0,
-        branches: 0,
-        functions: 0,
-        lines: 0
+        // Baseline thresholds from the migrated terminal package coverage.
+        statements: 92.7,
+        branches: 83.0,
+        functions: 94.8,
+        lines: 93.0
       }
     }
   }
