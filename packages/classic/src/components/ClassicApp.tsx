@@ -227,7 +227,7 @@ export function ClassicApp({
         tags={filteredTags}
         activeTagId={state.activeTagId}
         editingTagId={editingTagId}
-        autoFocusSearch={autoFocusSearch}
+        {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
         onSelectTag={handleSelectTag}
         onMoveTag={handleMoveTag}
         onReorderTag={handleReorderTag}
