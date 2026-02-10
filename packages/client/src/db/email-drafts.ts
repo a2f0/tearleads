@@ -38,7 +38,9 @@ function toIsoString(value: Date | number | null | undefined): string {
     return new Date(value).toISOString();
   }
 
-  return new Date().toISOString();
+  throw new Error(
+    `Invalid date value received by toIsoString: ${String(value)}`
+  );
 }
 
 function stringifyEmails(emails: string[]): string {
@@ -191,14 +193,8 @@ export async function deleteEmailDraftFromDb(
     return false;
   }
 
-  await db.transaction(async (tx) => {
-    await tx
-      .delete(emailAttachments)
-      .where(eq(emailAttachments.composedEmailId, id));
-
-    await tx.delete(composedEmails).where(eq(composedEmails.id, id));
-    await tx.delete(vfsRegistry).where(eq(vfsRegistry.id, id));
-  });
+  // vfs_registry -> composed_emails -> email_attachments use ON DELETE CASCADE.
+  await db.delete(vfsRegistry).where(eq(vfsRegistry.id, id));
 
   return true;
 }
