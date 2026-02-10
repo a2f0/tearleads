@@ -1,4 +1,4 @@
-import { CALENDAR_CREATE_EVENT } from '@rapid/calendar';
+import { CALENDAR_CREATE_EVENT, CALENDAR_CREATE_ITEM_EVENT } from '@rapid/calendar';
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -37,7 +37,7 @@ describe('CalendarWindowMenuBar', () => {
     expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
   });
 
-  it('shows New Calendar and Close in File menu', async () => {
+  it('shows New Calendar, New Item, and Close in File menu', async () => {
     const user = userEvent.setup();
     renderMenuBar();
 
@@ -46,6 +46,7 @@ describe('CalendarWindowMenuBar', () => {
     expect(
       screen.getByRole('menuitem', { name: 'New Calendar' })
     ).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'New Item' })).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
@@ -74,6 +75,22 @@ describe('CalendarWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('dispatches create-item event from File menu', async () => {
+    const user = userEvent.setup();
+    const listener = vi.fn();
+    window.addEventListener(CALENDAR_CREATE_ITEM_EVENT, listener);
+    try {
+      renderMenuBar();
+
+      await user.click(screen.getByRole('button', { name: 'File' }));
+      await user.click(screen.getByRole('menuitem', { name: 'New Item' }));
+
+      expect(listener).toHaveBeenCalledTimes(1);
+    } finally {
+      window.removeEventListener(CALENDAR_CREATE_ITEM_EVENT, listener);
+    }
   });
 
   it('shows Options in View menu', async () => {

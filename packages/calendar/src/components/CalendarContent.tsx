@@ -655,13 +655,6 @@ export function CalendarContent({
               </p>
             ) : null}
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleOpenCreateItemModal(selectedDate)}
-                className="rounded-md border bg-background px-3 py-1 font-medium text-sm transition-colors hover:bg-muted/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                New Item
-              </button>
               <div
                 className="inline-flex items-center rounded-full border bg-muted/30 p-1"
                 role="tablist"
