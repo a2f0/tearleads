@@ -1,6 +1,6 @@
 import { Download, FileText, Puzzle, Terminal } from 'lucide-react';
-import { HELP_EXTERNAL_LINKS } from '@/constants/help';
 import { GridSquare } from '@/components/ui/grid-square';
+import { HELP_EXTERNAL_LINKS } from '@/constants/help';
 
 interface HelpLinksGridProps {
   onApiDocsClick: () => void;
@@ -47,4 +47,3 @@ export function HelpLinksGrid({ onApiDocsClick }: HelpLinksGridProps) {
     </>
   );
 }
-

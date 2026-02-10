@@ -3,4 +3,3 @@ export const HELP_EXTERNAL_LINKS = {
   chromeExtension: '/products/chrome-extension',
   backupRestore: '/docs/backup-restore'
 } as const;
-
