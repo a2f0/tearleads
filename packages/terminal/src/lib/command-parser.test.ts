@@ -157,11 +157,13 @@ describe('parseCommand', () => {
       'setup',
       'unlock',
       'lock',
+      'switch',
       'backup',
       'restore',
       'password',
       'help',
       'status',
+      'list-instances',
       'clear'
     ];
 
@@ -177,11 +179,13 @@ describe('isValidCommand', () => {
     expect(isValidCommand('setup')).toBe(true);
     expect(isValidCommand('unlock')).toBe(true);
     expect(isValidCommand('lock')).toBe(true);
+    expect(isValidCommand('switch')).toBe(true);
     expect(isValidCommand('backup')).toBe(true);
     expect(isValidCommand('restore')).toBe(true);
     expect(isValidCommand('password')).toBe(true);
     expect(isValidCommand('help')).toBe(true);
     expect(isValidCommand('status')).toBe(true);
+    expect(isValidCommand('list-instances')).toBe(true);
     expect(isValidCommand('clear')).toBe(true);
   });
 

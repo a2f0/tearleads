@@ -7,11 +7,13 @@ export type CommandName =
   | 'setup'
   | 'unlock'
   | 'lock'
+  | 'switch'
   | 'backup'
   | 'restore'
   | 'password'
   | 'help'
   | 'status'
+  | 'list-instances'
   | 'clear';
 
 /** Parsed command from user input */
@@ -76,6 +78,11 @@ export const COMMAND_HELP: Record<CommandName, CommandHelp> = {
     description: 'Lock the database',
     flags: ['--clear: Clear the persisted session']
   },
+  switch: {
+    name: 'switch',
+    description: 'Switch to a different database instance',
+    args: '<instance>'
+  },
   backup: {
     name: 'backup',
     description: 'Export the database to a backup file',
@@ -83,7 +90,7 @@ export const COMMAND_HELP: Record<CommandName, CommandHelp> = {
   },
   restore: {
     name: 'restore',
-    description: 'Import a database backup file',
+    description: 'Import a backup to a new instance',
     flags: ['--force: Skip confirmation prompt']
   },
   password: {
@@ -98,6 +105,10 @@ export const COMMAND_HELP: Record<CommandName, CommandHelp> = {
   status: {
     name: 'status',
     description: 'Show current database status'
+  },
+  'list-instances': {
+    name: 'list-instances',
+    description: 'List available database instances'
   },
   clear: {
     name: 'clear',

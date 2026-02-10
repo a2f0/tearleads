@@ -12,7 +12,9 @@ export interface DatabaseOperations {
   isSetUp: boolean;
   isUnlocked: boolean;
   hasPersistedSession: boolean;
+  currentInstanceId?: string | null;
   currentInstanceName: string | null;
+  instances?: ReadonlyArray<{ id: string; name: string }>;
   setup: (password: string) => Promise<boolean>;
   unlock: (password: string, persistSession?: boolean) => Promise<boolean>;
   restoreSession: () => Promise<boolean>;
@@ -23,6 +25,8 @@ export interface DatabaseOperations {
     oldPassword: string,
     newPassword: string
   ) => Promise<boolean>;
+  switchInstance?: (instanceId: string) => Promise<boolean>;
+  refreshInstances?: () => Promise<void>;
 }
 
 /** Terminal control functions */
@@ -83,6 +87,10 @@ export async function executeCommand(
       executeStatus(db, terminal);
       return true;
 
+    case 'list-instances':
+      executeListInstances(db, terminal);
+      return true;
+
     case 'clear':
       terminal.clearLines();
       return true;
@@ -97,6 +105,10 @@ export async function executeCommand(
 
     case 'lock':
       await executeLock(command, db, terminal, utilities);
+      return true;
+
+    case 'switch':
+      await executeSwitch(command, db, terminal, utilities);
       return true;
 
     case 'backup':
@@ -213,6 +225,95 @@ function executeStatus(
   terminal.appendLine(`Instance:          ${instance}`, 'output');
   terminal.appendLine(`Database:          ${dbStatus}`, 'output');
   terminal.appendLine(`Session persisted: ${session}`, 'output');
+}
+
+function executeListInstances(
+  db: DatabaseOperations,
+  terminal: TerminalControl
+): void {
+  terminal.appendLine('Instances:', 'output');
+
+  if (!db.instances || db.instances.length === 0) {
+    const fallbackName = db.currentInstanceName ?? 'Default';
+    terminal.appendLine(`* ${fallbackName} (current)`, 'output');
+    return;
+  }
+
+  for (const instance of db.instances) {
+    const isCurrent = db.currentInstanceId
+      ? instance.id === db.currentInstanceId
+      : instance.name === db.currentInstanceName;
+    terminal.appendLine(
+      `${isCurrent ? '*' : ' '} ${instance.name}${isCurrent ? ' (current)' : ''}`,
+      'output'
+    );
+  }
+}
+
+async function executeSwitch(
+  command: ParsedCommand,
+  db: DatabaseOperations,
+  terminal: TerminalControl,
+  utilities: TerminalUtilities
+): Promise<void> {
+  if (!db.switchInstance) {
+    terminal.appendLine('Instance switching is not available.', 'error');
+    return;
+  }
+
+  const target = command.args.join(' ').trim();
+  if (!target) {
+    terminal.appendLine('Usage: switch <instance>', 'error');
+    return;
+  }
+
+  if (!db.instances || db.instances.length === 0) {
+    terminal.appendLine('No instances are available to switch to.', 'error');
+    return;
+  }
+
+  const targetLower = target.toLowerCase();
+  const matched =
+    db.instances.find((instance) => instance.id === target) ??
+    db.instances.find((instance) => instance.name.toLowerCase() === targetLower);
+
+  if (!matched) {
+    terminal.appendLine(`Instance not found: ${target}`, 'error');
+    terminal.appendLine('Run "list-instances" to see available instances.', 'output');
+    return;
+  }
+
+  if (
+    (db.currentInstanceId && matched.id === db.currentInstanceId) ||
+    (!db.currentInstanceId && matched.name === db.currentInstanceName)
+  ) {
+    terminal.appendLine(`Already on instance: ${matched.name}`, 'output');
+    return;
+  }
+
+  terminal.setProcessing(true);
+  try {
+    const setupComplete = await db.switchInstance(matched.id);
+    if (db.refreshInstances) {
+      await db.refreshInstances();
+    }
+    if (setupComplete) {
+      terminal.appendLine(`Switched to instance: ${matched.name}`, 'success');
+    } else {
+      terminal.appendLine(
+        `Switched to instance: ${matched.name} (not set up)`,
+        'output'
+      );
+      terminal.appendLine('Run "setup" to initialize this instance.', 'output');
+    }
+  } catch (err) {
+    terminal.appendLine(
+      `Failed to switch instance: ${utilities.getErrorMessage(err)}`,
+      'error'
+    );
+  } finally {
+    terminal.setProcessing(false);
+  }
 }
 
 // ============================================

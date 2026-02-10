@@ -26,10 +26,6 @@ vi.mock('@rapid/terminal', () => ({
   }
 }));
 
-vi.mock('@rapid/terminal/package.json', () => ({
-  default: { version: '9.9.9' }
-}));
-
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockDb
 }));
@@ -45,13 +41,12 @@ vi.mock('@/lib/file-utils', () => ({
 }));
 
 describe('ClientTerminal', () => {
-  it('passes db utilities and package version to terminal package', () => {
+  it('passes db and utilities to terminal package', () => {
     render(<ClientTerminal className="my-terminal" autoFocus={false} />);
 
     expect(mockTerminalBase).toHaveBeenCalledWith(
       expect.objectContaining({
         db: mockDb,
-        version: '9.9.9',
         className: 'my-terminal',
         autoFocus: false,
         utilities: expect.objectContaining({

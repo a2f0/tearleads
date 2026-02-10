@@ -2,7 +2,6 @@ import {
   Terminal as TerminalBase,
   type TerminalUtilities
 } from '@rapid/terminal';
-import terminalPackageJson from '@rapid/terminal/package.json';
 import { useDatabaseContext } from '@/db/hooks';
 import { getErrorMessage } from '@/lib/errors';
 import {
@@ -33,7 +32,6 @@ export function ClientTerminal({
     <TerminalBase
       db={db}
       utilities={terminalUtilities}
-      version={terminalPackageJson.version}
       autoFocus={autoFocus}
       {...(className ? { className } : {})}
     />

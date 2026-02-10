@@ -8,6 +8,7 @@ import { createRequire } from 'node:module';
 import { Command } from 'commander';
 import { backupCommand } from './commands/backup.js';
 import { dumpCommand } from './commands/dump.js';
+import { listInstancesCommand } from './commands/listInstances.js';
 import { lockCommand } from './commands/lock.js';
 import { passwordCommand } from './commands/password.js';
 import { restoreCommand } from './commands/restore.js';
@@ -31,5 +32,6 @@ program.addCommand(backupCommand);
 program.addCommand(dumpCommand);
 program.addCommand(restoreCommand);
 program.addCommand(passwordCommand);
+program.addCommand(listInstancesCommand);
 
 program.parse();
