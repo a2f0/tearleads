@@ -1,6 +1,13 @@
 import openapiSpec from '@rapid/api/dist/openapi.json';
 import { ApiDocs } from '@rapid/ui';
-import { ArrowLeft, CircleHelp, FileText } from 'lucide-react';
+import {
+  ArrowLeft,
+  CircleHelp,
+  Download,
+  FileText,
+  Puzzle,
+  Terminal
+} from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -15,6 +22,12 @@ import {
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
 type HelpView = 'index' | 'api';
+
+const HELP_EXTERNAL_LINKS = {
+  cli: '/products/cli',
+  chromeExtension: '/products/chrome-extension',
+  backupRestore: '/docs/backup-restore'
+} as const;
 
 interface HelpWindowProps {
   id: string;
@@ -79,6 +92,48 @@ export function HelpWindow({
                     <FileText className="h-12 w-12 text-muted-foreground" />
                     <span className="text-center font-medium text-sm">
                       API Docs
+                    </span>
+                  </div>
+                </GridSquare>
+                <GridSquare
+                  onClick={() =>
+                    window.open(HELP_EXTERNAL_LINKS.cli, '_blank', 'noopener')
+                  }
+                >
+                  <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+                    <Terminal className="h-12 w-12 text-muted-foreground" />
+                    <span className="text-center font-medium text-sm">CLI</span>
+                  </div>
+                </GridSquare>
+                <GridSquare
+                  onClick={() =>
+                    window.open(
+                      HELP_EXTERNAL_LINKS.chromeExtension,
+                      '_blank',
+                      'noopener'
+                    )
+                  }
+                >
+                  <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+                    <Puzzle className="h-12 w-12 text-muted-foreground" />
+                    <span className="text-center font-medium text-sm">
+                      Chrome Extension
+                    </span>
+                  </div>
+                </GridSquare>
+                <GridSquare
+                  onClick={() =>
+                    window.open(
+                      HELP_EXTERNAL_LINKS.backupRestore,
+                      '_blank',
+                      'noopener'
+                    )
+                  }
+                >
+                  <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+                    <Download className="h-12 w-12 text-muted-foreground" />
+                    <span className="text-center font-medium text-sm">
+                      Backup &amp; Restore
                     </span>
                   </div>
                 </GridSquare>

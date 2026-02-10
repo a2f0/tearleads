@@ -75,9 +75,12 @@ describe('HelpWindow', () => {
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.getByText('API Docs')).toBeInTheDocument();
+    expect(screen.getByText('CLI')).toBeInTheDocument();
+    expect(screen.getByText('Chrome Extension')).toBeInTheDocument();
+    expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
   });
 
-  it('navigates to API docs when clicking the grid square', async () => {
+  it('navigates to API docs when clicking API Docs', async () => {
     const user = userEvent.setup();
     render(
       <HelpWindow
@@ -89,7 +92,7 @@ describe('HelpWindow', () => {
       />
     );
 
-    await user.click(screen.getByTestId('grid-square'));
+    await user.click(screen.getByText('API Docs'));
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
     expect(screen.getByTestId('api-docs')).toHaveTextContent('Client Docs');
@@ -108,7 +111,7 @@ describe('HelpWindow', () => {
     );
 
     // Navigate to API docs
-    await user.click(screen.getByTestId('grid-square'));
+    await user.click(screen.getByText('API Docs'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
 
     // Navigate back to index
@@ -116,5 +119,39 @@ describe('HelpWindow', () => {
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.queryByTestId('api-docs')).not.toBeInTheDocument();
+  });
+
+  it('opens external docs links in a new tab', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('CLI'));
+    expect(openSpy).toHaveBeenCalledWith('/products/cli', '_blank', 'noopener');
+
+    await user.click(screen.getByText('Chrome Extension'));
+    expect(openSpy).toHaveBeenCalledWith(
+      '/products/chrome-extension',
+      '_blank',
+      'noopener'
+    );
+
+    await user.click(screen.getByText('Backup & Restore'));
+    expect(openSpy).toHaveBeenCalledWith(
+      '/docs/backup-restore',
+      '_blank',
+      'noopener'
+    );
+
+    openSpy.mockRestore();
   });
 });

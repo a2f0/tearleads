@@ -1,7 +1,13 @@
-import { CircleHelp, FileText } from 'lucide-react';
+import { CircleHelp, Download, FileText, Puzzle, Terminal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 import { GridSquare } from '@/components/ui/grid-square';
+
+const HELP_EXTERNAL_LINKS = {
+  cli: '/products/cli',
+  chromeExtension: '/products/chrome-extension',
+  backupRestore: '/docs/backup-restore'
+} as const;
 
 export function Help() {
   const navigate = useNavigate();
@@ -21,6 +27,48 @@ export function Help() {
           <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
             <FileText className="h-12 w-12 text-muted-foreground" />
             <span className="text-center font-medium text-sm">API Docs</span>
+          </div>
+        </GridSquare>
+        <GridSquare
+          onClick={() =>
+            window.open(HELP_EXTERNAL_LINKS.cli, '_blank', 'noopener')
+          }
+        >
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+            <Terminal className="h-12 w-12 text-muted-foreground" />
+            <span className="text-center font-medium text-sm">CLI</span>
+          </div>
+        </GridSquare>
+        <GridSquare
+          onClick={() =>
+            window.open(
+              HELP_EXTERNAL_LINKS.chromeExtension,
+              '_blank',
+              'noopener'
+            )
+          }
+        >
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+            <Puzzle className="h-12 w-12 text-muted-foreground" />
+            <span className="text-center font-medium text-sm">
+              Chrome Extension
+            </span>
+          </div>
+        </GridSquare>
+        <GridSquare
+          onClick={() =>
+            window.open(
+              HELP_EXTERNAL_LINKS.backupRestore,
+              '_blank',
+              'noopener'
+            )
+          }
+        >
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+            <Download className="h-12 w-12 text-muted-foreground" />
+            <span className="text-center font-medium text-sm">
+              Backup &amp; Restore
+            </span>
           </div>
         </GridSquare>
       </div>
