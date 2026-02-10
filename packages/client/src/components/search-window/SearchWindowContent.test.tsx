@@ -1155,10 +1155,17 @@ describe('SearchWindowContent', () => {
       await user.type(input, 'note');
 
       await waitFor(() => {
-        expect(screen.getByText('Notes')).toBeInTheDocument();
+        expect(mockSearch).toHaveBeenCalledWith('note');
+        expect(screen.getByText('App')).toBeInTheDocument();
       });
 
-      await user.click(screen.getByText('Notes'));
+      const appResultButton = screen.getByText('App').closest('button');
+      expect(appResultButton).toBeTruthy();
+      if (!appResultButton) {
+        throw new Error('App result button was not found');
+      }
+
+      await user.click(appResultButton);
       expect(mockOpenWindow).toHaveBeenCalledWith('notes');
     });
   });
