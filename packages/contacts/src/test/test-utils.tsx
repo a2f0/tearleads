@@ -60,8 +60,8 @@ export const mockUIComponents: ContactsUIComponents = {
       {children}
     </button>
   ),
-  Input: ({ value, onChange, ...props }) => (
-    <input value={value} onChange={onChange} {...props} />
+  Input: ({ value, onChange, inputRef, ...props }) => (
+    <input ref={inputRef} value={value} onChange={onChange} {...props} />
   ),
   ContextMenu: ({ children }) => (
     <div data-testid="context-menu">{children}</div>

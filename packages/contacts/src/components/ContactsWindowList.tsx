@@ -64,13 +64,11 @@ export function ContactsWindowList({
     y: number;
   } | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const focusTimer = window.setTimeout(() => {
-      const input = document.querySelector<HTMLInputElement>(
-        '[data-testid="window-contacts-search"]'
-      );
-      input?.focus();
+      searchInputRef.current?.focus();
     }, 50);
 
     return () => window.clearTimeout(focusTimer);
@@ -258,6 +256,7 @@ export function ContactsWindowList({
                   placeholder="Search contacts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  inputRef={searchInputRef}
                   className="h-8 text-base"
                   data-testid="window-contacts-search"
                 />

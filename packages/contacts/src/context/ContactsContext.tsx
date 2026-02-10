@@ -1,5 +1,5 @@
 import type { Database } from '@rapid/db/sqlite';
-import type { ComponentType, ReactNode } from 'react';
+import type { ComponentType, ReactNode, Ref } from 'react';
 import { createContext, useContext } from 'react';
 
 /**
@@ -57,6 +57,7 @@ export interface InputProps {
   placeholder?: string;
   value?: string;
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  inputRef?: Ref<HTMLInputElement>;
   className?: string;
   disabled?: boolean;
   autoFocus?: boolean;

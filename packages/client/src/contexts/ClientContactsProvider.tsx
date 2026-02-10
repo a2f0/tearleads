@@ -48,9 +48,14 @@ export function ContactsAboutMenuItem() {
   );
 }
 
+const ContactsInput: ContactsUIComponents['Input'] = ({
+  inputRef,
+  ...props
+}) => <Input ref={inputRef} {...props} />;
+
 const contactsUIComponents: ContactsUIComponents = {
   Button,
-  Input,
+  Input: ContactsInput,
   ContextMenu,
   ContextMenuItem,
   ListRow,
