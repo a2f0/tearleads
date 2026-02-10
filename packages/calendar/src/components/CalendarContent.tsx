@@ -18,6 +18,7 @@ const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
 type CalendarViewMode = (typeof viewModes)[number];
 const calendarLocale = 'en-US';
 const weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const dayViewHours = Array.from({ length: 24 }, (_, hour) => hour);
 const yearMonthNames = [
   'January',
   'February',
@@ -349,17 +350,25 @@ export function CalendarContent({
         )}
       </div>
       <div className="mt-4 space-y-2">
-        {Array.from({ length: 12 }, (_, index) => index + 8).map((hour) => (
-          <div
-            key={hour}
-            className="flex items-center gap-3 border-border/60 border-b pb-2 text-sm"
-          >
-            <span className="w-14 shrink-0 font-medium text-muted-foreground">
-              {hour.toString().padStart(2, '0')}:00
-            </span>
-            <div className="h-8 flex-1 rounded bg-muted/40" />
-          </div>
-        ))}
+        {dayViewHours.map((hour) => {
+          const isWorkHour = hour >= 9 && hour < 17;
+          return (
+            <div
+              key={hour}
+              className="flex items-center gap-3 border-border/60 border-b pb-2 text-sm"
+            >
+              <span className="w-14 shrink-0 font-medium text-muted-foreground">
+                {hour.toString().padStart(2, '0')}:00
+              </span>
+              <div
+                className={clsx(
+                  'h-8 flex-1 rounded',
+                  isWorkHour ? 'bg-accent/35' : 'bg-muted/40'
+                )}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

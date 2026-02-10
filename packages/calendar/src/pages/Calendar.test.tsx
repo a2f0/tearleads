@@ -30,7 +30,8 @@ describe('Calendar', () => {
     render(<Calendar />);
 
     fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
-    expect(screen.getByText('08:00')).toBeInTheDocument();
+    expect(screen.getByText('00:00')).toBeInTheDocument();
+    expect(screen.getByText('23:00')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('tab', { name: 'Week' }));
     expect(screen.getByText(/Week of/)).toBeInTheDocument();
@@ -63,7 +64,7 @@ describe('Calendar', () => {
       'aria-selected',
       'true'
     );
-    expect(screen.getByText('08:00')).toBeInTheDocument();
+    expect(screen.getByText('00:00')).toBeInTheDocument();
   });
 
   it('routes to day view when a year day is clicked', () => {
@@ -85,7 +86,19 @@ describe('Calendar', () => {
       'aria-selected',
       'true'
     );
-    expect(screen.getByText('08:00')).toBeInTheDocument();
+    expect(screen.getByText('00:00')).toBeInTheDocument();
+  });
+
+  it('highlights work hours differently in day view', () => {
+    render(<Calendar />);
+
+    fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
+
+    const preWorkHourSlot = screen.getByText('08:00').nextElementSibling;
+    const workHourSlot = screen.getByText('09:00').nextElementSibling;
+
+    expect(preWorkHourSlot).toHaveClass('bg-muted/40');
+    expect(workHourSlot).toHaveClass('bg-accent/35');
   });
 
   it('routes to month view when a year month is clicked', () => {
