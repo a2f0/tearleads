@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import type { ReactNode } from 'react';
+import type { MouseEventHandler, ReactNode } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App';
@@ -20,9 +20,6 @@ const mockUseAppVersion = vi.fn();
 const mockOpenWindow = vi.fn();
 
 vi.mock('@rapid/ui', () => ({
-  ConnectionIndicator: ({ state }: { state: string }) => (
-    <div data-testid="connection-indicator">{state}</div>
-  ),
   Footer: ({
     children,
     connectionIndicator,
@@ -39,6 +36,29 @@ vi.mock('@rapid/ui', () => ({
     </footer>
   )
 }));
+
+vi.mock('@rapid/window-manager', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@rapid/window-manager')>();
+
+  return {
+    ...actual,
+    WindowConnectionIndicator: ({
+      state,
+      onContextMenu
+    }: {
+      state: string;
+      onContextMenu?: MouseEventHandler<HTMLButtonElement>;
+    }) => (
+      <button
+        type="button"
+        data-testid="connection-indicator"
+        onContextMenu={onContextMenu}
+      >
+        {state}
+      </button>
+    )
+  };
+});
 
 vi.mock('@rapid/ui/logo.svg', () => ({
   default: 'logo.svg'
@@ -298,12 +318,7 @@ describe('App', () => {
     });
 
     function openContextMenu() {
-      const indicatorContainer = screen.getByTestId(
-        'connection-indicator'
-      ).parentElement;
-      if (indicatorContainer) {
-        fireEvent.contextMenu(indicatorContainer);
-      }
+      fireEvent.contextMenu(screen.getByTestId('connection-indicator'));
     }
 
     it('shows context menu on right-click of connection indicator', () => {

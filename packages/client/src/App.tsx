@@ -1,5 +1,6 @@
-import { ConnectionIndicator, Footer } from '@rapid/ui';
+import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
+import { WindowConnectionIndicator } from '@rapid/window-manager';
 import { Info, Lock, Search } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -187,7 +188,7 @@ function App() {
   }, [isDesktop, navigate, openWindow]);
 
   const handleSseContextMenu = useCallback(
-    (event: React.MouseEvent<HTMLDivElement>) => {
+    (event: React.MouseEvent<HTMLButtonElement>) => {
       event.preventDefault();
       setSseContextMenu({ x: event.clientX, y: event.clientY });
     },
@@ -303,18 +304,11 @@ function App() {
       >
         <div className="flex items-center gap-2">
           {sse && (
-            // biome-ignore lint/a11y/noStaticElementInteractions: Context menu handler for SSE indicator
-            <div
-              className="flex h-6 w-6 cursor-pointer items-center justify-center"
+            <WindowConnectionIndicator
+              state={sse.connectionState}
+              tooltip={t(sseTooltipKeys[sse.connectionState])}
               onContextMenu={handleSseContextMenu}
-            >
-              {/* Optical alignment tweak to match the Notification Center icon's center. */}
-              <ConnectionIndicator
-                state={sse.connectionState}
-                tooltip={t(sseTooltipKeys[sse.connectionState])}
-                className="translate-y-1"
-              />
-            </div>
+            />
           )}
           <NotificationCenterTrigger />
         </div>

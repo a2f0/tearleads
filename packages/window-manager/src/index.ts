@@ -2,6 +2,8 @@
 export {
   FloatingWindow,
   type FloatingWindowProps,
+  WindowConnectionIndicator,
+  type WindowConnectionIndicatorProps,
   WindowContextMenu,
   WindowContextMenuItem,
   type WindowContextMenuItemProps,
