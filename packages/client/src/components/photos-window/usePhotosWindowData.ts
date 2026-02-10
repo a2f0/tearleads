@@ -173,6 +173,18 @@ export function usePhotosWindowData({
     [fetchPhotos]
   );
 
+  const restorePhoto = useCallback(
+    async (photoId: string) => {
+      const db = getDatabase();
+      await db
+        .update(files)
+        .set({ deleted: false })
+        .where(eq(files.id, photoId));
+      await fetchPhotos();
+    },
+    [fetchPhotos]
+  );
+
   const downloadPhoto = useCallback(
     async (photo: PhotoWithUrl) => {
       const keyManager = getKeyManager();
@@ -217,6 +229,7 @@ export function usePhotosWindowData({
     refresh: fetchPhotos,
     currentInstanceId,
     deletePhoto,
+    restorePhoto,
     downloadPhoto,
     sharePhoto
   };

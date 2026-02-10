@@ -220,6 +220,7 @@ export interface MockContextOptions {
   getTrackIdsInPlaylist?: (playlistId: string) => Promise<string[]>;
   retrieveFile?: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio?: (audioId: string) => Promise<void>;
+  restoreAudio?: (audioId: string) => Promise<void>;
   updateAudioName?: (audioId: string, name: string) => Promise<void>;
   uploadFile?: (
     file: File,
@@ -264,6 +265,7 @@ export interface MockContextValue {
   getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;
+  restoreAudio: (audioId: string) => Promise<void>;
   updateAudioName: (audioId: string, name: string) => Promise<void>;
   uploadFile: (
     file: File,
@@ -318,6 +320,7 @@ export function createMockContextValue(
       options.getTrackIdsInPlaylist ?? vi.fn(async () => []),
     retrieveFile: options.retrieveFile ?? vi.fn(async () => new ArrayBuffer(0)),
     softDeleteAudio: options.softDeleteAudio ?? vi.fn(async () => {}),
+    restoreAudio: options.restoreAudio ?? vi.fn(async () => {}),
     updateAudioName: options.updateAudioName ?? vi.fn(async () => {}),
     uploadFile: options.uploadFile ?? vi.fn(async () => 'uploaded-file-id'),
     formatFileSize: (bytes: number) => `${bytes} bytes`,
@@ -360,6 +363,7 @@ export function createWrapper(options: MockContextOptions = {}) {
         getTrackIdsInPlaylist={contextValue.getTrackIdsInPlaylist}
         retrieveFile={contextValue.retrieveFile}
         softDeleteAudio={contextValue.softDeleteAudio}
+        restoreAudio={contextValue.restoreAudio}
         updateAudioName={contextValue.updateAudioName}
         uploadFile={contextValue.uploadFile}
         formatFileSize={contextValue.formatFileSize}

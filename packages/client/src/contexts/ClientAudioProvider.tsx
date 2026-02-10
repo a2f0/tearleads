@@ -404,6 +404,11 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
     []
   );
 
+  const restoreAudio = useCallback(async (audioId: string): Promise<void> => {
+    const db = getDatabase();
+    await db.update(files).set({ deleted: false }).where(eq(files.id, audioId));
+  }, []);
+
   const updateAudioName = useCallback(
     async (audioId: string, name: string): Promise<void> => {
       const db = getDatabase();
@@ -479,6 +484,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
       getTrackIdsInPlaylist={getTrackIdsInPlaylist}
       retrieveFile={retrieveFile}
       softDeleteAudio={softDeleteAudio}
+      restoreAudio={restoreAudio}
       updateAudioName={updateAudioName}
       uploadFile={uploadFile}
       formatFileSize={formatFileSize}

@@ -7,6 +7,7 @@ import {
   FileText,
   Info,
   Loader2,
+  RotateCcw,
   Share2,
   Trash2,
   Upload
@@ -438,6 +439,25 @@ export function Documents({
     }
   }, [contextMenu]);
 
+  const handleRestore = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const db = getDatabase();
+      await db
+        .update(files)
+        .set({ deleted: false })
+        .where(eq(files.id, contextMenu.document.id));
+
+      setHasFetched(false);
+    } catch (err) {
+      console.error('Failed to restore document:', err);
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setContextMenu(null);
+    }
+  }, [contextMenu]);
+
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
   }, []);
@@ -826,21 +846,32 @@ export function Documents({
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
-          <ContextMenuItem
-            icon={<Info className="h-4 w-4" />}
-            onClick={handleGetInfo}
-          >
-            {t('getInfo')}
-          </ContextMenuItem>
-          <ContextMenuItem onClick={handleAddToAIChat}>
-            Add to AI chat
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Trash2 className="h-4 w-4" />}
-            onClick={handleDelete}
-          >
-            {t('delete')}
-          </ContextMenuItem>
+          {contextMenu.document.deleted ? (
+            <ContextMenuItem
+              icon={<RotateCcw className="h-4 w-4" />}
+              onClick={handleRestore}
+            >
+              {t('restore')}
+            </ContextMenuItem>
+          ) : (
+            <>
+              <ContextMenuItem
+                icon={<Info className="h-4 w-4" />}
+                onClick={handleGetInfo}
+              >
+                {t('getInfo')}
+              </ContextMenuItem>
+              <ContextMenuItem onClick={handleAddToAIChat}>
+                Add to AI chat
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Trash2 className="h-4 w-4" />}
+                onClick={handleDelete}
+              >
+                {t('delete')}
+              </ContextMenuItem>
+            </>
+          )}
         </ContextMenu>
       )}
 

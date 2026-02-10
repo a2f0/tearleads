@@ -231,6 +231,27 @@ describe('usePhotosWindowData', () => {
     });
   });
 
+  it('restores photos and refreshes the list', async () => {
+    const { result } = renderHook(() =>
+      usePhotosWindowData({ refreshToken: 0 })
+    );
+
+    await waitFor(() => {
+      expect(result.current.photos).toHaveLength(1);
+    });
+
+    await act(async () => {
+      await result.current.restorePhoto('photo-1');
+    });
+
+    expect(mockUpdate).toHaveBeenCalled();
+    expect(mockSet).toHaveBeenCalledWith({ deleted: false });
+    expect(mockWhere).toHaveBeenCalled();
+    await waitFor(() => {
+      expect(mockOrderBy).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it('downloads the original photo data', async () => {
     mockIsFileStorageInitialized.mockReturnValue(true);
     const { result } = renderHook(() =>

@@ -415,6 +415,29 @@ describe('Documents', () => {
       });
     });
 
+    it('shows "Restore" option for deleted documents', async () => {
+      const user = userEvent.setup();
+      mockDb.orderBy.mockResolvedValue([
+        {
+          ...mockDocuments[0],
+          deleted: true
+        }
+      ]);
+
+      await renderDocuments({ showDeleted: true });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+
+      await waitFor(() => {
+        expect(screen.getByText('Restore')).toBeInTheDocument();
+      });
+    });
+
     it('opens AI chat from context menu', async () => {
       const user = userEvent.setup();
       await renderDocuments();
@@ -452,6 +475,36 @@ describe('Documents', () => {
       await waitFor(() => {
         expect(mockUpdate).toHaveBeenCalled();
         expect(mockSet).toHaveBeenCalledWith({ deleted: true });
+      });
+    });
+
+    it('restores document when "Restore" is clicked', async () => {
+      const user = userEvent.setup();
+      mockDb.orderBy.mockResolvedValue([
+        {
+          ...mockDocuments[0],
+          deleted: true
+        }
+      ]);
+
+      await renderDocuments({ showDeleted: true });
+
+      await waitFor(() => {
+        expect(screen.getByText('test-document.pdf')).toBeInTheDocument();
+      });
+
+      const document = screen.getByText('test-document.pdf');
+      await user.pointer({ keys: '[MouseRight]', target: document });
+
+      await waitFor(() => {
+        expect(screen.getByText('Restore')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Restore'));
+
+      await waitFor(() => {
+        expect(mockUpdate).toHaveBeenCalled();
+        expect(mockSet).toHaveBeenCalledWith({ deleted: false });
       });
     });
 

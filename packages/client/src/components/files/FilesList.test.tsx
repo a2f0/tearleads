@@ -293,4 +293,33 @@ describe('FilesList', () => {
       ).not.toBeInTheDocument();
     });
   });
+
+  it('shows restore in context menu for deleted files', async () => {
+    const user = userEvent.setup();
+    mockFiles = [
+      {
+        id: 'deleted-file',
+        name: 'deleted.txt',
+        size: 100,
+        mimeType: 'text/plain',
+        uploadDate: new Date(),
+        storagePath: '/deleted/path',
+        thumbnailPath: null,
+        deleted: true
+      }
+    ];
+    mockVirtualItems.push({
+      index: 0,
+      start: 0,
+      size: 56,
+      key: 0
+    });
+
+    renderWithRouter(<FilesList showDeleted={true} />);
+
+    const deletedRow = await screen.findByText('deleted.txt');
+    await user.pointer({ keys: '[MouseRight]', target: deletedRow });
+
+    expect(screen.getByText('restore')).toBeInTheDocument();
+  });
 });

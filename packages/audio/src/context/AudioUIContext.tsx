@@ -217,6 +217,7 @@ export interface AudioUIComponents {
 export type AudioTranslationKey =
   | 'getInfo'
   | 'delete'
+  | 'restore'
   | 'play'
   | 'pause'
   | 'download'
@@ -304,6 +305,8 @@ export interface AudioUIContextValue {
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   /** Soft delete an audio file */
   softDeleteAudio: (audioId: string) => Promise<void>;
+  /** Restore a soft-deleted audio file */
+  restoreAudio: (audioId: string) => Promise<void>;
   /** Update an audio file's name */
   updateAudioName: (audioId: string, name: string) => Promise<void>;
   /** Upload a file, returns the file ID */
@@ -369,6 +372,7 @@ export interface AudioUIProviderProps {
   getTrackIdsInPlaylist: (playlistId: string) => Promise<string[]>;
   retrieveFile: (storagePath: string) => Promise<ArrayBuffer | Uint8Array>;
   softDeleteAudio: (audioId: string) => Promise<void>;
+  restoreAudio: (audioId: string) => Promise<void>;
   updateAudioName: (audioId: string, name: string) => Promise<void>;
   uploadFile: (
     file: File,
@@ -414,6 +418,7 @@ export function AudioUIProvider({
   getTrackIdsInPlaylist,
   retrieveFile,
   softDeleteAudio,
+  restoreAudio,
   updateAudioName,
   uploadFile,
   formatFileSize,
@@ -443,6 +448,7 @@ export function AudioUIProvider({
     getTrackIdsInPlaylist,
     retrieveFile,
     softDeleteAudio,
+    restoreAudio,
     updateAudioName,
     uploadFile,
     formatFileSize,

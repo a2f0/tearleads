@@ -7,6 +7,7 @@ import {
   Music,
   Pause,
   Play,
+  RotateCcw,
   Trash2
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -98,6 +99,7 @@ export function AudioWindowTableView({
     fetchAudioFilesWithUrls,
     getTrackIdsInPlaylist,
     softDeleteAudio,
+    restoreAudio,
     formatFileSize,
     formatDate,
     logError,
@@ -343,6 +345,27 @@ export function AudioWindowTableView({
     [softDeleteAudio, logError]
   );
 
+  const handleRestore = useCallback(
+    async (trackToRestore: AudioWithUrl) => {
+      setContextMenu(null);
+
+      try {
+        await restoreAudio(trackToRestore.id);
+        setTracks((prev) =>
+          prev.map((track) =>
+            track.id === trackToRestore.id
+              ? { ...track, deleted: false }
+              : track
+          )
+        );
+      } catch (err) {
+        logError('Failed to restore track', String(err));
+        setError(err instanceof Error ? err.message : String(err));
+      }
+    },
+    [logError, restoreAudio]
+  );
+
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
       <div className="flex items-center justify-between">
@@ -512,36 +535,49 @@ export function AudioWindowTableView({
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={() => handleContextMenuPlay(contextMenu.track)}
-          >
-            {contextMenu.track.id === currentTrack?.id && isPlaying ? (
-              <Pause className="h-4 w-4" />
-            ) : (
-              <Play className="h-4 w-4" />
-            )}
-            {contextMenu.track.id === currentTrack?.id && isPlaying
-              ? t('pause')
-              : t('play')}
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={handleContextMenuInfo}
-          >
-            <Info className="h-4 w-4" />
-            {t('getInfo')}
-          </button>
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
-            onClick={() => handleDelete(contextMenu.track)}
-          >
-            <Trash2 className="h-4 w-4" />
-            {t('delete')}
-          </button>
+          {contextMenu.track.deleted ? (
+            <button
+              type="button"
+              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+              onClick={() => handleRestore(contextMenu.track)}
+            >
+              <RotateCcw className="h-4 w-4" />
+              {t('restore')}
+            </button>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                onClick={() => handleContextMenuPlay(contextMenu.track)}
+              >
+                {contextMenu.track.id === currentTrack?.id && isPlaying ? (
+                  <Pause className="h-4 w-4" />
+                ) : (
+                  <Play className="h-4 w-4" />
+                )}
+                {contextMenu.track.id === currentTrack?.id && isPlaying
+                  ? t('pause')
+                  : t('play')}
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                onClick={handleContextMenuInfo}
+              >
+                <Info className="h-4 w-4" />
+                {t('getInfo')}
+              </button>
+              <button
+                type="button"
+                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+                onClick={() => handleDelete(contextMenu.track)}
+              >
+                <Trash2 className="h-4 w-4" />
+                {t('delete')}
+              </button>
+            </>
+          )}
         </WindowContextMenu>
       )}
     </div>

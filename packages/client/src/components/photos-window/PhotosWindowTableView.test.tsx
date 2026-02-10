@@ -8,6 +8,7 @@ const mockDownloadFile = vi.fn();
 const mockShareFile = vi.fn();
 const mockCanShareFiles = vi.fn(() => false);
 const mockDeletePhoto = vi.fn();
+const mockRestorePhoto = vi.fn();
 const mockDownloadPhoto = vi.fn();
 const mockSharePhoto = vi.fn();
 const mockSetAttachedImage = vi.fn();
@@ -17,6 +18,7 @@ vi.mock('./usePhotosWindowData', () => ({
   usePhotosWindowData: () => ({
     ...mockUsePhotosWindowData(),
     deletePhoto: mockDeletePhoto,
+    restorePhoto: mockRestorePhoto,
     downloadPhoto: mockDownloadPhoto,
     sharePhoto: mockSharePhoto
   })
@@ -45,6 +47,7 @@ vi.mock('@/i18n', () => ({
       ({
         getInfo: 'Get Info',
         delete: 'Delete',
+        restore: 'Restore',
         download: 'Download',
         share: 'Share'
       })[key] ?? key
@@ -167,6 +170,30 @@ describe('PhotosWindowTableView', () => {
       'image/jpeg'
     );
     expect(mockDeletePhoto).toHaveBeenCalledWith('photo-1');
+  });
+
+  it('restores deleted photos from context menu', async () => {
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [{ ...photo, deleted: true }],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByText('photo.jpg')
+    });
+    await user.click(screen.getByRole('button', { name: 'Restore' }));
+
+    expect(mockRestorePhoto).toHaveBeenCalledWith('photo-1');
   });
 
   it('ignores share abort errors from the context menu', async () => {

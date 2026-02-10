@@ -69,6 +69,7 @@ export interface AudioTranslations {
   seek: string;
   getInfo: string;
   delete: string;
+  restore: string;
   download: string;
   share: string;
 }
