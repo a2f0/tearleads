@@ -247,6 +247,7 @@ export function ContactsWindowList({
                   placeholder="Search contacts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  autoFocus
                   className="h-8 text-base"
                   data-testid="window-contacts-search"
                 />

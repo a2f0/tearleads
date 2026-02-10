@@ -94,4 +94,20 @@ describe('ContactsWindowList', () => {
     fireEvent.contextMenu(screen.getByTestId('list-row'));
     expect(screen.queryByText('Send email')).not.toBeInTheDocument();
   });
+
+  it('focuses search input on render', () => {
+    render(
+      <TestContactsProvider>
+        <ContactsWindowList
+          onSelectContact={vi.fn()}
+          onCreateContact={vi.fn()}
+          groupId={undefined}
+        />
+      </TestContactsProvider>
+    );
+
+    expect(document.activeElement).toBe(
+      screen.getByTestId('window-contacts-search')
+    );
+  });
 });
