@@ -19,6 +19,8 @@ type CalendarViewMode = (typeof viewModes)[number];
 const calendarLocale = 'en-US';
 const weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const dayViewHours = Array.from({ length: 24 }, (_, hour) => hour);
+const workHourStart = 9;
+const workHourEnd = 17;
 const yearMonthNames = [
   'January',
   'February',
@@ -351,7 +353,7 @@ export function CalendarContent({
       </div>
       <div className="mt-4 space-y-2">
         {dayViewHours.map((hour) => {
-          const isWorkHour = hour >= 9 && hour < 17;
+          const isWorkHour = hour >= workHourStart && hour < workHourEnd;
           return (
             <div
               key={hour}

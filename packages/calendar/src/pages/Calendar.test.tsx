@@ -96,9 +96,13 @@ describe('Calendar', () => {
 
     const preWorkHourSlot = screen.getByText('08:00').nextElementSibling;
     const workHourSlot = screen.getByText('09:00').nextElementSibling;
+    const lastWorkHourSlot = screen.getByText('16:00').nextElementSibling;
+    const postWorkHourSlot = screen.getByText('17:00').nextElementSibling;
 
     expect(preWorkHourSlot).toHaveClass('bg-muted/40');
     expect(workHourSlot).toHaveClass('bg-accent/35');
+    expect(lastWorkHourSlot).toHaveClass('bg-accent/35');
+    expect(postWorkHourSlot).toHaveClass('bg-muted/40');
   });
 
   it('routes to month view when a year month is clicked', () => {
