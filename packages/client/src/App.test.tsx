@@ -47,11 +47,15 @@ vi.mock('@rapid/window-manager', async (importOriginal) => {
       onContextMenu
     }: {
       state: string;
-      onContextMenu?: MouseEventHandler<HTMLDivElement>;
+      onContextMenu?: MouseEventHandler<HTMLButtonElement>;
     }) => (
-      <div data-testid="connection-indicator" onContextMenu={onContextMenu}>
+      <button
+        type="button"
+        data-testid="connection-indicator"
+        onContextMenu={onContextMenu}
+      >
         {state}
-      </div>
+      </button>
     )
   };
 });

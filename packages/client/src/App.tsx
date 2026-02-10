@@ -1,6 +1,6 @@
-import { WindowConnectionIndicator } from '@rapid/window-manager';
 import { Footer } from '@rapid/ui';
 import logo from '@rapid/ui/logo.svg';
+import { WindowConnectionIndicator } from '@rapid/window-manager';
 import { Info, Lock, Search } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';

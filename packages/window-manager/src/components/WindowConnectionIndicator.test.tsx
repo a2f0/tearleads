@@ -37,8 +37,9 @@ describe('WindowConnectionIndicator', () => {
       />
     );
 
-    const wrapper = screen.getByLabelText('Connection status: connecting')
-      .parentElement;
+    const wrapper = screen.getByLabelText(
+      'Connection status: connecting'
+    ).parentElement;
     expect(wrapper).not.toBeNull();
     if (wrapper instanceof HTMLDivElement) {
       fireEvent.contextMenu(wrapper);

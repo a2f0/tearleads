@@ -4,6 +4,10 @@ export {
   type WindowDimensions
 } from './FloatingWindow.js';
 export {
+  WindowConnectionIndicator,
+  type WindowConnectionIndicatorProps
+} from './WindowConnectionIndicator.js';
+export {
   WindowContextMenu,
   type WindowContextMenuProps
 } from './WindowContextMenu.js';
@@ -15,7 +19,3 @@ export {
   WindowStatusBar,
   type WindowStatusBarProps
 } from './WindowStatusBar.js';
-export {
-  WindowConnectionIndicator,
-  type WindowConnectionIndicatorProps
-} from './WindowConnectionIndicator.js';
