@@ -25,6 +25,7 @@ import {
   CLASSIC_TAG_PARENT_ID,
   createClassicNote,
   createClassicTag,
+  linkNoteToTag,
   loadClassicStateFromDatabase,
   persistClassicOrderToDatabase
 } from './classicPersistence';
@@ -352,6 +353,78 @@ describe('classicPersistence integration', () => {
       expect(createdNoteRows[0]?.deleted).toBe(false);
       expect(createdLinkRows[0]?.parentId).toBe('tag-a');
       expect(createdLinkRows[0]?.position).toBe(3);
+    });
+  });
+
+  it('links an existing note to a different tag via drag-drop', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      await linkNoteToTag('tag-b', 'note-a1');
+
+      const { state } = await loadClassicStateFromDatabase();
+
+      expect(state.noteOrderByTagId['tag-a']).toContain('note-a1');
+      expect(state.noteOrderByTagId['tag-b']).toContain('note-a1');
+
+      const linkRows = await db
+        .select({
+          parentId: vfsLinks.parentId,
+          childId: vfsLinks.childId,
+          position: vfsLinks.position
+        })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.childId, 'note-a1'));
+
+      expect(linkRows).toHaveLength(2);
+      expect(linkRows.map((r) => r.parentId).sort()).toEqual([
+        'tag-a',
+        'tag-b'
+      ]);
+    });
+  });
+
+  it('returns existing link id when note is already linked to tag', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      const firstLinkId = await linkNoteToTag('tag-a', 'note-a1');
+
+      const existingLinkRows = await db
+        .select({ id: vfsLinks.id })
+        .from(vfsLinks)
+        .where(
+          and(eq(vfsLinks.parentId, 'tag-a'), eq(vfsLinks.childId, 'note-a1'))
+        );
+
+      expect(firstLinkId).toBe(existingLinkRows[0]?.id);
+
+      const allTagALinks = await db
+        .select({ childId: vfsLinks.childId })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.parentId, 'tag-a'));
+
+      const noteA1Links = allTagALinks.filter((r) => r.childId === 'note-a1');
+      expect(noteA1Links).toHaveLength(1);
+    });
+  });
+
+  it('appends note at correct position when linking to tag', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      await linkNoteToTag('tag-b', 'note-a2');
+
+      const linkRows = await db
+        .select({
+          childId: vfsLinks.childId,
+          position: vfsLinks.position
+        })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.parentId, 'tag-b'));
+
+      const noteA2Link = linkRows.find((r) => r.childId === 'note-a2');
+      expect(noteA2Link?.position).toBe(1);
     });
   });
 });

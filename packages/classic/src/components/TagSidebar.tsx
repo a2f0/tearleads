@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   CREATE_CLASSIC_TAG_ARIA_LABEL,
-  DEFAULT_CLASSIC_TAG_NAME
+  DEFAULT_CLASSIC_TAG_NAME,
+  DRAG_TYPE_NOTE,
+  DRAG_TYPE_TAG,
+  UNTAGGED_TAG_ID,
+  UNTAGGED_TAG_NAME
 } from '../lib/constants';
 import type { ClassicTag } from '../lib/types';
 import {
@@ -14,6 +18,8 @@ interface TagSidebarProps {
   activeTagId: string | null;
   editingTagId?: string | null;
   autoFocusSearch?: boolean;
+  untaggedCount?: number;
+  noteCountByTagId?: Record<string, number>;
   onSelectTag: (tagId: string) => void;
   onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
   onReorderTag: (tagId: string, targetTagId: string) => void;
@@ -21,6 +27,8 @@ interface TagSidebarProps {
   onStartEditTag?: (tagId: string) => void;
   onRenameTag?: (tagId: string, newName: string) => void;
   onCancelEditTag?: () => void;
+  onDeleteTag?: (tagId: string) => void;
+  onTagNote?: (tagId: string, noteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
@@ -43,6 +51,8 @@ export function TagSidebar({
   activeTagId,
   editingTagId,
   autoFocusSearch,
+  untaggedCount = 0,
+  noteCountByTagId = {},
   onSelectTag,
   onMoveTag,
   onReorderTag,
@@ -50,6 +60,8 @@ export function TagSidebar({
   onStartEditTag,
   onRenameTag,
   onCancelEditTag,
+  onDeleteTag,
+  onTagNote,
   searchValue,
   onSearchChange,
   contextMenuComponents
@@ -150,9 +162,42 @@ export function TagSidebar({
         }}
       >
         <div className="pr-2">
-          {tags.length === 0 ? (
+          {/* Untagged Items virtual tag */}
+          {untaggedCount > 0 && (
+            <ul className="m-0 mb-2 list-none p-0" aria-label="Virtual Tags">
+              <li
+                className={
+                  activeTagId === UNTAGGED_TAG_ID
+                    ? 'border bg-zinc-200 px-2 py-0.5'
+                    : 'border bg-white px-2 py-0.5'
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    aria-hidden="true"
+                    className="w-4 shrink-0 select-none text-center text-xs text-zinc-400"
+                  >
+                    📁
+                  </span>
+                  <button
+                    type="button"
+                    className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
+                    onClick={() => onSelectTag(UNTAGGED_TAG_ID)}
+                    aria-pressed={activeTagId === UNTAGGED_TAG_ID}
+                    aria-label={`Select ${UNTAGGED_TAG_NAME}`}
+                  >
+                    <span className="text-zinc-700">
+                      {UNTAGGED_TAG_NAME} ({untaggedCount})
+                    </span>
+                  </button>
+                </div>
+              </li>
+            </ul>
+          )}
+          {tags.length === 0 && untaggedCount === 0 && (
             <p className="text-sm text-zinc-500">No tags found.</p>
-          ) : (
+          )}
+          {tags.length > 0 && (
             <ul className="m-0 list-none space-y-1 p-0" aria-label="Tag List">
               {tags.map((tag, index) => {
                 const isActive = tag.id === activeTagId;
@@ -181,6 +226,7 @@ export function TagSidebar({
                       setLastHoverTagId(null);
                       event.dataTransfer.effectAllowed = 'move';
                       event.dataTransfer.setData('text/plain', tag.id);
+                      event.dataTransfer.setData(DRAG_TYPE_TAG, tag.id);
                     }}
                     onDragEnd={() => {
                       setDraggedTagId(null);
@@ -188,6 +234,12 @@ export function TagSidebar({
                       setDragArmedTagId(null);
                     }}
                     onDragOver={(event) => {
+                      const types = event.dataTransfer?.types ?? [];
+                      const hasNote = types.includes(DRAG_TYPE_NOTE);
+                      if (hasNote && onTagNote) {
+                        event.preventDefault();
+                        return;
+                      }
                       if (!draggedTagId || draggedTagId === tag.id) {
                         return;
                       }
@@ -201,6 +253,10 @@ export function TagSidebar({
                     onDrop={(event) => {
                       event.preventDefault();
                       setDragArmedTagId(null);
+                      const noteId = event.dataTransfer.getData(DRAG_TYPE_NOTE);
+                      if (noteId && onTagNote) {
+                        onTagNote(tag.id, noteId);
+                      }
                     }}
                     onContextMenu={(event) => {
                       event.preventDefault();
@@ -225,6 +281,13 @@ export function TagSidebar({
                           label: 'Move Down',
                           onClick: () => onMoveTag(tag.id, 'down'),
                           ariaLabel: `Move tag ${tag.name} down`
+                        });
+                      }
+                      if (onDeleteTag) {
+                        actions.push({
+                          label: 'Delete',
+                          onClick: () => onDeleteTag(tag.id),
+                          ariaLabel: `Delete tag ${tag.name}`
                         });
                       }
                       setContextMenu({
@@ -269,7 +332,11 @@ export function TagSidebar({
                           aria-pressed={isActive}
                           aria-label={`Select tag ${tag.name}`}
                         >
-                          <span className="text-zinc-700">{tag.name}</span>
+                          <span className="text-zinc-700">
+                            {tag.name}
+                            {noteCountByTagId[tag.id] !== undefined &&
+                              ` (${noteCountByTagId[tag.id]})`}
+                          </span>
                         </button>
                       )}
                     </div>

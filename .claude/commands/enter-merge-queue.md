@@ -180,18 +180,26 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    git rebase origin/<baseRefName>
    ```
 
-   - If rebase conflicts occur:
-     1. **Preserve main branch changes** (features already merged to main must not be reverted):
-        - List conflicts: `git diff --name-only --diff-filter=U`
-        - For each conflicted file, **keep the main branch version**: `git checkout --ours <file>`
-          - NOTE: During rebase, `--ours` refers to the branch being rebased ONTO (main), not the PR branch. This is the opposite of `git merge`.
-        - Stage all resolved files: `git add <file>`
-        - Continue: `git rebase --continue`
-     2. If conflicts persist or require manual intervention:
-        - Run `git rebase --abort` to restore the branch
-        - List the conflicting files
-        - Clear the queued status with `clearQueued.sh`
-        - Stop and ask the user for help - do NOT automatically resolve in a way that could revert merged features.
+   - If rebase conflicts occur, the goal is to **preserve BOTH the PR's changes AND main's changes**:
+
+     1. **Version files** (`package.json` versions, `build.gradle`, `project.pbxproj`):
+        - Use `git checkout --ours <file>` to keep main's version
+        - These get re-bumped by `bumpVersion.sh` after rebase, so main's version is correct
+        - NOTE: During rebase, `--ours` refers to the branch being rebased ONTO (main), not the PR branch. This is the opposite of `git merge`.
+
+     2. **Lock files** (`pnpm-lock.yaml`):
+        - Use `git checkout --ours pnpm-lock.yaml` to keep main's version
+        - After rebase completes, run `pnpm install` to regenerate with correct dependencies
+
+     3. **Code files with real conflicts**:
+        - Do NOT blindly use `--ours` or `--theirs` - both discard legitimate work
+        - Open the conflicted file and resolve by keeping BOTH sets of changes:
+          - Keep additions from main (features that landed while PR was open)
+          - Keep the PR's changes (the work this PR is delivering)
+        - If changes are on the exact same lines and truly incompatible:
+          - Run `git rebase --abort` to restore the branch
+          - Clear the queued status with `clearQueued.sh`
+          - Stop and ask user for guidance - do NOT auto-resolve in a way that discards either side's work
 
    **Reset job failure counts after rebase**: Clear `job_failure_counts` (new base = fresh start for CI).
 

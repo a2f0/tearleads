@@ -195,4 +195,37 @@ describe('NotesPane', () => {
     fireEvent.click(screen.getByLabelText('Create new entry'));
     expect(onCreateNote).toHaveBeenCalledTimes(1);
   });
+
+  it('calls onTagNote when a tag is dropped on a note', () => {
+    const onTagNote = vi.fn();
+    const dataTransfer = {
+      types: ['application/x-classic-tag'],
+      getData: vi.fn().mockReturnValue('tag-1'),
+      effectAllowed: 'move',
+      setData: vi.fn()
+    } as unknown as DataTransfer;
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onTagNote={onTagNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const noteItem = screen.getByText('Alpha').closest('li');
+    if (!noteItem) throw new Error('Expected note list item');
+
+    fireEvent.dragOver(noteItem, { dataTransfer });
+    fireEvent.drop(noteItem, { dataTransfer });
+
+    expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
+  });
 });

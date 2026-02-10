@@ -1,15 +1,21 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   DEFAULT_CLASSIC_NOTE_TITLE,
-  DEFAULT_CLASSIC_TAG_NAME
+  DEFAULT_CLASSIC_TAG_NAME,
+  UNTAGGED_TAG_ID,
+  UNTAGGED_TAG_NAME
 } from '../lib/constants';
 import {
+  deleteTag,
   getActiveTagNoteIds,
+  getNoteCountByTagId,
+  getUntaggedNoteIds,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
   reorderTags,
   reorderTagToTarget,
-  selectTag
+  selectTag,
+  tagNote
 } from '../lib/ordering';
 import type { ClassicState } from '../lib/types';
 import type { ClassicContextMenuComponents } from './ClassicContextMenu';
@@ -39,10 +45,12 @@ export function ClassicApp({
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
-  const activeTag = useMemo(
-    () => state.tags.find((tag) => tag.id === state.activeTagId) ?? null,
-    [state.activeTagId, state.tags]
-  );
+  const activeTagName = useMemo(() => {
+    if (state.activeTagId === UNTAGGED_TAG_ID) {
+      return UNTAGGED_TAG_NAME;
+    }
+    return state.tags.find((tag) => tag.id === state.activeTagId)?.name ?? null;
+  }, [state.activeTagId, state.tags]);
 
   const filteredTags = useMemo(() => {
     if (!tagSearch.trim()) {
@@ -54,7 +62,16 @@ export function ClassicApp({
     );
   }, [state.tags, tagSearch]);
 
-  const noteIds = useMemo(() => getActiveTagNoteIds(state), [state]);
+  const untaggedNoteIds = useMemo(() => getUntaggedNoteIds(state), [state]);
+
+  const noteCountByTagId = useMemo(() => getNoteCountByTagId(state), [state]);
+
+  const noteIds = useMemo(() => {
+    if (state.activeTagId === UNTAGGED_TAG_ID) {
+      return untaggedNoteIds;
+    }
+    return getActiveTagNoteIds(state);
+  }, [state, untaggedNoteIds]);
 
   const filteredNoteIds = useMemo(() => {
     if (!entrySearch.trim()) {
@@ -79,9 +96,30 @@ export function ClassicApp({
     [onStateChange]
   );
 
-  const handleSelectTag = (tagId: string) => {
-    updateState(selectTag(state, tagId));
-  };
+  const handleSelectTag = useCallback(
+    (tagId: string) => {
+      if (tagId === UNTAGGED_TAG_ID) {
+        updateState({ ...state, activeTagId: UNTAGGED_TAG_ID });
+        return;
+      }
+      updateState(selectTag(state, tagId));
+    },
+    [state, updateState]
+  );
+
+  const handleDeleteTag = useCallback(
+    (tagId: string) => {
+      updateState(deleteTag(state, tagId));
+    },
+    [state, updateState]
+  );
+
+  const handleTagNote = useCallback(
+    (tagId: string, noteId: string) => {
+      updateState(tagNote(state, tagId, noteId));
+    },
+    [state, updateState]
+  );
 
   const handleMoveTag = (tagId: string, direction: 'up' | 'down') => {
     updateState(reorderTags(state, tagId, direction));
@@ -228,6 +266,8 @@ export function ClassicApp({
         activeTagId={state.activeTagId}
         editingTagId={editingTagId}
         {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
+        untaggedCount={untaggedNoteIds.length}
+        noteCountByTagId={noteCountByTagId}
         onSelectTag={handleSelectTag}
         onMoveTag={handleMoveTag}
         onReorderTag={handleReorderTag}
@@ -235,12 +275,14 @@ export function ClassicApp({
         onStartEditTag={setEditingTagId}
         onRenameTag={handleRenameTag}
         onCancelEditTag={handleCancelEditTag}
+        onDeleteTag={handleDeleteTag}
+        onTagNote={handleTagNote}
         searchValue={tagSearch}
         onSearchChange={setTagSearch}
         contextMenuComponents={contextMenuComponents}
       />
       <NotesPane
-        activeTagName={activeTag?.name ?? null}
+        activeTagName={activeTagName}
         noteIds={filteredNoteIds}
         notesById={state.notesById}
         editingNoteId={editingNoteId}
@@ -250,6 +292,7 @@ export function ClassicApp({
         onStartEditNote={setEditingNoteId}
         onUpdateNote={handleUpdateNote}
         onCancelEditNote={handleCancelEditNote}
+        onTagNote={handleTagNote}
         searchValue={entrySearch}
         onSearchChange={setEntrySearch}
         contextMenuComponents={contextMenuComponents}
