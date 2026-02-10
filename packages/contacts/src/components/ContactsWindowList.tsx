@@ -14,6 +14,7 @@ import {
 import { useCallback, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
 import { type ContactInfo, useContacts } from '../hooks/useContacts';
+import { setContactDragData } from '../lib/contactDragData';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
@@ -272,6 +273,10 @@ export function ContactsWindowList({
                           type="button"
                           className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 overflow-hidden text-left"
                           onClick={() => handleContactClick(contact)}
+                          draggable
+                          onDragStart={(event) =>
+                            setContactDragData(event, [contact.id])
+                          }
                         >
                           <User className="h-4 w-4 shrink-0 text-muted-foreground" />
                           <div className="min-w-0 flex-1">

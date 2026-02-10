@@ -19,6 +19,7 @@ import {
   type SortDirection,
   useContacts
 } from '../hooks/useContacts';
+import { setContactDragData } from '../lib/contactDragData';
 
 interface ContactsWindowTableViewProps {
   onSelectContact: (contactId: string) => void;
@@ -242,6 +243,10 @@ export function ContactsWindowTableView({
                     className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                     onClick={() => onSelectContact(contact.id)}
                     onContextMenu={(e) => handleContextMenu(e, contact)}
+                    draggable
+                    onDragStart={(event) =>
+                      setContactDragData(event, [contact.id])
+                    }
                   >
                     <td className="px-2 py-1.5">
                       <div className="flex items-center gap-1.5">

@@ -249,6 +249,22 @@ describe('usePhotoAlbums', () => {
     consoleSpy.mockRestore();
   });
 
+  it('ignores transient database-not-initialized errors', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    mockWhere.mockRejectedValueOnce(new Error('Database not initialized'));
+
+    const { result } = renderHook(() => usePhotoAlbums());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(consoleSpy).not.toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
+  });
+
   it('handles non-Error objects in catch', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockWhere.mockRejectedValueOnce('String error');

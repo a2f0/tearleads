@@ -53,6 +53,7 @@ export function useContacts(
   const [error, setError] = useState<string | null>(null);
   const [hasFetched, setHasFetched] = useState(false);
   const fetchedForInstanceRef = useRef<string | null>(null);
+  const previousGroupIdRef = useRef<string | null | undefined>(groupId);
 
   const fetchContacts = useCallback(async () => {
     if (!isUnlocked) return;
@@ -132,6 +133,13 @@ export function useContacts(
     setHasFetched(false);
     setError(null);
   }, [refreshToken]);
+
+  useEffect(() => {
+    if (previousGroupIdRef.current === groupId) return;
+    previousGroupIdRef.current = groupId;
+    setHasFetched(false);
+    setError(null);
+  }, [groupId]);
 
   useEffect(() => {
     const needsFetch =

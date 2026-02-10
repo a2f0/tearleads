@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestContactsProvider } from '../test/test-utils';
@@ -111,6 +111,39 @@ describe('ContactsGroupsSidebar', () => {
 
     await waitFor(() => {
       expect(createGroup).toHaveBeenCalledWith('Friends');
+    });
+  });
+
+  it('handles dropping contacts onto a group', async () => {
+    const onDropToGroup = vi.fn(async () => undefined);
+
+    render(
+      <TestContactsProvider>
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+          onDropToGroup={onDropToGroup}
+        />
+      </TestContactsProvider>
+    );
+
+    const groupButton = screen.getByText('Family').closest('button');
+    expect(groupButton).not.toBeNull();
+    if (!groupButton) return;
+
+    fireEvent.drop(groupButton, {
+      dataTransfer: {
+        getData: (format: string) =>
+          format === 'application/x-rapid-contact-ids'
+            ? JSON.stringify({ ids: ['contact-1'] })
+            : ''
+      }
+    });
+
+    await waitFor(() => {
+      expect(onDropToGroup).toHaveBeenCalledWith('group-1', ['contact-1']);
     });
   });
 });

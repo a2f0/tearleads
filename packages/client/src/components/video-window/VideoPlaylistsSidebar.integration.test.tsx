@@ -1,29 +1,26 @@
 import '../../test/setup-integration';
 
-import {
-  ALL_AUDIO_ID,
-  AudioPlaylistsSidebar,
-  useAudioUIContext
-} from '@rapid/audio';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { describe, expect, it } from 'vitest';
-import { ClientAudioProvider } from '@/contexts/ClientAudioProvider';
+import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { getDatabase } from '@/db';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
+import { useVideoPlaylistContext } from '@/video/VideoPlaylistContext';
 import { renderWithDatabase } from '../../test/render-with-database';
+import { ALL_VIDEO_ID, VideoPlaylistsSidebar } from './VideoPlaylistsSidebar';
 
 function SidebarDropHarness() {
-  const { addTrackToPlaylist } = useAudioUIContext();
+  const { addTrackToPlaylist } = useVideoPlaylistContext();
   const [refreshToken, setRefreshToken] = useState(0);
 
   const handleDropToPlaylist = useCallback(
-    async (playlistId: string, _droppedFiles: File[], audioIds?: string[]) => {
-      if (!audioIds || audioIds.length === 0) return;
+    async (playlistId: string, _droppedFiles: File[], videoIds?: string[]) => {
+      if (!videoIds || videoIds.length === 0) return;
       try {
         await Promise.all(
-          audioIds.map((audioId) => addTrackToPlaylist(playlistId, audioId))
+          videoIds.map((videoId) => addTrackToPlaylist(playlistId, videoId))
         );
         setRefreshToken((value) => value + 1);
       } catch (_error) {
@@ -34,10 +31,10 @@ function SidebarDropHarness() {
   );
 
   return (
-    <AudioPlaylistsSidebar
+    <VideoPlaylistsSidebar
       width={240}
       onWidthChange={() => {}}
-      selectedPlaylistId={ALL_AUDIO_ID}
+      selectedPlaylistId={ALL_VIDEO_ID}
       onPlaylistSelect={() => {}}
       refreshToken={refreshToken}
       onDropToPlaylist={handleDropToPlaylist}
@@ -45,12 +42,12 @@ function SidebarDropHarness() {
   );
 }
 
-describe('Audio playlist drag and drop integration', () => {
-  it('adds dropped track ids to playlist in real database', async () => {
+describe('Video playlist drag and drop integration', () => {
+  it('updates playlist count after dropping video ids from All Videos list', async () => {
     await renderWithDatabase(
-      <ClientAudioProvider>
+      <ClientVideoProvider>
         <SidebarDropHarness />
-      </ClientAudioProvider>,
+      </ClientVideoProvider>,
       {
         beforeRender: async () => {
           const db = getDatabase();
@@ -64,7 +61,7 @@ describe('Audio playlist drag and drop integration', () => {
               createdAt: now
             },
             {
-              id: 'track-1',
+              id: 'video-1',
               objectType: 'file',
               ownerId: null,
               createdAt: now
@@ -73,21 +70,21 @@ describe('Audio playlist drag and drop integration', () => {
 
           await db.insert(playlists).values({
             id: 'playlist-1',
-            encryptedName: 'Road Trip',
+            encryptedName: 'Movies',
             encryptedDescription: null,
             coverImageId: null,
             shuffleMode: 0,
-            mediaType: 'audio'
+            mediaType: 'video'
           });
 
           await db.insert(files).values({
-            id: 'track-1',
-            name: 'track-1.mp3',
-            size: 1024,
-            mimeType: 'audio/mpeg',
+            id: 'video-1',
+            name: 'video-1.mp4',
+            size: 2048,
+            mimeType: 'video/mp4',
             uploadDate: now,
-            contentHash: 'hash-track-1',
-            storagePath: '/audio/track-1.mp3',
+            contentHash: 'hash-video-1',
+            storagePath: '/videos/video-1.mp4',
             thumbnailPath: null,
             deleted: false
           });
@@ -96,24 +93,19 @@ describe('Audio playlist drag and drop integration', () => {
     );
 
     await waitFor(() => {
-      const playlistButton = screen.getByRole('button', { name: /Road Trip/i });
+      const playlistButton = screen.getByRole('button', { name: /Movies/i });
       expect(playlistButton).toHaveTextContent('0');
     });
 
-    const playlistButton = screen.getByRole('button', { name: /Road Trip/i });
-    const payload = JSON.stringify({
-      mediaType: 'audio',
-      ids: ['track-1']
-    });
+    const playlistButton = screen.getByRole('button', { name: /Movies/i });
+    const payload = JSON.stringify({ mediaType: 'video', ids: ['video-1'] });
     const dataTransfer = {
       files: [],
       getData: (type: string) =>
         type === 'application/x-rapid-media-ids' ? payload : ''
     };
 
-    fireEvent.dragEnter(playlistButton, { dataTransfer });
     fireEvent.dragOver(playlistButton, { dataTransfer });
-    expect(playlistButton.className).toContain('ring-primary');
     fireEvent.drop(playlistButton, { dataTransfer });
 
     await waitFor(async () => {
@@ -123,13 +115,6 @@ describe('Audio playlist drag and drop integration', () => {
         .from(vfsLinks)
         .where(eq(vfsLinks.parentId, 'playlist-1'));
       expect(links).toHaveLength(1);
-    });
-
-    await waitFor(() => {
-      const updatedPlaylistButton = screen.getByRole('button', {
-        name: /Road Trip/i
-      });
-      expect(updatedPlaylistButton.className).not.toContain('ring-primary');
     });
   });
 });

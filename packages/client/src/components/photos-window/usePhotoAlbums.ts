@@ -25,6 +25,16 @@ export interface UsePhotoAlbumsResult {
   getPhotoIdsInAlbum: (albumId: string) => Promise<string[]>;
 }
 
+function isDatabaseNotInitializedError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (error.message.includes('Database not initialized')) return true;
+
+  const cause = 'cause' in error ? error.cause : undefined;
+  return (
+    cause instanceof Error && cause.message.includes('Database not initialized')
+  );
+}
+
 export function usePhotoAlbums(): UsePhotoAlbumsResult {
   const { isUnlocked, currentInstanceId } = useDatabaseContext();
   const [albumList, setAlbumList] = useState<PhotoAlbum[]>([]);
@@ -93,6 +103,11 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
       setAlbumList(result);
       setHasFetched(true);
     } catch (err) {
+      if (isDatabaseNotInitializedError(err)) {
+        // Database setup can race briefly during app/test initialization.
+        // Skip surfacing/logging this transient state and let the next fetch retry.
+        return;
+      }
       console.error('Failed to fetch photo albums:', err);
       setError(err instanceof Error ? err.message : String(err));
     } finally {
