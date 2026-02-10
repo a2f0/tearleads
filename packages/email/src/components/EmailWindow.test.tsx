@@ -23,7 +23,20 @@ vi.mock('@rapid/window-manager', () => ({
       </button>
       {children}
     </div>
-  )
+  ),
+  useResizableSidebar: () => ({
+    resizeHandleProps: {
+      role: 'separator',
+      tabIndex: 0,
+      'aria-orientation': 'vertical',
+      'aria-valuenow': 180,
+      'aria-valuemin': 150,
+      'aria-valuemax': 400,
+      'aria-label': 'Resize sidebar',
+      onMouseDown: vi.fn(),
+      onKeyDown: vi.fn()
+    }
+  })
 }));
 
 vi.mock('./EmailWindowMenuBar', () => ({
@@ -543,6 +556,9 @@ describe('EmailWindow', () => {
 
     await user.click(screen.getByTestId('compose'));
 
+    expect(screen.queryByTestId('address-book-picker')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('compose-to-address-book'));
     await waitFor(() => {
       expect(screen.getByTestId('address-book-picker')).toBeInTheDocument();
     });
@@ -561,6 +577,9 @@ describe('EmailWindow', () => {
       screen.getByRole('button', { name: /add ada lovelace to bcc/i })
     );
     expect(screen.getByTestId('compose-bcc')).toHaveValue('ada@example.com');
+
+    await user.click(screen.getByTestId('address-book-close'));
+    expect(screen.queryByTestId('address-book-picker')).not.toBeInTheDocument();
   });
 
   it('switches right panel when selecting Sent folder', async () => {
