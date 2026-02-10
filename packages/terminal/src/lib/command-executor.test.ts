@@ -165,7 +165,14 @@ describe('command-executor', () => {
         data: {}
       };
 
-      await continueCommand(pending, 'secret123', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'secret123',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -185,7 +192,14 @@ describe('command-executor', () => {
         data: { password: 'secret123' }
       };
 
-      await continueCommand(pending, 'different', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'different',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Passwords do not match.',
@@ -201,7 +215,14 @@ describe('command-executor', () => {
         data: { password: 'secret123' }
       };
 
-      await continueCommand(pending, 'secret123', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'secret123',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(db.setup).toHaveBeenCalledWith('secret123');
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -270,7 +291,14 @@ describe('command-executor', () => {
         data: { persist: 'false' }
       };
 
-      await continueCommand(pending, 'secret123', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'secret123',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(db.unlock).toHaveBeenCalledWith('secret123', false);
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -286,7 +314,14 @@ describe('command-executor', () => {
         data: { persist: 'true' }
       };
 
-      await continueCommand(pending, 'secret123', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'secret123',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(db.unlock).toHaveBeenCalledWith('secret123', true);
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -304,7 +339,14 @@ describe('command-executor', () => {
         data: { persist: 'false' }
       };
 
-      await continueCommand(pending, 'wrong', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'wrong',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Incorrect password.',
@@ -493,7 +535,14 @@ describe('command-executor', () => {
         data: {}
       };
 
-      await continueCommand(pending, 'oldpass', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'oldpass',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -509,7 +558,14 @@ describe('command-executor', () => {
         data: { current: 'oldpass' }
       };
 
-      await continueCommand(pending, 'newpass', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'newpass',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -525,7 +581,14 @@ describe('command-executor', () => {
         data: { current: 'oldpass', new: 'newpass' }
       };
 
-      await continueCommand(pending, 'newpass', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'newpass',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(db.changePassword).toHaveBeenCalledWith('oldpass', 'newpass');
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -541,7 +604,14 @@ describe('command-executor', () => {
         data: { current: 'oldpass', new: 'newpass' }
       };
 
-      await continueCommand(pending, 'different', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'different',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Passwords do not match.',
@@ -559,7 +629,14 @@ describe('command-executor', () => {
         data: { current: 'wrong', new: 'newpass' }
       };
 
-      await continueCommand(pending, 'newpass', db, terminal, filePicker, utilities);
+      await continueCommand(
+        pending,
+        'newpass',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Incorrect current password.',
@@ -615,7 +692,13 @@ describe('command-executor', () => {
 
     it('returns false for empty input', async () => {
       const command = parseCommand('');
-      const result = await executeCommand(command, db, terminal, filePicker, utilities);
+      const result = await executeCommand(
+        command,
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(result).toBe(false);
       expect(terminal.appendLine).not.toHaveBeenCalled();

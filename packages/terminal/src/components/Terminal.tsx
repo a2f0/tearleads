@@ -5,15 +5,15 @@
 
 import type { KeyboardEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCommandHistory } from '../hooks/useCommandHistory';
+import { useTerminal } from '../hooks/useTerminal';
 import type {
   DatabaseOperations,
   TerminalUtilities
 } from '../lib/command-executor';
-import { cn } from '../lib/utils';
-import { useCommandHistory } from '../hooks/useCommandHistory';
-import { useTerminal } from '../hooks/useTerminal';
 import { continueCommand, executeCommand } from '../lib/command-executor';
 import { parseCommand } from '../lib/command-parser';
+import { cn } from '../lib/utils';
 import { TerminalInput } from './TerminalInput';
 import { TerminalOutput } from './TerminalOutput';
 

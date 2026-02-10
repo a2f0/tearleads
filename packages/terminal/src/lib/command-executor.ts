@@ -141,7 +141,14 @@ export async function continueCommand(
       break;
 
     case 'restore':
-      await continueRestore(pending, input, db, terminal, filePicker, utilities);
+      await continueRestore(
+        pending,
+        input,
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
       break;
   }
 }
@@ -373,7 +380,10 @@ async function executeLock(
       'success'
     );
   } catch (err) {
-    terminal.appendLine(`Lock failed: ${utilities.getErrorMessage(err)}`, 'error');
+    terminal.appendLine(
+      `Lock failed: ${utilities.getErrorMessage(err)}`,
+      'error'
+    );
   } finally {
     terminal.setProcessing(false);
   }

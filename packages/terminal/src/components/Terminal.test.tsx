@@ -274,7 +274,9 @@ describe('Terminal', () => {
     await user.type(input, '{Control>}l{/Control}');
 
     await waitFor(() => {
-      expect(screen.queryByText('Rapid Terminal v1.0.0')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Rapid Terminal v1.0.0')
+      ).not.toBeInTheDocument();
     });
   });
 

@@ -17,7 +17,10 @@ function toClassName(input: ClassValue): string {
   }
 
   if (Array.isArray(input)) {
-    return input.map((value) => toClassName(value)).filter(Boolean).join(' ');
+    return input
+      .map((value) => toClassName(value))
+      .filter(Boolean)
+      .join(' ');
   }
 
   return Object.entries(input)
@@ -27,5 +30,8 @@ function toClassName(input: ClassValue): string {
 }
 
 export function cn(...inputs: ClassValue[]): string {
-  return inputs.map((value) => toClassName(value)).filter(Boolean).join(' ');
+  return inputs
+    .map((value) => toClassName(value))
+    .filter(Boolean)
+    .join(' ');
 }
