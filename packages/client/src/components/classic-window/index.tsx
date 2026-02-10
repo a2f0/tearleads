@@ -39,7 +39,7 @@ export function ClassicWindow({
     >
       <div className="flex h-full flex-col">
         <ClassicWindowMenuBar onClose={onClose} />
-        <div className="h-full p-3">
+        <div className="h-full px-3">
           <ClassicWorkspace />
         </div>
       </div>

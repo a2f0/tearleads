@@ -11,11 +11,12 @@ function createState(activeTagId: string | null = 'tag-1'): ClassicState {
     ],
     notesById: {
       'note-1': { id: 'note-1', title: 'Alpha', body: 'A' },
-      'note-2': { id: 'note-2', title: 'Beta', body: 'B' }
+      'note-2': { id: 'note-2', title: 'Beta', body: 'B' },
+      'note-3': { id: 'note-3', title: 'Gamma', body: 'G' }
     },
     noteOrderByTagId: {
       'tag-1': ['note-1', 'note-2'],
-      'tag-2': ['note-2']
+      'tag-2': ['note-2', 'note-3']
     },
     activeTagId
   };
@@ -82,7 +83,7 @@ describe('ClassicApp', () => {
     fireEvent.contextMenu(screen.getByText('Beta'));
     fireEvent.click(screen.getByLabelText('Move note Beta down'));
     latest = getLastState(onStateChange);
-    expect(latest.noteOrderByTagId['tag-2']).toEqual(['note-2']);
+    expect(latest.noteOrderByTagId['tag-2']).toEqual(['note-3', 'note-2']);
   });
 
   it('reorders tags and notes via drag handle hover', () => {
@@ -269,6 +270,6 @@ describe('ClassicApp', () => {
 
     expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
     const latest = getLastState(onStateChange);
-    expect(Object.keys(latest.notesById)).toHaveLength(3);
+    expect(Object.keys(latest.notesById)).toHaveLength(4);
   });
 });

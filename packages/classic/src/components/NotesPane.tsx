@@ -17,6 +17,7 @@ interface NotesPaneProps {
   onMoveNote: (noteId: string, direction: 'up' | 'down') => void;
   onReorderNote: (noteId: string, targetNoteId: string) => void;
   onCreateNote?: (() => void | Promise<void>) | undefined;
+  onStartEditNote?: (noteId: string) => void;
   onUpdateNote?: (noteId: string, title: string, body: string) => void;
   onCancelEditNote?: () => void;
   searchValue: string;
@@ -44,6 +45,7 @@ export function NotesPane({
   onMoveNote,
   onReorderNote,
   onCreateNote,
+  onStartEditNote,
   onUpdateNote,
   onCancelEditNote,
   searchValue,
@@ -135,7 +137,7 @@ export function NotesPane({
         role="button"
         aria-label="Entry list, press Shift+F10 for context menu"
         tabIndex={0}
-        className="flex-1 overflow-auto p-3"
+        className="flex-1 overflow-auto p-3 focus:outline-none"
         onContextMenu={(event) => {
           event.preventDefault();
           openEmptySpaceContextMenu(event.clientX, event.clientY);
@@ -164,7 +166,7 @@ export function NotesPane({
               return (
                 <li
                   key={note.id}
-                  className="rounded border p-3"
+                  className="rounded p-3"
                   draggable
                   onDragStart={(event) => {
                     const target = event.target;
@@ -204,24 +206,33 @@ export function NotesPane({
                   onContextMenu={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
+                    const actions: NotesContextMenuState['actions'] = [];
+                    if (onStartEditNote) {
+                      actions.push({
+                        label: 'Edit',
+                        onClick: () => onStartEditNote(note.id),
+                        ariaLabel: `Edit note ${note.title}`
+                      });
+                    }
+                    if (canMoveUp) {
+                      actions.push({
+                        label: 'Move Up',
+                        onClick: () => onMoveNote(note.id, 'up'),
+                        ariaLabel: `Move note ${note.title} up`
+                      });
+                    }
+                    if (canMoveDown) {
+                      actions.push({
+                        label: 'Move Down',
+                        onClick: () => onMoveNote(note.id, 'down'),
+                        ariaLabel: `Move note ${note.title} down`
+                      });
+                    }
                     setContextMenu({
                       x: event.clientX,
                       y: event.clientY,
                       ariaLabel: `Note actions for ${note.title}`,
-                      actions: [
-                        {
-                          label: 'Move Up',
-                          onClick: () => onMoveNote(note.id, 'up'),
-                          disabled: !canMoveUp,
-                          ariaLabel: `Move note ${note.title} up`
-                        },
-                        {
-                          label: 'Move Down',
-                          onClick: () => onMoveNote(note.id, 'down'),
-                          disabled: !canMoveDown,
-                          ariaLabel: `Move note ${note.title} down`
-                        }
-                      ]
+                      actions
                     });
                   }}
                 >
@@ -234,7 +245,7 @@ export function NotesPane({
                       data-drag-handle="true"
                       onMouseDown={() => setDragArmedNoteId(note.id)}
                       onMouseUp={() => setDragArmedNoteId(null)}
-                      className="flex w-4 shrink-0 items-center justify-center"
+                      className="flex w-4 shrink-0 items-start justify-center pt-1"
                       title="Drag entry"
                     >
                       <span
@@ -264,7 +275,7 @@ export function NotesPane({
                           onChange={(e) => setEditBody(e.target.value)}
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
-                          className="w-full border border-zinc-300 px-1.5 py-0.5 text-base text-xs focus:border-zinc-500 focus:outline-none"
+                          className="w-full border border-zinc-300 px-1.5 py-0.5 font-mono text-base text-xs focus:border-zinc-500 focus:outline-none"
                           rows={2}
                           aria-label="Edit entry body"
                         />
@@ -272,7 +283,9 @@ export function NotesPane({
                     ) : (
                       <div className="min-w-0">
                         <h3 className="text-sm">{note.title}</h3>
-                        <p className="text-xs text-zinc-600">{note.body}</p>
+                        <p className="font-mono text-xs text-zinc-600">
+                          {note.body}
+                        </p>
                       </div>
                     )}
                   </div>

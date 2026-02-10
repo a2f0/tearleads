@@ -89,6 +89,18 @@ describe('ClassicWindow', () => {
     expect(screen.getByRole('menuitem', { name: 'About' })).toBeInTheDocument();
   });
 
+  it('handles no-op menu actions without closing', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+
+    render(<ClassicWindow {...defaultProps} onClose={onClose} />);
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'New Entry' }));
+
+    expect(onClose).not.toHaveBeenCalled();
+  });
+
   it('calls onClose when window close is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();

@@ -61,9 +61,13 @@ describe('NotesPane', () => {
     expect(onMoveNote).toHaveBeenCalledWith('note-1', 'down');
 
     fireEvent.contextMenu(screen.getByText('Alpha'));
-    expect(screen.getByLabelText('Move note Alpha up')).toBeDisabled();
+    expect(
+      screen.queryByLabelText('Move note Alpha up')
+    ).not.toBeInTheDocument();
     fireEvent.contextMenu(screen.getByText('Beta'));
-    expect(screen.getByLabelText('Move note Beta down')).toBeDisabled();
+    expect(
+      screen.queryByLabelText('Move note Beta down')
+    ).not.toBeInTheDocument();
   });
 
   it('renders left-side drag handles for notes', () => {
@@ -85,7 +89,7 @@ describe('NotesPane', () => {
     expect(screen.getAllByTitle('Drag entry')).toHaveLength(2);
   });
 
-  it('disables down for last visible note when trailing ids are missing', () => {
+  it('hides move buttons for single visible note when trailing ids are missing', () => {
     render(
       <NotesPane
         activeTagName="Work"
@@ -101,7 +105,12 @@ describe('NotesPane', () => {
     );
 
     fireEvent.contextMenu(screen.getByText('Alpha'));
-    expect(screen.getByLabelText('Move note Alpha down')).toBeDisabled();
+    expect(
+      screen.queryByLabelText('Move note Alpha up')
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText('Move note Alpha down')
+    ).not.toBeInTheDocument();
   });
 
   it('renders search input and calls onSearchChange', () => {
