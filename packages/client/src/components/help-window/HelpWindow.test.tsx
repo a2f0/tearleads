@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import { HELP_EXTERNAL_LINKS } from '@/constants/help';
 import { HelpWindow } from './HelpWindow';
 
 vi.mock('@rapid/api/dist/openapi.json', () => ({
@@ -62,6 +63,18 @@ vi.mock('@/components/ui/grid-square', () => ({
 }));
 
 describe('HelpWindow', () => {
+  const externalLinkCases = [
+    { label: 'CLI', href: HELP_EXTERNAL_LINKS.cli },
+    {
+      label: 'Chrome Extension',
+      href: HELP_EXTERNAL_LINKS.chromeExtension
+    },
+    {
+      label: 'Backup & Restore',
+      href: HELP_EXTERNAL_LINKS.backupRestore
+    }
+  ] as const;
+
   it('renders the help index view initially', () => {
     render(
       <HelpWindow
@@ -75,9 +88,12 @@ describe('HelpWindow', () => {
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.getByText('API Docs')).toBeInTheDocument();
+    expect(screen.getByText('CLI')).toBeInTheDocument();
+    expect(screen.getByText('Chrome Extension')).toBeInTheDocument();
+    expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
   });
 
-  it('navigates to API docs when clicking the grid square', async () => {
+  it('navigates to API docs when clicking API Docs', async () => {
     const user = userEvent.setup();
     render(
       <HelpWindow
@@ -89,7 +105,7 @@ describe('HelpWindow', () => {
       />
     );
 
-    await user.click(screen.getByTestId('grid-square'));
+    await user.click(screen.getByText('API Docs'));
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
     expect(screen.getByTestId('api-docs')).toHaveTextContent('Client Docs');
@@ -108,7 +124,7 @@ describe('HelpWindow', () => {
     );
 
     // Navigate to API docs
-    await user.click(screen.getByTestId('grid-square'));
+    await user.click(screen.getByText('API Docs'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
 
     // Navigate back to index
@@ -116,5 +132,29 @@ describe('HelpWindow', () => {
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.queryByTestId('api-docs')).not.toBeInTheDocument();
+  });
+
+  it('opens external docs links in a new tab', async () => {
+    const user = userEvent.setup();
+    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    for (const { label, href } of externalLinkCases) {
+      await user.click(screen.getByText(label));
+      expect(openSpy).toHaveBeenLastCalledWith(href, '_blank', 'noopener');
+    }
+
+    expect(openSpy).toHaveBeenCalledTimes(externalLinkCases.length);
+
+    openSpy.mockRestore();
   });
 });

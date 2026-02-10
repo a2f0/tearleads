@@ -1,10 +1,10 @@
 import openapiSpec from '@rapid/api/dist/openapi.json';
 import { ApiDocs } from '@rapid/ui';
-import { ArrowLeft, CircleHelp, FileText } from 'lucide-react';
+import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { GridSquare } from '@/components/ui/grid-square';
+import { HelpLinksGrid } from '@/components/help-links/HelpLinksGrid';
 import {
   DOCS_WINDOW_MAX_HEIGHT_PERCENT,
   DOCS_WINDOW_MAX_WIDTH_PERCENT,
@@ -74,14 +74,7 @@ export function HelpWindow({
                 <h1 className="font-bold text-2xl tracking-tight">Help</h1>
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
-                <GridSquare onClick={() => setView('api')}>
-                  <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-                    <FileText className="h-12 w-12 text-muted-foreground" />
-                    <span className="text-center font-medium text-sm">
-                      API Docs
-                    </span>
-                  </div>
-                </GridSquare>
+                <HelpLinksGrid onApiDocsClick={() => setView('api')} />
               </div>
             </div>
           ) : (

@@ -1,7 +1,7 @@
-import { CircleHelp, FileText } from 'lucide-react';
+import { CircleHelp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { HelpLinksGrid } from '@/components/help-links/HelpLinksGrid';
 import { BackLink } from '@/components/ui/back-link';
-import { GridSquare } from '@/components/ui/grid-square';
 
 export function Help() {
   const navigate = useNavigate();
@@ -17,12 +17,7 @@ export function Help() {
       </div>
 
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-        <GridSquare onClick={() => navigate('/help/api')}>
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-            <FileText className="h-12 w-12 text-muted-foreground" />
-            <span className="text-center font-medium text-sm">API Docs</span>
-          </div>
-        </GridSquare>
+        <HelpLinksGrid onApiDocsClick={() => navigate('/help/api')} />
       </div>
     </div>
   );
