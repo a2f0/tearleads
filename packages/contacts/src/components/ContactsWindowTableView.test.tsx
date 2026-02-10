@@ -56,4 +56,40 @@ describe('ContactsWindowTableView', () => {
       'noopener,noreferrer'
     );
   });
+
+  it('does not show send email when contact has no primary email', () => {
+    mockUseContacts.mockReturnValue({
+      contactsList: [
+        {
+          id: 'contact-1',
+          firstName: 'No',
+          lastName: 'Email',
+          primaryEmail: null,
+          primaryPhone: null
+        }
+      ],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      fetchContacts: vi.fn(),
+      setHasFetched: vi.fn()
+    });
+
+    render(
+      <TestContactsProvider>
+        <ContactsWindowTableView
+          onSelectContact={vi.fn()}
+          onCreateContact={vi.fn()}
+          groupId={undefined}
+        />
+      </TestContactsProvider>
+    );
+
+    const row = screen.getByText('No Email').closest('tr');
+    expect(row).not.toBeNull();
+    if (!row) return;
+
+    fireEvent.contextMenu(row);
+    expect(screen.queryByText('Send email')).not.toBeInTheDocument();
+  });
 });
