@@ -26,6 +26,8 @@
       "@rapid/keychain": ["../keychain/src/index.ts"],
       "@rapid/notes/package.json": ["../notes/package.json"],
       "@rapid/notes": ["../notes/src/index.ts"],
+      "@rapid/terminal/package.json": ["../terminal/package.json"],
+      "@rapid/terminal": ["../terminal/src/index.ts"],
       "@rapid/vfs-explorer/package.json": ["../vfs-explorer/package.json"],
       "@rapid/vfs-explorer": ["../vfs-explorer/src/index.ts"],
       "@rapid/mls-chat/package.json": ["../mls-chat/package.json"],

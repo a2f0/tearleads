@@ -5,8 +5,11 @@
 
 import type { KeyboardEvent } from 'react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
-import { useDatabaseContext } from '@/db/hooks';
-import { cn } from '@/lib/utils';
+import type {
+  DatabaseOperations,
+  TerminalUtilities
+} from '../lib/command-executor';
+import { cn } from '../lib/utils';
 import { useCommandHistory } from '../hooks/useCommandHistory';
 import { useTerminal } from '../hooks/useTerminal';
 import { continueCommand, executeCommand } from '../lib/command-executor';
@@ -15,12 +18,22 @@ import { TerminalInput } from './TerminalInput';
 import { TerminalOutput } from './TerminalOutput';
 
 interface TerminalProps {
+  db: DatabaseOperations;
+  utilities: TerminalUtilities;
+  version: string;
+  appName?: string;
   className?: string;
   autoFocus?: boolean;
 }
 
-export function Terminal({ className, autoFocus = true }: TerminalProps) {
-  const db = useDatabaseContext();
+export function Terminal({
+  db,
+  utilities,
+  version,
+  appName = 'Rapid Terminal',
+  className,
+  autoFocus = true
+}: TerminalProps) {
   const terminal = useTerminal();
   const history = useCommandHistory();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -91,7 +104,8 @@ export function Terminal({ className, autoFocus = true }: TerminalProps) {
         input,
         db,
         terminalControl,
-        filePicker
+        filePicker,
+        utilities
       );
       return;
     }
@@ -110,8 +124,8 @@ export function Terminal({ className, autoFocus = true }: TerminalProps) {
 
     // Parse and execute
     const parsed = parseCommand(input);
-    await executeCommand(parsed, db, terminalControl, filePicker);
-  }, [terminal, db, terminalControl, filePicker, history]);
+    await executeCommand(parsed, db, terminalControl, filePicker, utilities);
+  }, [terminal, db, terminalControl, filePicker, history, utilities]);
 
   // Handle keyboard events
   const handleKeyDown = useCallback(
@@ -175,10 +189,10 @@ export function Terminal({ className, autoFocus = true }: TerminalProps) {
   useEffect(() => {
     if (welcomeShownRef.current) return;
     welcomeShownRef.current = true;
-    appendLine('Rapid Terminal v1.0', 'output');
+    appendLine(`${appName} v${version}`, 'output');
     appendLine('Type "help" for available commands.', 'output');
     appendLine('', 'output');
-  }, [appendLine]);
+  }, [appendLine, appName, version]);
 
   return (
     <div

@@ -3,12 +3,6 @@
  * Orchestrates command flows using DatabaseContext operations.
  */
 
-import { getErrorMessage } from '@/lib/errors';
-import {
-  generateBackupFilename,
-  readFileAsUint8Array,
-  saveFile
-} from '@/lib/file-utils';
 import type { ParsedCommand, PendingCommand } from './types';
 import { COMMAND_HELP, VALID_COMMANDS } from './types';
 
@@ -50,6 +44,14 @@ export interface FilePicker {
   pickFile: (accept: string) => Promise<File | null>;
 }
 
+/** Shared terminal utilities injected by the host app */
+export interface TerminalUtilities {
+  getErrorMessage: (error: unknown) => string;
+  generateBackupFilename: () => string;
+  readFileAsUint8Array: (file: File) => Promise<Uint8Array>;
+  saveFile: (data: Uint8Array, filename: string) => Promise<void>;
+}
+
 /**
  * Execute a parsed command.
  * Returns true if the command was handled, false if unknown.
@@ -58,7 +60,8 @@ export async function executeCommand(
   command: ParsedCommand,
   db: DatabaseOperations,
   terminal: TerminalControl,
-  filePicker: FilePicker
+  filePicker: FilePicker,
+  utilities: TerminalUtilities
 ): Promise<boolean> {
   if (!command.name) {
     if (command.raw) {
@@ -93,15 +96,15 @@ export async function executeCommand(
       return true;
 
     case 'lock':
-      await executeLock(command, db, terminal);
+      await executeLock(command, db, terminal, utilities);
       return true;
 
     case 'backup':
-      await executeBackup(command, db, terminal);
+      await executeBackup(command, db, terminal, utilities);
       return true;
 
     case 'restore':
-      await startRestore(command, db, terminal, filePicker);
+      await startRestore(command, db, terminal, filePicker, utilities);
       return true;
 
     case 'password':
@@ -121,23 +124,24 @@ export async function continueCommand(
   input: string,
   db: DatabaseOperations,
   terminal: TerminalControl,
-  filePicker: FilePicker
+  filePicker: FilePicker,
+  utilities: TerminalUtilities
 ): Promise<void> {
   switch (pending.name) {
     case 'setup':
-      await continueSetup(pending, input, db, terminal);
+      await continueSetup(pending, input, db, terminal, utilities);
       break;
 
     case 'unlock':
-      await continueUnlock(pending, input, db, terminal);
+      await continueUnlock(pending, input, db, terminal, utilities);
       break;
 
     case 'password':
-      await continuePassword(pending, input, db, terminal);
+      await continuePassword(pending, input, db, terminal, utilities);
       break;
 
     case 'restore':
-      await continueRestore(pending, input, db, terminal, filePicker);
+      await continueRestore(pending, input, db, terminal, filePicker, utilities);
       break;
   }
 }
@@ -225,7 +229,8 @@ async function continueSetup(
   pending: PendingCommand,
   input: string,
   db: DatabaseOperations,
-  terminal: TerminalControl
+  terminal: TerminalControl,
+  utilities: TerminalUtilities
 ): Promise<void> {
   if (pending.step === 'password') {
     if (!input) {
@@ -260,7 +265,10 @@ async function continueSetup(
         terminal.appendLine('Database setup failed.', 'error');
       }
     } catch (err) {
-      terminal.appendLine(`Setup failed: ${getErrorMessage(err)}`, 'error');
+      terminal.appendLine(
+        `Setup failed: ${utilities.getErrorMessage(err)}`,
+        'error'
+      );
     } finally {
       terminal.setProcessing(false);
       terminal.setPendingCommand(null);
@@ -301,7 +309,8 @@ async function continueUnlock(
   pending: PendingCommand,
   input: string,
   db: DatabaseOperations,
-  terminal: TerminalControl
+  terminal: TerminalControl,
+  utilities: TerminalUtilities
 ): Promise<void> {
   if (!input) {
     terminal.appendLine('Password cannot be empty.', 'error');
@@ -327,7 +336,10 @@ async function continueUnlock(
       terminal.appendLine('Incorrect password.', 'error');
     }
   } catch (err) {
-    terminal.appendLine(`Unlock failed: ${getErrorMessage(err)}`, 'error');
+    terminal.appendLine(
+      `Unlock failed: ${utilities.getErrorMessage(err)}`,
+      'error'
+    );
   } finally {
     terminal.setProcessing(false);
     terminal.setPendingCommand(null);
@@ -342,7 +354,8 @@ async function continueUnlock(
 async function executeLock(
   command: ParsedCommand,
   db: DatabaseOperations,
-  terminal: TerminalControl
+  terminal: TerminalControl,
+  utilities: TerminalUtilities
 ): Promise<void> {
   if (!db.isUnlocked) {
     terminal.appendLine('Database already locked.', 'output');
@@ -360,7 +373,7 @@ async function executeLock(
       'success'
     );
   } catch (err) {
-    terminal.appendLine(`Lock failed: ${getErrorMessage(err)}`, 'error');
+    terminal.appendLine(`Lock failed: ${utilities.getErrorMessage(err)}`, 'error');
   } finally {
     terminal.setProcessing(false);
   }
@@ -373,7 +386,8 @@ async function executeLock(
 async function executeBackup(
   command: ParsedCommand,
   db: DatabaseOperations,
-  terminal: TerminalControl
+  terminal: TerminalControl,
+  utilities: TerminalUtilities
 ): Promise<void> {
   // Check if we can proceed (try session restore if needed)
   const canProceed = await ensureUnlocked(db, terminal);
@@ -386,11 +400,14 @@ async function executeBackup(
 
   try {
     const data = await db.exportDatabase();
-    const filename = command.args[0] || generateBackupFilename();
-    await saveFile(data, filename);
+    const filename = command.args[0] || utilities.generateBackupFilename();
+    await utilities.saveFile(data, filename);
     terminal.appendLine(`Backup saved as ${filename}.`, 'success');
   } catch (err) {
-    terminal.appendLine(`Backup failed: ${getErrorMessage(err)}`, 'error');
+    terminal.appendLine(
+      `Backup failed: ${utilities.getErrorMessage(err)}`,
+      'error'
+    );
   } finally {
     terminal.setProcessing(false);
   }
@@ -404,7 +421,8 @@ async function startRestore(
   command: ParsedCommand,
   db: DatabaseOperations,
   terminal: TerminalControl,
-  filePicker: FilePicker
+  filePicker: FilePicker,
+  utilities: TerminalUtilities
 ): Promise<void> {
   if (!db.isSetUp) {
     terminal.appendLine('Database not set up. Run "setup" first.', 'error');
@@ -427,7 +445,7 @@ async function startRestore(
   const force = Boolean(command.flags['force'] || command.flags['f']);
 
   if (force) {
-    await performRestore(file, db, terminal);
+    await performRestore(file, db, terminal, utilities);
     return;
   }
 
@@ -439,7 +457,7 @@ async function startRestore(
 
   // Store file data as base64 for later use
   // Process in chunks to avoid "Maximum call stack size exceeded" for large files
-  const data = await readFileAsUint8Array(file);
+  const data = await utilities.readFileAsUint8Array(file);
   const CHUNK_SIZE = 8192;
   let binaryString = '';
   for (let i = 0; i < data.length; i += CHUNK_SIZE) {
@@ -464,7 +482,8 @@ async function continueRestore(
   input: string,
   db: DatabaseOperations,
   terminal: TerminalControl,
-  _filePicker: FilePicker
+  _filePicker: FilePicker,
+  utilities: TerminalUtilities
 ): Promise<void> {
   const normalizedInput = input.toLowerCase().trim();
 
@@ -481,7 +500,7 @@ async function continueRestore(
     terminal.setPendingCommand(null);
     terminal.setCommandMode();
 
-    await performRestoreFromData(data, fileName, db, terminal);
+    await performRestoreFromData(data, fileName, db, terminal, utilities);
   } else if (normalizedInput === 'n' || normalizedInput === 'no') {
     terminal.appendLine('Restore cancelled.', 'output');
     terminal.setPendingCommand(null);
@@ -495,19 +514,23 @@ async function continueRestore(
 async function performRestore(
   file: File,
   db: DatabaseOperations,
-  terminal: TerminalControl
+  terminal: TerminalControl,
+  utilities: TerminalUtilities
 ): Promise<void> {
   terminal.setProcessing(true);
   terminal.appendLine(`Restoring from ${file.name}...`, 'output');
 
   try {
-    const data = await readFileAsUint8Array(file);
+    const data = await utilities.readFileAsUint8Array(file);
     await db.importDatabase(data);
     await db.lock();
     terminal.appendLine('Database restored successfully.', 'success');
     terminal.appendLine('Please unlock to continue.', 'output');
   } catch (err) {
-    terminal.appendLine(`Restore failed: ${getErrorMessage(err)}`, 'error');
+    terminal.appendLine(
+      `Restore failed: ${utilities.getErrorMessage(err)}`,
+      'error'
+    );
   } finally {
     terminal.setProcessing(false);
   }
@@ -517,7 +540,8 @@ async function performRestoreFromData(
   data: Uint8Array,
   fileName: string,
   db: DatabaseOperations,
-  terminal: TerminalControl
+  terminal: TerminalControl,
+  utilities: TerminalUtilities
 ): Promise<void> {
   terminal.setProcessing(true);
   terminal.appendLine(`Restoring from ${fileName}...`, 'output');
@@ -528,7 +552,10 @@ async function performRestoreFromData(
     terminal.appendLine('Database restored successfully.', 'success');
     terminal.appendLine('Please unlock to continue.', 'output');
   } catch (err) {
-    terminal.appendLine(`Restore failed: ${getErrorMessage(err)}`, 'error');
+    terminal.appendLine(
+      `Restore failed: ${utilities.getErrorMessage(err)}`,
+      'error'
+    );
   } finally {
     terminal.setProcessing(false);
   }
@@ -555,7 +582,8 @@ async function continuePassword(
   pending: PendingCommand,
   input: string,
   db: DatabaseOperations,
-  terminal: TerminalControl
+  terminal: TerminalControl,
+  utilities: TerminalUtilities
 ): Promise<void> {
   if (pending.step === 'current') {
     if (!input) {
@@ -608,7 +636,7 @@ async function continuePassword(
       }
     } catch (err) {
       terminal.appendLine(
-        `Password change failed: ${getErrorMessage(err)}`,
+        `Password change failed: ${utilities.getErrorMessage(err)}`,
         'error'
       );
     } finally {

@@ -64,6 +64,7 @@
     "@rapid/keychain": "workspace:*",
     "@rapid/mls-chat": "workspace:*",
     "@rapid/notes": "workspace:*",
+    "@rapid/terminal": "workspace:*",
     "@rapid/shared": "workspace:*",
     "@rapid/ui": "workspace:*",
     "@rapid/vfs-explorer": "workspace:*",

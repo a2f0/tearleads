@@ -5,7 +5,7 @@
 
 import type { ChangeEvent, KeyboardEvent } from 'react';
 import { useEffect, useRef } from 'react';
-import { cn } from '@/lib/utils';
+import { cn } from '../lib/utils';
 import type { InputMode } from '../lib/types';
 
 interface TerminalInputProps {

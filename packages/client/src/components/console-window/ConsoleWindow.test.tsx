@@ -35,8 +35,8 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 // Mock Terminal component
-vi.mock('@/pages/console/components/Terminal', () => ({
-  Terminal: ({
+vi.mock('@/components/terminal', () => ({
+  ClientTerminal: ({
     className,
     autoFocus
   }: {

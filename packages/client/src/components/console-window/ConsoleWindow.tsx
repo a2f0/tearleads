@@ -2,8 +2,8 @@ import { X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { ClientTerminal } from '@/components/terminal';
 import { cn } from '@/lib/utils';
-import { Terminal } from '@/pages/console/components/Terminal';
 import { ConsoleWindowMenuBar } from './ConsoleWindowMenuBar';
 
 interface ConsoleWindowProps {
@@ -203,7 +203,7 @@ export function ConsoleWindow({
                   tab.id === activeTabId ? 'block' : 'hidden'
                 )}
               >
-                <Terminal
+                <ClientTerminal
                   className="h-full rounded-none border-0"
                   autoFocus={focusTarget === 'main' && tab.id === activeTabId}
                 />
@@ -224,7 +224,7 @@ export function ConsoleWindow({
                 className="min-h-0 min-w-0 flex-1 overflow-hidden"
                 data-testid="console-split-pane"
               >
-                <Terminal
+                <ClientTerminal
                   className="h-full rounded-none border-0"
                   autoFocus={focusTarget === 'split'}
                 />

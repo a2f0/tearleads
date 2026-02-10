@@ -1,6 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { TerminalUtilities } from '../lib/command-executor';
 import { Terminal } from './Terminal';
 
 const mockSetup = vi.fn();
@@ -26,15 +27,24 @@ const mockContext = {
   changePassword: mockChangePassword
 };
 
-vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => mockContext
-}));
-
-vi.mock('@/lib/file-utils', () => ({
+const mockUtilities: TerminalUtilities = {
+  getErrorMessage: (error) =>
+    error instanceof Error ? error.message : String(error),
   generateBackupFilename: vi.fn(() => 'rapid-backup.db'),
   readFileAsUint8Array: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
   saveFile: vi.fn(() => Promise.resolve())
-}));
+};
+
+function renderTerminal(props?: { className?: string }) {
+  return render(
+    <Terminal
+      db={mockContext}
+      utilities={mockUtilities}
+      version="1.0.0"
+      {...props}
+    />
+  );
+}
 
 describe('Terminal', () => {
   beforeEach(() => {
@@ -54,10 +64,10 @@ describe('Terminal', () => {
   });
 
   it('renders terminal with welcome message', async () => {
-    render(<Terminal />);
+    renderTerminal();
 
     await waitFor(() => {
-      expect(screen.getByText('Rapid Terminal v1.0')).toBeInTheDocument();
+      expect(screen.getByText('Rapid Terminal v1.0.0')).toBeInTheDocument();
     });
     expect(
       screen.getByText('Type "help" for available commands.')
@@ -65,7 +75,7 @@ describe('Terminal', () => {
   });
 
   it('shows prompt', () => {
-    render(<Terminal />);
+    renderTerminal();
 
     expect(screen.getByTestId('terminal-prompt')).toHaveTextContent(
       'tearleads>'
@@ -76,7 +86,7 @@ describe('Terminal', () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
     mockContext.isUnlocked = false;
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'status{Enter}');
@@ -88,7 +98,7 @@ describe('Terminal', () => {
 
   it('executes help command', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'help{Enter}');
@@ -100,7 +110,7 @@ describe('Terminal', () => {
 
   it('executes clear command', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     // First add some output
@@ -120,7 +130,7 @@ describe('Terminal', () => {
 
   it('shows error for unknown command', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'unknown{Enter}');
@@ -132,7 +142,7 @@ describe('Terminal', () => {
 
   it('handles setup command flow', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'setup{Enter}');
@@ -174,7 +184,7 @@ describe('Terminal', () => {
   it('handles unlock command flow', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'unlock{Enter}');
@@ -198,7 +208,7 @@ describe('Terminal', () => {
   it('handles unlock --persist flag', async () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'unlock --persist{Enter}');
@@ -223,7 +233,7 @@ describe('Terminal', () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
     mockContext.isUnlocked = true;
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'lock{Enter}');
@@ -238,7 +248,7 @@ describe('Terminal', () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
     mockContext.isUnlocked = true;
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'lock --clear{Enter}');
@@ -253,24 +263,24 @@ describe('Terminal', () => {
 
   it('uses Ctrl+L to clear terminal', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     // Wait for initial content
     await waitFor(() => {
-      expect(screen.getByText('Rapid Terminal v1.0')).toBeInTheDocument();
+      expect(screen.getByText('Rapid Terminal v1.0.0')).toBeInTheDocument();
     });
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, '{Control>}l{/Control}');
 
     await waitFor(() => {
-      expect(screen.queryByText('Rapid Terminal v1.0')).not.toBeInTheDocument();
+      expect(screen.queryByText('Rapid Terminal v1.0.0')).not.toBeInTheDocument();
     });
   });
 
   it('uses Ctrl+C to cancel operation', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
 
@@ -298,7 +308,7 @@ describe('Terminal', () => {
 
   it('navigates command history with arrow keys', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
 
@@ -330,7 +340,7 @@ describe('Terminal', () => {
 
   it('hides password input in echo', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'setup{Enter}');
@@ -350,14 +360,14 @@ describe('Terminal', () => {
   });
 
   it('applies custom className', () => {
-    render(<Terminal className="custom-class" />);
+    renderTerminal({ className: 'custom-class' });
 
     expect(screen.getByTestId('terminal')).toHaveClass('custom-class');
   });
 
   it('does not submit empty input', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
 
@@ -376,7 +386,7 @@ describe('Terminal', () => {
 
   it('uses Ctrl+C to clear input without pending command', async () => {
     const user = userEvent.setup();
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
 
@@ -399,7 +409,7 @@ describe('Terminal', () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
     mockContext.isUnlocked = true;
-    render(<Terminal />);
+    renderTerminal();
 
     const input = screen.getByTestId('terminal-input');
     await user.type(input, 'restore{Enter}');
@@ -442,7 +452,7 @@ describe('Terminal', () => {
     const user = userEvent.setup();
     mockContext.isSetUp = true;
     mockContext.isUnlocked = true;
-    render(<Terminal />);
+    renderTerminal();
 
     // Start restore flow
     const input = screen.getByTestId('terminal-input');
