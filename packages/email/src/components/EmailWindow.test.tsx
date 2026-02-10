@@ -26,7 +26,15 @@ vi.mock('@rapid/window-manager', () => ({
   ),
   useResizableSidebar: () => ({
     resizeHandleProps: {
-      onMouseDown: vi.fn()
+      role: 'separator',
+      tabIndex: 0,
+      'aria-orientation': 'vertical',
+      'aria-valuenow': 180,
+      'aria-valuemin': 150,
+      'aria-valuemax': 400,
+      'aria-label': 'Resize sidebar',
+      onMouseDown: vi.fn(),
+      onKeyDown: vi.fn()
     }
   })
 }));

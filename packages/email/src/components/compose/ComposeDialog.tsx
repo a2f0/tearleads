@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import { BookUser, Save, Send, X } from 'lucide-react';
+import { Save, Send, X } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useCompose } from '../../hooks';
 import {
@@ -10,6 +10,7 @@ import {
 import { AddressBookPicker } from './AddressBookPicker';
 import { AttachmentInput } from './AttachmentInput';
 import { AttachmentList } from './AttachmentList';
+import { RecipientInput } from './RecipientInput';
 
 interface ComposeDialogProps {
   open: boolean;
@@ -161,102 +162,48 @@ export function ComposeDialog({
 
         <div className="flex-1 overflow-hidden p-4">
           <div className="flex h-full flex-col gap-3">
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="compose-to"
-                className="w-12 text-muted-foreground text-sm"
-              >
-                To
-              </label>
-              <div className="relative flex-1">
-                <input
-                  ref={toInputRef}
-                  id="compose-to"
-                  type="text"
-                  autoComplete="off"
-                  value={state.to}
-                  onChange={(e) => setTo(e.target.value)}
-                  placeholder="recipient@example.com"
-                  className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                  disabled={state.isSending}
-                  data-testid="compose-to"
-                />
-                <button
-                  type="button"
-                  onClick={() => setAddressBookOpen(true)}
-                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-                  aria-label="Open address book for To"
-                  disabled={state.isSending || state.isSaving}
-                  data-testid="compose-to-address-book"
-                >
-                  <BookUser className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+            <RecipientInput
+              label="To"
+              inputId="compose-to"
+              value={state.to}
+              placeholder="recipient@example.com"
+              disabled={state.isSending}
+              addressBookDisabled={state.isSending || state.isSaving}
+              inputTestId="compose-to"
+              addressBookTestId="compose-to-address-book"
+              addressBookAriaLabel="Open address book for To"
+              onValueChange={setTo}
+              onAddressBookClick={() => setAddressBookOpen(true)}
+              inputRef={toInputRef}
+            />
 
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="compose-cc"
-                className="w-12 text-muted-foreground text-sm"
-              >
-                Cc
-              </label>
-              <div className="relative flex-1">
-                <input
-                  id="compose-cc"
-                  type="text"
-                  autoComplete="off"
-                  value={state.cc}
-                  onChange={(e) => setCc(e.target.value)}
-                  placeholder="cc@example.com"
-                  className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                  disabled={state.isSending}
-                  data-testid="compose-cc"
-                />
-                <button
-                  type="button"
-                  onClick={() => setAddressBookOpen(true)}
-                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-                  aria-label="Open address book for Cc"
-                  disabled={state.isSending || state.isSaving}
-                  data-testid="compose-cc-address-book"
-                >
-                  <BookUser className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+            <RecipientInput
+              label="Cc"
+              inputId="compose-cc"
+              value={state.cc}
+              placeholder="cc@example.com"
+              disabled={state.isSending}
+              addressBookDisabled={state.isSending || state.isSaving}
+              inputTestId="compose-cc"
+              addressBookTestId="compose-cc-address-book"
+              addressBookAriaLabel="Open address book for Cc"
+              onValueChange={setCc}
+              onAddressBookClick={() => setAddressBookOpen(true)}
+            />
 
-            <div className="flex items-center gap-2">
-              <label
-                htmlFor="compose-bcc"
-                className="w-12 text-muted-foreground text-sm"
-              >
-                Bcc
-              </label>
-              <div className="relative flex-1">
-                <input
-                  id="compose-bcc"
-                  type="text"
-                  autoComplete="off"
-                  value={state.bcc}
-                  onChange={(e) => setBcc(e.target.value)}
-                  placeholder="bcc@example.com"
-                  className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-base focus:outline-none focus:ring-2 focus:ring-ring"
-                  disabled={state.isSending}
-                  data-testid="compose-bcc"
-                />
-                <button
-                  type="button"
-                  onClick={() => setAddressBookOpen(true)}
-                  className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-                  aria-label="Open address book for Bcc"
-                  disabled={state.isSending || state.isSaving}
-                  data-testid="compose-bcc-address-book"
-                >
-                  <BookUser className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
+            <RecipientInput
+              label="Bcc"
+              inputId="compose-bcc"
+              value={state.bcc}
+              placeholder="bcc@example.com"
+              disabled={state.isSending}
+              addressBookDisabled={state.isSending || state.isSaving}
+              inputTestId="compose-bcc"
+              addressBookTestId="compose-bcc-address-book"
+              addressBookAriaLabel="Open address book for Bcc"
+              onValueChange={setBcc}
+              onAddressBookClick={() => setAddressBookOpen(true)}
+            />
 
             <div className="flex items-center gap-2">
               <label
