@@ -1,5 +1,8 @@
+import { useState } from 'react';
+import { BackupDocumentation } from '@/components/backup-window/BackupDocumentation';
 import { BackupManagerView } from '@/components/backup-window/BackupManagerView';
 import { BackLink } from '@/components/ui/back-link';
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { useTypedTranslation } from '@/i18n';
 
 interface BackupsProps {
@@ -8,17 +11,31 @@ interface BackupsProps {
 
 export function Backups({ showBackLink = true }: BackupsProps) {
   const { t: tMenu } = useTypedTranslation('menu');
+  const [showDocumentation, setShowDocumentation] = useState(false);
 
   return (
     <div className="space-y-6">
-      <div className="space-y-2">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
-        <h1 className="font-bold text-2xl tracking-tight">
-          {tMenu('backups')}
-        </h1>
+      <div className="flex items-start justify-between gap-4">
+        <div className="space-y-2">
+          {showBackLink && (
+            <BackLink defaultTo="/" defaultLabel="Back to Home" />
+          )}
+          <h1 className="font-bold text-2xl tracking-tight">
+            {tMenu('backups')}
+          </h1>
+        </div>
+        <DropdownMenu trigger="Help" align="right">
+          <DropdownMenuItem onClick={() => setShowDocumentation(true)}>
+            Documentation
+          </DropdownMenuItem>
+        </DropdownMenu>
       </div>
       <div className="space-y-6 rounded-lg border p-4">
-        <BackupManagerView />
+        {showDocumentation ? (
+          <BackupDocumentation onBack={() => setShowDocumentation(false)} />
+        ) : (
+          <BackupManagerView />
+        )}
       </div>
     </div>
   );

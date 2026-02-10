@@ -1,5 +1,6 @@
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -9,6 +10,19 @@ import { Backups } from './Backups';
 vi.mock('@/components/backup-window/BackupManagerView', () => ({
   BackupManagerView: () => (
     <div data-testid="backup-manager-view">BackupManagerView</div>
+  )
+}));
+
+vi.mock('@/components/backup-window/BackupDocumentation', () => ({
+  BackupDocumentation: ({ onBack }: { onBack?: (() => void) | undefined }) => (
+    <div data-testid="backup-documentation">
+      BackupDocumentation
+      {onBack && (
+        <button type="button" onClick={onBack}>
+          Back to Backup Manager
+        </button>
+      )}
+    </div>
   )
 }));
 
@@ -54,5 +68,16 @@ describe('Backups page', () => {
     await waitFor(() => {
       expect(screen.queryByTestId('back-link')).not.toBeInTheDocument();
     });
+  });
+
+  it('opens documentation view from Help menu', async () => {
+    const user = userEvent.setup();
+    renderBackups();
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
+
+    expect(screen.getByTestId('backup-documentation')).toBeInTheDocument();
+    expect(screen.queryByTestId('backup-manager-view')).not.toBeInTheDocument();
   });
 });
