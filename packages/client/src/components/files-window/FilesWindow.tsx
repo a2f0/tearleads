@@ -1,3 +1,4 @@
+import { WindowStatusBar } from '@rapid/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -36,6 +37,7 @@ export function FilesWindow({
   const [showDropzone, setShowDropzone] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
+  const [listStatusText, setListStatusText] = useState('Loading files...');
   const [refreshToken, setRefreshToken] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contentRef = useRef<FilesWindowContentRef>(null);
@@ -76,6 +78,14 @@ export function FilesWindow({
     setSelectedFileId(null);
     setRefreshToken((value) => value + 1);
   }, []);
+
+  const statusText = selectedFileId
+    ? 'Viewing file details'
+    : viewMode === 'list'
+      ? listStatusText
+      : showDeleted
+        ? 'Browsing deleted files'
+        : 'Browsing files';
 
   useEffect(() => {
     if (!openRequest) return;
@@ -121,6 +131,7 @@ export function FilesWindow({
               showDeleted={showDeleted}
               showDropzone={showDropzone}
               onSelectFile={handleSelectFile}
+              onStatusTextChange={setListStatusText}
               refreshToken={refreshToken}
               onUpload={handleUpload}
             />
@@ -134,6 +145,7 @@ export function FilesWindow({
           )}
           <DropZoneOverlay isVisible={isDragging} label="files" />
         </div>
+        <WindowStatusBar>{statusText}</WindowStatusBar>
       </div>
       <input
         ref={fileInputRef}

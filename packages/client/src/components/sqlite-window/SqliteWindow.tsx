@@ -1,3 +1,4 @@
+import { WindowStatusBar } from '@rapid/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -27,12 +28,14 @@ export function SqliteWindow({
   zIndex,
   initialDimensions
 }: SqliteWindowProps) {
+  const defaultStatusText = 'Select a table to view its data.';
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [exportHandler, setExportHandler] = useState<
     (() => Promise<void>) | null
   >(null);
   const [exportingCsv, setExportingCsv] = useState(false);
+  const [tableStatusText, setTableStatusText] = useState(defaultStatusText);
 
   const handleRefresh = useCallback(() => {
     setRefreshKey((prev) => prev + 1);
@@ -81,6 +84,7 @@ export function SqliteWindow({
               key={`${refreshKey}-${selectedTable}`}
               tableName={selectedTable}
               containerClassName="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden"
+              showInlineStatus={false}
               onExportCsvChange={handleExportCsvChange}
               backLink={
                 <Button
@@ -88,13 +92,17 @@ export function SqliteWindow({
                   variant="ghost"
                   size="sm"
                   className="h-7 px-2"
-                  onClick={() => setSelectedTable(null)}
+                  onClick={() => {
+                    setSelectedTable(null);
+                    setTableStatusText(defaultStatusText);
+                  }}
                   aria-label="Back to SQLite"
                 >
                   <ArrowLeft className="h-4 w-4" />
                   <span className="sr-only">Back to SQLite</span>
                 </Button>
               }
+              onStatusTextChange={setTableStatusText}
             />
           ) : (
             <div className="space-y-6 overflow-auto" key={refreshKey}>
@@ -103,6 +111,7 @@ export function SqliteWindow({
             </div>
           )}
         </div>
+        <WindowStatusBar>{tableStatusText}</WindowStatusBar>
       </div>
     </FloatingWindow>
   );

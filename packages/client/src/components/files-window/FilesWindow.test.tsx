@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { FilesWindow } from './FilesWindow';
@@ -124,7 +125,8 @@ vi.mock('./FilesWindowContent', () => ({
       showDeleted,
       showDropzone,
       ref,
-      onSelectFile
+      onSelectFile,
+      onStatusTextChange
     }: {
       showDeleted: boolean;
       showDropzone: boolean;
@@ -132,11 +134,15 @@ vi.mock('./FilesWindowContent', () => ({
         uploadFiles: (files: File[]) => void;
       } | null>;
       onSelectFile?: (fileId: string) => void;
+      onStatusTextChange?: (text: string) => void;
     }) => {
       // Simulate forwardRef behavior by exposing uploadFiles
       if (ref) {
         ref.current = { uploadFiles: mockUploadFiles };
       }
+      React.useEffect(() => {
+        onStatusTextChange?.('Viewing 1-3 of 3 files');
+      }, [onStatusTextChange]);
       return (
         <div data-testid="files-content">
           <span data-testid="content-show-deleted">
@@ -371,6 +377,7 @@ describe('FilesWindow', () => {
 
     expect(screen.getByTestId('files-content')).toBeInTheDocument();
     expect(screen.queryByTestId('files-table-view')).not.toBeInTheDocument();
+    expect(screen.getByText('Viewing 1-3 of 3 files')).toBeInTheDocument();
   });
 
   it('passes showDeleted to table view', async () => {
