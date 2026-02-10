@@ -1,5 +1,5 @@
 import { useResizableSidebar } from '@rapid/window-manager';
-import { Folder, Loader2, Plus, Trash2 } from 'lucide-react';
+import { Folder, FolderPlus, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsUI } from '../context';
 import { type ContactGroup, useContactGroups } from '../hooks';
@@ -39,6 +39,10 @@ export function ContactsGroupsSidebar({
     y: number;
     group: ContactGroup;
   } | null>(null);
+  const [emptySpaceContextMenu, setEmptySpaceContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const [newGroupDialogOpen, setNewGroupDialogOpen] = useState(false);
   const [renameDialogGroup, setRenameDialogGroup] =
     useState<ContactGroup | null>(null);
@@ -73,6 +77,11 @@ export function ContactsGroupsSidebar({
     },
     []
   );
+
+  const handleEmptySpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
 
   const clearContextMenu = useCallback(() => {
     setContextMenu(null);
@@ -119,7 +128,11 @@ export function ContactsGroupsSidebar({
           <Plus className="h-4 w-4" />
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-1">
+      {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
+      <div
+        className="flex-1 overflow-y-auto p-1"
+        onContextMenu={handleEmptySpaceContextMenu}
+      >
         <button
           type="button"
           className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
@@ -194,6 +207,24 @@ export function ContactsGroupsSidebar({
             }}
           >
             Delete
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {emptySpaceContextMenu && (
+        <ContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<FolderPlus className="h-4 w-4" />}
+            onClick={() => {
+              setNewGroupDialogOpen(true);
+              setEmptySpaceContextMenu(null);
+            }}
+          >
+            New Group
           </ContextMenuItem>
         </ContextMenu>
       )}

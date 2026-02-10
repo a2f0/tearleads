@@ -1,7 +1,16 @@
 import { contacts as contactsTable } from '@rapid/db/sqlite';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { eq } from 'drizzle-orm';
-import { Info, Loader2, Mail, Phone, Plus, Trash2, User } from 'lucide-react';
+import {
+  Info,
+  Loader2,
+  Mail,
+  Phone,
+  Plus,
+  Trash2,
+  User,
+  UserPlus
+} from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
 import { type ContactInfo, useContacts } from '../hooks/useContacts';
@@ -45,6 +54,10 @@ export function ContactsWindowList({
   const [searchQuery, setSearchQuery] = useState('');
   const [contextMenu, setContextMenu] = useState<{
     contact: ContactInfo;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [emptySpaceContextMenu, setEmptySpaceContextMenu] = useState<{
     x: number;
     y: number;
   } | null>(null);
@@ -120,6 +133,11 @@ export function ContactsWindowList({
     setContextMenu(null);
   }, []);
 
+  const handleEmptySpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setEmptySpaceContextMenu({ x: e.clientX, y: e.clientY });
+  }, []);
+
   const getDisplayName = (contact: ContactInfo) => {
     return `${contact.firstName}${contact.lastName ? ` ${contact.lastName}` : ''}`;
   };
@@ -173,7 +191,11 @@ export function ContactsWindowList({
             Loading contacts...
           </div>
         ) : contactsList.length === 0 && hasFetched ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center">
+          // biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space
+          <div
+            className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center"
+            onContextMenu={handleEmptySpaceContextMenu}
+          >
             <User className="h-8 w-8 text-muted-foreground" />
             <div>
               <p className="font-medium text-sm">No contacts yet</p>
@@ -192,10 +214,12 @@ export function ContactsWindowList({
           </div>
         ) : (
           <div className="flex min-h-0 flex-1 flex-col">
+            {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
             <div
               ref={parentRef}
               className="flex-1 overflow-auto rounded-lg border"
               data-testid="contacts-scroll-container"
+              onContextMenu={handleEmptySpaceContextMenu}
             >
               {/* Sticky section - search and status line */}
               <div className="sticky top-0 z-10 space-y-2 bg-background p-2">
@@ -290,6 +314,24 @@ export function ContactsWindowList({
             onClick={handleDelete}
           >
             {t('delete')}
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
+
+      {emptySpaceContextMenu && (
+        <ContextMenu
+          x={emptySpaceContextMenu.x}
+          y={emptySpaceContextMenu.y}
+          onClose={() => setEmptySpaceContextMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<UserPlus className="h-4 w-4" />}
+            onClick={() => {
+              onCreateContact();
+              setEmptySpaceContextMenu(null);
+            }}
+          >
+            New Contact
           </ContextMenuItem>
         </ContextMenu>
       )}
