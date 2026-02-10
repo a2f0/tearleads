@@ -11,55 +11,63 @@ export async function linkContactsToGroup(
     return 0;
   }
 
-  const now = new Date();
+  const run = async (tx: Database): Promise<number> => {
+    const now = new Date();
 
-  const existingRegistryRows = await db
-    .select({ id: vfsRegistry.id })
-    .from(vfsRegistry)
-    .where(inArray(vfsRegistry.id, uniqueContactIds));
-  const existingRegistryIds = new Set(
-    existingRegistryRows.map((row) => row.id)
-  );
-  const missingRegistryIds = uniqueContactIds.filter(
-    (contactId) => !existingRegistryIds.has(contactId)
-  );
-  if (missingRegistryIds.length > 0) {
-    await db.insert(vfsRegistry).values(
-      missingRegistryIds.map((contactId) => ({
-        id: contactId,
-        objectType: 'contact',
-        ownerId: null,
+    const existingRegistryRows = await tx
+      .select({ id: vfsRegistry.id })
+      .from(vfsRegistry)
+      .where(inArray(vfsRegistry.id, uniqueContactIds));
+    const existingRegistryIds = new Set(
+      existingRegistryRows.map((row) => row.id)
+    );
+    const missingRegistryIds = uniqueContactIds.filter(
+      (contactId) => !existingRegistryIds.has(contactId)
+    );
+    if (missingRegistryIds.length > 0) {
+      await tx.insert(vfsRegistry).values(
+        missingRegistryIds.map((contactId) => ({
+          id: contactId,
+          objectType: 'contact',
+          ownerId: null,
+          createdAt: now
+        }))
+      );
+    }
+
+    const existingLinks = await tx
+      .select({ childId: vfsLinks.childId })
+      .from(vfsLinks)
+      .where(
+        and(
+          eq(vfsLinks.parentId, groupId),
+          inArray(vfsLinks.childId, uniqueContactIds)
+        )
+      );
+
+    const existingChildIds = new Set(existingLinks.map((link) => link.childId));
+    const linksToInsert = uniqueContactIds
+      .filter((contactId) => !existingChildIds.has(contactId))
+      .map((contactId) => ({
+        id: crypto.randomUUID(),
+        parentId: groupId,
+        childId: contactId,
+        wrappedSessionKey: '',
         createdAt: now
-      }))
-    );
+      }));
+
+    if (linksToInsert.length === 0) {
+      return 0;
+    }
+
+    await tx.insert(vfsLinks).values(linksToInsert);
+
+    return linksToInsert.length;
+  };
+
+  if (typeof db.transaction === 'function') {
+    return db.transaction(run);
   }
 
-  const existingLinks = await db
-    .select({ childId: vfsLinks.childId })
-    .from(vfsLinks)
-    .where(
-      and(
-        eq(vfsLinks.parentId, groupId),
-        inArray(vfsLinks.childId, uniqueContactIds)
-      )
-    );
-
-  const existingChildIds = new Set(existingLinks.map((link) => link.childId));
-  const linksToInsert = uniqueContactIds
-    .filter((contactId) => !existingChildIds.has(contactId))
-    .map((contactId) => ({
-      id: crypto.randomUUID(),
-      parentId: groupId,
-      childId: contactId,
-      wrappedSessionKey: '',
-      createdAt: now
-    }));
-
-  if (linksToInsert.length === 0) {
-    return 0;
-  }
-
-  await db.insert(vfsLinks).values(linksToInsert);
-
-  return linksToInsert.length;
+  return run(db);
 }
