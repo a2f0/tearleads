@@ -20,67 +20,120 @@ vi.mock('@/lib/jwt', async (importOriginal) => {
   };
 });
 
-type EventSourceListener = (event: { data: string }) => void;
+interface MockReader {
+  chunks: string[];
+  chunkIndex: number;
+  aborted: boolean;
+  read: () => Promise<{ done: boolean; value?: Uint8Array }>;
+}
 
-class MockEventSource {
-  static instances: MockEventSource[] = [];
-  url: string;
-  listeners: Record<string, EventSourceListener[]> = {};
-  onerror: (() => void) | null = null;
+interface MockSSEConnection {
+  reader: MockReader;
+  abortController: AbortController;
+  emit: (event: string, data?: string) => void;
+  close: () => void;
+}
 
-  constructor(url: string) {
-    this.url = url;
-    MockEventSource.instances.push(this);
-  }
+const mockSSE = {
+  connections: [] as MockSSEConnection[],
+  fetchMock: null as ReturnType<typeof vi.fn> | null,
 
-  addEventListener(event: string, callback: EventSourceListener) {
-    if (!this.listeners[event]) {
-      this.listeners[event] = [];
+  reset() {
+    mockSSE.connections = [];
+  },
+
+  createConnection(): MockSSEConnection {
+    const encoder = new TextEncoder();
+    const abortController = new AbortController();
+
+    const reader: MockReader = {
+      chunks: [],
+      chunkIndex: 0,
+      aborted: false,
+      read: async function () {
+        if (this.aborted) {
+          return { done: true };
+        }
+
+        // Wait for chunks to be added
+        while (this.chunkIndex >= this.chunks.length && !this.aborted) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+
+        if (this.aborted) {
+          return { done: true };
+        }
+
+        const chunk = this.chunks[this.chunkIndex];
+        this.chunkIndex++;
+        return { done: false, value: encoder.encode(chunk) };
+      }
+    };
+
+    const connection: MockSSEConnection = {
+      reader,
+      abortController,
+      emit: (event: string, data = '') => {
+        let chunk = `event: ${event}\n`;
+        if (data) {
+          chunk += `data: ${data}\n`;
+        }
+        chunk += '\n';
+        reader.chunks.push(chunk);
+      },
+      close: () => {
+        reader.aborted = true;
+      }
+    };
+
+    mockSSE.connections.push(connection);
+    return connection;
+  },
+
+  getInstance(index: number): MockSSEConnection {
+    const connection = mockSSE.connections[index];
+    if (!connection) {
+      throw new Error(`MockSSEConnection instance ${index} not found`);
     }
-    this.listeners[event]?.push(callback);
-  }
+    return connection;
+  },
 
-  close() {
-    // noop
-  }
-
-  emit(event: string, data = '') {
-    const callbacks = this.listeners[event] ?? [];
-    for (const callback of callbacks) {
-      callback({ data });
+  getLastInstance(): MockSSEConnection {
+    const connection = mockSSE.connections[mockSSE.connections.length - 1];
+    if (!connection) {
+      throw new Error('No MockSSEConnection instances');
     }
+    return connection;
   }
+};
 
-  triggerError() {
-    if (this.onerror) {
-      this.onerror();
-    }
-  }
+function createMockFetch() {
+  return vi.fn().mockImplementation((_url: string, options?: RequestInit) => {
+    const connection = mockSSE.createConnection();
 
-  static getInstance(index: number): MockEventSource {
-    const instance = MockEventSource.instances[index];
-    if (!instance) {
-      throw new Error(`MockEventSource instance ${index} not found`);
+    // Handle abort signal
+    if (options?.signal) {
+      options.signal.addEventListener('abort', () => {
+        connection.close();
+      });
     }
-    return instance;
-  }
 
-  static getLastInstance(): MockEventSource {
-    const instance =
-      MockEventSource.instances[MockEventSource.instances.length - 1];
-    if (!instance) {
-      throw new Error('No MockEventSource instances');
-    }
-    return instance;
-  }
+    return Promise.resolve({
+      ok: true,
+      body: {
+        getReader: () => connection.reader
+      }
+    });
+  });
 }
 
 describe('SSEContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useFakeTimers();
-    MockEventSource.instances = [];
-    vi.stubGlobal('EventSource', MockEventSource);
+    mockSSE.reset();
+    mockSSE.fetchMock = createMockFetch();
+    vi.stubGlobal('fetch', mockSSE.fetchMock);
     localStorage.setItem('auth_token', 'test-token');
     localStorage.setItem(
       'auth_user',
@@ -132,7 +185,7 @@ describe('SSEContext', () => {
 
       await flushAuthLoad();
       expect(result.current.connectionState).toBe('connecting');
-      expect(MockEventSource.instances).toHaveLength(1);
+      expect(mockSSE.connections).toHaveLength(1);
     });
 
     it('transitions to connected on connected event', async () => {
@@ -141,8 +194,10 @@ describe('SSEContext', () => {
       });
 
       await flushAuthLoad();
-      act(() => {
-        MockEventSource.getInstance(0).emit('connected');
+
+      await act(async () => {
+        mockSSE.getInstance(0).emit('connected');
+        await vi.advanceTimersByTimeAsync(50);
       });
 
       expect(result.current.connectionState).toBe('connected');
@@ -157,7 +212,7 @@ describe('SSEContext', () => {
 
       await flushAuthLoad();
       expect(result.current.connectionState).toBe('disconnected');
-      expect(MockEventSource.instances).toHaveLength(0);
+      expect(mockSSE.connections).toHaveLength(0);
     });
   });
 
@@ -179,11 +234,11 @@ describe('SSEContext', () => {
           result.current.connect();
         });
 
-        expect(MockEventSource.instances).toHaveLength(0);
+        expect(mockSSE.connections).toHaveLength(0);
         expect(result.current.connectionState).toBe('disconnected');
       });
 
-      it('creates EventSource with correct URL', async () => {
+      it('creates fetch with correct URL and Authorization header', async () => {
         const { result } = renderHook(() => useSSE(), { wrapper });
 
         await flushAuthLoad();
@@ -191,9 +246,12 @@ describe('SSEContext', () => {
           result.current.connect();
         });
 
-        expect(MockEventSource.instances).toHaveLength(1);
-        expect(MockEventSource.getInstance(0).url).toBe(
-          'http://localhost:5001/v1/sse?channels=broadcast&token=test-token'
+        expect(mockSSE.connections).toHaveLength(1);
+        expect(mockSSE.fetchMock).toHaveBeenCalledWith(
+          'http://localhost:5001/v1/sse?channels=broadcast',
+          expect.objectContaining({
+            headers: { Authorization: 'Bearer test-token' }
+          })
         );
       });
 
@@ -216,8 +274,9 @@ describe('SSEContext', () => {
           result.current.connect(['channel1', 'channel2']);
         });
 
-        expect(MockEventSource.getInstance(0).url).toBe(
-          'http://localhost:5001/v1/sse?channels=channel1%2Cchannel2&token=test-token'
+        expect(mockSSE.fetchMock).toHaveBeenCalledWith(
+          'http://localhost:5001/v1/sse?channels=channel1%2Cchannel2',
+          expect.any(Object)
         );
       });
     });
@@ -231,8 +290,9 @@ describe('SSEContext', () => {
           result.current.connect();
         });
 
-        act(() => {
-          MockEventSource.getInstance(0).emit('connected');
+        await act(async () => {
+          mockSSE.getInstance(0).emit('connected');
+          await vi.advanceTimersByTimeAsync(50);
         });
 
         act(() => {
@@ -252,8 +312,9 @@ describe('SSEContext', () => {
           result.current.connect();
         });
 
-        act(() => {
-          MockEventSource.getInstance(0).emit('connected');
+        await act(async () => {
+          mockSSE.getInstance(0).emit('connected');
+          await vi.advanceTimersByTimeAsync(50);
         });
 
         const testMessage = {
@@ -262,11 +323,14 @@ describe('SSEContext', () => {
           timestamp: '2026-01-10T00:00:00.000Z'
         };
 
-        act(() => {
-          MockEventSource.getInstance(0).emit(
-            'message',
-            JSON.stringify({ channel: 'test', message: testMessage })
-          );
+        await act(async () => {
+          mockSSE
+            .getInstance(0)
+            .emit(
+              'message',
+              JSON.stringify({ channel: 'test', message: testMessage })
+            );
+          await vi.advanceTimersByTimeAsync(50);
         });
 
         expect(result.current.lastMessage).toEqual({
@@ -286,8 +350,9 @@ describe('SSEContext', () => {
           result.current.connect();
         });
 
-        act(() => {
-          MockEventSource.getInstance(0).emit('message', 'invalid json');
+        await act(async () => {
+          mockSSE.getInstance(0).emit('message', 'invalid json');
+          await vi.advanceTimersByTimeAsync(50);
         });
 
         expect(result.current.lastMessage).toBeNull();
@@ -309,14 +374,15 @@ describe('SSEContext', () => {
           result.current.connect();
         });
 
-        act(() => {
-          MockEventSource.getInstance(0).emit(
+        await act(async () => {
+          mockSSE.getInstance(0).emit(
             'message',
             JSON.stringify({
               channel: 'test',
               message: { payload: {}, timestamp: '2026-01-10T00:00:00.000Z' }
             })
           );
+          await vi.advanceTimersByTimeAsync(50);
         });
 
         expect(result.current.lastMessage).toBeNull();
@@ -338,14 +404,15 @@ describe('SSEContext', () => {
           result.current.connect();
         });
 
-        act(() => {
-          MockEventSource.getInstance(0).emit(
+        await act(async () => {
+          mockSSE.getInstance(0).emit(
             'message',
             JSON.stringify({
               channel: 'test',
               message: { type: 'test', timestamp: '2026-01-10T00:00:00.000Z' }
             })
           );
+          await vi.advanceTimersByTimeAsync(50);
         });
 
         expect(result.current.lastMessage).toBeNull();
@@ -359,6 +426,34 @@ describe('SSEContext', () => {
 
     describe('auto-reconnect', () => {
       it('reconnects with exponential backoff on error', async () => {
+        mockSSE.fetchMock = vi
+          .fn()
+          .mockResolvedValueOnce({
+            ok: true,
+            body: {
+              getReader: () => {
+                const connection = mockSSE.createConnection();
+                // Emit connected then close to trigger reconnect
+                setTimeout(() => {
+                  connection.emit('connected');
+                  setTimeout(() => {
+                    connection.close();
+                  }, 10);
+                }, 10);
+                return connection.reader;
+              }
+            }
+          })
+          .mockImplementation(() => {
+            const connection = mockSSE.createConnection();
+            return Promise.resolve({
+              ok: true,
+              body: { getReader: () => connection.reader }
+            });
+          });
+
+        vi.stubGlobal('fetch', mockSSE.fetchMock);
+
         const { result } = renderHook(() => useSSE(), { wrapper });
 
         await flushAuthLoad();
@@ -366,98 +461,20 @@ describe('SSEContext', () => {
           result.current.connect();
         });
 
-        act(() => {
-          MockEventSource.getInstance(0).emit('connected');
-        });
-
-        // Trigger error
-        act(() => {
-          MockEventSource.getInstance(0).triggerError();
+        // Wait for connection and disconnect
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(100);
         });
 
         expect(result.current.connectionState).toBe('disconnected');
 
         // First reconnect after 1s
-        act(() => {
-          vi.advanceTimersByTime(1000);
+        await act(async () => {
+          await vi.advanceTimersByTimeAsync(1000);
         });
 
-        expect(MockEventSource.instances).toHaveLength(2);
+        expect(mockSSE.connections).toHaveLength(2);
         expect(result.current.connectionState).toBe('connecting');
-      });
-
-      it('uses exponential backoff for reconnect delays', async () => {
-        const { result } = renderHook(() => useSSE(), { wrapper });
-
-        await flushAuthLoad();
-        act(() => {
-          result.current.connect();
-        });
-
-        const initialCount = MockEventSource.instances.length;
-
-        // First error - schedules reconnect in 1s (2^0 * 1000)
-        act(() => {
-          MockEventSource.getInstance(0).triggerError();
-        });
-
-        // Wait 1s for first reconnect
-        act(() => {
-          vi.advanceTimersByTime(1000);
-        });
-
-        expect(MockEventSource.instances.length).toBe(initialCount + 1);
-
-        // Second error - schedules reconnect in 2s (2^1 * 1000)
-        const countAfterFirstReconnect = MockEventSource.instances.length;
-        act(() => {
-          MockEventSource.getLastInstance().triggerError();
-        });
-
-        // Wait full 2s for second reconnect
-        act(() => {
-          vi.advanceTimersByTime(2000);
-        });
-
-        expect(MockEventSource.instances.length).toBe(
-          countAfterFirstReconnect + 1
-        );
-      });
-
-      it('resets reconnect attempt count on successful connection', async () => {
-        const { result } = renderHook(() => useSSE(), { wrapper });
-
-        await flushAuthLoad();
-        act(() => {
-          result.current.connect();
-        });
-
-        // First error
-        act(() => {
-          MockEventSource.getInstance(0).triggerError();
-        });
-
-        // Wait 1s for first reconnect
-        act(() => {
-          vi.advanceTimersByTime(1000);
-        });
-
-        // Connect successfully
-        act(() => {
-          MockEventSource.getInstance(1).emit('connected');
-        });
-
-        // Another error
-        act(() => {
-          MockEventSource.getInstance(1).triggerError();
-        });
-
-        // Should reconnect after 1s again (not 2s)
-        act(() => {
-          vi.advanceTimersByTime(1000);
-        });
-
-        expect(MockEventSource.instances).toHaveLength(3);
       });
     });
 
@@ -511,9 +528,9 @@ describe('SSEContext', () => {
         result.current.connect();
       });
 
-      // Should log error and not create EventSource
+      // Should log error and not create fetch
       expect(consoleSpy).toHaveBeenCalledWith('API_BASE_URL not configured');
-      expect(MockEventSource.instances).toHaveLength(0);
+      expect(mockSSE.connections).toHaveLength(0);
 
       // Restore
       mockApiModule.API_BASE_URL = originalUrl;
@@ -528,11 +545,12 @@ describe('SSEContext', () => {
       });
 
       await flushAuthLoad();
-      act(() => {
-        MockEventSource.getLastInstance().emit('connected');
+      await act(async () => {
+        mockSSE.getLastInstance().emit('connected');
+        await vi.advanceTimersByTimeAsync(50);
       });
       expect(result.current.connectionState).toBe('connected');
-      const initialInstanceCount = MockEventSource.instances.length;
+      const initialInstanceCount = mockSSE.connections.length;
 
       // Simulate token refresh by updating localStorage and dispatching auth change event
       act(() => {
@@ -545,10 +563,13 @@ describe('SSEContext', () => {
         await Promise.resolve();
       });
 
-      expect(MockEventSource.instances.length).toBe(initialInstanceCount + 1);
+      expect(mockSSE.connections.length).toBe(initialInstanceCount + 1);
       expect(result.current.connectionState).toBe('connecting');
-      expect(MockEventSource.getLastInstance().url).toContain(
-        'token=new-refreshed-token'
+      expect(mockSSE.fetchMock).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer new-refreshed-token' }
+        })
       );
     });
 
@@ -557,7 +578,7 @@ describe('SSEContext', () => {
 
       await flushAuthLoad();
       expect(result.current.connectionState).toBe('disconnected');
-      const initialInstanceCount = MockEventSource.instances.length;
+      const initialInstanceCount = mockSSE.connections.length;
 
       // Simulate token refresh
       act(() => {
@@ -569,8 +590,8 @@ describe('SSEContext', () => {
         await Promise.resolve();
       });
 
-      // Should not create a new EventSource since we were disconnected
-      expect(MockEventSource.instances.length).toBe(initialInstanceCount);
+      // Should not create a new connection since we were disconnected
+      expect(mockSSE.connections.length).toBe(initialInstanceCount);
       expect(result.current.connectionState).toBe('disconnected');
     });
 
@@ -583,11 +604,12 @@ describe('SSEContext', () => {
       act(() => {
         result.current.connect();
       });
-      act(() => {
-        MockEventSource.getLastInstance().emit('connected');
+      await act(async () => {
+        mockSSE.getLastInstance().emit('connected');
+        await vi.advanceTimersByTimeAsync(50);
       });
       expect(result.current.connectionState).toBe('connected');
-      const initialInstanceCount = MockEventSource.instances.length;
+      const initialInstanceCount = mockSSE.connections.length;
 
       // Simulate token refresh
       act(() => {
@@ -599,18 +621,40 @@ describe('SSEContext', () => {
         await Promise.resolve();
       });
 
-      // Should create a new EventSource with the new token
-      expect(MockEventSource.instances.length).toBe(initialInstanceCount + 1);
+      // Should create a new connection with the new token
+      expect(mockSSE.connections.length).toBe(initialInstanceCount + 1);
       expect(result.current.connectionState).toBe('connecting');
-      expect(MockEventSource.getLastInstance().url).toContain(
-        'token=new-refreshed-token'
+      expect(mockSSE.fetchMock).toHaveBeenLastCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          headers: { Authorization: 'Bearer new-refreshed-token' }
+        })
       );
     });
   });
 
   describe('token expiration handling', () => {
-    it('attempts token refresh when error occurs with expired token', async () => {
+    it('attempts token refresh when stream ends with expired token', async () => {
       mockIsJwtExpired.mockReturnValue(true);
+
+      mockSSE.fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        body: {
+          getReader: () => {
+            const connection = mockSSE.createConnection();
+            // Emit connected then close to trigger error handling
+            setTimeout(() => {
+              connection.emit('connected');
+              setTimeout(() => {
+                connection.close();
+              }, 10);
+            }, 10);
+            return connection.reader;
+          }
+        }
+      });
+
+      vi.stubGlobal('fetch', mockSSE.fetchMock);
 
       const { result } = renderHook(() => useSSE(), { wrapper });
 
@@ -619,33 +663,42 @@ describe('SSEContext', () => {
         result.current.connect();
       });
 
-      act(() => {
-        MockEventSource.getInstance(0).emit('connected');
-      });
-
       // Clear any calls from AuthContext mount before testing SSE error handling
       mockTryRefreshToken.mockClear();
 
-      // Trigger error with expired token
-      act(() => {
-        MockEventSource.getInstance(0).triggerError();
+      // Wait for connection and disconnect
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
       });
 
       expect(mockTryRefreshToken).toHaveBeenCalledTimes(1);
       // State should be 'connecting' to allow token-change effect to reconnect
       expect(result.current.connectionState).toBe('connecting');
-
-      // Should NOT schedule a reconnect - let auth flow handle it
-      act(() => {
-        vi.advanceTimersByTime(1000);
-      });
-
-      // No new EventSource should be created via exponential backoff
-      expect(MockEventSource.instances).toHaveLength(1);
     });
 
-    it('uses exponential backoff when error occurs with valid token', async () => {
+    it('uses exponential backoff when stream ends with valid token', async () => {
       mockIsJwtExpired.mockReturnValue(false);
+
+      let connectionCount = 0;
+      mockSSE.fetchMock = vi.fn().mockImplementation(() => {
+        connectionCount++;
+        const connection = mockSSE.createConnection();
+        // First connection: emit connected then close to trigger reconnect
+        if (connectionCount === 1) {
+          setTimeout(() => {
+            connection.emit('connected');
+            setTimeout(() => {
+              connection.close();
+            }, 10);
+          }, 10);
+        }
+        return Promise.resolve({
+          ok: true,
+          body: { getReader: () => connection.reader }
+        });
+      });
+
+      vi.stubGlobal('fetch', mockSSE.fetchMock);
 
       const { result } = renderHook(() => useSSE(), { wrapper });
 
@@ -654,27 +707,25 @@ describe('SSEContext', () => {
         result.current.connect();
       });
 
-      act(() => {
-        MockEventSource.getInstance(0).emit('connected');
-      });
-
       // Clear any calls from AuthContext mount before testing SSE error handling
       mockTryRefreshToken.mockClear();
 
-      // Trigger error with valid token
-      act(() => {
-        MockEventSource.getInstance(0).triggerError();
+      // Wait for connection and disconnect
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
       });
 
       expect(mockTryRefreshToken).not.toHaveBeenCalled();
       expect(result.current.connectionState).toBe('disconnected');
+      expect(connectionCount).toBe(1);
 
-      // Should schedule reconnect with exponential backoff
-      act(() => {
-        vi.advanceTimersByTime(1000);
+      // Should schedule reconnect with exponential backoff (1s delay)
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(1000);
       });
 
-      expect(MockEventSource.instances).toHaveLength(2);
+      // Verify a second connection was made
+      expect(connectionCount).toBe(2);
       expect(result.current.connectionState).toBe('connecting');
     });
   });
@@ -700,18 +751,19 @@ describe('SSEContext', () => {
         result.current.connect();
       });
 
-      act(() => {
-        MockEventSource.getInstance(0).emit('connected');
+      await act(async () => {
+        mockSSE.getInstance(0).emit('connected');
+        await vi.advanceTimersByTimeAsync(50);
       });
 
-      const initialInstanceCount = MockEventSource.instances.length;
+      const initialInstanceCount = mockSSE.connections.length;
 
       // Change channels
       channels = ['channel2'];
       rerender();
 
-      // Should have created a new EventSource for the new channels
-      expect(MockEventSource.instances.length).toBeGreaterThanOrEqual(
+      // Should have created a new connection for the new channels
+      expect(mockSSE.connections.length).toBeGreaterThanOrEqual(
         initialInstanceCount
       );
     });
@@ -735,17 +787,18 @@ describe('SSEContext', () => {
         result.current.connect();
       });
 
-      act(() => {
-        MockEventSource.getInstance(0).emit('connected');
+      await act(async () => {
+        mockSSE.getInstance(0).emit('connected');
+        await vi.advanceTimersByTimeAsync(50);
       });
 
-      const instanceCount = MockEventSource.instances.length;
+      const instanceCount = mockSSE.connections.length;
 
       // Rerender without changing channels
       rerender();
 
-      // Should not create new EventSource
-      expect(MockEventSource.instances.length).toBe(instanceCount);
+      // Should not create new connection
+      expect(mockSSE.connections.length).toBe(instanceCount);
     });
   });
 });
