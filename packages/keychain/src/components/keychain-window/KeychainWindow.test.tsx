@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeychainWindow } from './KeychainWindow';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 
-vi.mock('@/components/floating-window', () => ({
+vi.mock('@rapid/window-manager', () => ({
   FloatingWindow: ({
     children,
     title,

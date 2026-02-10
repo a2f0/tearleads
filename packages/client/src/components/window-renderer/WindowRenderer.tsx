@@ -1,3 +1,4 @@
+import { KeychainWindow } from '@rapid/keychain';
 import type { ComponentType } from 'react';
 import { useCallback } from 'react';
 import { AdminGroupsWindow } from '@/components/admin-groups-window';
@@ -21,7 +22,6 @@ import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import type { WindowDimensions } from '@/components/floating-window';
 import { HelpWindow } from '@/components/help-window';
-import { KeychainWindow } from '@/components/keychain-window';
 import { LocalStorageWindow } from '@/components/local-storage-window';
 import { MlsChatWindow } from '@/components/mls-chat-window';
 import { ModelsWindow } from '@/components/models-window';

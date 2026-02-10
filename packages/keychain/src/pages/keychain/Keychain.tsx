@@ -1,15 +1,18 @@
-import { Info, Key, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { BackLink } from '@/components/ui/back-link';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { BackLink } from '@client/components/ui/back-link';
+import {
+  ContextMenu,
+  ContextMenuItem
+} from '@client/components/ui/context-menu';
+import { RefreshButton } from '@client/components/ui/refresh-button';
 import {
   deleteSessionKeysForInstance,
   getKeyStatusForInstance
-} from '@/db/crypto/key-manager';
-import { getInstances } from '@/db/instance-registry';
-import { useTypedTranslation } from '@/i18n';
-import { useNavigateWithFrom } from '@/lib/navigation';
+} from '@client/db/crypto/key-manager';
+import { getInstances } from '@client/db/instance-registry';
+import { useTypedTranslation } from '@client/i18n';
+import { useNavigateWithFrom } from '@client/lib/navigation';
+import { Info, Key, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';
 import { type InstanceKeyInfo, InstanceKeyRow } from './InstanceKeyRow';
 

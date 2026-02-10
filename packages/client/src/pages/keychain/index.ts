@@ -1,2 +1,1 @@
-export { Keychain } from './Keychain';
-export { KeychainDetail } from './KeychainDetail';
+export { Keychain, KeychainDetail } from '@rapid/keychain';

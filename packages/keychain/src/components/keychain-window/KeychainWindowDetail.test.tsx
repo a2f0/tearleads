@@ -1,9 +1,9 @@
+import type { KeyStatus } from '@client/db/crypto/key-manager';
+import type { InstanceMetadata } from '@client/db/instance-registry';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { KeyStatus } from '@/db/crypto/key-manager';
-import type { InstanceMetadata } from '@/db/instance-registry';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '../../test/console-mocks';
 import { KeychainWindowDetail } from './KeychainWindowDetail';
 
 const mockGetKeyStatusForInstance =
@@ -15,7 +15,7 @@ const mockGetKeyManagerForInstance = vi.fn((_instanceId: string) => ({
   reset: mockKeyManagerReset
 }));
 
-vi.mock('@/db/crypto/key-manager', () => ({
+vi.mock('@client/db/crypto/key-manager', () => ({
   getKeyStatusForInstance: (instanceId: string) =>
     mockGetKeyStatusForInstance(instanceId),
   deleteSessionKeysForInstance: (instanceId: string) =>
@@ -29,13 +29,13 @@ const mockGetInstance =
 const mockDeleteInstanceFromRegistry =
   vi.fn<(instanceId: string) => Promise<void>>();
 
-vi.mock('@/db/instance-registry', () => ({
+vi.mock('@client/db/instance-registry', () => ({
   getInstance: (instanceId: string) => mockGetInstance(instanceId),
   deleteInstanceFromRegistry: (instanceId: string) =>
     mockDeleteInstanceFromRegistry(instanceId)
 }));
 
-vi.mock('@/pages/keychain/DeleteSessionKeysDialog', () => ({
+vi.mock('../../pages/keychain/DeleteSessionKeysDialog', () => ({
   DeleteSessionKeysDialog: ({
     open,
     onDelete
@@ -54,7 +54,7 @@ vi.mock('@/pages/keychain/DeleteSessionKeysDialog', () => ({
     ) : null
 }));
 
-vi.mock('@/pages/keychain/DeleteKeychainInstanceDialog', () => ({
+vi.mock('../../pages/keychain/DeleteKeychainInstanceDialog', () => ({
   DeleteKeychainInstanceDialog: ({
     open,
     onDelete

@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { createRef } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '../../test/console-mocks';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindowContent } from './KeychainWindowContent';
 
@@ -15,21 +15,21 @@ const mockGetInstances = vi.fn();
 const mockGetKeyStatusForInstance = vi.fn();
 const mockDeleteSessionKeysForInstance = vi.fn();
 
-vi.mock('@/db/instance-registry', () => ({
+vi.mock('@client/db/instance-registry', () => ({
   getInstances: () => mockGetInstances()
 }));
 
-vi.mock('@/db/crypto/key-manager', () => ({
+vi.mock('@client/db/crypto/key-manager', () => ({
   getKeyStatusForInstance: (id: string) => mockGetKeyStatusForInstance(id),
   deleteSessionKeysForInstance: (id: string) =>
     mockDeleteSessionKeysForInstance(id)
 }));
 
-vi.mock('@/i18n', () => ({
+vi.mock('@client/i18n', () => ({
   useTypedTranslation: () => ({ t: (key: string) => key })
 }));
 
-vi.mock('@/pages/keychain/InstanceKeyRow', () => ({
+vi.mock('../../pages/keychain/InstanceKeyRow', () => ({
   InstanceKeyRow: ({
     info,
     onToggle,
@@ -68,7 +68,7 @@ vi.mock('@/pages/keychain/InstanceKeyRow', () => ({
 
 let capturedOnDelete: (() => Promise<void>) | undefined;
 
-vi.mock('@/pages/keychain/DeleteSessionKeysDialog', () => ({
+vi.mock('../../pages/keychain/DeleteSessionKeysDialog', () => ({
   DeleteSessionKeysDialog: ({
     open,
     onOpenChange,
@@ -98,7 +98,7 @@ vi.mock('@/pages/keychain/DeleteSessionKeysDialog', () => ({
 
 let capturedMenuOnClose: (() => void) | undefined;
 
-vi.mock('@/components/ui/context-menu', () => ({
+vi.mock('@client/components/ui/context-menu', () => ({
   ContextMenu: ({
     children,
     onClose

@@ -1,0 +1,54 @@
+{
+  "name": "@rapid/keychain",
+  "version": "0.0.1",
+  "description": "Keychain pages and window for Rapid",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src"
+  ],
+  "scripts": {
+    "build": "echo \"@rapid/keychain is source-consumed via Vite aliases\"",
+    "clean": "rm -rf dist",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage"
+  },
+  "peerDependencies": {
+    "@rapid/window-manager": "workspace:*",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-i18next": "16.5.4",
+    "react-router-dom": "7.13.0"
+  },
+  "dependencies": {
+    "@rapid/shared": "workspace:*",
+    "lucide-react": "0.563.0"
+  },
+  "devDependencies": {
+    "@rapid/window-manager": "workspace:*",
+    "@testing-library/jest-dom": "6.9.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/node": "25.2.1",
+    "@types/react": "19.2.13",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.1.3",
+    "@vitest/coverage-v8": "4.0.18",
+    "jsdom": "28.0.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "react-i18next": "16.5.4",
+    "react-router-dom": "7.13.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18",
+    "vitest-fail-on-console": "0.10.1"
+  }
+}

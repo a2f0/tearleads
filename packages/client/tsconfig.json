@@ -10,6 +10,7 @@
     "jsx": "react-jsx",
     "baseUrl": ".",
     "paths": {
+      "@client/*": ["./src/*"],
       "@/*": ["./src/*"],
       "@rapid/audio/package.json": ["../audio/package.json"],
       "@rapid/audio": ["../audio/src/index.ts"],
@@ -21,6 +22,8 @@
       "@rapid/contacts": ["../contacts/src/index.ts"],
       "@rapid/email/package.json": ["../email/package.json"],
       "@rapid/email": ["../email/src/index.ts"],
+      "@rapid/keychain/package.json": ["../keychain/package.json"],
+      "@rapid/keychain": ["../keychain/src/index.ts"],
       "@rapid/notes/package.json": ["../notes/package.json"],
       "@rapid/notes": ["../notes/src/index.ts"],
       "@rapid/vfs-explorer/package.json": ["../vfs-explorer/package.json"],
