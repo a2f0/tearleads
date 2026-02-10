@@ -35,6 +35,16 @@ const extractBearerToken = (authHeader: string | undefined): string | null => {
   return token ? token : null;
 };
 
+const extractAuthToken = (req: Request): string | null => {
+  const bearerToken = extractBearerToken(req.get('authorization'));
+  if (bearerToken) {
+    return bearerToken;
+  }
+
+  const legacyToken = req.get('x-auth-token')?.trim();
+  return legacyToken ? legacyToken : null;
+};
+
 export async function authMiddleware(
   req: Request,
   res: Response,
@@ -45,8 +55,7 @@ export async function authMiddleware(
     return;
   }
 
-  const authHeader = req.get('authorization');
-  const token = extractBearerToken(authHeader);
+  const token = extractAuthToken(req);
   if (!token) {
     res.status(401).json({ error: 'Unauthorized' });
     return;

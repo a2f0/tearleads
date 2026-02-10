@@ -72,6 +72,24 @@ describe('SSE Routes', () => {
   });
 
   describe('GET /v1/sse', () => {
+    it('accepts x-auth-token for authenticated SSE requests', async () => {
+      const token = authHeader.replace('Bearer ', '');
+      const response = await request(app)
+        .get('/v1/sse')
+        .set('x-auth-token', token)
+        .buffer(true)
+        .parse(
+          createSseParser((data, res) => {
+            if (data.includes('event: connected')) {
+              if (isDestroyable(res)) res.destroy();
+            }
+          })
+        );
+
+      expect(response.status).toBe(200);
+      expect(response.body).toContain('event: connected');
+    });
+
     it('returns SSE headers', async () => {
       const response = await request(app)
         .get('/v1/sse')
