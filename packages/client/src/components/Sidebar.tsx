@@ -39,7 +39,7 @@ import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
 import { FOOTER_HEIGHT } from '@/constants/layout';
 import { WINDOW_PATHS } from '@/constants/windowPaths';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import type { MenuKeys } from '@/i18n';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
@@ -291,7 +291,7 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const { t } = useTypedTranslation('menu');
   const navigate = useNavigate();
   const location = useLocation();
-  const { openWindow } = useWindowManager();
+  const { openWindow } = useWindowManagerActions();
   const [isMobile, setIsMobile] = useState(false);
   const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [contextMenu, setContextMenu] = useState<{

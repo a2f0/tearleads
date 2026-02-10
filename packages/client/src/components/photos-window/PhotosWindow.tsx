@@ -3,7 +3,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import {
+  useWindowManagerActions,
+  useWindowOpenRequest
+} from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
@@ -36,9 +39,9 @@ export function PhotosWindow({
   initialDimensions
 }: PhotosWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { windowOpenRequests, openWindow } = useWindowManager();
+  const { openWindow } = useWindowManagerActions();
   const { isUnlocked } = useDatabaseContext();
-  const openRequest = windowOpenRequests.photos;
+  const openRequest = useWindowOpenRequest('photos');
   const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showDeleted, setShowDeleted] = useState(false);

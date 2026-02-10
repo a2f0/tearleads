@@ -1,13 +1,13 @@
 import { Settings } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { SettingsSheet } from './settings/SettingsSheet';
 
 export function SettingsButton() {
   const [isOpen, setIsOpen] = useState(false);
   const isMobile = useIsMobile();
-  const { focusWindow, openWindow, windows } = useWindowManager();
+  const { openWindow } = useWindowManagerActions();
 
   const handleClick = useCallback(() => {
     if (isMobile) {
@@ -15,14 +15,9 @@ export function SettingsButton() {
       return;
     }
 
-    const existingWindow = windows.find((window) => window.type === 'settings');
-    if (existingWindow) {
-      focusWindow(existingWindow.id);
-      return;
-    }
-
+    // openWindow handles focusing existing windows of the same type
     openWindow('settings');
-  }, [focusWindow, isMobile, openWindow, windows]);
+  }, [isMobile, openWindow]);
 
   return (
     <>

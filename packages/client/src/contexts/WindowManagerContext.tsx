@@ -126,6 +126,9 @@ const WindowManagerContext = createContext<WindowManagerContextValue | null>(
 const WindowManagerActionsContext = createContext<WindowManagerActions | null>(
   null
 );
+const WindowOpenRequestsContext = createContext<WindowOpenRequests | null>(
+  null
+);
 
 const BASE_Z_INDEX = 100;
 
@@ -353,9 +356,11 @@ export function WindowManagerProvider({
 
   return (
     <WindowManagerActionsContext.Provider value={actionsValue}>
-      <WindowManagerContext.Provider value={value}>
-        {children}
-      </WindowManagerContext.Provider>
+      <WindowOpenRequestsContext.Provider value={windowOpenRequests}>
+        <WindowManagerContext.Provider value={value}>
+          {children}
+        </WindowManagerContext.Provider>
+      </WindowOpenRequestsContext.Provider>
     </WindowManagerActionsContext.Provider>
   );
 }
@@ -378,4 +383,16 @@ export function useWindowManagerActions(): WindowManagerActions {
     );
   }
   return context;
+}
+
+export function useWindowOpenRequest<K extends keyof WindowOpenRequestPayloads>(
+  type: K
+): (WindowOpenRequestPayloads[K] & { requestId: number }) | undefined {
+  const context = useContext(WindowOpenRequestsContext);
+  if (context === null) {
+    throw new Error(
+      'useWindowOpenRequest must be used within a WindowManagerProvider'
+    );
+  }
+  return context[type];
 }

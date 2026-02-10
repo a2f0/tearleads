@@ -6,9 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoWindow } from './VideoWindow';
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
-  useWindowManager: () => ({
-    windowOpenRequests: {}
-  })
+  useWindowOpenRequest: () => undefined
 }));
 
 vi.mock('@/contexts/ClientVideoProvider', () => ({

@@ -3,10 +3,10 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotosWindow } from './PhotosWindow';
 
-const mockWindowOpenRequests = vi.fn();
+const mockWindowOpenRequest = vi.fn();
 vi.mock('@/contexts/WindowManagerContext', () => ({
-  useWindowManager: () => ({
-    windowOpenRequests: mockWindowOpenRequests(),
+  useWindowOpenRequest: () => mockWindowOpenRequest(),
+  useWindowManagerActions: () => ({
     openWindow: vi.fn()
   })
 }));
@@ -282,7 +282,7 @@ describe('PhotosWindow', () => {
       isUnlocked: true,
       isLoading: false
     });
-    mockWindowOpenRequests.mockReturnValue({});
+    mockWindowOpenRequest.mockReturnValue(undefined);
   });
 
   it('renders in FloatingWindow', () => {
@@ -492,16 +492,18 @@ describe('PhotosWindow', () => {
   });
 
   it('handles open request with albumId', () => {
-    mockWindowOpenRequests.mockReturnValue({
-      photos: { albumId: 'album-123', requestId: 1 }
+    mockWindowOpenRequest.mockReturnValue({
+      albumId: 'album-123',
+      requestId: 1
     });
     render(<PhotosWindow {...defaultProps} />);
     expect(screen.getByTestId('photos-content')).toBeInTheDocument();
   });
 
   it('handles open request with photoId', async () => {
-    mockWindowOpenRequests.mockReturnValue({
-      photos: { photoId: 'photo-456', requestId: 1 }
+    mockWindowOpenRequest.mockReturnValue({
+      photoId: 'photo-456',
+      requestId: 1
     });
     render(<PhotosWindow {...defaultProps} />);
 

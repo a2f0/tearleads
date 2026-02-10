@@ -7,7 +7,7 @@ import { FloatingWindow } from '@/components/floating-window';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { UploadProgress } from '@/components/ui/upload-progress';
 import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
 import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { isVideoMimeType } from '@/lib/thumbnail';
@@ -45,9 +45,8 @@ function VideoWindowInner({
   zIndex,
   initialDimensions
 }: VideoWindowProps) {
-  const { windowOpenRequests } = useWindowManager();
+  const openRequest = useWindowOpenRequest('videos');
   const { addTrackToPlaylist } = useVideoPlaylistContext();
-  const openRequest = windowOpenRequests.videos;
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [autoPlay, setAutoPlay] = useState(false);

@@ -65,19 +65,15 @@ vi.mock('@/contexts/ClientVfsExplorerProvider', () => ({
 }));
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
-  useWindowManager: () => ({
+  useWindowManagerActions: () => ({
     openWindow: mockOpenWindow,
     requestWindowOpen: mockRequestWindowOpen,
-    windowOpenRequests: {},
-    windows: [],
     closeWindow: vi.fn(),
     focusWindow: vi.fn(),
     minimizeWindow: vi.fn(),
     restoreWindow: vi.fn(),
     updateWindowDimensions: vi.fn(),
-    saveWindowDimensionsForType: vi.fn(),
-    isWindowOpen: vi.fn(),
-    getWindow: vi.fn()
+    saveWindowDimensionsForType: vi.fn()
   })
 }));
 

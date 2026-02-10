@@ -2,14 +2,14 @@ import { ThemeProvider } from '@rapid/ui';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { setupThemeMocks } from '@/test/theme-test-utils';
 import { SettingsButton } from './SettingsButton';
 import { ANIMATION_DURATION_MS } from './ui/bottom-sheet';
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
-  useWindowManager: vi.fn()
+  useWindowManagerActions: vi.fn()
 }));
 
 vi.mock('@/hooks/useIsMobile', () => ({
@@ -18,25 +18,20 @@ vi.mock('@/hooks/useIsMobile', () => ({
 
 describe('SettingsButton', () => {
   const openWindow = vi.fn();
-  const focusWindow = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
     vi.useRealTimers();
     setupThemeMocks();
-    vi.mocked(useWindowManager).mockReturnValue({
-      windows: [],
+    vi.mocked(useWindowManagerActions).mockReturnValue({
       openWindow,
       requestWindowOpen: vi.fn(),
-      windowOpenRequests: {},
-      focusWindow,
+      focusWindow: vi.fn(),
       closeWindow: vi.fn(),
       minimizeWindow: vi.fn(),
       restoreWindow: vi.fn(),
       updateWindowDimensions: vi.fn(),
-      saveWindowDimensionsForType: vi.fn(),
-      isWindowOpen: vi.fn(),
-      getWindow: vi.fn()
+      saveWindowDimensionsForType: vi.fn()
     });
   });
 
@@ -66,31 +61,15 @@ describe('SettingsButton', () => {
     expect(screen.queryByTestId('settings-sheet')).not.toBeInTheDocument();
   });
 
-  it('focuses existing settings window on desktop', async () => {
+  it('calls openWindow on desktop (openWindow handles existing windows)', async () => {
     const user = userEvent.setup();
     vi.mocked(useIsMobile).mockReturnValue(false);
-    vi.mocked(useWindowManager).mockReturnValue({
-      windows: [
-        { id: 'settings-1', type: 'settings', zIndex: 1, isMinimized: false }
-      ],
-      openWindow,
-      requestWindowOpen: vi.fn(),
-      windowOpenRequests: {},
-      focusWindow,
-      closeWindow: vi.fn(),
-      minimizeWindow: vi.fn(),
-      restoreWindow: vi.fn(),
-      updateWindowDimensions: vi.fn(),
-      saveWindowDimensionsForType: vi.fn(),
-      isWindowOpen: vi.fn(),
-      getWindow: vi.fn()
-    });
     renderSettingsButton();
 
     await user.click(screen.getByTestId('settings-button'));
 
-    expect(focusWindow).toHaveBeenCalledWith('settings-1');
-    expect(openWindow).not.toHaveBeenCalled();
+    // openWindow internally handles focusing existing windows of the same type
+    expect(openWindow).toHaveBeenCalledWith('settings');
   });
 
   it('opens settings sheet on mobile when clicked once', async () => {

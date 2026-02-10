@@ -25,14 +25,10 @@ vi.mock('@/contexts/ClientAudioProvider', () => ({
 }));
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
-  useWindowManager: () => ({
-    windowOpenRequests: {
-      audio: {
-        audioId: 'audio-123',
-        playlistId: 'playlist-456',
-        requestId: '1'
-      }
-    }
+  useWindowOpenRequest: () => ({
+    audioId: 'audio-123',
+    playlistId: 'playlist-456',
+    requestId: '1'
   })
 }));
 

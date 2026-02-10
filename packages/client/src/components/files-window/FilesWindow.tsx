@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
 import { useDropZone } from '@/hooks/useDropZone';
 import type { FilesWindowContentRef } from './FilesWindowContent';
 import { FilesWindowContent } from './FilesWindowContent';
@@ -31,8 +31,7 @@ export function FilesWindow({
   zIndex,
   initialDimensions
 }: FilesWindowProps) {
-  const { windowOpenRequests } = useWindowManager();
-  const openRequest = windowOpenRequests.files;
+  const openRequest = useWindowOpenRequest('files');
   const [showDeleted, setShowDeleted] = useState(false);
   const [showDropzone, setShowDropzone] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('list');

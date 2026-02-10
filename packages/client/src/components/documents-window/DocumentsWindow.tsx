@@ -6,7 +6,10 @@ import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { UploadProgress } from '@/components/ui/upload-progress';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import {
+  useWindowManagerActions,
+  useWindowOpenRequest
+} from '@/contexts/WindowManagerContext';
 import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { DocumentDetail } from '@/pages/DocumentDetail';
@@ -34,8 +37,8 @@ export function DocumentsWindow({
   initialDimensions
 }: DocumentsWindowProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { windowOpenRequests, openWindow } = useWindowManager();
-  const openRequest = windowOpenRequests.documents;
+  const { openWindow } = useWindowManagerActions();
+  const openRequest = useWindowOpenRequest('documents');
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
     null
   );
