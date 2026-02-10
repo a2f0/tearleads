@@ -1,6 +1,6 @@
 import { KeychainWindow } from '@rapid/keychain';
 import type { ComponentType } from 'react';
-import { memo, useCallback, useMemo } from 'react';
+import { memo, useCallback, useMemo, useRef } from 'react';
 import { AdminGroupsWindow } from '@/components/admin-groups-window';
 import { AdminOrganizationsWindow } from '@/components/admin-organizations-window';
 import { AdminPostgresWindow } from '@/components/admin-postgres-window';
@@ -171,6 +171,8 @@ export function WindowRenderer() {
     saveWindowDimensionsForType,
     updateWindowDimensions
   } = useWindowManager();
+  const windowsRef = useRef(windows);
+  windowsRef.current = windows;
 
   const handleDimensionsChange = useCallback(
     (type: WindowType, id: string, dimensions: WindowDimensions) => {
@@ -190,6 +192,27 @@ export function WindowRenderer() {
   const visibleWindows = useMemo(
     () => windows.filter((w) => !w.isMinimized),
     [windows]
+  );
+
+  const handleFocusWindow = useCallback(
+    (id: string) => {
+      const currentWindows = windowsRef.current;
+      const targetWindow = currentWindows.find((window) => window.id === id);
+
+      if (!targetWindow) {
+        return;
+      }
+
+      const maxZIndex = Math.max(
+        ...currentWindows.map((window) => window.zIndex)
+      );
+      if (targetWindow.zIndex === maxZIndex && !targetWindow.isMinimized) {
+        return;
+      }
+
+      focusWindow(id);
+    },
+    [focusWindow]
   );
 
   if (visibleWindows.length === 0) {
@@ -213,7 +236,7 @@ export function WindowRenderer() {
             onClose={closeWindow}
             onMinimize={minimizeWindow}
             onDimensionsChange={handleDimensionsChange}
-            onFocus={focusWindow}
+            onFocus={handleFocusWindow}
           />
         );
       })}

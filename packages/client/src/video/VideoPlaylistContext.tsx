@@ -4,7 +4,7 @@
  */
 
 import type { ReactNode } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 
 export interface VideoPlaylist {
   id: string;
@@ -76,17 +76,30 @@ export function VideoPlaylistProvider({
   getTrackIdsInPlaylist,
   logError
 }: VideoPlaylistProviderProps) {
-  const value: VideoPlaylistContextValue = {
-    databaseState,
-    fetchPlaylists,
-    createPlaylist,
-    renamePlaylist,
-    deletePlaylist,
-    addTrackToPlaylist,
-    removeTrackFromPlaylist,
-    getTrackIdsInPlaylist,
-    logError
-  };
+  const value = useMemo<VideoPlaylistContextValue>(
+    () => ({
+      databaseState,
+      fetchPlaylists,
+      createPlaylist,
+      renamePlaylist,
+      deletePlaylist,
+      addTrackToPlaylist,
+      removeTrackFromPlaylist,
+      getTrackIdsInPlaylist,
+      logError
+    }),
+    [
+      databaseState,
+      fetchPlaylists,
+      createPlaylist,
+      renamePlaylist,
+      deletePlaylist,
+      addTrackToPlaylist,
+      removeTrackFromPlaylist,
+      getTrackIdsInPlaylist,
+      logError
+    ]
+  );
 
   return (
     <VideoPlaylistContext.Provider value={value}>

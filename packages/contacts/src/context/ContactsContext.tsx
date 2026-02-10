@@ -1,6 +1,6 @@
 import type { Database } from '@rapid/db/sqlite';
 import type { ComponentType, ReactNode, Ref } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 
 /**
  * Contact data structure matching the contacts table schema
@@ -284,27 +284,43 @@ export function ContactsProvider({
   navigateWithFrom,
   formatDate
 }: ContactsProviderProps) {
+  const value = useMemo<ContactsContextValue>(
+    () => ({
+      databaseState,
+      getDatabase,
+      getDatabaseAdapter,
+      saveFile,
+      registerInVfs,
+      onContactsImported:
+        onContactsImported ??
+        (async () => {
+          return;
+        }),
+      ui,
+      t,
+      tooltipZIndex,
+      navigate,
+      navigateWithFrom,
+      formatDate
+    }),
+    [
+      databaseState,
+      getDatabase,
+      getDatabaseAdapter,
+      saveFile,
+      registerInVfs,
+      onContactsImported,
+      ui,
+      t,
+      tooltipZIndex,
+      navigate,
+      navigateWithFrom,
+      formatDate
+    ]
+  );
+
   return (
-    <ContactsContext.Provider
-      value={{
-        databaseState,
-        getDatabase,
-        getDatabaseAdapter,
-        saveFile,
-        registerInVfs,
-        onContactsImported:
-          onContactsImported ??
-          (async () => {
-            return;
-          }),
-        ui,
-        t,
-        tooltipZIndex,
-        navigate,
-        navigateWithFrom,
-        formatDate
-      }}
-    >
+    <ContactsContext.Provider value={value}>
       {children}
     </ContactsContext.Provider>
   );

@@ -1,6 +1,6 @@
 import type { Database } from '@rapid/db/sqlite';
 import type { ComponentType, ReactNode } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 
 /**
  * Note data structure matching the notes table schema
@@ -263,18 +263,32 @@ export function NotesProvider({
   vfsApi,
   navigateToNote
 }: NotesProviderProps) {
-  const value: NotesContextValue = {
-    databaseState,
-    getDatabase,
-    ui,
-    t,
-    tooltipZIndex,
-    ...(vfsKeys && { vfsKeys }),
-    ...(auth && { auth }),
-    ...(featureFlags && { featureFlags }),
-    ...(vfsApi && { vfsApi }),
-    ...(navigateToNote && { navigateToNote })
-  };
+  const value = useMemo<NotesContextValue>(
+    () => ({
+      databaseState,
+      getDatabase,
+      ui,
+      t,
+      tooltipZIndex,
+      ...(vfsKeys && { vfsKeys }),
+      ...(auth && { auth }),
+      ...(featureFlags && { featureFlags }),
+      ...(vfsApi && { vfsApi }),
+      ...(navigateToNote && { navigateToNote })
+    }),
+    [
+      databaseState,
+      getDatabase,
+      ui,
+      t,
+      tooltipZIndex,
+      vfsKeys,
+      auth,
+      featureFlags,
+      vfsApi,
+      navigateToNote
+    ]
+  );
 
   return (
     <NotesContext.Provider value={value}>{children}</NotesContext.Provider>

@@ -1171,6 +1171,14 @@ function renderSingleWindow(type: string, id: string) {
   render(<WindowRenderer />, { wrapper });
 }
 
+function renderWindowWithHigherZSibling(type: string, id: string) {
+  mockWindows = [
+    { id, type, zIndex: 100 },
+    { id: 'higher-z-window', type: 'notes', zIndex: 101 }
+  ];
+  render(<WindowRenderer />, { wrapper });
+}
+
 function hasFocusTestId(
   windowCase: WindowCase
 ): windowCase is WindowCase & { focusTestId: string } {
@@ -1670,9 +1678,18 @@ describe('WindowRenderer', () => {
     focusCases
   )('calls focusWindow when %s window is clicked', async (_label, type, id, testId) => {
     const user = userEvent.setup();
-    renderSingleWindow(type, id);
+    renderWindowWithHigherZSibling(type, id);
     await user.click(screen.getByTestId(testId));
     expect(mockFocusWindow).toHaveBeenCalledWith(id);
+  });
+
+  it('does not call focusWindow when clicking the already-focused window', async () => {
+    const user = userEvent.setup();
+    renderSingleWindow('contacts', 'contacts-1');
+
+    await user.click(screen.getByTestId('contacts-window-contacts-1'));
+
+    expect(mockFocusWindow).not.toHaveBeenCalled();
   });
 
   const minimizeCases: WindowMinimizeCase[] = windowCases

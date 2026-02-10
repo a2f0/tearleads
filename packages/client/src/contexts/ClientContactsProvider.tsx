@@ -10,8 +10,7 @@ import {
 } from '@rapid/contacts';
 import contactsPackageJson from '@rapid/contacts/package.json';
 import { vfsRegistry } from '@rapid/db/sqlite';
-import type { ReactNode } from 'react';
-import { useCallback } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -151,11 +150,18 @@ export function ClientContactsProvider({
   const navigate = useNavigate();
   const navigateWithFrom = useNavigateWithFrom();
 
-  const databaseState = {
-    isUnlocked: databaseContext.isUnlocked,
-    isLoading: databaseContext.isLoading,
-    currentInstanceId: databaseContext.currentInstanceId
-  };
+  const databaseState = useMemo(
+    () => ({
+      isUnlocked: databaseContext.isUnlocked,
+      isLoading: databaseContext.isLoading,
+      currentInstanceId: databaseContext.currentInstanceId
+    }),
+    [
+      databaseContext.isUnlocked,
+      databaseContext.isLoading,
+      databaseContext.currentInstanceId
+    ]
+  );
 
   const handleContactsImported = useCallback(
     async (importedContacts: ImportedContactRecord[]) => {

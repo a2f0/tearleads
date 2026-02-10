@@ -15,7 +15,7 @@ import {
 import audioPackageJson from '@rapid/audio/package.json';
 import { assertPlainArrayBuffer } from '@rapid/shared';
 import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
-import { type ReactNode, useCallback } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar } from '@/components/ui/action-toolbar';
@@ -89,11 +89,18 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
   const navigateWithFrom = useNavigateWithFrom();
   const { uploadFile: fileUpload } = useFileUpload();
 
-  const databaseState = {
-    isUnlocked: databaseContext.isUnlocked,
-    isLoading: databaseContext.isLoading,
-    currentInstanceId: databaseContext.currentInstanceId
-  };
+  const databaseState = useMemo(
+    () => ({
+      isUnlocked: databaseContext.isUnlocked,
+      isLoading: databaseContext.isLoading,
+      currentInstanceId: databaseContext.currentInstanceId
+    }),
+    [
+      databaseContext.isUnlocked,
+      databaseContext.isLoading,
+      databaseContext.currentInstanceId
+    ]
+  );
 
   const navigateToAudio: NavigateToAudio = useCallback(
     (audioId, options) => {

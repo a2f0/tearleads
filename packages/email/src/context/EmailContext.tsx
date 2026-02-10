@@ -1,5 +1,5 @@
 import type { ComponentType, ReactNode } from 'react';
-import { createContext, useContext } from 'react';
+import { createContext, useContext, useMemo } from 'react';
 import type {
   Attachment,
   DraftEmail,
@@ -156,14 +156,24 @@ export function EmailProvider({
   contactOperations,
   draftOperations
 }: EmailProviderProps) {
-  const contextValue: EmailContextValue = {
-    apiBaseUrl,
-    ui,
-    ...(getAuthHeader !== undefined && { getAuthHeader }),
-    ...(folderOperations !== undefined && { folderOperations }),
-    ...(contactOperations !== undefined && { contactOperations }),
-    ...(draftOperations !== undefined && { draftOperations })
-  };
+  const contextValue = useMemo<EmailContextValue>(
+    () => ({
+      apiBaseUrl,
+      ui,
+      ...(getAuthHeader !== undefined && { getAuthHeader }),
+      ...(folderOperations !== undefined && { folderOperations }),
+      ...(contactOperations !== undefined && { contactOperations }),
+      ...(draftOperations !== undefined && { draftOperations })
+    }),
+    [
+      apiBaseUrl,
+      getAuthHeader,
+      ui,
+      folderOperations,
+      contactOperations,
+      draftOperations
+    ]
+  );
 
   return (
     <EmailContext.Provider value={contextValue}>
