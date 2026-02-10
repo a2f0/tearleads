@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { getDatabase } from '@/db';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
-import { renderWithDatabase } from '../../test/render-with-database';
 import { useVideoPlaylistContext } from '@/video/VideoPlaylistContext';
+import { renderWithDatabase } from '../../test/render-with-database';
 import { ALL_VIDEO_ID, VideoPlaylistsSidebar } from './VideoPlaylistsSidebar';
 
 function SidebarDropHarness() {
@@ -16,11 +16,7 @@ function SidebarDropHarness() {
   const [refreshToken, setRefreshToken] = useState(0);
 
   const handleDropToPlaylist = useCallback(
-    async (
-      playlistId: string,
-      _droppedFiles: File[],
-      videoIds?: string[]
-    ) => {
+    async (playlistId: string, _droppedFiles: File[], videoIds?: string[]) => {
       if (!videoIds || videoIds.length === 0) return;
       try {
         await Promise.all(
@@ -120,6 +116,5 @@ describe('Video playlist drag and drop integration', () => {
         .where(eq(vfsLinks.parentId, 'playlist-1'));
       expect(links).toHaveLength(1);
     });
-
   });
 });

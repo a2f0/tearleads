@@ -30,7 +30,9 @@ function isDatabaseNotInitializedError(error: unknown): boolean {
   if (error.message.includes('Database not initialized')) return true;
 
   const cause = 'cause' in error ? error.cause : undefined;
-  return cause instanceof Error && cause.message.includes('Database not initialized');
+  return (
+    cause instanceof Error && cause.message.includes('Database not initialized')
+  );
 }
 
 export function usePhotoAlbums(): UsePhotoAlbumsResult {

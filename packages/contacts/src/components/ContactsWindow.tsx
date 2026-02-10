@@ -129,7 +129,9 @@ export function ContactsWindow({
           )
         );
 
-      const existingChildIds = new Set(existingLinks.map((link) => link.childId));
+      const existingChildIds = new Set(
+        existingLinks.map((link) => link.childId)
+      );
       const linksToInsert = uniqueContactIds
         .filter((contactId) => !existingChildIds.has(contactId))
         .map((contactId) => ({

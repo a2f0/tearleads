@@ -33,7 +33,9 @@ function ContactsSidebarDropHarness() {
           )
         );
 
-      const existingChildIds = new Set(existingLinks.map((link) => link.childId));
+      const existingChildIds = new Set(
+        existingLinks.map((link) => link.childId)
+      );
       const linksToInsert = uniqueContactIds
         .filter((contactId) => !existingChildIds.has(contactId))
         .map((contactId) => ({
@@ -132,6 +134,5 @@ describe('Contacts drag and drop integration', () => {
         .where(eq(vfsLinks.parentId, 'group-1'));
       expect(links).toHaveLength(1);
     });
-
   });
 });

@@ -13,13 +13,13 @@ import {
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
-import { setContactDragData } from '../lib/contactDragData';
 import {
   type ContactInfo,
   type SortColumn,
   type SortDirection,
   useContacts
 } from '../hooks/useContacts';
+import { setContactDragData } from '../lib/contactDragData';
 
 interface ContactsWindowTableViewProps {
   onSelectContact: (contactId: string) => void;

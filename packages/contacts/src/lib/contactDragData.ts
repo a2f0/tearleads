@@ -29,7 +29,9 @@ export function setContactDragData(
   event.dataTransfer.setData('text/plain', uniqueIds.join(','));
 }
 
-export function getContactDragIds(dataTransfer: ContactDragDataReader): string[] {
+export function getContactDragIds(
+  dataTransfer: ContactDragDataReader
+): string[] {
   const raw = dataTransfer.getData(CONTACT_DRAG_MIME_TYPE);
   if (!raw) return [];
 

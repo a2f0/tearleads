@@ -13,8 +13,8 @@ import {
 } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
-import { setContactDragData } from '../lib/contactDragData';
 import { type ContactInfo, useContacts } from '../hooks/useContacts';
+import { setContactDragData } from '../lib/contactDragData';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 

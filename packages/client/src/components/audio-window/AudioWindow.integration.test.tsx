@@ -122,6 +122,5 @@ describe('Audio playlist drag and drop integration', () => {
         .where(eq(vfsLinks.parentId, 'playlist-1'));
       expect(links).toHaveLength(1);
     });
-
   });
 });

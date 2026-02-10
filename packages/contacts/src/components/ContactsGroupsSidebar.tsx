@@ -16,7 +16,9 @@ interface ContactsGroupsSidebarProps {
   selectedGroupId: string | null;
   onGroupSelect: (groupId: string | null) => void;
   onGroupChanged?: (() => void) | undefined;
-  onDropToGroup?: ((groupId: string, contactIds: string[]) => Promise<void>) | undefined;
+  onDropToGroup?:
+    | ((groupId: string, contactIds: string[]) => Promise<void>)
+    | undefined;
 }
 
 export function ContactsGroupsSidebar({
@@ -138,7 +140,8 @@ export function ContactsGroupsSidebar({
       event.preventDefault();
       event.stopPropagation();
 
-      dragCounterRef.current[groupId] = (dragCounterRef.current[groupId] ?? 0) + 1;
+      dragCounterRef.current[groupId] =
+        (dragCounterRef.current[groupId] ?? 0) + 1;
       if (dragCounterRef.current[groupId] === 1) {
         setDragOverGroupId(groupId);
       }
@@ -152,7 +155,8 @@ export function ContactsGroupsSidebar({
       event.preventDefault();
       event.stopPropagation();
 
-      dragCounterRef.current[groupId] = (dragCounterRef.current[groupId] ?? 0) - 1;
+      dragCounterRef.current[groupId] =
+        (dragCounterRef.current[groupId] ?? 0) - 1;
       if (dragCounterRef.current[groupId] === 0) {
         setDragOverGroupId(null);
       }
