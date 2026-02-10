@@ -7,7 +7,8 @@ import {
   Info,
   RotateCcw,
   Share2,
-  Trash2
+  Trash2,
+  Upload
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -28,6 +29,7 @@ interface PhotosWindowTableViewProps {
   selectedAlbumId?: string | null;
   onOpenAIChat?: () => void;
   showDeleted?: boolean;
+  onUpload?: () => void;
 }
 
 interface SortHeaderProps {
@@ -93,7 +95,8 @@ export function PhotosWindowTableView({
   refreshToken,
   selectedAlbumId,
   onOpenAIChat,
-  showDeleted = false
+  showDeleted = false,
+  onUpload
 }: PhotosWindowTableViewProps) {
   const { t } = useTypedTranslation('contextMenu');
   const {
@@ -110,6 +113,10 @@ export function PhotosWindowTableView({
   } = usePhotosWindowData({ refreshToken, selectedAlbumId, showDeleted });
   const [contextMenu, setContextMenu] = useState<{
     photo: PhotoWithUrl;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
     x: number;
     y: number;
   } | null>(null);
@@ -154,9 +161,19 @@ export function PhotosWindowTableView({
   const handleContextMenu = useCallback(
     (event: React.MouseEvent, photo: PhotoWithUrl) => {
       event.preventDefault();
+      event.stopPropagation();
       setContextMenu({ photo, x: event.clientX, y: event.clientY });
     },
     []
+  );
+
+  const handleBlankSpaceContextMenu = useCallback(
+    (event: React.MouseEvent) => {
+      if (!onUpload) return;
+      event.preventDefault();
+      setBlankSpaceMenu({ x: event.clientX, y: event.clientY });
+    },
+    [onUpload]
   );
 
   const handleCloseContextMenu = useCallback(() => {
@@ -266,11 +283,18 @@ export function PhotosWindowTableView({
               Loading photos...
             </div>
           ) : sortedPhotos.length === 0 && hasFetched ? (
-            <div className="rounded-lg border p-6 text-center text-muted-foreground text-xs">
+            <div
+              className="rounded-lg border p-6 text-center text-muted-foreground text-xs"
+              onContextMenu={handleBlankSpaceContextMenu}
+            >
               No photos yet. Use Upload to add images.
             </div>
           ) : (
-            <div className="flex-1 overflow-auto rounded-lg border">
+            <div
+              className="flex-1 overflow-auto rounded-lg border"
+              data-testid="photos-table-container"
+              onContextMenu={handleBlankSpaceContextMenu}
+            >
               <table className="w-full text-xs">
                 <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
                   <tr>
@@ -412,6 +436,26 @@ export function PhotosWindowTableView({
               </button>
             </>
           )}
+        </WindowContextMenu>
+      )}
+
+      {blankSpaceMenu && onUpload && (
+        <WindowContextMenu
+          x={blankSpaceMenu.x}
+          y={blankSpaceMenu.y}
+          onClose={() => setBlankSpaceMenu(null)}
+        >
+          <button
+            type="button"
+            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+            onClick={() => {
+              onUpload();
+              setBlankSpaceMenu(null);
+            }}
+          >
+            <Upload className="h-4 w-4" />
+            Upload
+          </button>
         </WindowContextMenu>
       )}
     </div>

@@ -237,6 +237,7 @@ export function PhotosWindow({
                         selectedAlbumId={selectedAlbumId}
                         onOpenAIChat={handleOpenAIChat}
                         showDeleted={showDeleted}
+                        onUpload={handleUpload}
                       />
                     )}
                   </div>

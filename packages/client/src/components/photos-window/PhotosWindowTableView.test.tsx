@@ -491,4 +491,29 @@ describe('PhotosWindowTableView', () => {
     );
     expect(onOpenAIChat).toHaveBeenCalled();
   });
+
+  it('calls onUpload from blank-space context menu', async () => {
+    const onUpload = vi.fn();
+    mockUsePhotosWindowData.mockReturnValue({
+      photos: [photo],
+      loading: false,
+      error: null,
+      hasFetched: true,
+      isUnlocked: true,
+      isLoading: false,
+      refresh: vi.fn(),
+      currentInstanceId: 'instance-1'
+    });
+
+    const user = userEvent.setup();
+    render(<PhotosWindowTableView refreshToken={0} onUpload={onUpload} />);
+
+    await user.pointer({
+      keys: '[MouseRight]',
+      target: screen.getByTestId('photos-table-container')
+    });
+    await user.click(screen.getByRole('button', { name: 'Upload' }));
+
+    expect(onUpload).toHaveBeenCalled();
+  });
 });

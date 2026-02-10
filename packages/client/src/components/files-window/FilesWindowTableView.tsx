@@ -158,6 +158,10 @@ export function FilesWindowTableView({
     x: number;
     y: number;
   } | null>(null);
+  const [blankSpaceMenu, setBlankSpaceMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const audioObjectUrlRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -325,10 +329,16 @@ export function FilesWindowTableView({
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, file: FileWithThumbnail) => {
       e.preventDefault();
+      e.stopPropagation();
       setContextMenu({ file, x: e.clientX, y: e.clientY });
     },
     []
   );
+
+  const handleBlankSpaceContextMenu = useCallback((e: React.MouseEvent) => {
+    e.preventDefault();
+    setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
+  }, []);
 
   const handleView = useCallback(
     (file: FileInfo) => {
@@ -533,7 +543,10 @@ export function FilesWindowTableView({
             Loading files...
           </div>
         ) : filteredFiles.length === 0 && hasFetched ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center">
+          <div
+            className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center"
+            onContextMenu={handleBlankSpaceContextMenu}
+          >
             <FileIcon className="h-8 w-8 text-muted-foreground" />
             <div>
               <p className="font-medium text-sm">No files yet</p>
@@ -551,7 +564,11 @@ export function FilesWindowTableView({
             </Button>
           </div>
         ) : (
-          <div className="flex-1 overflow-auto rounded-lg border">
+          <div
+            className="flex-1 overflow-auto rounded-lg border"
+            data-testid="files-table-container"
+            onContextMenu={handleBlankSpaceContextMenu}
+          >
             <table className="w-full text-xs">
               <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
                 <tr>
@@ -712,6 +729,24 @@ export function FilesWindowTableView({
             </ContextMenu>
           );
         })()}
+
+      {blankSpaceMenu && (
+        <ContextMenu
+          x={blankSpaceMenu.x}
+          y={blankSpaceMenu.y}
+          onClose={() => setBlankSpaceMenu(null)}
+        >
+          <ContextMenuItem
+            icon={<Plus className="h-4 w-4" />}
+            onClick={() => {
+              onUpload();
+              setBlankSpaceMenu(null);
+            }}
+          >
+            Upload
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
     </div>
   );
 }
