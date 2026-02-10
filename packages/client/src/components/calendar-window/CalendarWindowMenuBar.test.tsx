@@ -94,7 +94,7 @@ describe('CalendarWindowMenuBar', () => {
     await user.click(screen.getByRole('button', { name: 'View' }));
 
     expect(
-      screen.getByRole('menuitem', { name: 'Show Birthdays from Contacts' })
+      screen.getByRole('menuitem', { name: 'Show Contact Birthdays' })
     ).toBeInTheDocument();
   });
 
@@ -108,7 +108,7 @@ describe('CalendarWindowMenuBar', () => {
 
     await user.click(screen.getByRole('button', { name: 'View' }));
     await user.click(
-      screen.getByRole('menuitem', { name: 'Show Birthdays from Contacts' })
+      screen.getByRole('menuitem', { name: 'Show Contact Birthdays' })
     );
 
     expect(onShowBirthdaysFromContactsChange).toHaveBeenCalledWith(false);

@@ -33,7 +33,7 @@ export function CalendarWindowMenuBar({
           checked={showBirthdaysFromContacts}
           icon={<Cake className="h-3 w-3" />}
         >
-          Show Birthdays from Contacts
+          Show Contact Birthdays
         </DropdownMenuItem>
         <WindowOptionsMenuItem />
       </DropdownMenu>
