@@ -231,24 +231,44 @@ describe('ClassicApp', () => {
     expect(screen.getByText('Alpha')).toBeInTheDocument();
   });
 
-  it('creates tags and entries from empty-space context menus', () => {
-    const onCreateTag = vi.fn();
-    const onCreateNote = vi.fn();
-
+  it('creates a new tag via context menu and enters edit mode', () => {
+    const onStateChange = vi.fn();
     render(
-      <ClassicApp
-        initialState={createState()}
-        onCreateTag={onCreateTag}
-        onCreateNote={onCreateNote}
-      />
+      <ClassicApp initialState={createState()} onStateChange={onStateChange} />
     );
 
-    fireEvent.contextMenu(screen.getByLabelText('Tag List'));
+    const tagPane = screen
+      .getByLabelText('Tags Sidebar')
+      .querySelector('.overflow-auto');
+    if (!tagPane) {
+      throw new Error('Expected tag pane');
+    }
+    fireEvent.contextMenu(tagPane);
     fireEvent.click(screen.getByLabelText('Create new tag'));
-    expect(onCreateTag).toHaveBeenCalledTimes(1);
 
-    fireEvent.contextMenu(screen.getByLabelText('Note List'));
+    expect(screen.getByLabelText(/Edit tag/)).toBeInTheDocument();
+    const latest = getLastState(onStateChange);
+    expect(latest.tags).toHaveLength(3);
+    expect(latest.tags[2]?.name).toBe('New Tag');
+  });
+
+  it('creates a new entry via context menu and enters edit mode', () => {
+    const onStateChange = vi.fn();
+    render(
+      <ClassicApp initialState={createState()} onStateChange={onStateChange} />
+    );
+
+    const entryPane = screen
+      .getByLabelText('Notes Pane')
+      .querySelector('.overflow-auto');
+    if (!entryPane) {
+      throw new Error('Expected entry pane');
+    }
+    fireEvent.contextMenu(entryPane);
     fireEvent.click(screen.getByLabelText('Create new entry'));
-    expect(onCreateNote).toHaveBeenCalledWith('tag-1');
+
+    expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
+    const latest = getLastState(onStateChange);
+    expect(Object.keys(latest.notesById)).toHaveLength(3);
   });
 });

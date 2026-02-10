@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CREATE_CLASSIC_NOTE_ARIA_LABEL,
   DEFAULT_CLASSIC_NOTE_TITLE
@@ -13,9 +13,12 @@ interface NotesPaneProps {
   activeTagName: string | null;
   noteIds: string[];
   notesById: Record<string, ClassicNote>;
+  editingNoteId?: string | null;
   onMoveNote: (noteId: string, direction: 'up' | 'down') => void;
   onReorderNote: (noteId: string, targetNoteId: string) => void;
   onCreateNote?: (() => void | Promise<void>) | undefined;
+  onUpdateNote?: (noteId: string, title: string, body: string) => void;
+  onCancelEditNote?: () => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
@@ -37,9 +40,12 @@ export function NotesPane({
   activeTagName,
   noteIds,
   notesById,
+  editingNoteId,
   onMoveNote,
   onReorderNote,
   onCreateNote,
+  onUpdateNote,
+  onCancelEditNote,
   searchValue,
   onSearchChange,
   contextMenuComponents
@@ -50,8 +56,56 @@ export function NotesPane({
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [lastHoverNoteId, setLastHoverNoteId] = useState<string | null>(null);
   const [dragArmedNoteId, setDragArmedNoteId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editBody, setEditBody] = useState('');
+  const editTitleRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingNoteId) {
+      const note = notesById[editingNoteId];
+      setEditTitle(note?.title ?? '');
+      setEditBody(note?.body ?? '');
+      setTimeout(() => {
+        editTitleRef.current?.focus();
+        editTitleRef.current?.select();
+      }, 0);
+    }
+  }, [editingNoteId, notesById]);
 
   const closeContextMenu = () => setContextMenu(null);
+
+  const commitOrCancelEdit = (noteId: string) => {
+    if (editTitle.trim() && onUpdateNote) {
+      onUpdateNote(noteId, editTitle.trim(), editBody);
+    } else {
+      onCancelEditNote?.();
+    }
+  };
+
+  const handleEditKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
+    noteId: string
+  ) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      commitOrCancelEdit(noteId);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      onCancelEditNote?.();
+    }
+  };
+
+  const handleEditBlur = (noteId: string) => {
+    setTimeout(() => {
+      const activeElement = document.activeElement;
+      const isStillEditing =
+        activeElement === editTitleRef.current ||
+        activeElement?.closest(`[data-note-id="${noteId}"]`);
+      if (!isStillEditing) {
+        commitOrCancelEdit(noteId);
+      }
+    }, 0);
+  };
   const openEmptySpaceContextMenu = (x: number, y: number) => {
     setContextMenu({
       x,
@@ -81,7 +135,7 @@ export function NotesPane({
         role="button"
         aria-label="Entry list, press Shift+F10 for context menu"
         tabIndex={0}
-        className="flex-1 overflow-auto p-4"
+        className="flex-1 overflow-auto p-3"
         onContextMenu={(event) => {
           event.preventDefault();
           openEmptySpaceContextMenu(event.clientX, event.clientY);
@@ -101,7 +155,7 @@ export function NotesPane({
         {!activeTagName ? (
           <p className="text-sm text-zinc-500">Select a tag to view notes.</p>
         ) : noteIds.length === 0 ? (
-          <p className="text-sm text-zinc-500">No notes in this tag.</p>
+          <p className="text-sm text-zinc-500">No entries in this tag.</p>
         ) : (
           <ol className="space-y-2" aria-label="Note List">
             {visibleNotes.map((note, index) => {
@@ -171,7 +225,10 @@ export function NotesPane({
                     });
                   }}
                 >
-                  <div className="flex items-stretch gap-2">
+                  <div
+                    className="flex items-stretch gap-2"
+                    data-note-id={note.id}
+                  >
                     <div
                       aria-hidden="true"
                       data-drag-handle="true"
@@ -190,10 +247,34 @@ export function NotesPane({
                         ⋮⋮
                       </span>
                     </div>
-                    <div className="min-w-0">
-                      <h3 className="text-sm">{note.title}</h3>
-                      <p className="text-xs text-zinc-600">{note.body}</p>
-                    </div>
+                    {editingNoteId === note.id ? (
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <input
+                          ref={editTitleRef}
+                          type="text"
+                          value={editTitle}
+                          onChange={(e) => setEditTitle(e.target.value)}
+                          onKeyDown={(e) => handleEditKeyDown(e, note.id)}
+                          onBlur={() => handleEditBlur(note.id)}
+                          className="w-full border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
+                          aria-label="Edit entry title"
+                        />
+                        <textarea
+                          value={editBody}
+                          onChange={(e) => setEditBody(e.target.value)}
+                          onKeyDown={(e) => handleEditKeyDown(e, note.id)}
+                          onBlur={() => handleEditBlur(note.id)}
+                          className="w-full border border-zinc-300 px-1.5 py-0.5 text-base text-xs focus:border-zinc-500 focus:outline-none"
+                          rows={2}
+                          aria-label="Edit entry body"
+                        />
+                      </div>
+                    ) : (
+                      <div className="min-w-0">
+                        <h3 className="text-sm">{note.title}</h3>
+                        <p className="text-xs text-zinc-600">{note.body}</p>
+                      </div>
+                    )}
                   </div>
                 </li>
               );
@@ -201,12 +282,12 @@ export function NotesPane({
           </ol>
         )}
       </div>
-      <div className="p-4">
+      <div className="p-3">
         <input
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-64 rounded border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+          className="w-64 border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
           aria-label="Search entries"
         />
       </div>
