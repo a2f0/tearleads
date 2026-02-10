@@ -110,6 +110,7 @@ export function ContactsWindowList({
   const handleContextMenu = useCallback(
     (e: React.MouseEvent, contact: ContactInfo) => {
       e.preventDefault();
+      e.stopPropagation();
       setContextMenu({ contact, x: e.clientX, y: e.clientY });
     },
     []

@@ -95,6 +95,23 @@ describe('ContactsWindowList', () => {
     expect(screen.queryByText('Send email')).not.toBeInTheDocument();
   });
 
+  it('does not show empty-space menu when right-clicking a contact row', () => {
+    render(
+      <TestContactsProvider>
+        <ContactsWindowList
+          onSelectContact={vi.fn()}
+          onCreateContact={vi.fn()}
+          groupId={undefined}
+        />
+      </TestContactsProvider>
+    );
+
+    fireEvent.contextMenu(screen.getByTestId('list-row'));
+
+    expect(screen.getByText('Send email')).toBeInTheDocument();
+    expect(screen.queryByText('New Contact')).not.toBeInTheDocument();
+  });
+
   it('focuses search input on render', async () => {
     render(
       <TestContactsProvider>

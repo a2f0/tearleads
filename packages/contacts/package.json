@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@rapid/db": "workspace:*",
+    "@rapid/db-test-utils": "workspace:*",
     "@rapid/shared": "workspace:*",
     "@rapid/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
