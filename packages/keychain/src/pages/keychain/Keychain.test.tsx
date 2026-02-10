@@ -140,7 +140,7 @@ describe('Keychain', () => {
       });
     });
 
-    it('displays instance count in header', async () => {
+    it('displays instance count in status bar', async () => {
       renderKeychain();
 
       await waitFor(() => {
