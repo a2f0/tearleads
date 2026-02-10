@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TestContactsProvider } from '../test/test-utils';
 import { ContactsWindowList } from './ContactsWindowList';
@@ -93,5 +93,23 @@ describe('ContactsWindowList', () => {
 
     fireEvent.contextMenu(screen.getByTestId('list-row'));
     expect(screen.queryByText('Send email')).not.toBeInTheDocument();
+  });
+
+  it('focuses search input on render', async () => {
+    render(
+      <TestContactsProvider>
+        <ContactsWindowList
+          onSelectContact={vi.fn()}
+          onCreateContact={vi.fn()}
+          groupId={undefined}
+        />
+      </TestContactsProvider>
+    );
+
+    await waitFor(() => {
+      expect(document.activeElement).toBe(
+        screen.getByTestId('window-contacts-search')
+      );
+    });
   });
 });

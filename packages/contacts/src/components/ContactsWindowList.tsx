@@ -11,7 +11,7 @@ import {
   User,
   UserPlus
 } from 'lucide-react';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
 import { type ContactInfo, useContacts } from '../hooks/useContacts';
 import { setContactDragData } from '../lib/contactDragData';
@@ -64,6 +64,15 @@ export function ContactsWindowList({
     y: number;
   } | null>(null);
   const parentRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const focusTimer = window.setTimeout(() => {
+      searchInputRef.current?.focus();
+    }, 50);
+
+    return () => window.clearTimeout(focusTimer);
+  }, []);
 
   const filteredContacts = contactsList.filter((contact) => {
     const searchLower = searchQuery.toLowerCase();
@@ -247,6 +256,7 @@ export function ContactsWindowList({
                   placeholder="Search contacts..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  inputRef={searchInputRef}
                   className="h-8 text-base"
                   data-testid="window-contacts-search"
                 />
