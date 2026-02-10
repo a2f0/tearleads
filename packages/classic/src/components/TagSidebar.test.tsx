@@ -49,9 +49,7 @@ describe('TagSidebar', () => {
     expect(onMoveTag).toHaveBeenCalledWith('tag-2', 'up');
 
     fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
-    expect(
-      screen.queryByLabelText('Move tag Work up')
-    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Move tag Work up')).not.toBeInTheDocument();
     fireEvent.contextMenu(screen.getByLabelText('Select tag Personal'));
     expect(
       screen.queryByLabelText('Move tag Personal down')
