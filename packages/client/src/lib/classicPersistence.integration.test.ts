@@ -173,6 +173,31 @@ async function seedClassicFixture(
   ]);
 }
 
+async function createUntaggedNoteInDb(
+  db: TestDatabaseContext['db'],
+  note: {
+    id: string;
+    title: string;
+    content: string;
+  }
+): Promise<void> {
+  const now = new Date();
+  await db.insert(vfsRegistry).values({
+    id: note.id,
+    objectType: 'note',
+    ownerId: null,
+    createdAt: now
+  });
+  await db.insert(notes).values({
+    id: note.id,
+    title: note.title,
+    content: note.content,
+    createdAt: now,
+    updatedAt: now,
+    deleted: false
+  });
+}
+
 describe('classicPersistence integration', () => {
   afterEach(() => {
     testDbState.db = null;
@@ -196,21 +221,10 @@ describe('classicPersistence integration', () => {
   it('includes untagged notes when tagged notes and tags exist', async () => {
     await withClassicTestDatabase(async ({ db }) => {
       await seedClassicFixture(db);
-
-      const now = new Date();
-      await db.insert(vfsRegistry).values({
-        id: 'note-untagged',
-        objectType: 'note',
-        ownerId: null,
-        createdAt: now
-      });
-      await db.insert(notes).values({
+      await createUntaggedNoteInDb(db, {
         id: 'note-untagged',
         title: 'No Tag',
-        content: 'untagged body',
-        createdAt: now,
-        updatedAt: now,
-        deleted: false
+        content: 'untagged body'
       });
 
       const { state } = await loadClassicStateFromDatabase();
