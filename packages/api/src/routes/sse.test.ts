@@ -72,6 +72,16 @@ describe('SSE Routes', () => {
   });
 
   describe('GET /v1/sse', () => {
+    it('rejects x-auth-token without bearer authorization', async () => {
+      const token = authHeader.replace('Bearer ', '');
+      const response = await request(app)
+        .get('/v1/sse')
+        .set('x-auth-token', token);
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: 'Unauthorized' });
+    });
+
     it('returns SSE headers', async () => {
       const response = await request(app)
         .get('/v1/sse')
