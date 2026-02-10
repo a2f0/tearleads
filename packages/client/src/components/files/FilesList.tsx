@@ -31,7 +31,10 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import {
+  getVirtualListStatusText,
+  VirtualListStatus
+} from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
@@ -85,8 +88,10 @@ export interface FilesListProps {
   onShowDeletedChange?: (show: boolean) => void;
   showHeader?: boolean;
   showDropzone?: boolean;
+  showInlineStatus?: boolean;
   onFilesChange?: () => void;
   onSelectFile?: (fileId: string) => void;
+  onStatusTextChange?: (text: string) => void;
   refreshToken?: number;
   onUpload?: () => void;
 }
@@ -98,8 +103,10 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
       onShowDeletedChange,
       showHeader = true,
       showDropzone = true,
+      showInlineStatus = true,
       onFilesChange,
       onSelectFile,
+      onStatusTextChange,
       refreshToken,
       onUpload
     },
@@ -168,6 +175,49 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
 
     const virtualItems = virtualizer.getVirtualItems();
     const { firstVisible, lastVisible } = useVirtualVisibleRange(virtualItems);
+
+    useEffect(() => {
+      if (!onStatusTextChange) return;
+
+      if (isLoading) {
+        onStatusTextChange('Loading database...');
+        return;
+      }
+
+      if (!isUnlocked) {
+        onStatusTextChange('Database locked');
+        return;
+      }
+
+      if (error) {
+        onStatusTextChange(error);
+        return;
+      }
+
+      if (loading || !hasFetched) {
+        onStatusTextChange('Loading files...');
+        return;
+      }
+
+      onStatusTextChange(
+        getVirtualListStatusText({
+          firstVisible,
+          lastVisible,
+          loadedCount: filteredFiles.length,
+          itemLabel: 'file'
+        })
+      );
+    }, [
+      error,
+      filteredFiles.length,
+      firstVisible,
+      hasFetched,
+      isLoading,
+      isUnlocked,
+      lastVisible,
+      loading,
+      onStatusTextChange
+    ]);
 
     const fetchFiles = useCallback(async () => {
       if (!isUnlocked) return;
@@ -659,13 +709,15 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
               </div>
             ) : (
               <>
-                <VirtualListStatus
-                  firstVisible={firstVisible}
-                  lastVisible={lastVisible}
-                  loadedCount={filteredFiles.length}
-                  itemLabel="file"
-                  className="mb-2"
-                />
+                {showInlineStatus && (
+                  <VirtualListStatus
+                    firstVisible={firstVisible}
+                    lastVisible={lastVisible}
+                    loadedCount={filteredFiles.length}
+                    itemLabel="file"
+                    className="mb-2"
+                  />
+                )}
                 <div className="flex-1 rounded-lg border">
                   {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
                   <div

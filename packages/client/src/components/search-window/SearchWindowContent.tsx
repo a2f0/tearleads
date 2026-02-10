@@ -1,3 +1,4 @@
+import { WindowStatusBar } from '@rapid/window-manager';
 import {
   Contact,
   File,
@@ -511,7 +512,7 @@ export function SearchWindowContent({
         )}
       </div>
 
-      <div className="border-t px-3 py-1 text-muted-foreground text-xs">
+      <WindowStatusBar>
         {!isInitialized
           ? 'Initializing search...'
           : isIndexing
@@ -521,7 +522,7 @@ export function SearchWindowContent({
               : searchDurationMs === null
                 ? 'Ready'
                 : `Search took ${searchDurationMs} ms`}
-      </div>
+      </WindowStatusBar>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { useMultiFileUpload } from '@rapid/audio';
+import { WindowStatusBar } from '@rapid/window-manager';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -108,6 +109,14 @@ export function DocumentsWindow({
     openWindow('chat');
   }, [openWindow]);
 
+  const statusText = uploading
+    ? 'Uploading documents...'
+    : selectedDocumentId
+      ? 'Viewing document'
+      : showDeleted
+        ? 'Browsing deleted documents'
+        : 'Browsing documents';
+
   return (
     <FloatingWindow
       id={id}
@@ -174,6 +183,7 @@ export function DocumentsWindow({
           )}
           <DropZoneOverlay isVisible={isDragging} label="documents" />
         </div>
+        <WindowStatusBar>{statusText}</WindowStatusBar>
       </div>
       <input
         ref={fileInputRef}

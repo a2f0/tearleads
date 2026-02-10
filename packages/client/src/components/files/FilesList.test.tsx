@@ -127,6 +127,7 @@ vi.mock('@/components/ui/refresh-button', () => ({
 }));
 
 vi.mock('@/components/ui/VirtualListStatus', () => ({
+  getVirtualListStatusText: () => 'Status',
   VirtualListStatus: () => <div data-testid="virtual-list-status">Status</div>
 }));
 

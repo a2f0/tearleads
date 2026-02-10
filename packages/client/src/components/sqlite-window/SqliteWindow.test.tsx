@@ -68,7 +68,8 @@ vi.mock('@/components/sqlite/TableRowsView', () => ({
   TableRowsView: ({
     tableName,
     backLink,
-    onExportCsvChange
+    onExportCsvChange,
+    onStatusTextChange
   }: {
     tableName: string | null;
     backLink?: React.ReactNode;
@@ -76,15 +77,20 @@ vi.mock('@/components/sqlite/TableRowsView', () => ({
       handler: (() => Promise<void>) | null,
       exporting: boolean
     ) => void;
+    onStatusTextChange?: (text: string) => void;
   }) => {
     React.useEffect(() => {
       if (tableName) {
         onExportCsvChange?.(mockExportCsv, false);
+        onStatusTextChange?.('Viewing 1-73 of 73 rows');
       } else {
         onExportCsvChange?.(null, false);
+        onStatusTextChange?.('Select a table to view its data.');
       }
-      return () => onExportCsvChange?.(null, false);
-    }, [onExportCsvChange, tableName]);
+      return () => {
+        onExportCsvChange?.(null, false);
+      };
+    }, [onExportCsvChange, onStatusTextChange, tableName]);
 
     return (
       <div data-testid="table-rows-view">
@@ -231,6 +237,7 @@ describe('SqliteWindow', () => {
 
     expect(screen.getByTestId('table-rows-view')).toBeInTheDocument();
     expect(screen.getByTestId('table-rows-name')).toHaveTextContent('users');
+    expect(screen.getByText('Viewing 1-73 of 73 rows')).toBeInTheDocument();
   });
 
   it('returns to table sizes when Back to SQLite is clicked', async () => {

@@ -11,6 +11,46 @@ export interface VirtualListStatusProps {
   className?: string;
 }
 
+export function getVirtualListStatusText({
+  firstVisible,
+  lastVisible,
+  loadedCount,
+  totalCount,
+  hasMore = false,
+  itemLabel = 'item',
+  searchQuery
+}: Omit<VirtualListStatusProps, 'className'>): string {
+  const formatNumber = new Intl.NumberFormat('en-US').format;
+  const pluralLabel = loadedCount !== 1 ? `${itemLabel}s` : itemLabel;
+
+  if (loadedCount === 0) {
+    return `${formatNumber(0)} ${pluralLabel}${searchQuery ? ' found' : ''}`;
+  }
+
+  const hasMoreIndicator = hasMore ? '+' : '';
+
+  if (firstVisible != null && lastVisible != null) {
+    const rangeText = `Viewing ${formatNumber(firstVisible + 1)}-${formatNumber(
+      lastVisible + 1
+    )}`;
+
+    if (totalCount != null && totalCount !== loadedCount) {
+      return `${rangeText} (${formatNumber(totalCount)} total)`;
+    }
+
+    const suffix = searchQuery ? ' found' : '';
+    return `${rangeText} of ${formatNumber(loadedCount)}${hasMoreIndicator} ${pluralLabel}${suffix}`;
+  }
+
+  if (totalCount != null && totalCount !== loadedCount) {
+    return `${formatNumber(loadedCount)} loaded${hasMoreIndicator} of ${formatNumber(
+      totalCount
+    )} total`;
+  }
+
+  return `${formatNumber(loadedCount)} ${pluralLabel}${hasMoreIndicator}${searchQuery ? ' found' : ''}`;
+}
+
 export function VirtualListStatus({
   firstVisible,
   lastVisible,
@@ -21,46 +61,17 @@ export function VirtualListStatus({
   searchQuery,
   className
 }: VirtualListStatusProps) {
-  const formatNumber = new Intl.NumberFormat('en-US').format;
-  const pluralLabel = loadedCount !== 1 ? `${itemLabel}s` : itemLabel;
-
-  const getStatusText = () => {
-    // Case 1: No items loaded
-    if (loadedCount === 0) {
-      return `${formatNumber(0)} ${pluralLabel}${searchQuery ? ' found' : ''}`;
-    }
-
-    const hasMoreIndicator = hasMore ? '+' : '';
-
-    // Case 2: We have visible range information
-    if (firstVisible != null && lastVisible != null) {
-      const rangeText = `Viewing ${formatNumber(firstVisible + 1)}-${formatNumber(
-        lastVisible + 1
-      )}`;
-
-      // If we have a total count (e.g., from Redis DBSIZE), show visible range and total
-      if (totalCount != null && totalCount !== loadedCount) {
-        return `${rangeText} (${formatNumber(totalCount)} total)`;
-      }
-
-      // Simple case: all data is loaded (no pagination)
-      const suffix = searchQuery ? ' found' : '';
-      return `${rangeText} of ${formatNumber(loadedCount)}${hasMoreIndicator} ${pluralLabel}${suffix}`;
-    }
-
-    // Case 3: No visible range (fallback)
-    if (totalCount != null && totalCount !== loadedCount) {
-      return `${formatNumber(loadedCount)} loaded${hasMoreIndicator} of ${formatNumber(
-        totalCount
-      )} total`;
-    }
-
-    return `${formatNumber(loadedCount)} ${pluralLabel}${hasMoreIndicator}${searchQuery ? ' found' : ''}`;
-  };
-
   return (
     <p className={cn('text-muted-foreground text-sm', className)}>
-      {getStatusText()}
+      {getVirtualListStatusText({
+        firstVisible,
+        lastVisible,
+        loadedCount,
+        ...(totalCount !== undefined && { totalCount }),
+        hasMore,
+        itemLabel,
+        ...(searchQuery !== undefined && { searchQuery })
+      })}
     </p>
   );
 }

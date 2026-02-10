@@ -25,7 +25,10 @@ import {
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import {
+  getVirtualListStatusText,
+  VirtualListStatus
+} from '@/components/ui/VirtualListStatus';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { cn } from '@/lib/utils';
@@ -54,6 +57,8 @@ interface TableRowsViewProps {
   tableName: string | null;
   backLink?: ReactNode;
   containerClassName?: string;
+  showInlineStatus?: boolean;
+  onStatusTextChange?: (text: string) => void;
   onExportCsvChange?: (
     handler: (() => Promise<void>) | null,
     exporting: boolean
@@ -86,6 +91,8 @@ export function TableRowsView({
   tableName,
   backLink,
   containerClassName = DEFAULT_CONTAINER_CLASSNAME,
+  showInlineStatus = true,
+  onStatusTextChange,
   onExportCsvChange
 }: TableRowsViewProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
@@ -504,6 +511,64 @@ export function TableRowsView({
       ? (visibleRowItems[visibleRowItems.length - 1]?.index ?? null)
       : null;
 
+  useEffect(() => {
+    if (!onStatusTextChange) return;
+
+    if (!tableName) {
+      onStatusTextChange('Select a table to view its data.');
+      return;
+    }
+
+    if (isLoading) {
+      onStatusTextChange('Loading database...');
+      return;
+    }
+
+    if (!isUnlocked) {
+      onStatusTextChange('Database locked');
+      return;
+    }
+
+    if (error) {
+      onStatusTextChange(error);
+      return;
+    }
+
+    if (loading && columns.length === 0) {
+      onStatusTextChange('Loading table data...');
+      return;
+    }
+
+    if (columns.length === 0) {
+      onStatusTextChange('Table not found or has no columns');
+      return;
+    }
+
+    onStatusTextChange(
+      getVirtualListStatusText({
+        firstVisible,
+        lastVisible,
+        loadedCount: rows.length,
+        totalCount,
+        hasMore,
+        itemLabel: 'row'
+      })
+    );
+  }, [
+    columns.length,
+    error,
+    firstVisible,
+    hasMore,
+    isLoading,
+    isUnlocked,
+    lastVisible,
+    loading,
+    onStatusTextChange,
+    rows.length,
+    tableName,
+    totalCount
+  ]);
+
   // Store fetchTableData in a ref to avoid re-triggering load more effect
   const fetchTableDataRef = useRef(fetchTableData);
   fetchTableDataRef.current = fetchTableData;
@@ -752,16 +817,18 @@ export function TableRowsView({
                 className="min-h-0 flex-1 overflow-auto p-2"
                 data-testid="scroll-container"
               >
-                <div className="sticky top-0 z-10 bg-background pb-2">
-                  <VirtualListStatus
-                    firstVisible={firstVisible}
-                    lastVisible={lastVisible}
-                    loadedCount={rows.length}
-                    totalCount={totalCount}
-                    hasMore={hasMore}
-                    itemLabel="row"
-                  />
-                </div>
+                {showInlineStatus && (
+                  <div className="sticky top-0 z-10 bg-background pb-2">
+                    <VirtualListStatus
+                      firstVisible={firstVisible}
+                      lastVisible={lastVisible}
+                      loadedCount={rows.length}
+                      totalCount={totalCount}
+                      hasMore={hasMore}
+                      itemLabel="row"
+                    />
+                  </div>
+                )}
                 {rows.length === 0 && !loading ? (
                   <div className="p-8 text-center text-muted-foreground">
                     No rows in this table
@@ -880,16 +947,18 @@ export function TableRowsView({
                 className="min-h-0 flex-1 overflow-auto"
                 data-testid="scroll-container"
               >
-                <div className="sticky top-0 z-10 bg-background px-4 py-2">
-                  <VirtualListStatus
-                    firstVisible={firstVisible}
-                    lastVisible={lastVisible}
-                    loadedCount={rows.length}
-                    totalCount={totalCount}
-                    hasMore={hasMore}
-                    itemLabel="row"
-                  />
-                </div>
+                {showInlineStatus && (
+                  <div className="sticky top-0 z-10 bg-background px-4 py-2">
+                    <VirtualListStatus
+                      firstVisible={firstVisible}
+                      lastVisible={lastVisible}
+                      loadedCount={rows.length}
+                      totalCount={totalCount}
+                      hasMore={hasMore}
+                      itemLabel="row"
+                    />
+                  </div>
+                )}
                 {rows.length === 0 && !loading ? (
                   <div className="px-4 py-8 text-center text-muted-foreground">
                     No rows in this table
