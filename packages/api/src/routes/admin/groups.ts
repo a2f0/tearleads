@@ -16,6 +16,7 @@ import {
   Router,
   type Router as RouterType
 } from 'express';
+import type { Pool } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { registerDeleteIdRoute } from './groups/delete-id.js';
 import { registerDeleteIdMembersUseridRoute } from './groups/delete-id-members-userId.js';
@@ -25,6 +26,59 @@ import { registerGetRootRoute } from './groups/get-root.js';
 import { registerPostIdMembersRoute } from './groups/post-id-members.js';
 import { registerPostRootRoute } from './groups/post-root.js';
 import { registerPutIdRoute } from './groups/put-id.js';
+import { ensureOrganizationExists } from './lib/organizations.js';
+
+type GroupRow = {
+  id: string;
+  organization_id: string;
+  name: string;
+  description: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
+type GroupMemberRow = {
+  user_id: string;
+  email: string;
+  joined_at: Date;
+};
+
+function mapGroupRow(row: GroupRow): Group {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    name: row.name,
+    description: row.description,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString()
+  };
+}
+
+function mapGroupMemberRow(row: GroupMemberRow): GroupMember {
+  return {
+    userId: row.user_id,
+    email: row.email,
+    joinedAt: row.joined_at.toISOString()
+  };
+}
+
+function isDuplicateConstraintError(err: unknown): err is Error {
+  return (
+    err instanceof Error &&
+    err.message.includes('duplicate key value violates unique constraint')
+  );
+}
+
+async function getGroupOrganizationId(
+  pool: Pool,
+  groupId: string
+): Promise<string | null> {
+  const groupResult = await pool.query<{ organization_id: string }>(
+    'SELECT organization_id FROM groups WHERE id = $1',
+    [groupId]
+  );
+  return groupResult.rows[0]?.organization_id ?? null;
+}
 
 /**
  * @openapi
@@ -185,25 +239,13 @@ export const postRootHandler = async (
     const trimmedOrganizationId = organizationId.trim();
 
     const pool = await getPostgresPool();
-    const orgResult = await pool.query<{ id: string }>(
-      'SELECT id FROM organizations WHERE id = $1',
-      [trimmedOrganizationId]
-    );
-    if (!orgResult.rows[0]) {
-      res.status(404).json({ error: 'Organization not found' });
+    if (!(await ensureOrganizationExists(pool, trimmedOrganizationId, res))) {
       return;
     }
     const id = randomUUID();
     const now = new Date();
 
-    const result = await pool.query<{
-      id: string;
-      organization_id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const result = await pool.query<GroupRow>(
       `INSERT INTO groups (id, organization_id, name, description, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, organization_id, name, description, created_at, updated_at`,
@@ -223,22 +265,12 @@ export const postRootHandler = async (
       return;
     }
 
-    const group: Group = {
-      id: row.id,
-      organizationId: row.organization_id,
-      name: row.name,
-      description: row.description,
-      createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString()
-    };
+    const group = mapGroupRow(row);
 
     res.status(201).json({ group });
   } catch (err) {
     console.error('Groups error:', err);
-    if (
-      err instanceof Error &&
-      err.message.includes('duplicate key value violates unique constraint')
-    ) {
+    if (isDuplicateConstraintError(err)) {
       res.status(409).json({ error: 'Group name already exists' });
       return;
     }
@@ -296,14 +328,7 @@ export const getIdHandler = async (
     const { id } = req.params;
     const pool = await getPostgresPool();
 
-    const groupResult = await pool.query<{
-      id: string;
-      organization_id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const groupResult = await pool.query<GroupRow>(
       'SELECT id, organization_id, name, description, created_at, updated_at FROM groups WHERE id = $1',
       [id]
     );
@@ -314,11 +339,7 @@ export const getIdHandler = async (
       return;
     }
 
-    const membersResult = await pool.query<{
-      user_id: string;
-      email: string;
-      joined_at: Date;
-    }>(
+    const membersResult = await pool.query<GroupMemberRow>(
       `SELECT ug.user_id, u.email, ug.joined_at
        FROM user_groups ug
        JOIN users u ON u.id = ug.user_id
@@ -327,20 +348,8 @@ export const getIdHandler = async (
       [id]
     );
 
-    const group: Group = {
-      id: groupRow.id,
-      organizationId: groupRow.organization_id,
-      name: groupRow.name,
-      description: groupRow.description,
-      createdAt: groupRow.created_at.toISOString(),
-      updatedAt: groupRow.updated_at.toISOString()
-    };
-
-    const members: GroupMember[] = membersResult.rows.map((row) => ({
-      userId: row.user_id,
-      email: row.email,
-      joinedAt: row.joined_at.toISOString()
-    }));
+    const group = mapGroupRow(groupRow);
+    const members = membersResult.rows.map(mapGroupMemberRow);
 
     const response: GroupDetailResponse = { group, members };
     res.json(response);
@@ -439,12 +448,7 @@ export const putIdHandler = async (
         res.status(400).json({ error: 'Organization ID cannot be empty' });
         return;
       }
-      const orgExists = await pool.query<{ id: string }>(
-        'SELECT id FROM organizations WHERE id = $1',
-        [organizationId]
-      );
-      if (!orgExists.rows[0]) {
-        res.status(404).json({ error: 'Organization not found' });
+      if (!(await ensureOrganizationExists(pool, organizationId, res))) {
         return;
       }
       updates.push(`organization_id = $${paramIndex++}`);
@@ -460,14 +464,7 @@ export const putIdHandler = async (
     values.push(new Date());
     values.push(id);
 
-    const result = await pool.query<{
-      id: string;
-      organization_id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const result = await pool.query<GroupRow>(
       `UPDATE groups
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
@@ -481,22 +478,10 @@ export const putIdHandler = async (
       return;
     }
 
-    const group: Group = {
-      id: row.id,
-      organizationId: row.organization_id,
-      name: row.name,
-      description: row.description,
-      createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString()
-    };
-
-    res.json({ group });
+    res.json({ group: mapGroupRow(row) });
   } catch (err) {
     console.error('Groups error:', err);
-    if (
-      err instanceof Error &&
-      err.message.includes('duplicate key value violates unique constraint')
-    ) {
+    if (isDuplicateConstraintError(err)) {
       res.status(409).json({ error: 'Group name already exists' });
       return;
     }
@@ -602,21 +587,13 @@ export const getIdMembersHandler = async (
     const { id } = req.params;
     const pool = await getPostgresPool();
 
-    const groupResult = await pool.query<{ organization_id: string }>(
-      'SELECT organization_id FROM groups WHERE id = $1',
-      [id]
-    );
-    const groupRow = groupResult.rows[0];
-    if (!groupRow) {
+    const organizationId = await getGroupOrganizationId(pool, id);
+    if (!organizationId) {
       res.status(404).json({ error: 'Group not found' });
       return;
     }
 
-    const result = await pool.query<{
-      user_id: string;
-      email: string;
-      joined_at: Date;
-    }>(
+    const result = await pool.query<GroupMemberRow>(
       `SELECT ug.user_id, u.email, ug.joined_at
          FROM user_groups ug
          JOIN users u ON u.id = ug.user_id
@@ -625,11 +602,7 @@ export const getIdMembersHandler = async (
       [id]
     );
 
-    const members: GroupMember[] = result.rows.map((row) => ({
-      userId: row.user_id,
-      email: row.email,
-      joinedAt: row.joined_at.toISOString()
-    }));
+    const members = result.rows.map(mapGroupMemberRow);
 
     const response: GroupMembersResponse = { members };
     res.json(response);
@@ -717,12 +690,8 @@ export const postIdMembersHandler = async (
 
     const pool = await getPostgresPool();
 
-    const groupResult = await pool.query<{ organization_id: string }>(
-      'SELECT organization_id FROM groups WHERE id = $1',
-      [id]
-    );
-    const groupRow = groupResult.rows[0];
-    if (!groupRow) {
+    const organizationId = await getGroupOrganizationId(pool, id);
+    if (!organizationId) {
       res.status(404).json({ error: 'Group not found' });
       return;
     }
@@ -739,7 +708,7 @@ export const postIdMembersHandler = async (
       `INSERT INTO user_organizations (user_id, organization_id, joined_at)
          VALUES ($1, $2, $3)
          ON CONFLICT DO NOTHING`,
-      [userId, groupRow.organization_id, new Date()]
+      [userId, organizationId, new Date()]
     );
 
     await pool.query(
@@ -751,10 +720,7 @@ export const postIdMembersHandler = async (
     res.status(201).json({ added: true });
   } catch (err) {
     console.error('Groups error:', err);
-    if (
-      err instanceof Error &&
-      err.message.includes('duplicate key value violates unique constraint')
-    ) {
+    if (isDuplicateConstraintError(err)) {
       res.status(409).json({ error: 'User is already a member of this group' });
       return;
     }

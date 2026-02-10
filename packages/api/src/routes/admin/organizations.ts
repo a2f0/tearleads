@@ -15,6 +15,7 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { ensureOrganizationExists } from './lib/organizations.js';
 import { registerDeleteIdRoute } from './organizations/delete-id.js';
 import { registerGetIdRoute } from './organizations/get-id.js';
 import { registerGetIdGroupsRoute } from './organizations/get-id-groups.js';
@@ -23,20 +24,29 @@ import { registerGetRootRoute } from './organizations/get-root.js';
 import { registerPostRootRoute } from './organizations/post-root.js';
 import { registerPutIdRoute } from './organizations/put-id.js';
 
-async function checkOrganizationExists(
-  id: string,
-  res: Response
-): Promise<boolean> {
-  const pool = await getPostgresPool();
-  const result = await pool.query(
-    'SELECT id FROM organizations WHERE id = $1',
-    [id]
+type OrganizationRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  created_at: Date;
+  updated_at: Date;
+};
+
+function mapOrganizationRow(row: OrganizationRow): Organization {
+  return {
+    id: row.id,
+    name: row.name,
+    description: row.description,
+    createdAt: row.created_at.toISOString(),
+    updatedAt: row.updated_at.toISOString()
+  };
+}
+
+function isDuplicateConstraintError(err: unknown): err is Error {
+  return (
+    err instanceof Error &&
+    err.message.includes('duplicate key value violates unique constraint')
   );
-  if (result.rows.length === 0) {
-    res.status(404).json({ error: 'Organization not found' });
-    return false;
-  }
-  return true;
 }
 
 /**
@@ -56,25 +66,13 @@ async function checkOrganizationExists(
 export const getRootHandler = async (_req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
-    const result = await pool.query<{
-      id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const result = await pool.query<OrganizationRow>(
       `SELECT id, name, description, created_at, updated_at
        FROM organizations
        ORDER BY name`
     );
 
-    const organizations: Organization[] = result.rows.map((row) => ({
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString()
-    }));
+    const organizations: Organization[] = result.rows.map(mapOrganizationRow);
 
     const response: OrganizationsListResponse = { organizations };
     res.json(response);
@@ -121,13 +119,7 @@ export const postRootHandler = async (
     const id = randomUUID();
     const now = new Date();
 
-    const result = await pool.query<{
-      id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const result = await pool.query<OrganizationRow>(
       `INSERT INTO organizations (id, name, description, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5)
          RETURNING id, name, description, created_at, updated_at`,
@@ -140,21 +132,12 @@ export const postRootHandler = async (
       return;
     }
 
-    const organization: Organization = {
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      createdAt: row.created_at.toISOString(),
-      updatedAt: row.updated_at.toISOString()
-    };
+    const organization = mapOrganizationRow(row);
 
     res.status(201).json({ organization });
   } catch (err) {
     console.error('Organizations error:', err);
-    if (
-      err instanceof Error &&
-      err.message.includes('duplicate key value violates unique constraint')
-    ) {
+    if (isDuplicateConstraintError(err)) {
       res.status(409).json({ error: 'Organization name already exists' });
       return;
     }
@@ -187,13 +170,7 @@ export const getIdHandler = async (
 ) => {
   try {
     const pool = await getPostgresPool();
-    const result = await pool.query<{
-      id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const result = await pool.query<OrganizationRow>(
       `SELECT id, name, description, created_at, updated_at
        FROM organizations
        WHERE id = $1`,
@@ -207,13 +184,7 @@ export const getIdHandler = async (
     }
 
     const response: OrganizationResponse = {
-      organization: {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        createdAt: row.created_at.toISOString(),
-        updatedAt: row.updated_at.toISOString()
-      }
+      organization: mapOrganizationRow(row)
     };
     res.json(response);
   } catch (err) {
@@ -253,9 +224,9 @@ export const getIdUsersHandler = async (
 ) => {
   try {
     const { id } = req.params;
-    if (!(await checkOrganizationExists(id, res))) return;
-
     const pool = await getPostgresPool();
+    if (!(await ensureOrganizationExists(pool, id, res))) return;
+
     const result = await pool.query<{
       id: string;
       email: string;
@@ -317,9 +288,9 @@ export const getIdGroupsHandler = async (
 ) => {
   try {
     const { id } = req.params;
-    if (!(await checkOrganizationExists(id, res))) return;
-
     const pool = await getPostgresPool();
+    if (!(await ensureOrganizationExists(pool, id, res))) return;
+
     const result = await pool.query<{
       id: string;
       name: string;
@@ -411,13 +382,7 @@ export const putIdHandler = async (
     values.push(new Date());
     values.push(id);
 
-    const result = await pool.query<{
-      id: string;
-      name: string;
-      description: string | null;
-      created_at: Date;
-      updated_at: Date;
-    }>(
+    const result = await pool.query<OrganizationRow>(
       `UPDATE organizations
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
@@ -432,22 +397,13 @@ export const putIdHandler = async (
     }
 
     const response: OrganizationResponse = {
-      organization: {
-        id: row.id,
-        name: row.name,
-        description: row.description,
-        createdAt: row.created_at.toISOString(),
-        updatedAt: row.updated_at.toISOString()
-      }
+      organization: mapOrganizationRow(row)
     };
 
     res.json(response);
   } catch (err) {
     console.error('Organizations error:', err);
-    if (
-      err instanceof Error &&
-      err.message.includes('duplicate key value violates unique constraint')
-    ) {
+    if (isDuplicateConstraintError(err)) {
       res.status(409).json({ error: 'Organization name already exists' });
       return;
     }
