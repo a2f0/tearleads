@@ -86,7 +86,7 @@ describe('Console', () => {
     renderConsole();
 
     await waitFor(() => {
-      expect(screen.getByText('Rapid Terminal v1.0')).toBeInTheDocument();
+      expect(screen.getByText(/Rapid Terminal v/)).toBeInTheDocument();
     });
   });
 

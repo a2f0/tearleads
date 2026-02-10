@@ -192,6 +192,7 @@ jobs:
           pnpm --filter @rapid/ui test:coverage
           pnpm --filter @rapid/window-manager test:coverage
           pnpm --filter @rapid/audio test:coverage
+          pnpm --filter @rapid/terminal test:coverage
           pnpm --filter @rapid/api test:coverage
           pnpm --filter @rapid/smtp-listener test:coverage
           pnpm --filter @rapid/client test:coverage
@@ -208,6 +209,7 @@ jobs:
             packages/ui/coverage/
             packages/window-manager/coverage/
             packages/audio/coverage/
+            packages/terminal/coverage/
             packages/api/coverage/
             packages/smtp-listener/coverage/
             packages/client/coverage/

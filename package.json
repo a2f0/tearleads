@@ -14,6 +14,7 @@
     "build:ui": "pnpm --filter @rapid/ui build",
     "build:window-manager": "pnpm --filter @rapid/window-manager build",
     "build:notes": "pnpm --filter @rapid/notes build",
+    "build:terminal": "pnpm --filter @rapid/terminal build",
     "build:contacts": "pnpm --filter @rapid/contacts build",
     "build:email": "pnpm --filter @rapid/email build",
     "build:calendar": "pnpm --filter @rapid/calendar build",

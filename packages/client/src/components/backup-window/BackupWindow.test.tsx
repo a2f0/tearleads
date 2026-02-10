@@ -69,4 +69,20 @@ describe('BackupWindow', () => {
     expect(screen.getByTestId('backup-documentation')).toBeInTheDocument();
     expect(screen.queryByTestId('backup-manager-view')).not.toBeInTheDocument();
   });
+
+  it('returns to manager view from documentation back action', async () => {
+    const user = userEvent.setup();
+    render(<BackupWindow {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Back to Backup Manager' })
+    );
+
+    expect(screen.getByTestId('backup-manager-view')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('backup-documentation')
+    ).not.toBeInTheDocument();
+  });
 });

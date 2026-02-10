@@ -90,4 +90,15 @@ describe('DisplayPropertiesWindow', () => {
     await user.click(screen.getByRole('button', { name: /close/i }));
     expect(onOpenChange).toHaveBeenCalledWith(false);
   });
+
+  it('calls onOpenChange with false from File menu Close', async () => {
+    const user = userEvent.setup();
+    const onOpenChange = vi.fn();
+    renderWindow({ onOpenChange });
+
+    await user.click(screen.getByRole('button', { name: 'File' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Close' }));
+
+    expect(onOpenChange).toHaveBeenCalledWith(false);
+  });
 });

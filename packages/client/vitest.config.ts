@@ -104,9 +104,6 @@ export default defineConfig({
         'src/components/audio-window/index.tsx',
         'src/components/window-renderer/index.ts',
         'src/pages/console/index.ts',
-        'src/pages/console/components/index.ts',
-        'src/pages/console/hooks/index.ts',
-        'src/pages/console/lib/index.ts',
         'src/db/backup/index.ts',
         // Backup importer requires full database setup, instance registry, and OPFS
         // file storage which cannot be mocked in jsdom environment

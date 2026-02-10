@@ -91,6 +91,7 @@ import {
   clearPersistedSession,
   closeDatabase,
   exportDatabase,
+  getCurrentInstanceId,
   getCurrentPlatform,
   getDatabase,
   getDatabaseAdapter,
@@ -126,6 +127,16 @@ describe('Database API', () => {
         supportsNativeEncryption: false,
         requiresWebWorker: true
       });
+    });
+  });
+
+  describe('getCurrentInstanceId', () => {
+    it('returns current instance after setup', async () => {
+      expect(getCurrentInstanceId()).toBeNull();
+
+      await setupDatabase('password123', TEST_INSTANCE_ID);
+
+      expect(getCurrentInstanceId()).toBe(TEST_INSTANCE_ID);
     });
   });
 

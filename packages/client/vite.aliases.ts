@@ -39,6 +39,8 @@ export const createViteAliases = (dirname: string): AliasMap => ({
   '@rapid/mls-chat': path.resolve(dirname, '../mls-chat/src/index.ts'),
   '@rapid/notes/package.json': path.resolve(dirname, '../notes/package.json'),
   '@rapid/notes': path.resolve(dirname, '../notes/src/index.ts'),
+  '@rapid/terminal/package.json': path.resolve(dirname, '../terminal/package.json'),
+  '@rapid/terminal': path.resolve(dirname, '../terminal/src/index.ts'),
   '@rapid/vfs-explorer/package.json': path.resolve(dirname, '../vfs-explorer/package.json'),
   '@rapid/vfs-explorer': path.resolve(dirname, '../vfs-explorer/src/index.ts'),
   '@rapid/window-manager': path.resolve(dirname, '../window-manager/src/index.ts'),

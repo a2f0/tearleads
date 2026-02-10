@@ -2,22 +2,18 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   DatabaseOperations,
   FilePicker,
-  TerminalControl
+  TerminalControl,
+  TerminalUtilities
 } from './command-executor';
 import { continueCommand, executeCommand } from './command-executor';
 import { parseCommand } from './command-parser';
 import type { PendingCommand } from './types';
 
-vi.mock('@/lib/file-utils', () => ({
-  generateBackupFilename: vi.fn(() => 'rapid-backup.db'),
-  readFileAsUint8Array: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
-  saveFile: vi.fn(() => Promise.resolve())
-}));
-
 describe('command-executor', () => {
   let db: DatabaseOperations;
   let terminal: TerminalControl;
   let filePicker: FilePicker;
+  let utilities: TerminalUtilities;
 
   beforeEach(() => {
     db = {
@@ -48,12 +44,22 @@ describe('command-executor', () => {
     filePicker = {
       pickFile: vi.fn().mockResolvedValue(null)
     };
+
+    utilities = {
+      getErrorMessage: (error) =>
+        error instanceof Error ? error.message : String(error),
+      generateBackupFilename: vi.fn(() => 'rapid-backup.db'),
+      readFileAsUint8Array: vi.fn(() =>
+        Promise.resolve(new Uint8Array([1, 2, 3]))
+      ),
+      saveFile: vi.fn(() => Promise.resolve())
+    };
   });
 
   describe('help command', () => {
     it('shows available commands', async () => {
       const command = parseCommand('help');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Available commands:',
@@ -63,7 +69,7 @@ describe('command-executor', () => {
 
     it('shows help for a specific command', async () => {
       const command = parseCommand('help status');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         expect.stringContaining('status'),
@@ -73,7 +79,7 @@ describe('command-executor', () => {
 
     it('shows error for unknown command', async () => {
       const command = parseCommand('help unknown');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Unknown command: unknown',
@@ -88,7 +94,7 @@ describe('command-executor', () => {
       db.isUnlocked = false;
 
       const command = parseCommand('status');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Instance:          Default',
@@ -104,7 +110,7 @@ describe('command-executor', () => {
   describe('clear command', () => {
     it('clears terminal output', async () => {
       const command = parseCommand('clear');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.clearLines).toHaveBeenCalledTimes(1);
     });
@@ -115,7 +121,7 @@ describe('command-executor', () => {
       db.isSetUp = true;
 
       const command = parseCommand('setup');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database already set up.',
@@ -125,7 +131,7 @@ describe('command-executor', () => {
 
     it('starts password prompt flow', async () => {
       const command = parseCommand('setup');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith({
         name: 'setup',
@@ -144,7 +150,7 @@ describe('command-executor', () => {
         data: {}
       };
 
-      await continueCommand(pending, '', db, terminal, filePicker);
+      await continueCommand(pending, '', db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Password cannot be empty.',
@@ -159,7 +165,14 @@ describe('command-executor', () => {
         data: {}
       };
 
-      await continueCommand(pending, 'secret123', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'secret123',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -179,7 +192,14 @@ describe('command-executor', () => {
         data: { password: 'secret123' }
       };
 
-      await continueCommand(pending, 'different', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'different',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Passwords do not match.',
@@ -195,7 +215,14 @@ describe('command-executor', () => {
         data: { password: 'secret123' }
       };
 
-      await continueCommand(pending, 'secret123', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'secret123',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(db.setup).toHaveBeenCalledWith('secret123');
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -208,7 +235,7 @@ describe('command-executor', () => {
   describe('unlock command', () => {
     it('errors if not set up', async () => {
       const command = parseCommand('unlock');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database not set up. Run "setup" first.',
@@ -221,7 +248,7 @@ describe('command-executor', () => {
       db.isUnlocked = true;
 
       const command = parseCommand('unlock');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database already unlocked.',
@@ -233,7 +260,7 @@ describe('command-executor', () => {
       db.isSetUp = true;
 
       const command = parseCommand('unlock');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith({
         name: 'unlock',
@@ -246,7 +273,7 @@ describe('command-executor', () => {
       db.isSetUp = true;
 
       const command = parseCommand('unlock --persist');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith({
         name: 'unlock',
@@ -264,7 +291,14 @@ describe('command-executor', () => {
         data: { persist: 'false' }
       };
 
-      await continueCommand(pending, 'secret123', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'secret123',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(db.unlock).toHaveBeenCalledWith('secret123', false);
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -280,7 +314,14 @@ describe('command-executor', () => {
         data: { persist: 'true' }
       };
 
-      await continueCommand(pending, 'secret123', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'secret123',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(db.unlock).toHaveBeenCalledWith('secret123', true);
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -298,7 +339,14 @@ describe('command-executor', () => {
         data: { persist: 'false' }
       };
 
-      await continueCommand(pending, 'wrong', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'wrong',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Incorrect password.',
@@ -310,7 +358,7 @@ describe('command-executor', () => {
   describe('lock command', () => {
     it('informs if already locked', async () => {
       const command = parseCommand('lock');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database already locked.',
@@ -322,7 +370,7 @@ describe('command-executor', () => {
       db.isUnlocked = true;
 
       const command = parseCommand('lock');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(db.lock).toHaveBeenCalledWith(false);
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -335,7 +383,7 @@ describe('command-executor', () => {
       db.isUnlocked = true;
 
       const command = parseCommand('lock --clear');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(db.lock).toHaveBeenCalledWith(true);
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -348,7 +396,7 @@ describe('command-executor', () => {
   describe('backup command', () => {
     it('errors if not set up', async () => {
       const command = parseCommand('backup');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database not set up. Run "setup" first.',
@@ -360,7 +408,7 @@ describe('command-executor', () => {
       db.isSetUp = true;
 
       const command = parseCommand('backup');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database locked. Unlock first.',
@@ -373,7 +421,7 @@ describe('command-executor', () => {
       db.isUnlocked = true;
 
       const command = parseCommand('backup');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(db.exportDatabase).toHaveBeenCalled();
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -387,7 +435,7 @@ describe('command-executor', () => {
       db.isUnlocked = true;
 
       const command = parseCommand('backup mybackup.db');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Backup saved as mybackup.db.',
@@ -400,7 +448,7 @@ describe('command-executor', () => {
       db.hasPersistedSession = true;
 
       const command = parseCommand('backup');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(db.restoreSession).toHaveBeenCalled();
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -413,7 +461,7 @@ describe('command-executor', () => {
   describe('restore command', () => {
     it('errors if not set up', async () => {
       const command = parseCommand('restore');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database not set up. Run "setup" first.',
@@ -426,7 +474,7 @@ describe('command-executor', () => {
       filePicker.pickFile = vi.fn().mockResolvedValue(null);
 
       const command = parseCommand('restore');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Restore cancelled.',
@@ -441,7 +489,7 @@ describe('command-executor', () => {
       });
 
       const command = parseCommand('restore');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Please select a .db backup file.',
@@ -453,7 +501,7 @@ describe('command-executor', () => {
   describe('password command', () => {
     it('errors if not unlocked', async () => {
       const command = parseCommand('password');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Database not unlocked. Unlock first.',
@@ -465,7 +513,7 @@ describe('command-executor', () => {
       db.isUnlocked = true;
 
       const command = parseCommand('password');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith({
         name: 'password',
@@ -487,7 +535,14 @@ describe('command-executor', () => {
         data: {}
       };
 
-      await continueCommand(pending, 'oldpass', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'oldpass',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -503,7 +558,14 @@ describe('command-executor', () => {
         data: { current: 'oldpass' }
       };
 
-      await continueCommand(pending, 'newpass', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'newpass',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.setPendingCommand).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -519,7 +581,14 @@ describe('command-executor', () => {
         data: { current: 'oldpass', new: 'newpass' }
       };
 
-      await continueCommand(pending, 'newpass', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'newpass',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(db.changePassword).toHaveBeenCalledWith('oldpass', 'newpass');
       expect(terminal.appendLine).toHaveBeenCalledWith(
@@ -535,7 +604,14 @@ describe('command-executor', () => {
         data: { current: 'oldpass', new: 'newpass' }
       };
 
-      await continueCommand(pending, 'different', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'different',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Passwords do not match.',
@@ -553,7 +629,14 @@ describe('command-executor', () => {
         data: { current: 'wrong', new: 'newpass' }
       };
 
-      await continueCommand(pending, 'newpass', db, terminal, filePicker);
+      await continueCommand(
+        pending,
+        'newpass',
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Incorrect current password.',
@@ -568,7 +651,7 @@ describe('command-executor', () => {
         data: {}
       };
 
-      await continueCommand(pending, '', db, terminal, filePicker);
+      await continueCommand(pending, '', db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Password cannot be empty.',
@@ -586,7 +669,7 @@ describe('command-executor', () => {
         data: { current: 'oldpass' }
       };
 
-      await continueCommand(pending, '', db, terminal, filePicker);
+      await continueCommand(pending, '', db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Password cannot be empty.',
@@ -599,7 +682,7 @@ describe('command-executor', () => {
   describe('unknown command', () => {
     it('shows error for unknown commands', async () => {
       const command = parseCommand('unknown');
-      await executeCommand(command, db, terminal, filePicker);
+      await executeCommand(command, db, terminal, filePicker, utilities);
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Unknown command: unknown',
@@ -609,7 +692,13 @@ describe('command-executor', () => {
 
     it('returns false for empty input', async () => {
       const command = parseCommand('');
-      const result = await executeCommand(command, db, terminal, filePicker);
+      const result = await executeCommand(
+        command,
+        db,
+        terminal,
+        filePicker,
+        utilities
+      );
 
       expect(result).toBe(false);
       expect(terminal.appendLine).not.toHaveBeenCalled();
