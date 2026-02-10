@@ -695,7 +695,9 @@ describe('Console', () => {
       { id: 'instance-2', name: 'Instance 2' }
     ];
     mockSwitchInstance.mockImplementation(async (instanceId: string) => {
-      const target = mockContext.instances.find((item) => item.id === instanceId);
+      const target = mockContext.instances.find(
+        (item) => item.id === instanceId
+      );
       if (!target) {
         return false;
       }

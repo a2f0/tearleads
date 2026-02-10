@@ -275,11 +275,16 @@ async function executeSwitch(
   const targetLower = target.toLowerCase();
   const matched =
     db.instances.find((instance) => instance.id === target) ??
-    db.instances.find((instance) => instance.name.toLowerCase() === targetLower);
+    db.instances.find(
+      (instance) => instance.name.toLowerCase() === targetLower
+    );
 
   if (!matched) {
     terminal.appendLine(`Instance not found: ${target}`, 'error');
-    terminal.appendLine('Run "list-instances" to see available instances.', 'output');
+    terminal.appendLine(
+      'Run "list-instances" to see available instances.',
+      'output'
+    );
     return;
   }
 

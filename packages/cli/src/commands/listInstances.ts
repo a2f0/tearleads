@@ -21,9 +21,7 @@ export async function runListInstances(): Promise<void> {
   console.log('* Default (current)');
   console.log(`  Setup:             ${setUp ? 'Yes' : 'No'}`);
   console.log(`  Unlocked:          ${unlocked ? 'Yes' : 'No'}`);
-  console.log(
-    `  Session persisted: ${sessionPersisted ? 'Yes' : 'No'}`
-  );
+  console.log(`  Session persisted: ${sessionPersisted ? 'Yes' : 'No'}`);
 }
 
 export const listInstancesCommand = new Command('list-instances')
