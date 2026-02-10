@@ -15,6 +15,7 @@ import { useCallback, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
 import { type ContactInfo, useContacts } from '../hooks/useContacts';
 import { setContactDragData } from '../lib/contactDragData';
+import { openComposeEmail } from '../lib/contactEmail';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
@@ -129,6 +130,14 @@ export function ContactsWindowList({
       setContextMenu(null);
     }
   }, [contextMenu, setHasFetched, getDatabase]);
+
+  const handleSendEmail = useCallback(() => {
+    const primaryEmail = contextMenu?.contact.primaryEmail;
+    if (!primaryEmail) return;
+
+    openComposeEmail([primaryEmail]);
+    setContextMenu(null);
+  }, [contextMenu]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
@@ -317,6 +326,14 @@ export function ContactsWindowList({
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
+          {contextMenu.contact.primaryEmail && (
+            <ContextMenuItem
+              icon={<Mail className="h-4 w-4" />}
+              onClick={handleSendEmail}
+            >
+              Send email
+            </ContextMenuItem>
+          )}
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
             onClick={handleGetInfo}

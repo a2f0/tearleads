@@ -1,9 +1,12 @@
+import { contactEmails, contacts, vfsLinks } from '@rapid/db/sqlite';
 import { useResizableSidebar } from '@rapid/window-manager';
-import { Folder, FolderPlus, Loader2, Plus, Trash2 } from 'lucide-react';
+import { and, asc, eq } from 'drizzle-orm';
+import { Folder, FolderPlus, Loader2, Mail, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useContactsUI } from '../context';
+import { useContactsContext, useContactsUI } from '../context';
 import { type ContactGroup, useContactGroups } from '../hooks';
 import { getContactDragIds } from '../lib/contactDragData';
+import { openComposeEmail } from '../lib/contactEmail';
 import { DeleteContactGroupDialog } from './DeleteContactGroupDialog';
 import { NewContactGroupDialog } from './NewContactGroupDialog';
 import { RenameContactGroupDialog } from './RenameContactGroupDialog';
@@ -38,6 +41,7 @@ export function ContactsGroupsSidebar({
     renameGroup,
     deleteGroup
   } = useContactGroups();
+  const { getDatabase } = useContactsContext();
   const { ContextMenu, ContextMenuItem } = useContactsUI();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -182,6 +186,36 @@ export function ContactsGroupsSidebar({
     [handleGroupChanged, onDropToGroup]
   );
 
+  const handleSendEmailToGroup = useCallback(async () => {
+    if (!contextMenu) return;
+
+    try {
+      const db = getDatabase();
+      const groupEmails = await db
+        .select({ email: contactEmails.email })
+        .from(vfsLinks)
+        .innerJoin(
+          contacts,
+          and(eq(contacts.id, vfsLinks.childId), eq(contacts.deleted, false))
+        )
+        .innerJoin(
+          contactEmails,
+          and(
+            eq(contactEmails.contactId, contacts.id),
+            eq(contactEmails.isPrimary, true)
+          )
+        )
+        .where(eq(vfsLinks.parentId, contextMenu.group.id))
+        .orderBy(asc(contactEmails.email));
+
+      openComposeEmail(groupEmails.map((row) => row.email));
+    } catch (err) {
+      console.error('Failed to send group email:', err);
+    } finally {
+      queueCloseContextMenu();
+    }
+  }, [contextMenu, getDatabase, queueCloseContextMenu]);
+
   return (
     <div
       className="relative flex shrink-0 flex-col border-r bg-muted/20"
@@ -272,6 +306,14 @@ export function ContactsGroupsSidebar({
           y={contextMenu.y}
           onClose={clearContextMenu}
         >
+          <ContextMenuItem
+            icon={<Mail className="h-4 w-4" />}
+            onClick={() => {
+              void handleSendEmailToGroup();
+            }}
+          >
+            Send email
+          </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
               setRenameDialogGroup(contextMenu.group);

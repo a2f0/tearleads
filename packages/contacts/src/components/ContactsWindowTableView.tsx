@@ -20,6 +20,7 @@ import {
   useContacts
 } from '../hooks/useContacts';
 import { setContactDragData } from '../lib/contactDragData';
+import { openComposeEmail } from '../lib/contactEmail';
 
 interface ContactsWindowTableViewProps {
   onSelectContact: (contactId: string) => void;
@@ -139,6 +140,14 @@ export function ContactsWindowTableView({
       setContextMenu(null);
     }
   }, [contextMenu, setHasFetched, getDatabase]);
+
+  const handleSendEmail = useCallback(() => {
+    const primaryEmail = contextMenu?.contact.primaryEmail;
+    if (!primaryEmail) return;
+
+    openComposeEmail([primaryEmail]);
+    setContextMenu(null);
+  }, [contextMenu]);
 
   const getDisplayName = (contact: ContactInfo) => {
     return `${contact.firstName}${contact.lastName ? ` ${contact.lastName}` : ''}`;
@@ -287,6 +296,14 @@ export function ContactsWindowTableView({
           y={contextMenu.y}
           onClose={() => setContextMenu(null)}
         >
+          {contextMenu.contact.primaryEmail && (
+            <ContextMenuItem
+              icon={<Mail className="h-4 w-4" />}
+              onClick={handleSendEmail}
+            >
+              Send email
+            </ContextMenuItem>
+          )}
           <ContextMenuItem
             icon={<Info className="h-4 w-4" />}
             onClick={handleGetInfo}
