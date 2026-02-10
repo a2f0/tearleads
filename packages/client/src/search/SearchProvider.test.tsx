@@ -18,8 +18,9 @@ vi.mock('@/db/crypto', () => ({
 }));
 
 vi.mock('@/hooks/useInstanceChange', () => ({
-  useOnInstanceChange: (callback: (next: string | null, prev: string | null) => void) =>
-    mockUseOnInstanceChange(callback)
+  useOnInstanceChange: (
+    callback: (next: string | null, prev: string | null) => void
+  ) => mockUseOnInstanceChange(callback)
 }));
 
 vi.mock('./SearchStore', () => ({
@@ -113,7 +114,11 @@ describe('SearchProvider', () => {
     const firstCallDocs = mockUpsertBatch.mock.calls[0]?.[0];
     expect(Array.isArray(firstCallDocs)).toBe(true);
     expect(firstCallDocs.length).toBeGreaterThan(0);
-    expect(firstCallDocs.every((doc: { entityType: string }) => doc.entityType === 'app')).toBe(true);
+    expect(
+      firstCallDocs.every(
+        (doc: { entityType: string }) => doc.entityType === 'app'
+      )
+    ).toBe(true);
   });
 
   it('cancels deferred app indexing on unmount', async () => {

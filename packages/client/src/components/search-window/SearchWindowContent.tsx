@@ -17,9 +17,9 @@ import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfs-open';
-import { getSearchableAppById } from '@/search/appCatalog';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
+import { getSearchableAppById } from '@/search/appCatalog';
 import type { SearchViewMode } from './SearchWindowMenuBar';
 
 const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {

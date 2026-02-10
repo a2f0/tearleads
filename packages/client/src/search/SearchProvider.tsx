@@ -243,7 +243,10 @@ export function SearchProvider({ children }: SearchProviderProps) {
             void store
               .upsertBatch(createSearchableAppDocuments())
               .catch((appIndexErr) => {
-                console.error('Search: Failed to index app catalog:', appIndexErr);
+                console.error(
+                  'Search: Failed to index app catalog:',
+                  appIndexErr
+                );
               });
           });
         }

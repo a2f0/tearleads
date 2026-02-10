@@ -1,11 +1,11 @@
 import { useCallback, useState } from 'react';
+import { getCurrentInstanceId, getDatabase, getDatabaseAdapter } from '@/db';
+import { contactEmails, contactPhones, contacts } from '@/db/schema';
 import {
   createContactDocument,
   indexDocuments,
   type SearchableDocument
 } from '@/search';
-import { getCurrentInstanceId, getDatabase, getDatabaseAdapter } from '@/db';
-import { contactEmails, contactPhones, contacts } from '@/db/schema';
 
 /** Parsed CSV data with headers and rows */
 export interface ParsedCSV {

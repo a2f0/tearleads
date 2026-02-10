@@ -101,7 +101,10 @@ describe('useContactsImport', () => {
     };
 
     await act(async () => {
-      const importResult = await result.current.importContacts(parsedData, mapping);
+      const importResult = await result.current.importContacts(
+        parsedData,
+        mapping
+      );
       expect(importResult.imported).toBe(1);
       expect(importResult.skipped).toBe(0);
       expect(importResult.errors).toHaveLength(0);

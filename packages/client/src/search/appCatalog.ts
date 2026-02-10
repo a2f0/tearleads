@@ -94,7 +94,9 @@ const APP_BY_ID = new Map(
   SEARCHABLE_APPS.map((app) => [toAppSearchId(app.windowType), app] as const)
 );
 
-export function getSearchableAppById(id: string): SearchableAppDefinition | null {
+export function getSearchableAppById(
+  id: string
+): SearchableAppDefinition | null {
   return APP_BY_ID.get(id) ?? null;
 }
 
