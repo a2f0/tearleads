@@ -139,3 +139,32 @@ export function selectTag(state: ClassicState, tagId: string): ClassicState {
     activeTagId: tagId
   };
 }
+
+export function deleteTag(state: ClassicState, tagId: string): ClassicState {
+  const exists = state.tags.some((tag) => tag.id === tagId);
+  if (!exists) {
+    return state;
+  }
+
+  const { [tagId]: _removed, ...nextNoteOrderByTagId } = state.noteOrderByTagId;
+
+  return {
+    ...state,
+    tags: state.tags.filter((tag) => tag.id !== tagId),
+    noteOrderByTagId: nextNoteOrderByTagId,
+    activeTagId: state.activeTagId === tagId ? null : state.activeTagId
+  };
+}
+
+export function getUntaggedNoteIds(state: ClassicState): string[] {
+  const taggedNoteIds = new Set<string>();
+  for (const noteIds of Object.values(state.noteOrderByTagId)) {
+    for (const noteId of noteIds) {
+      taggedNoteIds.add(noteId);
+    }
+  }
+
+  return Object.keys(state.notesById).filter(
+    (noteId) => !taggedNoteIds.has(noteId)
+  );
+}

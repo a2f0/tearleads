@@ -1,10 +1,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import {
   DEFAULT_CLASSIC_NOTE_TITLE,
-  DEFAULT_CLASSIC_TAG_NAME
+  DEFAULT_CLASSIC_TAG_NAME,
+  UNTAGGED_TAG_ID
 } from '../lib/constants';
 import {
+  deleteTag,
   getActiveTagNoteIds,
+  getUntaggedNoteIds,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
   reorderTags,
@@ -39,10 +42,12 @@ export function ClassicApp({
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
 
-  const activeTag = useMemo(
-    () => state.tags.find((tag) => tag.id === state.activeTagId) ?? null,
-    [state.activeTagId, state.tags]
-  );
+  const activeTagName = useMemo(() => {
+    if (state.activeTagId === UNTAGGED_TAG_ID) {
+      return 'Untagged Items';
+    }
+    return state.tags.find((tag) => tag.id === state.activeTagId)?.name ?? null;
+  }, [state.activeTagId, state.tags]);
 
   const filteredTags = useMemo(() => {
     if (!tagSearch.trim()) {
@@ -54,7 +59,14 @@ export function ClassicApp({
     );
   }, [state.tags, tagSearch]);
 
-  const noteIds = useMemo(() => getActiveTagNoteIds(state), [state]);
+  const untaggedNoteIds = useMemo(() => getUntaggedNoteIds(state), [state]);
+
+  const noteIds = useMemo(() => {
+    if (state.activeTagId === UNTAGGED_TAG_ID) {
+      return untaggedNoteIds;
+    }
+    return getActiveTagNoteIds(state);
+  }, [state, untaggedNoteIds]);
 
   const filteredNoteIds = useMemo(() => {
     if (!entrySearch.trim()) {
@@ -80,8 +92,19 @@ export function ClassicApp({
   );
 
   const handleSelectTag = (tagId: string) => {
+    if (tagId === UNTAGGED_TAG_ID) {
+      updateState({ ...state, activeTagId: UNTAGGED_TAG_ID });
+      return;
+    }
     updateState(selectTag(state, tagId));
   };
+
+  const handleDeleteTag = useCallback(
+    (tagId: string) => {
+      updateState(deleteTag(state, tagId));
+    },
+    [state, updateState]
+  );
 
   const handleMoveTag = (tagId: string, direction: 'up' | 'down') => {
     updateState(reorderTags(state, tagId, direction));
@@ -228,6 +251,7 @@ export function ClassicApp({
         activeTagId={state.activeTagId}
         editingTagId={editingTagId}
         {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
+        untaggedCount={untaggedNoteIds.length}
         onSelectTag={handleSelectTag}
         onMoveTag={handleMoveTag}
         onReorderTag={handleReorderTag}
@@ -235,12 +259,13 @@ export function ClassicApp({
         onStartEditTag={setEditingTagId}
         onRenameTag={handleRenameTag}
         onCancelEditTag={handleCancelEditTag}
+        onDeleteTag={handleDeleteTag}
         searchValue={tagSearch}
         onSearchChange={setTagSearch}
         contextMenuComponents={contextMenuComponents}
       />
       <NotesPane
-        activeTagName={activeTag?.name ?? null}
+        activeTagName={activeTagName}
         noteIds={filteredNoteIds}
         notesById={state.notesById}
         editingNoteId={editingNoteId}

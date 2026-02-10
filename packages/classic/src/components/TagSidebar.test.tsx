@@ -159,4 +159,81 @@ describe('TagSidebar', () => {
     fireEvent.click(screen.getByLabelText('Create new tag'));
     expect(onCreateTag).toHaveBeenCalledTimes(1);
   });
+
+  it('shows delete option in context menu and calls onDeleteTag', () => {
+    const onDeleteTag = vi.fn();
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onDeleteTag={onDeleteTag}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
+    fireEvent.click(screen.getByLabelText('Delete tag Work'));
+    expect(onDeleteTag).toHaveBeenCalledWith('tag-1');
+  });
+
+  it('renders untagged items when untaggedCount > 0', () => {
+    const onSelectTag = vi.fn();
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        untaggedCount={5}
+        onSelectTag={onSelectTag}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Untagged Items (5)')).toBeInTheDocument();
+    fireEvent.click(screen.getByLabelText('Select Untagged Items'));
+    expect(onSelectTag).toHaveBeenCalledWith('__untagged__');
+  });
+
+  it('does not render untagged items when untaggedCount is 0', () => {
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        untaggedCount={0}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    expect(screen.queryByText(/Untagged Items/)).not.toBeInTheDocument();
+  });
+
+  it('highlights untagged items when active', () => {
+    render(
+      <TagSidebar
+        tags={[]}
+        activeTagId="__untagged__"
+        untaggedCount={3}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const button = screen.getByLabelText('Select Untagged Items');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
+  });
 });

@@ -1,5 +1,7 @@
 import {
+  deleteTag,
   getActiveTagNoteIds,
+  getUntaggedNoteIds,
   moveItem,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
@@ -164,6 +166,64 @@ describe('ordering', () => {
     it('returns same state when tag is already active', () => {
       const state = createState();
       expect(selectTag(state, 'tag-1')).toBe(state);
+    });
+  });
+
+  describe('deleteTag', () => {
+    it('removes tag from tags array', () => {
+      const next = deleteTag(createState(), 'tag-1');
+      expect(next.tags).toEqual([{ id: 'tag-2', name: 'Personal' }]);
+    });
+
+    it('removes tag from noteOrderByTagId', () => {
+      const next = deleteTag(createState(), 'tag-1');
+      expect(next.noteOrderByTagId).toEqual({ 'tag-2': [] });
+    });
+
+    it('clears activeTagId when deleting active tag', () => {
+      const next = deleteTag(createState(), 'tag-1');
+      expect(next.activeTagId).toBeNull();
+    });
+
+    it('preserves activeTagId when deleting non-active tag', () => {
+      const next = deleteTag(createState(), 'tag-2');
+      expect(next.activeTagId).toBe('tag-1');
+    });
+
+    it('preserves notes in notesById', () => {
+      const state = createState();
+      const next = deleteTag(state, 'tag-1');
+      expect(next.notesById).toEqual(state.notesById);
+    });
+
+    it('returns same state when tag is missing', () => {
+      const state = createState();
+      expect(deleteTag(state, 'missing')).toBe(state);
+    });
+  });
+
+  describe('getUntaggedNoteIds', () => {
+    it('returns empty array when all notes are tagged', () => {
+      expect(getUntaggedNoteIds(createState())).toEqual([]);
+    });
+
+    it('returns note ids that have no tag associations', () => {
+      const state = createState();
+      state.notesById['note-3'] = { id: 'note-3', title: 'C', body: 'Gamma' };
+      expect(getUntaggedNoteIds(state)).toEqual(['note-3']);
+    });
+
+    it('returns all notes when no tag has note associations', () => {
+      const state: ClassicState = {
+        tags: [{ id: 'tag-1', name: 'Work' }],
+        notesById: {
+          'note-1': { id: 'note-1', title: 'A', body: 'Alpha' },
+          'note-2': { id: 'note-2', title: 'B', body: 'Beta' }
+        },
+        noteOrderByTagId: { 'tag-1': [] },
+        activeTagId: null
+      };
+      expect(getUntaggedNoteIds(state)).toEqual(['note-1', 'note-2']);
     });
   });
 });
