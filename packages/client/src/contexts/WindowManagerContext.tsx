@@ -7,6 +7,7 @@ import {
   useRef,
   useState
 } from 'react';
+import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import { generateUniqueId } from '@/lib/utils';
 import {
   loadWindowDimensions,
@@ -131,7 +132,6 @@ const WindowOpenRequestsContext = createContext<WindowOpenRequests | null>(
 );
 
 const BASE_Z_INDEX = 100;
-const DESKTOP_BREAKPOINT = 768;
 const DEFAULT_WINDOW_WIDTH_RATIO = 0.51;
 const DEFAULT_WINDOW_ASPECT_RATIO = 16 / 10;
 const DEFAULT_WINDOW_MIN_WIDTH = 480;
@@ -148,7 +148,7 @@ interface WindowManagerProviderProps {
 function getDefaultLandscapeWindowDimensions(): WindowDimensions | undefined {
   if (
     typeof window === 'undefined' ||
-    window.innerWidth < DESKTOP_BREAKPOINT ||
+    window.innerWidth < MOBILE_BREAKPOINT ||
     window.innerHeight <= 0
   ) {
     return undefined;
@@ -193,7 +193,7 @@ function getCascadedWindowDimensions(
 ): WindowDimensions {
   if (
     typeof window === 'undefined' ||
-    window.innerWidth < DESKTOP_BREAKPOINT ||
+    window.innerWidth < MOBILE_BREAKPOINT ||
     currentWindows.length === 0
   ) {
     return dimensions;

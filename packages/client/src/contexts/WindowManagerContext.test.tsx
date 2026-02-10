@@ -19,6 +19,14 @@ describe('WindowManagerContext', () => {
   beforeEach(() => {
     localStorage.clear();
     clearPreserveWindowState();
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1440,
+      configurable: true
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 900,
+      configurable: true
+    });
   });
 
   describe('useWindowManager', () => {
