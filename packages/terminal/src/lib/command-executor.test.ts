@@ -133,6 +133,20 @@ describe('command-executor', () => {
         'output'
       );
     });
+
+    it('falls back to current instance name when instances are unavailable', async () => {
+      db.instances = undefined;
+      db.currentInstanceName = 'Default';
+
+      const command = parseCommand('list-instances');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith('Instances:', 'output');
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        '* Default (current)',
+        'output'
+      );
+    });
   });
 
   describe('switch command', () => {
@@ -172,6 +186,83 @@ describe('command-executor', () => {
 
       expect(terminal.appendLine).toHaveBeenCalledWith(
         'Instance not found: does-not-exist',
+        'error'
+      );
+    });
+
+    it('errors when instance switching is unavailable', async () => {
+      db.switchInstance = undefined;
+      db.instances = [{ id: 'instance-1', name: 'Instance 1' }];
+
+      const command = parseCommand('switch Instance 1');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Instance switching is not available.',
+        'error'
+      );
+    });
+
+    it('errors when no instances are available', async () => {
+      db.instances = [];
+
+      const command = parseCommand('switch Instance 1');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'No instances are available to switch to.',
+        'error'
+      );
+    });
+
+    it('reports when already on the target instance', async () => {
+      db.currentInstanceId = 'instance-1';
+      db.currentInstanceName = 'Instance 1';
+      db.instances = [{ id: 'instance-1', name: 'Instance 1' }];
+
+      const command = parseCommand('switch instance-1');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Already on instance: Instance 1',
+        'output'
+      );
+    });
+
+    it('shows setup guidance when switched to a non-setup instance', async () => {
+      db.currentInstanceId = 'instance-1';
+      db.instances = [
+        { id: 'instance-1', name: 'Instance 1' },
+        { id: 'instance-2', name: 'Instance 2' }
+      ];
+      db.switchInstance = vi.fn().mockResolvedValue(false);
+
+      const command = parseCommand('switch instance-2');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Switched to instance: Instance 2 (not set up)',
+        'output'
+      );
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Run "setup" to initialize this instance.',
+        'output'
+      );
+    });
+
+    it('shows error when switching throws', async () => {
+      db.currentInstanceId = 'instance-1';
+      db.instances = [
+        { id: 'instance-1', name: 'Instance 1' },
+        { id: 'instance-2', name: 'Instance 2' }
+      ];
+      db.switchInstance = vi.fn().mockRejectedValue(new Error('boom'));
+
+      const command = parseCommand('switch instance-2');
+      await executeCommand(command, db, terminal, filePicker, utilities);
+
+      expect(terminal.appendLine).toHaveBeenCalledWith(
+        'Failed to switch instance: boom',
         'error'
       );
     });
