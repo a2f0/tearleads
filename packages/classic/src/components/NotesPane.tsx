@@ -206,35 +206,28 @@ export function NotesPane({
                   onContextMenu={(event) => {
                     event.preventDefault();
                     event.stopPropagation();
-                    const actions = [
-                      ...(onStartEditNote
-                        ? [
-                            {
-                              label: 'Edit',
-                              onClick: () => onStartEditNote(note.id),
-                              ariaLabel: `Edit note ${note.title}`
-                            }
-                          ]
-                        : []),
-                      ...(canMoveUp
-                        ? [
-                            {
-                              label: 'Move Up',
-                              onClick: () => onMoveNote(note.id, 'up'),
-                              ariaLabel: `Move note ${note.title} up`
-                            }
-                          ]
-                        : []),
-                      ...(canMoveDown
-                        ? [
-                            {
-                              label: 'Move Down',
-                              onClick: () => onMoveNote(note.id, 'down'),
-                              ariaLabel: `Move note ${note.title} down`
-                            }
-                          ]
-                        : [])
-                    ];
+                    const actions: NotesContextMenuState['actions'] = [];
+                    if (onStartEditNote) {
+                      actions.push({
+                        label: 'Edit',
+                        onClick: () => onStartEditNote(note.id),
+                        ariaLabel: `Edit note ${note.title}`
+                      });
+                    }
+                    if (canMoveUp) {
+                      actions.push({
+                        label: 'Move Up',
+                        onClick: () => onMoveNote(note.id, 'up'),
+                        ariaLabel: `Move note ${note.title} up`
+                      });
+                    }
+                    if (canMoveDown) {
+                      actions.push({
+                        label: 'Move Down',
+                        onClick: () => onMoveNote(note.id, 'down'),
+                        ariaLabel: `Move note ${note.title} down`
+                      });
+                    }
                     setContextMenu({
                       x: event.clientX,
                       y: event.clientY,
