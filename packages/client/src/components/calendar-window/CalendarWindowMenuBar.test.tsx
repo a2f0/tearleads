@@ -1,4 +1,7 @@
-import { CALENDAR_CREATE_EVENT, CALENDAR_CREATE_ITEM_EVENT } from '@rapid/calendar';
+import {
+  CALENDAR_CREATE_EVENT,
+  CALENDAR_CREATE_ITEM_EVENT
+} from '@rapid/calendar';
 import { ThemeProvider } from '@rapid/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -46,7 +49,9 @@ describe('CalendarWindowMenuBar', () => {
     expect(
       screen.getByRole('menuitem', { name: 'New Calendar' })
     ).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: 'New Item' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'New Item' })
+    ).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
@@ -88,6 +93,12 @@ describe('CalendarWindowMenuBar', () => {
       await user.click(screen.getByRole('menuitem', { name: 'New Item' }));
 
       expect(listener).toHaveBeenCalledTimes(1);
+      expect(listener).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: CALENDAR_CREATE_ITEM_EVENT,
+          detail: null
+        })
+      );
     } finally {
       window.removeEventListener(CALENDAR_CREATE_ITEM_EVENT, listener);
     }
