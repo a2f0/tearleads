@@ -57,11 +57,7 @@ export function Help() {
         </GridSquare>
         <GridSquare
           onClick={() =>
-            window.open(
-              HELP_EXTERNAL_LINKS.backupRestore,
-              '_blank',
-              'noopener'
-            )
+            window.open(HELP_EXTERNAL_LINKS.backupRestore, '_blank', 'noopener')
           }
         >
           <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
