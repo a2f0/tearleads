@@ -35,6 +35,7 @@ import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
+import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
 import { detectPlatform, formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,
@@ -672,36 +673,10 @@ function AudioWithSidebar() {
       void files;
       if (!audioIds || audioIds.length === 0) return;
       const db = getDatabase();
-      const uniqueAudioIds = Array.from(new Set(audioIds));
-      const existingLinks = await db
-        .select({ childId: vfsLinks.childId })
-        .from(vfsLinks)
-        .where(
-          and(
-            eq(vfsLinks.parentId, playlistId),
-            inArray(vfsLinks.childId, uniqueAudioIds)
-          )
-        );
-
-      const existingChildIds = new Set(
-        existingLinks.map((link) => link.childId)
-      );
-      const newAudioIds = uniqueAudioIds.filter(
-        (id) => !existingChildIds.has(id)
-      );
-
-      if (newAudioIds.length > 0) {
-        await db.insert(vfsLinks).values(
-          newAudioIds.map((audioId) => ({
-            id: crypto.randomUUID(),
-            parentId: playlistId,
-            childId: audioId,
-            wrappedSessionKey: '',
-            createdAt: new Date()
-          }))
-        );
+      const insertedCount = await linkAudioToPlaylist(db, playlistId, audioIds);
+      if (insertedCount > 0) {
+        setRefreshToken((value) => value + 1);
       }
-      setRefreshToken((value) => value + 1);
     },
     []
   );

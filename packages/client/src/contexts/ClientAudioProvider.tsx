@@ -44,6 +44,7 @@ import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
 import { extractAudioMetadata as extractMetadata } from '@/lib/audio-metadata';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { linkAudioToPlaylist } from '@/lib/linkAudioToPlaylist';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { detectPlatform, formatDate, formatFileSize } from '@/lib/utils';
 import {
@@ -330,25 +331,7 @@ export function ClientAudioProvider({ children }: ClientAudioProviderProps) {
   const addTrackToPlaylist = useCallback(
     async (playlistId: string, audioId: string): Promise<void> => {
       const db = getDatabase();
-      const linkId = crypto.randomUUID();
-      const now = new Date();
-
-      const existing = await db
-        .select({ id: vfsLinks.id })
-        .from(vfsLinks)
-        .where(
-          and(eq(vfsLinks.parentId, playlistId), eq(vfsLinks.childId, audioId))
-        );
-
-      if (existing.length > 0) return;
-
-      await db.insert(vfsLinks).values({
-        id: linkId,
-        parentId: playlistId,
-        childId: audioId,
-        wrappedSessionKey: '',
-        createdAt: now
-      });
+      await linkAudioToPlaylist(db, playlistId, [audioId]);
     },
     []
   );

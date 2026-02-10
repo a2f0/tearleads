@@ -670,6 +670,9 @@ importers:
       '@rapid/db':
         specifier: workspace:*
         version: link:../db
+      '@rapid/db-test-utils':
+        specifier: workspace:*
+        version: link:../db-test-utils
       '@rapid/shared':
         specifier: workspace:*
         version: link:../shared
