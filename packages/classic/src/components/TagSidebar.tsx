@@ -149,7 +149,7 @@ export function TagSidebar({
           openEmptySpaceContextMenu(rect.left + 8, rect.top + 8);
         }}
       >
-        <div>
+        <div className="pr-2">
           {tags.length === 0 ? (
             <p className="text-sm text-zinc-500">No tags found.</p>
           ) : (
@@ -163,8 +163,8 @@ export function TagSidebar({
                     key={tag.id}
                     className={
                       isActive
-                        ? 'ml-1 mr-2 border bg-zinc-200 px-2 py-0.5'
-                        : 'ml-1 mr-2 border bg-white px-2 py-0.5'
+                        ? 'border bg-zinc-200 px-2 py-0.5'
+                        : 'border bg-white px-2 py-0.5'
                     }
                     draggable
                     onDragStart={(event) => {
@@ -288,7 +288,7 @@ export function TagSidebar({
         </div>
       </div>
       <div className="py-3">
-        <div className="ml-1 mr-2">
+        <div className="pr-2">
           <input
             ref={searchInputRef}
             type="text"

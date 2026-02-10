@@ -166,7 +166,7 @@ export function NotesPane({
               return (
                 <li
                   key={note.id}
-                  className="rounded border p-3"
+                  className="rounded p-3"
                   draggable
                   onDragStart={(event) => {
                     const target = event.target;
@@ -252,7 +252,7 @@ export function NotesPane({
                       data-drag-handle="true"
                       onMouseDown={() => setDragArmedNoteId(note.id)}
                       onMouseUp={() => setDragArmedNoteId(null)}
-                      className="flex w-4 shrink-0 items-center justify-center"
+                      className="flex w-4 shrink-0 items-start justify-center pt-1"
                       title="Drag entry"
                     >
                       <span
@@ -282,7 +282,7 @@ export function NotesPane({
                           onChange={(e) => setEditBody(e.target.value)}
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
-                          className="w-full border border-zinc-300 px-1.5 py-0.5 text-base text-xs focus:border-zinc-500 focus:outline-none"
+                          className="w-full border border-zinc-300 px-1.5 py-0.5 font-mono text-base text-xs focus:border-zinc-500 focus:outline-none"
                           rows={2}
                           aria-label="Edit entry body"
                         />
@@ -290,7 +290,9 @@ export function NotesPane({
                     ) : (
                       <div className="min-w-0">
                         <h3 className="text-sm">{note.title}</h3>
-                        <p className="text-xs text-zinc-600">{note.body}</p>
+                        <p className="font-mono text-xs text-zinc-600">
+                          {note.body}
+                        </p>
                       </div>
                     )}
                   </div>
