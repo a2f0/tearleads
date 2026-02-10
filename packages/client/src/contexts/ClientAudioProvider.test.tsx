@@ -322,11 +322,17 @@ describe('ClientAudioProvider', () => {
     const insertValues = vi.fn(async () => undefined);
     const deleteWhere = vi.fn(async () => undefined);
 
-    mockDb.select.mockReturnValue({
-      from: vi.fn(() => ({
-        where: vi.fn(async () => [])
-      }))
-    });
+    mockDb.select
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(async () => [])
+        }))
+      })
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(async () => [])
+        }))
+      });
     mockDb.insert.mockReturnValue({ values: insertValues });
     mockDb.delete.mockReturnValue({ where: deleteWhere });
 
@@ -339,7 +345,15 @@ describe('ClientAudioProvider', () => {
     if (!lastProviderProps) throw new Error('AudioUIProvider not captured');
 
     await lastProviderProps.addTrackToPlaylist('playlist-1', 'track-1');
-    expect(insertValues).toHaveBeenCalledTimes(1);
+    expect(insertValues).toHaveBeenCalledTimes(2);
+    expect(insertValues).toHaveBeenCalledWith(
+      expect.arrayContaining([
+        expect.objectContaining({
+          parentId: 'playlist-1',
+          childId: 'track-1'
+        })
+      ])
+    );
 
     await lastProviderProps.removeTrackFromPlaylist('playlist-1', 'track-1');
     expect(deleteWhere).toHaveBeenCalledTimes(1);
@@ -348,11 +362,17 @@ describe('ClientAudioProvider', () => {
   it('skips adding a track when already linked', async () => {
     const insertValues = vi.fn(async () => undefined);
 
-    mockDb.select.mockReturnValue({
-      from: vi.fn(() => ({
-        where: vi.fn(async () => [{ id: 'link-1' }])
-      }))
-    });
+    mockDb.select
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(async () => [{ id: 'track-1' }])
+        }))
+      })
+      .mockReturnValueOnce({
+        from: vi.fn(() => ({
+          where: vi.fn(async () => [{ childId: 'track-1' }])
+        }))
+      });
     mockDb.insert.mockReturnValue({ values: insertValues });
 
     render(
@@ -364,7 +384,7 @@ describe('ClientAudioProvider', () => {
     if (!lastProviderProps) throw new Error('AudioUIProvider not captured');
 
     await lastProviderProps.addTrackToPlaylist('playlist-1', 'track-1');
-    expect(insertValues).not.toHaveBeenCalled();
+    expect(insertValues).toHaveBeenCalledTimes(0);
   });
 
   it('fetches track ids for a playlist', async () => {

@@ -13,17 +13,26 @@ export async function linkContactsToGroup(
 
   const now = new Date();
 
-  await db
-    .insert(vfsRegistry)
-    .values(
-      uniqueContactIds.map((contactId) => ({
+  const existingRegistryRows = await db
+    .select({ id: vfsRegistry.id })
+    .from(vfsRegistry)
+    .where(inArray(vfsRegistry.id, uniqueContactIds));
+  const existingRegistryIds = new Set(
+    existingRegistryRows.map((row) => row.id)
+  );
+  const missingRegistryIds = uniqueContactIds.filter(
+    (contactId) => !existingRegistryIds.has(contactId)
+  );
+  if (missingRegistryIds.length > 0) {
+    await db.insert(vfsRegistry).values(
+      missingRegistryIds.map((contactId) => ({
         id: contactId,
         objectType: 'contact',
         ownerId: null,
         createdAt: now
       }))
-    )
-    .onConflictDoNothing({ target: vfsRegistry.id });
+    );
+  }
 
   const existingLinks = await db
     .select({ childId: vfsLinks.childId })

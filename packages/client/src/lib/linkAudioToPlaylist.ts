@@ -13,17 +13,26 @@ export async function linkAudioToPlaylist(
 
   const now = new Date();
 
-  await db
-    .insert(vfsRegistry)
-    .values(
-      uniqueAudioIds.map((audioId) => ({
+  const existingRegistryRows = await db
+    .select({ id: vfsRegistry.id })
+    .from(vfsRegistry)
+    .where(inArray(vfsRegistry.id, uniqueAudioIds));
+  const existingRegistryIds = new Set(
+    existingRegistryRows.map((row) => row.id)
+  );
+  const missingRegistryIds = uniqueAudioIds.filter(
+    (audioId) => !existingRegistryIds.has(audioId)
+  );
+  if (missingRegistryIds.length > 0) {
+    await db.insert(vfsRegistry).values(
+      missingRegistryIds.map((audioId) => ({
         id: audioId,
         objectType: 'file',
         ownerId: null,
         createdAt: now
       }))
-    )
-    .onConflictDoNothing({ target: vfsRegistry.id });
+    );
+  }
 
   const existingLinks = await db
     .select({ childId: vfsLinks.childId })
