@@ -88,7 +88,7 @@ Issue update guidelines:
 
 ### Merge Conflict Resolution (CRITICAL)
 
-When resolving merge conflicts during rebase, **always preserve changes that are already in main**. Features merged to main must not be reverted.
+When resolving merge conflicts during rebase, the goal is to **preserve BOTH the PR's changes AND main's changes**. Do not blindly discard either side.
 
 **Git rebase terminology is counterintuitive:**
 
@@ -96,15 +96,24 @@ When resolving merge conflicts during rebase, **always preserve changes that are
 - During `git rebase`, `--theirs` refers to the branch being rebased (your PR branch)
 - This is the **opposite** of `git merge`
 
-To keep main's version during a rebase conflict:
+**Resolution by file type:**
 
-```bash
-git checkout --ours <conflicted-file>   # Keeps main's version
-git add <conflicted-file>
-git rebase --continue
-```
+1. **Version files** (`package.json` versions, `build.gradle`, `project.pbxproj`):
 
-If conflicts are complex or you're unsure, abort and ask for help rather than risk reverting merged features.
+   ```bash
+   git checkout --ours <file>   # Keep main's version - will be re-bumped
+   ```
+
+2. **Lock files** (`pnpm-lock.yaml`):
+
+   ```bash
+   git checkout --ours pnpm-lock.yaml   # Keep main's version
+   pnpm install                          # Regenerate after rebase
+   ```
+
+3. **Code files**: Do NOT use `--ours` or `--theirs` - both discard legitimate work. Open the file and combine both sets of changes. Keep additions from main AND keep the PR's changes.
+
+If conflicts are on the exact same lines and truly incompatible, abort and ask for help rather than discarding either side's work.
 
 ## Binary Files Policy
 
