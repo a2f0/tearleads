@@ -1,13 +1,7 @@
-import {
-  contactGroups,
-  contacts,
-  vfsLinks,
-  vfsRegistry
-} from '@rapid/db/sqlite';
-import { withRealDatabase } from '@rapid/db-test-utils';
+import { vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
+import { vfsTestMigrations, withRealDatabase } from '@rapid/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { migrations } from '../../../client/src/db/migrations';
 import { linkContactsToGroup } from './linkContactsToGroup';
 
 describe('linkContactsToGroup', () => {
@@ -27,23 +21,6 @@ describe('linkContactsToGroup', () => {
           objectType: 'contactGroup',
           ownerId: null,
           createdAt: now
-        });
-
-        await db.insert(contactGroups).values({
-          id: 'group-1',
-          encryptedName: 'Friends',
-          color: null,
-          icon: null
-        });
-
-        await db.insert(contacts).values({
-          id: 'contact-1',
-          firstName: 'Taylor',
-          lastName: 'Test',
-          birthday: null,
-          createdAt: now,
-          updatedAt: now,
-          deleted: false
         });
 
         const insertedCount = await linkContactsToGroup(db, 'group-1', [
@@ -77,7 +54,7 @@ describe('linkContactsToGroup', () => {
           .where(eq(vfsLinks.parentId, 'group-1'));
         expect(linksAfterSecondDrop).toHaveLength(1);
       },
-      { migrations }
+      { migrations: vfsTestMigrations }
     );
   });
 });

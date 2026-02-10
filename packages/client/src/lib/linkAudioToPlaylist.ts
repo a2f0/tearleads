@@ -50,10 +50,7 @@ export async function linkAudioToPlaylist(
     return 0;
   }
 
-  await db
-    .insert(vfsLinks)
-    .values(linksToInsert)
-    .onConflictDoNothing({ target: [vfsLinks.parentId, vfsLinks.childId] });
+  await db.insert(vfsLinks).values(linksToInsert);
 
   return linksToInsert.length;
 }
