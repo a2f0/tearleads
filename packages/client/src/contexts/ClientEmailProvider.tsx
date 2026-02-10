@@ -1,5 +1,6 @@
 import {
   type EmailContactOperations,
+  type EmailDraftOperations,
   type EmailFolder,
   type EmailFolderOperations,
   type EmailFolderType,
@@ -21,6 +22,12 @@ import { RefreshButton } from '@/components/ui/refresh-button';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { getDatabase } from '@/db';
+import {
+  deleteEmailDraftFromDb,
+  getEmailDraftFromDb,
+  listEmailDraftsFromDb,
+  saveEmailDraftToDb
+} from '@/db/email-drafts';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   contactEmails,
@@ -305,10 +312,49 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
     [fetchContactEmails]
   );
 
+  const saveDraft = useCallback<EmailDraftOperations['saveDraft']>(
+    async (input) => {
+      const db = getDatabase();
+      return saveEmailDraftToDb(db, input);
+    },
+    []
+  );
+
+  const getDraft = useCallback<EmailDraftOperations['getDraft']>(async (id) => {
+    const db = getDatabase();
+    return getEmailDraftFromDb(db, id);
+  }, []);
+
+  const fetchDrafts = useCallback<
+    EmailDraftOperations['fetchDrafts']
+  >(async () => {
+    const db = getDatabase();
+    return listEmailDraftsFromDb(db);
+  }, []);
+
+  const deleteDraft = useCallback<EmailDraftOperations['deleteDraft']>(
+    async (id) => {
+      const db = getDatabase();
+      return deleteEmailDraftFromDb(db, id);
+    },
+    []
+  );
+
+  const draftOperations: EmailDraftOperations = useMemo(
+    () => ({
+      saveDraft,
+      getDraft,
+      fetchDrafts,
+      deleteDraft
+    }),
+    [saveDraft, getDraft, fetchDrafts, deleteDraft]
+  );
+
   const providerProps = {
     apiBaseUrl: API_BASE_URL,
     getAuthHeader: getAuthHeaderValue,
     ui: emailUIComponents,
+    ...(isUnlocked && { draftOperations }),
     ...(isUnlocked && { contactOperations }),
     ...(isUnlocked && { folderOperations })
   };

@@ -1,5 +1,10 @@
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext } from 'react';
+import type {
+  Attachment,
+  DraftEmail,
+  DraftListItem
+} from '../types/compose.js';
 import type { EmailFolder, EmailFolderType } from '../types/folder.js';
 
 /**
@@ -83,6 +88,32 @@ export interface EmailContactOperations {
   fetchContactEmails: () => Promise<EmailContactEmail[]>;
 }
 
+export interface SaveDraftInput {
+  id?: string | null;
+  to: string[];
+  cc: string[];
+  bcc: string[];
+  subject: string;
+  body: string;
+  attachments: Attachment[];
+}
+
+/**
+ * Email draft operations interface
+ */
+export interface EmailDraftOperations {
+  /** Save or update a draft */
+  saveDraft: (
+    input: SaveDraftInput
+  ) => Promise<{ id: string; updatedAt: string }>;
+  /** Load a draft by id */
+  getDraft: (id: string) => Promise<DraftEmail | null>;
+  /** Fetch all drafts */
+  fetchDrafts: () => Promise<DraftListItem[]>;
+  /** Delete a draft */
+  deleteDraft: (id: string) => Promise<boolean>;
+}
+
 /**
  * Context value interface
  */
@@ -97,6 +128,8 @@ export interface EmailContextValue {
   folderOperations?: EmailFolderOperations;
   /** Contact operations (optional - provided by client with database access) */
   contactOperations?: EmailContactOperations;
+  /** Draft operations (optional - provided by client with database access) */
+  draftOperations?: EmailDraftOperations;
 }
 
 export const EmailContext = createContext<EmailContextValue | null>(null);
@@ -108,6 +141,7 @@ export interface EmailProviderProps {
   ui: EmailUIComponents;
   folderOperations?: EmailFolderOperations;
   contactOperations?: EmailContactOperations;
+  draftOperations?: EmailDraftOperations;
 }
 
 /**
@@ -119,14 +153,16 @@ export function EmailProvider({
   getAuthHeader,
   ui,
   folderOperations,
-  contactOperations
+  contactOperations,
+  draftOperations
 }: EmailProviderProps) {
   const contextValue: EmailContextValue = {
     apiBaseUrl,
     ui,
     ...(getAuthHeader !== undefined && { getAuthHeader }),
     ...(folderOperations !== undefined && { folderOperations }),
-    ...(contactOperations !== undefined && { contactOperations })
+    ...(contactOperations !== undefined && { contactOperations }),
+    ...(draftOperations !== undefined && { draftOperations })
   };
 
   return (
@@ -162,11 +198,13 @@ export function useEmailUI(): EmailUIComponents {
 export function useEmailApi(): {
   apiBaseUrl: string;
   getAuthHeader?: () => string | null;
+  draftOperations?: EmailDraftOperations;
 } {
-  const { apiBaseUrl, getAuthHeader } = useEmailContext();
+  const { apiBaseUrl, getAuthHeader, draftOperations } = useEmailContext();
   return {
     apiBaseUrl,
-    ...(getAuthHeader !== undefined && { getAuthHeader })
+    ...(getAuthHeader !== undefined && { getAuthHeader }),
+    ...(draftOperations !== undefined && { draftOperations })
   };
 }
 

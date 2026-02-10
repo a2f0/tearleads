@@ -633,27 +633,35 @@ describe('SearchWindowContent', () => {
 
     it('resets selection when results change', async () => {
       const user = userEvent.setup();
-      mockSearch
-        .mockResolvedValueOnce({
-          hits: [
-            {
-              id: 'contact-1',
-              entityType: 'contact',
-              document: { title: 'John Doe' }
-            }
-          ],
-          count: 1
-        })
-        .mockResolvedValueOnce({
-          hits: [
-            {
-              id: 'note-1',
-              entityType: 'note',
-              document: { title: 'New Note' }
-            }
-          ],
-          count: 1
-        });
+      mockSearch.mockImplementation(async (query: string) => {
+        if (query === 'john') {
+          return {
+            hits: [
+              {
+                id: 'contact-1',
+                entityType: 'contact',
+                document: { title: 'John Doe' }
+              }
+            ],
+            count: 1
+          };
+        }
+
+        if (query === 'note') {
+          return {
+            hits: [
+              {
+                id: 'note-1',
+                entityType: 'note',
+                document: { title: 'New Note' }
+              }
+            ],
+            count: 1
+          };
+        }
+
+        return { hits: [], count: 0 };
+      });
       renderContent();
 
       await searchFor(user, 'john');
