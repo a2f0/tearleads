@@ -19,6 +19,14 @@ describe('WindowManagerContext', () => {
   beforeEach(() => {
     localStorage.clear();
     clearPreserveWindowState();
+    Object.defineProperty(window, 'innerWidth', {
+      value: 1440,
+      configurable: true
+    });
+    Object.defineProperty(window, 'innerHeight', {
+      value: 900,
+      configurable: true
+    });
   });
 
   describe('useWindowManager', () => {
@@ -179,7 +187,50 @@ describe('WindowManagerContext', () => {
       });
 
       const window = result.current.getWindow('notes-2');
-      expect(window?.dimensions).toBeUndefined();
+      expect(window?.dimensions).toMatchObject({
+        width: expect.any(Number),
+        height: expect.any(Number),
+        x: expect.any(Number),
+        y: expect.any(Number)
+      });
+      expect(window?.dimensions).not.toEqual({
+        width: 480,
+        height: 320,
+        x: 25,
+        y: 30
+      });
+    });
+
+    it('opens desktop windows with viewport-proportional landscape dimensions', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'notes-landscape');
+      });
+
+      const window = result.current.getWindow('notes-landscape');
+      expect(window?.dimensions).toBeDefined();
+      expect(
+        (window?.dimensions?.width ?? 0) / (window?.dimensions?.height ?? 1)
+      ).toBeGreaterThan(1);
+    });
+
+    it('offsets new desktop windows down and to the right of the top window', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'notes-1');
+      });
+      act(() => {
+        result.current.openWindow('files', 'files-1');
+      });
+
+      const first = result.current.getWindow('notes-1')?.dimensions;
+      const second = result.current.getWindow('files-1')?.dimensions;
+      expect(first).toBeDefined();
+      expect(second).toBeDefined();
+      expect(second?.x ?? 0).toBeGreaterThan(first?.x ?? 0);
+      expect(second?.y ?? 0).toBeGreaterThan(first?.y ?? 0);
     });
   });
 
