@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 
 import { BackupWindow } from './BackupWindow';
@@ -7,6 +8,19 @@ import { BackupWindow } from './BackupWindow';
 vi.mock('./BackupManagerView', () => ({
   BackupManagerView: () => (
     <div data-testid="backup-manager-view">BackupManagerView</div>
+  )
+}));
+
+vi.mock('./BackupDocumentation', () => ({
+  BackupDocumentation: ({ onBack }: { onBack?: (() => void) | undefined }) => (
+    <div data-testid="backup-documentation">
+      BackupDocumentation
+      {onBack && (
+        <button type="button" onClick={onBack}>
+          Back to Backup Manager
+        </button>
+      )}
+    </div>
   )
 }));
 
@@ -38,9 +52,21 @@ describe('BackupWindow', () => {
   it('renders menu bar', async () => {
     render(<BackupWindow {...defaultProps} />);
     await waitFor(() => {
-      // Menu bar renders File and View menus
+      // Menu bar renders File, View, and Help menus
       expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
       expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
     });
+  });
+
+  it('opens documentation view from Help menu', async () => {
+    const user = userEvent.setup();
+    render(<BackupWindow {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
+
+    expect(screen.getByTestId('backup-documentation')).toBeInTheDocument();
+    expect(screen.queryByTestId('backup-manager-view')).not.toBeInTheDocument();
   });
 });

@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { BackupDocumentation } from './BackupDocumentation';
 import { BackupManagerView } from './BackupManagerView';
 import { BackupWindowMenuBar } from './BackupWindowMenuBar';
 
@@ -22,6 +24,8 @@ export function BackupWindow({
   zIndex,
   initialDimensions
 }: BackupWindowProps) {
+  const [showDocumentation, setShowDocumentation] = useState(false);
+
   return (
     <FloatingWindow
       id={id}
@@ -38,9 +42,16 @@ export function BackupWindow({
       minHeight={400}
     >
       <div className="flex h-full flex-col">
-        <BackupWindowMenuBar onClose={onClose} />
+        <BackupWindowMenuBar
+          onClose={onClose}
+          onOpenDocumentation={() => setShowDocumentation(true)}
+        />
         <div className="flex-1 overflow-y-auto p-4">
-          <BackupManagerView />
+          {showDocumentation ? (
+            <BackupDocumentation onBack={() => setShowDocumentation(false)} />
+          ) : (
+            <BackupManagerView />
+          )}
         </div>
       </div>
     </FloatingWindow>

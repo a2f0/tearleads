@@ -3,9 +3,13 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 
 interface BackupWindowMenuBarProps {
   onClose: () => void;
+  onOpenDocumentation: () => void;
 }
 
-export function BackupWindowMenuBar({ onClose }: BackupWindowMenuBarProps) {
+export function BackupWindowMenuBar({
+  onClose,
+  onOpenDocumentation
+}: BackupWindowMenuBarProps) {
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
@@ -13,6 +17,11 @@ export function BackupWindowMenuBar({ onClose }: BackupWindowMenuBarProps) {
       </DropdownMenu>
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <DropdownMenuItem onClick={onOpenDocumentation}>
+          Documentation
+        </DropdownMenuItem>
       </DropdownMenu>
     </div>
   );
