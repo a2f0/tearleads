@@ -7,7 +7,7 @@ import { getClientIp } from '../../lib/request-utils.js';
 import { createSession, storeRefreshToken } from '../../lib/sessions.js';
 import {
   ACCESS_TOKEN_TTL_SECONDS,
-  parseLoginPayload,
+  parseAuthPayload,
   REFRESH_TOKEN_TTL_SECONDS
 } from './shared.js';
 
@@ -48,7 +48,7 @@ export const postLoginHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const payload = parseLoginPayload(req.body);
+  const payload = parseAuthPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'email and password are required' });
     return;

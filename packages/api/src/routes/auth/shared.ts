@@ -20,24 +20,7 @@ export type RefreshPayload = {
   refreshToken: string;
 };
 
-export function parseLoginPayload(body: unknown): LoginPayload | null {
-  if (!isRecord(body)) {
-    return null;
-  }
-  const emailValue = body['email'];
-  const passwordValue = body['password'];
-  if (typeof emailValue !== 'string' || typeof passwordValue !== 'string') {
-    return null;
-  }
-  const email = emailValue.trim().toLowerCase();
-  const password = passwordValue.trim();
-  if (!email || !password) {
-    return null;
-  }
-  return { email, password };
-}
-
-export function parseRegisterPayload(body: unknown): RegisterPayload | null {
+export function parseAuthPayload(body: unknown): LoginPayload | null {
   if (!isRecord(body)) {
     return null;
   }

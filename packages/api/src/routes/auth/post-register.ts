@@ -10,7 +10,7 @@ import {
   EMAIL_REGEX,
   getAllowedEmailDomains,
   MIN_PASSWORD_LENGTH,
-  parseRegisterPayload,
+  parseAuthPayload,
   REFRESH_TOKEN_TTL_SECONDS
 } from './shared.js';
 
@@ -52,7 +52,7 @@ export const postRegisterHandler = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const payload = parseRegisterPayload(req.body);
+  const payload = parseAuthPayload(req.body);
   if (!payload) {
     res.status(400).json({ error: 'email and password are required' });
     return;
