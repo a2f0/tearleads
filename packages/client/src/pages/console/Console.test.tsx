@@ -35,9 +35,6 @@ const mockContext = {
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockContext
 }));
-vi.mock('@/db/hooks/useDatabase', () => ({
-  useDatabaseContext: () => mockContext
-}));
 
 const mockSaveFile = vi.fn();
 vi.mock('@/lib/file-utils', () => ({

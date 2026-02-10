@@ -240,14 +240,21 @@ function executeListInstances(
   }
 
   for (const instance of db.instances) {
-    const isCurrent = db.currentInstanceId
-      ? instance.id === db.currentInstanceId
-      : instance.name === db.currentInstanceName;
+    const isCurrent = isCurrentInstance(instance, db);
     terminal.appendLine(
       `${isCurrent ? '*' : ' '} ${instance.name}${isCurrent ? ' (current)' : ''}`,
       'output'
     );
   }
+}
+
+function isCurrentInstance(
+  instance: { id: string; name: string },
+  db: DatabaseOperations
+): boolean {
+  return db.currentInstanceId
+    ? instance.id === db.currentInstanceId
+    : instance.name === db.currentInstanceName;
 }
 
 async function executeSwitch(
@@ -288,10 +295,7 @@ async function executeSwitch(
     return;
   }
 
-  if (
-    (db.currentInstanceId && matched.id === db.currentInstanceId) ||
-    (!db.currentInstanceId && matched.name === db.currentInstanceName)
-  ) {
+  if (isCurrentInstance(matched, db)) {
     terminal.appendLine(`Already on instance: ${matched.name}`, 'output');
     return;
   }
