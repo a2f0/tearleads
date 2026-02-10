@@ -113,6 +113,7 @@ export function ClassicWorkspace() {
         <ClassicApp
           key={`${currentInstanceId ?? 'default'}-${stateRevision}`}
           initialState={initialState}
+          autoFocusSearch
           onStateChange={handleStateChange}
           contextMenuComponents={{ ContextMenu, ContextMenuItem }}
         />

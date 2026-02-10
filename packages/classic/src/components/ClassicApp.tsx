@@ -22,12 +22,14 @@ function generateId(): string {
 
 export interface ClassicAppProps {
   initialState: ClassicState;
+  autoFocusSearch?: boolean;
   onStateChange?: ((state: ClassicState) => void) | undefined;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
 export function ClassicApp({
   initialState,
+  autoFocusSearch,
   onStateChange,
   contextMenuComponents
 }: ClassicAppProps) {
@@ -225,6 +227,7 @@ export function ClassicApp({
         tags={filteredTags}
         activeTagId={state.activeTagId}
         editingTagId={editingTagId}
+        autoFocusSearch={autoFocusSearch}
         onSelectTag={handleSelectTag}
         onMoveTag={handleMoveTag}
         onReorderTag={handleReorderTag}

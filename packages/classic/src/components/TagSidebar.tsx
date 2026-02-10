@@ -13,6 +13,7 @@ interface TagSidebarProps {
   tags: ClassicTag[];
   activeTagId: string | null;
   editingTagId?: string | null;
+  autoFocusSearch?: boolean;
   onSelectTag: (tagId: string) => void;
   onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
   onReorderTag: (tagId: string, targetTagId: string) => void;
@@ -41,6 +42,7 @@ export function TagSidebar({
   tags,
   activeTagId,
   editingTagId,
+  autoFocusSearch,
   onSelectTag,
   onMoveTag,
   onReorderTag,
@@ -60,6 +62,13 @@ export function TagSidebar({
   const [dragArmedTagId, setDragArmedTagId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (autoFocusSearch) {
+      searchInputRef.current?.focus();
+    }
+  }, [autoFocusSearch]);
 
   useEffect(() => {
     if (editingTagId) {
@@ -123,7 +132,7 @@ export function TagSidebar({
         role="button"
         aria-label="Tag list, press Shift+F10 for context menu"
         tabIndex={0}
-        className="flex-1 overflow-auto p-3"
+        className="flex-1 overflow-auto px-2 py-3 focus:outline-none"
         onContextMenu={(event) => {
           event.preventDefault();
           openEmptySpaceContextMenu(event.clientX, event.clientY);
@@ -153,8 +162,8 @@ export function TagSidebar({
                   key={tag.id}
                   className={
                     isActive
-                      ? 'border bg-zinc-200 pr-2 py-0.5'
-                      : 'border bg-white pr-2 py-0.5'
+                      ? 'border bg-zinc-200 px-2 py-0.5'
+                      : 'border bg-white px-2 py-0.5'
                   }
                   draggable
                   onDragStart={(event) => {
@@ -278,6 +287,7 @@ export function TagSidebar({
       </div>
       <div className="p-3">
         <input
+          ref={searchInputRef}
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}

@@ -137,7 +137,7 @@ export function NotesPane({
         role="button"
         aria-label="Entry list, press Shift+F10 for context menu"
         tabIndex={0}
-        className="flex-1 overflow-auto p-3"
+        className="flex-1 overflow-auto p-3 focus:outline-none"
         onContextMenu={(event) => {
           event.preventDefault();
           openEmptySpaceContextMenu(event.clientX, event.clientY);
