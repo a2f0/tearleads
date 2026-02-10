@@ -15,3 +15,7 @@ export {
   WindowStatusBar,
   type WindowStatusBarProps
 } from './WindowStatusBar.js';
+export {
+  WindowConnectionIndicator,
+  type WindowConnectionIndicatorProps
+} from './WindowConnectionIndicator.js';
