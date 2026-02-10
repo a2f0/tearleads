@@ -132,7 +132,7 @@ export function TagSidebar({
         role="button"
         aria-label="Tag list, press Shift+F10 for context menu"
         tabIndex={0}
-        className="flex-1 overflow-auto px-2 py-3 focus:outline-none"
+        className="flex-1 overflow-auto py-3 focus:outline-none"
         onContextMenu={(event) => {
           event.preventDefault();
           openEmptySpaceContextMenu(event.clientX, event.clientY);
@@ -149,151 +149,155 @@ export function TagSidebar({
           openEmptySpaceContextMenu(rect.left + 8, rect.top + 8);
         }}
       >
-        {tags.length === 0 ? (
-          <p className="text-sm text-zinc-500">No tags found.</p>
-        ) : (
-          <ul className="space-y-1" aria-label="Tag List">
-            {tags.map((tag, index) => {
-              const isActive = tag.id === activeTagId;
-              const canMoveUp = index > 0;
-              const canMoveDown = index < tags.length - 1;
-              return (
-                <li
-                  key={tag.id}
-                  className={
-                    isActive
-                      ? 'border bg-zinc-200 px-2 py-0.5'
-                      : 'border bg-white px-2 py-0.5'
-                  }
-                  draggable
-                  onDragStart={(event) => {
-                    const target = event.target;
-                    if (
-                      dragArmedTagId !== tag.id &&
-                      (!(target instanceof HTMLElement) ||
-                        !target.closest('[data-drag-handle="true"]'))
-                    ) {
-                      event.preventDefault();
-                      return;
+        <div>
+          {tags.length === 0 ? (
+            <p className="text-sm text-zinc-500">No tags found.</p>
+          ) : (
+            <ul className="m-0 list-none space-y-1 p-0" aria-label="Tag List">
+              {tags.map((tag, index) => {
+                const isActive = tag.id === activeTagId;
+                const canMoveUp = index > 0;
+                const canMoveDown = index < tags.length - 1;
+                return (
+                  <li
+                    key={tag.id}
+                    className={
+                      isActive
+                        ? 'ml-1 mr-2 border bg-zinc-200 px-2 py-0.5'
+                        : 'ml-1 mr-2 border bg-white px-2 py-0.5'
                     }
-                    setDraggedTagId(tag.id);
-                    setLastHoverTagId(null);
-                    event.dataTransfer.effectAllowed = 'move';
-                    event.dataTransfer.setData('text/plain', tag.id);
-                  }}
-                  onDragEnd={() => {
-                    setDraggedTagId(null);
-                    setLastHoverTagId(null);
-                    setDragArmedTagId(null);
-                  }}
-                  onDragOver={(event) => {
-                    if (!draggedTagId || draggedTagId === tag.id) {
-                      return;
-                    }
-                    event.preventDefault();
-                    if (lastHoverTagId === tag.id) {
-                      return;
-                    }
-                    onReorderTag(draggedTagId, tag.id);
-                    setLastHoverTagId(tag.id);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    setDragArmedTagId(null);
-                  }}
-                  onContextMenu={(event) => {
-                    event.preventDefault();
-                    event.stopPropagation();
-                    const actions = [
-                      ...(onStartEditTag
-                        ? [
-                            {
-                              label: 'Edit',
-                              onClick: () => onStartEditTag(tag.id),
-                              ariaLabel: `Edit tag ${tag.name}`
-                            }
-                          ]
-                        : []),
-                      ...(canMoveUp
-                        ? [
-                            {
-                              label: 'Move Up',
-                              onClick: () => onMoveTag(tag.id, 'up'),
-                              ariaLabel: `Move tag ${tag.name} up`
-                            }
-                          ]
-                        : []),
-                      ...(canMoveDown
-                        ? [
-                            {
-                              label: 'Move Down',
-                              onClick: () => onMoveTag(tag.id, 'down'),
-                              ariaLabel: `Move tag ${tag.name} down`
-                            }
-                          ]
-                        : [])
-                    ];
-                    setContextMenu({
-                      x: event.clientX,
-                      y: event.clientY,
-                      ariaLabel: `Tag actions for ${tag.name}`,
-                      actions
-                    });
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      data-drag-handle="true"
-                      onMouseDown={() => setDragArmedTagId(tag.id)}
-                      onMouseUp={() => setDragArmedTagId(null)}
-                      className={
-                        draggedTagId === tag.id
-                          ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-xs text-zinc-500'
-                          : 'w-4 shrink-0 cursor-grab select-none text-center text-xs text-zinc-400'
+                    draggable
+                    onDragStart={(event) => {
+                      const target = event.target;
+                      if (
+                        dragArmedTagId !== tag.id &&
+                        (!(target instanceof HTMLElement) ||
+                          !target.closest('[data-drag-handle="true"]'))
+                      ) {
+                        event.preventDefault();
+                        return;
                       }
-                      title="Drag tag"
-                    >
-                      ⋮⋮
-                    </span>
-                    {editingTagId === tag.id ? (
-                      <input
-                        ref={editInputRef}
-                        type="text"
-                        value={editValue}
-                        onChange={(e) => setEditValue(e.target.value)}
-                        onKeyDown={(e) => handleEditKeyDown(e, tag.id)}
-                        onBlur={() => handleEditBlur(tag.id)}
-                        className="min-w-0 flex-1 border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
-                        aria-label={`Edit tag ${tag.name}`}
-                      />
-                    ) : (
-                      <button
-                        type="button"
-                        className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
-                        onClick={() => onSelectTag(tag.id)}
-                        aria-pressed={isActive}
-                        aria-label={`Select tag ${tag.name}`}
+                      setDraggedTagId(tag.id);
+                      setLastHoverTagId(null);
+                      event.dataTransfer.effectAllowed = 'move';
+                      event.dataTransfer.setData('text/plain', tag.id);
+                    }}
+                    onDragEnd={() => {
+                      setDraggedTagId(null);
+                      setLastHoverTagId(null);
+                      setDragArmedTagId(null);
+                    }}
+                    onDragOver={(event) => {
+                      if (!draggedTagId || draggedTagId === tag.id) {
+                        return;
+                      }
+                      event.preventDefault();
+                      if (lastHoverTagId === tag.id) {
+                        return;
+                      }
+                      onReorderTag(draggedTagId, tag.id);
+                      setLastHoverTagId(tag.id);
+                    }}
+                    onDrop={(event) => {
+                      event.preventDefault();
+                      setDragArmedTagId(null);
+                    }}
+                    onContextMenu={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
+                      const actions = [
+                        ...(onStartEditTag
+                          ? [
+                              {
+                                label: 'Edit',
+                                onClick: () => onStartEditTag(tag.id),
+                                ariaLabel: `Edit tag ${tag.name}`
+                              }
+                            ]
+                          : []),
+                        ...(canMoveUp
+                          ? [
+                              {
+                                label: 'Move Up',
+                                onClick: () => onMoveTag(tag.id, 'up'),
+                                ariaLabel: `Move tag ${tag.name} up`
+                              }
+                            ]
+                          : []),
+                        ...(canMoveDown
+                          ? [
+                              {
+                                label: 'Move Down',
+                                onClick: () => onMoveTag(tag.id, 'down'),
+                                ariaLabel: `Move tag ${tag.name} down`
+                              }
+                            ]
+                          : [])
+                      ];
+                      setContextMenu({
+                        x: event.clientX,
+                        y: event.clientY,
+                        ariaLabel: `Tag actions for ${tag.name}`,
+                        actions
+                      });
+                    }}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        data-drag-handle="true"
+                        onMouseDown={() => setDragArmedTagId(tag.id)}
+                        onMouseUp={() => setDragArmedTagId(null)}
+                        className={
+                          draggedTagId === tag.id
+                            ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-xs text-zinc-500'
+                            : 'w-4 shrink-0 cursor-grab select-none text-center text-xs text-zinc-400'
+                        }
+                        title="Drag tag"
                       >
-                        <span className="text-zinc-700">{tag.name}</span>
-                      </button>
-                    )}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+                        ⋮⋮
+                      </span>
+                      {editingTagId === tag.id ? (
+                        <input
+                          ref={editInputRef}
+                          type="text"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onKeyDown={(e) => handleEditKeyDown(e, tag.id)}
+                          onBlur={() => handleEditBlur(tag.id)}
+                          className="min-w-0 flex-1 border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
+                          aria-label={`Edit tag ${tag.name}`}
+                        />
+                      ) : (
+                        <button
+                          type="button"
+                          className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
+                          onClick={() => onSelectTag(tag.id)}
+                          aria-pressed={isActive}
+                          aria-label={`Select tag ${tag.name}`}
+                        >
+                          <span className="text-zinc-700">{tag.name}</span>
+                        </button>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
       </div>
-      <div className="p-3">
-        <input
-          ref={searchInputRef}
-          type="text"
-          value={searchValue}
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
-          aria-label="Search tags"
-        />
+      <div className="py-3">
+        <div className="ml-1 mr-2">
+          <input
+            ref={searchInputRef}
+            type="text"
+            value={searchValue}
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="box-border w-full border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+            aria-label="Search tags"
+          />
+        </div>
       </div>
       {contextMenu && (
         <ClassicContextMenu
