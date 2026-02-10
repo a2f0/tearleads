@@ -52,6 +52,50 @@ function isSseMessage(value: unknown): value is SSEMessage {
   return typeof message['timestamp'] === 'string';
 }
 
+interface SSEEvent {
+  event: string;
+  data: string;
+}
+
+function parseSSEEvents(chunk: string, buffer: string): [SSEEvent[], string] {
+  const combined = buffer + chunk;
+  const events: SSEEvent[] = [];
+  const blocks = combined.split('\n\n');
+
+  // Last block may be incomplete
+  const remaining = blocks.pop() ?? '';
+
+  for (const block of blocks) {
+    if (!block.trim()) continue;
+
+    let eventType = 'message';
+    const dataParts: string[] = [];
+
+    for (const line of block.split('\n')) {
+      if (line.startsWith('event:')) {
+        eventType = line.slice(6).trim();
+      } else if (line.startsWith('data:')) {
+        // SSE spec: strip only a single leading space from the value
+        let value = line.slice(5);
+        if (value.startsWith(' ')) {
+          value = value.slice(1);
+        }
+        dataParts.push(value);
+      }
+      // Ignore comments (lines starting with :) and other fields
+    }
+
+    // SSE spec: multiple data lines are joined with newlines
+    const data = dataParts.join('\n');
+
+    if (data || eventType !== 'message') {
+      events.push({ event: eventType, data });
+    }
+  }
+
+  return [events, remaining];
+}
+
 export function SSEProvider({
   children,
   autoConnect = true,
@@ -61,7 +105,7 @@ export function SSEProvider({
   const [connectionState, setConnectionState] =
     useState<SSEConnectionState>('disconnected');
   const [lastMessage, setLastMessage] = useState<SSEMessage | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
   const reconnectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(
     null
   );
@@ -79,9 +123,9 @@ export function SSEProvider({
 
   const disconnect = useCallback(() => {
     clearReconnectTimeout();
-    if (eventSourceRef.current) {
-      eventSourceRef.current.close();
-      eventSourceRef.current = null;
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
     }
     setConnectionState('disconnected');
     reconnectAttemptRef.current = 0;
@@ -102,37 +146,16 @@ export function SSEProvider({
 
       const url = new URL(`${API_BASE_URL}/sse`);
       url.searchParams.set('channels', channelsToUse.join(','));
-      url.searchParams.set('token', token);
 
-      const eventSource = new EventSource(url.toString());
-      eventSourceRef.current = eventSource;
+      const abortController = new AbortController();
+      abortControllerRef.current = abortController;
 
-      eventSource.addEventListener('connected', () => {
-        setConnectionState('connected');
-        reconnectAttemptRef.current = 0;
-      });
+      const handleError = (isAborted: boolean) => {
+        if (isAborted) return;
 
-      eventSource.addEventListener('message', (event: MessageEvent) => {
-        const dataText =
-          typeof event.data === 'string' ? event.data : String(event.data);
-        try {
-          const data = JSON.parse(dataText);
-          if (isSseMessage(data)) {
-            setLastMessage(data);
-          } else {
-            console.error('Failed to parse SSE message: invalid shape', data);
-          }
-        } catch (err) {
-          console.error('Failed to parse SSE message:', err);
-        }
-      });
-
-      eventSource.onerror = () => {
-        eventSource.close();
-        eventSourceRef.current = null;
+        abortControllerRef.current = null;
 
         // Check if this is likely an auth error (token expired)
-        // EventSource doesn't expose HTTP status codes, so we check client-side
         if (token && isJwtExpired(token)) {
           // Token expired - set to 'connecting' while we attempt refresh
           // This allows the token-change effect to reconnect after refresh succeeds
@@ -151,6 +174,71 @@ export function SSEProvider({
           connect(channelsToUse);
         }, delay);
       };
+
+      const startStream = async () => {
+        try {
+          const response = await fetch(url.toString(), {
+            headers: {
+              Authorization: `Bearer ${token}`
+            },
+            signal: abortController.signal
+          });
+
+          if (!response.ok) {
+            handleError(false);
+            return;
+          }
+
+          const reader = response.body?.getReader();
+          if (!reader) {
+            handleError(false);
+            return;
+          }
+
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+              handleError(abortController.signal.aborted);
+              break;
+            }
+
+            const chunk = decoder.decode(value, { stream: true });
+            const [events, remaining] = parseSSEEvents(chunk, buffer);
+            buffer = remaining;
+
+            for (const { event, data } of events) {
+              if (event === 'connected') {
+                setConnectionState('connected');
+                reconnectAttemptRef.current = 0;
+              } else if (event === 'message') {
+                try {
+                  const parsed = JSON.parse(data);
+                  if (isSseMessage(parsed)) {
+                    setLastMessage(parsed);
+                  } else {
+                    console.error(
+                      'Failed to parse SSE message: invalid shape',
+                      parsed
+                    );
+                  }
+                } catch (err) {
+                  console.error('Failed to parse SSE message:', err);
+                }
+              }
+            }
+          }
+        } catch (err) {
+          if (err instanceof Error && err.name === 'AbortError') {
+            return;
+          }
+          handleError(false);
+        }
+      };
+
+      void startStream();
     },
     [disconnect, token]
   );
