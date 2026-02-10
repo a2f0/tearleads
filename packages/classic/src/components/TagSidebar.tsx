@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   CREATE_CLASSIC_TAG_ARIA_LABEL,
   DEFAULT_CLASSIC_TAG_NAME
@@ -12,10 +12,13 @@ import {
 interface TagSidebarProps {
   tags: ClassicTag[];
   activeTagId: string | null;
+  editingTagId?: string | null;
   onSelectTag: (tagId: string) => void;
   onMoveTag: (tagId: string, direction: 'up' | 'down') => void;
   onReorderTag: (tagId: string, targetTagId: string) => void;
   onCreateTag?: (() => void | Promise<void>) | undefined;
+  onRenameTag?: (tagId: string, newName: string) => void;
+  onCancelEditTag?: () => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
@@ -36,10 +39,13 @@ interface TagContextMenuState {
 export function TagSidebar({
   tags,
   activeTagId,
+  editingTagId,
   onSelectTag,
   onMoveTag,
   onReorderTag,
   onCreateTag,
+  onRenameTag,
+  onCancelEditTag,
   searchValue,
   onSearchChange,
   contextMenuComponents
@@ -50,8 +56,46 @@ export function TagSidebar({
   const [draggedTagId, setDraggedTagId] = useState<string | null>(null);
   const [lastHoverTagId, setLastHoverTagId] = useState<string | null>(null);
   const [dragArmedTagId, setDragArmedTagId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingTagId) {
+      const tag = tags.find((t) => t.id === editingTagId);
+      setEditValue(tag?.name ?? '');
+      setTimeout(() => {
+        editInputRef.current?.focus();
+        editInputRef.current?.select();
+      }, 0);
+    }
+  }, [editingTagId, tags]);
 
   const closeContextMenu = () => setContextMenu(null);
+
+  const commitOrCancelEdit = (tagId: string) => {
+    if (editValue.trim() && onRenameTag) {
+      onRenameTag(tagId, editValue.trim());
+    } else {
+      onCancelEditTag?.();
+    }
+  };
+
+  const handleEditKeyDown = (
+    event: React.KeyboardEvent<HTMLInputElement>,
+    tagId: string
+  ) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      commitOrCancelEdit(tagId);
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      onCancelEditTag?.();
+    }
+  };
+
+  const handleEditBlur = (tagId: string) => {
+    commitOrCancelEdit(tagId);
+  };
   const openEmptySpaceContextMenu = (x: number, y: number) => {
     setContextMenu({
       x,
@@ -105,7 +149,11 @@ export function TagSidebar({
               return (
                 <li
                   key={tag.id}
-                  className="rounded border px-2 py-1.5"
+                  className={
+                    isActive
+                      ? 'border bg-zinc-200 px-2 py-0.5'
+                      : 'border bg-white px-2 py-0.5'
+                  }
                   draggable
                   onDragStart={(event) => {
                     const target = event.target;
@@ -181,23 +229,28 @@ export function TagSidebar({
                     >
                       ⋮⋮
                     </span>
-                    <button
-                      type="button"
-                      className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
-                      onClick={() => onSelectTag(tag.id)}
-                      aria-pressed={isActive}
-                      aria-label={`Select tag ${tag.name}`}
-                    >
-                      <span
-                        className={
-                          isActive
-                            ? 'font-semibold text-zinc-950'
-                            : 'text-zinc-700'
-                        }
+                    {editingTagId === tag.id ? (
+                      <input
+                        ref={editInputRef}
+                        type="text"
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => handleEditKeyDown(e, tag.id)}
+                        onBlur={() => handleEditBlur(tag.id)}
+                        className="min-w-0 flex-1 border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
+                        aria-label={`Edit tag ${tag.name}`}
+                      />
+                    ) : (
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
+                        onClick={() => onSelectTag(tag.id)}
+                        aria-pressed={isActive}
+                        aria-label={`Select tag ${tag.name}`}
                       >
-                        {tag.name}
-                      </span>
-                    </button>
+                        <span className="text-zinc-700">{tag.name}</span>
+                      </button>
+                    )}
                   </div>
                 </li>
               );
@@ -210,7 +263,7 @@ export function TagSidebar({
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
-          className="w-full rounded border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
+          className="w-full border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
           aria-label="Search tags"
         />
       </div>

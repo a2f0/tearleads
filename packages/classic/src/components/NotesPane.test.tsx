@@ -31,7 +31,7 @@ describe('NotesPane', () => {
       />
     );
 
-    expect(screen.getByText('No notes in this tag.')).toBeInTheDocument();
+    expect(screen.getByText('No entries in this tag.')).toBeInTheDocument();
   });
 
   it('renders notes and move controls', () => {
@@ -182,7 +182,7 @@ describe('NotesPane', () => {
       />
     );
 
-    fireEvent.contextMenu(screen.getByText('No notes in this tag.'));
+    fireEvent.contextMenu(screen.getByText('No entries in this tag.'));
     fireEvent.click(screen.getByLabelText('Create new entry'));
     expect(onCreateNote).toHaveBeenCalledTimes(1);
   });

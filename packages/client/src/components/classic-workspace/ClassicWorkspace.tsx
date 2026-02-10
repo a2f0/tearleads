@@ -9,8 +9,6 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   CLASSIC_EMPTY_STATE,
-  createClassicNote,
-  createClassicTag,
   loadClassicStateFromDatabase,
   persistClassicOrderToDatabase
 } from '@/lib/classicPersistence';
@@ -80,29 +78,6 @@ export function ClassicWorkspace() {
       });
   }, []);
 
-  const handleCreateTag = useCallback(async () => {
-    try {
-      await createClassicTag();
-      await fetchClassicState();
-    } catch (err) {
-      console.error('Failed to create classic tag:', err);
-      setWorkspaceError(err instanceof Error ? err.message : String(err));
-    }
-  }, [fetchClassicState]);
-
-  const handleCreateNote = useCallback(
-    async (tagId: string) => {
-      try {
-        await createClassicNote(tagId);
-        await fetchClassicState();
-      } catch (err) {
-        console.error('Failed to create classic entry:', err);
-        setWorkspaceError(err instanceof Error ? err.message : String(err));
-      }
-    },
-    [fetchClassicState]
-  );
-
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center rounded border p-4 text-muted-foreground text-sm">
@@ -139,8 +114,6 @@ export function ClassicWorkspace() {
           key={`${currentInstanceId ?? 'default'}-${stateRevision}`}
           initialState={initialState}
           onStateChange={handleStateChange}
-          onCreateTag={handleCreateTag}
-          onCreateNote={handleCreateNote}
           contextMenuComponents={{ ContextMenu, ContextMenuItem }}
         />
       </div>
