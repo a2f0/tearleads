@@ -1,7 +1,7 @@
 import { NotesWindow as NotesWindowBase } from '@rapid/notes';
 import type { WindowDimensions } from '@rapid/window-manager';
 import { ClientNotesProvider } from '@/contexts/ClientNotesProvider';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
 
 interface NotesWindowProps {
   id: string;
@@ -27,8 +27,7 @@ export function NotesWindow({
   zIndex,
   initialDimensions
 }: NotesWindowProps) {
-  const { windowOpenRequests } = useWindowManager();
-  const openRequest = windowOpenRequests.notes;
+  const openRequest = useWindowOpenRequest('notes');
 
   return (
     <ClientNotesProvider>

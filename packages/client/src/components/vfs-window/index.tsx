@@ -6,7 +6,7 @@ import { FloatingWindow } from '@/components/floating-window';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext';
-import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { useVfsUploader } from '@/hooks/useVfsUploader';
 import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfs-open';
@@ -36,7 +36,7 @@ export function VfsWindow({
   initialDimensions
 }: VfsWindowProps) {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
-  const { openWindow, requestWindowOpen } = useWindowManager();
+  const { openWindow, requestWindowOpen } = useWindowManagerActions();
   const { fileInputRef, refreshToken, handleUpload, handleFileInputChange } =
     useVfsUploader();
 
