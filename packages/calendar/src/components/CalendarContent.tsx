@@ -647,9 +647,11 @@ export function CalendarContent({
         <section className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="font-medium text-base">{activeCalendar}</p>
-            <p className="text-muted-foreground text-xs">
-              {dayEventCount} events on selected day
-            </p>
+            {viewMode !== 'Day' ? (
+              <p className="text-muted-foreground text-xs">
+                {dayEventCount} events on selected day
+              </p>
+            ) : null}
             <div className="flex items-center gap-2">
               <button
                 type="button"
