@@ -111,7 +111,9 @@ describe('Audio playlist drag and drop integration', () => {
         type === 'application/x-rapid-media-ids' ? payload : ''
     };
 
+    fireEvent.dragEnter(playlistButton, { dataTransfer });
     fireEvent.dragOver(playlistButton, { dataTransfer });
+    expect(playlistButton.className).toContain('ring-primary');
     fireEvent.drop(playlistButton, { dataTransfer });
 
     await waitFor(async () => {
@@ -121,6 +123,13 @@ describe('Audio playlist drag and drop integration', () => {
         .from(vfsLinks)
         .where(eq(vfsLinks.parentId, 'playlist-1'));
       expect(links).toHaveLength(1);
+    });
+
+    await waitFor(() => {
+      const updatedPlaylistButton = screen.getByRole('button', {
+        name: /Road Trip/i
+      });
+      expect(updatedPlaylistButton.className).not.toContain('ring-primary');
     });
   });
 });
