@@ -1,6 +1,6 @@
 import { KeychainWindow } from '@rapid/keychain';
 import type { ComponentType } from 'react';
-import { useCallback } from 'react';
+import { memo, useCallback, useMemo } from 'react';
 import { AdminGroupsWindow } from '@/components/admin-groups-window';
 import { AdminOrganizationsWindow } from '@/components/admin-organizations-window';
 import { AdminPostgresWindow } from '@/components/admin-postgres-window';
@@ -66,6 +66,64 @@ interface WindowComponentConfig {
 
 const defaultInitialDimensions = (window: WindowInstance) => window.dimensions;
 
+interface MemoizedWindowProps {
+  window: WindowInstance;
+  config: WindowComponentConfig;
+  onClose: (id: string) => void;
+  onMinimize: (id: string, dimensions: WindowDimensions) => void;
+  onDimensionsChange: (
+    type: WindowType,
+    id: string,
+    dimensions: WindowDimensions
+  ) => void;
+  onFocus: (id: string) => void;
+}
+
+const MemoizedWindow = memo(function MemoizedWindow({
+  window,
+  config,
+  onClose,
+  onMinimize,
+  onDimensionsChange,
+  onFocus
+}: MemoizedWindowProps) {
+  const WindowComponent = config.Component;
+  const resolvedInitialDimensions =
+    config.getInitialDimensions?.(window) ?? defaultInitialDimensions(window);
+
+  const handleClose = useCallback(
+    () => onClose(window.id),
+    [onClose, window.id]
+  );
+  const handleMinimize = useCallback(
+    (dimensions: WindowDimensions) => onMinimize(window.id, dimensions),
+    [onMinimize, window.id]
+  );
+  const handleDimensionsChange = useCallback(
+    (dimensions: WindowDimensions) =>
+      onDimensionsChange(window.type, window.id, dimensions),
+    [onDimensionsChange, window.type, window.id]
+  );
+  const handleFocus = useCallback(
+    () => onFocus(window.id),
+    [onFocus, window.id]
+  );
+
+  return (
+    <WindowComponent
+      id={window.id}
+      onClose={handleClose}
+      onMinimize={handleMinimize}
+      onDimensionsChange={handleDimensionsChange}
+      onFocus={handleFocus}
+      zIndex={window.zIndex}
+      {...(resolvedInitialDimensions && {
+        initialDimensions: resolvedInitialDimensions
+      })}
+    />
+  );
+});
+
 const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   notes: { Component: NotesWindow },
   console: { Component: ConsoleWindow },
@@ -114,8 +172,8 @@ export function WindowRenderer() {
     updateWindowDimensions
   } = useWindowManager();
 
-  const createDimensionsHandler = useCallback(
-    (type: WindowType, id: string) => (dimensions: WindowDimensions) => {
+  const handleDimensionsChange = useCallback(
+    (type: WindowType, id: string, dimensions: WindowDimensions) => {
       const { width, height, x, y, isMaximized } = dimensions;
       updateWindowDimensions(id, {
         width,
@@ -129,7 +187,10 @@ export function WindowRenderer() {
     [saveWindowDimensionsForType, updateWindowDimensions]
   );
 
-  const visibleWindows = windows.filter((w) => !w.isMinimized);
+  const visibleWindows = useMemo(
+    () => windows.filter((w) => !w.isMinimized),
+    [windows]
+  );
 
   if (visibleWindows.length === 0) {
     return null;
@@ -144,23 +205,15 @@ export function WindowRenderer() {
           return null;
         }
 
-        const WindowComponent = windowConfig.Component;
-        const resolvedInitialDimensions =
-          windowConfig.getInitialDimensions?.(window) ??
-          defaultInitialDimensions(window);
-
         return (
-          <WindowComponent
+          <MemoizedWindow
             key={window.id}
-            id={window.id}
-            onClose={() => closeWindow(window.id)}
-            onMinimize={(dimensions) => minimizeWindow(window.id, dimensions)}
-            onDimensionsChange={createDimensionsHandler(window.type, window.id)}
-            onFocus={() => focusWindow(window.id)}
-            zIndex={window.zIndex}
-            {...(resolvedInitialDimensions && {
-              initialDimensions: resolvedInitialDimensions
-            })}
+            window={window}
+            config={windowConfig}
+            onClose={closeWindow}
+            onMinimize={minimizeWindow}
+            onDimensionsChange={handleDimensionsChange}
+            onFocus={focusWindow}
           />
         );
       })}

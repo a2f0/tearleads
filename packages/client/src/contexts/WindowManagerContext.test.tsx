@@ -7,6 +7,7 @@ import {
 } from '@/lib/windowStatePreference';
 import {
   useWindowManager,
+  useWindowOpenRequest,
   WindowManagerProvider
 } from './WindowManagerContext';
 
@@ -525,6 +526,44 @@ describe('WindowManagerContext', () => {
 
       const saved = localStorage.getItem('window-dimensions:notes');
       expect(saved).toBeNull();
+    });
+  });
+
+  describe('useWindowOpenRequest', () => {
+    it('throws error when used outside WindowManagerProvider', () => {
+      expect(() => {
+        renderHook(() => useWindowOpenRequest('files'));
+      }).toThrow(
+        'useWindowOpenRequest must be used within a WindowManagerProvider'
+      );
+    });
+
+    it('returns undefined when no request exists for type', () => {
+      const { result } = renderHook(() => useWindowOpenRequest('files'), {
+        wrapper
+      });
+      expect(result.current).toBeUndefined();
+    });
+
+    it('returns request when one exists for type', () => {
+      const { result } = renderHook(
+        () => ({
+          manager: useWindowManager(),
+          request: useWindowOpenRequest('files')
+        }),
+        { wrapper }
+      );
+
+      act(() => {
+        result.current.manager.requestWindowOpen('files', {
+          fileId: 'test-123'
+        });
+      });
+
+      expect(result.current.request).toMatchObject({
+        fileId: 'test-123',
+        requestId: expect.any(Number)
+      });
     });
   });
 });
