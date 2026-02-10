@@ -17,7 +17,7 @@ const mockDb = {
   changePassword: vi.fn()
 };
 
-const mockTerminalBase = vi.fn(() => <div data-testid="terminal-base" />);
+const mockTerminalBase = vi.fn((_: unknown) => undefined);
 
 vi.mock('@rapid/terminal', () => ({
   Terminal: (props: unknown) => {
