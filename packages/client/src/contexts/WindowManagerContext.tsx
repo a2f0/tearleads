@@ -131,9 +131,98 @@ const WindowOpenRequestsContext = createContext<WindowOpenRequests | null>(
 );
 
 const BASE_Z_INDEX = 100;
+const DESKTOP_BREAKPOINT = 768;
+const DEFAULT_WINDOW_WIDTH_RATIO = 0.51;
+const DEFAULT_WINDOW_ASPECT_RATIO = 16 / 10;
+const DEFAULT_WINDOW_MIN_WIDTH = 480;
+const DEFAULT_WINDOW_MIN_HEIGHT = 320;
+const DEFAULT_WINDOW_HORIZONTAL_MARGIN = 120;
+const DEFAULT_WINDOW_VERTICAL_MARGIN = 160;
+const DEFAULT_WINDOW_CASCADE_OFFSET_X = 36;
+const DEFAULT_WINDOW_CASCADE_OFFSET_Y = 28;
 
 interface WindowManagerProviderProps {
   children: ReactNode;
+}
+
+function getDefaultLandscapeWindowDimensions(): WindowDimensions | undefined {
+  if (
+    typeof window === 'undefined' ||
+    window.innerWidth < DESKTOP_BREAKPOINT ||
+    window.innerHeight <= 0
+  ) {
+    return undefined;
+  }
+
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  const maxWidth = Math.max(
+    DEFAULT_WINDOW_MIN_WIDTH,
+    viewportWidth - DEFAULT_WINDOW_HORIZONTAL_MARGIN
+  );
+  const maxHeight = Math.max(
+    DEFAULT_WINDOW_MIN_HEIGHT,
+    viewportHeight - DEFAULT_WINDOW_VERTICAL_MARGIN
+  );
+
+  let width = Math.max(
+    DEFAULT_WINDOW_MIN_WIDTH,
+    Math.min(maxWidth, Math.round(viewportWidth * DEFAULT_WINDOW_WIDTH_RATIO))
+  );
+  const height = Math.max(
+    DEFAULT_WINDOW_MIN_HEIGHT,
+    Math.min(maxHeight, Math.round(width / DEFAULT_WINDOW_ASPECT_RATIO))
+  );
+
+  if (height === maxHeight) {
+    width = Math.max(
+      DEFAULT_WINDOW_MIN_WIDTH,
+      Math.min(maxWidth, Math.round(height * DEFAULT_WINDOW_ASPECT_RATIO))
+    );
+  }
+
+  const x = Math.max(0, Math.round((viewportWidth - width) / 2));
+  const y = Math.max(0, Math.round((viewportHeight - height) / 2));
+
+  return { width, height, x, y };
+}
+
+function getCascadedWindowDimensions(
+  dimensions: WindowDimensions,
+  currentWindows: WindowInstance[]
+): WindowDimensions {
+  if (
+    typeof window === 'undefined' ||
+    window.innerWidth < DESKTOP_BREAKPOINT ||
+    currentWindows.length === 0
+  ) {
+    return dimensions;
+  }
+
+  const topWindow = currentWindows.reduce((highest, candidate) =>
+    candidate.zIndex > highest.zIndex ? candidate : highest
+  );
+  const anchor = topWindow.dimensions;
+  if (!anchor) {
+    return dimensions;
+  }
+
+  const maxX = Math.max(0, window.innerWidth - dimensions.width);
+  const maxY = Math.max(0, window.innerHeight - dimensions.height);
+  const x = Math.max(
+    0,
+    Math.min(maxX, anchor.x + DEFAULT_WINDOW_CASCADE_OFFSET_X)
+  );
+  const y = Math.max(
+    0,
+    Math.min(maxY, anchor.y + DEFAULT_WINDOW_CASCADE_OFFSET_Y)
+  );
+
+  return {
+    ...dimensions,
+    x,
+    y
+  };
 }
 
 export function WindowManagerProvider({
@@ -185,6 +274,7 @@ export function WindowManagerProvider({
       const savedDimensions = getPreserveWindowState()
         ? loadWindowDimensions(type)
         : null;
+      const defaultDimensions = getDefaultLandscapeWindowDimensions();
 
       setWindows((prev) => {
         if (!customId) {
@@ -206,6 +296,11 @@ export function WindowManagerProvider({
           return prev;
         }
 
+        const initialDimensions =
+          savedDimensions ??
+          (defaultDimensions
+            ? getCascadedWindowDimensions(defaultDimensions, prev)
+            : undefined);
         const nextZIndex = getNextZIndex(prev);
         return [
           ...prev,
@@ -214,7 +309,7 @@ export function WindowManagerProvider({
             type,
             zIndex: nextZIndex,
             isMinimized: false,
-            ...(savedDimensions && { dimensions: savedDimensions })
+            ...(initialDimensions && { dimensions: initialDimensions })
           }
         ];
       });
