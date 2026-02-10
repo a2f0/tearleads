@@ -15,6 +15,7 @@ import {
   type Router as RouterType
 } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { isDuplicateConstraintError } from './lib/db.js';
 import { ensureOrganizationExists } from './lib/organizations.js';
 import { registerDeleteIdRoute } from './organizations/delete-id.js';
 import { registerGetIdRoute } from './organizations/get-id.js';
@@ -40,13 +41,6 @@ function mapOrganizationRow(row: OrganizationRow): Organization {
     createdAt: row.created_at.toISOString(),
     updatedAt: row.updated_at.toISOString()
   };
-}
-
-function isDuplicateConstraintError(err: unknown): err is Error {
-  return (
-    err instanceof Error &&
-    err.message.includes('duplicate key value violates unique constraint')
-  );
 }
 
 /**

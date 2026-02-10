@@ -26,6 +26,7 @@ import { registerGetRootRoute } from './groups/get-root.js';
 import { registerPostIdMembersRoute } from './groups/post-id-members.js';
 import { registerPostRootRoute } from './groups/post-root.js';
 import { registerPutIdRoute } from './groups/put-id.js';
+import { isDuplicateConstraintError } from './lib/db.js';
 import { ensureOrganizationExists } from './lib/organizations.js';
 
 type GroupRow = {
@@ -60,13 +61,6 @@ function mapGroupMemberRow(row: GroupMemberRow): GroupMember {
     email: row.email,
     joinedAt: row.joined_at.toISOString()
   };
-}
-
-function isDuplicateConstraintError(err: unknown): err is Error {
-  return (
-    err instanceof Error &&
-    err.message.includes('duplicate key value violates unique constraint')
-  );
 }
 
 async function getGroupOrganizationId(
