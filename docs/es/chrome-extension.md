@@ -1,5 +1,7 @@
 # Extensión de Chrome
 
+_Actualizado para reflejar la versión en inglés del 11 de febrero de 2026._
+
 La extensión de Chrome de Tearleads se encuentra en `packages/chrome-extension`. Utiliza Manifest V3 y está construida con Vite y TypeScript.
 
 ## Estructura del Proyecto

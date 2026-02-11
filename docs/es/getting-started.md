@@ -1,5 +1,7 @@
 # Primeros Pasos
 
+_Actualizado para reflejar la versión en inglés del 11 de febrero de 2026._
+
 ```bash
 pnpm install
 pnpm dev

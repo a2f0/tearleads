@@ -1,5 +1,7 @@
 # Referencia CLI
 
+_Actualizado para reflejar la versión en inglés del 11 de febrero de 2026._
+
 Esta referencia documenta el comportamiento actual de `tearleads` CLI desde `packages/cli`.
 
 ## Resumen de Comandos
