@@ -13,6 +13,7 @@ interface CliArgs {
 interface CiImpactOutput {
   changedFiles: string[];
   materialFiles: string[];
+  changedPackages: string[];
   affectedPackages: string[];
 }
 
@@ -93,6 +94,7 @@ function parseImpact(rawJson: string): CiImpactOutput {
   return {
     changedFiles: readStringArray(parsed, 'changedFiles'),
     materialFiles: readStringArray(parsed, 'materialFiles'),
+    changedPackages: readStringArray(parsed, 'changedPackages'),
     affectedPackages: readStringArray(parsed, 'affectedPackages')
   };
 }
@@ -247,6 +249,12 @@ function main(): void {
     impact.affectedPackages.filter((name) => workspaceByName.has(name))
   );
 
+  // Use changedPackages (directly modified) for typecheck, not affectedPackages (dependents)
+  // This avoids failing on pre-existing type errors in dependent packages
+  const directlyChangedPackages = uniqueSorted(
+    impact.changedPackages.filter((name) => workspaceByName.has(name))
+  );
+
   if (fullRun) {
     console.log('ci-impact: high-risk changes detected, running full quality pipeline.');
     if (!args.dryRun) {
@@ -279,7 +287,8 @@ function main(): void {
     return pkg !== undefined && Object.prototype.hasOwnProperty.call(pkg.scripts, 'build');
   });
 
-  const typecheckTargets = impactedPackages.filter((pkgName) => {
+  // Only typecheck packages with directly changed files (not dependents)
+  const typecheckTargets = directlyChangedPackages.filter((pkgName) => {
     const pkg = workspaceByName.get(pkgName);
     return pkg !== undefined && pkg.hasTsconfig;
   });
@@ -325,7 +334,8 @@ function main(): void {
     if (pkg === undefined) {
       continue;
     }
-    runCommand('pnpm', ['--filter', pkgName, 'exec', 'tsc', '--noEmit', '-p', path.join(pkg.dir, 'tsconfig.json')]);
+    // pnpm --filter runs from within the package directory, so use relative path
+    runCommand('pnpm', ['--filter', pkgName, 'exec', 'tsc', '--noEmit', '-p', 'tsconfig.json']);
   }
 
   for (const pkgName of buildTargets) {
