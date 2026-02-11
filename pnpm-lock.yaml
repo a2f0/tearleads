@@ -813,6 +813,9 @@ importers:
       clsx:
         specifier: 2.1.1
         version: 2.1.1
+      drizzle-orm:
+        specifier: 0.45.1
+        version: 0.45.1(@types/better-sqlite3@7.6.13)(@types/pg@8.16.0)(pg@8.18.0)(sql.js@1.13.0)
       lucide-react:
         specifier: 0.563.0
         version: 0.563.0(react@19.2.4)
@@ -820,6 +823,9 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
     devDependencies:
+      '@rapid/db':
+        specifier: workspace:*
+        version: link:../db
       '@rapid/shared':
         specifier: workspace:*
         version: link:../shared
