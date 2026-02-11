@@ -1,3 +1,4 @@
+import { WindowTableRow } from '@rapid/window-manager';
 import { asc, desc, eq, or } from 'drizzle-orm';
 import {
   ChevronDown,
@@ -14,7 +15,6 @@ import {
   RotateCcw,
   Trash2
 } from 'lucide-react';
-import { WindowTableRow } from '@rapid/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';

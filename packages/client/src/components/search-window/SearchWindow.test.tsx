@@ -57,11 +57,7 @@ vi.mock('./SearchWindowMenuBar', () => ({
 }));
 
 vi.mock('./SearchWindowContent', () => ({
-  SearchWindowContent: ({
-    viewMode
-  }: {
-    viewMode: 'list' | 'table';
-  }) => (
+  SearchWindowContent: ({ viewMode }: { viewMode: 'list' | 'table' }) => (
     <div data-testid="search-content" data-view-mode={viewMode}>
       Search Content
     </div>

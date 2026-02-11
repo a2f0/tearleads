@@ -137,7 +137,9 @@ export function SearchWindowContent({
 
   // Keep keyboard flow in search input when opening or changing view mode.
   useEffect(() => {
-    inputRef.current?.focus();
+    if (viewMode === 'list' || viewMode === 'table') {
+      inputRef.current?.focus();
+    }
   }, [viewMode]);
 
   // Search function
@@ -477,9 +479,7 @@ export function SearchWindowContent({
                           void handleResultClick(result, event);
                         }}
                       >
-                        <td className="px-2 py-1.5">
-                          {result.document.title}
-                        </td>
+                        <td className="px-2 py-1.5">{result.document.title}</td>
                         <td className="px-2 py-1.5 text-muted-foreground">
                           {ENTITY_TYPE_LABELS[result.entityType]}
                         </td>
