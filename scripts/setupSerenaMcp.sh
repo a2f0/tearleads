@@ -33,15 +33,15 @@ for arg in "$@"; do
   esac
 done
 
-if ! command -v codex >/dev/null 2>&1; then
-  echo "Error: codex CLI is not installed or not on PATH" >&2
-  exit 1
-fi
+check_dep() {
+  if ! command -v "$1" >/dev/null 2>&1; then
+    echo "Error: $1 CLI is not installed or not on PATH" >&2
+    exit 1
+  fi
+}
 
-if ! command -v claude >/dev/null 2>&1; then
-  echo "Error: claude CLI is not installed or not on PATH" >&2
-  exit 1
-fi
+check_dep codex
+check_dep claude
 
 repo_root=$(git rev-parse --show-toplevel)
 
