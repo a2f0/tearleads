@@ -6,7 +6,7 @@ import {
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCalendarEvents,
   getContactBirthdayEvents
@@ -117,10 +117,18 @@ vi.mock('./CalendarWindowMenuBar', () => ({
   )
 }));
 
+const mockUseDatabaseContext = vi.fn(() => ({
+  isUnlocked: true,
+  isLoading: false
+}));
 vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => ({
-    isUnlocked: true
-  })
+  useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">{description}</div>
+  )
 }));
 
 vi.mock('@/db/calendar-events', () => ({
@@ -130,6 +138,36 @@ vi.mock('@/db/calendar-events', () => ({
 }));
 
 describe('CalendarWindow', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: true,
+      isLoading: false
+    });
+  });
+
+  it('shows inline unlock when database is locked', () => {
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: false,
+      isLoading: false
+    });
+
+    render(
+      <CalendarWindow
+        id="calendar-window"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={200}
+      />
+    );
+
+    expect(screen.getByTestId('inline-unlock')).toHaveTextContent(
+      'calendar events'
+    );
+    expect(screen.queryByTestId('event-count')).not.toBeInTheDocument();
+  });
+
   it('opens create dialog from shared context menu and submits calendar name', async () => {
     const user = userEvent.setup();
     const listener = vi.fn();

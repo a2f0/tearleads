@@ -5,7 +5,7 @@ import {
   WindowTableRow
 } from '@tearleads/window-manager';
 import { Loader2, Mail, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';
 import { useEmails } from '../hooks';
 import { formatEmailDate, formatEmailSize } from '../lib';
@@ -35,6 +35,9 @@ interface EmailWindowProps {
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
   openComposeRequest?: ComposeOpenRequest;
+  isUnlocked?: boolean;
+  isDatabaseLoading?: boolean;
+  lockedFallback?: ReactNode;
 }
 
 export function EmailWindow({
@@ -45,7 +48,10 @@ export function EmailWindow({
   onFocus,
   zIndex,
   initialDimensions,
-  openComposeRequest
+  openComposeRequest,
+  isUnlocked = true,
+  isDatabaseLoading = false,
+  lockedFallback
 }: EmailWindowProps) {
   type MainTab = 'inbox' | 'compose';
 
@@ -97,8 +103,11 @@ export function EmailWindow({
   }, [fetchEmails, closeComposeTab]);
 
   useEffect(() => {
+    if (!isUnlocked) {
+      return;
+    }
     fetchEmails();
-  }, [fetchEmails]);
+  }, [fetchEmails, isUnlocked]);
 
   useEffect(() => {
     if (!openComposeRequest) {
@@ -146,7 +155,7 @@ export function EmailWindow({
           onCompose={handleCompose}
         />
         <div className="flex flex-1 overflow-hidden">
-          {hasFolderOperations && (
+          {isUnlocked && hasFolderOperations && (
             <EmailFoldersSidebar
               width={sidebarWidth}
               onWidthChange={setSidebarWidth}
@@ -211,7 +220,15 @@ export function EmailWindow({
               )}
             </div>
             <div className="flex-1 overflow-hidden">
-              {activeTab === 'compose' ? (
+              {isDatabaseLoading ? (
+                <div className="flex h-full items-center justify-center text-muted-foreground">
+                  Loading database...
+                </div>
+              ) : !isUnlocked ? (
+                <div className="flex h-full items-center justify-center p-4">
+                  {lockedFallback}
+                </div>
+              ) : activeTab === 'compose' ? (
                 <ComposeDialog
                   open
                   onOpenChange={closeComposeTab}
