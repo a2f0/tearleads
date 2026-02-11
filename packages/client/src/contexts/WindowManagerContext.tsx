@@ -138,6 +138,17 @@ const WindowOpenRequestsContext = createContext<WindowOpenRequests | null>(
   null
 );
 
+const NOOP_WINDOW_MANAGER_ACTIONS: WindowManagerActions = {
+  openWindow: () => '',
+  requestWindowOpen: () => {},
+  closeWindow: () => {},
+  focusWindow: () => {},
+  minimizeWindow: () => {},
+  restoreWindow: () => {},
+  updateWindowDimensions: () => {},
+  saveWindowDimensionsForType: () => {}
+};
+
 const BASE_Z_INDEX = 100;
 const DEFAULT_WINDOW_WIDTH_RATIO = 0.51;
 const DEFAULT_WINDOW_ASPECT_RATIO = 16 / 10;
@@ -479,12 +490,7 @@ export function useWindowManager(): WindowManagerContextValue {
 
 export function useWindowManagerActions(): WindowManagerActions {
   const context = useContext(WindowManagerActionsContext);
-  if (!context) {
-    throw new Error(
-      'useWindowManagerActions must be used within a WindowManagerProvider'
-    );
-  }
-  return context;
+  return context ?? NOOP_WINDOW_MANAGER_ACTIONS;
 }
 
 export function useWindowOpenRequest<K extends keyof WindowOpenRequestPayloads>(

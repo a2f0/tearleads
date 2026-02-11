@@ -22,8 +22,24 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
   }))
 }));
 
+const mockUseDatabaseContext = vi.fn();
+vi.mock('@/db/hooks', () => ({
+  useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+vi.mock('@/components/sqlite/InlineUnlock', () => ({
+  InlineUnlock: ({ description }: { description: string }) => (
+    <div data-testid="inline-unlock">{description}</div>
+  )
+}));
+
 describe('EmailWindow', () => {
   it('renders the email window', () => {
+    mockUseDatabaseContext.mockReturnValue({
+      isUnlocked: false,
+      isLoading: true
+    });
+
     render(
       <EmailWindow
         id="email-1"
@@ -37,7 +53,10 @@ describe('EmailWindow', () => {
     expect(screen.getByText('Email Window')).toBeInTheDocument();
     expect(mockEmailWindowBase).toHaveBeenCalledWith(
       expect.objectContaining({
-        openComposeRequest: { to: ['ada@example.com'], requestId: 1 }
+        openComposeRequest: { to: ['ada@example.com'], requestId: 1 },
+        isUnlocked: false,
+        isDatabaseLoading: true,
+        lockedFallback: expect.anything()
       })
     );
   });

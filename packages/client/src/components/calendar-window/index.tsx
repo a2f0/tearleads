@@ -9,6 +9,7 @@ import { CalendarPlus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import {
   createCalendarEvent,
@@ -43,7 +44,7 @@ export function CalendarWindow({
   zIndex,
   initialDimensions
 }: CalendarWindowProps) {
-  const { isUnlocked } = useDatabaseContext();
+  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const [sidebarContextMenu, setSidebarContextMenu] = useState<{
     x: number;
     y: number;
@@ -163,14 +164,24 @@ export function CalendarWindow({
           showBirthdaysFromContacts={showBirthdaysFromContacts}
           onShowBirthdaysFromContactsChange={setShowBirthdaysFromContacts}
         />
-        <CalendarContent
-          events={visibleEvents}
-          onCreateEvent={handleCreateEvent}
-          onSidebarContextMenuRequest={setSidebarContextMenu}
-          onViewContextMenuRequest={setViewContextMenu}
-        />
+        {isDatabaseLoading ? (
+          <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
+            Loading database...
+          </div>
+        ) : !isUnlocked ? (
+          <div className="flex flex-1 items-center justify-center p-4">
+            <InlineUnlock description="calendar events" />
+          </div>
+        ) : (
+          <CalendarContent
+            events={visibleEvents}
+            onCreateEvent={handleCreateEvent}
+            onSidebarContextMenuRequest={setSidebarContextMenu}
+            onViewContextMenuRequest={setViewContextMenu}
+          />
+        )}
       </div>
-      {sidebarContextMenu ? (
+      {isUnlocked && sidebarContextMenu ? (
         <ContextMenu
           x={sidebarContextMenu.x}
           y={sidebarContextMenu.y}
@@ -184,7 +195,7 @@ export function CalendarWindow({
           </ContextMenuItem>
         </ContextMenu>
       ) : null}
-      {viewContextMenu ? (
+      {isUnlocked && viewContextMenu ? (
         <ContextMenu
           x={viewContextMenu.x}
           y={viewContextMenu.y}
@@ -198,11 +209,13 @@ export function CalendarWindow({
           </ContextMenuItem>
         </ContextMenu>
       ) : null}
-      <NewCalendarDialog
-        open={newCalendarDialogOpen}
-        onOpenChange={setNewCalendarDialogOpen}
-        onCreate={handleCreateCalendarSubmit}
-      />
+      {isUnlocked && (
+        <NewCalendarDialog
+          open={newCalendarDialogOpen}
+          onOpenChange={setNewCalendarDialogOpen}
+          onCreate={handleCreateCalendarSubmit}
+        />
+      )}
     </FloatingWindow>
   );
 }

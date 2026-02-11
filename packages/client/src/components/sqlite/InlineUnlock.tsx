@@ -7,14 +7,17 @@ import { Database, Eye, EyeOff, Fingerprint, Loader2 } from 'lucide-react';
 import {
   type ChangeEvent,
   type FormEvent,
+  type MouseEvent,
   useCallback,
   useEffect,
   useState
 } from 'react';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { isBiometricAvailable } from '@/db/crypto/key-manager';
 import { useDatabaseContext } from '@/db/hooks';
+import { useIsMobile } from '@/hooks/useIsMobile';
 import { getErrorMessage } from '@/lib/errors';
 import { detectPlatform } from '@/lib/utils';
 
@@ -29,6 +32,9 @@ interface InlineUnlockProps {
 export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
   const { isSetUp, unlock, restoreSession, hasPersistedSession } =
     useDatabaseContext();
+  const windowManagerActions = useWindowManagerActions();
+  const isMobileScreen = useIsMobile();
+  const [isTouchDevice, setIsTouchDevice] = useState(false);
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,6 +52,40 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
       });
     }
   }, []);
+
+  useEffect(() => {
+    if (
+      typeof window === 'undefined' ||
+      typeof window.matchMedia !== 'function'
+    ) {
+      return;
+    }
+
+    const pointerQuery = window.matchMedia('(pointer: coarse)');
+    const updateTouchState = () => {
+      const hasTouch = pointerQuery.matches || navigator.maxTouchPoints > 0;
+      setIsTouchDevice(hasTouch);
+    };
+
+    updateTouchState();
+    pointerQuery.addEventListener('change', updateTouchState);
+    return () => {
+      pointerQuery.removeEventListener('change', updateTouchState);
+    };
+  }, []);
+
+  const isDesktopMode = !isMobileScreen && !isTouchDevice;
+
+  const handleSqliteLinkClick = useCallback(
+    (event: MouseEvent<HTMLAnchorElement>) => {
+      if (!isDesktopMode) {
+        return;
+      }
+      event.preventDefault();
+      windowManagerActions.openWindow('sqlite');
+    },
+    [isDesktopMode, windowManagerActions]
+  );
 
   const getBiometricLabel = useCallback(() => {
     switch (biometryType) {
@@ -128,7 +168,11 @@ export function InlineUnlock({ description = 'content' }: InlineUnlockProps) {
         <Database className="mx-auto h-12 w-12 text-muted-foreground/50" />
         <p className="mt-4 text-muted-foreground">
           Database is not set up. Go to the{' '}
-          <Link to="/sqlite" className="text-primary underline">
+          <Link
+            to="/sqlite"
+            onClick={handleSqliteLinkClick}
+            className="text-primary underline"
+          >
             SQLite page
           </Link>{' '}
           to set up your database.

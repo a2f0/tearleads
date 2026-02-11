@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { InlineUnlock } from './InlineUnlock';
 
@@ -8,10 +8,31 @@ function renderWithRouter(ui: React.ReactElement) {
   return render(<MemoryRouter>{ui}</MemoryRouter>);
 }
 
+function renderWithRoutes() {
+  return render(
+    <MemoryRouter initialEntries={['/']}>
+      <Routes>
+        <Route path="/" element={<InlineUnlock />} />
+        <Route path="/sqlite" element={<div data-testid="sqlite-page" />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
+
 // Mock the database context
 const mockUseDatabaseContext = vi.fn();
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
+}));
+
+const mockUseWindowManagerActions = vi.fn();
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManagerActions: () => mockUseWindowManagerActions()
+}));
+
+const mockUseIsMobile = vi.fn();
+vi.mock('@/hooks/useIsMobile', () => ({
+  useIsMobile: () => mockUseIsMobile()
 }));
 
 // Mock isBiometricAvailable from key-manager
@@ -32,12 +53,34 @@ vi.mock('@/lib/utils', async (importOriginal) => {
 describe('InlineUnlock', () => {
   const mockUnlock = vi.fn();
   const mockRestoreSession = vi.fn();
+  const mockOpenWindow = vi.fn();
 
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseIsMobile.mockReturnValue(false);
+    mockUseWindowManagerActions.mockReturnValue({
+      openWindow: mockOpenWindow
+    });
     mockIsBiometricAvailable.mockResolvedValue({
       isAvailable: false,
       biometryType: null
+    });
+    Object.defineProperty(window.navigator, 'maxTouchPoints', {
+      value: 0,
+      configurable: true
+    });
+    Object.defineProperty(window, 'matchMedia', {
+      writable: true,
+      value: vi.fn().mockImplementation((query: string) => ({
+        matches: false,
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn()
+      }))
     });
 
     // Default mocks for a locked, set-up database
@@ -61,13 +104,51 @@ describe('InlineUnlock', () => {
       });
     });
 
-    it('shows not set up message with link to SQLite page', () => {
-      renderWithRouter(<InlineUnlock />);
+    it('opens SQLite floating window in desktop mode', async () => {
+      const user = userEvent.setup();
+      renderWithRoutes();
 
       expect(screen.getByText(/Database is not set up/i)).toBeInTheDocument();
       const link = screen.getByRole('link', { name: 'SQLite page' });
       expect(link).toBeInTheDocument();
       expect(link).toHaveAttribute('href', '/sqlite');
+      await user.click(link);
+      expect(mockOpenWindow).toHaveBeenCalledWith('sqlite');
+      expect(screen.queryByTestId('sqlite-page')).not.toBeInTheDocument();
+    });
+
+    it('navigates to /sqlite on mobile screens', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(true);
+      renderWithRoutes();
+
+      const link = screen.getByRole('link', { name: 'SQLite page' });
+      await user.click(link);
+      expect(mockOpenWindow).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('sqlite-page')).toBeInTheDocument();
+    });
+
+    it('navigates to /sqlite on touch devices', async () => {
+      const user = userEvent.setup();
+      Object.defineProperty(window, 'matchMedia', {
+        writable: true,
+        value: vi.fn().mockImplementation((query: string) => ({
+          matches: query === '(pointer: coarse)',
+          media: query,
+          onchange: null,
+          addEventListener: vi.fn(),
+          removeEventListener: vi.fn(),
+          addListener: vi.fn(),
+          removeListener: vi.fn(),
+          dispatchEvent: vi.fn()
+        }))
+      });
+      renderWithRoutes();
+
+      const link = screen.getByRole('link', { name: 'SQLite page' });
+      await user.click(link);
+      expect(mockOpenWindow).not.toHaveBeenCalled();
+      expect(await screen.findByTestId('sqlite-page')).toBeInTheDocument();
     });
 
     it('does not show password input', () => {

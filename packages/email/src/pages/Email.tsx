@@ -1,4 +1,5 @@
 import { Loader2, Mail } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { EmailFoldersSidebar } from '../components/sidebar/EmailFoldersSidebar.js';
 import { useEmailUI, useHasEmailFolderOperations } from '../context';
@@ -8,7 +9,17 @@ import { ALL_MAIL_ID, type EmailFolder } from '../types/folder.js';
 
 const DEFAULT_SIDEBAR_WIDTH = 200;
 
-export function Email() {
+interface EmailProps {
+  isUnlocked?: boolean;
+  isLoading?: boolean;
+  lockedFallback?: ReactNode;
+}
+
+export function Email({
+  isUnlocked = true,
+  isLoading = false,
+  lockedFallback
+}: EmailProps = {}) {
   const { BackLink, RefreshButton } = useEmailUI();
   const hasFolderOperations = useHasEmailFolderOperations();
   const { emails, loading, error, fetchEmails } = useEmails();
@@ -28,11 +39,14 @@ export function Email() {
   }, []);
 
   useEffect(() => {
+    if (!isUnlocked) {
+      return;
+    }
     if (!hasFetched) {
       setHasFetched(true);
       fetchEmails();
     }
-  }, [hasFetched, fetchEmails]);
+  }, [fetchEmails, hasFetched, isUnlocked]);
 
   const handleFolderSelect = useCallback(
     (folderId: string | null, folder?: EmailFolder | null) => {
@@ -47,6 +61,22 @@ export function Email() {
   const selectedFolderName = selectedFolder?.name ?? 'All Mail';
   const isListBackedFolder =
     selectedFolderId === ALL_MAIL_ID || selectedFolder?.folderType === 'inbox';
+
+  if (isLoading) {
+    return (
+      <div className="flex h-full items-center justify-center text-muted-foreground">
+        Loading database...
+      </div>
+    );
+  }
+
+  if (!isUnlocked) {
+    return (
+      <div className="flex h-full items-center justify-center p-4">
+        {lockedFallback}
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full flex-col space-y-6">
