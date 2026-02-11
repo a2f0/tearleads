@@ -259,8 +259,8 @@ tuxedo_start_pr_dashboards() {
     case $refresh_seconds in ''|*[!0-9]*) refresh_seconds=30 ;; esac
     case $pr_limit in ''|*[!0-9]*) pr_limit=20 ;; esac
 
-    tmux respawn-pane -k -t "$SESSION_NAME:$OPEN_PRS_WINDOW_NAME.0" "sh -lc 'while true; do clear; \"$SCRIPT_DIR/scripts/listOpenPrs.sh\" --limit $pr_limit; sleep $refresh_seconds; done'" 2>/dev/null || true
-    tmux respawn-pane -k -t "$SESSION_NAME:$CLOSED_PRS_WINDOW_NAME.0" "sh -lc 'while true; do clear; \"$SCRIPT_DIR/scripts/listRecentClosedPrs.sh\" --limit $pr_limit; sleep $refresh_seconds; done'" 2>/dev/null || true
+    tmux respawn-pane -k -t "$SESSION_NAME:$OPEN_PRS_WINDOW_NAME.0" "sh -lc 'while true; do printf \"\\033[H\\033[2J\\033[3J\"; \"$SCRIPT_DIR/scripts/listOpenPrs.sh\" --limit $pr_limit; sleep $refresh_seconds; done'" 2>/dev/null || true
+    tmux respawn-pane -k -t "$SESSION_NAME:$CLOSED_PRS_WINDOW_NAME.0" "sh -lc 'while true; do printf \"\\033[H\\033[2J\\033[3J\"; \"$SCRIPT_DIR/scripts/listRecentClosedPrs.sh\" --limit $pr_limit; sleep $refresh_seconds; done'" 2>/dev/null || true
 }
 
 tuxedo_prepare_shared_dirs() {
