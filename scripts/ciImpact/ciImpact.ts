@@ -12,6 +12,16 @@ type JobName =
   | 'android-maestro-release'
   | 'ios-maestro-release';
 
+const ALL_JOB_NAMES: ReadonlyArray<JobName> = [
+  'build',
+  'web-e2e',
+  'website-e2e',
+  'electron-e2e',
+  'android',
+  'android-maestro-release',
+  'ios-maestro-release'
+];
+
 type StringSetMap = Map<string, Set<string>>;
 
 interface CliArgs {
@@ -377,25 +387,29 @@ function blankJobs(jobNames: JobName[]): JobDecision {
   for (const name of jobNames) {
     jobs[name] = { run: false, reasons: [] };
   }
-  if (
-    jobs.build === undefined ||
-    jobs['web-e2e'] === undefined ||
-    jobs['website-e2e'] === undefined ||
-    jobs['electron-e2e'] === undefined ||
-    jobs.android === undefined ||
-    jobs['android-maestro-release'] === undefined ||
-    jobs['ios-maestro-release'] === undefined
-  ) {
-    throw new Error('Config missing one or more required jobs');
+
+  for (const name of ALL_JOB_NAMES) {
+    if (jobs[name] === undefined) {
+      throw new Error(`Config missing one or more required jobs: ${name}`);
+    }
   }
+
+  function mustGet(name: JobName): JobState {
+    const state = jobs[name];
+    if (state === undefined) {
+      throw new Error(`Config missing one or more required jobs: ${name}`);
+    }
+    return state;
+  }
+
   return {
-    build: jobs.build,
-    'web-e2e': jobs['web-e2e'],
-    'website-e2e': jobs['website-e2e'],
-    'electron-e2e': jobs['electron-e2e'],
-    android: jobs.android,
-    'android-maestro-release': jobs['android-maestro-release'],
-    'ios-maestro-release': jobs['ios-maestro-release']
+    build: mustGet('build'),
+    'web-e2e': mustGet('web-e2e'),
+    'website-e2e': mustGet('website-e2e'),
+    'electron-e2e': mustGet('electron-e2e'),
+    android: mustGet('android'),
+    'android-maestro-release': mustGet('android-maestro-release'),
+    'ios-maestro-release': mustGet('ios-maestro-release')
   };
 }
 
@@ -484,11 +498,11 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
 
   if (tuxedoOnly) {
     jobs.android.run = false;
-    jobs.android.reasons.push('tuxedo/ansible-only change detected');
+    jobs.android.reasons = [];
     jobs['android-maestro-release'].run = false;
-    jobs['android-maestro-release'].reasons.push('tuxedo/ansible-only change detected');
+    jobs['android-maestro-release'].reasons = [];
     jobs['ios-maestro-release'].run = false;
-    jobs['ios-maestro-release'].reasons.push('tuxedo/ansible-only change detected');
+    jobs['ios-maestro-release'].reasons = [];
   }
 
   return jobs;
