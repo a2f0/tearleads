@@ -135,7 +135,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Run one cross-agent fallback review:
 
    ```bash
-   ./scripts/solicitClaudeCodeReview.sh
+   ./scripts/agents/tooling/agentTool.sh solicitClaudeCodeReview
    ```
 
    - Set `used_fallback_agent_review = true`
