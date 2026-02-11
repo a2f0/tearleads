@@ -1,4 +1,5 @@
 import { isOpenRouterModelId } from '@rapid/shared';
+import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
 import { Download, Loader2, Play, Square, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ModelInfo } from '@/lib/models';
@@ -84,19 +85,27 @@ export function ModelsTableView({
             </div>
             <div className="overflow-x-auto rounded-md border">
               <table
-                className="w-full table-fixed border-collapse text-xs"
+                className={`${WINDOW_TABLE_TYPOGRAPHY.table} table-fixed border-collapse`}
                 aria-label={`${section.title} table`}
               >
-                <thead className="bg-muted/40 text-muted-foreground">
+                <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                   <tr>
-                    <th className="px-2 py-2 text-left font-medium">Model</th>
-                    <th className="w-24 px-2 py-2 text-left font-medium">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                      Model
+                    </th>
+                    <th
+                      className={`w-24 ${WINDOW_TABLE_TYPOGRAPHY.headerCell}`}
+                    >
                       Size
                     </th>
-                    <th className="w-32 px-2 py-2 text-left font-medium">
+                    <th
+                      className={`w-32 ${WINDOW_TABLE_TYPOGRAPHY.headerCell}`}
+                    >
                       Status
                     </th>
-                    <th className="w-20 px-2 py-2 text-right font-medium">
+                    <th
+                      className={`w-20 ${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
+                    >
                       Actions
                     </th>
                   </tr>
@@ -121,7 +130,9 @@ export function ModelsTableView({
                         key={model.id}
                         className="border-b last:border-b-0 hover:bg-muted/20"
                       >
-                        <td className="px-2 py-2 align-top">
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}
+                        >
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{model.name}</span>
                             {model.isVision && (
@@ -139,10 +150,14 @@ export function ModelsTableView({
                             {model.description}
                           </div>
                         </td>
-                        <td className="px-2 py-2 align-top text-muted-foreground">
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} align-top`}
+                        >
                           {model.size}
                         </td>
-                        <td className="px-2 py-2 align-top">
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}
+                        >
                           <div className="space-y-2">
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium text-[11px] ${getStatusStyles(
@@ -168,7 +183,9 @@ export function ModelsTableView({
                             )}
                           </div>
                         </td>
-                        <td className="px-2 py-2 align-top">
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}
+                        >
                           <div className="flex items-center justify-end gap-2">
                             {isLoaded ? (
                               <Button

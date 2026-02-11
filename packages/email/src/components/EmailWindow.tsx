@@ -1,4 +1,9 @@
-import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
+import {
+  FloatingWindow,
+  WINDOW_TABLE_TYPOGRAPHY,
+  type WindowDimensions,
+  WindowTableRow
+} from '@rapid/window-manager';
 import { Loader2, Mail, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';
@@ -287,35 +292,53 @@ export function EmailWindow({
                 </div>
               ) : (
                 <div className="h-full overflow-auto">
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 border-b bg-muted/50">
+                  <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+                    <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                       <tr>
-                        <th className="p-2 text-left font-medium">Subject</th>
-                        <th className="p-2 text-left font-medium">From</th>
-                        <th className="p-2 text-left font-medium">Date</th>
-                        <th className="p-2 text-right font-medium">Size</th>
+                        <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                          Subject
+                        </th>
+                        <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                          From
+                        </th>
+                        <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                          Date
+                        </th>
+                        <th
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
+                        >
+                          Size
+                        </th>
                       </tr>
                     </thead>
                     <tbody>
                       {emails.map((email) => (
-                        <tr
+                        <WindowTableRow
                           key={email.id}
                           onClick={() => setSelectedEmailId(email.id)}
-                          className="cursor-pointer border-b transition-colors hover:bg-muted/50"
+                          isSelected={selectedEmailId === email.id}
                         >
-                          <td className="max-w-[200px] truncate p-2">
+                          <td
+                            className={`max-w-[200px] truncate ${WINDOW_TABLE_TYPOGRAPHY.cell}`}
+                          >
                             {email.subject || '(No Subject)'}
                           </td>
-                          <td className="max-w-[150px] truncate p-2 text-muted-foreground">
+                          <td
+                            className={`max-w-[150px] truncate ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
+                          >
                             {email.from}
                           </td>
-                          <td className="whitespace-nowrap p-2 text-muted-foreground">
+                          <td
+                            className={`whitespace-nowrap ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
+                          >
                             {formatEmailDate(email.receivedAt)}
                           </td>
-                          <td className="p-2 text-right text-muted-foreground">
+                          <td
+                            className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} text-right`}
+                          >
                             {formatEmailSize(email.size)}
                           </td>
-                        </tr>
+                        </WindowTableRow>
                       ))}
                     </tbody>
                   </table>

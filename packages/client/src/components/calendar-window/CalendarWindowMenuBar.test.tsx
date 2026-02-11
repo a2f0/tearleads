@@ -8,8 +8,12 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarWindowMenuBar } from './CalendarWindowMenuBar';
 
+vi.mock('@rapid/calendar/package.json', () => ({
+  default: { version: '4.5.6' }
+}));
+
 vi.mock('@/hooks/useAppVersion', () => ({
-  useAppVersion: () => '1.2.3'
+  useAppVersion: () => '0.0.0'
 }));
 
 describe('CalendarWindowMenuBar', () => {
@@ -150,6 +154,6 @@ describe('CalendarWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'About' }));
 
     expect(screen.getByText('About Calendar')).toBeInTheDocument();
-    expect(screen.getByTestId('about-version')).toHaveTextContent('1.2.3');
+    expect(screen.getByTestId('about-version')).toHaveTextContent('4.5.6');
   });
 });

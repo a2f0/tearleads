@@ -1,4 +1,5 @@
 import { contacts as contactsTable } from '@rapid/db/sqlite';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { eq } from 'drizzle-orm';
 import {
   ChevronDown,
@@ -242,10 +243,10 @@ export function ContactsWindowTableView({
             data-testid="contacts-table-container"
             onContextMenu={handleEmptySpaceContextMenu}
           >
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+            <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+              <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                 <tr>
-                  <th className="px-2 py-1.5 text-left">
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                     <SortHeader
                       column="firstName"
                       label="Name"
@@ -254,7 +255,7 @@ export function ContactsWindowTableView({
                       onClick={handleSortChange}
                     />
                   </th>
-                  <th className="px-2 py-1.5 text-left">
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                     <SortHeader
                       column="primaryEmail"
                       label="Email"
@@ -263,14 +264,13 @@ export function ContactsWindowTableView({
                       onClick={handleSortChange}
                     />
                   </th>
-                  <th className="px-2 py-1.5 text-left">Phone</th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Phone</th>
                 </tr>
               </thead>
               <tbody>
                 {contactsList.map((contact) => (
-                  <tr
+                  <WindowTableRow
                     key={contact.id}
-                    className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                     onClick={() => onSelectContact(contact.id)}
                     onContextMenu={(e) => handleContextMenu(e, contact)}
                     draggable
@@ -278,7 +278,7 @@ export function ContactsWindowTableView({
                       setContactDragData(event, [contact.id])
                     }
                   >
-                    <td className="px-2 py-1.5">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                       <div className="flex items-center gap-1.5">
                         <User className="h-3 w-3 shrink-0 text-muted-foreground" />
                         <span className="truncate">
@@ -286,7 +286,7 @@ export function ContactsWindowTableView({
                         </span>
                       </div>
                     </td>
-                    <td className="px-2 py-1.5 text-muted-foreground">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                       {contact.primaryEmail && (
                         <span className="flex items-center gap-1">
                           <Mail className="h-3 w-3" />
@@ -296,7 +296,7 @@ export function ContactsWindowTableView({
                         </span>
                       )}
                     </td>
-                    <td className="px-2 py-1.5 text-muted-foreground">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                       {contact.primaryPhone && (
                         <span className="flex items-center gap-1">
                           <Phone className="h-3 w-3" />
@@ -304,7 +304,7 @@ export function ContactsWindowTableView({
                         </span>
                       )}
                     </td>
-                  </tr>
+                  </WindowTableRow>
                 ))}
               </tbody>
             </table>

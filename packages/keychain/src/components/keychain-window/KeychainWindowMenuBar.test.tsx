@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeychainWindowMenuBar } from './KeychainWindowMenuBar';
 
+vi.mock('@rapid/keychain/package.json', () => ({
+  default: { version: '7.8.9' }
+}));
+
+vi.mock('@/hooks/useAppVersion', () => ({
+  useAppVersion: () => '0.0.0'
+}));
+
 describe('KeychainWindowMenuBar', () => {
   const defaultProps = {
     onRefresh: vi.fn(),
@@ -32,9 +40,10 @@ describe('KeychainWindowMenuBar', () => {
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
   });
 
-  it('renders View menu trigger', () => {
+  it('renders View and Help menu triggers', () => {
     render(<KeychainWindowMenuBar {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('shows Options in View menu', async () => {
@@ -68,5 +77,16 @@ describe('KeychainWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens About dialog from Help menu using keychain package version', async () => {
+    const user = userEvent.setup();
+    render(<KeychainWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+    await user.click(screen.getByRole('menuitem', { name: 'About' }));
+
+    expect(screen.getByText('About Keychain')).toBeInTheDocument();
+    expect(screen.getByTestId('about-version')).toHaveTextContent('7.8.9');
   });
 });

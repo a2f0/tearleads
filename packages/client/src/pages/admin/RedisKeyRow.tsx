@@ -1,4 +1,5 @@
 import type { RedisKeyInfo, RedisKeyValueResponse } from '@rapid/shared';
+import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
 import { ChevronDown, ChevronRight, Database, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
@@ -77,22 +78,22 @@ function renderHashValue(value: Record<string, string>) {
       <p className="mb-1 font-medium text-muted-foreground text-xs">
         Fields ({entries.length}):
       </p>
-      <table className="w-full text-xs">
-        <thead>
+      <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+        <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
           <tr className="border-b">
-            <th className="px-2 py-1 text-left font-medium text-muted-foreground">
-              Field
-            </th>
-            <th className="px-2 py-1 text-left font-medium text-muted-foreground">
-              Value
-            </th>
+            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Field</th>
+            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Value</th>
           </tr>
         </thead>
         <tbody>
           {entries.map(([field, fieldValue]) => (
             <tr key={field} className="border-b last:border-b-0">
-              <td className="px-2 py-1 font-mono">{field}</td>
-              <td className="px-2 py-1 font-mono">{fieldValue}</td>
+              <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} font-mono`}>
+                {field}
+              </td>
+              <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} font-mono`}>
+                {fieldValue}
+              </td>
             </tr>
           ))}
         </tbody>

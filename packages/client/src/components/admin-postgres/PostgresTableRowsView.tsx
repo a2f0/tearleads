@@ -1,4 +1,5 @@
 import type { PostgresColumnInfo } from '@rapid/shared';
+import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown,
@@ -534,13 +535,13 @@ export function PostgresTableRowsView({
             firstVisible={firstVisible}
             lastVisible={lastVisible}
           />
-          <table className="w-full border-collapse">
+          <table className={`${WINDOW_TABLE_TYPOGRAPHY.table} border-collapse`}>
             <thead className="sticky top-[2.25rem] z-10 bg-muted">
               <tr>
                 {visibleColumns.map((col) => (
                   <th
                     key={col.name}
-                    className="cursor-pointer border-b px-3 py-2 text-left font-medium text-sm hover:bg-muted/80"
+                    className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} cursor-pointer hover:bg-muted/80`}
                     onClick={() => handleSort(col.name)}
                   >
                     <div className="flex items-center gap-1">
@@ -568,7 +569,7 @@ export function PostgresTableRowsView({
                     <tr key="loader">
                       <td
                         colSpan={visibleColumns.length}
-                        className="p-4 text-center text-muted-foreground"
+                        className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} p-4 text-center`}
                       >
                         {loadingMore && (
                           <span className="flex items-center justify-center">
@@ -592,7 +593,7 @@ export function PostgresTableRowsView({
                     {visibleColumns.map((col) => (
                       <td
                         key={col.name}
-                        className="max-w-xs truncate px-3 py-2 font-mono text-sm"
+                        className={`${WINDOW_TABLE_TYPOGRAPHY.cell} max-w-xs truncate font-mono text-sm`}
                         title={formatCellValue(row[col.name])}
                       >
                         {formatCellValue(row[col.name])}

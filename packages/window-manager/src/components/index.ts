@@ -23,3 +23,4 @@ export {
   WindowTableRow,
   type WindowTableRowProps
 } from './WindowTableRow.js';
+export { WINDOW_TABLE_TYPOGRAPHY } from './WindowTableTypography.js';

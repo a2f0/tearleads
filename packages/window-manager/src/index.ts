@@ -2,6 +2,7 @@
 export {
   FloatingWindow,
   type FloatingWindowProps,
+  WINDOW_TABLE_TYPOGRAPHY,
   WindowConnectionIndicator,
   type WindowConnectionIndicatorProps,
   WindowContextMenu,

@@ -1,3 +1,4 @@
+import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown,
@@ -563,10 +564,14 @@ export function Analytics({
               <div className="space-y-2">
                 <h2 className="font-semibold text-base sm:text-lg">Summary</h2>
                 <div className="overflow-x-auto rounded-lg border">
-                  <table className="w-full text-xs sm:text-sm">
-                    <thead className="border-b bg-muted/50">
+                  <table
+                    className={`${WINDOW_TABLE_TYPOGRAPHY.table} sm:text-sm`}
+                  >
+                    <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                       <tr>
-                        <th className="px-2 py-2 text-left sm:px-4">
+                        <th
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:px-4 sm:py-2`}
+                        >
                           <button
                             type="button"
                             onClick={() => handleSummarySort('eventName')}
@@ -580,7 +585,9 @@ export function Analytics({
                             />
                           </button>
                         </th>
-                        <th className="px-2 py-2 text-left sm:px-4">
+                        <th
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:px-4 sm:py-2`}
+                        >
                           <button
                             type="button"
                             onClick={() => handleSummarySort('count')}
@@ -594,7 +601,9 @@ export function Analytics({
                             />
                           </button>
                         </th>
-                        <th className="px-2 py-2 text-left sm:px-4">
+                        <th
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:px-4 sm:py-2`}
+                        >
                           <button
                             type="button"
                             onClick={() => handleSummarySort('avgDurationMs')}
@@ -608,7 +617,9 @@ export function Analytics({
                             />
                           </button>
                         </th>
-                        <th className="hidden px-2 py-2 text-left sm:table-cell sm:px-4">
+                        <th
+                          className={`hidden ${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:table-cell sm:px-4 sm:py-2`}
+                        >
                           <button
                             type="button"
                             onClick={() => handleSummarySort('minDurationMs')}
@@ -622,7 +633,9 @@ export function Analytics({
                             />
                           </button>
                         </th>
-                        <th className="hidden px-2 py-2 text-left sm:table-cell sm:px-4">
+                        <th
+                          className={`hidden ${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:table-cell sm:px-4 sm:py-2`}
+                        >
                           <button
                             type="button"
                             onClick={() => handleSummarySort('maxDurationMs')}
@@ -636,7 +649,9 @@ export function Analytics({
                             />
                           </button>
                         </th>
-                        <th className="px-2 py-2 text-left sm:px-4">
+                        <th
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:px-4 sm:py-2`}
+                        >
                           <button
                             type="button"
                             onClick={() => handleSummarySort('successRate')}
@@ -659,22 +674,34 @@ export function Analytics({
                           className="border-b last:border-0"
                           data-testid="summary-row"
                         >
-                          <td className="truncate px-2 py-2 font-medium sm:px-4">
+                          <td
+                            className={`truncate ${WINDOW_TABLE_TYPOGRAPHY.cell} font-medium sm:px-4 sm:py-2`}
+                          >
                             {getEventDisplayName(stat.eventName)}
                           </td>
-                          <td className="px-2 py-2 sm:px-4">
+                          <td
+                            className={`${WINDOW_TABLE_TYPOGRAPHY.cell} sm:px-4 sm:py-2`}
+                          >
                             {formatCount(stat.count)}
                           </td>
-                          <td className="px-2 py-2 sm:px-4">
+                          <td
+                            className={`${WINDOW_TABLE_TYPOGRAPHY.cell} sm:px-4 sm:py-2`}
+                          >
                             {formatDuration(stat.avgDurationMs)}
                           </td>
-                          <td className="hidden px-2 py-2 sm:table-cell sm:px-4">
+                          <td
+                            className={`hidden ${WINDOW_TABLE_TYPOGRAPHY.cell} sm:table-cell sm:px-4 sm:py-2`}
+                          >
                             {formatDuration(stat.minDurationMs)}
                           </td>
-                          <td className="hidden px-2 py-2 sm:table-cell sm:px-4">
+                          <td
+                            className={`hidden ${WINDOW_TABLE_TYPOGRAPHY.cell} sm:table-cell sm:px-4 sm:py-2`}
+                          >
                             {formatDuration(stat.maxDurationMs)}
                           </td>
-                          <td className="px-2 py-2 sm:px-4">
+                          <td
+                            className={`${WINDOW_TABLE_TYPOGRAPHY.cell} sm:px-4 sm:py-2`}
+                          >
                             <span
                               className={getSuccessRateColor(stat.successRate)}
                             >

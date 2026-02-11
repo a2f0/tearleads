@@ -1,4 +1,8 @@
-import { WindowStatusBar, WindowTableRow } from '@rapid/window-manager';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowStatusBar,
+  WindowTableRow
+} from '@rapid/window-manager';
 import {
   AppWindow,
   Contact,
@@ -460,12 +464,18 @@ export function SearchWindowContent({
             </div>
             {viewMode === 'table' ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead className="border-b bg-muted/50 text-muted-foreground">
+                <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+                  <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                     <tr>
-                      <th className="px-2 py-1.5 font-medium">Title</th>
-                      <th className="px-2 py-1.5 font-medium">Type</th>
-                      <th className="px-2 py-1.5 font-medium">Preview</th>
+                      <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                        Title
+                      </th>
+                      <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                        Type
+                      </th>
+                      <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                        Preview
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
@@ -478,11 +488,15 @@ export function SearchWindowContent({
                           void handleResultClick(result, event);
                         }}
                       >
-                        <td className="px-2 py-1.5">{result.document.title}</td>
-                        <td className="px-2 py-1.5 text-muted-foreground">
+                        <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                          {result.document.title}
+                        </td>
+                        <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                           {ENTITY_TYPE_LABELS[result.entityType]}
                         </td>
-                        <td className="max-w-[300px] truncate px-2 py-1.5 text-muted-foreground">
+                        <td
+                          className={`max-w-[300px] truncate ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
+                        >
                           {result.document.content?.slice(0, 100) ||
                             result.document.metadata?.slice(0, 100) ||
                             '—'}
