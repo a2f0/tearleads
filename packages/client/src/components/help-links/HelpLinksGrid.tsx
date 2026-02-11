@@ -1,4 +1,10 @@
-import { Download, FileText, Puzzle, Terminal } from 'lucide-react';
+import {
+  Download,
+  FileText,
+  Puzzle,
+  Terminal,
+  TerminalSquare
+} from 'lucide-react';
 import { GridSquare } from '@/components/ui/grid-square';
 import type { HelpDocId } from '@/constants/help';
 
@@ -12,6 +18,11 @@ const HELP_DOC_ITEMS = [
     docId: 'cli',
     label: 'CLI',
     Icon: Terminal
+  },
+  {
+    docId: 'cliReference',
+    label: 'CLI Reference',
+    Icon: TerminalSquare
   },
   {
     docId: 'chromeExtension',

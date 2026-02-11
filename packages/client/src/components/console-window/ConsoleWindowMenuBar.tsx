@@ -11,13 +11,15 @@ interface ConsoleWindowMenuBarProps {
   onClose: () => void;
   onSplitHorizontal: () => void;
   onSplitVertical: () => void;
+  onOpenDocumentation: () => void;
 }
 
 export function ConsoleWindowMenuBar({
   onNewTab,
   onClose,
   onSplitHorizontal,
-  onSplitVertical
+  onSplitVertical,
+  onOpenDocumentation
 }: ConsoleWindowMenuBarProps) {
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
@@ -41,6 +43,11 @@ export function ConsoleWindowMenuBar({
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <DropdownMenuItem onClick={onOpenDocumentation}>
+          Documentation
+        </DropdownMenuItem>
       </DropdownMenu>
     </div>
   );

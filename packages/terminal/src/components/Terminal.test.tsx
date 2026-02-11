@@ -63,15 +63,12 @@ describe('Terminal', () => {
     mockChangePassword.mockResolvedValue(true);
   });
 
-  it('renders terminal with welcome message', async () => {
+  it('renders terminal without welcome banner text', () => {
     renderTerminal();
-
-    await waitFor(() => {
-      expect(screen.getByText('Rapid Terminal v1.0.0')).toBeInTheDocument();
-    });
+    expect(screen.queryByText('Rapid Terminal v1.0.0')).not.toBeInTheDocument();
     expect(
-      screen.getByText('Type "help" for available commands.')
-    ).toBeInTheDocument();
+      screen.queryByText('Type "help" for available commands.')
+    ).not.toBeInTheDocument();
   });
 
   it('shows prompt', () => {
@@ -265,18 +262,17 @@ describe('Terminal', () => {
     const user = userEvent.setup();
     renderTerminal();
 
-    // Wait for initial content
+    const input = screen.getByTestId('terminal-input');
+    await user.type(input, 'status{Enter}');
+
     await waitFor(() => {
-      expect(screen.getByText('Rapid Terminal v1.0.0')).toBeInTheDocument();
+      expect(screen.getByText(/Database:/)).toBeInTheDocument();
     });
 
-    const input = screen.getByTestId('terminal-input');
     await user.type(input, '{Control>}l{/Control}');
 
     await waitFor(() => {
-      expect(
-        screen.queryByText('Rapid Terminal v1.0.0')
-      ).not.toBeInTheDocument();
+      expect(screen.queryByText(/Database:/)).not.toBeInTheDocument();
     });
   });
 

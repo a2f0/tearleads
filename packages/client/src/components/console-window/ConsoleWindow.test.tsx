@@ -61,18 +61,26 @@ vi.mock('@/components/terminal', () => ({
   }
 }));
 
+vi.mock('@/components/help-links/HelpDocumentation', () => ({
+  HelpDocumentation: ({ docId }: { docId: string }) => (
+    <div data-testid="help-documentation">{docId}</div>
+  )
+}));
+
 // Mock ConsoleWindowMenuBar
 vi.mock('./ConsoleWindowMenuBar', () => ({
   ConsoleWindowMenuBar: ({
     onNewTab,
     onClose,
     onSplitHorizontal,
-    onSplitVertical
+    onSplitVertical,
+    onOpenDocumentation
   }: {
     onNewTab: () => void;
     onClose: () => void;
     onSplitHorizontal: () => void;
     onSplitVertical: () => void;
+    onOpenDocumentation: () => void;
   }) => (
     <div data-testid="menu-bar">
       <button type="button" onClick={onNewTab} data-testid="new-tab-button">
@@ -94,6 +102,13 @@ vi.mock('./ConsoleWindowMenuBar', () => ({
         data-testid="split-vertical-button"
       >
         Split Vertical
+      </button>
+      <button
+        type="button"
+        onClick={onOpenDocumentation}
+        data-testid="open-documentation-button"
+      >
+        Documentation
       </button>
     </div>
   )
@@ -367,5 +382,19 @@ describe('ConsoleWindow', () => {
     // Click vertical - should remove horizontal split first
     await user.click(screen.getByTestId('split-vertical-button'));
     expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+  });
+
+  it('opens CLI documentation from Help and returns to terminal', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('open-documentation-button'));
+    expect(screen.getByTestId('help-documentation')).toHaveTextContent(
+      'cliReference'
+    );
+    expect(screen.queryByTestId('terminal')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Back to Console' }));
+    expect(screen.getByTestId('terminal')).toBeInTheDocument();
   });
 });

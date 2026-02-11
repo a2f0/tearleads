@@ -8,7 +8,8 @@ describe('ConsoleWindowMenuBar', () => {
     onNewTab: vi.fn(),
     onClose: vi.fn(),
     onSplitHorizontal: vi.fn(),
-    onSplitVertical: vi.fn()
+    onSplitVertical: vi.fn(),
+    onOpenDocumentation: vi.fn()
   };
 
   it('renders File menu trigger', () => {
@@ -19,6 +20,11 @@ describe('ConsoleWindowMenuBar', () => {
   it('renders View menu trigger', () => {
     render(<ConsoleWindowMenuBar {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('renders Help menu trigger', () => {
+    render(<ConsoleWindowMenuBar {...defaultProps} />);
+    expect(screen.getByRole('button', { name: 'Help' })).toBeInTheDocument();
   });
 
   it('shows New Tab and Close options in File menu', async () => {
@@ -101,5 +107,21 @@ describe('ConsoleWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Split Vertical' }));
 
     expect(onSplitVertical).toHaveBeenCalledTimes(1);
+  });
+
+  it('calls onOpenDocumentation when Documentation is clicked', async () => {
+    const user = userEvent.setup();
+    const onOpenDocumentation = vi.fn();
+    render(
+      <ConsoleWindowMenuBar
+        {...defaultProps}
+        onOpenDocumentation={onOpenDocumentation}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Help' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Documentation' }));
+
+    expect(onOpenDocumentation).toHaveBeenCalledTimes(1);
   });
 });

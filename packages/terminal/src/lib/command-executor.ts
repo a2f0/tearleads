@@ -73,7 +73,7 @@ export async function executeCommand(
         `Unknown command: ${command.raw.split(' ')[0]}`,
         'error'
       );
-      terminal.appendLine('Type "help" for available commands.', 'output');
+      terminal.appendLine('Run "help" to list commands.', 'output');
     }
     return false;
   }

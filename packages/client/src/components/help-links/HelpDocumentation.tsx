@@ -1,17 +1,26 @@
 import { useTheme } from '@rapid/ui';
 import MDEditor from '@uiw/react-md-editor';
-import { Download, type LucideIcon, Puzzle, Terminal } from 'lucide-react';
+import {
+  Download,
+  type LucideIcon,
+  Puzzle,
+  Terminal,
+  TerminalSquare
+} from 'lucide-react';
 import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
 import type { SupportedLanguage } from '@/i18n';
 import { useTypedTranslation } from '@/i18n';
 import backupRestoreDocumentationEn from '../../../../../docs/en/backup-restore.md?raw';
 import chromeExtensionDocumentationEn from '../../../../../docs/en/chrome-extension.md?raw';
+import cliReferenceDocumentationEn from '../../../../../docs/en/cli-reference.md?raw';
 import cliDocumentationEn from '../../../../../docs/en/getting-started.md?raw';
 import backupRestoreDocumentationEs from '../../../../../docs/es/backup-restore.md?raw';
 import chromeExtensionDocumentationEs from '../../../../../docs/es/chrome-extension.md?raw';
+import cliReferenceDocumentationEs from '../../../../../docs/es/cli-reference.md?raw';
 import cliDocumentationEs from '../../../../../docs/es/getting-started.md?raw';
 import backupRestoreDocumentationUa from '../../../../../docs/ua/backup-restore.md?raw';
 import chromeExtensionDocumentationUa from '../../../../../docs/ua/chrome-extension.md?raw';
+import cliReferenceDocumentationUa from '../../../../../docs/ua/cli-reference.md?raw';
 import cliDocumentationUa from '../../../../../docs/ua/getting-started.md?raw';
 
 const HELP_DOC_MARKDOWN: Record<
@@ -22,6 +31,11 @@ const HELP_DOC_MARKDOWN: Record<
     en: cliDocumentationEn,
     es: cliDocumentationEs,
     ua: cliDocumentationUa
+  },
+  cliReference: {
+    en: cliReferenceDocumentationEn,
+    es: cliReferenceDocumentationEs,
+    ua: cliReferenceDocumentationUa
   },
   chromeExtension: {
     en: chromeExtensionDocumentationEn,
@@ -37,6 +51,7 @@ const HELP_DOC_MARKDOWN: Record<
 
 const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
   cli: 'Setup and workflow notes for command-line development.',
+  cliReference: 'Command reference for the tearleads CLI.',
   chromeExtension: 'Build, load, and test the Rapid Chrome extension.',
   backupRestore:
     'Full guide for secure backup and restore workflows across platforms.'
@@ -44,6 +59,7 @@ const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
 
 const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
   cli: Terminal,
+  cliReference: TerminalSquare,
   chromeExtension: Puzzle,
   backupRestore: Download
 };
