@@ -82,7 +82,7 @@ export function HelpWindow({
         <HelpWindowMenuBar onClose={onClose} />
         <div className="min-h-0 flex-1 p-6">
           {view === 'index' ? (
-            <div className="h-full overflow-auto space-y-6">
+            <div className="h-full space-y-6 overflow-auto">
               <div className="flex items-center gap-3">
                 <CircleHelp className="h-8 w-8 text-muted-foreground" />
                 <h1 className="font-bold text-2xl tracking-tight">Help</h1>
@@ -95,7 +95,7 @@ export function HelpWindow({
               </div>
             </div>
           ) : view === 'api' ? (
-            <div className="h-full overflow-auto space-y-6">
+            <div className="h-full space-y-6 overflow-auto">
               <button
                 type="button"
                 onClick={() => setView('index')}
