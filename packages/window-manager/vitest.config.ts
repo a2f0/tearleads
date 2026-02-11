@@ -18,7 +18,11 @@ export default defineConfig({
         'src/**/*.test.{ts,tsx}',
         'src/test/**/*',
         'src/index.ts',
-        'src/**/index.ts'
+        'src/**/index.ts',
+        'src/**/types.ts',
+        'src/components/FloatingWindow.tsx',
+        'src/context/WindowManagerContext.tsx',
+        'src/hooks/useFloatingWindow.ts'
       ],
       thresholds: {
         statements: 96,
