@@ -543,12 +543,14 @@ export function SearchWindowContent({
                           {ENTITY_TYPE_LABELS[result.entityType]}
                         </span>
                       </div>
-                      {result.entityType !== 'app' &&
-                        getPreviewText(result) && (
+                      {(() => {
+                        const previewText = getPreviewText(result);
+                        return previewText ? (
                           <p className="mt-0.5 truncate text-muted-foreground text-sm">
-                            {getPreviewText(result)}
+                            {previewText}
                           </p>
-                        )}
+                        ) : null;
+                      })()}
                     </div>
                   </button>
                 );

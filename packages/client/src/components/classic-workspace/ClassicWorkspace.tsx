@@ -119,9 +119,11 @@ export function ClassicWorkspace() {
           onStateChange={handleStateChange}
           onDeleteTag={async (tagId) => {
             await deleteClassicTag(tagId);
+            await fetchClassicState();
           }}
           onRestoreTag={async (tagId) => {
             await restoreClassicTag(tagId);
+            await fetchClassicState();
           }}
           contextMenuComponents={{ ContextMenu, ContextMenuItem }}
         />
