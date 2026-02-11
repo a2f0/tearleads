@@ -26,14 +26,24 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('./SearchWindowMenuBar', () => ({
   SearchWindowMenuBar: ({
     onClose,
-    onViewModeChange
+    onViewModeChange,
+    viewMode
   }: {
     onClose: () => void;
+    viewMode: 'list' | 'table';
     onViewModeChange: (mode: 'list' | 'table') => void;
   }) => (
     <div data-testid="menu-bar">
+      <div data-testid="menu-view-mode">{viewMode}</div>
       <button type="button" onClick={onClose} data-testid="menu-close-button">
         Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onViewModeChange('list')}
+        data-testid="menu-list-button"
+      >
+        List
       </button>
       <button
         type="button"
@@ -47,8 +57,10 @@ vi.mock('./SearchWindowMenuBar', () => ({
 }));
 
 vi.mock('./SearchWindowContent', () => ({
-  SearchWindowContent: () => (
-    <div data-testid="search-content">Search Content</div>
+  SearchWindowContent: ({ viewMode }: { viewMode: 'list' | 'table' }) => (
+    <div data-testid="search-content" data-view-mode={viewMode}>
+      Search Content
+    </div>
   )
 }));
 
@@ -85,6 +97,15 @@ describe('SearchWindow', () => {
     expect(screen.getByTestId('search-content')).toBeInTheDocument();
   });
 
+  it('defaults to table view mode', () => {
+    render(<SearchWindow {...defaultProps} />);
+    expect(screen.getByTestId('menu-view-mode')).toHaveTextContent('table');
+    expect(screen.getByTestId('search-content')).toHaveAttribute(
+      'data-view-mode',
+      'table'
+    );
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -101,5 +122,18 @@ describe('SearchWindow', () => {
 
     await user.click(screen.getByTestId('menu-close-button'));
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('updates to list view mode when selected from menu', async () => {
+    const user = userEvent.setup();
+    render(<SearchWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('menu-list-button'));
+
+    expect(screen.getByTestId('menu-view-mode')).toHaveTextContent('list');
+    expect(screen.getByTestId('search-content')).toHaveAttribute(
+      'data-view-mode',
+      'list'
+    );
   });
 });

@@ -1,3 +1,4 @@
+import { WindowTableRow } from '@rapid/window-manager';
 import { asc, desc, eq, or } from 'drizzle-orm';
 import {
   ChevronDown,
@@ -617,11 +618,9 @@ export function FilesWindowTableView({
                   const clickable = isViewable(file) && !file.deleted;
 
                   return (
-                    <tr
+                    <WindowTableRow
                       key={file.id}
-                      className={`cursor-pointer border-border/50 border-b hover:bg-accent/50 ${
-                        file.deleted ? 'opacity-60' : ''
-                      }`}
+                      isDimmed={file.deleted}
                       onClick={clickable ? () => handleView(file) : undefined}
                       onContextMenu={(e) => handleContextMenu(e, file)}
                     >
@@ -652,7 +651,7 @@ export function FilesWindowTableView({
                       <td className="px-2 py-1.5 text-muted-foreground">
                         {file.uploadDate.toLocaleDateString()}
                       </td>
-                    </tr>
+                    </WindowTableRow>
                   );
                 })}
               </tbody>

@@ -19,3 +19,7 @@ export {
   WindowStatusBar,
   type WindowStatusBarProps
 } from './WindowStatusBar.js';
+export {
+  WindowTableRow,
+  type WindowTableRowProps
+} from './WindowTableRow.js';

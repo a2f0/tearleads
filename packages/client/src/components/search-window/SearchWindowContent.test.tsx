@@ -144,9 +144,48 @@ describe('SearchWindowContent', () => {
       expect(screen.getByText('Type')).toBeInTheDocument();
       expect(screen.getByText('Preview')).toBeInTheDocument();
     });
+
+    it('refocuses search input when view mode changes', () => {
+      const view = render(
+        <MemoryRouter>
+          <ThemeProvider>
+            <SearchWindowContent viewMode="list" />
+          </ThemeProvider>
+        </MemoryRouter>
+      );
+      const input = screen.getByPlaceholderText('Search...');
+
+      input.blur();
+      expect(document.activeElement).not.toBe(input);
+
+      view.rerender(
+        <MemoryRouter>
+          <ThemeProvider>
+            <SearchWindowContent viewMode="table" />
+          </ThemeProvider>
+        </MemoryRouter>
+      );
+
+      expect(document.activeElement).toBe(input);
+    });
   });
 
   describe('searching', () => {
+    it('keeps search input focused when clicking a filter pill', async () => {
+      const user = userEvent.setup();
+      renderContent();
+
+      const input = screen.getByPlaceholderText('Search...');
+      const appsFilter = screen.getByRole('button', { name: 'Apps' });
+
+      expect(document.activeElement).toBe(input);
+
+      await user.click(appsFilter);
+
+      expect(document.activeElement).toBe(input);
+      expect(appsFilter).toHaveAttribute('data-selected', 'true');
+    });
+
     it('performs typeahead search as user types', async () => {
       const user = userEvent.setup();
       renderContent();
@@ -741,7 +780,7 @@ describe('SearchWindowContent', () => {
       await user.keyboard('{ArrowDown}');
 
       const row = screen.getByText('John Doe').closest('tr');
-      expect(row).toHaveClass('bg-accent');
+      expect(row).toHaveClass('bg-accent/50');
     });
 
     it('submits search form when Enter pressed with no selection', async () => {
