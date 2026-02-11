@@ -86,6 +86,26 @@ describe('ClassicApp', () => {
     expect(latest.noteOrderByTagId['tag-2']).toEqual(['note-3', 'note-2']);
   });
 
+  it('updates active tag background when selecting a tag', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const workTagItem = screen.getByLabelText('Select tag Work').closest('li');
+    const personalTagItem = screen
+      .getByLabelText('Select tag Personal')
+      .closest('li');
+    if (!workTagItem || !personalTagItem) {
+      throw new Error('Expected tag list items');
+    }
+
+    expect(workTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(personalTagItem).not.toHaveStyle({ backgroundColor: '#e0f2fe' });
+
+    fireEvent.click(screen.getByLabelText('Select tag Personal'));
+
+    expect(workTagItem).not.toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(personalTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+  });
+
   it('reorders tags and notes via drag handle hover', () => {
     const onStateChange = vi.fn();
     const dataTransfer = {

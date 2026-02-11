@@ -235,6 +235,31 @@ describe('TagSidebar', () => {
 
     const button = screen.getByLabelText('Select Untagged Items');
     expect(button).toHaveAttribute('aria-pressed', 'true');
+    const untaggedItem = button.closest('li');
+    if (!untaggedItem) throw new Error('Expected untagged list item');
+    expect(untaggedItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+  });
+
+  it('uses a distinct background for active tags', () => {
+    render(
+      <TagSidebar
+        tags={[
+          { id: 'tag-1', name: 'Work' },
+          { id: 'tag-2', name: 'Personal' }
+        ]}
+        activeTagId="tag-1"
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const activeTagItem = screen.getByLabelText('Select tag Work').closest('li');
+    if (!activeTagItem) throw new Error('Expected active tag list item');
+    expect(activeTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(activeTagItem).not.toHaveClass('bg-emerald-100');
   });
 
   it('displays note counts for tags when provided', () => {

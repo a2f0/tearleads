@@ -174,8 +174,13 @@ export function TagSidebar({
               <li
                 className={
                   activeTagId === UNTAGGED_TAG_ID
-                    ? 'border bg-zinc-200 px-2 py-0.5'
+                    ? 'border bg-sky-100 px-2 py-0.5'
                     : 'border bg-white px-2 py-0.5'
+                }
+                style={
+                  activeTagId === UNTAGGED_TAG_ID
+                    ? { backgroundColor: '#e0f2fe' }
+                    : undefined
                 }
               >
                 <div className="flex items-center gap-2">
@@ -216,12 +221,14 @@ export function TagSidebar({
                       dropTargetTagId === tag.id
                         ? 'border bg-emerald-100 px-2 py-0.5'
                         : isActive
-                          ? 'border bg-zinc-200 px-2 py-0.5'
+                          ? 'border bg-sky-100 px-2 py-0.5'
                           : 'border bg-white px-2 py-0.5'
                     }
                     style={
                       dropTargetTagId === tag.id
                         ? { backgroundColor: '#d1fae5' }
+                        : isActive
+                          ? { backgroundColor: '#e0f2fe' }
                         : undefined
                     }
                     draggable
