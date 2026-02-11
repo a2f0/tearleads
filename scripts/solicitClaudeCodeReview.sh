@@ -39,10 +39,13 @@ if [ -z "$DIFF" ]; then
 fi
 
 # Build the review prompt
-PROMPT="Review this PR diff for code quality, bugs, security issues, and style. Be concise and actionable. Output your review to stdout.\n\nBranch: $BRANCH\nPR: #$PR_NUMBER"
+PROMPT="Review this PR diff for code quality, bugs, security issues, and style. Be concise and actionable. Output your review to stdout.
 
-# Run Claude Code in print mode (non-interactive, outputs to stdout)
-exec claude --print "$PROMPT" --diff "$DIFF"
+Branch: $BRANCH
+PR: #$PR_NUMBER
+
+Diff:
+$DIFF"
 
 # Run Claude Code in print mode (non-interactive, outputs to stdout)
 exec claude --print "$PROMPT"
