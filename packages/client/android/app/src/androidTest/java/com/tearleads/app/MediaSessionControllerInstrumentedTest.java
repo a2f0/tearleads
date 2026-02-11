@@ -7,16 +7,20 @@ import android.content.Context;
 import android.os.SystemClock;
 import android.support.v4.media.MediaBrowserCompat;
 import android.support.v4.media.MediaDescriptionCompat;
-import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.MediaMetadataCompat;
+import android.support.v4.media.session.MediaControllerCompat;
 import android.support.v4.media.session.PlaybackStateCompat;
+
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
+
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
@@ -41,7 +45,7 @@ public class MediaSessionControllerInstrumentedTest {
     public void tearDown() {
         mediaSessionController.setTransportActionListener(null);
         mediaSessionController.clearMetadata();
-        mediaSessionController.updateCatalogTracks(new ArrayList<>());
+        mediaSessionController.updateCatalogTracks(Collections.emptyList());
     }
 
     @Test
@@ -166,12 +170,14 @@ public class MediaSessionControllerInstrumentedTest {
     }
 
     private static void assertEventually(Condition condition, String message) {
-        long deadline = SystemClock.elapsedRealtime() + 5000L;
+        final long timeoutMs = 5000L;
+        final long pollIntervalMs = 50L;
+        long deadline = SystemClock.elapsedRealtime() + timeoutMs;
         while (SystemClock.elapsedRealtime() < deadline) {
             if (condition.check()) {
                 return;
             }
-            SystemClock.sleep(50L);
+            SystemClock.sleep(pollIntervalMs);
         }
         assertTrue(message, condition.check());
     }
