@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
+import { HelpDocumentation } from '@/components/help-links/HelpDocumentation';
 import { ClientTerminal } from '@/components/terminal';
 import { cn } from '@/lib/utils';
 import { ConsoleWindowMenuBar } from './ConsoleWindowMenuBar';
@@ -36,6 +37,7 @@ export function ConsoleWindow({
   zIndex,
   initialDimensions
 }: ConsoleWindowProps) {
+  const [showDocumentation, setShowDocumentation] = useState(false);
   const [tabs, setTabs] = useState<TerminalTab[]>(() => {
     const initialTab = { id: generateTabId(), name: 'Terminal 1' };
     return [initialTab];
@@ -143,95 +145,115 @@ export function ConsoleWindow({
           onClose={onClose}
           onSplitHorizontal={handleSplitHorizontal}
           onSplitVertical={handleSplitVertical}
+          onOpenDocumentation={() => setShowDocumentation(true)}
         />
-        {/* Tab bar */}
-        {visibleTabs.length > 1 && (
-          <div className="flex shrink-0 gap-0.5 border-b bg-muted/30 px-1 py-0.5">
-            {visibleTabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={cn(
-                  'group flex items-center gap-1 rounded-t px-2 py-0.5 text-xs',
-                  activeTabId === tab.id
-                    ? 'bg-background'
-                    : 'hover:bg-background/50'
-                )}
+        {showDocumentation ? (
+          <div className="flex-1 overflow-auto p-4">
+            <div className="space-y-4">
+              <button
+                type="button"
+                onClick={() => setShowDocumentation(false)}
+                className="inline-flex items-center text-muted-foreground text-sm hover:text-foreground"
               >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveTabId(tab.id);
-                    setFocusTarget('main');
-                  }}
-                  className="max-w-24 truncate"
-                >
-                  {tab.name}
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleCloseTab(tab.id);
-                  }}
-                  className="rounded p-0.5 opacity-0 hover:bg-muted group-hover:opacity-100"
-                  aria-label={`Close ${tab.name}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </div>
-            ))}
+                Back to Console
+              </button>
+              <HelpDocumentation docId="cliReference" />
+            </div>
           </div>
-        )}
-        {/* Terminal content area */}
-        <div
-          className={cn(
-            'flex min-h-0 min-w-0 flex-1 overflow-hidden',
-            splitDirection === 'horizontal' && 'flex-col',
-            splitDirection === 'vertical' && 'flex-row'
-          )}
-        >
-          {/* Main terminal pane */}
-          <div
-            className="min-h-0 min-w-0 flex-1 overflow-hidden"
-            data-testid="console-main-pane"
-          >
-            {visibleTabs.map((tab) => (
-              <div
-                key={tab.id}
-                className={cn(
-                  'h-full',
-                  tab.id === activeTabId ? 'block' : 'hidden'
-                )}
-              >
-                <ClientTerminal
-                  className="h-full rounded-none border-0"
-                  autoFocus={focusTarget === 'main' && tab.id === activeTabId}
-                />
+        ) : (
+          <>
+            {/* Tab bar */}
+            {visibleTabs.length > 1 && (
+              <div className="flex shrink-0 gap-0.5 border-b bg-muted/30 px-1 py-0.5">
+                {visibleTabs.map((tab) => (
+                  <div
+                    key={tab.id}
+                    className={cn(
+                      'group flex items-center gap-1 rounded-t px-2 py-0.5 text-xs',
+                      activeTabId === tab.id
+                        ? 'bg-background'
+                        : 'hover:bg-background/50'
+                    )}
+                  >
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setActiveTabId(tab.id);
+                        setFocusTarget('main');
+                      }}
+                      className="max-w-24 truncate"
+                    >
+                      {tab.name}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleCloseTab(tab.id);
+                      }}
+                      className="rounded p-0.5 opacity-0 hover:bg-muted group-hover:opacity-100"
+                      aria-label={`Close ${tab.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          {/* Split pane */}
-          {splitDirection !== 'none' && splitTabId && (
-            <>
-              <div
-                className={cn(
-                  'shrink-0 bg-border',
-                  splitDirection === 'horizontal' && 'h-px',
-                  splitDirection === 'vertical' && 'w-px'
-                )}
-              />
+            )}
+            {/* Terminal content area */}
+            <div
+              className={cn(
+                'flex min-h-0 min-w-0 flex-1 overflow-hidden',
+                splitDirection === 'horizontal' && 'flex-col',
+                splitDirection === 'vertical' && 'flex-row'
+              )}
+            >
+              {/* Main terminal pane */}
               <div
                 className="min-h-0 min-w-0 flex-1 overflow-hidden"
-                data-testid="console-split-pane"
+                data-testid="console-main-pane"
               >
-                <ClientTerminal
-                  className="h-full rounded-none border-0"
-                  autoFocus={focusTarget === 'split'}
-                />
+                {visibleTabs.map((tab) => (
+                  <div
+                    key={tab.id}
+                    className={cn(
+                      'h-full',
+                      tab.id === activeTabId ? 'block' : 'hidden'
+                    )}
+                  >
+                    <ClientTerminal
+                      className="h-full rounded-none border-0"
+                      autoFocus={
+                        focusTarget === 'main' && tab.id === activeTabId
+                      }
+                    />
+                  </div>
+                ))}
               </div>
-            </>
-          )}
-        </div>
+              {/* Split pane */}
+              {splitDirection !== 'none' && splitTabId && (
+                <>
+                  <div
+                    className={cn(
+                      'shrink-0 bg-border',
+                      splitDirection === 'horizontal' && 'h-px',
+                      splitDirection === 'vertical' && 'w-px'
+                    )}
+                  />
+                  <div
+                    className="min-h-0 min-w-0 flex-1 overflow-hidden"
+                    data-testid="console-split-pane"
+                  >
+                    <ClientTerminal
+                      className="h-full rounded-none border-0"
+                      autoFocus={focusTarget === 'split'}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </FloatingWindow>
   );

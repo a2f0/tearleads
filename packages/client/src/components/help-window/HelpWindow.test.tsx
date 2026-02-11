@@ -70,6 +70,7 @@ vi.mock('@/components/ui/grid-square', () => ({
 describe('HelpWindow', () => {
   const docCases = [
     { label: 'CLI', title: 'CLI', docId: 'cli' },
+    { label: 'CLI Reference', title: 'CLI Reference', docId: 'cliReference' },
     {
       label: 'Chrome Extension',
       title: 'Chrome Extension',
@@ -96,6 +97,7 @@ describe('HelpWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.getByText('API Docs')).toBeInTheDocument();
     expect(screen.getByText('CLI')).toBeInTheDocument();
+    expect(screen.getByText('CLI Reference')).toBeInTheDocument();
     expect(screen.getByText('Chrome Extension')).toBeInTheDocument();
     expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
   });

@@ -14,6 +14,11 @@ const HELP_DOC_ITEMS = [
     Icon: Terminal
   },
   {
+    docId: 'cliReference',
+    label: 'CLI Reference',
+    Icon: Terminal
+  },
+  {
     docId: 'chromeExtension',
     label: 'Chrome Extension',
     Icon: Puzzle

@@ -20,6 +20,7 @@ describe('Help', () => {
 
   const docCases = [
     { label: 'CLI', path: '/help/docs/cli' },
+    { label: 'CLI Reference', path: '/help/docs/cli-reference' },
     { label: 'Chrome Extension', path: '/help/docs/chrome-extension' },
     { label: 'Backup & Restore', path: '/help/docs/backup-restore' }
   ] as const;
@@ -34,6 +35,7 @@ describe('Help', () => {
     expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
     expect(screen.getByText('API Docs')).toBeInTheDocument();
     expect(screen.getByText('CLI')).toBeInTheDocument();
+    expect(screen.getByText('CLI Reference')).toBeInTheDocument();
     expect(screen.getByText('Chrome Extension')).toBeInTheDocument();
     expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
   });

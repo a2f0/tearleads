@@ -101,12 +101,9 @@ describe('Console', () => {
     expect(screen.getByTestId('terminal')).toBeInTheDocument();
   });
 
-  it('shows welcome message', async () => {
+  it('does not show terminal welcome banner text', () => {
     renderConsole();
-
-    await waitFor(() => {
-      expect(screen.getByText('Rapid Terminal')).toBeInTheDocument();
-    });
+    expect(screen.queryByText('Rapid Terminal')).not.toBeInTheDocument();
   });
 
   it('runs setup command when passwords match', async () => {
