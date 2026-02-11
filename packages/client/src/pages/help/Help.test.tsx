@@ -22,7 +22,8 @@ describe('Help', () => {
     { label: 'CLI', path: '/help/docs/cli' },
     { label: 'CLI Reference', path: '/help/docs/cli-reference' },
     { label: 'Chrome Extension', path: '/help/docs/chrome-extension' },
-    { label: 'Backup & Restore', path: '/help/docs/backup-restore' }
+    { label: 'Backup & Restore', path: '/help/docs/backup-restore' },
+    { label: 'Tuxedo', path: '/help/docs/tuxedo' }
   ] as const;
 
   it('renders help page with all help options', () => {
@@ -38,6 +39,7 @@ describe('Help', () => {
     expect(screen.getByText('CLI Reference')).toBeInTheDocument();
     expect(screen.getByText('Chrome Extension')).toBeInTheDocument();
     expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
+    expect(screen.getByText('Tuxedo')).toBeInTheDocument();
   });
 
   it('navigates to /help/api when API Docs is clicked', async () => {

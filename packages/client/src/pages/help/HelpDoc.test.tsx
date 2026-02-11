@@ -12,18 +12,16 @@ vi.mock('@/components/help-links/HelpDocumentation', () => ({
 describe('HelpDocPage', () => {
   it('renders documentation for a known doc route', () => {
     render(
-      <MemoryRouter initialEntries={['/help/docs/chrome-extension']}>
+      <MemoryRouter initialEntries={['/help/docs/tuxedo']}>
         <Routes>
           <Route path="/help/docs/:docId" element={<HelpDocPage />} />
         </Routes>
       </MemoryRouter>
     );
 
-    expect(
-      screen.getByRole('heading', { name: 'Chrome Extension' })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Tuxedo' })).toBeInTheDocument();
     expect(screen.getByTestId('help-documentation')).toHaveTextContent(
-      'chromeExtension'
+      'tuxedo'
     );
   });
 

@@ -2,6 +2,7 @@ import {
   Download,
   FileText,
   Puzzle,
+  Shirt,
   Terminal,
   TerminalSquare
 } from 'lucide-react';
@@ -33,6 +34,11 @@ const HELP_DOC_ITEMS = [
     docId: 'backupRestore',
     label: 'Backup & Restore',
     Icon: Download
+  },
+  {
+    docId: 'tuxedo',
+    label: 'Tuxedo',
+    Icon: Shirt
   }
 ] as const;
 
