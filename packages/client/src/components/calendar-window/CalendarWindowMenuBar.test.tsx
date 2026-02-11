@@ -12,6 +12,10 @@ vi.mock('@rapid/calendar/package.json', () => ({
   default: { version: '4.5.6' }
 }));
 
+vi.mock('@/hooks/useAppVersion', () => ({
+  useAppVersion: () => '0.0.0'
+}));
+
 describe('CalendarWindowMenuBar', () => {
   const renderMenuBar = ({
     onClose = vi.fn(),

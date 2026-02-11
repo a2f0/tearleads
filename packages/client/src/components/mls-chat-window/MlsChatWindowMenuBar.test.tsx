@@ -8,6 +8,10 @@ vi.mock('@rapid/mls-chat/package.json', () => ({
   default: { version: '0.0.7' }
 }));
 
+vi.mock('@/hooks/useAppVersion', () => ({
+  useAppVersion: () => '0.0.0'
+}));
+
 describe('MlsChatWindowMenuBar', () => {
   beforeEach(() => {
     vi.clearAllMocks();
