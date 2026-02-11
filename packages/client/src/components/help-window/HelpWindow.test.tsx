@@ -80,6 +80,11 @@ describe('HelpWindow', () => {
       label: 'Backup & Restore',
       title: 'Backup & Restore',
       docId: 'backupRestore'
+    },
+    {
+      label: 'Tuxedo',
+      title: 'Tuxedo',
+      docId: 'tuxedo'
     }
   ] as const;
 
@@ -100,6 +105,7 @@ describe('HelpWindow', () => {
     expect(screen.getByText('CLI Reference')).toBeInTheDocument();
     expect(screen.getByText('Chrome Extension')).toBeInTheDocument();
     expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
+    expect(screen.getByText('Tuxedo')).toBeInTheDocument();
   });
 
   it('navigates to API docs when clicking API Docs', async () => {

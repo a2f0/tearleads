@@ -3,6 +3,7 @@ import {
   Download,
   type LucideIcon,
   Puzzle,
+  Shirt,
   Terminal,
   TerminalSquare
 } from 'lucide-react';
@@ -14,14 +15,17 @@ import backupRestoreDocumentationEn from '../../../../../docs/en/backup-restore.
 import chromeExtensionDocumentationEn from '../../../../../docs/en/chrome-extension.md?raw';
 import cliReferenceDocumentationEn from '../../../../../docs/en/cli-reference.md?raw';
 import cliDocumentationEn from '../../../../../docs/en/getting-started.md?raw';
+import tuxedoDocumentationEn from '../../../../../docs/en/tuxedo.md?raw';
 import backupRestoreDocumentationEs from '../../../../../docs/es/backup-restore.md?raw';
 import chromeExtensionDocumentationEs from '../../../../../docs/es/chrome-extension.md?raw';
 import cliReferenceDocumentationEs from '../../../../../docs/es/cli-reference.md?raw';
 import cliDocumentationEs from '../../../../../docs/es/getting-started.md?raw';
+import tuxedoDocumentationEs from '../../../../../docs/es/tuxedo.md?raw';
 import backupRestoreDocumentationUa from '../../../../../docs/ua/backup-restore.md?raw';
 import chromeExtensionDocumentationUa from '../../../../../docs/ua/chrome-extension.md?raw';
 import cliReferenceDocumentationUa from '../../../../../docs/ua/cli-reference.md?raw';
 import cliDocumentationUa from '../../../../../docs/ua/getting-started.md?raw';
+import tuxedoDocumentationUa from '../../../../../docs/ua/tuxedo.md?raw';
 
 const HELP_DOC_MARKDOWN: Record<
   HelpDocId,
@@ -46,6 +50,11 @@ const HELP_DOC_MARKDOWN: Record<
     en: backupRestoreDocumentationEn,
     es: backupRestoreDocumentationEs,
     ua: backupRestoreDocumentationUa
+  },
+  tuxedo: {
+    en: tuxedoDocumentationEn,
+    es: tuxedoDocumentationEs,
+    ua: tuxedoDocumentationUa
   }
 };
 
@@ -54,14 +63,16 @@ const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
   cliReference: 'Command reference for the tearleads CLI.',
   chromeExtension: 'Build, load, and test the Tearleads Chrome extension.',
   backupRestore:
-    'Full guide for secure backup and restore workflows across platforms.'
+    'Full guide for secure backup and restore workflows across platforms.',
+  tuxedo: 'Tmux workspace orchestrator setup, usage, and behavior details.'
 };
 
 const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
   cli: Terminal,
   cliReference: TerminalSquare,
   chromeExtension: Puzzle,
-  backupRestore: Download
+  backupRestore: Download,
+  tuxedo: Shirt
 };
 
 function resolveLanguage(language: string | undefined): SupportedLanguage {
