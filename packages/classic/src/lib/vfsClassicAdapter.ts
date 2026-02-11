@@ -60,12 +60,14 @@ export function buildClassicStateFromVfs(
       .map((row) => row.id)
   );
 
-  const tagsById = new Map<string, ClassicTag>();
+  const activeTagsById = new Map<string, ClassicTag>();
+  const deletedTagsById = new Map<string, ClassicTag>();
   for (const row of args.tagRows) {
     if (!tagIdsInRegistry.has(row.id)) {
       continue;
     }
-    tagsById.set(row.id, {
+    const targetMap = row.deleted ? deletedTagsById : activeTagsById;
+    targetMap.set(row.id, {
       id: row.id,
       name: resolveTagName(row.encryptedName)
     });
@@ -85,11 +87,13 @@ export function buildClassicStateFromVfs(
 
   const tagLinks = args.linkRows
     .filter((link) => link.parentId === args.rootTagParentId)
-    .filter((link) => tagsById.has(link.childId))
     .sort(sortByPositionThenId);
 
   const tags = tagLinks
-    .map((link) => tagsById.get(link.childId))
+    .map((link) => activeTagsById.get(link.childId))
+    .filter((tag): tag is ClassicTag => tag !== undefined);
+  const deletedTags = tagLinks
+    .map((link) => deletedTagsById.get(link.childId))
     .filter((tag): tag is ClassicTag => tag !== undefined);
 
   const noteOrderByTagId: Record<string, string[]> = {};
@@ -106,6 +110,7 @@ export function buildClassicStateFromVfs(
 
   return {
     tags,
+    deletedTags,
     notesById,
     noteOrderByTagId,
     activeTagId

@@ -202,6 +202,48 @@ describe('TagSidebar', () => {
     expect(onSelectTag).toHaveBeenCalledWith('__untagged__');
   });
 
+  it('renders deleted tags section under untagged items', () => {
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        deletedTags={[{ id: 'tag-2', name: 'Old Tag' }]}
+        activeTagId={null}
+        untaggedCount={3}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    expect(screen.getByText('Untagged Items (3)')).toBeInTheDocument();
+    expect(screen.getByText('Deleted Tags (1)')).toBeInTheDocument();
+    expect(screen.getByText('Old Tag')).toBeInTheDocument();
+  });
+
+  it('restores deleted tag when restore is clicked', () => {
+    const onRestoreTag = vi.fn();
+
+    render(
+      <TagSidebar
+        tags={[]}
+        deletedTags={[{ id: 'tag-2', name: 'Old Tag' }]}
+        activeTagId={null}
+        untaggedCount={0}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onRestoreTag={onRestoreTag}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Restore tag Old Tag'));
+    expect(onRestoreTag).toHaveBeenCalledWith('tag-2');
+  });
+
   it('renders untagged items when untaggedCount is 0', () => {
     render(
       <TagSidebar

@@ -16,9 +16,9 @@ function createArgs(): BuildClassicStateFromVfsArgs {
       { id: 'file-1', objectType: 'file' }
     ],
     tagRows: [
-      { id: 'tag-1', encryptedName: 'Pinned' },
-      { id: 'tag-2', encryptedName: '   ' },
-      { id: 'not-a-tag', encryptedName: 'Ignored' }
+      { id: 'tag-1', encryptedName: 'Pinned', deleted: false },
+      { id: 'tag-2', encryptedName: '   ', deleted: true },
+      { id: 'not-a-tag', encryptedName: 'Ignored', deleted: false }
     ],
     noteRows: [
       { id: 'note-1', title: 'Alpha', content: 'Body A' },
@@ -42,10 +42,8 @@ describe('vfsClassicAdapter', () => {
   it('builds classic state with ordering and fallbacks', () => {
     const state = buildClassicStateFromVfs(createArgs());
 
-    expect(state.tags).toEqual([
-      { id: 'tag-1', name: 'Pinned' },
-      { id: 'tag-2', name: 'Unnamed Tag' }
-    ]);
+    expect(state.tags).toEqual([{ id: 'tag-1', name: 'Pinned' }]);
+    expect(state.deletedTags).toEqual([{ id: 'tag-2', name: 'Unnamed Tag' }]);
 
     expect(state.notesById['note-1']).toEqual({
       id: 'note-1',
@@ -59,7 +57,6 @@ describe('vfsClassicAdapter', () => {
     });
 
     expect(state.noteOrderByTagId['tag-1']).toEqual(['note-1', 'note-2']);
-    expect(state.noteOrderByTagId['tag-2']).toEqual(['note-1', 'note-2']);
     expect(state.activeTagId).toBe('tag-1');
   });
 
@@ -69,6 +66,7 @@ describe('vfsClassicAdapter', () => {
 
     const state = buildClassicStateFromVfs(args);
     expect(state.tags).toEqual([]);
+    expect(state.deletedTags).toEqual([]);
     expect(state.activeTagId).toBeNull();
     expect(state.noteOrderByTagId).toEqual({});
   });
@@ -79,6 +77,7 @@ describe('vfsClassicAdapter', () => {
         { id: 'tag-1', name: 'A' },
         { id: 'tag-2', name: 'B' }
       ],
+      deletedTags: [],
       notesById: {},
       noteOrderByTagId: { 'tag-1': ['n1'] },
       activeTagId: 'tag-1'

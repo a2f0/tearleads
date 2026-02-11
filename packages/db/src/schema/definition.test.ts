@@ -352,6 +352,12 @@ describe('notesTable', () => {
   });
 });
 
+describe('tagsTable', () => {
+  it('has soft-delete column', () => {
+    expect(tagsTable.columns['deleted']).toBeDefined();
+  });
+});
+
 describe('allTables', () => {
   it('contains all 40 tables', () => {
     expect(allTables).toHaveLength(40);

@@ -9,6 +9,7 @@ function createState(activeTagId: string | null = 'tag-1'): ClassicState {
       { id: 'tag-1', name: 'Work' },
       { id: 'tag-2', name: 'Personal' }
     ],
+    deletedTags: [],
     notesById: {
       'note-1': { id: 'note-1', title: 'Alpha', body: 'A' },
       'note-2': { id: 'note-2', title: 'Beta', body: 'B' },
@@ -28,6 +29,10 @@ function isClassicState(value: unknown): value is ClassicState {
   }
 
   if (!('tags' in value) || !Array.isArray(value.tags)) {
+    return false;
+  }
+
+  if (!('deletedTags' in value) || !Array.isArray(value.deletedTags)) {
     return false;
   }
 
@@ -234,6 +239,7 @@ describe('ClassicApp', () => {
   it('handles missing note in notesById during entry search', () => {
     const stateWithMissingNote: ClassicState = {
       tags: [{ id: 'tag-1', name: 'Work' }],
+      deletedTags: [],
       notesById: {
         'note-1': { id: 'note-1', title: 'Alpha', body: 'A' }
       },
@@ -291,6 +297,20 @@ describe('ClassicApp', () => {
     expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
     const latest = getLastState(onStateChange);
     expect(Object.keys(latest.notesById)).toHaveLength(4);
+  });
+
+  it('soft-deletes a tag into deleted section and calls onDeleteTag', () => {
+    const onDeleteTag = vi.fn();
+    render(
+      <ClassicApp initialState={createState()} onDeleteTag={onDeleteTag} />
+    );
+
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
+    fireEvent.click(screen.getByLabelText('Delete tag Work'));
+
+    expect(onDeleteTag).toHaveBeenCalledWith('tag-1');
+    expect(screen.getByText('Deleted Tags (1)')).toBeInTheDocument();
+    expect(screen.getByText('Work')).toBeInTheDocument();
   });
 
   it('toggles focus between tag and entry search with Tab', () => {

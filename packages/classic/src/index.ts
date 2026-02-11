@@ -7,13 +7,16 @@ export {
   DEFAULT_CLASSIC_TAG_NAME
 } from './lib/constants';
 export {
+  deleteTag,
   getActiveTagNoteIds,
   moveItem,
   reorderNoteInTag,
   reorderNoteInTagToTarget,
   reorderTags,
   reorderTagToTarget,
-  selectTag
+  restoreTag,
+  selectTag,
+  softDeleteTag
 } from './lib/ordering';
 export type {
   ClassicNote,

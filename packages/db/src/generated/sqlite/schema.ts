@@ -423,14 +423,19 @@ export const emailFolders = sqliteTable('email_folders', {
  * Tags - extends registry for tag-type items.
  * Stores tag metadata for cross-cutting organization.
  */
-export const tags = sqliteTable('tags', {
-  id: text('id')
-    .primaryKey()
-    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-  encryptedName: text('encrypted_name'),
-  color: text('color'),
-  icon: text('icon')
-});
+export const tags = sqliteTable(
+  'tags',
+  {
+    id: text('id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    encryptedName: text('encrypted_name'),
+    color: text('color'),
+    icon: text('icon'),
+    deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false)
+  },
+  (table) => [index('tags_deleted_idx').on(table.deleted)]
+);
 
 /**
  * Emails - extends registry for email-type items.

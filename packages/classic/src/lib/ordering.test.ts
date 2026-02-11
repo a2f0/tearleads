@@ -8,7 +8,9 @@ import {
   reorderNoteInTagToTarget,
   reorderTags,
   reorderTagToTarget,
+  restoreTag,
   selectTag,
+  softDeleteTag,
   tagNote
 } from './ordering';
 import type { ClassicState } from './types';
@@ -19,6 +21,7 @@ function createState(): ClassicState {
       { id: 'tag-1', name: 'Work' },
       { id: 'tag-2', name: 'Personal' }
     ],
+    deletedTags: [],
     notesById: {
       'note-1': { id: 'note-1', title: 'A', body: 'Alpha' },
       'note-2': { id: 'note-2', title: 'B', body: 'Beta' }
@@ -218,6 +221,7 @@ describe('ordering', () => {
     it('returns all notes when no tag has note associations', () => {
       const state: ClassicState = {
         tags: [{ id: 'tag-1', name: 'Work' }],
+        deletedTags: [],
         notesById: {
           'note-1': { id: 'note-1', title: 'A', body: 'Alpha' },
           'note-2': { id: 'note-2', title: 'B', body: 'Beta' }
@@ -268,11 +272,30 @@ describe('ordering', () => {
     it('returns 0 for tags with no noteOrderByTagId entry', () => {
       const state: ClassicState = {
         tags: [{ id: 'tag-1', name: 'Work' }],
+        deletedTags: [],
         notesById: {},
         noteOrderByTagId: {},
         activeTagId: null
       };
       expect(getNoteCountByTagId(state)).toEqual({ 'tag-1': 0 });
+    });
+  });
+
+  describe('softDeleteTag', () => {
+    it('moves tag to deletedTags', () => {
+      const next = softDeleteTag(createState(), 'tag-1');
+      expect(next.tags).toEqual([{ id: 'tag-2', name: 'Personal' }]);
+      expect(next.deletedTags).toEqual([{ id: 'tag-1', name: 'Work' }]);
+    });
+  });
+
+  describe('restoreTag', () => {
+    it('moves tag back into active tags', () => {
+      const state = softDeleteTag(createState(), 'tag-1');
+      const next = restoreTag(state, 'tag-1');
+      expect(next.deletedTags).toEqual([]);
+      expect(next.tags.map((tag) => tag.id)).toContain('tag-1');
+      expect(next.activeTagId).toBe('tag-1');
     });
   });
 });

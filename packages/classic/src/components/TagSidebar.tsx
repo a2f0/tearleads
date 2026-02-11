@@ -15,6 +15,7 @@ import {
 
 interface TagSidebarProps {
   tags: ClassicTag[];
+  deletedTags?: ClassicTag[];
   activeTagId: string | null;
   editingTagId?: string | null;
   autoFocusSearch?: boolean;
@@ -28,6 +29,7 @@ interface TagSidebarProps {
   onRenameTag?: (tagId: string, newName: string) => void;
   onCancelEditTag?: () => void;
   onDeleteTag?: (tagId: string) => void;
+  onRestoreTag?: (tagId: string) => void;
   onTagNote?: (tagId: string, noteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
@@ -50,6 +52,7 @@ interface TagContextMenuState {
 
 export function TagSidebar({
   tags,
+  deletedTags = [],
   activeTagId,
   editingTagId,
   autoFocusSearch,
@@ -63,6 +66,7 @@ export function TagSidebar({
   onRenameTag,
   onCancelEditTag,
   onDeleteTag,
+  onRestoreTag,
   onTagNote,
   searchValue,
   onSearchChange,
@@ -203,9 +207,42 @@ export function TagSidebar({
               </div>
             </li>
           </ul>
-          {tags.length === 0 && untaggedCount === 0 && (
-            <p className="text-sm text-zinc-500">No tags found.</p>
+          {deletedTags.length > 0 && (
+            <ul
+              className="m-0 mb-2 list-none space-y-1 p-0"
+              aria-label="Deleted Tags"
+            >
+              <li className="px-2 py-0.5 text-xs text-zinc-500 uppercase tracking-wide">
+                Deleted Tags ({deletedTags.length})
+              </li>
+              {deletedTags.map((tag) => (
+                <li key={tag.id} className="border bg-zinc-50 px-2 py-0.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 shrink-0 select-none text-center text-xs text-zinc-400">
+                      🗑️
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm text-zinc-500">
+                      {tag.name}
+                    </span>
+                    <button
+                      type="button"
+                      className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs"
+                      onClick={() => onRestoreTag?.(tag.id)}
+                      aria-label={`Restore tag ${tag.name}`}
+                      disabled={onRestoreTag === undefined}
+                    >
+                      Restore
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
           )}
+          {tags.length === 0 &&
+            untaggedCount === 0 &&
+            deletedTags.length === 0 && (
+              <p className="text-sm text-zinc-500">No tags found.</p>
+            )}
           {tags.length > 0 && (
             <ul className="m-0 list-none space-y-1 p-0" aria-label="Tag List">
               {tags.map((tag, index) => {

@@ -1094,8 +1094,15 @@ export const tagsTable: TableDefinition = {
     icon: {
       type: 'text',
       sqlName: 'icon'
+    },
+    deleted: {
+      type: 'boolean',
+      sqlName: 'deleted',
+      notNull: true,
+      defaultValue: false
     }
-  }
+  },
+  indexes: [{ name: 'tags_deleted_idx', columns: ['deleted'] }]
 };
 
 /**

@@ -79,6 +79,18 @@ interface SearchWindowContentProps {
   viewMode?: SearchViewMode;
 }
 
+function getPreviewText(result: SearchResult): string | null {
+  if (result.entityType === 'app') {
+    return null;
+  }
+
+  return (
+    result.document.content?.slice(0, 100) ??
+    result.document.metadata?.slice(0, 100) ??
+    null
+  );
+}
+
 export function SearchWindowContent({
   viewMode = 'list'
 }: SearchWindowContentProps) {
@@ -366,7 +378,7 @@ export function SearchWindowContent({
   );
 
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Search input */}
       <div className="border-b p-3">
         <form onSubmit={handleSearchSubmit}>
@@ -416,7 +428,7 @@ export function SearchWindowContent({
       </div>
 
       {/* Results area */}
-      <div className="flex-1 overflow-auto">
+      <div className="min-h-0 flex-1 overflow-auto">
         {!isInitialized ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -497,9 +509,9 @@ export function SearchWindowContent({
                         <td
                           className={`max-w-[300px] truncate ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
                         >
-                          {result.document.content?.slice(0, 100) ||
-                            result.document.metadata?.slice(0, 100) ||
-                            '—'}
+                          {result.entityType === 'app'
+                            ? null
+                            : (getPreviewText(result) ?? '—')}
                         </td>
                       </WindowTableRow>
                     ))}
@@ -531,13 +543,14 @@ export function SearchWindowContent({
                           {ENTITY_TYPE_LABELS[result.entityType]}
                         </span>
                       </div>
-                      {(result.document.content ||
-                        result.document.metadata) && (
-                        <p className="mt-0.5 truncate text-muted-foreground text-sm">
-                          {result.document.content?.slice(0, 100) ||
-                            result.document.metadata?.slice(0, 100)}
-                        </p>
-                      )}
+                      {(() => {
+                        const previewText = getPreviewText(result);
+                        return previewText ? (
+                          <p className="mt-0.5 truncate text-muted-foreground text-sm">
+                            {previewText}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                   </button>
                 );
