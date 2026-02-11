@@ -55,45 +55,18 @@ jobs:
             exit 0
           fi
 
-      - name: Validate signing configuration
-        if: steps.prepare.outputs.skip_reason == ''
-        env:
-          CI_BOT_GPG_PRIVATE_KEY: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
-          CI_BOT_GPG_PASSPHRASE: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
-        run: |
-          set -eu
-          if [ -z "$CI_BOT_GPG_PRIVATE_KEY" ]; then
-            echo "CI_BOT_GPG_PRIVATE_KEY is not set" >&2
-            exit 1
-          fi
-          if [ -z "$CI_BOT_GPG_PASSPHRASE" ]; then
-            echo "CI_BOT_GPG_PASSPHRASE is not set" >&2
-            exit 1
-          fi
-
-      - name: Import GPG key
-        if: steps.prepare.outputs.skip_reason == ''
-        uses: crazy-max/ghaction-import-gpg@v6
-        with:
-          gpg_private_key: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
-          passphrase: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
-          git_user_signingkey: true
-          git_commit_gpgsign: true
-
       - name: Bump versions and push with retries
         if: steps.prepare.outputs.skip_reason == ''
         env:
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
           SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
           CHANGED_FILES_PATH: ${{ steps.prepare.outputs.changed_files_path }}
+          REPO: ${{ github.repository }}
         run: |
           set -eu
 
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          PUSHED=false
           ATTEMPTS=5
+          PUSHED=false
 
           for attempt in $(seq 1 "$ATTEMPTS"); do
             echo "Attempt $attempt/$ATTEMPTS" | tee -a "$GITHUB_STEP_SUMMARY"
@@ -111,23 +84,99 @@ jobs:
               exit 0
             fi
 
-            git add -A
-            git commit -S \
-              -m "chore(release): bump versions [skip ci]" \
-              -m "source-sha: $SOURCE_SHA" \
-              -m "source-run-id: $SOURCE_RUN_ID"
+            EXPECTED_HEAD_OID=$(git rev-parse origin/main)
+            PAYLOAD_PATH="$RUNNER_TEMP/create-commit-payload.json"
 
-            if git push origin HEAD:main; then
+            EXPECTED_HEAD_OID="$EXPECTED_HEAD_OID" \
+            SOURCE_SHA="$SOURCE_SHA" \
+            SOURCE_RUN_ID="$SOURCE_RUN_ID" \
+            REPO="$REPO" \
+            PAYLOAD_PATH="$PAYLOAD_PATH" \
+            python3 - <<'PY'
+              import base64
+              import json
+              import os
+              import subprocess
+
+              repo = os.environ["REPO"]
+              expected = os.environ["EXPECTED_HEAD_OID"]
+              source_sha = os.environ["SOURCE_SHA"]
+              source_run_id = os.environ["SOURCE_RUN_ID"]
+              payload_path = os.environ["PAYLOAD_PATH"]
+
+              status_lines = subprocess.check_output(
+                  ["git", "diff", "--name-status"], text=True
+              ).splitlines()
+
+              additions = []
+              deletions = []
+              for line in status_lines:
+                  if not line.strip():
+                      continue
+                  parts = line.split("\t")
+                  status = parts[0]
+                  if status.startswith("R"):
+                      old_path, new_path = parts[1], parts[2]
+                      deletions.append({"path": old_path})
+                      with open(new_path, "rb") as fh:
+                          encoded = base64.b64encode(fh.read()).decode("ascii")
+                      additions.append({"path": new_path, "contents": encoded})
+                  elif status.startswith("D"):
+                      deletions.append({"path": parts[1]})
+                  else:
+                      path = parts[-1]
+                      with open(path, "rb") as fh:
+                          encoded = base64.b64encode(fh.read()).decode("ascii")
+                      additions.append({"path": path, "contents": encoded})
+
+              query = """
+              mutation($input: CreateCommitOnBranchInput!) {
+                createCommitOnBranch(input: $input) {
+                  commit {
+                    oid
+                    url
+                    verification {
+                      verified
+                      reason
+                    }
+                  }
+                }
+              }
+              """
+
+              variables = {
+                  "input": {
+                      "branch": {
+                          "repositoryNameWithOwner": repo,
+                          "branchName": "main",
+                      },
+                      "message": {
+                          "headline": "chore(release): bump versions [skip ci]",
+                          "body": f"source-sha: {source_sha}\nsource-run-id: {source_run_id}",
+                      },
+                      "expectedHeadOid": expected,
+                      "fileChanges": {
+                          "additions": additions,
+                          "deletions": deletions,
+                      },
+                  }
+              }
+
+              with open(payload_path, "w", encoding="utf-8") as fh:
+                  json.dump({"query": query, "variables": variables}, fh)
+            PY
+
+            if RESPONSE=$(gh api graphql --input "$PAYLOAD_PATH" --jq '.data.createCommitOnBranch.commit'); then
+              echo "Commit response: $RESPONSE" >> "$GITHUB_STEP_SUMMARY"
               PUSHED=true
               {
                 echo "## Main Version Bump"
-                echo "Pushed signed bump commit on attempt $attempt/$ATTEMPTS."
+                echo "Pushed bump commit on attempt $attempt/$ATTEMPTS."
                 echo "Source commit: $SOURCE_SHA"
               } >> "$GITHUB_STEP_SUMMARY"
               break
             fi
 
-            git reset --hard HEAD~1
             sleep $((attempt * 2))
           done
 

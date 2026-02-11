@@ -1,0 +1,109 @@
+name: Test GitHub API Commit Signing (Temporary)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create commit via GraphQL createCommitOnBranch
+        id: create
+        env:
+          REPO: ${{ github.repository }}
+          BRANCH: ${{ github.ref_name }}
+          RUN_ID: ${{ github.run_id }}
+        run: |
+          set -eu
+
+          PAYLOAD_PATH="$RUNNER_TEMP/payload.json"
+          PROBE_CONTENT=$(printf "probe-run-id: %s\nprobe-time: %s\n" "$RUN_ID" "$(date -u +%Y-%m-%dT%H:%M:%SZ)")
+          PROBE_BASE64=$(printf "%s" "$PROBE_CONTENT" | base64 | tr -d '\n')
+          EXPECTED_HEAD_OID=$(git rev-parse "origin/$BRANCH")
+
+          EXPECTED_HEAD_OID="$EXPECTED_HEAD_OID" \
+          PROBE_BASE64="$PROBE_BASE64" \
+          BRANCH="$BRANCH" \
+          REPO="$REPO" \
+          PAYLOAD_PATH="$PAYLOAD_PATH" \
+          python3 - <<'PY'
+            import json
+            import os
+
+            query = """
+            mutation($input: CreateCommitOnBranchInput!) {
+              createCommitOnBranch(input: $input) {
+                commit {
+                  oid
+                  url
+                  verification {
+                    verified
+                    reason
+                  }
+                }
+              }
+            }
+            """
+
+            variables = {
+                "input": {
+                    "branch": {
+                        "repositoryNameWithOwner": os.environ["REPO"],
+                        "branchName": os.environ["BRANCH"],
+                    },
+                    "message": {
+                        "headline": "chore(ci): signing probe [skip ci]",
+                        "body": "temporary workflow probe commit",
+                    },
+                    "expectedHeadOid": os.environ["EXPECTED_HEAD_OID"],
+                    "fileChanges": {
+                        "additions": [
+                            {
+                                "path": ".github/tmp/signing-probe.txt",
+                                "contents": os.environ["PROBE_BASE64"],
+                            }
+                        ],
+                        "deletions": [],
+                    },
+                }
+            }
+
+            with open(os.environ["PAYLOAD_PATH"], "w", encoding="utf-8") as fh:
+                json.dump({"query": query, "variables": variables}, fh)
+          PY
+
+          COMMIT_JSON=$(gh api graphql --input "$PAYLOAD_PATH" --jq '.data.createCommitOnBranch.commit')
+          echo "$COMMIT_JSON"
+
+          COMMIT_SHA=$(echo "$COMMIT_JSON" | jq -r '.oid')
+          echo "commit_sha=$COMMIT_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Verify commit signature status
+        env:
+          REPO: ${{ github.repository }}
+          COMMIT_SHA: ${{ steps.create.outputs.commit_sha }}
+        run: |
+          set -eu
+
+          VERIFIED=$(gh api "repos/$REPO/commits/$COMMIT_SHA" --jq '.commit.verification.verified')
+          REASON=$(gh api "repos/$REPO/commits/$COMMIT_SHA" --jq '.commit.verification.reason')
+
+          {
+            echo "## Signing Probe"
+            echo "Commit: $COMMIT_SHA"
+            echo "Verified: $VERIFIED"
+            echo "Reason: $REASON"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$VERIFIED" != "true" ]; then
+            echo "Expected verified=true for GraphQL-created commit, got reason=$REASON" >&2
+            exit 1
+          fi
