@@ -3,7 +3,7 @@
  * Uses SQL-level sorting via JOINs and ORDER BY (no in-memory sort).
  */
 
-import type { VfsPermissionLevel, VfsShareType } from '@rapid/shared';
+import type { VfsPermissionLevel, VfsShareType } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import { querySharedWithMe } from '../lib/vfsSharesQuery';

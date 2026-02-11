@@ -1,4 +1,7 @@
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { asc, desc, eq, or } from 'drizzle-orm';
 import {
   ChevronDown,

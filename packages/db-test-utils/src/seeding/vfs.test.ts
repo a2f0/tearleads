@@ -1,4 +1,4 @@
-import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
+import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { withRealDatabase } from '../with-real-database.js';

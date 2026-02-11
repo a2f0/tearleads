@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e
 
-exec journalctl -u rapid-smtp-listener.service -f --no-pager "$@"
+exec journalctl -u tearleads-smtp-listener.service -f --no-pager "$@"

@@ -1,7 +1,7 @@
 /**
  * Backup Exporter Service
  *
- * Orchestrates the creation of .rbu backup files by:
+ * Orchestrates the creation of .tbu backup files by:
  * 1. Extracting database schemas and data
  * 2. Collecting file blobs from storage
  * 3. Encoding everything into the backup format

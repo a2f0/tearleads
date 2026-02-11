@@ -9,7 +9,7 @@ jobs:
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     env:
-      DESKTOP_APP_IDENTIFIER: com.tearleads.rapid
+      DESKTOP_APP_IDENTIFIER: com.tearleads.app
     strategy:
       fail-fast: false
       matrix:
@@ -59,31 +59,31 @@ jobs:
         shell: bash
 
       - name: Build API (for OpenAPI spec)
-        run: pnpm --filter @rapid/api build
+        run: pnpm --filter @tearleads/api build
 
       - name: Build window-manager
-        run: pnpm --filter @rapid/window-manager build
+        run: pnpm --filter @tearleads/window-manager build
 
       - name: Build UI
-        run: pnpm --filter @rapid/ui build
+        run: pnpm --filter @tearleads/ui build
 
       - name: Build notes
-        run: pnpm --filter @rapid/notes build
+        run: pnpm --filter @tearleads/notes build
 
       - name: Build email
-        run: pnpm --filter @rapid/email build
+        run: pnpm --filter @tearleads/email build
 
       - name: Build vfs-explorer
-        run: pnpm --filter @rapid/vfs-explorer build
+        run: pnpm --filter @tearleads/vfs-explorer build
 
       - name: Build audio
-        run: pnpm --filter @rapid/audio build
+        run: pnpm --filter @tearleads/audio build
 
       - name: Build contacts
-        run: pnpm --filter @rapid/contacts build
+        run: pnpm --filter @tearleads/contacts build
 
       - name: Build db-test-utils
-        run: pnpm --filter @rapid/db-test-utils build
+        run: pnpm --filter @tearleads/db-test-utils build
 
       - name: Setup App Store Connect API Key (macOS)
         if: runner.os == 'macOS'
@@ -116,13 +116,13 @@ jobs:
 
       - name: Build desktop release artifacts
         if: runner.os != 'macOS'
-        run: pnpm --filter @rapid/client run electron:dist:unsigned
+        run: pnpm --filter @tearleads/client run electron:dist:unsigned
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
 
       - name: Build signed macOS release artifacts
         if: runner.os == 'macOS'
-        run: pnpm --filter @rapid/client run electron:dist
+        run: pnpm --filter @tearleads/client run electron:dist
         env:
           VITE_API_URL: ${{ secrets.VITE_API_URL }}
           APPLE_TEAM_ID: ${{ secrets.TEAM_ID }}

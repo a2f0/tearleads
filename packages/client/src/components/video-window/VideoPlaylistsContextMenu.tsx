@@ -1,4 +1,4 @@
-import { WindowContextMenu } from '@rapid/window-manager';
+import { WindowContextMenu } from '@tearleads/window-manager';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';
 

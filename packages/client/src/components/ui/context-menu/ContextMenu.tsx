@@ -1,4 +1,4 @@
-import { WindowContextMenu } from '@rapid/window-manager';
+import { WindowContextMenu } from '@tearleads/window-manager';
 import { zIndex } from '@/constants/zIndex';
 
 interface ContextMenuProps {

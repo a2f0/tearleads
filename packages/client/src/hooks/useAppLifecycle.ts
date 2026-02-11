@@ -74,8 +74,8 @@ export function useAppLifecycle(callbacks?: AppLifecycleCallbacks): void {
 }
 
 // Session recovery detection
-const SESSION_ACTIVE_KEY = 'rapid_session_active';
-const LAST_MODEL_KEY_PREFIX = 'rapid_last_loaded_model';
+const SESSION_ACTIVE_KEY = 'tearleads_session_active';
+const LAST_MODEL_KEY_PREFIX = 'tearleads_last_loaded_model';
 
 /**
  * Get the instance-scoped key for last loaded model.

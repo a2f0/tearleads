@@ -25,10 +25,10 @@ function printUsage(): void {
   console.log(
     [
       'Usage:',
-      '  pnpm --filter @rapid/api createAccount -- --email user@example.com --password "secret"',
-      '  pnpm --filter @rapid/api createAccount -- --email user@example.com --password-stdin',
-      '  pnpm --filter @rapid/api cli create-account -- --email user@example.com --password "secret"',
-      '  pnpm --filter @rapid/api cli create-account -- --email user@example.com --password-stdin',
+      '  pnpm --filter @tearleads/api createAccount -- --email user@example.com --password "secret"',
+      '  pnpm --filter @tearleads/api createAccount -- --email user@example.com --password-stdin',
+      '  pnpm --filter @tearleads/api cli create-account -- --email user@example.com --password "secret"',
+      '  pnpm --filter @tearleads/api cli create-account -- --email user@example.com --password-stdin',
       '  pnpm exec tsx scripts/createAccount.ts -- --email user@example.com --password "secret"',
       '  pnpm exec tsx scripts/createAccount.ts -- --email user@example.com --password-stdin',
       '',

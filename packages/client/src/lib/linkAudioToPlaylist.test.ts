@@ -1,5 +1,5 @@
 import '@/test/setup-integration';
-import { withRealDatabase } from '@rapid/db-test-utils';
+import { withRealDatabase } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';

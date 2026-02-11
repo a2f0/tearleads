@@ -21,8 +21,8 @@ test.describe('Website Navigation', () => {
   test('home page loads with correct title', async ({ page }) => {
     // English content is served directly at root (no /en/ prefix)
     await expect(page).toHaveURL(/\/$/);
-    await expect(page).toHaveTitle('Rapid');
-    await expect(page.locator('h2')).toContainText('Welcome to Rapid');
+    await expect(page).toHaveTitle('Tearleads');
+    await expect(page.locator('h2')).toContainText('Welcome to Tearleads');
   });
 
   test('navigates to architecture page when clicking architecture link', async ({
@@ -33,7 +33,7 @@ test.describe('Website Navigation', () => {
     await architectureLink.click();
 
     await expect(page).toHaveURL(/\/docs\/architecture\/?$/);
-    await expect(page).toHaveTitle('Architecture - Rapid');
+    await expect(page).toHaveTitle('Architecture - Tearleads');
     await expect(page.locator(locators.architectureContent)).toBeVisible();
   });
 
@@ -43,59 +43,59 @@ test.describe('Website Navigation', () => {
     await docsLink.click();
 
     await expect(page).toHaveURL(/\/docs\/api\/?$/);
-    await expect(page).toHaveTitle('API Documentation - Rapid');
+    await expect(page).toHaveTitle('API Documentation - Tearleads');
     await expect(page.locator(locators.apiDocsContent)).toBeVisible();
   });
 
   test('back link on architecture page returns to home', async ({ page }) => {
     await page.goto('/docs/architecture');
-    await expect(page).toHaveTitle('Architecture - Rapid');
+    await expect(page).toHaveTitle('Architecture - Tearleads');
 
     const backLink = page.locator(locators.homeLink);
     await expect(backLink).toBeVisible();
     await backLink.click();
 
     await expect(page).toHaveURL(/\/$/);
-    await expect(page).toHaveTitle('Rapid');
+    await expect(page).toHaveTitle('Tearleads');
   });
 
   test('back link on docs page returns to home', async ({ page }) => {
     await page.goto('/docs/api');
-    await expect(page).toHaveTitle('API Documentation - Rapid');
+    await expect(page).toHaveTitle('API Documentation - Tearleads');
 
     const backLink = page.locator(locators.homeLink);
     await expect(backLink).toBeVisible();
     await backLink.click();
 
     await expect(page).toHaveURL(/\/$/);
-    await expect(page).toHaveTitle('Rapid');
+    await expect(page).toHaveTitle('Tearleads');
   });
 
   test('can navigate between all pages in sequence', async ({ page }) => {
     await page.locator(locators.architectureLink).click();
-    await expect(page).toHaveTitle('Architecture - Rapid');
+    await expect(page).toHaveTitle('Architecture - Tearleads');
 
     await page.locator(locators.homeLink).click();
-    await expect(page).toHaveTitle('Rapid');
+    await expect(page).toHaveTitle('Tearleads');
 
     await page.locator(locators.docsLink).click();
-    await expect(page).toHaveTitle('API Documentation - Rapid');
+    await expect(page).toHaveTitle('API Documentation - Tearleads');
 
     await page.locator(locators.homeLink).click();
-    await expect(page).toHaveTitle('Rapid');
+    await expect(page).toHaveTitle('Tearleads');
   });
 
   test('direct URL navigation works for architecture page', async ({
     page,
   }) => {
     await page.goto('/docs/architecture');
-    await expect(page).toHaveTitle('Architecture - Rapid');
+    await expect(page).toHaveTitle('Architecture - Tearleads');
     await expect(page.locator(locators.architectureContent)).toBeVisible();
   });
 
   test('direct URL navigation works for docs page', async ({ page }) => {
     await page.goto('/docs/api');
-    await expect(page).toHaveTitle('API Documentation - Rapid');
+    await expect(page).toHaveTitle('API Documentation - Tearleads');
     await expect(page.locator(locators.apiDocsContent)).toBeVisible();
   });
 
@@ -107,7 +107,7 @@ test.describe('Website Navigation', () => {
     const initialTheme = await htmlBefore.getAttribute('class');
 
     await page.locator(locators.architectureLink).click();
-    await expect(page).toHaveTitle('Architecture - Rapid');
+    await expect(page).toHaveTitle('Architecture - Tearleads');
 
     const htmlAfter = page.locator('html');
     const themeAfter = await htmlAfter.getAttribute('class');

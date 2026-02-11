@@ -41,9 +41,9 @@ const isInRepo = (cwd: string | null): boolean => {
     if (resolved === repoRoot || resolved.startsWith(`${repoRoot}${path.sep}`)) {
       return true;
     }
-    // Also check if it's a rapid SMTP listener from another clone
-    // (rapid2, rapid5, rapid-shared, etc. are all clones of the same repo)
-    if (resolved.includes('/smtp-listener') && /\/rapid[^/]*\//.test(resolved)) {
+    // Also check if it's a tearleads SMTP listener from another clone
+    // (tearleads2, tearleads5, tearleads-shared, etc. are all clones of the same repo)
+    if (resolved.includes('/smtp-listener') && /\/tearleads[^/]*\//.test(resolved)) {
       return true;
     }
     return false;

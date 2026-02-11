@@ -2,7 +2,7 @@
  * Hook for copying VFS items to a folder (creates an additional link).
  */
 
-import { vfsLinks } from '@rapid/db/sqlite';
+import { vfsLinks } from '@tearleads/db/sqlite';
 import { and, eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext } from '../context';

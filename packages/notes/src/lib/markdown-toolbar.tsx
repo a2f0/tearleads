@@ -1,4 +1,4 @@
-import { Tooltip, TooltipContent, TooltipTrigger } from '@rapid/ui';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@tearleads/ui';
 import type { ICommand } from '@uiw/react-md-editor';
 import type { ButtonHTMLAttributes, ReactElement } from 'react';
 

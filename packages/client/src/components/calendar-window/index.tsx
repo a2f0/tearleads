@@ -4,7 +4,7 @@ import {
   CALENDAR_CREATE_SUBMIT_EVENT,
   CalendarContent,
   type CalendarEventItem
-} from '@rapid/calendar';
+} from '@tearleads/calendar';
 import { CalendarPlus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';

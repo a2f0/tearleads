@@ -20,10 +20,10 @@ describe('OpenAPI Specification', () => {
 
     it('should include API info', async () => {
       const { openapiSpecification } = await import('./openapi.js');
-      expect(openapiSpecification.info.title).toBe('Rapid API');
+      expect(openapiSpecification.info.title).toBe('Tearleads API');
       expect(openapiSpecification.info.version).toMatch(/^\d+\.\d+\.\d+$/);
       expect(openapiSpecification.info.description).toBe(
-        'API documentation for Rapid'
+        'API documentation for Tearleads'
       );
     });
 

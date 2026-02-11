@@ -1,5 +1,8 @@
-import { notes, vfsRegistry } from '@rapid/db/sqlite';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
+import { notes, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { asc, desc, eq } from 'drizzle-orm';
 import {
   ChevronDown,

@@ -1,4 +1,4 @@
-import { KeychainWindow } from '@rapid/keychain';
+import { KeychainWindow } from '@tearleads/keychain';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import { AdminGroupsWindow } from '@/components/admin-groups-window';

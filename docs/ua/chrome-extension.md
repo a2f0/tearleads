@@ -1,6 +1,6 @@
 # Розширення Chrome
 
-Розширення Chrome для Rapid знаходиться в `packages/chrome-extension`. Воно використовує Manifest V3 і побудоване з Vite та TypeScript.
+Розширення Chrome для Tearleads знаходиться в `packages/chrome-extension`. Воно використовує Manifest V3 і побудоване з Vite та TypeScript.
 
 ## Структура Проекту
 
@@ -28,10 +28,10 @@ packages/chrome-extension/
 
 ```bash
 # Одноразова збірка
-pnpm --filter @rapid/chrome-extension build
+pnpm --filter @tearleads/chrome-extension build
 
 # Режим watch (перезбирає при змінах файлів)
-pnpm --filter @rapid/chrome-extension dev
+pnpm --filter @tearleads/chrome-extension dev
 ```
 
 ### Завантаження в Chrome (Режим Розробника)
@@ -53,13 +53,13 @@ pnpm --filter @rapid/chrome-extension dev
 
 ```bash
 # Запустити тести один раз
-pnpm --filter @rapid/chrome-extension test
+pnpm --filter @tearleads/chrome-extension test
 
 # Режим watch
-pnpm --filter @rapid/chrome-extension test:watch
+pnpm --filter @tearleads/chrome-extension test:watch
 
 # З звітом покриття
-pnpm --filter @rapid/chrome-extension test:coverage
+pnpm --filter @tearleads/chrome-extension test:coverage
 ```
 
 ## Архітектура
@@ -69,7 +69,7 @@ pnpm --filter @rapid/chrome-extension test:coverage
 Розширення використовує [Manifest V3](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3), найновішу платформу розширень Chrome:
 
 - **Service Worker**: Фоновий скрипт працює як service worker (`background.js`)
-- **Скрипти Контенту**: Обмежені конкретними доменами (`*.rapid.app` та `localhost`)
+- **Скрипти Контенту**: Обмежені конкретними доменами (`*.tearleads.app` та `localhost`)
 - **Дозволи**: Мінімальні дозволи (`storage`, `activeTab`)
 
 ### Компоненти
@@ -97,7 +97,7 @@ chrome.runtime.sendMessage({ type: "PING" }, (response) => {
 
 Для публікації в Chrome Web Store:
 
-1. Зберіть розширення: `pnpm --filter @rapid/chrome-extension build`
+1. Зберіть розширення: `pnpm --filter @tearleads/chrome-extension build`
 2. Створіть ZIP-файл вмісту папки `dist` (файл `manifest.json` повинен бути в корені ZIP-архіву).
 3. Завантажте на [Панель Розробника Chrome](https://chrome.google.com/webstore/devconsole)
 
@@ -119,7 +119,7 @@ chrome.runtime.sendMessage({ type: "PING" }, (response) => {
 ### Фоновий Service Worker
 
 1. Перейдіть до `chrome://extensions`
-2. Знайдіть розширення Rapid
+2. Знайдіть розширення Tearleads
 3. Натисніть посилання **Service Worker** для відкриття DevTools для фонового скрипта
 
 ### Скрипт Контенту

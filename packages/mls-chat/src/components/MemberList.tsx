@@ -3,7 +3,7 @@
  * Shows members with options to add/remove.
  */
 
-import type { MlsGroupMember } from '@rapid/shared';
+import type { MlsGroupMember } from '@tearleads/shared';
 import type { FC, ReactElement } from 'react';
 
 import { useMlsChatUI, useMlsChatUser } from '../context/index.js';

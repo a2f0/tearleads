@@ -16,8 +16,8 @@ function printUsage(): void {
   console.log(
     [
       'Usage:',
-      '  pnpm --filter @rapid/api makeAdmin -- --email user@example.com',
-      '  pnpm --filter @rapid/api cli make-admin -- --email user@example.com',
+      '  pnpm --filter @tearleads/api makeAdmin -- --email user@example.com',
+      '  pnpm --filter @tearleads/api cli make-admin -- --email user@example.com',
       '  pnpm exec tsx scripts/makeAdmin.ts -- --email user@example.com',
       '',
       'Options:',

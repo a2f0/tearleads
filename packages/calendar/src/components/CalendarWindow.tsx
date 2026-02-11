@@ -1,4 +1,7 @@
-import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
+import {
+  FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { CalendarContent } from './CalendarContent';
 
 interface CalendarWindowProps {

@@ -5,10 +5,10 @@ import { buildApiDocsData } from './apiDocsData.js';
 const spec: OpenAPIV3.Document = {
   openapi: '3.0.0',
   info: {
-    title: 'Rapid API',
+    title: 'Tearleads API',
     version: '1.0.0'
   },
-  servers: [{ url: 'https://api.rapid.local' }],
+  servers: [{ url: 'https://api.tearleads.local' }],
   tags: [
     {
       name: 'Auth',
@@ -141,7 +141,7 @@ describe('buildApiDocsData', () => {
       tagOrder: ['Auth', 'General']
     });
 
-    expect(result.baseUrl).toBe('https://api.rapid.local');
+    expect(result.baseUrl).toBe('https://api.tearleads.local');
     expect(result.totalOperations).toBe(7);
     const [authGroup, generalGroup] = result.tagGroups;
     expect(authGroup).toBeDefined();

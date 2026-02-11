@@ -1,4 +1,4 @@
-package com.tearleads.rapid;
+package com.tearleads.app;
 
 import android.os.Bundle;
 import androidx.annotation.NonNull;
@@ -8,7 +8,7 @@ import android.support.v4.media.session.MediaSessionCompat;
 import androidx.media.MediaBrowserServiceCompat;
 import java.util.List;
 
-public class RapidMediaBrowserService extends MediaBrowserServiceCompat {
+public class TearleadsMediaBrowserService extends MediaBrowserServiceCompat {
     @Override
     public void onCreate() {
         super.onCreate();

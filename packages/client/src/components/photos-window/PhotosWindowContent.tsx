@@ -1,5 +1,5 @@
-import { WindowContextMenu } from '@rapid/window-manager';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { WindowContextMenu } from '@tearleads/window-manager';
 import {
   Download,
   ImageIcon,

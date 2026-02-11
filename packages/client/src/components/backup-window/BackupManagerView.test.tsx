@@ -15,7 +15,7 @@ const {
 } = vi.hoisted(() => ({
   mockListStoredBackups: vi.fn().mockResolvedValue([
     {
-      name: 'test-backup.rbu',
+      name: 'test-backup.tbu',
       size: 1024,
       lastModified: Date.now()
     }
@@ -96,7 +96,7 @@ describe('BackupManagerView', () => {
     vi.clearAllMocks();
     mockListStoredBackups.mockResolvedValue([
       {
-        name: 'test-backup.rbu',
+        name: 'test-backup.tbu',
         size: 1024,
         lastModified: Date.now()
       }
@@ -133,7 +133,7 @@ describe('BackupManagerView', () => {
         screen.getByRole('heading', { name: 'Restore from File' })
       ).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: 'Select Backup File (.rbu)' })
+        screen.getByRole('button', { name: 'Select Backup File (.tbu)' })
       ).toBeInTheDocument();
     });
   });
@@ -178,7 +178,7 @@ describe('BackupManagerView', () => {
   it('displays stored backups in table', async () => {
     render(<BackupManagerView />);
     await waitFor(() => {
-      expect(screen.getByText('test-backup.rbu')).toBeInTheDocument();
+      expect(screen.getByText('test-backup.tbu')).toBeInTheDocument();
       expect(screen.getByText('1 KB')).toBeInTheDocument();
     });
   });
@@ -245,7 +245,7 @@ describe('BackupManagerView', () => {
     await user.click(screen.getByRole('button', { name: 'Restore' }));
 
     await waitFor(() => {
-      expect(mockReadBackupFromStorage).toHaveBeenCalledWith('test-backup.rbu');
+      expect(mockReadBackupFromStorage).toHaveBeenCalledWith('test-backup.tbu');
       expect(screen.getByTestId('restore-backup-form')).toBeInTheDocument();
     });
   });
@@ -263,7 +263,7 @@ describe('BackupManagerView', () => {
     await user.click(screen.getByRole('button', { name: 'Download' }));
 
     await waitFor(() => {
-      expect(mockReadBackupFromStorage).toHaveBeenCalledWith('test-backup.rbu');
+      expect(mockReadBackupFromStorage).toHaveBeenCalledWith('test-backup.tbu');
       expect(mockSaveFile).toHaveBeenCalled();
     });
   });
@@ -282,7 +282,7 @@ describe('BackupManagerView', () => {
 
     await waitFor(() => {
       expect(mockDeleteBackupFromStorage).toHaveBeenCalledWith(
-        'test-backup.rbu'
+        'test-backup.tbu'
       );
     });
   });

@@ -38,7 +38,7 @@ vi.mock('@/db/hooks', () => ({
 
 const mockSaveFile = vi.fn();
 vi.mock('@/lib/file-utils', () => ({
-  generateBackupFilename: vi.fn(() => 'rapid-backup.db'),
+  generateBackupFilename: vi.fn(() => 'tearleads-backup.db'),
   readFileAsUint8Array: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
   saveFile: (...args: unknown[]) => mockSaveFile(...args)
 }));
@@ -103,7 +103,7 @@ describe('Console', () => {
 
   it('does not show terminal welcome banner text', () => {
     renderConsole();
-    expect(screen.queryByText('Rapid Terminal')).not.toBeInTheDocument();
+    expect(screen.queryByText('Tearleads Terminal')).not.toBeInTheDocument();
   });
 
   it('runs setup command when passwords match', async () => {
@@ -228,7 +228,7 @@ describe('Console', () => {
     });
     expect(mockSaveFile).toHaveBeenCalledWith(
       expect.any(Uint8Array),
-      'rapid-backup.db'
+      'tearleads-backup.db'
     );
   });
 

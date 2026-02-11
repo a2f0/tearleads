@@ -19,7 +19,7 @@ const mockDb = {
 
 const mockTerminalBase = vi.fn((_: unknown) => undefined);
 
-vi.mock('@rapid/terminal', () => ({
+vi.mock('@tearleads/terminal', () => ({
   Terminal: (props: unknown) => {
     mockTerminalBase(props);
     return <div data-testid="terminal-base" />;

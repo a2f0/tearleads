@@ -1,4 +1,4 @@
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 import {

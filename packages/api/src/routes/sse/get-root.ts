@@ -1,4 +1,4 @@
-import { type BroadcastMessage, isRecord } from '@rapid/shared';
+import { type BroadcastMessage, isRecord } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getRedisSubscriberClient } from '../../lib/redisPubSub.js';
 import { addConnection, cleanupSseClient, removeConnection } from './shared.js';

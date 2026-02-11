@@ -30,7 +30,7 @@ export async function runDump(
   let database: BackupDatabase;
 
   if (options.inputFile) {
-    // Dump from .rbu backup file
+    // Dump from .tbu backup file
     const filePath = path.resolve(options.inputFile);
     const password = options.password
       ? options.password
@@ -156,7 +156,7 @@ export const dumpCommand = new Command('dump')
   .argument('<folder>', 'Output folder path')
   .option(
     '-f, --input-file <file>',
-    'Read from .rbu backup file instead of live database'
+    'Read from .tbu backup file instead of live database'
   )
   .option(
     '-p, --password <password>',

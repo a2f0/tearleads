@@ -1,17 +1,17 @@
 /**
  * Integration test for useCopyVfsItem hook with real SQLite database.
  *
- * This test demonstrates how to use @rapid/db-test-utils to test hooks
+ * This test demonstrates how to use @tearleads/db-test-utils to test hooks
  * that mutate the database, asserting on actual database state rather than mocks.
  */
 
-import { vfsLinks } from '@rapid/db/sqlite';
+import { vfsLinks } from '@tearleads/db/sqlite';
 import {
   seedFolder,
   seedVfsItem,
   vfsTestMigrations,
   withRealDatabase
-} from '@rapid/db-test-utils';
+} from '@tearleads/db-test-utils';
 import { act, renderHook } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';

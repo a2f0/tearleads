@@ -1,4 +1,4 @@
-import { vfsLinks } from '@rapid/db/sqlite';
+import { vfsLinks } from '@tearleads/db/sqlite';
 import { and, eq } from 'drizzle-orm';
 import { useCallback, useRef, useState } from 'react';
 import { toast } from 'sonner';

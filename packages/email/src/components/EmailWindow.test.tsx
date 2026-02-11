@@ -7,7 +7,7 @@ import { mockConsoleError } from '../test/console-mocks';
 import { TestEmailProvider } from '../test/test-utils';
 import { EmailWindow } from './EmailWindow';
 
-vi.mock('@rapid/window-manager', () => ({
+vi.mock('@tearleads/window-manager', () => ({
   WINDOW_TABLE_TYPOGRAPHY: {
     table: 'w-full text-left text-xs',
     header: 'sticky top-0 border-b bg-muted/50 text-muted-foreground',

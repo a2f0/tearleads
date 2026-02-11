@@ -18,7 +18,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { ml_kem768 } from '@noble/post-quantum/ml-kem.js';
 
 // Constants
-const HKDF_INFO = new TextEncoder().encode('rapid-vfs-hybrid-v1');
+const HKDF_INFO = new TextEncoder().encode('tearleads-vfs-hybrid-v1');
 const DERIVED_KEY_LENGTH = 32; // 256 bits for AES-256
 const NONCE_LENGTH = 12; // 96 bits for AES-GCM
 

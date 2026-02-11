@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 - launchApp:
     clearState: true

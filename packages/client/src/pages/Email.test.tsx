@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { Email } from './Email';
 
-vi.mock('@rapid/email', () => ({
+vi.mock('@tearleads/email', () => ({
   Email: () => <div>Email App</div>
 }));
 

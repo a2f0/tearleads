@@ -13,8 +13,8 @@ const { mockImportKey, mockEncrypt, mockDecrypt } = vi.hoisted(() => ({
   mockDecrypt: vi.fn()
 }));
 
-vi.mock('@rapid/shared', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@rapid/shared')>();
+vi.mock('@tearleads/shared', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@tearleads/shared')>();
   return {
     ...original,
     importKey: mockImportKey,
@@ -243,7 +243,7 @@ describe('opfs storage', () => {
       await initializeFileStorage(testEncryptionKey, testInstanceId);
 
       expect(mockRootDirectory.getDirectoryHandle).toHaveBeenCalledWith(
-        `rapid-files-${testInstanceId}`,
+        `tearleads-files-${testInstanceId}`,
         { create: true }
       );
     });
@@ -390,7 +390,7 @@ describe('opfs storage', () => {
       await deleteFileStorageForInstance(testInstanceId);
 
       expect(mockRootDirectory.removeEntry).toHaveBeenCalledWith(
-        `rapid-files-${testInstanceId}`,
+        `tearleads-files-${testInstanceId}`,
         { recursive: true }
       );
     });

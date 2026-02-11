@@ -2,7 +2,7 @@
  * Tests for ConversationsSidebar component.
  */
 
-import type { DecryptedAiConversation } from '@rapid/shared';
+import type { DecryptedAiConversation } from '@tearleads/shared';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ConversationsSidebar } from './ConversationsSidebar';

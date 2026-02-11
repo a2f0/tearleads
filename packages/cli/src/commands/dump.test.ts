@@ -122,9 +122,9 @@ describe('dump command', () => {
       expect(manifestStat.isFile()).toBe(true);
     });
 
-    it('dumps from .rbu backup file when --input-file is used', async () => {
+    it('dumps from .tbu backup file when --input-file is used', async () => {
       // Create a test backup file
-      const backupPath = path.join(tempDir, 'test.rbu');
+      const backupPath = path.join(tempDir, 'test.tbu');
       const backupPassword = 'backup-password';
 
       const manifest: BackupManifest = {

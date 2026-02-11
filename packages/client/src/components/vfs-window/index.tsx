@@ -1,6 +1,6 @@
-import type { VfsOpenItem } from '@rapid/vfs-explorer';
-import { VfsWindow as VfsWindowBase } from '@rapid/vfs-explorer';
-import type { WindowDimensions } from '@rapid/window-manager';
+import type { VfsOpenItem } from '@tearleads/vfs-explorer';
+import { VfsWindow as VfsWindowBase } from '@tearleads/vfs-explorer';
+import type { WindowDimensions } from '@tearleads/window-manager';
 import { useCallback } from 'react';
 import { FloatingWindow } from '@/components/floating-window';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -24,7 +24,7 @@ interface VfsWindowProps {
 /**
  * VfsWindow wrapped with ClientVfsExplorerProvider.
  * This provides all the dependencies (database, UI components, VFS keys, auth)
- * required by the @rapid/vfs-explorer package.
+ * required by the @tearleads/vfs-explorer package.
  */
 export function VfsWindow({
   id,

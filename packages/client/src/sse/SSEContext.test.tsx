@@ -555,7 +555,7 @@ describe('SSEContext', () => {
       // Simulate token refresh by updating localStorage and dispatching auth change event
       act(() => {
         localStorage.setItem('auth_token', 'new-refreshed-token');
-        window.dispatchEvent(new Event('rapid_auth_change'));
+        window.dispatchEvent(new Event('tearleads_auth_change'));
       });
 
       // Allow effects to run
@@ -583,7 +583,7 @@ describe('SSEContext', () => {
       // Simulate token refresh
       act(() => {
         localStorage.setItem('auth_token', 'new-refreshed-token');
-        window.dispatchEvent(new Event('rapid_auth_change'));
+        window.dispatchEvent(new Event('tearleads_auth_change'));
       });
 
       await act(async () => {
@@ -614,7 +614,7 @@ describe('SSEContext', () => {
       // Simulate token refresh
       act(() => {
         localStorage.setItem('auth_token', 'new-refreshed-token');
-        window.dispatchEvent(new Event('rapid_auth_change'));
+        window.dispatchEvent(new Event('tearleads_auth_change'));
       });
 
       await act(async () => {

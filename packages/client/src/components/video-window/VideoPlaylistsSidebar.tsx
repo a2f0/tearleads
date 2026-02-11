@@ -1,4 +1,4 @@
-import { useResizableSidebar } from '@rapid/window-manager';
+import { useResizableSidebar } from '@tearleads/window-manager';
 import { List, Loader2, Plus, Video } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';

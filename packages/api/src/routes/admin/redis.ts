@@ -2,7 +2,7 @@ import type {
   RedisKeyInfo,
   RedisKeysResponse,
   RedisKeyValueResponse
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   type Request,
   type Response,

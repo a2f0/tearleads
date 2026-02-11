@@ -3,13 +3,13 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { ClientNotesProvider, NotesAboutMenuItem } from './ClientNotesProvider';
 
-vi.mock('@rapid/notes', () => ({
+vi.mock('@tearleads/notes', () => ({
   NotesProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="notes-provider">{children}</div>
   )
 }));
 
-vi.mock('@rapid/notes/package.json', () => ({
+vi.mock('@tearleads/notes/package.json', () => ({
   default: { version: '1.0.0' }
 }));
 

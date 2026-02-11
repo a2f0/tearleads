@@ -16,8 +16,8 @@ function printUsage(): void {
   console.log(
     [
       'Usage:',
-      '  pnpm --filter @rapid/api deleteAccount -- --email user@example.com',
-      '  pnpm --filter @rapid/api cli delete-account -- --email user@example.com',
+      '  pnpm --filter @tearleads/api deleteAccount -- --email user@example.com',
+      '  pnpm --filter @tearleads/api cli delete-account -- --email user@example.com',
       '  pnpm exec tsx scripts/deleteAccount.ts -- --email user@example.com',
       '',
       'Options:',

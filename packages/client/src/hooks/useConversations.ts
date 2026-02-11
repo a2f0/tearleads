@@ -8,7 +8,7 @@ import type {
   AiConversation,
   DecryptedAiConversation,
   DecryptedAiMessage
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '@/lib/api';
 import {

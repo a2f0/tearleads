@@ -3,7 +3,7 @@
  * Handles fetching, decrypting, and sending encrypted messages.
  */
 
-import type { MlsMessage } from '@rapid/shared';
+import type { MlsMessage } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMlsChatApi, useMlsChatUser } from '../context/index.js';

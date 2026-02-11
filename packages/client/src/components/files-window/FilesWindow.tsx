@@ -1,4 +1,4 @@
-import { WindowStatusBar } from '@rapid/window-manager';
+import { WindowStatusBar } from '@tearleads/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';

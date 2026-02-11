@@ -1,20 +1,20 @@
 /**
- * Constants for the Universal Backup Format (.rbu)
+ * Constants for the Tearleads Backup Utility format (.tbu)
  */
 
-/** Magic bytes identifying a valid .rbu file: "RAPIDBAK" */
+/** Magic bytes identifying a valid .tbu file: "TEARLEADSBAK" */
 export const MAGIC_BYTES = new Uint8Array([
-  0x52, 0x41, 0x50, 0x49, 0x44, 0x42, 0x41, 0x4b
+  0x54, 0x45, 0x41, 0x52, 0x4c, 0x45, 0x41, 0x44, 0x53, 0x42, 0x41, 0x4b
 ]);
 
 /** Current format version */
 export const FORMAT_VERSION = 1;
 
 /** Total header size in bytes */
-export const HEADER_SIZE = 32;
+export const HEADER_SIZE = 36;
 
 /** Size of the magic bytes */
-export const MAGIC_SIZE = 8;
+export const MAGIC_SIZE = 12;
 
 /** Size of the salt for PBKDF2 */
 export const SALT_SIZE = 16;
@@ -38,4 +38,4 @@ export const AES_KEY_BITS = 256;
 export const MAX_BLOB_CHUNK_SIZE = 10 * 1024 * 1024;
 
 /** File extension for backup files */
-export const BACKUP_EXTENSION = '.rbu';
+export const BACKUP_EXTENSION = '.tbu';

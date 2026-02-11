@@ -1,4 +1,4 @@
-import type { SSEConnectionState } from '@rapid/shared';
+import type { SSEConnectionState } from '@tearleads/shared';
 import { X } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';

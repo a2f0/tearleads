@@ -7,7 +7,7 @@ set -eu
 cd "$(dirname "$0")/.."
 
 echo "Building with bundle analyzer..."
-ANALYZE_BUNDLE=true pnpm --filter @rapid/client build
+ANALYZE_BUNDLE=true pnpm --filter @tearleads/client build
 
 STATS_FILE="packages/client/dist/stats.html"
 if [ -f "$STATS_FILE" ]; then

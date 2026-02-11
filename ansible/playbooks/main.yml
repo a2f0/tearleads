@@ -197,7 +197,7 @@
     # API directory and service
     - name: Create API directory
       ansible.builtin.file:
-        path: /opt/rapid-api
+        path: /opt/tearleads-api
         state: directory
         owner: "{{ ansible_user }}"
         group: www-data
@@ -206,7 +206,7 @@
 
     - name: Create API environment file
       ansible.builtin.copy:
-        dest: /opt/rapid-api/.env
+        dest: /opt/tearleads-api/.env
         content: |
           JWT_SECRET={{ lookup('env', 'JWT_SECRET') | mandatory('JWT_SECRET environment variable is required') }}
           OPENROUTER_API_KEY={{ lookup('env', 'OPENROUTER_API_KEY') | mandatory('OPENROUTER_API_KEY environment variable is required') }}
@@ -219,29 +219,29 @@
         group: www-data
         mode: "0640"
       no_log: true
-      notify: Restart rapid-api
+      notify: Restart tearleads-api
 
-    - name: Deploy rapid-api systemd service
+    - name: Deploy tearleads-api systemd service
       ansible.builtin.template:
-        src: rapid-api.service.j2
-        dest: /etc/systemd/system/rapid-api.service
+        src: tearleads-api.service.j2
+        dest: /etc/systemd/system/tearleads-api.service
         owner: root
         group: root
         mode: "0644"
       notify:
         - Reload systemd
-        - Restart rapid-api
+        - Restart tearleads-api
 
-    - name: Enable rapid-api service
+    - name: Enable tearleads-api service
       ansible.builtin.systemd:
-        name: rapid-api
+        name: tearleads-api
         enabled: true
         daemon_reload: true
 
     # SMTP Listener directory and service
     - name: Create SMTP Listener directory
       ansible.builtin.file:
-        path: /opt/rapid-smtp-listener
+        path: /opt/tearleads-smtp-listener
         state: directory
         owner: "{{ ansible_user }}"
         group: www-data
@@ -250,29 +250,29 @@
 
     - name: Create SMTP Listener environment file
       ansible.builtin.copy:
-        dest: /opt/rapid-smtp-listener/.env
+        dest: /opt/tearleads-smtp-listener/.env
         content: |
           SMTP_RECIPIENT_DOMAINS={{ lookup('env', 'SMTP_RECIPIENT_DOMAINS') | mandatory('SMTP_RECIPIENT_DOMAINS environment variable is required') }}
         owner: "{{ ansible_user }}"
         group: www-data
         mode: "0640"
       no_log: true
-      notify: Restart rapid-smtp-listener
+      notify: Restart tearleads-smtp-listener
 
-    - name: Deploy rapid-smtp-listener systemd service
+    - name: Deploy tearleads-smtp-listener systemd service
       ansible.builtin.template:
-        src: rapid-smtp-listener.service.j2
-        dest: /etc/systemd/system/rapid-smtp-listener.service
+        src: tearleads-smtp-listener.service.j2
+        dest: /etc/systemd/system/tearleads-smtp-listener.service
         owner: root
         group: root
         mode: "0644"
       notify:
         - Reload systemd
-        - Restart rapid-smtp-listener
+        - Restart tearleads-smtp-listener
 
-    - name: Enable rapid-smtp-listener service
+    - name: Enable tearleads-smtp-listener service
       ansible.builtin.systemd:
-        name: rapid-smtp-listener
+        name: tearleads-smtp-listener
         enabled: true
         daemon_reload: true
 
@@ -458,12 +458,12 @@
         name: postgresql
         state: restarted
 
-    - name: Restart rapid-api
+    - name: Restart tearleads-api
       ansible.builtin.systemd:
-        name: rapid-api
+        name: tearleads-api
         state: restarted
 
-    - name: Restart rapid-smtp-listener
+    - name: Restart tearleads-smtp-listener
       ansible.builtin.systemd:
-        name: rapid-smtp-listener
+        name: tearleads-smtp-listener
         state: restarted

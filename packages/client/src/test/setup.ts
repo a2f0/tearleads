@@ -20,8 +20,9 @@ import { server } from './msw/server';
 // Agents: do not add allow/skip exceptions here; ask the user first if changes are needed.
 failOnConsole();
 
-vi.mock('@rapid/ui', async () => {
-  const actual = await vi.importActual<typeof import('@rapid/ui')>('@rapid/ui');
+vi.mock('@tearleads/ui', async () => {
+  const actual =
+    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
 
   return {
     ...actual,

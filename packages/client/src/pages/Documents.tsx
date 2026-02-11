@@ -1,5 +1,8 @@
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { and, desc, eq, like, or } from 'drizzle-orm';
 import {
   ChevronDown,

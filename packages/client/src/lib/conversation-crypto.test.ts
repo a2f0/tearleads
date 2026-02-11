@@ -1,7 +1,7 @@
 /**
  * Tests for conversation encryption utilities.
  */
-import type { AiConversation, AiMessage } from '@rapid/shared';
+import type { AiConversation, AiMessage } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   createConversationEncryption,
@@ -22,8 +22,8 @@ const mockImportKey = vi.fn();
 const mockSplitEncapsulation = vi.fn();
 const mockUnwrapKeyWithKeyPair = vi.fn();
 
-vi.mock('@rapid/shared', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@rapid/shared')>();
+vi.mock('@tearleads/shared', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/shared')>();
   return {
     ...actual,
     decrypt: (...args: unknown[]) => mockDecrypt(...args),

@@ -1,4 +1,4 @@
-import { useTheme } from '@rapid/ui';
+import { useTheme } from '@tearleads/ui';
 import {
   useCallback,
   useDeferredValue,

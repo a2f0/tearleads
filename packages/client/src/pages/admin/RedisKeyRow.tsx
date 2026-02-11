@@ -1,5 +1,8 @@
-import type { RedisKeyInfo, RedisKeyValueResponse } from '@rapid/shared';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
+import type { RedisKeyInfo, RedisKeyValueResponse } from '@tearleads/shared';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { ChevronDown, ChevronRight, Database, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';

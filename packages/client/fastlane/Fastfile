@@ -1,6 +1,6 @@
 default_platform(:android)
 
-APP_ID = 'com.tearleads.rapid'.freeze
+APP_ID = 'com.tearleads.app'.freeze
 
 import 'Fastfile.ios.rb'
 import 'Fastfile.android.rb'

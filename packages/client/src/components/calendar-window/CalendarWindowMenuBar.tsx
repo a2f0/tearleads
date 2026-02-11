@@ -1,8 +1,8 @@
 import {
   CALENDAR_CREATE_EVENT,
   CALENDAR_CREATE_ITEM_EVENT
-} from '@rapid/calendar';
-import calendarPackageJson from '@rapid/calendar/package.json';
+} from '@tearleads/calendar';
+import calendarPackageJson from '@tearleads/calendar/package.json';
 import { Cake } from 'lucide-react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';

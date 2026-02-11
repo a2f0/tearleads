@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/classic",
-  "version": "0.0.13",
-  "description": "Classic tag-and-note workspace for Rapid",
+  "name": "@tearleads/classic",
+  "version": "0.0.14",
+  "description": "Classic tag-and-note workspace for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

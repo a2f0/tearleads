@@ -1,4 +1,4 @@
-import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@rapid/audio';
+import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from '@tearleads/audio';
 import { and, eq, like } from 'drizzle-orm';
 import {
   Calendar,

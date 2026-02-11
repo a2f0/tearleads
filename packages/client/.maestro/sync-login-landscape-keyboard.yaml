@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # Test: Sync login form accessibility in landscape mode with keyboard open
 # Run with: maestro test .maestro/sync-login-landscape-keyboard.yaml

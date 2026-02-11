@@ -1,7 +1,7 @@
 /**
  * Universal Backup Format Types
  *
- * Defines the structure of .rbu backup files that work across
+ * Defines the structure of .tbu backup files that work across
  * all platforms (Web, Electron, iOS, Android).
  */
 
@@ -16,7 +16,7 @@ export type ChunkTypeValue = (typeof ChunkType)[keyof typeof ChunkType];
 
 /** Backup file header (plaintext, 32 bytes) */
 export interface BackupHeader {
-  /** Magic bytes: "RAPIDBAK" */
+  /** Magic bytes from file header */
   magic: Uint8Array;
   /** Format version (currently 1) */
   version: number;

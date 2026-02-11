@@ -1,4 +1,4 @@
-// Re-export from @rapid/audio package
+// Re-export from @tearleads/audio package
 export {
   type AudioError,
   AudioProvider,
@@ -7,4 +7,4 @@ export {
   useAudio,
   useAudioAnalyser,
   useAudioContext
-} from '@rapid/audio';
+} from '@tearleads/audio';

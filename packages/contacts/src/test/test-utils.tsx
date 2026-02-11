@@ -1,4 +1,4 @@
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import {

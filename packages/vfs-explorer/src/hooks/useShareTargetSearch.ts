@@ -1,4 +1,4 @@
-import type { ShareTargetSearchResult, VfsShareType } from '@rapid/shared';
+import type { ShareTargetSearchResult, VfsShareType } from '@tearleads/shared';
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 

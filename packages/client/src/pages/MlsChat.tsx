@@ -7,7 +7,7 @@ import {
   MlsChat as MlsChatComponent,
   MlsChatProvider,
   type MlsChatUIComponents
-} from '@rapid/mls-chat';
+} from '@tearleads/mls-chat';
 import { type FC, useCallback } from 'react';
 
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';

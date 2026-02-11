@@ -1,4 +1,7 @@
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type EmailContactEmail, useEmailContext } from '../../context';

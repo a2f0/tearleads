@@ -1,8 +1,8 @@
-package com.tearleads.rapid;
+package com.tearleads.app;
 
 import android.os.Bundle;
 import android.webkit.WebView;
-import com.tearleads.rapid.BuildConfig;
+import com.tearleads.app.BuildConfig;
 import androidx.core.view.WindowCompat;
 import com.getcapacitor.BridgeActivity;
 

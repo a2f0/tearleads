@@ -114,7 +114,7 @@ async function recordSchemaVersion(
   }
 }
 
-const tempDir = mkdtempSync(join(tmpdir(), 'rapid-drizzle-'));
+const tempDir = mkdtempSync(join(tmpdir(), 'tearleads-drizzle-'));
 const configPath = join(tempDir, 'drizzle.postgres.config.ts');
 
 async function main(): Promise<void> {
@@ -125,7 +125,7 @@ async function main(): Promise<void> {
       `import type { Config } from 'drizzle-kit';\n\nexport default {\n  schema: '${schemaPath.replace(/\\/g, '\\\\')}',\n  dialect: 'postgresql',\n  dbCredentials: { url: ${JSON.stringify(databaseUrl)} }\n} satisfies Config;\n`
     );
 
-    execFileSync('pnpm', ['--filter', '@rapid/db', 'generate:postgresql'], {
+    execFileSync('pnpm', ['--filter', '@tearleads/db', 'generate:postgresql'], {
       cwd: rootDir,
       stdio: 'inherit'
     });
@@ -134,7 +134,7 @@ async function main(): Promise<void> {
       'pnpm',
       [
         '--filter',
-        '@rapid/db',
+        '@tearleads/db',
         'exec',
         'drizzle-kit',
         'push',

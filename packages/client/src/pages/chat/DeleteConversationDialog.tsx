@@ -1,4 +1,4 @@
-import type { DecryptedAiConversation } from '@rapid/shared';
+import type { DecryptedAiConversation } from '@tearleads/shared';
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';

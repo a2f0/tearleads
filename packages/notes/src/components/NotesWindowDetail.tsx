@@ -1,5 +1,5 @@
-import { notes } from '@rapid/db/sqlite';
-import { useTheme } from '@rapid/ui';
+import { notes } from '@tearleads/db/sqlite';
+import { useTheme } from '@tearleads/ui';
 import MDEditor from '@uiw/react-md-editor';
 
 import { and, eq } from 'drizzle-orm';

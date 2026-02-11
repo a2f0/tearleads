@@ -1,4 +1,4 @@
-import { WindowContextMenu } from '@rapid/window-manager';
+import { WindowContextMenu } from '@tearleads/window-manager';
 import { FolderPlus, Pencil, Trash2 } from 'lucide-react';
 import type { EmailFolder } from '../../types/folder.js';
 import { canDeleteFolder, canRenameFolder } from '../../types/folder.js';

@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 import { locateWasmDir } from '../locate-wasm.js';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types.js';
 import { convertRowsToArrays } from './utils.js';

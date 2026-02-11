@@ -1,4 +1,4 @@
-import { useMultiFileUpload } from '@rapid/audio';
+import { useMultiFileUpload } from '@tearleads/audio';
 import { Loader2 } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';

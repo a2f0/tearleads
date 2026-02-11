@@ -351,7 +351,7 @@ test.describe('Analytics page', () => {
       )
       .toMatch(/header|empty|count/);
 
-    // Click refresh multiple times rapidly to test stability
+    // Click refresh multiple times tearleadsly to test stability
     const refreshButton = page.getByRole('button', { name: 'Refresh' });
     const spinner = page.locator('svg.animate-spin');
 
@@ -393,7 +393,7 @@ test.describe('Analytics page', () => {
     });
   });
 
-  dbTest('should handle rapid navigation without errors', async ({ page }) => {
+  dbTest('should handle tearleads navigation without errors', async ({ page }) => {
     const pageErrors: string[] = [];
 
     page.on('pageerror', (error) => {
@@ -402,7 +402,7 @@ test.describe('Analytics page', () => {
 
     await setupDatabase(page);
 
-    // Rapidly navigate between pages
+    // Tearleadsly navigate between pages
     for (let i = 0; i < 3; i++) {
       await navigateTo(page, 'Analytics');
       await unlockIfNeeded(page);

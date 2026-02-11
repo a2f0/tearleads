@@ -1,4 +1,4 @@
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 import jwt from 'jsonwebtoken';
 
 export type JwtClaims = {

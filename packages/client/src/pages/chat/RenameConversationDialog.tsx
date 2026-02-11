@@ -1,4 +1,4 @@
-import type { DecryptedAiConversation } from '@rapid/shared';
+import type { DecryptedAiConversation } from '@tearleads/shared';
 import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

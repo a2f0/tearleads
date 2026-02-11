@@ -13,7 +13,7 @@ import {
   resetTestKeyManager,
   TestKeyManager,
   WasmNodeAdapter
-} from '@rapid/db-test-utils';
+} from '@tearleads/db-test-utils';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import type { InstanceMetadata } from '@/db/instance-registry';
 import { mockConsoleWarn } from './console-mocks';

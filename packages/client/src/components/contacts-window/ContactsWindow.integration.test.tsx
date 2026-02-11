@@ -4,7 +4,7 @@ import {
   ALL_CONTACTS_ID,
   ContactsGroupsSidebar,
   useContactsContext
-} from '@rapid/contacts';
+} from '@tearleads/contacts';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { and, eq, inArray } from 'drizzle-orm';
@@ -120,7 +120,7 @@ describe('Contacts drag and drop integration', () => {
     const groupButton = screen.getByRole('button', { name: /Family/i });
     const dataTransfer = {
       getData: (type: string) =>
-        type === 'application/x-rapid-contact-ids'
+        type === 'application/x-tearleads-contact-ids'
           ? JSON.stringify({ ids: ['contact-1'] })
           : ''
     };

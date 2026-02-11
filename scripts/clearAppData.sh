@@ -1,7 +1,7 @@
 #!/bin/sh
 set -eu
 
-PACKAGE_ID=${1:-"com.tearleads.rapid"}
+PACKAGE_ID=${1:-"com.tearleads.app"}
 
 # Check for connected device
 device_count=$(adb devices 2>/dev/null | grep "device$" | wc -l)

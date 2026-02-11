@@ -5,7 +5,7 @@ import {
   DEFAULT_CLASSIC_NOTE_TITLE,
   DEFAULT_CLASSIC_TAG_NAME,
   type VfsLinkLikeRow
-} from '@rapid/classic';
+} from '@tearleads/classic';
 import { and, eq, inArray } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';

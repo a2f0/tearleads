@@ -1,4 +1,4 @@
-import { isOpenRouterModelId } from '@rapid/shared';
+import { isOpenRouterModelId } from '@tearleads/shared';
 import {
   Bot,
   Check,

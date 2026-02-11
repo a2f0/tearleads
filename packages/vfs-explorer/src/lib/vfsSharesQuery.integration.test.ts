@@ -1,4 +1,4 @@
-import { vfsTestMigrations, withRealDatabase } from '@rapid/db-test-utils';
+import { vfsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import { querySharedByMe } from './vfsSharesQuery';
 

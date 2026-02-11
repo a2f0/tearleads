@@ -6,7 +6,7 @@ import { AudioProvider } from '../../context/AudioContext';
 import { createWrapper } from '../../test/testUtils';
 import { AudioWindow } from './AudioWindow';
 
-vi.mock('@rapid/window-manager', () => ({
+vi.mock('@tearleads/window-manager', () => ({
   FloatingWindow: ({ children }: { children: ReactNode }) => (
     <div data-testid="floating-window">{children}</div>
   )

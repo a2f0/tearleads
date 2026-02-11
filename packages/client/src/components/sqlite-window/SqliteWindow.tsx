@@ -1,4 +1,4 @@
-import { WindowStatusBar } from '@rapid/window-manager';
+import { WindowStatusBar } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';

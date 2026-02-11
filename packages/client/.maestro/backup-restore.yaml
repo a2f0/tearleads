@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # Backup & Restore Test - Tests database backup and restore UI on native platforms
 # Note: Full file picker interaction is limited in Maestro, so this focuses on UI flows

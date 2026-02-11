@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/calendar",
+  "name": "@tearleads/calendar",
   "version": "0.0.1",
-  "description": "Calendar components for Rapid",
+  "description": "Calendar components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,7 +22,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@rapid/window-manager": "workspace:*",
+    "@tearleads/window-manager": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -31,7 +31,7 @@
     "lucide-react": "0.563.0"
   },
   "devDependencies": {
-    "@rapid/window-manager": "workspace:*",
+    "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",

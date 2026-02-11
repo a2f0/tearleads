@@ -3,7 +3,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { Licenses } from './Licenses';
 
-vi.mock('@rapid/shared/licenses.json', () => ({
+vi.mock('@tearleads/shared/licenses.json', () => ({
   default: [
     { name: 'react', version: '19.0.0', license: 'MIT' },
     { name: 'typescript', version: '5.0.0', license: 'Apache-2.0' },

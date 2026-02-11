@@ -9,7 +9,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
 import { convertRowsToArrays } from './utils';
 

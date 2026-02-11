@@ -45,7 +45,7 @@ describe('RestoreBackupForm', () => {
     });
 
     render(
-      <RestoreBackupForm backupName="backup-1.rbu" backupData={backupData} />
+      <RestoreBackupForm backupName="backup-1.tbu" backupData={backupData} />
     );
 
     fireEvent.change(screen.getByLabelText('Backup Password'), {
@@ -78,7 +78,7 @@ describe('RestoreBackupForm', () => {
 
     render(
       <RestoreBackupForm
-        backupName="backup-1.rbu"
+        backupName="backup-1.tbu"
         backupData={backupData}
         onClear={onClear}
       />

@@ -12,7 +12,7 @@ import {
 } from '@capgo/capacitor-native-biometric';
 
 /** Base server identifier for credential storage */
-const SERVER_BASE = 'com.tearleads.rapid';
+const SERVER_BASE = 'com.tearleads.app';
 
 /** Storage key prefix for wrapped keys */
 const WRAPPED_KEY_PREFIX = 'wrapped_key';
@@ -25,7 +25,7 @@ const WRAPPING_KEY_PREFIX = 'wrapping_key';
  * The NativeBiometric plugin doesn't support enumerating all stored credentials,
  * so we track which instance IDs have Keystore entries to enable orphan detection.
  */
-const KEYSTORE_TRACKING_DB = 'rapid_keystore_tracking';
+const KEYSTORE_TRACKING_DB = 'tearleads_keystore_tracking';
 const KEYSTORE_TRACKING_STORE = 'instance_ids';
 
 /**

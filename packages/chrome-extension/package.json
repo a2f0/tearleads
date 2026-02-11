@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/chrome-extension",
-  "version": "0.0.146",
-  "description": "Chrome extension for Rapid",
+  "name": "@tearleads/chrome-extension",
+  "version": "0.0.148",
+  "description": "Chrome extension for Tearleads",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
@@ -12,7 +12,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "@rapid/shared": "workspace:*"
+    "@tearleads/shared": "workspace:*"
   },
   "devDependencies": {
     "@types/chrome": "0.1.36",

@@ -24,7 +24,7 @@ import {
   type VfsKeyPair,
   type VfsPublicKey,
   wrapKeyForRecipient
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import { getKeyManager } from '@/db/crypto/key-manager';
 import { api } from '@/lib/api';
 

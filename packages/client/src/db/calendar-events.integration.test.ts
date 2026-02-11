@@ -1,7 +1,7 @@
 // Import integration setup FIRST - wires real db-test-utils adapter/key manager
 import '../test/setup-integration';
 
-import { resetTestKeyManager } from '@rapid/db-test-utils';
+import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
   createCalendarEvent,

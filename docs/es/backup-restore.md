@@ -1,6 +1,6 @@
 # Arquitectura de Respaldo y Restauración
 
-Rapid proporciona funcionalidad de respaldo y restauración para proteger sus datos. Debido a restricciones específicas de la plataforma con bases de datos SQLite cifradas, el formato de respaldo y el proceso varían según la plataforma.
+Tearleads proporciona funcionalidad de respaldo y restauración para proteger sus datos. Debido a restricciones específicas de la plataforma con bases de datos SQLite cifradas, el formato de respaldo y el proceso varían según la plataforma.
 
 ## Resumen
 

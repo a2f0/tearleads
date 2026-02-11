@@ -3,8 +3,8 @@ import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
-// Mock the @rapid/notes package
-vi.mock('@rapid/notes', () => ({
+// Mock the @tearleads/notes package
+vi.mock('@tearleads/notes', () => ({
   Notes: () => <div data-testid="notes-base-component">Notes from package</div>
 }));
 

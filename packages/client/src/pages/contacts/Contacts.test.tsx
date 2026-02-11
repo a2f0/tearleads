@@ -11,8 +11,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mockConsoleError } from '@/test/console-mocks';
 import { Contacts } from './Contacts';
 
-vi.mock('@rapid/contacts', async () => {
-  const actual = await vi.importActual('@rapid/contacts');
+vi.mock('@tearleads/contacts', async () => {
+  const actual = await vi.importActual('@tearleads/contacts');
   return {
     ...actual,
     ALL_CONTACTS_ID: '__all__',

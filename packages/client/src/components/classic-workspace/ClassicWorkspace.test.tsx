@@ -34,7 +34,7 @@ vi.mock('@/lib/classicPersistence', () => ({
   restoreClassicTag: (...args: unknown[]) => mockRestoreClassicTag(...args)
 }));
 
-vi.mock('@rapid/classic', () => ({
+vi.mock('@tearleads/classic', () => ({
   ClassicApp: ({
     onStateChange
   }: {

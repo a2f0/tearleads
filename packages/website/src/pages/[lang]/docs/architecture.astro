@@ -20,7 +20,7 @@ const docs: Record<SupportedLanguage, () => Promise<{ Content: any }>> = {
 const { Content } = await docs[currentLang]();
 ---
 
-<Layout title="Architecture - Rapid" lang={currentLang}>
+<Layout title="Architecture - Tearleads" lang={currentLang}>
   <DocPageLayout data-testid="architecture-content">
     <Content />
   </DocPageLayout>

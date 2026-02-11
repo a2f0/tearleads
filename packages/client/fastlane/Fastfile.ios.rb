@@ -52,7 +52,7 @@ platform :ios do
       configuration: 'Release',
       export_method: 'app-store',
       output_directory: './build',
-      output_name: 'Rapid.ipa',
+      output_name: 'Tearleads.ipa',
       xcodebuild_formatter: '',
       export_options: {
         provisioningProfiles: {
@@ -112,7 +112,7 @@ platform :ios do
       # Without this, fastlane waits for external distribution even when
       # skip_waiting_for_build_processing is true.
       distribute_external: false,
-      ipa: './build/Rapid.ipa',
+      ipa: './build/Tearleads.ipa',
       changelog: generate_release_notes('ios')
     )
   end

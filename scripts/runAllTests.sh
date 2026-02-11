@@ -66,7 +66,7 @@ echo "[playwright] Vite server ready after ${WAITED}s"
 
 # PW_EXTERNAL_SERVER=true disables Playwright webServer so this script controls lifecycle.
 # BASE_URL uses port 3002 to avoid conflict with any running dev server on 3000.
-BASE_URL=http://localhost:3002 PW_EXTERNAL_SERVER=true PW_FORCE_EXIT=true pnpm --filter @rapid/client test:e2e && PW_EXIT_CODE=0 || PW_EXIT_CODE=$?
+BASE_URL=http://localhost:3002 PW_EXTERNAL_SERVER=true PW_FORCE_EXIT=true pnpm --filter @tearleads/client test:e2e && PW_EXIT_CODE=0 || PW_EXIT_CODE=$?
 
 # Clean up vite server
 echo "[playwright] Stopping vite server (pid: $VITE_PID)..."
@@ -91,9 +91,9 @@ PLAYWRIGHT_TIME=$((PLAYWRIGHT_END - PLAYWRIGHT_START))
 echo "==> Running Android Maestro tests..."
 ANDROID_START=$(date +%s)
 if [ "$HEADLESS" -eq 1 ]; then
-  pnpm --filter @rapid/client test:maestro:android -- --headless
+  pnpm --filter @tearleads/client test:maestro:android -- --headless
 else
-  pnpm --filter @rapid/client test:maestro:android
+  pnpm --filter @tearleads/client test:maestro:android
 fi
 ANDROID_END=$(date +%s)
 ANDROID_TIME=$((ANDROID_END - ANDROID_START))
@@ -101,9 +101,9 @@ ANDROID_TIME=$((ANDROID_END - ANDROID_START))
 echo "==> Running iOS Maestro tests..."
 IOS_START=$(date +%s)
 if [ "$HEADLESS" -eq 1 ]; then
-  pnpm --filter @rapid/client test:maestro:ios -- --headless
+  pnpm --filter @tearleads/client test:maestro:ios -- --headless
 else
-  pnpm --filter @rapid/client test:maestro:ios
+  pnpm --filter @tearleads/client test:maestro:ios
 fi
 IOS_END=$(date +%s)
 IOS_TIME=$((IOS_END - IOS_START))
@@ -111,8 +111,8 @@ IOS_TIME=$((IOS_END - IOS_START))
 echo "==> Running Electron tests..."
 ELECTRON_START=$(date +%s)
 echo "==> Rebuilding better-sqlite3-multiple-ciphers for Electron..."
-pnpm --filter @rapid/client exec electron-rebuild -f -o better-sqlite3-multiple-ciphers
-pnpm --filter @rapid/client electron:test
+pnpm --filter @tearleads/client exec electron-rebuild -f -o better-sqlite3-multiple-ciphers
+pnpm --filter @tearleads/client electron:test
 ELECTRON_END=$(date +%s)
 ELECTRON_TIME=$((ELECTRON_END - ELECTRON_START))
 

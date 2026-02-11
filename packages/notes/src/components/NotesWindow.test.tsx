@@ -1,4 +1,4 @@
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
@@ -14,7 +14,7 @@ import {
 } from '../test/testUtils';
 import { NotesWindow } from './NotesWindow';
 
-vi.mock('@rapid/window-manager', () => ({
+vi.mock('@tearleads/window-manager', () => ({
   FloatingWindow: ({ children }: { children: ReactNode }) => (
     <div data-testid="floating-window">{children}</div>
   )

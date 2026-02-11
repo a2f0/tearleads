@@ -1,5 +1,5 @@
 /**
- * Decoder for the Universal Backup Format (.rbu)
+ * Decoder for the Tearleads Backup Utility format (.tbu)
  *
  * Reads backup files with the following structure:
  * - Header (32 bytes, plaintext): magic, version, flags, salt

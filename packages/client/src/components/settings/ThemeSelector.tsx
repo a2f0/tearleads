@@ -1,5 +1,5 @@
-import type { ResolvedTheme } from '@rapid/ui';
-import { useTheme } from '@rapid/ui';
+import type { ResolvedTheme } from '@tearleads/ui';
+import { useTheme } from '@tearleads/ui';
 import { GridSquare } from '@/components/ui/grid-square';
 import { useTypedTranslation } from '@/i18n';
 import { ThemePreview } from './ThemePreview';

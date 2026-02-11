@@ -1,4 +1,4 @@
-import type { AuthUser } from '@rapid/shared';
+import type { AuthUser } from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
   createContext,

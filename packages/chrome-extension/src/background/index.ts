@@ -1,7 +1,7 @@
 import { MessageType, type TabInfoResponse } from '../messages';
 
 chrome.runtime.onInstalled.addListener(() => {
-  console.log('Rapid extension installed');
+  console.log('Tearleads extension installed');
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

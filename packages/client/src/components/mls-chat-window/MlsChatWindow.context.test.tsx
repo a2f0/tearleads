@@ -1,12 +1,12 @@
 /**
  * Test to verify MlsChatWindow context integration.
- * We mock @rapid/mls-chat hooks at the package boundary so this test remains
+ * We mock @tearleads/mls-chat hooks at the package boundary so this test remains
  * stable even when workspace React versions diverge across packages.
  */
 import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-// Mock dependencies EXCEPT @rapid/mls-chat to test real context integration
+// Mock dependencies EXCEPT @tearleads/mls-chat to test real context integration
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
     children,
@@ -45,7 +45,7 @@ vi.mock('@/i18n', () => ({
   })
 }));
 
-vi.mock('@rapid/mls-chat', () => ({
+vi.mock('@tearleads/mls-chat', () => ({
   AddMemberDialog: () => null,
   MlsChatProvider: ({ children }: { children: React.ReactNode }) => children,
   NewGroupDialog: () => null,

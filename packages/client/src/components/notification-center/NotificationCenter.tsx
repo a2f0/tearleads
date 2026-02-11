@@ -1,4 +1,4 @@
-import { type Corner, useFloatingWindow } from '@rapid/window-manager';
+import { type Corner, useFloatingWindow } from '@tearleads/window-manager';
 import { X } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -17,7 +17,7 @@ import {
 import { LogsTab } from './LogsTab';
 import { NotificationsTab } from './NotificationsTab';
 
-export type { Corner } from '@rapid/window-manager';
+export type { Corner } from '@tearleads/window-manager';
 export { MIN_HEIGHT, MIN_WIDTH } from './constants';
 
 type TabId = 'analytics' | 'logs' | 'notifications';

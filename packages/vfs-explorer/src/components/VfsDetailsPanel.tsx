@@ -2,7 +2,7 @@ import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowContextMenu,
   WindowContextMenuItem
-} from '@rapid/window-manager';
+} from '@tearleads/window-manager';
 import {
   ArrowDown,
   ArrowUp,

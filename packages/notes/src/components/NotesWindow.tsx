@@ -1,5 +1,8 @@
-import { notes, vfsRegistry } from '@rapid/db/sqlite';
-import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
+import { notes, vfsRegistry } from '@tearleads/db/sqlite';
+import {
+  FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { useCallback, useEffect, useState } from 'react';
 import { useNotesContext } from '../context/NotesContext';
 import { NotesWindowDetail } from './NotesWindowDetail';

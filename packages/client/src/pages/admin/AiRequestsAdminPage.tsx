@@ -1,4 +1,4 @@
-import type { AiUsage } from '@rapid/shared';
+import type { AiUsage } from '@tearleads/shared';
 import { Loader2 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';

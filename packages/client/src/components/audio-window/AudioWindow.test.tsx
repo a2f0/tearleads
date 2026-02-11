@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@rapid/audio', () => ({
+vi.mock('@tearleads/audio', () => ({
   AudioWindow: ({
     id,
     openAudioId,

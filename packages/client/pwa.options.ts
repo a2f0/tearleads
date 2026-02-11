@@ -47,7 +47,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
           /\.(js|mjs|css|ico|png|svg|woff2?)$/.test(url.pathname),
         handler: 'CacheFirst',
         options: {
-          cacheName: 'rapid8-static-cache',
+          cacheName: 'tearleads8-static-cache',
           expiration: {
             maxEntries: 100,
             maxAgeSeconds: 60 * 60 * 24 * 7, // 7 days
@@ -59,7 +59,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
         urlPattern: ({request}) => request.mode === 'navigate',
         handler: 'NetworkFirst',
         options: {
-          cacheName: 'rapid8-html-cache',
+          cacheName: 'tearleads8-html-cache',
           networkTimeoutSeconds: 3, // Wait max 3 seconds for network
           expiration: {
             maxEntries: 10,

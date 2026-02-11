@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/contacts",
+  "name": "@tearleads/contacts",
   "version": "0.0.1",
-  "description": "Contacts management components for Rapid",
+  "description": "Contacts management components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -22,10 +22,10 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@rapid/db": "workspace:*",
-    "@rapid/shared": "workspace:*",
-    "@rapid/ui": "workspace:*",
-    "@rapid/window-manager": "workspace:*",
+    "@tearleads/db": "workspace:*",
+    "@tearleads/shared": "workspace:*",
+    "@tearleads/ui": "workspace:*",
+    "@tearleads/window-manager": "workspace:*",
     "drizzle-orm": "0.45.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -42,10 +42,10 @@
     "tailwind-merge": "3.4.0"
   },
   "devDependencies": {
-    "@rapid/db": "workspace:*",
-    "@rapid/db-test-utils": "workspace:*",
-    "@rapid/shared": "workspace:*",
-    "@rapid/window-manager": "workspace:*",
+    "@tearleads/db": "workspace:*",
+    "@tearleads/db-test-utils": "workspace:*",
+    "@tearleads/shared": "workspace:*",
+    "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",

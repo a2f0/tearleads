@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import {
   act,
   fireEvent,

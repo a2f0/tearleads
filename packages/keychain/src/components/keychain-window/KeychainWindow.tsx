@@ -1,5 +1,5 @@
-import type { WindowDimensions } from '@rapid/window-manager';
-import { FloatingWindow } from '@rapid/window-manager';
+import type { WindowDimensions } from '@tearleads/window-manager';
+import { FloatingWindow } from '@tearleads/window-manager';
 import { useCallback, useRef, useState } from 'react';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindowContent } from './KeychainWindowContent';

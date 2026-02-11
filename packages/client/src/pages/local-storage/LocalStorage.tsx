@@ -14,7 +14,7 @@ const PROTECTED_KEYS = new Set([
   ...Object.values(SETTING_STORAGE_KEYS),
   'desktop-icon-positions',
   'audio-visualizer-style',
-  'rapid_last_loaded_model',
+  'tearleads_last_loaded_model',
   'window-state-preserve'
 ]);
 const PROTECTED_PREFIXES = ['window-dimensions:'];
@@ -145,7 +145,7 @@ export function LocalStorage({ showBackLink = true }: LocalStorageProps) {
       description: (
         <p>
           Are you sure you want to clear localStorage data? App preferences and
-          window layouts will be preserved to keep Rapid running.
+          window layouts will be preserved to keep Tearleads running.
         </p>
       )
     };

@@ -4,8 +4,8 @@
  * Supports multi-instance with namespaced database files.
  */
 
-import type { Database } from '@rapid/db/sqlite';
-import { schema } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
+import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import type { DatabaseAdapter, PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
@@ -24,7 +24,7 @@ let currentInstanceId: string | null = null;
  * Get the database name for an instance.
  */
 function getDatabaseName(instanceId: string): string {
-  return `rapid-${instanceId}`;
+  return `tearleads-${instanceId}`;
 }
 
 /**

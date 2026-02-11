@@ -90,7 +90,7 @@ test.describe('Backup and Restore', () => {
 
     // Wait for backup to complete (success message appears)
     // Look for the success message containing the backup filename
-    const successMessage = page.getByText(/Backup saved as.*\.rbu/);
+    const successMessage = page.getByText(/Backup saved as.*\.tbu/);
     await expect(successMessage).toBeVisible({
       timeout: BACKUP_TIMEOUT
     });
@@ -108,13 +108,13 @@ test.describe('Backup and Restore', () => {
     const download = await downloadPromise;
 
     // Verify the download has the correct extension
-    expect(download.suggestedFilename()).toMatch(/^rapid-backup-.*\.rbu$/);
+    expect(download.suggestedFilename()).toMatch(/^tearleads-backup-.*\.tbu$/);
 
     // Ensure artifact directory exists
     await mkdir(BACKUP_ARTIFACT_DIR, { recursive: true });
 
     // Save the backup to the artifact directory for CI validation
-    const backupPath = join(BACKUP_ARTIFACT_DIR, 'web-backup.rbu');
+    const backupPath = join(BACKUP_ARTIFACT_DIR, 'web-backup.tbu');
     await download.saveAs(backupPath);
 
     // Verify the file was saved
@@ -147,7 +147,7 @@ test.describe('Backup and Restore', () => {
     await page.getByLabel('Password', { exact: true }).fill(BACKUP_PASSWORD);
     await page.getByLabel('Confirm', { exact: true }).fill(BACKUP_PASSWORD);
     await page.getByRole('button', { name: 'Create Backup' }).click();
-    await expect(page.getByText(/Backup saved as.*\.rbu/)).toBeVisible({
+    await expect(page.getByText(/Backup saved as.*\.tbu/)).toBeVisible({
       timeout: BACKUP_TIMEOUT
     });
 

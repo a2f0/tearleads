@@ -1,4 +1,4 @@
-import { WindowStatusBar } from '@rapid/window-manager';
+import { WindowStatusBar } from '@tearleads/window-manager';
 
 interface VfsStatusBarProps {
   itemCount: number;

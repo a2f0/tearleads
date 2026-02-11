@@ -5,7 +5,7 @@ import type {
   PostgresRowsResponse,
   PostgresTableInfo,
   PostgresTablesResponse
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   type Request,
   type Response,

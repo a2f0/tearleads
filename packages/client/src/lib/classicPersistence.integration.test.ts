@@ -1,7 +1,7 @@
 import {
   createTestDatabase,
   type TestDatabaseContext
-} from '@rapid/db-test-utils';
+} from '@tearleads/db-test-utils';
 import { and, eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { migrations } from '@/db/migrations';
@@ -280,10 +280,10 @@ describe('classicPersistence integration', () => {
         );
 
       const rootTagAPosition = persistedRootLinks.find(
-        (row) => row.childId === 'tag-a'
+        (row: { childId: string }) => row.childId === 'tag-a'
       )?.position;
       const rootTagBPosition = persistedRootLinks.find(
-        (row) => row.childId === 'tag-b'
+        (row: { childId: string }) => row.childId === 'tag-b'
       )?.position;
 
       expect(rootTagAPosition).toBe(0);
@@ -385,10 +385,10 @@ describe('classicPersistence integration', () => {
         .where(eq(vfsLinks.parentId, CLASSIC_TAG_PARENT_ID));
 
       const rootTagAPosition = rootLinks.find(
-        (row) => row.childId === 'tag-a'
+        (row: { childId: string }) => row.childId === 'tag-a'
       )?.position;
       const rootTagBPosition = rootLinks.find(
-        (row) => row.childId === 'tag-b'
+        (row: { childId: string }) => row.childId === 'tag-b'
       )?.position;
 
       expect(rootTagAPosition).toBe(1);
@@ -477,10 +477,9 @@ describe('classicPersistence integration', () => {
         .where(eq(vfsLinks.childId, 'note-a1'));
 
       expect(linkRows).toHaveLength(2);
-      expect(linkRows.map((r) => r.parentId).sort()).toEqual([
-        'tag-a',
-        'tag-b'
-      ]);
+      expect(
+        linkRows.map((r: { parentId: string }) => r.parentId).sort()
+      ).toEqual(['tag-a', 'tag-b']);
     });
   });
 
@@ -504,7 +503,9 @@ describe('classicPersistence integration', () => {
         .from(vfsLinks)
         .where(eq(vfsLinks.parentId, 'tag-a'));
 
-      const noteA1Links = allTagALinks.filter((r) => r.childId === 'note-a1');
+      const noteA1Links = allTagALinks.filter(
+        (r: { childId: string }) => r.childId === 'note-a1'
+      );
       expect(noteA1Links).toHaveLength(1);
     });
   });
@@ -523,7 +524,9 @@ describe('classicPersistence integration', () => {
         .from(vfsLinks)
         .where(eq(vfsLinks.parentId, 'tag-b'));
 
-      const noteA2Link = linkRows.find((r) => r.childId === 'note-a2');
+      const noteA2Link = linkRows.find(
+        (r: { childId: string }) => r.childId === 'note-a2'
+      );
       expect(noteA2Link?.position).toBe(1);
     });
   });

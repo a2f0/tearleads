@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import type { SupportedLanguage } from '../i18n/config';
 import { SettingsButton } from './SettingsButton';
 

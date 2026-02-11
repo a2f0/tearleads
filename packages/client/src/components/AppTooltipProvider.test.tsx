@@ -11,7 +11,7 @@ vi.mock('@/db/SettingsProvider', () => ({
 }));
 
 // Mock TooltipProvider
-vi.mock('@rapid/ui', () => ({
+vi.mock('@tearleads/ui', () => ({
   TooltipProvider: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="tooltip-provider">{children}</div>
   )

@@ -473,7 +473,7 @@ describe('PhotosAlbumsSidebar', () => {
     const dataTransfer = {
       files: [],
       getData: (type: string) =>
-        type === 'application/x-rapid-media-ids' ? payload : ''
+        type === 'application/x-tearleads-media-ids' ? payload : ''
     };
 
     fireEvent.drop(albumButton, { dataTransfer });

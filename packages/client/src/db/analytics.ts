@@ -2,7 +2,7 @@
  * Analytics logging module for tracking database operations.
  */
 
-import { isRecord, toFiniteNumber } from '@rapid/shared';
+import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import type {
   AnalyticsEventDetail,
   AnalyticsEventSlug,

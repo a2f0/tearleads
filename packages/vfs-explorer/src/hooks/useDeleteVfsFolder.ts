@@ -8,7 +8,7 @@
  * All of the above is handled by database cascades.
  */
 
-import { vfsRegistry } from '@rapid/db/sqlite';
+import { vfsRegistry } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext } from '../context';

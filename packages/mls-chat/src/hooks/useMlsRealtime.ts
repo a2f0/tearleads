@@ -4,7 +4,7 @@
  * Uses fetch + ReadableStream for header-based auth (more secure than query params).
  */
 
-import type { MlsMessage } from '@rapid/shared';
+import type { MlsMessage } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';

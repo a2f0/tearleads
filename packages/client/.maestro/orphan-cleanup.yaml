@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # Orphan Cleanup Test - Verifies the app handles orphaned registry entries
 #

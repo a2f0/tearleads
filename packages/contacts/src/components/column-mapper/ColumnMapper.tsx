@@ -4,8 +4,11 @@ import {
   DragOverlay,
   type DragStartEvent
 } from '@dnd-kit/core';
-import { isRecord } from '@rapid/shared';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
+import { isRecord } from '@tearleads/shared';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { useMemo, useState } from 'react';
 import { useContactsUI } from '../../context';
 import type { ColumnMapping, ParsedCSV } from '../../hooks/useContactsImport';

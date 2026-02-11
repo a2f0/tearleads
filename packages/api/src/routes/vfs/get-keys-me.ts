@@ -1,4 +1,4 @@
-import type { VfsUserKeysResponse } from '@rapid/shared';
+import type { VfsUserKeysResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 

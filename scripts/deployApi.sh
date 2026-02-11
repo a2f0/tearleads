@@ -29,25 +29,25 @@ if [ -z "${TF_VAR_domain:-}" ]; then
 fi
 
 # Build shared package (API dependency)
-pnpm --filter @rapid/shared build
+pnpm --filter @tearleads/shared build
 
 # Build the bundled API (single file, no node_modules needed)
-pnpm --filter @rapid/api build:bundle
+pnpm --filter @tearleads/api build:bundle
 
 # Upload bundled files to server
 echo "Deploying to ${HOSTNAME}..."
-ssh "${USERNAME}@${HOSTNAME}" "mkdir -p /opt/rapid-api/dist"
+ssh "${USERNAME}@${HOSTNAME}" "mkdir -p /opt/tearleads-api/dist"
 rsync -avz --delete \
   packages/api/dist/ \
-  "${USERNAME}@${HOSTNAME}:/opt/rapid-api/dist/"
+  "${USERNAME}@${HOSTNAME}:/opt/tearleads-api/dist/"
 
 # Set ownership and permissions
-ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /opt/rapid-api && chmod -R u=rwX,g=rX,o= /opt/rapid-api"
+ssh "${USERNAME}@${HOSTNAME}" "chgrp -R www-data /opt/tearleads-api && chmod -R u=rwX,g=rX,o= /opt/tearleads-api"
 
 # Restart service
 ssh "${USERNAME}@${HOSTNAME}" <<'REMOTE'
-sudo systemctl restart rapid-api
-sudo systemctl --no-pager status rapid-api
+sudo systemctl restart tearleads-api
+sudo systemctl --no-pager status tearleads-api
 REMOTE
 
 echo "API deployed to https://api.${TF_VAR_domain}"

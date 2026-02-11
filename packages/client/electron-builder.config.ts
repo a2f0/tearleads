@@ -8,7 +8,7 @@ const sqliteModulePaths = [
 
 const config: Configuration = {
   appId: desktopAppId,
-  productName: 'Rapid',
+  productName: 'Tearleads',
   directories: {
     output: 'dist-electron',
   },

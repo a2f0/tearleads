@@ -30,7 +30,7 @@ const mockContext = {
 const mockUtilities: TerminalUtilities = {
   getErrorMessage: (error) =>
     error instanceof Error ? error.message : String(error),
-  generateBackupFilename: vi.fn(() => 'rapid-backup.db'),
+  generateBackupFilename: vi.fn(() => 'tearleads-backup.db'),
   readFileAsUint8Array: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
   saveFile: vi.fn(() => Promise.resolve())
 };
@@ -65,7 +65,9 @@ describe('Terminal', () => {
 
   it('renders terminal without welcome banner text', () => {
     renderTerminal();
-    expect(screen.queryByText('Rapid Terminal v1.0.0')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Tearleads Terminal v1.0.0')
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('Type "help" for available commands.')
     ).not.toBeInTheDocument();

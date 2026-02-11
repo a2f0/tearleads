@@ -3,7 +3,7 @@
  * Uses SQL JOINs for name resolution and ORDER BY at the database level.
  */
 
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import {
   albums,
   contactGroups,
@@ -18,7 +18,7 @@ import {
   vfsFolders,
   vfsRegistry,
   vfsShares
-} from '@rapid/db/sqlite';
+} from '@tearleads/db/sqlite';
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
 import type { VfsSortState } from './vfsTypes';

@@ -1,4 +1,4 @@
-import { TooltipProvider } from '@rapid/ui';
+import { TooltipProvider } from '@tearleads/ui';
 import type { ReactNode } from 'react';
 import { useSettings } from '@/db/SettingsProvider';
 

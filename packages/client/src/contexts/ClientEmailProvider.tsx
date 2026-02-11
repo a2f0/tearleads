@@ -8,8 +8,8 @@ import {
   type EmailUIComponents,
   SYSTEM_FOLDER_NAMES,
   SYSTEM_FOLDER_TYPES
-} from '@rapid/email';
-import emailPackageJson from '@rapid/email/package.json';
+} from '@tearleads/email';
+import emailPackageJson from '@tearleads/email/package.json';
 import { asc, desc, eq } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { BackLink } from '@/components/ui/back-link';

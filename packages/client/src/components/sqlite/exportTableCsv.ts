@@ -1,4 +1,4 @@
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 import { getDatabaseAdapter } from '@/db';
 import { createCsv } from '@/lib/csv';
 import { downloadFile } from '@/lib/file-utils';

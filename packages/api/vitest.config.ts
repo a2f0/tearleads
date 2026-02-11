@@ -4,8 +4,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   resolve: {
     alias: {
-      // Mock @rapid/db/package.json for tests
-      '@rapid/db/package.json': path.resolve(
+      // Mock @tearleads/db/package.json for tests
+      '@tearleads/db/package.json': path.resolve(
         __dirname,
         '../../packages/db/package.json'
       )

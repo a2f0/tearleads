@@ -1,4 +1,4 @@
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import { renderHook } from '@testing-library/react';
 import { type ReactNode, useMemo } from 'react';
 import { describe, expect, it, vi } from 'vitest';

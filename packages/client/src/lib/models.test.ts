@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@rapid/shared', () => ({
+vi.mock('@tearleads/shared', () => ({
   OPENROUTER_CHAT_MODELS: [
     {
       id: 'mock-model',

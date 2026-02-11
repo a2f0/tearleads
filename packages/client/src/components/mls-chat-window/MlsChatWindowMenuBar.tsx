@@ -1,4 +1,4 @@
-import mlsChatPackageJson from '@rapid/mls-chat/package.json';
+import mlsChatPackageJson from '@tearleads/mls-chat/package.json';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 

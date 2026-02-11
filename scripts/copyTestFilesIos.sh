@@ -9,7 +9,7 @@ esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 TEST_FILES_DIR="$SCRIPT_DIR/../.test_files"
-BUNDLE_ID="${1:-com.tearleads.rapid}"
+BUNDLE_ID="${1:-com.tearleads.app}"
 
 if [ ! -d "$TEST_FILES_DIR" ]; then
     echo "Error: Test files directory not found at $TEST_FILES_DIR"

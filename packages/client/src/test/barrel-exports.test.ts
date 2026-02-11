@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@rapid/db/sqlite', () => ({
+vi.mock('@tearleads/db/sqlite', () => ({
   analyticsEvents: {},
   contactEmails: {},
   contactPhones: {},
@@ -91,7 +91,7 @@ vi.mock('@/pages/contacts/Contacts', () => ({
 vi.mock('@/pages/debug/Debug', () => ({
   Debug: () => null
 }));
-vi.mock('@rapid/keychain', () => ({
+vi.mock('@tearleads/keychain', () => ({
   Keychain: () => null,
   KeychainDetail: () => null
 }));

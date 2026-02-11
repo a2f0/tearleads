@@ -3,7 +3,7 @@
  * Combines all necessary providers for integration testing.
  */
 
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import type { RenderOptions, RenderResult } from '@testing-library/react';
 import { render, waitFor } from '@testing-library/react';
 import type { ReactElement, ReactNode } from 'react';

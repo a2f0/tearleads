@@ -7,8 +7,8 @@ Esta referencia documenta el comportamiento actual de `tearleads` CLI desde `pac
 - `tearleads setup` Inicializa una base de datos cifrada.
 - `tearleads unlock` Desbloquea la base de datos (restaura sesión si existe).
 - `tearleads lock` Bloquea la base de datos.
-- `tearleads backup <file>` Exporta un backup cifrado `.rbu`.
-- `tearleads restore <file>` Importa un backup cifrado `.rbu`.
+- `tearleads backup <file>` Exporta un backup cifrado `.tbu`.
+- `tearleads restore <file>` Importa un backup cifrado `.tbu`.
 - `tearleads dump <folder>` Exporta JSON sin cifrar.
 - `tearleads password` Cambia la contraseña de la base de datos.
 - `tearleads list-instances` Muestra estado de instancia y sesión.
@@ -57,11 +57,11 @@ tearleads lock
 
 ### `backup <file>`
 
-Exporta el estado actual a un backup cifrado `.rbu`.
+Exporta el estado actual a un backup cifrado `.tbu`.
 
 ```bash
-tearleads backup ./backup.rbu
-tearleads backup ./backup.rbu --password "backup-pass"
+tearleads backup ./backup.tbu
+tearleads backup ./backup.tbu --password "backup-pass"
 ```
 
 Opciones:
@@ -75,12 +75,12 @@ Si se omite `--password`, pide:
 
 ### `restore <file>`
 
-Restaura el contenido desde un backup cifrado `.rbu`.
+Restaura el contenido desde un backup cifrado `.tbu`.
 
 ```bash
-tearleads restore ./backup.rbu
-tearleads restore ./backup.rbu --force
-tearleads restore ./backup.rbu --password "backup-pass"
+tearleads restore ./backup.tbu
+tearleads restore ./backup.tbu --force
+tearleads restore ./backup.tbu --password "backup-pass"
 ```
 
 Opciones:
@@ -104,12 +104,12 @@ Exporta esquema y datos en archivos JSON sin cifrar.
 tearleads dump ./dump-output
 tearleads dump ./dump-output --force
 tearleads dump ./dump-output --no-blobs
-tearleads dump ./dump-output --input-file ./backup.rbu --password "backup-pass"
+tearleads dump ./dump-output --input-file ./backup.tbu --password "backup-pass"
 ```
 
 Opciones:
 
-- `-f, --input-file <file>` Leer desde backup `.rbu` en lugar de BD en vivo.
+- `-f, --input-file <file>` Leer desde backup `.tbu` en lugar de BD en vivo.
 - `-p, --password <password>` Contraseña del backup para `--input-file`.
 - `--force` Sobrescribir carpeta existente sin confirmación.
 - `--no-blobs` Omitir creación de `files/`.

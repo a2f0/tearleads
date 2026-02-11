@@ -1,4 +1,4 @@
-import { type Theme, ThemeProvider } from '@rapid/ui';
+import { type Theme, ThemeProvider } from '@tearleads/ui';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';

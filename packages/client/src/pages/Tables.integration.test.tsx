@@ -8,7 +8,7 @@
 // Import integration setup FIRST
 import '../test/setup-integration';
 
-import { resetTestKeyManager } from '@rapid/db-test-utils';
+import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';

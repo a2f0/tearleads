@@ -1,6 +1,6 @@
 @import "tailwindcss";
-@import "@rapid/ui/styles.css";
-@import "@rapid/ui/theme.css";
+@import "@tearleads/ui/styles.css";
+@import "@tearleads/ui/theme.css";
 
 @source "../../ui/src";
 @source "../../calendar/src";

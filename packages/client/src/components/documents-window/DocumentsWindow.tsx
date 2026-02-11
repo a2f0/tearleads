@@ -1,5 +1,5 @@
-import { useMultiFileUpload } from '@rapid/audio';
-import { WindowStatusBar } from '@rapid/window-manager';
+import { useMultiFileUpload } from '@tearleads/audio';
+import { WindowStatusBar } from '@tearleads/window-manager';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';

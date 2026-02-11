@@ -1,4 +1,4 @@
-import { seedVfsItem, withRealDatabase } from '@rapid/db-test-utils';
+import { seedVfsItem, withRealDatabase } from '@tearleads/db-test-utils';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';

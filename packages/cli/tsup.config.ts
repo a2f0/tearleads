@@ -8,7 +8,7 @@ export default defineConfig({
   clean: true,
   sourcemap: true,
   // Bundle workspace dependencies
-  noExternal: ['@rapid/shared'],
+  noExternal: ['@tearleads/shared'],
   // Keep native modules external (can't be bundled)
   external: ['better-sqlite3-multiple-ciphers']
 });

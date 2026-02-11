@@ -3,7 +3,7 @@
  * Shows database and individual table sizes.
  */
 
-import { isRecord, toFiniteNumber } from '@rapid/shared';
+import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { LinkWithFrom } from '@/components/ui/back-link/LinkWithFrom';

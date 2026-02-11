@@ -5,8 +5,11 @@
  * verifying actual database state rather than mock calls.
  */
 
-import { userSettings } from '@rapid/db/sqlite';
-import { commonTestMigrations, withRealDatabase } from '@rapid/db-test-utils';
+import { userSettings } from '@tearleads/db/sqlite';
+import {
+  commonTestMigrations,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
 import { mockConsoleWarn } from '../test/console-mocks';
@@ -90,9 +93,13 @@ describe('user-settings integration', () => {
 
           expect(rows).toHaveLength(3);
 
-          const themeRow = rows.find((r) => r.key === 'theme');
-          const langRow = rows.find((r) => r.key === 'language');
-          const tooltipsRow = rows.find((r) => r.key === 'tooltips');
+          const themeRow = rows.find((r: { key: string }) => r.key === 'theme');
+          const langRow = rows.find(
+            (r: { key: string }) => r.key === 'language'
+          );
+          const tooltipsRow = rows.find(
+            (r: { key: string }) => r.key === 'tooltips'
+          );
 
           expect(themeRow?.value).toBe('dark');
           expect(langRow?.value).toBe('es');

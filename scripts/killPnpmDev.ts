@@ -50,7 +50,7 @@ const repoRoot = resolveRepoRoot();
 
 // Create a unique marker file path based on repo root
 const repoHash = createHash('md5').update(repoRoot).digest('hex').slice(0, 8);
-const markerDir = path.join(os.tmpdir(), 'rapid-dev-kill');
+const markerDir = path.join(os.tmpdir(), 'tearleads-dev-kill');
 const markerFile = path.join(markerDir, `${repoHash}.marker`);
 
 const isWithinCooldown = (): boolean => {
@@ -202,7 +202,7 @@ const sleep = (ms: number): Promise<void> =>
   });
 
 const main = async (): Promise<void> => {
-  if (process.env.RAPID_SKIP_DEV_KILL === '1') {
+  if (process.env.TEARLEADS_SKIP_DEV_KILL === '1') {
     return;
   }
 
@@ -228,7 +228,7 @@ const main = async (): Promise<void> => {
     .filter((proc) => !ancestors.has(proc.pid))
     .filter((proc) => isInRepo(getProcessCwd(proc.pid)));
 
-  // Also find processes holding dev ports (from any rapid clone, not just this repo)
+  // Also find processes holding dev ports (from any tearleads clone, not just this repo)
   // This ensures port conflicts are resolved even when switching between workspaces
   const portPids = DEV_PORTS.map(getProcessOnPort).filter(
     (pid): pid is number => pid !== null && !ancestors.has(pid)

@@ -108,10 +108,10 @@ grep -i "fail\|error\|timeout" /tmp/logs.txt
 
 ```bash
 # Unit tests
-pnpm --filter @rapid/<package> test
+pnpm --filter @tearleads/<package> test
 
 # E2E tests
-pnpm --filter @rapid/client test:e2e
+pnpm --filter @tearleads/client test:e2e
 ```
 
 ### Coverage Drop (build job)
@@ -127,7 +127,7 @@ grep -i "coverage\|threshold" /tmp/logs.txt
 
 ```bash
 # Run coverage locally
-pnpm --filter @rapid/<package> test:coverage
+pnpm --filter @tearleads/<package> test:coverage
 
 # Check the coverage report
 cat packages/<package>/coverage/coverage-summary.json
@@ -188,7 +188,7 @@ Common issues:
 - **Lint errors**: Fix in source, run `pnpm lint`
 - **Type errors**: Fix types, run `pnpm exec tsc -b`
 - **Build errors**: Check imports, run `pnpm build`
-- **Coverage drop**: Add tests, run `pnpm --filter @rapid/<pkg> test:coverage`
+- **Coverage drop**: Add tests, run `pnpm --filter @tearleads/<pkg> test:coverage`
 
 ### web-e2e / electron-e2e Jobs
 
@@ -198,7 +198,7 @@ gh run download <run-id> -n playwright-report -D /tmp/playwright -R "$REPO"
 open /tmp/playwright/index.html
 
 # Run locally
-pnpm --filter @rapid/client test:e2e
+pnpm --filter @tearleads/client test:e2e
 ```
 
 Common issues:
@@ -250,7 +250,7 @@ Common issues:
 If Maestro can't find elements in a WebView:
 
 ```yaml
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 androidWebViewHierarchy: devtools
 ---
 - launchApp:
@@ -280,7 +280,7 @@ await page.getByRole('button', { name: 'Submit' }).click();
 1. Identify uncovered lines in coverage report
 2. Write tests that exercise those code paths
 3. Focus on branch coverage (if/else, switch cases)
-4. Run `pnpm --filter @rapid/<pkg> test:coverage` to verify
+4. Run `pnpm --filter @tearleads/<pkg> test:coverage` to verify
 
 ## Token Efficiency
 

@@ -1,4 +1,4 @@
-declare module '@rapid/db/package.json' {
+declare module '@tearleads/db/package.json' {
   const value: {
     name: string;
     version: string;

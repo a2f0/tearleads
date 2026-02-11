@@ -2,7 +2,7 @@ import {
   ClassicApp,
   type ClassicState,
   type VfsLinkLikeRow
-} from '@rapid/classic';
+} from '@tearleads/classic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';

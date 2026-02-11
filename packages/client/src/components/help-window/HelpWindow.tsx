@@ -1,5 +1,5 @@
-import openapiSpec from '@rapid/api/dist/openapi.json';
-import { ApiDocs } from '@rapid/ui';
+import openapiSpec from '@tearleads/api/dist/openapi.json';
+import { ApiDocs } from '@tearleads/ui';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';

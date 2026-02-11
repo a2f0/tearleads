@@ -4,7 +4,7 @@ This file is for Codex. Claude Code uses CLAUDE.md.
 
 ## Repository Identification (CRITICAL)
 
-**Never infer the repository name from the workspace folder name.** Workspaces like `rapid2`, `rapid10`, `rapid-main` are all clones of the same repository.
+**Never infer the repository name from the workspace folder name.** Workspaces like `tearleads2`, `tearleads10`, `tearleads-main` are all clones of the same repository.
 
 To get the correct repo for `gh` commands:
 

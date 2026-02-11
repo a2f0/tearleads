@@ -25,8 +25,8 @@ describe('PostgresConnectionPanel', () => {
       info: {
         host: 'localhost',
         port: 5432,
-        database: 'rapid',
-        user: 'rapid'
+        database: 'tearleads',
+        user: 'tearleads'
       },
       serverVersion: 'PostgreSQL 15.1'
     });
@@ -40,7 +40,7 @@ describe('PostgresConnectionPanel', () => {
     expect(screen.getByText('PostgreSQL 15.1')).toBeInTheDocument();
     expect(screen.getByText('localhost')).toBeInTheDocument();
     expect(screen.getByText('5432')).toBeInTheDocument();
-    expect(screen.getAllByText('rapid')).toHaveLength(2);
+    expect(screen.getAllByText('tearleads')).toHaveLength(2);
   });
 
   it('renders error state when the connection fails', async () => {

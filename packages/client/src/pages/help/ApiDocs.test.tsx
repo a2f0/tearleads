@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('@rapid/api/dist/openapi.json', () => ({
+vi.mock('@tearleads/api/dist/openapi.json', () => ({
   default: {
     openapi: '3.0.0',
     info: {

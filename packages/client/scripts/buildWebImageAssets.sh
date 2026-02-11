@@ -43,7 +43,7 @@ check_svgo() {
         SVGO_CMD="$CLIENT_DIR/node_modules/.bin/svgo"
     else
         echo "Error: svgo is required." >&2
-        echo "  Run: pnpm --filter @rapid/client add -D svgo" >&2
+        echo "  Run: pnpm --filter @tearleads/client add -D svgo" >&2
         exit 1
     fi
 }

@@ -1,4 +1,4 @@
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 
 /**
  * Supported column types that can be mapped to both SQLite and PostgreSQL.

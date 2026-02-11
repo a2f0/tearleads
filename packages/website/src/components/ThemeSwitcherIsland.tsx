@@ -1,4 +1,4 @@
-import { ThemeProvider, ThemeSwitcher } from '@rapid/ui';
+import { ThemeProvider, ThemeSwitcher } from '@tearleads/ui';
 
 export function ThemeSwitcherIsland() {
   return (

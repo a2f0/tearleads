@@ -1,4 +1,4 @@
-import { Dialog } from '@rapid/ui';
+import { Dialog } from '@tearleads/ui';
 import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';

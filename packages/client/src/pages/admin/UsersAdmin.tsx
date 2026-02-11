@@ -1,4 +1,4 @@
-import type { AdminUser } from '@rapid/shared';
+import type { AdminUser } from '@tearleads/shared';
 import { Check, Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';

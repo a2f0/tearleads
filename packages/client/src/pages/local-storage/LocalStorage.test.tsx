@@ -281,7 +281,7 @@ describe('LocalStorage', () => {
         theme: 'dark',
         'desktop-icon-positions': '{"x":1,"y":2}',
         'window-dimensions:local-storage': '{"width":400}',
-        rapid_last_loaded_model: 'model-123',
+        tearleads_last_loaded_model: 'model-123',
         'audio-visualizer-style': 'gradient',
         'window-state-preserve': 'true'
       };
@@ -312,7 +312,7 @@ describe('LocalStorage', () => {
           'theme',
           'desktop-icon-positions',
           'window-dimensions:local-storage',
-          'rapid_last_loaded_model',
+          'tearleads_last_loaded_model',
           'audio-visualizer-style',
           'window-state-preserve'
         ];

@@ -1,6 +1,6 @@
-# @rapid/api
+# @tearleads/api
 
-Express API server for the Rapid application.
+Express API server for the Tearleads application.
 
 ## Development
 

@@ -1,5 +1,5 @@
-import { vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
-import { vfsTestMigrations, withRealDatabase } from '@rapid/db-test-utils';
+import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { vfsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { linkContactsToGroup } from './linkContactsToGroup';

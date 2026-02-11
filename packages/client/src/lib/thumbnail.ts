@@ -6,7 +6,7 @@
  * For PDFs, renders the first page to a canvas.
  */
 
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 import * as pdfjs from 'pdfjs-dist';
 import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
 

@@ -1,1 +1,1 @@
-export { Footer, type FooterProps } from '@rapid/ui';
+export { Footer, type FooterProps } from '@tearleads/ui';

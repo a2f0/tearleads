@@ -3,7 +3,7 @@
  * Handles pending group invitations.
  */
 
-import type { MlsWelcomeMessage } from '@rapid/shared';
+import type { MlsWelcomeMessage } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';

@@ -2,4 +2,4 @@ export {
   getMediaDragIds,
   type MediaDragType,
   setMediaDragData
-} from '@rapid/shared';
+} from '@tearleads/shared';

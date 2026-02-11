@@ -20,7 +20,7 @@ const docs: Record<SupportedLanguage, () => Promise<{ Content: any }>> = {
 const { Content } = await docs[currentLang]();
 ---
 
-<Layout title="Backup & Restore - Rapid" lang={currentLang}>
+<Layout title="Backup & Restore - Tearleads" lang={currentLang}>
   <DocPageLayout data-testid="backup-restore-content">
     <Content />
   </DocPageLayout>

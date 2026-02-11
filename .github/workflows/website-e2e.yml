@@ -54,7 +54,7 @@ jobs:
 
       - name: Get Playwright version
         id: playwright-version
-        run: echo "version=$(pnpm --filter @rapid/website exec playwright --version)" >> $GITHUB_OUTPUT
+        run: echo "version=$(pnpm --filter @tearleads/website exec playwright --version)" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
         uses: actions/cache@v4
@@ -65,17 +65,17 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm --filter @rapid/website exec playwright install --with-deps chromium firefox webkit
+        run: pnpm --filter @tearleads/website exec playwright install --with-deps chromium firefox webkit
 
       - name: Install Playwright dependencies
         if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: pnpm --filter @rapid/website exec playwright install-deps
+        run: pnpm --filter @tearleads/website exec playwright install-deps
 
       - name: Build API OpenAPI spec
-        run: pnpm --filter @rapid/api buildOpenapi
+        run: pnpm --filter @tearleads/api buildOpenapi
 
       - name: Build website
-        run: pnpm --filter @rapid/website build
+        run: pnpm --filter @tearleads/website build
 
       - name: Generate self-signed certificate
         run: |
@@ -108,7 +108,7 @@ jobs:
         run: curl -k https://localhost:8444/ -I
 
       - name: Run Playwright tests
-        run: pnpm --filter @rapid/website test:e2e
+        run: pnpm --filter @tearleads/website test:e2e
         env:
           BASE_URL: https://localhost:8444
 

@@ -1,4 +1,4 @@
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, desc, eq, like } from 'drizzle-orm';
 import { Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';

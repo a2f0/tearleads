@@ -1,4 +1,4 @@
-import { WINDOW_FIT_CONTENT_EVENT } from '@rapid/window-manager';
+import { WINDOW_FIT_CONTENT_EVENT } from '@tearleads/window-manager';
 import { useRef, useState } from 'react';
 import {
   DropdownMenuItem,

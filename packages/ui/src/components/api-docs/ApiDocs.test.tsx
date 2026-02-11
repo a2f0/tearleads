@@ -6,9 +6,9 @@ import { ApiDocs } from './ApiDocs.js';
 const mockSpec: OpenAPIV3.Document = {
   openapi: '3.0.0',
   info: {
-    title: 'Rapid API',
+    title: 'Tearleads API',
     version: '1.2.3',
-    description: 'Custom API surface for Rapid.'
+    description: 'Custom API surface for Tearleads.'
   },
   tags: [
     {
@@ -55,7 +55,7 @@ describe('ApiDocs', () => {
   it('renders API metadata and tag groups', () => {
     render(<ApiDocs spec={mockSpec} />);
 
-    expect(screen.getByText('Rapid API')).toBeInTheDocument();
+    expect(screen.getByText('Tearleads API')).toBeInTheDocument();
     expect(
       screen.getByRole('heading', { name: 'Messaging' })
     ).toBeInTheDocument();
@@ -99,7 +99,7 @@ describe('ApiDocs', () => {
     );
 
     expect(
-      screen.queryByText('Custom API surface for Rapid.')
+      screen.queryByText('Custom API surface for Tearleads.')
     ).not.toBeInTheDocument();
     expect(screen.getByText('Intro copy')).toBeInTheDocument();
   });

@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # Database Test - Tests SQLite database operations on native platforms
 # Uses evalScript for DOM interaction as Maestro's extendedWaitUntil doesn't work reliably with Capacitor WebViews

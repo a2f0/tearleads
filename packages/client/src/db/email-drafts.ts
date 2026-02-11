@@ -3,4 +3,4 @@ export {
   getEmailDraftFromDb,
   listEmailDraftsFromDb,
   saveEmailDraftToDb
-} from '@rapid/email';
+} from '@tearleads/email';

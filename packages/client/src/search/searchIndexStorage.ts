@@ -3,10 +3,10 @@
  * Each database instance has its own index directory.
  */
 
-import { decrypt, encrypt, importKey } from '@rapid/shared';
+import { decrypt, encrypt, importKey } from '@tearleads/shared';
 import type { StoredSearchIndex } from './types';
 
-const SEARCH_INDEX_DIRECTORY_PREFIX = 'rapid-search-index';
+const SEARCH_INDEX_DIRECTORY_PREFIX = 'tearleads-search-index';
 const INDEX_FILENAME = 'index.enc';
 
 /** Current index format version for migrations */

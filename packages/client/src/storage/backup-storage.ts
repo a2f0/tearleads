@@ -3,9 +3,9 @@
  * Stores backups outside instance-specific namespaces.
  */
 
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 
-const BACKUP_DIRECTORY = 'rapid-backups';
+const BACKUP_DIRECTORY = 'tearleads-backups';
 
 export interface StoredBackup {
   name: string;
@@ -58,7 +58,7 @@ export async function listStoredBackups(): Promise<StoredBackup[]> {
 
   for await (const [name, handle] of iterator) {
     if (isFileHandle(handle)) {
-      if (!name.endsWith('.rbu')) {
+      if (!name.endsWith('.tbu')) {
         continue;
       }
       const file = await handle.getFile();

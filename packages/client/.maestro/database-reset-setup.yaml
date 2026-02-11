@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 env:
   PASSWORD_1: 'resettest123'
   PASSWORD_2: 'newpassword456'

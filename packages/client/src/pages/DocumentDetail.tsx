@@ -60,7 +60,7 @@ export function DocumentDetail({ documentId, onBack }: DocumentDetailProps) {
   const [error, setError] = useState<string | null>(null);
   const [canShare, setCanShare] = useState(false);
   const [actionLoading, setActionLoading] = useState<ActionType | null>(null);
-  // Track loaded storage path to prevent duplicate loads during rapid state changes
+  // Track loaded storage path to prevent duplicate loads during tearleads state changes
   const loadedStoragePathRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -210,7 +210,7 @@ export function DocumentDetail({ documentId, onBack }: DocumentDetailProps) {
   useEffect(() => {
     if (!document || !currentInstanceId) return;
     // Skip if we already loaded this document to avoid race conditions
-    // when dependencies change rapidly during unlock flow
+    // when dependencies change tearleadsly during unlock flow
     if (loadedStoragePathRef.current === document.storagePath) return;
 
     let cancelled = false;

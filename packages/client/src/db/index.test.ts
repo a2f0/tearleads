@@ -354,7 +354,7 @@ describe('Database API', () => {
 
       expect(mockAdapter.close).toHaveBeenCalled();
       expect(mockAdapter.deleteDatabase).toHaveBeenCalledWith(
-        `rapid-${TEST_INSTANCE_ID}`
+        `tearleads-${TEST_INSTANCE_ID}`
       );
       expect(mockKeyManager.reset).toHaveBeenCalled();
     });

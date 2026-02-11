@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Tuxedo - tmux session manager for rapid development
+# Tuxedo - tmux session manager for tearleads development
 #
 # Configurable via environment variables:
 #   TUXEDO_BASE_DIR     - Base directory for workspaces (default: $HOME/github)
@@ -10,7 +10,7 @@
 #   TUXEDO_PR_LIST_LIMIT        - Dashboard PR list length (default: 20)
 #
 # Shared resources:
-#   rapid-shared/ is the source of truth for shared directories (not version controlled).
+#   tearleads-shared/ is the source of truth for shared directories (not version controlled).
 #   CLAUDE.md is NOT symlinked since it's tracked in git.
 #
 # Screen session persistence:

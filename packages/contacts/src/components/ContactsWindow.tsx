@@ -1,4 +1,7 @@
-import { FloatingWindow, type WindowDimensions } from '@rapid/window-manager';
+import {
+  FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';
 import type { ImportResult } from '../hooks/useContactsImport';

@@ -1,4 +1,4 @@
-import { decrypt } from '@rapid/shared';
+import { decrypt } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearVfsKeysCache,
@@ -10,8 +10,8 @@ import {
   wrapSessionKey
 } from './useVfsKeys';
 
-// Mock @rapid/shared crypto functions
-vi.mock('@rapid/shared', () => ({
+// Mock @tearleads/shared crypto functions
+vi.mock('@tearleads/shared', () => ({
   combineEncapsulation: vi.fn(
     (enc: { x25519: Uint8Array; mlKem: Uint8Array }) =>
       `combined:${enc.x25519.length}:${enc.mlKem.length}`

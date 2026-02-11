@@ -396,7 +396,7 @@ describe('WasmNodeAdapter', () => {
     vi.resetModules();
     const module = await import('./wasm-node.adapter');
 
-    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'rapid-wasm-'));
+    const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'tearleads-wasm-'));
     const tempFile = path.join(tempDir, 'test.wasm');
     fs.writeFileSync(tempFile, 'wasm');
 

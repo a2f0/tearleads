@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # AGENT GUARDRAIL: Do NOT skip this test.
 # Instance switching tests are critical for verifying data isolation between instances.

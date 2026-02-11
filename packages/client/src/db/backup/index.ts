@@ -1,7 +1,7 @@
 /**
- * Universal Backup Format (.rbu)
+ * Tearleads Backup Utility format (.tbu)
  *
- * Cross-platform encrypted backup system for Rapid databases.
+ * Cross-platform encrypted backup system for Tearleads databases.
  *
  * Features:
  * - Works on Web, Electron, iOS, and Android

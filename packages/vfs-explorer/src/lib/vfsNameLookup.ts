@@ -3,7 +3,7 @@
  * Fetches display names from respective tables based on object type.
  */
 
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import {
   albums,
   contactGroups,
@@ -15,7 +15,7 @@ import {
   playlists,
   tags,
   vfsFolders
-} from '@rapid/db/sqlite';
+} from '@tearleads/db/sqlite';
 import { inArray } from 'drizzle-orm';
 import type { VfsRegistryRow } from './vfsTypes';
 

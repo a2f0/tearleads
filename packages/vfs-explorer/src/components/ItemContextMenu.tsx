@@ -1,7 +1,7 @@
 import {
   WindowContextMenu,
   WindowContextMenuItem
-} from '@rapid/window-manager';
+} from '@tearleads/window-manager';
 import {
   ClipboardCopy,
   Copy,

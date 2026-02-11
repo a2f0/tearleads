@@ -1,4 +1,4 @@
-import { Notes as NotesBase } from '@rapid/notes';
+import { Notes as NotesBase } from '@tearleads/notes';
 import { ClientNotesProvider } from '@/contexts/ClientNotesProvider';
 
 export function Notes() {

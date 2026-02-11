@@ -1,4 +1,4 @@
-import type { RedisClient } from '@rapid/shared/redis';
+import type { RedisClient } from '@tearleads/shared/redis';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { StoredEmail } from '../types/email.js';
 
@@ -46,7 +46,7 @@ function createMockClient(): RedisClient {
   return mock;
 }
 
-vi.mock('@rapid/shared/redis', () => ({
+vi.mock('@tearleads/shared/redis', () => ({
   getRedisClient: vi.fn(() => Promise.resolve(createMockClient())),
   closeRedisClient: vi.fn(() => mockCloseRedisClient())
 }));
@@ -77,7 +77,7 @@ describe('storage', () => {
 
   describe('createStorage', () => {
     it('should create a storage instance using shared redis client', async () => {
-      const { getRedisClient } = await import('@rapid/shared/redis');
+      const { getRedisClient } = await import('@tearleads/shared/redis');
       const storage = await createStorage('redis://localhost:6379');
 
       expect(getRedisClient).toHaveBeenCalledWith('redis://localhost:6379');
@@ -85,7 +85,7 @@ describe('storage', () => {
     });
 
     it('should work without explicit redis URL', async () => {
-      const { getRedisClient } = await import('@rapid/shared/redis');
+      const { getRedisClient } = await import('@tearleads/shared/redis');
       const storage = await createStorage();
 
       expect(getRedisClient).toHaveBeenCalledWith(undefined);
@@ -180,7 +180,7 @@ describe('storage', () => {
 
   describe('close', () => {
     it('should close the redis connection using shared closeRedisClient', async () => {
-      const { closeRedisClient } = await import('@rapid/shared/redis');
+      const { closeRedisClient } = await import('@tearleads/shared/redis');
       const storage = await createStorage('redis://localhost:6379');
       await storage.close();
 

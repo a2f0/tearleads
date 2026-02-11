@@ -1,4 +1,4 @@
-import { useMultiFileUpload } from '@rapid/audio';
+import { useMultiFileUpload } from '@tearleads/audio';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';

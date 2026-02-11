@@ -1,6 +1,6 @@
 # Chrome Extension
 
-The Rapid Chrome extension is located in `packages/chrome-extension`. It uses Manifest V3 and is built with Vite and TypeScript.
+The Tearleads Chrome extension is located in `packages/chrome-extension`. It uses Manifest V3 and is built with Vite and TypeScript.
 
 ## Project Structure
 
@@ -28,10 +28,10 @@ packages/chrome-extension/
 
 ```bash
 # One-time build
-pnpm --filter @rapid/chrome-extension build
+pnpm --filter @tearleads/chrome-extension build
 
 # Watch mode (rebuilds on file changes)
-pnpm --filter @rapid/chrome-extension dev
+pnpm --filter @tearleads/chrome-extension dev
 ```
 
 ### Loading in Chrome (Developer Mode)
@@ -53,13 +53,13 @@ When running in watch mode (`pnpm dev`), the extension rebuilds automatically on
 
 ```bash
 # Run tests once
-pnpm --filter @rapid/chrome-extension test
+pnpm --filter @tearleads/chrome-extension test
 
 # Watch mode
-pnpm --filter @rapid/chrome-extension test:watch
+pnpm --filter @tearleads/chrome-extension test:watch
 
 # With coverage report
-pnpm --filter @rapid/chrome-extension test:coverage
+pnpm --filter @tearleads/chrome-extension test:coverage
 ```
 
 ## Architecture
@@ -69,7 +69,7 @@ pnpm --filter @rapid/chrome-extension test:coverage
 The extension uses [Manifest V3](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3), Chrome's latest extension platform:
 
 - **Service Worker**: Background script runs as a service worker (`background.js`)
-- **Content Scripts**: Restricted to specific domains (`*.rapid.app` and `localhost`)
+- **Content Scripts**: Restricted to specific domains (`*.tearleads.app` and `localhost`)
 - **Permissions**: Minimal permissions (`storage`, `activeTab`)
 
 ### Components
@@ -97,7 +97,7 @@ chrome.runtime.sendMessage({ type: "PING" }, (response) => {
 
 To publish to the Chrome Web Store:
 
-1. Build the extension: `pnpm --filter @rapid/chrome-extension build`
+1. Build the extension: `pnpm --filter @tearleads/chrome-extension build`
 2. Create a ZIP file of the contents of the `dist` folder (the `manifest.json` file should be at the root of the ZIP archive).
 3. Upload to the [Chrome Developer Dashboard](https://chrome.google.com/webstore/devconsole)
 
@@ -119,7 +119,7 @@ Run from repo root:
 ### Background Service Worker
 
 1. Go to `chrome://extensions`
-2. Find the Rapid extension
+2. Find the Tearleads extension
 3. Click **Service Worker** link to open DevTools for the background script
 
 ### Content Script

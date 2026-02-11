@@ -1,4 +1,4 @@
-import { contactEmails, contactPhones, contacts } from '@rapid/db/sqlite';
+import { contactEmails, contactPhones, contacts } from '@tearleads/db/sqlite';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import {
   ArrowLeft,

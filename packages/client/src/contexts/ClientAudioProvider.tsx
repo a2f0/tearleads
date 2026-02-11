@@ -1,6 +1,6 @@
 /**
  * Client-side AudioUIProvider wrapper that supplies all dependencies
- * to the @rapid/audio package components.
+ * to the @tearleads/audio package components.
  */
 
 import {
@@ -11,9 +11,9 @@ import {
   AudioUIProvider,
   type AudioWithUrl,
   type NavigateToAudio
-} from '@rapid/audio';
-import audioPackageJson from '@rapid/audio/package.json';
-import { assertPlainArrayBuffer } from '@rapid/shared';
+} from '@tearleads/audio';
+import audioPackageJson from '@tearleads/audio/package.json';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';

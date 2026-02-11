@@ -129,15 +129,15 @@ describe('backup-storage', () => {
   beforeEach(() => {
     const fileMap = new Map<string, MockHandle>();
     fileMap.set(
-      'existing-backup.rbu',
-      createMockFileHandle('existing-backup.rbu', new Uint8Array([1, 2, 3]))
+      'existing-backup.tbu',
+      createMockFileHandle('existing-backup.tbu', new Uint8Array([1, 2, 3]))
     );
     fileMap.set(
       'notes.txt',
       createMockFileHandle('notes.txt', new Uint8Array([9]))
     );
     fileMap.set('nested', createMockDirectoryHandle('nested'));
-    backupDirectory = createMockDirectoryHandle('rapid-backups', fileMap);
+    backupDirectory = createMockDirectoryHandle('tearleads-backups', fileMap);
 
     const rootDirectory: MockDirectoryHandle = {
       kind: 'directory',
@@ -175,22 +175,22 @@ describe('backup-storage', () => {
     expect(isBackupStorageSupported()).toBe(false);
   });
 
-  it('lists only .rbu backups', async () => {
+  it('lists only .tbu backups', async () => {
     const backups = await listStoredBackups();
     expect(backups).toHaveLength(1);
-    expect(backups[0]?.name).toBe('existing-backup.rbu');
+    expect(backups[0]?.name).toBe('existing-backup.tbu');
   });
 
   it('saves and reads a backup file', async () => {
     const data = new Uint8Array([4, 5, 6]);
-    await saveBackupToStorage(data, 'new-backup.rbu');
+    await saveBackupToStorage(data, 'new-backup.tbu');
 
-    const read = await readBackupFromStorage('new-backup.rbu');
+    const read = await readBackupFromStorage('new-backup.tbu');
     expect(read).toEqual(data);
   });
 
   it('deletes a backup file', async () => {
-    await deleteBackupFromStorage('existing-backup.rbu');
+    await deleteBackupFromStorage('existing-backup.tbu');
     const backups = await listStoredBackups();
     expect(backups).toHaveLength(0);
   });
@@ -220,7 +220,7 @@ describe('backup-storage', () => {
       }),
       getDirectoryHandle: vi.fn(async () => ({
         kind: 'directory',
-        name: 'rapid-backups',
+        name: 'tearleads-backups',
         getFileHandle: vi.fn(),
         getDirectoryHandle: vi.fn(),
         removeEntry: vi.fn(),

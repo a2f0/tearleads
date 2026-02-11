@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.tearleads.rapid',
+  appId: 'com.tearleads.app',
   appName: 'Tearleads',
   webDir: 'dist',
   server: {
@@ -17,7 +17,7 @@ const config: CapacitorConfig = {
       // Enable encryption on Android
       androidIsEncryption: true,
       // Use memory security (wipe database from memory on close)
-      iosKeychainPrefix: 'com.tearleads.rapid',
+      iosKeychainPrefix: 'com.tearleads.app',
       // Biometric authentication (optional, can enable later)
       iosBiometric: {
         biometricAuth: false

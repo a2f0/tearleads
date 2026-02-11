@@ -40,7 +40,7 @@ fi
 ./packages/client/scripts/buildWebImageAssets.sh
 
 # Build the client
-pnpm --filter @rapid/client build
+pnpm --filter @tearleads/client build
 
 # Sync files, but protect all files in /assets/ from deletion - hashed assets
 # are immutable and must persist indefinitely to avoid 404s for cached HTML

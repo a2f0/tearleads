@@ -4,7 +4,7 @@
  * Database is persisted to OPFS as an encrypted blob.
  */
 
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 
 import type {
   WorkerRequest,

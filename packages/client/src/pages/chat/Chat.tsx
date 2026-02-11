@@ -1,4 +1,4 @@
-import { OPENROUTER_CHAT_MODELS } from '@rapid/shared';
+import { OPENROUTER_CHAT_MODELS } from '@tearleads/shared';
 import { useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useDatabaseContext } from '@/db/hooks';

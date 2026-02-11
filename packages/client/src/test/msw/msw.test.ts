@@ -1,4 +1,4 @@
-import { DEFAULT_OPENROUTER_MODEL_ID } from '@rapid/shared';
+import { DEFAULT_OPENROUTER_MODEL_ID } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 
 describe('msw handlers', () => {
@@ -55,8 +55,8 @@ describe('msw handlers', () => {
       info: {
         host: 'localhost',
         port: 5432,
-        database: 'rapid',
-        user: 'rapid'
+        database: 'tearleads',
+        user: 'tearleads'
       },
       serverVersion: 'PostgreSQL 15.1'
     });

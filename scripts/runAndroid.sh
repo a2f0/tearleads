@@ -9,7 +9,7 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
 cd "$SCRIPT_DIR/../packages/client"
 
-PACKAGE_ID="com.tearleads.rapid"
+PACKAGE_ID="com.tearleads.app"
 DEVICE="Maestro_Pixel_6_API_33_1"
 
 # Start emulator in foreground if not already running

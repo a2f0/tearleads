@@ -1,4 +1,4 @@
-import type { FlatTreeItem } from '@rapid/shared';
+import type { FlatTreeItem } from '@tearleads/shared';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useCallback } from 'react';
 import { cn } from '../../lib/utils.js';

@@ -6,7 +6,7 @@
  * If tests fail, fix the root cause rather than skipping.
  */
 
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getTestInstanceId,

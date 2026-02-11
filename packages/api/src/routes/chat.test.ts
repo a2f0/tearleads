@@ -1,4 +1,4 @@
-import { DEFAULT_OPENROUTER_MODEL_ID, isRecord } from '@rapid/shared';
+import { DEFAULT_OPENROUTER_MODEL_ID, isRecord } from '@tearleads/shared';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../index.js';

@@ -33,10 +33,10 @@ fi
 export VITE_API_URL
 
 # Generate OpenAPI spec (needed by website for /docs page)
-pnpm --filter @rapid/api buildOpenapi
+pnpm --filter @tearleads/api buildOpenapi
 
 # Build the website
-pnpm --filter @rapid/website build
+pnpm --filter @tearleads/website build
 
 # Sync files, but protect /_astro/ directory from immediate deletion to avoid
 # breaking users with cached HTML that references old hashed bundles

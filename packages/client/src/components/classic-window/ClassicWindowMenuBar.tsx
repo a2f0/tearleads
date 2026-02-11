@@ -1,4 +1,4 @@
-import classicPackageJson from '@rapid/classic/package.json';
+import classicPackageJson from '@tearleads/classic/package.json';
 import {
   DropdownMenu,
   DropdownMenuItem,

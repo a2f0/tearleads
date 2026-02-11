@@ -1,5 +1,3 @@
-import { assertPlainArrayBuffer } from '@rapid/shared';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import {
   type ColumnDef,
   flexRender,
@@ -7,6 +5,11 @@ import {
   useReactTable
 } from '@tanstack/react-table';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import {
   ChevronRight,

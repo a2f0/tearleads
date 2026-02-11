@@ -19,8 +19,8 @@ import type {
   RecordAiUsageRequest,
   RecordAiUsageResponse,
   UpdateAiConversationRequest
-} from '@rapid/shared';
-import { isRecord } from '@rapid/shared';
+} from '@tearleads/shared';
+import { isRecord } from '@tearleads/shared';
 import {
   type Request,
   type Response,

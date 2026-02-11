@@ -1,9 +1,9 @@
-import type { AuthUser } from '@rapid/shared';
+import type { AuthUser } from '@tearleads/shared';
 
 export const AUTH_TOKEN_KEY = 'auth_token';
 export const AUTH_REFRESH_TOKEN_KEY = 'auth_refresh_token';
 export const AUTH_USER_KEY = 'auth_user';
-const AUTH_CHANGE_EVENT = 'rapid_auth_change';
+const AUTH_CHANGE_EVENT = 'tearleads_auth_change';
 const SESSION_EXPIRED_MESSAGE = 'Session expired. Please sign in again.';
 const REFRESH_LOCK_KEY = 'auth_refresh_lock';
 const REFRESH_LOCK_TIMEOUT_MS = 10000; // 10 seconds max lock duration

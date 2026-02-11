@@ -6,7 +6,7 @@ import { type DBSchema, type IDBPDatabase, openDB } from 'idb';
 
 import type { LocalKeyPackage, LocalMlsState, MlsCredential } from './types.js';
 
-const DB_NAME = 'rapid-mls';
+const DB_NAME = 'tearleads-mls';
 const DB_VERSION = 1;
 
 interface MlsDbSchema extends DBSchema {

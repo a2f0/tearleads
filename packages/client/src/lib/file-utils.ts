@@ -3,7 +3,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 
 /**
  * Compute SHA-256 hash of file data.
@@ -19,7 +19,7 @@ export async function computeContentHash(data: Uint8Array): Promise<string> {
 
 /**
  * Generate a backup filename with timestamp.
- * Format: rapid-backup-YYYY-MM-DD-HHmmss.db
+ * Format: tearleads-backup-YYYY-MM-DD-HHmmss.db
  */
 export function generateBackupFilename(): string {
   const now = new Date();
@@ -29,7 +29,7 @@ export function generateBackupFilename(): string {
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
-  return `rapid-backup-${year}-${month}-${day}-${hours}${minutes}${seconds}.db`;
+  return `tearleads-backup-${year}-${month}-${day}-${hours}${minutes}${seconds}.db`;
 }
 
 /**

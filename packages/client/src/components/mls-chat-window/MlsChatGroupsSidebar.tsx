@@ -1,5 +1,8 @@
-import type { ActiveGroup } from '@rapid/mls-chat';
-import { useResizableSidebar, WindowContextMenu } from '@rapid/window-manager';
+import type { ActiveGroup } from '@tearleads/mls-chat';
+import {
+  useResizableSidebar,
+  WindowContextMenu
+} from '@tearleads/window-manager';
 import { Loader2, MessageCircle, Plus } from 'lucide-react';
 import { useCallback, useState } from 'react';
 

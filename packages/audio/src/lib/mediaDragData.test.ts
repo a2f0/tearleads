@@ -36,19 +36,19 @@ describe('mediaDragData', () => {
   it('returns empty ids for invalid payloads', () => {
     const event = createDragEventStub();
     event.dataTransfer.setData(
-      'application/x-rapid-media-ids',
+      'application/x-tearleads-media-ids',
       JSON.stringify({ mediaType: 'video', ids: ['video-1'] })
     );
     expect(getMediaDragIds(event.dataTransfer, 'audio')).toEqual([]);
 
-    event.dataTransfer.setData('application/x-rapid-media-ids', 'not-json');
+    event.dataTransfer.setData('application/x-tearleads-media-ids', 'not-json');
     expect(getMediaDragIds(event.dataTransfer, 'audio')).toEqual([]);
   });
 
   it('returns empty ids when payload ids are not an array', () => {
     const event = createDragEventStub();
     event.dataTransfer.setData(
-      'application/x-rapid-media-ids',
+      'application/x-tearleads-media-ids',
       JSON.stringify({ mediaType: 'audio', ids: 'audio-1' })
     );
 

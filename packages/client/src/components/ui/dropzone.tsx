@@ -1,4 +1,4 @@
-import { getErrorCode } from '@rapid/shared';
+import { getErrorCode } from '@tearleads/shared';
 import { Upload } from 'lucide-react';
 import { useCallback, useId, useRef, useState } from 'react';
 import {

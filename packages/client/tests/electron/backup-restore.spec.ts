@@ -72,7 +72,7 @@ test.describe('Backup and Restore (Electron)', () => {
     await window.getByRole('button', { name: 'Create Backup' }).click();
 
     // Wait for backup to complete (success message appears)
-    const successMessage = window.getByText(/Backup saved as.*\.rbu/);
+    const successMessage = window.getByText(/Backup saved as.*\.tbu/);
     await expect(successMessage).toBeVisible({
       timeout: BACKUP_TIMEOUT
     });
@@ -106,7 +106,7 @@ test.describe('Backup and Restore (Electron)', () => {
     await window.getByRole('button', { name: 'Create Backup' }).click();
 
     // Wait for backup to complete
-    await expect(window.getByText(/Backup saved as.*\.rbu/)).toBeVisible({
+    await expect(window.getByText(/Backup saved as.*\.tbu/)).toBeVisible({
       timeout: BACKUP_TIMEOUT
     });
 
@@ -149,7 +149,7 @@ test.describe('Backup and Restore (Electron)', () => {
     await window.getByRole('button', { name: 'Create Backup' }).click();
 
     // Wait for backup to complete
-    await expect(window.getByText(/Backup saved as.*\.rbu/)).toBeVisible({
+    await expect(window.getByText(/Backup saved as.*\.tbu/)).toBeVisible({
       timeout: BACKUP_TIMEOUT
     });
 

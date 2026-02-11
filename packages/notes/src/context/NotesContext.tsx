@@ -1,4 +1,4 @@
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import type { ComponentType, ReactNode } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 
@@ -47,7 +47,7 @@ export interface FeatureFlagFunctions {
 }
 
 /**
- * VFS object type (matches @rapid/shared VfsObjectType)
+ * VFS object type (matches @tearleads/shared VfsObjectType)
  */
 export type VfsObjectType = 'file' | 'folder' | 'contact' | 'note' | 'photo';
 

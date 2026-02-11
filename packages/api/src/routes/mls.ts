@@ -35,8 +35,8 @@ import type {
   UploadMlsKeyPackagesResponse,
   UploadMlsStateRequest,
   UploadMlsStateResponse
-} from '@rapid/shared';
-import { isRecord, MLS_CIPHERSUITES } from '@rapid/shared';
+} from '@tearleads/shared';
+import { isRecord, MLS_CIPHERSUITES } from '@tearleads/shared';
 import {
   type Request,
   type Response,

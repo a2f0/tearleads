@@ -6,7 +6,7 @@
  */
 
 import { Capacitor } from '@capacitor/core';
-import { decrypt, encrypt, importKey } from '@rapid/shared';
+import { decrypt, encrypt, importKey } from '@tearleads/shared';
 import type { DatabaseInsert } from '@/db/analytics';
 import { logEvent } from '@/db/analytics';
 
@@ -135,7 +135,7 @@ async function measureStoreHelper(
  * Get the directory name for an instance.
  */
 function getFilesDirectory(instanceId: string): string {
-  return `rapid-files-${instanceId}`;
+  return `tearleads-files-${instanceId}`;
 }
 
 export interface FileStorage {

@@ -136,7 +136,7 @@ describe('ContactsGroupsSidebar', () => {
     fireEvent.drop(groupButton, {
       dataTransfer: {
         getData: (format: string) =>
-          format === 'application/x-rapid-contact-ids'
+          format === 'application/x-tearleads-contact-ids'
             ? JSON.stringify({ ids: ['contact-1'] })
             : ''
       }
