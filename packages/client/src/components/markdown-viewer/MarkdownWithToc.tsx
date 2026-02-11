@@ -1,5 +1,11 @@
+import { useResizableSidebar } from '@rapid/window-manager';
 import MDEditor from '@uiw/react-md-editor';
-import { type HTMLAttributes, isValidElement, type ReactNode } from 'react';
+import {
+  type HTMLAttributes,
+  isValidElement,
+  type ReactNode,
+  useState
+} from 'react';
 
 interface TocHeading {
   id: string;
@@ -11,6 +17,10 @@ interface MarkdownWithTocProps {
   markdownColorMode: 'light' | 'dark';
   source: string;
 }
+
+const DEFAULT_TOC_WIDTH = 220;
+const MIN_TOC_WIDTH = 160;
+const MAX_TOC_WIDTH = 420;
 
 function createSlug(value: string): string {
   const slug = value
@@ -142,9 +152,17 @@ export function MarkdownWithToc({
   source,
   markdownColorMode
 }: MarkdownWithTocProps) {
+  const [tocWidth, setTocWidth] = useState(DEFAULT_TOC_WIDTH);
   const headings = extractHeadings(source);
   const hasToc = headings.length > 0;
   const getRenderedHeadingId = createSlugger();
+  const { resizeHandleProps } = useResizableSidebar({
+    width: tocWidth,
+    onWidthChange: setTocWidth,
+    ariaLabel: 'Resize table of contents sidebar',
+    minWidth: MIN_TOC_WIDTH,
+    maxWidth: MAX_TOC_WIDTH
+  });
 
   function createHeading(level: 1 | 2 | 3 | 4 | 5 | 6) {
     const Tag = `h${level}` as const;
@@ -172,14 +190,11 @@ export function MarkdownWithToc({
 
   return (
     <div className="min-h-0 flex-1 overflow-hidden rounded-lg border bg-card">
-      <div
-        className={`grid h-full min-h-0 ${
-          hasToc ? 'grid-cols-[220px_minmax(0,1fr)]' : 'grid-cols-1'
-        }`}
-      >
+      <div className="flex h-full min-h-0">
         {hasToc && (
           <aside
-            className="min-h-0 border-r bg-muted/20"
+            className="relative min-h-0 shrink-0 border-r bg-muted/20"
+            style={{ width: tocWidth }}
             data-testid="markdown-toc-sidebar"
           >
             <div className="h-full overflow-y-auto p-3">
@@ -199,11 +214,15 @@ export function MarkdownWithToc({
                 ))}
               </nav>
             </div>
+            <div
+              className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+              {...resizeHandleProps}
+            />
           </aside>
         )}
 
         <div
-          className="min-h-0 overflow-y-auto p-4"
+          className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4"
           data-testid="markdown-content-scroll"
         >
           <div data-color-mode={markdownColorMode}>
