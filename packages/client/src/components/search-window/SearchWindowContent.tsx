@@ -476,7 +476,7 @@ export function SearchWindowContent({
                           void handleResultClick(result, event);
                         }}
                       >
-                        <td className="px-3 py-2 font-medium">
+                        <td className="px-3 py-2">
                           {result.document.title}
                         </td>
                         <td className="px-3 py-2 text-muted-foreground text-xs">
