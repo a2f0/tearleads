@@ -1,4 +1,4 @@
-import { WindowStatusBar } from '@rapid/window-manager';
+import { WindowStatusBar, WindowTableRow } from '@rapid/window-manager';
 import {
   AppWindow,
   Contact,
@@ -456,38 +456,36 @@ export function SearchWindowContent({
             </div>
             {viewMode === 'table' ? (
               <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b bg-muted/30">
+                <table className="w-full text-left text-xs">
+                  <thead className="border-b bg-muted/50 text-muted-foreground">
                     <tr>
-                      <th className="px-3 py-2 font-medium">Title</th>
-                      <th className="px-3 py-2 font-medium">Type</th>
-                      <th className="px-3 py-2 font-medium">Preview</th>
+                      <th className="px-2 py-1.5 font-medium">Title</th>
+                      <th className="px-2 py-1.5 font-medium">Type</th>
+                      <th className="px-2 py-1.5 font-medium">Preview</th>
                     </tr>
                   </thead>
                   <tbody>
                     {results.map((result, index) => (
-                      <tr
+                      <WindowTableRow
                         key={result.id}
                         data-result-index={index}
-                        className={`cursor-pointer border-b hover:bg-muted/50 ${
-                          selectedIndex === index ? 'bg-accent' : ''
-                        }`}
+                        isSelected={selectedIndex === index}
                         onClick={(event) => {
                           void handleResultClick(result, event);
                         }}
                       >
-                        <td className="px-3 py-2">
+                        <td className="px-2 py-1.5">
                           {result.document.title}
                         </td>
-                        <td className="px-3 py-2 text-muted-foreground text-xs">
+                        <td className="px-2 py-1.5 text-muted-foreground">
                           {ENTITY_TYPE_LABELS[result.entityType]}
                         </td>
-                        <td className="max-w-[300px] truncate px-3 py-2 text-muted-foreground text-xs">
+                        <td className="max-w-[300px] truncate px-2 py-1.5 text-muted-foreground">
                           {result.document.content?.slice(0, 100) ||
                             result.document.metadata?.slice(0, 100) ||
                             '—'}
                         </td>
-                      </tr>
+                      </WindowTableRow>
                     ))}
                   </tbody>
                 </table>

@@ -10,7 +10,9 @@ export {
   type WindowContextMenuProps,
   type WindowDimensions,
   WindowStatusBar,
-  type WindowStatusBarProps
+  type WindowStatusBarProps,
+  WindowTableRow,
+  type WindowTableRowProps
 } from './components/index.js';
 
 // Context

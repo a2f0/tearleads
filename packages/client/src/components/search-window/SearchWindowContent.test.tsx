@@ -741,7 +741,7 @@ describe('SearchWindowContent', () => {
       await user.keyboard('{ArrowDown}');
 
       const row = screen.getByText('John Doe').closest('tr');
-      expect(row).toHaveClass('bg-accent');
+      expect(row).toHaveClass('bg-accent/50');
     });
 
     it('submits search form when Enter pressed with no selection', async () => {
