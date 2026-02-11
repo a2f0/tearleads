@@ -214,8 +214,8 @@ export function MarkdownWithToc({
                 ))}
               </nav>
             </div>
-            <hr
-              className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize border-0 bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
+            <div
+              className="absolute top-0 right-0 bottom-0 w-1 cursor-col-resize bg-transparent hover:bg-accent focus:outline-none focus:ring-2 focus:ring-ring"
               {...resizeHandleProps}
             />
           </aside>
