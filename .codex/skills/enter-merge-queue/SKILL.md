@@ -13,6 +13,7 @@ Determine the repository for all `gh` commands:
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+PR_NUMBER=$(gh pr view --json number --jq '.number')
 ```
 
 Always pass `-R "$REPO"` to `gh` commands.
@@ -39,7 +40,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 1. Verify the PR exists and collect metadata.
 
    ```bash
-   gh pr view --json number,title,headRefName,baseRefName,url,state,labels,files,body -R "$REPO"
+   gh pr view "$PR_NUMBER" --json number,title,headRefName,baseRefName,url,state,labels,files,body -R "$REPO"
    ```
 
    - Store `baseRefName` for rebase.
@@ -75,7 +76,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    4b. Check merge status:
 
    ```bash
-   gh pr view --json state,mergeStateStatus,mergeable -R "$REPO"
+   gh pr view "$PR_NUMBER" --json state,mergeStateStatus,mergeable -R "$REPO"
    ```
 
    - `MERGED`: exit loop.
@@ -119,7 +120,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    **Initial Gemini check** (if `has_waited_for_gemini` is `false`):
 
    ```bash
-   gh pr view <pr-number> --json reviews -R "$REPO"
+   gh pr view "$PR_NUMBER" --json reviews -R "$REPO"
    ```
 
    Poll every 30 seconds (with jitter) for up to 5 minutes for `gemini-code-assist`. Set `has_waited_for_gemini = true` after first review is found.
@@ -190,7 +191,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    **At each poll**:
 
-   1. Check if branch is behind: `gh pr view --json mergeStateStatus -R "$REPO"`
+   1. Check if branch is behind: `gh pr view "$PR_NUMBER" --json mergeStateStatus -R "$REPO"`
       - If `BEHIND`, cancel the current workflow run to save CI minutes (only if `RUN_ID` is set), then return to 4c immediately:
 
         ```bash
@@ -222,8 +223,8 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    If `has_bumped_version` is still `false`, perform the bump, amend, force push, and return to 4e.
 
    ```bash
-   gh pr merge --auto --merge -R "$REPO"
-   gh pr view --json state,mergeStateStatus,autoMergeRequest -R "$REPO"
+   gh pr merge "$PR_NUMBER" --auto --merge -R "$REPO"
+   gh pr view "$PR_NUMBER" --json state,mergeStateStatus,autoMergeRequest -R "$REPO"
    ```
 
    - Only enable auto-merge after:
