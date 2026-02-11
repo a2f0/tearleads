@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from 'react';
 import type { WindowDimensions } from '../../components/FloatingWindow.js';
-import { generateUniqueId } from '../../lib/utils.js';
 import type { WindowInstance, WindowManagerProviderProps } from './types.js';
 import { WindowManagerContext } from './WindowManagerContext.js';
 
@@ -43,11 +42,7 @@ export function WindowManagerProvider({
 
   const openWindow = useCallback(
     (type: string, customId?: string): string => {
-      const id = customId ?? generateUniqueId(type);
-      const existingWindow = customId
-        ? undefined
-        : windows.find((window) => window.type === type);
-      let resolvedId = existingWindow?.id ?? id;
+      let resolvedId = customId ?? type;
 
       const preserveState = shouldPreserveState?.() ?? true;
       const savedDimensions =
@@ -67,7 +62,7 @@ export function WindowManagerProvider({
           }
         }
 
-        const existing = prev.find((w) => w.id === id);
+        const existing = prev.find((w) => w.id === resolvedId);
         if (existing) {
           resolvedId = existing.id;
           return prev;
@@ -77,7 +72,7 @@ export function WindowManagerProvider({
         return [
           ...prev,
           {
-            id,
+            id: resolvedId,
             type,
             zIndex: nextZIndex,
             isMinimized: false,
@@ -88,7 +83,7 @@ export function WindowManagerProvider({
 
       return resolvedId;
     },
-    [getNextZIndex, loadDimensions, shouldPreserveState, windows]
+    [getNextZIndex, loadDimensions, shouldPreserveState]
   );
 
   const minimizeWindow = useCallback(
