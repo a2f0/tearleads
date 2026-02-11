@@ -14,7 +14,7 @@ description: Guarantee PR merge by cycling until merged
 - CI completing successfully - continue to enable auto-merge, then keep polling
 - Enabling auto-merge - keep polling until `state` is `MERGED`
 
-**The ONLY valid exit condition is `gh pr view --json state` returning `"state":"MERGED"`.**
+**The ONLY valid exit condition is `gh pr view "$PR_NUMBER" --json state -R "$REPO"` returning `"state":"MERGED"`.**
 
 ---
 
@@ -22,9 +22,10 @@ description: Guarantee PR merge by cycling until merged
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+PR_NUMBER=$(gh pr view --json number --jq '.number')
 ```
 
-Use `-R "$REPO"` with `gh` commands that require explicit repo context (e.g., `gh issue`, `gh api`). However, do NOT use `-R` with `gh pr view` when inferring from the current branch - it requires an explicit PR number when `-R` is used. Instead, run `gh pr view` without `-R` to use the current branch context, or specify the PR number explicitly: `gh pr view <number> -R "$REPO"`.
+Use `-R "$REPO"` for all `gh` commands after `PR_NUMBER` is captured.
 
 This skill guarantees a PR gets merged by continuously updating from base, fixing CI, addressing reviews, and waiting until the PR is actually merged.
 
@@ -55,15 +56,15 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
 ## Steps
 
-1. **Verify PR exists and check file types**: Run `gh pr view --json number,title,headRefName,baseRefName,url,state,labels,files,body` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
+1. **Verify PR exists and check file types**: Run `gh pr view "$PR_NUMBER" --json number,title,headRefName,baseRefName,url,state,labels,files,body -R "$REPO"` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
 
    **Roll-up PR detection**: Check if `baseRefName` is `main` or `master`. If NOT:
    - This is a **roll-up PR** that depends on another PR merging first
    - Set `is_rollup_pr = true` and `original_base_ref = baseRefName`
-   - Find the base PR: `gh pr list --head <baseRefName> --state open --json number --jq '.[0].number'`
+   - Find the base PR: `gh pr list --head <baseRefName> --state open --json number --jq '.[0].number' -R "$REPO"`
    - If a PR is found, store it as `base_pr_number`
    - If no open PR is found for the base branch, check if it was already merged:
-     - `gh pr list --head <baseRefName> --state merged --json number --jq '.[0].number'`
+     - `gh pr list --head <baseRefName> --state merged --json number --jq '.[0].number' -R "$REPO"`
      - If merged, proceed as normal (the roll-up PR's base will be updated by GitHub)
    - Log: "Roll-up PR detected. Base PR: #<base_pr_number> (<baseRefName>)"
 
@@ -104,13 +105,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    If this is a roll-up PR, the base PR must merge before this PR can proceed:
 
    ```bash
-   gh pr view <base_pr_number> --json state,mergeStateStatus
+   gh pr view <base_pr_number> --json state,mergeStateStatus -R "$REPO"
    ```
 
    **If base PR `state` is `MERGED`**:
    - Log: "Base PR #<base_pr_number> has merged. Retargeting to main."
    - GitHub automatically retargets the roll-up PR to `main` when the base PR merges
-   - Refresh PR info to get updated `baseRefName`: `gh pr view --json baseRefName`
+   - Refresh PR info to get updated `baseRefName`: `gh pr view "$PR_NUMBER" --json baseRefName -R "$REPO"`
    - Set `is_rollup_pr = false` (now a normal PR targeting main)
    - Rebase onto main to incorporate base PR changes:
 
@@ -142,13 +143,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    **Step 1**: Get the list of high-priority PR numbers:
 
    ```bash
-   gh pr list --label "high-priority" --state open --search "-is:draft" --json number
+   gh pr list --label "high-priority" --state open --search "-is:draft" --json number -R "$REPO"
    ```
 
    **Step 2**: For each high-priority PR, get its merge state (required because `mergeStateStatus` is not available in `gh pr list`):
 
    ```bash
-   gh pr view <pr-number> --json mergeStateStatus
+   gh pr view <pr-number> --json mergeStateStatus -R "$REPO"
    ```
 
    **Step 3**: Determine whether to yield:
@@ -165,7 +166,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    ### 4c. Check PR state
 
    ```bash
-   gh pr view --json state,mergeStateStatus,mergeable
+   gh pr view "$PR_NUMBER" --json state,mergeStateStatus,mergeable -R "$REPO"
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
@@ -275,7 +276,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    ```bash
    COMMIT=$(git rev-parse HEAD)
-   RUN_ID=$(gh run list --commit "$COMMIT" --limit 1 --json databaseId --jq '.[0].databaseId')
+   RUN_ID=$(gh run list --commit "$COMMIT" --limit 1 --json databaseId --jq '.[0].databaseId' -R "$REPO")
    ```
 
    Store as `current_run_id`. If the run ID changes (new workflow started), update `current_run_id`.
@@ -283,7 +284,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    **Step 2**: Poll individual job statuses (not just workflow status):
 
    ```bash
-   gh run view $RUN_ID --json jobs --jq '[.jobs[] | {name, status, conclusion}]'
+   gh run view $RUN_ID --json jobs --jq '[.jobs[] | {name, status, conclusion}]' -R "$REPO"
    ```
 
    **Job priority order** (process failures in this order - fastest jobs first):
@@ -300,7 +301,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    #### At each poll iteration
 
-   1. **Check if branch is behind**: `gh pr view --json mergeStateStatus`
+   1. **Check if branch is behind**: `gh pr view "$PR_NUMBER" --json mergeStateStatus -R "$REPO"`
       - If `mergeStateStatus` is `BEHIND`: cancel the current workflow to save CI minutes (only if `RUN_ID` is set), then **immediately** go back to step 4d (don't wait for CI to finish):
 
         ```bash
@@ -332,7 +333,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
           - Log: "Job '<job-name>' failed (attempt X/3). Starting fix."
           - Run `/fix-tests <job-name>` targeting the specific job
           - If fix was pushed:
-            - Cancel the obsolete workflow: `gh run cancel $RUN_ID`
+            - Cancel the obsolete workflow: `gh run cancel $RUN_ID -R "$REPO"`
             - Log: "Cancelled obsolete workflow. New CI starting."
             - Break out of job loop (new workflow will start, pick it up next poll)
 
@@ -345,7 +346,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    After pushing a fix, cancel the obsolete workflow to save CI minutes:
 
    ```bash
-   gh run cancel $RUN_ID
+   gh run cancel $RUN_ID -R "$REPO"
    ```
 
    **Why cancel?**
@@ -360,7 +361,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    If the workflow was cancelled (not by us), rerun it:
 
    ```bash
-   gh run rerun $RUN_ID
+   gh run rerun $RUN_ID -R "$REPO"
    ```
 
    ### 4f. Enable auto-merge and wait
@@ -370,13 +371,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    Enable auto-merge:
 
    ```bash
-   gh pr merge --auto --merge
+   gh pr merge "$PR_NUMBER" --auto --merge -R "$REPO"
    ```
 
    Then poll for merge completion (30 seconds with jitter). **Keep polling until merged**:
 
    ```bash
-   gh pr view --json state,mergeStateStatus
+   gh pr view "$PR_NUMBER" --json state,mergeStateStatus -R "$REPO"
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
@@ -397,7 +398,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    1. Add the "needs-qa" label to the associated issue:
 
       ```bash
-      gh issue edit <associated_issue_number> --add-label "needs-qa"
+      gh issue edit <associated_issue_number> --add-label "needs-qa" -R "$REPO"
       ```
 
    That's it. The issue already describes the work; no need to update descriptions or add comments.
@@ -446,8 +447,8 @@ git rebase origin/main      # Can be noisy and waste tokens
 
   ```bash
   # CORRECT
-  gh pr view --json state,mergeStateStatus
-  gh run list --json status,conclusion,databaseId --limit 1
+  gh pr view "$PR_NUMBER" --json state,mergeStateStatus -R "$REPO"
+  gh run list --json status,conclusion,databaseId --limit 1 -R "$REPO"
 
   # WRONG - fetches unnecessary data
   gh pr view
