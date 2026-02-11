@@ -156,6 +156,44 @@ export function deleteTag(state: ClassicState, tagId: string): ClassicState {
   };
 }
 
+export function softDeleteTag(
+  state: ClassicState,
+  tagId: string
+): ClassicState {
+  const tagToDelete = state.tags.find((tag) => tag.id === tagId);
+  if (!tagToDelete) {
+    return state;
+  }
+
+  const { [tagId]: _removed, ...nextNoteOrderByTagId } = state.noteOrderByTagId;
+
+  return {
+    ...state,
+    tags: state.tags.filter((tag) => tag.id !== tagId),
+    deletedTags: [...state.deletedTags, tagToDelete],
+    noteOrderByTagId: nextNoteOrderByTagId,
+    activeTagId: state.activeTagId === tagId ? null : state.activeTagId
+  };
+}
+
+export function restoreTag(state: ClassicState, tagId: string): ClassicState {
+  const tagToRestore = state.deletedTags.find((tag) => tag.id === tagId);
+  if (!tagToRestore) {
+    return state;
+  }
+
+  return {
+    ...state,
+    tags: [...state.tags, tagToRestore],
+    deletedTags: state.deletedTags.filter((tag) => tag.id !== tagId),
+    noteOrderByTagId: {
+      ...state.noteOrderByTagId,
+      [tagId]: state.noteOrderByTagId[tagId] ?? []
+    },
+    activeTagId: tagId
+  };
+}
+
 export function getUntaggedNoteIds(state: ClassicState): string[] {
   const taggedNoteIds = new Set<string>();
   for (const noteIds of Object.values(state.noteOrderByTagId)) {

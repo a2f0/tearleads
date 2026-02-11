@@ -14,6 +14,7 @@ export const CLASSIC_TAG_PARENT_ID = '__vfs_root__';
 
 export const CLASSIC_EMPTY_STATE: ClassicState = {
   tags: [],
+  deletedTags: [],
   notesById: {},
   noteOrderByTagId: {},
   activeTagId: null
@@ -38,7 +39,8 @@ export async function loadClassicStateFromDatabase(): Promise<LoadedClassicState
     db
       .select({
         id: tags.id,
-        encryptedName: tags.encryptedName
+        encryptedName: tags.encryptedName,
+        deleted: tags.deleted
       })
       .from(tags),
     db
@@ -141,10 +143,10 @@ async function getNextChildPosition(parentId: string): Promise<number> {
 }
 
 export async function createClassicTag(
-  name: string = DEFAULT_CLASSIC_TAG_NAME
+  name: string = DEFAULT_CLASSIC_TAG_NAME,
+  tagId: string = crypto.randomUUID()
 ): Promise<string> {
   const db = getDatabase();
-  const tagId = crypto.randomUUID();
   const linkId = crypto.randomUUID();
   const now = new Date();
   const nextPosition = await getNextChildPosition(CLASSIC_TAG_PARENT_ID);
@@ -160,6 +162,7 @@ export async function createClassicTag(
     await tx.insert(tags).values({
       id: tagId,
       encryptedName: name,
+      deleted: false,
       color: null,
       icon: null
     });
@@ -252,7 +255,11 @@ export async function linkNoteToTag(
 export async function deleteClassicTag(tagId: string): Promise<void> {
   const db = getDatabase();
 
-  await db
-    .delete(vfsRegistry)
-    .where(and(eq(vfsRegistry.id, tagId), eq(vfsRegistry.objectType, 'tag')));
+  await db.update(tags).set({ deleted: true }).where(eq(tags.id, tagId));
+}
+
+export async function restoreClassicTag(tagId: string): Promise<void> {
+  const db = getDatabase();
+
+  await db.update(tags).set({ deleted: false }).where(eq(tags.id, tagId));
 }

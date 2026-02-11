@@ -28,7 +28,8 @@ import {
   deleteClassicTag,
   linkNoteToTag,
   loadClassicStateFromDatabase,
-  persistClassicOrderToDatabase
+  persistClassicOrderToDatabase,
+  restoreClassicTag
 } from './classicPersistence';
 
 async function withClassicTestDatabase(
@@ -210,6 +211,7 @@ describe('classicPersistence integration', () => {
       const { state, linkRows } = await loadClassicStateFromDatabase();
 
       expect(state.tags.map((tag) => tag.id)).toEqual(['tag-b', 'tag-a']);
+      expect(state.deletedTags).toEqual([]);
       expect(state.activeTagId).toBe('tag-b');
       expect(state.noteOrderByTagId['tag-a']).toEqual(['note-a2', 'note-a1']);
       expect(state.noteOrderByTagId['tag-b']).toEqual(['note-b1']);
@@ -301,7 +303,7 @@ describe('classicPersistence integration', () => {
     });
   });
 
-  it('deletes tag rows and links across reloads', async () => {
+  it('soft-deletes tag and preserves links across reloads', async () => {
     await withClassicTestDatabase(async ({ db }) => {
       await seedClassicFixture(db);
 
@@ -310,6 +312,7 @@ describe('classicPersistence integration', () => {
       const { state: reloadedState } = await loadClassicStateFromDatabase();
 
       expect(reloadedState.tags.map((tag) => tag.id)).not.toContain('tag-a');
+      expect(reloadedState.deletedTags.map((tag) => tag.id)).toContain('tag-a');
       expect(reloadedState.notesById['note-a1']).toBeDefined();
       expect(reloadedState.notesById['note-a2']).toBeDefined();
       expect(reloadedState.noteOrderByTagId['tag-a']).toBeUndefined();
@@ -323,8 +326,31 @@ describe('classicPersistence integration', () => {
         .from(vfsLinks)
         .where(eq(vfsLinks.parentId, 'tag-a'));
 
-      expect(orphanedTagLinks).toHaveLength(0);
-      expect(tagANoteLinks).toHaveLength(0);
+      expect(orphanedTagLinks).toHaveLength(1);
+      expect(tagANoteLinks).toHaveLength(3);
+    });
+  });
+
+  it('restores a soft-deleted tag across reloads', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      await deleteClassicTag('tag-a');
+      await restoreClassicTag('tag-a');
+
+      const { state: reloadedState } = await loadClassicStateFromDatabase();
+
+      expect(reloadedState.tags.map((tag) => tag.id)).toContain('tag-a');
+      expect(reloadedState.deletedTags.map((tag) => tag.id)).not.toContain(
+        'tag-a'
+      );
+
+      const restoredTagRows = await db
+        .select({ deleted: tags.deleted })
+        .from(tags)
+        .where(eq(tags.id, 'tag-a'));
+
+      expect(restoredTagRows[0]?.deleted).toBe(false);
     });
   });
 
@@ -333,6 +359,7 @@ describe('classicPersistence integration', () => {
       const { state, linkRows } = await loadClassicStateFromDatabase();
 
       expect(state.tags).toEqual([]);
+      expect(state.deletedTags).toEqual([]);
       expect(state.notesById).toEqual({});
       expect(state.noteOrderByTagId).toEqual({});
       expect(state.activeTagId).toBeNull();

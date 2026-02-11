@@ -11,6 +11,7 @@ export interface ClassicNote {
 
 export interface ClassicState {
   tags: ClassicTag[];
+  deletedTags: ClassicTag[];
   notesById: Record<string, ClassicNote>;
   noteOrderByTagId: Record<string, string[]>;
   activeTagId: string | null;
@@ -24,6 +25,7 @@ export interface VfsRegistryLikeRow {
 export interface VfsTagLikeRow {
   id: string;
   encryptedName: string | null;
+  deleted: boolean | null;
 }
 
 export interface VfsNoteLikeRow {

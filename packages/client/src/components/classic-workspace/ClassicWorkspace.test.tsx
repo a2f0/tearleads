@@ -6,6 +6,8 @@ import { mockConsoleError } from '@/test/console-mocks';
 const mockUseDatabaseContext = vi.fn();
 const mockLoadClassicStateFromDatabase = vi.fn();
 const mockPersistClassicOrderToDatabase = vi.fn();
+const mockDeleteClassicTag = vi.fn();
+const mockRestoreClassicTag = vi.fn();
 
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
@@ -20,13 +22,16 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
 vi.mock('@/lib/classicPersistence', () => ({
   CLASSIC_EMPTY_STATE: {
     tags: [],
+    deletedTags: [],
     notesById: {},
     noteOrderByTagId: {},
     activeTagId: null
   },
   loadClassicStateFromDatabase: () => mockLoadClassicStateFromDatabase(),
   persistClassicOrderToDatabase: (...args: unknown[]) =>
-    mockPersistClassicOrderToDatabase(...args)
+    mockPersistClassicOrderToDatabase(...args),
+  deleteClassicTag: (...args: unknown[]) => mockDeleteClassicTag(...args),
+  restoreClassicTag: (...args: unknown[]) => mockRestoreClassicTag(...args)
 }));
 
 vi.mock('@rapid/classic', () => ({
@@ -42,6 +47,7 @@ vi.mock('@rapid/classic', () => ({
         onClick={() =>
           onStateChange?.({
             tags: [{ id: 'tag-a', name: 'Tag A' }],
+            deletedTags: [],
             notesById: {},
             noteOrderByTagId: { 'tag-a': [] },
             activeTagId: 'tag-a'
@@ -67,6 +73,7 @@ describe('ClassicWorkspace', () => {
     mockLoadClassicStateFromDatabase.mockResolvedValue({
       state: {
         tags: [{ id: 'tag-a', name: 'Tag A' }],
+        deletedTags: [],
         notesById: {},
         noteOrderByTagId: { 'tag-a': [] },
         activeTagId: 'tag-a'
@@ -76,6 +83,8 @@ describe('ClassicWorkspace', () => {
     mockPersistClassicOrderToDatabase.mockResolvedValue([
       { parentId: '__vfs_root__', childId: 'tag-a', position: 0 }
     ]);
+    mockDeleteClassicTag.mockResolvedValue(undefined);
+    mockRestoreClassicTag.mockResolvedValue(undefined);
   });
 
   it('renders loading state while database is loading', () => {

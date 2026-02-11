@@ -9,8 +9,10 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   CLASSIC_EMPTY_STATE,
+  deleteClassicTag,
   loadClassicStateFromDatabase,
-  persistClassicOrderToDatabase
+  persistClassicOrderToDatabase,
+  restoreClassicTag
 } from '@/lib/classicPersistence';
 
 export function ClassicWorkspace() {
@@ -115,6 +117,12 @@ export function ClassicWorkspace() {
           initialState={initialState}
           autoFocusSearch
           onStateChange={handleStateChange}
+          onDeleteTag={async (tagId) => {
+            await deleteClassicTag(tagId);
+          }}
+          onRestoreTag={async (tagId) => {
+            await restoreClassicTag(tagId);
+          }}
           contextMenuComponents={{ ContextMenu, ContextMenuItem }}
         />
       </div>

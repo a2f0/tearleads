@@ -77,6 +77,7 @@ describe('vfsPositionUpdates', () => {
           { id: 'tag-2', name: 'B' },
           { id: 'tag-1', name: 'A' }
         ],
+        deletedTags: [],
         notesById: {
           'note-1': { id: 'note-1', title: 'One', body: '' },
           'note-2': { id: 'note-2', title: 'Two', body: '' },
@@ -106,6 +107,7 @@ describe('vfsPositionUpdates', () => {
     it('handles missing note ordering map for a tag', () => {
       const state: ClassicState = {
         tags: [{ id: 'tag-1', name: 'A' }],
+        deletedTags: [],
         notesById: {},
         noteOrderByTagId: {},
         activeTagId: 'tag-1'

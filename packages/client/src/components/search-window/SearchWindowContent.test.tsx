@@ -1,5 +1,5 @@
 import { ThemeProvider } from '@rapid/ui';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -92,6 +92,17 @@ describe('SearchWindowContent', () => {
       expect(screen.getByPlaceholderText('Search...')).toBeInTheDocument();
     });
 
+    it('uses a shrinkable results scroll container to keep status bar visible', () => {
+      renderContent();
+
+      expect(
+        document.querySelector('div.flex.h-full.min-h-0.flex-col')
+      ).toBeInTheDocument();
+      expect(
+        document.querySelector('div.min-h-0.flex-1.overflow-auto')
+      ).toBeInTheDocument();
+    });
+
     it('renders filter tabs', () => {
       renderContent();
       expect(screen.getByText('All')).toBeInTheDocument();
@@ -143,6 +154,70 @@ describe('SearchWindowContent', () => {
       expect(screen.getByText('Title')).toBeInTheDocument();
       expect(screen.getByText('Type')).toBeInTheDocument();
       expect(screen.getByText('Preview')).toBeInTheDocument();
+    });
+
+    it('does not render preview text for app results in table view', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'app:notes',
+            entityType: 'app',
+            document: {
+              title: 'Notes',
+              content: 'Should not be shown',
+              metadata: 'Should not be shown either'
+            }
+          }
+        ],
+        count: 1
+      });
+      renderContent('table');
+
+      await searchFor(user, 'notes');
+
+      await waitFor(() => {
+        expect(screen.getByText('1 result')).toBeInTheDocument();
+      });
+
+      const row = screen.getByRole('cell', { name: 'Notes' }).closest('tr');
+      expect(row).toBeTruthy();
+      if (!row) {
+        throw new Error('App result row was not found');
+      }
+
+      const cells = within(row).getAllByRole('cell');
+      expect(cells[2]?.textContent).toBe('');
+    });
+
+    it('does not render preview text for app results in list view', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'app:notes',
+            entityType: 'app',
+            document: {
+              title: 'Notes',
+              content: 'Should not be shown',
+              metadata: 'Should not be shown either'
+            }
+          }
+        ],
+        count: 1
+      });
+      renderContent('list');
+
+      await searchFor(user, 'notes');
+
+      await waitFor(() => {
+        expect(screen.getByText('1 result')).toBeInTheDocument();
+      });
+
+      expect(screen.queryByText('Should not be shown')).not.toBeInTheDocument();
+      expect(
+        screen.queryByText('Should not be shown either')
+      ).not.toBeInTheDocument();
     });
 
     it('refocuses search input when view mode changes', () => {

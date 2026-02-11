@@ -6,7 +6,6 @@ import {
   UNTAGGED_TAG_NAME
 } from '../lib/constants';
 import {
-  deleteTag,
   getActiveTagNoteIds,
   getNoteCountByTagId,
   getUntaggedNoteIds,
@@ -14,7 +13,9 @@ import {
   reorderNoteInTagToTarget,
   reorderTags,
   reorderTagToTarget,
+  restoreTag,
   selectTag,
+  softDeleteTag,
   tagNote
 } from '../lib/ordering';
 import type { ClassicState } from '../lib/types';
@@ -30,6 +31,8 @@ export interface ClassicAppProps {
   initialState: ClassicState;
   autoFocusSearch?: boolean;
   onStateChange?: ((state: ClassicState) => void) | undefined;
+  onDeleteTag?: ((tagId: string) => void | Promise<void>) | undefined;
+  onRestoreTag?: ((tagId: string) => void | Promise<void>) | undefined;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
@@ -37,6 +40,8 @@ export function ClassicApp({
   initialState,
   autoFocusSearch,
   onStateChange,
+  onDeleteTag,
+  onRestoreTag,
   contextMenuComponents
 }: ClassicAppProps) {
   const [state, setState] = useState<ClassicState>(initialState);
@@ -111,9 +116,26 @@ export function ClassicApp({
 
   const handleDeleteTag = useCallback(
     (tagId: string) => {
-      updateState(deleteTag(state, tagId));
+      updateState(softDeleteTag(state, tagId));
+      if (onDeleteTag) {
+        void Promise.resolve(onDeleteTag(tagId)).catch((err) => {
+          console.error('Failed to delete tag:', err);
+        });
+      }
     },
-    [state, updateState]
+    [state, updateState, onDeleteTag]
+  );
+
+  const handleRestoreTag = useCallback(
+    (tagId: string) => {
+      updateState(restoreTag(state, tagId));
+      if (onRestoreTag) {
+        void Promise.resolve(onRestoreTag(tagId)).catch((err) => {
+          console.error('Failed to restore tag:', err);
+        });
+      }
+    },
+    [state, updateState, onRestoreTag]
   );
 
   const handleTagNote = useCallback(
@@ -289,6 +311,7 @@ export function ClassicApp({
     <div className="flex h-full min-h-[420px] w-full overflow-hidden bg-white">
       <TagSidebar
         tags={filteredTags}
+        deletedTags={state.deletedTags}
         activeTagId={state.activeTagId}
         editingTagId={editingTagId}
         {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
@@ -302,6 +325,7 @@ export function ClassicApp({
         onRenameTag={handleRenameTag}
         onCancelEditTag={handleCancelEditTag}
         onDeleteTag={handleDeleteTag}
+        onRestoreTag={handleRestoreTag}
         onTagNote={handleTagNote}
         searchValue={tagSearch}
         onSearchChange={setTagSearch}

@@ -419,14 +419,19 @@ export const emailFolders = pgTable('email_folders', {
  * Tags - extends registry for tag-type items.
  * Stores tag metadata for cross-cutting organization.
  */
-export const tags = pgTable('tags', {
-  id: text('id')
-    .primaryKey()
-    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-  encryptedName: text('encrypted_name'),
-  color: text('color'),
-  icon: text('icon')
-});
+export const tags = pgTable(
+  'tags',
+  {
+    id: text('id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    encryptedName: text('encrypted_name'),
+    color: text('color'),
+    icon: text('icon'),
+    deleted: boolean('deleted').notNull().default(false)
+  },
+  (table) => [index('tags_deleted_idx').on(table.deleted)]
+);
 
 /**
  * Emails - extends registry for email-type items.
