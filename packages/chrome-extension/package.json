@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/chrome-extension",
-  "version": "0.0.146",
+  "version": "0.0.148",
   "description": "Chrome extension for Tearleads",
   "type": "module",
   "scripts": {

@@ -4,6 +4,7 @@ import {
   FORMAT_VERSION,
   HEADER_SIZE,
   MAGIC_BYTES,
+  MAGIC_SIZE,
   MAX_BLOB_CHUNK_SIZE
 } from './constants';
 import {
@@ -526,7 +527,7 @@ describe('decoder', () => {
       // Create a valid header but no chunks
       const header = new Uint8Array(HEADER_SIZE);
       header.set(MAGIC_BYTES, 0);
-      header[8] = 1; // version
+      header[MAGIC_SIZE] = 1; // version (little-endian)
 
       const result = await validateBackup(header, 'test-password');
 

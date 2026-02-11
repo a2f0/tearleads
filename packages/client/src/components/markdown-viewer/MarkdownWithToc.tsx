@@ -1,4 +1,4 @@
-import { useResizableSidebar } from '@rapid/window-manager';
+import { useResizableSidebar } from '@tearleads/window-manager';
 import MDEditor from '@uiw/react-md-editor';
 import {
   type HTMLAttributes,

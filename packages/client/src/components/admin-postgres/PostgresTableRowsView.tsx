@@ -1,6 +1,9 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import type { PostgresColumnInfo } from '@tearleads/shared';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@tearleads/window-manager';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import {
   ArrowDown,
   ArrowUp,

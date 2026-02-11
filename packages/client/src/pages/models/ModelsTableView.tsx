@@ -1,5 +1,8 @@
 import { isOpenRouterModelId } from '@tearleads/shared';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@tearleads/window-manager';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { Download, Loader2, Play, Square, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ModelInfo } from '@/lib/models';

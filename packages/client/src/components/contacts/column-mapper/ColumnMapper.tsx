@@ -5,7 +5,10 @@ import {
   type DragStartEvent
 } from '@dnd-kit/core';
 import { isRecord } from '@tearleads/shared';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@tearleads/window-manager';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
