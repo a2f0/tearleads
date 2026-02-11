@@ -1,4 +1,3 @@
-
 import { randomUUID } from 'node:crypto';
 import type { Request, Response, Router as RouterType } from 'express';
 import { broadcast } from '../../lib/broadcast.js';

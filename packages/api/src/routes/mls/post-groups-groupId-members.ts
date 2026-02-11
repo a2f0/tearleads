@@ -1,4 +1,3 @@
-
 import { randomUUID } from 'node:crypto';
 import type { AddMlsMemberResponse, MlsGroupMember } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
