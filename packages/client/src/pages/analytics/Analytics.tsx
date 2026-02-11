@@ -1,4 +1,4 @@
-import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown,
@@ -669,9 +669,9 @@ export function Analytics({
                     </thead>
                     <tbody>
                       {filteredStats.map((stat) => (
-                        <tr
+                        <WindowTableRow
                           key={stat.eventName}
-                          className="border-b last:border-0"
+                          className="cursor-default last:border-b-0 hover:bg-transparent"
                           data-testid="summary-row"
                         >
                           <td
@@ -708,7 +708,7 @@ export function Analytics({
                               {formatSuccessRate(stat.successRate)}
                             </span>
                           </td>
-                        </tr>
+                        </WindowTableRow>
                       ))}
                     </tbody>
                   </table>

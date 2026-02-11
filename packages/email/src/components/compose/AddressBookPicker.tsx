@@ -1,5 +1,4 @@
-import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
-import { clsx } from 'clsx';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type EmailContactEmail, useEmailContext } from '../../context';
@@ -231,9 +230,9 @@ export function AddressBookPicker({
           </thead>
           <tbody>
             {visibleRows.map((row) => (
-              <tr
+              <WindowTableRow
                 key={`${row.contactId}:${row.email}`}
-                className={clsx('border-b last:border-b-0')}
+                className="cursor-default last:border-b-0 hover:bg-transparent"
               >
                 <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                   {getDisplayName(row)}
@@ -276,7 +275,7 @@ export function AddressBookPicker({
                     </button>
                   </div>
                 </td>
-              </tr>
+              </WindowTableRow>
             ))}
           </tbody>
         </table>

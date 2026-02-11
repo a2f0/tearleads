@@ -1,5 +1,5 @@
 import type { PostgresColumnInfo } from '@rapid/shared';
-import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown,
@@ -566,7 +566,10 @@ export function PostgresTableRowsView({
 
                 if (isLoaderRow) {
                   return (
-                    <tr key="loader">
+                    <WindowTableRow
+                      key="loader"
+                      className="cursor-default border-b-0 hover:bg-transparent"
+                    >
                       <td
                         colSpan={visibleColumns.length}
                         className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} p-4 text-center`}
@@ -578,7 +581,7 @@ export function PostgresTableRowsView({
                           </span>
                         )}
                       </td>
-                    </tr>
+                    </WindowTableRow>
                   );
                 }
 
@@ -586,9 +589,9 @@ export function PostgresTableRowsView({
                 if (!row) return null;
 
                 return (
-                  <tr
+                  <WindowTableRow
                     key={getRowKey(virtualItem.index)}
-                    className="border-b hover:bg-muted/50"
+                    className="cursor-default hover:bg-muted/50"
                   >
                     {visibleColumns.map((col) => (
                       <td
@@ -599,7 +602,7 @@ export function PostgresTableRowsView({
                         {formatCellValue(row[col.name])}
                       </td>
                     ))}
-                  </tr>
+                  </WindowTableRow>
                 );
               })}
             </tbody>

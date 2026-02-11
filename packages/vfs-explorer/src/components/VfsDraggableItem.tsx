@@ -1,4 +1,5 @@
 import { useDraggable } from '@dnd-kit/core';
+import { WindowTableRow } from '@rapid/window-manager';
 import type { MouseEvent, ReactNode } from 'react';
 import type { VfsObjectType } from '../hooks';
 import { cn } from '../lib';
@@ -59,18 +60,18 @@ export function VfsDraggableItem({
 
   if (asTableRow) {
     return (
-      <tr
+      <WindowTableRow
         ref={setNodeRef}
+        className={combinedClassName}
         {...listeners}
         {...attributes}
-        className={combinedClassName}
         style={{ cursor: cursorStyle }}
         onClick={onClick}
         onDoubleClick={onDoubleClick}
         onContextMenu={onContextMenu}
       >
         {children}
-      </tr>
+      </WindowTableRow>
     );
   }
 
