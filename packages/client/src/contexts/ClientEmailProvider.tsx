@@ -354,7 +354,7 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
     apiBaseUrl: API_BASE_URL,
     getAuthHeader: getAuthHeaderValue,
     ui: emailUIComponents,
-    ...(isUnlocked && { draftOperations }),
+    draftOperations,
     ...(isUnlocked && { contactOperations }),
     ...(isUnlocked && { folderOperations })
   };
