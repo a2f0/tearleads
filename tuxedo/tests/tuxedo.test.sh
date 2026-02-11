@@ -250,10 +250,14 @@ assert_contains "$(cat "$TMUX_CALLS")" "new-session -d -s tuxedo -c $MAIN_DIR -n
 assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo: -c $MAIN_DIR -n closed-prs -e PATH="
 assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo: -c $SHARED_DIR -n rapid-shared -e PATH="
 assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo: -c $MAIN_DIR -n rapid-main -e PATH="
-assert_contains "$(cat "$TMUX_CALLS")" "respawn-pane -k -t tuxedo:open-prs.0 sh -lc 'while true; do printf "
-assert_contains "$(cat "$TMUX_CALLS")" "\"/tmp/tux/scripts/listOpenPrs.sh\" --limit 20; sleep 30; done'"
-assert_contains "$(cat "$TMUX_CALLS")" "respawn-pane -k -t tuxedo:closed-prs.0 sh -lc 'while true; do printf "
-assert_contains "$(cat "$TMUX_CALLS")" "\"/tmp/tux/scripts/listRecentClosedPrs.sh\" --limit 20; sleep 30; done'"
+assert_contains "$(cat "$TMUX_CALLS")" "respawn-pane -k -t tuxedo:open-prs.0 sh -lc 'while true; do output="
+assert_contains "$(cat "$TMUX_CALLS")" "\"/tmp/tux/scripts/listOpenPrs.sh\" --limit 20 2>&1 || true);"
+assert_contains "$(cat "$TMUX_CALLS")" "printf \"%s"
+assert_contains "$(cat "$TMUX_CALLS")" "\"\$output\"; sleep 30; done'"
+assert_contains "$(cat "$TMUX_CALLS")" "respawn-pane -k -t tuxedo:closed-prs.0 sh -lc 'while true; do output="
+assert_contains "$(cat "$TMUX_CALLS")" "\"/tmp/tux/scripts/listRecentClosedPrs.sh\" --limit 20 2>&1 || true);"
+assert_contains "$(cat "$TMUX_CALLS")" "printf \"%s"
+assert_contains "$(cat "$TMUX_CALLS")" "\"\$output\"; sleep 30; done'"
 assert_contains "$(cat "$TMUX_CALLS")" "attach-session -t tuxedo"
 
 TMUX_DASHBOARD_CALLS="$TEMP_DIR/tmux.dashboard.calls"
@@ -270,10 +274,14 @@ SESSION_NAME="tuxedo"
 TUXEDO_PR_REFRESH_SECONDS='30; rm -rf ~'
 TUXEDO_PR_LIST_LIMIT='20 && whoami'
 tuxedo_start_pr_dashboards
-assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "respawn-pane -k -t tuxedo:open-prs.0 sh -lc 'while true; do printf "
-assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "\"/tmp/tux/scripts/listOpenPrs.sh\" --limit 20; sleep 30; done'"
-assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "respawn-pane -k -t tuxedo:closed-prs.0 sh -lc 'while true; do printf "
-assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "\"/tmp/tux/scripts/listRecentClosedPrs.sh\" --limit 20; sleep 30; done'"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "respawn-pane -k -t tuxedo:open-prs.0 sh -lc 'while true; do output="
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "\"/tmp/tux/scripts/listOpenPrs.sh\" --limit 20 2>&1 || true);"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "printf \"%s"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "\"\$output\"; sleep 30; done'"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "respawn-pane -k -t tuxedo:closed-prs.0 sh -lc 'while true; do output="
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "\"/tmp/tux/scripts/listRecentClosedPrs.sh\" --limit 20 2>&1 || true);"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "printf \"%s"
+assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "\"\$output\"; sleep 30; done'"
 unset TUXEDO_PR_REFRESH_SECONDS
 unset TUXEDO_PR_LIST_LIMIT
 
@@ -298,10 +306,14 @@ EOF
     }
     tuxedo_attach_or_create
     assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "has-session -t tuxedo"
-    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "respawn-pane -k -t tuxedo:open-prs.0 sh -lc 'while true; do printf "
-    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "\"/tmp/tux/scripts/listOpenPrs.sh\" --limit 20; sleep 30; done'"
-    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "respawn-pane -k -t tuxedo:closed-prs.0 sh -lc 'while true; do printf "
-    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "\"/tmp/tux/scripts/listRecentClosedPrs.sh\" --limit 20; sleep 30; done'"
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "respawn-pane -k -t tuxedo:open-prs.0 sh -lc 'while true; do output="
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "\"/tmp/tux/scripts/listOpenPrs.sh\" --limit 20 2>&1 || true);"
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "printf \"%s"
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "\"\$output\"; sleep 30; done'"
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "respawn-pane -k -t tuxedo:closed-prs.0 sh -lc 'while true; do output="
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "\"/tmp/tux/scripts/listRecentClosedPrs.sh\" --limit 20 2>&1 || true);"
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "printf \"%s"
+    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "\"\$output\"; sleep 30; done'"
     assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "sync-all"
     assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "attach-session -t tuxedo"
     assert_not_contains "$(cat "$TMUX_ATTACH_CALLS")" "new-session -d -s tuxedo"
