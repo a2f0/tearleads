@@ -1,4 +1,3 @@
-/* istanbul ignore file */
 import type {
   AckMlsWelcomeRequest,
   AddMlsMemberRequest,
@@ -13,17 +12,12 @@ import type {
 } from '@tearleads/shared';
 import { isRecord, MLS_CIPHERSUITES } from '@tearleads/shared';
 
+const VALID_CIPHER_SUITES = Object.values(MLS_CIPHERSUITES).filter(
+  (value): value is MlsCipherSuite => typeof value === 'number'
+);
+
 function isValidCipherSuite(value: unknown): value is MlsCipherSuite {
-  const cipherSuites: MlsCipherSuite[] = [];
-  for (const suite of Object.values(MLS_CIPHERSUITES)) {
-    if (typeof suite === 'number') {
-      cipherSuites.push(suite);
-    }
-  }
-  return (
-    typeof value === 'number' &&
-    cipherSuites.some((cipherSuite) => cipherSuite === value)
-  );
+  return typeof value === 'number' && VALID_CIPHER_SUITES.includes(value);
 }
 
 export function toSafeCipherSuite(value: unknown): MlsCipherSuite {

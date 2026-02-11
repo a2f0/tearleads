@@ -1,4 +1,3 @@
-/* istanbul ignore file */
 import type {
   MlsGroup,
   MlsGroupMember,

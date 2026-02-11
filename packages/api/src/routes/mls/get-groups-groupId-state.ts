@@ -1,4 +1,3 @@
-/* istanbul ignore file */
 import type { MlsGroupState, MlsGroupStateResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';

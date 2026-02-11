@@ -1,4 +1,3 @@
-/* istanbul ignore file */
 
 import { randomUUID } from 'node:crypto';
 import type { MlsMessage, SendMlsMessageResponse } from '@tearleads/shared';
