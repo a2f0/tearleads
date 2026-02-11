@@ -22,6 +22,8 @@ Track these state flags:
 - `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied.
 - `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after waiting once for Gemini.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files.
+- `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini reports its daily quota limit.
+- `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback review via Claude Code.
 - `associated_issue_number`: Number or null. Track the issue to mark `needs-qa` after merge.
 - `job_failure_counts`: Map of job name → failure count. Tracks how many times each job has failed. Reset when job succeeds or PR is rebased.
 - `current_run_id`: Number or null. The workflow run ID being monitored.
@@ -124,6 +126,21 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    If Gemini reports unsupported file types, set `gemini_can_review = false` and continue to CI.
 
+   If Gemini reports daily quota exhaustion with text like:
+   > "You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!"
+
+   then:
+   - Set `gemini_quota_exhausted = true`
+   - Set `gemini_can_review = false` for this session
+   - Run one cross-agent fallback review:
+
+   ```bash
+   ./scripts/solicitClaudeCodeReview.sh
+   ```
+
+   - Set `used_fallback_agent_review = true`
+   - Treat this single fallback review as sufficient to pass the review step for this loop iteration (do not block on further Gemini responses in this session)
+
    **Address feedback while CI runs**:
 
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
@@ -138,6 +155,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Analyze Gemini's sentiment in follow-up replies:
      - If Gemini confirms/approves and does not request more changes, resolve the thread.
      - If Gemini is uncertain or requests more work, keep the thread open and iterate.
+   - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups for this session and use the one-time Claude fallback review described above.
    - Never use `gh pr review` or GraphQL review comment mutations to reply (they create pending reviews).
    - Include relevant commit hashes in replies (not just titles).
    - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4e and handle remaining Gemini feedback in parallel.

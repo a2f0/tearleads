@@ -34,6 +34,8 @@ Track the following state during execution:
 
 - `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied. This ensures we only bump once per PR, even if we loop through multiple CI fixes or rebases.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini checks entirely.
+- `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini reports its daily quota limit.
+- `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback review via Codex.
 - `associated_issue_number`: Number or null. The issue number associated with this PR (either extracted from PR body or newly created). All PRs should have an associated issue that gets marked `needs-qa` after merge.
 - `is_rollup_pr`: Boolean, starts `false`. Set to `true` if base branch is not `main`/`master`. Roll-up PRs must wait for their base PR to merge first.
 - `base_pr_number`: Number or null. For roll-up PRs, the PR number associated with the base branch.
@@ -248,6 +250,23 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    Set `gemini_can_review = false` and skip Gemini checks for the remainder of this session.
 
+   #### Daily quota exhaustion response
+
+   If Gemini's response contains:
+   > "You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!"
+
+   then:
+   - Set `gemini_quota_exhausted = true`
+   - Set `gemini_can_review = false` for this session
+   - Run one cross-agent fallback review:
+
+   ```bash
+   ./scripts/solicitCodexReview.sh
+   ```
+
+   - Set `used_fallback_agent_review = true`
+   - Treat this single fallback review as sufficient to get past the review step in the loop (do not block on additional Gemini responses during this session)
+
    #### Job-level CI polling (early failure detection)
 
    **Important**: Check if branch is behind BEFORE waiting for CI, and periodically during CI. This prevents wasting time on CI runs that will be obsolete.
@@ -294,6 +313,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
       - Run `/address-gemini-feedback` to fetch and address any unresolved comments
       - If code changes were made, push and continue polling (CI will restart)
       - If Gemini has responded with confirmations, resolve those threads via `/follow-up-with-gemini`
+      - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Codex fallback review above
       - **IMPORTANT**: After these sub-skills complete, continue the polling loop - do NOT exit
 
    3. **Check individual job statuses** (in priority order):
@@ -451,6 +471,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 - If stuck (same job fails 3 times after 2 fix attempts), ask user for help
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
 - Only resolve threads after explicit Gemini confirmation
+- If Gemini hits daily quota, run one Codex fallback review and treat it as sufficient for the review step
 - **Roll-up PRs**: PRs targeting a non-main branch wait for their base PR to merge first. Once merged, GitHub auto-retargets to main and the roll-up continues normally.
 
 ## Keeping PR Description Updated
