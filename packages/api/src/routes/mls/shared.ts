@@ -17,7 +17,10 @@ const VALID_CIPHER_SUITES = Object.values(MLS_CIPHERSUITES).filter(
 );
 
 function isValidCipherSuite(value: unknown): value is MlsCipherSuite {
-  return typeof value === 'number' && VALID_CIPHER_SUITES.includes(value);
+  return (
+    typeof value === 'number' &&
+    VALID_CIPHER_SUITES.some((cipherSuite) => cipherSuite === value)
+  );
 }
 
 export function toSafeCipherSuite(value: unknown): MlsCipherSuite {
