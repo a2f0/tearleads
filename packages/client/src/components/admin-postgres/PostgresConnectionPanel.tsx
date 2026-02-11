@@ -1,4 +1,4 @@
-import type { PostgresAdminInfoResponse } from '@rapid/shared';
+import type { PostgresAdminInfoResponse } from '@tearleads/shared';
 import { Loader2, PlugZap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshButton } from '@/components/ui/refresh-button';

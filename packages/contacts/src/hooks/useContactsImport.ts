@@ -1,4 +1,4 @@
-import { contactEmails, contactPhones, contacts } from '@rapid/db/sqlite';
+import { contactEmails, contactPhones, contacts } from '@tearleads/db/sqlite';
 import Papa from 'papaparse';
 import { useCallback, useState } from 'react';
 import type { ImportedContactRecord } from '../context';

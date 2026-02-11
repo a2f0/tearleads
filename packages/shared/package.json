@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/shared",
+  "name": "@tearleads/shared",
   "version": "0.0.1",
-  "description": "Shared TypeScript utilities and types for Rapid",
+  "description": "Shared TypeScript utilities and types for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

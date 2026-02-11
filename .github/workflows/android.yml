@@ -99,40 +99,40 @@ jobs:
           sudo apt-get install -y --no-install-recommends imagemagick librsvg2-bin
 
       - name: Build API (for OpenAPI spec)
-        run: pnpm --filter @rapid/api build
+        run: pnpm --filter @tearleads/api build
 
       - name: Build window-manager
-        run: pnpm --filter @rapid/window-manager build
+        run: pnpm --filter @tearleads/window-manager build
 
       - name: Build UI
-        run: pnpm --filter @rapid/ui build
+        run: pnpm --filter @tearleads/ui build
 
       - name: Build notes
-        run: pnpm --filter @rapid/notes build
+        run: pnpm --filter @tearleads/notes build
 
       - name: Build email
-        run: pnpm --filter @rapid/email build
+        run: pnpm --filter @tearleads/email build
 
       - name: Build vfs-explorer
-        run: pnpm --filter @rapid/vfs-explorer build
+        run: pnpm --filter @tearleads/vfs-explorer build
 
       - name: Build audio
-        run: pnpm --filter @rapid/audio build
+        run: pnpm --filter @tearleads/audio build
 
       - name: Build contacts
-        run: pnpm --filter @rapid/contacts build
+        run: pnpm --filter @tearleads/contacts build
 
       - name: Build db-test-utils
-        run: pnpm --filter @rapid/db-test-utils build
+        run: pnpm --filter @tearleads/db-test-utils build
 
       - name: Build web assets
-        run: pnpm --filter @rapid/client build
+        run: pnpm --filter @tearleads/client build
 
       - name: Generate Android images
         run: ./packages/client/scripts/buildAndroidImageAssets.sh
 
       - name: Sync Capacitor
-        run: pnpm --filter @rapid/client run cap:sync
+        run: pnpm --filter @tearleads/client run cap:sync
 
       - name: Download Gradle wrapper
         run: ./packages/client/scripts/downloadGradleWrapper.sh

@@ -2,7 +2,7 @@
  * Tests for ConversationsContextMenu component.
  */
 
-import type { DecryptedAiConversation } from '@rapid/shared';
+import type { DecryptedAiConversation } from '@tearleads/shared';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { ConversationsContextMenu } from './ConversationsContextMenu';

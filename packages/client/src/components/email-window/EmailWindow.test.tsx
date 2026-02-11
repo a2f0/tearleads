@@ -5,7 +5,7 @@ import { EmailWindow } from './index';
 
 const mockEmailWindowBase = vi.fn((_: unknown) => <div>Email Window</div>);
 
-vi.mock('@rapid/email', () => ({
+vi.mock('@tearleads/email', () => ({
   EmailWindow: (props: unknown) => mockEmailWindowBase(props)
 }));
 

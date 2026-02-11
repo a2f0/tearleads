@@ -1,10 +1,10 @@
 # Backup and Restore
 
-Rapid provides a universal backup format (.rbu) that works across all platforms. Backups include your database schema, data, and files, all protected with strong encryption.
+Tearleads provides a universal backup format (.rbu) that works across all platforms. Backups include your database schema, data, and files, all protected with strong encryption.
 
 ## RBU File Format Specification
 
-The **Rapid Backup Universal** (.rbu) format is a cross-platform backup format designed for secure, portable backups.
+The **Tearleads Backup Universal** (.rbu) format is a cross-platform backup format designed for secure, portable backups.
 
 ### File Structure
 
@@ -12,7 +12,7 @@ The **Rapid Backup Universal** (.rbu) format is a cross-platform backup format d
 ┌─────────────────────────────────────────┐
 │              HEADER (32 bytes)          │
 ├─────────────────────────────────────────┤
-│    Magic Bytes: "RAPIDBAK" (8 bytes)    │
+│    Magic Bytes: "TEARLEADSBAK" (8 bytes)    │
 │    Format Version (2 bytes, LE)         │
 │    Flags (2 bytes, LE)                  │
 │    Salt (16 bytes)                      │
@@ -30,7 +30,7 @@ The **Rapid Backup Universal** (.rbu) format is a cross-platform backup format d
 
 | Offset | Size | Field | Description |
 | ------ | ---- | ----- | ----------- |
-| 0 | 8 | Magic | `RAPIDBAK` (0x52 0x41 0x50 0x49 0x44 0x42 0x41 0x4b) |
+| 0 | 8 | Magic | `TEARLEADSBAK` (0x52 0x41 0x50 0x49 0x44 0x42 0x41 0x4b) |
 | 8 | 2 | Version | Format version (currently 1), little-endian |
 | 10 | 2 | Flags | Reserved for future use |
 | 12 | 16 | Salt | Random salt for PBKDF2 key derivation |
@@ -128,7 +128,7 @@ Contains file data. Large files (>10 MB) are split across multiple chunks:
    - **Modern browsers**: Stored in browser storage (OPFS) and listed in "Stored Backups"
    - **Other browsers**: Downloaded to your Downloads folder
 
-The backup file is named `rapid-backup-YYYY-MM-DD-HHmmss.rbu`.
+The backup file is named `tearleads-backup-YYYY-MM-DD-HHmmss.rbu`.
 
 ### From the CLI
 

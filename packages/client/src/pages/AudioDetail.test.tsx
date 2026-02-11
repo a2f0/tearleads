@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
@@ -25,9 +25,9 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 // Mock the audio playlists sidebar
-vi.mock('@rapid/audio', async () => {
+vi.mock('@tearleads/audio', async () => {
   const actual =
-    await vi.importActual<typeof import('@rapid/audio')>('@rapid/audio');
+    await vi.importActual<typeof import('@tearleads/audio')>('@tearleads/audio');
   return {
     ...actual,
     ALL_AUDIO_ID: '__all__',

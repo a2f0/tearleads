@@ -16,15 +16,15 @@ import {
   secureZero,
   unwrapKey,
   wrapKey
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import { detectPlatform } from '@/lib/utils';
 import * as nativeSecureStorage from './native-secure-storage';
 
 // Base storage key prefixes - instanceId is appended
-const SALT_STORAGE_PREFIX = 'rapid_db_salt';
-const KEY_CHECK_VALUE_PREFIX = 'rapid_db_kcv';
-const WRAPPING_KEY_STORAGE_PREFIX = 'rapid_session_wrapping_key';
-const WRAPPED_KEY_STORAGE_PREFIX = 'rapid_session_wrapped_key';
+const SALT_STORAGE_PREFIX = 'tearleads_db_salt';
+const KEY_CHECK_VALUE_PREFIX = 'tearleads_db_kcv';
+const WRAPPING_KEY_STORAGE_PREFIX = 'tearleads_session_wrapping_key';
+const WRAPPED_KEY_STORAGE_PREFIX = 'tearleads_session_wrapped_key';
 
 /**
  * Get namespaced storage key for an instance.
@@ -82,7 +82,7 @@ interface KeyStorageAdapter {
  * Web storage adapter using IndexedDB.
  */
 class WebKeyStorage implements KeyStorageAdapter {
-  private dbName = 'rapid_key_storage';
+  private dbName = 'tearleads_key_storage';
   private storeName = 'keys';
   public instanceId: string;
 
@@ -730,7 +730,7 @@ export class KeyManager {
    * This is a hash of the key that can be stored safely.
    */
   private async createKeyCheckValue(keyBytes: Uint8Array): Promise<string> {
-    const checkData = new TextEncoder().encode('RAPID_KEY_CHECK');
+    const checkData = new TextEncoder().encode('TEARLEADS_KEY_CHECK');
     const key = await importKey(keyBytes);
 
     // Encrypt known data with the key

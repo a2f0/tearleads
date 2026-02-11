@@ -49,7 +49,7 @@ import type {
   VfsSharesResponse,
   VfsShareType,
   VfsUserKeysResponse
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logApiEvent } from '@/db/analytics';
 import {

@@ -1,5 +1,5 @@
-import { type FlatTreeItem, flattenTree } from '@rapid/shared';
-import { useResizableSidebar } from '@rapid/window-manager';
+import { type FlatTreeItem, flattenTree } from '@tearleads/shared';
+import { useResizableSidebar } from '@tearleads/window-manager';
 import {
   ChevronDown,
   ChevronRight,

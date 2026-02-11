@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/website",
+  "name": "@tearleads/website",
   "version": "0.0.145",
-  "description": "Marketing website for Rapid",
+  "description": "Marketing website for Tearleads",
   "type": "module",
   "scripts": {
     "dev": "tsx ../../scripts/killPnpmDev.ts && astro dev",

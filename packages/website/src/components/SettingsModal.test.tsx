@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsModal } from './SettingsModal';

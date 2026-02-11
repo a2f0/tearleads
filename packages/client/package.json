@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/client",
+  "name": "@tearleads/client",
   "version": "0.0.419",
-  "description": "React client application for Rapid",
+  "description": "React client application for Tearleads",
   "main": "out/main/main.js",
   "type": "module",
   "scripts": {

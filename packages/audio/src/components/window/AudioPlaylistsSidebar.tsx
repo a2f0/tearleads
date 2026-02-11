@@ -1,4 +1,4 @@
-import { useResizableSidebar } from '@rapid/window-manager';
+import { useResizableSidebar } from '@tearleads/window-manager';
 import { List, Loader2, Music, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AudioPlaylist } from '../../context/AudioUIContext';

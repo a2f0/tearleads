@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { BackupDocumentation } from './BackupDocumentation';
 
-vi.mock('@rapid/ui', () => ({
+vi.mock('@tearleads/ui', () => ({
   useTheme: () => ({ resolvedTheme: 'light' })
 }));
 

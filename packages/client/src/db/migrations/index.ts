@@ -1,4 +1,4 @@
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 import type { DatabaseAdapter } from '../adapters';
 import type { Migration } from './types';
 import { v001 } from './v001';

@@ -1,4 +1,4 @@
-import { withRealDatabase } from '@rapid/db-test-utils';
+import { withRealDatabase } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
 import { mockConsoleWarn } from '../test/console-mocks';

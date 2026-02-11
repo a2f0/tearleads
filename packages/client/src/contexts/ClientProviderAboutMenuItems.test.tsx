@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
@@ -7,15 +7,15 @@ vi.mock('@/hooks/useAppVersion', () => ({
   useAppVersion: vi.fn(() => undefined)
 }));
 
-vi.mock('@rapid/email/package.json', () => ({
+vi.mock('@tearleads/email/package.json', () => ({
   default: { version: '0.0.8' }
 }));
 
-vi.mock('@rapid/notes/package.json', () => ({
+vi.mock('@tearleads/notes/package.json', () => ({
   default: { version: '0.0.1' }
 }));
 
-vi.mock('@rapid/vfs-explorer/package.json', () => ({
+vi.mock('@tearleads/vfs-explorer/package.json', () => ({
   default: { version: '0.0.8' }
 }));
 

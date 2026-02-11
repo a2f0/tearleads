@@ -1,4 +1,4 @@
-package com.tearleads.rapid;
+package com.tearleads.app;
 
 import android.app.PendingIntent;
 import android.content.Context;
@@ -17,8 +17,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 public final class MediaSessionController {
-    public static final String ROOT_ID = "rapid.root";
-    public static final String TRACKS_ID = "rapid.tracks";
+    public static final String ROOT_ID = "tearleads.root";
+    public static final String TRACKS_ID = "tearleads.tracks";
     private static final long TRANSPORT_ACTIONS =
         PlaybackStateCompat.ACTION_PLAY
             | PlaybackStateCompat.ACTION_PAUSE
@@ -80,7 +80,7 @@ public final class MediaSessionController {
         }
 
         Context appContext = context.getApplicationContext();
-        mediaSession = new MediaSessionCompat(appContext, "RapidMediaSession");
+        mediaSession = new MediaSessionCompat(appContext, "TearleadsMediaSession");
         mediaSession.setFlags(
             MediaSessionCompat.FLAG_HANDLES_MEDIA_BUTTONS
                 | MediaSessionCompat.FLAG_HANDLES_TRANSPORT_CONTROLS

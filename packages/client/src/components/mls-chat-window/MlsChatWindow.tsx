@@ -10,7 +10,7 @@ import {
   useMlsClient,
   useMlsRealtime,
   useWelcomeMessages
-} from '@rapid/mls-chat';
+} from '@tearleads/mls-chat';
 import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';

@@ -3,4 +3,4 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-pnpm --filter @rapid/api exec tsx "$ROOT_DIR/packages/api/src/apiCli.ts" migrate "$@"
+pnpm --filter @tearleads/api exec tsx "$ROOT_DIR/packages/api/src/apiCli.ts" migrate "$@"

@@ -141,7 +141,7 @@ jobs:
         run: ./scripts/downloadSqliteWasm.sh
 
       - name: Install Playwright for mermaid rendering
-        run: pnpm --filter @rapid/website exec playwright install chromium
+        run: pnpm --filter @tearleads/website exec playwright install chromium
 
       - name: Lint
         run: pnpm lint
@@ -188,16 +188,16 @@ jobs:
 
       - name: Test with Coverage
         run: |
-          pnpm --filter @rapid/shared test:coverage
-          pnpm --filter @rapid/ui test:coverage
-          pnpm --filter @rapid/window-manager test:coverage
-          pnpm --filter @rapid/audio test:coverage
-          pnpm --filter @rapid/terminal test:coverage
-          pnpm --filter @rapid/api test:coverage
-          pnpm --filter @rapid/smtp-listener test:coverage
-          pnpm --filter @rapid/client test:coverage
-          pnpm --filter @rapid/chrome-extension test:coverage
-          pnpm --filter @rapid/website test:coverage
+          pnpm --filter @tearleads/shared test:coverage
+          pnpm --filter @tearleads/ui test:coverage
+          pnpm --filter @tearleads/window-manager test:coverage
+          pnpm --filter @tearleads/audio test:coverage
+          pnpm --filter @tearleads/terminal test:coverage
+          pnpm --filter @tearleads/api test:coverage
+          pnpm --filter @tearleads/smtp-listener test:coverage
+          pnpm --filter @tearleads/client test:coverage
+          pnpm --filter @tearleads/chrome-extension test:coverage
+          pnpm --filter @tearleads/website test:coverage
           pnpm test:coverage
 
       - name: Upload Coverage Reports
@@ -224,7 +224,7 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           for pkg in shared ui window-manager api smtp-listener client chrome-extension website; do
             if [ -f "packages/$pkg/coverage/coverage-summary.json" ]; then
-              echo "### @rapid/$pkg" >> $GITHUB_STEP_SUMMARY
+              echo "### @tearleads/$pkg" >> $GITHUB_STEP_SUMMARY
               node -e "
                 const summary = require('./packages/$pkg/coverage/coverage-summary.json');
                 const total = summary.total;

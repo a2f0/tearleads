@@ -1,7 +1,7 @@
 ---
-import type { LicenseInfo } from '@rapid/shared';
+import type { LicenseInfo } from '@tearleads/shared';
 import Layout from '../../layouts/Layout.astro';
-import licensesData from '@rapid/shared/licenses.json';
+import licensesData from '@tearleads/shared/licenses.json';
 import { isSupportedLanguage, defaultLanguage } from '../../i18n/config';
 import type { SupportedLanguage } from '../../i18n/config';
 import { getStaticPathsForLocales, getHref } from '../../i18n/utils';
@@ -13,7 +13,7 @@ const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaul
 const licenses = licensesData as LicenseInfo[];
 ---
 
-<Layout title="Open Source Licenses - Rapid" lang={currentLang}>
+<Layout title="Open Source Licenses - Tearleads" lang={currentLang}>
   <section class="container mx-auto px-4 py-8">
     <nav class="mb-8">
       <a href={getHref('/', currentLang)} class="text-muted-foreground hover:text-foreground">&larr; Back to Home</a>
@@ -22,7 +22,7 @@ const licenses = licensesData as LicenseInfo[];
     <div class="mb-6">
       <h2 class="font-bold text-3xl mb-2">Open Source Licenses</h2>
       <p class="text-muted-foreground">
-        The Rapid ecosystem would not be possible without the following open source technologies.
+        The Tearleads ecosystem would not be possible without the following open source technologies.
       </p>
     </div>
 

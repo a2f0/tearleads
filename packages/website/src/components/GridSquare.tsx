@@ -1,4 +1,4 @@
-import { cn } from '@rapid/ui';
+import { cn } from '@tearleads/ui';
 
 export interface GridSquareProps {
   children: React.ReactNode;

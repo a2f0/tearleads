@@ -2,7 +2,7 @@ import type {
   AdminUser,
   AdminUserUpdatePayload,
   GroupWithMemberCount
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import { Check, Copy, Loader2, Save, UserMinus, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';

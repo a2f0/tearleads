@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # VFS Upload Context Menu Test
 # Tests that the Upload context menu item appears when right-clicking in an empty folder

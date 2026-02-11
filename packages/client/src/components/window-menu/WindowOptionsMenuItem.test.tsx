@@ -1,5 +1,5 @@
-import { ThemeProvider } from '@rapid/ui';
-import { WINDOW_FIT_CONTENT_EVENT } from '@rapid/window-manager';
+import { ThemeProvider } from '@tearleads/ui';
+import { WINDOW_FIT_CONTENT_EVENT } from '@tearleads/window-manager';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';

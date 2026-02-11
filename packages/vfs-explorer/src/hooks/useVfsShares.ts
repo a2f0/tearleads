@@ -4,7 +4,7 @@ import type {
   UpdateVfsShareRequest,
   VfsOrgShare,
   VfsShare
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 

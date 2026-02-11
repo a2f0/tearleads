@@ -1,4 +1,4 @@
-import { buildTree, type TreeNode } from '@rapid/shared';
+import { buildTree, type TreeNode } from '@tearleads/shared';
 import {
   useCallback,
   useContext,

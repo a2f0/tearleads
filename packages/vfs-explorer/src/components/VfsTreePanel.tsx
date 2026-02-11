@@ -1,4 +1,4 @@
-import { useResizableSidebar, WindowContextMenu } from '@rapid/window-manager';
+import { useResizableSidebar, WindowContextMenu } from '@tearleads/window-manager';
 import {
   ChevronDown,
   ChevronRight,

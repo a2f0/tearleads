@@ -1,4 +1,4 @@
-import { useResizableSidebar, WindowContextMenu } from '@rapid/window-manager';
+import { useResizableSidebar, WindowContextMenu } from '@tearleads/window-manager';
 import { ImagePlus, Images, Loader2, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { filterFilesByAccept } from '@/lib/file-filter';

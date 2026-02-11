@@ -74,7 +74,7 @@ Always pass `-R "$REPO"` to `gh` commands.
    **web-e2e / electron-e2e** (Playwright):
 
    ```bash
-   pnpm --filter @rapid/client test:e2e
+   pnpm --filter @tearleads/client test:e2e
    ```
 
    **android-maestro-release / ios-maestro-release** (Maestro):
@@ -97,7 +97,7 @@ Always pass `-R "$REPO"` to `gh` commands.
 
 ### Coverage Drop
 
-1. Run `pnpm --filter @rapid/<pkg> test:coverage`
+1. Run `pnpm --filter @tearleads/<pkg> test:coverage`
 2. Check `coverage/coverage-summary.json` for dropped files
 3. Add tests for uncovered branches/functions
 
@@ -106,7 +106,7 @@ Always pass `-R "$REPO"` to `gh` commands.
 Add to test file header:
 
 ```yaml
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 androidWebViewHierarchy: devtools
 ```
 

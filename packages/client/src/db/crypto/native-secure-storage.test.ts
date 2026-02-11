@@ -218,7 +218,7 @@ describe('native-secure-storage', () => {
       expect(mockSetCredentials).toHaveBeenCalledWith({
         username: keyName,
         password: keyHex,
-        server: `com.tearleads.rapid.${keyName}.${TEST_INSTANCE_ID}`
+        server: `com.tearleads.app.${keyName}.${TEST_INSTANCE_ID}`
       });
     });
 
@@ -364,7 +364,7 @@ describe('native-secure-storage', () => {
 
       expect(result).toBe(true);
       expect(mockGetCredentials).toHaveBeenCalledWith({
-        server: `com.tearleads.rapid.wrapped_key.${TEST_INSTANCE_ID}`
+        server: `com.tearleads.app.wrapped_key.${TEST_INSTANCE_ID}`
       });
     });
 
@@ -407,10 +407,10 @@ describe('native-secure-storage', () => {
 
       expect(mockDeleteCredentials).toHaveBeenCalledTimes(2);
       expect(mockDeleteCredentials).toHaveBeenCalledWith({
-        server: `com.tearleads.rapid.wrapped_key.${TEST_INSTANCE_ID}`
+        server: `com.tearleads.app.wrapped_key.${TEST_INSTANCE_ID}`
       });
       expect(mockDeleteCredentials).toHaveBeenCalledWith({
-        server: `com.tearleads.rapid.wrapping_key.${TEST_INSTANCE_ID}`
+        server: `com.tearleads.app.wrapping_key.${TEST_INSTANCE_ID}`
       });
     });
 
@@ -555,12 +555,12 @@ describe('native-secure-storage', () => {
 
       expect(mockSetCredentials).toHaveBeenCalledWith(
         expect.objectContaining({
-          server: `com.tearleads.rapid.wrapped_key.${instance1}`
+          server: `com.tearleads.app.wrapped_key.${instance1}`
         })
       );
       expect(mockSetCredentials).toHaveBeenCalledWith(
         expect.objectContaining({
-          server: `com.tearleads.rapid.wrapped_key.${instance2}`
+          server: `com.tearleads.app.wrapped_key.${instance2}`
         })
       );
     });
@@ -576,7 +576,7 @@ describe('native-secure-storage', () => {
       await retrieveWrappingKeyBytes(instance1);
 
       expect(mockGetCredentials).toHaveBeenCalledWith({
-        server: `com.tearleads.rapid.wrapping_key.${instance1}`
+        server: `com.tearleads.app.wrapping_key.${instance1}`
       });
     });
   });

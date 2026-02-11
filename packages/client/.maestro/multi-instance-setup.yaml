@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # AGENT GUARDRAIL: Do NOT skip this test.
 # Instance switching tests are critical for verifying data isolation between instances.
@@ -7,13 +7,13 @@ appId: com.tearleads.rapid
 # Multi-Instance Setup Test - Verifies that multiple instances can be set up sequentially
 #
 # This test reproduces the bug where setting up a second instance fails with:
-# "Set up error: state for rapid-xxx...db not correct"
+# "Set up error: state for tearleads-xxx...db not correct"
 #
 # The root cause is that @capacitor-community/sqlite uses a single global encryption
 # secret in SharedPreferences. When a second instance tries to set up, it clears
 # the first instance's key, causing SQLCipher to detect a key mismatch.
 #
-# Related: https://github.com/a2f0/rapid/issues/634
+# Related: https://github.com/a2f0/tearleads/issues/634
 
 - launchApp:
     clearState: true
@@ -104,7 +104,7 @@ appId: com.tearleads.rapid
     return 'ok';
 
 # CRITICAL TEST: Set up the second instance
-# This is where the bug occurs - "state for rapid-xxx...db not correct"
+# This is where the bug occurs - "state for tearleads-xxx...db not correct"
 - evalScript: |
     window.setPassword('secondinstance456');
     console.log('[MULTI-INSTANCE] Attempting to set up second instance...');

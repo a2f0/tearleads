@@ -22,9 +22,9 @@ import {
 
 let keyBytesByKey = new WeakMap<object, Uint8Array>();
 
-// Mock the @rapid/shared crypto module
-vi.mock('@rapid/shared', async (importOriginal) => {
-  const original = await importOriginal<typeof import('@rapid/shared')>();
+// Mock the @tearleads/shared crypto module
+vi.mock('@tearleads/shared', async (importOriginal) => {
+  const original = await importOriginal<typeof import('@tearleads/shared')>();
   const passwordByKey = new WeakMap<object, string>();
 
   const createMockCryptoKey = () => ({
@@ -226,7 +226,7 @@ describe('KeyManager', () => {
     });
 
     it('returns true when salt exists', async () => {
-      mockIDBStore.set(`rapid_db_salt_${TEST_INSTANCE_ID}`, [1, 2, 3]);
+      mockIDBStore.set(`tearleads_db_salt_${TEST_INSTANCE_ID}`, [1, 2, 3]);
       const result = await keyManager.hasExistingKey();
       expect(result).toBe(true);
     });
@@ -235,7 +235,7 @@ describe('KeyManager', () => {
   describe('setupNewKey', () => {
     it('generates salt and derives key from password', async () => {
       const { generateSalt, deriveKeyFromPassword, exportKey } = await import(
-        '@rapid/shared'
+        '@tearleads/shared'
       );
 
       const key = await keyManager.setupNewKey('testpassword');
@@ -253,9 +253,9 @@ describe('KeyManager', () => {
       await keyManager.setupNewKey('testpassword');
 
       // Check that salt was stored (with instance namespace)
-      expect(mockIDBStore.has(`rapid_db_salt_${TEST_INSTANCE_ID}`)).toBe(true);
+      expect(mockIDBStore.has(`tearleads_db_salt_${TEST_INSTANCE_ID}`)).toBe(true);
       // Check that KCV was stored (with instance namespace)
-      expect(mockIDBStore.has(`rapid_db_kcv_${TEST_INSTANCE_ID}`)).toBe(true);
+      expect(mockIDBStore.has(`tearleads_db_kcv_${TEST_INSTANCE_ID}`)).toBe(true);
     });
   });
 
@@ -308,7 +308,7 @@ describe('KeyManager', () => {
 
   describe('clearKey', () => {
     it('clears the current key from memory', async () => {
-      const { secureZero } = await import('@rapid/shared');
+      const { secureZero } = await import('@tearleads/shared');
 
       await keyManager.setupNewKey('password');
       expect(keyManager.getCurrentKey()).not.toBeNull();
@@ -354,10 +354,10 @@ describe('KeyManager', () => {
 
       expect(result).toBe(true);
       expect(
-        mockIDBStore.has(`rapid_session_wrapping_key_${TEST_INSTANCE_ID}`)
+        mockIDBStore.has(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`)
       ).toBe(true);
       expect(
-        mockIDBStore.has(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`)
+        mockIDBStore.has(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`)
       ).toBe(true);
     });
 
@@ -367,10 +367,10 @@ describe('KeyManager', () => {
     });
 
     it('returns true for hasPersistedSession when web session exists', async () => {
-      mockIDBStore.set(`rapid_session_wrapping_key_${TEST_INSTANCE_ID}`, {
+      mockIDBStore.set(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`, {
         wrapping: true
       });
-      mockIDBStore.set(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
+      mockIDBStore.set(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
 
       const result = await keyManager.hasPersistedSession();
 
@@ -387,42 +387,42 @@ describe('KeyManager', () => {
         .spyOn(console, 'error')
         .mockImplementation(() => undefined);
 
-      const { unwrapKey } = await import('@rapid/shared');
+      const { unwrapKey } = await import('@tearleads/shared');
       const unwrapMock = vi.mocked(unwrapKey);
       unwrapMock.mockRejectedValueOnce(new Error('unwrap failed'));
 
-      mockIDBStore.set(`rapid_session_wrapping_key_${TEST_INSTANCE_ID}`, {
+      mockIDBStore.set(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`, {
         wrapping: true
       });
-      mockIDBStore.set(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
+      mockIDBStore.set(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
 
       const result = await keyManager.restoreSession();
       await flushTimers();
 
       expect(result).toBeNull();
       expect(
-        mockIDBStore.has(`rapid_session_wrapping_key_${TEST_INSTANCE_ID}`)
+        mockIDBStore.has(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`)
       ).toBe(false);
       expect(
-        mockIDBStore.has(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`)
+        mockIDBStore.has(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`)
       ).toBe(false);
       consoleError.mockRestore();
     });
 
     it('clearPersistedSession clears stored session keys', async () => {
-      mockIDBStore.set(`rapid_session_wrapping_key_${TEST_INSTANCE_ID}`, {
+      mockIDBStore.set(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`, {
         wrapped: true
       });
-      mockIDBStore.set(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
+      mockIDBStore.set(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
 
       await keyManager.clearPersistedSession();
       await flushTimers();
 
       expect(
-        mockIDBStore.has(`rapid_session_wrapping_key_${TEST_INSTANCE_ID}`)
+        mockIDBStore.has(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`)
       ).toBe(false);
       expect(
-        mockIDBStore.has(`rapid_session_wrapped_key_${TEST_INSTANCE_ID}`)
+        mockIDBStore.has(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`)
       ).toBe(false);
     });
   });
@@ -1340,8 +1340,8 @@ describe('getKeyStatusForInstance', () => {
   it('returns true for existing keys', async () => {
     const instanceId = 'status-instance';
 
-    mockIDBStore.set(`rapid_db_salt_${instanceId}`, [1, 2, 3]);
-    mockIDBStore.set(`rapid_db_kcv_${instanceId}`, 'kcv');
+    mockIDBStore.set(`tearleads_db_salt_${instanceId}`, [1, 2, 3]);
+    mockIDBStore.set(`tearleads_db_kcv_${instanceId}`, 'kcv');
 
     const result = await getKeyStatusForInstance(instanceId);
 
@@ -1356,12 +1356,12 @@ describe('getKeyStatusForInstance', () => {
   it('returns true for session keys when present', async () => {
     const instanceId = 'session-instance';
 
-    mockIDBStore.set(`rapid_db_salt_${instanceId}`, [1, 2, 3]);
-    mockIDBStore.set(`rapid_db_kcv_${instanceId}`, 'kcv');
-    mockIDBStore.set(`rapid_session_wrapping_key_${instanceId}`, {
+    mockIDBStore.set(`tearleads_db_salt_${instanceId}`, [1, 2, 3]);
+    mockIDBStore.set(`tearleads_db_kcv_${instanceId}`, 'kcv');
+    mockIDBStore.set(`tearleads_session_wrapping_key_${instanceId}`, {
       wrapping: true
     });
-    mockIDBStore.set(`rapid_session_wrapped_key_${instanceId}`, [1, 2, 3]);
+    mockIDBStore.set(`tearleads_session_wrapped_key_${instanceId}`, [1, 2, 3]);
 
     const result = await getKeyStatusForInstance(instanceId);
 
@@ -1383,22 +1383,22 @@ describe('deleteSessionKeysForInstance', () => {
   it('deletes session keys but preserves salt and KCV', async () => {
     const instanceId = 'delete-session';
 
-    mockIDBStore.set(`rapid_db_salt_${instanceId}`, [1, 2, 3]);
-    mockIDBStore.set(`rapid_db_kcv_${instanceId}`, 'kcv');
-    mockIDBStore.set(`rapid_session_wrapping_key_${instanceId}`, {
+    mockIDBStore.set(`tearleads_db_salt_${instanceId}`, [1, 2, 3]);
+    mockIDBStore.set(`tearleads_db_kcv_${instanceId}`, 'kcv');
+    mockIDBStore.set(`tearleads_session_wrapping_key_${instanceId}`, {
       wrapping: true
     });
-    mockIDBStore.set(`rapid_session_wrapped_key_${instanceId}`, [1, 2, 3]);
+    mockIDBStore.set(`tearleads_session_wrapped_key_${instanceId}`, [1, 2, 3]);
 
     await deleteSessionKeysForInstance(instanceId);
     await flushTimers();
 
-    expect(mockIDBStore.has(`rapid_db_salt_${instanceId}`)).toBe(true);
-    expect(mockIDBStore.has(`rapid_db_kcv_${instanceId}`)).toBe(true);
-    expect(mockIDBStore.has(`rapid_session_wrapping_key_${instanceId}`)).toBe(
+    expect(mockIDBStore.has(`tearleads_db_salt_${instanceId}`)).toBe(true);
+    expect(mockIDBStore.has(`tearleads_db_kcv_${instanceId}`)).toBe(true);
+    expect(mockIDBStore.has(`tearleads_session_wrapping_key_${instanceId}`)).toBe(
       false
     );
-    expect(mockIDBStore.has(`rapid_session_wrapped_key_${instanceId}`)).toBe(
+    expect(mockIDBStore.has(`tearleads_session_wrapped_key_${instanceId}`)).toBe(
       false
     );
   });
@@ -1469,9 +1469,9 @@ describe('validateAndPruneOrphanedInstances', () => {
     const registryIds = ['valid-instance', 'orphan-instance'];
     const deleteRegistryEntry = vi.fn(async () => undefined);
 
-    mockIDBStore.set(`rapid_db_salt_valid-instance`, [1, 2, 3]);
-    mockIDBStore.set(`rapid_db_kcv_valid-instance`, 'kcv');
-    mockIDBStore.set(`rapid_db_salt_orphan-instance`, [1, 2, 3]);
+    mockIDBStore.set(`tearleads_db_salt_valid-instance`, [1, 2, 3]);
+    mockIDBStore.set(`tearleads_db_kcv_valid-instance`, 'kcv');
+    mockIDBStore.set(`tearleads_db_salt_orphan-instance`, [1, 2, 3]);
 
     const result = await validateAndPruneOrphanedInstances(
       registryIds,
@@ -1482,7 +1482,7 @@ describe('validateAndPruneOrphanedInstances', () => {
     expect(result.orphanedRegistryEntries).toEqual(['orphan-instance']);
     expect(result.cleaned).toBe(true);
     expect(deleteRegistryEntry).toHaveBeenCalledWith('orphan-instance');
-    expect(mockIDBStore.has('rapid_db_salt_orphan-instance')).toBe(false);
+    expect(mockIDBStore.has('tearleads_db_salt_orphan-instance')).toBe(false);
   });
 
   it('detects and cleans orphaned Keystore entries on mobile', async () => {

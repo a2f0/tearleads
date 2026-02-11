@@ -1,4 +1,4 @@
-import type { VfsOpenItem } from '@rapid/vfs-explorer';
+import type { VfsOpenItem } from '@tearleads/vfs-explorer';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,7 +48,7 @@ let latestProps: {
   onUpload?: (folderId: string) => void;
 } | null = null;
 
-vi.mock('@rapid/vfs-explorer', () => ({
+vi.mock('@tearleads/vfs-explorer', () => ({
   VfsWindow: (props: {
     onItemOpen?: (item: VfsOpenItem) => void;
     onUpload?: (folderId: string) => void;

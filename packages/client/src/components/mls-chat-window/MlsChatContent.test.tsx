@@ -1,10 +1,10 @@
-import type { ActiveGroup } from '@rapid/mls-chat';
-import type { MlsGroupMember } from '@rapid/shared';
+import type { ActiveGroup } from '@tearleads/mls-chat';
+import type { MlsGroupMember } from '@tearleads/shared';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 // Mock the mls-chat components to avoid React version conflicts
-vi.mock('@rapid/mls-chat', () => ({
+vi.mock('@tearleads/mls-chat', () => ({
   MlsChatWindow: ({
     groupName,
     onOpenMembers,

@@ -1,4 +1,4 @@
-import type { RedisKeyInfo } from '@rapid/shared';
+import type { RedisKeyInfo } from '@tearleads/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { Database, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';

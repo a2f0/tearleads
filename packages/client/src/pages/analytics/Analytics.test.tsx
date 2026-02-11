@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
@@ -691,7 +691,7 @@ describe('Analytics', () => {
     });
   });
 
-  describe('stability under rapid re-renders', () => {
+  describe('stability under tearleads re-renders', () => {
     beforeEach(() => {
       mockUseDatabaseContext.mockReturnValue({
         isUnlocked: true,

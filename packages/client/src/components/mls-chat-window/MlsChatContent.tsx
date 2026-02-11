@@ -3,8 +3,8 @@ import {
   type DecryptedMessage,
   MemberList,
   MlsChatWindow as MlsChatWindowComponent
-} from '@rapid/mls-chat';
-import type { MlsGroupMember } from '@rapid/shared';
+} from '@tearleads/mls-chat';
+import type { MlsGroupMember } from '@tearleads/shared';
 import type { FC, ReactElement } from 'react';
 import { useCallback, useState } from 'react';
 

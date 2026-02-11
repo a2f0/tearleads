@@ -1,6 +1,6 @@
 import type { Server } from 'node:http';
-import dbPackageJson from '@rapid/db/package.json' with { type: 'json' };
-import type { PingData } from '@rapid/shared';
+import dbPackageJson from '@tearleads/db/package.json' with { type: 'json' };
+import type { PingData } from '@tearleads/shared';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import express, { type Express, type Request, type Response } from 'express';

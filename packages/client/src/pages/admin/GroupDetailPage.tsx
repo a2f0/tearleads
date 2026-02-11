@@ -1,4 +1,4 @@
-import type { Group, GroupMember, UpdateGroupRequest } from '@rapid/shared';
+import type { Group, GroupMember, UpdateGroupRequest } from '@tearleads/shared';
 import { Loader2, Save, Trash2, UserMinus, UserPlus } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';

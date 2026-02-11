@@ -31,7 +31,7 @@ async function runMigrate(options: {
   dryRun?: boolean;
   status?: boolean;
 }): Promise<void> {
-  console.log('Rapid API Database Migrations');
+  console.log('Tearleads API Database Migrations');
   console.log('=============================\n');
 
   const pool = await getPostgresPool();

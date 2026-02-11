@@ -1,4 +1,4 @@
-import { contactEmails, contactPhones, contacts } from '@rapid/db/sqlite';
+import { contactEmails, contactPhones, contacts } from '@tearleads/db/sqlite';
 import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useContactsContext } from '../context';

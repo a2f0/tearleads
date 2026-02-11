@@ -1,4 +1,4 @@
-import { isRecord, toFiniteNumber } from '@rapid/shared';
+import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 
 export interface CalendarEvent {

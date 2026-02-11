@@ -108,7 +108,7 @@ test.describe('Backup and Restore', () => {
     const download = await downloadPromise;
 
     // Verify the download has the correct extension
-    expect(download.suggestedFilename()).toMatch(/^rapid-backup-.*\.rbu$/);
+    expect(download.suggestedFilename()).toMatch(/^tearleads-backup-.*\.rbu$/);
 
     // Ensure artifact directory exists
     await mkdir(BACKUP_ARTIFACT_DIR, { recursive: true });

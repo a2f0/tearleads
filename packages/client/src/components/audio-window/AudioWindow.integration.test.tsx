@@ -4,7 +4,7 @@ import {
   ALL_AUDIO_ID,
   AudioPlaylistsSidebar,
   useAudioUIContext
-} from '@rapid/audio';
+} from '@tearleads/audio';
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
@@ -108,7 +108,7 @@ describe('Audio playlist drag and drop integration', () => {
     const dataTransfer = {
       files: [],
       getData: (type: string) =>
-        type === 'application/x-rapid-media-ids' ? payload : ''
+        type === 'application/x-tearleads-media-ids' ? payload : ''
     };
 
     fireEvent.dragEnter(playlistButton, { dataTransfer });

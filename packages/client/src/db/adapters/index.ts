@@ -47,7 +47,7 @@ export async function createAdapter(
       // Use CapacitorAdapter (native SQLCipher) on mobile.
       // OPFS/WebAdapter requires SharedArrayBuffer which isn't available in
       // iOS WebView due to missing COOP/COEP header support.
-      // See: https://github.com/a2f0/rapid/issues/772
+      // See: https://github.com/a2f0/tearleads/issues/772
       return new CapacitorAdapter();
 
     case 'web':

@@ -1,6 +1,6 @@
 # Tuxedo
 
-Tuxedo is a tmux-driven workspace orchestrator for the rapid development setup.
+Tuxedo is a tmux-driven workspace orchestrator for the tearleads development setup.
 It creates a tmux session with windows for each workspace and can optionally
 persist each workspace shell via GNU screen.
 
@@ -18,11 +18,11 @@ backwards compatibility.
 
 ## Workspace naming
 
-Tuxedo assumes a `rapid-shared` workspace plus one or more numbered workspaces:
+Tuxedo assumes a `tearleads-shared` workspace plus one or more numbered workspaces:
 
-- `rapid-shared`: shared `.secrets`, `.test_files`, and `packages/api/.env` source of truth
-- `rapid-main`: first workspace window
-- `rapid2...rapidN`: additional workspaces based on `TUXEDO_WORKSPACES`
+- `tearleads-shared`: shared `.secrets`, `.test_files`, and `packages/api/.env` source of truth
+- `tearleads-main`: first workspace window
+- `tearleads2...tearleadsN`: additional workspaces based on `TUXEDO_WORKSPACES`
 
 ## Requirements
 
@@ -82,7 +82,7 @@ scripts directly without specifying the full path.
 
 ## Behavior notes
 
-- Uses `rapid-shared/` as the source of truth for `.secrets`, `.test_files`, and `packages/api/.env`.
+- Uses `tearleads-shared/` as the source of truth for `.secrets`, `.test_files`, and `packages/api/.env`.
 - Starts `listOpenPrs.sh` in window `0` and `listRecentClosedPrs.sh` in window `1` (left pane) with auto-refresh.
 - Automatically fast-forwards clean `main` workspaces before setting symlinks.
 - When `screen` is available, each workspace runs inside a named screen session

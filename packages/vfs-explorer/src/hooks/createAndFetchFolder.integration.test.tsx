@@ -5,8 +5,8 @@
  * verifying actual database state rather than mock calls.
  */
 
-import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
-import { vfsTestMigrations, withRealDatabase } from '@rapid/db-test-utils';
+import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { vfsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';

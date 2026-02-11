@@ -1,7 +1,7 @@
 #!/bin/sh
 set -e
 
-ENV_FILE="/opt/rapid-api/.env"
+ENV_FILE="/opt/tearleads-api/.env"
 
 if [ ! -f "$ENV_FILE" ]; then
     echo "Error: Environment file not found: $ENV_FILE" >&2
@@ -13,4 +13,4 @@ set -a
 . "$ENV_FILE"
 set +a
 
-exec /usr/bin/node /opt/rapid-api/dist/apiCli.cjs "$@"
+exec /usr/bin/node /opt/tearleads-api/dist/apiCli.cjs "$@"

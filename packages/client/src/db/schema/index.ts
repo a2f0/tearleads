@@ -1,4 +1,4 @@
-// Re-export schema from @rapid/db
+// Re-export schema from @tearleads/db
 export {
   aiConversations,
   aiMessages,
@@ -41,4 +41,4 @@ export {
   vfsLinks,
   vfsRegistry,
   vfsShares
-} from '@rapid/db/sqlite';
+} from '@tearleads/db/sqlite';

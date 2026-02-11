@@ -137,7 +137,7 @@ describe('backup-storage', () => {
       createMockFileHandle('notes.txt', new Uint8Array([9]))
     );
     fileMap.set('nested', createMockDirectoryHandle('nested'));
-    backupDirectory = createMockDirectoryHandle('rapid-backups', fileMap);
+    backupDirectory = createMockDirectoryHandle('tearleads-backups', fileMap);
 
     const rootDirectory: MockDirectoryHandle = {
       kind: 'directory',
@@ -220,7 +220,7 @@ describe('backup-storage', () => {
       }),
       getDirectoryHandle: vi.fn(async () => ({
         kind: 'directory',
-        name: 'rapid-backups',
+        name: 'tearleads-backups',
         getFileHandle: vi.fn(),
         getDirectoryHandle: vi.fn(),
         removeEntry: vi.fn(),

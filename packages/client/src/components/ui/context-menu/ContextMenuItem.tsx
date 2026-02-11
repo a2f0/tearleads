@@ -1,4 +1,4 @@
-import { WindowContextMenuItem } from '@rapid/window-manager';
+import { WindowContextMenuItem } from '@tearleads/window-manager';
 
 interface ContextMenuItemProps {
   icon?: React.ReactNode;

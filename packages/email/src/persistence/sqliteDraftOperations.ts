@@ -1,9 +1,9 @@
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import {
   composedEmails,
   emailAttachments,
   vfsRegistry
-} from '@rapid/db/sqlite';
+} from '@tearleads/db/sqlite';
 import { desc, eq } from 'drizzle-orm';
 import type { SaveDraftInput } from '../context';
 import type { Attachment, DraftEmail, DraftListItem } from '../types';

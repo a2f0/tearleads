@@ -1,4 +1,4 @@
-import type { Session } from '@rapid/shared';
+import type { Session } from '@tearleads/shared';
 import { Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';

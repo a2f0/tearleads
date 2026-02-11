@@ -90,7 +90,7 @@ describe('Photos album drag and drop integration', () => {
     const dataTransfer = {
       files: [],
       getData: (type: string) =>
-        type === 'application/x-rapid-media-ids' ? payload : ''
+        type === 'application/x-tearleads-media-ids' ? payload : ''
     };
 
     fireEvent.dragOver(albumButton, { dataTransfer });

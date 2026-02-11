@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
-  "name": "Rapid",
+  "name": "Tearleads",
   "version": "0.0.146",
-  "description": "Rapid Chrome Extension",
+  "description": "Tearleads Chrome Extension",
   "permissions": [
     "storage",
     "activeTab"
@@ -27,7 +27,7 @@
   "content_scripts": [
     {
       "matches": [
-        "https://*.rapid.app/*",
+        "https://*.tearleads.app/*",
         "http://localhost/*"
       ],
       "js": [

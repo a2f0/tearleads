@@ -1,4 +1,4 @@
-import { useTheme } from '@rapid/ui';
+import { useTheme } from '@tearleads/ui';
 import { and, eq } from 'drizzle-orm';
 import { Calendar, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';

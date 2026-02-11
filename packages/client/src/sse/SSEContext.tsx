@@ -2,7 +2,7 @@ import {
   isRecord,
   type SSEConnectionState,
   type SSEMessage
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import type { ReactNode } from 'react';
 import {
   createContext,

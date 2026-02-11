@@ -233,7 +233,7 @@ vi.mock('@/components/models-window', () => ({
   )
 }));
 
-vi.mock('@rapid/keychain', () => ({
+vi.mock('@tearleads/keychain', () => ({
   KeychainWindow: ({
     id,
     onClose,

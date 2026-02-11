@@ -5,7 +5,7 @@
  * suitable for use with React Testing Library's renderHook and render.
  */
 
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import type { ReactNode } from 'react';
 import { createContext, useContext } from 'react';
 
@@ -22,7 +22,7 @@ const TestDbContext = createContext<TestDbContextValue | null>(null);
  *
  * @example
  * ```tsx
- * import { withRealDatabase, createRealDbWrapper } from '@rapid/db-test-utils';
+ * import { withRealDatabase, createRealDbWrapper } from '@tearleads/db-test-utils';
  * import { renderHook } from '@testing-library/react';
  *
  * it('works with real database', async () => {

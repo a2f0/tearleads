@@ -10,14 +10,14 @@ import type {
   AiMessage,
   DecryptedAiConversation,
   DecryptedAiMessage
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   decrypt,
   encrypt,
   importKey,
   splitEncapsulation,
   unwrapKeyWithKeyPair
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   ensureVfsKeys,
   generateSessionKey,

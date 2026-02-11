@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { HelpWindow } from './HelpWindow';
 
-vi.mock('@rapid/api/dist/openapi.json', () => ({
+vi.mock('@tearleads/api/dist/openapi.json', () => ({
   default: {
     openapi: '3.0.0',
     info: {
@@ -26,7 +26,7 @@ vi.mock('@rapid/api/dist/openapi.json', () => ({
   }
 }));
 
-vi.mock('@rapid/ui', () => ({
+vi.mock('@tearleads/ui', () => ({
   ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
     <div data-testid="api-docs">{spec.info.title}</div>
   )

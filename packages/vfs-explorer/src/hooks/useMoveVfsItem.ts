@@ -2,7 +2,7 @@
  * Hook for moving VFS items between folders.
  */
 
-import { vfsLinks } from '@rapid/db/sqlite';
+import { vfsLinks } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext } from '../context';

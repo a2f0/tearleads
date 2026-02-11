@@ -1,4 +1,4 @@
-import type { BroadcastMessage } from '@rapid/shared';
+import type { BroadcastMessage } from '@tearleads/shared';
 import { getRedisClient } from './redis.js';
 
 export type { BroadcastMessage };

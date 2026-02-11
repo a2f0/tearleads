@@ -1,4 +1,4 @@
-import { OPENROUTER_CHAT_MODELS } from '@rapid/shared';
+import { OPENROUTER_CHAT_MODELS } from '@tearleads/shared';
 
 export interface ModelInfo {
   id: string;

@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/db-test-utils",
+  "name": "@tearleads/db-test-utils",
   "version": "0.0.1",
-  "description": "Database testing utilities for Rapid integration tests",
+  "description": "Database testing utilities for Tearleads integration tests",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -30,8 +30,8 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@rapid/db": "workspace:*",
-    "@rapid/shared": "workspace:*",
+    "@tearleads/db": "workspace:*",
+    "@tearleads/shared": "workspace:*",
     "drizzle-orm": "0.45.1"
   },
   "devDependencies": {

@@ -2,7 +2,7 @@
  * Hook for creating VFS folders.
  */
 
-import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
+import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { useCallback, useState } from 'react';
 import { VFS_ROOT_ID } from '../constants';
 import { useVfsExplorerContext } from '../context';

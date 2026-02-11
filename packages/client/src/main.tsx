@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
@@ -143,10 +143,10 @@ const Home = lazy(() =>
   import('./pages/Home').then((m) => ({ default: m.Home }))
 );
 const Keychain = lazy(() =>
-  import('@rapid/keychain').then((m) => ({ default: m.Keychain }))
+  import('@tearleads/keychain').then((m) => ({ default: m.Keychain }))
 );
 const KeychainDetail = lazy(() =>
-  import('@rapid/keychain').then((m) => ({ default: m.KeychainDetail }))
+  import('@tearleads/keychain').then((m) => ({ default: m.KeychainDetail }))
 );
 const Licenses = lazy(() =>
   import('./pages/Licenses').then((m) => ({ default: m.Licenses }))

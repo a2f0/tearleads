@@ -23,7 +23,7 @@ interface PersistedNotification {
   read: boolean;
 }
 
-const STORAGE_KEY = 'rapid_notifications';
+const STORAGE_KEY = 'tearleads_notifications';
 const MAX_NOTIFICATIONS = 50;
 
 class NotificationStore {

@@ -7,7 +7,7 @@
  * 3. The vfsRegistry entry can be queried back
  */
 
-import { notes, vfsRegistry } from '@rapid/db/sqlite';
+import { notes, vfsRegistry } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import { describe, expect, it, vi } from 'vitest';
 

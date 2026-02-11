@@ -12,12 +12,12 @@ describe('buildPostgresConnectionLabel', () => {
     mockGetPostgresConnectionInfo.mockReturnValue({
       host: 'localhost',
       port: 5432,
-      user: 'rapid',
-      database: 'rapid_test'
+      user: 'tearleads',
+      database: 'tearleads_test'
     });
 
     expect(buildPostgresConnectionLabel()).toBe(
-      'host=localhost, port=5432, user=rapid, database=rapid_test'
+      'host=localhost, port=5432, user=tearleads, database=tearleads_test'
     );
   });
 
@@ -26,17 +26,17 @@ describe('buildPostgresConnectionLabel', () => {
       host: undefined,
       port: undefined,
       user: undefined,
-      database: 'rapid_test'
+      database: 'tearleads_test'
     });
 
-    expect(buildPostgresConnectionLabel()).toBe('database=rapid_test');
+    expect(buildPostgresConnectionLabel()).toBe('database=tearleads_test');
   });
 
   it('throws when database is missing', () => {
     mockGetPostgresConnectionInfo.mockReturnValue({
       host: 'localhost',
       port: 5432,
-      user: 'rapid',
+      user: 'tearleads',
       database: undefined
     });
 

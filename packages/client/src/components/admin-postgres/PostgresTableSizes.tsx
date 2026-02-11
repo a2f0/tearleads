@@ -1,4 +1,4 @@
-import type { PostgresTableInfo } from '@rapid/shared';
+import type { PostgresTableInfo } from '@tearleads/shared';
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { LinkWithFrom } from '@/components/ui/back-link/LinkWithFrom';

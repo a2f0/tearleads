@@ -19,7 +19,7 @@ const mockUseSSEContext = vi.fn();
 const mockUseAppVersion = vi.fn();
 const mockOpenWindow = vi.fn();
 
-vi.mock('@rapid/ui', () => ({
+vi.mock('@tearleads/ui', () => ({
   Footer: ({
     children,
     connectionIndicator,
@@ -37,8 +37,8 @@ vi.mock('@rapid/ui', () => ({
   )
 }));
 
-vi.mock('@rapid/window-manager', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@rapid/window-manager')>();
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/window-manager')>();
 
   return {
     ...actual,
@@ -60,7 +60,7 @@ vi.mock('@rapid/window-manager', async (importOriginal) => {
   };
 });
 
-vi.mock('@rapid/ui/logo.svg', () => ({
+vi.mock('@tearleads/ui/logo.svg', () => ({
   default: 'logo.svg'
 }));
 

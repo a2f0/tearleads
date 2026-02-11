@@ -1,8 +1,8 @@
 // Core utilities
 
-export type { Database } from '@rapid/db/sqlite';
+export type { Database } from '@tearleads/db/sqlite';
 // Re-export schema for convenience
-export { schema } from '@rapid/db/sqlite';
+export { schema } from '@tearleads/db/sqlite';
 export type {
   DatabaseAdapter,
   DatabaseConfig,

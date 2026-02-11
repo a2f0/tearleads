@@ -20,7 +20,7 @@ export const ChunkType: {
 
 /** Backup file header (plaintext, 32 bytes) */
 export interface BackupHeader {
-  /** Magic bytes: "RAPIDBAK" */
+  /** Magic bytes: "TEARLEADSBAK" */
   magic: Uint8Array;
   /** Format version (currently 1) */
   version: number;

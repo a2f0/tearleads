@@ -16,8 +16,8 @@ export const FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlagDefinition> = {
   }
 };
 
-export const FEATURE_FLAGS_STORAGE_KEY = 'rapid_feature_flags';
-const FEATURE_FLAGS_CHANGE_EVENT = 'rapid_feature_flags_change';
+export const FEATURE_FLAGS_STORAGE_KEY = 'tearleads_feature_flags';
+const FEATURE_FLAGS_CHANGE_EVENT = 'tearleads_feature_flags_change';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

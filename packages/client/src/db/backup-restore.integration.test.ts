@@ -2,14 +2,14 @@
  * Integration tests for database backup and restore functionality.
  *
  * These tests specifically test the export/import cycle with encrypted databases
- * using the WasmNodeAdapter. This allows rapid debugging of backup/restore issues
+ * using the WasmNodeAdapter. This allows tearleads debugging of backup/restore issues
  * without needing Playwright E2E tests.
  *
- * Related: https://github.com/a2f0/rapid/issues/137
+ * Related: https://github.com/a2f0/tearleads/issues/137
  */
 
-import type { DatabaseConfig } from '@rapid/db-test-utils';
-import { WasmNodeAdapter } from '@rapid/db-test-utils';
+import type { DatabaseConfig } from '@tearleads/db-test-utils';
+import { WasmNodeAdapter } from '@tearleads/db-test-utils';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mockConsoleWarn } from '@/test/console-mocks';
 

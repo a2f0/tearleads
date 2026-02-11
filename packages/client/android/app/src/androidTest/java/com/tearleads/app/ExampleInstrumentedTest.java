@@ -1,4 +1,4 @@
-package com.tearleads.rapid;
+package com.tearleads.app;
 
 import static org.junit.Assert.*;
 
@@ -21,6 +21,6 @@ public class ExampleInstrumentedTest {
         // Context of the app under test.
         Context appContext = InstrumentationRegistry.getInstrumentation().getTargetContext();
 
-        assertEquals("com.tearleads.rapid", appContext.getPackageName());
+        assertEquals("com.tearleads.app", appContext.getPackageName());
     }
 }

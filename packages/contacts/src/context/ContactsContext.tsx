@@ -1,4 +1,4 @@
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import type { ComponentType, ReactNode, Ref } from 'react';
 import { createContext, useContext, useMemo } from 'react';
 

@@ -1,4 +1,4 @@
-import { isRecord, toFiniteNumber } from '@rapid/shared';
+import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import { ChevronRight, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';

@@ -3,8 +3,8 @@
  * Handles uploading key packages to the server and local key package generation.
  */
 
-import type { MlsKeyPackage } from '@rapid/shared';
-import { MLS_CIPHERSUITES } from '@rapid/shared';
+import type { MlsKeyPackage } from '@tearleads/shared';
+import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';

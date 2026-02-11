@@ -1,5 +1,5 @@
 {
-  "name": "@rapid/window-manager",
+  "name": "@tearleads/window-manager",
   "version": "0.0.1",
   "description": "Floating window manager and components for desktop-like web applications",
   "type": "module",

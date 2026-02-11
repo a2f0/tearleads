@@ -24,8 +24,8 @@ describe('PostgresAdmin integration', () => {
       info: {
         host: 'localhost',
         port: 5432,
-        database: 'rapid',
-        user: 'rapid'
+        database: 'tearleads',
+        user: 'tearleads'
       },
       serverVersion: 'PostgreSQL 15.1'
     });
@@ -55,6 +55,6 @@ describe('PostgresAdmin integration', () => {
     expect(screen.getByText('PostgreSQL 15.1')).toBeInTheDocument();
     expect(screen.getByText('public.users')).toBeInTheDocument();
     expect(screen.getAllByText('2.00KB')).toHaveLength(2);
-    expect(screen.getAllByText('rapid')).toHaveLength(2);
+    expect(screen.getAllByText('tearleads')).toHaveLength(2);
   });
 });

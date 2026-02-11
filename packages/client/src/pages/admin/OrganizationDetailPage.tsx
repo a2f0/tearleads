@@ -3,7 +3,7 @@ import type {
   OrganizationGroup,
   OrganizationUser,
   UpdateOrganizationRequest
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   Building2,
   Calendar,

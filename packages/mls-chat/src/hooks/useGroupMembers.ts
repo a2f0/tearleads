@@ -3,7 +3,7 @@
  * Handles adding and removing members from MLS groups.
  */
 
-import type { MlsGroupMember, MlsKeyPackage } from '@rapid/shared';
+import type { MlsGroupMember, MlsKeyPackage } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';

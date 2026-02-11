@@ -47,7 +47,7 @@
         </receiver>
 
         <service
-            android:name=".RapidMediaBrowserService"
+            android:name=".TearleadsMediaBrowserService"
             android:exported="true"
             android:foregroundServiceType="mediaPlayback">
             <intent-filter>

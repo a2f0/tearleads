@@ -1,5 +1,5 @@
-import type { DecryptedAiConversation } from '@rapid/shared';
-import { WindowContextMenu } from '@rapid/window-manager';
+import type { DecryptedAiConversation } from '@tearleads/shared';
+import { WindowContextMenu } from '@tearleads/window-manager';
 import { Pencil, Trash2 } from 'lucide-react';
 
 interface ConversationsContextMenuProps {

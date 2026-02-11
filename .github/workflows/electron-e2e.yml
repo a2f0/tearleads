@@ -104,7 +104,7 @@ jobs:
 
       - name: Start API server
         run: |
-          pnpm --filter @rapid/api dev &
+          pnpm --filter @tearleads/api dev &
           echo "Waiting for API server to be ready..."
           timeout 30 bash -c 'until curl -f http://localhost:5001/v1/ping; do sleep 1; done'
         env:
@@ -118,44 +118,44 @@ jobs:
         run: curl -k https://localhost:8443/v1/ping
 
       - name: Build API (for OpenAPI spec)
-        run: pnpm --filter @rapid/api build
+        run: pnpm --filter @tearleads/api build
 
       - name: Build window-manager
-        run: pnpm --filter @rapid/window-manager build
+        run: pnpm --filter @tearleads/window-manager build
 
       - name: Build UI
-        run: pnpm --filter @rapid/ui build
+        run: pnpm --filter @tearleads/ui build
 
       - name: Build notes
-        run: pnpm --filter @rapid/notes build
+        run: pnpm --filter @tearleads/notes build
 
       - name: Build email
-        run: pnpm --filter @rapid/email build
+        run: pnpm --filter @tearleads/email build
 
       - name: Build vfs-explorer
-        run: pnpm --filter @rapid/vfs-explorer build
+        run: pnpm --filter @tearleads/vfs-explorer build
 
       - name: Build audio
-        run: pnpm --filter @rapid/audio build
+        run: pnpm --filter @tearleads/audio build
 
       - name: Build contacts
-        run: pnpm --filter @rapid/contacts build
+        run: pnpm --filter @tearleads/contacts build
 
       - name: Build db-test-utils
-        run: pnpm --filter @rapid/db-test-utils build
+        run: pnpm --filter @tearleads/db-test-utils build
 
       - name: Build Electron app
-        run: pnpm --filter @rapid/client electron:build
+        run: pnpm --filter @tearleads/client electron:build
         env:
           VITE_API_URL: https://localhost:8443/v1
 
       - name: Run Electron tests
-        run: xvfb-run --auto-servernum -- pnpm --filter @rapid/client electron:test
+        run: xvfb-run --auto-servernum -- pnpm --filter @tearleads/client electron:test
         env:
           NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/.github/ci/localhost.crt
 
       - name: Build CLI for backup validation
-        run: pnpm --filter @rapid/cli build
+        run: pnpm --filter @tearleads/cli build
 
       - name: Validate backup file
         run: |
@@ -167,7 +167,7 @@ jobs:
             echo "Validating backup with CLI dump command..."
 
             # Run CLI dump to decrypt and extract backup
-            # Usage: rapid dump <folder> -f <backup-file> -p <password>
+            # Usage: tearleads dump <folder> -f <backup-file> -p <password>
             cd packages/cli
             node dist/index.js dump "$GITHUB_WORKSPACE/$DUMP_OUTPUT" \
               -f "$GITHUB_WORKSPACE/$BACKUP_FILE" \

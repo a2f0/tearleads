@@ -1,4 +1,4 @@
 #!/bin/sh
 set -e
 
-exec journalctl -u rapid-api.service -f --no-pager "$@"
+exec journalctl -u tearleads-api.service -f --no-pager "$@"

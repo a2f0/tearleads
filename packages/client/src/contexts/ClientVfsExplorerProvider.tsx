@@ -1,12 +1,12 @@
 /**
  * Client-side VfsExplorerProvider wrapper that supplies all dependencies
- * to the @rapid/vfs-explorer package components.
+ * to the @tearleads/vfs-explorer package components.
  */
 import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
-} from '@rapid/vfs-explorer';
-import vfsExplorerPackageJson from '@rapid/vfs-explorer/package.json';
+} from '@tearleads/vfs-explorer';
+import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import { type ReactNode, useMemo } from 'react';
 import { FloatingWindow } from '@/components/floating-window';
 import { Button } from '@/components/ui/button';

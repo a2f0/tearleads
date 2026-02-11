@@ -1,4 +1,4 @@
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, eq, like } from 'drizzle-orm';
 import {
   ArrowLeft,

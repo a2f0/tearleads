@@ -12,7 +12,7 @@ cd "$SCRIPT_DIR/../packages/client"
 # Disable audio to prevent crackling on host audio
 "$SCRIPT_DIR/muteIosSimulatorAudio.sh"
 
-BUNDLE_ID="com.tearleads.rapid"
+BUNDLE_ID="com.tearleads.app"
 DEVICE="${1:-"iPhone 16 Pro"}"
 
 pnpm build && pnpm exec cap sync ios

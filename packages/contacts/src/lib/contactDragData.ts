@@ -1,4 +1,4 @@
-const CONTACT_DRAG_MIME_TYPE = 'application/x-rapid-contact-ids';
+const CONTACT_DRAG_MIME_TYPE = 'application/x-tearleads-contact-ids';
 
 interface ContactDragDataWriter {
   effectAllowed: string;

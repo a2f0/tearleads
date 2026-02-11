@@ -20,8 +20,8 @@ vi.mock('@tanstack/react-virtual', () => ({
   }))
 }));
 
-// Mock AudioPlaylistsSidebar from @rapid/audio
-vi.mock('@rapid/audio', () => ({
+// Mock AudioPlaylistsSidebar from @tearleads/audio
+vi.mock('@tearleads/audio', () => ({
   ALL_AUDIO_ID: '__all__',
   AudioPlaylistsSidebar: vi.fn(
     ({
@@ -1241,7 +1241,7 @@ describe('Audio wrapper with sidebar', () => {
       const user = userEvent.setup();
 
       // Mock the sidebar to have an "All Audio" button
-      const { AudioPlaylistsSidebar } = await import('@rapid/audio');
+      const { AudioPlaylistsSidebar } = await import('@tearleads/audio');
       const MockedSidebar = AudioPlaylistsSidebar as unknown as ReturnType<
         typeof vi.fn
       >;

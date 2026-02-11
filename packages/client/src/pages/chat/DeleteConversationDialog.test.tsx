@@ -2,7 +2,7 @@
  * Tests for DeleteConversationDialog component.
  */
 
-import type { DecryptedAiConversation } from '@rapid/shared';
+import type { DecryptedAiConversation } from '@tearleads/shared';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { DeleteConversationDialog } from './DeleteConversationDialog';

@@ -1,4 +1,4 @@
-import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
+import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { eq, inArray } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';

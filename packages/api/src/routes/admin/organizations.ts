@@ -7,7 +7,7 @@ import type {
   OrganizationsListResponse,
   OrganizationUsersResponse,
   UpdateOrganizationRequest
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   type Request,
   type Response,

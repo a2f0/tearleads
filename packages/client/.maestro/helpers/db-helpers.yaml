@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # Shared database test helper functions
 # Include this flow at the start of tests that need database interaction helpers

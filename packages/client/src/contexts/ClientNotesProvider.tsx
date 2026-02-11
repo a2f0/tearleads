@@ -1,13 +1,13 @@
 /**
  * Client-side NotesProvider wrapper that supplies all dependencies
- * to the @rapid/notes package components.
+ * to the @tearleads/notes package components.
  */
 import {
   type NavigateToNote,
   NotesProvider,
   type NotesUIComponents
-} from '@rapid/notes';
-import notesPackageJson from '@rapid/notes/package.json';
+} from '@tearleads/notes';
+import notesPackageJson from '@tearleads/notes/package.json';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';

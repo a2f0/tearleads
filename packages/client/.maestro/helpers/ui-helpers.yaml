@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # Shared UI test helper functions
 # Usage: - runFlow: helpers/ui-helpers.yaml

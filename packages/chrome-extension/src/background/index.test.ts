@@ -49,7 +49,7 @@ describe('background script', () => {
     const onInstalledCallback = firstCall[0];
     onInstalledCallback();
 
-    expect(consoleSpy).toHaveBeenCalledWith('Rapid extension installed');
+    expect(consoleSpy).toHaveBeenCalledWith('Tearleads extension installed');
     consoleSpy.mockRestore();
   });
 

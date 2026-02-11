@@ -1,6 +1,6 @@
 export type MediaDragType = 'audio' | 'video' | 'image';
 
-const MEDIA_DRAG_MIME_TYPE = 'application/x-rapid-media-ids';
+const MEDIA_DRAG_MIME_TYPE = 'application/x-tearleads-media-ids';
 
 interface DragDataWriter {
   effectAllowed: string;

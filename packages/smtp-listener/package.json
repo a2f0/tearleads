@@ -1,5 +1,5 @@
 {
-  "name": "@rapid/smtp-listener",
+  "name": "@tearleads/smtp-listener",
   "version": "0.0.1",
   "description": "SMTP listener for receiving and storing emails",
   "main": "dist/index.js",
@@ -24,7 +24,7 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@rapid/shared": "workspace:*",
+    "@tearleads/shared": "workspace:*",
     "smtp-server": "3.18.1"
   },
   "devDependencies": {

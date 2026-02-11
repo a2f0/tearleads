@@ -1,6 +1,6 @@
 import { Capacitor } from '@capacitor/core';
 
-export { cn } from '@rapid/ui';
+export { cn } from '@tearleads/ui';
 
 export type Platform = 'web' | 'ios' | 'android' | 'electron';
 

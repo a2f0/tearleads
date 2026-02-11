@@ -1,4 +1,4 @@
-import { ThemeProvider } from '@rapid/ui';
+import { ThemeProvider } from '@tearleads/ui';
 import {
   fireEvent,
   render,
@@ -25,8 +25,8 @@ import { Sqlite } from './pages/Sqlite';
 const mockExecute = vi.fn().mockResolvedValue({ rows: [] });
 const mockLock = vi.fn().mockResolvedValue(undefined);
 
-vi.mock('@rapid/contacts', async () => {
-  const actual = await vi.importActual('@rapid/contacts');
+vi.mock('@tearleads/contacts', async () => {
+  const actual = await vi.importActual('@tearleads/contacts');
   return {
     ...actual,
     ContactsGroupsSidebar: () => <div data-testid="contacts-groups-sidebar" />

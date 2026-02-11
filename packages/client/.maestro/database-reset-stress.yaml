@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # Database Reset-Setup Stress Test
 # Performs 5 reset-setup cycles with cooldown to catch edge cases

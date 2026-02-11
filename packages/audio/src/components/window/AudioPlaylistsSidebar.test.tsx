@@ -266,7 +266,7 @@ describe('AudioPlaylistsSidebar', () => {
     const dataTransfer = {
       files: [],
       getData: (type: string) =>
-        type === 'application/x-rapid-media-ids' ? payload : ''
+        type === 'application/x-tearleads-media-ids' ? payload : ''
     };
 
     fireEvent.drop(playlistButton, { dataTransfer });

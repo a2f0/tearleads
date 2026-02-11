@@ -3,8 +3,8 @@
  * Handles listing, creating, and managing group membership.
  */
 
-import type { MlsGroup } from '@rapid/shared';
-import { MLS_CIPHERSUITES } from '@rapid/shared';
+import type { MlsGroup } from '@tearleads/shared';
+import { MLS_CIPHERSUITES } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';

@@ -1,4 +1,4 @@
-import type { ResolvedTheme } from '@rapid/ui';
+import type { ResolvedTheme } from '@tearleads/ui';
 
 export interface ThemePreviewProps {
   theme: ResolvedTheme;

@@ -107,7 +107,7 @@ if [ "${SKIP_RUBY:-0}" -ne 1 ]; then
 fi
 
 if [ "${SKIP_CAP_SYNC:-0}" -ne 1 ]; then
-  pnpm --filter @rapid/client cap:sync
+  pnpm --filter @tearleads/client cap:sync
 fi
 
 # Clean pod install to ensure fresh CocoaPods dependencies.

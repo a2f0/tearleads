@@ -1,4 +1,4 @@
-import type { ActiveGroup } from '@rapid/mls-chat';
+import type { ActiveGroup } from '@tearleads/mls-chat';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { MlsChatGroupsSidebar } from './MlsChatGroupsSidebar';

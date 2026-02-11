@@ -26,7 +26,7 @@ jobs:
         run: pnpm install
 
       - name: Install Playwright browsers
-        run: pnpm --filter @rapid/website exec playwright install chromium
+        run: pnpm --filter @tearleads/website exec playwright install chromium
 
       - name: Install ImageMagick (Linux)
         if: runner.os == 'Linux'
@@ -75,17 +75,17 @@ jobs:
             "chgrp -R www-data /var/www/app && chmod -R u=rwX,g=rX,o= /var/www/app"
 
       - name: Build API bundle and CLI
-        run: pnpm --filter @rapid/api build:all
+        run: pnpm --filter @tearleads/api build:all
 
       - name: Deploy API
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "mkdir -p /opt/rapid-api/dist"
+            "mkdir -p /opt/tearleads-api/dist"
           rsync -avz --delete -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/api/dist/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-api/dist/
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/tearleads-api/dist/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "chgrp -R www-data /opt/rapid-api && chmod -R u=rwX,g=rX,o= /opt/rapid-api"
+            "chgrp -R www-data /opt/tearleads-api && chmod -R u=rwX,g=rX,o= /opt/tearleads-api"
 
       - name: Run database migrations
         run: |
@@ -95,22 +95,22 @@ jobs:
       - name: Restart API service
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "sudo systemctl restart rapid-api && sudo systemctl --no-pager status rapid-api"
+            "sudo systemctl restart tearleads-api && sudo systemctl --no-pager status tearleads-api"
 
       - name: Build SMTP Listener bundle
-        run: pnpm --filter @rapid/smtp-listener build:bundle
+        run: pnpm --filter @tearleads/smtp-listener build:bundle
 
       - name: Deploy SMTP Listener
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "mkdir -p /opt/rapid-smtp-listener/dist"
+            "mkdir -p /opt/tearleads-smtp-listener/dist"
           rsync -avz --delete -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/smtp-listener/dist/ \
-            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/rapid-smtp-listener/dist/
+            ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/tearleads-smtp-listener/dist/
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "chgrp -R www-data /opt/rapid-smtp-listener && chmod -R u=rwX,g=rX,o= /opt/rapid-smtp-listener"
+            "chgrp -R www-data /opt/tearleads-smtp-listener && chmod -R u=rwX,g=rX,o= /opt/tearleads-smtp-listener"
 
       - name: Restart SMTP Listener service
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "sudo systemctl restart rapid-smtp-listener && sudo systemctl --no-pager status rapid-smtp-listener"
+            "sudo systemctl restart tearleads-smtp-listener && sudo systemctl --no-pager status tearleads-smtp-listener"

@@ -1,4 +1,4 @@
-import { type Database, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
+import { type Database, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { and, eq, inArray } from 'drizzle-orm';
 
 export async function linkContactsToGroup(

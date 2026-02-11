@@ -1,4 +1,4 @@
-import type { AudioUIProviderProps } from '@rapid/audio';
+import type { AudioUIProviderProps } from '@tearleads/audio';
 import { render, screen } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AudioAboutMenuItem, ClientAudioProvider } from './ClientAudioProvider';
@@ -62,8 +62,8 @@ vi.mock('@/lib/file-utils', () => ({
   canShareFiles: () => mockCanShareFiles()
 }));
 
-vi.mock('@rapid/audio', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('@rapid/audio')>();
+vi.mock('@tearleads/audio', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@tearleads/audio')>();
   return {
     ...actual,
     AudioUIProvider: (props: AudioUIProviderProps) => {
@@ -73,7 +73,7 @@ vi.mock('@rapid/audio', async (importOriginal) => {
   };
 });
 
-vi.mock('@rapid/audio/package.json', () => ({
+vi.mock('@tearleads/audio/package.json', () => ({
   default: { version: '0.0.1' }
 }));
 

@@ -21,14 +21,14 @@ describe('getDownloadUrl', () => {
   it('builds correct URL for macOS', () => {
     const url = getDownloadUrl('1.2.3', 'macos', { arch: 'arm64', ext: 'dmg' });
     expect(url).toBe(
-      'https://download.example.com/desktop/1.2.3/Rapid-1.2.3-arm64.dmg'
+      'https://download.example.com/desktop/1.2.3/Tearleads-1.2.3-arm64.dmg'
     );
   });
 
   it('builds correct URL for Windows', () => {
     const url = getDownloadUrl('1.2.3', 'windows', { arch: 'x64', ext: 'exe' });
     expect(url).toBe(
-      'https://download.example.com/desktop/1.2.3/Rapid-Setup-1.2.3.exe'
+      'https://download.example.com/desktop/1.2.3/Tearleads-Setup-1.2.3.exe'
     );
   });
 
@@ -38,7 +38,7 @@ describe('getDownloadUrl', () => {
       ext: 'AppImage'
     });
     expect(url).toBe(
-      'https://download.example.com/desktop/1.2.3/Rapid-1.2.3-x86_64.AppImage'
+      'https://download.example.com/desktop/1.2.3/Tearleads-1.2.3-x86_64.AppImage'
     );
   });
 
@@ -46,7 +46,7 @@ describe('getDownloadUrl', () => {
     vi.unstubAllEnvs();
     const url = getDownloadUrl('1.2.3', 'macos', { arch: 'arm64', ext: 'dmg' });
     expect(url).toBe(
-      'https://download.example.com/desktop/1.2.3/Rapid-1.2.3-arm64.dmg'
+      'https://download.example.com/desktop/1.2.3/Tearleads-1.2.3-arm64.dmg'
     );
   });
 });

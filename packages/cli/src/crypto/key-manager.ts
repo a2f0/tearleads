@@ -15,7 +15,7 @@ import {
   secureZero,
   unwrapKey,
   wrapKey
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   clearSession as clearSessionFile,
   ensureConfigDir,

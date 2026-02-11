@@ -3,7 +3,7 @@ import {
   contacts,
   vfsLinks,
   vfsRegistry
-} from '@rapid/db/sqlite';
+} from '@tearleads/db/sqlite';
 import { and, asc, eq, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext } from '../context';

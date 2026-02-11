@@ -1,4 +1,4 @@
-import { useTheme } from '@rapid/ui';
+import { useTheme } from '@tearleads/ui';
 import { ArrowLeft, BookOpenText } from 'lucide-react';
 import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
 import backupRestoreDocumentation from '../../../../../docs/en/backup-restore.md?raw';

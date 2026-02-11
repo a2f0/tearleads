@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/mls-chat",
+  "name": "@tearleads/mls-chat",
   "version": "0.0.1",
-  "description": "MLS (RFC 9420) end-to-end encrypted chat for Rapid",
+  "description": "MLS (RFC 9420) end-to-end encrypted chat for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -35,7 +35,7 @@
     "react-dom": "19.2.4"
   },
   "dependencies": {
-    "@rapid/shared": "workspace:*",
+    "@tearleads/shared": "workspace:*",
     "idb": "8.0.3"
   },
   "devDependencies": {

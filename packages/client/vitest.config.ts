@@ -52,7 +52,7 @@ export default defineConfig({
         // Native secure storage requires Capacitor native biometric APIs
         'src/db/crypto/native-secure-storage.ts',
         // Barrel files that only re-export from other modules
-        // (footer.tsx re-exports Footer from @rapid/ui package)
+        // (footer.tsx re-exports Footer from @tearleads/ui package)
         'src/audio/index.ts',
         'src/components/contacts/column-mapper/index.ts',
         'src/components/sessions/index.ts',
@@ -100,7 +100,7 @@ export default defineConfig({
         'src/components/notes-window/index.ts',
         'src/components/v86-window/index.ts',
         'src/components/ui/drop-zone-overlay/index.ts',
-        // Wrapper component that delegates to @rapid/audio package
+        // Wrapper component that delegates to @tearleads/audio package
         'src/components/audio-window/index.tsx',
         'src/components/window-renderer/index.ts',
         'src/pages/console/index.ts',

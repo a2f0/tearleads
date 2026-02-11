@@ -24,7 +24,7 @@ const mockState = {
   groups: [] as { id: string; name: string; memberCount: number }[]
 };
 
-vi.mock('@rapid/mls-chat', () => ({
+vi.mock('@tearleads/mls-chat', () => ({
   MlsChatProvider: ({ children }: { children: React.ReactNode }) => (
     <>{children}</>
   ),

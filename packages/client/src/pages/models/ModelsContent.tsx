@@ -1,4 +1,4 @@
-import { isOpenRouterModelId } from '@rapid/shared';
+import { isOpenRouterModelId } from '@tearleads/shared';
 import { Bot, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';

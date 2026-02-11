@@ -3,7 +3,7 @@ import {
   getOpenRouterModelOption,
   isOpenRouterModelId,
   isRecord
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import { useCallback, useEffect, useMemo, useSyncExternalStore } from 'react';
 import { toast } from 'sonner';
 import {

@@ -1,4 +1,4 @@
-import { contacts as contactsTable } from '@rapid/db/sqlite';
+import { contacts as contactsTable } from '@tearleads/db/sqlite';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { eq } from 'drizzle-orm';
 import {

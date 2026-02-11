@@ -1,6 +1,6 @@
 /**
  * Internal type definitions for MLS chat.
- * Public types are exported from @rapid/shared.
+ * Public types are exported from @tearleads/shared.
  */
 
 /**

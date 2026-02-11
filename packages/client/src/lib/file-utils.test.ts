@@ -29,25 +29,25 @@ describe('file-utils', () => {
     it('generates filename with correct format', () => {
       vi.setSystemTime(new Date('2025-03-15T14:30:45'));
       const filename = generateBackupFilename();
-      expect(filename).toBe('rapid-backup-2025-03-15-143045.db');
+      expect(filename).toBe('tearleads-backup-2025-03-15-143045.db');
     });
 
     it('pads single digit months and days with zeros', () => {
       vi.setSystemTime(new Date('2025-01-05T09:05:03'));
       const filename = generateBackupFilename();
-      expect(filename).toBe('rapid-backup-2025-01-05-090503.db');
+      expect(filename).toBe('tearleads-backup-2025-01-05-090503.db');
     });
 
     it('handles midnight correctly', () => {
       vi.setSystemTime(new Date('2025-12-31T00:00:00'));
       const filename = generateBackupFilename();
-      expect(filename).toBe('rapid-backup-2025-12-31-000000.db');
+      expect(filename).toBe('tearleads-backup-2025-12-31-000000.db');
     });
 
     it('handles end of day correctly', () => {
       vi.setSystemTime(new Date('2025-06-30T23:59:59'));
       const filename = generateBackupFilename();
-      expect(filename).toBe('rapid-backup-2025-06-30-235959.db');
+      expect(filename).toBe('tearleads-backup-2025-06-30-235959.db');
     });
   });
 

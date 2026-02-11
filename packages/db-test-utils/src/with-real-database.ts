@@ -4,8 +4,8 @@
  * Provides automatic setup, migration running, and cleanup.
  */
 
-import type { Database } from '@rapid/db/sqlite';
-import { schema } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
+import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
 import type { DatabaseAdapter } from './adapters/types.js';
 import type { WasmNodeAdapterOptions } from './adapters/wasm-node.adapter.js';
@@ -126,9 +126,9 @@ export async function createTestDatabase(
  *
  * @example
  * ```ts
- * import { withRealDatabase, seedFolder } from '@rapid/db-test-utils';
- * import { migrations } from '@rapid/client/db/migrations';
- * import { vfsLinks } from '@rapid/db/sqlite';
+ * import { withRealDatabase, seedFolder } from '@tearleads/db-test-utils';
+ * import { migrations } from '@tearleads/client/db/migrations';
+ * import { vfsLinks } from '@tearleads/db/sqlite';
  *
  * it('creates link when copying', async () => {
  *   await withRealDatabase(async ({ db }) => {

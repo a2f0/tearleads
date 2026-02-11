@@ -1,5 +1,5 @@
-import { ContactsWindow as ContactsWindowBase } from '@rapid/contacts';
-import type { WindowDimensions } from '@rapid/window-manager';
+import { ContactsWindow as ContactsWindowBase } from '@tearleads/contacts';
+import type { WindowDimensions } from '@tearleads/window-manager';
 import { ClientContactsProvider } from '@/contexts/ClientContactsProvider';
 import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
 
@@ -16,7 +16,7 @@ interface ContactsWindowProps {
 /**
  * ContactsWindow wrapped with ClientContactsProvider.
  * This provides all the dependencies (database, UI components, translations)
- * required by the @rapid/contacts package.
+ * required by the @tearleads/contacts package.
  */
 export function ContactsWindow(props: ContactsWindowProps) {
   const openRequest = useWindowOpenRequest('contacts');

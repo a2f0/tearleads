@@ -1,4 +1,4 @@
-import type { RedisKeysResponse } from '@rapid/shared';
+import type { RedisKeysResponse } from '@tearleads/shared';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';

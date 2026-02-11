@@ -1,15 +1,15 @@
 /**
  * Client-side ContactsProvider wrapper that supplies all dependencies
- * to the @rapid/contacts package components.
+ * to the @tearleads/contacts package components.
  */
 import {
   ContactsProvider,
   type ContactsUIComponents,
   type ImportedContactRecord,
   type VfsRegistrationResult
-} from '@rapid/contacts';
-import contactsPackageJson from '@rapid/contacts/package.json';
-import { vfsRegistry } from '@rapid/db/sqlite';
+} from '@tearleads/contacts';
+import contactsPackageJson from '@tearleads/contacts/package.json';
+import { vfsRegistry } from '@tearleads/db/sqlite';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';

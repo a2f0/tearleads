@@ -1,4 +1,4 @@
-import { useTheme } from '@rapid/ui';
+import { useTheme } from '@tearleads/ui';
 import {
   Download,
   type LucideIcon,
@@ -52,7 +52,7 @@ const HELP_DOC_MARKDOWN: Record<
 const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
   cli: 'Setup and workflow notes for command-line development.',
   cliReference: 'Command reference for the tearleads CLI.',
-  chromeExtension: 'Build, load, and test the Rapid Chrome extension.',
+  chromeExtension: 'Build, load, and test the Tearleads Chrome extension.',
   backupRestore:
     'Full guide for secure backup and restore workflows across platforms.'
 };

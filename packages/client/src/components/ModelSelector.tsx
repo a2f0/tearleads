@@ -1,4 +1,4 @@
-import { isOpenRouterModelId } from '@rapid/shared';
+import { isOpenRouterModelId } from '@tearleads/shared';
 import { Bot, ChevronDown, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useLLM } from '@/hooks/useLLM';

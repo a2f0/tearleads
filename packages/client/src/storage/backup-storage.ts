@@ -3,9 +3,9 @@
  * Stores backups outside instance-specific namespaces.
  */
 
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 
-const BACKUP_DIRECTORY = 'rapid-backups';
+const BACKUP_DIRECTORY = 'tearleads-backups';
 
 export interface StoredBackup {
   name: string;

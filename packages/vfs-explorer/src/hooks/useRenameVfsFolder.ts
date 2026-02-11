@@ -2,7 +2,7 @@
  * Hook for renaming VFS folders.
  */
 
-import { vfsFolders } from '@rapid/db/sqlite';
+import { vfsFolders } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { useCallback, useState } from 'react';
 import { useVfsExplorerContext } from '../context';

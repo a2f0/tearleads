@@ -1,6 +1,6 @@
 # Extensión de Chrome
 
-La extensión de Chrome de Rapid se encuentra en `packages/chrome-extension`. Utiliza Manifest V3 y está construida con Vite y TypeScript.
+La extensión de Chrome de Tearleads se encuentra en `packages/chrome-extension`. Utiliza Manifest V3 y está construida con Vite y TypeScript.
 
 ## Estructura del Proyecto
 
@@ -28,10 +28,10 @@ packages/chrome-extension/
 
 ```bash
 # Compilación única
-pnpm --filter @rapid/chrome-extension build
+pnpm --filter @tearleads/chrome-extension build
 
 # Modo watch (recompila con cambios de archivos)
-pnpm --filter @rapid/chrome-extension dev
+pnpm --filter @tearleads/chrome-extension dev
 ```
 
 ### Cargar en Chrome (Modo Desarrollador)
@@ -53,13 +53,13 @@ Cuando se ejecuta en modo watch (`pnpm dev`), la extensión se recompila automá
 
 ```bash
 # Ejecutar pruebas una vez
-pnpm --filter @rapid/chrome-extension test
+pnpm --filter @tearleads/chrome-extension test
 
 # Modo watch
-pnpm --filter @rapid/chrome-extension test:watch
+pnpm --filter @tearleads/chrome-extension test:watch
 
 # Con informe de cobertura
-pnpm --filter @rapid/chrome-extension test:coverage
+pnpm --filter @tearleads/chrome-extension test:coverage
 ```
 
 ## Arquitectura
@@ -69,7 +69,7 @@ pnpm --filter @rapid/chrome-extension test:coverage
 La extensión utiliza [Manifest V3](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3), la última plataforma de extensiones de Chrome:
 
 - **Service Worker**: El script de fondo se ejecuta como un service worker (`background.js`)
-- **Scripts de Contenido**: Restringidos a dominios específicos (`*.rapid.app` y `localhost`)
+- **Scripts de Contenido**: Restringidos a dominios específicos (`*.tearleads.app` y `localhost`)
 - **Permisos**: Permisos mínimos (`storage`, `activeTab`)
 
 ### Componentes
@@ -97,7 +97,7 @@ chrome.runtime.sendMessage({ type: "PING" }, (response) => {
 
 Para publicar en la Chrome Web Store:
 
-1. Compile la extensión: `pnpm --filter @rapid/chrome-extension build`
+1. Compile la extensión: `pnpm --filter @tearleads/chrome-extension build`
 2. Cree un archivo ZIP del contenido de la carpeta `dist` (el archivo `manifest.json` debe estar en la raíz del archivo ZIP).
 3. Suba al [Panel de Desarrollador de Chrome](https://chrome.google.com/webstore/devconsole)
 
@@ -119,7 +119,7 @@ Ejecute desde la raíz del repositorio:
 ### Service Worker de Fondo
 
 1. Vaya a `chrome://extensions`
-2. Encuentre la extensión Rapid
+2. Encuentre la extensión Tearleads
 3. Haga clic en el enlace **Service Worker** para abrir DevTools para el script de fondo
 
 ### Script de Contenido

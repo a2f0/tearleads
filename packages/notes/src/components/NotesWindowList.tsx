@@ -1,4 +1,4 @@
-import { notes, vfsRegistry } from '@rapid/db/sqlite';
+import { notes, vfsRegistry } from '@tearleads/db/sqlite';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { desc, eq } from 'drizzle-orm';
 import { Info, Loader2, Plus, StickyNote, Trash2 } from 'lucide-react';

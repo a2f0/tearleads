@@ -75,7 +75,7 @@ describe('exporter', () => {
 
       // Verify magic bytes
       const magic = new TextDecoder().decode(backup.slice(0, 8));
-      expect(magic).toBe('RAPIDBAK');
+      expect(magic).toBe('TEARLEADSBAK');
     });
 
     it('creates a backup with blobs', async () => {

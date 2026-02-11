@@ -1,4 +1,4 @@
-import type { Migration } from '@rapid/db-test-utils';
+import type { Migration } from '@tearleads/db-test-utils';
 
 /**
  * Minimal schema for VFS trash integration tests.

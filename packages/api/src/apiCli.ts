@@ -1,8 +1,8 @@
 #!/usr/bin/env -S pnpm tsx
 /**
- * Rapid API CLI
+ * Tearleads API CLI
  *
- * A suite of command-line tools for the Rapid API.
+ * A suite of command-line tools for the Tearleads API.
  *
  * Usage:
  *   apiCli.ts <command> [options]
@@ -34,7 +34,7 @@ const version = '0.0.1';
 
 program
   .name('apiCli')
-  .description('Rapid API command-line tools')
+  .description('Tearleads API command-line tools')
   .version(version);
 
 // Register commands

@@ -6,13 +6,13 @@ import type {
   PostgresTablesResponse,
   RedisKeysResponse,
   RedisKeyValueResponse
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   DEFAULT_OPENROUTER_MODEL_ID,
   isOpenRouterModelId,
   isRecord,
   validateChatMessages
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import { HttpResponse, http } from 'msw';
 
 const ok = <T extends object>(body: T) => HttpResponse.json(body);
@@ -38,8 +38,8 @@ const defaultPostgresInfo: PostgresAdminInfoResponse = {
   info: {
     host: 'localhost',
     port: 5432,
-    database: 'rapid',
-    user: 'rapid'
+    database: 'tearleads',
+    user: 'tearleads'
   },
   serverVersion: 'PostgreSQL 15.1'
 };

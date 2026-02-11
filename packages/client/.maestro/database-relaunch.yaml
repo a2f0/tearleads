@@ -1,4 +1,4 @@
-appId: com.tearleads.rapid
+appId: com.tearleads.app
 ---
 # Database Relaunch Test - Verifies database works after app restart
 # This catches stale connection issues where previous connections weren't properly closed

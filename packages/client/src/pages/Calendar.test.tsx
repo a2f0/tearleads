@@ -2,7 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { Calendar } from './Calendar';
 
-vi.mock('@rapid/calendar', () => ({
+vi.mock('@tearleads/calendar', () => ({
   Calendar: () => <div>Calendar App</div>
 }));
 

@@ -3,7 +3,7 @@
  * The VFS root is the implicit parent of all top-level folders.
  */
 
-import { vfsFolders, vfsRegistry } from '@rapid/db/sqlite';
+import { vfsFolders, vfsRegistry } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { VFS_ROOT_ID } from '../constants';

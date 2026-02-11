@@ -1,4 +1,4 @@
-import { Dialog, ThemeSelector } from '@rapid/ui';
+import { Dialog, ThemeSelector } from '@tearleads/ui';
 import type { SupportedLanguage } from '../i18n/config';
 import { LanguageSelector } from './LanguageSelector';
 

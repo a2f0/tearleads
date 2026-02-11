@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('node:os', () => ({
   default: {
-    userInfo: () => ({ username: 'rapid_os_user' })
+    userInfo: () => ({ username: 'tearleads_os_user' })
   }
 }));
 
@@ -103,17 +103,17 @@ describe('postgres lib', () => {
   it('builds connection info from discrete env vars', async () => {
     process.env['POSTGRES_HOST'] = 'localhost';
     process.env['POSTGRES_PORT'] = '5433';
-    process.env['POSTGRES_USER'] = 'rapid';
+    process.env['POSTGRES_USER'] = 'tearleads';
     process.env['POSTGRES_PASSWORD'] = 'secret';
-    process.env['POSTGRES_DATABASE'] = 'rapid_db';
+    process.env['POSTGRES_DATABASE'] = 'tearleads_db';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
     expect(getPostgresConnectionInfo()).toEqual({
       host: 'localhost',
       port: 5433,
-      database: 'rapid_db',
-      user: 'rapid'
+      database: 'tearleads_db',
+      user: 'tearleads'
     });
   });
 
@@ -121,16 +121,16 @@ describe('postgres lib', () => {
     process.env['NODE_ENV'] = 'development';
     process.env['PGHOST'] = 'localhost';
     process.env['PGPORT'] = '5434';
-    process.env['PGUSER'] = 'rapid_pg';
-    process.env['PGDATABASE'] = 'rapid_db';
+    process.env['PGUSER'] = 'tearleads_pg';
+    process.env['PGDATABASE'] = 'tearleads_db';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
     expect(getPostgresConnectionInfo()).toEqual({
       host: 'localhost',
       port: 5434,
-      database: 'rapid_db',
-      user: 'rapid_pg'
+      database: 'tearleads_db',
+      user: 'tearleads_pg'
     });
   });
 
@@ -147,9 +147,9 @@ describe('postgres lib', () => {
   it('throws when POSTGRES_PORT is invalid in release mode', async () => {
     process.env['POSTGRES_HOST'] = 'localhost';
     process.env['POSTGRES_PORT'] = 'not-a-number';
-    process.env['POSTGRES_USER'] = 'rapid';
+    process.env['POSTGRES_USER'] = 'tearleads';
     process.env['POSTGRES_PASSWORD'] = 'secret';
-    process.env['POSTGRES_DATABASE'] = 'rapid_db';
+    process.env['POSTGRES_DATABASE'] = 'tearleads_db';
 
     const { getPostgresConnectionInfo } = await loadPostgresModule();
 
@@ -177,7 +177,7 @@ describe('postgres lib', () => {
       host: 'localhost',
       port: 5432,
       database: 'tearleads_development',
-      user: 'rapid_os_user'
+      user: 'tearleads_os_user'
     });
   });
 
@@ -191,7 +191,7 @@ describe('postgres lib', () => {
     expect(poolInstances[0]?.config).toEqual({
       host: 'localhost',
       port: 5432,
-      user: 'rapid_os_user',
+      user: 'tearleads_os_user',
       database: 'tearleads_development'
     });
   });
@@ -199,9 +199,9 @@ describe('postgres lib', () => {
   it('builds pool config from required release env vars', async () => {
     process.env['POSTGRES_HOST'] = 'db.example.com';
     process.env['POSTGRES_PORT'] = '5432';
-    process.env['POSTGRES_USER'] = 'rapid';
+    process.env['POSTGRES_USER'] = 'tearleads';
     process.env['POSTGRES_PASSWORD'] = 'secret';
-    process.env['POSTGRES_DATABASE'] = 'rapid_db';
+    process.env['POSTGRES_DATABASE'] = 'tearleads_db';
 
     const { getPostgresPool } = await loadPostgresModule();
 
@@ -210,9 +210,9 @@ describe('postgres lib', () => {
     expect(poolInstances[0]?.config).toEqual({
       host: 'db.example.com',
       port: 5432,
-      user: 'rapid',
+      user: 'tearleads',
       password: 'secret',
-      database: 'rapid_db'
+      database: 'tearleads_db'
     });
   });
 

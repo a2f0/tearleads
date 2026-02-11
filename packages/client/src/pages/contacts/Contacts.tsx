@@ -1,4 +1,4 @@
-import { ALL_CONTACTS_ID, ContactsGroupsSidebar } from '@rapid/contacts';
+import { ALL_CONTACTS_ID, ContactsGroupsSidebar } from '@tearleads/contacts';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
 import {

@@ -6,7 +6,7 @@ if ! command -v adb >/dev/null; then
     exit 1
 fi
 
-PACKAGE_ID=${1:-"com.tearleads.rapid"}
+PACKAGE_ID=${1:-"com.tearleads.app"}
 CACHE_ONLY=${CACHE_ONLY:-""}
 
 # Get physical device serial (exclude emulators)

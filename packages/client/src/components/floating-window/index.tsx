@@ -1,10 +1,10 @@
 import {
   FloatingWindow as BaseFloatingWindow,
   type FloatingWindowProps as BaseFloatingWindowProps
-} from '@rapid/window-manager';
+} from '@tearleads/window-manager';
 import { FOOTER_HEIGHT } from '@/constants/layout';
 
-export type { WindowDimensions } from '@rapid/window-manager';
+export type { WindowDimensions } from '@tearleads/window-manager';
 
 export type FloatingWindowProps = Omit<BaseFloatingWindowProps, 'footerHeight'>;
 

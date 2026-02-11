@@ -5,14 +5,14 @@
  * Playwright due to synthetic pointer event limitations with dnd-kit.
  */
 
-import type { Database } from '@rapid/db/sqlite';
-import { vfsLinks } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
+import { vfsLinks } from '@tearleads/db/sqlite';
 import {
   seedFolder,
   seedVfsItem,
   vfsTestMigrations,
   withRealDatabase
-} from '@rapid/db-test-utils';
+} from '@tearleads/db-test-utils';
 import { act, renderHook } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';

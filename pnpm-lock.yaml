@@ -39,10 +39,10 @@ importers:
 
   packages/api:
     dependencies:
-      '@rapid/db':
+      '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       commander:
@@ -130,7 +130,7 @@ importers:
 
   packages/audio:
     dependencies:
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       '@tanstack/react-virtual':
@@ -149,7 +149,7 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
     devDependencies:
-      '@rapid/window-manager':
+      '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
       '@testing-library/jest-dom':
@@ -210,7 +210,7 @@ importers:
         specifier: 0.563.0
         version: 0.563.0(react@19.2.4)
     devDependencies:
-      '@rapid/window-manager':
+      '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
       '@testing-library/jest-dom':
@@ -258,7 +258,7 @@ importers:
 
   packages/chrome-extension:
     dependencies:
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
     devDependencies:
@@ -338,7 +338,7 @@ importers:
         specifier: 14.0.3
         version: 14.0.3
     devDependencies:
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       '@types/better-sqlite3':
@@ -419,46 +419,46 @@ importers:
       '@radix-ui/react-slot':
         specifier: 1.2.4
         version: 1.2.4(@types/react@19.2.13)(react@19.2.4)
-      '@rapid/audio':
+      '@tearleads/audio':
         specifier: workspace:*
         version: link:../audio
-      '@rapid/calendar':
+      '@tearleads/calendar':
         specifier: workspace:*
         version: link:../calendar
-      '@rapid/classic':
+      '@tearleads/classic':
         specifier: workspace:*
         version: link:../classic
-      '@rapid/contacts':
+      '@tearleads/contacts':
         specifier: workspace:*
         version: link:../contacts
-      '@rapid/db':
+      '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@rapid/email':
+      '@tearleads/email':
         specifier: workspace:*
         version: link:../email
-      '@rapid/keychain':
+      '@tearleads/keychain':
         specifier: workspace:*
         version: link:../keychain
-      '@rapid/mls-chat':
+      '@tearleads/mls-chat':
         specifier: workspace:*
         version: link:../mls-chat
-      '@rapid/notes':
+      '@tearleads/notes':
         specifier: workspace:*
         version: link:../notes
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
-      '@rapid/terminal':
+      '@tearleads/terminal':
         specifier: workspace:*
         version: link:../terminal
-      '@rapid/ui':
+      '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
-      '@rapid/vfs-explorer':
+      '@tearleads/vfs-explorer':
         specifier: workspace:*
         version: link:../vfs-explorer
-      '@rapid/window-manager':
+      '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
       '@tanstack/react-table':
@@ -543,7 +543,7 @@ importers:
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
-      '@rapid/db-test-utils':
+      '@tearleads/db-test-utils':
         specifier: workspace:*
         version: link:../db-test-utils
       '@tailwindcss/vite':
@@ -648,7 +648,7 @@ importers:
       '@dnd-kit/utilities':
         specifier: 3.2.2
         version: 3.2.2(react@19.2.4)
-      '@rapid/ui':
+      '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
       '@tanstack/react-virtual':
@@ -667,16 +667,16 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
     devDependencies:
-      '@rapid/db':
+      '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@rapid/db-test-utils':
+      '@tearleads/db-test-utils':
         specifier: workspace:*
         version: link:../db-test-utils
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
-      '@rapid/window-manager':
+      '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
       '@testing-library/jest-dom':
@@ -733,7 +733,7 @@ importers:
 
   packages/db:
     dependencies:
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       drizzle-orm:
@@ -764,10 +764,10 @@ importers:
 
   packages/db-test-utils:
     dependencies:
-      '@rapid/db':
+      '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       drizzle-orm:
@@ -807,7 +807,7 @@ importers:
 
   packages/email:
     dependencies:
-      '@rapid/window-manager':
+      '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
       clsx:
@@ -823,10 +823,10 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
     devDependencies:
-      '@rapid/db':
+      '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       '@testing-library/jest-dom':
@@ -874,14 +874,14 @@ importers:
 
   packages/keychain:
     dependencies:
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       lucide-react:
         specifier: 0.563.0
         version: 0.563.0(react@19.2.4)
     devDependencies:
-      '@rapid/window-manager':
+      '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
       '@testing-library/jest-dom':
@@ -935,7 +935,7 @@ importers:
 
   packages/mls-chat:
     dependencies:
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       idb:
@@ -984,13 +984,13 @@ importers:
 
   packages/notes:
     dependencies:
-      '@rapid/db':
+      '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@rapid/ui':
+      '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
-      '@rapid/window-manager':
+      '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
       '@tanstack/react-virtual':
@@ -1097,7 +1097,7 @@ importers:
 
   packages/smtp-listener:
     dependencies:
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       smtp-server:
@@ -1192,7 +1192,7 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
     devDependencies:
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       '@testing-library/jest-dom':
@@ -1249,13 +1249,13 @@ importers:
       '@dnd-kit/utilities':
         specifier: 3.2.2
         version: 3.2.2(react@19.2.4)
-      '@rapid/db':
+      '@tearleads/db':
         specifier: workspace:*
         version: link:../db
-      '@rapid/ui':
+      '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
-      '@rapid/window-manager':
+      '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
       clsx:
@@ -1271,10 +1271,10 @@ importers:
         specifier: 3.4.0
         version: 3.4.0
     devDependencies:
-      '@rapid/db-test-utils':
+      '@tearleads/db-test-utils':
         specifier: workspace:*
         version: link:../db-test-utils
-      '@rapid/shared':
+      '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
       '@testing-library/jest-dom':
@@ -1334,10 +1334,10 @@ importers:
       '@beoe/rehype-mermaid':
         specifier: 0.4.2
         version: 0.4.2(playwright@1.58.2)
-      '@rapid/api':
+      '@tearleads/api':
         specifier: workspace:*
         version: link:../api
-      '@rapid/ui':
+      '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
       astro:

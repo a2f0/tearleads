@@ -1,5 +1,5 @@
-import { contactEmails, contacts, vfsLinks } from '@rapid/db/sqlite';
-import { useResizableSidebar } from '@rapid/window-manager';
+import { contactEmails, contacts, vfsLinks } from '@tearleads/db/sqlite';
+import { useResizableSidebar } from '@tearleads/window-manager';
 import { and, asc, eq } from 'drizzle-orm';
 import { Folder, FolderPlus, Loader2, Mail, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';

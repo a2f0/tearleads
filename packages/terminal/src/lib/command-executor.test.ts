@@ -52,7 +52,7 @@ describe('command-executor', () => {
     utilities = {
       getErrorMessage: (error) =>
         error instanceof Error ? error.message : String(error),
-      generateBackupFilename: vi.fn(() => 'rapid-backup.db'),
+      generateBackupFilename: vi.fn(() => 'tearleads-backup.db'),
       readFileAsUint8Array: vi.fn(() =>
         Promise.resolve(new Uint8Array([1, 2, 3]))
       ),
@@ -586,7 +586,7 @@ describe('command-executor', () => {
 
       expect(db.exportDatabase).toHaveBeenCalled();
       expect(terminal.appendLine).toHaveBeenCalledWith(
-        'Backup saved as rapid-backup.db.',
+        'Backup saved as tearleads-backup.db.',
         'success'
       );
     });

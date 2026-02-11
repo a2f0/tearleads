@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/ui",
+  "name": "@tearleads/ui",
   "version": "0.0.74",
-  "description": "Shared UI components and design system for Rapid",
+  "description": "Shared UI components and design system for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -25,7 +25,7 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@rapid/shared": "workspace:*",
+    "@tearleads/shared": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
@@ -37,7 +37,7 @@
     "tailwind-merge": "3.4.0"
   },
   "devDependencies": {
-    "@rapid/shared": "workspace:*",
+    "@tearleads/shared": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",

@@ -1,4 +1,4 @@
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   ArrowDown,

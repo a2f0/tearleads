@@ -10,7 +10,7 @@ import {
   isTestMode
 } from '@/lib/test-instance';
 
-const REGISTRY_DB_NAME = 'rapid_instance_registry';
+const REGISTRY_DB_NAME = 'tearleads_instance_registry';
 const REGISTRY_STORE_NAME = 'registry';
 const REGISTRY_KEY = 'instances';
 const ACTIVE_INSTANCE_KEY = 'active_instance';

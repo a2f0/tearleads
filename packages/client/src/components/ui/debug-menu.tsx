@@ -1,4 +1,4 @@
-import type { PingData } from '@rapid/shared';
+import type { PingData } from '@tearleads/shared';
 import { Bug, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';

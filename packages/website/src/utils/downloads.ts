@@ -50,11 +50,11 @@ function buildFilename(
 ): string {
   switch (platform) {
     case 'macos':
-      return `Rapid-${version}-${platformInfo.arch}.${platformInfo.ext}`;
+      return `Tearleads-${version}-${platformInfo.arch}.${platformInfo.ext}`;
     case 'windows':
-      return `Rapid-Setup-${version}.${platformInfo.ext}`;
+      return `Tearleads-Setup-${version}.${platformInfo.ext}`;
     case 'linux':
-      return `Rapid-${version}-x86_64.${platformInfo.ext}`;
+      return `Tearleads-${version}-x86_64.${platformInfo.ext}`;
   }
 }
 

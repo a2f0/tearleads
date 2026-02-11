@@ -58,7 +58,7 @@ assert_eq "3" "$NUM_WORKSPACES"
 assert_eq "tuxedo" "$SESSION_NAME"
 assert_eq "open-prs" "$OPEN_PRS_WINDOW_NAME"
 assert_eq "closed-prs" "$CLOSED_PRS_WINDOW_NAME"
-assert_eq "/tmp/base/rapid-shared" "$SHARED_DIR"
+assert_eq "/tmp/base/tearleads-shared" "$SHARED_DIR"
 assert_eq "/tmp/tux/config/tmux.conf" "$TMUX_CONF"
 assert_eq "/tmp/tux/config/neovim.lua" "$NVIM_INIT"
 assert_eq "vi" "$EDITOR"
@@ -121,15 +121,15 @@ UPDATE_LOG="$TEMP_DIR/update.log"
         echo "$1" >> "$UPDATE_LOG"
     }
     BASE_DIR="$TEMP_DIR/base"
-    WORKSPACE_PREFIX="rapid"
+    WORKSPACE_PREFIX="tearleads"
     WORKSPACE_START=2
     MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
     NUM_WORKSPACES=3
     update_all_workspaces
 )
-assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/rapid-main"
-assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/rapid2"
-assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/rapid3"
+assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads-main"
+assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads2"
+assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads3"
 
 TITLE_LOG="$TEMP_DIR/title.log"
 (
@@ -137,24 +137,24 @@ TITLE_LOG="$TEMP_DIR/title.log"
         echo "$1:$2" >> "$TITLE_LOG"
     }
     BASE_DIR="$TEMP_DIR/base"
-    WORKSPACE_PREFIX="rapid"
+    WORKSPACE_PREFIX="tearleads"
     WORKSPACE_START=2
     MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
     NUM_WORKSPACES=3
     sync_all_titles
 )
-assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/rapid-main:rapid-main"
-assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/rapid2:rapid2"
-assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/rapid3:rapid3"
+assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/tearleads-main:tearleads-main"
+assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/tearleads2:tearleads2"
+assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/tearleads3:tearleads3"
 
 BASE_DIR="$TEMP_DIR"
-WORKSPACE_PREFIX="rapid"
+WORKSPACE_PREFIX="tearleads"
 WORKSPACE_START=2
 SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
 MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
 NUM_WORKSPACES=2
 SESSION_NAME="tuxedo"
-WORKSPACE_DIR="$BASE_DIR/rapid2"
+WORKSPACE_DIR="$BASE_DIR/tearleads2"
 mkdir -p "$SHARED_DIR/.secrets" "$SHARED_DIR/.test_files" "$WORKSPACE_DIR" "$MAIN_DIR"
 mkdir -p "$WORKSPACE_DIR/.secrets"
 
@@ -162,12 +162,12 @@ ensure_symlinks "$WORKSPACE_DIR"
 
 [ -L "$WORKSPACE_DIR/.secrets" ] || fail "expected .secrets symlink"
 [ -L "$WORKSPACE_DIR/.test_files" ] || fail "expected .test_files symlink"
-assert_eq "../rapid-shared/.secrets" "$(readlink "$WORKSPACE_DIR/.secrets")"
-assert_eq "../rapid-shared/.test_files" "$(readlink "$WORKSPACE_DIR/.test_files")"
+assert_eq "../tearleads-shared/.secrets" "$(readlink "$WORKSPACE_DIR/.secrets")"
+assert_eq "../tearleads-shared/.test_files" "$(readlink "$WORKSPACE_DIR/.test_files")"
 
 tuxedo_prepare_shared_dirs
-[ -L "$MAIN_DIR/.secrets" ] || fail "expected rapid-main .secrets symlink"
-[ -L "$BASE_DIR/rapid2/.test_files" ] || fail "expected rapid2 .test_files symlink"
+[ -L "$MAIN_DIR/.secrets" ] || fail "expected tearleads-main .secrets symlink"
+[ -L "$BASE_DIR/tearleads2/.test_files" ] || fail "expected tearleads2 .test_files symlink"
 [ -d "$SHARED_DIR/packages/api" ] || fail "expected shared packages/api directory"
 
 # Test .env symlink for packages/api
@@ -178,7 +178,7 @@ mkdir -p "$WORKSPACE_DIR/packages/api"
 ensure_symlinks "$WORKSPACE_DIR"
 
 [ -L "$WORKSPACE_DIR/packages/api/.env" ] || fail "expected packages/api/.env symlink"
-assert_eq "../../../rapid-shared/packages/api/.env" "$(readlink "$WORKSPACE_DIR/packages/api/.env")"
+assert_eq "../../../tearleads-shared/packages/api/.env" "$(readlink "$WORKSPACE_DIR/packages/api/.env")"
 
 update_from_main "$BASE_DIR/not-a-repo"
 
@@ -200,9 +200,9 @@ EOF
 }
 EOF
 
-    sync_vscode_title "$WORKSPACE_DIR" "rapid2"
+    sync_vscode_title "$WORKSPACE_DIR" "tearleads2"
     expected_title=$(tuxedo_truncate_title "tuxedo test window title that is pretty long" 25)
-    assert_contains "$(cat "$TMUX_LOG")" "rename-window -t tuxedo:rapid2 $expected_title"
+    assert_contains "$(cat "$TMUX_LOG")" "rename-window -t tuxedo:tearleads2 $expected_title"
 fi
 
 GHOSTTY_LOG="$TEMP_DIR/ghostty.log"
@@ -245,7 +245,7 @@ chmod +x "$TEMP_DIR/bin/tmux"
 
 PATH="$TEMP_DIR/bin:$PATH_BACKUP"
 BASE_DIR="$TEMP_DIR/tmux-base"
-WORKSPACE_PREFIX="rapid"
+WORKSPACE_PREFIX="tearleads"
 WORKSPACE_START=2
 SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
 MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
@@ -261,8 +261,8 @@ tuxedo_attach_or_create
 tmux_calls=$(cat "$TMUX_CALLS")
 assert_contains "$tmux_calls" "new-session -d -s tuxedo -c $MAIN_DIR -n open-prs -e PATH="
 assert_contains "$tmux_calls" "new-window -t tuxedo: -c $MAIN_DIR -n closed-prs -e PATH="
-assert_contains "$tmux_calls" "new-window -t tuxedo: -c $SHARED_DIR -n rapid-shared -e PATH="
-assert_contains "$tmux_calls" "new-window -t tuxedo: -c $MAIN_DIR -n rapid-main -e PATH="
+assert_contains "$tmux_calls" "new-window -t tuxedo: -c $SHARED_DIR -n tearleads-shared -e PATH="
+assert_contains "$tmux_calls" "new-window -t tuxedo: -c $MAIN_DIR -n tearleads-main -e PATH="
 assert_dashboard_respawn_call "$tmux_calls" "open-prs" "listOpenPrs.sh"
 assert_dashboard_respawn_call "$tmux_calls" "closed-prs" "listRecentClosedPrs.sh"
 assert_contains "$tmux_calls" "attach-session -t tuxedo"

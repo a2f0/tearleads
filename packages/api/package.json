@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/api",
+  "name": "@tearleads/api",
   "version": "0.0.332",
-  "description": "Express API for Rapid",
+  "description": "Express API for Tearleads",
   "main": "dist/index.js",
   "type": "module",
   "files": [
@@ -30,8 +30,8 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@rapid/db": "workspace:*",
-    "@rapid/shared": "workspace:*",
+    "@tearleads/db": "workspace:*",
+    "@tearleads/shared": "workspace:*",
     "commander": "14.0.3",
     "cors": "2.8.6",
     "dotenv": "17.2.4",

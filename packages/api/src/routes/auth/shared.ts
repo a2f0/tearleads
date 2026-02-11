@@ -1,4 +1,4 @@
-import { isRecord, type RegisterRequest } from '@rapid/shared';
+import { isRecord, type RegisterRequest } from '@tearleads/shared';
 import {
   getAccessTokenTtlSeconds,
   getRefreshTokenTtlSeconds

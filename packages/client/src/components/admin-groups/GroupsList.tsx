@@ -1,4 +1,4 @@
-import type { GroupWithMemberCount } from '@rapid/shared';
+import type { GroupWithMemberCount } from '@tearleads/shared';
 import { Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';

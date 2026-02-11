@@ -2,8 +2,8 @@ import type {
   VfsKeySetupRequest,
   VfsObjectType,
   VfsRegisterRequest
-} from '@rapid/shared';
-import { isRecord } from '@rapid/shared';
+} from '@tearleads/shared';
+import { isRecord } from '@tearleads/shared';
 
 const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'file',

@@ -5,8 +5,8 @@
  * appropriate foreign key relationships.
  */
 
-import type { Database } from '@rapid/db/sqlite';
-import { vfsFolders, vfsLinks, vfsRegistry } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
+import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 
 /**
  * The VFS root folder ID.

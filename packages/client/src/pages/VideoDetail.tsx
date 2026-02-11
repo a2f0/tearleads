@@ -1,4 +1,4 @@
-import { assertPlainArrayBuffer, isRecord } from '@rapid/shared';
+import { assertPlainArrayBuffer, isRecord } from '@tearleads/shared';
 import { and, eq, like } from 'drizzle-orm';
 import {
   ArrowLeft,

@@ -9,7 +9,7 @@ export {
   generateSalt,
   importKey,
   secureZero
-} from '@rapid/shared';
+} from '@tearleads/shared';
 export type { KeyManagerConfig, StoredKeyData } from './key-manager';
 export {
   clearAllKeyManagers,

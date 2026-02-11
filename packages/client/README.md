@@ -1,6 +1,6 @@
-# @rapid/client
+# @tearleads/client
 
-React client application for Rapid, built with Vite and deployable to Android via Capacitor.
+React client application for Tearleads, built with Vite and deployable to Android via Capacitor.
 
 ## Setup
 

@@ -3,7 +3,7 @@
  * and applies ORDER BY at the database level (no in-memory sorting).
  */
 
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import {
   albums,
   contactGroups,
@@ -17,7 +17,7 @@ import {
   vfsFolders,
   vfsLinks,
   vfsRegistry
-} from '@rapid/db/sqlite';
+} from '@tearleads/db/sqlite';
 import type { SQL } from 'drizzle-orm';
 import { and, asc, desc, eq, inArray, isNull, ne, or, sql } from 'drizzle-orm';
 import { VFS_ROOT_ID } from '../constants';

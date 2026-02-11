@@ -17,8 +17,8 @@ describe('make admin cli', () => {
     mockGetPostgresConnectionInfo.mockReturnValue({
       host: 'localhost',
       port: 5432,
-      user: 'rapid',
-      database: 'rapid_test'
+      user: 'tearleads',
+      database: 'tearleads_test'
     });
   });
 

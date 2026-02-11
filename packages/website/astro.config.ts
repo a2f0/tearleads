@@ -18,27 +18,27 @@ export default defineConfig({
     resolve: {
       alias: [
         {
-          find: '@rapid/ui/styles.css',
+          find: '@tearleads/ui/styles.css',
           replacement: path.resolve(import.meta.dirname, '../ui/src/styles/index.css'),
         },
         {
-          find: '@rapid/ui/theme.css',
+          find: '@tearleads/ui/theme.css',
           replacement: path.resolve(import.meta.dirname, '../ui/src/styles/theme.css'),
         },
         {
-          find: /^@rapid\/ui\/logo\.svg(\?.*)?$/,
+          find: /^@tearleads\/ui\/logo\.svg(\?.*)?$/,
           replacement: path.resolve(import.meta.dirname, '../ui/src/images/logo.svg'),
         },
         {
-          find: /^@rapid\/ui$/,
+          find: /^@tearleads\/ui$/,
           replacement: path.resolve(import.meta.dirname, '../ui/src/index.ts'),
         },
         {
-          find: '@rapid/api/dist/openapi.json',
+          find: '@tearleads/api/dist/openapi.json',
           replacement: path.resolve(import.meta.dirname, '../api/dist/openapi.json'),
         },
         {
-          find: '@rapid/shared/licenses.json',
+          find: '@tearleads/shared/licenses.json',
           replacement: path.resolve(import.meta.dirname, '../shared/dist/licenses.json'),
         },
       ],

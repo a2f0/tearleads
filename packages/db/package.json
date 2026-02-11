@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/db",
+  "name": "@tearleads/db",
   "version": "0.0.1",
-  "description": "Shared database schema definitions for Rapid",
+  "description": "Shared database schema definitions for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -42,7 +42,7 @@
   "author": "",
   "license": "UNLICENSED",
   "dependencies": {
-    "@rapid/shared": "workspace:*",
+    "@tearleads/shared": "workspace:*",
     "drizzle-orm": "0.45.1"
   },
   "devDependencies": {

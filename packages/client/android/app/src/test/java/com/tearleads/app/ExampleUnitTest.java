@@ -1,4 +1,4 @@
-package com.tearleads.rapid;
+package com.tearleads.app;
 
 import static org.junit.Assert.*;
 

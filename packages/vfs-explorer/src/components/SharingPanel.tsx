@@ -1,5 +1,5 @@
-import type { VfsPermissionLevel, VfsShareType } from '@rapid/shared';
-import { useResizableSidebar } from '@rapid/window-manager';
+import type { VfsPermissionLevel, VfsShareType } from '@tearleads/shared';
+import { useResizableSidebar } from '@tearleads/window-manager';
 import {
   Building2,
   Calendar,

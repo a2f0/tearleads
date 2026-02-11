@@ -1,4 +1,4 @@
-import { Email as EmailBase } from '@rapid/email';
+import { Email as EmailBase } from '@tearleads/email';
 import { ClientEmailProvider } from '@/contexts/ClientEmailProvider';
 
 export function Email() {

@@ -1,5 +1,5 @@
-import { EmailWindow as EmailWindowBase } from '@rapid/email';
-import type { WindowDimensions } from '@rapid/window-manager';
+import { EmailWindow as EmailWindowBase } from '@tearleads/email';
+import type { WindowDimensions } from '@tearleads/window-manager';
 import { ClientEmailProvider } from '@/contexts/ClientEmailProvider';
 import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
 

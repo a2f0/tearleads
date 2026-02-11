@@ -1,4 +1,4 @@
-import type { Database } from '@rapid/db/sqlite';
+import type { Database } from '@tearleads/db/sqlite';
 import type {
   CreateOrgShareRequest,
   CreateVfsShareRequest,
@@ -8,7 +8,7 @@ import type {
   VfsShare,
   VfsSharesResponse,
   VfsShareType
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import type { ComponentType, ReactNode, RefObject } from 'react';
 import { createContext, useContext } from 'react';
 

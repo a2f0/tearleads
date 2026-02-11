@@ -9,7 +9,7 @@ import {
   contacts,
   files,
   notes
-} from '@rapid/db/sqlite';
+} from '@tearleads/db/sqlite';
 import { eq, inArray } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import {

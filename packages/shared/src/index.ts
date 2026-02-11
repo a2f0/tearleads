@@ -6,7 +6,7 @@ export * from './crypto/asymmetric.js';
 // Crypto utilities
 export * from './crypto/web-crypto.js';
 
-// Note: Redis client is exported separately via '@rapid/shared/redis'
+// Note: Redis client is exported separately via '@tearleads/shared/redis'
 // to avoid bundling Node.js-only code into browser bundles
 
 // License types

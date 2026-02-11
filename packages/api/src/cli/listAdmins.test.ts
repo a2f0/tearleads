@@ -17,8 +17,8 @@ describe('list admins cli', () => {
     mockGetPostgresConnectionInfo.mockReturnValue({
       host: 'localhost',
       port: 5432,
-      user: 'rapid',
-      database: 'rapid_test'
+      user: 'tearleads',
+      database: 'tearleads_test'
     });
   });
 
@@ -40,7 +40,7 @@ describe('list admins cli', () => {
 
     expect(consoleLog).toHaveBeenCalledWith('No admin accounts found.');
     expect(consoleLog).toHaveBeenCalledWith(
-      'Postgres connection: host=localhost, port=5432, user=rapid, database=rapid_test'
+      'Postgres connection: host=localhost, port=5432, user=tearleads, database=tearleads_test'
     );
     expect(mockClient.release).toHaveBeenCalled();
   });

@@ -9,7 +9,7 @@ import type {
   GroupsListResponse,
   GroupWithMemberCount,
   UpdateGroupRequest
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import {
   type Request,
   type Response,

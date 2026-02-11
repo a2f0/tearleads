@@ -32,7 +32,7 @@ describe('useAppLifecycle utilities', () => {
     it('markSessionActive sets session storage flag', async () => {
       const { markSessionActive } = await import('./useAppLifecycle');
       markSessionActive();
-      expect(sessionStorage.getItem('rapid_session_active')).toBe('true');
+      expect(sessionStorage.getItem('tearleads_session_active')).toBe('true');
     });
 
     it('clearSessionActive removes session storage flag', async () => {
@@ -41,7 +41,7 @@ describe('useAppLifecycle utilities', () => {
       );
       markSessionActive();
       clearSessionActive();
-      expect(sessionStorage.getItem('rapid_session_active')).toBeNull();
+      expect(sessionStorage.getItem('tearleads_session_active')).toBeNull();
     });
 
     it('wasSessionActive returns true when session was active', async () => {
@@ -62,7 +62,7 @@ describe('useAppLifecycle utilities', () => {
     it('saveLastLoadedModel stores model ID in localStorage', async () => {
       const { saveLastLoadedModel } = await import('./useAppLifecycle');
       saveLastLoadedModel('test-model-id');
-      expect(localStorage.getItem('rapid_last_loaded_model')).toBe(
+      expect(localStorage.getItem('tearleads_last_loaded_model')).toBe(
         'test-model-id'
       );
     });

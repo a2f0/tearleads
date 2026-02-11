@@ -1,4 +1,4 @@
-import { assertPlainArrayBuffer } from '@rapid/shared';
+import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { useCallback, useEffect, useState } from 'react';
 import { getDatabase } from '@/db';

@@ -1,7 +1,7 @@
 import {
   DEFAULT_OPENROUTER_MODEL_ID,
   OPENROUTER_CHAT_MODELS
-} from '@rapid/shared';
+} from '@tearleads/shared';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ClassificationResult } from './useLLM';

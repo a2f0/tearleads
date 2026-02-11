@@ -1,5 +1,5 @@
-import type { DecryptedAiConversation } from '@rapid/shared';
-import { useResizableSidebar } from '@rapid/window-manager';
+import type { DecryptedAiConversation } from '@tearleads/shared';
+import { useResizableSidebar } from '@tearleads/window-manager';
 import { Loader2, MessageSquare, Plus } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { ConversationsContextMenu } from './ConversationsContextMenu';

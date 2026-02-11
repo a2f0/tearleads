@@ -10,7 +10,7 @@ function printUsage(): void {
   console.log(
     [
       'Usage:',
-      '  pnpm --filter @rapid/api cli list-admins',
+      '  pnpm --filter @tearleads/api cli list-admins',
       '  pnpm exec tsx scripts/listAdmins.ts',
       '',
       'Options:',

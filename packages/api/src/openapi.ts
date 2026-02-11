@@ -1,4 +1,4 @@
-import { isRecord } from '@rapid/shared';
+import { isRecord } from '@tearleads/shared';
 import type { OpenAPIV3 } from 'openapi-types';
 import swaggerJsdoc from 'swagger-jsdoc';
 import packageJson from '../package.json' with { type: 'json' };
@@ -11,9 +11,9 @@ const options: swaggerJsdoc.Options = {
   definition: {
     openapi: '3.0.0',
     info: {
-      title: 'Rapid API',
+      title: 'Tearleads API',
       version: packageJson.version,
-      description: 'API documentation for Rapid'
+      description: 'API documentation for Tearleads'
     },
     servers: [
       {

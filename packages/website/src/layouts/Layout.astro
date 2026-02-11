@@ -1,5 +1,5 @@
 ---
-import logo from '@rapid/ui/logo.svg?url';
+import logo from '@tearleads/ui/logo.svg?url';
 import NavDropdown from '../components/NavDropdown.astro';
 import { SettingsIsland } from '../components/SettingsIsland';
 import { defaultLanguage, supportedLanguages } from '../i18n/config';
@@ -69,8 +69,8 @@ const hreflangUrls = supportedLanguages.map((hrefLang) => ({
           class="container mx-auto flex items-center justify-between px-4 py-4"
         >
           <a href={getHref('/', lang)} class="flex items-center gap-3">
-            <img src={logo} alt="Rapid" class="h-8 w-8" />
-            <p class="font-bold text-2xl">Rapid</p>
+            <img src={logo} alt="Tearleads" class="h-8 w-8" />
+            <p class="font-bold text-2xl">Tearleads</p>
           </a>
           <div class="flex items-center gap-4">
             <nav class="hidden items-center gap-4 md:flex">
@@ -89,7 +89,7 @@ const hreflangUrls = supportedLanguages.map((hrefLang) => ({
         style="padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px));"
       >
         <div class="container mx-auto flex flex-col items-center gap-2 px-4">
-          <p>&copy; {currentYear} Rapid. All rights reserved.</p>
+          <p>&copy; {currentYear} Tearleads. All rights reserved.</p>
           <a href={getHref('/licenses', lang)} class="text-xs hover:text-foreground hover:underline">Open Source Licenses</a>
         </div>
       </footer>

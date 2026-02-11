@@ -2,7 +2,7 @@ import {
   CALENDAR_CREATE_EVENT,
   CALENDAR_CREATE_ITEM_EVENT,
   CALENDAR_CREATE_SUBMIT_EVENT
-} from '@rapid/calendar';
+} from '@tearleads/calendar';
 import { fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { ReactNode } from 'react';
@@ -37,10 +37,10 @@ interface MockContextMenuProps {
   onClose: () => void;
 }
 
-vi.mock('@rapid/calendar', () => ({
-  CALENDAR_CREATE_EVENT: 'rapid:calendar:create',
-  CALENDAR_CREATE_ITEM_EVENT: 'rapid:calendar:item:create',
-  CALENDAR_CREATE_SUBMIT_EVENT: 'rapid:calendar:create:submit',
+vi.mock('@tearleads/calendar', () => ({
+  CALENDAR_CREATE_EVENT: 'tearleads:calendar:create',
+  CALENDAR_CREATE_ITEM_EVENT: 'tearleads:calendar:item:create',
+  CALENDAR_CREATE_SUBMIT_EVENT: 'tearleads:calendar:create:submit',
   CalendarContent: ({
     events,
     onSidebarContextMenuRequest,

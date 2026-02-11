@@ -1,8 +1,8 @@
 import {
   CALENDAR_CREATE_EVENT,
   CALENDAR_CREATE_ITEM_EVENT
-} from '@rapid/calendar';
-import { ThemeProvider } from '@rapid/ui';
+} from '@tearleads/calendar';
+import { ThemeProvider } from '@tearleads/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';

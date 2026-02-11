@@ -10,9 +10,9 @@ tuxedo_init() {
     BASE_DIR="${TUXEDO_BASE_DIR:-$HOME/github}"
     NUM_WORKSPACES="${TUXEDO_WORKSPACES:-10}"
     # Workspace naming: prefix-main, prefix-shared, prefix1, prefix2, etc.
-    # Defaults to "rapid" for backward compatibility (rapid-main, rapid2, ...)
-    WORKSPACE_PREFIX="${TUXEDO_WORKSPACE_PREFIX:-rapid}"
-    # Starting index for numbered workspaces (default 2 for rapid2, use 1 for tuxedo1)
+    # Defaults to "tearleads" for backward compatibility (tearleads-main, tearleads2, ...)
+    WORKSPACE_PREFIX="${TUXEDO_WORKSPACE_PREFIX:-tearleads}"
+    # Starting index for numbered workspaces (default 2 for tearleads2, use 1 for tuxedo1)
     WORKSPACE_START="${TUXEDO_WORKSPACE_START:-2}"
     SESSION_NAME="tuxedo"
     OPEN_PRS_WINDOW_NAME="${TUXEDO_OPEN_PRS_WINDOW_NAME:-open-prs}"

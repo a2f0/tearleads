@@ -1,5 +1,5 @@
-import type { LicenseInfo } from '@rapid/shared';
-import licensesData from '@rapid/shared/licenses.json';
+import type { LicenseInfo } from '@tearleads/shared';
+import licensesData from '@tearleads/shared/licenses.json';
 import { BackLink } from '@/components/ui/back-link';
 
 export function Licenses() {

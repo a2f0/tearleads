@@ -1,4 +1,4 @@
-import { createMarkdownToolbarFilter } from '@rapid/notes';
+import { createMarkdownToolbarFilter } from '@tearleads/notes';
 import MDEditor, { commands } from '@uiw/react-md-editor';
 import { zIndex } from '@/constants/zIndex';
 
