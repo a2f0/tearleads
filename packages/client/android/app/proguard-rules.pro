@@ -38,3 +38,7 @@
 
 # Keep AndroidX tracing classes required by instrumentation runner
 -keep class androidx.tracing.** { *; }
+
+# Keep AndroidX test runner classes for release instrumentation tests
+-keep class androidx.test.** { *; }
+-keep class org.junit.** { *; }
