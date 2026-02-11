@@ -63,7 +63,6 @@ export function VfsDraggableItem({
       <WindowTableRow
         ref={setNodeRef}
         className={combinedClassName}
-        isSelected={isSelected}
         {...listeners}
         {...attributes}
         style={{ cursor: cursorStyle }}
