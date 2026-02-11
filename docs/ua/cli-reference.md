@@ -32,8 +32,8 @@ tearleads setup
 
 Запити:
 
-- `Enter password:`
-- `Confirm password:`
+- `Введіть пароль:`
+- `Підтвердіть пароль:`
 
 ### `unlock`
 
@@ -45,7 +45,7 @@ tearleads unlock
 
 Запит:
 
-- `Enter password:`
+- `Введіть пароль:`
 
 ### `lock`
 
@@ -70,8 +70,8 @@ tearleads backup ./backup.rbu --password "backup-pass"
 
 Якщо `--password` не задано, запити:
 
-- `Backup password:`
-- `Confirm backup password:`
+- `Пароль резервної копії:`
+- `Підтвердіть пароль резервної копії:`
 
 ### `restore <file>`
 
@@ -90,11 +90,11 @@ tearleads restore ./backup.rbu --password "backup-pass"
 
 Якщо `--force` не задано, запит:
 
-- `This will overwrite existing data. Continue? (y/n):`
+- `Це перезапише наявні дані. Продовжити? (y/n):`
 
 Якщо `--password` не задано, запит:
 
-- `Backup password:`
+- `Пароль резервної копії:`
 
 ### `dump <folder>`
 
@@ -131,9 +131,9 @@ tearleads password
 
 Запити:
 
-- `Current password:`
-- `New password:`
-- `Confirm new password:`
+- `Поточний пароль:`
+- `Новий пароль:`
+- `Підтвердіть новий пароль:`
 
 ### `list-instances`
 

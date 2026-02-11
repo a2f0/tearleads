@@ -32,8 +32,8 @@ tearleads setup
 
 Pide:
 
-- `Enter password:`
-- `Confirm password:`
+- `Introducir contraseña:`
+- `Confirmar contraseña:`
 
 ### `unlock`
 
@@ -45,7 +45,7 @@ tearleads unlock
 
 Pide:
 
-- `Enter password:`
+- `Introducir contraseña:`
 
 ### `lock`
 
@@ -70,8 +70,8 @@ Opciones:
 
 Si se omite `--password`, pide:
 
-- `Backup password:`
-- `Confirm backup password:`
+- `Contraseña del backup:`
+- `Confirmar contraseña del backup:`
 
 ### `restore <file>`
 
@@ -90,11 +90,11 @@ Opciones:
 
 Sin `--force`, pide:
 
-- `This will overwrite existing data. Continue? (y/n):`
+- `Esto sobrescribirá los datos existentes. ¿Continuar? (s/n):`
 
 Si se omite `--password`, pide:
 
-- `Backup password:`
+- `Contraseña del backup:`
 
 ### `dump <folder>`
 
@@ -131,9 +131,9 @@ tearleads password
 
 Pide:
 
-- `Current password:`
-- `New password:`
-- `Confirm new password:`
+- `Contraseña actual:`
+- `Nueva contraseña:`
+- `Confirmar nueva contraseña:`
 
 ### `list-instances`
 

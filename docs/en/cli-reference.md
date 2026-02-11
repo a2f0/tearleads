@@ -114,6 +114,10 @@ Options:
 - `--force` Overwrite existing output folder without prompt.
 - `--no-blobs` Skip creating the `files/` directory.
 
+Note:
+
+- In `dump`, `-f` maps to `--input-file` (not `--force`), matching current `packages/cli` behavior.
+
 Output structure:
 
 - `manifest.json`
