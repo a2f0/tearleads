@@ -32,13 +32,5 @@
 -keep class kotlin.coroutines.jvm.internal.SpillingKt { *; }
 -dontwarn kotlin.coroutines.jvm.internal.SpillingKt
 
-# Keep Kotlin stdlib classes used by AndroidX test runner in release instrumentation
--keep class kotlin.jvm.internal.Intrinsics { *; }
--keep class kotlin.** { *; }
-
-# Keep AndroidX tracing classes required by instrumentation runner
--keep class androidx.tracing.** { *; }
-
-# Keep AndroidX test runner classes for release instrumentation tests
--keep class androidx.test.** { *; }
--keep class org.junit.** { *; }
+# Note: Test-specific ProGuard rules (Kotlin stdlib, AndroidX tracing, test runners)
+# are in proguard-rules-test.pro to avoid bloating the production APK. See #750.
