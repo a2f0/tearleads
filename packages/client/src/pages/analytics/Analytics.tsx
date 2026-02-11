@@ -671,7 +671,7 @@ export function Analytics({
                       {filteredStats.map((stat) => (
                         <WindowTableRow
                           key={stat.eventName}
-                          className="cursor-default hover:bg-transparent last:border-b-0"
+                          className="cursor-default last:border-b-0 hover:bg-transparent"
                           data-testid="summary-row"
                         >
                           <td

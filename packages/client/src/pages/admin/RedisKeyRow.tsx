@@ -89,7 +89,7 @@ function renderHashValue(value: Record<string, string>) {
           {entries.map(([field, fieldValue]) => (
             <WindowTableRow
               key={field}
-              className="cursor-default hover:bg-transparent last:border-b-0"
+              className="cursor-default last:border-b-0 hover:bg-transparent"
             >
               <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} font-mono`}>
                 {field}

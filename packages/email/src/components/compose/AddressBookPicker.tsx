@@ -232,7 +232,7 @@ export function AddressBookPicker({
             {visibleRows.map((row) => (
               <WindowTableRow
                 key={`${row.contactId}:${row.email}`}
-                className="cursor-default hover:bg-transparent last:border-b-0"
+                className="cursor-default last:border-b-0 hover:bg-transparent"
               >
                 <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                   {getDisplayName(row)}

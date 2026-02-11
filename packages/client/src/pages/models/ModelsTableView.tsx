@@ -128,7 +128,7 @@ export function ModelsTableView({
                     return (
                       <WindowTableRow
                         key={model.id}
-                        className="cursor-default hover:bg-muted/20 last:border-b-0"
+                        className="cursor-default last:border-b-0 hover:bg-muted/20"
                       >
                         <td
                           className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}
