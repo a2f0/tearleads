@@ -1,6 +1,6 @@
 import { useTheme } from '@rapid/ui';
-import MDEditor from '@uiw/react-md-editor';
 import { ArrowLeft, BookOpenText } from 'lucide-react';
+import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
 import backupRestoreDocumentation from '../../../../../docs/en/backup-restore.md?raw';
 
 interface BackupDocumentationProps {
@@ -35,11 +35,10 @@ export function BackupDocumentation({ onBack }: BackupDocumentationProps) {
         </p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-4">
-        <div data-color-mode={markdownColorMode}>
-          <MDEditor.Markdown source={backupRestoreDocumentation} />
-        </div>
-      </div>
+      <MarkdownWithToc
+        source={backupRestoreDocumentation}
+        markdownColorMode={markdownColorMode}
+      />
     </div>
   );
 }

@@ -22,6 +22,8 @@ describe('BackupDocumentation', () => {
     expect(
       screen.getByText('Backup & Restore Documentation')
     ).toBeInTheDocument();
+    expect(screen.getByTestId('markdown-toc-sidebar')).toBeInTheDocument();
+    expect(screen.getByTestId('markdown-content-scroll')).toBeInTheDocument();
     expect(screen.getByTestId('markdown')).toBeInTheDocument();
   });
 
