@@ -34,56 +34,16 @@ jobs:
           PROBE_BASE64=$(printf "%s" "$PROBE_CONTENT" | base64 | tr -d '\n')
           EXPECTED_HEAD_OID=$(git rev-parse "origin/$BRANCH")
 
-          EXPECTED_HEAD_OID="$EXPECTED_HEAD_OID" \
-          PROBE_BASE64="$PROBE_BASE64" \
-          BRANCH="$BRANCH" \
-          REPO="$REPO" \
-          PAYLOAD_PATH="$PAYLOAD_PATH" \
-          python3 - <<'PY'
-            import json
-            import os
+          mkdir -p .github/tmp
+          printf "%s" "$PROBE_CONTENT" > .github/tmp/signing-probe.txt
 
-            query = """
-            mutation($input: CreateCommitOnBranchInput!) {
-              createCommitOnBranch(input: $input) {
-                commit {
-                  oid
-                  url
-                  verification {
-                    verified
-                    reason
-                  }
-                }
-              }
-            }
-            """
-
-            variables = {
-                "input": {
-                    "branch": {
-                        "repositoryNameWithOwner": os.environ["REPO"],
-                        "branchName": os.environ["BRANCH"],
-                    },
-                    "message": {
-                        "headline": "chore(ci): signing probe [skip ci]",
-                        "body": "temporary workflow probe commit",
-                    },
-                    "expectedHeadOid": os.environ["EXPECTED_HEAD_OID"],
-                    "fileChanges": {
-                        "additions": [
-                            {
-                                "path": ".github/tmp/signing-probe.txt",
-                                "contents": os.environ["PROBE_BASE64"],
-                            }
-                        ],
-                        "deletions": [],
-                    },
-                }
-            }
-
-            with open(os.environ["PAYLOAD_PATH"], "w", encoding="utf-8") as fh:
-                json.dump({"query": query, "variables": variables}, fh)
-          PY
+          node scripts/createCommitOnBranchPayload.mjs \
+            --repo "$REPO" \
+            --branch "$BRANCH" \
+            --expected-head-oid "$EXPECTED_HEAD_OID" \
+            --headline "chore(ci): signing probe [skip ci]" \
+            --body "temporary workflow probe commit" \
+            --output "$PAYLOAD_PATH"
 
           COMMIT_JSON=$(gh api graphql --input "$PAYLOAD_PATH" --jq '.data.createCommitOnBranch.commit')
           echo "$COMMIT_JSON"
