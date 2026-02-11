@@ -253,7 +253,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - Run one cross-agent fallback review:
 
    ```bash
-   ./scripts/solicitCodexReview.sh
+   ./scripts/agents/tooling/agentTool.sh solicitCodexReview
    ```
 
    - Set `used_fallback_agent_review = true`

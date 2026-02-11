@@ -67,3 +67,15 @@ assert_contains "$CLEAR_STATUS" "success|clearQueued"
 
 RESET_TITLE=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(String(d["window.title"] || ""));' "$SETTINGS_FILE")
 assert_contains "$RESET_TITLE" "repo - "
+
+CODEX_JSON="$TEMP_DIR/solicitCodexReview.json"
+"$TOOL" solicitCodexReview --repo-root "$REPO_ROOT" --dry-run --json >"$CODEX_JSON"
+assert_file_exists "$CODEX_JSON"
+CODEX_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${String(d.dry_run)}`);' "$CODEX_JSON")
+assert_contains "$CODEX_STATUS" "success|solicitCodexReview|true"
+
+CLAUDE_JSON="$TEMP_DIR/solicitClaudeCodeReview.json"
+"$TOOL" solicitClaudeCodeReview --repo-root "$REPO_ROOT" --dry-run --json >"$CLAUDE_JSON"
+assert_file_exists "$CLAUDE_JSON"
+CLAUDE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${String(d.dry_run)}`);' "$CLAUDE_JSON")
+assert_contains "$CLAUDE_STATUS" "success|solicitClaudeCodeReview|true"

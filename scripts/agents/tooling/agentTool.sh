@@ -19,6 +19,8 @@ Actions:
   clearQueued
   clearStatus
   refresh
+  solicitClaudeCodeReview
+  solicitCodexReview
   setQueued
   setReady
   setWaiting
@@ -29,6 +31,7 @@ Options:
   --title <value>          Title to set (required for setQueued and setVscodeTitle)
   --timeout-seconds <n>    Timeout in seconds (default: 300, refresh: 3600)
   --repo-root <path>       Execute from this repo root instead of auto-detecting
+  --dry-run                Validate and report without executing the target script
   --json                   Emit structured JSON summary
   -h, --help               Show help
 EOF
@@ -62,6 +65,7 @@ shift
 TITLE=""
 TIMEOUT_SECONDS=""
 REPO_ROOT=""
+DRY_RUN=false
 EMIT_JSON=false
 
 while [ "$#" -gt 0 ]; do
@@ -81,6 +85,9 @@ while [ "$#" -gt 0 ]; do
             require_value "--repo-root" "${1:-}"
             REPO_ROOT="$1"
             ;;
+        --dry-run)
+            DRY_RUN=true
+            ;;
         --json)
             EMIT_JSON=true
             ;;
@@ -98,7 +105,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$ACTION" in
-    cleanup|clearQueued|clearStatus|refresh|setQueued|setReady|setWaiting|setWorking|setVscodeTitle) ;;
+    cleanup|clearQueued|clearStatus|refresh|setQueued|setReady|setWaiting|setWorking|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview) ;;
     *)
         echo "Error: Unknown action '$ACTION'." >&2
         usage >&2
@@ -136,7 +143,15 @@ if [ -z "$REPO_ROOT" ]; then
     fi
 fi
 
-SCRIPT="$AGENTS_DIR/$ACTION.sh"
+case "$ACTION" in
+    solicitCodexReview|solicitClaudeCodeReview)
+        SCRIPT="$REPO_ROOT/scripts/$ACTION.sh"
+        ;;
+    *)
+        SCRIPT="$AGENTS_DIR/$ACTION.sh"
+        ;;
+esac
+
 if [ ! -x "$SCRIPT" ]; then
     echo "Error: Script not executable: $SCRIPT" >&2
     exit 1
@@ -147,41 +162,48 @@ RETRY_SAFE="true"
 if [ "$ACTION" = "refresh" ]; then
     RETRY_SAFE="false"
 fi
+if [ "$ACTION" = "solicitCodexReview" ] || [ "$ACTION" = "solicitClaudeCodeReview" ]; then
+    SAFETY_CLASS="safe_read"
+fi
 
 START_MS=$(node -e 'console.log(Date.now())')
 TMP_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/agentTool.XXXXXX")
 trap 'rm -f "$TMP_OUTPUT"' EXIT
 
 EXIT_CODE=0
-if command -v timeout >/dev/null 2>&1; then
-    if ! timeout "$TIMEOUT_SECONDS" sh -c '
-        set -eu
-        REPO_ROOT="$1"
-        SCRIPT="$2"
-        TITLE="$3"
-        cd "$REPO_ROOT"
-        if [ -n "$TITLE" ]; then
-            "$SCRIPT" "$TITLE"
-        else
-            "$SCRIPT"
-        fi
-    ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" >"$TMP_OUTPUT" 2>&1; then
-        EXIT_CODE=$?
-    fi
+if [ "$DRY_RUN" = true ]; then
+    printf 'dry-run: would run %s from %s\n' "$SCRIPT" "$REPO_ROOT" >"$TMP_OUTPUT"
 else
-    if ! sh -c '
-        set -eu
-        REPO_ROOT="$1"
-        SCRIPT="$2"
-        TITLE="$3"
-        cd "$REPO_ROOT"
-        if [ -n "$TITLE" ]; then
-            "$SCRIPT" "$TITLE"
-        else
-            "$SCRIPT"
+    if command -v timeout >/dev/null 2>&1; then
+        if ! timeout "$TIMEOUT_SECONDS" sh -c '
+            set -eu
+            REPO_ROOT="$1"
+            SCRIPT="$2"
+            TITLE="$3"
+            cd "$REPO_ROOT"
+            if [ -n "$TITLE" ]; then
+                "$SCRIPT" "$TITLE"
+            else
+                "$SCRIPT"
+            fi
+        ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" >"$TMP_OUTPUT" 2>&1; then
+            EXIT_CODE=$?
         fi
-    ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" >"$TMP_OUTPUT" 2>&1; then
-        EXIT_CODE=$?
+    else
+        if ! sh -c '
+            set -eu
+            REPO_ROOT="$1"
+            SCRIPT="$2"
+            TITLE="$3"
+            cd "$REPO_ROOT"
+            if [ -n "$TITLE" ]; then
+                "$SCRIPT" "$TITLE"
+            else
+                "$SCRIPT"
+            fi
+        ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" >"$TMP_OUTPUT" 2>&1; then
+            EXIT_CODE=$?
+        fi
     fi
 fi
 
@@ -196,8 +218,8 @@ fi
 KEY_LINES=$(tail -n 5 "$TMP_OUTPUT" | tr '\n' '\r')
 
 if [ "$EMIT_JSON" = true ]; then
-    node - "$STATUS" "$EXIT_CODE" "$DURATION_MS" "$ACTION" "$REPO_ROOT" "$SAFETY_CLASS" "$RETRY_SAFE" "$KEY_LINES" <<'NODE'
-const [status, exitCode, durationMs, action, repoRoot, safetyClass, retrySafe, keyLinesRaw] =
+    node - "$STATUS" "$EXIT_CODE" "$DURATION_MS" "$ACTION" "$REPO_ROOT" "$SAFETY_CLASS" "$RETRY_SAFE" "$DRY_RUN" "$KEY_LINES" <<'NODE'
+const [status, exitCode, durationMs, action, repoRoot, safetyClass, retrySafe, dryRun, keyLinesRaw] =
   process.argv.slice(2);
 const keyLines = keyLinesRaw
   .split("\r")
@@ -214,6 +236,7 @@ process.stdout.write(
       repo_root: repoRoot,
       safety_class: safetyClass,
       retry_safe: retrySafe === "true",
+      dry_run: dryRun === "true",
       key_lines: keyLines
     },
     null,
