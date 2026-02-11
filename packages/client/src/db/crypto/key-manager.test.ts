@@ -253,9 +253,13 @@ describe('KeyManager', () => {
       await keyManager.setupNewKey('testpassword');
 
       // Check that salt was stored (with instance namespace)
-      expect(mockIDBStore.has(`tearleads_db_salt_${TEST_INSTANCE_ID}`)).toBe(true);
+      expect(mockIDBStore.has(`tearleads_db_salt_${TEST_INSTANCE_ID}`)).toBe(
+        true
+      );
       // Check that KCV was stored (with instance namespace)
-      expect(mockIDBStore.has(`tearleads_db_kcv_${TEST_INSTANCE_ID}`)).toBe(true);
+      expect(mockIDBStore.has(`tearleads_db_kcv_${TEST_INSTANCE_ID}`)).toBe(
+        true
+      );
     });
   });
 
@@ -370,7 +374,10 @@ describe('KeyManager', () => {
       mockIDBStore.set(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`, {
         wrapping: true
       });
-      mockIDBStore.set(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
+      mockIDBStore.set(
+        `tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`,
+        [1, 2]
+      );
 
       const result = await keyManager.hasPersistedSession();
 
@@ -394,7 +401,10 @@ describe('KeyManager', () => {
       mockIDBStore.set(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`, {
         wrapping: true
       });
-      mockIDBStore.set(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
+      mockIDBStore.set(
+        `tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`,
+        [1, 2]
+      );
 
       const result = await keyManager.restoreSession();
       await flushTimers();
@@ -413,7 +423,10 @@ describe('KeyManager', () => {
       mockIDBStore.set(`tearleads_session_wrapping_key_${TEST_INSTANCE_ID}`, {
         wrapped: true
       });
-      mockIDBStore.set(`tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`, [1, 2]);
+      mockIDBStore.set(
+        `tearleads_session_wrapped_key_${TEST_INSTANCE_ID}`,
+        [1, 2]
+      );
 
       await keyManager.clearPersistedSession();
       await flushTimers();
@@ -1395,12 +1408,12 @@ describe('deleteSessionKeysForInstance', () => {
 
     expect(mockIDBStore.has(`tearleads_db_salt_${instanceId}`)).toBe(true);
     expect(mockIDBStore.has(`tearleads_db_kcv_${instanceId}`)).toBe(true);
-    expect(mockIDBStore.has(`tearleads_session_wrapping_key_${instanceId}`)).toBe(
-      false
-    );
-    expect(mockIDBStore.has(`tearleads_session_wrapped_key_${instanceId}`)).toBe(
-      false
-    );
+    expect(
+      mockIDBStore.has(`tearleads_session_wrapping_key_${instanceId}`)
+    ).toBe(false);
+    expect(
+      mockIDBStore.has(`tearleads_session_wrapped_key_${instanceId}`)
+    ).toBe(false);
   });
 
   it('completes successfully when no session keys exist', async () => {

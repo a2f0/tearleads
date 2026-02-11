@@ -21,7 +21,8 @@ import { server } from './msw/server';
 failOnConsole();
 
 vi.mock('@tearleads/ui', async () => {
-  const actual = await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
+  const actual =
+    await vi.importActual<typeof import('@tearleads/ui')>('@tearleads/ui');
 
   return {
     ...actual,

@@ -477,10 +477,9 @@ describe('classicPersistence integration', () => {
         .where(eq(vfsLinks.childId, 'note-a1'));
 
       expect(linkRows).toHaveLength(2);
-      expect(linkRows.map((r: { parentId: string }) => r.parentId).sort()).toEqual([
-        'tag-a',
-        'tag-b'
-      ]);
+      expect(
+        linkRows.map((r: { parentId: string }) => r.parentId).sort()
+      ).toEqual(['tag-a', 'tag-b']);
     });
   });
 

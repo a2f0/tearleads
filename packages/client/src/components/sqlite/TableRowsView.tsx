@@ -1,5 +1,5 @@
-import { isRecord } from '@tearleads/shared';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { isRecord } from '@tearleads/shared';
 import {
   ArrowDown,
   ArrowUp,

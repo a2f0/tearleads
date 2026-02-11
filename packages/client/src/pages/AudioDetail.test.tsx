@@ -27,7 +27,9 @@ vi.mock('@/db/hooks', () => ({
 // Mock the audio playlists sidebar
 vi.mock('@tearleads/audio', async () => {
   const actual =
-    await vi.importActual<typeof import('@tearleads/audio')>('@tearleads/audio');
+    await vi.importActual<typeof import('@tearleads/audio')>(
+      '@tearleads/audio'
+    );
   return {
     ...actual,
     ALL_AUDIO_ID: '__all__',

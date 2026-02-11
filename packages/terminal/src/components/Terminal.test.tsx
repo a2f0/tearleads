@@ -65,7 +65,9 @@ describe('Terminal', () => {
 
   it('renders terminal without welcome banner text', () => {
     renderTerminal();
-    expect(screen.queryByText('Tearleads Terminal v1.0.0')).not.toBeInTheDocument();
+    expect(
+      screen.queryByText('Tearleads Terminal v1.0.0')
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByText('Type "help" for available commands.')
     ).not.toBeInTheDocument();

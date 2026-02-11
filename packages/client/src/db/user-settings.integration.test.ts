@@ -6,7 +6,10 @@
  */
 
 import { userSettings } from '@tearleads/db/sqlite';
-import { commonTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
+import {
+  commonTestMigrations,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
 import { mockConsoleWarn } from '../test/console-mocks';
@@ -91,7 +94,9 @@ describe('user-settings integration', () => {
           expect(rows).toHaveLength(3);
 
           const themeRow = rows.find((r: { key: string }) => r.key === 'theme');
-          const langRow = rows.find((r: { key: string }) => r.key === 'language');
+          const langRow = rows.find(
+            (r: { key: string }) => r.key === 'language'
+          );
           const tooltipsRow = rows.find(
             (r: { key: string }) => r.key === 'tooltips'
           );

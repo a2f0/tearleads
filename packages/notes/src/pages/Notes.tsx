@@ -1,5 +1,5 @@
-import { notes } from '@tearleads/db/sqlite';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { notes } from '@tearleads/db/sqlite';
 import { desc, eq } from 'drizzle-orm';
 import { Info, Loader2, StickyNote, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';

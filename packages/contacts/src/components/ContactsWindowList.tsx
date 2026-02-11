@@ -1,5 +1,5 @@
-import { contacts as contactsTable } from '@tearleads/db/sqlite';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { contacts as contactsTable } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import {
   Info,
