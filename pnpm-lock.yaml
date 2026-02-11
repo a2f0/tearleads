@@ -24,6 +24,9 @@ importers:
       concurrently:
         specifier: 9.2.1
         version: 9.2.1
+      cross-env:
+        specifier: 10.1.0
+        version: 10.1.0
       husky:
         specifier: 9.1.7
         version: 9.1.7
@@ -130,12 +133,12 @@ importers:
 
   packages/audio:
     dependencies:
-      '@tearleads/shared':
-        specifier: workspace:*
-        version: link:../shared
       '@tanstack/react-virtual':
         specifier: 3.13.18
         version: 3.13.18(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -419,6 +422,12 @@ importers:
       '@radix-ui/react-slot':
         specifier: 1.2.4
         version: 1.2.4(@types/react@19.2.13)(react@19.2.4)
+      '@tanstack/react-table':
+        specifier: 8.21.3
+        version: 8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tanstack/react-virtual':
+        specifier: 3.13.18
+        version: 3.13.18(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tearleads/audio':
         specifier: workspace:*
         version: link:../audio
@@ -461,12 +470,6 @@ importers:
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
-      '@tanstack/react-table':
-        specifier: 8.21.3
-        version: 8.21.3(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
-      '@tanstack/react-virtual':
-        specifier: 3.13.18
-        version: 3.13.18(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@uiw/react-md-editor':
         specifier: 4.0.11
         version: 4.0.11(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
@@ -543,12 +546,12 @@ importers:
       '@playwright/test':
         specifier: 1.58.2
         version: 1.58.2
-      '@tearleads/db-test-utils':
-        specifier: workspace:*
-        version: link:../db-test-utils
       '@tailwindcss/vite':
         specifier: 4.1.18
         version: 4.1.18(vite@7.3.1(@types/node@25.2.1)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
+      '@tearleads/db-test-utils':
+        specifier: workspace:*
+        version: link:../db-test-utils
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1
@@ -648,12 +651,12 @@ importers:
       '@dnd-kit/utilities':
         specifier: 3.2.2
         version: 3.2.2(react@19.2.4)
-      '@tearleads/ui':
-        specifier: workspace:*
-        version: link:../ui
       '@tanstack/react-virtual':
         specifier: 3.13.18
         version: 3.13.18(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       clsx:
         specifier: 2.1.1
         version: 2.1.1
@@ -984,6 +987,9 @@ importers:
 
   packages/notes:
     dependencies:
+      '@tanstack/react-virtual':
+        specifier: 3.13.18
+        version: 3.13.18(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@tearleads/db':
         specifier: workspace:*
         version: link:../db
@@ -993,9 +999,6 @@ importers:
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
-      '@tanstack/react-virtual':
-        specifier: 3.13.18
-        version: 3.13.18(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       '@uiw/react-md-editor':
         specifier: 4.0.11
         version: 4.0.11(@types/react@19.2.13)(react-dom@19.2.4(react@19.2.4))(react@19.2.4)

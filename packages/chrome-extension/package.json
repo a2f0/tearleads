@@ -1,15 +1,15 @@
 {
   "name": "@tearleads/chrome-extension",
-  "version": "0.0.148",
+  "version": "0.0.150",
   "description": "Chrome extension for Tearleads",
   "type": "module",
   "scripts": {
-    "dev": "vite build --watch",
-    "build": "tsc && vite build",
+    "dev": "cross-env DOTENV_CONFIG_QUIET=true vite build --watch",
+    "build": "tsc && cross-env DOTENV_CONFIG_QUIET=true vite build",
     "clean": "rm -rf dist",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:watch": "cross-env DOTENV_CONFIG_QUIET=true vitest",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "dependencies": {
     "@tearleads/shared": "workspace:*"

@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/cli",
-  "version": "0.0.32",
+  "version": "0.0.34",
   "description": "Tearleads CLI for database management",
   "type": "module",
   "bin": {
@@ -14,8 +14,8 @@
     "build": "tsup",
     "dev": "tsx src/index.ts",
     "clean": "rm -rf dist",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage",
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage",
     "prepublishOnly": "pnpm build"
   },
   "publishConfig": {

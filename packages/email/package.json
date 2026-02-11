@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/email",
-  "version": "0.0.53",
+  "version": "0.0.54",
   "description": "Email components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
@@ -17,8 +17,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
     "@tearleads/db": "workspace:*",

@@ -26,7 +26,7 @@ import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 import { vfsRouter } from './routes/vfs.js';
 import { vfsSharesRouter } from './routes/vfs-shares.js';
 
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const app: Express = express();
 

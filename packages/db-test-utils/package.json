@@ -18,8 +18,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "keywords": [
     "database",
