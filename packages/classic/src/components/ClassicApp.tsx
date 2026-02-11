@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import {
   DEFAULT_CLASSIC_NOTE_TITLE,
   DEFAULT_CLASSIC_TAG_NAME,
@@ -44,6 +44,8 @@ export function ClassicApp({
   const [entrySearch, setEntrySearch] = useState('');
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const tagSearchInputRef = useRef<HTMLInputElement>(null);
+  const entrySearchInputRef = useRef<HTMLInputElement>(null);
 
   const activeTagName = useMemo(() => {
     if (state.activeTagId === UNTAGGED_TAG_ID) {
@@ -259,6 +261,30 @@ export function ClassicApp({
     setEditingNoteId(null);
   }, [editingNoteId, state, updateState]);
 
+  const handleTagSearchKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Tab') {
+        return;
+      }
+      event.preventDefault();
+      entrySearchInputRef.current?.focus();
+      entrySearchInputRef.current?.select();
+    },
+    []
+  );
+
+  const handleEntrySearchKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLInputElement>) => {
+      if (event.key !== 'Tab') {
+        return;
+      }
+      event.preventDefault();
+      tagSearchInputRef.current?.focus();
+      tagSearchInputRef.current?.select();
+    },
+    []
+  );
+
   return (
     <div className="flex h-full min-h-[420px] w-full overflow-hidden bg-white">
       <TagSidebar
@@ -279,6 +305,8 @@ export function ClassicApp({
         onTagNote={handleTagNote}
         searchValue={tagSearch}
         onSearchChange={setTagSearch}
+        onSearchKeyDown={handleTagSearchKeyDown}
+        searchInputRef={tagSearchInputRef}
         contextMenuComponents={contextMenuComponents}
       />
       <NotesPane
@@ -295,6 +323,8 @@ export function ClassicApp({
         onTagNote={handleTagNote}
         searchValue={entrySearch}
         onSearchChange={setEntrySearch}
+        onSearchKeyDown={handleEntrySearchKeyDown}
+        searchInputRef={entrySearchInputRef}
         contextMenuComponents={contextMenuComponents}
       />
     </div>

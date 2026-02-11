@@ -31,6 +31,8 @@ interface TagSidebarProps {
   onTagNote?: (tagId: string, noteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  onSearchKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
@@ -64,6 +66,8 @@ export function TagSidebar({
   onTagNote,
   searchValue,
   onSearchChange,
+  onSearchKeyDown,
+  searchInputRef,
   contextMenuComponents
 }: TagSidebarProps) {
   const [contextMenu, setContextMenu] = useState<TagContextMenuState | null>(
@@ -75,13 +79,14 @@ export function TagSidebar({
   const [dropTargetTagId, setDropTargetTagId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const localSearchInputRef = useRef<HTMLInputElement>(null);
+  const effectiveSearchInputRef = searchInputRef ?? localSearchInputRef;
 
   useEffect(() => {
     if (autoFocusSearch) {
-      searchInputRef.current?.focus();
+      effectiveSearchInputRef.current?.focus();
     }
-  }, [autoFocusSearch]);
+  }, [autoFocusSearch, effectiveSearchInputRef]);
 
   useEffect(() => {
     if (editingTagId) {
@@ -408,10 +413,11 @@ export function TagSidebar({
       <div className="py-3">
         <div className="pr-2">
           <input
-            ref={searchInputRef}
+            ref={effectiveSearchInputRef}
             type="text"
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
+            onKeyDown={onSearchKeyDown}
             className="box-border w-full border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
             aria-label="Search tags"
           />

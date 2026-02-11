@@ -272,4 +272,35 @@ describe('ClassicApp', () => {
     const latest = getLastState(onStateChange);
     expect(Object.keys(latest.notesById)).toHaveLength(4);
   });
+
+  it('toggles focus between tag and entry search with Tab', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagSearch = screen.getByLabelText('Search tags');
+    const entrySearch = screen.getByLabelText('Search entries');
+
+    tagSearch.focus();
+    expect(tagSearch).toHaveFocus();
+
+    fireEvent.keyDown(tagSearch, { key: 'Tab' });
+    expect(entrySearch).toHaveFocus();
+
+    fireEvent.keyDown(entrySearch, { key: 'Tab' });
+    expect(tagSearch).toHaveFocus();
+  });
+
+  it('keeps focus in place for non-Tab keys in search fields', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagSearch = screen.getByLabelText('Search tags');
+    const entrySearch = screen.getByLabelText('Search entries');
+
+    tagSearch.focus();
+    fireEvent.keyDown(tagSearch, { key: 'Enter' });
+    expect(tagSearch).toHaveFocus();
+
+    entrySearch.focus();
+    fireEvent.keyDown(entrySearch, { key: 'Escape' });
+    expect(entrySearch).toHaveFocus();
+  });
 });

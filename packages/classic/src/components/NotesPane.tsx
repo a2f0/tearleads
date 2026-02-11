@@ -25,6 +25,8 @@ interface NotesPaneProps {
   onTagNote?: (tagId: string, noteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  onSearchKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
@@ -54,6 +56,8 @@ export function NotesPane({
   onTagNote,
   searchValue,
   onSearchChange,
+  onSearchKeyDown,
+  searchInputRef,
   contextMenuComponents
 }: NotesPaneProps) {
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
@@ -370,9 +374,11 @@ export function NotesPane({
       </div>
       <div className="p-3">
         <input
+          ref={searchInputRef}
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
+          onKeyDown={onSearchKeyDown}
           className="w-64 border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
           aria-label="Search entries"
         />
