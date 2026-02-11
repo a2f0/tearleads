@@ -9,18 +9,18 @@ Goal: finish the one-endpoint-per-file refactor by moving endpoint handler imple
 - [x] `sse`: handler moved to `routes/sse/get-root.ts`, `sse.ts` is now router assembly only.
 - [x] `vfs`: handlers moved to `routes/vfs/*`, `vfs.ts` is now router assembly only.
 - [x] `emails`: handlers moved to `routes/emails/*`, `emails.ts` is now router assembly only.
+- [x] `emailsCompose`: handlers moved to `routes/emailsCompose/*`, `emailsCompose.ts` is now router assembly only.
+- [x] `admin/users`: handlers moved to `routes/admin/users/*`, `admin/users.ts` is now router assembly only.
+- [x] `admin/redis`: handlers moved to `routes/admin/redis/*`, `admin/redis.ts` is now router assembly only.
+- [x] `admin/postgres`: handlers moved to `routes/admin/postgres/*`, `admin/postgres.ts` is now router assembly only.
+- [x] `admin/organizations`: handlers moved to `routes/admin/organizations/*`, `admin/organizations.ts` is now router assembly only.
+- [x] `admin/groups`: handlers moved to `routes/admin/groups/*`, `admin/groups.ts` is now router assembly only.
+- [x] `vfs-shares`: handlers moved to `routes/vfs-shares/*`, `vfs-shares.ts` is now router assembly only.
+- [x] `ai-conversations`: handlers moved to `routes/ai-conversations/*`, `ai-conversations.ts` is now router assembly only.
 
 ## Remaining
 
 - [ ] `mls`: move 18 handler implementations from `mls.ts` into `routes/mls/*`.
-- [ ] `ai-conversations`: move 9 handler implementations into `routes/ai-conversations/*`.
-- [ ] `vfs-shares`: move 7 handler implementations into `routes/vfs-shares/*`.
-- [ ] `admin/groups`: move 8 handler implementations into `routes/admin/groups/*`.
-- [ ] `admin/organizations`: move 7 handler implementations into `routes/admin/organizations/*`.
-- [ ] `admin/postgres`: move 4 handler implementations into `routes/admin/postgres/*`.
-- [ ] `admin/redis`: move 4 handler implementations into `routes/admin/redis/*`.
-- [ ] `admin/users`: move 3 handler implementations into `routes/admin/users/*`.
-- [ ] `emailsCompose`: move 5 handler implementations into `routes/emailsCompose/*`.
 
 ## Validation for each module
 
