@@ -24,6 +24,7 @@ import { getKeyManagerForInstance } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
 import { useOnInstanceChange } from '@/hooks/useInstanceChange';
 import { createSearchableAppDocuments } from './appCatalog';
+import { createSearchableHelpDocuments } from './helpCatalog';
 import {
   createContactDocument,
   createFileDocument,
@@ -242,9 +243,10 @@ export function SearchProvider({ children }: SearchProviderProps) {
             }
             void store
               .upsertBatch(createSearchableAppDocuments())
+              .then(() => store.upsertBatch(createSearchableHelpDocuments()))
               .catch((appIndexErr) => {
                 console.error(
-                  'Search: Failed to index app catalog:',
+                  'Search: Failed to index app/help catalog:',
                   appIndexErr
                 );
               });

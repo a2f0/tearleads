@@ -7,6 +7,7 @@
  */
 export type SearchableEntityType =
   | 'app'
+  | 'help_doc'
   | 'contact'
   | 'note'
   | 'file'

@@ -5,6 +5,7 @@ import {
 } from '@tearleads/window-manager';
 import {
   AppWindow,
+  BookText,
   Contact,
   File,
   Loader2,
@@ -24,10 +25,12 @@ import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfs-open';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import { getSearchableAppById } from '@/search/appCatalog';
+import { getSearchableHelpDocById } from '@/search/helpCatalog';
 import type { SearchViewMode } from './SearchWindowMenuBar';
 
 const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {
   app: 'App',
+  help_doc: 'Help Doc',
   contact: 'Contact',
   note: 'Note',
   email: 'Email',
@@ -42,6 +45,7 @@ const ENTITY_TYPE_ICONS: Record<
   React.ComponentType<{ className?: string }>
 > = {
   app: AppWindow,
+  help_doc: BookText,
   contact: Contact,
   note: StickyNote,
   email: Mail,
@@ -54,6 +58,7 @@ const ENTITY_TYPE_ICONS: Record<
 const ENTITY_TYPE_ROUTES: Record<SearchableEntityType, (id: string) => string> =
   {
     app: (_id) => '/',
+    help_doc: (_id) => '/help',
     contact: (id) => `/contacts/${id}`,
     note: (id) => `/notes/${id}`,
     email: (id) => `/emails/${id}`,
@@ -67,6 +72,7 @@ const FILTER_OPTIONS: { label: string; value: SearchableEntityType | 'all' }[] =
   [
     { label: 'All', value: 'all' },
     { label: 'Apps', value: 'app' },
+    { label: 'Help Docs', value: 'help_doc' },
     { label: 'Contacts', value: 'contact' },
     { label: 'Notes', value: 'note' },
     { label: 'Emails', value: 'email' },
@@ -282,6 +288,12 @@ export function SearchWindowContent({
             requestWindowOpen('files', { fileId: result.id });
             return;
         }
+      }
+
+      if (result.entityType === 'help_doc') {
+        const helpDoc = getSearchableHelpDocById(result.id);
+        navigate(helpDoc?.path ?? '/help');
+        return;
       }
 
       const route = ENTITY_TYPE_ROUTES[result.entityType](result.id);
