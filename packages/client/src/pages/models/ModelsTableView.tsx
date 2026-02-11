@@ -130,7 +130,9 @@ export function ModelsTableView({
                         key={model.id}
                         className="border-b last:border-b-0 hover:bg-muted/20"
                       >
-                        <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}>
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}
+                        >
                           <div className="flex flex-wrap items-center gap-2">
                             <span className="font-medium">{model.name}</span>
                             {model.isVision && (
@@ -153,7 +155,9 @@ export function ModelsTableView({
                         >
                           {model.size}
                         </td>
-                        <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}>
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}
+                        >
                           <div className="space-y-2">
                             <span
                               className={`inline-flex items-center rounded-full px-2 py-0.5 font-medium text-[11px] ${getStatusStyles(
@@ -179,7 +183,9 @@ export function ModelsTableView({
                             )}
                           </div>
                         </td>
-                        <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}>
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}
+                        >
                           <div className="flex items-center justify-end gap-2">
                             {isLoaded ? (
                               <Button

@@ -1,5 +1,5 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
 import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { and, desc, eq, like, or } from 'drizzle-orm';
 import {
   ChevronDown,
@@ -597,7 +597,10 @@ export function Documents({
               >
                 <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                   <tr>
-                    <th scope="col" className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    <th
+                      scope="col"
+                      className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
+                    >
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -615,7 +618,10 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th scope="col" className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    <th
+                      scope="col"
+                      className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
+                    >
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -633,7 +639,10 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th scope="col" className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    <th
+                      scope="col"
+                      className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
+                    >
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -651,7 +660,10 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th scope="col" className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    <th
+                      scope="col"
+                      className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
+                    >
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"

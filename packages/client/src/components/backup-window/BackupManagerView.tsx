@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -531,7 +531,9 @@ export function BackupManagerView() {
                           {formatDate(backup.lastModified)}
                         </div>
                       </td>
-                      <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} text-zinc-500`}>
+                      <td
+                        className={`${WINDOW_TABLE_TYPOGRAPHY.cell} text-zinc-500`}
+                      >
                         {formatBytes(backup.size)}
                       </td>
                       <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>

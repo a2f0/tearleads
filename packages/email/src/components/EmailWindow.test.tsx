@@ -54,7 +54,9 @@ vi.mock('@rapid/window-manager', () => ({
     children: React.ReactNode;
     isDimmed?: boolean;
     isSelected?: boolean;
-  } & React.HTMLAttributes<HTMLTableRowElement>) => <tr {...props}>{children}</tr>
+  } & React.HTMLAttributes<HTMLTableRowElement>) => (
+    <tr {...props}>{children}</tr>
+  )
 }));
 
 vi.mock('./EmailWindowMenuBar', () => ({

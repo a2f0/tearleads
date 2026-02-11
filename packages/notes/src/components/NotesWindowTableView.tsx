@@ -1,8 +1,5 @@
 import { notes, vfsRegistry } from '@rapid/db/sqlite';
-import {
-  WINDOW_TABLE_TYPOGRAPHY,
-  WindowTableRow
-} from '@rapid/window-manager';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { asc, desc, eq } from 'drizzle-orm';
 import {
   ChevronDown,
@@ -412,7 +409,9 @@ export function NotesWindowTableView({
                     key={note.id}
                     isDimmed={note.deleted}
                     className={
-                      note.deleted ? 'cursor-default hover:bg-transparent' : undefined
+                      note.deleted
+                        ? 'cursor-default hover:bg-transparent'
+                        : undefined
                     }
                     onClick={() => {
                       if (!note.deleted) {

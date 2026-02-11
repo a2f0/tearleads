@@ -1,8 +1,8 @@
 import {
   FloatingWindow,
   WINDOW_TABLE_TYPOGRAPHY,
-  WindowTableRow,
-  type WindowDimensions
+  type WindowDimensions,
+  WindowTableRow
 } from '@rapid/window-manager';
 import { Loader2, Mail, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';

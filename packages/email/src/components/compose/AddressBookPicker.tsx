@@ -1,5 +1,5 @@
-import { clsx } from 'clsx';
 import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
+import { clsx } from 'clsx';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type EmailContactEmail, useEmailContext } from '../../context';

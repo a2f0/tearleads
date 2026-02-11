@@ -20,9 +20,7 @@ export {
   type WindowStatusBarProps
 } from './WindowStatusBar.js';
 export {
-  WINDOW_TABLE_TYPOGRAPHY
-} from './WindowTableTypography.js';
-export {
   WindowTableRow,
   type WindowTableRowProps
 } from './WindowTableRow.js';
+export { WINDOW_TABLE_TYPOGRAPHY } from './WindowTableTypography.js';

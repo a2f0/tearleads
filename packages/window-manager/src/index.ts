@@ -2,6 +2,7 @@
 export {
   FloatingWindow,
   type FloatingWindowProps,
+  WINDOW_TABLE_TYPOGRAPHY,
   WindowConnectionIndicator,
   type WindowConnectionIndicatorProps,
   WindowContextMenu,
@@ -11,7 +12,6 @@ export {
   type WindowDimensions,
   WindowStatusBar,
   type WindowStatusBarProps,
-  WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow,
   type WindowTableRowProps
 } from './components/index.js';

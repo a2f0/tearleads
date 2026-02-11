@@ -1,8 +1,5 @@
 import { contacts as contactsTable } from '@rapid/db/sqlite';
-import {
-  WINDOW_TABLE_TYPOGRAPHY,
-  WindowTableRow
-} from '@rapid/window-manager';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { eq } from 'drizzle-orm';
 import {
   ChevronDown,

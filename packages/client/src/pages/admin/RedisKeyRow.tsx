@@ -81,12 +81,8 @@ function renderHashValue(value: Record<string, string>) {
       <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
         <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
           <tr className="border-b">
-            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-              Field
-            </th>
-            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-              Value
-            </th>
+            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Field</th>
+            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Value</th>
           </tr>
         </thead>
         <tbody>
