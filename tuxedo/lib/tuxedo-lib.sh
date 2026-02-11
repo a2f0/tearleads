@@ -15,6 +15,8 @@ tuxedo_init() {
     # Starting index for numbered workspaces (default 2 for rapid2, use 1 for tuxedo1)
     WORKSPACE_START="${TUXEDO_WORKSPACE_START:-2}"
     SESSION_NAME="tuxedo"
+    OPEN_PRS_WINDOW_NAME="${TUXEDO_OPEN_PRS_WINDOW_NAME:-open-prs}"
+    CLOSED_PRS_WINDOW_NAME="${TUXEDO_CLOSED_PRS_WINDOW_NAME:-closed-prs}"
     SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
     MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
 
@@ -257,8 +259,8 @@ tuxedo_start_pr_dashboards() {
     case $refresh_seconds in ''|*[!0-9]*) refresh_seconds=30 ;; esac
     case $pr_limit in ''|*[!0-9]*) pr_limit=20 ;; esac
 
-    tmux send-keys -t "$SESSION_NAME:0.0" C-c "$SCRIPT_DIR/scripts/listOpenPrs.sh --watch --interval $refresh_seconds --limit $pr_limit" Enter
-    tmux send-keys -t "$SESSION_NAME:1.0" C-c "$SCRIPT_DIR/scripts/listRecentClosedPrs.sh --watch --interval $refresh_seconds --limit $pr_limit" Enter
+    tmux respawn-pane -k -t "$SESSION_NAME:$OPEN_PRS_WINDOW_NAME.0" "sh -lc 'while true; do clear; \"$SCRIPT_DIR/scripts/listOpenPrs.sh\" --limit $pr_limit; sleep $refresh_seconds; done'" 2>/dev/null || true
+    tmux respawn-pane -k -t "$SESSION_NAME:$CLOSED_PRS_WINDOW_NAME.0" "sh -lc 'while true; do clear; \"$SCRIPT_DIR/scripts/listRecentClosedPrs.sh\" --limit $pr_limit; sleep $refresh_seconds; done'" 2>/dev/null || true
 }
 
 tuxedo_prepare_shared_dirs() {
@@ -279,21 +281,27 @@ tuxedo_prepare_shared_dirs() {
 
 tuxedo_attach_or_create() {
     if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+        tuxedo_start_pr_dashboards
         # Sync VS Code titles before attaching
         sync_all_titles
         tmux attach-session -t "$SESSION_NAME"
         return 0
     fi
 
-    # Create session starting with shared dir (source of truth)
-    # Terminal pane runs in a persistent screen session
+    # Create dedicated PR windows first (no editor split panes).
+    main_path=$(workspace_path "$MAIN_DIR")
+    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$MAIN_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
+    tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
+
+    # Add shared workspace as third window (source of truth).
+    # Terminal pane runs in a persistent screen session.
     shared_window_name="${WORKSPACE_PREFIX}-shared"
     screen_shared=$(screen_cmd tux-shared)
     shared_path=$(workspace_path "$SHARED_DIR")
     if [ -n "$screen_shared" ]; then
-        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$screen_shared"
+        tmux new-window -t "$SESSION_NAME:" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$screen_shared"
     else
-        tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR"
+        tmux new-window -t "$SESSION_NAME:" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR"
     fi
     tmux split-window -h -t "$SESSION_NAME:$shared_window_name" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
 
@@ -302,7 +310,6 @@ tuxedo_attach_or_create() {
     # avoiding tmux confusion when window names share a prefix with the session name
     main_window_name="${WORKSPACE_PREFIX}-main"
     screen_main=$(screen_cmd tux-main)
-    main_path=$(workspace_path "$MAIN_DIR")
     if [ -n "$screen_main" ]; then
         tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$screen_main"
     else
@@ -332,7 +339,7 @@ tuxedo_attach_or_create() {
     # Sync VS Code titles to tmux window names
     sync_all_titles
 
-    tmux select-window -t "$SESSION_NAME:0"
+    tmux select-window -t "$SESSION_NAME:$OPEN_PRS_WINDOW_NAME" 2>/dev/null || true
     tmux attach-session -t "$SESSION_NAME"
 }
 
