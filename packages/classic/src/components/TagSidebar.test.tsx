@@ -202,7 +202,7 @@ describe('TagSidebar', () => {
     expect(onSelectTag).toHaveBeenCalledWith('__untagged__');
   });
 
-  it('does not render untagged items when untaggedCount is 0', () => {
+  it('renders untagged items when untaggedCount is 0', () => {
     render(
       <TagSidebar
         tags={[{ id: 'tag-1', name: 'Work' }]}
@@ -216,7 +216,7 @@ describe('TagSidebar', () => {
       />
     );
 
-    expect(screen.queryByText(/Untagged Items/)).not.toBeInTheDocument();
+    expect(screen.getByText('Untagged Items (0)')).toBeInTheDocument();
   });
 
   it('highlights untagged items when active', () => {
@@ -235,6 +235,33 @@ describe('TagSidebar', () => {
 
     const button = screen.getByLabelText('Select Untagged Items');
     expect(button).toHaveAttribute('aria-pressed', 'true');
+    const untaggedItem = button.closest('li');
+    if (!untaggedItem) throw new Error('Expected untagged list item');
+    expect(untaggedItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+  });
+
+  it('uses a distinct background for active tags', () => {
+    render(
+      <TagSidebar
+        tags={[
+          { id: 'tag-1', name: 'Work' },
+          { id: 'tag-2', name: 'Personal' }
+        ]}
+        activeTagId="tag-1"
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const activeTagItem = screen
+      .getByLabelText('Select tag Work')
+      .closest('li');
+    if (!activeTagItem) throw new Error('Expected active tag list item');
+    expect(activeTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(activeTagItem).not.toHaveClass('bg-emerald-100');
   });
 
   it('displays note counts for tags when provided', () => {
@@ -286,6 +313,65 @@ describe('TagSidebar', () => {
     fireEvent.dragOver(tagItem, { dataTransfer });
     fireEvent.drop(tagItem, { dataTransfer });
 
+    expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
+  });
+
+  it('highlights a tag while it is a valid note drop target', () => {
+    const dataTransfer = {
+      types: ['application/x-classic-note'],
+      getData: vi.fn().mockReturnValue('note-1')
+    } as unknown as DataTransfer;
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onTagNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const tagItem = screen.getByLabelText('Select tag Work').closest('li');
+    if (!tagItem) throw new Error('Expected tag list item');
+
+    fireEvent.dragEnter(tagItem, { dataTransfer });
+    expect(tagItem).toHaveClass('bg-emerald-100');
+
+    fireEvent.dragLeave(tagItem, { dataTransfer });
+    expect(tagItem).not.toHaveClass('bg-emerald-100');
+  });
+
+  it('highlights and accepts plain-text fallback for note drops', () => {
+    const onTagNote = vi.fn();
+    const dataTransfer = {
+      types: ['text/plain'],
+      getData: vi.fn((key: string) => (key === 'text/plain' ? 'note-1' : ''))
+    } as unknown as DataTransfer;
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onTagNote={onTagNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const tagItem = screen.getByLabelText('Select tag Work').closest('li');
+    if (!tagItem) throw new Error('Expected tag list item');
+
+    fireEvent.dragEnter(tagItem, { dataTransfer });
+    expect(tagItem).toHaveClass('bg-emerald-100');
+
+    fireEvent.drop(tagItem, { dataTransfer });
     expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
   });
 });

@@ -25,6 +25,8 @@ interface NotesPaneProps {
   onTagNote?: (tagId: string, noteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  onSearchKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
@@ -54,6 +56,8 @@ export function NotesPane({
   onTagNote,
   searchValue,
   onSearchChange,
+  onSearchKeyDown,
+  searchInputRef,
   contextMenuComponents
 }: NotesPaneProps) {
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
@@ -62,6 +66,7 @@ export function NotesPane({
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [lastHoverNoteId, setLastHoverNoteId] = useState<string | null>(null);
   const [dragArmedNoteId, setDragArmedNoteId] = useState<string | null>(null);
+  const [dropTargetNoteId, setDropTargetNoteId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
   const editTitleRef = useRef<HTMLInputElement>(null);
@@ -134,6 +139,21 @@ export function NotesPane({
     .map((noteId) => notesById[noteId])
     .filter((note): note is ClassicNote => Boolean(note));
 
+  const isTagDrag = (
+    dataTransfer: DataTransfer | null | undefined
+  ): boolean => {
+    if (!dataTransfer) {
+      return false;
+    }
+    const types = dataTransfer.types ?? [];
+    const hasTag = types.includes(DRAG_TYPE_TAG);
+    const hasPlainText = types.includes('text/plain');
+    const hasSafariPlainText = types.includes('public.utf8-plain-text');
+    const hasExternalClassicTagDrag =
+      (hasPlainText || hasSafariPlainText) && draggedNoteId === null;
+    return hasTag || hasExternalClassicTagDrag;
+  };
+
   return (
     <section className="flex flex-1 flex-col" aria-label="Notes Pane">
       {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
@@ -170,7 +190,16 @@ export function NotesPane({
               return (
                 <li
                   key={note.id}
-                  className="rounded p-3"
+                  className={
+                    dropTargetNoteId === note.id
+                      ? 'rounded bg-emerald-100 p-3'
+                      : 'rounded p-3'
+                  }
+                  style={
+                    dropTargetNoteId === note.id
+                      ? { backgroundColor: '#d1fae5' }
+                      : undefined
+                  }
                   draggable
                   onDragStart={(event) => {
                     const target = event.target;
@@ -192,30 +221,60 @@ export function NotesPane({
                     setDraggedNoteId(null);
                     setLastHoverNoteId(null);
                     setDragArmedNoteId(null);
+                    setDropTargetNoteId(null);
                   }}
                   onDragOver={(event) => {
-                    const types = event.dataTransfer?.types ?? [];
-                    const hasTag = types.includes(DRAG_TYPE_TAG);
-                    if (hasTag && onTagNote) {
+                    if (isTagDrag(event.dataTransfer) && onTagNote) {
                       event.preventDefault();
+                      if (dropTargetNoteId !== note.id) {
+                        setDropTargetNoteId(note.id);
+                      }
                       return;
+                    }
+                    if (dropTargetNoteId === note.id) {
+                      setDropTargetNoteId(null);
                     }
                     if (!draggedNoteId || draggedNoteId === note.id) {
                       return;
                     }
                     event.preventDefault();
+                    if (event.dataTransfer) {
+                      event.dataTransfer.dropEffect = 'move';
+                    }
                     if (lastHoverNoteId === note.id) {
                       return;
                     }
                     onReorderNote(draggedNoteId, note.id);
                     setLastHoverNoteId(note.id);
                   }}
+                  onDragEnter={(event) => {
+                    if (
+                      isTagDrag(event.dataTransfer) &&
+                      onTagNote &&
+                      dropTargetNoteId !== note.id
+                    ) {
+                      setDropTargetNoteId(note.id);
+                    }
+                  }}
                   onDrop={(event) => {
                     event.preventDefault();
                     setDragArmedNoteId(null);
-                    const tagId = event.dataTransfer.getData(DRAG_TYPE_TAG);
+                    setDropTargetNoteId(null);
+                    const customTagId =
+                      event.dataTransfer.getData(DRAG_TYPE_TAG);
+                    const fallbackTagId =
+                      draggedNoteId === null
+                        ? event.dataTransfer.getData('text/plain') ||
+                          event.dataTransfer.getData('public.utf8-plain-text')
+                        : '';
+                    const tagId = customTagId || fallbackTagId;
                     if (tagId && onTagNote) {
                       onTagNote(tagId, note.id);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dropTargetNoteId === note.id) {
+                      setDropTargetNoteId(null);
                     }
                   }}
                   onContextMenu={(event) => {
@@ -312,9 +371,11 @@ export function NotesPane({
       </div>
       <div className="p-3">
         <input
+          ref={searchInputRef}
           type="text"
           value={searchValue}
           onChange={(e) => onSearchChange(e.target.value)}
+          onKeyDown={onSearchKeyDown}
           className="w-64 border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
           aria-label="Search entries"
         />

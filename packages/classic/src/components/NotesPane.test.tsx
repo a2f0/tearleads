@@ -141,7 +141,8 @@ describe('NotesPane', () => {
     const onReorderNote = vi.fn();
     const dataTransfer = {
       effectAllowed: 'move',
-      setData: vi.fn()
+      setData: vi.fn(),
+      dropEffect: 'none'
     } as unknown as DataTransfer;
 
     render(
@@ -170,9 +171,10 @@ describe('NotesPane', () => {
     if (!betaItem) {
       throw new Error('Expected beta note list item');
     }
-    fireEvent.dragOver(betaItem);
+    fireEvent.dragOver(betaItem, { dataTransfer });
 
     expect(onReorderNote).toHaveBeenCalledWith('note-1', 'note-2');
+    expect(dataTransfer.dropEffect).toBe('move');
   });
 
   it('opens empty-space context menu and creates a new entry', () => {
@@ -226,6 +228,69 @@ describe('NotesPane', () => {
     fireEvent.dragOver(noteItem, { dataTransfer });
     fireEvent.drop(noteItem, { dataTransfer });
 
+    expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
+  });
+
+  it('highlights an entry while it is a valid tag drop target', () => {
+    const dataTransfer = {
+      types: ['application/x-classic-tag'],
+      getData: vi.fn().mockReturnValue('tag-1')
+    } as unknown as DataTransfer;
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onTagNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const noteItem = screen.getByText('Alpha').closest('li');
+    if (!noteItem) throw new Error('Expected note list item');
+
+    fireEvent.dragEnter(noteItem, { dataTransfer });
+    expect(noteItem).toHaveClass('bg-emerald-100');
+
+    fireEvent.dragLeave(noteItem, { dataTransfer });
+    expect(noteItem).not.toHaveClass('bg-emerald-100');
+  });
+
+  it('highlights and accepts plain-text fallback for tag drops', () => {
+    const onTagNote = vi.fn();
+    const dataTransfer = {
+      types: ['text/plain'],
+      getData: vi.fn((key: string) => (key === 'text/plain' ? 'tag-1' : ''))
+    } as unknown as DataTransfer;
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onTagNote={onTagNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const noteItem = screen.getByText('Alpha').closest('li');
+    if (!noteItem) throw new Error('Expected note list item');
+
+    fireEvent.dragEnter(noteItem, { dataTransfer });
+    expect(noteItem).toHaveClass('bg-emerald-100');
+
+    fireEvent.drop(noteItem, { dataTransfer });
     expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
   });
 });

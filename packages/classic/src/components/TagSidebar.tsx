@@ -31,6 +31,8 @@ interface TagSidebarProps {
   onTagNote?: (tagId: string, noteId: string) => void;
   searchValue: string;
   onSearchChange: (value: string) => void;
+  onSearchKeyDown?: (event: React.KeyboardEvent<HTMLInputElement>) => void;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
@@ -64,6 +66,8 @@ export function TagSidebar({
   onTagNote,
   searchValue,
   onSearchChange,
+  onSearchKeyDown,
+  searchInputRef,
   contextMenuComponents
 }: TagSidebarProps) {
   const [contextMenu, setContextMenu] = useState<TagContextMenuState | null>(
@@ -72,15 +76,17 @@ export function TagSidebar({
   const [draggedTagId, setDraggedTagId] = useState<string | null>(null);
   const [lastHoverTagId, setLastHoverTagId] = useState<string | null>(null);
   const [dragArmedTagId, setDragArmedTagId] = useState<string | null>(null);
+  const [dropTargetTagId, setDropTargetTagId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const editInputRef = useRef<HTMLInputElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
+  const localSearchInputRef = useRef<HTMLInputElement>(null);
+  const effectiveSearchInputRef = searchInputRef ?? localSearchInputRef;
 
   useEffect(() => {
     if (autoFocusSearch) {
-      searchInputRef.current?.focus();
+      effectiveSearchInputRef.current?.focus();
     }
-  }, [autoFocusSearch]);
+  }, [autoFocusSearch, effectiveSearchInputRef]);
 
   useEffect(() => {
     if (editingTagId) {
@@ -163,37 +169,40 @@ export function TagSidebar({
       >
         <div className="pr-2">
           {/* Untagged Items virtual tag */}
-          {untaggedCount > 0 && (
-            <ul className="m-0 mb-2 list-none p-0" aria-label="Virtual Tags">
-              <li
-                className={
-                  activeTagId === UNTAGGED_TAG_ID
-                    ? 'border bg-zinc-200 px-2 py-0.5'
-                    : 'border bg-white px-2 py-0.5'
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="w-4 shrink-0 select-none text-center text-xs text-zinc-400"
-                  >
-                    📁
+          <ul className="m-0 mb-2 list-none p-0" aria-label="Virtual Tags">
+            <li
+              className={
+                activeTagId === UNTAGGED_TAG_ID
+                  ? 'border bg-sky-100 px-2 py-0.5'
+                  : 'border bg-white px-2 py-0.5'
+              }
+              style={
+                activeTagId === UNTAGGED_TAG_ID
+                  ? { backgroundColor: '#e0f2fe' }
+                  : undefined
+              }
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="w-4 shrink-0 select-none text-center text-xs text-zinc-400"
+                >
+                  📁
+                </span>
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
+                  onClick={() => onSelectTag(UNTAGGED_TAG_ID)}
+                  aria-pressed={activeTagId === UNTAGGED_TAG_ID}
+                  aria-label={`Select ${UNTAGGED_TAG_NAME}`}
+                >
+                  <span className="text-zinc-700">
+                    {UNTAGGED_TAG_NAME} ({untaggedCount})
                   </span>
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
-                    onClick={() => onSelectTag(UNTAGGED_TAG_ID)}
-                    aria-pressed={activeTagId === UNTAGGED_TAG_ID}
-                    aria-label={`Select ${UNTAGGED_TAG_NAME}`}
-                  >
-                    <span className="text-zinc-700">
-                      {UNTAGGED_TAG_NAME} ({untaggedCount})
-                    </span>
-                  </button>
-                </div>
-              </li>
-            </ul>
-          )}
+                </button>
+              </div>
+            </li>
+          </ul>
           {tags.length === 0 && untaggedCount === 0 && (
             <p className="text-sm text-zinc-500">No tags found.</p>
           )}
@@ -207,9 +216,18 @@ export function TagSidebar({
                   <li
                     key={tag.id}
                     className={
-                      isActive
-                        ? 'border bg-zinc-200 px-2 py-0.5'
-                        : 'border bg-white px-2 py-0.5'
+                      dropTargetTagId === tag.id
+                        ? 'border bg-emerald-100 px-2 py-0.5'
+                        : isActive
+                          ? 'border bg-sky-100 px-2 py-0.5'
+                          : 'border bg-white px-2 py-0.5'
+                    }
+                    style={
+                      dropTargetTagId === tag.id
+                        ? { backgroundColor: '#d1fae5' }
+                        : isActive
+                          ? { backgroundColor: '#e0f2fe' }
+                          : undefined
                     }
                     draggable
                     onDragStart={(event) => {
@@ -232,13 +250,30 @@ export function TagSidebar({
                       setDraggedTagId(null);
                       setLastHoverTagId(null);
                       setDragArmedTagId(null);
+                      setDropTargetTagId(null);
                     }}
                     onDragOver={(event) => {
                       const types = event.dataTransfer?.types ?? [];
                       const hasNote = types.includes(DRAG_TYPE_NOTE);
-                      if (hasNote && onTagNote) {
+                      const hasPlainText = types.includes('text/plain');
+                      const hasSafariPlainText = types.includes(
+                        'public.utf8-plain-text'
+                      );
+                      const hasExternalClassicNoteDrag =
+                        (hasPlainText || hasSafariPlainText) &&
+                        draggedTagId === null;
+                      if (
+                        (hasNote || hasExternalClassicNoteDrag) &&
+                        onTagNote
+                      ) {
                         event.preventDefault();
+                        if (dropTargetTagId !== tag.id) {
+                          setDropTargetTagId(tag.id);
+                        }
                         return;
+                      }
+                      if (dropTargetTagId === tag.id) {
+                        setDropTargetTagId(null);
                       }
                       if (!draggedTagId || draggedTagId === tag.id) {
                         return;
@@ -250,12 +285,43 @@ export function TagSidebar({
                       onReorderTag(draggedTagId, tag.id);
                       setLastHoverTagId(tag.id);
                     }}
+                    onDragEnter={(event) => {
+                      const types = event.dataTransfer?.types ?? [];
+                      const hasNote = types.includes(DRAG_TYPE_NOTE);
+                      const hasPlainText = types.includes('text/plain');
+                      const hasSafariPlainText = types.includes(
+                        'public.utf8-plain-text'
+                      );
+                      const hasExternalClassicNoteDrag =
+                        (hasPlainText || hasSafariPlainText) &&
+                        draggedTagId === null;
+                      if (
+                        (hasNote || hasExternalClassicNoteDrag) &&
+                        onTagNote &&
+                        dropTargetTagId !== tag.id
+                      ) {
+                        setDropTargetTagId(tag.id);
+                      }
+                    }}
                     onDrop={(event) => {
                       event.preventDefault();
                       setDragArmedTagId(null);
-                      const noteId = event.dataTransfer.getData(DRAG_TYPE_NOTE);
+                      setDropTargetTagId(null);
+                      const customNoteId =
+                        event.dataTransfer.getData(DRAG_TYPE_NOTE);
+                      const fallbackNoteId =
+                        draggedTagId === null
+                          ? event.dataTransfer.getData('text/plain') ||
+                            event.dataTransfer.getData('public.utf8-plain-text')
+                          : '';
+                      const noteId = customNoteId || fallbackNoteId;
                       if (noteId && onTagNote) {
                         onTagNote(tag.id, noteId);
+                      }
+                    }}
+                    onDragLeave={() => {
+                      if (dropTargetTagId === tag.id) {
+                        setDropTargetTagId(null);
                       }
                     }}
                     onContextMenu={(event) => {
@@ -350,10 +416,11 @@ export function TagSidebar({
       <div className="py-3">
         <div className="pr-2">
           <input
-            ref={searchInputRef}
+            ref={effectiveSearchInputRef}
             type="text"
             value={searchValue}
             onChange={(e) => onSearchChange(e.target.value)}
+            onKeyDown={onSearchKeyDown}
             className="box-border w-full border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
             aria-label="Search tags"
           />

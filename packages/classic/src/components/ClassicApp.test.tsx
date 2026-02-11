@@ -86,6 +86,26 @@ describe('ClassicApp', () => {
     expect(latest.noteOrderByTagId['tag-2']).toEqual(['note-3', 'note-2']);
   });
 
+  it('updates active tag background when selecting a tag', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const workTagItem = screen.getByLabelText('Select tag Work').closest('li');
+    const personalTagItem = screen
+      .getByLabelText('Select tag Personal')
+      .closest('li');
+    if (!workTagItem || !personalTagItem) {
+      throw new Error('Expected tag list items');
+    }
+
+    expect(workTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(personalTagItem).not.toHaveStyle({ backgroundColor: '#e0f2fe' });
+
+    fireEvent.click(screen.getByLabelText('Select tag Personal'));
+
+    expect(workTagItem).not.toHaveStyle({ backgroundColor: '#e0f2fe' });
+    expect(personalTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
+  });
+
   it('reorders tags and notes via drag handle hover', () => {
     const onStateChange = vi.fn();
     const dataTransfer = {
@@ -271,5 +291,36 @@ describe('ClassicApp', () => {
     expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
     const latest = getLastState(onStateChange);
     expect(Object.keys(latest.notesById)).toHaveLength(4);
+  });
+
+  it('toggles focus between tag and entry search with Tab', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagSearch = screen.getByLabelText('Search tags');
+    const entrySearch = screen.getByLabelText('Search entries');
+
+    tagSearch.focus();
+    expect(tagSearch).toHaveFocus();
+
+    fireEvent.keyDown(tagSearch, { key: 'Tab' });
+    expect(entrySearch).toHaveFocus();
+
+    fireEvent.keyDown(entrySearch, { key: 'Tab' });
+    expect(tagSearch).toHaveFocus();
+  });
+
+  it('keeps focus in place for non-Tab keys in search fields', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagSearch = screen.getByLabelText('Search tags');
+    const entrySearch = screen.getByLabelText('Search entries');
+
+    tagSearch.focus();
+    fireEvent.keyDown(tagSearch, { key: 'Enter' });
+    expect(tagSearch).toHaveFocus();
+
+    entrySearch.focus();
+    fireEvent.keyDown(entrySearch, { key: 'Escape' });
+    expect(entrySearch).toHaveFocus();
   });
 });
