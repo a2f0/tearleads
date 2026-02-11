@@ -27,7 +27,7 @@ PR_NUMBER=$(gh pr view --json number --jq '.number')
 
 Use `-R "$REPO"` for all `gh` commands after `PR_NUMBER` is captured.
 
-This skill guarantees a PR gets merged by continuously updating from base, fixing CI, addressing reviews, and waiting until the PR is actually merged.
+This skill guarantees a PR gets merged by continuously monitoring CI, addressing reviews, and waiting until the PR is actually merged.
 
 ## State Tracking
 
@@ -153,7 +153,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **Step 3**: Determine whether to yield:
 
-   - **Yield** if any high-priority PR has `mergeStateStatus` of `CLEAN`, `BLOCKED`, `BEHIND`, `UNKNOWN`, `UNSTABLE`, or `HAS_HOOKS`:
+   - **Yield** if any high-priority PR has `mergeStateStatus` of `CLEAN`, `BLOCKED`, `UNKNOWN`, `UNSTABLE`, or `HAS_HOOKS`:
      1. Log: "Yielding to high-priority PR #X (status: Y)"
      2. Wait 2 minutes (with jitter) before rechecking
      3. Repeat from Step 1 until no high-priority PRs require yielding
@@ -169,7 +169,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
-   - If `mergeStateStatus` is `BEHIND`: Update from base (step 4d)
+   - If `mergeStateStatus` is `BEHIND`: Continue waiting unless a rebase is explicitly needed for another reason
    - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Wait for CI and address Gemini feedback (step 4e)
    - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4f)
 
@@ -261,7 +261,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    #### Job-level CI polling (early failure detection)
 
-   **Important**: Check if branch is behind BEFORE waiting for CI, and periodically during CI. This prevents wasting time on CI runs that will be obsolete.
+   **Important**: Monitor CI and review state continuously to avoid waiting on stale assumptions.
 
    **Step 1**: Get the workflow run ID for the current commit:
 
@@ -292,14 +292,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    #### At each poll iteration
 
-   1. **Check if branch is behind**: `gh pr view "$PR_NUMBER" --json mergeStateStatus -R "$REPO"`
-      - If `mergeStateStatus` is `BEHIND`: cancel the current workflow to save CI minutes (only if `RUN_ID` is set), then **immediately** go back to step 4d (don't wait for CI to finish):
-
-        ```bash
-        if [ -n "$RUN_ID" ]; then
-          gh run cancel $RUN_ID -R "$REPO"
-        fi
-        ```
+   1. **Check current merge state**: `gh pr view "$PR_NUMBER" --json mergeStateStatus -R "$REPO"`
+      - If `mergeStateStatus` changes, adjust monitoring behavior accordingly.
 
    2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
       - Always run Gemini evaluation and close-out checks on every poll iteration, including when CI jobs are still running or have failed.
@@ -331,7 +325,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    4. **Check overall workflow status**:
       - If ALL jobs completed AND ALL succeeded → continue to step 4f
-      - If ANY jobs still running → wait (with jitter) and repeat from step 4e.1 (check if behind)
+      - If ANY jobs still running → wait (with jitter) and repeat from step 4e.1
 
    #### Workflow cancellation
 
@@ -373,7 +367,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
-   - If `mergeStateStatus` is `BEHIND`: Go back to step 4d (rebase)
+   - If `mergeStateStatus` is `BEHIND`: Continue polling unless a rebase is explicitly needed
    - If `mergeStateStatus` is `BLOCKED`: Go back to step 4e (CI not done yet)
    - Otherwise: Wait 30 seconds (with jitter) and poll again - **do NOT exit**
 
@@ -459,7 +453,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 - Non-high-priority PRs yield to high-priority ones unless all are `DIRTY` (check every 2 min with jitter)
 - Auto-close language is removed from PR bodies; associated issues get `needs-qa` label after merge
 - Do NOT create "QA: ..." issues - issues are only created when explicitly requested by the user
-- Prioritize staying up-to-date over waiting for CI in congested queues
+- Prioritize continuous CI/review monitoring in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
 - If stuck (same job fails 3 times after 2 fix attempts), ask user for help
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
