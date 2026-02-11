@@ -1,13 +1,1 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="33" height="33" viewBox="0 0 33 33">
-  <!-- L (right vertical bar) -->
-  <rect x="24" y="12" width="9" height="21" fill="#555"/>
-  <!-- Bottom square (colon) -->
-  <rect x="0" y="24" width="9" height="9" fill="#555"/>
-  <!-- Top square (colon) -->
-  <rect x="0" y="12" width="9" height="9" fill="#555"/>
-  <!-- T (horizontal bar) -->
-  <rect x="0" y="0" width="33" height="9" fill="#999"/>
-  <!-- T (vertical bar) -->
-  <rect x="12" y="0" width="9" height="33" fill="#999"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="33" height="33" viewBox="0 0 33 33"><path fill="#555" d="M24 12h9v21h-9zM0 24h9v9H0zM0 12h9v9H0z"/><path fill="#999" d="M0 0h33v9H0z"/><path fill="#999" d="M12 0h9v33h-9z"/></svg>
