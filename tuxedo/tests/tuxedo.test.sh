@@ -36,6 +36,18 @@ assert_not_contains() {
     esac
 }
 
+assert_dashboard_respawn_call() {
+    calls="$1"
+    window_name="$2"
+    script_name="$3"
+    limit="${4:-20}"
+    interval="${5:-30}"
+    assert_contains "$calls" "respawn-pane -k -t tuxedo:${window_name}.0 sh -lc 'while true; do output="
+    assert_contains "$calls" "\"/tmp/tux/scripts/${script_name}\" --limit ${limit} 2>&1 || true);"
+    assert_contains "$calls" "printf \"%s"
+    assert_contains "$calls" "\"\$output\"; sleep ${interval}; done'"
+}
+
 . "$TUXEDO_LIB"
 
 TUXEDO_BASE_DIR="/tmp/base" TUXEDO_WORKSPACES=3 TUXEDO_EDITOR="vi" tuxedo_init "/tmp/tux"
@@ -44,6 +56,8 @@ assert_eq "/tmp/tux/config/ghostty.conf" "$GHOSTTY_CONF"
 assert_eq "/tmp/base" "$BASE_DIR"
 assert_eq "3" "$NUM_WORKSPACES"
 assert_eq "tuxedo" "$SESSION_NAME"
+assert_eq "open-prs" "$OPEN_PRS_WINDOW_NAME"
+assert_eq "closed-prs" "$CLOSED_PRS_WINDOW_NAME"
 assert_eq "/tmp/base/rapid-shared" "$SHARED_DIR"
 assert_eq "/tmp/tux/config/tmux.conf" "$TMUX_CONF"
 assert_eq "/tmp/tux/config/neovim.lua" "$NVIM_INIT"
@@ -244,11 +258,14 @@ sync_all_titles() {
     echo "sync-all" >> "$TMUX_CALLS"
 }
 tuxedo_attach_or_create
-assert_contains "$(cat "$TMUX_CALLS")" "new-session -d -s tuxedo -c $SHARED_DIR -n rapid-shared -e PATH="
-assert_contains "$(cat "$TMUX_CALLS")" "new-window -t tuxedo: -c $MAIN_DIR -n rapid-main -e PATH="
-assert_contains "$(cat "$TMUX_CALLS")" "send-keys -t tuxedo:0.0 C-c /tmp/tux/scripts/listOpenPrs.sh --watch --interval 30 --limit 20 Enter"
-assert_contains "$(cat "$TMUX_CALLS")" "send-keys -t tuxedo:1.0 C-c /tmp/tux/scripts/listRecentClosedPrs.sh --watch --interval 30 --limit 20 Enter"
-assert_contains "$(cat "$TMUX_CALLS")" "attach-session -t tuxedo"
+tmux_calls=$(cat "$TMUX_CALLS")
+assert_contains "$tmux_calls" "new-session -d -s tuxedo -c $MAIN_DIR -n open-prs -e PATH="
+assert_contains "$tmux_calls" "new-window -t tuxedo: -c $MAIN_DIR -n closed-prs -e PATH="
+assert_contains "$tmux_calls" "new-window -t tuxedo: -c $SHARED_DIR -n rapid-shared -e PATH="
+assert_contains "$tmux_calls" "new-window -t tuxedo: -c $MAIN_DIR -n rapid-main -e PATH="
+assert_dashboard_respawn_call "$tmux_calls" "open-prs" "listOpenPrs.sh"
+assert_dashboard_respawn_call "$tmux_calls" "closed-prs" "listRecentClosedPrs.sh"
+assert_contains "$tmux_calls" "attach-session -t tuxedo"
 
 TMUX_DASHBOARD_CALLS="$TEMP_DIR/tmux.dashboard.calls"
 export TMUX_DASHBOARD_CALLS
@@ -264,8 +281,9 @@ SESSION_NAME="tuxedo"
 TUXEDO_PR_REFRESH_SECONDS='30; rm -rf ~'
 TUXEDO_PR_LIST_LIMIT='20 && whoami'
 tuxedo_start_pr_dashboards
-assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "send-keys -t tuxedo:0.0 C-c /tmp/tux/scripts/listOpenPrs.sh --watch --interval 30 --limit 20 Enter"
-assert_contains "$(cat "$TMUX_DASHBOARD_CALLS")" "send-keys -t tuxedo:1.0 C-c /tmp/tux/scripts/listRecentClosedPrs.sh --watch --interval 30 --limit 20 Enter"
+tmux_dashboard_calls=$(cat "$TMUX_DASHBOARD_CALLS")
+assert_dashboard_respawn_call "$tmux_dashboard_calls" "open-prs" "listOpenPrs.sh"
+assert_dashboard_respawn_call "$tmux_dashboard_calls" "closed-prs" "listRecentClosedPrs.sh"
 unset TUXEDO_PR_REFRESH_SECONDS
 unset TUXEDO_PR_LIST_LIMIT
 
@@ -289,10 +307,13 @@ EOF
         echo "sync-all" >> "$TMUX_ATTACH_CALLS"
     }
     tuxedo_attach_or_create
-    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "has-session -t tuxedo"
-    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "sync-all"
-    assert_contains "$(cat "$TMUX_ATTACH_CALLS")" "attach-session -t tuxedo"
-    assert_not_contains "$(cat "$TMUX_ATTACH_CALLS")" "new-session -d -s tuxedo"
+    tmux_attach_calls=$(cat "$TMUX_ATTACH_CALLS")
+    assert_contains "$tmux_attach_calls" "has-session -t tuxedo"
+    assert_dashboard_respawn_call "$tmux_attach_calls" "open-prs" "listOpenPrs.sh"
+    assert_dashboard_respawn_call "$tmux_attach_calls" "closed-prs" "listRecentClosedPrs.sh"
+    assert_contains "$tmux_attach_calls" "sync-all"
+    assert_contains "$tmux_attach_calls" "attach-session -t tuxedo"
+    assert_not_contains "$tmux_attach_calls" "new-session -d -s tuxedo"
 
     PATH="$PATH_BACKUP"
 }
