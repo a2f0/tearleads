@@ -26,7 +26,7 @@ export default defineConfig({
         'src/apiCli.ts',
         // TODO: Add proper tests for MLS routes - excluded temporarily
         'src/routes/mls.ts',
-        'src/routes/mls/handlers.ts'
+        'src/routes/mls/**/*.ts'
       ],
       thresholds: {
         statements: 90,

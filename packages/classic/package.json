@@ -1,6 +1,6 @@
 {
   "name": "@rapid/classic",
-  "version": "0.0.12",
+  "version": "0.0.13",
   "description": "Classic tag-and-note workspace for Rapid",
   "type": "module",
   "main": "dist/index.js",
