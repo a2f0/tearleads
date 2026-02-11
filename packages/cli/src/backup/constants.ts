@@ -2,7 +2,7 @@
  * Constants for the Universal Backup Format (.rbu)
  */
 
-/** Magic bytes identifying a valid .rbu file: "TEARLEADSBAK" */
+/** Magic bytes identifying a valid .rbu file header */
 export const MAGIC_BYTES = new Uint8Array([
   0x52, 0x41, 0x50, 0x49, 0x44, 0x42, 0x41, 0x4b
 ]);
