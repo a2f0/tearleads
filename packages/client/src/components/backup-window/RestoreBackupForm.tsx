@@ -166,8 +166,8 @@ export function RestoreBackupForm({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border border-zinc-800 bg-zinc-900/50 p-3 text-xs text-zinc-400">
-        Restoring from <span className="text-zinc-200">{backupName}</span>
+      <div className="rounded-md border border-border bg-muted/40 p-3 text-muted-foreground text-xs">
+        Restoring from <span className="text-foreground">{backupName}</span>
       </div>
 
       {!manifest && (
@@ -181,7 +181,7 @@ export function RestoreBackupForm({
           <div>
             <label
               htmlFor="backup-pwd"
-              className="mb-1 block text-xs text-zinc-400"
+              className="mb-1 block text-muted-foreground text-xs"
             >
               Backup Password
             </label>
@@ -214,38 +214,40 @@ export function RestoreBackupForm({
             void handleRestore();
           }}
         >
-          <div className="rounded-md border border-zinc-700 bg-zinc-800/50 p-3">
+          <div className="rounded-md border border-border bg-muted/40 p-3">
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-zinc-400">Created:</span>
-                <span className="text-zinc-300">
+                <span className="text-muted-foreground">Created:</span>
+                <span className="text-foreground">
                   {formatDate(manifest.createdAt)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">Platform:</span>
-                <span className="text-zinc-300">{manifest.platform}</span>
+                <span className="text-muted-foreground">Platform:</span>
+                <span className="text-foreground">{manifest.platform}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">Version:</span>
-                <span className="text-zinc-300">{manifest.appVersion}</span>
+                <span className="text-muted-foreground">Version:</span>
+                <span className="text-foreground">{manifest.appVersion}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-400">Format:</span>
-                <span className="text-zinc-300">{manifest.formatVersion}</span>
+                <span className="text-muted-foreground">Format:</span>
+                <span className="text-foreground">
+                  {manifest.formatVersion}
+                </span>
               </div>
               {manifest.blobCount > 0 && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-400">Files:</span>
-                  <span className="text-zinc-300">
+                  <span className="text-muted-foreground">Files:</span>
+                  <span className="text-foreground">
                     {manifest.blobCount} ({formatBytes(manifest.blobTotalSize)})
                   </span>
                 </div>
               )}
               {suggestedName && (
                 <div className="flex justify-between">
-                  <span className="text-zinc-400">Will create:</span>
-                  <span className="text-zinc-300">{suggestedName}</span>
+                  <span className="text-muted-foreground">Will create:</span>
+                  <span className="text-foreground">{suggestedName}</span>
                 </div>
               )}
             </div>
@@ -255,7 +257,7 @@ export function RestoreBackupForm({
             <div>
               <label
                 htmlFor="new-pwd"
-                className="mb-1 block text-xs text-zinc-400"
+                className="mb-1 block text-muted-foreground text-xs"
               >
                 New Instance Password
               </label>
@@ -273,7 +275,7 @@ export function RestoreBackupForm({
             <div>
               <label
                 htmlFor="confirm-new-pwd"
-                className="mb-1 block text-xs text-zinc-400"
+                className="mb-1 block text-muted-foreground text-xs"
               >
                 Confirm Password
               </label>
@@ -290,19 +292,21 @@ export function RestoreBackupForm({
           </div>
 
           {progress && (
-            <div className="rounded-md border border-zinc-700 bg-zinc-800/50 p-3">
+            <div className="rounded-md border border-border bg-muted/40 p-3">
               <div className="mb-2 flex justify-between text-xs">
-                <span className="text-zinc-300">{progress.phase}</span>
-                <span className="text-zinc-500">{progress.percent}%</span>
+                <span className="text-foreground">{progress.phase}</span>
+                <span className="text-muted-foreground">
+                  {progress.percent}%
+                </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-zinc-700">
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <div
                   className="h-full bg-blue-500 transition-all duration-300"
                   style={{ width: `${progress.percent}%` }}
                 />
               </div>
               {progress.currentItem && (
-                <p className="mt-1 truncate text-xs text-zinc-500">
+                <p className="mt-1 truncate text-muted-foreground text-xs">
                   {progress.currentItem}
                 </p>
               )}
@@ -320,13 +324,13 @@ export function RestoreBackupForm({
       )}
 
       {error && (
-        <div className="rounded-md border border-red-500/30 bg-red-500/10 p-2 text-red-400 text-sm">
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-2 text-destructive text-sm">
           {error}
         </div>
       )}
 
       {success && (
-        <div className="rounded-md border border-green-500/30 bg-green-500/10 p-2 text-green-400 text-sm">
+        <div className="rounded-md border border-success/40 bg-success/10 p-2 text-sm text-success">
           {success}
         </div>
       )}
