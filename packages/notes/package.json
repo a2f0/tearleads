@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/notes",
-  "version": "0.0.26",
+  "version": "0.0.28",
   "description": "Notes management components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
@@ -17,8 +17,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist",
-    "test": "DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "DOTENV_CONFIG_QUIET=true vitest run --coverage"
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
     "@tearleads/db": "workspace:*",

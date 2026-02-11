@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/api",
-  "version": "0.0.336",
+  "version": "0.0.337",
   "description": "Express API for Tearleads",
   "main": "dist/index.js",
   "type": "module",
@@ -20,8 +20,8 @@
     "deleteAccount": "tsx scripts/deleteAccount.ts",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
-    "test": "DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "DOTENV_CONFIG_QUIET=true vitest run --coverage"
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "keywords": [
     "api",
