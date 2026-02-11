@@ -139,6 +139,21 @@ export function NotesPane({
     .map((noteId) => notesById[noteId])
     .filter((note): note is ClassicNote => Boolean(note));
 
+  const isTagDrag = (
+    dataTransfer: DataTransfer | null | undefined
+  ): boolean => {
+    if (!dataTransfer) {
+      return false;
+    }
+    const types = dataTransfer.types ?? [];
+    const hasTag = types.includes(DRAG_TYPE_TAG);
+    const hasPlainText = types.includes('text/plain');
+    const hasSafariPlainText = types.includes('public.utf8-plain-text');
+    const hasExternalClassicTagDrag =
+      (hasPlainText || hasSafariPlainText) && draggedNoteId === null;
+    return hasTag || hasExternalClassicTagDrag;
+  };
+
   return (
     <section className="flex flex-1 flex-col" aria-label="Notes Pane">
       {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
@@ -209,16 +224,7 @@ export function NotesPane({
                     setDropTargetNoteId(null);
                   }}
                   onDragOver={(event) => {
-                    const types = event.dataTransfer?.types ?? [];
-                    const hasTag = types.includes(DRAG_TYPE_TAG);
-                    const hasPlainText = types.includes('text/plain');
-                    const hasSafariPlainText = types.includes(
-                      'public.utf8-plain-text'
-                    );
-                    const hasExternalClassicTagDrag =
-                      (hasPlainText || hasSafariPlainText) &&
-                      draggedNoteId === null;
-                    if ((hasTag || hasExternalClassicTagDrag) && onTagNote) {
+                    if (isTagDrag(event.dataTransfer) && onTagNote) {
                       event.preventDefault();
                       if (dropTargetNoteId !== note.id) {
                         setDropTargetNoteId(note.id);
@@ -242,17 +248,8 @@ export function NotesPane({
                     setLastHoverNoteId(note.id);
                   }}
                   onDragEnter={(event) => {
-                    const types = event.dataTransfer?.types ?? [];
-                    const hasTag = types.includes(DRAG_TYPE_TAG);
-                    const hasPlainText = types.includes('text/plain');
-                    const hasSafariPlainText = types.includes(
-                      'public.utf8-plain-text'
-                    );
-                    const hasExternalClassicTagDrag =
-                      (hasPlainText || hasSafariPlainText) &&
-                      draggedNoteId === null;
                     if (
-                      (hasTag || hasExternalClassicTagDrag) &&
+                      isTagDrag(event.dataTransfer) &&
                       onTagNote &&
                       dropTargetNoteId !== note.id
                     ) {
