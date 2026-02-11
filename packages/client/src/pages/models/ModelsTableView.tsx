@@ -1,5 +1,5 @@
 import { isOpenRouterModelId } from '@rapid/shared';
-import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { Download, Loader2, Play, Square, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import type { ModelInfo } from '@/lib/models';
@@ -126,9 +126,9 @@ export function ModelsTableView({
                     const isBusy = loadingModelId !== null;
 
                     return (
-                      <tr
+                      <WindowTableRow
                         key={model.id}
-                        className="border-b last:border-b-0 hover:bg-muted/20"
+                        className="cursor-default hover:bg-muted/20 last:border-b-0"
                       >
                         <td
                           className={`${WINDOW_TABLE_TYPOGRAPHY.cell} align-top`}
@@ -250,7 +250,7 @@ export function ModelsTableView({
                             )}
                           </div>
                         </td>
-                      </tr>
+                      </WindowTableRow>
                     );
                   })}
                 </tbody>

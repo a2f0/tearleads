@@ -5,7 +5,7 @@ import {
   type DragStartEvent
 } from '@dnd-kit/core';
 import { isRecord } from '@rapid/shared';
-import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
@@ -223,7 +223,10 @@ export function ColumnMapper({
                     <tbody>
                       {data.rows.slice(0, 3).map((row, index) => (
                         // biome-ignore lint/suspicious/noArrayIndexKey: preview rows are static, never reordered
-                        <tr key={index} className="border-t">
+                        <WindowTableRow
+                          key={index}
+                          className="cursor-default border-b-0 border-t hover:bg-transparent"
+                        >
                           {mappedFields.map((field) => {
                             const mappedIndex = mapping[field.key];
                             return (
@@ -237,7 +240,7 @@ export function ColumnMapper({
                               </td>
                             );
                           })}
-                        </tr>
+                        </WindowTableRow>
                       ))}
                     </tbody>
                   </table>

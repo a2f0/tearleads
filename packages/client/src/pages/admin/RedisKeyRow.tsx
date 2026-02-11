@@ -1,5 +1,5 @@
 import type { RedisKeyInfo, RedisKeyValueResponse } from '@rapid/shared';
-import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { ChevronDown, ChevronRight, Database, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '@/lib/api';
@@ -87,14 +87,17 @@ function renderHashValue(value: Record<string, string>) {
         </thead>
         <tbody>
           {entries.map(([field, fieldValue]) => (
-            <tr key={field} className="border-b last:border-b-0">
+            <WindowTableRow
+              key={field}
+              className="cursor-default hover:bg-transparent last:border-b-0"
+            >
               <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} font-mono`}>
                 {field}
               </td>
               <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} font-mono`}>
                 {fieldValue}
               </td>
-            </tr>
+            </WindowTableRow>
           ))}
         </tbody>
       </table>
