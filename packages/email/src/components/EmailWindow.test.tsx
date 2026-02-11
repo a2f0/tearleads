@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmailContactOperations, EmailFolderOperations } from '../context';
 import { mockConsoleError } from '../test/console-mocks';
@@ -146,7 +147,7 @@ const mockFolderOperations: EmailFolderOperations = {
 };
 
 describe('EmailWindow', () => {
-  const defaultProps = {
+  const defaultProps: ComponentProps<typeof EmailWindow> = {
     id: 'test-window',
     onClose: vi.fn(),
     onMinimize: vi.fn(),
@@ -155,7 +156,7 @@ describe('EmailWindow', () => {
   };
 
   const renderWithProvider = (
-    props = defaultProps,
+    props: ComponentProps<typeof EmailWindow> = defaultProps,
     options?: {
       contactOperations?: EmailContactOperations;
       folderOperations?: EmailFolderOperations;
