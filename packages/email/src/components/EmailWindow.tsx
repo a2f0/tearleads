@@ -12,6 +12,15 @@ import { EmailFoldersSidebar } from './sidebar/EmailFoldersSidebar.js';
 
 const DEFAULT_SIDEBAR_WIDTH = 180;
 
+interface ComposeOpenRequest {
+  to?: string[];
+  cc?: string[];
+  bcc?: string[];
+  subject?: string;
+  body?: string;
+  requestId: number;
+}
+
 interface EmailWindowProps {
   id: string;
   onClose: () => void;
@@ -20,6 +29,7 @@ interface EmailWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
+  openComposeRequest?: ComposeOpenRequest;
 }
 
 export function EmailWindow({
@@ -29,7 +39,8 @@ export function EmailWindow({
   onDimensionsChange,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  openComposeRequest
 }: EmailWindowProps) {
   type MainTab = 'inbox' | 'compose';
 
@@ -47,6 +58,8 @@ export function EmailWindow({
   const [folderRefreshToken, setFolderRefreshToken] = useState(0);
   const [activeTab, setActiveTab] = useState<MainTab>('inbox');
   const [isComposeTabOpen, setIsComposeTabOpen] = useState(false);
+  const [composeOpenRequest, setComposeOpenRequest] =
+    useState<ComposeOpenRequest | null>(null);
 
   const handleFolderChanged = useCallback(() => {
     setFolderRefreshToken((t) => t + 1);
@@ -58,6 +71,7 @@ export function EmailWindow({
   }, []);
 
   const handleCompose = useCallback(() => {
+    setComposeOpenRequest(null);
     setIsComposeTabOpen(true);
     setActiveTab('compose');
   }, []);
@@ -80,6 +94,17 @@ export function EmailWindow({
   useEffect(() => {
     fetchEmails();
   }, [fetchEmails]);
+
+  useEffect(() => {
+    if (!openComposeRequest) {
+      return;
+    }
+
+    setComposeOpenRequest(openComposeRequest);
+    setSelectedEmailId(null);
+    setIsComposeTabOpen(true);
+    setActiveTab('compose');
+  }, [openComposeRequest]);
 
   const selectedEmail = emails.find((e) => e.id === selectedEmailId);
   const selectedFolderName = selectedFolder?.name ?? 'All Mail';
@@ -186,6 +211,9 @@ export function EmailWindow({
                   open
                   onOpenChange={closeComposeTab}
                   onEmailSent={handleEmailSent}
+                  {...(composeOpenRequest && {
+                    openRequest: composeOpenRequest
+                  })}
                 />
               ) : loading ? (
                 <div className="flex h-full items-center justify-center">

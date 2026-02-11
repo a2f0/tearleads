@@ -32,7 +32,8 @@ export function ContactsWindowList({
   refreshToken,
   groupId
 }: ContactsWindowListProps) {
-  const { databaseState, getDatabase, t } = useContactsContext();
+  const { databaseState, getDatabase, t, openEmailComposer } =
+    useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
   const {
     Button,
@@ -145,9 +146,9 @@ export function ContactsWindowList({
     const primaryEmail = contextMenu?.contact.primaryEmail;
     if (!primaryEmail) return;
 
-    openComposeEmail([primaryEmail]);
+    openComposeEmail([primaryEmail], openEmailComposer);
     setContextMenu(null);
-  }, [contextMenu]);
+  }, [contextMenu, openEmailComposer]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);

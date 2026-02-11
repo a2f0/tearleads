@@ -65,6 +65,13 @@ export interface WindowOpenRequestPayloads {
   files: { fileId: string };
   audio: { audioId?: string; playlistId?: string };
   videos: { videoId?: string; playlistId?: string };
+  email: {
+    to?: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject?: string;
+    body?: string;
+  };
 }
 
 export type WindowOpenRequests = {

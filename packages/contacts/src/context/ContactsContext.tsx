@@ -246,6 +246,8 @@ export interface ContactsContextValue {
   navigateWithFrom: (to: string, options?: NavigateOptions) => void;
   /** Format date utility */
   formatDate: (date: Date) => string;
+  /** Open email composer with prefilled recipients */
+  openEmailComposer?: (recipients: string[]) => boolean;
 }
 
 const ContactsContext = createContext<ContactsContextValue | null>(null);
@@ -264,6 +266,7 @@ export interface ContactsProviderProps {
   navigate: (to: string) => void;
   navigateWithFrom: (to: string, options?: NavigateOptions) => void;
   formatDate: (date: Date) => string;
+  openEmailComposer?: (recipients: string[]) => boolean;
 }
 
 /**
@@ -282,7 +285,8 @@ export function ContactsProvider({
   tooltipZIndex = 10050,
   navigate,
   navigateWithFrom,
-  formatDate
+  formatDate,
+  openEmailComposer
 }: ContactsProviderProps) {
   const value = useMemo<ContactsContextValue>(
     () => ({
@@ -301,7 +305,8 @@ export function ContactsProvider({
       tooltipZIndex,
       navigate,
       navigateWithFrom,
-      formatDate
+      formatDate,
+      ...(openEmailComposer !== undefined && { openEmailComposer })
     }),
     [
       databaseState,
@@ -315,7 +320,8 @@ export function ContactsProvider({
       tooltipZIndex,
       navigate,
       navigateWithFrom,
-      formatDate
+      formatDate,
+      openEmailComposer
     ]
   );
 

@@ -73,7 +73,8 @@ export function ContactsWindowTableView({
   refreshToken,
   groupId
 }: ContactsWindowTableViewProps) {
-  const { databaseState, getDatabase, t } = useContactsContext();
+  const { databaseState, getDatabase, t, openEmailComposer } =
+    useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
   const { Button, ContextMenu, ContextMenuItem, RefreshButton, InlineUnlock } =
     useContactsUI();
@@ -156,9 +157,9 @@ export function ContactsWindowTableView({
     const primaryEmail = contextMenu?.contact.primaryEmail;
     if (!primaryEmail) return;
 
-    openComposeEmail([primaryEmail]);
+    openComposeEmail([primaryEmail], openEmailComposer);
     setContextMenu(null);
-  }, [contextMenu]);
+  }, [contextMenu, openEmailComposer]);
 
   const getDisplayName = (contact: ContactInfo) => {
     return `${contact.firstName}${contact.lastName ? ` ${contact.lastName}` : ''}`;

@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmailContactOperations, EmailFolderOperations } from '../context';
 import { mockConsoleError } from '../test/console-mocks';
@@ -146,7 +147,7 @@ const mockFolderOperations: EmailFolderOperations = {
 };
 
 describe('EmailWindow', () => {
-  const defaultProps = {
+  const defaultProps: ComponentProps<typeof EmailWindow> = {
     id: 'test-window',
     onClose: vi.fn(),
     onMinimize: vi.fn(),
@@ -155,7 +156,7 @@ describe('EmailWindow', () => {
   };
 
   const renderWithProvider = (
-    props = defaultProps,
+    props: ComponentProps<typeof EmailWindow> = defaultProps,
     options?: {
       contactOperations?: EmailContactOperations;
       folderOperations?: EmailFolderOperations;
@@ -447,6 +448,32 @@ describe('EmailWindow', () => {
     );
     expect(screen.getByTestId('window-title')).toHaveTextContent('New Message');
     expect(screen.queryByText('Test Subject')).not.toBeInTheDocument();
+  });
+
+  it('opens compose with recipients from open request', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ emails: mockEmails })
+    });
+
+    renderWithProvider({
+      ...defaultProps,
+      openComposeRequest: {
+        to: ['ada@example.com', 'grace@example.com'],
+        requestId: 1
+      }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('tab', { name: 'New Message' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByTestId('compose-to')).toHaveValue(
+      'ada@example.com, grace@example.com'
+    );
   });
 
   it('closes compose tab from close button', async () => {

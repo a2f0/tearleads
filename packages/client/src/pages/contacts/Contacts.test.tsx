@@ -51,6 +51,13 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManagerActions: () => ({
+    openWindow: vi.fn(),
+    requestWindowOpen: vi.fn()
+  })
+}));
+
 // Mock getDatabase with fluent mock object
 const mockOrderBy = vi.fn();
 const mockUpdate = vi.fn();

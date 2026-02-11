@@ -44,6 +44,14 @@ export { type EmailItem, formatEmailDate, formatEmailSize } from './lib';
 // Pages
 export { Email } from './pages';
 
+// Persistence
+export {
+  deleteEmailDraftFromDb,
+  getEmailDraftFromDb,
+  listEmailDraftsFromDb,
+  saveEmailDraftToDb
+} from './persistence';
+
 // Types
 export {
   ALL_MAIL_ID,

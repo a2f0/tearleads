@@ -41,7 +41,7 @@ export function ContactsGroupsSidebar({
     renameGroup,
     deleteGroup
   } = useContactGroups();
-  const { getDatabase } = useContactsContext();
+  const { getDatabase, openEmailComposer } = useContactsContext();
   const { ContextMenu, ContextMenuItem } = useContactsUI();
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -208,13 +208,16 @@ export function ContactsGroupsSidebar({
         .where(eq(vfsLinks.parentId, contextMenu.group.id))
         .orderBy(asc(contactEmails.email));
 
-      openComposeEmail(groupEmails.map((row) => row.email));
+      openComposeEmail(
+        groupEmails.map((row) => row.email),
+        openEmailComposer
+      );
     } catch (err) {
       console.error('Failed to send group email:', err);
     } finally {
       queueCloseContextMenu();
     }
-  }, [contextMenu, getDatabase, queueCloseContextMenu]);
+  }, [contextMenu, getDatabase, openEmailComposer, queueCloseContextMenu]);
 
   return (
     <div

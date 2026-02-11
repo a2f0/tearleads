@@ -31,10 +31,10 @@ describe('ContactsWindowTableView', () => {
   });
 
   it('sends email to the primary email from context menu', () => {
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const openEmailComposer = vi.fn(() => true);
 
     render(
-      <TestContactsProvider>
+      <TestContactsProvider openEmailComposer={openEmailComposer}>
         <ContactsWindowTableView
           onSelectContact={vi.fn()}
           onCreateContact={vi.fn()}
@@ -50,11 +50,7 @@ describe('ContactsWindowTableView', () => {
     fireEvent.contextMenu(row);
     fireEvent.click(screen.getByText('Send email'));
 
-    expect(openSpy).toHaveBeenCalledWith(
-      'mailto:ada%40example.com',
-      '_blank',
-      'noopener,noreferrer'
-    );
+    expect(openEmailComposer).toHaveBeenCalledWith(['ada@example.com']);
   });
 
   it('does not show send email when contact has no primary email', () => {
