@@ -1,6 +1,6 @@
 {
   "name": "@rapid/email",
-  "version": "0.0.48",
+  "version": "0.0.49",
   "description": "Email components for Rapid",
   "type": "module",
   "main": "dist/index.js",
