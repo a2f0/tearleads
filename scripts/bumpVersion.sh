@@ -89,8 +89,8 @@ has_changes() {
   shift
 
   if [ -n "$CHANGED_FILES_FILE" ]; then
-    if [ ! -f "$CHANGED_FILES_FILE" ]; then
-      echo "Error: CHANGED_FILES_FILE does not exist: $CHANGED_FILES_FILE" >&2
+    if [ ! -f "$CHANGED_FILES_FILE" ] || [ ! -r "$CHANGED_FILES_FILE" ]; then
+      echo "Error: CHANGED_FILES_FILE is not a readable file: $CHANGED_FILES_FILE" >&2
       exit 1
     fi
     CHANGED_FILES=$(grep -E "^${TARGET_DIR}(/|$)" "$CHANGED_FILES_FILE" || true)
