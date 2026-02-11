@@ -5,7 +5,7 @@ import {
 } from '@client/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@client/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
-import keychainPackageJson from '@rapid/keychain/package.json';
+import keychainPackageJson from '@tearleads/keychain/package.json';
 import { RefreshCw } from 'lucide-react';
 
 interface KeychainWindowMenuBarProps {

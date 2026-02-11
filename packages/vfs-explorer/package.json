@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/vfs-explorer",
+  "name": "@tearleads/vfs-explorer",
   "version": "0.0.136",
-  "description": "VFS Explorer components for Rapid",
+  "description": "VFS Explorer components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

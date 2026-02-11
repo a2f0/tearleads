@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/terminal",
+  "name": "@tearleads/terminal",
   "version": "0.0.12",
-  "description": "Terminal UI components and command engine for Rapid",
+  "description": "Terminal UI components and command engine for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

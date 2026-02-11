@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { KeychainWindowMenuBar } from './KeychainWindowMenuBar';
 
-vi.mock('@rapid/keychain/package.json', () => ({
+vi.mock('@tearleads/keychain/package.json', () => ({
   default: { version: '7.8.9' }
 }));
 

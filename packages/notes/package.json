@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/notes",
+  "name": "@tearleads/notes",
   "version": "0.0.24",
-  "description": "Notes management components for Rapid",
+  "description": "Notes management components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -21,9 +21,9 @@
     "test:coverage": "vitest run --coverage"
   },
   "peerDependencies": {
-    "@rapid/db": "workspace:*",
-    "@rapid/ui": "workspace:*",
-    "@rapid/window-manager": "workspace:*",
+    "@tearleads/db": "workspace:*",
+    "@tearleads/ui": "workspace:*",
+    "@tearleads/window-manager": "workspace:*",
     "drizzle-orm": "0.45.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",

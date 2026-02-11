@@ -1,7 +1,7 @@
 {
-  "name": "@rapid/email",
+  "name": "@tearleads/email",
   "version": "0.0.50",
-  "description": "Email components for Rapid",
+  "description": "Email components for Tearleads",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",

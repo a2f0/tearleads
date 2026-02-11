@@ -1,6 +1,6 @@
-import type { PostgresColumnInfo } from '@rapid/shared';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { useVirtualizer } from '@tanstack/react-virtual';
+import type { PostgresColumnInfo } from '@tearleads/shared';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@tearleads/window-manager';
 import {
   ArrowDown,
   ArrowUp,

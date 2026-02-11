@@ -2,7 +2,7 @@ import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowContextMenu,
   WindowTableRow
-} from '@rapid/window-manager';
+} from '@tearleads/window-manager';
 import {
   ChevronDown,
   ChevronUp,

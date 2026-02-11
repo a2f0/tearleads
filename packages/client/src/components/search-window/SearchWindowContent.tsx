@@ -2,7 +2,7 @@ import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowStatusBar,
   WindowTableRow
-} from '@rapid/window-manager';
+} from '@tearleads/window-manager';
 import {
   AppWindow,
   Contact,

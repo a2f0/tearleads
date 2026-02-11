@@ -3,7 +3,7 @@ import {
   WINDOW_TABLE_TYPOGRAPHY,
   type WindowDimensions,
   WindowTableRow
-} from '@rapid/window-manager';
+} from '@tearleads/window-manager';
 import { Loader2, Mail, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';

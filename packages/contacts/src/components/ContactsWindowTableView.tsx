@@ -1,5 +1,8 @@
-import { contacts as contactsTable } from '@rapid/db/sqlite';
-import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
+import { contacts as contactsTable } from '@tearleads/db/sqlite';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { eq } from 'drizzle-orm';
 import {
   ChevronDown,

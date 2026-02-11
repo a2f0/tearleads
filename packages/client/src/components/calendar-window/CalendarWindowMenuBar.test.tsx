@@ -8,7 +8,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { CalendarWindowMenuBar } from './CalendarWindowMenuBar';
 
-vi.mock('@rapid/calendar/package.json', () => ({
+vi.mock('@tearleads/calendar/package.json', () => ({
   default: { version: '4.5.6' }
 }));
 
