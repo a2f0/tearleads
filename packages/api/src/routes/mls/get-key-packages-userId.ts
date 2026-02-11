@@ -1,6 +1,79 @@
-/* istanbul ignore file */
-import type { Router as RouterType } from 'express';
-import { getKeyPackagesUseridHandler } from '../mls.js';
+import type { MlsKeyPackage, MlsKeyPackagesResponse } from '@tearleads/shared';
+import type { Request, Response, Router as RouterType } from 'express';
+import { getPostgresPool } from '../../lib/postgres.js';
+import { toSafeCipherSuite } from './shared.js';
+
+/**
+ * @openapi
+ * /mls/key-packages/{userId}:
+ *   get:
+ *     summary: Get available key packages for a user
+ *     description: Get unconsumed key packages for a user (to add them to a group)
+ *     tags:
+ *       - MLS
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Available key packages
+ */
+export const getKeyPackagesUseridHandler = async (
+  req: Request,
+  res: Response
+) => {
+  const claims = req.authClaims;
+  if (!claims) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+
+  const userIdParam = req.params['userId'];
+  if (!userIdParam || typeof userIdParam !== 'string') {
+    res.status(400).json({ error: 'userId is required' });
+    return;
+  }
+  const userId = userIdParam;
+
+  try {
+    const pool = await getPostgresPool();
+    const result = await pool.query<{
+      id: string;
+      key_package_data: string;
+      key_package_ref: string;
+      cipher_suite: number;
+      created_at: Date;
+    }>(
+      `SELECT id, key_package_data, key_package_ref, cipher_suite, created_at
+       FROM mls_key_packages
+       WHERE user_id = $1 AND consumed_at IS NULL
+       ORDER BY created_at ASC
+       LIMIT 10`,
+      [userId]
+    );
+
+    const keyPackages: MlsKeyPackage[] = result.rows.map((row) => ({
+      id: row.id,
+      userId,
+      keyPackageData: row.key_package_data,
+      keyPackageRef: row.key_package_ref,
+      cipherSuite: toSafeCipherSuite(row.cipher_suite),
+      createdAt: row.created_at.toISOString(),
+      consumed: false
+    }));
+
+    const response: MlsKeyPackagesResponse = { keyPackages };
+    res.json(response);
+  } catch (error) {
+    console.error('Failed to get key packages:', error);
+    res.status(500).json({ error: 'Failed to get key packages' });
+  }
+};
 
 export function registerGetKeyPackagesUseridRoute(
   routeRouter: RouterType
