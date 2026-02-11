@@ -135,10 +135,10 @@ export function SearchWindowContent({
     );
   };
 
-  // Auto-focus input on mount
+  // Keep keyboard flow in search input when opening or changing view mode.
   useEffect(() => {
     inputRef.current?.focus();
-  }, []);
+  }, [viewMode]);
 
   // Search function
   const performSearch = useCallback(
@@ -386,6 +386,9 @@ export function SearchWindowContent({
           <button
             key={option.value}
             type="button"
+            onMouseDown={(event) => {
+              event.preventDefault();
+            }}
             onClick={() => handleFilterToggle(option.value)}
             data-selected={
               option.value === 'all'
