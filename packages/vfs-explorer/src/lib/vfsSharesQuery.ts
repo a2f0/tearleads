@@ -34,22 +34,14 @@ function isMissingSqliteTableError(
   while (current !== null && current !== undefined && !visited.has(current)) {
     visited.add(current);
 
-    if (current instanceof Error) {
-      const message = current.message.toLowerCase();
-      if (
-        message.includes(noSuchTableText) ||
-        (message.includes('no such table') && message.includes(tableName))
-      ) {
-        return true;
-      }
-    } else {
-      const message = String(current).toLowerCase();
-      if (
-        message.includes(noSuchTableText) ||
-        (message.includes('no such table') && message.includes(tableName))
-      ) {
-        return true;
-      }
+    const message = (
+      current instanceof Error ? current.message : String(current)
+    ).toLowerCase();
+    if (
+      message.includes(noSuchTableText) ||
+      (message.includes('no such table') && message.includes(tableName))
+    ) {
+      return true;
     }
 
     if (
