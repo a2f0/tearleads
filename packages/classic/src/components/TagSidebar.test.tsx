@@ -202,7 +202,7 @@ describe('TagSidebar', () => {
     expect(onSelectTag).toHaveBeenCalledWith('__untagged__');
   });
 
-  it('does not render untagged items when untaggedCount is 0', () => {
+  it('renders untagged items when untaggedCount is 0', () => {
     render(
       <TagSidebar
         tags={[{ id: 'tag-1', name: 'Work' }]}
@@ -216,7 +216,7 @@ describe('TagSidebar', () => {
       />
     );
 
-    expect(screen.queryByText(/Untagged Items/)).not.toBeInTheDocument();
+    expect(screen.getByText('Untagged Items (0)')).toBeInTheDocument();
   });
 
   it('highlights untagged items when active', () => {

@@ -169,42 +169,40 @@ export function TagSidebar({
       >
         <div className="pr-2">
           {/* Untagged Items virtual tag */}
-          {untaggedCount > 0 && (
-            <ul className="m-0 mb-2 list-none p-0" aria-label="Virtual Tags">
-              <li
-                className={
-                  activeTagId === UNTAGGED_TAG_ID
-                    ? 'border bg-sky-100 px-2 py-0.5'
-                    : 'border bg-white px-2 py-0.5'
-                }
-                style={
-                  activeTagId === UNTAGGED_TAG_ID
-                    ? { backgroundColor: '#e0f2fe' }
-                    : undefined
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    aria-hidden="true"
-                    className="w-4 shrink-0 select-none text-center text-xs text-zinc-400"
-                  >
-                    📁
+          <ul className="m-0 mb-2 list-none p-0" aria-label="Virtual Tags">
+            <li
+              className={
+                activeTagId === UNTAGGED_TAG_ID
+                  ? 'border bg-sky-100 px-2 py-0.5'
+                  : 'border bg-white px-2 py-0.5'
+              }
+              style={
+                activeTagId === UNTAGGED_TAG_ID
+                  ? { backgroundColor: '#e0f2fe' }
+                  : undefined
+              }
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  aria-hidden="true"
+                  className="w-4 shrink-0 select-none text-center text-xs text-zinc-400"
+                >
+                  📁
+                </span>
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
+                  onClick={() => onSelectTag(UNTAGGED_TAG_ID)}
+                  aria-pressed={activeTagId === UNTAGGED_TAG_ID}
+                  aria-label={`Select ${UNTAGGED_TAG_NAME}`}
+                >
+                  <span className="text-zinc-700">
+                    {UNTAGGED_TAG_NAME} ({untaggedCount})
                   </span>
-                  <button
-                    type="button"
-                    className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-left text-sm"
-                    onClick={() => onSelectTag(UNTAGGED_TAG_ID)}
-                    aria-pressed={activeTagId === UNTAGGED_TAG_ID}
-                    aria-label={`Select ${UNTAGGED_TAG_NAME}`}
-                  >
-                    <span className="text-zinc-700">
-                      {UNTAGGED_TAG_NAME} ({untaggedCount})
-                    </span>
-                  </button>
-                </div>
-              </li>
-            </ul>
-          )}
+                </button>
+              </div>
+            </li>
+          </ul>
           {tags.length === 0 && untaggedCount === 0 && (
             <p className="text-sm text-zinc-500">No tags found.</p>
           )}
