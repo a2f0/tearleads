@@ -193,7 +193,7 @@ export function MarkdownWithToc({
       <div className="flex h-full min-h-0">
         {hasToc && (
           <aside
-            className="relative min-h-0 shrink-0 border-r bg-muted/20"
+            className="sticky top-0 relative min-h-0 h-full shrink-0 self-start border-r bg-muted/20"
             style={{ width: tocWidth }}
             data-testid="markdown-toc-sidebar"
           >

@@ -76,12 +76,13 @@ export function HelpWindow({
       minHeight={DOCS_WINDOW_MIN_HEIGHT}
       maxWidthPercent={DOCS_WINDOW_MAX_WIDTH_PERCENT}
       maxHeightPercent={DOCS_WINDOW_MAX_HEIGHT_PERCENT}
+      contentClassName="overflow-hidden"
     >
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col overflow-hidden">
         <HelpWindowMenuBar onClose={onClose} />
-        <div className="flex-1 overflow-auto p-6">
+        <div className="min-h-0 flex-1 p-6">
           {view === 'index' ? (
-            <div className="space-y-6">
+            <div className="h-full overflow-auto space-y-6">
               <div className="flex items-center gap-3">
                 <CircleHelp className="h-8 w-8 text-muted-foreground" />
                 <h1 className="font-bold text-2xl tracking-tight">Help</h1>
@@ -94,7 +95,7 @@ export function HelpWindow({
               </div>
             </div>
           ) : view === 'api' ? (
-            <div className="space-y-6">
+            <div className="h-full overflow-auto space-y-6">
               <button
                 type="button"
                 onClick={() => setView('index')}
@@ -106,7 +107,7 @@ export function HelpWindow({
               <ApiDocs spec={openapiSpec} />
             </div>
           ) : (
-            <div className="space-y-6">
+            <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
               <button
                 type="button"
                 onClick={() => setView('index')}
@@ -115,7 +116,9 @@ export function HelpWindow({
                 <ArrowLeft className="mr-2 h-4 w-4" />
                 Back to Help
               </button>
-              <HelpDocumentation docId={view} />
+              <div className="min-h-0 flex-1">
+                <HelpDocumentation docId={view} />
+              </div>
             </div>
           )}
         </div>
