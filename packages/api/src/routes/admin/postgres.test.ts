@@ -38,8 +38,8 @@ describe('admin postgres routes', () => {
     mockGetPostgresConnectionInfo.mockReturnValue({
       host: 'localhost',
       port: 5432,
-      database: 'tearleads',
-      user: 'tearleads'
+      database: 'rapid',
+      user: 'rapid'
     });
 
     const response = await request(app)
@@ -52,8 +52,8 @@ describe('admin postgres routes', () => {
       info: {
         host: 'localhost',
         port: 5432,
-        database: 'tearleads',
-        user: 'tearleads'
+        database: 'rapid',
+        user: 'rapid'
       },
       serverVersion: 'PostgreSQL 15.1'
     });
