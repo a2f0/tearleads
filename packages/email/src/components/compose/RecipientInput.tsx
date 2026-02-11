@@ -36,7 +36,7 @@ export function RecipientInput({
         {label}
       </label>
       <div className="flex-1">
-        <div className="flex items-center rounded-md border bg-background focus-within:ring-2 focus-within:ring-ring">
+        <div className="flex items-center gap-3 rounded-md border bg-background px-3 focus-within:ring-2 focus-within:ring-ring">
           <input
             ref={inputRef}
             id={inputId}
@@ -45,14 +45,14 @@ export function RecipientInput({
             value={value}
             onChange={(e) => onValueChange(e.target.value)}
             placeholder={placeholder}
-            className="min-w-0 flex-1 bg-transparent px-3 py-2 text-base focus:outline-none"
+            className="min-w-0 flex-1 bg-transparent py-2 text-base focus:outline-none"
             disabled={disabled}
             data-testid={inputTestId}
           />
           <button
             type="button"
             onClick={onAddressBookClick}
-            className="mr-2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
             aria-label={addressBookAriaLabel}
             disabled={addressBookDisabled}
             data-testid={addressBookTestId}
