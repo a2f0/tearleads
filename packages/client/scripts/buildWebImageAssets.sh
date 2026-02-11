@@ -63,6 +63,7 @@ mkdir -p "$OUTPUT_DIR"
 # Verify website public directory exists for deploy sync
 if [ ! -d "$WEBSITE_PUBLIC_DIR" ]; then
     echo "Error: Website public directory not found at $WEBSITE_PUBLIC_DIR" >&2
+    echo "  Hint: Ensure the '@tearleads/website' package is correctly located relative to '@tearleads/client'." >&2
     exit 1
 fi
 
