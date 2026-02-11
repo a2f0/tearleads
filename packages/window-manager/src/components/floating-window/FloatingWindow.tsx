@@ -301,16 +301,18 @@ export function FloatingWindow({
       windowRef={windowRef}
       id={id}
       title={title}
-      isDesktop={isDesktop}
-      isMaximized={isMaximized}
-      isNearMaximized={isNearMaximized}
-      width={width}
-      height={height}
-      x={x}
-      y={y}
-      zIndex={zIndex}
-      maxWidthPercent={maxWidthPercent}
-      maxHeightPercent={maxHeightPercent}
+      styleProps={{
+        isDesktop,
+        isMaximized,
+        isNearMaximized,
+        width,
+        height,
+        x,
+        y,
+        zIndex,
+        maxWidthPercent,
+        maxHeightPercent
+      }}
       onClick={handleWindowClick}
     >
       {isDesktop && !isMaximized && (
