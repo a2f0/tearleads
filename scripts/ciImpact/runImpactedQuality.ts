@@ -195,8 +195,23 @@ function uniqueSorted(values: string[]): string[] {
   return [...new Set(values)].sort();
 }
 
-function changedNonMarkdownFiles(changedFiles: string[]): string[] {
-  return uniqueSorted(changedFiles.filter((f) => !f.endsWith('.md') && fileExists(f)));
+function isBiomeTarget(filePath: string): boolean {
+  return (
+    filePath.endsWith('.js') ||
+    filePath.endsWith('.mjs') ||
+    filePath.endsWith('.cjs') ||
+    filePath.endsWith('.jsx') ||
+    filePath.endsWith('.ts') ||
+    filePath.endsWith('.tsx') ||
+    filePath.endsWith('.json') ||
+    filePath.endsWith('.jsonc') ||
+    filePath.endsWith('.css') ||
+    filePath.endsWith('.scss')
+  );
+}
+
+function changedBiomeFiles(changedFiles: string[]): string[] {
+  return uniqueSorted(changedFiles.filter((f) => fileExists(f) && isBiomeTarget(f)));
 }
 
 function shouldRunLintScripts(changedFiles: string[]): boolean {
@@ -276,7 +291,7 @@ function main(): void {
     return;
   }
 
-  const biomeTargets = changedNonMarkdownFiles(impact.changedFiles);
+  const biomeTargets = changedBiomeFiles(impact.changedFiles);
   const runShellLint = shouldRunLintScripts(impact.changedFiles);
   const runMdLint = shouldRunLintMd(impact.changedFiles);
   const runRubo = shouldRunRubocop(impact.changedFiles);
