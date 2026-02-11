@@ -171,7 +171,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
    - If `mergeStateStatus` is `BEHIND`: Update from base and bump version (step 4d)
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Wait for CI and address Gemini feedback (step 4e)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Poll CI and evaluate/close Gemini feedback on every poll iteration (step 4e)
    - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4f)
 
    ### 4d. Update from base branch (rebase) and bump version
@@ -311,11 +311,12 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
         ```
 
    2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
-      - Run `/address-gemini-feedback` to fetch and address any unresolved comments
-      - If code changes were made, push and continue polling (CI will restart)
-      - If Gemini has responded with confirmations, resolve those threads via `/follow-up-with-gemini`
-      - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Codex fallback review above
-      - **IMPORTANT**: After these sub-skills complete, continue the polling loop - do NOT exit
+      - Always run Gemini evaluation and close-out checks on every poll iteration, including when CI jobs are still running or have failed.
+      - Run `/address-gemini-feedback` to fetch and address unresolved comments.
+      - Immediately run `/follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
+      - If code changes were made, push and continue polling (CI will restart).
+      - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Codex fallback review above.
+      - **IMPORTANT**: Do not wait for CI completion to resolve review threads. After these sub-skills complete, continue the polling loop - do NOT exit.
 
    3. **Check individual job statuses** (in priority order):
 
@@ -333,6 +334,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
           - Log: "Job '<job-name>' failed (attempt X/3). Starting fix."
           - Run `/fix-tests <job-name>` targeting the specific job
           - If fix was pushed:
+            - Re-run `/address-gemini-feedback` and `/follow-up-with-gemini` before the next poll iteration so Gemini feedback does not wait on full CI completion.
             - Cancel the obsolete workflow: `gh run cancel $RUN_ID -R "$REPO"`
             - Log: "Cancelled obsolete workflow. New CI starting."
             - Break out of job loop (new workflow will start, pick it up next poll)
@@ -414,7 +416,7 @@ Create issues for problems that shouldn't block the PR (flaky tests, infrastruct
 
 ## Resolving Conversation Threads
 
-All threads must be resolved before merge. Use `/follow-up-with-gemini` which handles replying with commit SHAs, waiting for confirmation, and resolving threads via GraphQL.
+All threads must be resolved before merge, and close-out should happen continuously during CI polling rather than after CI completion. Use `/follow-up-with-gemini` after each `/address-gemini-feedback` pass to resolve confirmed threads in-loop.
 
 ## Token Efficiency (CRITICAL - ENFORCE STRICTLY)
 
