@@ -256,7 +256,9 @@ describe('TagSidebar', () => {
       />
     );
 
-    const activeTagItem = screen.getByLabelText('Select tag Work').closest('li');
+    const activeTagItem = screen
+      .getByLabelText('Select tag Work')
+      .closest('li');
     if (!activeTagItem) throw new Error('Expected active tag list item');
     expect(activeTagItem).toHaveStyle({ backgroundColor: '#e0f2fe' });
     expect(activeTagItem).not.toHaveClass('bg-emerald-100');

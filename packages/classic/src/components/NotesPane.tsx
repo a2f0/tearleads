@@ -218,10 +218,7 @@ export function NotesPane({
                     const hasExternalClassicTagDrag =
                       (hasPlainText || hasSafariPlainText) &&
                       draggedNoteId === null;
-                    if (
-                      (hasTag || hasExternalClassicTagDrag) &&
-                      onTagNote
-                    ) {
+                    if ((hasTag || hasExternalClassicTagDrag) && onTagNote) {
                       event.preventDefault();
                       if (dropTargetNoteId !== note.id) {
                         setDropTargetNoteId(note.id);

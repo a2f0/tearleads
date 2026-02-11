@@ -227,7 +227,7 @@ export function TagSidebar({
                         ? { backgroundColor: '#d1fae5' }
                         : isActive
                           ? { backgroundColor: '#e0f2fe' }
-                        : undefined
+                          : undefined
                     }
                     draggable
                     onDragStart={(event) => {
@@ -312,9 +312,7 @@ export function TagSidebar({
                       const fallbackNoteId =
                         draggedTagId === null
                           ? event.dataTransfer.getData('text/plain') ||
-                            event.dataTransfer.getData(
-                              'public.utf8-plain-text'
-                            )
+                            event.dataTransfer.getData('public.utf8-plain-text')
                           : '';
                       const noteId = customNoteId || fallbackNoteId;
                       if (noteId && onTagNote) {
