@@ -1,5 +1,5 @@
 import type { PostgresTableInfo, PostgresTablesResponse } from '@rapid/shared';
-import { type Request, type Response, type Router as RouterType } from 'express';
+import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
 import { coerceNumber, type PostgresTableRow } from './shared.js';
 

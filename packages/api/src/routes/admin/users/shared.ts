@@ -4,7 +4,7 @@ import type {
   AdminUserUpdatePayload
 } from '@rapid/shared';
 import { isRecord } from '@rapid/shared';
-import { getPostgresPool } from '../../../lib/postgres.js';
+import type { getPostgresPool } from '../../../lib/postgres.js';
 
 export type UserRow = {
   id: string;

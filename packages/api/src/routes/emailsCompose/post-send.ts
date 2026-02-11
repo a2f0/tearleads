@@ -1,6 +1,6 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import { type EmailAttachment, sendEmail } from '../../lib/emailSender.js';
-import { type SendRequest, getUserDrafts } from './shared.js';
+import { getUserDrafts, type SendRequest } from './shared.js';
 
 /**
  * @openapi

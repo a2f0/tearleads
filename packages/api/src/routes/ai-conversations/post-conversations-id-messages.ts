@@ -1,9 +1,6 @@
 import { randomUUID } from 'node:crypto';
-import type {
-  AddAiMessageResponse,
-  AiMessageRole
-} from '@rapid/shared';
-import { type Request, type Response, type Router as RouterType } from 'express';
+import type { AddAiMessageResponse, AiMessageRole } from '@rapid/shared';
+import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { parseAddMessagePayload } from './shared.js';
 
@@ -179,5 +176,8 @@ export const postConversationsIdMessagesHandler = async (
 export function registerPostConversationsIdMessagesRoute(
   routeRouter: RouterType
 ): void {
-  routeRouter.post('/conversations/:id/messages', postConversationsIdMessagesHandler);
+  routeRouter.post(
+    '/conversations/:id/messages',
+    postConversationsIdMessagesHandler
+  );
 }

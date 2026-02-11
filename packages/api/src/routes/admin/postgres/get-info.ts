@@ -1,5 +1,5 @@
 import type { PostgresAdminInfoResponse } from '@rapid/shared';
-import { type Request, type Response, type Router as RouterType } from 'express';
+import type { Request, Response, Router as RouterType } from 'express';
 import {
   getPostgresConnectionInfo,
   getPostgresPool

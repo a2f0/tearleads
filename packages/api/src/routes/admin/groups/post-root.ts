@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { CreateGroupRequest } from '@rapid/shared';
-import { type Request, type Response, type Router as RouterType } from 'express';
+import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
 import { isDuplicateConstraintError } from '../lib/db.js';
 import { ensureOrganizationExists } from '../lib/organizations.js';
-import { mapGroupRow, type GroupRow } from './shared.js';
+import { type GroupRow, mapGroupRow } from './shared.js';
 
 /**
  * @openapi

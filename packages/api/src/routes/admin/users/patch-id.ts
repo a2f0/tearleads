@@ -1,7 +1,7 @@
 import type { AdminUserUpdateResponse } from '@rapid/shared';
-import { type Request, type Response, type Router as RouterType } from 'express';
-import { getLatestLastActiveByUserIds } from '../../../lib/sessions.js';
+import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { getLatestLastActiveByUserIds } from '../../../lib/sessions.js';
 import {
   emptyAccounting,
   getUserAccounting,

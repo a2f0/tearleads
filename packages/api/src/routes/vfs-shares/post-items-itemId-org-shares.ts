@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { VfsOrgShare, VfsPermissionLevel } from '@rapid/shared';
-import { type Request, type Response, type Router as RouterType } from 'express';
+import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { parseCreateOrgSharePayload } from './shared.js';
 
@@ -184,5 +184,8 @@ export const postItemsItemidOrgSharesHandler = async (
 export function registerPostItemsItemidOrgSharesRoute(
   routeRouter: RouterType
 ): void {
-  routeRouter.post('/items/:itemId/org-shares', postItemsItemidOrgSharesHandler);
+  routeRouter.post(
+    '/items/:itemId/org-shares',
+    postItemsItemidOrgSharesHandler
+  );
 }

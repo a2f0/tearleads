@@ -37,10 +37,7 @@ import type {
   UploadMlsStateResponse
 } from '@rapid/shared';
 import { isRecord, MLS_CIPHERSUITES } from '@rapid/shared';
-import {
-  type Request,
-  type Response
-} from 'express';
+import type { Request, Response } from 'express';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
 
@@ -2006,4 +2003,3 @@ export const getGroupsGroupidStateHandler = async (
     res.status(500).json({ error: 'Failed to get state' });
   }
 };
-

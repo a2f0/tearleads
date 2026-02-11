@@ -1,5 +1,5 @@
 import type { PostgresRowsResponse } from '@rapid/shared';
-import { type Request, type Response, type Router as RouterType } from 'express';
+import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
 
 /**
@@ -133,5 +133,8 @@ export const getTablesSchemaTableRowsHandler = async (
 export function registerGetTablesSchemaTableRowsRoute(
   routeRouter: RouterType
 ): void {
-  routeRouter.get('/tables/:schema/:table/rows', getTablesSchemaTableRowsHandler);
+  routeRouter.get(
+    '/tables/:schema/:table/rows',
+    getTablesSchemaTableRowsHandler
+  );
 }

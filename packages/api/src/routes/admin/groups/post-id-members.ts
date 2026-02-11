@@ -1,5 +1,5 @@
 import type { AddMemberRequest } from '@rapid/shared';
-import { type Request, type Response, type Router as RouterType } from 'express';
+import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
 import { isDuplicateConstraintError } from '../lib/db.js';
 import { getGroupOrganizationId } from './shared.js';

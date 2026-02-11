@@ -1,4 +1,4 @@
-import { type Request, type Response, type Router as RouterType } from 'express';
+import type { Request, Response, Router as RouterType } from 'express';
 import { getRedisClient } from '../../../lib/redis.js';
 
 /**
