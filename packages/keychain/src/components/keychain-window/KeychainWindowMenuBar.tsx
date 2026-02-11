@@ -3,7 +3,9 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@client/components/ui/dropdown-menu';
+import { AboutMenuItem } from '@client/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
+import keychainPackageJson from '@rapid/keychain/package.json';
 import { RefreshCw } from 'lucide-react';
 
 interface KeychainWindowMenuBarProps {
@@ -29,6 +31,13 @@ export function KeychainWindowMenuBar({
       </DropdownMenu>
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
+      </DropdownMenu>
+      <DropdownMenu trigger="Help">
+        <AboutMenuItem
+          appName="Keychain"
+          version={keychainPackageJson.version}
+          closeLabel="Close"
+        />
       </DropdownMenu>
     </div>
   );
