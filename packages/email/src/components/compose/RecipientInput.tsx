@@ -35,29 +35,31 @@ export function RecipientInput({
       <label htmlFor={inputId} className="w-12 text-muted-foreground text-sm">
         {label}
       </label>
-      <div className="relative flex-1">
-        <input
-          ref={inputRef}
-          id={inputId}
-          type="text"
-          autoComplete="off"
-          value={value}
-          onChange={(e) => onValueChange(e.target.value)}
-          placeholder={placeholder}
-          className="w-full rounded-md border bg-background px-3 py-2 pr-10 text-base focus:outline-none focus:ring-2 focus:ring-ring"
-          disabled={disabled}
-          data-testid={inputTestId}
-        />
-        <button
-          type="button"
-          onClick={onAddressBookClick}
-          className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
-          aria-label={addressBookAriaLabel}
-          disabled={addressBookDisabled}
-          data-testid={addressBookTestId}
-        >
-          <BookUser className="h-4 w-4" />
-        </button>
+      <div className="flex-1">
+        <div className="flex items-center gap-3 rounded-md border bg-background px-3 focus-within:ring-2 focus-within:ring-ring">
+          <input
+            ref={inputRef}
+            id={inputId}
+            type="text"
+            autoComplete="off"
+            value={value}
+            onChange={(e) => onValueChange(e.target.value)}
+            placeholder={placeholder}
+            className="min-w-0 flex-1 bg-transparent py-2 text-base focus:outline-none"
+            disabled={disabled}
+            data-testid={inputTestId}
+          />
+          <button
+            type="button"
+            onClick={onAddressBookClick}
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+            aria-label={addressBookAriaLabel}
+            disabled={addressBookDisabled}
+            data-testid={addressBookTestId}
+          >
+            <BookUser className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </div>
   );
