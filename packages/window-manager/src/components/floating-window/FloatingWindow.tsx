@@ -6,7 +6,6 @@ import {
   useState
 } from 'react';
 import { useFloatingWindow } from '../../hooks/useFloatingWindow.js';
-import { cn } from '../../lib/utils.js';
 import {
   DESKTOP_BREAKPOINT,
   MAX_FIT_CONTENT_ATTEMPTS,
@@ -14,12 +13,12 @@ import {
 } from './constants.js';
 import { FloatingWindowBody } from './FloatingWindowBody.js';
 import { FloatingWindowResizeHandles } from './FloatingWindowResizeHandles.js';
+import { FloatingWindowSurface } from './FloatingWindowSurface.js';
 import type {
   FloatingWindowProps,
   PreMaximizeState,
   WindowDimensions
 } from './types.js';
-import { buildFloatingWindowStyles } from './windowStyles.js';
 
 export type { FloatingWindowProps, WindowDimensions } from './types.js';
 
@@ -298,32 +297,21 @@ export function FloatingWindow({
   ]);
 
   return (
-    // biome-ignore lint/a11y/useKeyWithClickEvents: Window focus on click
-    <div
-      ref={windowRef}
-      className={cn(
-        'floating-window fixed flex flex-col overflow-hidden border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80',
-        isDesktop && !isMaximized && 'rounded-lg',
-        !isDesktop && 'inset-x-0 bottom-0 rounded-t-lg'
-      )}
-      style={buildFloatingWindowStyles({
-        isDesktop,
-        isMaximized,
-        isNearMaximized,
-        width,
-        height,
-        x,
-        y,
-        zIndex,
-        maxWidthPercent,
-        maxHeightPercent
-      })}
-      role="dialog"
-      aria-modal="false"
-      aria-label={title}
+    <FloatingWindowSurface
+      windowRef={windowRef}
+      id={id}
+      title={title}
+      isDesktop={isDesktop}
+      isMaximized={isMaximized}
+      isNearMaximized={isNearMaximized}
+      width={width}
+      height={height}
+      x={x}
+      y={y}
+      zIndex={zIndex}
+      maxWidthPercent={maxWidthPercent}
+      maxHeightPercent={maxHeightPercent}
       onClick={handleWindowClick}
-      data-testid={`floating-window-${id}`}
-      data-maximized={isMaximized}
     >
       {isDesktop && !isMaximized && (
         <FloatingWindowResizeHandles
@@ -352,6 +340,6 @@ export function FloatingWindow({
       >
         {children}
       </FloatingWindowBody>
-    </div>
+    </FloatingWindowSurface>
   );
 }
