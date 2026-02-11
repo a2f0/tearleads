@@ -378,21 +378,23 @@ export function FloatingWindow({
         />
       )}
       <FloatingWindowBody
-        id={id}
-        title={title}
-        isDesktop={isDesktop}
-        isMaximized={isMaximized}
-        width={width}
-        height={height}
-        x={x}
-        y={y}
-        onMinimize={onMinimize}
-        onClose={onClose}
-        onToggleMaximize={handleMaximize}
-        dragHandlers={dragHandlers}
-        titleBarRef={titleBarRef}
+        titleBarProps={{
+          id,
+          title,
+          isDesktop,
+          isMaximized,
+          width,
+          height,
+          x,
+          y,
+          onMinimize,
+          onClose,
+          onToggleMaximize: handleMaximize,
+          dragHandlers,
+          titleBarRef,
+          preMaximizeDimensions: preMaximizeStateRef.current
+        }}
         contentRef={contentRef}
-        preMaximizeDimensions={preMaximizeStateRef.current}
       >
         {children}
       </FloatingWindowBody>

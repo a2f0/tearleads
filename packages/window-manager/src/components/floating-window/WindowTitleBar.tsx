@@ -7,7 +7,7 @@ interface DragHandlers {
   onTouchStart: (event: React.TouchEvent) => void;
 }
 
-interface WindowTitleBarProps {
+export interface WindowTitleBarProps {
   id: string;
   title: string;
   isDesktop: boolean;
