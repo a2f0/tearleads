@@ -75,3 +75,6 @@ coverage/
 *.tfvars
 !*.tfvars.example
 .terraform.lock.hcl
+
+# Serena MCP local project state
+.serena/
