@@ -1,7 +1,7 @@
 /**
  * Backup Importer Service
  *
- * Restores .rbu backup files by:
+ * Restores .tbu backup files by:
  * 1. Creating a new database instance
  * 2. Restoring database data
  * 3. Restoring file blobs

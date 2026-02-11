@@ -7,8 +7,8 @@
 - `tearleads setup` Ініціалізує нову зашифровану базу даних.
 - `tearleads unlock` Розблоковує базу даних (відновлює сесію за наявності).
 - `tearleads lock` Блокує базу даних.
-- `tearleads backup <file>` Експортує зашифрований `.rbu` backup.
-- `tearleads restore <file>` Імпортує зашифрований `.rbu` backup.
+- `tearleads backup <file>` Експортує зашифрований `.tbu` backup.
+- `tearleads restore <file>` Імпортує зашифрований `.tbu` backup.
 - `tearleads dump <folder>` Експортує незашифрований JSON.
 - `tearleads password` Змінює пароль бази даних.
 - `tearleads list-instances` Показує стан інстансу і сесії.
@@ -57,11 +57,11 @@ tearleads lock
 
 ### `backup <file>`
 
-Експортує поточний стан бази у зашифрований `.rbu` backup.
+Експортує поточний стан бази у зашифрований `.tbu` backup.
 
 ```bash
-tearleads backup ./backup.rbu
-tearleads backup ./backup.rbu --password "backup-pass"
+tearleads backup ./backup.tbu
+tearleads backup ./backup.tbu --password "backup-pass"
 ```
 
 Опції:
@@ -75,12 +75,12 @@ tearleads backup ./backup.rbu --password "backup-pass"
 
 ### `restore <file>`
 
-Відновлює вміст бази із зашифрованого `.rbu` backup.
+Відновлює вміст бази із зашифрованого `.tbu` backup.
 
 ```bash
-tearleads restore ./backup.rbu
-tearleads restore ./backup.rbu --force
-tearleads restore ./backup.rbu --password "backup-pass"
+tearleads restore ./backup.tbu
+tearleads restore ./backup.tbu --force
+tearleads restore ./backup.tbu --password "backup-pass"
 ```
 
 Опції:
@@ -104,12 +104,12 @@ tearleads restore ./backup.rbu --password "backup-pass"
 tearleads dump ./dump-output
 tearleads dump ./dump-output --force
 tearleads dump ./dump-output --no-blobs
-tearleads dump ./dump-output --input-file ./backup.rbu --password "backup-pass"
+tearleads dump ./dump-output --input-file ./backup.tbu --password "backup-pass"
 ```
 
 Опції:
 
-- `-f, --input-file <file>` Читати з `.rbu` backup замість live БД.
+- `-f, --input-file <file>` Читати з `.tbu` backup замість live БД.
 - `-p, --password <password>` Пароль backup для `--input-file`.
 - `--force` Перезаписати наявну папку без підтвердження.
 - `--no-blobs` Не створювати директорію `files/`.

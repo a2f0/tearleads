@@ -58,7 +58,7 @@ export async function listStoredBackups(): Promise<StoredBackup[]> {
 
   for await (const [name, handle] of iterator) {
     if (isFileHandle(handle)) {
-      if (!name.endsWith('.rbu')) {
+      if (!name.endsWith('.tbu')) {
         continue;
       }
       const file = await handle.getFile();

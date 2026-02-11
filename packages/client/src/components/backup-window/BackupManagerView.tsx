@@ -58,7 +58,7 @@ function formatBackupFilename(date: Date): string {
   const hours = String(date.getHours()).padStart(2, '0');
   const minutes = String(date.getMinutes()).padStart(2, '0');
   const seconds = String(date.getSeconds()).padStart(2, '0');
-  return `tearleads-backup-${year}-${month}-${day}-${hours}${minutes}${seconds}.rbu`;
+  return `tearleads-backup-${year}-${month}-${day}-${hours}${minutes}${seconds}.tbu`;
 }
 
 function formatDate(timestamp: number): string {
@@ -592,7 +592,7 @@ export function BackupManagerView() {
         <input
           ref={fileInputRef}
           type="file"
-          accept=".rbu"
+          accept=".tbu"
           onChange={handleFileInputChange}
           className="hidden"
         />
@@ -602,7 +602,7 @@ export function BackupManagerView() {
             onClick={handleSelectFile}
             className="w-full"
           >
-            Select Backup File (.rbu)
+            Select Backup File (.tbu)
           </Button>
         )}
 

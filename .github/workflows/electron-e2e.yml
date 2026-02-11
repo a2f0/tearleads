@@ -159,7 +159,7 @@ jobs:
 
       - name: Validate backup file
         run: |
-          BACKUP_FILE="packages/client/playwright-report/backups/electron-backup.rbu"
+          BACKUP_FILE="packages/client/playwright-report/backups/electron-backup.tbu"
           DUMP_OUTPUT="packages/client/playwright-report/backups/dump-output"
 
           if [ -f "$BACKUP_FILE" ]; then

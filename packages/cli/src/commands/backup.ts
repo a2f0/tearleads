@@ -82,7 +82,7 @@ export async function runBackup(
 }
 
 export const backupCommand = new Command('backup')
-  .description('Export database to an encrypted .rbu backup file')
+  .description('Export database to an encrypted .tbu backup file')
   .argument('<file>', 'Output file path')
   .option('-p, --password <password>', 'Backup password')
   .action(runBackup);

@@ -1,18 +1,18 @@
 # Backup and Restore
 
-Tearleads provides a universal backup format (.rbu) that works across all platforms. Backups include your database schema, data, and files, all protected with strong encryption.
+Tearleads provides a universal backup format (.tbu) that works across all platforms. Backups include your database schema, data, and files, all protected with strong encryption.
 
-## RBU File Format Specification
+## TBU File Format Specification
 
-The **Tearleads Backup Universal** (.rbu) format is a cross-platform backup format designed for secure, portable backups.
+The **Tearleads Backup Utility** (.tbu) format is a cross-platform backup format designed for secure, portable backups.
 
 ### File Structure
 
 ```text
 ┌─────────────────────────────────────────┐
-│              HEADER (32 bytes)          │
+│              HEADER (36 bytes)          │
 ├─────────────────────────────────────────┤
-│    Magic Bytes: "TEARLEADSBAK" (8 bytes)    │
+│   Magic Bytes: "TEARLEADSBAK" (12 bytes)    │
 │    Format Version (2 bytes, LE)         │
 │    Flags (2 bytes, LE)                  │
 │    Salt (16 bytes)                      │
@@ -26,15 +26,15 @@ The **Tearleads Backup Universal** (.rbu) format is a cross-platform backup form
 └─────────────────────────────────────────┘
 ```
 
-### Header Format (32 bytes, plaintext)
+### Header Format (36 bytes, plaintext)
 
 | Offset | Size | Field | Description |
 | ------ | ---- | ----- | ----------- |
-| 0 | 8 | Magic | `TEARLEADSBAK` (0x52 0x41 0x50 0x49 0x44 0x42 0x41 0x4b) |
-| 8 | 2 | Version | Format version (currently 1), little-endian |
-| 10 | 2 | Flags | Reserved for future use |
-| 12 | 16 | Salt | Random salt for PBKDF2 key derivation |
-| 28 | 4 | Reserved | Reserved for future expansion |
+| 0 | 12 | Magic | `TEARLEADSBAK` (0x54 0x45 0x41 0x52 0x4c 0x45 0x41 0x44 0x53 0x42 0x41 0x4b) |
+| 12 | 2 | Version | Format version (currently 1), little-endian |
+| 14 | 2 | Flags | Reserved for future use |
+| 16 | 16 | Salt | Random salt for PBKDF2 key derivation |
+| 32 | 4 | Reserved | Reserved for future expansion |
 
 ### Encryption
 
@@ -128,16 +128,16 @@ Contains file data. Large files (>10 MB) are split across multiple chunks:
    - **Modern browsers**: Stored in browser storage (OPFS) and listed in "Stored Backups"
    - **Other browsers**: Downloaded to your Downloads folder
 
-The backup file is named `tearleads-backup-YYYY-MM-DD-HHmmss.rbu`.
+The backup file is named `tearleads-backup-YYYY-MM-DD-HHmmss.tbu`.
 
 ### From the CLI
 
 ```bash
 # Interactive (prompts for password)
-tearleads backup /path/to/backup.rbu
+tearleads backup /path/to/backup.tbu
 
 # Non-interactive
-tearleads backup /path/to/backup.rbu --password "your-backup-password"
+tearleads backup /path/to/backup.tbu --password "your-backup-password"
 ```
 
 Note: CLI backups include database data but not files (blobs).
@@ -163,18 +163,18 @@ If your browser supports OPFS, backups are stored locally and listed in the "Sto
 ### From an External File
 
 1. Open **Settings** and navigate to **Backups**
-2. In the "Restore from File" section, click **Select Backup File (.rbu)**
-3. Choose a `.rbu` file from your computer
+2. In the "Restore from File" section, click **Select Backup File (.tbu)**
+3. Choose a `.tbu` file from your computer
 4. Follow the same validation and restore steps as above
 
 ### Restore from the CLI
 
 ```bash
 # Interactive (prompts for password and confirmation)
-tearleads restore /path/to/backup.rbu
+tearleads restore /path/to/backup.tbu
 
 # Non-interactive
-tearleads restore /path/to/backup.rbu --password "backup-password" --force
+tearleads restore /path/to/backup.tbu --password "backup-password" --force
 ```
 
 Warning: CLI restore replaces the current database. Use `--force` to skip confirmation.
@@ -222,9 +222,9 @@ The password entered doesn't match the password used to create the backup. Try a
 
 ### "Invalid backup file" error
 
-The file may be corrupted or not a valid .rbu file. Check that:
+The file may be corrupted or not a valid .tbu file. Check that:
 
-- The file has the `.rbu` extension
+- The file has the `.tbu` extension
 - The file wasn't modified or truncated
 - The file was fully downloaded/transferred
 

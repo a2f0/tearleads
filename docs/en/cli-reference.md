@@ -7,8 +7,8 @@ This reference documents the current `tearleads` CLI behavior from `packages/cli
 - `tearleads setup` Initialize a new encrypted database.
 - `tearleads unlock` Unlock the database (restores session when available).
 - `tearleads lock` Lock the database.
-- `tearleads backup <file>` Export an encrypted `.rbu` backup file.
-- `tearleads restore <file>` Import an encrypted `.rbu` backup file.
+- `tearleads backup <file>` Export an encrypted `.tbu` backup file.
+- `tearleads restore <file>` Import an encrypted `.tbu` backup file.
 - `tearleads dump <folder>` Export unencrypted JSON files.
 - `tearleads password` Change the database password.
 - `tearleads list-instances` Show instance and session status.
@@ -57,11 +57,11 @@ tearleads lock
 
 ### `backup <file>`
 
-Export current database state to an encrypted `.rbu` backup file.
+Export current database state to an encrypted `.tbu` backup file.
 
 ```bash
-tearleads backup ./backup.rbu
-tearleads backup ./backup.rbu --password "backup-pass"
+tearleads backup ./backup.tbu
+tearleads backup ./backup.tbu --password "backup-pass"
 ```
 
 Options:
@@ -75,12 +75,12 @@ If `--password` is omitted, prompts:
 
 ### `restore <file>`
 
-Restore database contents from an encrypted `.rbu` backup.
+Restore database contents from an encrypted `.tbu` backup.
 
 ```bash
-tearleads restore ./backup.rbu
-tearleads restore ./backup.rbu --force
-tearleads restore ./backup.rbu --password "backup-pass"
+tearleads restore ./backup.tbu
+tearleads restore ./backup.tbu --force
+tearleads restore ./backup.tbu --password "backup-pass"
 ```
 
 Options:
@@ -104,12 +104,12 @@ Dump schema and data to unencrypted JSON files.
 tearleads dump ./dump-output
 tearleads dump ./dump-output --force
 tearleads dump ./dump-output --no-blobs
-tearleads dump ./dump-output --input-file ./backup.rbu --password "backup-pass"
+tearleads dump ./dump-output --input-file ./backup.tbu --password "backup-pass"
 ```
 
 Options:
 
-- `-f, --input-file <file>` Read from `.rbu` backup instead of live DB.
+- `-f, --input-file <file>` Read from `.tbu` backup instead of live DB.
 - `-p, --password <password>` Backup password for `--input-file`.
 - `--force` Overwrite existing output folder without prompt.
 - `--no-blobs` Skip creating the `files/` directory.

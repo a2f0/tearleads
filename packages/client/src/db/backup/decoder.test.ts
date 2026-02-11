@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FORMAT_VERSION, MAGIC_BYTES } from './constants';
+import { FORMAT_VERSION, HEADER_SIZE, MAGIC_BYTES } from './constants';
 import {
   BackupDecodeError,
   decode,
@@ -65,7 +65,7 @@ describe('decoder', () => {
     });
 
     it('throws on invalid magic bytes', () => {
-      const invalid = new Uint8Array(32).fill(0);
+      const invalid = new Uint8Array(HEADER_SIZE).fill(0);
       expect(() => readHeader(invalid)).toThrow('wrong magic bytes');
     });
   });
@@ -174,7 +174,7 @@ describe('decoder', () => {
     });
 
     it('returns invalid for corrupted header', async () => {
-      const corrupted = new Uint8Array(32).fill(0);
+      const corrupted = new Uint8Array(HEADER_SIZE).fill(0);
       const result = await validateBackup(corrupted, 'any-password');
 
       expect(result.valid).toBe(false);
@@ -195,7 +195,7 @@ describe('decoder', () => {
       });
 
       // Truncate the file after the header
-      const truncated = encoded.slice(0, 33);
+      const truncated = encoded.slice(0, HEADER_SIZE + 1);
       const result = await validateBackup(truncated, password);
 
       expect(result.valid).toBe(false);

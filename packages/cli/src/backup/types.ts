@@ -1,7 +1,7 @@
 /**
  * Universal Backup Format Types
  *
- * Defines the structure of .rbu backup files that work across
+ * Defines the structure of .tbu backup files that work across
  * all platforms (Web, Electron, iOS, Android, CLI).
  */
 

@@ -1,5 +1,5 @@
 /**
- * Encoder for the Universal Backup Format (.rbu)
+ * Encoder for the Tearleads Backup Utility format (.tbu)
  *
  * Writes backup files with the following structure:
  * - Header (32 bytes, plaintext): magic, version, flags, salt
