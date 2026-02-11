@@ -1,5 +1,5 @@
-import MDEditor from '@uiw/react-md-editor';
 import { useResizableSidebar } from '@rapid/window-manager';
+import MDEditor from '@uiw/react-md-editor';
 import {
   type HTMLAttributes,
   isValidElement,
