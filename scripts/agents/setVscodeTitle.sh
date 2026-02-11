@@ -22,8 +22,13 @@ usage() {
     exit 0
 }
 
-if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
-    usage
+if [ "$#" -gt 0 ]; then
+    if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
+        usage
+    else
+        echo "Error: This script does not accept arguments. Use -h for help." >&2
+        exit 1
+    fi
 fi
 
 mkdir -p "$VSCODE_DIR"
