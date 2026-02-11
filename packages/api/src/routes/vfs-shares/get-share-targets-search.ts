@@ -59,8 +59,8 @@ export const getShareTargetsSearchHandler = async (
   }
 
   const searchQuery = `%${q.trim().toLowerCase()}%`;
-  const filterType =
-    type && isValidShareType(type) ? (type as VfsShareType) : null;
+  const filterType: VfsShareType | null =
+    type && isValidShareType(type) ? type : null;
 
   try {
     const pool = await getPostgresPool();

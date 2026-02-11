@@ -13,7 +13,7 @@ const VALID_MESSAGE_ROLES: AiMessageRole[] = ['system', 'user', 'assistant'];
 function isValidMessageRole(value: unknown): value is AiMessageRole {
   return (
     typeof value === 'string' &&
-    VALID_MESSAGE_ROLES.includes(value as AiMessageRole)
+    VALID_MESSAGE_ROLES.some((role) => role === value)
   );
 }
 

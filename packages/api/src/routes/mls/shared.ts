@@ -14,9 +14,15 @@ import type {
 import { isRecord, MLS_CIPHERSUITES } from '@rapid/shared';
 
 function isValidCipherSuite(value: unknown): value is MlsCipherSuite {
+  const cipherSuites: MlsCipherSuite[] = [];
+  for (const suite of Object.values(MLS_CIPHERSUITES)) {
+    if (typeof suite === 'number') {
+      cipherSuites.push(suite);
+    }
+  }
   return (
     typeof value === 'number' &&
-    Object.values(MLS_CIPHERSUITES).includes(value as MlsCipherSuite)
+    cipherSuites.some((cipherSuite) => cipherSuite === value)
   );
 }
 

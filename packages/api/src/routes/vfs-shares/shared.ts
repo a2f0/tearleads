@@ -17,14 +17,14 @@ const VALID_PERMISSION_LEVELS: VfsPermissionLevel[] = [
 export function isValidShareType(value: unknown): value is VfsShareType {
   return (
     typeof value === 'string' &&
-    VALID_SHARE_TYPES.includes(value as VfsShareType)
+    VALID_SHARE_TYPES.some((shareType) => shareType === value)
   );
 }
 
 function isValidPermissionLevel(value: unknown): value is VfsPermissionLevel {
   return (
     typeof value === 'string' &&
-    VALID_PERMISSION_LEVELS.includes(value as VfsPermissionLevel)
+    VALID_PERMISSION_LEVELS.some((permissionLevel) => permissionLevel === value)
   );
 }
 
