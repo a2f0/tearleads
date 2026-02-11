@@ -136,10 +136,9 @@ export function SearchWindowContent({
   };
 
   // Keep keyboard flow in search input when opening or changing view mode.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refocus input when the view mode prop changes.
   useEffect(() => {
-    if (viewMode === 'list' || viewMode === 'table') {
-      inputRef.current?.focus();
-    }
+    inputRef.current?.focus();
   }, [viewMode]);
 
   // Search function
