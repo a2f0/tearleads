@@ -1,106 +1,106 @@
 # Tuxedo
 
-Tuxedo is a tmux-driven workspace orchestrator for the tearleads development setup.
-It creates a tmux session with windows for each workspace and can optionally
-persist each workspace shell via GNU screen.
+Tuxedo es un orquestador de espacios de trabajo basado en tmux para la configuración de desarrollo de tearleads.
+Crea una sesión de tmux con ventanas para cada workspace y, opcionalmente,
+persiste cada shell de workspace mediante GNU screen.
 
-## Layout
+## Estructura
 
-- `tuxedo/tuxedo.sh`: main entrypoint
-- `tuxedo/tuxedoKill.sh`: teardown helper
-- `tuxedo/config/`: tmux, screen, neovim, and Ghostty config
-- `tuxedo/lib/`: reusable shell helpers
-- `tuxedo/scripts/`: PR dashboard scripts used by Tuxedo windows
-- `tuxedo/tests/`: shell tests and coverage scripts
+- `tuxedo/tuxedo.sh`: punto de entrada principal
+- `tuxedo/tuxedoKill.sh`: helper para desmontar
+- `tuxedo/config/`: configuración de tmux, screen, neovim y Ghostty
+- `tuxedo/lib/`: helpers de shell reutilizables
+- `tuxedo/scripts/`: scripts del panel de PR usados por las ventanas de Tuxedo
+- `tuxedo/tests/`: pruebas de shell y scripts de cobertura
 
-Wrapper scripts remain at `scripts/tuxedo.sh` and `scripts/tuxedoKill.sh` for
-backwards compatibility.
+Los scripts wrapper se mantienen en `scripts/tuxedo.sh` y `scripts/tuxedoKill.sh` por
+compatibilidad con versiones anteriores.
 
-## Workspace naming
+## Nombres de workspaces
 
-Tuxedo assumes a `tearleads-shared` workspace plus one or more numbered workspaces:
+Tuxedo asume un workspace `tearleads-shared` más uno o varios workspaces numerados:
 
-- `tearleads-shared`: shared `.secrets`, `.test_files`, and `packages/api/.env` source of truth
-- `tearleads-main`: first workspace window
-- `tearleads2...tearleadsN`: additional workspaces based on `TUXEDO_WORKSPACES`
+- `tearleads-shared`: fuente de verdad compartida para `.secrets`, `.test_files` y `packages/api/.env`
+- `tearleads-main`: primera ventana de workspace
+- `tearleads2...tearleadsN`: workspaces adicionales según `TUXEDO_WORKSPACES`
 
-## Requirements
+## Requisitos
 
-- `tmux` (required)
-- `screen` (optional, enables session persistence)
-- `nvim` (optional, used by the default editor command)
-- `jq` (optional, used to sync VS Code window titles)
-- `ghostty` (optional, used when launched outside a terminal)
+- `tmux` (obligatorio)
+- `screen` (opcional, habilita persistencia de sesión)
+- `nvim` (opcional, usado por el comando de editor predeterminado)
+- `jq` (opcional, usado para sincronizar los títulos de ventana de VS Code)
+- `ghostty` (opcional, usado cuando se inicia fuera de una terminal)
 
-## Usage
+## Uso
 
 ```sh
-# Run tuxedo
+# Ejecutar tuxedo
 ./tuxedo/tuxedo.sh
 
-# Or via legacy wrapper
+# O mediante el wrapper heredado
 ./scripts/tuxedo.sh
 ```
 
-### Environment variables
+### Variables de entorno
 
-- `TUXEDO_BASE_DIR`: base directory for workspaces (default: `$HOME/github`)
-- `TUXEDO_EDITOR`: editor command for the right tmux pane
-- `TUXEDO_WORKSPACES`: number of workspaces to create (default: 10)
-- `TUXEDO_FORCE_SCREEN`: force GNU screen on (`1`)
-- `TUXEDO_FORCE_NO_SCREEN`: force GNU screen off (`1`)
-- `TUXEDO_ENABLE_PR_DASHBOARDS`: enable PR dashboards in windows 0/1 (`1` by default)
-- `TUXEDO_PR_REFRESH_SECONDS`: refresh interval for PR dashboards (default: `30`)
-- `TUXEDO_PR_LIST_LIMIT`: PR count per dashboard refresh (default: `20`)
-- `TUXEDO_SKIP_MAIN`: skip running the main flow (`1`, used by tests)
+- `TUXEDO_BASE_DIR`: directorio base para workspaces (predeterminado: `$HOME/github`)
+- `TUXEDO_EDITOR`: comando de editor para el panel derecho de tmux
+- `TUXEDO_WORKSPACES`: cantidad de workspaces a crear (predeterminado: 10)
+- `TUXEDO_FORCE_SCREEN`: fuerza activar GNU screen (`1`)
+- `TUXEDO_FORCE_NO_SCREEN`: fuerza desactivar GNU screen (`1`)
+- `TUXEDO_ENABLE_PR_DASHBOARDS`: habilita paneles de PR en ventanas 0/1 (`1` por defecto)
+- `TUXEDO_PR_REFRESH_SECONDS`: intervalo de actualización para paneles de PR (predeterminado: `30`)
+- `TUXEDO_PR_LIST_LIMIT`: cantidad de PR por actualización del panel (predeterminado: `20`)
+- `TUXEDO_SKIP_MAIN`: omite la ejecución del flujo principal (`1`, usado por pruebas)
 
-## Configuration
+## Configuración
 
-- `tuxedo/config/tmux.conf`: tmux layout, key bindings, and status bar
-- `tuxedo/config/screenrc`: GNU screen settings for persistent panes
-- `tuxedo/config/neovim.lua`: default Neovim config for the editor pane
-- `tuxedo/config/ghostty.conf`: Ghostty defaults when no TTY is present
+- `tuxedo/config/tmux.conf`: layout de tmux, atajos de teclado y barra de estado
+- `tuxedo/config/screenrc`: configuración de GNU screen para paneles persistentes
+- `tuxedo/config/neovim.lua`: configuración predeterminada de Neovim para el panel del editor
+- `tuxedo/config/ghostty.conf`: valores predeterminados de Ghostty cuando no hay TTY
 
-### Shell PATH setup
+### Configuración de PATH en shell
 
-Tuxedo sets `TUXEDO_WORKSPACE` to the workspace root for each pane. Add this to
-your shell config to include workspace scripts in PATH:
+Tuxedo define `TUXEDO_WORKSPACE` como la raíz del workspace para cada panel. Añada esto a
+la configuración de su shell para incluir scripts del workspace en `PATH`:
 
 ```sh
-# For zsh: add to ~/.zshenv (sourced for ALL shells, including non-interactive)
-# For bash: add to ~/.bashrc
+# Para zsh: añadir a ~/.zshenv (se carga para TODAS las shells, incluidas las no interactivas)
+# Para bash: añadir a ~/.bashrc
 if [ -n "$TUXEDO_WORKSPACE" ]; then
   export PATH="$TUXEDO_WORKSPACE/scripts:$TUXEDO_WORKSPACE/scripts/agents:$PATH"
 fi
 ```
 
-Using `.zshenv` ensures scripts are available in non-interactive shells (e.g.,
-when Codex or other agents run commands).
+Usar `.zshenv` garantiza que los scripts estén disponibles en shells no interactivas (p. ej.,
+cuando Codex u otros agentes ejecutan comandos).
 
-This enables running scripts like `refresh.sh`, `bumpVersion.sh`, and agent
-scripts directly without specifying the full path.
+Esto permite ejecutar scripts como `refresh.sh`, `bumpVersion.sh` y scripts de agentes
+directamente sin especificar la ruta completa.
 
-## Behavior notes
+## Notas de comportamiento
 
-- Uses `tearleads-shared/` as the source of truth for `.secrets`, `.test_files`, and `packages/api/.env`.
-- Starts `listOpenPrs.sh` in window `0` and `listRecentClosedPrs.sh` in window `1` (left pane) with auto-refresh.
-- Automatically fast-forwards clean `main` workspaces before setting symlinks.
-- When `screen` is available, each workspace runs inside a named screen session
-  so long-running processes survive tmux restarts.
-- When a session already exists, Tuxedo attaches to it and syncs VS Code titles
-  instead of recreating tmux windows.
+- Usa `tearleads-shared/` como fuente de verdad para `.secrets`, `.test_files` y `packages/api/.env`.
+- Inicia `listOpenPrs.sh` en la ventana `0` y `listRecentClosedPrs.sh` en la ventana `1` (panel izquierdo) con actualización automática.
+- Hace fast-forward automáticamente en workspaces `main` limpios antes de crear symlinks.
+- Cuando `screen` está disponible, cada workspace se ejecuta dentro de una sesión screen con nombre
+  para que los procesos de larga duración sobrevivan a reinicios de tmux.
+- Cuando ya existe una sesión, Tuxedo se adjunta a ella y sincroniza los títulos de VS Code
+  en lugar de recrear ventanas de tmux.
 
-## Tests
+## Pruebas
 
 ```sh
-# Run tuxedo shell tests
+# Ejecutar pruebas de shell de tuxedo
 ./tuxedo/tests/run.sh
 
-# Generate coverage (requires bashcov + bash >= 4)
+# Generar cobertura (requiere bashcov + bash >= 4)
 ./tuxedo/tests/coverage.sh
 
-# Or via pnpm script
+# O mediante script de pnpm
 pnpm test:coverage
 ```
 
-The coverage run writes a summary baseline to `tuxedo/tests/coverage-baseline.txt`.
+La ejecución de cobertura escribe un baseline de resumen en `tuxedo/tests/coverage-baseline.txt`.
