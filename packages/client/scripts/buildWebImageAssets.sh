@@ -19,6 +19,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 CLIENT_DIR="$(dirname "$SCRIPT_DIR")"
 SVG_SOURCE="$CLIENT_DIR/../ui/src/images/logo.svg"
 OUTPUT_DIR="$CLIENT_DIR/public/generated"
+WEBSITE_PUBLIC_DIR="$CLIENT_DIR/../website/public"
 
 # Colors
 BACKGROUND_COLOR="#FFFFFF"
@@ -58,6 +59,12 @@ check_svgo
 
 # Create output directory
 mkdir -p "$OUTPUT_DIR"
+
+# Verify website public directory exists for deploy sync
+if [ ! -d "$WEBSITE_PUBLIC_DIR" ]; then
+    echo "Error: Website public directory not found at $WEBSITE_PUBLIC_DIR" >&2
+    exit 1
+fi
 
 echo "Generating web images from $SVG_SOURCE"
 echo "Output directory: $OUTPUT_DIR"
@@ -162,6 +169,10 @@ generate_svg_favicon
 generate_png_favicons
 generate_ico
 generate_manifest
+
+# Keep website favicon in sync with generated assets used by mobile/desktop scripts.
+cp "$OUTPUT_DIR/favicon.svg" "$WEBSITE_PUBLIC_DIR/favicon.svg"
+echo "Updated website favicon at $WEBSITE_PUBLIC_DIR/favicon.svg"
 
 total_time=$(($(date +%s) - start_time))
 echo ""
