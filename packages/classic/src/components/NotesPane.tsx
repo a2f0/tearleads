@@ -62,6 +62,7 @@ export function NotesPane({
   const [draggedNoteId, setDraggedNoteId] = useState<string | null>(null);
   const [lastHoverNoteId, setLastHoverNoteId] = useState<string | null>(null);
   const [dragArmedNoteId, setDragArmedNoteId] = useState<string | null>(null);
+  const [dropTargetNoteId, setDropTargetNoteId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
   const [editBody, setEditBody] = useState('');
   const editTitleRef = useRef<HTMLInputElement>(null);
@@ -170,7 +171,11 @@ export function NotesPane({
               return (
                 <li
                   key={note.id}
-                  className="rounded p-3"
+                  className={
+                    dropTargetNoteId === note.id
+                      ? 'rounded bg-emerald-200 ring-2 ring-emerald-500/60 p-3'
+                      : 'rounded p-3'
+                  }
                   draggable
                   onDragStart={(event) => {
                     const target = event.target;
@@ -192,13 +197,30 @@ export function NotesPane({
                     setDraggedNoteId(null);
                     setLastHoverNoteId(null);
                     setDragArmedNoteId(null);
+                    setDropTargetNoteId(null);
                   }}
                   onDragOver={(event) => {
                     const types = event.dataTransfer?.types ?? [];
                     const hasTag = types.includes(DRAG_TYPE_TAG);
-                    if (hasTag && onTagNote) {
+                    const hasPlainText = types.includes('text/plain');
+                    const hasSafariPlainText = types.includes(
+                      'public.utf8-plain-text'
+                    );
+                    const hasExternalClassicTagDrag =
+                      (hasPlainText || hasSafariPlainText) &&
+                      draggedNoteId === null;
+                    if (
+                      (hasTag || hasExternalClassicTagDrag) &&
+                      onTagNote
+                    ) {
                       event.preventDefault();
+                      if (dropTargetNoteId !== note.id) {
+                        setDropTargetNoteId(note.id);
+                      }
                       return;
+                    }
+                    if (dropTargetNoteId === note.id) {
+                      setDropTargetNoteId(null);
                     }
                     if (!draggedNoteId || draggedNoteId === note.id) {
                       return;
@@ -210,12 +232,43 @@ export function NotesPane({
                     onReorderNote(draggedNoteId, note.id);
                     setLastHoverNoteId(note.id);
                   }}
+                  onDragEnter={(event) => {
+                    const types = event.dataTransfer?.types ?? [];
+                    const hasTag = types.includes(DRAG_TYPE_TAG);
+                    const hasPlainText = types.includes('text/plain');
+                    const hasSafariPlainText = types.includes(
+                      'public.utf8-plain-text'
+                    );
+                    const hasExternalClassicTagDrag =
+                      (hasPlainText || hasSafariPlainText) &&
+                      draggedNoteId === null;
+                    if (
+                      (hasTag || hasExternalClassicTagDrag) &&
+                      onTagNote &&
+                      dropTargetNoteId !== note.id
+                    ) {
+                      setDropTargetNoteId(note.id);
+                    }
+                  }}
                   onDrop={(event) => {
                     event.preventDefault();
                     setDragArmedNoteId(null);
-                    const tagId = event.dataTransfer.getData(DRAG_TYPE_TAG);
+                    setDropTargetNoteId(null);
+                    const customTagId =
+                      event.dataTransfer.getData(DRAG_TYPE_TAG);
+                    const fallbackTagId =
+                      draggedNoteId === null
+                        ? event.dataTransfer.getData('text/plain') ||
+                          event.dataTransfer.getData('public.utf8-plain-text')
+                        : '';
+                    const tagId = customTagId || fallbackTagId;
                     if (tagId && onTagNote) {
                       onTagNote(tagId, note.id);
+                    }
+                  }}
+                  onDragLeave={() => {
+                    if (dropTargetNoteId === note.id) {
+                      setDropTargetNoteId(null);
                     }
                   }}
                   onContextMenu={(event) => {

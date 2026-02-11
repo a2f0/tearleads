@@ -288,4 +288,63 @@ describe('TagSidebar', () => {
 
     expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
   });
+
+  it('highlights a tag while it is a valid note drop target', () => {
+    const dataTransfer = {
+      types: ['application/x-classic-note'],
+      getData: vi.fn().mockReturnValue('note-1')
+    } as unknown as DataTransfer;
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onTagNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const tagItem = screen.getByLabelText('Select tag Work').closest('li');
+    if (!tagItem) throw new Error('Expected tag list item');
+
+    fireEvent.dragEnter(tagItem, { dataTransfer });
+    expect(tagItem).toHaveClass('bg-emerald-200');
+
+    fireEvent.dragLeave(tagItem, { dataTransfer });
+    expect(tagItem).not.toHaveClass('bg-emerald-200');
+  });
+
+  it('highlights and accepts plain-text fallback for note drops', () => {
+    const onTagNote = vi.fn();
+    const dataTransfer = {
+      types: ['text/plain'],
+      getData: vi.fn((key: string) => (key === 'text/plain' ? 'note-1' : ''))
+    } as unknown as DataTransfer;
+
+    render(
+      <TagSidebar
+        tags={[{ id: 'tag-1', name: 'Work' }]}
+        activeTagId={null}
+        onSelectTag={() => {}}
+        onMoveTag={() => {}}
+        onReorderTag={() => {}}
+        onTagNote={onTagNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const tagItem = screen.getByLabelText('Select tag Work').closest('li');
+    if (!tagItem) throw new Error('Expected tag list item');
+
+    fireEvent.dragEnter(tagItem, { dataTransfer });
+    expect(tagItem).toHaveClass('bg-emerald-200');
+
+    fireEvent.drop(tagItem, { dataTransfer });
+    expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
+  });
 });

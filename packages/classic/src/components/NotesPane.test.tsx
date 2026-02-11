@@ -228,4 +228,67 @@ describe('NotesPane', () => {
 
     expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
   });
+
+  it('highlights an entry while it is a valid tag drop target', () => {
+    const dataTransfer = {
+      types: ['application/x-classic-tag'],
+      getData: vi.fn().mockReturnValue('tag-1')
+    } as unknown as DataTransfer;
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onTagNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const noteItem = screen.getByText('Alpha').closest('li');
+    if (!noteItem) throw new Error('Expected note list item');
+
+    fireEvent.dragEnter(noteItem, { dataTransfer });
+    expect(noteItem).toHaveClass('bg-emerald-200');
+
+    fireEvent.dragLeave(noteItem, { dataTransfer });
+    expect(noteItem).not.toHaveClass('bg-emerald-200');
+  });
+
+  it('highlights and accepts plain-text fallback for tag drops', () => {
+    const onTagNote = vi.fn();
+    const dataTransfer = {
+      types: ['text/plain'],
+      getData: vi.fn((key: string) => (key === 'text/plain' ? 'tag-1' : ''))
+    } as unknown as DataTransfer;
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onTagNote={onTagNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const noteItem = screen.getByText('Alpha').closest('li');
+    if (!noteItem) throw new Error('Expected note list item');
+
+    fireEvent.dragEnter(noteItem, { dataTransfer });
+    expect(noteItem).toHaveClass('bg-emerald-200');
+
+    fireEvent.drop(noteItem, { dataTransfer });
+    expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
+  });
 });
