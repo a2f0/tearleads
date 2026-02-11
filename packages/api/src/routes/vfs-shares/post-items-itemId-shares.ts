@@ -1,5 +1,9 @@
 import { randomUUID } from 'node:crypto';
-import type { VfsPermissionLevel, VfsShare, VfsShareType } from '@tearleads/shared';
+import type {
+  VfsPermissionLevel,
+  VfsShare,
+  VfsShareType
+} from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import { parseCreateSharePayload } from './shared.js';
