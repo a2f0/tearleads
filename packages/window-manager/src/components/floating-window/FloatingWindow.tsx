@@ -13,13 +13,13 @@ import {
   MAX_FIT_CONTENT_ATTEMPTS,
   NEAR_MAXIMIZED_INSET
 } from './constants.js';
-import { ResizeHandle } from './ResizeHandle.js';
+import { FloatingWindowBody } from './FloatingWindowBody.js';
+import { FloatingWindowResizeHandles } from './FloatingWindowResizeHandles.js';
 import type {
   FloatingWindowProps,
   PreMaximizeState,
   WindowDimensions
 } from './types.js';
-import { WindowTitleBar } from './WindowTitleBar.js';
 import { buildFloatingWindowStyles } from './windowStyles.js';
 
 export type { FloatingWindowProps, WindowDimensions } from './types.js';
@@ -372,31 +372,12 @@ export function FloatingWindow({
       data-maximized={isMaximized}
     >
       {isDesktop && !isMaximized && (
-        <>
-          <ResizeHandle
-            corner="top-left"
-            windowId={id}
-            handlers={createCornerHandlers('top-left')}
-          />
-          <ResizeHandle
-            corner="top-right"
-            windowId={id}
-            handlers={createCornerHandlers('top-right')}
-          />
-          <ResizeHandle
-            corner="bottom-left"
-            windowId={id}
-            handlers={createCornerHandlers('bottom-left')}
-          />
-          <ResizeHandle
-            corner="bottom-right"
-            windowId={id}
-            handlers={createCornerHandlers('bottom-right')}
-          />
-        </>
+        <FloatingWindowResizeHandles
+          id={id}
+          createCornerHandlers={createCornerHandlers}
+        />
       )}
-
-      <WindowTitleBar
+      <FloatingWindowBody
         id={id}
         title={title}
         isDesktop={isDesktop}
@@ -410,12 +391,11 @@ export function FloatingWindow({
         onToggleMaximize={handleMaximize}
         dragHandlers={dragHandlers}
         titleBarRef={titleBarRef}
+        contentRef={contentRef}
         preMaximizeDimensions={preMaximizeStateRef.current}
-      />
-
-      <div ref={contentRef} className="flex-1 overflow-auto">
+      >
         {children}
-      </div>
+      </FloatingWindowBody>
     </div>
   );
 }

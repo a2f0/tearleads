@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { cn } from '../lib/utils.js';
+import { WindowContextMenuBackdrop } from './window-context-menu/WindowContextMenuBackdrop.js';
+import { WindowContextMenuSurface } from './window-context-menu/WindowContextMenuSurface.js';
 
 const DEFAULT_OVERLAY_Z_INDEX = 200;
 const DEFAULT_MENU_Z_INDEX = 201;
@@ -74,30 +75,21 @@ export function WindowContextMenu({
 
   return createPortal(
     <div className="fixed inset-0" style={{ zIndex: overlayZIndex }}>
-      <button
-        type="button"
-        tabIndex={-1}
-        className="fixed inset-0 cursor-default"
-        style={{ zIndex: overlayZIndex }}
-        onClick={onClose}
-        aria-label="Close context menu"
-        data-testid={backdropTestId}
+      <WindowContextMenuBackdrop
+        onClose={onClose}
+        overlayZIndex={overlayZIndex}
+        backdropTestId={backdropTestId}
       />
-      <div
+      <WindowContextMenuSurface
         ref={menuRef}
-        className={cn(
-          'fixed min-w-[160px] rounded-md border bg-popover p-1 shadow-md',
-          menuClassName
-        )}
-        style={{
-          left: position.left,
-          top: position.top,
-          zIndex: menuZIndex
-        }}
-        data-testid={menuTestId}
+        left={position.left}
+        top={position.top}
+        menuZIndex={menuZIndex}
+        menuClassName={menuClassName}
+        menuTestId={menuTestId}
       >
         {children}
-      </div>
+      </WindowContextMenuSurface>
     </div>,
     document.body
   );
