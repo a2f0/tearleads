@@ -25,6 +25,7 @@ Prioritize files that meet at least two signals:
 - Reviews frequently include readability or structure feedback.
 
 Defer refactor-only work when the file is stable and simple, or when change risk is high and no product work depends on it.
+If no candidate meets at least two signals, do not force a split. Report that no high-value split was found and stop.
 
 ## Target Structure
 
@@ -53,6 +54,8 @@ src/features/billing/index.ts
 6. Rename components to domain-oriented names.
 7. Update colocated tests or add focused tests for extracted logic.
 8. Run lint, type-check, and relevant tests.
+9. If changes were made, automatically run `$commit-and-push`, then `$enter-merge-queue`.
+10. If no high-value split was found, do not run commit/merge workflows.
 
 ## Guardrails
 
