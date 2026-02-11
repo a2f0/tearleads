@@ -3,7 +3,7 @@
 Run the workspace refresh script to update after a PR is merged.
 
 ```bash
-./scripts/agents/refresh.sh
+./scripts/agents/tooling/agentTool.sh refresh
 ```
 
 This script:

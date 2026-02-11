@@ -1,0 +1,230 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_PATH=$0
+case $SCRIPT_PATH in
+  */*) ;;
+  *) SCRIPT_PATH=$(command -v -- "$SCRIPT_PATH" || true) ;;
+esac
+SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
+AGENTS_DIR=$(cd -- "$SCRIPT_DIR/.." && pwd -P)
+
+usage() {
+    cat <<'EOF'
+Usage:
+  agentTool.sh <action> [options]
+
+Actions:
+  cleanup
+  clearQueued
+  clearStatus
+  refresh
+  setQueued
+  setReady
+  setWaiting
+  setWorking
+  setVscodeTitle
+
+Options:
+  --title <value>          Title to set (required for setQueued and setVscodeTitle)
+  --timeout-seconds <n>    Timeout in seconds (default: 300, refresh: 3600)
+  --repo-root <path>       Execute from this repo root instead of auto-detecting
+  --json                   Emit structured JSON summary
+  -h, --help               Show help
+EOF
+}
+
+require_value() {
+    opt="$1"
+    val="$2"
+    if [ -z "$val" ]; then
+        echo "Error: $opt requires a value." >&2
+        exit 1
+    fi
+}
+
+is_positive_int() {
+    case "$1" in
+        ''|*[!0-9]*) return 1 ;;
+        0) return 1 ;;
+        *) return 0 ;;
+    esac
+}
+
+if [ "$#" -lt 1 ]; then
+    usage >&2
+    exit 1
+fi
+
+ACTION="$1"
+shift
+
+TITLE=""
+TIMEOUT_SECONDS=""
+REPO_ROOT=""
+EMIT_JSON=false
+
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --title)
+            shift
+            require_value "--title" "${1:-}"
+            TITLE="$1"
+            ;;
+        --timeout-seconds)
+            shift
+            require_value "--timeout-seconds" "${1:-}"
+            TIMEOUT_SECONDS="$1"
+            ;;
+        --repo-root)
+            shift
+            require_value "--repo-root" "${1:-}"
+            REPO_ROOT="$1"
+            ;;
+        --json)
+            EMIT_JSON=true
+            ;;
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        *)
+            echo "Error: Unknown option '$1'." >&2
+            usage >&2
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+case "$ACTION" in
+    cleanup|clearQueued|clearStatus|refresh|setQueued|setReady|setWaiting|setWorking|setVscodeTitle) ;;
+    *)
+        echo "Error: Unknown action '$ACTION'." >&2
+        usage >&2
+        exit 1
+        ;;
+esac
+
+if [ "$ACTION" = "setQueued" ] && [ -z "$TITLE" ]; then
+    echo "Error: setQueued requires --title." >&2
+    exit 1
+fi
+
+if [ "$ACTION" = "setVscodeTitle" ] && [ -z "$TITLE" ]; then
+    echo "Error: setVscodeTitle requires --title." >&2
+    exit 1
+fi
+
+if [ -n "$TIMEOUT_SECONDS" ] && ! is_positive_int "$TIMEOUT_SECONDS"; then
+    echo "Error: --timeout-seconds must be a positive integer." >&2
+    exit 1
+fi
+
+if [ -z "$TIMEOUT_SECONDS" ]; then
+    if [ "$ACTION" = "refresh" ]; then
+        TIMEOUT_SECONDS=3600
+    else
+        TIMEOUT_SECONDS=300
+    fi
+fi
+
+if [ -z "$REPO_ROOT" ]; then
+    if ! REPO_ROOT=$(git rev-parse --show-toplevel 2>/dev/null); then
+        echo "Error: Could not detect git repository root. Use --repo-root." >&2
+        exit 1
+    fi
+fi
+
+SCRIPT="$AGENTS_DIR/$ACTION.sh"
+if [ ! -x "$SCRIPT" ]; then
+    echo "Error: Script not executable: $SCRIPT" >&2
+    exit 1
+fi
+
+SAFETY_CLASS="safe_write_local"
+RETRY_SAFE="true"
+if [ "$ACTION" = "refresh" ]; then
+    RETRY_SAFE="false"
+fi
+
+START_MS=$(node -e 'console.log(Date.now())')
+TMP_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/agentTool.XXXXXX")
+trap 'rm -f "$TMP_OUTPUT"' EXIT
+
+EXIT_CODE=0
+if command -v timeout >/dev/null 2>&1; then
+    if ! timeout "$TIMEOUT_SECONDS" sh -c '
+        set -eu
+        REPO_ROOT="$1"
+        SCRIPT="$2"
+        TITLE="$3"
+        cd "$REPO_ROOT"
+        if [ -n "$TITLE" ]; then
+            "$SCRIPT" "$TITLE"
+        else
+            "$SCRIPT"
+        fi
+    ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" >"$TMP_OUTPUT" 2>&1; then
+        EXIT_CODE=$?
+    fi
+else
+    if ! sh -c '
+        set -eu
+        REPO_ROOT="$1"
+        SCRIPT="$2"
+        TITLE="$3"
+        cd "$REPO_ROOT"
+        if [ -n "$TITLE" ]; then
+            "$SCRIPT" "$TITLE"
+        else
+            "$SCRIPT"
+        fi
+    ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" >"$TMP_OUTPUT" 2>&1; then
+        EXIT_CODE=$?
+    fi
+fi
+
+END_MS=$(node -e 'console.log(Date.now())')
+DURATION_MS=$((END_MS - START_MS))
+
+STATUS="success"
+if [ "$EXIT_CODE" -ne 0 ]; then
+    STATUS="failure"
+fi
+
+KEY_LINES=$(tail -n 5 "$TMP_OUTPUT" | tr '\n' '\r')
+
+if [ "$EMIT_JSON" = true ]; then
+    node - "$STATUS" "$EXIT_CODE" "$DURATION_MS" "$ACTION" "$REPO_ROOT" "$SAFETY_CLASS" "$RETRY_SAFE" "$KEY_LINES" <<'NODE'
+const [status, exitCode, durationMs, action, repoRoot, safetyClass, retrySafe, keyLinesRaw] =
+  process.argv.slice(2);
+const keyLines = keyLinesRaw
+  .split("\r")
+  .map((line) => line.trimEnd())
+  .filter((line) => line.length > 0);
+
+process.stdout.write(
+  `${JSON.stringify(
+    {
+      status,
+      exit_code: Number(exitCode),
+      duration_ms: Number(durationMs),
+      action,
+      repo_root: repoRoot,
+      safety_class: safetyClass,
+      retry_safe: retrySafe === "true",
+      key_lines: keyLines
+    },
+    null,
+    2
+  )}\n`
+);
+NODE
+else
+    cat "$TMP_OUTPUT"
+fi
+
+if [ "$EXIT_CODE" -ne 0 ]; then
+    exit "$EXIT_CODE"
+fi

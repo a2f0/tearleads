@@ -17,7 +17,7 @@ Commit and push the current changes following these rules:
 1. **Check branch**: If on `main`, create a new branch with an appropriate name based on the changes. After creating or switching branches, update the VS Code title:
 
    ```bash
-   setVscodeTitle.sh
+   ./scripts/agents/tooling/agentTool.sh setVscodeTitle --title "$(basename "$(git rev-parse --show-toplevel)") - $(git branch --show-current)"
    ```
 
 2. **Analyze changes**: Run `git status` and `git diff --staged` to understand what's being committed.
@@ -66,7 +66,7 @@ Commit and push the current changes following these rules:
    - <link or short reference>
    ```
 
-   After creating the PR, run `setVscodeTitle.sh`.
+   After creating the PR, run `./scripts/agents/tooling/agentTool.sh setVscodeTitle --title "$(basename "$(git rev-parse --show-toplevel)") - $(git branch --show-current)"`.
 
 6. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 

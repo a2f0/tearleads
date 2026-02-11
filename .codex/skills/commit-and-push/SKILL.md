@@ -24,7 +24,7 @@ Always pass `-R "$REPO"` to `gh` commands.
    - After creating/switching, update the VS Code title:
 
    ```bash
-   setVscodeTitle.sh
+   ./scripts/agents/tooling/agentTool.sh setVscodeTitle --title "$(basename "$(git rev-parse --show-toplevel)") - $(git branch --show-current)"
    ```
 
 2. Analyze changes:
@@ -80,7 +80,7 @@ Always pass `-R "$REPO"` to `gh` commands.
    - <link or short reference>
    ```
 
-   - After creating the PR, run `setVscodeTitle.sh`.
+   - After creating the PR, run `./scripts/agents/tooling/agentTool.sh setVscodeTitle --title "$(basename "$(git rev-parse --show-toplevel)") - $(git branch --show-current)"`.
 
 6. Wait for Gemini:
    - Wait 60 seconds for Gemini Code Assist to review.

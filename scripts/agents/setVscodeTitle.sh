@@ -16,19 +16,44 @@ SETTINGS_FILE="$VSCODE_DIR/settings.json"
 TITLE="$(agent_workspace_title "$REPO_ROOT")"
 
 usage() {
-    echo "Usage: $0"
+    echo "Usage: $0 [--title <value> | <value>]"
     echo ""
-    echo "Sets VS Code and tmux window titles to: '<workspace> - <branch>'"
+    echo "Sets VS Code and tmux window titles."
+    echo "Default title: '<workspace> - <branch>'"
+    echo "With --title or a positional value: uses that exact title."
     exit 0
 }
 
-if [ "$#" -gt 0 ]; then
-    if [ "${1:-}" = "-h" ] || [ "${1:-}" = "--help" ]; then
-        usage
-    else
-        echo "Error: This script does not accept arguments. Use -h for help." >&2
-        exit 1
-    fi
+TITLE_OVERRIDE=""
+
+while [ "$#" -gt 0 ]; do
+    case "${1:-}" in
+        -h|--help)
+            usage
+            ;;
+        --title)
+            shift
+            if [ -z "${1:-}" ]; then
+                echo "Error: --title requires a value." >&2
+                exit 1
+            fi
+            TITLE_OVERRIDE="$1"
+            ;;
+        *)
+            if [ -n "$TITLE_OVERRIDE" ]; then
+                echo "Error: Unexpected argument '$1'. Use -h for help." >&2
+                exit 1
+            fi
+            TITLE_OVERRIDE="$1"
+            ;;
+    esac
+    shift
+done
+
+if [ -n "$TITLE_OVERRIDE" ]; then
+    TITLE="$TITLE_OVERRIDE"
+else
+    TITLE="$(agent_workspace_title "$REPO_ROOT")"
 fi
 
 mkdir -p "$VSCODE_DIR"
