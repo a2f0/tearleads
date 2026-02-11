@@ -209,10 +209,15 @@ export function TagSidebar({
                     key={tag.id}
                     className={
                       dropTargetTagId === tag.id
-                        ? 'border bg-emerald-200 ring-2 ring-emerald-500/60 px-2 py-0.5'
+                        ? 'border bg-emerald-100 px-2 py-0.5'
                         : isActive
                           ? 'border bg-zinc-200 px-2 py-0.5'
                           : 'border bg-white px-2 py-0.5'
+                    }
+                    style={
+                      dropTargetTagId === tag.id
+                        ? { backgroundColor: '#d1fae5' }
+                        : undefined
                     }
                     draggable
                     onDragStart={(event) => {

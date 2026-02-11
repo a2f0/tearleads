@@ -254,10 +254,10 @@ describe('NotesPane', () => {
     if (!noteItem) throw new Error('Expected note list item');
 
     fireEvent.dragEnter(noteItem, { dataTransfer });
-    expect(noteItem).toHaveClass('bg-emerald-200');
+    expect(noteItem).toHaveClass('bg-emerald-100');
 
     fireEvent.dragLeave(noteItem, { dataTransfer });
-    expect(noteItem).not.toHaveClass('bg-emerald-200');
+    expect(noteItem).not.toHaveClass('bg-emerald-100');
   });
 
   it('highlights and accepts plain-text fallback for tag drops', () => {
@@ -286,7 +286,7 @@ describe('NotesPane', () => {
     if (!noteItem) throw new Error('Expected note list item');
 
     fireEvent.dragEnter(noteItem, { dataTransfer });
-    expect(noteItem).toHaveClass('bg-emerald-200');
+    expect(noteItem).toHaveClass('bg-emerald-100');
 
     fireEvent.drop(noteItem, { dataTransfer });
     expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');

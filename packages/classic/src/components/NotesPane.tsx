@@ -173,8 +173,13 @@ export function NotesPane({
                   key={note.id}
                   className={
                     dropTargetNoteId === note.id
-                      ? 'rounded bg-emerald-200 ring-2 ring-emerald-500/60 p-3'
+                      ? 'rounded bg-emerald-100 p-3'
                       : 'rounded p-3'
+                  }
+                  style={
+                    dropTargetNoteId === note.id
+                      ? { backgroundColor: '#d1fae5' }
+                      : undefined
                   }
                   draggable
                   onDragStart={(event) => {
