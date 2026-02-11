@@ -1,4 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { and, desc, eq, like, or } from 'drizzle-orm';
 import {
   ChevronDown,
@@ -590,10 +591,13 @@ export function Documents({
               className="flex-1 overflow-auto rounded-lg border"
               onContextMenu={handleBlankSpaceContextMenu}
             >
-              <table className="w-full text-sm" data-testid="documents-table">
-                <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+              <table
+                className={WINDOW_TABLE_TYPOGRAPHY.table}
+                data-testid="documents-table"
+              >
+                <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                   <tr>
-                    <th scope="col" className="px-3 py-2 text-left">
+                    <th scope="col" className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -611,7 +615,7 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th scope="col" className="px-3 py-2 text-left">
+                    <th scope="col" className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -629,7 +633,7 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th scope="col" className="px-3 py-2 text-left">
+                    <th scope="col" className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -647,7 +651,7 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th scope="col" className="px-3 py-2 text-left">
+                    <th scope="col" className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <button
                         type="button"
                         className="flex items-center gap-1 text-left font-medium hover:text-foreground"
@@ -665,22 +669,24 @@ export function Documents({
                         )}
                       </button>
                     </th>
-                    <th scope="col" className="px-3 py-2 text-right">
+                    <th
+                      scope="col"
+                      className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
+                    >
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {sortedDocuments.map((document) => (
-                    <tr
+                    <WindowTableRow
                       key={document.id}
-                      className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                       onClick={() => handleDocumentClick(document)}
                       onContextMenu={(event) =>
                         handleContextMenu(event, document)
                       }
                     >
-                      <td className="px-3 py-2">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                         <div className="flex min-w-0 items-center gap-2">
                           {document.thumbnailUrl ? (
                             <img
@@ -694,16 +700,16 @@ export function Documents({
                           <span className="truncate">{document.name}</span>
                         </div>
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                         {formatFileSize(document.size)}
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                         {getDocumentTypeLabel(document.mimeType)}
                       </td>
-                      <td className="px-3 py-2 text-muted-foreground">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                         {document.uploadDate.toLocaleDateString()}
                       </td>
-                      <td className="px-3 py-2">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                         <div className="flex justify-end gap-1">
                           <Button
                             variant="ghost"
@@ -727,7 +733,7 @@ export function Documents({
                           )}
                         </div>
                       </td>
-                    </tr>
+                    </WindowTableRow>
                   ))}
                 </tbody>
               </table>

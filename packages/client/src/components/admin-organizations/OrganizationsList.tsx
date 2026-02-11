@@ -1,4 +1,5 @@
 import type { Organization } from '@rapid/shared';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import { Building2, Copy, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
@@ -119,19 +120,20 @@ export function OrganizationsList({
   return (
     <>
       <div className="overflow-auto rounded-lg border">
-        <table className="w-full text-xs">
-          <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+        <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+          <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
             <tr>
-              <th className="px-3 py-2 text-left">ID</th>
-              <th className="px-3 py-2 text-left">Name</th>
-              <th className="px-3 py-2 text-left">Description</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>ID</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Name</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                Description
+              </th>
             </tr>
           </thead>
           <tbody>
             {organizations.map((organization) => (
-              <tr
+              <WindowTableRow
                 key={organization.id}
-                className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                 onClick={() => onOrganizationSelect(organization.id)}
                 onContextMenu={(e) => handleContextMenu(e, organization)}
                 tabIndex={0}
@@ -142,12 +144,14 @@ export function OrganizationsList({
                   }
                 }}
               >
-                <td className="max-w-[120px] px-3 py-2">
+                <td
+                  className={`max-w-[120px] ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
+                >
                   <span className="block truncate font-mono text-muted-foreground">
                     {organization.id}
                   </span>
                 </td>
-                <td className="px-3 py-2">
+                <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                   <div className="flex items-center gap-2">
                     <Building2 className="h-3 w-3 shrink-0 text-muted-foreground" />
                     <span className="truncate font-medium">
@@ -155,7 +159,7 @@ export function OrganizationsList({
                     </span>
                   </div>
                 </td>
-                <td className="px-3 py-2 text-muted-foreground">
+                <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                   {organization.description ? (
                     <span className="block truncate">
                       {organization.description}
@@ -164,7 +168,7 @@ export function OrganizationsList({
                     <span className="text-muted-foreground/70">—</span>
                   )}
                 </td>
-              </tr>
+              </WindowTableRow>
             ))}
           </tbody>
         </table>

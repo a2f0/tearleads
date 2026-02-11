@@ -1,4 +1,5 @@
 import { assertPlainArrayBuffer } from '@rapid/shared';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 import {
   type ColumnDef,
   flexRender,
@@ -674,14 +675,16 @@ export function VideoPage({
                   className="flex-1 overflow-auto rounded-lg border"
                   onContextMenu={handleBlankSpaceContextMenu}
                 >
-                  <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-muted/60 text-muted-foreground text-xs">
+                  <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+                    <thead
+                      className={`sticky top-0 bg-muted/60 text-muted-foreground ${WINDOW_TABLE_TYPOGRAPHY.header}`}
+                    >
                       {table.getHeaderGroups().map((headerGroup) => (
                         <tr key={headerGroup.id}>
                           {headerGroup.headers.map((header) => (
                             <th
                               key={header.id}
-                              className="px-3 py-2 text-left font-medium"
+                              className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
                             >
                               {header.isPlaceholder
                                 ? null
@@ -699,9 +702,8 @@ export function VideoPage({
                         const video = row.original;
 
                         return (
-                          <tr
+                          <WindowTableRow
                             key={row.id}
-                            className="cursor-pointer border-t hover:bg-muted/30"
                             onContextMenu={(e) => handleContextMenu(e, video)}
                             onClick={
                               isDesktopPlatform
@@ -731,7 +733,7 @@ export function VideoPage({
                                 )}
                               </td>
                             ))}
-                          </tr>
+                          </WindowTableRow>
                         );
                       })}
                     </tbody>

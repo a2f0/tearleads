@@ -1,4 +1,8 @@
 import { notes, vfsRegistry } from '@rapid/db/sqlite';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@rapid/window-manager';
 import { asc, desc, eq } from 'drizzle-orm';
 import {
   ChevronDown,
@@ -370,10 +374,10 @@ export function NotesWindowTableView({
             className="flex-1 overflow-auto rounded-lg border"
             onContextMenu={handleBlankSpaceContextMenu}
           >
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+            <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+              <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                 <tr>
-                  <th className="px-2 py-1.5 text-left">
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                     <SortHeader
                       column="title"
                       label="Title"
@@ -382,7 +386,7 @@ export function NotesWindowTableView({
                       onClick={handleSortChange}
                     />
                   </th>
-                  <th className="px-2 py-1.5 text-left">
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                     <SortHeader
                       column="createdAt"
                       label="Created"
@@ -391,7 +395,7 @@ export function NotesWindowTableView({
                       onClick={handleSortChange}
                     />
                   </th>
-                  <th className="px-2 py-1.5 text-left">
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                     <SortHeader
                       column="updatedAt"
                       label="Updated"
@@ -404,13 +408,12 @@ export function NotesWindowTableView({
               </thead>
               <tbody>
                 {notesList.map((note) => (
-                  <tr
+                  <WindowTableRow
                     key={note.id}
-                    className={`border-border/50 border-b ${
-                      note.deleted
-                        ? 'opacity-60'
-                        : 'cursor-pointer hover:bg-accent/50'
-                    }`}
+                    isDimmed={note.deleted}
+                    className={
+                      note.deleted ? 'cursor-default hover:bg-transparent' : undefined
+                    }
                     onClick={() => {
                       if (!note.deleted) {
                         onSelectNote(note.id);
@@ -422,7 +425,7 @@ export function NotesWindowTableView({
                         : (e) => handleContextMenu(e, note)
                     }
                   >
-                    <td className="px-2 py-1.5">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                       <div className="flex items-center gap-1.5">
                         <StickyNote className="h-3 w-3 shrink-0 text-muted-foreground" />
                         <span
@@ -434,14 +437,14 @@ export function NotesWindowTableView({
                         </span>
                       </div>
                     </td>
-                    <td className="px-2 py-1.5 text-muted-foreground">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                       {formatDate(note.createdAt)}
                     </td>
-                    <td className="px-2 py-1.5 text-muted-foreground">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                       {formatDate(note.updatedAt)}
                       {note.deleted && ' · Deleted'}
                     </td>
-                  </tr>
+                  </WindowTableRow>
                 ))}
               </tbody>
             </table>

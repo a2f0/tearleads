@@ -8,6 +8,13 @@ import { TestEmailProvider } from '../test/test-utils';
 import { EmailWindow } from './EmailWindow';
 
 vi.mock('@rapid/window-manager', () => ({
+  WINDOW_TABLE_TYPOGRAPHY: {
+    table: 'w-full text-left text-xs',
+    header: 'sticky top-0 border-b bg-muted/50 text-muted-foreground',
+    headerCell: 'px-2 py-1.5 text-left font-medium',
+    cell: 'px-2 py-1.5',
+    mutedCell: 'px-2 py-1.5 text-muted-foreground'
+  },
   FloatingWindow: ({
     children,
     title,
@@ -37,7 +44,17 @@ vi.mock('@rapid/window-manager', () => ({
       onMouseDown: vi.fn(),
       onKeyDown: vi.fn()
     }
-  })
+  }),
+  WindowTableRow: ({
+    children,
+    isDimmed: _isDimmed,
+    isSelected: _isSelected,
+    ...props
+  }: {
+    children: React.ReactNode;
+    isDimmed?: boolean;
+    isSelected?: boolean;
+  } & React.HTMLAttributes<HTMLTableRowElement>) => <tr {...props}>{children}</tr>
 }));
 
 vi.mock('./EmailWindowMenuBar', () => ({

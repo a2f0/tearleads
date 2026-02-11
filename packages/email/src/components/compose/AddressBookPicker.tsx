@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { type EmailContactEmail, useEmailContext } from '../../context';
@@ -174,10 +175,10 @@ export function AddressBookPicker({
       )}
 
       <div className="max-h-48 overflow-auto rounded border">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 border-b bg-muted/40">
+        <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+          <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
             <tr>
-              <th className="px-2 py-1.5 text-left font-medium">
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                 <button
                   type="button"
                   onClick={() => handleSort('name')}
@@ -188,7 +189,7 @@ export function AddressBookPicker({
                   {sortIcon('name')}
                 </button>
               </th>
-              <th className="px-2 py-1.5 text-left font-medium">
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                 <button
                   type="button"
                   onClick={() => handleSort('email')}
@@ -199,7 +200,7 @@ export function AddressBookPicker({
                   {sortIcon('email')}
                 </button>
               </th>
-              <th className="px-2 py-1.5 text-left font-medium">
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                 <button
                   type="button"
                   onClick={() => handleSort('label')}
@@ -210,7 +211,7 @@ export function AddressBookPicker({
                   {sortIcon('label')}
                 </button>
               </th>
-              <th className="px-2 py-1.5 text-left font-medium">
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                 <button
                   type="button"
                   onClick={() => handleSort('isPrimary')}
@@ -221,7 +222,11 @@ export function AddressBookPicker({
                   {sortIcon('isPrimary')}
                 </button>
               </th>
-              <th className="px-2 py-1.5 text-right font-medium">Add To</th>
+              <th
+                className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
+              >
+                Add To
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -230,11 +235,17 @@ export function AddressBookPicker({
                 key={`${row.contactId}:${row.email}`}
                 className={clsx('border-b last:border-b-0')}
               >
-                <td className="px-2 py-1.5">{getDisplayName(row)}</td>
-                <td className="px-2 py-1.5">{row.email}</td>
-                <td className="px-2 py-1.5">{row.label ?? '-'}</td>
-                <td className="px-2 py-1.5">{row.isPrimary ? 'Yes' : 'No'}</td>
-                <td className="px-2 py-1.5">
+                <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                  {getDisplayName(row)}
+                </td>
+                <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>{row.email}</td>
+                <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                  {row.label ?? '-'}
+                </td>
+                <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                  {row.isPrimary ? 'Yes' : 'No'}
+                </td>
+                <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                   <div className="flex justify-end gap-1">
                     <button
                       type="button"

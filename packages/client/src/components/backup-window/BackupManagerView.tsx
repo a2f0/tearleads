@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { WINDOW_TABLE_TYPOGRAPHY, WindowTableRow } from '@rapid/window-manager';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -506,32 +507,34 @@ export function BackupManagerView() {
 
           {backups.length > 0 && (
             <div className="overflow-hidden rounded-md border border-zinc-800">
-              <table className="w-full text-xs">
+              <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
                 <thead className="bg-zinc-900/60 text-zinc-500">
                   <tr>
-                    <th className="px-3 py-1.5 text-left font-medium">Name</th>
-                    <th className="px-3 py-1.5 text-left font-medium">Size</th>
-                    <th className="px-3 py-1.5 text-right font-medium">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Name</th>
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Size</th>
+                    <th
+                      className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
+                    >
                       Actions
                     </th>
                   </tr>
                 </thead>
                 <tbody>
                   {backups.map((backup) => (
-                    <tr
+                    <WindowTableRow
                       key={backup.name}
-                      className="border-zinc-800 border-t hover:bg-zinc-900/40"
+                      className="cursor-default border-zinc-800 border-t hover:bg-zinc-900/40"
                     >
-                      <td className="px-3 py-1.5">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                         <div className="text-zinc-200">{backup.name}</div>
                         <div className="text-zinc-500">
                           {formatDate(backup.lastModified)}
                         </div>
                       </td>
-                      <td className="px-3 py-1.5 text-zinc-500">
+                      <td className={`${WINDOW_TABLE_TYPOGRAPHY.cell} text-zinc-500`}>
                         {formatBytes(backup.size)}
                       </td>
-                      <td className="px-3 py-1.5">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                         <div className="flex justify-end gap-1">
                           <Button
                             variant="secondary"
@@ -559,7 +562,7 @@ export function BackupManagerView() {
                           </Button>
                         </div>
                       </td>
-                    </tr>
+                    </WindowTableRow>
                   ))}
                 </tbody>
               </table>

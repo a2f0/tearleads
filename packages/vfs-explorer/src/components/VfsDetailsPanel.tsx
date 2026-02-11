@@ -1,4 +1,5 @@
 import {
+  WINDOW_TABLE_TYPOGRAPHY,
   WindowContextMenu,
   WindowContextMenuItem
 } from '@rapid/window-manager';
@@ -488,10 +489,10 @@ export function VfsDetailsPanel({
         onContextMenu={handleEmptySpaceContextMenu}
       >
         {viewMode === 'table' ? (
-          <table className="w-full">
+          <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
             <thead className="sticky top-0 bg-background">
-              <tr className="border-b text-left text-muted-foreground text-xs">
-                <th className="px-3 py-2 font-medium">
+              <tr className="border-b text-left text-muted-foreground">
+                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                   <button
                     type="button"
                     onClick={() => handleSort('name')}
@@ -501,7 +502,7 @@ export function VfsDetailsPanel({
                     {renderSortIcon('name')}
                   </button>
                 </th>
-                <th className="px-3 py-2 font-medium">
+                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                   <button
                     type="button"
                     onClick={() => handleSort('objectType')}
@@ -511,7 +512,7 @@ export function VfsDetailsPanel({
                     {renderSortIcon('objectType')}
                   </button>
                 </th>
-                <th className="px-3 py-2 font-medium">
+                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                   <button
                     type="button"
                     onClick={() => handleSort('createdAt')}
@@ -539,18 +540,18 @@ export function VfsDetailsPanel({
                     onDoubleClick={(e) => handleItemDoubleClick(e, item)}
                     onContextMenu={(e) => handleContextMenu(e, item)}
                   >
-                    <td className="px-3 py-2">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                       <div className="flex items-center gap-2">
                         <Icon className={cn('h-4 w-4 shrink-0', colorClass)} />
                         <span className="truncate text-sm">{item.name}</span>
                       </div>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                       <span className="text-muted-foreground text-xs capitalize">
                         {item.objectType}
                       </span>
                     </td>
-                    <td className="px-3 py-2">
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                       <span className="text-muted-foreground text-xs">
                         {item.createdAt.toLocaleDateString()}
                       </span>

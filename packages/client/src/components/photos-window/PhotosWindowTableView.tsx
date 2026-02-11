@@ -1,4 +1,8 @@
-import { WindowContextMenu } from '@rapid/window-manager';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowContextMenu,
+  WindowTableRow
+} from '@rapid/window-manager';
 import {
   ChevronDown,
   ChevronUp,
@@ -297,10 +301,10 @@ export function PhotosWindowTableView({
               data-testid="photos-table-container"
               onContextMenu={handleBlankSpaceContextMenu}
             >
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+              <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+                <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                   <tr>
-                    <th className="px-2 py-1.5 text-left">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="name"
                         label="Name"
@@ -309,7 +313,7 @@ export function PhotosWindowTableView({
                         onClick={handleSortChange}
                       />
                     </th>
-                    <th className="px-2 py-1.5 text-left">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="size"
                         label="Size"
@@ -318,7 +322,7 @@ export function PhotosWindowTableView({
                         onClick={handleSortChange}
                       />
                     </th>
-                    <th className="px-2 py-1.5 text-left">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="mimeType"
                         label="Type"
@@ -327,7 +331,7 @@ export function PhotosWindowTableView({
                         onClick={handleSortChange}
                       />
                     </th>
-                    <th className="px-2 py-1.5 text-left">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="uploadDate"
                         label="Date"
@@ -340,9 +344,8 @@ export function PhotosWindowTableView({
                 </thead>
                 <tbody>
                   {sortedPhotos.map((photo) => (
-                    <tr
+                    <WindowTableRow
                       key={photo.id}
-                      className="cursor-pointer border-border/50 border-b hover:bg-accent/50"
                       onClick={() => onSelectPhoto?.(photo.id)}
                       onContextMenu={(event) => handleContextMenu(event, photo)}
                       draggable
@@ -350,7 +353,7 @@ export function PhotosWindowTableView({
                         setMediaDragData(event, 'image', [photo.id])
                       }
                     >
-                      <td className="px-2 py-1.5">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                         <div className="flex items-center gap-1.5">
                           <img
                             src={photo.objectUrl}
@@ -360,16 +363,16 @@ export function PhotosWindowTableView({
                           <span className="truncate">{photo.name}</span>
                         </div>
                       </td>
-                      <td className="px-2 py-1.5 text-muted-foreground">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                         {formatFileSize(photo.size)}
                       </td>
-                      <td className="px-2 py-1.5 text-muted-foreground">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                         {getPhotoTypeDisplay(photo.mimeType)}
                       </td>
-                      <td className="px-2 py-1.5 text-muted-foreground">
+                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                         {photo.uploadDate.toLocaleDateString()}
                       </td>
-                    </tr>
+                    </WindowTableRow>
                   ))}
                 </tbody>
               </table>

@@ -5,6 +5,7 @@ import {
   type DragStartEvent
 } from '@dnd-kit/core';
 import { isRecord } from '@rapid/shared';
+import { WINDOW_TABLE_TYPOGRAPHY } from '@rapid/window-manager';
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import type { ColumnMapping, ParsedCSV } from '@/hooks/useContactsImport';
@@ -206,13 +207,13 @@ export function ColumnMapper({
               <div>
                 <h3 className="mb-2 font-medium">Preview (first 3 rows)</h3>
                 <div className="overflow-x-auto rounded-md border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted">
+                  <table className={`${WINDOW_TABLE_TYPOGRAPHY.table} text-sm`}>
+                    <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                       <tr>
                         {mappedFields.map((field) => (
                           <th
                             key={field.key}
-                            className="px-3 py-2 text-left font-medium"
+                            className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
                           >
                             {field.label}
                           </th>
@@ -226,7 +227,10 @@ export function ColumnMapper({
                           {mappedFields.map((field) => {
                             const mappedIndex = mapping[field.key];
                             return (
-                              <td key={field.key} className="px-3 py-2">
+                              <td
+                                key={field.key}
+                                className={WINDOW_TABLE_TYPOGRAPHY.cell}
+                              >
                                 {mappedIndex === null
                                   ? '-'
                                   : row[mappedIndex] || '-'}

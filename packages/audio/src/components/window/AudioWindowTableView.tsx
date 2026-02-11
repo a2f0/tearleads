@@ -1,4 +1,8 @@
-import { WindowContextMenu } from '@rapid/window-manager';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowContextMenu,
+  WindowTableRow
+} from '@rapid/window-manager';
 import {
   ChevronDown,
   ChevronUp,
@@ -421,10 +425,10 @@ export function AudioWindowTableView({
               data-testid="window-audio-table-search"
             />
             <div className="flex-1 overflow-auto rounded-lg border">
-              <table className="w-full text-xs">
-                <thead className="sticky top-0 bg-muted/50 text-muted-foreground">
+              <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+                <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                   <tr>
-                    <th className="px-2 py-1.5 text-left">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="name"
                         label="Name"
@@ -433,7 +437,7 @@ export function AudioWindowTableView({
                         onClick={handleSortChange}
                       />
                     </th>
-                    <th className="px-2 py-1.5 text-left">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="size"
                         label="Size"
@@ -442,7 +446,7 @@ export function AudioWindowTableView({
                         onClick={handleSortChange}
                       />
                     </th>
-                    <th className="px-2 py-1.5 text-left">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="mimeType"
                         label="Type"
@@ -451,7 +455,7 @@ export function AudioWindowTableView({
                         onClick={handleSortChange}
                       />
                     </th>
-                    <th className="px-2 py-1.5 text-left">
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="uploadDate"
                         label="Date"
@@ -468,11 +472,10 @@ export function AudioWindowTableView({
                     const isTrackPlaying = isCurrentTrack && isPlaying;
 
                     return (
-                      <tr
+                      <WindowTableRow
                         key={track.id}
-                        className={`cursor-pointer border-border/50 border-b hover:bg-accent/50 ${
-                          isCurrentTrack ? 'bg-primary/5' : ''
-                        }`}
+                        isSelected={isCurrentTrack}
+                        className={isCurrentTrack ? 'bg-primary/5' : undefined}
                         onClick={
                           isDesktopPlatform
                             ? undefined
@@ -490,7 +493,7 @@ export function AudioWindowTableView({
                         }
                         data-testid={`window-audio-table-track-${track.id}`}
                       >
-                        <td className="px-2 py-1.5">
+                        <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                           <div className="flex items-center gap-1.5">
                             <div className="relative shrink-0">
                               {track.thumbnailUrl ? (
@@ -511,16 +514,16 @@ export function AudioWindowTableView({
                             <span className="truncate">{track.name}</span>
                           </div>
                         </td>
-                        <td className="px-2 py-1.5 text-muted-foreground">
+                        <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                           {formatFileSize(track.size)}
                         </td>
-                        <td className="px-2 py-1.5 text-muted-foreground">
+                        <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                           {getAudioTypeDisplay(track.mimeType)}
                         </td>
-                        <td className="px-2 py-1.5 text-muted-foreground">
+                        <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
                           {formatDate(track.uploadDate)}
                         </td>
-                      </tr>
+                      </WindowTableRow>
                     );
                   })}
                 </tbody>
