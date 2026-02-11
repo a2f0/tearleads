@@ -50,7 +50,7 @@ trap cleanup EXIT
 echo "==> Running Playwright tests..."
 START_TIME=$(date +%s)
 # Start Vite directly so the script owns the server lifecycle.
-VITE_API_URL=http://localhost:5001/v1 pnpm exec vite --port "$PW_TEST_PORT" &
+VITE_API_URL=http://localhost:5001/v1 DOTENV_CONFIG_QUIET=true pnpm exec vite --port "$PW_TEST_PORT" &
 VITE_PID=$!
 
 MAX_WAIT=60

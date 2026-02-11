@@ -20,8 +20,8 @@
     "deleteAccount": "tsx scripts/deleteAccount.ts",
     "start": "node dist/server.cjs",
     "clean": "rm -rf dist",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "keywords": [
     "api",

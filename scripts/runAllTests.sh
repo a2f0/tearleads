@@ -45,7 +45,7 @@ pnpm exec tsx ./scripts/checkPort.ts 3002
 
 # Start vite dev server in background (same approach as runPlaywrightTests.sh)
 cd packages/client
-VITE_API_URL=http://localhost:5001/v1 pnpm exec vite --port 3002 &
+VITE_API_URL=http://localhost:5001/v1 DOTENV_CONFIG_QUIET=true pnpm exec vite --port 3002 &
 VITE_PID=$!
 cd ../..
 

@@ -17,8 +17,8 @@
   "scripts": {
     "build": "tsc",
     "clean": "rm -rf dist dist-tests coverage",
-    "test": "vitest run",
-    "test:coverage": "vitest run --coverage"
+    "test": "DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
     "react": "19.2.4",
