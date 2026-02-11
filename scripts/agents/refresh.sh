@@ -1,6 +1,6 @@
 #!/bin/sh
 # Refresh workspace after a PR is merged: switches to main, pulls latest,
-# installs dependencies, builds packages, and sets VS Code title to "ready".
+# installs dependencies, builds packages, then resets title to '<workspace> - main'.
 set -eu
 SCRIPT_PATH=$0
 case $SCRIPT_PATH in
@@ -43,7 +43,7 @@ bundle exec pod install --repo-update
 # Return to repo root
 cd "$REPO_ROOT"
 
-# Clear queued status (resets VS Code title and tmux window, moves to back)
+# Reset title to '<workspace> - <branch>'
 "$SCRIPT_DIR/clearQueued.sh"
 
 echo "Ready for next task."
