@@ -351,11 +351,11 @@ export function BackupManagerView() {
     <div className="space-y-6">
       {/* Create Backup Section */}
       <section>
-        <h3 className="mb-2 font-medium text-sm text-zinc-300">
+        <h3 className="mb-2 font-medium text-foreground text-sm">
           Create Backup
         </h3>
         <form
-          className="space-y-3 rounded-md border border-zinc-800 bg-zinc-900/30 p-3"
+          className="space-y-3 rounded-md border border-border bg-muted/30 p-3"
           onSubmit={(event) => {
             event.preventDefault();
             void handleCreate();
@@ -367,7 +367,7 @@ export function BackupManagerView() {
                 <div>
                   <label
                     htmlFor="backup-password"
-                    className="mb-1 block text-xs text-zinc-400"
+                    className="mb-1 block text-muted-foreground text-xs"
                   >
                     Password
                   </label>
@@ -385,7 +385,7 @@ export function BackupManagerView() {
                 <div>
                   <label
                     htmlFor="confirm-password"
-                    className="mb-1 block text-xs text-zinc-400"
+                    className="mb-1 block text-muted-foreground text-xs"
                   >
                     Confirm
                   </label>
@@ -410,12 +410,12 @@ export function BackupManagerView() {
                     checked={includeBlobs}
                     onChange={(e) => setIncludeBlobs(e.target.checked)}
                     disabled={isCreating}
-                    className="h-4 w-4 rounded border-zinc-600 bg-zinc-800"
+                    className="h-4 w-4 rounded border-input bg-background accent-primary"
                   />
-                  <span className="text-xs text-zinc-300">
+                  <span className="text-foreground text-xs">
                     Include files
                     {estimatedSize && estimatedSize.blobCount > 0 && (
-                      <span className="ml-1 text-zinc-500">
+                      <span className="ml-1 text-muted-foreground">
                         ({estimatedSize.blobCount},{' '}
                         {formatBytes(estimatedSize.blobTotalSize)})
                       </span>
@@ -435,23 +435,25 @@ export function BackupManagerView() {
           )}
 
           {isCreating && !createProgress && (
-            <div className="text-sm text-zinc-300">Starting backup...</div>
+            <div className="text-foreground text-sm">Starting backup...</div>
           )}
 
           {createProgress && (
             <div>
               <div className="mb-1 flex justify-between text-xs">
-                <span className="text-zinc-300">{createProgress.phase}</span>
-                <span className="text-zinc-500">{createProgress.percent}%</span>
+                <span className="text-foreground">{createProgress.phase}</span>
+                <span className="text-muted-foreground">
+                  {createProgress.percent}%
+                </span>
               </div>
-              <div className="h-2 overflow-hidden rounded-full bg-zinc-700">
+              <div className="h-2 overflow-hidden rounded-full bg-muted">
                 <div
-                  className="h-full bg-blue-500 transition-all duration-300"
+                  className="h-full bg-primary transition-all duration-300"
                   style={{ width: `${createProgress.percent}%` }}
                 />
               </div>
               {createProgress.currentItem && (
-                <p className="mt-1 truncate text-xs text-zinc-500">
+                <p className="mt-1 truncate text-muted-foreground text-xs">
                   {createProgress.currentItem}
                 </p>
               )}
@@ -461,7 +463,7 @@ export function BackupManagerView() {
           {createSuccess && (
             <div
               data-testid="backup-success"
-              className="rounded border border-green-500/30 bg-green-500/10 p-2 text-green-400 text-xs"
+              className="rounded border border-success/40 bg-success/10 p-2 text-success text-xs"
             >
               {createSuccess}
             </div>
@@ -470,7 +472,7 @@ export function BackupManagerView() {
           {createError && (
             <div
               data-testid="backup-error"
-              className="rounded border border-red-500/30 bg-red-500/10 p-2 text-red-400 text-xs"
+              className="rounded border border-destructive/40 bg-destructive/10 p-2 text-destructive text-xs"
             >
               {createError}
             </div>
@@ -482,10 +484,10 @@ export function BackupManagerView() {
       {isStorageSupported && (
         <section>
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="font-medium text-sm text-zinc-300">
+            <h3 className="font-medium text-foreground text-sm">
               Stored Backups
             </h3>
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <div className="flex items-center gap-2 text-muted-foreground text-xs">
               {storageSummary && <span>{storageSummary}</span>}
               <Button
                 variant="ghost"
@@ -500,15 +502,15 @@ export function BackupManagerView() {
           </div>
 
           {backups.length === 0 && !isLoadingBackups && (
-            <div className="rounded-md border border-zinc-800 bg-zinc-900/30 p-3 text-xs text-zinc-500">
+            <div className="rounded-md border border-border bg-muted/30 p-3 text-muted-foreground text-xs">
               No stored backups yet.
             </div>
           )}
 
           {backups.length > 0 && (
-            <div className="overflow-hidden rounded-md border border-zinc-800">
+            <div className="overflow-hidden rounded-md border border-border">
               <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
-                <thead className="bg-zinc-900/60 text-zinc-500">
+                <thead className="bg-muted/70 text-muted-foreground">
                   <tr>
                     <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Name</th>
                     <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Size</th>
@@ -523,16 +525,16 @@ export function BackupManagerView() {
                   {backups.map((backup) => (
                     <WindowTableRow
                       key={backup.name}
-                      className="cursor-default border-zinc-800 border-t hover:bg-zinc-900/40"
+                      className="border-border border-t hover:bg-muted/40"
                     >
                       <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
-                        <div className="text-zinc-200">{backup.name}</div>
-                        <div className="text-zinc-500">
+                        <div className="text-foreground">{backup.name}</div>
+                        <div className="text-muted-foreground">
                           {formatDate(backup.lastModified)}
                         </div>
                       </td>
                       <td
-                        className={`${WINDOW_TABLE_TYPOGRAPHY.cell} text-zinc-500`}
+                        className={`${WINDOW_TABLE_TYPOGRAPHY.cell} text-muted-foreground`}
                       >
                         {formatBytes(backup.size)}
                       </td>
@@ -572,7 +574,7 @@ export function BackupManagerView() {
           )}
 
           {storedError && (
-            <div className="mt-2 rounded border border-red-500/30 bg-red-500/10 p-2 text-red-400 text-xs">
+            <div className="mt-2 rounded border border-destructive/40 bg-destructive/10 p-2 text-destructive text-xs">
               {storedError}
             </div>
           )}
@@ -581,7 +583,7 @@ export function BackupManagerView() {
 
       {/* Restore from File Section */}
       <section>
-        <h3 className="mb-2 font-medium text-sm text-zinc-300">
+        <h3 className="mb-2 font-medium text-foreground text-sm">
           Restore from File
         </h3>
         <input
@@ -602,7 +604,7 @@ export function BackupManagerView() {
         )}
 
         {restoreError && (
-          <div className="mt-2 rounded border border-red-500/30 bg-red-500/10 p-2 text-red-400 text-xs">
+          <div className="mt-2 rounded border border-destructive/40 bg-destructive/10 p-2 text-destructive text-xs">
             {restoreError}
           </div>
         )}
