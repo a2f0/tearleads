@@ -62,7 +62,7 @@ if (diffOutput.length > 0) {
   }
 }
 
-const query = 'mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid url verification { verified reason } } } }';
+const query = 'mutation($input: CreateCommitOnBranchInput!) { createCommitOnBranch(input: $input) { commit { oid url } } }';
 
 const payload = {
   query,
