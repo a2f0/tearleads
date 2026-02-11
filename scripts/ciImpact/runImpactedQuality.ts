@@ -290,7 +290,11 @@ function main(): void {
   // Only typecheck packages with directly changed files (not dependents)
   const typecheckTargets = directlyChangedPackages.filter((pkgName) => {
     const pkg = workspaceByName.get(pkgName);
-    return pkg !== undefined && pkg.hasTsconfig;
+    if (pkg === undefined || !pkg.hasTsconfig) {
+      return false;
+    }
+    const buildScript = pkg.scripts.build;
+    return typeof buildScript === 'string' && /\btsc\b/.test(buildScript);
   });
 
   console.log('ci-impact: selective quality checks enabled.');
