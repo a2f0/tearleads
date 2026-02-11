@@ -12,25 +12,27 @@ interface SearchableHelpDocDefinition {
   content: string;
 }
 
+const COMMON_KEYWORDS = ['help', 'docs', 'documentation'] as const;
+
 const SEARCHABLE_HELP_DOCS: SearchableHelpDocDefinition[] = [
   {
     id: 'cli',
-    keywords: ['help', 'docs', 'documentation', 'command line'],
+    keywords: [...COMMON_KEYWORDS, 'command line'],
     content: cliDocumentationEn
   },
   {
     id: 'cliReference',
-    keywords: ['help', 'docs', 'documentation', 'commands', 'reference'],
+    keywords: [...COMMON_KEYWORDS, 'commands', 'reference'],
     content: cliReferenceDocumentationEn
   },
   {
     id: 'chromeExtension',
-    keywords: ['help', 'docs', 'documentation', 'browser', 'extension'],
+    keywords: [...COMMON_KEYWORDS, 'browser', 'extension'],
     content: chromeExtensionDocumentationEn
   },
   {
     id: 'backupRestore',
-    keywords: ['help', 'docs', 'documentation', 'backup', 'restore'],
+    keywords: [...COMMON_KEYWORDS, 'backup', 'restore'],
     content: backupRestoreDocumentationEn
   }
 ];

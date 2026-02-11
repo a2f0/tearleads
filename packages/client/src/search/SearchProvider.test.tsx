@@ -92,7 +92,7 @@ describe('SearchProvider', () => {
     cancelAnimationFrameSpy.mockRestore();
   });
 
-  it('indexes app and help catalogs only after UI paint', async () => {
+  it('indexes app and help catalogs in one batch after UI paint', async () => {
     render(
       <SearchProvider>
         <div>child</div>
@@ -108,22 +108,19 @@ describe('SearchProvider', () => {
     await flushTicks(4);
 
     await waitFor(() => {
-      expect(mockUpsertBatch).toHaveBeenCalledTimes(2);
+      expect(mockUpsertBatch).toHaveBeenCalledTimes(1);
     });
 
     const firstCallDocs = mockUpsertBatch.mock.calls[0]?.[0];
-    const secondCallDocs = mockUpsertBatch.mock.calls[1]?.[0];
     expect(Array.isArray(firstCallDocs)).toBe(true);
-    expect(Array.isArray(secondCallDocs)).toBe(true);
     expect(firstCallDocs.length).toBeGreaterThan(0);
-    expect(secondCallDocs.length).toBeGreaterThan(0);
     expect(
-      firstCallDocs.every(
+      firstCallDocs.some(
         (doc: { entityType: string }) => doc.entityType === 'app'
       )
     ).toBe(true);
     expect(
-      secondCallDocs.every(
+      firstCallDocs.some(
         (doc: { entityType: string }) => doc.entityType === 'help_doc'
       )
     ).toBe(true);

@@ -4,7 +4,7 @@ import { WindowTitleBar } from './WindowTitleBar.js';
 interface FloatingWindowBodyProps {
   titleBarProps: WindowTitleBarProps;
   contentRef: React.RefObject<HTMLDivElement | null>;
-  contentClassName?: string;
+  contentClassName?: string | undefined;
   children: React.ReactNode;
 }
 
@@ -17,7 +17,10 @@ export function FloatingWindowBody({
   return (
     <>
       <WindowTitleBar {...titleBarProps} />
-      <div ref={contentRef} className={`flex-1 overflow-auto ${contentClassName ?? ''}`.trim()}>
+      <div
+        ref={contentRef}
+        className={`flex-1 overflow-auto ${contentClassName ?? ''}`.trim()}
+      >
         {children}
       </div>
     </>

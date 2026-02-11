@@ -241,15 +241,16 @@ export function SearchProvider({ children }: SearchProviderProps) {
             if (!mounted) {
               return;
             }
-            void store
-              .upsertBatch(createSearchableAppDocuments())
-              .then(() => store.upsertBatch(createSearchableHelpDocuments()))
-              .catch((appIndexErr) => {
-                console.error(
-                  'Search: Failed to index app/help catalog:',
-                  appIndexErr
-                );
-              });
+            const catalogDocuments = [
+              ...createSearchableAppDocuments(),
+              ...createSearchableHelpDocuments()
+            ];
+            void store.upsertBatch(catalogDocuments).catch((appIndexErr) => {
+              console.error(
+                'Search: Failed to index app/help catalog:',
+                appIndexErr
+              );
+            });
           });
         }
       } catch (err) {
