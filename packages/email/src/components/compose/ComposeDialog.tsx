@@ -82,15 +82,7 @@ export function ComposeDialog({
     setSubject(openRequest.subject ?? '');
     setBody(openRequest.body ?? '');
     setAddressBookOpen(false);
-  }, [
-    open,
-    openRequest,
-    setBcc,
-    setBody,
-    setCc,
-    setSubject,
-    setTo
-  ]);
+  }, [open, openRequest, setBcc, setBody, setCc, setSubject, setTo]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {

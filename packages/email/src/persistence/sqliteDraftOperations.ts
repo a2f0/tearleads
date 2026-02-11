@@ -1,12 +1,12 @@
 import type { Database } from '@rapid/db/sqlite';
-import { composedEmails, emailAttachments, vfsRegistry } from '@rapid/db/sqlite';
+import {
+  composedEmails,
+  emailAttachments,
+  vfsRegistry
+} from '@rapid/db/sqlite';
 import { desc, eq } from 'drizzle-orm';
-import type {
-  Attachment,
-  DraftEmail,
-  DraftListItem
-} from '../types';
 import type { SaveDraftInput } from '../context';
+import type { Attachment, DraftEmail, DraftListItem } from '../types';
 
 function toStringArray(value: unknown): string[] {
   if (Array.isArray(value)) {
@@ -52,9 +52,7 @@ function normalizeEmails(input: string[] | null | undefined): string[] {
     return [];
   }
 
-  return input
-    .map((email) => email.trim())
-    .filter((email) => email.length > 0);
+  return input.map((email) => email.trim()).filter((email) => email.length > 0);
 }
 
 function normalizeText(input: string | null | undefined): string {

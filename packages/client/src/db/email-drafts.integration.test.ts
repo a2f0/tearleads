@@ -1,9 +1,6 @@
-import {
-  withRealDatabase
-} from '@rapid/db-test-utils';
+import { withRealDatabase } from '@rapid/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
-import { migrations } from './migrations';
 import { mockConsoleWarn } from '../test/console-mocks';
 import {
   deleteEmailDraftFromDb,
@@ -11,6 +8,7 @@ import {
   listEmailDraftsFromDb,
   saveEmailDraftToDb
 } from './email-drafts';
+import { migrations } from './migrations';
 import { composedEmails } from './schema';
 
 describe('email drafts integration', () => {
