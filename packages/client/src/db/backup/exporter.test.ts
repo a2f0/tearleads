@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { FileStorage } from '@/storage/opfs';
 import type { DatabaseAdapter } from '../adapters/types';
+import { MAGIC_BYTES, MAGIC_SIZE } from './constants';
 import { createBackup, estimateBackupSize } from './exporter';
 
 describe('exporter', () => {
@@ -74,8 +75,9 @@ describe('exporter', () => {
       expect(backup.length).toBeGreaterThan(0);
 
       // Verify magic bytes
-      const magic = new TextDecoder().decode(backup.slice(0, 8));
-      expect(magic).toBe('TEARLEADSBAK');
+      expect(Array.from(backup.slice(0, MAGIC_SIZE))).toEqual(
+        Array.from(MAGIC_BYTES)
+      );
     });
 
     it('creates a backup with blobs', async () => {

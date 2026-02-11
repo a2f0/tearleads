@@ -16,7 +16,7 @@ export type ChunkTypeValue = (typeof ChunkType)[keyof typeof ChunkType];
 
 /** Backup file header (plaintext, 32 bytes) */
 export interface BackupHeader {
-  /** Magic bytes: "TEARLEADSBAK" */
+  /** Magic bytes from file header */
   magic: Uint8Array;
   /** Format version (currently 1) */
   version: number;
