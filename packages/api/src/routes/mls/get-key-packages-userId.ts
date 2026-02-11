@@ -1,6 +1,6 @@
 /* istanbul ignore file */
 import type { Router as RouterType } from 'express';
-import { getKeyPackagesUseridHandler } from '../mls.js';
+import { getKeyPackagesUseridHandler } from './handlers.js';
 
 export function registerGetKeyPackagesUseridRoute(
   routeRouter: RouterType

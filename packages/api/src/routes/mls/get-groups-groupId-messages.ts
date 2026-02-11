@@ -1,6 +1,6 @@
 /* istanbul ignore file */
 import type { Router as RouterType } from 'express';
-import { getGroupsGroupidMessagesHandler } from '../mls.js';
+import { getGroupsGroupidMessagesHandler } from './handlers.js';
 
 export function registerGetGroupsGroupidMessagesRoute(
   routeRouter: RouterType

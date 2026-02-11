@@ -1,6 +1,6 @@
 /* istanbul ignore file */
 import type { Router as RouterType } from 'express';
-import { postWelcomeMessagesIdAckHandler } from '../mls.js';
+import { postWelcomeMessagesIdAckHandler } from './handlers.js';
 
 export function registerPostWelcomeMessagesIdAckRoute(
   routeRouter: RouterType

@@ -17,10 +17,10 @@ Goal: finish the one-endpoint-per-file refactor by moving endpoint handler imple
 - [x] `admin/groups`: handlers moved to `routes/admin/groups/*`, `admin/groups.ts` is now router assembly only.
 - [x] `vfs-shares`: handlers moved to `routes/vfs-shares/*`, `vfs-shares.ts` is now router assembly only.
 - [x] `ai-conversations`: handlers moved to `routes/ai-conversations/*`, `ai-conversations.ts` is now router assembly only.
+- [x] `mls`: handlers moved to `routes/mls/*`, `mls.ts` is now router assembly only.
 
 ## Remaining
-
-- [ ] `mls`: move 18 handler implementations from `mls.ts` into `routes/mls/*`.
+- [x] None.
 
 ## Validation for each module
 

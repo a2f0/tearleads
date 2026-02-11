@@ -1,6 +1,6 @@
 /* istanbul ignore file */
 import type { Router as RouterType } from 'express';
-import { deleteGroupsGroupidHandler } from '../mls.js';
+import { deleteGroupsGroupidHandler } from './handlers.js';
 
 export function registerDeleteGroupsGroupidRoute(
   routeRouter: RouterType
