@@ -119,6 +119,14 @@ function extractNodeText(node: ReactNode): string {
     return node.map(extractNodeText).join('');
   }
 
+  if (
+    isValidElement<{ alt?: string; children?: ReactNode }>(node) &&
+    node.type === 'img' &&
+    typeof node.props.alt === 'string'
+  ) {
+    return node.props.alt;
+  }
+
   if (isValidElement<{ children?: ReactNode }>(node)) {
     return extractNodeText(node.props.children);
   }
@@ -138,55 +146,28 @@ export function MarkdownWithToc({
   const hasToc = headings.length > 0;
   const getRenderedHeadingId = createSlugger();
 
+  function createHeading(level: 1 | 2 | 3 | 4 | 5 | 6) {
+    const Tag = `h${level}` as const;
+
+    return function Heading({ children, ...props }: HeadingProps) {
+      return (
+        <Tag
+          id={getRenderedHeadingId(extractNodeText(children).trim())}
+          {...props}
+        >
+          {children}
+        </Tag>
+      );
+    };
+  }
+
   const markdownComponents = {
-    h1: ({ children, ...props }: HeadingProps) => (
-      <h1
-        id={getRenderedHeadingId(extractNodeText(children).trim())}
-        {...props}
-      >
-        {children}
-      </h1>
-    ),
-    h2: ({ children, ...props }: HeadingProps) => (
-      <h2
-        id={getRenderedHeadingId(extractNodeText(children).trim())}
-        {...props}
-      >
-        {children}
-      </h2>
-    ),
-    h3: ({ children, ...props }: HeadingProps) => (
-      <h3
-        id={getRenderedHeadingId(extractNodeText(children).trim())}
-        {...props}
-      >
-        {children}
-      </h3>
-    ),
-    h4: ({ children, ...props }: HeadingProps) => (
-      <h4
-        id={getRenderedHeadingId(extractNodeText(children).trim())}
-        {...props}
-      >
-        {children}
-      </h4>
-    ),
-    h5: ({ children, ...props }: HeadingProps) => (
-      <h5
-        id={getRenderedHeadingId(extractNodeText(children).trim())}
-        {...props}
-      >
-        {children}
-      </h5>
-    ),
-    h6: ({ children, ...props }: HeadingProps) => (
-      <h6
-        id={getRenderedHeadingId(extractNodeText(children).trim())}
-        {...props}
-      >
-        {children}
-      </h6>
-    )
+    h1: createHeading(1),
+    h2: createHeading(2),
+    h3: createHeading(3),
+    h4: createHeading(4),
+    h5: createHeading(5),
+    h6: createHeading(6)
   };
 
   return (
