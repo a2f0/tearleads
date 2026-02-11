@@ -1,10 +1,9 @@
 import {
-  type Migration,
-  vfsTestMigrations,
   withRealDatabase
 } from '@rapid/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, type vi } from 'vitest';
+import { migrations } from './migrations';
 import { mockConsoleWarn } from '../test/console-mocks';
 import {
   deleteEmailDraftFromDb,
@@ -13,41 +12,6 @@ import {
   saveEmailDraftToDb
 } from './email-drafts';
 import { composedEmails } from './schema';
-
-const draftTestMigrations: Migration[] = [
-  ...vfsTestMigrations,
-  {
-    version: 2,
-    up: async (adapter) => {
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS composed_emails (
-          id TEXT PRIMARY KEY REFERENCES vfs_registry(id) ON DELETE CASCADE,
-          encrypted_to TEXT,
-          encrypted_cc TEXT,
-          encrypted_bcc TEXT,
-          encrypted_subject TEXT,
-          encrypted_body TEXT,
-          status TEXT NOT NULL DEFAULT 'draft',
-          sent_at INTEGER,
-          created_at INTEGER NOT NULL,
-          updated_at INTEGER NOT NULL
-        )
-      `);
-
-      await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS email_attachments (
-          id TEXT PRIMARY KEY,
-          composed_email_id TEXT NOT NULL REFERENCES composed_emails(id) ON DELETE CASCADE,
-          encrypted_file_name TEXT NOT NULL,
-          mime_type TEXT NOT NULL,
-          size INTEGER NOT NULL,
-          encrypted_storage_path TEXT NOT NULL,
-          created_at INTEGER NOT NULL
-        )
-      `);
-    }
-  }
-];
 
 describe('email drafts integration', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -130,7 +94,36 @@ describe('email drafts integration', () => {
         const afterDelete = await getEmailDraftFromDb(db, saveResult.id);
         expect(afterDelete).toBeNull();
       },
-      { migrations: draftTestMigrations }
+      { migrations }
+    );
+  });
+
+  it('normalizes missing subject and body when saving drafts', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const draftInput = {
+          id: null,
+          to: ['alex@bitwisewebservices.com'],
+          cc: [],
+          bcc: [],
+          subject: '',
+          body: '',
+          attachments: []
+        };
+
+        // Simulate runtime payload drift where subject/body are undefined.
+        Object.defineProperty(draftInput, 'subject', { value: undefined });
+        Object.defineProperty(draftInput, 'body', { value: undefined });
+
+        const result = await saveEmailDraftToDb(db, draftInput);
+        const saved = await getEmailDraftFromDb(db, result.id);
+
+        expect(saved).not.toBeNull();
+        expect(saved?.subject).toBe('');
+        expect(saved?.body).toBe('');
+        expect(saved?.to).toEqual(['alex@bitwisewebservices.com']);
+      },
+      { migrations }
     );
   });
 });

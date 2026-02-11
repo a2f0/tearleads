@@ -47,12 +47,32 @@ function stringifyEmails(emails: string[]): string {
   return JSON.stringify(emails);
 }
 
+function normalizeEmails(input: string[] | null | undefined): string[] {
+  if (!Array.isArray(input)) {
+    return [];
+  }
+
+  return input
+    .map((email) => email.trim())
+    .filter((email) => email.length > 0);
+}
+
+function normalizeText(input: string | null | undefined): string {
+  return typeof input === 'string' ? input : '';
+}
+
 export async function saveEmailDraftToDb(
   db: Database,
   input: SaveDraftInput
 ): Promise<{ id: string; updatedAt: string }> {
   const now = new Date();
   const draftId = input.id ?? crypto.randomUUID();
+  const to = normalizeEmails(input.to);
+  const cc = normalizeEmails(input.cc);
+  const bcc = normalizeEmails(input.bcc);
+  const subject = normalizeText(input.subject);
+  const body = normalizeText(input.body);
+  const attachments = Array.isArray(input.attachments) ? input.attachments : [];
 
   await db.transaction(async (tx) => {
     await tx
@@ -69,11 +89,11 @@ export async function saveEmailDraftToDb(
       .insert(composedEmails)
       .values({
         id: draftId,
-        encryptedTo: stringifyEmails(input.to),
-        encryptedCc: stringifyEmails(input.cc),
-        encryptedBcc: stringifyEmails(input.bcc),
-        encryptedSubject: input.subject,
-        encryptedBody: input.body,
+        encryptedTo: stringifyEmails(to),
+        encryptedCc: stringifyEmails(cc),
+        encryptedBcc: stringifyEmails(bcc),
+        encryptedSubject: subject,
+        encryptedBody: body,
         status: 'draft',
         sentAt: null,
         createdAt: now,
@@ -82,11 +102,11 @@ export async function saveEmailDraftToDb(
       .onConflictDoUpdate({
         target: composedEmails.id,
         set: {
-          encryptedTo: stringifyEmails(input.to),
-          encryptedCc: stringifyEmails(input.cc),
-          encryptedBcc: stringifyEmails(input.bcc),
-          encryptedSubject: input.subject,
-          encryptedBody: input.body,
+          encryptedTo: stringifyEmails(to),
+          encryptedCc: stringifyEmails(cc),
+          encryptedBcc: stringifyEmails(bcc),
+          encryptedSubject: subject,
+          encryptedBody: body,
           status: 'draft',
           updatedAt: now
         }
@@ -96,9 +116,9 @@ export async function saveEmailDraftToDb(
       .delete(emailAttachments)
       .where(eq(emailAttachments.composedEmailId, draftId));
 
-    if (input.attachments.length > 0) {
+    if (attachments.length > 0) {
       await tx.insert(emailAttachments).values(
-        input.attachments.map((attachment) => ({
+        attachments.map((attachment) => ({
           id: attachment.id,
           composedEmailId: draftId,
           encryptedFileName: attachment.fileName,

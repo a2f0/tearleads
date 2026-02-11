@@ -40,6 +40,7 @@ import { saveFile as saveFileUtil } from '@/lib/file-utils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatDate } from '@/lib/utils';
 import { createContactDocument, indexDocuments } from '@/search';
+import { useWindowManagerActions } from './WindowManagerContext';
 
 export function ContactsAboutMenuItem() {
   return (
@@ -149,6 +150,7 @@ export function ClientContactsProvider({
   const { t } = useTypedTranslation('contextMenu');
   const navigate = useNavigate();
   const navigateWithFrom = useNavigateWithFrom();
+  const { openWindow, requestWindowOpen } = useWindowManagerActions();
 
   const databaseState = useMemo(
     () => ({
@@ -188,6 +190,26 @@ export function ClientContactsProvider({
     [databaseContext.currentInstanceId]
   );
 
+  const openEmailComposer = useCallback(
+    (recipients: string[]): boolean => {
+      const normalizedRecipients = Array.from(
+        new Set(
+          recipients
+            .map((recipient) => recipient.trim())
+            .filter((recipient) => recipient.length > 0)
+        )
+      );
+      if (normalizedRecipients.length === 0) {
+        return false;
+      }
+
+      openWindow('email');
+      requestWindowOpen('email', { to: normalizedRecipients });
+      return true;
+    },
+    [openWindow, requestWindowOpen]
+  );
+
   return (
     <ContactsProvider
       databaseState={databaseState}
@@ -202,6 +224,7 @@ export function ClientContactsProvider({
       navigate={navigate}
       navigateWithFrom={navigateWithFrom}
       formatDate={formatDate}
+      openEmailComposer={openEmailComposer}
     >
       {children}
     </ContactsProvider>

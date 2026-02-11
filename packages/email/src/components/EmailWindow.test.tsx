@@ -449,6 +449,32 @@ describe('EmailWindow', () => {
     expect(screen.queryByText('Test Subject')).not.toBeInTheDocument();
   });
 
+  it('opens compose with recipients from open request', async () => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ emails: mockEmails })
+    });
+
+    renderWithProvider({
+      ...defaultProps,
+      openComposeRequest: {
+        to: ['ada@example.com', 'grace@example.com'],
+        requestId: 1
+      }
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
+    });
+    expect(screen.getByRole('tab', { name: 'New Message' })).toHaveAttribute(
+      'aria-selected',
+      'true'
+    );
+    expect(screen.getByTestId('compose-to')).toHaveValue(
+      'ada@example.com, grace@example.com'
+    );
+  });
+
   it('closes compose tab from close button', async () => {
     const user = userEvent.setup();
     await renderLoadedWindow();

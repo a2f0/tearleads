@@ -1,6 +1,7 @@
 import { EmailWindow as EmailWindowBase } from '@rapid/email';
 import type { WindowDimensions } from '@rapid/window-manager';
 import { ClientEmailProvider } from '@/contexts/ClientEmailProvider';
+import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
 
 interface EmailWindowProps {
   id: string;
@@ -21,6 +22,8 @@ export function EmailWindow({
   zIndex,
   initialDimensions
 }: EmailWindowProps) {
+  const openRequest = useWindowOpenRequest('email');
+
   return (
     <ClientEmailProvider>
       <EmailWindowBase
@@ -31,6 +34,7 @@ export function EmailWindow({
         onFocus={onFocus}
         zIndex={zIndex}
         initialDimensions={initialDimensions}
+        {...(openRequest && { openComposeRequest: openRequest })}
       />
     </ClientEmailProvider>
   );

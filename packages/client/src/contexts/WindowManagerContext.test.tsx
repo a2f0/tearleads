@@ -257,6 +257,23 @@ describe('WindowManagerContext', () => {
 
       expect(result.current.windowOpenRequests.contacts?.requestId).toBe(2);
     });
+
+    it('stores email compose open requests', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.requestWindowOpen('email', {
+          to: ['ada@example.com'],
+          subject: 'Hello'
+        });
+      });
+
+      expect(result.current.windowOpenRequests.email).toEqual({
+        to: ['ada@example.com'],
+        subject: 'Hello',
+        requestId: 1
+      });
+    });
   });
 
   describe('closeWindow', () => {

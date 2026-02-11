@@ -150,7 +150,7 @@ describe('ContactsGroupsSidebar', () => {
   it('sends email to all group primary email recipients', async () => {
     const mockDb = createMockDatabase();
     const user = userEvent.setup();
-    const openSpy = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const openEmailComposer = vi.fn(() => true);
 
     mockDb.select.mockImplementation(() => ({
       from: () => ({
@@ -170,7 +170,10 @@ describe('ContactsGroupsSidebar', () => {
     }));
 
     render(
-      <TestContactsProvider database={mockDb}>
+      <TestContactsProvider
+        database={mockDb}
+        openEmailComposer={openEmailComposer}
+      >
         <ContactsGroupsSidebar
           width={220}
           onWidthChange={vi.fn()}
@@ -187,10 +190,9 @@ describe('ContactsGroupsSidebar', () => {
     fireEvent.contextMenu(groupButton);
     await user.click(screen.getByText('Send email'));
 
-    expect(openSpy).toHaveBeenCalledWith(
-      'mailto:family%40example.com,work%40example.com',
-      '_blank',
-      'noopener,noreferrer'
-    );
+    expect(openEmailComposer).toHaveBeenCalledWith([
+      'family@example.com',
+      'work@example.com'
+    ]);
   });
 });

@@ -18,6 +18,14 @@ interface ComposeDialogProps {
   draftId?: string | null;
   onEmailSent?: () => void;
   className?: string;
+  openRequest?: {
+    to?: string[];
+    cc?: string[];
+    bcc?: string[];
+    subject?: string;
+    body?: string;
+    requestId: number;
+  };
 }
 
 export function ComposeDialog({
@@ -25,7 +33,8 @@ export function ComposeDialog({
   onOpenChange,
   draftId = null,
   onEmailSent,
-  className
+  className,
+  openRequest
 }: ComposeDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const toInputRef = useRef<HTMLInputElement>(null);
@@ -61,6 +70,27 @@ export function ComposeDialog({
       reset();
     }
   }, [open, reset]);
+
+  useEffect(() => {
+    if (!open || !openRequest) {
+      return;
+    }
+
+    setTo(formatEmailAddresses(openRequest.to ?? []));
+    setCc(formatEmailAddresses(openRequest.cc ?? []));
+    setBcc(formatEmailAddresses(openRequest.bcc ?? []));
+    setSubject(openRequest.subject ?? '');
+    setBody(openRequest.body ?? '');
+    setAddressBookOpen(false);
+  }, [
+    open,
+    openRequest,
+    setBcc,
+    setBody,
+    setCc,
+    setSubject,
+    setTo
+  ]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
