@@ -1,4 +1,3 @@
-import { WINDOW_FIT_CONTENT_EVENT } from '@tearleads/window-manager';
 import { useRef, useState } from 'react';
 import {
   DropdownMenuItem,
@@ -16,12 +15,6 @@ export function WindowOptionsMenuItem() {
 
   const handleOpenDialog = () => {
     setDialogOpen(true);
-  };
-
-  const handleFitContent = () => {
-    (dropdownMenu?.getContainerElement() ?? menuItemRef.current)
-      ?.closest<HTMLElement>('.floating-window')
-      ?.dispatchEvent(new CustomEvent(WINDOW_FIT_CONTENT_EVENT));
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -45,7 +38,6 @@ export function WindowOptionsMenuItem() {
         onOpenChange={handleDialogOpenChange}
         preserveWindowState={preserveWindowState}
         onSave={setPreserveWindowState}
-        onFitContent={handleFitContent}
       />
     </>
   );

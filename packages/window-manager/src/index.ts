@@ -34,7 +34,7 @@ export {
 } from './hooks/index.js';
 
 // Utilities
-export { cn, generateUniqueId, WINDOW_FIT_CONTENT_EVENT } from './lib/index.js';
+export { cn, generateUniqueId } from './lib/index.js';
 // Storage utilities
 export {
   clearAllWindowDimensions,

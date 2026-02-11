@@ -1,5 +1,4 @@
 import { ThemeProvider } from '@tearleads/ui';
-import { WINDOW_FIT_CONTENT_EVENT } from '@tearleads/window-manager';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -117,23 +116,6 @@ describe('WindowOptionsMenuItem', () => {
     expect(
       screen.queryByTestId('window-options-dialog')
     ).not.toBeInTheDocument();
-  });
-
-  it('dispatches fit content event when Fit is clicked', async () => {
-    const user = userEvent.setup();
-    renderMenuItem();
-
-    const windowElement = screen.getByTestId('floating-window-container');
-    const dispatchSpy = vi.spyOn(windowElement, 'dispatchEvent');
-
-    await user.click(screen.getByText('Options'));
-    await user.click(screen.getByTestId('window-options-fit-content'));
-
-    expect(dispatchSpy).toHaveBeenCalled();
-    const hasFitEvent = dispatchSpy.mock.calls.some(
-      ([eventArg]) => eventArg?.type === WINDOW_FIT_CONTENT_EVENT
-    );
-    expect(hasFitEvent).toBe(true);
   });
 
   it('reflects current preserveWindowState in dialog', async () => {
