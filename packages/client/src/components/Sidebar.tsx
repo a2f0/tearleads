@@ -8,7 +8,6 @@ import {
   CalendarDays,
   ChevronRight,
   CircleHelp,
-  Cpu,
   Database,
   ExternalLink,
   FileIcon,
@@ -241,13 +240,6 @@ export const navItems: NavItem[] = [
     labelKey: 'sync',
     inMobileMenu: true,
     testId: 'sync-link'
-  },
-  {
-    path: '/v86',
-    icon: Cpu,
-    labelKey: 'v86',
-    inMobileMenu: true,
-    testId: 'v86-link'
   },
   {
     path: '/vfs',

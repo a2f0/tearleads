@@ -49,7 +49,6 @@ export type WindowType =
   | 'cache-storage'
   | 'local-storage'
   | 'sync'
-  | 'v86'
   | 'vfs'
   | 'classic'
   | 'backup'

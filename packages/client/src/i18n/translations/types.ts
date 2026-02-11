@@ -44,7 +44,6 @@ export interface MenuTranslations {
   settings: string;
   email: string;
   sync: string;
-  v86: string;
   vfs: string;
   classic: string;
   backups: string;

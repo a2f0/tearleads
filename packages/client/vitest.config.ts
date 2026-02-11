@@ -98,7 +98,6 @@ export default defineConfig({
         'src/components/floating-window/index.ts',
         'src/components/contacts-window/index.tsx',
         'src/components/notes-window/index.ts',
-        'src/components/v86-window/index.ts',
         'src/components/ui/drop-zone-overlay/index.ts',
         // Wrapper component that delegates to @tearleads/audio package
         'src/components/audio-window/index.tsx',
@@ -116,9 +115,6 @@ export default defineConfig({
         'src/db/migrations/types.ts',
         'src/i18n/translations/types.ts',
         'src/pages/opfs/types.ts',
-        'src/lib/v86/types.ts',
-        // External library wrappers (hard to mock)
-        'src/components/v86-window/useV86.ts',
         // Test infrastructure for Playwright parallel execution
         'src/lib/test-instance.ts',
         // MLS chat page - TODO: add tests
