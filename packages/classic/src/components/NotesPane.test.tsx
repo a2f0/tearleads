@@ -141,7 +141,8 @@ describe('NotesPane', () => {
     const onReorderNote = vi.fn();
     const dataTransfer = {
       effectAllowed: 'move',
-      setData: vi.fn()
+      setData: vi.fn(),
+      dropEffect: 'none'
     } as unknown as DataTransfer;
 
     render(
@@ -170,9 +171,10 @@ describe('NotesPane', () => {
     if (!betaItem) {
       throw new Error('Expected beta note list item');
     }
-    fireEvent.dragOver(betaItem);
+    fireEvent.dragOver(betaItem, { dataTransfer });
 
     expect(onReorderNote).toHaveBeenCalledWith('note-1', 'note-2');
+    expect(dataTransfer.dropEffect).toBe('move');
   });
 
   it('opens empty-space context menu and creates a new entry', () => {

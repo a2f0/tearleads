@@ -235,6 +235,9 @@ export function NotesPane({
                       return;
                     }
                     event.preventDefault();
+                    if (event.dataTransfer) {
+                      event.dataTransfer.dropEffect = 'move';
+                    }
                     if (lastHoverNoteId === note.id) {
                       return;
                     }
