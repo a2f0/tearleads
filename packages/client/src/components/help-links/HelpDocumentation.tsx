@@ -1,5 +1,4 @@
 import { useTheme } from '@rapid/ui';
-import MDEditor from '@uiw/react-md-editor';
 import {
   Download,
   type LucideIcon,
@@ -7,6 +6,7 @@ import {
   Terminal,
   TerminalSquare
 } from 'lucide-react';
+import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
 import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
 import type { SupportedLanguage } from '@/i18n';
 import { useTypedTranslation } from '@/i18n';
@@ -94,11 +94,10 @@ export function HelpDocumentation({ docId }: HelpDocumentationProps) {
         <p className="text-muted-foreground text-sm">{description}</p>
       </div>
 
-      <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card p-4">
-        <div data-color-mode={markdownColorMode}>
-          <MDEditor.Markdown source={documentation} />
-        </div>
-      </div>
+      <MarkdownWithToc
+        source={documentation}
+        markdownColorMode={markdownColorMode}
+      />
     </div>
   );
 }
