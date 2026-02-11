@@ -5,6 +5,7 @@ set -eu
 # This ensures the script operates on the repo where it's invoked, not where it's located
 REPO_ROOT="$(git rev-parse --show-toplevel)"
 BASE_BRANCH="${BASE_BRANCH:-main}"
+CHANGED_FILES_FILE="${CHANGED_FILES_FILE:-}"
 DRY_RUN=false
 
 if [ "${1:-}" = "--dry-run" ]; then
@@ -87,7 +88,15 @@ has_changes() {
   TARGET_DIR="$1"
   shift
 
-  CHANGED_FILES=$(git diff --name-only "$BASE_BRANCH"...HEAD -- "$TARGET_DIR")
+  if [ -n "$CHANGED_FILES_FILE" ]; then
+    if [ ! -f "$CHANGED_FILES_FILE" ]; then
+      echo "Error: CHANGED_FILES_FILE does not exist: $CHANGED_FILES_FILE" >&2
+      exit 1
+    fi
+    CHANGED_FILES=$(grep -E "^${TARGET_DIR}(/|$)" "$CHANGED_FILES_FILE" || true)
+  else
+    CHANGED_FILES=$(git diff --name-only "$BASE_BRANCH"...HEAD -- "$TARGET_DIR")
+  fi
 
   if [ -z "$CHANGED_FILES" ]; then
     return 1

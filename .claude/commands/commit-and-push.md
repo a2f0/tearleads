@@ -23,7 +23,7 @@ Commit and push the current changes following these rules:
 2. **Analyze changes**: Run `git status` and `git diff --staged` to understand what's being committed.
    - If tooling reports actions (e.g., postinstall builds) but `git status` shows no unexpected changes, proceed without asking about generated files or extra diffs.
 
-3. **Commit format**: Follow `CLAUDE.md` guidelines (conventional commits, GPG signed with 5s timeout, no co-author/footers, no binary files). Don't bump versions - that happens in `/enter-merge-queue`.
+3. **Commit format**: Follow `CLAUDE.md` guidelines (conventional commits, GPG signed with 5s timeout, no co-author/footers, no binary files). Don't bump versions on PR branches - that happens in `main` CI (`main-version-bump` workflow).
 
 4. **Push**: After successful commit, push to the current branch's remote.
    - The pre-push hook runs full builds and all unit tests; it can take several minutes. Use a longer command timeout and do not assume a timeout means failure.

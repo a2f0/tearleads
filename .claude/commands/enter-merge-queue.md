@@ -33,7 +33,6 @@ This skill guarantees a PR gets merged by continuously updating from base, fixin
 
 Track the following state during execution:
 
-- `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied. This ensures we only bump once per PR, even if we loop through multiple CI fixes or rebases.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini checks entirely.
 - `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini reports its daily quota limit.
 - `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback review via Codex.
@@ -170,11 +169,11 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
-   - If `mergeStateStatus` is `BEHIND`: Update from base and bump version (step 4d)
-   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Poll CI and evaluate/close Gemini feedback on every poll iteration (step 4e)
+   - If `mergeStateStatus` is `BEHIND`: Update from base (step 4d)
+   - If `mergeStateStatus` is `BLOCKED` or `UNKNOWN`: Wait for CI and address Gemini feedback (step 4e)
    - If `mergeStateStatus` is `CLEAN`: Enable auto-merge (step 4f)
 
-   ### 4d. Update from base branch (rebase) and bump version
+   ### 4d. Update from base branch (rebase)
 
    Use rebase to keep the branch history clean (no merge commits for updates):
 
@@ -187,7 +186,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
      1. **Version files** (`package.json` versions, `build.gradle`, `project.pbxproj`):
         - Use `git checkout --ours <file>` to keep main's version
-        - These get re-bumped by `bumpVersion.sh` after rebase, so main's version is correct
+        - Version bumps are applied by CI on `main` post-merge, so keep main's version here
         - NOTE: During rebase, `--ours` refers to the branch being rebased ONTO (main), not the PR branch. This is the opposite of `git merge`.
 
      2. **Lock files** (`pnpm-lock.yaml`):
@@ -206,15 +205,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **Reset job failure counts after rebase**: Clear `job_failure_counts` (new base = fresh start for CI).
 
-   **Bump version immediately after successful rebase** (if `has_bumped_version` is `false`):
-
-   1. Run `bumpVersion.sh` and capture its output
-   2. Stage version files: `packages/client/android/app/build.gradle`, `packages/client/ios/App/App.xcodeproj/project.pbxproj`, `packages/api/package.json`, `packages/client/package.json`, `packages/chrome-extension/package.json`, `packages/chrome-extension/public/manifest.json`
-   3. Expect the Chrome extension version changes from `bumpVersion.sh`. These are valid, intentional diffs for the release bump.
-   4. Amend the last commit with version bump info in the body (GPG signed). Do NOT create a separate commit for the bump.
-   5. Set `has_bumped_version = true`
-
-   This saves a full CI cycle by combining rebase + version bump into one push.
+   Do not run `bumpVersion.sh` on PR branches. Version bumping is handled by CI on `main` after merge.
 
    Force push (required after rebase):
 
@@ -367,7 +358,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    ### 4f. Enable auto-merge and wait
 
-   **Version bump note**: If `has_bumped_version` is still `false` at this point (a rare edge case, e.g., if the PR started `CLEAN`), perform the version bump now. Run the bump script, stage the version files, amend the last commit, and **force push** the changes. Then, return to step 4e to wait for the new CI run.
+   **Version bump note**: Do not perform PR-branch version bumps here; CI on `main` owns release version increments.
 
    Enable auto-merge:
 
@@ -459,7 +450,7 @@ git rebase origin/main      # Can be noisy and waste tokens
 - **Don't echo status unnecessarily**: The user sees your tool calls. Don't add "Checking CI status..." messages.
 - **Batch state updates**: Combine related status messages rather than outputting each check individually.
 - **Avoid verbose CI logs**: Only fetch CI logs on failure, and only the failing job's logs.
-- **Skip redundant operations**: Use state flags (`gemini_can_review`, `has_bumped_version`) religiously.
+- **Skip redundant operations**: Use state flags (`gemini_can_review`) religiously.
 - **No redundant file reads**: If you read a file, cache its content mentally. Don't re-read unchanged files.
 
 ## Notes

@@ -1,0 +1,155 @@
+name: Main Version Bump
+
+on:
+  workflow_run:
+    workflows: ["build"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: main-version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Bump Versions On Main
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Prepare source diff
+        id: prepare
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
+        run: |
+          set -eu
+
+          if echo "$SOURCE_MESSAGE" | grep -Eq '^chore\(release\): bump versions'; then
+            echo "skip_reason=bump_commit" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch --no-tags origin "$SOURCE_SHA" main
+
+          PARENT_SHA=$(git rev-list --parents -n 1 "$SOURCE_SHA" | awk '{print $2}')
+          if [ -z "$PARENT_SHA" ]; then
+            echo "skip_reason=missing_parent" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED_FILES_PATH="$RUNNER_TEMP/changed-files.txt"
+          git diff --name-only "$PARENT_SHA" "$SOURCE_SHA" > "$CHANGED_FILES_PATH"
+          echo "changed_files_path=$CHANGED_FILES_PATH" >> "$GITHUB_OUTPUT"
+
+          if ! grep -Eq '^packages/' "$CHANGED_FILES_PATH"; then
+            echo "skip_reason=no_package_changes" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+      - name: Validate signing configuration
+        if: steps.prepare.outputs.skip_reason == ''
+        env:
+          CI_BOT_GPG_PRIVATE_KEY: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
+          CI_BOT_GPG_PASSPHRASE: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
+        run: |
+          set -eu
+          if [ -z "$CI_BOT_GPG_PRIVATE_KEY" ]; then
+            echo "CI_BOT_GPG_PRIVATE_KEY is not set" >&2
+            exit 1
+          fi
+          if [ -z "$CI_BOT_GPG_PASSPHRASE" ]; then
+            echo "CI_BOT_GPG_PASSPHRASE is not set" >&2
+            exit 1
+          fi
+
+      - name: Import GPG key
+        if: steps.prepare.outputs.skip_reason == ''
+        uses: crazy-max/ghaction-import-gpg@v6
+        with:
+          gpg_private_key: ${{ secrets.CI_BOT_GPG_PRIVATE_KEY }}
+          passphrase: ${{ secrets.CI_BOT_GPG_PASSPHRASE }}
+          git_user_signingkey: true
+          git_commit_gpgsign: true
+
+      - name: Bump versions and push with retries
+        if: steps.prepare.outputs.skip_reason == ''
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          CHANGED_FILES_PATH: ${{ steps.prepare.outputs.changed_files_path }}
+        run: |
+          set -eu
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          PUSHED=false
+          ATTEMPTS=5
+
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            echo "Attempt $attempt/$ATTEMPTS" | tee -a "$GITHUB_STEP_SUMMARY"
+
+            git fetch --no-tags origin main
+            git checkout -B main origin/main
+
+            BASE_BRANCH=main CHANGED_FILES_FILE="$CHANGED_FILES_PATH" ./scripts/bumpVersion.sh
+
+            if git diff --quiet; then
+              {
+                echo "## Main Version Bump"
+                echo "No version changes were required for source $SOURCE_SHA."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            git add -A
+            git commit -S \
+              -m "chore(release): bump versions [skip ci]" \
+              -m "source-sha: $SOURCE_SHA" \
+              -m "source-run-id: $SOURCE_RUN_ID"
+
+            if git push origin HEAD:main; then
+              PUSHED=true
+              {
+                echo "## Main Version Bump"
+                echo "Pushed signed bump commit on attempt $attempt/$ATTEMPTS."
+                echo "Source commit: $SOURCE_SHA"
+              } >> "$GITHUB_STEP_SUMMARY"
+              break
+            fi
+
+            git reset --hard HEAD~1
+            sleep $((attempt * 2))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            {
+              echo "## Main Version Bump"
+              echo "Failed to push bump commit after $ATTEMPTS attempts."
+              echo "Source commit: $SOURCE_SHA"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Summarize skipped run
+        if: steps.prepare.outputs.skip_reason != ''
+        env:
+          SKIP_REASON: ${{ steps.prepare.outputs.skip_reason }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -eu
+          {
+            echo "## Main Version Bump"
+            echo "Skipped bump run."
+            echo "Reason: $SKIP_REASON"
+            echo "Source commit: $SOURCE_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -20,7 +20,6 @@ Always pass `-R "$REPO"` to `gh` commands.
 
 Track these state flags:
 
-- `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied.
 - `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after waiting once for Gemini.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files.
 - `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini reports its daily quota limit.
@@ -85,7 +84,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - `CLEAN`: enable auto-merge (4f).
    - **Note**: You can merge your own PRs once the branch is up to date, all required checks pass, and Gemini feedback is fully addressed. If blocked, confirm those three conditions before waiting longer.
 
-   4c. Rebase on base and bump version once:
+   4c. Rebase on base:
 
    ```bash
    git fetch origin <baseRefName> >/dev/null
@@ -107,7 +106,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    Reset `job_failure_counts` after rebase (new base = fresh start).
 
-   If `has_bumped_version` is `false`, run `bumpVersion.sh`, stage the version files, amend the last commit with a GPG-signed message, and set `has_bumped_version = true`. Force push after rebase:
+   Version bumping is handled in `main` CI (`main-version-bump` workflow). Do not run `bumpVersion.sh` on PR branches. Force push after rebase:
 
    ```bash
    git push --force-with-lease >/dev/null
@@ -225,7 +224,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    4f. Enable auto-merge and continue looping until merged:
 
-   If `has_bumped_version` is still `false`, perform the bump, amend, force push, and return to 4e.
+   Do not perform version bumps in this loop; they are owned by `main` CI after merge.
 
    ```bash
    gh pr merge "$PR_NUMBER" --auto --merge -R "$REPO"
