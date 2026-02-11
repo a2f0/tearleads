@@ -1,4 +1,4 @@
-#!/usr/bin/env tsx
+#!/usr/bin/env -S pnpm exec tsx
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';

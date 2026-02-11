@@ -5,8 +5,38 @@ on:
   workflow_call:
 
 jobs:
+  detect-impact:
+    if: ${{ github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    outputs:
+      should-run: ${{ steps.impact.outputs.should-run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install tsx
+        run: npm install -g tsx
+
+      - name: Analyze CI impact
+        id: impact
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          SHOULD_RUN="$(jq -r '.jobs["android"].run' ci-impact.json)"
+          echo "should-run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+          cat ci-impact.json
+
   android:
     name: Android Instrumented Tests
+    needs: detect-impact
+    if: ${{ github.event_name == 'workflow_call' || needs.detect-impact.outputs.should-run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
