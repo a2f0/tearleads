@@ -58,7 +58,11 @@ pr_dashboard_render() {
 
     now=$(date '+%Y-%m-%d %H:%M:%S')
     printf '%s (%s)\nRepo: %s\n\n' "$title" "$now" "$REPO"
-    gh pr list -R "$REPO" --search "$search_query" --limit "$LIMIT"
+    if [ "${TUXEDO_PR_COLORIZED_OUTPUT:-1}" = "1" ]; then
+        env -u NO_COLOR GH_FORCE_TTY="${TUXEDO_PR_FORCE_TTY_WIDTH:-120}" CLICOLOR_FORCE=1 gh pr list -R "$REPO" --search "$search_query" --limit "$LIMIT"
+    else
+        gh pr list -R "$REPO" --search "$search_query" --limit "$LIMIT"
+    fi
 }
 
 pr_dashboard_main() {
