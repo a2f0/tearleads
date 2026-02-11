@@ -3,30 +3,36 @@
 Date: 2026-02-11
 
 Scope:
+
 - `scripts/agents/*`
 - `scripts/*`
 - Excludes `scripts/bumpVersion.sh` (moving to CI in `#1569`)
 
 Goal:
+
 - Decide what should be wired as first-class tool calls vs kept as raw shell scripts.
 
 ## Recommendation Summary
 
 1. Tool now:
+
 - `scripts/agents/*` status/title helpers
 - Local analysis/test helpers with bounded side effects
 
-2. Tool later:
+1. Tool later:
+
 - Dev environment bootstrap/reset scripts
 - Reviewer/automation helpers that touch GitHub but are operationally safe
 
-3. Keep shell/manual (or hard-gated tools):
+1. Keep shell/manual (or hard-gated tools):
+
 - Deploy/provisioning/secrets scripts
 - Scripts with external infra mutation or high blast radius
 
 ## Matrix
 
 Legend:
+
 - `Now`: promote to tool wrapper now
 - `Later`: promote after wrapper framework is stable
 - `Manual`: keep shell/manual or require explicit confirmation gate
@@ -34,7 +40,7 @@ Legend:
 ### scripts/agents
 
 | Script | Decision | Why | Wrapper Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `scripts/agents/cleanup.sh` | Now | Local session hygiene, low risk | No args |
 | `scripts/agents/clearQueued.sh` | Now | Frequent queue lifecycle action | No args |
 | `scripts/agents/clearStatus.sh` | Now | Frequent state reset | No args |
@@ -49,7 +55,7 @@ Legend:
 ### scripts
 
 | Script | Decision | Why | Wrapper Notes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | `scripts/analyzeBundle.sh` | Now | Read-only artifact analysis | Capture summary JSON if possible |
 | `scripts/checkBinaryFiles.sh` | Now | Guardrail validation | Read-only check mode |
 | `scripts/checkPort.ts` | Now | Local environment check | Arg: port |
@@ -112,6 +118,7 @@ Legend:
 | `scripts/codex.sh` | Later | Agent bootstrap helper | Tool once interface stabilized |
 
 Note:
+
 - Duplicate entries were consolidated conceptually; decisions stay the same.
 
 ## Starter Wrapper Contract
@@ -119,48 +126,61 @@ Note:
 Use a thin wrapper layer (MCP tool or shell adapter) with a stable interface per script.
 
 Required behavior:
+
 1. Fixed repo-root execution:
+
 - Resolve workspace root and `cd` there before execution.
 
-2. Explicit argument schema:
+1. Explicit argument schema:
+
 - Reject undeclared args.
 - Prefer named args over raw command strings.
 
-3. Safety class:
+1. Safety class:
+
 - `safe_read`, `safe_write_local`, `high_risk_external`.
 - `high_risk_external` defaults to blocked unless explicitly enabled.
 
-4. Timeouts:
+1. Timeouts:
+
 - Default 5 min.
 - Long-running tasks opt-in per script (15-60 min).
 
-5. Output contract:
+1. Output contract:
+
 - Return structured summary: `status`, `exit_code`, `duration_ms`, `key_lines`.
 - Suppress noisy success logs by default, keep stderr surfaced.
 
-6. Idempotency/retry metadata:
+1. Idempotency/retry metadata:
+
 - Mark wrappers as `retry_safe: true/false`.
 - Queue/merge scripts should be retry-safe where practical.
 
-7. Preflight checks:
+1. Preflight checks:
+
 - For GH scripts: verify repo via `gh repo view --json nameWithOwner -q .nameWithOwner`.
 - For device scripts: verify emulator/simulator availability before run.
 - For infra scripts: verify explicit enable flag.
 
-8. Dry-run where possible:
+1. Dry-run where possible:
+
 - For mutating scripts, support `--dry-run` wrapper mode if script supports preview.
 
-9. Audit tags:
+1. Audit tags:
+
 - Include `invoked_by`, `skill_name`, and timestamp in wrapper logs for traceability.
 
 ## Suggested Rollout
 
 Phase 1 (immediate):
+
 - Toolize all `scripts/agents/*`.
 - Toolize `analyzeBundle`, `checkBinaryFiles`, `ciImpact/*`, `runAllTests`, `runPlaywrightTests`, `runElectronTests`, `verifyBinaryGuardrails`.
 
 Phase 2:
+
 - Toolize local bootstrap/test env scripts (`setup*`, `runAndroid/iOS`, `verifyCleanIosBuild`, reviewer solicitation scripts).
 
 Phase 3:
+
 - Keep deploy/secrets/infra scripts manual by policy, or add hard-gated wrappers only if required.

@@ -9,6 +9,7 @@
 ```
 
 Actions:
+
 - `cleanup`
 - `clearQueued`
 - `clearStatus`
@@ -20,6 +21,7 @@ Actions:
 - `setVscodeTitle`
 
 Options:
+
 - `--title <value>`: required for `setQueued` and `setVscodeTitle`
 - `--timeout-seconds <n>`: default `300`, default `3600` for `refresh`
 - `--repo-root <path>`: force execution from a specific git repo root
