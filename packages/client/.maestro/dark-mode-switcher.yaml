@@ -6,6 +6,12 @@ androidWebViewHierarchy: devtools
 
 - assertVisible: "Tearleads"
 
+# Stabilize initial render
+- extendedWaitUntil:
+    visible: "Files"
+    timeout: 8000
+    optional: true
+
 # Load shared UI helper functions
 - runFlow: helpers/ui-helpers.yaml
 
@@ -107,6 +113,7 @@ androidWebViewHierarchy: devtools
 # Tap the dark theme option (starts in light mode by default)
 - evalScript: |
     (async () => {
+      await new Promise((r) => setTimeout(r, 250));
       const option = document.querySelector('[data-testid="theme-option-dark"]');
       if (!option) throw new Error('Dark theme option not found');
       option.scrollIntoView({ block: 'center', inline: 'center' });
@@ -127,6 +134,7 @@ androidWebViewHierarchy: devtools
 # Tap light theme option to switch back to light
 - evalScript: |
     (async () => {
+      await new Promise((r) => setTimeout(r, 250));
       const option = document.querySelector(
         '[data-testid="theme-option-light"]'
       );

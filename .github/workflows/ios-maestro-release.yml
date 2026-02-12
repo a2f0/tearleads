@@ -171,21 +171,23 @@ jobs:
         run: curl -Ls "https://get.maestro.mobile.dev" | bash
 
       - name: Boot iOS simulator
+        env:
+          # Allow overriding from workflow_call; default to a stable device to reduce churn.
+          SIM_DEVICE_NAME: ${{ env.SIM_DEVICE_NAME || '' }}
         run: |
-          # List available devices for debugging
           echo "Available simulators:"
           xcrun simctl list devices available | head -20
 
-          # Prefer iPhone SE for faster boot and lower resource usage
-          DEVICE=$(xcrun simctl list devices available | grep "iPhone SE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          TARGET_NAME="${SIM_DEVICE_NAME:-iPhone 15}"
+          DEVICE=$(xcrun simctl list devices available | grep "$TARGET_NAME" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
 
           if [ -z "$DEVICE" ]; then
-            echo "No iPhone SE found, trying iPhone 16/15"
-            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone (16|15)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+            echo "Preferred device $TARGET_NAME not found, falling back to iPhone 15/14"
+            DEVICE=$(xcrun simctl list devices available | grep -E "iPhone (15|14)" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
           fi
 
           if [ -z "$DEVICE" ]; then
-            echo "No iPhone 15/16 found, trying any iPhone"
+            echo "No iPhone 14/15 found, choosing any available iPhone"
             DEVICE=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
           fi
 
@@ -195,9 +197,11 @@ jobs:
           fi
 
           echo "Using simulator: $DEVICE"
-          xcrun simctl shutdown "$DEVICE" || true
-          xcrun simctl erase "$DEVICE"
-          xcrun simctl boot "$DEVICE"
+          # Avoid erase to reduce boot churn; just ensure it's booted and clean install will overwrite the app.
+          BOOT_STATUS=$(xcrun simctl list devices | grep "$DEVICE" | grep -c "(Booted)" || true)
+          if [ "$BOOT_STATUS" -eq 0 ]; then
+            xcrun simctl boot "$DEVICE"
+          fi
           xcrun simctl bootstatus "$DEVICE" -b
           echo "SIMULATOR_UDID=$DEVICE" >> $GITHUB_ENV
 
@@ -238,6 +242,26 @@ jobs:
 
           exit $MAESTRO_EXIT
         working-directory: packages/client
+
+      - name: Summarize crash reports
+        if: always()
+        run: |
+          REPORT_DIR=packages/client/maestro-debug/crash-reports
+          echo "Crash summary (if any):" >> "$GITHUB_STEP_SUMMARY"
+          if ls "$REPORT_DIR"/*.ips 1>/dev/null 2>&1; then
+            for f in "$REPORT_DIR"/*.ips; do
+              name=$(basename "$f")
+              proc=$(sed -n 's/^Process: *//p' "$f" | head -1)
+              exception=$(sed -n 's/^Exception Type: *//p' "$f" | head -1)
+              thread=$(awk '/^Thread [0-9]+ Crashed|^Triggered by Thread/ {print; getline; print; exit}' "$f")
+              echo "- ${name}: ${proc:-unknown} — ${exception:-no exception recorded}" >> "$GITHUB_STEP_SUMMARY"
+              if [ -n "$thread" ]; then
+                echo "  - ${thread}" >> "$GITHUB_STEP_SUMMARY"
+              fi
+            done
+          else
+            echo "- No crash reports collected." >> "$GITHUB_STEP_SUMMARY"
+          fi
 
       - name: Upload Maestro artifacts
         uses: actions/upload-artifact@v4

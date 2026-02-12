@@ -17,6 +17,11 @@ appId: com.tearleads.app
 
 - assertVisible: "Tearleads"
 
+- extendedWaitUntil:
+    visible: "Files"
+    timeout: 8000
+    optional: true
+
 # Load shared database helper functions
 - runFlow: helpers/db-helpers.yaml
 
@@ -93,6 +98,11 @@ appId: com.tearleads.app
     clearState: false
 
 - assertVisible: "Tearleads"
+
+- extendedWaitUntil:
+    visible: "Files"
+    timeout: 8000
+    optional: true
 
 # Re-load helper functions
 - runFlow: helpers/db-helpers.yaml

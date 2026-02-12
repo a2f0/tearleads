@@ -8,7 +8,7 @@ appId: com.tearleads.app
 
 - assertVisible: "Tearleads"
 
-# Wait for home to load (extended timeout for CI environments)
+# Wait for home to load and settle (extended timeout for CI environments)
 - extendedWaitUntil:
     visible: "Files"
     timeout: 60000

@@ -283,13 +283,10 @@ async function generate(
       }
 
       // Slice to get only the generated tokens (not the prompt)
-      // The slice API accepts [start, null] to mean "from start to end", but types don't reflect this
       const inputTensor = (inputs as ModelInputs).input_ids as Tensor;
       const inputLength = inputTensor.dims[1] ?? 0;
-      const generatedIds = output.slice(null, [
-        inputLength,
-        null
-      ] as unknown as number[]);
+      const outputLength = output.dims[1] ?? inputLength;
+      const generatedIds = output.slice(null, [inputLength, outputLength]);
 
       // Decode the generated tokens
       const decoded = processor.batch_decode(generatedIds, {

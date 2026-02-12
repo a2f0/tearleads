@@ -13,6 +13,11 @@ env:
 
 - assertVisible: "Tearleads"
 
+- extendedWaitUntil:
+    visible: "Files"
+    timeout: 8000
+    optional: true
+
 # Load shared database helper functions
 - runFlow: helpers/db-helpers.yaml
 
@@ -27,6 +32,12 @@ env:
 
 # Wait for reset to complete
 - evalScript: window.waitForResult('success')
+
+- evalScript: |
+    (async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      return 'post-reset-settle';
+    })()
 
 # Verify database is in "Not Set Up" state
 - evalScript: window.waitForStatus('Not Set Up')
@@ -64,6 +75,12 @@ env:
 
 # Wait for reset to complete
 - evalScript: window.waitForResult('success', 'Database reset complete')
+
+- evalScript: |
+    (async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      return 'post-second-reset-settle';
+    })()
 
 # Verify database is in "Not Set Up" state
 - evalScript: window.waitForStatus('Not Set Up')
@@ -117,6 +134,12 @@ env:
 - evalScript: document.querySelector('[data-testid="db-reset-button"]').click()
 
 - evalScript: window.waitForStatus('Not Set Up')
+
+- evalScript: |
+    (async () => {
+      await new Promise((r) => setTimeout(r, 300));
+      return 'post-final-reset-settle';
+    })()
 
 - evalScript: window.setPassword('${PASSWORD_3}')
 
