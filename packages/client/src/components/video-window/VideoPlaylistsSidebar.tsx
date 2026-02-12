@@ -206,7 +206,7 @@ export function VideoPlaylistsSidebar({
   useEffect(() => {
     if (playlists.length === 0) return;
     void updatePlaylistCounts(playlists.map((p) => p.id));
-  }, [playlists, updatePlaylistCounts, refreshToken]);
+  }, [playlists, updatePlaylistCounts]);
 
   const { resizeHandleProps } = useResizableSidebar({
     width,
