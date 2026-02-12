@@ -1,3 +1,4 @@
+import type { Database } from '@tearleads/db/sqlite';
 import {
   contactEmails,
   contactGroups,
@@ -14,11 +15,7 @@ import { ensureVfsRoot, seedVfsItem, seedVfsLink, VFS_ROOT_ID } from './vfs.js';
  * Helper to seed a contact with optional primary email.
  */
 async function seedContact(
-  db: Parameters<typeof withRealDatabase>[0] extends (
-    ctx: infer C
-  ) => Promise<unknown>
-    ? C['db']
-    : never,
+  db: Database,
   options: {
     id?: string;
     firstName: string;
@@ -55,16 +52,12 @@ async function seedContact(
  * Helper to seed a contact group (uses VFS registry pattern).
  */
 async function seedContactGroup(
-  db: Parameters<typeof withRealDatabase>[0] extends (
-    ctx: infer C
-  ) => Promise<unknown>
-    ? C['db']
-    : never,
+  db: Database,
   options: { id?: string; name?: string }
 ): Promise<string> {
   await ensureVfsRoot(db);
   const groupId = await seedVfsItem(db, {
-    id: options.id,
+    ...(options.id !== undefined && { id: options.id }),
     objectType: 'contactGroup',
     parentId: VFS_ROOT_ID
   });
