@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# This script verifies that binary file guardrails are properly configured.
+# This script verifies that file guardrails (binary and JS) are properly configured.
 # It runs in CI to prevent agents from accidentally removing these protections.
 
 errors=()
@@ -64,12 +64,12 @@ for file in CLAUDE.md AGENTS.md; do
 done
 
 if [ "${#errors[@]}" -gt 0 ]; then
-  echo "Error: Binary file guardrails are misconfigured:" >&2
+  echo "Error: File guardrails are misconfigured:" >&2
   printf '  - %s\n' "${errors[@]}" >&2
   echo "" >&2
-  echo "These guardrails prevent binary files from being committed." >&2
+  echo "These guardrails prevent binary and plain JavaScript files from being committed." >&2
   echo "Do not remove or weaken them without explicit approval." >&2
   exit 1
 fi
 
-echo "Binary guardrails verified successfully."
+echo "File guardrails verified successfully."
