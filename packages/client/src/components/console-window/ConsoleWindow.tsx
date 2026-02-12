@@ -157,7 +157,7 @@ export function ConsoleWindow({
               >
                 Back to Console
               </button>
-              <HelpDocumentation docId="cliReference" />
+              <HelpDocumentation docId="consoleReference" />
             </div>
           </div>
         ) : (

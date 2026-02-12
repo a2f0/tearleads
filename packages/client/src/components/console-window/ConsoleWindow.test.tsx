@@ -384,13 +384,13 @@ describe('ConsoleWindow', () => {
     expect(screen.getAllByTestId('terminal')).toHaveLength(1);
   });
 
-  it('opens CLI documentation from Help and returns to terminal', async () => {
+  it('opens Console documentation from Help and returns to terminal', async () => {
     const user = userEvent.setup();
     render(<ConsoleWindow {...defaultProps} />);
 
     await user.click(screen.getByTestId('open-documentation-button'));
     expect(screen.getByTestId('help-documentation')).toHaveTextContent(
-      'cliReference'
+      'consoleReference'
     );
     expect(screen.queryByTestId('terminal')).not.toBeInTheDocument();
 

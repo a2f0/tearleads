@@ -1,29 +1,23 @@
-# CLI Reference
+# Console Reference
 
-## Installation
-
-```bash
-npm install -g @tearleads/cli
-```
-
-This reference documents the `tearleads` CLI commands.
+This reference documents the commands available in the Console window.
 
 ## Command Summary
 
-- `tearleads setup` Initialize a new encrypted database.
-- `tearleads unlock` Unlock the database (restores session when available).
-- `tearleads lock` Lock the database.
-- `tearleads backup <file>` Export an encrypted `.tbu` backup file.
-- `tearleads restore <file>` Import an encrypted `.tbu` backup file.
-- `tearleads dump <folder>` Export unencrypted JSON files.
-- `tearleads password` Change the database password.
-- `tearleads list-instances` Show instance and session status.
+- `setup` Initialize a new encrypted database.
+- `unlock` Unlock the database (restores session when available).
+- `lock` Lock the database.
+- `backup <file>` Export an encrypted `.tbu` backup file.
+- `restore <file>` Import an encrypted `.tbu` backup file.
+- `dump <folder>` Export unencrypted JSON files.
+- `password` Change the database password.
+- `list-instances` Show instance and session status.
 
 ## Global Usage
 
 ```bash
-tearleads --help
-tearleads --version
+--help
+--version
 ```
 
 ## Commands
@@ -33,7 +27,7 @@ tearleads --version
 Initialize a new encrypted database.
 
 ```bash
-tearleads setup
+setup
 ```
 
 Prompts:
@@ -46,7 +40,7 @@ Prompts:
 Unlock the database. If a persisted session exists, the CLI attempts session restore first.
 
 ```bash
-tearleads unlock
+unlock
 ```
 
 Prompt:
@@ -58,7 +52,7 @@ Prompt:
 Lock the database and clear in-memory key state.
 
 ```bash
-tearleads lock
+lock
 ```
 
 ### `backup <file>`
@@ -66,8 +60,8 @@ tearleads lock
 Export current database state to an encrypted `.tbu` backup file.
 
 ```bash
-tearleads backup ./backup.tbu
-tearleads backup ./backup.tbu --password "backup-pass"
+backup ./backup.tbu
+backup ./backup.tbu --password "backup-pass"
 ```
 
 Options:
@@ -84,9 +78,9 @@ If `--password` is omitted, prompts:
 Restore database contents from an encrypted `.tbu` backup.
 
 ```bash
-tearleads restore ./backup.tbu
-tearleads restore ./backup.tbu --force
-tearleads restore ./backup.tbu --password "backup-pass"
+restore ./backup.tbu
+restore ./backup.tbu --force
+restore ./backup.tbu --password "backup-pass"
 ```
 
 Options:
@@ -107,10 +101,10 @@ Prompt when `--password` is omitted:
 Dump schema and data to unencrypted JSON files.
 
 ```bash
-tearleads dump ./dump-output
-tearleads dump ./dump-output --force
-tearleads dump ./dump-output --no-blobs
-tearleads dump ./dump-output --input-file ./backup.tbu --password "backup-pass"
+dump ./dump-output
+dump ./dump-output --force
+dump ./dump-output --no-blobs
+dump ./dump-output --input-file ./backup.tbu --password "backup-pass"
 ```
 
 Options:
@@ -136,7 +130,7 @@ Output structure:
 Change the encryption password for the local database.
 
 ```bash
-tearleads password
+password
 ```
 
 Prompts:
@@ -150,7 +144,7 @@ Prompts:
 Display basic instance/session state.
 
 ```bash
-tearleads list-instances
+list-instances
 ```
 
 Current output includes a single default instance with:
