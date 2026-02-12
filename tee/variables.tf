@@ -10,31 +10,42 @@ variable "environment" {
   default     = "dev"
 }
 
-variable "aws_region" {
-  description = "AWS region for all resources."
+variable "azure_location" {
+  description = "Azure region for all resources."
   type        = string
-  default     = "us-east-1"
+  default     = "eastus"
 }
 
-variable "vpc_cidr" {
-  description = "VPC CIDR block."
+variable "vnet_address_space" {
+  description = "Virtual network address space."
   type        = string
   default     = "10.42.0.0/16"
 }
 
-variable "public_subnet_cidr" {
-  description = "Public subnet CIDR block."
+variable "subnet_address_prefix" {
+  description = "Subnet address prefix."
   type        = string
   default     = "10.42.1.0/24"
 }
 
 variable "allowed_ssh_cidr" {
-  description = "CIDR allowed to SSH into the enclave host."
+  description = "CIDR allowed to SSH into the confidential VM."
   type        = string
 }
 
-variable "instance_type" {
-  description = "Nitro Enclaves-capable EC2 instance type."
+variable "vm_size" {
+  description = "Azure Confidential VM size (DCasv5 series)."
   type        = string
-  default     = "c6a.xlarge"
+  default     = "Standard_DC2as_v5"
+}
+
+variable "admin_username" {
+  description = "Admin username for the VM."
+  type        = string
+  default     = "deploy"
+}
+
+variable "ssh_public_key_file" {
+  description = "Path to SSH public key file."
+  type        = string
 }

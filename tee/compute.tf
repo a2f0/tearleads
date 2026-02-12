@@ -1,38 +1,41 @@
-data "aws_ssm_parameter" "al2023_ami" {
-  name = "/aws/service/ami-amazon-linux-latest/al2023-ami-x86_64"
-}
+resource "azurerm_linux_virtual_machine" "confidential_vm" {
+  name                = "${local.name_prefix}-vm"
+  resource_group_name = azurerm_resource_group.tee.name
+  location            = azurerm_resource_group.tee.location
+  size                = var.vm_size
+  admin_username      = var.admin_username
 
-resource "aws_instance" "enclave_host" {
-  ami                    = data.aws_ssm_parameter.al2023_ami.value
-  instance_type          = var.instance_type
-  subnet_id              = aws_subnet.public.id
-  vpc_security_group_ids = [aws_security_group.enclave_host.id]
-  iam_instance_profile   = aws_iam_instance_profile.enclave_host.name
+  network_interface_ids = [
+    azurerm_network_interface.confidential_vm.id
+  ]
 
-  enclave_options {
-    enabled = true
+  admin_ssh_key {
+    username   = var.admin_username
+    public_key = file(var.ssh_public_key_file)
   }
 
-  metadata_options {
-    http_tokens = "required"
+  os_disk {
+    caching                          = "ReadWrite"
+    storage_account_type             = "Premium_LRS"
+    disk_size_gb                     = 30
+    security_encryption_type         = "VMGuestStateOnly"
+    secure_vm_disk_encryption_set_id = null
   }
 
-  user_data = <<-EOF
-    #!/bin/bash
-    set -euxo pipefail
-    dnf update -y
-    dnf install -y aws-nitro-enclaves-cli aws-nitro-enclaves-cli-devel
-    usermod -aG ne ec2-user
-    systemctl enable --now nitro-enclaves-allocator.service
-  EOF
-
-  root_block_device {
-    volume_size = 30
-    volume_type = "gp3"
-    encrypted   = true
+  source_image_reference {
+    publisher = "Canonical"
+    offer     = "0001-com-ubuntu-confidential-vm-jammy"
+    sku       = "22_04-lts-cvm"
+    version   = "latest"
   }
 
-  tags = merge(local.tags, {
-    Name = "${local.name_prefix}-enclave-host"
-  })
+  vtpm_enabled        = true
+  secure_boot_enabled = true
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.confidential_vm.id]
+  }
+
+  tags = local.tags
 }

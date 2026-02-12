@@ -1,24 +1,39 @@
-output "vpc_id" {
-  description = "VPC ID for the TEE environment."
-  value       = aws_vpc.tee.id
+output "resource_group_name" {
+  description = "Resource group name for the TEE environment."
+  value       = azurerm_resource_group.tee.name
 }
 
-output "public_subnet_id" {
-  description = "Public subnet where the enclave host runs."
-  value       = aws_subnet.public.id
+output "vnet_id" {
+  description = "Virtual network ID."
+  value       = azurerm_virtual_network.tee.id
 }
 
-output "enclave_host_instance_id" {
-  description = "Parent EC2 instance ID with Nitro Enclaves enabled."
-  value       = aws_instance.enclave_host.id
+output "subnet_id" {
+  description = "Subnet where the confidential VM runs."
+  value       = azurerm_subnet.public.id
 }
 
-output "enclave_host_public_ip" {
-  description = "Public IP of the enclave host."
-  value       = aws_instance.enclave_host.public_ip
+output "vm_id" {
+  description = "Confidential VM resource ID."
+  value       = azurerm_linux_virtual_machine.confidential_vm.id
 }
 
-output "kms_key_arn" {
-  description = "KMS key ARN for enclave workflows."
-  value       = aws_kms_key.tee.arn
+output "vm_public_ip" {
+  description = "Public IP of the confidential VM."
+  value       = azurerm_public_ip.confidential_vm.ip_address
+}
+
+output "key_vault_id" {
+  description = "Key Vault ID for TEE workflows."
+  value       = azurerm_key_vault.tee.id
+}
+
+output "key_vault_uri" {
+  description = "Key Vault URI."
+  value       = azurerm_key_vault.tee.vault_uri
+}
+
+output "managed_identity_client_id" {
+  description = "Client ID of the VM's managed identity."
+  value       = azurerm_user_assigned_identity.confidential_vm.client_id
 }
