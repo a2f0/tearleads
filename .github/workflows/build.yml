@@ -163,6 +163,7 @@ jobs:
           pnpm --filter @tearleads/window-manager test:coverage
           pnpm --filter @tearleads/audio test:coverage
           pnpm --filter @tearleads/terminal test:coverage
+          pnpm --filter @tearleads/keychain test:coverage
           pnpm --filter @tearleads/api test:coverage
           pnpm --filter @tearleads/smtp-listener test:coverage
           pnpm --filter @tearleads/client test:coverage
@@ -180,6 +181,7 @@ jobs:
             packages/window-manager/coverage/
             packages/audio/coverage/
             packages/terminal/coverage/
+            packages/keychain/coverage/
             packages/api/coverage/
             packages/smtp-listener/coverage/
             packages/client/coverage/
@@ -192,7 +194,7 @@ jobs:
         run: |
           echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          for pkg in shared ui window-manager api smtp-listener client chrome-extension website; do
+          for pkg in shared ui window-manager audio terminal keychain api smtp-listener client chrome-extension website; do
             if [ -f "packages/$pkg/coverage/coverage-summary.json" ]; then
               echo "### @tearleads/$pkg" >> $GITHUB_STEP_SUMMARY
               node -e "

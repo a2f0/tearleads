@@ -1,9 +1,12 @@
 import type { KeyStatus } from '@client/db/crypto/key-manager';
 import type { InstanceMetadata } from '@client/db/instance-registry';
+import { i18n } from '@client/i18n';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { mockConsoleError } from '../../test/console-mocks';
 import { Keychain } from './Keychain';
 
@@ -29,9 +32,11 @@ vi.mock('@client/db/instance-registry', () => ({
 
 function renderKeychain() {
   return render(
-    <MemoryRouter>
-      <Keychain />
-    </MemoryRouter>
+    <I18nextProvider i18n={i18n}>
+      <MemoryRouter>
+        <Keychain />
+      </MemoryRouter>
+    </I18nextProvider>
   );
 }
 
