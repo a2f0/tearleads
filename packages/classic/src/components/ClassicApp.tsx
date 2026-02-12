@@ -63,11 +63,21 @@ export function ClassicApp({
     if (!tagSearch.trim()) {
       return state.tags;
     }
+
     const searchLower = tagSearch.toLowerCase();
-    return state.tags.filter((tag) =>
+    const filtered = state.tags.filter((tag) =>
       tag.name.toLowerCase().includes(searchLower)
     );
-  }, [state.tags, tagSearch]);
+
+    if (editingTagId) {
+      const editingTag = state.tags.find((tag) => tag.id === editingTagId);
+      if (editingTag && !filtered.some((tag) => tag.id === editingTagId)) {
+        return [...filtered, editingTag];
+      }
+    }
+
+    return filtered;
+  }, [editingTagId, state.tags, tagSearch]);
 
   const untaggedNoteIds = useMemo(() => getUntaggedNoteIds(state), [state]);
 
@@ -85,7 +95,7 @@ export function ClassicApp({
       return noteIds;
     }
     const searchLower = entrySearch.toLowerCase();
-    return noteIds.filter((noteId) => {
+    const filtered = noteIds.filter((noteId) => {
       const note = state.notesById[noteId];
       if (!note) return false;
       return (
@@ -93,7 +103,16 @@ export function ClassicApp({
         note.body.toLowerCase().includes(searchLower)
       );
     });
-  }, [noteIds, entrySearch, state.notesById]);
+
+    if (editingNoteId && noteIds.includes(editingNoteId)) {
+      const editingNote = state.notesById[editingNoteId];
+      if (editingNote && !filtered.includes(editingNoteId)) {
+        return [...filtered, editingNoteId];
+      }
+    }
+
+    return filtered;
+  }, [editingNoteId, entrySearch, noteIds, state.notesById]);
 
   const updateState = useCallback(
     (next: ClassicState) => {
