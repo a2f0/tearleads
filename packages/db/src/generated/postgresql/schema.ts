@@ -4,6 +4,7 @@ import {
   integer,
   jsonb,
   pgTable,
+  primaryKey,
   text,
   timestamp,
   uniqueIndex
@@ -82,15 +83,18 @@ export const userOrganizations = pgTable(
   'user_organizations',
   {
     userId: text('user_id')
-      .primaryKey()
+      .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     organizationId: text('organization_id')
-      .primaryKey()
+      .notNull()
       .references(() => organizations.id, { onDelete: 'cascade' }),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull(),
     isAdmin: boolean('is_admin').notNull().default(false)
   },
-  (table) => [index('user_organizations_org_idx').on(table.organizationId)]
+  (table) => [
+    primaryKey({ columns: [table.userId, table.organizationId] }),
+    index('user_organizations_org_idx').on(table.organizationId)
+  ]
 );
 
 /**
@@ -260,14 +264,17 @@ export const userGroups = pgTable(
   'user_groups',
   {
     userId: text('user_id')
-      .primaryKey()
+      .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     groupId: text('group_id')
-      .primaryKey()
+      .notNull()
       .references(() => groups.id, { onDelete: 'cascade' }),
     joinedAt: timestamp('joined_at', { withTimezone: true }).notNull()
   },
-  (table) => [index('user_groups_group_idx').on(table.groupId)]
+  (table) => [
+    primaryKey({ columns: [table.userId, table.groupId] }),
+    index('user_groups_group_idx').on(table.groupId)
+  ]
 );
 
 /**
@@ -589,10 +596,10 @@ export const vfsAccess = pgTable(
   'vfs_access',
   {
     itemId: text('item_id')
-      .primaryKey()
+      .notNull()
       .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
     userId: text('user_id')
-      .primaryKey()
+      .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     wrappedSessionKey: text('wrapped_session_key').notNull(),
     wrappedHierarchicalKey: text('wrapped_hierarchical_key'),
@@ -606,6 +613,7 @@ export const vfsAccess = pgTable(
     expiresAt: timestamp('expires_at', { withTimezone: true })
   },
   (table) => [
+    primaryKey({ columns: [table.itemId, table.userId] }),
     index('vfs_access_user_idx').on(table.userId),
     index('vfs_access_item_idx').on(table.itemId)
   ]
@@ -668,10 +676,10 @@ export const mlsGroupMembers = pgTable(
   'mls_group_members',
   {
     groupId: text('group_id')
-      .primaryKey()
+      .notNull()
       .references(() => mlsGroups.id, { onDelete: 'cascade' }),
     userId: text('user_id')
-      .primaryKey()
+      .notNull()
       .references(() => users.id, { onDelete: 'cascade' }),
     leafIndex: integer('leaf_index'),
     role: text('role', {
@@ -684,6 +692,7 @@ export const mlsGroupMembers = pgTable(
     removedAt: timestamp('removed_at', { withTimezone: true })
   },
   (table) => [
+    primaryKey({ columns: [table.groupId, table.userId] }),
     index('mls_group_members_user_idx').on(table.userId),
     index('mls_group_members_active_idx').on(table.groupId, table.removedAt)
   ]
