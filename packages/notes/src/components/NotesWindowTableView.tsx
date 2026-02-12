@@ -1,6 +1,5 @@
-import { notes, vfsRegistry } from '@tearleads/db/sqlite';
+import { notes } from '@tearleads/db/sqlite';
 import { asc, desc, eq } from 'drizzle-orm';
-import { Info, Loader2, Plus, StickyNote, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type NoteInfo,
@@ -8,6 +7,12 @@ import {
   useNotesContext,
   useNotesUI
 } from '../context/NotesContext';
+import { DatabaseLoadingCard } from './shared/DatabaseLoadingCard';
+import { NotesContextMenus } from './shared/NotesContextMenus';
+import { NotesEmptyStateCard } from './shared/NotesEmptyStateCard';
+import { NotesLoadingCard } from './shared/NotesLoadingCard';
+import { NotesViewHeader } from './shared/NotesViewHeader';
+import { useCreateNote } from './shared/useCreateNote';
 import { NotesTable } from './table-view/NotesTable';
 import type { SortColumn, SortDirection } from './table-view/SortHeader';
 
@@ -187,68 +192,15 @@ export function NotesWindowTableView({
     setBlankSpaceMenu({ x: e.clientX, y: e.clientY });
   }, []);
 
-  const handleCreateNote = useCallback(async () => {
-    try {
-      const db = getDatabase();
-      const id = crypto.randomUUID();
-      const now = new Date();
-
-      await db.insert(notes).values({
-        id,
-        title: 'Untitled Note',
-        content: '',
-        createdAt: now,
-        updatedAt: now,
-        deleted: false
-      });
-
-      // Register in VFS if dependencies are available
-      if (vfsKeys && auth) {
-        const authData = auth.readStoredAuth();
-        let encryptedSessionKey: string | null = null;
-
-        if (auth.isLoggedIn()) {
-          try {
-            const sessionKey = vfsKeys.generateSessionKey();
-            encryptedSessionKey = await vfsKeys.wrapSessionKey(sessionKey);
-          } catch (err) {
-            console.warn('Failed to wrap note session key:', err);
-          }
-        }
-
-        await db.insert(vfsRegistry).values({
-          id,
-          objectType: 'note',
-          ownerId: authData.user?.id ?? null,
-          encryptedSessionKey,
-          createdAt: now
-        });
-
-        // Register on server if logged in and feature flag enabled
-        if (
-          auth.isLoggedIn() &&
-          featureFlags?.getFeatureFlagValue('vfsServerRegistration') &&
-          encryptedSessionKey &&
-          vfsApi
-        ) {
-          try {
-            await vfsApi.register({
-              id,
-              objectType: 'note',
-              encryptedSessionKey
-            });
-          } catch (err) {
-            console.warn('Failed to register note on server:', err);
-          }
-        }
-      }
-
-      onSelectNote(id);
-    } catch (err) {
-      console.error('Failed to create note:', err);
-      setError(err instanceof Error ? err.message : String(err));
-    }
-  }, [onSelectNote, getDatabase, vfsKeys, auth, featureFlags, vfsApi]);
+  const handleCreateNote = useCreateNote({
+    getDatabase,
+    onSelectNote,
+    onError: setError,
+    vfsKeys,
+    auth,
+    featureFlags,
+    vfsApi
+  });
 
   const handleCreateNoteFromMenu = useCallback(() => {
     setBlankSpaceMenu(null);
@@ -257,32 +209,17 @@ export function NotesWindowTableView({
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <StickyNote className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-sm">Notes</h2>
-        </div>
-        {isUnlocked && (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCreateNote}
-              className="h-7 px-2"
-              data-testid="table-create-note-button"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <RefreshButton onClick={fetchNotes} loading={loading} size="sm" />
-          </div>
-        )}
-      </div>
+      <NotesViewHeader
+        isUnlocked={isUnlocked}
+        loading={loading}
+        createButtonTestId="table-create-note-button"
+        onCreateNote={handleCreateNote}
+        onRefresh={fetchNotes}
+        Button={Button}
+        RefreshButton={RefreshButton}
+      />
 
-      {isLoading && (
-        <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
-        </div>
-      )}
+      {isLoading && <DatabaseLoadingCard />}
 
       {!isLoading && !isUnlocked && <InlineUnlock description="notes" />}
 
@@ -295,28 +232,13 @@ export function NotesWindowTableView({
       {isUnlocked &&
         !error &&
         (loading && !hasFetched ? (
-          <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading notes...
-          </div>
+          <NotesLoadingCard />
         ) : notesList.length === 0 && hasFetched ? (
-          <div className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center">
-            <StickyNote className="h-8 w-8 text-muted-foreground" />
-            <div>
-              <p className="font-medium text-sm">No notes yet</p>
-              <p className="text-muted-foreground text-xs">
-                Create your first note
-              </p>
-            </div>
-            <Button
-              size="sm"
-              onClick={handleCreateNote}
-              data-testid="table-empty-create-note"
-            >
-              <Plus className="mr-1 h-3 w-3" />
-              Create
-            </Button>
-          </div>
+          <NotesEmptyStateCard
+            createButtonTestId="table-empty-create-note"
+            onCreateNote={handleCreateNote}
+            Button={Button}
+          />
         ) : (
           <NotesTable
             notesList={notesList}
@@ -329,41 +251,20 @@ export function NotesWindowTableView({
           />
         ))}
 
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={() => setContextMenu(null)}
-        >
-          <ContextMenuItem
-            icon={<Info className="h-4 w-4" />}
-            onClick={handleGetInfo}
-          >
-            {t('getInfo')}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Trash2 className="h-4 w-4" />}
-            onClick={handleDelete}
-          >
-            {t('delete')}
-          </ContextMenuItem>
-        </ContextMenu>
-      )}
-
-      {blankSpaceMenu && (
-        <ContextMenu
-          x={blankSpaceMenu.x}
-          y={blankSpaceMenu.y}
-          onClose={() => setBlankSpaceMenu(null)}
-        >
-          <ContextMenuItem
-            icon={<Plus className="h-4 w-4" />}
-            onClick={handleCreateNoteFromMenu}
-          >
-            {t('newNote')}
-          </ContextMenuItem>
-        </ContextMenu>
-      )}
+      <NotesContextMenus
+        contextMenuPosition={
+          contextMenu ? { x: contextMenu.x, y: contextMenu.y } : null
+        }
+        blankSpaceMenuPosition={blankSpaceMenu}
+        onCloseContextMenu={() => setContextMenu(null)}
+        onCloseBlankSpaceMenu={() => setBlankSpaceMenu(null)}
+        onGetInfo={handleGetInfo}
+        onDelete={handleDelete}
+        onCreateNoteFromMenu={handleCreateNoteFromMenu}
+        t={t}
+        ContextMenu={ContextMenu}
+        ContextMenuItem={ContextMenuItem}
+      />
     </div>
   );
 }
