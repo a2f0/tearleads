@@ -15,7 +15,7 @@ export function HelpDocPage() {
 
   if (!helpDocId) {
     return (
-      <div className="flex h-full flex-col space-y-6">
+      <div className="flex h-full min-h-0 flex-col gap-6">
         <div className="space-y-2">
           <BackLink defaultTo="/help" defaultLabel="Back to Help" />
           <div className="flex items-center gap-3">
@@ -31,7 +31,7 @@ export function HelpDocPage() {
   }
 
   return (
-    <div className="flex h-full flex-col space-y-6">
+    <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
       <div className="space-y-2">
         <BackLink defaultTo="/help" defaultLabel="Back to Help" />
         <div className="flex items-center gap-3">
@@ -42,7 +42,9 @@ export function HelpDocPage() {
         </div>
       </div>
 
-      <HelpDocumentation docId={helpDocId} />
+      <div className="min-h-0 flex-1">
+        <HelpDocumentation docId={helpDocId} />
+      </div>
     </div>
   );
 }

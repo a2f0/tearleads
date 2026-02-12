@@ -41,7 +41,8 @@ export function FloatingWindow({
   zIndex = 50,
   onFocus,
   fitContent,
-  footerHeight = 0
+  footerHeight = 0,
+  contentClassName
 }: FloatingWindowProps) {
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== 'undefined' && window.innerWidth >= DESKTOP_BREAKPOINT
@@ -339,6 +340,7 @@ export function FloatingWindow({
           preMaximizeDimensions: preMaximizeStateRef.current
         }}
         contentRef={contentRef}
+        contentClassName={contentClassName}
       >
         {children}
       </FloatingWindowBody>

@@ -107,6 +107,7 @@ describe('SearchWindowContent', () => {
       renderContent();
       expect(screen.getByText('All')).toBeInTheDocument();
       expect(screen.getByText('Apps')).toBeInTheDocument();
+      expect(screen.getByText('Help Docs')).toBeInTheDocument();
       expect(screen.getByText('Contacts')).toBeInTheDocument();
       expect(screen.getByText('Notes')).toBeInTheDocument();
       expect(screen.getByText('Emails')).toBeInTheDocument();
@@ -1248,6 +1249,30 @@ describe('SearchWindowContent', () => {
 
       await user.click(screen.getByText('Chat about code'));
       expect(mockNavigate).toHaveBeenCalledWith('/ai?conversation=ai-404');
+    });
+
+    it('navigates to help doc when clicking help-doc result', async () => {
+      const user = userEvent.setup();
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'help-doc:cli',
+            entityType: 'help_doc',
+            document: { title: 'CLI' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'cli');
+
+      await waitFor(() => {
+        expect(screen.getByText('CLI')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('CLI'));
+      expect(mockNavigate).toHaveBeenCalledWith('/help/docs/cli');
     });
 
     it('opens app window on desktop when clicking app result', async () => {

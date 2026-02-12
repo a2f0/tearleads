@@ -41,6 +41,16 @@ describe('FloatingWindow', () => {
     expect(screen.getByTestId('window-content')).toBeInTheDocument();
   });
 
+  it('applies custom content class to content container', () => {
+    render(
+      <FloatingWindow {...defaultProps} contentClassName="overflow-hidden" />
+    );
+
+    expect(screen.getByTestId('window-content').parentElement).toHaveClass(
+      'overflow-hidden'
+    );
+  });
+
   it('renders as a dialog', () => {
     render(<FloatingWindow {...defaultProps} />);
     expect(screen.getByRole('dialog')).toBeInTheDocument();

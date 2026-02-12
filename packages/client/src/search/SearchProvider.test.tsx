@@ -92,7 +92,7 @@ describe('SearchProvider', () => {
     cancelAnimationFrameSpy.mockRestore();
   });
 
-  it('indexes app catalog only after UI paint', async () => {
+  it('indexes app and help catalogs in one batch after UI paint', async () => {
     render(
       <SearchProvider>
         <div>child</div>
@@ -115,13 +115,18 @@ describe('SearchProvider', () => {
     expect(Array.isArray(firstCallDocs)).toBe(true);
     expect(firstCallDocs.length).toBeGreaterThan(0);
     expect(
-      firstCallDocs.every(
+      firstCallDocs.some(
         (doc: { entityType: string }) => doc.entityType === 'app'
+      )
+    ).toBe(true);
+    expect(
+      firstCallDocs.some(
+        (doc: { entityType: string }) => doc.entityType === 'help_doc'
       )
     ).toBe(true);
   });
 
-  it('cancels deferred app indexing on unmount', async () => {
+  it('cancels deferred app/help indexing on unmount', async () => {
     const { unmount } = render(
       <SearchProvider>
         <div>child</div>

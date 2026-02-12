@@ -34,6 +34,7 @@ export interface FloatingWindowProps {
   zIndex?: number | undefined;
   onFocus?: (() => void) | undefined;
   footerHeight?: number | undefined;
+  contentClassName?: string | undefined;
 }
 
 export interface PreMaximizeState {

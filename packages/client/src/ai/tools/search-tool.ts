@@ -185,6 +185,7 @@ export function formatSearchResultsForDisplay(
 
 const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {
   app: 'App',
+  help_doc: 'Help Doc',
   contact: 'Contact',
   note: 'Note',
   email: 'Email',
