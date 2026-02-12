@@ -52,15 +52,6 @@ const keyMap: Record<string, ArgKey> = {
   '--output': 'output'
 };
 
-const requiredKeys: ArgKey[] = [
-  'repo',
-  'branch',
-  'expectedHeadOid',
-  'headline',
-  'body',
-  'output'
-];
-
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
 
@@ -84,11 +75,19 @@ function parseArgs(argv: string[]): CliArgs {
   return args;
 }
 
+function getFlagName(key: ArgKey): string {
+  for (const [flag, mappedKey] of Object.entries(keyMap)) {
+    if (mappedKey === key) {
+      return flag;
+    }
+  }
+  return `--${key}`;
+}
+
 function requireArg(args: CliArgs, key: ArgKey): string {
   const value = args[key];
   if (!value) {
-    const flag = key === 'expectedHeadOid' ? 'expected-head-oid' : key;
-    console.error(`Missing required argument: --${flag}`);
+    console.error(`Missing required argument: ${getFlagName(key)}`);
     process.exit(1);
   }
   return value;
@@ -147,10 +146,6 @@ function collectFileChanges(diffOutput: string): {
 }
 
 const args = parseArgs(process.argv);
-
-for (const key of requiredKeys) {
-  requireArg(args, key);
-}
 
 const repo = requireArg(args, 'repo');
 const branch = requireArg(args, 'branch');

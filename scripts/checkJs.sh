@@ -19,25 +19,23 @@ collect_files() {
   fi
 
   if [ "$mode" = "--from-upstream" ]; then
+    local base_branch
+
     if upstream=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
-      git diff --name-only --diff-filter=AM "$upstream..HEAD"
-      return
-    fi
-
+      base_branch="$upstream"
     # Fallback for new branches without upstream: compare against origin/main
-    if git rev-parse --verify origin/main >/dev/null 2>&1; then
-      git diff --name-only --diff-filter=AM "origin/main..HEAD"
-      return
-    fi
-
+    elif git rev-parse --verify origin/main >/dev/null 2>&1; then
+      base_branch="origin/main"
     # Last resort: compare against local main
-    if git rev-parse --verify main >/dev/null 2>&1; then
-      git diff --name-only --diff-filter=AM "main..HEAD"
-      return
+    elif git rev-parse --verify main >/dev/null 2>&1; then
+      base_branch="main"
+    else
+      echo "Error: cannot determine base branch for comparison" >&2
+      exit 1
     fi
 
-    echo "Error: cannot determine base branch for comparison" >&2
-    exit 1
+    git diff --name-only --diff-filter=AM "$base_branch..HEAD"
+    return
   fi
 
   usage
