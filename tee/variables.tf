@@ -36,5 +36,5 @@ variable "allowed_ssh_cidr" {
 variable "instance_type" {
   description = "Nitro Enclaves-capable EC2 instance type."
   type        = string
-  default     = "m5.xlarge"
+  default     = "c6a.xlarge"
 }
