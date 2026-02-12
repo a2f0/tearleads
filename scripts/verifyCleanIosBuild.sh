@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Cleans up iOS build artifacts that fastlane/Xcode modifies during builds:
 # - Removes DEVELOPMENT_TEAM entries from project.pbxproj
 # - Restores CFBundleVersion placeholder in Info.plist
@@ -24,7 +24,7 @@ sed -i '' '/DEVELOPMENT_TEAM = /d' "$PROJECT_FILE"
 sed -i '' '/<key>CFBundleVersion<\/key>/{n;s/<string>[0-9]*<\/string>/<string>$(CURRENT_PROJECT_VERSION)<\/string>/;}' "$INFO_PLIST"
 
 # Verify workspace is clean after cleanup
-if [[ -n $(git -C "$PROJECT_ROOT" status --porcelain) ]]; then
+if [ -n "$(git -C "$PROJECT_ROOT" status --porcelain)" ]; then
   echo "Error: Workspace has unexpected changes after build cleanup"
   git -C "$PROJECT_ROOT" status
   git -C "$PROJECT_ROOT" diff

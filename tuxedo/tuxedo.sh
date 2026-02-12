@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # Tuxedo - tmux session manager for tearleads development
 #
 # Configurable via environment variables:

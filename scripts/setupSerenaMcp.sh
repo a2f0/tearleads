@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 usage() {
   cat <<'USAGE'
@@ -74,7 +74,14 @@ fi
 run() {
   if [ "$DRY_RUN" = true ]; then
     printf '[dry-run] '
-    printf '%q ' "$@"
+    # Portable print of arguments (space-separated, best-effort quoting)
+    for arg do
+      # Quote args containing spaces or tabs
+      case $arg in
+        *[!A-Za-z0-9_./-]*) printf "'%s' " "$(printf '%s' "$arg" | sed "s/'/'\\''/g")" ;;
+        *) printf '%s ' "$arg" ;;
+      esac
+    done
     printf '\n'
   else
     "$@"
