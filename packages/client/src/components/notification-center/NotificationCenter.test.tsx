@@ -115,7 +115,7 @@ describe('NotificationCenter', () => {
     it('renders title bar when open', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       expect(
-        screen.getByTestId('notification-center-title-bar')
+        screen.getByTestId('floating-window-notification-center-title-bar')
       ).toBeInTheDocument();
     });
 
@@ -126,8 +126,10 @@ describe('NotificationCenter', () => {
 
     it('allows dragging the window via title bar on desktop', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
-      const titleBar = screen.getByTestId('notification-center-title-bar');
+      const dialog = screen.getByTestId('floating-window-notification-center');
+      const titleBar = screen.getByTestId(
+        'floating-window-notification-center-title-bar'
+      );
 
       const initialLeft = parseInt(dialog.style.left, 10);
       const initialTop = parseInt(dialog.style.top, 10);
@@ -147,8 +149,10 @@ describe('NotificationCenter', () => {
 
     it('handles touch-based dragging on desktop', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
-      const titleBar = screen.getByTestId('notification-center-title-bar');
+      const dialog = screen.getByTestId('floating-window-notification-center');
+      const titleBar = screen.getByTestId(
+        'floating-window-notification-center-title-bar'
+      );
 
       const initialLeft = parseInt(dialog.style.left, 10);
       const initialTop = parseInt(dialog.style.top, 10);
@@ -175,24 +179,32 @@ describe('NotificationCenter', () => {
     it('renders all 4 corner resize handles on desktop', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       expect(
-        screen.getByTestId('notification-center-resize-handle-top-left')
+        screen.getByTestId(
+          'floating-window-notification-center-resize-handle-top-left'
+        )
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId('notification-center-resize-handle-top-right')
+        screen.getByTestId(
+          'floating-window-notification-center-resize-handle-top-right'
+        )
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId('notification-center-resize-handle-bottom-left')
+        screen.getByTestId(
+          'floating-window-notification-center-resize-handle-bottom-left'
+        )
       ).toBeInTheDocument();
       expect(
-        screen.getByTestId('notification-center-resize-handle-bottom-right')
+        screen.getByTestId(
+          'floating-window-notification-center-resize-handle-bottom-right'
+        )
       ).toBeInTheDocument();
     });
 
     it('changes size when bottom-right corner is dragged', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
       const handle = screen.getByTestId(
-        'notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-resize-handle-bottom-right'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -211,9 +223,9 @@ describe('NotificationCenter', () => {
 
     it('changes size when top-left corner is dragged', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
       const handle = screen.getByTestId(
-        'notification-center-resize-handle-top-left'
+        'floating-window-notification-center-resize-handle-top-left'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -238,9 +250,9 @@ describe('NotificationCenter', () => {
 
     it('respects minimum size constraints', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
       const handle = screen.getByTestId(
-        'notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-resize-handle-bottom-right'
       );
 
       fireEvent.mouseDown(handle, { clientX: 500, clientY: 400 });
@@ -256,9 +268,9 @@ describe('NotificationCenter', () => {
 
     it('respects maximum size constraints', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
       const handle = screen.getByTestId(
-        'notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-resize-handle-bottom-right'
       );
 
       fireEvent.mouseDown(handle, { clientX: 500, clientY: 400 });
@@ -274,9 +286,9 @@ describe('NotificationCenter', () => {
 
     it('handles touch-based resizing', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
       const handle = screen.getByTestId(
-        'notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-resize-handle-bottom-right'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -299,9 +311,9 @@ describe('NotificationCenter', () => {
 
     it('handles touchStart with no touches', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
       const handle = screen.getByTestId(
-        'notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-resize-handle-bottom-right'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -314,9 +326,9 @@ describe('NotificationCenter', () => {
 
     it('handles touchMove with no touches', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
       const handle = screen.getByTestId(
-        'notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-resize-handle-bottom-right'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -333,7 +345,7 @@ describe('NotificationCenter', () => {
 
     it('ignores move events when not dragging', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
 
       const initialWidth = parseInt(dialog.style.width, 10);
 
@@ -345,7 +357,7 @@ describe('NotificationCenter', () => {
 
     it('handles drag end when not dragging', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByRole('dialog');
+      const dialog = screen.getByTestId('floating-window-notification-center');
 
       const initialWidth = parseInt(dialog.style.width, 10);
 
@@ -368,17 +380,21 @@ describe('NotificationCenter', () => {
     it('does not render corner resize handles on mobile', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       expect(
-        screen.queryByTestId('notification-center-resize-handle-top-left')
+        screen.queryByTestId(
+          'floating-window-notification-center-resize-handle-top-left'
+        )
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByTestId('notification-center-resize-handle-bottom-right')
+        screen.queryByTestId(
+          'floating-window-notification-center-resize-handle-bottom-right'
+        )
       ).not.toBeInTheDocument();
     });
 
     it('renders title bar on mobile', () => {
       render(<NotificationCenter isOpen={true} onClose={() => {}} />);
       expect(
-        screen.getByTestId('notification-center-title-bar')
+        screen.getByTestId('floating-window-notification-center-title-bar')
       ).toBeInTheDocument();
     });
   });
@@ -395,7 +411,9 @@ describe('NotificationCenter', () => {
 
       // Desktop: resize handles should be visible
       expect(
-        screen.getByTestId('notification-center-resize-handle-bottom-right')
+        screen.getByTestId(
+          'floating-window-notification-center-resize-handle-bottom-right'
+        )
       ).toBeInTheDocument();
 
       // Resize to mobile
@@ -408,7 +426,9 @@ describe('NotificationCenter', () => {
 
       // Mobile: resize handles should not be visible
       expect(
-        screen.queryByTestId('notification-center-resize-handle-bottom-right')
+        screen.queryByTestId(
+          'floating-window-notification-center-resize-handle-bottom-right'
+        )
       ).not.toBeInTheDocument();
     });
   });

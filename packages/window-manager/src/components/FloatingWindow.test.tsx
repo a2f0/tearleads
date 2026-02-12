@@ -429,6 +429,66 @@ describe('FloatingWindow', () => {
     ).not.toBeInTheDocument();
   });
 
+  describe('title bar context menu', () => {
+    it('opens rename menu on title bar context menu', () => {
+      render(<FloatingWindow {...defaultProps} />);
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.contextMenu(titleBar, { clientX: 120, clientY: 180 });
+
+      expect(
+        screen.getByTestId('floating-window-test-window-title-bar-context-menu')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('floating-window-test-window-rename-title-menu-item')
+      ).toBeInTheDocument();
+    });
+
+    it('renames window title from title bar context menu', async () => {
+      const user = userEvent.setup();
+      render(<FloatingWindow {...defaultProps} />);
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.contextMenu(titleBar, { clientX: 120, clientY: 180 });
+      await user.click(
+        screen.getByTestId('floating-window-test-window-rename-title-menu-item')
+      );
+      const titleInput = screen.getByTestId(
+        'floating-window-test-window-title-input'
+      );
+      await user.clear(titleInput);
+      await user.type(titleInput, 'Renamed{Enter}');
+      expect(screen.getByText('Renamed')).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toHaveAttribute(
+        'aria-label',
+        'Renamed'
+      );
+    });
+
+    it('does not rename when title edit is cancelled', async () => {
+      const user = userEvent.setup();
+      render(<FloatingWindow {...defaultProps} />);
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.contextMenu(titleBar, { clientX: 120, clientY: 180 });
+      await user.click(
+        screen.getByTestId('floating-window-test-window-rename-title-menu-item')
+      );
+      const titleInput = screen.getByTestId(
+        'floating-window-test-window-title-input'
+      );
+      await user.clear(titleInput);
+      await user.type(titleInput, 'Renamed{Escape}');
+      expect(screen.getByText('Test Window')).toBeInTheDocument();
+    });
+  });
+
   describe('mobile mode', () => {
     beforeEach(() => {
       Object.defineProperty(window, 'innerWidth', {

@@ -44,6 +44,7 @@ export function FloatingWindow({
   footerHeight = 0,
   contentClassName
 }: FloatingWindowProps) {
+  const [windowTitle, setWindowTitle] = useState(title);
   const [isDesktop, setIsDesktop] = useState(
     typeof window !== 'undefined' && window.innerWidth >= DESKTOP_BREAKPOINT
   );
@@ -210,6 +211,10 @@ export function FloatingWindow({
   ]);
 
   useEffect(() => {
+    setWindowTitle(title);
+  }, [title]);
+
+  useEffect(() => {
     const handleResize = () => {
       setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT);
     };
@@ -301,7 +306,7 @@ export function FloatingWindow({
     <FloatingWindowSurface
       windowRef={windowRef}
       id={id}
-      title={title}
+      title={windowTitle}
       styleProps={{
         isDesktop,
         isMaximized,
@@ -325,7 +330,7 @@ export function FloatingWindow({
       <FloatingWindowBody
         titleBarProps={{
           id,
-          title,
+          title: windowTitle,
           isDesktop,
           isMaximized,
           width,
@@ -337,7 +342,8 @@ export function FloatingWindow({
           onToggleMaximize: handleMaximize,
           dragHandlers,
           titleBarRef,
-          preMaximizeDimensions: preMaximizeStateRef.current
+          preMaximizeDimensions: preMaximizeStateRef.current,
+          onRenameTitle: setWindowTitle
         }}
         contentRef={contentRef}
         contentClassName={contentClassName}
