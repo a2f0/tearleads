@@ -253,7 +253,9 @@ export function TagSidebar({
                   <span className="w-4 shrink-0 text-center text-xs text-zinc-300">
                     ⋮⋮
                   </span>
-                  <span className="h-4 flex-1 rounded bg-zinc-200" />
+                  <div className="min-w-0 flex-1 px-1.5 py-0.5">
+                    <span className="block h-4 rounded bg-zinc-200" />
+                  </div>
                 </div>
               </button>
             )}
