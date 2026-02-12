@@ -26,24 +26,33 @@ function getDatabasePath(name: string): string {
   return path.join(userDataPath, `${name}.db`);
 }
 
-function getNativeBindingPath(): string {
-  const nativeBindingPath = resolveSqliteNativeBindingPath({
-    // Built Electron main code lives in packages/client/out/main.
-    // Walk up to packages/client so generated native artifacts resolve correctly.
-    devBasePath: path.resolve(__dirname, '../..'),
-    envOverride: process.env['TEARLEADS_SQLITE_NATIVE_BINDING'],
-    isPackaged: app.isPackaged,
-    resourcesPath: process.resourcesPath,
-  });
+const getNativeBindingPath = ((): (() => string) => {
+  let cachedPath: string | undefined;
 
-  if (!fs.existsSync(nativeBindingPath)) {
-    throw new Error(
-      `Missing Electron SQLite native binary at ${nativeBindingPath}. Run "pnpm --filter @tearleads/client electron:prepare-sqlite".`
-    );
-  }
+  return (): string => {
+    if (cachedPath) {
+      return cachedPath;
+    }
 
-  return nativeBindingPath;
-}
+    const nativeBindingPath = resolveSqliteNativeBindingPath({
+      // Built Electron main code lives in packages/client/out/main.
+      // Walk up to packages/client so generated native artifacts resolve correctly.
+      devBasePath: path.resolve(__dirname, '../..'),
+      envOverride: process.env['TEARLEADS_SQLITE_NATIVE_BINDING'],
+      isPackaged: app.isPackaged,
+      resourcesPath: process.resourcesPath,
+    });
+
+    if (!fs.existsSync(nativeBindingPath)) {
+      throw new Error(
+        `Missing Electron SQLite native binary at ${nativeBindingPath}. Run "pnpm --filter @tearleads/client electron:prepare-sqlite".`
+      );
+    }
+
+    cachedPath = nativeBindingPath;
+    return cachedPath;
+  };
+})()
 
 /**
  * Securely zero out a buffer to prevent key material from lingering in memory.
