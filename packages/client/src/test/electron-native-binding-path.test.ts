@@ -1,8 +1,8 @@
 import path from 'node:path';
-import {describe, expect, it} from 'vitest';
+import { describe, expect, it } from 'vitest';
 import {
   resolveSqliteNativeBindingPath,
-  SQLITE_NATIVE_BINDING_RELATIVE_PATH,
+  SQLITE_NATIVE_BINDING_RELATIVE_PATH
 } from '../../electron/sqlite/nativeBinding';
 
 describe('resolveSqliteNativeBindingPath', () => {
@@ -12,7 +12,7 @@ describe('resolveSqliteNativeBindingPath', () => {
         devBasePath: '/tmp/app',
         envOverride: '/custom/better_sqlite3.node',
         isPackaged: false,
-        resourcesPath: '/tmp/resources',
+        resourcesPath: '/tmp/resources'
       })
     ).toBe('/custom/better_sqlite3.node');
   });
@@ -23,7 +23,7 @@ describe('resolveSqliteNativeBindingPath', () => {
         devBasePath: '/tmp/app',
         envOverride: undefined,
         isPackaged: true,
-        resourcesPath: '/tmp/resources',
+        resourcesPath: '/tmp/resources'
       })
     ).toBe(
       path.join(
@@ -40,7 +40,7 @@ describe('resolveSqliteNativeBindingPath', () => {
         devBasePath: '/tmp/client',
         envOverride: undefined,
         isPackaged: false,
-        resourcesPath: '/tmp/resources',
+        resourcesPath: '/tmp/resources'
       })
     ).toBe(path.join('/tmp/client', SQLITE_NATIVE_BINDING_RELATIVE_PATH));
   });
