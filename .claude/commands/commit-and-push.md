@@ -66,7 +66,9 @@ Commit and push the current changes following these rules:
    - <link or short reference>
    ```
 
-   After creating the PR, run `./scripts/agents/tooling/agentTool.sh setVscodeTitle`.
+   After creating the PR, run:
+   - `./scripts/agents/tooling/agentTool.sh setVscodeTitle`
+   - `./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance`
 
 6. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 

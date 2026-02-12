@@ -169,6 +169,21 @@ git push --force-with-lease      # WRONG - wastes tokens
 
 The `.claude/commands/` folder contains reusable skills (slash commands). Each workspace uses its own `.claude` folder from the repo.
 
+## Tuxedo Instance Tagging
+
+When working on PRs, tag them with the tuxedo instance (workspace folder name) to track which agent workspace worked on them. This is handled automatically by `/commit-and-push` and `/enter-merge-queue`, but can be invoked manually:
+
+```bash
+./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance
+```
+
+This:
+
+- Auto-detects the PR from the current branch
+- Removes any existing `tuxedo:*` labels
+- Adds a `tuxedo:<instance>` label (e.g., `tuxedo:tearleads-shared`)
+- Creates the label if it doesn't exist
+
 ## PR Thread Replies (CRITICAL)
 
 - **Always reply inside the review thread** when addressing Gemini or other reviewer feedback.

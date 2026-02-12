@@ -80,7 +80,9 @@ Always pass `-R "$REPO"` to `gh` commands.
    - <link or short reference>
    ```
 
-   - After creating the PR, run `./scripts/agents/tooling/agentTool.sh setVscodeTitle`.
+   - After creating the PR, run:
+     - `./scripts/agents/tooling/agentTool.sh setVscodeTitle`
+     - `./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance`
 
 6. Wait for Gemini:
    - Wait 60 seconds for Gemini Code Assist to review.

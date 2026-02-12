@@ -48,6 +48,12 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Store `baseRefName` for rebase.
    - Detect `high-priority` label.
 
+   **Tag with tuxedo instance**: Tag the PR with the current workspace name:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance
+   ```
+
    **Roll-up PR detection**: Check if `baseRefName` is `main` or `master`. If NOT:
    - This is a **roll-up PR** that depends on another PR merging first
    - Set `is_rollup_pr = true` and `original_base_ref = baseRefName`
