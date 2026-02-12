@@ -111,13 +111,12 @@ describe('Contacts drag and drop integration', () => {
       }
     );
 
-    await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Family/i })).toHaveTextContent(
-        '0'
-      );
-    });
-
-    const groupButton = screen.getByRole('button', { name: /Family/i });
+    const groupButton = await screen.findByRole(
+      'button',
+      { name: /Family/i },
+      { timeout: 10000 }
+    );
+    expect(groupButton).toHaveTextContent('0');
     const dataTransfer = {
       getData: (type: string) =>
         type === 'application/x-tearleads-contact-ids'
@@ -222,7 +221,9 @@ describe('Contacts drag and drop integration', () => {
       expect(screen.getByText('Bob Ungrouped')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: /Family/i }));
+    await user.click(
+      await screen.findByRole('button', { name: /Family/i }, { timeout: 10000 })
+    );
 
     await waitFor(() => {
       expect(screen.getByText('Alice Grouped')).toBeInTheDocument();

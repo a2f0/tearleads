@@ -1,21 +1,14 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { contacts as contactsTable } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
-import {
-  Info,
-  Loader2,
-  Mail,
-  Phone,
-  Plus,
-  Trash2,
-  User,
-  UserPlus
-} from 'lucide-react';
+import { Loader2, Mail, Phone, Plus, User } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
 import { type ContactInfo, useContacts } from '../hooks/useContacts';
 import { setContactDragData } from '../lib/contactDragData';
 import { openComposeEmail } from '../lib/contactEmail';
+import { ContactsListContextMenus } from './ContactsListContextMenus';
+import { ContactsListHeader } from './ContactsListHeader';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 
@@ -174,30 +167,20 @@ export function ContactsWindowList({
 
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <User className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-sm">Contacts</h2>
+      <ContactsListHeader isUnlocked={isUnlocked}>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onCreateContact}
+            className="h-7 px-2"
+            data-testid="window-create-contact-button"
+          >
+            <Plus className="h-4 w-4" />
+          </Button>
+          <RefreshButton onClick={fetchContacts} loading={loading} size="sm" />
         </div>
-        {isUnlocked && (
-          <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onCreateContact}
-              className="h-7 px-2"
-              data-testid="window-create-contact-button"
-            >
-              <Plus className="h-4 w-4" />
-            </Button>
-            <RefreshButton
-              onClick={fetchContacts}
-              loading={loading}
-              size="sm"
-            />
-          </div>
-        )}
-      </div>
+      </ContactsListHeader>
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
@@ -332,49 +315,21 @@ export function ContactsWindowList({
           </div>
         ))}
 
-      {contextMenu && (
-        <ContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={handleCloseContextMenu}
-        >
-          {contextMenu.contact.primaryEmail && (
-            <ContextMenuItem
-              icon={<Mail className="h-4 w-4" />}
-              onClick={handleSendEmail}
-            >
-              Send email
-            </ContextMenuItem>
-          )}
-          <ContextMenuItem
-            icon={<Info className="h-4 w-4" />}
-            onClick={handleGetInfo}
-          >
-            {t('getInfo')}
-          </ContextMenuItem>
-          <ContextMenuItem
-            icon={<Trash2 className="h-4 w-4" />}
-            onClick={handleDelete}
-          >
-            {t('delete')}
-          </ContextMenuItem>
-        </ContextMenu>
-      )}
-
-      {emptySpaceContextMenu && (
-        <ContextMenu
-          x={emptySpaceContextMenu.x}
-          y={emptySpaceContextMenu.y}
-          onClose={clearEmptySpaceContextMenu}
-        >
-          <ContextMenuItem
-            icon={<UserPlus className="h-4 w-4" />}
-            onClick={handleNewContactFromEmptySpace}
-          >
-            New Contact
-          </ContextMenuItem>
-        </ContextMenu>
-      )}
+      <ContactsListContextMenus
+        contextMenu={contextMenu}
+        emptySpaceContextMenu={emptySpaceContextMenu}
+        onCloseContextMenu={handleCloseContextMenu}
+        onCloseEmptySpaceMenu={clearEmptySpaceContextMenu}
+        onSendEmail={handleSendEmail}
+        onGetInfo={handleGetInfo}
+        onDelete={() => {
+          void handleDelete();
+        }}
+        onNewContact={handleNewContactFromEmptySpace}
+        labels={{ getInfo: t('getInfo'), delete: t('delete') }}
+        ContextMenu={ContextMenu}
+        ContextMenuItem={ContextMenuItem}
+      />
     </div>
   );
 }

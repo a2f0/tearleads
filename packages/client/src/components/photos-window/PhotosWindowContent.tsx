@@ -1,15 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { WindowContextMenu } from '@tearleads/window-manager';
-import {
-  Download,
-  ImageIcon,
-  Info,
-  Loader2,
-  RotateCcw,
-  Share2,
-  Trash2,
-  Upload
-} from 'lucide-react';
+import { Download, Loader2, Share2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
@@ -24,6 +14,8 @@ import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { setAttachedImage } from '@/lib/llm-runtime';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatFileSize } from '@/lib/utils';
+import { PhotosContentContextMenus } from './PhotosContentContextMenus';
+import { PhotosContentHeader } from './PhotosContentHeader';
 import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';
 
 const ROW_HEIGHT_ESTIMATE = 72;
@@ -202,10 +194,7 @@ export function PhotosWindowContent({
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
-      <div className="flex items-center gap-2">
-        <ImageIcon className="h-4 w-4 text-muted-foreground" />
-        <p className="font-medium text-sm">Photos</p>
-      </div>
+      <PhotosContentHeader />
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
@@ -363,88 +352,37 @@ export function PhotosWindowContent({
         </div>
       )}
 
-      {contextMenu && (
-        <WindowContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={handleCloseContextMenu}
-        >
-          {contextMenu.photo.deleted ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-              onClick={handleRestore}
-            >
-              <RotateCcw className="h-4 w-4" />
-              {t('restore')}
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={handleGetInfo}
-              >
-                <Info className="h-4 w-4" />
-                {t('getInfo')}
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={() => handleDownload(contextMenu.photo)}
-              >
-                <Download className="h-4 w-4" />
-                {t('download')}
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={handleAddToAIChat}
-              >
-                Add to AI chat
-              </button>
-              {canShare && (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                  onClick={() => handleShare(contextMenu.photo)}
-                >
-                  <Share2 className="h-4 w-4" />
-                  {t('share')}
-                </button>
-              )}
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
-                onClick={handleDelete}
-              >
-                <Trash2 className="h-4 w-4" />
-                {t('delete')}
-              </button>
-            </>
-          )}
-        </WindowContextMenu>
-      )}
-
-      {blankSpaceMenu && onUpload && (
-        <WindowContextMenu
-          x={blankSpaceMenu.x}
-          y={blankSpaceMenu.y}
-          onClose={() => setBlankSpaceMenu(null)}
-        >
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onUpload();
-              setBlankSpaceMenu(null);
-            }}
-          >
-            <Upload className="h-4 w-4" />
-            Upload
-          </button>
-        </WindowContextMenu>
-      )}
+      <PhotosContentContextMenus
+        contextMenu={contextMenu}
+        blankSpaceMenu={blankSpaceMenu}
+        canShare={canShare}
+        onCloseContextMenu={handleCloseContextMenu}
+        onCloseBlankSpaceMenu={() => setBlankSpaceMenu(null)}
+        onRestore={() => {
+          void handleRestore();
+        }}
+        onGetInfo={handleGetInfo}
+        onDownload={(photo) => {
+          void handleDownload(photo);
+        }}
+        onAddToAIChat={() => {
+          void handleAddToAIChat();
+        }}
+        onShare={(photo) => {
+          void handleShare(photo);
+        }}
+        onDelete={() => {
+          void handleDelete();
+        }}
+        onUpload={onUpload}
+        labels={{
+          restore: t('restore'),
+          getInfo: t('getInfo'),
+          download: t('download'),
+          share: t('share'),
+          delete: t('delete')
+        }}
+      />
     </div>
   );
 }

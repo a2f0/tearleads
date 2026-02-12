@@ -1,15 +1,5 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { WindowContextMenu } from '@tearleads/window-manager';
-import {
-  Info,
-  Loader2,
-  Music,
-  Pause,
-  Play,
-  RotateCcw,
-  Trash2,
-  Upload
-} from 'lucide-react';
+import { Loader2, Music, Pause } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAudio } from '../../context/AudioContext';
 import {
@@ -17,6 +7,8 @@ import {
   useAudioUIContext
 } from '../../context/AudioUIContext';
 import { setMediaDragData } from '../../lib/mediaDragData';
+import { AudioListContextMenus } from './AudioListContextMenus';
+import { AudioListHeader } from './AudioListHeader';
 import { ALL_AUDIO_ID } from './AudioPlaylistsSidebar';
 
 const ROW_HEIGHT_ESTIMATE = 56;
@@ -323,15 +315,9 @@ export function AudioWindowList({
 
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Music className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-sm">Audio</h2>
-        </div>
-        {isUnlocked && (
-          <RefreshButton onClick={fetchTracks} loading={loading} size="sm" />
-        )}
-      </div>
+      <AudioListHeader isUnlocked={isUnlocked}>
+        <RefreshButton onClick={fetchTracks} loading={loading} size="sm" />
+      </AudioListHeader>
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
@@ -538,77 +524,26 @@ export function AudioWindowList({
           </div>
         ))}
 
-      {contextMenu && (
-        <WindowContextMenu
-          x={contextMenu.x}
-          y={contextMenu.y}
-          onClose={handleCloseContextMenu}
-        >
-          {contextMenu.track.deleted ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-              onClick={() => handleRestore(contextMenu.track)}
-            >
-              <RotateCcw className="h-4 w-4" />
-              {t('restore')}
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={() => handleContextMenuPlay(contextMenu.track)}
-              >
-                {contextMenu.track.id === currentTrack?.id && isPlaying ? (
-                  <Pause className="h-4 w-4" />
-                ) : (
-                  <Play className="h-4 w-4" />
-                )}
-                {contextMenu.track.id === currentTrack?.id && isPlaying
-                  ? t('pause')
-                  : t('play')}
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={handleContextMenuInfo}
-              >
-                <Info className="h-4 w-4" />
-                {t('getInfo')}
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
-                onClick={() => handleDelete(contextMenu.track)}
-              >
-                <Trash2 className="h-4 w-4" />
-                {t('delete')}
-              </button>
-            </>
-          )}
-        </WindowContextMenu>
-      )}
-
-      {blankSpaceMenu && onUpload && (
-        <WindowContextMenu
-          x={blankSpaceMenu.x}
-          y={blankSpaceMenu.y}
-          onClose={() => setBlankSpaceMenu(null)}
-        >
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-            onClick={() => {
-              onUpload();
-              setBlankSpaceMenu(null);
-            }}
-          >
-            <Upload className="h-4 w-4" />
-            Upload
-          </button>
-        </WindowContextMenu>
-      )}
+      <AudioListContextMenus
+        contextMenu={contextMenu}
+        blankSpaceMenu={blankSpaceMenu}
+        currentTrackId={currentTrack?.id}
+        isPlaying={isPlaying}
+        onCloseContextMenu={handleCloseContextMenu}
+        onCloseBlankSpaceMenu={() => setBlankSpaceMenu(null)}
+        onContextMenuPlay={handleContextMenuPlay}
+        onContextMenuInfo={handleContextMenuInfo}
+        onDelete={handleDelete}
+        onRestore={handleRestore}
+        onUpload={onUpload}
+        labels={{
+          restore: t('restore'),
+          play: t('play'),
+          pause: t('pause'),
+          getInfo: t('getInfo'),
+          delete: t('delete')
+        }}
+      />
     </div>
   );
 }
