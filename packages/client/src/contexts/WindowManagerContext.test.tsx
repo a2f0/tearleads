@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import {
   clearPreserveWindowState,
   setPreserveWindowState
@@ -63,7 +64,7 @@ describe('WindowManagerContext', () => {
 
     it('opens window without dimensions on mobile viewport', () => {
       Object.defineProperty(window, 'innerWidth', {
-        value: 600,
+        value: MOBILE_BREAKPOINT - 1,
         configurable: true
       });
       const { result } = renderHook(() => useWindowManager(), { wrapper });
