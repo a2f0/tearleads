@@ -146,7 +146,9 @@ describe('Calendar', () => {
 
   it('renames a sidebar calendar from its context menu', async () => {
     const user = userEvent.setup();
-    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Work Renamed');
+    const promptSpy = vi
+      .spyOn(window, 'prompt')
+      .mockReturnValue('Work Renamed');
     render(<CalendarContent />);
 
     fireEvent(
