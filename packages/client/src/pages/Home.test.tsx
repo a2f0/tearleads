@@ -9,16 +9,16 @@ import {
   mockActivateScreensaver,
   setupScreensaverMock
 } from '@/test/screensaver-mock';
+import { Home } from './Home';
 import {
   GAP,
-  Home,
   ICON_LABEL_GAP,
   ICON_SIZE,
   ITEM_HEIGHT,
   LABEL_HEIGHT,
   OVERLAP_PADDING,
   resolveOverlaps
-} from './Home';
+} from './homeIconUtils';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {

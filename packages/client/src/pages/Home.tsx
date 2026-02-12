@@ -33,21 +33,15 @@ import {
   calculateScatterPositions,
   constrainAllPositions,
   constrainPosition,
-  GAP,
   getIconButtonMeasurements,
   getIconSizeForMobile,
   getIconStyleClasses,
   getItemHeightForMobile,
   getItemsToArrange,
-  ICON_LABEL_GAP,
-  ICON_SIZE,
-  ITEM_HEIGHT,
   LABEL_HEIGHT,
-  OVERLAP_PADDING,
   type Position,
   type Positions,
   positionsAreEqual,
-  resolveOverlaps,
   sortItemsByLabel
 } from './homeIconUtils';
 
@@ -63,17 +57,6 @@ for (const item of navItems) {
     PATH_TO_WINDOW_TYPE[item.path] = windowType;
   }
 }
-
-// Re-export constants for backwards compatibility (used in tests)
-export {
-  GAP,
-  ICON_LABEL_GAP,
-  ICON_SIZE,
-  ITEM_HEIGHT,
-  LABEL_HEIGHT,
-  OVERLAP_PADDING,
-  resolveOverlaps
-};
 
 const MOBILE_COLUMNS = 4;
 const STORAGE_KEY = 'desktop-icon-positions';

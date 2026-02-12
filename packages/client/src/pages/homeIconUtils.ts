@@ -1,4 +1,8 @@
 import type { navItems } from '@/components/Sidebar';
+import type {
+  DesktopIconBackgroundValue,
+  DesktopIconDepthValue
+} from '@/db/user-settings';
 
 export const ICON_SIZE = 64;
 const ICON_SIZE_MOBILE = 56;
@@ -14,8 +18,8 @@ export type Position = { x: number; y: number };
 export type Positions = Record<string, Position>;
 
 export function getIconStyleClasses(
-  iconDepth?: 'embossed' | 'debossed',
-  iconBackground?: 'colored' | 'transparent'
+  iconDepth?: DesktopIconDepthValue,
+  iconBackground?: DesktopIconBackgroundValue
 ) {
   if (iconBackground === 'transparent') {
     return {
@@ -228,8 +232,8 @@ export function calculateGridPositions(
   selectedPaths?: Set<string>,
   currentPositions?: Positions
 ): Positions {
-  const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
-  const gap = isMobile ? GAP_MOBILE : GAP;
+  const iconSize = getIconSizeForMobile(isMobile);
+  const gap = getGapForMobile(isMobile);
   const itemWidth = iconSize + gap;
   const cols = Math.max(1, Math.floor(containerWidth / itemWidth));
   const totalWidth = cols * itemWidth - gap;
@@ -256,8 +260,8 @@ export function calculateScatterPositions(
   selectedPaths?: Set<string>,
   currentPositions?: Positions
 ): Positions {
-  const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
-  const itemHeightCalc = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
+  const iconSize = getIconSizeForMobile(isMobile);
+  const itemHeightCalc = getItemHeightForMobile(isMobile);
   const maxX = Math.max(0, containerWidth - iconSize);
   const maxY = Math.max(0, containerHeight - itemHeightCalc);
 
@@ -311,9 +315,9 @@ export function calculateClusterPositions(
   itemHeights?: Record<string, number>,
   itemWidths?: Record<string, number>
 ): Positions {
-  const iconSize = isMobile ? ICON_SIZE_MOBILE : ICON_SIZE;
-  const gap = isMobile ? GAP_MOBILE : GAP;
-  const itemHeightCalc = isMobile ? ITEM_HEIGHT_MOBILE : ITEM_HEIGHT;
+  const iconSize = getIconSizeForMobile(isMobile);
+  const gap = getGapForMobile(isMobile);
+  const itemHeightCalc = getItemHeightForMobile(isMobile);
   const clusterItemWidth = Math.max(iconSize, maxItemWidth ?? 0);
   const clusterItemHeight = Math.max(itemHeightCalc, maxItemHeight ?? 0);
   const itemWidth = clusterItemWidth + gap;
