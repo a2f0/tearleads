@@ -196,18 +196,14 @@ function uniqueSorted(values: string[]): string[] {
 }
 
 function isBiomeTarget(filePath: string): boolean {
-  return (
-    filePath.endsWith('.js') ||
-    filePath.endsWith('.mjs') ||
-    filePath.endsWith('.cjs') ||
-    filePath.endsWith('.jsx') ||
-    filePath.endsWith('.ts') ||
-    filePath.endsWith('.tsx') ||
-    filePath.endsWith('.json') ||
-    filePath.endsWith('.jsonc') ||
-    filePath.endsWith('.css') ||
-    filePath.endsWith('.scss')
-  );
+  // Must match biome.json includes pattern: packages/**/src/**/*.{ts,tsx}
+  if (!filePath.startsWith('packages/')) {
+    return false;
+  }
+  if (!filePath.includes('/src/')) {
+    return false;
+  }
+  return filePath.endsWith('.ts') || filePath.endsWith('.tsx');
 }
 
 function changedBiomeFiles(changedFiles: string[]): string[] {
