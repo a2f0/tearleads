@@ -33,7 +33,7 @@ jobs:
           BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || echo "${{ github.sha }}")
           HEAD_SHA="${{ github.sha }}"
           tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
-          SHOULD_DEPLOY=$(jq -r '(.jobs["ios-maestro-release"].run or .jobs["android-maestro-release"].run or .jobs["android"].run)' ci-impact.json)
+          SHOULD_DEPLOY=$(jq -r '.jobs["ios-maestro-release"].run' ci-impact.json)
           echo "should-deploy=$SHOULD_DEPLOY" >> "$GITHUB_OUTPUT"
           echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"
           cat ci-impact.json >> "$GITHUB_OUTPUT"
@@ -43,7 +43,7 @@ jobs:
         if: ${{ always() }}
         run: |
           echo "### Deploy impact (ios)" >> "$GITHUB_STEP_SUMMARY"
-          jq -r '\"- deploy: \" + ((.jobs[\"ios-maestro-release\"].run or .jobs[\"android-maestro-release\"].run or .jobs[\"android\"].run)|tostring)' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '\"- deploy: \" + (.jobs[\"ios-maestro-release\"].run|tostring)' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
           jq -r '\"- changed packages: \" + (.changedPackages|join(\", \"))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
           jq -r 'if (.warnings|length) > 0 then \"- warnings: \" + (.warnings|join(\"; \")) else \"- warnings: none\" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
 
