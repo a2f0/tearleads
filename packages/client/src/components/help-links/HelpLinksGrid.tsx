@@ -4,7 +4,6 @@ import {
   FileText,
   Puzzle,
   Shirt,
-  Terminal,
   TerminalSquare
 } from 'lucide-react';
 import { GridSquare } from '@/components/ui/grid-square';
@@ -18,11 +17,6 @@ interface HelpLinksGridProps {
 }
 
 const DEVELOPER_DOC_ITEMS = [
-  {
-    docId: 'cli',
-    label: 'CLI',
-    Icon: Terminal
-  },
   {
     docId: 'cliReference',
     label: 'CLI Reference',

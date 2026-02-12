@@ -1,6 +1,7 @@
 export type HelpDocId =
   | 'cli'
   | 'cliReference'
+  | 'consoleReference'
   | 'chromeExtension'
   | 'backupRestore'
   | 'tuxedo'
@@ -9,6 +10,7 @@ export type HelpDocId =
 const HELP_DOC_ROUTE_SEGMENTS: Record<HelpDocId, string> = {
   cli: 'cli',
   cliReference: 'cli-reference',
+  consoleReference: 'console-reference',
   chromeExtension: 'chrome-extension',
   backupRestore: 'backup-restore',
   tuxedo: 'tuxedo',
@@ -18,6 +20,7 @@ const HELP_DOC_ROUTE_SEGMENTS: Record<HelpDocId, string> = {
 const HELP_DOC_LABELS: Record<HelpDocId, string> = {
   cli: 'CLI',
   cliReference: 'CLI Reference',
+  consoleReference: 'Console Reference',
   chromeExtension: 'Chrome Extension',
   backupRestore: 'Backup & Restore',
   tuxedo: 'Tuxedo',
@@ -27,6 +30,7 @@ const HELP_DOC_LABELS: Record<HelpDocId, string> = {
 const HELP_DOC_IDS_BY_ROUTE_SEGMENT: Record<string, HelpDocId> = {
   [HELP_DOC_ROUTE_SEGMENTS.cli]: 'cli',
   [HELP_DOC_ROUTE_SEGMENTS.cliReference]: 'cliReference',
+  [HELP_DOC_ROUTE_SEGMENTS.consoleReference]: 'consoleReference',
   [HELP_DOC_ROUTE_SEGMENTS.chromeExtension]: 'chromeExtension',
   [HELP_DOC_ROUTE_SEGMENTS.backupRestore]: 'backupRestore',
   [HELP_DOC_ROUTE_SEGMENTS.tuxedo]: 'tuxedo',

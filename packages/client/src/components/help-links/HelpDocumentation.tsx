@@ -16,6 +16,7 @@ import backupRestoreDocumentationEn from '../../../../../docs/en/backup-restore.
 import chromeExtensionDocumentationEn from '../../../../../docs/en/chrome-extension.md?raw';
 import ciDocumentationEn from '../../../../../docs/en/ci.md?raw';
 import cliReferenceDocumentationEn from '../../../../../docs/en/cli-reference.md?raw';
+import consoleReferenceDocumentationEn from '../../../../../docs/en/console-reference.md?raw';
 import cliDocumentationEn from '../../../../../docs/en/getting-started.md?raw';
 import tuxedoDocumentationEn from '../../../../../docs/en/tuxedo.md?raw';
 import backupRestoreDocumentationEs from '../../../../../docs/es/backup-restore.md?raw';
@@ -43,6 +44,11 @@ const HELP_DOC_MARKDOWN: Record<
     es: cliReferenceDocumentationEs,
     ua: cliReferenceDocumentationUa
   },
+  consoleReference: {
+    en: consoleReferenceDocumentationEn,
+    es: consoleReferenceDocumentationEn,
+    ua: consoleReferenceDocumentationEn
+  },
   ci: {
     en: ciDocumentationEn,
     es: ciDocumentationEn,
@@ -68,6 +74,7 @@ const HELP_DOC_MARKDOWN: Record<
 const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
   cli: 'Setup and workflow notes for command-line development.',
   cliReference: 'Command reference for the tearleads CLI.',
+  consoleReference: 'Command reference for the Console window.',
   ci: 'How CI impact analysis and status-check gating works in pull requests.',
   chromeExtension: 'Build, load, and test the Tearleads Chrome extension.',
   backupRestore:
@@ -78,6 +85,7 @@ const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
 const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
   cli: Terminal,
   cliReference: TerminalSquare,
+  consoleReference: TerminalSquare,
   ci: Cog,
   chromeExtension: Puzzle,
   backupRestore: Download,

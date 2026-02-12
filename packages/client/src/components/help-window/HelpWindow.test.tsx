@@ -69,7 +69,6 @@ vi.mock('@/components/ui/grid-square', () => ({
 
 describe('HelpWindow', () => {
   const docCases = [
-    { label: 'CLI', title: 'CLI', docId: 'cli' },
     { label: 'CLI Reference', title: 'CLI Reference', docId: 'cliReference' },
     { label: 'CI', title: 'CI', docId: 'ci' },
     {

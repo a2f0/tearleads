@@ -19,7 +19,6 @@ describe('Help', () => {
   });
 
   const docCases = [
-    { label: 'CLI', path: '/help/docs/cli' },
     { label: 'CLI Reference', path: '/help/docs/cli-reference' },
     { label: 'CI', path: '/help/docs/ci' },
     { label: 'Chrome Extension', path: '/help/docs/chrome-extension' },
