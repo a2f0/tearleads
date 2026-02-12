@@ -61,7 +61,11 @@ pr_dashboard_render() {
 
     # Use custom JSON + template to include labels column
     # Format: ID  TITLE  BRANCH  STATE  UPDATED  LABELS
-    gh pr list -R "$REPO" --search "$search_query" --limit "$LIMIT" \
+    set --
+    if [ "${TUXEDO_PR_COLORIZED_OUTPUT:-1}" = "1" ]; then
+        set -- -u NO_COLOR "GH_FORCE_TTY=${TUXEDO_PR_FORCE_TTY_WIDTH:-120}" CLICOLOR_FORCE=1
+    fi
+    env "$@" GH_PAGER=cat PAGER=cat gh pr list -R "$REPO" --search "$search_query" --limit "$LIMIT" \
         --json number,title,headRefName,state,updatedAt,labels \
         --template '{{range .}}{{tablerow (printf "#%.0f" .number) (truncate 50 .title) .headRefName .state (timeago .updatedAt) (pluck "name" .labels | join ", ")}}{{end}}'
 }

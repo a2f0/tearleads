@@ -85,7 +85,7 @@ case "$TYPE" in
 esac
 
 case "$NUMBER" in
-    ''|*[!0-9]*)
+    ''|*[!0-9]*|0)
         echo "Error: --number must be a positive integer." >&2
         exit 1
         ;;
@@ -93,23 +93,13 @@ esac
 
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
-if [ "$TYPE" = "pr" ]; then
-    CURRENT_LABELS=$(gh pr view "$NUMBER" --json labels --jq '.labels[].name' -R "$REPO" 2>/dev/null || echo "")
-    if echo "$CURRENT_LABELS" | grep -qxF "$LABEL"; then
-        echo "Label '$LABEL' already present on PR #$NUMBER."
-        exit 0
-    fi
-    gh pr edit "$NUMBER" --add-label "$LABEL" -R "$REPO"
-    VERIFY=$(gh pr view "$NUMBER" --json labels --jq '.labels[].name' -R "$REPO")
-else
-    CURRENT_LABELS=$(gh issue view "$NUMBER" --json labels --jq '.labels[].name' -R "$REPO" 2>/dev/null || echo "")
-    if echo "$CURRENT_LABELS" | grep -qxF "$LABEL"; then
-        echo "Label '$LABEL' already present on issue #$NUMBER."
-        exit 0
-    fi
-    gh issue edit "$NUMBER" --add-label "$LABEL" -R "$REPO"
-    VERIFY=$(gh issue view "$NUMBER" --json labels --jq '.labels[].name' -R "$REPO")
+CURRENT_LABELS=$(gh "$TYPE" view "$NUMBER" --json labels --jq '.labels[].name' -R "$REPO" 2>/dev/null || echo "")
+if echo "$CURRENT_LABELS" | grep -qxF "$LABEL"; then
+    echo "Label '$LABEL' already present on $TYPE #$NUMBER."
+    exit 0
 fi
+gh "$TYPE" edit "$NUMBER" --add-label "$LABEL" -R "$REPO"
+VERIFY=$(gh "$TYPE" view "$NUMBER" --json labels --jq '.labels[].name' -R "$REPO")
 
 if echo "$VERIFY" | grep -qxF "$LABEL"; then
     echo "Added label '$LABEL' to $TYPE #$NUMBER."

@@ -38,4 +38,4 @@ When a PR has the `high-priority` label:
 
 - The `high-priority` label must exist in the repository (create it if it doesn't)
 - Use sparingly - overuse defeats the purpose of prioritization
-- To remove the label later: `gh pr edit <pr-number> --remove-label "high-priority" -R "$REPO"`
+- To remove the label later: `gh pr edit <pr-number> --remove-label "high-priority"`
