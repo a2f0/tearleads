@@ -44,6 +44,6 @@ bundle exec pod install --repo-update
 cd "$REPO_ROOT"
 
 # Reset title to '<workspace> - <branch>'
-"$SCRIPT_DIR/clearQueued.sh"
+"$SCRIPT_DIR/setVscodeTitle.sh"
 
 echo "Ready for next task."

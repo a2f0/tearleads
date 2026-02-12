@@ -41,15 +41,8 @@ Legend:
 
 | Script | Decision | Why | Wrapper Notes |
 | --- | --- | --- | --- |
-| `scripts/agents/cleanup.sh` | Now | Local session hygiene, low risk | No args |
-| `scripts/agents/clearQueued.sh` | Now | Frequent queue lifecycle action | No args |
-| `scripts/agents/clearStatus.sh` | Now | Frequent state reset | No args |
 | `scripts/agents/refresh.sh` | Now | Common post-merge sync op | No args; long timeout |
-| `scripts/agents/setQueued.sh` | Now | Core queue UX signal | `title` arg required |
-| `scripts/agents/setReady.sh` | Now | Common status signal | Optional `title` |
 | `scripts/agents/setVscodeTitle.sh` | Now | Shared primitive | Optional `title` (defaults to `<workspace> - <branch>`) |
-| `scripts/agents/setWaiting.sh` | Now | Common status signal | Optional `title` |
-| `scripts/agents/setWorking.sh` | Now | Common status signal | Optional `title` |
 | `scripts/agents/title-lib.sh` | Manual | Library, not entrypoint | N/A |
 
 ### scripts
