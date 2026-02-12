@@ -9,7 +9,7 @@ import {
   useNotesContext,
   useNotesUI
 } from '../context/NotesContext';
-import { formatDate } from '../lib/utils';
+import { NoteItemContent } from './list-view/NoteItemContent';
 
 type MenuPosition = { x: number; y: number };
 
@@ -275,34 +275,6 @@ export function NotesWindowList({
     setBlankSpaceMenu(null);
     handleCreateNote();
   }, [handleCreateNote]);
-
-  const getContentPreview = (content: string) => {
-    const plainText = content
-      .replace(/^#+\s/gm, '')
-      .replace(/[*_`[\]~]/g, '')
-      .trim();
-    if (plainText.length > 100) {
-      return `${plainText.substring(0, 100)}...`;
-    }
-    return plainText || 'No content';
-  };
-
-  const NoteItemContent = ({ note }: { note: NoteInfo }) => (
-    <>
-      <StickyNote className="h-4 w-4 shrink-0 text-muted-foreground" />
-      <div className="min-w-0 flex-1">
-        <p
-          className={`truncate font-medium text-xs ${note.deleted ? 'line-through' : ''}`}
-        >
-          {note.title}
-        </p>
-        <p className="truncate text-muted-foreground text-xs">
-          {getContentPreview(note.content)} · {formatDate(note.updatedAt)}
-          {note.deleted && ' · Deleted'}
-        </p>
-      </div>
-    </>
-  );
 
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
