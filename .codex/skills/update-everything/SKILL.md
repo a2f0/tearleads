@@ -82,6 +82,7 @@ After updates, review changelogs for major version bumps:
    - Capacitor plugins: <https://github.com/ionic-team/capacitor-plugins/releases>
    - Biome: <https://github.com/biomejs/biome/releases>
    - pdfjs-dist: <https://github.com/mozilla/pdf.js/releases>
+   - i18next: <https://github.com/i18next/i18next/releases>
 3. **Document deprecations** in the PR for future reference
 
 ## Known Acceptable Warnings
