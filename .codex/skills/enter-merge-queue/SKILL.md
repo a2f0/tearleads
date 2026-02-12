@@ -201,6 +201,11 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
         ```
 
    2. Handle Gemini feedback (if applicable)
+      - Always run Gemini evaluation/close-out on every poll iteration, even when CI jobs are still running or have failed.
+      - Run `/address-gemini-feedback` to process unresolved feedback.
+      - If code changes were made, push them before continuing.
+      - Run `/follow-up-with-gemini` to resolve confirmed threads in parallel with CI fixes.
+      - Do not defer thread close-out until the workflow finishes; keep reviews moving in parallel with CI fixes.
 
    3. Check job statuses:
       - If job succeeded: reset `job_failure_counts[job] = 0`
