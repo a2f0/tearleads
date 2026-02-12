@@ -31,7 +31,6 @@ variable "public_subnet_cidr" {
 variable "allowed_ssh_cidr" {
   description = "CIDR allowed to SSH into the enclave host."
   type        = string
-  default     = "0.0.0.0/0"
 }
 
 variable "instance_type" {

@@ -64,6 +64,7 @@ resource "aws_security_group" "enclave_host" {
   }
 
   egress {
+    # Broad egress is acceptable for initial bootstrap only; tighten for production.
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
