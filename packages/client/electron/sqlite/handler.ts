@@ -28,7 +28,9 @@ function getDatabasePath(name: string): string {
 
 function getNativeBindingPath(): string {
   const nativeBindingPath = resolveSqliteNativeBindingPath({
-    devBasePath: path.resolve(__dirname, '../../..'),
+    // Built Electron main code lives in packages/client/out/main.
+    // Walk up to packages/client so generated native artifacts resolve correctly.
+    devBasePath: path.resolve(__dirname, '../..'),
     envOverride: process.env['TEARLEADS_SQLITE_NATIVE_BINDING'],
     isPackaged: app.isPackaged,
     resourcesPath: process.resourcesPath,
