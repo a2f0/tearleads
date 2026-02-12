@@ -47,7 +47,7 @@ Legend:
 
 ### scripts
 
-| Script | Decision | Wrapped | Wrapper Invocation |
+| Script | Decision | Wrapped | Wrapper Notes |
 | --- | --- | --- | --- |
 | `scripts/analyzeBundle.sh` | Now | ✅ | `scriptTool.sh analyzeBundle` |
 | `scripts/checkBinaryFiles.sh` | Now | ✅ | `scriptTool.sh checkBinaryFiles --staged\|--from-upstream` |
@@ -108,7 +108,7 @@ Legend:
 | `scripts/tuxedo.sh` | Later | | Wrapper with mode args |
 | `scripts/tuxedoKill.sh` | Later | | Scope args required |
 | `scripts/updateEverything.sh` | Later | | Explicit mode + dry-run first |
-| `scripts/codex.sh` | Later | | Agent bootstrap helper
+| `scripts/codex.sh` | Later | | Tool once interface stabilized |
 
 Note:
 
