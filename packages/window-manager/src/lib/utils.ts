@@ -1,8 +1,18 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
+export type WindowPlatform = 'ios' | 'android' | 'web';
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+export function detectPlatform(): WindowPlatform {
+  if (typeof navigator === 'undefined') return 'web';
+  const ua = navigator.userAgent.toLowerCase();
+  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
+  if (/android/.test(ua)) return 'android';
+  return 'web';
 }
 
 export function generateUniqueId(prefix?: string): string {

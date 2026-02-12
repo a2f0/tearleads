@@ -28,7 +28,7 @@ export function useSidebarDragOver(): UseSidebarDragOverResult {
 
   const clearDragState = useCallback((id: string) => {
     dragCounterRef.current[id] = 0;
-    setDragOverId((current) => (current === id ? null : current));
+    setDragOverId(null);
   }, []);
 
   return {

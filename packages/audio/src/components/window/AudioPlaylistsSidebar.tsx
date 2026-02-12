@@ -1,4 +1,5 @@
 import {
+  detectPlatform,
   useResizableSidebar,
   useSidebarDragOver,
   WindowSidebarError,
@@ -19,18 +20,6 @@ import { RenamePlaylistDialog } from './RenamePlaylistDialog';
 import { useAudioPlaylists } from './useAudioPlaylists';
 
 export const ALL_AUDIO_ID = '__all__';
-
-/**
- * Detect the current platform.
- * Returns 'ios', 'android', or 'web'.
- */
-function detectPlatform(): 'ios' | 'android' | 'web' {
-  if (typeof navigator === 'undefined') return 'web';
-  const ua = navigator.userAgent.toLowerCase();
-  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
-  if (/android/.test(ua)) return 'android';
-  return 'web';
-}
 
 interface AudioPlaylistsSidebarProps {
   width: number;

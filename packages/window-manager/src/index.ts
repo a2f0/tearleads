@@ -43,7 +43,12 @@ export {
 } from './hooks/index.js';
 
 // Utilities
-export { cn, generateUniqueId } from './lib/index.js';
+export {
+  cn,
+  detectPlatform,
+  generateUniqueId,
+  type WindowPlatform
+} from './lib/index.js';
 // Storage utilities
 export {
   clearAllWindowDimensions,
