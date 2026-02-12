@@ -1,7 +1,14 @@
 import { contactEmails, contacts, vfsLinks } from '@tearleads/db/sqlite';
-import { useResizableSidebar } from '@tearleads/window-manager';
+import {
+  useResizableSidebar,
+  useSidebarDragOver,
+  WindowSidebarError,
+  WindowSidebarHeader,
+  WindowSidebarItem,
+  WindowSidebarLoading
+} from '@tearleads/window-manager';
 import { and, asc, eq } from 'drizzle-orm';
-import { Folder, FolderPlus, Loader2, Mail, Plus, Trash2 } from 'lucide-react';
+import { Folder, FolderPlus, Mail, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
 import { type ContactGroup, useContactGroups } from '../hooks';
@@ -58,8 +65,8 @@ export function ContactsGroupsSidebar({
   const [deleteDialogGroup, setDeleteDialogGroup] =
     useState<ContactGroup | null>(null);
   const closeContextMenuTimerRef = useRef<number | null>(null);
-  const [dragOverGroupId, setDragOverGroupId] = useState<string | null>(null);
-  const dragCounterRef = useRef<Record<string, number>>({});
+  const { dragOverId, handleDragEnter, handleDragLeave, clearDragState } =
+    useSidebarDragOver();
 
   useEffect(
     () => () => {
@@ -144,13 +151,9 @@ export function ContactsGroupsSidebar({
       event.preventDefault();
       event.stopPropagation();
 
-      dragCounterRef.current[groupId] =
-        (dragCounterRef.current[groupId] ?? 0) + 1;
-      if (dragCounterRef.current[groupId] === 1) {
-        setDragOverGroupId(groupId);
-      }
+      handleDragEnter(groupId);
     },
-    [onDropToGroup]
+    [onDropToGroup, handleDragEnter]
   );
 
   const handleGroupDragLeave = useCallback(
@@ -159,13 +162,9 @@ export function ContactsGroupsSidebar({
       event.preventDefault();
       event.stopPropagation();
 
-      dragCounterRef.current[groupId] =
-        (dragCounterRef.current[groupId] ?? 0) - 1;
-      if (dragCounterRef.current[groupId] === 0) {
-        setDragOverGroupId(null);
-      }
+      handleDragLeave(groupId);
     },
-    [onDropToGroup]
+    [onDropToGroup, handleDragLeave]
   );
 
   const handleGroupDrop = useCallback(
@@ -174,8 +173,7 @@ export function ContactsGroupsSidebar({
       event.preventDefault();
       event.stopPropagation();
 
-      dragCounterRef.current[groupId] = 0;
-      setDragOverGroupId(null);
+      clearDragState(groupId);
 
       const contactIds = getContactDragIds(event.dataTransfer);
       if (contactIds.length > 0) {
@@ -183,7 +181,7 @@ export function ContactsGroupsSidebar({
         await handleGroupChanged();
       }
     },
-    [handleGroupChanged, onDropToGroup]
+    [handleGroupChanged, onDropToGroup, clearDragState]
   );
 
   const handleSendEmailToGroup = useCallback(async () => {
@@ -225,77 +223,51 @@ export function ContactsGroupsSidebar({
       style={{ width }}
       data-testid="contacts-groups-sidebar"
     >
-      <div className="flex items-center justify-between border-b px-3 py-2">
-        <span className="font-medium text-muted-foreground text-xs">
-          Groups
-        </span>
-        <button
-          type="button"
-          onClick={() => setNewGroupDialogOpen(true)}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title="New Group"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+      <WindowSidebarHeader
+        title="Groups"
+        actionLabel="New Group"
+        onAction={() => setNewGroupDialogOpen(true)}
+        actionIcon={<Plus className="h-4 w-4" />}
+      />
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
       <div
         className="flex-1 overflow-y-auto p-1"
         onContextMenu={handleEmptySpaceContextMenu}
       >
-        <button
-          type="button"
-          className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
+        <WindowSidebarItem
+          label="All Contacts"
+          icon={<Folder className="h-4 w-4 shrink-0 text-primary" />}
+          selected={
             selectedGroupId === ALL_CONTACTS_ID || selectedGroupId === null
-              ? 'bg-accent text-accent-foreground'
-              : 'hover:bg-accent/50'
-          }`}
-          style={{ paddingLeft: '8px' }}
+          }
           onClick={() => onGroupSelect(ALL_CONTACTS_ID)}
-        >
-          <Folder className="h-4 w-4 shrink-0 text-primary" />
-          <span className="truncate">All Contacts</span>
-        </button>
+        />
 
-        {loading && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
-        )}
-        {error && (
-          <div className="px-2 py-4 text-center text-destructive text-xs">
-            {error}
-          </div>
-        )}
+        {loading && <WindowSidebarLoading />}
+        {error && <WindowSidebarError message={error} />}
         {!loading &&
           !error &&
           groups.map((group) => (
-            <button
+            <WindowSidebarItem
               key={group.id}
-              type="button"
-              className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
-                selectedGroupId === group.id
-                  ? 'bg-accent text-accent-foreground'
-                  : 'hover:bg-accent/50'
-              } ${
-                dragOverGroupId === group.id
+              label={group.name}
+              icon={<Folder className="h-4 w-4 shrink-0 text-primary" />}
+              selected={selectedGroupId === group.id}
+              className={
+                dragOverId === group.id
                   ? 'bg-primary/10 ring-2 ring-primary ring-inset'
-                  : ''
-              }`}
-              style={{ paddingLeft: '8px' }}
+                  : undefined
+              }
               onClick={() => onGroupSelect(group.id)}
               onContextMenu={(event) => handleContextMenu(event, group)}
               onDragOver={(event) => handleGroupDragOver(event, group.id)}
               onDragEnter={(event) => handleGroupDragEnter(event, group.id)}
               onDragLeave={(event) => handleGroupDragLeave(event, group.id)}
               onDrop={(event) => handleGroupDrop(event, group.id)}
-            >
-              <Folder className="h-4 w-4 shrink-0 text-primary" />
-              <span className="flex-1 truncate">{group.name}</span>
-              <span className="text-muted-foreground text-xs">
-                {Number.isFinite(group.contactCount) ? group.contactCount : 0}
-              </span>
-            </button>
+              count={
+                Number.isFinite(group.contactCount) ? group.contactCount : 0
+              }
+            />
           ))}
       </div>
       <div

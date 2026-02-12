@@ -8,13 +8,12 @@ import type { ImportResult } from '../hooks/useContactsImport';
 import { linkContactsToGroup } from '../lib/linkContactsToGroup';
 import {
   ALL_CONTACTS_ID,
-  ContactsGroupsSidebar
-} from './ContactsGroupsSidebar';
+  ContactsWindowContent
+} from './ContactsWindowContent';
 import { ContactsWindowDetail } from './ContactsWindowDetail';
 import { ContactsWindowImport } from './ContactsWindowImport';
 import { ContactsWindowList } from './ContactsWindowList';
 import type { ViewMode } from './ContactsWindowMenuBar';
-import { ContactsWindowMenuBar } from './ContactsWindowMenuBar';
 import { ContactsWindowNew } from './ContactsWindowNew';
 import { ContactsWindowTableView } from './ContactsWindowTableView';
 
@@ -223,35 +222,24 @@ export function ContactsWindow({
         minWidth={350}
         minHeight={300}
       >
-        <div className="flex h-full flex-col">
-          <ContactsWindowMenuBar
-            viewMode={viewMode}
-            onViewModeChange={setViewMode}
-            onNewContact={handleNewContact}
-            onImportCsv={handleImportCsv}
-            onClose={onClose}
-            isNewContactDisabled={currentView === 'create'}
-            isImportDisabled={!isUnlocked}
-          />
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            {isUnlocked && (
-              <ContactsGroupsSidebar
-                width={sidebarWidth}
-                onWidthChange={setSidebarWidth}
-                selectedGroupId={selectedGroupId}
-                onGroupSelect={setSelectedGroupId}
-                onGroupChanged={handleGroupChanged}
-                onDropToGroup={handleDropToGroup}
-              />
-            )}
-            <div
-              className="min-h-0 flex-1 overflow-y-auto"
-              data-testid="contacts-window-content"
-            >
-              {renderContent()}
-            </div>
-          </div>
-        </div>
+        <ContactsWindowContent
+          onClose={onClose}
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          onNewContact={handleNewContact}
+          onImportCsv={handleImportCsv}
+          isNewContactDisabled={currentView === 'create'}
+          isImportDisabled={!isUnlocked}
+          isUnlocked={isUnlocked}
+          sidebarWidth={sidebarWidth}
+          onSidebarWidthChange={setSidebarWidth}
+          selectedGroupId={selectedGroupId}
+          onGroupSelect={setSelectedGroupId}
+          onGroupChanged={handleGroupChanged}
+          onDropToGroup={handleDropToGroup}
+        >
+          {renderContent()}
+        </ContactsWindowContent>
       </FloatingWindow>
       <input
         ref={fileInputRef}
