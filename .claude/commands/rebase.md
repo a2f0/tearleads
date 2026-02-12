@@ -1,3 +1,7 @@
+---
+description: Rebase onto Main
+---
+
 # Rebase onto Main
 
 Rebase the current branch onto the latest main branch, resolving conflicts by preferring upstream changes.
