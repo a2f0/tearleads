@@ -8,6 +8,12 @@ appId: com.tearleads.app
 
 - assertVisible: "Tearleads"
 
+# Give the home screen a moment to settle before swiping/tapping
+- extendedWaitUntil:
+    visible: "Files"
+    timeout: 8000
+    optional: true
+
 # Wait for home to load (extended timeout for CI environments)
 - extendedWaitUntil:
     visible: "Files"
