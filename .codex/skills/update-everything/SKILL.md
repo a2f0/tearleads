@@ -9,9 +9,10 @@ Update all dependencies in the workspace (especially under `packages/`) and veri
 
 ## Preflight
 
-- Confirm you are not on `main`.
+- Confirm you are not on `main`; create/switch branches before running updates.
 - Start from a clean `git status` or note existing changes so you do not clobber them.
-- Ensure platform tooling is available (Node/pnpm, Ruby/bundler, CocoaPods, Android SDK). If anything is missing, continue where possible and call out the gap in the final summary.
+- `nvm use` to match `.nvmrc`; install if missing so builds/tests run with the expected Node version.
+- Ensure platform tooling is available (pnpm, bundler, CocoaPods, Android SDK). If something is missing, continue where possible and flag the gap in the final summary.
 
 ## Workflow
 
@@ -21,7 +22,11 @@ Use the shared script to perform the standard update flow:
 ./scripts/updateEverything.sh
 ```
 
-Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+
+Script exits early on dependency hygiene checks—fix then rerun:
+- Caret/tilde ranges in `dependencies`/`devDependencies` are blocked. Pin versions where reported.
+- Pinned `peerDependencies` must match `packages/client/package.json` versions. Align the peer versions to the client version before rerunning.
 
 ## Node.js Version Alignment (Electron)
 
