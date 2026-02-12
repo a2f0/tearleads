@@ -75,6 +75,24 @@ gh pr view --json number,title,url,headRefName,baseRefName -R "$REPO"
 
 1. Commit and push fixes directly (do not invoke commit-and-push recursively).
 
+1. **CRITICAL: Verify push completed before replying.**
+
+   After pushing, verify commits are visible on remote:
+
+   ```bash
+   BRANCH=$(git branch --show-current)
+   git fetch origin "$BRANCH"
+   LOCAL_SHA=$(git rev-parse HEAD)
+   REMOTE_SHA=$(git rev-parse "origin/$BRANCH")
+
+   if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+     echo "ERROR: Push not yet complete. Wait and retry."
+     exit 1
+   fi
+   ```
+
+   **Do NOT reply to Gemini until this verification passes.**
+
 1. Reply in each addressed thread via REST API:
 
 ```bash
