@@ -22,7 +22,7 @@ See `/follow-up-with-gemini` for the correct API usage and examples.
 
 ## Steps
 
-1. **Get PR info**: Run `gh pr view --json number,title,url | cat` to obtain the PR number for this branch.
+1. **Get PR info**: Run `gh pr view --json number,title,url | cat` to obtain the PR number for this branch. Note: Do not use `-R "$REPO"` for this command - `gh pr view` infers from the current branch when no argument is provided.
 
 2. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`:
 
