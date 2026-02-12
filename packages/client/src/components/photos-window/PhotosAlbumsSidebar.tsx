@@ -1,4 +1,5 @@
 import {
+  detectPlatform,
   useResizableSidebar,
   useSidebarDragOver,
   WindowContextMenu,
@@ -11,7 +12,6 @@ import { ImagePlus, Images, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { filterFilesByAccept } from '@/lib/file-filter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
-import { detectPlatform } from '@/lib/utils';
 import { DeleteAlbumDialog } from './DeleteAlbumDialog';
 import { NewAlbumDialog } from './NewAlbumDialog';
 import { RenameAlbumDialog } from './RenameAlbumDialog';
