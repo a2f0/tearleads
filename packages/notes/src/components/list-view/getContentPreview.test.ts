@@ -3,7 +3,9 @@ import { getContentPreview } from './getContentPreview';
 
 describe('getContentPreview', () => {
   it('strips markdown markers and falls back to default text', () => {
-    expect(getContentPreview('## Title\n**bold** _italic_')).toBe('Title\nbold italic');
+    expect(getContentPreview('## Title\n**bold** _italic_')).toBe(
+      'Title\nbold italic'
+    );
     expect(getContentPreview('   ')).toBe('No content');
   });
 
