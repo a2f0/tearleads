@@ -1,6 +1,8 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { notes } from '@tearleads/db/sqlite';
+import { WindowPaneState } from '@tearleads/window-manager';
 import { desc, eq } from 'drizzle-orm';
+import { Loader2, StickyNote } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type NoteInfo,
@@ -9,10 +11,7 @@ import {
   useNotesUI
 } from '../context/NotesContext';
 import { NoteItemContent } from './list-view/NoteItemContent';
-import { DatabaseLoadingCard } from './shared/DatabaseLoadingCard';
 import { NotesContextMenus } from './shared/NotesContextMenus';
-import { NotesEmptyStateCard } from './shared/NotesEmptyStateCard';
-import { NotesLoadingCard } from './shared/NotesLoadingCard';
 import { NotesViewHeader } from './shared/NotesViewHeader';
 import { useCreateNote } from './shared/useCreateNote';
 
@@ -240,7 +239,13 @@ export function NotesWindowList({
         RefreshButton={RefreshButton}
       />
 
-      {isLoading && <DatabaseLoadingCard />}
+      {isLoading && (
+        <WindowPaneState
+          layout="inline"
+          title="Loading database..."
+          className="text-center"
+        />
+      )}
 
       {!isLoading && !isUnlocked && <InlineUnlock description="notes" />}
 
@@ -253,12 +258,25 @@ export function NotesWindowList({
       {isUnlocked &&
         !error &&
         (loading && !hasFetched ? (
-          <NotesLoadingCard />
+          <WindowPaneState
+            layout="inline"
+            icon={<Loader2 className="h-4 w-4 animate-spin" />}
+            title="Loading notes..."
+          />
         ) : notesList.length === 0 && hasFetched ? (
-          <NotesEmptyStateCard
-            createButtonTestId="window-empty-create-note"
-            onCreateNote={handleCreateNote}
-            Button={Button}
+          <WindowPaneState
+            icon={<StickyNote className="h-8 w-8 text-muted-foreground" />}
+            title="No notes yet"
+            description="Create your first note"
+            action={
+              <Button
+                size="sm"
+                onClick={handleCreateNote}
+                data-testid="window-empty-create-note"
+              >
+                Create
+              </Button>
+            }
           />
         ) : (
           <div className="flex min-h-0 flex-1 flex-col space-y-2">
