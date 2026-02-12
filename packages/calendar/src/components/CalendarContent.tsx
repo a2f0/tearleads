@@ -1,8 +1,8 @@
-import { clsx } from 'clsx';
 import {
   WindowContextMenu,
   WindowContextMenuItem
 } from '@tearleads/window-manager';
+import { clsx } from 'clsx';
 import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
