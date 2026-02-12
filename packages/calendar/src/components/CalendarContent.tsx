@@ -1,5 +1,9 @@
 import { clsx } from 'clsx';
 import {
+  WindowContextMenu,
+  WindowContextMenuItem
+} from '@tearleads/window-manager';
+import {
   type MouseEvent as ReactMouseEvent,
   useCallback,
   useEffect,
@@ -79,6 +83,11 @@ export function CalendarContent({
   const [createEventModalDate, setCreateEventModalDate] = useState(
     () => new Date()
   );
+  const [calendarContextMenu, setCalendarContextMenu] = useState<{
+    x: number;
+    y: number;
+    name: string;
+  } | null>(null);
 
   const normalizedNames = useMemo(
     () => new Set(calendars.map((name) => name.toLowerCase())),
@@ -310,6 +319,64 @@ export function CalendarContent({
     },
     [onViewContextMenuRequest]
   );
+
+  const handleCloseCalendarContextMenu = useCallback(() => {
+    setCalendarContextMenu(null);
+  }, []);
+
+  const handleCalendarContextMenuRequest = useCallback(
+    (event: ReactMouseEvent<HTMLButtonElement>, name: string) => {
+      event.preventDefault();
+      event.stopPropagation();
+      setCalendarContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        name
+      });
+    },
+    []
+  );
+
+  const renameCalendar = useCallback(
+    (currentName: string) => {
+      const requestedName = window.prompt('Rename calendar', currentName);
+      if (requestedName === null) {
+        return;
+      }
+
+      const trimmedName = requestedName.trim();
+      if (!trimmedName) {
+        return;
+      }
+
+      if (
+        trimmedName.toLowerCase() !== currentName.toLowerCase() &&
+        normalizedNames.has(trimmedName.toLowerCase())
+      ) {
+        return;
+      }
+
+      setCalendars((previousCalendars) =>
+        previousCalendars.map((calendarName) =>
+          calendarName === currentName ? trimmedName : calendarName
+        )
+      );
+      setActiveCalendar((previousActiveCalendar) =>
+        previousActiveCalendar === currentName
+          ? trimmedName
+          : previousActiveCalendar
+      );
+    },
+    [normalizedNames]
+  );
+
+  const handleRenameCalendar = useCallback(() => {
+    if (!calendarContextMenu) {
+      return;
+    }
+    renameCalendar(calendarContextMenu.name);
+    setCalendarContextMenu(null);
+  }, [calendarContextMenu, renameCalendar]);
 
   const renderDayView = () => (
     // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
@@ -617,6 +684,9 @@ export function CalendarContent({
                   key={name}
                   type="button"
                   onClick={() => setActiveCalendar(name)}
+                  onContextMenu={(event) =>
+                    handleCalendarContextMenuRequest(event, name)
+                  }
                   className={clsx(
                     'w-full rounded-md px-2 py-1 text-left text-sm transition-colors',
                     isActive
@@ -701,6 +771,22 @@ export function CalendarContent({
         selectedDate={createEventModalDate}
         onCreateEvent={onCreateEvent}
       />
+      {calendarContextMenu ? (
+        <WindowContextMenu
+          x={calendarContextMenu.x}
+          y={calendarContextMenu.y}
+          onClose={handleCloseCalendarContextMenu}
+          menuTestId="calendar-sidebar-item-context-menu"
+          backdropTestId="calendar-sidebar-item-context-menu-backdrop"
+        >
+          <WindowContextMenuItem
+            onClick={handleRenameCalendar}
+            data-testid="calendar-sidebar-item-rename"
+          >
+            Rename Calendar
+          </WindowContextMenuItem>
+        </WindowContextMenu>
+      ) : null}
     </div>
   );
 }
