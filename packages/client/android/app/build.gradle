@@ -40,6 +40,21 @@ android {
             minifyEnabled true
             shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            testProguardFiles 'proguard-rules-test.pro'
+            ndk {
+                debugSymbolLevel 'FULL'
+            }
+        }
+        // Build type for running instrumented tests against minified code.
+        // Includes proguard-rules-test.pro in the main APK to preserve classes
+        // needed by the test framework. This keeps production APK lean. See #750.
+        releaseInstrumented {
+            initWith release
+            signingConfig hasReleaseKeystore ? signingConfigs.release : signingConfigs.debug
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro', 'proguard-rules-test.pro'
+            matchingFallbacks = ['release']
             ndk {
                 debugSymbolLevel 'FULL'
             }

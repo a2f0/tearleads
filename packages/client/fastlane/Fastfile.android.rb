@@ -152,9 +152,11 @@ platform :android do
 
   desc 'Run Android instrumented tests (release build)'
   lane :test_instrumented_release do
+    # Uses releaseInstrumented build type which includes test-specific ProGuard rules
+    # in the main APK. This keeps the production release APK lean. See #750.
     run_gradle(
       task: 'connectedAndroidTest',
-      properties: { 'android.testBuildType' => 'release' }
+      properties: { 'android.testBuildType' => 'releaseInstrumented' }
     )
   end
 
