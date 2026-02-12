@@ -5,11 +5,28 @@ import {
 } from '../utils/type-mapping.js';
 
 /**
+ * Get primary key columns from a table definition.
+ */
+function getPrimaryKeyColumns(table: TableDefinition): string[] {
+  return Object.entries(table.columns)
+    .filter(([, col]) => col.primaryKey)
+    .map(([name]) => name);
+}
+
+/**
+ * Check if a table has a composite primary key (multiple PK columns).
+ */
+function hasCompositePrimaryKey(table: TableDefinition): boolean {
+  return getPrimaryKeyColumns(table).length > 1;
+}
+
+/**
  * Generate a PostgreSQL column definition.
  */
 function generateColumn(
   propertyName: string,
-  column: ColumnDefinition
+  column: ColumnDefinition,
+  isCompositePk: boolean
 ): string {
   const typeInfo = getPostgresTypeInfo(column.type);
 
@@ -24,13 +41,14 @@ function generateColumn(
     result = `${propertyName}: ${typeInfo.drizzleType}('${column.sqlName}')`;
   }
 
-  // Primary key
-  if (column.primaryKey) {
+  // Primary key - only add .primaryKey() for single-column PKs
+  // Composite PKs are handled in the table config block
+  if (column.primaryKey && !isCompositePk) {
     result += '.primaryKey()';
   }
 
-  // Not null
-  if (column.notNull) {
+  // Not null - composite PK columns are implicitly NOT NULL
+  if (column.notNull || (column.primaryKey && isCompositePk)) {
     result += '.notNull()';
   }
 
@@ -56,6 +74,8 @@ function generateColumn(
  */
 function generateTable(table: TableDefinition): string {
   const lines: string[] = [];
+  const isCompositePk = hasCompositePrimaryKey(table);
+  const pkColumns = getPrimaryKeyColumns(table);
 
   // JSDoc comment
   if (table.comment) {
@@ -66,10 +86,11 @@ function generateTable(table: TableDefinition): string {
     lines.push(' */');
   }
 
-  // Table definition
+  // Determine if we need a table config block (for indexes or composite PK)
   const hasIndexes = table.indexes && table.indexes.length > 0;
+  const needsConfigBlock = hasIndexes || isCompositePk;
 
-  if (hasIndexes) {
+  if (needsConfigBlock) {
     lines.push(`export const ${table.propertyName} = pgTable(`);
     lines.push(`  '${table.name}',`);
     lines.push('  {');
@@ -82,24 +103,35 @@ function generateTable(table: TableDefinition): string {
   // Columns
   const columnEntries = Object.entries(table.columns);
   columnEntries.forEach(([propertyName, column], i) => {
-    const columnStr = generateColumn(propertyName, column);
-    const indent = hasIndexes ? '    ' : '  ';
+    const columnStr = generateColumn(propertyName, column, isCompositePk);
+    const indent = needsConfigBlock ? '    ' : '  ';
     const comma = i < columnEntries.length - 1 ? ',' : '';
     lines.push(`${indent}${columnStr}${comma}`);
   });
 
-  if (hasIndexes && table.indexes) {
+  if (needsConfigBlock) {
     lines.push('  },');
     lines.push('  (table) => [');
 
-    // Indexes
-    const indexes = table.indexes;
-    indexes.forEach((idx, i) => {
-      const columnRefs = idx.columns.map((col) => `table.${col}`).join(', ');
-      const comma = i < indexes.length - 1 ? ',' : '';
-      const indexFn = idx.unique ? 'uniqueIndex' : 'index';
-      lines.push(`    ${indexFn}('${idx.name}').on(${columnRefs})${comma}`);
-    });
+    const configItems: string[] = [];
+
+    // Add composite primary key first
+    if (isCompositePk) {
+      const columnRefs = pkColumns.map((col) => `table.${col}`).join(', ');
+      configItems.push(`    primaryKey({ columns: [${columnRefs}] })`);
+    }
+
+    // Add indexes
+    if (table.indexes) {
+      for (const idx of table.indexes) {
+        const columnRefs = idx.columns.map((col) => `table.${col}`).join(', ');
+        const indexFn = idx.unique ? 'uniqueIndex' : 'index';
+        configItems.push(`    ${indexFn}('${idx.name}').on(${columnRefs})`);
+      }
+    }
+
+    // Join with commas
+    lines.push(configItems.join(',\n'));
 
     lines.push('  ]');
     lines.push(');');
@@ -118,6 +150,11 @@ function collectDrizzleTypes(tables: TableDefinition[]): string[] {
   types.add('pgTable');
 
   for (const table of tables) {
+    // Check for composite primary key
+    if (hasCompositePrimaryKey(table)) {
+      types.add('primaryKey');
+    }
+
     if (table.indexes && table.indexes.length > 0) {
       for (const idx of table.indexes) {
         types.add(idx.unique ? 'uniqueIndex' : 'index');
