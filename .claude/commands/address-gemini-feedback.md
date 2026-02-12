@@ -26,33 +26,42 @@ See `/follow-up-with-gemini` for the correct API usage and examples.
 
 ## Steps
 
-1. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`:
+1. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`.
 
-   ```bash
-   gh api graphql -f query='
-     query($owner: String!, $repo: String!, $pr: Int!) {
-       repository(owner: $owner, name: $repo) {
-         pullRequest(number: $pr) {
-           reviewThreads(first: 50) {
-             nodes {
-               id
-               isResolved
-               path
-               line
-               comments(first: 10) {
-                 nodes {
-                   id
-                   databaseId
-                   author { login }
-                   body
-                 }
+   **IMPORTANT**: Do NOT pass the query inline with `-f query='...'` as the shell mangles special characters like `!`. Instead, write the query to a temp file first using the Write tool, then reference it:
+
+   First, use the **Write tool** to create `/tmp/gemini-threads.graphql` with this content:
+
+   ```graphql
+   query($owner: String!, $repo: String!, $pr: Int!) {
+     repository(owner: $owner, name: $repo) {
+       pullRequest(number: $pr) {
+         reviewThreads(first: 50) {
+           nodes {
+             id
+             isResolved
+             path
+             line
+             comments(first: 10) {
+               nodes {
+                 id
+                 databaseId
+                 author { login }
+                 body
                }
              }
-             pageInfo { hasNextPage endCursor }
            }
+           pageInfo { hasNextPage endCursor }
          }
        }
-     }' -f owner=OWNER -f repo=REPO -F pr=PR_NUMBER
+     }
+   }
+   ```
+
+   Then run:
+
+   ```bash
+   gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=a2f0 -f repo=tearleads -F pr=$PR_NUMBER
    ```
 
    Handle pagination via `pageInfo.hasNextPage` and `endCursor`.
