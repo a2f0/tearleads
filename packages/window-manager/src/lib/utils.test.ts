@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { cn, generateUniqueId } from './utils.js';
+import { cn, detectPlatform, generateUniqueId } from './utils.js';
 
 describe('utils', () => {
   it('merges class names', () => {
@@ -43,5 +43,50 @@ describe('utils', () => {
     if (originalDescriptor) {
       Object.defineProperty(globalThis, 'crypto', originalDescriptor);
     }
+  });
+
+  it('detects ios from user agent', () => {
+    const originalUserAgent = navigator.userAgent;
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)'
+    });
+
+    expect(detectPlatform()).toBe('ios');
+
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: originalUserAgent
+    });
+  });
+
+  it('detects android from user agent', () => {
+    const originalUserAgent = navigator.userAgent;
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (Linux; Android 15; Pixel 9)'
+    });
+
+    expect(detectPlatform()).toBe('android');
+
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: originalUserAgent
+    });
+  });
+
+  it('falls back to web for desktop user agent', () => {
+    const originalUserAgent = navigator.userAgent;
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0)'
+    });
+
+    expect(detectPlatform()).toBe('web');
+
+    Object.defineProperty(navigator, 'userAgent', {
+      configurable: true,
+      value: originalUserAgent
+    });
   });
 });
