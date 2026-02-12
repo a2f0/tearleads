@@ -28,7 +28,6 @@ export const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/admin/users': 'admin-users',
   '/admin/organizations': 'admin-organizations',
   '/sync': 'sync',
-  '/v86': 'v86',
   '/vfs': 'vfs',
   '/classic': 'classic',
   '/backups': 'backup',

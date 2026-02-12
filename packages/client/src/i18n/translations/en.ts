@@ -46,7 +46,6 @@ export const en = {
     settings: 'Settings',
     email: 'Email',
     sync: 'Sync',
-    v86: 'v86',
     vfs: 'VFS Explorer',
     classic: 'Classic',
     backups: 'Backups'

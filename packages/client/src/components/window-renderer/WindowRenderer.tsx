@@ -33,7 +33,6 @@ import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
 import { SyncWindow } from '@/components/sync-window';
 import { TablesWindow } from '@/components/tables-window';
-import { V86Window } from '@/components/v86-window';
 import { VfsWindow } from '@/components/vfs-window';
 import { VideoWindow } from '@/components/video-window';
 import type {
@@ -153,7 +152,6 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   help: { Component: HelpWindow },
   'local-storage': { Component: LocalStorageWindow },
   sync: { Component: SyncWindow },
-  v86: { Component: V86Window },
   vfs: { Component: VfsWindow },
   classic: { Component: ClassicWindow },
   backup: { Component: BackupWindow },

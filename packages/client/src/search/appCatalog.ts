@@ -75,7 +75,6 @@ const SEARCHABLE_APPS: SearchableAppDefinition[] = [
     title: 'Local Storage'
   },
   { windowType: 'sync', path: '/sync', title: 'Sync' },
-  { windowType: 'v86', path: '/v86', title: 'v86', keywords: ['emulator'] },
   { windowType: 'vfs', path: '/vfs', title: 'VFS Explorer' },
   { windowType: 'classic', path: '/classic', title: 'Classic' },
   { windowType: 'backup', path: '/backups', title: 'Backups' },
