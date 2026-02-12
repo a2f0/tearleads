@@ -235,7 +235,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    Optimization: if `autoMergeRequest` is already present, skip re-enabling and proceed to the loop checks above.
 
-5. Refresh workspace after merge:
+4. Refresh workspace after merge:
 
    ```bash
    ./scripts/agents/tooling/agentTool.sh refresh
@@ -246,7 +246,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Ensure the `needs-qa` label is applied.
    - Prefer updating the issue body with merge status.
 
-6. Report success with PR URL, a short description of the merged changes, and the associated issue status.
+5. Report success with PR URL, a short description of the merged changes, and the associated issue status.
 
 ## Keeping PR Description Updated
 

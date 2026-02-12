@@ -366,7 +366,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - If `mergeStateStatus` is `BLOCKED`: Go back to step 4e (CI not done yet)
    - Otherwise: Wait 30 seconds (with jitter) and poll again - **do NOT exit**
 
-5. **Refresh workspace**: Once the PR is merged, run:
+4. **Refresh workspace**: Once the PR is merged, run:
 
    ```bash
    ./scripts/agents/tooling/agentTool.sh refresh
@@ -384,7 +384,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    That's it. The issue already describes the work; no need to update descriptions or add comments.
 
-6. **Report success**: Confirm the PR was merged and provide a summary:
+5. **Report success**: Confirm the PR was merged and provide a summary:
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
    - If an associated issue exists, mention it was labeled `needs-qa`
