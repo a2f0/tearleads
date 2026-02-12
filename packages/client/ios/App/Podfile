@@ -1,18 +1,21 @@
-PNPM_MODULES = File.expand_path('../../../../../node_modules/.pnpm', __FILE__)
+PODFILE_DIR = File.dirname(__FILE__)
+PNPM_MODULES_ABS = File.expand_path('../../../../../node_modules/.pnpm', __FILE__)
+PNPM_MODULES_REL = '../../../../node_modules/.pnpm'
 
 def pnpm_scoped_module(scope, name)
   scope_prefix = scope.start_with?('@') ? scope : "@#{scope}"
-  pattern = File.join(
-    PNPM_MODULES,
-    "#{scope_prefix}+#{name}@*/node_modules/#{scope}/#{name}"
-  )
-  resolved = Dir[pattern].max
-  raise "Module path not found for #{scope}/#{name}" unless resolved
-  resolved
+  suffix = "#{scope_prefix}+#{name}@*/node_modules/#{scope}/#{name}"
+  abs_pattern = File.join(PNPM_MODULES_ABS, suffix)
+  resolved_abs = Dir[abs_pattern].max
+  raise "Module path not found for #{scope}/#{name}" unless resolved_abs
+  # Extract version-specific folder name and build relative path for Podfile.lock
+  version_folder = resolved_abs.sub(PNPM_MODULES_ABS + '/', '').split('/').first
+  File.join(PNPM_MODULES_REL, version_folder, 'node_modules', scope, name)
 end
 
 CAPACITOR_IOS_PATH = pnpm_scoped_module('@capacitor', 'ios')
-require_relative File.join(CAPACITOR_IOS_PATH, 'scripts/pods_helpers')
+CAPACITOR_IOS_ABS = File.expand_path(CAPACITOR_IOS_PATH, PODFILE_DIR)
+require_relative File.join(CAPACITOR_IOS_ABS, 'scripts/pods_helpers')
 
 platform :ios, '15.0'
 use_frameworks!

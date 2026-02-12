@@ -31,8 +31,6 @@ Use the shared update script:
 
 Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
 
-- Capacitor + pnpm: if CocoaPods fails to load `pods_helpers.rb`, point the Podfile at `node_modules/.pnpm` with a glob (e.g., `@capacitor+ios@*/node_modules/@capacitor/ios`) instead of hard-coding versioned pnpm paths.
-
 ## CocoaPods Clean Install
 
 When Capacitor plugins update their native iOS dependencies (e.g., xcframeworks like `IONFilesystemLib`), stale CocoaPods caches can cause build failures even when the upstream library is correctly packaged. Symptoms include:

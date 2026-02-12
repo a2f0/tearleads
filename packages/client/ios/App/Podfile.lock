@@ -30,16 +30,16 @@ PODS:
   - ZIPFoundation (0.9.20)
 
 DEPENDENCIES:
-  - "Capacitor (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
-  - "CapacitorApp (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+app@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/app`)"
-  - "CapacitorCommunitySqlite (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite`)"
-  - "CapacitorCordova (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
-  - "CapacitorFilesystem (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+filesystem@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem`)"
-  - "CapacitorKeyboard (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard`)"
-  - "CapacitorPreferences (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/preferences`)"
-  - "CapacitorShare (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/share`)"
-  - "CapawesomeCapacitorFilePicker (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.1_@capacitor+core@8.1.0/node_modules/@capawesome/capacitor-file-picker`)"
-  - "CapgoCapacitorNativeBiometric (from `/Users/a2f0/github/rapid8/node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.7_@capacitor+core@8.1.0/node_modules/@capgo/capacitor-native-biometric`)"
+  - "Capacitor (from `../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
+  - "CapacitorApp (from `../../../../node_modules/.pnpm/@capacitor+app@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/app`)"
+  - "CapacitorCommunitySqlite (from `../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite`)"
+  - "CapacitorCordova (from `../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
+  - "CapacitorFilesystem (from `../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem`)"
+  - "CapacitorKeyboard (from `../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard`)"
+  - "CapacitorPreferences (from `../../../../node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/preferences`)"
+  - "CapacitorShare (from `../../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/share`)"
+  - "CapawesomeCapacitorFilePicker (from `../../../../node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.1_@capacitor+core@8.1.0/node_modules/@capawesome/capacitor-file-picker`)"
+  - "CapgoCapacitorNativeBiometric (from `../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.7_@capacitor+core@8.1.0/node_modules/@capgo/capacitor-native-biometric`)"
 
 SPEC REPOS:
   trunk:
@@ -49,25 +49,25 @@ SPEC REPOS:
 
 EXTERNAL SOURCES:
   Capacitor:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios"
+    :path: "../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios"
   CapacitorApp:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+app@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/app"
+    :path: "../../../../node_modules/.pnpm/@capacitor+app@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/app"
   CapacitorCommunitySqlite:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite"
+    :path: "../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite"
   CapacitorCordova:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios"
+    :path: "../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios"
   CapacitorFilesystem:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+filesystem@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem"
+    :path: "../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem"
   CapacitorKeyboard:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard"
+    :path: "../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard"
   CapacitorPreferences:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/preferences"
+    :path: "../../../../node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/preferences"
   CapacitorShare:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/share"
+    :path: "../../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/share"
   CapawesomeCapacitorFilePicker:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.1_@capacitor+core@8.1.0/node_modules/@capawesome/capacitor-file-picker"
+    :path: "../../../../node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.1_@capacitor+core@8.1.0/node_modules/@capawesome/capacitor-file-picker"
   CapgoCapacitorNativeBiometric:
-    :path: "/Users/a2f0/github/rapid8/node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.7_@capacitor+core@8.1.0/node_modules/@capgo/capacitor-native-biometric"
+    :path: "../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.7_@capacitor+core@8.1.0/node_modules/@capgo/capacitor-native-biometric"
 
 SPEC CHECKSUMS:
   Capacitor: 47b825120c6b8b6d6f9f053e9350a8960d436710
@@ -84,6 +84,6 @@ SPEC CHECKSUMS:
   SQLCipher: eb79c64049cb002b4e9fcb30edb7979bf4706dfc
   ZIPFoundation: dfd3d681c4053ff7e2f7350bc4e53b5dba3f5351
 
-PODFILE CHECKSUM: f23433a5264e164caf8e068afe3586267b600cca
+PODFILE CHECKSUM: 67d3cd55117395d3d1a63d606be9fd7b05e13dc5
 
 COCOAPODS: 1.16.2
