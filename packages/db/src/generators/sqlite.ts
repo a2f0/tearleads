@@ -1,24 +1,12 @@
 import type { ColumnDefinition, TableDefinition } from '../schema/types.js';
 import {
+  getPrimaryKeyColumns,
+  hasCompositePrimaryKey
+} from '../utils/primary-key.js';
+import {
   formatDefaultValue,
   getSqliteTypeInfo
 } from '../utils/type-mapping.js';
-
-/**
- * Get primary key columns from a table definition.
- */
-function getPrimaryKeyColumns(table: TableDefinition): string[] {
-  return Object.entries(table.columns)
-    .filter(([, col]) => col.primaryKey)
-    .map(([name]) => name);
-}
-
-/**
- * Check if a table has a composite primary key (multiple PK columns).
- */
-function hasCompositePrimaryKey(table: TableDefinition): boolean {
-  return getPrimaryKeyColumns(table).length > 1;
-}
 
 /**
  * Generate a SQLite column definition.
