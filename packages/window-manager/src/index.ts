@@ -10,6 +10,13 @@ export {
   type WindowContextMenuItemProps,
   type WindowContextMenuProps,
   type WindowDimensions,
+  WindowSidebarError,
+  type WindowSidebarErrorProps,
+  WindowSidebarHeader,
+  type WindowSidebarHeaderProps,
+  WindowSidebarItem,
+  type WindowSidebarItemProps,
+  WindowSidebarLoading,
   WindowStatusBar,
   type WindowStatusBarProps,
   WindowTableRow,
@@ -29,12 +36,19 @@ export {
 export {
   type Corner,
   type UseResizableSidebarResult,
+  type UseSidebarDragOverResult,
   useFloatingWindow,
-  useResizableSidebar
+  useResizableSidebar,
+  useSidebarDragOver
 } from './hooks/index.js';
 
 // Utilities
-export { cn, generateUniqueId } from './lib/index.js';
+export {
+  cn,
+  detectPlatform,
+  generateUniqueId,
+  type WindowPlatform
+} from './lib/index.js';
 // Storage utilities
 export {
   clearAllWindowDimensions,

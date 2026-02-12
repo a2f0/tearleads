@@ -6,13 +6,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
 import { useDropZone } from '../../hooks/useDropZone';
 import { useMultiFileUpload } from '../../hooks/useMultiFileUpload';
-import { DropZoneOverlay } from '../DropZoneOverlay';
-import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
-import { AudioWindowDetail } from './AudioWindowDetail';
-import { AudioWindowList } from './AudioWindowList';
+import { ALL_AUDIO_ID, AudioWindowContent } from './AudioWindowContent';
 import type { AudioViewMode } from './AudioWindowMenuBar';
-import { AudioWindowMenuBar } from './AudioWindowMenuBar';
-import { AudioWindowTableView } from './AudioWindowTableView';
 
 interface AudioWindowProps {
   id: string;
@@ -175,63 +170,33 @@ export function AudioWindow({
       minWidth={350}
       minHeight={350}
     >
-      <div className="flex h-full flex-col">
-        <AudioWindowMenuBar
-          onClose={onClose}
-          onUpload={handleUpload}
-          view={view}
-          onViewChange={setView}
-          showDeleted={showDeleted}
-          onShowDeletedChange={setShowDeleted}
-          showDropzone={showDropzone}
-          onShowDropzoneChange={setShowDropzone}
-        />
-        <div className="flex min-h-0 flex-1">
-          {isUnlocked && (
-            <AudioPlaylistsSidebar
-              width={sidebarWidth}
-              onWidthChange={setSidebarWidth}
-              selectedPlaylistId={selectedPlaylistId}
-              onPlaylistSelect={setSelectedPlaylistId}
-              refreshToken={refreshToken}
-              onPlaylistChanged={handlePlaylistChanged}
-              onDropToPlaylist={handleDropToPlaylist}
-            />
-          )}
-          <div
-            className="relative min-h-0 flex-1 overflow-y-auto"
-            {...dropZoneProps}
-          >
-            {selectedTrackId ? (
-              <AudioWindowDetail
-                audioId={selectedTrackId}
-                onBack={handleBack}
-                onDeleted={handleDeleted}
-              />
-            ) : view === 'list' ? (
-              <AudioWindowList
-                onSelectTrack={handleSelectTrack}
-                refreshToken={refreshToken}
-                showDropzone={showDropzone}
-                onUploadFiles={handleUploadFiles}
-                selectedPlaylistId={selectedPlaylistId}
-                uploading={uploading}
-                uploadProgress={uploadProgress}
-                onUpload={handleUpload}
-                showDeleted={showDeleted}
-              />
-            ) : (
-              <AudioWindowTableView
-                onSelectTrack={handleSelectTrack}
-                refreshToken={refreshToken}
-                selectedPlaylistId={selectedPlaylistId}
-                showDeleted={showDeleted}
-              />
-            )}
-            <DropZoneOverlay isVisible={isDragging} label="audio tracks" />
-          </div>
-        </div>
-      </div>
+      <AudioWindowContent
+        onClose={onClose}
+        onUpload={handleUpload}
+        view={view}
+        onViewChange={setView}
+        showDeleted={showDeleted}
+        onShowDeletedChange={setShowDeleted}
+        showDropzone={showDropzone}
+        onShowDropzoneChange={setShowDropzone}
+        isUnlocked={isUnlocked}
+        sidebarWidth={sidebarWidth}
+        onSidebarWidthChange={setSidebarWidth}
+        selectedPlaylistId={selectedPlaylistId}
+        onPlaylistSelect={setSelectedPlaylistId}
+        refreshToken={refreshToken}
+        onPlaylistChanged={handlePlaylistChanged}
+        onDropToPlaylist={handleDropToPlaylist}
+        dropZoneProps={dropZoneProps}
+        selectedTrackId={selectedTrackId}
+        onBack={handleBack}
+        onDeleted={handleDeleted}
+        onSelectTrack={handleSelectTrack}
+        onUploadFiles={handleUploadFiles}
+        uploading={uploading}
+        uploadProgress={uploadProgress}
+        isDragging={isDragging}
+      />
       <input
         ref={fileInputRef}
         type="file"

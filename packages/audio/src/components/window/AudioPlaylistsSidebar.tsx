@@ -1,8 +1,15 @@
-import { useResizableSidebar } from '@tearleads/window-manager';
-import { List, Loader2, Music, Plus } from 'lucide-react';
+import {
+  detectPlatform,
+  useResizableSidebar,
+  useSidebarDragOver,
+  WindowSidebarError,
+  WindowSidebarHeader,
+  WindowSidebarItem,
+  WindowSidebarLoading
+} from '@tearleads/window-manager';
+import { List, Music, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
-import { cn } from '../../lib/cn';
 import { filterFilesByAccept } from '../../lib/file-filter';
 import { getMediaDragIds } from '../../lib/mediaDragData';
 import { AudioPlaylistsContextMenu } from './AudioPlaylistsContextMenu';
@@ -13,18 +20,6 @@ import { RenamePlaylistDialog } from './RenamePlaylistDialog';
 import { useAudioPlaylists } from './useAudioPlaylists';
 
 export const ALL_AUDIO_ID = '__all__';
-
-/**
- * Detect the current platform.
- * Returns 'ios', 'android', or 'web'.
- */
-function detectPlatform(): 'ios' | 'android' | 'web' {
-  if (typeof navigator === 'undefined') return 'web';
-  const ua = navigator.userAgent.toLowerCase();
-  if (/iphone|ipad|ipod/.test(ua)) return 'ios';
-  if (/android/.test(ua)) return 'android';
-  return 'web';
-}
 
 interface AudioPlaylistsSidebarProps {
   width: number;
@@ -60,10 +55,8 @@ export function AudioPlaylistsSidebar({
   }, []);
 
   // Track which playlist is being dragged over for visual feedback
-  const [dragOverPlaylistId, setDragOverPlaylistId] = useState<string | null>(
-    null
-  );
-  const dragCounterRef = useRef<Record<string, number>>({});
+  const { dragOverId, handleDragEnter, handleDragLeave, clearDragState } =
+    useSidebarDragOver();
 
   const handlePlaylistDragOver = useCallback(
     (e: React.DragEvent, _playlistId: string) => {
@@ -80,13 +73,9 @@ export function AudioPlaylistsSidebar({
       e.preventDefault();
       e.stopPropagation();
 
-      dragCounterRef.current[playlistId] =
-        (dragCounterRef.current[playlistId] ?? 0) + 1;
-      if (dragCounterRef.current[playlistId] === 1) {
-        setDragOverPlaylistId(playlistId);
-      }
+      handleDragEnter(playlistId);
     },
-    [onDropToPlaylist, isNativePlatform]
+    [onDropToPlaylist, isNativePlatform, handleDragEnter]
   );
 
   const handlePlaylistDragLeave = useCallback(
@@ -95,13 +84,9 @@ export function AudioPlaylistsSidebar({
       e.preventDefault();
       e.stopPropagation();
 
-      dragCounterRef.current[playlistId] =
-        (dragCounterRef.current[playlistId] ?? 0) - 1;
-      if (dragCounterRef.current[playlistId] === 0) {
-        setDragOverPlaylistId(null);
-      }
+      handleDragLeave(playlistId);
     },
-    [onDropToPlaylist, isNativePlatform]
+    [onDropToPlaylist, isNativePlatform, handleDragLeave]
   );
 
   const handlePlaylistDrop = useCallback(
@@ -111,8 +96,7 @@ export function AudioPlaylistsSidebar({
       e.stopPropagation();
 
       // Reset drag state
-      dragCounterRef.current[playlistId] = 0;
-      setDragOverPlaylistId(null);
+      clearDragState(playlistId);
 
       const audioIds = getMediaDragIds(e.dataTransfer, 'audio');
       if (audioIds.length > 0) {
@@ -128,7 +112,7 @@ export function AudioPlaylistsSidebar({
         void onDropToPlaylist(playlistId, audioFiles);
       }
     },
-    [onDropToPlaylist, isNativePlatform]
+    [onDropToPlaylist, isNativePlatform, clearDragState]
   );
 
   const [newPlaylistDialogOpen, setNewPlaylistDialogOpen] = useState(false);
@@ -204,78 +188,51 @@ export function AudioPlaylistsSidebar({
       style={{ width }}
       data-testid="audio-playlists-sidebar"
     >
-      <div className="flex items-center justify-between border-b px-3 py-2">
-        <span className="font-medium text-muted-foreground text-xs">
-          Playlists
-        </span>
-        <button
-          type="button"
-          onClick={() => setNewPlaylistDialogOpen(true)}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title="New Playlist"
-        >
-          <Plus className="h-4 w-4" />
-        </button>
-      </div>
+      <WindowSidebarHeader
+        title="Playlists"
+        actionLabel="New Playlist"
+        onAction={() => setNewPlaylistDialogOpen(true)}
+        actionIcon={<Plus className="h-4 w-4" />}
+      />
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
       <div
         className="flex-1 overflow-y-auto p-1"
         onContextMenu={handleEmptySpaceContextMenu}
       >
-        <button
-          type="button"
-          className={`flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors ${
+        <WindowSidebarItem
+          label="All Tracks"
+          icon={<Music className="h-4 w-4 shrink-0 text-primary" />}
+          selected={
             selectedPlaylistId === ALL_AUDIO_ID || selectedPlaylistId === null
-              ? 'bg-accent text-accent-foreground'
-              : 'hover:bg-accent/50'
-          }`}
-          style={{ paddingLeft: '8px' }}
+          }
           onClick={() => onPlaylistSelect(ALL_AUDIO_ID)}
-        >
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-          <Music className="h-4 w-4 shrink-0 text-primary" />
-          <span className="truncate">All Tracks</span>
-        </button>
+          leadingSpacer
+        />
 
-        {loading && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
-        )}
-        {error && (
-          <div className="px-2 py-4 text-center text-destructive text-xs">
-            {error}
-          </div>
-        )}
+        {loading && <WindowSidebarLoading />}
+        {error && <WindowSidebarError message={error} />}
         {!loading &&
           !error &&
           playlists.map((playlist) => (
-            <button
+            <WindowSidebarItem
               key={playlist.id}
-              type="button"
-              className={cn(
-                'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
-                selectedPlaylistId === playlist.id
-                  ? 'bg-accent text-accent-foreground'
-                  : 'hover:bg-accent/50',
-                dragOverPlaylistId === playlist.id &&
-                  'bg-primary/10 ring-2 ring-primary ring-inset'
-              )}
-              style={{ paddingLeft: '8px' }}
+              label={playlist.name}
+              icon={<List className="h-4 w-4 shrink-0 text-primary" />}
+              selected={selectedPlaylistId === playlist.id}
+              className={
+                dragOverId === playlist.id
+                  ? 'bg-primary/10 ring-2 ring-primary ring-inset'
+                  : undefined
+              }
               onClick={() => onPlaylistSelect(playlist.id)}
               onContextMenu={(e) => handleContextMenu(e, playlist)}
               onDragOver={(e) => handlePlaylistDragOver(e, playlist.id)}
               onDragEnter={(e) => handlePlaylistDragEnter(e, playlist.id)}
               onDragLeave={(e) => handlePlaylistDragLeave(e, playlist.id)}
               onDrop={(e) => handlePlaylistDrop(e, playlist.id)}
-            >
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-              <List className="h-4 w-4 shrink-0 text-primary" />
-              <span className="flex-1 truncate">{playlist.name}</span>
-              <span className="text-muted-foreground text-xs">
-                {playlist.trackCount}
-              </span>
-            </button>
+              count={playlist.trackCount}
+              leadingSpacer
+            />
           ))}
       </div>
       <hr
