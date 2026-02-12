@@ -244,13 +244,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    #### Daily quota exhaustion response
 
-   If Gemini's response contains:
+   Quota exhaustion can happen at ANY point - during initial review OR during follow-up interactions after an initial review was already provided. Check for this pattern in ALL Gemini responses:
    > "You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!"
 
-   then:
+   When detected at any point:
    - Set `gemini_quota_exhausted = true`
    - Set `gemini_can_review = false` for this session
-   - Run one cross-agent fallback review:
+   - If `used_fallback_agent_review` is still `false`, run one cross-agent fallback review:
 
    ```bash
    ./scripts/agents/tooling/agentTool.sh solicitCodexReview
@@ -258,6 +258,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    - Set `used_fallback_agent_review = true`
    - Treat this single fallback review as sufficient to get past the review step in the loop (do not block on additional Gemini responses during this session)
+   - Any unresolved Gemini threads from before quota exhaustion should be resolved by the agent based on whether the feedback was already addressed in code
 
    #### Job-level CI polling (early failure detection)
 
