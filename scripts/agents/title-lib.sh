@@ -20,9 +20,9 @@ agent_workspace_title() {
 }
 
 agent_sync_tmux_title() {
-    title="$1"
-
-    [ -n "${TMUX:-}" ] || return 0
-
-    tmux rename-window "$title" 2>/dev/null || true
+    # Disabled: tmux rename-window renames the FOCUSED window, not the window
+    # associated with this workspace. This caused title pollution when agents
+    # in different workspaces ran concurrently. The pane border in tmux.conf
+    # already shows the correct path:branch dynamically.
+    :
 }
