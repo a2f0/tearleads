@@ -61,7 +61,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 3. Mark as queued in the UI and move the tmux window to the front:
 
    ```bash
-   setQueued.sh "(queued) #<pr-number> - <branch>"
+   ./scripts/agents/tooling/agentTool.sh setQueued --title "(queued) #<pr-number> - <branch>"
    ```
 
 4. Main loop until PR is merged:
@@ -101,7 +101,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - If conflicts persist or require manual intervention:
      - Run `git rebase --abort` to restore the branch
      - List the conflicting files
-     - Clear the queued status with `clearQueued.sh`
+     - Clear the queued status with `./scripts/agents/tooling/agentTool.sh clearQueued`
      - Stop and ask the user for help - do NOT automatically resolve in a way that could revert merged features.
 
    Reset `job_failure_counts` after rebase (new base = fresh start).
@@ -135,7 +135,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Run one cross-agent fallback review:
 
    ```bash
-   ./scripts/solicitClaudeCodeReview.sh
+   ./scripts/agents/tooling/agentTool.sh solicitClaudeCodeReview
    ```
 
    - Set `used_fallback_agent_review = true`
@@ -244,7 +244,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 5. Refresh workspace after merge:
 
    ```bash
-   refresh.sh
+   ./scripts/agents/tooling/agentTool.sh refresh
    ```
 
    Post-merge QA handling for `associated_issue_number`:
