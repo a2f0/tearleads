@@ -1,9 +1,9 @@
-#!/usr/bin/env bash
-set -euo pipefail
+#!/bin/sh
+set -eu
 
 echo "Setting up Postgres for dev..."
 
-if [[ "$(uname -s)" != "Darwin" ]]; then
+if [ "$(uname -s)" != "Darwin" ]; then
   echo "setupPostgresDev.sh supports macOS only." >&2
   exit 1
 fi
@@ -21,17 +21,13 @@ match_formula() {
   fi
 }
 
-set +o pipefail
 postgres_formula="$(brew list --formula | match_formula | head -n1 || true)"
-set -o pipefail
 
-if [[ -z "${postgres_formula}" ]]; then
+if [ -z "${postgres_formula}" ]; then
   echo "PostgreSQL not found via Homebrew. Installing..." >&2
   brew install postgresql
-  set +o pipefail
   postgres_formula="$(brew list --formula | match_formula | head -n1 || true)"
-  set -o pipefail
-  if [[ -z "${postgres_formula}" ]]; then
+  if [ -z "${postgres_formula}" ]; then
     echo "PostgreSQL install succeeded but formula not detected." >&2
     exit 1
   fi
@@ -51,31 +47,31 @@ fi
 
 pg_user="${USER:-${LOGNAME:-}}"
 db_name="tearleads_development"
-createdb_args=()
-psql_args=(--dbname postgres --tuples-only --quiet --no-align)
-if [[ -n "${pg_user}" ]]; then
-  createdb_args+=("--username" "${pg_user}")
-  psql_args+=("--username" "${pg_user}")
+createdb_args=""
+psql_args="--dbname postgres --tuples-only --quiet --no-align"
+if [ -n "${pg_user}" ]; then
+  createdb_args="$createdb_args --username ${pg_user}"
+  psql_args="$psql_args --username ${pg_user}"
 fi
 
 set +e
-db_exists="$(psql "${psql_args[@]}" -c "SELECT 1 FROM pg_database WHERE datname='${db_name}'" 2>/dev/null | tr -d '[:space:]')"
+db_exists=$(sh -c "psql ${psql_args} -c 'SELECT 1 FROM pg_database WHERE datname='"'"'${db_name}'"'"'" 2>/dev/null | tr -d '[:space:]')
 psql_status=$?
 set -e
 
-if [[ "${db_exists}" == "1" ]]; then
+if [ "${db_exists}" = "1" ]; then
   echo "Database ${db_name} already exists."
 else
   set +e
-  createdb_output="$(createdb "${createdb_args[@]}" "${db_name}" 2>&1)"
+  createdb_output=$(sh -c "createdb ${createdb_args} ${db_name}" 2>&1)
   createdb_status=$?
   set -e
 
-  if [[ ${createdb_status} -eq 0 ]]; then
+  if [ ${createdb_status} -eq 0 ]; then
     echo "Created database ${db_name}."
   elif echo "${createdb_output}" | grep -q "already exists"; then
     echo "Database ${db_name} already exists."
-  elif [[ ${psql_status} -ne 0 ]]; then
+  elif [ ${psql_status} -ne 0 ]; then
     echo "Failed to check for database ${db_name}; createdb also failed." >&2
     echo "${createdb_output}" >&2
   else
@@ -88,7 +84,7 @@ echo "Postgres service started (${postgres_formula})."
 echo "Suggested environment variables for dev:"
 echo "  export PGHOST=localhost"
 echo "  export PGPORT=5432"
-if [[ -n "${pg_user}" ]]; then
+if [ -n "${pg_user}" ]; then
   echo "  export PGUSER=${pg_user}"
 fi
 echo "  export PGDATABASE=tearleads_development"
