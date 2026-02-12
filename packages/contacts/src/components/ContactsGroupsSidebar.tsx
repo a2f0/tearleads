@@ -128,7 +128,7 @@ export function ContactsGroupsSidebar({
         const uniqueIds = Array.from(new Set(groupIds));
         const counts = await Promise.all(
           uniqueIds.map(async (groupId) => {
-            const [{ count }] = await db
+            const [{ count } = { count: 0 }] = await db
               .select({
                 count: sql<number>`COUNT(*)`.mapWith(Number)
               })
