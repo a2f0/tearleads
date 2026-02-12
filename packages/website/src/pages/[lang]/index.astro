@@ -1,13 +1,15 @@
 ---
-import Layout from '../../layouts/Layout.astro';
-import { isSupportedLanguage, defaultLanguage } from '../../i18n/config';
-import type { SupportedLanguage } from '../../i18n/config';
-import { getStaticPathsForLocales, getHref } from '../../i18n/utils';
+import type { SupportedLanguage } from "../../i18n/config";
+import { defaultLanguage, isSupportedLanguage } from "../../i18n/config";
+import { getHref, getStaticPathsForLocales } from "../../i18n/utils";
+import Layout from "../../layouts/Layout.astro";
 
 export const getStaticPaths = getStaticPathsForLocales;
 
 const { lang } = Astro.params;
-const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang)
+	? lang
+	: defaultLanguage;
 ---
 
 <Layout title="Tearleads" lang={currentLang}>

@@ -47,6 +47,50 @@ Only if a new Gradle version is available:
 4. Run `./packages/client/scripts/downloadGradleWrapper.sh`.
 5. Validate: `cd packages/client/android && ./gradlew assembleDebug`.
 
+## Native Module Rebuilds
+
+When updating packages with native Node.js addons (e.g., `better-sqlite3-multiple-ciphers`), they may need rebuilding. Symptoms:
+
+```text
+Error: The module 'better_sqlite3.node' was compiled against NODE_MODULE_VERSION 143.
+This version of Node.js requires NODE_MODULE_VERSION 127.
+```
+
+Fix by rebuilding the module:
+
+```bash
+cd packages/cli
+npm rebuild better-sqlite3-multiple-ciphers
+```
+
+The client package runs `electron-rebuild` via postinstall, but CLI uses system Node and may need manual rebuild.
+
+## Biome Schema Migration
+
+When biome is updated, migrate the schema:
+
+```bash
+pnpm biome migrate --write
+```
+
+## Researching Breaking Changes
+
+After updates, review changelogs for major version bumps:
+
+1. **Check pnpm output** for deprecated subdependencies (transitive - usually not actionable)
+2. **Review GitHub releases** for direct deps:
+   - Capacitor plugins: <https://github.com/ionic-team/capacitor-plugins/releases>
+   - Biome: <https://github.com/biomejs/biome/releases>
+   - pdfjs-dist: <https://github.com/mozilla/pdf.js/releases>
+3. **Document deprecations** in the PR for future reference
+
+## Known Acceptable Warnings
+
+These warnings are expected and do not require action:
+
+- **electron-builder peer dependency mismatches**: Internal conflicts between `dmg-builder`/`electron-builder-squirrel-windows` tracked upstream
+- **Deprecated transitive dependencies**: `glob`, `rimraf`, `inflight` etc. are deep deps resolved when upstream updates
+
 ## Warnings/Deprecations
 
 Collect warnings/deprecations from `pnpm`, bundler, CocoaPods, Gradle, and test runs. Summarize them in the final response along with any required follow-ups.

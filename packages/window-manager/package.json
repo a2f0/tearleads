@@ -1,49 +1,49 @@
 {
-  "name": "@tearleads/window-manager",
-  "version": "0.0.1",
-  "description": "Floating window manager and components for desktop-like web applications",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
-  },
-  "peerDependencies": {
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
-  },
-  "dependencies": {
-    "@radix-ui/react-tooltip": "1.2.8",
-    "clsx": "2.1.1",
-    "lucide-react": "0.563.0",
-    "tailwind-merge": "3.4.0"
-  },
-  "devDependencies": {
-    "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.2",
-    "@testing-library/user-event": "14.6.1",
-    "@types/node": "25.2.3",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
-    "jsdom": "28.0.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "typescript": "5.9.3",
-    "vitest": "4.0.18",
-    "vitest-fail-on-console": "0.10.1"
-  }
+	"name": "@tearleads/window-manager",
+	"version": "0.0.1",
+	"description": "Floating window manager and components for desktop-like web applications",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		}
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc",
+		"clean": "rm -rf dist",
+		"test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+		"test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+	},
+	"peerDependencies": {
+		"react": "19.2.4",
+		"react-dom": "19.2.4"
+	},
+	"dependencies": {
+		"@radix-ui/react-tooltip": "1.2.8",
+		"clsx": "2.1.1",
+		"lucide-react": "0.563.0",
+		"tailwind-merge": "3.4.0"
+	},
+	"devDependencies": {
+		"@testing-library/jest-dom": "6.9.1",
+		"@testing-library/react": "16.3.2",
+		"@testing-library/user-event": "14.6.1",
+		"@types/node": "25.2.3",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
+		"@vitejs/plugin-react": "5.1.4",
+		"@vitest/coverage-v8": "4.0.18",
+		"jsdom": "28.0.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
+		"typescript": "5.9.3",
+		"vitest": "4.0.18",
+		"vitest-fail-on-console": "0.10.1"
+	}
 }

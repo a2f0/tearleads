@@ -1,37 +1,59 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import { supportedLanguages, isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
-import type { SupportedLanguage } from '../../../i18n/config';
+import type { SupportedLanguage } from "../../../i18n/config";
+import {
+	defaultLanguage,
+	isSupportedLanguage,
+	supportedLanguages,
+} from "../../../i18n/config";
+import Layout from "../../../layouts/Layout.astro";
 
 export function getStaticPaths() {
-  const products = [
-    { product: 'desktop', title: 'Desktop', description: 'Desktop application content coming soon.' },
-    { product: 'mobile', title: 'Mobile', description: 'Mobile application content coming soon.' },
-    { product: 'web', title: 'Web', description: 'Web application content coming soon.' },
-    { product: 'chrome-extension', title: 'Chrome Extension', description: 'Chrome extension content coming soon.' },
-  ];
+	const products = [
+		{
+			product: "desktop",
+			title: "Desktop",
+			description: "Desktop application content coming soon.",
+		},
+		{
+			product: "mobile",
+			title: "Mobile",
+			description: "Mobile application content coming soon.",
+		},
+		{
+			product: "web",
+			title: "Web",
+			description: "Web application content coming soon.",
+		},
+		{
+			product: "chrome-extension",
+			title: "Chrome Extension",
+			description: "Chrome extension content coming soon.",
+		},
+	];
 
-  const paths = [];
-  // Only generate for non-default languages (default is at root)
-  for (const lang of supportedLanguages.filter((l) => l !== defaultLanguage)) {
-    for (const product of products) {
-      paths.push({
-        params: { lang, product: product.product },
-        props: { title: product.title, description: product.description },
-      });
-    }
-  }
-  return paths;
+	const paths = [];
+	// Only generate for non-default languages (default is at root)
+	for (const lang of supportedLanguages.filter((l) => l !== defaultLanguage)) {
+		for (const product of products) {
+			paths.push({
+				params: { lang, product: product.product },
+				props: { title: product.title, description: product.description },
+			});
+		}
+	}
+	return paths;
 }
 
 interface Props {
-  title: string;
-  description: string;
+	title: string;
+	description: string;
 }
 
 const { lang } = Astro.params;
 const { title, description } = Astro.props;
-const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang)
+	? lang
+	: defaultLanguage;
 ---
 
 <Layout title={`${title} - Tearleads`} lang={currentLang}>

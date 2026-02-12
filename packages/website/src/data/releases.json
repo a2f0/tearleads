@@ -1,1318 +1,1318 @@
 {
-  "releases": [
-    {
-      "version": "0.0.428",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.427",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.426",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.425",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.424",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.423",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.422",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.421",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.420",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.419",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.418",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.417",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.416",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.415",
-      "date": "2026-02-11",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.414",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.413",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.412",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.411",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.410",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.409",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.408",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.407",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.406",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.405",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.404",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.403",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.402",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.401",
-      "date": "2026-02-10",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.400",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.399",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.398",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.397",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.396",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.395",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.394",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.393",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.392",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.391",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.390",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.389",
-      "date": "2026-02-09",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.388",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.387",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.386",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.385",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.384",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.383",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.382",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.381",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.380",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.379",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.378",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.377",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.376",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.375",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.374",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.373",
-      "date": "2026-02-08",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.372",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.371",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.370",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.369",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.368",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.367",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.365",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.364",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.363",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.362",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.361",
-      "date": "2026-02-07",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.360",
-      "date": "2026-02-06",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.359",
-      "date": "2026-02-06",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.358",
-      "date": "2026-02-06",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.357",
-      "date": "2026-02-06",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.356",
-      "date": "2026-02-06",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    },
-    {
-      "version": "0.0.355",
-      "date": "2025-02-06",
-      "platforms": {
-        "macos": {
-          "arch": "arm64",
-          "ext": "dmg"
-        },
-        "windows": {
-          "arch": "x64",
-          "ext": "exe"
-        },
-        "linux": {
-          "arch": "x64",
-          "ext": "AppImage"
-        }
-      }
-    }
-  ]
+	"releases": [
+		{
+			"version": "0.0.428",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.427",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.426",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.425",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.424",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.423",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.422",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.421",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.420",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.419",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.418",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.417",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.416",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.415",
+			"date": "2026-02-11",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.414",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.413",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.412",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.411",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.410",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.409",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.408",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.407",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.406",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.405",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.404",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.403",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.402",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.401",
+			"date": "2026-02-10",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.400",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.399",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.398",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.397",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.396",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.395",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.394",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.393",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.392",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.391",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.390",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.389",
+			"date": "2026-02-09",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.388",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.387",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.386",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.385",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.384",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.383",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.382",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.381",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.380",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.379",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.378",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.377",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.376",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.375",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.374",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.373",
+			"date": "2026-02-08",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.372",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.371",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.370",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.369",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.368",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.367",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.365",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.364",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.363",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.362",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.361",
+			"date": "2026-02-07",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.360",
+			"date": "2026-02-06",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.359",
+			"date": "2026-02-06",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.358",
+			"date": "2026-02-06",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.357",
+			"date": "2026-02-06",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.356",
+			"date": "2026-02-06",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		},
+		{
+			"version": "0.0.355",
+			"date": "2025-02-06",
+			"platforms": {
+				"macos": {
+					"arch": "arm64",
+					"ext": "dmg"
+				},
+				"windows": {
+					"arch": "x64",
+					"ext": "exe"
+				},
+				"linux": {
+					"arch": "x64",
+					"ext": "AppImage"
+				}
+			}
+		}
+	]
 }

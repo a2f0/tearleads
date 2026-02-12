@@ -1,32 +1,32 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import type { CapacitorConfig } from "@capacitor/cli";
 
 const config: CapacitorConfig = {
-  appId: 'com.tearleads.app',
-  appName: 'Tearleads',
-  webDir: 'dist',
-  server: {
-    androidScheme: 'https',
-    iosScheme: 'https'
-  },
-  plugins: {
-    CapacitorSQLite: {
-      // Store database in Library (hidden from Files app) instead of Documents
-      iosDatabaseLocation: 'Library/CapacitorDatabase',
-      // Enable encryption on iOS
-      iosIsEncryption: true,
-      // Enable encryption on Android
-      androidIsEncryption: true,
-      // Use memory security (wipe database from memory on close)
-      iosKeychainPrefix: 'com.tearleads.app',
-      // Biometric authentication (optional, can enable later)
-      iosBiometric: {
-        biometricAuth: false
-      },
-      androidBiometric: {
-        biometricAuth: false
-      }
-    }
-  }
+	appId: "com.tearleads.app",
+	appName: "Tearleads",
+	webDir: "dist",
+	server: {
+		androidScheme: "https",
+		iosScheme: "https",
+	},
+	plugins: {
+		CapacitorSQLite: {
+			// Store database in Library (hidden from Files app) instead of Documents
+			iosDatabaseLocation: "Library/CapacitorDatabase",
+			// Enable encryption on iOS
+			iosIsEncryption: true,
+			// Enable encryption on Android
+			androidIsEncryption: true,
+			// Use memory security (wipe database from memory on close)
+			iosKeychainPrefix: "com.tearleads.app",
+			// Biometric authentication (optional, can enable later)
+			iosBiometric: {
+				biometricAuth: false,
+			},
+			androidBiometric: {
+				biometricAuth: false,
+			},
+		},
+	},
 };
 
 export default config;

@@ -1,40 +1,40 @@
 {
-  "name": "@tearleads/website",
-  "version": "0.0.154",
-  "description": "Marketing website for Tearleads",
-  "type": "module",
-  "scripts": {
-    "dev": "tsx ../../scripts/killPnpmDev.ts && astro dev",
-    "build": "astro build",
-    "preview": "astro preview",
-    "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage",
-    "test:e2e": "playwright test"
-  },
-  "dependencies": {
-    "@astrojs/react": "4.4.2",
-    "@beoe/rehype-mermaid": "0.4.2",
-    "@tearleads/api": "workspace:*",
-    "@tearleads/ui": "workspace:*",
-    "astro": "5.17.2",
-    "lucide-react": "0.563.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4"
-  },
-  "devDependencies": {
-    "@playwright/test": "1.58.2",
-    "@tailwindcss/vite": "4.1.18",
-    "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.2",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
-    "jsdom": "28.0.0",
-    "tailwindcss": "4.1.18",
-    "vite": "7.3.1",
-    "vitest": "4.0.18",
-    "vitest-fail-on-console": "0.10.1"
-  }
+	"name": "@tearleads/website",
+	"version": "0.0.154",
+	"description": "Marketing website for Tearleads",
+	"type": "module",
+	"scripts": {
+		"dev": "tsx ../../scripts/killPnpmDev.ts && astro dev",
+		"build": "astro build",
+		"preview": "astro preview",
+		"clean": "rm -rf dist",
+		"test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+		"test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage",
+		"test:e2e": "playwright test"
+	},
+	"dependencies": {
+		"@astrojs/react": "4.4.2",
+		"@beoe/rehype-mermaid": "0.4.2",
+		"@tearleads/api": "workspace:*",
+		"@tearleads/ui": "workspace:*",
+		"astro": "5.17.2",
+		"lucide-react": "0.563.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4"
+	},
+	"devDependencies": {
+		"@playwright/test": "1.58.2",
+		"@tailwindcss/vite": "4.1.18",
+		"@testing-library/jest-dom": "6.9.1",
+		"@testing-library/react": "16.3.2",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
+		"@vitejs/plugin-react": "5.1.4",
+		"@vitest/coverage-v8": "4.0.18",
+		"jsdom": "28.0.0",
+		"tailwindcss": "4.1.18",
+		"vite": "7.3.1",
+		"vitest": "4.0.18",
+		"vitest-fail-on-console": "0.10.1"
+	}
 }
