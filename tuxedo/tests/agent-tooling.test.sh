@@ -79,3 +79,21 @@ CLAUDE_JSON="$TEMP_DIR/solicitClaudeCodeReview.json"
 assert_file_exists "$CLAUDE_JSON"
 CLAUDE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${String(d.dry_run)}`);' "$CLAUDE_JSON")
 assert_contains "$CLAUDE_STATUS" "success|solicitClaudeCodeReview|true"
+
+# Test --help flag
+HELP_OUTPUT=$("$TOOL" --help 2>&1)
+assert_contains "$HELP_OUTPUT" "Usage:"
+assert_contains "$HELP_OUTPUT" "Actions:"
+assert_contains "$HELP_OUTPUT" "Options:"
+
+# Test setVscodeTitle without --title (should use default '<workspace> - <branch>')
+TITLE_JSON="$TEMP_DIR/setVscodeTitle.json"
+"$TOOL" setVscodeTitle --repo-root "$TEST_REPO" --json >"$TITLE_JSON"
+assert_file_exists "$TITLE_JSON"
+TITLE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}`);' "$TITLE_JSON")
+assert_contains "$TITLE_STATUS" "success|setVscodeTitle"
+# Verify the default title format was applied (should be '<workspace> - <branch>')
+DEFAULT_TITLE=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(String(d["window.title"] || ""));' "$SETTINGS_FILE")
+assert_contains "$DEFAULT_TITLE" "repo - "
+
+echo "All tests passed."
