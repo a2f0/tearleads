@@ -99,6 +99,7 @@ export interface WindowInstance {
   zIndex: number;
   isMinimized: boolean;
   dimensions?: WindowDimensions;
+  title?: string;
 }
 
 interface WindowManagerContextValue {
@@ -118,6 +119,7 @@ interface WindowManagerContextValue {
     type: WindowType,
     dimensions: WindowDimensions
   ) => void;
+  renameWindow: (id: string, title: string) => void;
   isWindowOpen: (type: WindowType, id?: string) => boolean;
   getWindow: (id: string) => WindowInstance | undefined;
 }
@@ -126,6 +128,8 @@ type WindowManagerActions = Omit<
   WindowManagerContextValue,
   'windows' | 'windowOpenRequests' | 'isWindowOpen' | 'getWindow'
 >;
+
+export type { WindowManagerActions };
 
 const WindowManagerContext = createContext<WindowManagerContextValue | null>(
   null
@@ -145,7 +149,8 @@ const NOOP_WINDOW_MANAGER_ACTIONS: WindowManagerActions = {
   minimizeWindow: () => {},
   restoreWindow: () => {},
   updateWindowDimensions: () => {},
-  saveWindowDimensionsForType: () => {}
+  saveWindowDimensionsForType: () => {},
+  renameWindow: () => {}
 };
 
 const BASE_Z_INDEX = 100;
@@ -384,6 +389,10 @@ export function WindowManagerProvider({
     []
   );
 
+  const renameWindow = useCallback((id: string, title: string) => {
+    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, title } : w)));
+  }, []);
+
   const saveWindowDimensionsForType = useCallback(
     (type: WindowType, dimensions: WindowDimensions) => {
       const { width, height, x, y } = dimensions;
@@ -424,6 +433,7 @@ export function WindowManagerProvider({
       restoreWindow,
       updateWindowDimensions,
       saveWindowDimensionsForType,
+      renameWindow,
       isWindowOpen,
       getWindow
     }),
@@ -438,6 +448,7 @@ export function WindowManagerProvider({
       restoreWindow,
       updateWindowDimensions,
       saveWindowDimensionsForType,
+      renameWindow,
       isWindowOpen,
       getWindow
     ]
@@ -452,7 +463,8 @@ export function WindowManagerProvider({
       minimizeWindow,
       restoreWindow,
       updateWindowDimensions,
-      saveWindowDimensionsForType
+      saveWindowDimensionsForType,
+      renameWindow
     }),
     [
       openWindow,
@@ -462,7 +474,8 @@ export function WindowManagerProvider({
       minimizeWindow,
       restoreWindow,
       updateWindowDimensions,
-      saveWindowDimensionsForType
+      saveWindowDimensionsForType,
+      renameWindow
     ]
   );
 

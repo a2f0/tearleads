@@ -115,6 +115,7 @@ const WINDOW_LABELS: Record<WindowType, string> = {
 
 interface TaskbarButtonProps {
   type: WindowType;
+  title?: string | undefined;
   isActive: boolean;
   isMinimized?: boolean;
   onClick: () => void;
@@ -125,6 +126,7 @@ interface TaskbarButtonProps {
 
 export function TaskbarButton({
   type,
+  title,
   isActive,
   isMinimized = false,
   onClick,
@@ -187,7 +189,7 @@ export function TaskbarButton({
         data-minimized={isMinimized}
       >
         {WINDOW_ICONS[type]}
-        <span>{WINDOW_LABELS[type]}</span>
+        <span>{title ?? WINDOW_LABELS[type]}</span>
       </button>
       {contextMenu && (
         <ContextMenu

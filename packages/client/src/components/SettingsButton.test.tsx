@@ -31,7 +31,8 @@ describe('SettingsButton', () => {
       minimizeWindow: vi.fn(),
       restoreWindow: vi.fn(),
       updateWindowDimensions: vi.fn(),
-      saveWindowDimensionsForType: vi.fn()
+      saveWindowDimensionsForType: vi.fn(),
+      renameWindow: vi.fn()
     });
   });
 

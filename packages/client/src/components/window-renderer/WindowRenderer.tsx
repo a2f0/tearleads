@@ -51,6 +51,7 @@ interface WindowComponentProps {
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
   onDimensionsChange?: (dimensions: WindowDimensions) => void;
+  onRename?: (title: string) => void;
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions;
@@ -75,6 +76,7 @@ interface MemoizedWindowProps {
     id: string,
     dimensions: WindowDimensions
   ) => void;
+  onRename: (id: string, title: string) => void;
   onFocus: (id: string) => void;
 }
 
@@ -84,6 +86,7 @@ const MemoizedWindow = memo(function MemoizedWindow({
   onClose,
   onMinimize,
   onDimensionsChange,
+  onRename,
   onFocus
 }: MemoizedWindowProps) {
   const WindowComponent = config.Component;
@@ -103,6 +106,10 @@ const MemoizedWindow = memo(function MemoizedWindow({
       onDimensionsChange(window.type, window.id, dimensions),
     [onDimensionsChange, window.type, window.id]
   );
+  const handleRename = useCallback(
+    (title: string) => onRename(window.id, title),
+    [onRename, window.id]
+  );
   const handleFocus = useCallback(
     () => onFocus(window.id),
     [onFocus, window.id]
@@ -114,6 +121,7 @@ const MemoizedWindow = memo(function MemoizedWindow({
       onClose={handleClose}
       onMinimize={handleMinimize}
       onDimensionsChange={handleDimensionsChange}
+      onRename={handleRename}
       onFocus={handleFocus}
       zIndex={window.zIndex}
       {...(resolvedInitialDimensions && {
@@ -167,7 +175,8 @@ export function WindowRenderer() {
     focusWindow,
     minimizeWindow,
     saveWindowDimensionsForType,
-    updateWindowDimensions
+    updateWindowDimensions,
+    renameWindow
   } = useWindowManager();
   const windowsRef = useRef(windows);
   windowsRef.current = windows;
@@ -234,6 +243,7 @@ export function WindowRenderer() {
             onClose={closeWindow}
             onMinimize={minimizeWindow}
             onDimensionsChange={handleDimensionsChange}
+            onRename={renameWindow}
             onFocus={handleFocusWindow}
           />
         );

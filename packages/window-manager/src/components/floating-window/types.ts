@@ -21,6 +21,7 @@ export interface FloatingWindowProps {
   onClose: () => void;
   onMinimize?: ((dimensions: WindowDimensions) => void) | undefined;
   onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
+  onRename?: ((title: string) => void) | undefined;
   initialDimensions?: WindowDimensions | undefined;
   fitContent?: boolean | undefined;
   defaultWidth?: number | undefined;

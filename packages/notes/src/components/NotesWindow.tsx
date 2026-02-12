@@ -16,6 +16,7 @@ interface NotesWindowProps {
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
   onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
+  onRename?: ((title: string) => void) | undefined;
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
@@ -28,6 +29,7 @@ export function NotesWindow({
   onClose,
   onMinimize,
   onDimensionsChange,
+  onRename,
   onFocus,
   zIndex,
   initialDimensions,
@@ -134,6 +136,7 @@ export function NotesWindow({
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}
+      onRename={onRename}
       onFocus={onFocus}
       zIndex={zIndex}
       {...(initialDimensions && { initialDimensions })}
