@@ -17,8 +17,17 @@ vi.mock('./LogsTab', () => ({
   LogsTab: () => <div data-testid="logs-tab">Logs Tab</div>
 }));
 
+const defaultProps = {
+  id: 'notification-center-1',
+  onClose: vi.fn(),
+  onMinimize: vi.fn(),
+  onFocus: vi.fn(),
+  zIndex: 100
+};
+
 describe('NotificationCenter', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     Object.defineProperty(window, 'innerWidth', {
       writable: true,
       configurable: true,
@@ -31,26 +40,19 @@ describe('NotificationCenter', () => {
     });
   });
 
-  it('renders nothing when closed', () => {
-    const { container } = render(
-      <NotificationCenter isOpen={false} onClose={() => {}} />
-    );
-    expect(container).toBeEmptyDOMElement();
-  });
-
-  it('renders when open', () => {
-    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+  it('renders when mounted', () => {
+    render(<NotificationCenter {...defaultProps} />);
     expect(screen.getByRole('dialog')).toBeInTheDocument();
   });
 
   it('shows logs tab by default', () => {
-    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+    render(<NotificationCenter {...defaultProps} />);
     expect(screen.getByTestId('logs-tab')).toBeInTheDocument();
   });
 
   it('switches to logs tab when clicked', async () => {
     const user = userEvent.setup();
-    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+    render(<NotificationCenter {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: /logs/i }));
     expect(screen.getByTestId('logs-tab')).toBeInTheDocument();
@@ -59,7 +61,7 @@ describe('NotificationCenter', () => {
   it('calls onClose when close button clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<NotificationCenter isOpen={true} onClose={onClose} />);
+    render(<NotificationCenter {...defaultProps} onClose={onClose} />);
 
     await user.click(screen.getByRole('button', { name: /close/i }));
     expect(onClose).toHaveBeenCalled();
@@ -68,7 +70,7 @@ describe('NotificationCenter', () => {
   it('closes from File > Close menu item', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
-    render(<NotificationCenter isOpen={true} onClose={onClose} />);
+    render(<NotificationCenter {...defaultProps} onClose={onClose} />);
 
     await user.click(screen.getByRole('button', { name: 'File' }));
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
@@ -78,7 +80,7 @@ describe('NotificationCenter', () => {
 
   it('opens about dialog from Help > About', async () => {
     const user = userEvent.setup();
-    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+    render(<NotificationCenter {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: 'Help' }));
     await user.click(screen.getByRole('menuitem', { name: 'About' }));
@@ -88,47 +90,56 @@ describe('NotificationCenter', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders backdrop when open', () => {
-    render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-    expect(
-      screen.getByTestId('notification-center-backdrop')
-    ).toBeInTheDocument();
-  });
+  describe('minimize behavior', () => {
+    it('calls onMinimize when minimize button is clicked', async () => {
+      const user = userEvent.setup();
+      const onMinimize = vi.fn();
+      render(<NotificationCenter {...defaultProps} onMinimize={onMinimize} />);
 
-  it('calls onClose when backdrop is clicked', async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
-    render(<NotificationCenter isOpen={true} onClose={onClose} />);
+      await user.click(screen.getByRole('button', { name: /minimize/i }));
+      expect(onMinimize).toHaveBeenCalledWith(
+        expect.objectContaining({
+          width: expect.any(Number),
+          height: expect.any(Number),
+          x: expect.any(Number),
+          y: expect.any(Number)
+        })
+      );
+    });
 
-    await user.click(screen.getByTestId('notification-center-backdrop'));
-    expect(onClose).toHaveBeenCalled();
-  });
+    it('passes current dimensions to onMinimize', async () => {
+      const user = userEvent.setup();
+      const onMinimize = vi.fn();
+      render(<NotificationCenter {...defaultProps} onMinimize={onMinimize} />);
 
-  it('does not render backdrop when closed', () => {
-    render(<NotificationCenter isOpen={false} onClose={() => {}} />);
-    expect(
-      screen.queryByTestId('notification-center-backdrop')
-    ).not.toBeInTheDocument();
+      await user.click(screen.getByRole('button', { name: /minimize/i }));
+
+      const dimensions = onMinimize.mock.calls[0][0];
+      expect(dimensions.width).toBeGreaterThan(0);
+      expect(dimensions.height).toBeGreaterThan(0);
+    });
   });
 
   describe('title bar', () => {
-    it('renders title bar when open', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+    it('renders title bar', () => {
+      render(<NotificationCenter {...defaultProps} />);
       expect(
-        screen.getByTestId('floating-window-notification-center-title-bar')
+        screen.getByTestId('floating-window-notification-center-1-title-bar')
       ).toBeInTheDocument();
     });
 
     it('displays Notification Center text in title bar', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter {...defaultProps} />);
       expect(screen.getByText('Notification Center')).toBeInTheDocument();
     });
 
     it('allows dragging the window via title bar on desktop', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const titleBar = screen.getByTestId(
-        'floating-window-notification-center-title-bar'
+        'floating-window-notification-center-1-title-bar'
       );
 
       const initialLeft = parseInt(dialog.style.left, 10);
@@ -148,10 +159,12 @@ describe('NotificationCenter', () => {
     });
 
     it('handles touch-based dragging on desktop', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const titleBar = screen.getByTestId(
-        'floating-window-notification-center-title-bar'
+        'floating-window-notification-center-1-title-bar'
       );
 
       const initialLeft = parseInt(dialog.style.left, 10);
@@ -177,34 +190,36 @@ describe('NotificationCenter', () => {
 
   describe('resize handles', () => {
     it('renders all 4 corner resize handles on desktop', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter {...defaultProps} />);
       expect(
         screen.getByTestId(
-          'floating-window-notification-center-resize-handle-top-left'
+          'floating-window-notification-center-1-resize-handle-top-left'
         )
       ).toBeInTheDocument();
       expect(
         screen.getByTestId(
-          'floating-window-notification-center-resize-handle-top-right'
+          'floating-window-notification-center-1-resize-handle-top-right'
         )
       ).toBeInTheDocument();
       expect(
         screen.getByTestId(
-          'floating-window-notification-center-resize-handle-bottom-left'
+          'floating-window-notification-center-1-resize-handle-bottom-left'
         )
       ).toBeInTheDocument();
       expect(
         screen.getByTestId(
-          'floating-window-notification-center-resize-handle-bottom-right'
+          'floating-window-notification-center-1-resize-handle-bottom-right'
         )
       ).toBeInTheDocument();
     });
 
     it('changes size when bottom-right corner is dragged', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const handle = screen.getByTestId(
-        'floating-window-notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-1-resize-handle-bottom-right'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -222,10 +237,12 @@ describe('NotificationCenter', () => {
     });
 
     it('changes size when top-left corner is dragged', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const handle = screen.getByTestId(
-        'floating-window-notification-center-resize-handle-top-left'
+        'floating-window-notification-center-1-resize-handle-top-left'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -249,10 +266,12 @@ describe('NotificationCenter', () => {
     });
 
     it('respects minimum size constraints', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const handle = screen.getByTestId(
-        'floating-window-notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-1-resize-handle-bottom-right'
       );
 
       fireEvent.mouseDown(handle, { clientX: 500, clientY: 400 });
@@ -262,15 +281,17 @@ describe('NotificationCenter', () => {
       const newWidth = parseInt(dialog.style.width, 10);
       const newHeight = parseInt(dialog.style.height, 10);
 
-      expect(newWidth).toBeGreaterThanOrEqual(280);
-      expect(newHeight).toBeGreaterThanOrEqual(150);
+      expect(newWidth).toBeGreaterThanOrEqual(480);
+      expect(newHeight).toBeGreaterThanOrEqual(300);
     });
 
     it('respects maximum size constraints', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const handle = screen.getByTestId(
-        'floating-window-notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-1-resize-handle-bottom-right'
       );
 
       fireEvent.mouseDown(handle, { clientX: 500, clientY: 400 });
@@ -285,10 +306,12 @@ describe('NotificationCenter', () => {
     });
 
     it('handles touch-based resizing', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const handle = screen.getByTestId(
-        'floating-window-notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-1-resize-handle-bottom-right'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -310,10 +333,12 @@ describe('NotificationCenter', () => {
     });
 
     it('handles touchStart with no touches', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const handle = screen.getByTestId(
-        'floating-window-notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-1-resize-handle-bottom-right'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -325,10 +350,12 @@ describe('NotificationCenter', () => {
     });
 
     it('handles touchMove with no touches', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
       const handle = screen.getByTestId(
-        'floating-window-notification-center-resize-handle-bottom-right'
+        'floating-window-notification-center-1-resize-handle-bottom-right'
       );
 
       const initialWidth = parseInt(dialog.style.width, 10);
@@ -344,8 +371,10 @@ describe('NotificationCenter', () => {
     });
 
     it('ignores move events when not dragging', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
 
       const initialWidth = parseInt(dialog.style.width, 10);
 
@@ -356,8 +385,10 @@ describe('NotificationCenter', () => {
     });
 
     it('handles drag end when not dragging', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
-      const dialog = screen.getByTestId('floating-window-notification-center');
+      render(<NotificationCenter {...defaultProps} />);
+      const dialog = screen.getByTestId(
+        'floating-window-notification-center-1'
+      );
 
       const initialWidth = parseInt(dialog.style.width, 10);
 
@@ -378,23 +409,23 @@ describe('NotificationCenter', () => {
     });
 
     it('does not render corner resize handles on mobile', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter {...defaultProps} />);
       expect(
         screen.queryByTestId(
-          'floating-window-notification-center-resize-handle-top-left'
+          'floating-window-notification-center-1-resize-handle-top-left'
         )
       ).not.toBeInTheDocument();
       expect(
         screen.queryByTestId(
-          'floating-window-notification-center-resize-handle-bottom-right'
+          'floating-window-notification-center-1-resize-handle-bottom-right'
         )
       ).not.toBeInTheDocument();
     });
 
     it('renders title bar on mobile', () => {
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter {...defaultProps} />);
       expect(
-        screen.getByTestId('floating-window-notification-center-title-bar')
+        screen.getByTestId('floating-window-notification-center-1-title-bar')
       ).toBeInTheDocument();
     });
   });
@@ -407,12 +438,12 @@ describe('NotificationCenter', () => {
         value: 1024
       });
 
-      render(<NotificationCenter isOpen={true} onClose={() => {}} />);
+      render(<NotificationCenter {...defaultProps} />);
 
       // Desktop: resize handles should be visible
       expect(
         screen.getByTestId(
-          'floating-window-notification-center-resize-handle-bottom-right'
+          'floating-window-notification-center-1-resize-handle-bottom-right'
         )
       ).toBeInTheDocument();
 
@@ -427,7 +458,7 @@ describe('NotificationCenter', () => {
       // Mobile: resize handles should not be visible
       expect(
         screen.queryByTestId(
-          'floating-window-notification-center-resize-handle-bottom-right'
+          'floating-window-notification-center-1-resize-handle-bottom-right'
         )
       ).not.toBeInTheDocument();
     });

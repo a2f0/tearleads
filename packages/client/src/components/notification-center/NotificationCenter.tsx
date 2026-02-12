@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
@@ -27,49 +28,43 @@ const TABS: { id: TabId; label: string }[] = [
 ];
 
 interface NotificationCenterProps {
-  isOpen: boolean;
+  id: string;
   onClose: () => void;
+  onMinimize: (dimensions: WindowDimensions) => void;
+  onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
+  onFocus: () => void;
+  zIndex: number;
+  initialDimensions?: WindowDimensions | undefined;
 }
 
 export function NotificationCenter({
-  isOpen,
-  onClose
+  id,
+  onClose,
+  onMinimize,
+  onDimensionsChange,
+  onFocus,
+  zIndex,
+  initialDimensions
 }: NotificationCenterProps) {
   const [activeTab, setActiveTab] = useState<TabId>('logs');
 
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <>
-      <div
-        className="fixed inset-0 z-40"
-        onClick={onClose}
-        aria-hidden="true"
-        data-testid="notification-center-backdrop"
-      />
-      <FloatingWindow
-        id="notification-center"
-        title="Notification Center"
-        onClose={onClose}
-        defaultWidth={DEFAULT_WIDTH}
-        defaultHeight={DEFAULT_HEIGHT}
-        defaultX={
-          typeof window !== 'undefined'
-            ? Math.round((window.innerWidth - DEFAULT_WIDTH) / 2)
-            : 0
-        }
-        defaultY={
-          typeof window !== 'undefined'
-            ? Math.round((window.innerHeight - DEFAULT_HEIGHT) / 2)
-            : 0
-        }
-        minWidth={MIN_WIDTH}
-        minHeight={MIN_HEIGHT}
-        maxWidthPercent={MAX_WIDTH_PERCENT}
-        maxHeightPercent={MAX_HEIGHT_PERCENT}
-      >
+    <FloatingWindow
+      id={id}
+      title="Notification Center"
+      onClose={onClose}
+      onMinimize={onMinimize}
+      onDimensionsChange={onDimensionsChange}
+      onFocus={onFocus}
+      zIndex={zIndex}
+      {...(initialDimensions && { initialDimensions })}
+      defaultWidth={DEFAULT_WIDTH}
+      defaultHeight={DEFAULT_HEIGHT}
+      minWidth={MIN_WIDTH}
+      minHeight={MIN_HEIGHT}
+      maxWidthPercent={MAX_WIDTH_PERCENT}
+      maxHeightPercent={MAX_HEIGHT_PERCENT}
+    >
         <div className="flex h-full flex-col">
           {/* Menu bar */}
           <div className="flex shrink-0 border-b bg-muted/30 px-1">
@@ -108,6 +103,5 @@ export function NotificationCenter({
           </div>
         </div>
       </FloatingWindow>
-    </>
   );
 }

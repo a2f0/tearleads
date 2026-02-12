@@ -4,26 +4,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { notificationStore } from '@/stores/notificationStore';
 import { NotificationCenterTrigger } from './NotificationCenterTrigger';
 
-vi.mock('./NotificationCenter', () => ({
-  NotificationCenter: ({
-    isOpen,
-    onClose
-  }: {
-    isOpen: boolean;
-    onClose: () => void;
-  }) =>
-    isOpen ? (
-      <div data-testid="notification-center-overlay">
-        <button type="button" onClick={onClose}>
-          Close
-        </button>
-      </div>
-    ) : null
+const mockOpenWindow = vi.fn();
+
+vi.mock('@/contexts/WindowManagerContext', () => ({
+  useWindowManager: () => ({
+    openWindow: mockOpenWindow
+  })
 }));
 
 describe('NotificationCenterTrigger', () => {
   afterEach(() => {
     vi.restoreAllMocks();
+    mockOpenWindow.mockClear();
   });
 
   it('renders trigger button', () => {
@@ -33,38 +25,15 @@ describe('NotificationCenterTrigger', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens Notification Center when clicked', async () => {
-    const user = userEvent.setup();
-    render(<NotificationCenterTrigger />);
-
-    expect(
-      screen.queryByTestId('notification-center-overlay')
-    ).not.toBeInTheDocument();
-
-    await user.click(
-      screen.getByRole('button', { name: /open notification center/i })
-    );
-
-    expect(
-      screen.getByTestId('notification-center-overlay')
-    ).toBeInTheDocument();
-  });
-
-  it('closes Notification Center when close is triggered', async () => {
+  it('opens Notification Center window when clicked', async () => {
     const user = userEvent.setup();
     render(<NotificationCenterTrigger />);
 
     await user.click(
       screen.getByRole('button', { name: /open notification center/i })
     );
-    expect(
-      screen.getByTestId('notification-center-overlay')
-    ).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: /close/i }));
-    expect(
-      screen.queryByTestId('notification-center-overlay')
-    ).not.toBeInTheDocument();
+    expect(mockOpenWindow).toHaveBeenCalledWith('notification-center');
   });
 
   it('supports context menu actions', async () => {
@@ -90,6 +59,24 @@ describe('NotificationCenterTrigger', () => {
       screen.getByRole('button', { name: /clear all notifications/i })
     );
     expect(dismissAllSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('opens window from context menu', async () => {
+    const user = userEvent.setup();
+    render(<NotificationCenterTrigger />);
+
+    await user.pointer({
+      target: screen.getByRole('button', { name: /open notification center/i }),
+      keys: '[MouseRight]'
+    });
+
+    // The context menu item has the exact text "Open Notification Center"
+    const menuItems = screen.getAllByRole('button', {
+      name: /open notification center/i
+    });
+    // The second one is the menu item (first is the trigger)
+    await user.click(menuItems[1]);
+    expect(mockOpenWindow).toHaveBeenCalledWith('notification-center');
   });
 
   it('subscribes on mount and unsubscribes on unmount', () => {

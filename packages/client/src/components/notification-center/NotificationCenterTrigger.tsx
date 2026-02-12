@@ -2,12 +2,12 @@ import { Activity, Bell, CheckCheck, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
 import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
+import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { notificationStore } from '@/stores/notificationStore';
 import { NotificationBadge } from './NotificationBadge';
-import { NotificationCenter } from './NotificationCenter';
 
 export function NotificationCenterTrigger() {
-  const [isOpen, setIsOpen] = useState(false);
+  const { openWindow } = useWindowManager();
   const [unreadCount, setUnreadCount] = useState(0);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -47,16 +47,16 @@ export function NotificationCenterTrigger() {
   }, []);
 
   const handleOpen = useCallback(() => {
-    setIsOpen(true);
+    openWindow('notification-center');
     setContextMenu(null);
-  }, []);
+  }, [openWindow]);
 
   return (
     <>
       <div className="relative">
         <button
           type="button"
-          onClick={() => setIsOpen(true)}
+          onClick={handleOpen}
           onContextMenu={handleContextMenu}
           className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           aria-label="Open Notification Center"
@@ -66,7 +66,6 @@ export function NotificationCenterTrigger() {
         </button>
         <NotificationBadge count={unreadCount} />
       </div>
-      <NotificationCenter isOpen={isOpen} onClose={() => setIsOpen(false)} />
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
