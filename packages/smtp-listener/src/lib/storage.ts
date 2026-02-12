@@ -1,3 +1,4 @@
+import { isRecord } from '@tearleads/shared';
 import {
   closeRedisClient,
   getRedisClient,
@@ -6,10 +7,6 @@ import {
 import type { EmailAddress, StoredEmail } from '../types/email.js';
 
 const EMAIL_PREFIX = 'smtp:email:';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 function isEmailAddress(value: unknown): value is EmailAddress {
   return (
