@@ -28,7 +28,7 @@ Actions:
   setVscodeTitle
 
 Options:
-  --title <value>          Title to set (required for setQueued and setVscodeTitle)
+  --title <value>          Title to set (required for setQueued, optional for setVscodeTitle)
   --timeout-seconds <n>    Timeout in seconds (default: 300, refresh: 3600)
   --repo-root <path>       Execute from this repo root instead of auto-detecting
   --dry-run                Validate and report without executing the target script
@@ -118,10 +118,7 @@ if [ "$ACTION" = "setQueued" ] && [ -z "$TITLE" ]; then
     exit 1
 fi
 
-if [ "$ACTION" = "setVscodeTitle" ] && [ -z "$TITLE" ]; then
-    echo "Error: setVscodeTitle requires --title." >&2
-    exit 1
-fi
+# setVscodeTitle defaults to '<workspace> - <branch>' when --title is not provided
 
 if [ -n "$TIMEOUT_SECONDS" ] && ! is_positive_int "$TIMEOUT_SECONDS"; then
     echo "Error: --timeout-seconds must be a positive integer." >&2
@@ -215,14 +212,15 @@ if [ "$EXIT_CODE" -ne 0 ]; then
     STATUS="failure"
 fi
 
-KEY_LINES=$(tail -n 5 "$TMP_OUTPUT" | tr '\n' '\r')
+KEY_LINES_BASE64=$(tail -n 5 "$TMP_OUTPUT" | base64 | tr -d '\n')
 
 if [ "$EMIT_JSON" = true ]; then
-    node - "$STATUS" "$EXIT_CODE" "$DURATION_MS" "$ACTION" "$REPO_ROOT" "$SAFETY_CLASS" "$RETRY_SAFE" "$DRY_RUN" "$KEY_LINES" <<'NODE'
-const [status, exitCode, durationMs, action, repoRoot, safetyClass, retrySafe, dryRun, keyLinesRaw] =
+    node - "$STATUS" "$EXIT_CODE" "$DURATION_MS" "$ACTION" "$REPO_ROOT" "$SAFETY_CLASS" "$RETRY_SAFE" "$DRY_RUN" "$KEY_LINES_BASE64" <<'NODE'
+const [status, exitCode, durationMs, action, repoRoot, safetyClass, retrySafe, dryRun, keyLinesBase64] =
   process.argv.slice(2);
-const keyLines = keyLinesRaw
-  .split("\r")
+const keyLines = Buffer.from(keyLinesBase64, 'base64')
+  .toString('utf8')
+  .split('\n')
   .map((line) => line.trimEnd())
   .filter((line) => line.length > 0);
 
