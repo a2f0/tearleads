@@ -57,12 +57,12 @@ export function NotificationCenter({
         defaultHeight={DEFAULT_HEIGHT}
         defaultX={
           typeof window !== 'undefined'
-            ? window.innerWidth - DEFAULT_WIDTH - 16
+            ? Math.round((window.innerWidth - DEFAULT_WIDTH) / 2)
             : 0
         }
         defaultY={
           typeof window !== 'undefined'
-            ? window.innerHeight - DEFAULT_HEIGHT - 64
+            ? Math.round((window.innerHeight - DEFAULT_HEIGHT) / 2)
             : 0
         }
         minWidth={MIN_WIDTH}

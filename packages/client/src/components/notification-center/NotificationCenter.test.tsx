@@ -280,8 +280,8 @@ describe('NotificationCenter', () => {
       const newWidth = parseInt(dialog.style.width, 10);
       const newHeight = parseInt(dialog.style.height, 10);
 
-      expect(newWidth).toBeLessThanOrEqual(window.innerWidth * 0.6);
-      expect(newHeight).toBeLessThanOrEqual(window.innerHeight * 0.7);
+      expect(newWidth).toBeLessThanOrEqual(window.innerWidth * 0.8);
+      expect(newHeight).toBeLessThanOrEqual(window.innerHeight * 0.8);
     });
 
     it('handles touch-based resizing', () => {

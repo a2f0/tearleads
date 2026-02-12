@@ -234,10 +234,64 @@ export function ContactsGroupsSidebar({
   );
 
   const handleSendEmailToGroup = useCallback(async () => {
-    if (!contextMenu) return;
+    console.log('[GroupEmail] Handler called, group:', contextMenu?.group);
+    if (!contextMenu) {
+      console.log('[GroupEmail] No contextMenu, returning early');
+      return;
+    }
 
     try {
       const db = getDatabase();
+      const groupId = contextMenu.group.id;
+      console.log('[GroupEmail] Querying for groupId:', groupId);
+
+      // Step 1: Check what's in vfsLinks for this group
+      const linksOnly = await db
+        .select({
+          linkId: vfsLinks.id,
+          parentId: vfsLinks.parentId,
+          childId: vfsLinks.childId
+        })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.parentId, groupId));
+      console.log('[GroupEmail] Step 1 - vfsLinks for group:', linksOnly);
+
+      // Step 2: Check if contacts exist with those childIds
+      if (linksOnly.length > 0) {
+        const childIds = linksOnly.map((l) => l.childId);
+        const contactsCheck = await db
+          .select({
+            id: contacts.id,
+            firstName: contacts.firstName,
+            deleted: contacts.deleted
+          })
+          .from(contacts)
+          .where(inArray(contacts.id, childIds));
+        console.log('[GroupEmail] Step 2 - contacts with those IDs:', contactsCheck);
+
+        // Step 3: Check emails for those contacts
+        const emailsCheck = await db
+          .select({
+            contactId: contactEmails.contactId,
+            email: contactEmails.email,
+            isPrimary: contactEmails.isPrimary
+          })
+          .from(contactEmails)
+          .where(inArray(contactEmails.contactId, childIds));
+        console.log('[GroupEmail] Step 3 - emails for those contacts:', emailsCheck);
+
+        // Step 3b: Check ALL emails in the database to see if they exist with different contactId
+        const allEmails = await db
+          .select({
+            contactId: contactEmails.contactId,
+            email: contactEmails.email,
+            isPrimary: contactEmails.isPrimary
+          })
+          .from(contactEmails);
+        console.log('[GroupEmail] Step 3b - ALL emails in database:', allEmails);
+      }
+
+      // Original query
       const groupEmails = await db
         .select({ email: contactEmails.email })
         .from(vfsLinks)
@@ -252,15 +306,22 @@ export function ContactsGroupsSidebar({
             eq(contactEmails.isPrimary, true)
           )
         )
-        .where(eq(vfsLinks.parentId, contextMenu.group.id))
+        .where(eq(vfsLinks.parentId, groupId))
         .orderBy(asc(contactEmails.email));
 
-      openComposeEmail(
-        groupEmails.map((row) => row.email),
-        openEmailComposer
+      console.log(
+        '[GroupEmail] Final query returned',
+        groupEmails.length,
+        'results:',
+        groupEmails
       );
+
+      const emails = groupEmails.map((row) => row.email);
+      console.log('[GroupEmail] Calling openComposeEmail with:', emails);
+      const result = openComposeEmail(emails, openEmailComposer);
+      console.log('[GroupEmail] openComposeEmail returned:', result);
     } catch (err) {
-      console.error('Failed to send group email:', err);
+      console.error('[GroupEmail] Failed to send group email:', err);
     } finally {
       queueCloseContextMenu();
     }
