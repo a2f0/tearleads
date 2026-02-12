@@ -207,7 +207,9 @@ describe('Calendar', () => {
     openRenameMenu();
     await user.click(screen.getByTestId('calendar-sidebar-item-rename'));
     expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Personal' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'Personal' })
+    ).toBeInTheDocument();
 
     promptSpy.mockRestore();
   });
