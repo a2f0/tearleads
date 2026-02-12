@@ -1,21 +1,21 @@
 {
-	"config": {
-		"default": true,
-		"MD013": false,
-		"MD033": false,
-		"MD041": false
-	},
-	"ignores": [
-		"node_modules",
-		"**/node_modules",
-		"dist",
-		"**/dist",
-		".git",
-		"**/.terraform",
-		"**/vendor",
-		"**/Pods",
-		"**/fastlane/README.md",
-		"**/playwright-report",
-		"**/test-results"
-	]
+  "config": {
+    "default": true,
+    "MD013": false,
+    "MD033": false,
+    "MD041": false
+  },
+  "ignores": [
+    "node_modules",
+    "**/node_modules",
+    "dist",
+    "**/dist",
+    ".git",
+    "**/.terraform",
+    "**/vendor",
+    "**/Pods",
+    "**/fastlane/README.md",
+    "**/playwright-report",
+    "**/test-results"
+  ]
 }

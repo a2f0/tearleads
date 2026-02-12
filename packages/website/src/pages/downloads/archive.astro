@@ -1,16 +1,12 @@
 ---
-import { defaultLanguage } from "../../i18n/config";
-import { getHref } from "../../i18n/utils";
-import Layout from "../../layouts/Layout.astro";
-import {
-	getDownloadUrl,
-	getReleases,
-	PLATFORM_LABELS,
-} from "../../utils/downloads";
+import Layout from '../../layouts/Layout.astro';
+import { defaultLanguage } from '../../i18n/config';
+import { getHref } from '../../i18n/utils';
+import { getDownloadUrl, getReleases, PLATFORM_LABELS } from '../../utils/downloads';
 
 const currentLang = defaultLanguage;
 const allReleases = getReleases();
-const platforms = ["macos", "windows", "linux"] as const;
+const platforms = ['macos', 'windows', 'linux'] as const;
 ---
 
 <Layout title="Download Archive - Tearleads" lang={currentLang}>

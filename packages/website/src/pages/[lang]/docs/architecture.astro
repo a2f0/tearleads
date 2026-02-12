@@ -1,22 +1,20 @@
 ---
-import type { SupportedLanguage } from "../../../i18n/config";
-import { defaultLanguage, isSupportedLanguage } from "../../../i18n/config";
-import { getStaticPathsForLocales } from "../../../i18n/utils";
-import DocPageLayout from "../../../layouts/DocPageLayout.astro";
-import Layout from "../../../layouts/Layout.astro";
+import Layout from '../../../layouts/Layout.astro';
+import DocPageLayout from '../../../layouts/DocPageLayout.astro';
+import { isSupportedLanguage, defaultLanguage } from '../../../i18n/config';
+import type { SupportedLanguage } from '../../../i18n/config';
+import { getStaticPathsForLocales } from '../../../i18n/utils';
 
 export const getStaticPaths = getStaticPathsForLocales;
 
 const { lang } = Astro.params;
-const currentLang: SupportedLanguage = isSupportedLanguage(lang)
-	? lang
-	: defaultLanguage;
+const currentLang: SupportedLanguage = isSupportedLanguage(lang) ? lang : defaultLanguage;
 
 // Dynamic import based on locale
 const docs: Record<SupportedLanguage, () => Promise<{ Content: any }>> = {
-	en: () => import("../../../../../../docs/en/encryption-architecture.md"),
-	es: () => import("../../../../../../docs/es/encryption-architecture.md"),
-	ua: () => import("../../../../../../docs/ua/encryption-architecture.md"),
+  en: () => import('../../../../../../docs/en/encryption-architecture.md'),
+  es: () => import('../../../../../../docs/es/encryption-architecture.md'),
+  ua: () => import('../../../../../../docs/ua/encryption-architecture.md'),
 };
 
 const { Content } = await docs[currentLang]();

@@ -1,40 +1,40 @@
 {
-	"name": "@tearleads/smtp-listener",
-	"version": "0.0.1",
-	"description": "SMTP listener for receiving and storing emails",
-	"main": "dist/index.js",
-	"type": "module",
-	"files": [
-		"dist"
-	],
-	"scripts": {
-		"dev": "tsx ../../scripts/killPnpmDev.ts && tsx watch --clear-screen=false src/main.ts",
-		"build": "tsc",
-		"build:bundle": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
-		"clean": "rm -rf dist",
-		"start": "node dist/server.cjs",
-		"test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-		"test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
-	},
-	"keywords": [
-		"smtp",
-		"email",
-		"listener"
-	],
-	"author": "",
-	"license": "UNLICENSED",
-	"dependencies": {
-		"@tearleads/shared": "workspace:*",
-		"smtp-server": "3.18.1"
-	},
-	"devDependencies": {
-		"@types/node": "25.2.3",
-		"@types/smtp-server": "3.5.12",
-		"@vitest/coverage-v8": "4.0.18",
-		"esbuild": "0.27.3",
-		"tsx": "4.21.0",
-		"typescript": "5.9.3",
-		"vitest": "4.0.18",
-		"vitest-fail-on-console": "0.10.1"
-	}
+  "name": "@tearleads/smtp-listener",
+  "version": "0.0.1",
+  "description": "SMTP listener for receiving and storing emails",
+  "main": "dist/index.js",
+  "type": "module",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "dev": "tsx ../../scripts/killPnpmDev.ts && tsx watch --clear-screen=false src/main.ts",
+    "build": "tsc",
+    "build:bundle": "esbuild src/main.ts --bundle --platform=node --target=node22 --format=cjs --outfile=dist/server.cjs --minify --sourcemap",
+    "clean": "rm -rf dist",
+    "start": "node dist/server.cjs",
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+  },
+  "keywords": [
+    "smtp",
+    "email",
+    "listener"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@tearleads/shared": "workspace:*",
+    "smtp-server": "3.18.1"
+  },
+  "devDependencies": {
+    "@types/node": "25.2.3",
+    "@types/smtp-server": "3.5.12",
+    "@vitest/coverage-v8": "4.0.18",
+    "esbuild": "0.27.3",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18",
+    "vitest-fail-on-console": "0.10.1"
+  }
 }
