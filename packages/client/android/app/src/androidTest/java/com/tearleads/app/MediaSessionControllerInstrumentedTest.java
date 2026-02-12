@@ -49,9 +49,10 @@ public class MediaSessionControllerInstrumentedTest {
     }
 
     @Test
-    public void transportControls_emitExpectedActions() throws Exception {
+    public void transportControls_emitExpectedActions() throws InterruptedException {
+        final int TRANSPORT_ACTION_COUNT = 7;
         final List<TransportEvent> events = new CopyOnWriteArrayList<>();
-        CountDownLatch latch = new CountDownLatch(7);
+        CountDownLatch latch = new CountDownLatch(TRANSPORT_ACTION_COUNT);
 
         mediaSessionController.setTransportActionListener((action, positionMs, mediaId) -> {
             events.add(new TransportEvent(action, positionMs, mediaId));
@@ -75,7 +76,7 @@ public class MediaSessionControllerInstrumentedTest {
             "Timed out waiting for media transport callbacks",
             latch.await(5, TimeUnit.SECONDS)
         );
-        assertEquals(7, events.size());
+        assertEquals(TRANSPORT_ACTION_COUNT, events.size());
         assertEquals("play", events.get(0).action);
         assertEquals("pause", events.get(1).action);
         assertEquals("next", events.get(2).action);
