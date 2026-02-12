@@ -57,8 +57,12 @@ export const vfsTestMigrations = [
       await adapter.execute(`
         CREATE TABLE IF NOT EXISTS contacts (
           id TEXT PRIMARY KEY,
-          first_name TEXT,
-          last_name TEXT
+          first_name TEXT NOT NULL DEFAULT '',
+          last_name TEXT,
+          birthday TEXT,
+          created_at INTEGER NOT NULL DEFAULT 0,
+          updated_at INTEGER NOT NULL DEFAULT 0,
+          deleted INTEGER NOT NULL DEFAULT 0
         )
       `);
       await adapter.execute(`

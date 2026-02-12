@@ -161,14 +161,14 @@ describe('ContactsGroupsSidebar', () => {
       const chainable: Record<string, unknown> = {};
       chainable['from'] = () => chainable;
       chainable['innerJoin'] = () => chainable;
-      chainable['where'] = () => {
-        // First two calls are from updateGroupCounts (returns counts for 2 groups)
-        // Third call is from sendEmail (returns emails via orderBy)
-        if (selectCallCount <= 2) {
-          return Promise.resolve([{ count: 2 }]);
-        }
-        return chainable;
-      };
+      chainable['where'] = () => chainable;
+      // First call: updateGroupCounts uses groupBy
+      chainable['groupBy'] = () =>
+        Promise.resolve([
+          { groupId: 'group-1', count: 2 },
+          { groupId: 'group-2', count: 3 }
+        ]);
+      // Second call: sendEmail uses orderBy
       chainable['orderBy'] = () =>
         Promise.resolve([
           { email: 'family@example.com' },

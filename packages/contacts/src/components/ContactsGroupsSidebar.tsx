@@ -1,4 +1,5 @@
 import { contactEmails, contacts, vfsLinks } from '@tearleads/db/sqlite';
+import { inArray } from 'drizzle-orm';
 import {
   useResizableSidebar,
   useSidebarDragOver,
@@ -126,27 +127,24 @@ export function ContactsGroupsSidebar({
       try {
         const db = getDatabase();
         const uniqueIds = Array.from(new Set(groupIds));
-        const counts = await Promise.all(
-          uniqueIds.map(async (groupId) => {
-            const [{ count } = { count: 0 }] = await db
-              .select({
-                count: sql<number>`COUNT(*)`.mapWith(Number)
-              })
-              .from(vfsLinks)
-              .innerJoin(
-                contacts,
-                and(
-                  eq(contacts.id, vfsLinks.childId),
-                  eq(contacts.deleted, false)
-                )
-              )
-              .where(eq(vfsLinks.parentId, groupId));
-            return { groupId, count };
+        const countsResult = await db
+          .select({
+            groupId: vfsLinks.parentId,
+            count: sql<number>`COUNT(*)`.mapWith(Number)
           })
-        );
+          .from(vfsLinks)
+          .innerJoin(
+            contacts,
+            and(
+              eq(contacts.id, vfsLinks.childId),
+              eq(contacts.deleted, false)
+            )
+          )
+          .where(inArray(vfsLinks.parentId, uniqueIds))
+          .groupBy(vfsLinks.parentId);
         setGroupCounts((prev) => {
           const next = { ...prev };
-          for (const { groupId, count } of counts) {
+          for (const { groupId, count } of countsResult) {
             next[groupId] = count;
           }
           return next;

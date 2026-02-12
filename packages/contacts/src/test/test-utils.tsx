@@ -31,7 +31,8 @@ export const createMockDatabase = (): MockDb => {
   const chainable = {
     from: vi.fn(() => chainable),
     innerJoin: vi.fn(() => chainable),
-    where: vi.fn(() => Promise.resolve([{ count: 0 }])),
+    where: vi.fn(() => chainable),
+    groupBy: vi.fn(() => Promise.resolve([])),
     orderBy: vi.fn(() => Promise.resolve([]))
   };
   const mockDb: MockDb = {
