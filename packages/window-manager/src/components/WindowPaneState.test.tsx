@@ -37,4 +37,20 @@ describe('WindowPaneState', () => {
       'text-destructive'
     );
   });
+
+  it('renders action slot', () => {
+    render(
+      <WindowPaneState
+        title="Empty state"
+        action={
+          <button type="button" data-testid="action-button">
+            Create
+          </button>
+        }
+      />
+    );
+
+    expect(screen.getByTestId('action-button')).toBeInTheDocument();
+    expect(screen.getByText('Create')).toBeInTheDocument();
+  });
 });

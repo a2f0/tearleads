@@ -2,7 +2,7 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { notes } from '@tearleads/db/sqlite';
 import { WindowPaneState } from '@tearleads/window-manager';
 import { desc, eq } from 'drizzle-orm';
-import { Loader2, StickyNote } from 'lucide-react';
+import { Loader2, Plus, StickyNote } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type NoteInfo,
@@ -249,11 +249,7 @@ export function NotesWindowList({
 
       {!isLoading && !isUnlocked && <InlineUnlock description="notes" />}
 
-      {error && (
-        <div className="whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
-          {error}
-        </div>
-      )}
+      {error && <WindowPaneState layout="inline" tone="error" title={error} />}
 
       {isUnlocked &&
         !error &&
@@ -274,6 +270,7 @@ export function NotesWindowList({
                 onClick={handleCreateNote}
                 data-testid="window-empty-create-note"
               >
+                <Plus className="mr-1 h-3 w-3" />
                 Create
               </Button>
             }
