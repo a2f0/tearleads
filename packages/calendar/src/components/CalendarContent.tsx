@@ -525,7 +525,7 @@ export function CalendarContent({
                 }
               )}`}
               className={clsx(
-                'h-12 rounded-md border px-1 py-1 text-right text-sm',
+                'flex aspect-square items-start justify-end rounded-md border px-1 py-1 text-sm',
                 inMonth
                   ? 'border-border bg-background'
                   : 'border-border/60 bg-muted/20 text-muted-foreground',
