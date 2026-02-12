@@ -25,6 +25,9 @@ Track these state flags:
 - `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini reports its daily quota limit.
 - `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback review via Claude Code.
 - `associated_issue_number`: Number or null. Track the issue to mark `needs-qa` after merge.
+- `is_rollup_pr`: Boolean, starts `false`. Set to `true` if base branch is not `main`/`master`. Roll-up PRs must wait for their base PR to merge first.
+- `base_pr_number`: Number or null. For roll-up PRs, the PR number associated with the base branch.
+- `original_base_ref`: String or null. For roll-up PRs, stores the original base branch name before retargeting to main.
 - `job_failure_counts`: Map of job name → failure count. Tracks how many times each job has failed. Reset when job succeeds or PR is rebased.
 - `current_run_id`: Number or null. The workflow run ID being monitored.
 
@@ -44,6 +47,17 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    - Store `baseRefName` for rebase.
    - Detect `high-priority` label.
+
+   **Roll-up PR detection**: Check if `baseRefName` is `main` or `master`. If NOT:
+   - This is a **roll-up PR** that depends on another PR merging first
+   - Set `is_rollup_pr = true` and `original_base_ref = baseRefName`
+   - Find the base PR: `gh pr list --head <baseRefName> --state open --json number --jq '.[0].number' -R "$REPO"`
+   - If a PR is found, store it as `base_pr_number`
+   - If no open PR is found for the base branch, check if it was already merged:
+     - `gh pr list --head <baseRefName> --state merged --json number --jq '.[0].number' -R "$REPO"`
+     - If merged, proceed as normal (the roll-up PR's base will be updated by GitHub)
+   - Log: "Roll-up PR detected. Base PR: #<base_pr_number> (<baseRefName>)"
+
    - If all files are non-code types, set `gemini_can_review = false`:
      - Docs: `.md`, `.txt`, `.rst`
      - Assets: `.png`, `.jpg`, `.svg`, `.ico`, `.gif`
@@ -60,13 +74,50 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
 3. Main loop until PR is merged:
 
-   4a. Yield to high-priority PRs unless the current PR has `high-priority`.
+   4a. Wait for base PR (roll-up PRs only).
+
+   **Skip this step if `is_rollup_pr` is `false`.**
+
+   If this is a roll-up PR, the base PR must merge before this PR can proceed:
+
+   ```bash
+   gh pr view <base_pr_number> --json state,mergeStateStatus -R "$REPO"
+   ```
+
+   **If base PR `state` is `MERGED`**:
+   - Log: "Base PR #<base_pr_number> has merged. Retargeting to main."
+   - GitHub automatically retargets the roll-up PR to `main` when the base PR merges
+   - Refresh PR info to get updated `baseRefName`: `gh pr view "$PR_NUMBER" --json baseRefName -R "$REPO"`
+   - Set `is_rollup_pr = false` (now a normal PR targeting main)
+   - Rebase onto main to incorporate base PR changes:
+
+     ```bash
+     git fetch origin main >/dev/null
+     git rebase origin/main >/dev/null
+     git push --force-with-lease >/dev/null
+     ```
+
+   - Continue to step 4b
+
+   **If base PR `state` is `OPEN`**:
+   - Check `mergeStateStatus`:
+     - If `CLEAN` or `BLOCKED` or `UNKNOWN`: Base PR is progressing, wait for it
+     - If `DIRTY`: Base PR has conflicts - alert user: "Base PR #<base_pr_number> has conflicts. Please resolve before this roll-up can proceed."
+     - If `BEHIND`: Base PR needs to update - this is normal, wait for it
+   - Log: "Waiting for base PR #<base_pr_number> to merge (status: <mergeStateStatus>)"
+   - Wait 2 minutes (with jitter) and repeat this step
+
+   **If base PR `state` is `CLOSED`** (not merged):
+   - Alert user: "Base PR #<base_pr_number> was closed without merging. This roll-up PR cannot proceed."
+   - Stop and ask user for guidance
+
+   4b. Yield to high-priority PRs unless the current PR has `high-priority`.
 
    - List high-priority PRs and check their `mergeStateStatus`.
    - Yield if any high-priority PR is `CLEAN`, `BLOCKED`, `UNKNOWN`, `UNSTABLE`, or `HAS_HOOKS`.
    - Skip yielding if all high-priority PRs are `DIRTY`.
 
-   4b. Check merge status:
+   4c. Check merge status:
 
    ```bash
    gh pr view "$PR_NUMBER" --json state,mergeStateStatus,mergeable -R "$REPO"
@@ -74,11 +125,11 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    - `MERGED`: exit loop.
    - `BEHIND`: continue waiting for checks/merge queue unless a rebase is explicitly needed for another reason.
-   - `BLOCKED` or `UNKNOWN`: handle Gemini feedback while waiting for CI (4d/4e).
-   - `CLEAN`: enable auto-merge (4f).
+   - `BLOCKED` or `UNKNOWN`: handle Gemini feedback while waiting for CI (4e/4f).
+   - `CLEAN`: enable auto-merge (4g).
    - **Note**: You can merge your own PRs once required checks pass and Gemini feedback is fully addressed. If blocked, confirm those conditions before waiting longer.
 
-   4c. Rebase on base:
+   4d. Rebase on base:
 
    ```bash
    git fetch origin <baseRefName> >/dev/null
@@ -105,7 +156,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    git push --force-with-lease >/dev/null
    ```
 
-   4d. Address Gemini feedback (parallel with CI):
+   4e. Address Gemini feedback (parallel with CI):
 
    **IMPORTANT**: Do NOT wait for CI to complete before addressing Gemini feedback. Handle Gemini feedback while CI is running to maximize efficiency.
 
@@ -152,9 +203,9 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups for this session and use the one-time Claude fallback review described above.
    - Never use `gh pr review` or GraphQL review comment mutations to reply (they create pending reviews).
    - Include relevant commit hashes in replies (not just titles).
-   - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4e and handle remaining Gemini feedback in parallel.
+   - **Do NOT wait for all threads to be resolved before proceeding to CI monitoring** - continue to step 4f and handle remaining Gemini feedback in parallel.
 
-   4e. Wait for CI with early job failure detection:
+   4f. Wait for CI with early job failure detection:
 
    **Poll individual job statuses** to detect failures early instead of waiting for the entire workflow.
 
@@ -204,12 +255,12 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
           gh run cancel $RUN_ID -R "$REPO"
           ```
 
-   4. If all jobs succeeded → continue to 4f
+   4. If all jobs succeeded → continue to 4g
       If any jobs running → continue polling
 
    When CI is cancelled externally: `gh run rerun $RUN_ID -R "$REPO"`
 
-   4f. Enable auto-merge and continue looping until merged:
+   4g. Enable auto-merge and continue looping until merged:
 
    Do not perform version bumps in this loop; they are owned by `main` CI after merge.
 
@@ -226,10 +277,10 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    After enabling auto-merge, do NOT exit. Continue polling in the main loop:
    - If `MERGED`: exit loop.
    - If `BEHIND`: continue monitoring and only rebase if explicitly needed for another reason.
-   - If `BLOCKED`/`UNKNOWN`: resume 4d/4e.
+   - If `BLOCKED`/`UNKNOWN`: resume 4e/4f.
    - If `CLEAN`: keep auto-merge enabled and continue.
 
-   Optimization: after 4f, poll more frequently for a short window to catch new base changes quickly:
+   Optimization: after 4g, poll more frequently for a short window to catch new base changes quickly:
    - First 5 minutes after enabling auto-merge: poll merge state every 30 seconds (with jitter).
    - After 5 minutes: fall back to normal polling cadence.
 

@@ -30,6 +30,36 @@ Script exits early on dependency hygiene checks—fix then rerun:
 - Pinned `peerDependencies` must match `packages/client/package.json` versions. Align the peer versions to the client version before rerunning.
 - `@capacitor/*` versions in `packages/client/package.json` must match the resolved versions in `packages/client/ios/App/Podfile.lock` (when present). Align and rerun sync/pod install if mismatched.
 
+## Fastlane and Ruby Gems Update
+
+Fastlane and other Ruby gems should be updated as part of the dependency update process:
+
+```bash
+cd packages/client
+bundle update fastlane
+```
+
+To update all gems (not just fastlane):
+
+```bash
+cd packages/client
+bundle update
+```
+
+**When to update fastlane**: Always check for fastlane updates when:
+- Running a full dependency update
+- Encountering App Store Connect API errors
+- Seeing deprecation warnings from fastlane actions
+
+**Verify the update**: After updating, run a dry-run to ensure fastlane still works:
+
+```bash
+cd packages/client
+bundle exec fastlane ios build_release --dry_run
+```
+
+**Important**: The `Gemfile.lock` must be committed along with other dependency changes.
+
 ## Node.js Version Alignment (Electron)
 
 When updating `electron`, align Node.js versions:

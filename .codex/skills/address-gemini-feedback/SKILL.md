@@ -31,34 +31,43 @@ Always pass `-R "$REPO"` where supported.
 gh pr view --json number,title,url,headRefName,baseRefName -R "$REPO"
 ```
 
-1. Fetch unresolved review threads (GraphQL, paginate as needed):
+1. Fetch unresolved review threads (GraphQL, paginate as needed).
 
-```bash
-gh api graphql -f query='\
-  query($owner: String!, $repo: String!, $pr: Int!) {\
-    repository(owner: $owner, name: $repo) {\
-      pullRequest(number: $pr) {\
-        reviewThreads(first: 50) {\
-          nodes {\
-            id\
-            isResolved\
-            path\
-            line\
-            comments(first: 10) {\
-              nodes {\
-                id\
-                databaseId\
-                author { login }\
-                body\
-              }\
-            }\
-          }\
-          pageInfo { hasNextPage endCursor }\
-        }\
-      }\
-    }\
-  }' -f owner=OWNER -f repo=REPO -F pr=PR_NUMBER
-```
+   **IMPORTANT**: Do NOT pass the query inline with `-f query='...'` as the shell mangles special characters. Write the query to a temp file first:
+
+   ```bash
+   cat > /tmp/gemini-threads.graphql <<'EOF'
+   query($owner: String!, $repo: String!, $pr: Int!) {
+     repository(owner: $owner, name: $repo) {
+       pullRequest(number: $pr) {
+         reviewThreads(first: 50) {
+           nodes {
+             id
+             isResolved
+             path
+             line
+             comments(first: 10) {
+               nodes {
+                 id
+                 databaseId
+                 author { login }
+                 body
+               }
+             }
+           }
+           pageInfo { hasNextPage endCursor }
+         }
+       }
+     }
+   }
+   EOF
+   ```
+
+   Then run:
+
+   ```bash
+   gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=OWNER -f repo=REPO -F pr=$PR_NUMBER
+   ```
 
 1. Implement fixes for important unresolved feedback.
 

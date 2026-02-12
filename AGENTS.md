@@ -130,6 +130,7 @@ If conflicts are on the exact same lines and truly incompatible, abort and ask f
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
+- **Use merge commits**: When creating PRs or enabling automerge, use merge commits (not squash). Use `gh pr merge --merge --auto` for automerge.
 
 ## Token Efficiency (CRITICAL)
 
@@ -164,9 +165,9 @@ git push --force-with-lease      # WRONG - wastes tokens
 - **Don't re-read files**: If you read a file once, don't read it again unless it changed
 - **Batch related operations**: Combine status updates rather than outputting each individually
 
-## Managing Claude Code Skills
+## Managing Codex Skills
 
-The `.claude/commands/` folder contains reusable skills (slash commands). Each workspace uses its own `.claude` folder from the repo.
+The `.codex/skills/` folder contains reusable skills. Each workspace uses its own `.codex` folder from the repo.
 
 ## PR Thread Replies (CRITICAL)
 
@@ -179,7 +180,7 @@ The `.claude/commands/` folder contains reusable skills (slash commands). Each w
 
 ### Adding, modifying, or deleting a skill
 
-Skills are version-controlled like any other file. Create, edit, or delete files in `.claude/commands/` and commit as normal.
+Skills are version-controlled like any other file. Create, edit, or delete files in `.codex/skills/` and commit as normal.
 
 ## Script Naming
 

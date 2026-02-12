@@ -15,7 +15,7 @@ Update all of the dependencies in the `packages` folder and:
 - Provide a summary of any warnings / deprecations.
 - Make sure Capacitor's Podfile.lock is sync'd (`cap:sync` should pass).
 - Clean and reinstall CocoaPods to ensure fresh native dependencies (see CocoaPods section below).
-- Update Ruby dependencies in `packages/client` (Gemfile and Gemfile.lock).
+- Update Ruby dependencies in `packages/client` (Gemfile and Gemfile.lock), including fastlane.
 - Update the Gradle wrapper if a new version is available (see Gradle Version Update section below).
 - Make sure Maestro tests pass (both iOS and Android).
 - Commit and push changes using `/commit-and-push`.
@@ -58,6 +58,36 @@ This ensures:
 **Important**: The regenerated `Podfile.lock` must be committed along with other dependency changes. Always verify `packages/client/ios/App/Podfile.lock` is staged before committing.
 
 Skip with `SKIP_POD_CLEAN=1` if you need to preserve local pod modifications.
+
+## Fastlane and Ruby Gems Update
+
+Fastlane and other Ruby gems should be updated as part of the dependency update process:
+
+```bash
+cd packages/client
+bundle update fastlane
+```
+
+To update all gems (not just fastlane):
+
+```bash
+cd packages/client
+bundle update
+```
+
+**When to update fastlane**: Always check for fastlane updates when:
+- Running a full dependency update
+- Encountering App Store Connect API errors
+- Seeing deprecation warnings from fastlane actions
+
+**Verify the update**: After updating, run a dry-run to ensure fastlane still works:
+
+```bash
+cd packages/client
+bundle exec fastlane ios build_release --dry_run
+```
+
+**Important**: The `Gemfile.lock` must be committed along with other dependency changes.
 
 ## Node.js Version Alignment
 
