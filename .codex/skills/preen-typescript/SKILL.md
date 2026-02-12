@@ -88,7 +88,7 @@ if (isUser(response.data)) {
 }
 ```
 
-2. **Use assertion functions**: For cases where you want to throw on invalid data
+1. **Use assertion functions**: For cases where you want to throw on invalid data
 
 ```typescript
 function assertIsUser(value: unknown): asserts value is User {
@@ -98,7 +98,7 @@ function assertIsUser(value: unknown): asserts value is User {
 }
 ```
 
-3. **Fix the source**: Often the upstream type is wrong and should be fixed there
+1. **Fix the source**: Often the upstream type is wrong and should be fixed there
 
 ### Eliminating `@ts-ignore` / `@ts-expect-error`
 
