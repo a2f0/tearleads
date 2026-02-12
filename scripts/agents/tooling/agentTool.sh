@@ -21,6 +21,7 @@ Actions:
   setVscodeTitle
   addLabel
   approveSkippedChecks
+  tagPrWithTuxedoInstance
 
 Options:
   --title <value>          Title to set (optional for setVscodeTitle)
@@ -129,7 +130,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$ACTION" in
-    refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview|addLabel|approveSkippedChecks) ;;
+    refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview|addLabel|approveSkippedChecks|tagPrWithTuxedoInstance) ;;
     *)
         echo "Error: Unknown action '$ACTION'." >&2
         usage >&2
@@ -190,8 +191,8 @@ case "$ACTION" in
     solicitCodexReview|solicitClaudeCodeReview|approveSkippedChecks)
         SCRIPT="$REPO_ROOT/scripts/$ACTION.sh"
         ;;
-    addLabel)
-        SCRIPT="$AGENTS_DIR/addLabel.sh"
+    addLabel|tagPrWithTuxedoInstance)
+        SCRIPT="$AGENTS_DIR/$ACTION.sh"
         ;;
     *)
         SCRIPT="$AGENTS_DIR/$ACTION.sh"
@@ -211,7 +212,7 @@ fi
 if [ "$ACTION" = "solicitCodexReview" ] || [ "$ACTION" = "solicitClaudeCodeReview" ]; then
     SAFETY_CLASS="safe_read"
 fi
-if [ "$ACTION" = "addLabel" ]; then
+if [ "$ACTION" = "addLabel" ] || [ "$ACTION" = "tagPrWithTuxedoInstance" ]; then
     SAFETY_CLASS="safe_write_remote"
 fi
 

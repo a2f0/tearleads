@@ -60,6 +60,12 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
 1. **Verify PR exists and check file types**: Run `gh pr view "$PR_NUMBER" --json number,title,headRefName,baseRefName,url,state,labels,files,body -R "$REPO"` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
 
+   **Tag with tuxedo instance**: Tag the PR with the current workspace name:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance
+   ```
+
    **Roll-up PR detection**: Check if `baseRefName` is `main` or `master`. If NOT:
    - This is a **roll-up PR** that depends on another PR merging first
    - Set `is_rollup_pr = true` and `original_base_ref = baseRefName`
