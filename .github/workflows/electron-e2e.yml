@@ -39,7 +39,7 @@ jobs:
           tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_RUN="$(jq -r '.jobs["electron-e2e"].run' ci-impact.json)"
           echo "should-run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
-          echo "impact-json<<'JSON'" >> "$GITHUB_OUTPUT"
+          echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"
           cat ci-impact.json >> "$GITHUB_OUTPUT"
           echo "JSON" >> "$GITHUB_OUTPUT"
 
@@ -54,7 +54,7 @@ jobs:
   electron-e2e:
     name: Electron E2E Tests (Release)
     needs: detect-impact
-    if: ${{ github.event_name != 'pull_request' || needs.detect-impact.outputs.should-run == 'true' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
