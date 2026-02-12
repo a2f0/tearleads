@@ -196,6 +196,12 @@ export const userOrganizationsTable: TableDefinition = {
       type: 'timestamp',
       sqlName: 'joined_at',
       notNull: true
+    },
+    isAdmin: {
+      type: 'boolean',
+      sqlName: 'is_admin',
+      notNull: true,
+      defaultValue: false
     }
   },
   indexes: [{ name: 'user_organizations_org_idx', columns: ['organizationId'] }]
