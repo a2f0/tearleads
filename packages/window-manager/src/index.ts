@@ -10,6 +10,13 @@ export {
   type WindowContextMenuItemProps,
   type WindowContextMenuProps,
   type WindowDimensions,
+  WindowSidebarError,
+  type WindowSidebarErrorProps,
+  WindowSidebarHeader,
+  type WindowSidebarHeaderProps,
+  WindowSidebarItem,
+  type WindowSidebarItemProps,
+  WindowSidebarLoading,
   WindowStatusBar,
   type WindowStatusBarProps,
   WindowTableRow,
@@ -29,8 +36,10 @@ export {
 export {
   type Corner,
   type UseResizableSidebarResult,
+  type UseSidebarDragOverResult,
   useFloatingWindow,
-  useResizableSidebar
+  useResizableSidebar,
+  useSidebarDragOver
 } from './hooks/index.js';
 
 // Utilities

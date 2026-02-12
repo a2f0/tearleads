@@ -1,17 +1,21 @@
 import {
   useResizableSidebar,
-  WindowContextMenu
+  useSidebarDragOver,
+  WindowContextMenu,
+  WindowSidebarError,
+  WindowSidebarHeader,
+  WindowSidebarItem,
+  WindowSidebarLoading
 } from '@tearleads/window-manager';
-import { ImagePlus, Images, Loader2, Plus } from 'lucide-react';
+import { ImagePlus, Images, Plus } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { filterFilesByAccept } from '@/lib/file-filter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
-import { cn, detectPlatform } from '@/lib/utils';
+import { detectPlatform } from '@/lib/utils';
 import { DeleteAlbumDialog } from './DeleteAlbumDialog';
 import { NewAlbumDialog } from './NewAlbumDialog';
 import { RenameAlbumDialog } from './RenameAlbumDialog';
 import { type PhotoAlbum, usePhotoAlbums } from './usePhotoAlbums';
-
 // Special ID for showing all photos
 export const ALL_PHOTOS_ID = '__all__';
 
@@ -54,8 +58,8 @@ export function PhotosAlbumsSidebar({
     usePhotoAlbums();
 
   // Track which album is being dragged over for visual feedback
-  const [dragOverAlbumId, setDragOverAlbumId] = useState<string | null>(null);
-  const dragCounterRef = useRef<Record<string, number>>({});
+  const { dragOverId, handleDragEnter, handleDragLeave, clearDragState } =
+    useSidebarDragOver();
   const platform = detectPlatform();
   const isNativePlatform = platform === 'ios' || platform === 'android';
 
@@ -74,13 +78,9 @@ export function PhotosAlbumsSidebar({
       e.preventDefault();
       e.stopPropagation();
 
-      dragCounterRef.current[albumId] =
-        (dragCounterRef.current[albumId] ?? 0) + 1;
-      if (dragCounterRef.current[albumId] === 1) {
-        setDragOverAlbumId(albumId);
-      }
+      handleDragEnter(albumId);
     },
-    [onDropToAlbum, isNativePlatform]
+    [onDropToAlbum, isNativePlatform, handleDragEnter]
   );
 
   const handleAlbumDragLeave = useCallback(
@@ -89,13 +89,9 @@ export function PhotosAlbumsSidebar({
       e.preventDefault();
       e.stopPropagation();
 
-      dragCounterRef.current[albumId] =
-        (dragCounterRef.current[albumId] ?? 0) - 1;
-      if (dragCounterRef.current[albumId] === 0) {
-        setDragOverAlbumId(null);
-      }
+      handleDragLeave(albumId);
     },
-    [onDropToAlbum, isNativePlatform]
+    [onDropToAlbum, isNativePlatform, handleDragLeave]
   );
 
   const handleAlbumDrop = useCallback(
@@ -105,8 +101,7 @@ export function PhotosAlbumsSidebar({
       e.stopPropagation();
 
       // Reset drag state
-      dragCounterRef.current[albumId] = 0;
-      setDragOverAlbumId(null);
+      clearDragState(albumId);
 
       const photoIds = getMediaDragIds(e.dataTransfer, 'image');
       if (photoIds.length > 0) {
@@ -122,7 +117,7 @@ export function PhotosAlbumsSidebar({
         void onDropToAlbum(albumId, imageFiles);
       }
     },
-    [onDropToAlbum, isNativePlatform]
+    [onDropToAlbum, isNativePlatform, clearDragState]
   );
 
   // Dialog states
@@ -196,80 +191,52 @@ export function PhotosAlbumsSidebar({
       className="relative flex shrink-0 flex-col border-r bg-muted/20"
       style={{ width }}
     >
-      <div className="flex items-center justify-between border-b px-3 py-2">
-        <span className="font-medium text-muted-foreground text-xs">
-          Albums
-        </span>
-        <button
-          type="button"
-          onClick={() => setNewAlbumDialogOpen(true)}
-          className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
-          title="New Album"
-        >
-          <ImagePlus className="h-4 w-4" />
-        </button>
-      </div>
+      <WindowSidebarHeader
+        title="Albums"
+        actionLabel="New Album"
+        onAction={() => setNewAlbumDialogOpen(true)}
+        actionIcon={<ImagePlus className="h-4 w-4" />}
+      />
       {/* biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space */}
       <div
         className="flex-1 overflow-y-auto p-1"
         onContextMenu={handleEmptySpaceContextMenu}
       >
         {/* All Photos - always shown */}
-        <button
-          type="button"
-          className={cn(
-            'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
+        <WindowSidebarItem
+          label="All Photos"
+          icon={<Images className="h-4 w-4 shrink-0 text-success" />}
+          selected={
             selectedAlbumId === ALL_PHOTOS_ID || selectedAlbumId === null
-              ? 'bg-accent text-accent-foreground'
-              : 'hover:bg-accent/50'
-          )}
-          style={{ paddingLeft: '8px' }}
+          }
           onClick={() => onAlbumSelect(ALL_PHOTOS_ID)}
-        >
-          <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-          <Images className="h-4 w-4 shrink-0 text-success" />
-          <span className="truncate">All Photos</span>
-        </button>
+          leadingSpacer
+        />
 
-        {loading && (
-          <div className="flex items-center justify-center py-4">
-            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
-        )}
-        {error && (
-          <div className="px-2 py-4 text-center text-destructive text-xs">
-            {error}
-          </div>
-        )}
+        {loading && <WindowSidebarLoading />}
+        {error && <WindowSidebarError message={error} />}
         {!loading &&
           !error &&
           albums.map((album) => (
-            <button
+            <WindowSidebarItem
               key={album.id}
-              type="button"
-              className={cn(
-                'flex w-full items-center gap-1 rounded px-2 py-1 text-left text-sm transition-colors',
-                selectedAlbumId === album.id
-                  ? 'bg-accent text-accent-foreground'
-                  : 'hover:bg-accent/50',
-                dragOverAlbumId === album.id &&
-                  'bg-primary/10 ring-2 ring-primary ring-inset'
-              )}
-              style={{ paddingLeft: '8px' }}
+              label={album.name}
+              icon={<Images className="h-4 w-4 shrink-0 text-success" />}
+              selected={selectedAlbumId === album.id}
+              className={
+                dragOverId === album.id
+                  ? 'bg-primary/10 ring-2 ring-primary ring-inset'
+                  : undefined
+              }
               onClick={() => onAlbumSelect(album.id)}
               onContextMenu={(e) => handleContextMenu(e, album)}
               onDragOver={(e) => handleAlbumDragOver(e, album.id)}
               onDragEnter={(e) => handleAlbumDragEnter(e, album.id)}
               onDragLeave={(e) => handleAlbumDragLeave(e, album.id)}
               onDrop={(e) => handleAlbumDrop(e, album.id)}
-            >
-              <span className="flex h-4 w-4 shrink-0 items-center justify-center" />
-              <Images className="h-4 w-4 shrink-0 text-success" />
-              <span className="flex-1 truncate">{album.name}</span>
-              <span className="text-muted-foreground text-xs">
-                {album.photoCount}
-              </span>
-            </button>
+              count={album.photoCount}
+              leadingSpacer
+            />
           ))}
       </div>
       {/* Resize handle */}
