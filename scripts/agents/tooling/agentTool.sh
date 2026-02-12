@@ -15,20 +15,13 @@ Usage:
   agentTool.sh <action> [options]
 
 Actions:
-  cleanup
-  clearQueued
-  clearStatus
   refresh
   solicitClaudeCodeReview
   solicitCodexReview
-  setQueued
-  setReady
-  setWaiting
-  setWorking
   setVscodeTitle
 
 Options:
-  --title <value>          Title to set (required for setQueued, optional for setVscodeTitle)
+  --title <value>          Title to set (optional for setVscodeTitle)
   --timeout-seconds <n>    Timeout in seconds (default: 300, refresh: 3600)
   --repo-root <path>       Execute from this repo root instead of auto-detecting
   --dry-run                Validate and report without executing the target script
@@ -113,18 +106,13 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$ACTION" in
-    cleanup|clearQueued|clearStatus|refresh|setQueued|setReady|setWaiting|setWorking|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview) ;;
+    refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview) ;;
     *)
         echo "Error: Unknown action '$ACTION'." >&2
         usage >&2
         exit 1
         ;;
 esac
-
-if [ "$ACTION" = "setQueued" ] && [ -z "$TITLE" ]; then
-    echo "Error: setQueued requires --title." >&2
-    exit 1
-fi
 
 # setVscodeTitle defaults to '<workspace> - <branch>' when --title is not provided
 

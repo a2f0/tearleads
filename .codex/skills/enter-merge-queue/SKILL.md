@@ -58,13 +58,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
 2. Ensure you are on the PR head branch, not `main`.
 
-3. Mark as queued in the UI and move the tmux window to the front:
-
-   ```bash
-   ./scripts/agents/tooling/agentTool.sh setQueued --title "(queued) #<pr-number> - <branch>"
-   ```
-
-4. Main loop until PR is merged:
+3. Main loop until PR is merged:
 
    4a. Yield to high-priority PRs unless the current PR has `high-priority`.
 
@@ -101,7 +95,6 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - If conflicts persist or require manual intervention:
      - Run `git rebase --abort` to restore the branch
      - List the conflicting files
-     - Clear the queued status with `./scripts/agents/tooling/agentTool.sh clearQueued`
      - Stop and ask the user for help - do NOT automatically resolve in a way that could revert merged features.
 
    Reset `job_failure_counts` after rebase (new base = fresh start).
@@ -242,7 +235,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    Optimization: if `autoMergeRequest` is already present, skip re-enabling and proceed to the loop checks above.
 
-5. Refresh workspace after merge:
+4. Refresh workspace after merge:
 
    ```bash
    ./scripts/agents/tooling/agentTool.sh refresh
@@ -253,7 +246,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Ensure the `needs-qa` label is applied.
    - Prefer updating the issue body with merge status.
 
-6. Report success with PR URL, a short description of the merged changes, and the associated issue status.
+5. Report success with PR URL, a short description of the merged changes, and the associated issue status.
 
 ## Keeping PR Description Updated
 

@@ -19,6 +19,8 @@ tuxedo_init() {
     CLOSED_PRS_WINDOW_NAME="${TUXEDO_CLOSED_PRS_WINDOW_NAME:-closed-prs}"
     SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
     MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
+    # Directory for PR dashboards (separate from workspaces)
+    DASHBOARD_DIR="${TUXEDO_DASHBOARD_DIR:-$BASE_DIR/${WORKSPACE_PREFIX}}"
 
     TMUX_CONF="$CONFIG_DIR/tmux.conf"
     NVIM_INIT="$CONFIG_DIR/neovim.lua"
@@ -295,9 +297,10 @@ tuxedo_attach_or_create() {
     fi
 
     # Create dedicated PR windows first (no editor split panes).
-    main_path=$(workspace_path "$MAIN_DIR")
-    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$MAIN_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
-    tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
+    # These open in DASHBOARD_DIR (the canonical tearleads repo for PR operations).
+    dashboard_path=$(workspace_path "$DASHBOARD_DIR")
+    tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$DASHBOARD_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
+    tmux new-window -t "$SESSION_NAME:" -c "$DASHBOARD_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
 
     # Add shared workspace as third window (source of truth).
     # Terminal pane runs in a persistent screen session.
@@ -315,6 +318,7 @@ tuxedo_attach_or_create() {
     # Note: Use "$SESSION_NAME:" (with colon) to explicitly target the session,
     # avoiding tmux confusion when window names share a prefix with the session name
     main_window_name="${WORKSPACE_PREFIX}-main"
+    main_path=$(workspace_path "$MAIN_DIR")
     screen_main=$(screen_cmd tux-main)
     if [ -n "$screen_main" ]; then
         tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$screen_main"

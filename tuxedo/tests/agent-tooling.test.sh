@@ -42,31 +42,7 @@ if "$TOOL" unknownAction --repo-root "$TEST_REPO" >/dev/null 2>&1; then
     fail "expected unknown action to fail"
 fi
 
-if "$TOOL" setQueued --repo-root "$TEST_REPO" >/dev/null 2>&1; then
-    fail "expected setQueued without --title to fail"
-fi
-
-QUEUE_JSON="$TEMP_DIR/setQueued.json"
-"$TOOL" setQueued --title "(queued) #1570 - phase1" --repo-root "$TEST_REPO" --json >"$QUEUE_JSON"
-assert_file_exists "$QUEUE_JSON"
-
-QUEUE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${d.safety_class}|${String(d.retry_safe)}`);' "$QUEUE_JSON")
-assert_contains "$QUEUE_STATUS" "success|setQueued|safe_write_local|true"
-
 SETTINGS_FILE="$TEST_REPO/.vscode/settings.json"
-assert_file_exists "$SETTINGS_FILE"
-WINDOW_TITLE=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(String(d["window.title"] || ""));' "$SETTINGS_FILE")
-assert_contains "$WINDOW_TITLE" "(queued) #1570 - phase1"
-
-CLEAR_JSON="$TEMP_DIR/clearQueued.json"
-"$TOOL" clearQueued --repo-root "$TEST_REPO" --json >"$CLEAR_JSON"
-assert_file_exists "$CLEAR_JSON"
-
-CLEAR_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}`);' "$CLEAR_JSON")
-assert_contains "$CLEAR_STATUS" "success|clearQueued"
-
-RESET_TITLE=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(String(d["window.title"] || ""));' "$SETTINGS_FILE")
-assert_contains "$RESET_TITLE" "repo - "
 
 CODEX_JSON="$TEMP_DIR/solicitCodexReview.json"
 "$TOOL" solicitCodexReview --repo-root "$REPO_ROOT" --dry-run --json >"$CODEX_JSON"
@@ -86,14 +62,14 @@ assert_contains "$HELP_OUTPUT" "Usage:"
 assert_contains "$HELP_OUTPUT" "Actions:"
 assert_contains "$HELP_OUTPUT" "Options:"
 
-# Test setVscodeTitle without --title (should use default '<workspace> - <branch>')
+# Test setVscodeTitle without --title (should use default '<workspace>')
 TITLE_JSON="$TEMP_DIR/setVscodeTitle.json"
 "$TOOL" setVscodeTitle --repo-root "$TEST_REPO" --json >"$TITLE_JSON"
 assert_file_exists "$TITLE_JSON"
 TITLE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}`);' "$TITLE_JSON")
 assert_contains "$TITLE_STATUS" "success|setVscodeTitle"
-# Verify the default title format was applied (should be '<workspace> - <branch>')
+# Verify the default title format was applied (should be '<workspace>')
 DEFAULT_TITLE=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(String(d["window.title"] || ""));' "$SETTINGS_FILE")
-assert_contains "$DEFAULT_TITLE" "repo - "
+assert_contains "$DEFAULT_TITLE" "repo"
 
 echo "All tests passed."

@@ -90,13 +90,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
 2. **Check current branch**: Ensure you're on the PR's head branch, not `main`.
 
-3. **Mark as queued**: Set the VS Code title and tmux window name to show queued status, and move the tmux window to the front of the list:
-
-   ```bash
-   ./scripts/agents/tooling/agentTool.sh setQueued --title "(queued) #<pr-number> - <branch>"
-   ```
-
-4. **Main loop** - Repeat until PR is merged:
+3. **Main loop** - Repeat until PR is merged:
 
    **LOOP STRUCTURE**: After completing ANY sub-step below, ALWAYS return to step 4c to re-check PR state. Never exit the loop until `state` is `MERGED`.
 
@@ -135,7 +129,6 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **If base PR `state` is `CLOSED`** (not merged):
    - Alert user: "Base PR #<base_pr_number> was closed without merging. This roll-up PR cannot proceed."
-   - Clear queued status with `./scripts/agents/tooling/agentTool.sh clearQueued`
    - Stop and ask user for guidance
 
    ### 4b. Yield to high-priority PRs
@@ -203,7 +196,6 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
           - Keep the PR's changes (the work this PR is delivering)
         - If changes are on the exact same lines and truly incompatible:
           - Run `git rebase --abort` to restore the branch
-          - Clear the queued status with `./scripts/agents/tooling/agentTool.sh clearQueued`
           - Stop and ask user for guidance - do NOT auto-resolve in a way that discards either side's work
 
    **Reset job failure counts after rebase**: Clear `job_failure_counts` (new base = fresh start for CI).
@@ -317,7 +309,6 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
         - Increment `job_failure_counts[job]`
         - If `job_failure_counts[job] >= 3` (failed 3 times = initial + 2 retries):
           - Log: "Job '<job-name>' failed 3 times. Asking user for help."
-          - Clear queued status with `./scripts/agents/tooling/agentTool.sh clearQueued`
           - Stop and ask user for guidance
         - Else:
           - Log: "Job '<job-name>' failed (attempt X/3). Starting fix."
@@ -375,7 +366,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - If `mergeStateStatus` is `BLOCKED`: Go back to step 4e (CI not done yet)
    - Otherwise: Wait 30 seconds (with jitter) and poll again - **do NOT exit**
 
-5. **Refresh workspace**: Once the PR is merged, run:
+4. **Refresh workspace**: Once the PR is merged, run:
 
    ```bash
    ./scripts/agents/tooling/agentTool.sh refresh
@@ -393,7 +384,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    That's it. The issue already describes the work; no need to update descriptions or add comments.
 
-6. **Report success**: Confirm the PR was merged and provide a summary:
+5. **Report success**: Confirm the PR was merged and provide a summary:
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
    - If an associated issue exists, mention it was labeled `needs-qa`
