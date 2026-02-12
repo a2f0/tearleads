@@ -240,8 +240,43 @@ export function TagSidebar({
           )}
           {tags.length === 0 &&
             untaggedCount === 0 &&
-            deletedTags.length === 0 && (
-              <p className="text-sm text-zinc-500">No tags found.</p>
+            deletedTags.length === 0 &&
+            onCreateTag && (
+              <button
+                type="button"
+                onClick={() => void onCreateTag()}
+                onContextMenu={(e) => e.preventDefault()}
+                className="w-full border border-zinc-300 border-dashed bg-zinc-50 px-2 py-0.5 text-left hover:border-zinc-400 hover:bg-zinc-100"
+                aria-label={CREATE_CLASSIC_TAG_ARIA_LABEL}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-4 shrink-0 text-center text-xs text-zinc-300">
+                    ⋮⋮
+                  </span>
+                  <div className="min-w-0 flex-1 px-1.5 py-0.5">
+                    <span className="block h-4 rounded bg-zinc-200" />
+                  </div>
+                </div>
+              </button>
+            )}
+          {tags.length === 0 &&
+            untaggedCount === 0 &&
+            deletedTags.length === 0 &&
+            !onCreateTag && (
+              // biome-ignore lint/a11y/noStaticElementInteractions: blocks context menu only
+              <div
+                className="w-full border border-zinc-300 border-dashed bg-zinc-50 px-2 py-0.5"
+                onContextMenu={(e) => e.preventDefault()}
+              >
+                <div className="flex items-center gap-2">
+                  <span className="w-4 shrink-0 text-center text-xs text-zinc-300">
+                    ⋮⋮
+                  </span>
+                  <div className="min-w-0 flex-1 px-1.5 py-0.5">
+                    <span className="block h-4 rounded bg-zinc-200" />
+                  </div>
+                </div>
+              </div>
             )}
           {tags.length > 0 && (
             <ul className="m-0 list-none space-y-1 p-0" aria-label="Tag List">

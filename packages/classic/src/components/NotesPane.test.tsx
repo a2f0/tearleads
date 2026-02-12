@@ -2,10 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { NotesPane } from './NotesPane';
 
 describe('NotesPane', () => {
-  it('asks user to select a tag when none is active', () => {
+  it('shows silhouette when no entries exist', () => {
     render(
       <NotesPane
-        activeTagName={null}
+        activeTagName="All Entries"
         noteIds={[]}
         notesById={{}}
         onMoveNote={() => {}}
@@ -15,10 +15,15 @@ describe('NotesPane', () => {
       />
     );
 
-    expect(screen.getByText('Select a tag to view notes.')).toBeInTheDocument();
+    // Should show the non-clickable silhouette (no onCreateNote provided)
+    expect(
+      screen.getByLabelText('Entry list, press Shift+F10 for context menu')
+    ).toBeInTheDocument();
   });
 
-  it('renders empty-tag notes state', () => {
+  it('renders empty-tag notes state with clickable silhouette', () => {
+    const onCreateNote = vi.fn();
+
     render(
       <NotesPane
         activeTagName="Work"
@@ -26,12 +31,17 @@ describe('NotesPane', () => {
         notesById={{}}
         onMoveNote={() => {}}
         onReorderNote={() => {}}
+        onCreateNote={onCreateNote}
         searchValue=""
         onSearchChange={() => {}}
       />
     );
 
-    expect(screen.getByText('No entries in this tag.')).toBeInTheDocument();
+    const silhouette = screen.getByLabelText('Create new entry');
+    expect(silhouette).toBeInTheDocument();
+
+    fireEvent.click(silhouette);
+    expect(onCreateNote).toHaveBeenCalledTimes(1);
   });
 
   it('renders notes and move controls', () => {
@@ -193,8 +203,10 @@ describe('NotesPane', () => {
       />
     );
 
-    fireEvent.contextMenu(screen.getByText('No entries in this tag.'));
-    fireEvent.click(screen.getByLabelText('Create new entry'));
+    fireEvent.contextMenu(
+      screen.getByLabelText('Entry list, press Shift+F10 for context menu')
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create new entry' }));
     expect(onCreateNote).toHaveBeenCalledTimes(1);
   });
 

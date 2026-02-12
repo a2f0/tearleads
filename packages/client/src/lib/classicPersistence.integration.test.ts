@@ -530,4 +530,55 @@ describe('classicPersistence integration', () => {
       expect(noteA2Link?.position).toBe(1);
     });
   });
+
+  it('creates an untagged note when tagId is null', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      const createdNoteId = await createClassicNote(null, 'Untagged note');
+
+      // Verify the note was created
+      const createdNoteRows = await db
+        .select({
+          title: notes.title,
+          content: notes.content,
+          deleted: notes.deleted
+        })
+        .from(notes)
+        .where(eq(notes.id, createdNoteId));
+
+      expect(createdNoteRows[0]?.title).toBe('Untagged note');
+      expect(createdNoteRows[0]?.content).toBe('');
+      expect(createdNoteRows[0]?.deleted).toBe(false);
+
+      // Verify vfs registry entry was created
+      const registryRows = await db
+        .select({ objectType: vfsRegistry.objectType })
+        .from(vfsRegistry)
+        .where(eq(vfsRegistry.id, createdNoteId));
+
+      expect(registryRows[0]?.objectType).toBe('note');
+
+      // Verify NO link was created (note is untagged)
+      const linkRows = await db
+        .select({ parentId: vfsLinks.parentId })
+        .from(vfsLinks)
+        .where(eq(vfsLinks.childId, createdNoteId));
+
+      expect(linkRows).toHaveLength(0);
+
+      // Verify the note appears in untagged notes when reloading state
+      const { state } = await loadClassicStateFromDatabase();
+
+      expect(state.notesById[createdNoteId]).toMatchObject({
+        id: createdNoteId,
+        title: 'Untagged note'
+      });
+
+      // Note should not be in any tag's order
+      for (const noteOrder of Object.values(state.noteOrderByTagId)) {
+        expect(noteOrder).not.toContain(createdNoteId);
+      }
+    });
+  });
 });

@@ -43,7 +43,7 @@ interface NotesContextMenuState {
 }
 
 export function NotesPane({
-  activeTagName,
+  activeTagName: _activeTagName,
   noteIds,
   notesById,
   editingNoteId,
@@ -178,10 +178,40 @@ export function NotesPane({
           openEmptySpaceContextMenu(rect.left + 8, rect.top + 8);
         }}
       >
-        {!activeTagName ? (
-          <p className="text-sm text-zinc-500">Select a tag to view notes.</p>
+        {noteIds.length === 0 && onCreateNote ? (
+          <button
+            type="button"
+            onClick={() => void onCreateNote()}
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full rounded border border-zinc-300 border-dashed bg-zinc-50 p-3 text-left hover:border-zinc-400 hover:bg-zinc-100"
+            aria-label={CREATE_CLASSIC_NOTE_ARIA_LABEL}
+          >
+            <div className="flex items-start gap-2">
+              <span className="w-4 shrink-0 pt-1 text-center text-xs text-zinc-300">
+                ⋮⋮
+              </span>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <span className="block h-4 w-2/3 rounded bg-zinc-200" />
+                <span className="block h-3 w-full rounded bg-zinc-200" />
+              </div>
+            </div>
+          </button>
         ) : noteIds.length === 0 ? (
-          <p className="text-sm text-zinc-500">No entries in this tag.</p>
+          // biome-ignore lint/a11y/noStaticElementInteractions: blocks context menu only
+          <div
+            className="rounded border border-zinc-300 border-dashed bg-zinc-50 p-3"
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div className="flex items-start gap-2">
+              <span className="w-4 shrink-0 pt-1 text-center text-xs text-zinc-300">
+                ⋮⋮
+              </span>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <span className="block h-4 w-2/3 rounded bg-zinc-200" />
+                <span className="block h-3 w-full rounded bg-zinc-200" />
+              </div>
+            </div>
+          </div>
         ) : (
           <ol className="space-y-2" aria-label="Note List">
             {visibleNotes.map((note, index) => {
