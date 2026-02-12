@@ -111,12 +111,16 @@ describe('Contacts drag and drop integration', () => {
       }
     );
 
-    const groupButton = await screen.findByRole(
-      'button',
-      { name: /Family/i },
-      { timeout: 10000 }
+    await waitFor(
+      () => {
+        expect(
+          screen.getByRole('button', { name: /Family/i })
+        ).toHaveTextContent('0');
+      },
+      { timeout: 4000 }
     );
-    expect(groupButton).toHaveTextContent('0');
+
+    const groupButton = screen.getByRole('button', { name: /Family/i });
     const dataTransfer = {
       getData: (type: string) =>
         type === 'application/x-tearleads-contact-ids'
@@ -135,6 +139,15 @@ describe('Contacts drag and drop integration', () => {
         .where(eq(vfsLinks.parentId, 'group-1'));
       expect(links).toHaveLength(1);
     });
+
+    await waitFor(
+      () => {
+        expect(
+          screen.getByRole('button', { name: /Family/i })
+        ).toHaveTextContent('1');
+      },
+      { timeout: 4000 }
+    );
   });
 
   it('updates table view when switching to a contact group', async () => {

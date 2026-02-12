@@ -125,11 +125,15 @@ describe('Audio playlist drag and drop integration', () => {
       expect(links).toHaveLength(1);
     });
 
-    await waitFor(() => {
-      const updatedPlaylistButton = screen.getByRole('button', {
-        name: /Road Trip/i
-      });
-      expect(updatedPlaylistButton.className).not.toContain('ring-primary');
-    });
+    await waitFor(
+      () => {
+        const updatedPlaylistButton = screen.getByRole('button', {
+          name: /Road Trip/i
+        });
+        expect(updatedPlaylistButton.className).not.toContain('ring-primary');
+        expect(updatedPlaylistButton).toHaveTextContent('1');
+      },
+      { timeout: 4000 }
+    );
   });
 });

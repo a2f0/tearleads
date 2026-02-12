@@ -116,5 +116,15 @@ describe('Video playlist drag and drop integration', () => {
         .where(eq(vfsLinks.parentId, 'playlist-1'));
       expect(links).toHaveLength(1);
     });
+
+    await waitFor(
+      () => {
+        const updatedPlaylistButton = screen.getByRole('button', {
+          name: /Movies/i
+        });
+        expect(updatedPlaylistButton).toHaveTextContent('1');
+      },
+      { timeout: 4000 }
+    );
   });
 });

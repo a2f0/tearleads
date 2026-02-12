@@ -7,7 +7,7 @@ import {
   WindowSidebarItem,
   WindowSidebarLoading
 } from '@tearleads/window-manager';
-import { and, asc, eq } from 'drizzle-orm';
+import { and, asc, eq, sql } from 'drizzle-orm';
 import { Folder, FolderPlus, Mail, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
@@ -50,6 +50,7 @@ export function ContactsGroupsSidebar({
   } = useContactGroups();
   const { getDatabase, openEmailComposer } = useContactsContext();
   const { ContextMenu, ContextMenuItem } = useContactsUI();
+  const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -119,6 +120,60 @@ export function ContactsGroupsSidebar({
     onGroupChanged?.();
   }, [onGroupChanged, refetch]);
 
+  const updateGroupCounts = useCallback(
+    async (groupIds: string[]) => {
+      if (groupIds.length === 0) return;
+      try {
+        const db = getDatabase();
+        const uniqueIds = Array.from(new Set(groupIds));
+        const counts = await Promise.all(
+          uniqueIds.map(async (groupId) => {
+            const [{ count }] = await db
+              .select({
+                count: sql<number>`COUNT(*)`.mapWith(Number)
+              })
+              .from(vfsLinks)
+              .innerJoin(
+                contacts,
+                and(eq(contacts.id, vfsLinks.childId), eq(contacts.deleted, false))
+              )
+              .where(eq(vfsLinks.parentId, groupId));
+            return { groupId, count };
+          })
+        );
+        setGroupCounts((prev) => {
+          const next = { ...prev };
+          for (const { groupId, count } of counts) {
+            next[groupId] = count;
+          }
+          return next;
+        });
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          error.message.includes('Database not initialized')
+        ) {
+          return;
+        }
+        console.error('Failed to update contact group counts', error);
+      }
+    },
+    [getDatabase]
+  );
+
+  useEffect(() => {
+    if (groups.length === 0) return;
+    setGroupCounts((prev) => {
+      const next = { ...prev };
+      groups.forEach((group) => {
+        next[group.id] = Number.isFinite(group.contactCount)
+          ? group.contactCount
+          : 0;
+      });
+      return next;
+    });
+  }, [groups]);
+
   const handleGroupDeleted = useCallback(
     async (groupId: string) => {
       if (selectedGroupId === groupId) {
@@ -176,12 +231,17 @@ export function ContactsGroupsSidebar({
       clearDragState(groupId);
 
       const contactIds = getContactDragIds(event.dataTransfer);
-      if (contactIds.length > 0) {
+      if (contactIds.length === 0) return;
+
+      try {
         await onDropToGroup(groupId, contactIds);
         await handleGroupChanged();
+        await updateGroupCounts([groupId]);
+      } catch (error) {
+        console.error('Failed to handle contact group drop', error);
       }
     },
-    [handleGroupChanged, onDropToGroup, clearDragState]
+    [handleGroupChanged, onDropToGroup, clearDragState, updateGroupCounts]
   );
 
   const handleSendEmailToGroup = useCallback(async () => {
@@ -265,7 +325,8 @@ export function ContactsGroupsSidebar({
               onDragLeave={(event) => handleGroupDragLeave(event, group.id)}
               onDrop={(event) => handleGroupDrop(event, group.id)}
               count={
-                Number.isFinite(group.contactCount) ? group.contactCount : 0
+                groupCounts[group.id] ??
+                (Number.isFinite(group.contactCount) ? group.contactCount : 0)
               }
             />
           ))}
