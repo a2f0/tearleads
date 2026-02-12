@@ -452,12 +452,17 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
     (file) =>
       file.startsWith('packages/client/android/') ||
       file.startsWith('android/') ||
+      file.startsWith('packages/client/fastlane/') ||
       file.startsWith('fastlane/') ||
       file === 'packages/client/capacitor.config.ts'
   );
   const hasIosSpecific = changedFiles.some(
     (file) =>
-      file.startsWith('packages/client/ios/') || file.startsWith('ios/') || file.startsWith('fastlane/')
+      file.startsWith('packages/client/ios/') ||
+      file.startsWith('ios/') ||
+      file.startsWith('packages/client/fastlane/') ||
+      file.startsWith('fastlane/') ||
+      file === 'packages/client/capacitor.config.ts'
   );
   const hasMaestroSpecific = changedFiles.some((file) => file.startsWith('packages/client/.maestro/'));
   const hasMobileSpecific = hasAndroidSpecific || hasIosSpecific || hasMaestroSpecific;
@@ -481,20 +486,30 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
     if (hasAndroidSpecific || hasClientRuntimeImpact || hasMaestroSpecific) {
       jobs.android.run = true;
       jobs.android.reasons.push(
-        hasAndroidSpecific ? 'android-specific files changed' : 'shared client runtime surface impacted'
+        hasAndroidSpecific
+          ? 'android-specific files changed'
+          : hasMaestroSpecific
+            ? 'maestro files changed'
+            : 'shared client runtime surface impacted'
       );
       jobs['android-maestro-release'].run = true;
       jobs['android-maestro-release'].reasons.push(
-        hasAndroidSpecific || hasMaestroSpecific
-          ? 'android/maestro files changed'
-          : 'shared client runtime surface impacted'
+        hasAndroidSpecific
+          ? 'android files changed'
+          : hasMaestroSpecific
+            ? 'maestro files changed'
+            : 'shared client runtime surface impacted'
       );
     }
 
     if (hasIosSpecific || hasClientRuntimeImpact || hasMaestroSpecific) {
       jobs['ios-maestro-release'].run = true;
       jobs['ios-maestro-release'].reasons.push(
-        hasIosSpecific || hasMaestroSpecific ? 'ios/maestro files changed' : 'shared client runtime surface impacted'
+        hasIosSpecific
+          ? 'ios files changed'
+          : hasMaestroSpecific
+            ? 'maestro files changed'
+            : 'shared client runtime surface impacted'
       );
     }
   }
