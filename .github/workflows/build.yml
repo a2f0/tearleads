@@ -151,10 +151,11 @@ jobs:
         with:
           python-version-file: '.python-version'
           cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
 
       - name: Install ansible-lint
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pip3 install ansible-lint ansible passlib
+        run: pip3 install -r requirements.txt
 
       - name: Cache Ansible collections
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}

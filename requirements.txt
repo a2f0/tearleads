@@ -1,0 +1,5 @@
+# Python dependencies for CI linting
+# Used by ansible-lint step in .github/workflows/build.yml
+ansible-lint
+ansible
+passlib
