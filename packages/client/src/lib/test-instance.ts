@@ -8,11 +8,6 @@
  * The app detects this and uses a deterministic instance ID for that worker.
  */
 
-/**
- * Global variable name used to receive worker index from Playwright.
- * Must match the name used in tests/fixtures.ts
- */
-const WORKER_INDEX_GLOBAL = '__PLAYWRIGHT_WORKER_INDEX__';
 const TEST_INSTANCE_PREFIX = 'test-worker-';
 
 declare global {
