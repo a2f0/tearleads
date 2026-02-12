@@ -70,4 +70,19 @@ describe('Help', () => {
 
     expect(mockNavigate).toHaveBeenCalledTimes(docCases.length);
   });
+
+  it('shows developer docs and returns to top-level help', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Help />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByText('Developer'));
+    expect(screen.getByText('CI')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Back to Help'));
+    expect(screen.getByText('Developer')).toBeInTheDocument();
+  });
 });

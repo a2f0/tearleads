@@ -167,4 +167,24 @@ describe('HelpWindow', () => {
       await user.click(screen.getByText('Back to Help'));
     }
   });
+
+  it('navigates to developer category and back to help', async () => {
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('Developer'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Developer');
+    expect(screen.getByText('CI')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Back to Help'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
+  });
 });
