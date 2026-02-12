@@ -6,7 +6,6 @@ import {
   ArrowUpDown,
   Braces,
   Loader2,
-  Settings,
   Trash2
 } from 'lucide-react';
 import type {
@@ -15,6 +14,7 @@ import type {
   ReactNode
 } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ColumnSettingsDropdown } from '@/components/sqlite/ColumnSettingsDropdown';
 import {
   type ColumnInfo,
   exportTableAsCsv,
@@ -117,8 +117,6 @@ export function TableRowsView({
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
     new Set(['id'])
   );
-  const [showColumnSettings, setShowColumnSettings] = useState(false);
-  const settingsRef = useRef<HTMLDivElement>(null);
   const [columnWidths, setColumnWidths] = useState<Record<string, number>>({});
   const [resizing, setResizing] = useState<{
     column: string;
@@ -462,28 +460,6 @@ export function TableRowsView({
     };
   }, [resizing]);
 
-  // Close settings dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target;
-      if (
-        settingsRef.current &&
-        target instanceof Node &&
-        !settingsRef.current.contains(target)
-      ) {
-        setShowColumnSettings(false);
-      }
-    };
-
-    if (showColumnSettings) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [showColumnSettings]);
-
   // Get visible columns
   const visibleColumns = useMemo(
     () => columns.filter((col) => !hiddenColumns.has(col.name)),
@@ -699,46 +675,11 @@ export function TableRowsView({
         </div>
         {isUnlocked && tableName && (
           <div className="flex flex-wrap items-center gap-2">
-            <div className="relative" ref={settingsRef}>
-              <Button
-                variant={showColumnSettings ? 'default' : 'outline'}
-                size="icon"
-                onClick={() => setShowColumnSettings(!showColumnSettings)}
-                title="Column settings"
-                data-testid="column-settings-button"
-              >
-                <Settings className="h-4 w-4" />
-              </Button>
-              {showColumnSettings && columns.length > 0 && (
-                <div className="absolute top-full right-0 z-10 mt-2 w-56 rounded-lg border bg-popover p-2 shadow-lg">
-                  <div className="mb-2 px-2 font-medium text-sm">
-                    Visible Columns
-                  </div>
-                  <div className="max-h-64 overflow-y-auto">
-                    {columns.map((col) => (
-                      <label
-                        key={col.name}
-                        className="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 hover:bg-muted"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!hiddenColumns.has(col.name)}
-                          onChange={() => toggleColumnVisibility(col.name)}
-                          className="h-5 w-5 rounded border-input"
-                          data-testid={`column-toggle-${col.name}`}
-                        />
-                        <span className="font-mono text-base">{col.name}</span>
-                        {col.pk > 0 && (
-                          <span className="ml-auto text-primary text-xs">
-                            PK
-                          </span>
-                        )}
-                      </label>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
+            <ColumnSettingsDropdown
+              columns={columns}
+              hiddenColumns={hiddenColumns}
+              onToggleColumn={toggleColumnVisibility}
+            />
             <Button
               variant={documentView ? 'default' : 'outline'}
               size="icon"
