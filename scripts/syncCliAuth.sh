@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 # Sync Claude Code and Codex CLI authentication to a remote server.
 # This extracts credentials from macOS keychain and copies them to the server.
 #
@@ -6,7 +6,7 @@
 #
 # Example: ./scripts/syncCliAuth.sh ubuntu@tuxedo.example.com
 
-set -euo pipefail
+set -eu
 
 if [ $# -lt 1 ]; then
   echo "Usage: $0 <user@host>"
