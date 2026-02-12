@@ -6,6 +6,7 @@ import userEvent from '@testing-library/user-event';
 import { I18nextProvider } from 'react-i18next';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+
 import { mockConsoleError } from '../../test/console-mocks';
 import { Keychain } from './Keychain';
 
