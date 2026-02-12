@@ -29,7 +29,6 @@ Script exits early on dependency hygiene checks—fix then rerun:
 - Caret/tilde ranges in `dependencies`/`devDependencies` are blocked. Pin versions where reported.
 - Pinned `peerDependencies` must match `packages/client/package.json` versions. Align the peer versions to the client version before rerunning.
 
-
 ## Node.js Version Alignment (Electron)
 
 When updating `electron`, align Node.js versions:
