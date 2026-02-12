@@ -99,7 +99,7 @@ export interface WindowInstance {
   zIndex: number;
   isMinimized: boolean;
   dimensions?: WindowDimensions;
-  title?: string;
+  title?: string | undefined;
 }
 
 interface WindowManagerContextValue {
@@ -390,7 +390,9 @@ export function WindowManagerProvider({
   );
 
   const renameWindow = useCallback((id: string, title: string) => {
-    setWindows((prev) => prev.map((w) => (w.id === id ? { ...w, title } : w)));
+    setWindows((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, title: title || undefined } : w))
+    );
   }, []);
 
   const saveWindowDimensionsForType = useCallback(
