@@ -1,17 +1,17 @@
 ---
-import Layout from '../../../layouts/Layout.astro';
-import { ApiDocs } from '@tearleads/ui';
-import openapiSpec from '@tearleads/api/dist/openapi.json';
-import { defaultLanguage, isSupportedLanguage } from '../../../i18n/config';
-import type { SupportedLanguage } from '../../../i18n/config';
-import { getStaticPathsForLocales } from '../../../i18n/utils';
+import openapiSpec from "@tearleads/api/dist/openapi.json";
+import { ApiDocs } from "@tearleads/ui";
+import type { SupportedLanguage } from "../../../i18n/config";
+import { defaultLanguage, isSupportedLanguage } from "../../../i18n/config";
+import { getStaticPathsForLocales } from "../../../i18n/utils";
+import Layout from "../../../layouts/Layout.astro";
 
 export const getStaticPaths = getStaticPathsForLocales;
 
 const { lang } = Astro.params;
 const currentLang: SupportedLanguage = isSupportedLanguage(lang)
-  ? lang
-  : defaultLanguage;
+	? lang
+	: defaultLanguage;
 ---
 
 <Layout title="API Documentation - Tearleads" lang={currentLang}>

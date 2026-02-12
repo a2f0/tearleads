@@ -1,38 +1,41 @@
 ---
-import NavDropdown from '../components/NavDropdown.astro';
-import { SettingsIsland } from '../components/SettingsIsland';
-import { defaultLanguage, supportedLanguages } from '../i18n/config';
-import type { SupportedLanguage } from '../i18n/config';
-import { getHref, getLocalizedPath } from '../i18n/utils';
-import '../styles/global.css';
+import NavDropdown from "../components/NavDropdown.astro";
+import { SettingsIsland } from "../components/SettingsIsland";
+import type { SupportedLanguage } from "../i18n/config";
+import { defaultLanguage, supportedLanguages } from "../i18n/config";
+import { getHref, getLocalizedPath } from "../i18n/utils";
+import "../styles/global.css";
 
 interface Props {
-  title: string;
-  lang?: SupportedLanguage;
+	title: string;
+	lang?: SupportedLanguage;
 }
 
 const { title, lang = defaultLanguage } = Astro.props;
 const currentYear = new Date().getFullYear();
 
 const productLinks = [
-  { href: getHref('/products/cli', lang), text: 'CLI' },
-  { href: getHref('/products/desktop', lang), text: 'Desktop' },
-  { href: getHref('/products/mobile', lang), text: 'Mobile' },
-  { href: getHref('/products/web', lang), text: 'Web' },
-  { href: getHref('/products/chrome-extension', lang), text: 'Chrome Extension' },
+	{ href: getHref("/products/cli", lang), text: "CLI" },
+	{ href: getHref("/products/desktop", lang), text: "Desktop" },
+	{ href: getHref("/products/mobile", lang), text: "Mobile" },
+	{ href: getHref("/products/web", lang), text: "Web" },
+	{
+		href: getHref("/products/chrome-extension", lang),
+		text: "Chrome Extension",
+	},
 ];
 
 const docsLinks = [
-  { href: getHref('/docs/architecture', lang), text: 'Security Architecture' },
-  { href: getHref('/docs/backup-restore', lang), text: 'Backup & Restore' },
-  { href: getHref('/docs/api', lang), text: 'API' },
+	{ href: getHref("/docs/architecture", lang), text: "Security Architecture" },
+	{ href: getHref("/docs/backup-restore", lang), text: "Backup & Restore" },
+	{ href: getHref("/docs/api", lang), text: "API" },
 ];
 
 // Generate hreflang URLs for SEO
 const currentPath = Astro.url.pathname;
 const hreflangUrls = supportedLanguages.map((hrefLang) => ({
-  lang: hrefLang,
-  href: getLocalizedPath(currentPath, hrefLang),
+	lang: hrefLang,
+	href: getLocalizedPath(currentPath, hrefLang),
 }));
 ---
 

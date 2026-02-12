@@ -76,3 +76,51 @@ To update the Gradle wrapper version:
 5. Test locally: `cd packages/client/android && ./gradlew assembleDebug`
 
 **Important**: Do NOT use `gradle wrapper` command to regenerate the wrapper files, as using a different local Gradle version can cause incompatibilities between the wrapper scripts (`gradlew`, `gradlew.bat`) and the JAR file.
+
+## Native Module Rebuilds
+
+When the script updates packages containing native Node.js addons (e.g., `better-sqlite3-multiple-ciphers`), they may need rebuilding for the current Node.js version. Symptoms of a stale native module:
+
+```text
+Error: The module 'better_sqlite3.node' was compiled against a different Node.js version
+NODE_MODULE_VERSION 143. This version of Node.js requires NODE_MODULE_VERSION 127.
+```
+
+To fix, rebuild the native module in the affected package:
+
+```bash
+cd packages/cli
+npm rebuild better-sqlite3-multiple-ciphers
+```
+
+The update script runs `electron-rebuild` for the client package, but the CLI package uses the system Node.js and may require a separate rebuild.
+
+## Biome Schema Migration
+
+When biome is updated, the schema version in `biome.json` should be migrated:
+
+```bash
+pnpm biome migrate --write
+```
+
+This updates the `$schema` URL to match the installed biome version. The migration is automatic and non-breaking.
+
+## Researching Breaking Changes
+
+After updates complete, review changelogs for significant package upgrades:
+
+1. **Check pnpm output** for deprecated subdependencies (transitive deps - usually not actionable)
+2. **Review GitHub releases** for direct dependencies with version bumps:
+   - Capacitor plugins: <https://github.com/ionic-team/capacitor-plugins/releases>
+   - Biome: <https://github.com/biomejs/biome/releases>
+   - pdfjs-dist: <https://github.com/mozilla/pdf.js/releases>
+   - i18next: <https://github.com/i18next/i18next/releases>
+3. **Note any breaking changes** that require code modifications
+4. **Document deprecation warnings** in the PR description for future reference
+
+## Known Acceptable Warnings
+
+Some warnings are expected and do not require action:
+
+- **electron-builder peer dependency mismatches**: Internal version conflicts between `dmg-builder` and `electron-builder-squirrel-windows` are tracked upstream and do not affect builds
+- **Deprecated transitive dependencies**: Packages like `glob`, `rimraf`, `inflight` are deep transitive deps and will be resolved when upstream packages update

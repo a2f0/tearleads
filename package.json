@@ -1,64 +1,64 @@
 {
-  "name": "tearleads",
-  "version": "0.0.1",
-  "private": true,
-  "type": "module",
-  "engines": {
-    "node": ">=22.21.1 <23"
-  },
-  "scripts": {
-    "postinstall": "pnpm buildPreDev",
-    "buildPreDev": "pnpm build:shared && pnpm build:db",
-    "build:shared": "pnpm --filter @tearleads/shared build",
-    "build:db": "pnpm --filter @tearleads/db build",
-    "build:ui": "pnpm --filter @tearleads/ui build",
-    "build:window-manager": "pnpm --filter @tearleads/window-manager build",
-    "build:notes": "pnpm --filter @tearleads/notes build",
-    "build:terminal": "pnpm --filter @tearleads/terminal build",
-    "build:contacts": "pnpm --filter @tearleads/contacts build",
-    "build:email": "pnpm --filter @tearleads/email build",
-    "build:calendar": "pnpm --filter @tearleads/calendar build",
-    "dev": "FORCE_COLOR=0 tsx scripts/killPnpmDev.ts --force && FORCE_COLOR=0 VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && FORCE_COLOR=0 pnpm --filter @tearleads/api buildOpenapi && FORCE_COLOR=0 tsx scripts/checkSmtpPort.ts && FORCE_COLOR=0 TEARLEADS_SKIP_DEV_KILL=1 concurrently -n api,client,website,smtp -c blue,magenta,cyan,green \"FORCE_COLOR=0 pnpm --filter @tearleads/api dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/client dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/website dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/smtp-listener dev\"",
-    "dev:api": "FORCE_COLOR=0 pnpm build:shared && FORCE_COLOR=0 pnpm build:db && FORCE_COLOR=0 pnpm --filter @tearleads/api dev",
-    "dev:client": "FORCE_COLOR=0 VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && FORCE_COLOR=0 pnpm --filter @tearleads/client dev",
-    "devWebsite": "FORCE_COLOR=0 pnpm --filter @tearleads/api buildOpenapi && FORCE_COLOR=0 pnpm --filter @tearleads/website dev",
-    "build": "pnpm -r build",
-    "test": "pnpm -r test && pnpm test:tuxedo",
-    "test:tuxedo": "sh ./tuxedo/tests/run.sh",
-    "test:coverage": "sh ./tuxedo/tests/coverage.sh",
-    "clean": "pnpm -r clean",
-    "lint": "biome check .",
-    "lint:fix": "biome check --write .",
-    "lint:scripts": "shellcheck --severity=info scripts/*.sh ansible/playbooks/files/scripts/*.sh && pnpm --filter @tearleads/client lint:scripts",
-    "lint:rubocop": "pnpm --filter @tearleads/client lint:rubocop",
-    "lint:ansible": "ansible-lint ansible/",
-    "lint:md": "markdownlint-cli2 '**/*.md'",
-    "format": "biome format --write .",
-    "prepare": "husky"
-  },
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/a2f0/tearleads.git"
-  },
-  "author": "",
-  "license": "UNLICENSED",
-  "description": "Monorepo for Tearleads application",
-  "devDependencies": {
-    "@biomejs/biome": "2.3.14",
-    "@tsconfig/strictest": "2.0.8",
-    "@vitest/coverage-v8": "4.0.18",
-    "concurrently": "9.2.1",
-    "husky": "9.1.7",
-    "markdownlint-cli2": "0.20.0",
-    "tsx": "4.21.0",
-    "typescript": "5.9.3",
-    "cross-env": "10.1.0"
-  },
-  "packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531",
-  "pnpm": {
-    "overrides": {
-      "@esbuild-kit/core-utils>esbuild": ">=0.25.0",
-      "pg": "8.18.0"
-    }
-  }
+	"name": "tearleads",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"engines": {
+		"node": ">=22.21.1 <23"
+	},
+	"scripts": {
+		"postinstall": "pnpm buildPreDev",
+		"buildPreDev": "pnpm build:shared && pnpm build:db",
+		"build:shared": "pnpm --filter @tearleads/shared build",
+		"build:db": "pnpm --filter @tearleads/db build",
+		"build:ui": "pnpm --filter @tearleads/ui build",
+		"build:window-manager": "pnpm --filter @tearleads/window-manager build",
+		"build:notes": "pnpm --filter @tearleads/notes build",
+		"build:terminal": "pnpm --filter @tearleads/terminal build",
+		"build:contacts": "pnpm --filter @tearleads/contacts build",
+		"build:email": "pnpm --filter @tearleads/email build",
+		"build:calendar": "pnpm --filter @tearleads/calendar build",
+		"dev": "FORCE_COLOR=0 tsx scripts/killPnpmDev.ts --force && FORCE_COLOR=0 VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && FORCE_COLOR=0 pnpm --filter @tearleads/api buildOpenapi && FORCE_COLOR=0 tsx scripts/checkSmtpPort.ts && FORCE_COLOR=0 TEARLEADS_SKIP_DEV_KILL=1 concurrently -n api,client,website,smtp -c blue,magenta,cyan,green \"FORCE_COLOR=0 pnpm --filter @tearleads/api dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/client dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/website dev\" \"FORCE_COLOR=0 pnpm --filter @tearleads/smtp-listener dev\"",
+		"dev:api": "FORCE_COLOR=0 pnpm build:shared && FORCE_COLOR=0 pnpm build:db && FORCE_COLOR=0 pnpm --filter @tearleads/api dev",
+		"dev:client": "FORCE_COLOR=0 VITE_API_URL=http://localhost:5001/v1 pnpm buildPreDev && FORCE_COLOR=0 pnpm --filter @tearleads/client dev",
+		"devWebsite": "FORCE_COLOR=0 pnpm --filter @tearleads/api buildOpenapi && FORCE_COLOR=0 pnpm --filter @tearleads/website dev",
+		"build": "pnpm -r build",
+		"test": "pnpm -r test && pnpm test:tuxedo",
+		"test:tuxedo": "sh ./tuxedo/tests/run.sh",
+		"test:coverage": "sh ./tuxedo/tests/coverage.sh",
+		"clean": "pnpm -r clean",
+		"lint": "biome check .",
+		"lint:fix": "biome check --write .",
+		"lint:scripts": "shellcheck --severity=info scripts/*.sh ansible/playbooks/files/scripts/*.sh && pnpm --filter @tearleads/client lint:scripts",
+		"lint:rubocop": "pnpm --filter @tearleads/client lint:rubocop",
+		"lint:ansible": "ansible-lint ansible/",
+		"lint:md": "markdownlint-cli2 '**/*.md'",
+		"format": "biome format --write .",
+		"prepare": "husky"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/a2f0/tearleads.git"
+	},
+	"author": "",
+	"license": "UNLICENSED",
+	"description": "Monorepo for Tearleads application",
+	"devDependencies": {
+		"@biomejs/biome": "2.3.15",
+		"@tsconfig/strictest": "2.0.8",
+		"@vitest/coverage-v8": "4.0.18",
+		"concurrently": "9.2.1",
+		"cross-env": "10.1.0",
+		"husky": "9.1.7",
+		"markdownlint-cli2": "0.20.0",
+		"tsx": "4.21.0",
+		"typescript": "5.9.3"
+	},
+	"packageManager": "pnpm@9.15.9+sha512.68046141893c66fad01c079231128e9afb89ef87e2691d69e4d40eee228988295fd4682181bae55b58418c3a253bde65a505ec7c5f9403ece5cc3cd37dcf2531",
+	"pnpm": {
+		"overrides": {
+			"@esbuild-kit/core-utils>esbuild": ">=0.25.0",
+			"pg": "8.18.0"
+		}
+	}
 }

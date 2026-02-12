@@ -1,67 +1,67 @@
 {
-  "name": "@tearleads/contacts",
-  "version": "0.0.1",
-  "description": "Contacts management components for Tearleads",
-  "type": "module",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    },
-    "./package.json": "./package.json"
-  },
-  "files": [
-    "dist"
-  ],
-  "scripts": {
-    "build": "tsc",
-    "clean": "rm -rf dist",
-    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
-  },
-  "peerDependencies": {
-    "@tearleads/db": "workspace:*",
-    "@tearleads/shared": "workspace:*",
-    "@tearleads/ui": "workspace:*",
-    "@tearleads/window-manager": "workspace:*",
-    "drizzle-orm": "0.45.1",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-i18next": "16.5.4"
-  },
-  "dependencies": {
-    "@dnd-kit/core": "6.3.1",
-    "@dnd-kit/sortable": "10.0.0",
-    "@dnd-kit/utilities": "3.2.2",
-    "@tanstack/react-virtual": "3.13.18",
-    "clsx": "2.1.1",
-    "lucide-react": "0.563.0",
-    "papaparse": "5.5.3",
-    "tailwind-merge": "3.4.0"
-  },
-  "devDependencies": {
-    "@tearleads/db": "workspace:*",
-    "@tearleads/db-test-utils": "workspace:*",
-    "@tearleads/shared": "workspace:*",
-    "@tearleads/window-manager": "workspace:*",
-    "@testing-library/jest-dom": "6.9.1",
-    "@testing-library/react": "16.3.2",
-    "@testing-library/user-event": "14.6.1",
-    "@types/node": "25.2.3",
-    "@types/papaparse": "5.5.2",
-    "@types/react": "19.2.14",
-    "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "5.1.4",
-    "@vitest/coverage-v8": "4.0.18",
-    "drizzle-orm": "0.45.1",
-    "jsdom": "28.0.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
-    "react-i18next": "16.5.4",
-    "typescript": "5.9.3",
-    "vitest": "4.0.18",
-    "vitest-fail-on-console": "0.10.1"
-  }
+	"name": "@tearleads/contacts",
+	"version": "0.0.1",
+	"description": "Contacts management components for Tearleads",
+	"type": "module",
+	"main": "dist/index.js",
+	"types": "dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js"
+		},
+		"./package.json": "./package.json"
+	},
+	"files": [
+		"dist"
+	],
+	"scripts": {
+		"build": "tsc",
+		"clean": "rm -rf dist",
+		"test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+		"test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+	},
+	"peerDependencies": {
+		"@tearleads/db": "workspace:*",
+		"@tearleads/shared": "workspace:*",
+		"@tearleads/ui": "workspace:*",
+		"@tearleads/window-manager": "workspace:*",
+		"drizzle-orm": "0.45.1",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
+		"react-i18next": "16.5.4"
+	},
+	"dependencies": {
+		"@dnd-kit/core": "6.3.1",
+		"@dnd-kit/sortable": "10.0.0",
+		"@dnd-kit/utilities": "3.2.2",
+		"@tanstack/react-virtual": "3.13.18",
+		"clsx": "2.1.1",
+		"lucide-react": "0.563.0",
+		"papaparse": "5.5.3",
+		"tailwind-merge": "3.4.0"
+	},
+	"devDependencies": {
+		"@tearleads/db": "workspace:*",
+		"@tearleads/db-test-utils": "workspace:*",
+		"@tearleads/shared": "workspace:*",
+		"@tearleads/window-manager": "workspace:*",
+		"@testing-library/jest-dom": "6.9.1",
+		"@testing-library/react": "16.3.2",
+		"@testing-library/user-event": "14.6.1",
+		"@types/node": "25.2.3",
+		"@types/papaparse": "5.5.2",
+		"@types/react": "19.2.14",
+		"@types/react-dom": "19.2.3",
+		"@vitejs/plugin-react": "5.1.4",
+		"@vitest/coverage-v8": "4.0.18",
+		"drizzle-orm": "0.45.1",
+		"jsdom": "28.0.0",
+		"react": "19.2.4",
+		"react-dom": "19.2.4",
+		"react-i18next": "16.5.4",
+		"typescript": "5.9.3",
+		"vitest": "4.0.18",
+		"vitest-fail-on-console": "0.10.1"
+	}
 }
