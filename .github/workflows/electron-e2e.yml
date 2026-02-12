@@ -54,14 +54,22 @@ jobs:
   electron-e2e:
     name: Electron E2E Tests (Release)
     needs: detect-impact
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
+      - name: Report no impact detected
+        if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
+        run: |
+          echo "::notice::No code changes detected that impact this job - reporting success"
+          echo "## Electron E2E Tests Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "No code changes detected that require this job to run." >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
 
       - name: Capture runner hardware specs
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           mkdir -p packages/client/playwright-report
           {
@@ -89,21 +97,26 @@ jobs:
           cat packages/client/playwright-report/hardware-specs.txt
 
       - name: Setup pnpm
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm install
 
       - name: Install system dependencies for Electron
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: sudo apt-get install -y xvfb libnss3 libatk1.0-0t64 libatk-bridge2.0-0t64 libcups2t64 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 libxrandr2 libgbm1 libasound2t64
 
       - name: Cache SQLite WASM
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -113,9 +126,11 @@ jobs:
           key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
 
       - name: Download SQLite WASM
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./scripts/downloadSqliteWasm.sh
 
       - name: Generate self-signed certificate
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           sudo mkdir -p /etc/ssl/private
           sudo openssl req -x509 -nodes -days 1 \
@@ -131,12 +146,14 @@ jobs:
           cp /etc/ssl/certs/localhost.crt $GITHUB_WORKSPACE/.github/ci/localhost.crt
 
       - name: Cache Ansible collections
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/cache@v4
         with:
           path: ~/.ansible/collections
           key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
 
       - name: Install and configure PostgreSQL
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           sudo apt-get update && sudo apt-get install -y ansible
           ansible-galaxy collection install -r ansible/requirements.yml
@@ -146,11 +163,13 @@ jobs:
             ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-postgres.yml
 
       - name: Install and configure NGINX for API proxy
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           sudo apt-get install -y nginx
           ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=api
 
       - name: Start API server
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           pnpm --filter @tearleads/api dev &
           echo "Waiting for API server to be ready..."
@@ -163,49 +182,63 @@ jobs:
           POSTGRES_DATABASE: tearleads
 
       - name: Verify NGINX is proxying API
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: curl -k https://localhost:8443/v1/ping
 
       - name: Build API (for OpenAPI spec)
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/api build
 
       - name: Build window-manager
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/window-manager build
 
       - name: Build UI
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/ui build
 
       - name: Build notes
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/notes build
 
       - name: Build email
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/email build
 
       - name: Build vfs-explorer
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/vfs-explorer build
 
       - name: Build audio
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/audio build
 
       - name: Build contacts
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/contacts build
 
       - name: Build db-test-utils
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/db-test-utils build
 
       - name: Build Electron app
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/client electron:build
         env:
           VITE_API_URL: https://localhost:8443/v1
 
       - name: Run Electron tests
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: xvfb-run --auto-servernum -- pnpm --filter @tearleads/client electron:test
         env:
           NODE_EXTRA_CA_CERTS: ${{ github.workspace }}/.github/ci/localhost.crt
 
       - name: Build CLI for backup validation
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/cli build
 
       - name: Validate backup file
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           BACKUP_FILE="packages/client/playwright-report/backups/electron-backup.tbu"
           DUMP_OUTPUT="packages/client/playwright-report/backups/dump-output"
@@ -237,7 +270,7 @@ jobs:
 
       - name: Upload Electron test artifacts
         uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') }}
         with:
           name: electron-e2e-artifacts
           path: packages/client/playwright-report/
