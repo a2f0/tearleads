@@ -159,9 +159,9 @@ describe('ContactsGroupsSidebar', () => {
     mockDb.select.mockImplementation(() => {
       selectCallCount++;
       const chainable: Record<string, unknown> = {};
-      chainable.from = () => chainable;
-      chainable.innerJoin = () => chainable;
-      chainable.where = () => {
+      chainable['from'] = () => chainable;
+      chainable['innerJoin'] = () => chainable;
+      chainable['where'] = () => {
         // First two calls are from updateGroupCounts (returns counts for 2 groups)
         // Third call is from sendEmail (returns emails via orderBy)
         if (selectCallCount <= 2) {
@@ -169,7 +169,7 @@ describe('ContactsGroupsSidebar', () => {
         }
         return chainable;
       };
-      chainable.orderBy = () =>
+      chainable['orderBy'] = () =>
         Promise.resolve([
           { email: 'family@example.com' },
           { email: 'family@example.com' },
