@@ -1,4 +1,21 @@
-require_relative '../../../../node_modules/.pnpm/@capacitor+ios@8.0.2_@capacitor+core@8.0.2/node_modules/@capacitor/ios/scripts/pods_helpers'
+PODFILE_DIR = File.dirname(__FILE__)
+PNPM_MODULES_ABS = File.expand_path('../../../../../node_modules/.pnpm', __FILE__)
+PNPM_MODULES_REL = '../../../../node_modules/.pnpm'
+
+def pnpm_scoped_module(scope, name)
+  scope_prefix = scope.start_with?('@') ? scope : "@#{scope}"
+  suffix = "#{scope_prefix}+#{name}@*/node_modules/#{scope}/#{name}"
+  abs_pattern = File.join(PNPM_MODULES_ABS, suffix)
+  resolved_abs = Dir[abs_pattern].max
+  raise "Module path not found for #{scope}/#{name}" unless resolved_abs
+  # Extract version-specific folder name and build relative path for Podfile.lock
+  version_folder = resolved_abs.sub(PNPM_MODULES_ABS + '/', '').split('/').first
+  File.join(PNPM_MODULES_REL, version_folder, 'node_modules', scope, name)
+end
+
+CAPACITOR_IOS_PATH = pnpm_scoped_module('@capacitor', 'ios')
+CAPACITOR_IOS_ABS = File.expand_path(CAPACITOR_IOS_PATH, PODFILE_DIR)
+require_relative File.join(CAPACITOR_IOS_ABS, 'scripts/pods_helpers')
 
 platform :ios, '15.0'
 use_frameworks!
@@ -9,16 +26,21 @@ use_frameworks!
 install! 'cocoapods', :disable_input_output_paths => true
 
 def capacitor_pods
-  pod 'Capacitor', :path => '../../../../node_modules/.pnpm/@capacitor+ios@8.0.2_@capacitor+core@8.0.2/node_modules/@capacitor/ios'
-  pod 'CapacitorCordova', :path => '../../../../node_modules/.pnpm/@capacitor+ios@8.0.2_@capacitor+core@8.0.2/node_modules/@capacitor/ios'
-  pod 'CapacitorCommunitySqlite', :path => '../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor-community/sqlite'
-  pod 'CapacitorApp', :path => '../../../../node_modules/.pnpm/@capacitor+app@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/app'
-  pod 'CapacitorFilesystem', :path => '../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.0_@capacitor+core@8.0.2/node_modules/@capacitor/filesystem'
-  pod 'CapacitorKeyboard', :path => '../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/keyboard'
-  pod 'CapacitorPreferences', :path => '../../../../node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/preferences'
-  pod 'CapacitorShare', :path => '../../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.0.2/node_modules/@capacitor/share'
-  pod 'CapawesomeCapacitorFilePicker', :path => '../../../../node_modules/.pnpm/@capawesome+capacitor-file-picker@8.0.1_@capacitor+core@8.0.2/node_modules/@capawesome/capacitor-file-picker'
-  pod 'CapgoCapacitorNativeBiometric', :path => '../../../../node_modules/.pnpm/@capgo+capacitor-native-biometric@8.3.7_@capacitor+core@8.0.2/node_modules/@capgo/capacitor-native-biometric'
+  pod 'Capacitor', :path => CAPACITOR_IOS_PATH
+  pod 'CapacitorCordova', :path => CAPACITOR_IOS_PATH
+  pod 'CapacitorCommunitySqlite',
+      :path => pnpm_scoped_module('@capacitor-community', 'sqlite')
+  pod 'CapacitorApp', :path => pnpm_scoped_module('@capacitor', 'app')
+  pod 'CapacitorFilesystem',
+      :path => pnpm_scoped_module('@capacitor', 'filesystem')
+  pod 'CapacitorKeyboard', :path => pnpm_scoped_module('@capacitor', 'keyboard')
+  pod 'CapacitorPreferences',
+      :path => pnpm_scoped_module('@capacitor', 'preferences')
+  pod 'CapacitorShare', :path => pnpm_scoped_module('@capacitor', 'share')
+  pod 'CapawesomeCapacitorFilePicker',
+      :path => pnpm_scoped_module('@capawesome', 'capacitor-file-picker')
+  pod 'CapgoCapacitorNativeBiometric',
+      :path => pnpm_scoped_module('@capgo', 'capacitor-native-biometric')
 end
 
 target 'App' do

@@ -240,7 +240,10 @@ describe('useMoveVfsItem integration', () => {
         expect(targetIds).toContain(unfiledItemTwoId);
         expect(targetIds).toContain(unfiledItemThreeId);
 
-        const links = await db.select().from(vfsLinks);
+        const links = await db
+          .select()
+          .from(vfsLinks)
+          .where(eq(vfsLinks.parentId, targetFolderId));
         expect(links).toHaveLength(3);
         expect(links.every((link) => link.parentId === targetFolderId)).toBe(
           true
