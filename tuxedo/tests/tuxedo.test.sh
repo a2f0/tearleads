@@ -249,6 +249,7 @@ WORKSPACE_PREFIX="tearleads"
 WORKSPACE_START=2
 SHARED_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-shared"
 MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
+DASHBOARD_DIR="$BASE_DIR/${WORKSPACE_PREFIX}"
 NUM_WORKSPACES=2
 SESSION_NAME="tuxedo"
 TMUX_CONF="/tmp/tmux.conf"
@@ -259,8 +260,8 @@ sync_all_titles() {
 }
 tuxedo_attach_or_create
 tmux_calls=$(cat "$TMUX_CALLS")
-assert_contains "$tmux_calls" "new-session -d -s tuxedo -c $MAIN_DIR -n open-prs -e PATH="
-assert_contains "$tmux_calls" "new-window -t tuxedo: -c $MAIN_DIR -n closed-prs -e PATH="
+assert_contains "$tmux_calls" "new-session -d -s tuxedo -c $DASHBOARD_DIR -n open-prs -e PATH="
+assert_contains "$tmux_calls" "new-window -t tuxedo: -c $DASHBOARD_DIR -n closed-prs -e PATH="
 assert_contains "$tmux_calls" "new-window -t tuxedo: -c $SHARED_DIR -n tearleads-shared -e PATH="
 assert_contains "$tmux_calls" "new-window -t tuxedo: -c $MAIN_DIR -n tearleads-main -e PATH="
 assert_dashboard_respawn_call "$tmux_calls" "open-prs" "listOpenPrs.sh"
