@@ -28,6 +28,7 @@ Script exits early on dependency hygiene checks—fix then rerun:
 
 - Caret/tilde ranges in `dependencies`/`devDependencies` are blocked. Pin versions where reported.
 - Pinned `peerDependencies` must match `packages/client/package.json` versions. Align the peer versions to the client version before rerunning.
+- `@capacitor/*` versions in `packages/client/package.json` must match the resolved versions in `packages/client/ios/App/Podfile.lock` (when present). Align and rerun sync/pod install if mismatched.
 
 ## Node.js Version Alignment (Electron)
 
@@ -99,5 +100,6 @@ Collect warnings/deprecations from `pnpm`, bundler, CocoaPods, Gradle, and test 
 ## Finish
 
 - Review changes with `git status` and `git diff`.
+- **Verify `packages/client/ios/App/Podfile.lock` is staged** if iOS dependencies changed (the script regenerates it via `pod install`).
 - Commit and push using `/commit-and-push`.
 - Prepare the PR for merging using `/enter-merge-queue`.
