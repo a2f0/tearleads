@@ -181,14 +181,12 @@ export async function createClassicTag(
 }
 
 export async function createClassicNote(
-  tagId: string,
+  tagId: string | null,
   title: string = DEFAULT_CLASSIC_NOTE_TITLE
 ): Promise<string> {
   const db = getDatabase();
   const noteId = crypto.randomUUID();
-  const linkId = crypto.randomUUID();
   const now = new Date();
-  const nextPosition = await getNextChildPosition(tagId);
 
   await db.transaction(async (tx) => {
     await tx.insert(vfsRegistry).values({
@@ -207,14 +205,19 @@ export async function createClassicNote(
       deleted: false
     });
 
-    await tx.insert(vfsLinks).values({
-      id: linkId,
-      parentId: tagId,
-      childId: noteId,
-      wrappedSessionKey: '',
-      position: nextPosition,
-      createdAt: now
-    });
+    // Only link to tag if one is provided (otherwise create untagged note)
+    if (tagId) {
+      const linkId = crypto.randomUUID();
+      const nextPosition = await getNextChildPosition(tagId);
+      await tx.insert(vfsLinks).values({
+        id: linkId,
+        parentId: tagId,
+        childId: noteId,
+        wrappedSessionKey: '',
+        position: nextPosition,
+        createdAt: now
+      });
+    }
   });
 
   return noteId;

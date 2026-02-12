@@ -43,7 +43,7 @@ interface NotesContextMenuState {
 }
 
 export function NotesPane({
-  activeTagName,
+  activeTagName: _activeTagName,
   noteIds,
   notesById,
   editingNoteId,
@@ -178,29 +178,12 @@ export function NotesPane({
           openEmptySpaceContextMenu(rect.left + 8, rect.top + 8);
         }}
       >
-        {!activeTagName ? (
-          <div className="flex items-center gap-3 text-zinc-400">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <path d="M19 12H5M12 19l-7-7 7-7" />
-            </svg>
-            <span className="text-sm">Select a tag to view entries</span>
-          </div>
-        ) : noteIds.length === 0 && onCreateNote ? (
+        {noteIds.length === 0 && onCreateNote ? (
           <button
             type="button"
             onClick={() => void onCreateNote()}
             onContextMenu={(e) => e.preventDefault()}
-            className="w-full rounded border border-dashed border-zinc-300 bg-zinc-50 p-3 text-left hover:border-zinc-400 hover:bg-zinc-100"
+            className="w-full rounded border border-zinc-300 border-dashed bg-zinc-50 p-3 text-left hover:border-zinc-400 hover:bg-zinc-100"
             aria-label={CREATE_CLASSIC_NOTE_ARIA_LABEL}
           >
             <div className="flex items-start gap-2">
@@ -214,8 +197,9 @@ export function NotesPane({
             </div>
           </button>
         ) : noteIds.length === 0 ? (
+          // biome-ignore lint/a11y/noStaticElementInteractions: blocks context menu only
           <div
-            className="rounded border border-dashed border-zinc-300 bg-zinc-50 p-3"
+            className="rounded border border-zinc-300 border-dashed bg-zinc-50 p-3"
             onContextMenu={(e) => e.preventDefault()}
           >
             <div className="flex items-start gap-2">

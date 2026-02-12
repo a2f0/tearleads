@@ -2,10 +2,10 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { NotesPane } from './NotesPane';
 
 describe('NotesPane', () => {
-  it('asks user to select a tag when none is active', () => {
+  it('shows silhouette when no entries exist', () => {
     render(
       <NotesPane
-        activeTagName={null}
+        activeTagName="All Entries"
         noteIds={[]}
         notesById={{}}
         onMoveNote={() => {}}
@@ -15,8 +15,9 @@ describe('NotesPane', () => {
       />
     );
 
+    // Should show the non-clickable silhouette (no onCreateNote provided)
     expect(
-      screen.getByText('Select a tag to view entries')
+      screen.getByLabelText('Entry list, press Shift+F10 for context menu')
     ).toBeInTheDocument();
   });
 

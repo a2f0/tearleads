@@ -155,14 +155,18 @@ describe('ClassicApp', () => {
     expect(latest.noteOrderByTagId['tag-1']).toEqual(['note-2', 'note-1']);
   });
 
-  it('renders with no active tag and supports optional callback omission', () => {
+  it('renders all entries when no active tag and supports optional callback omission', () => {
     render(<ClassicApp initialState={createState(null)} />);
-    expect(
-      screen.getByText('Select a tag to view entries')
-    ).toBeInTheDocument();
+    // With no active tag, should show all entries
+    expect(screen.getByText('Alpha')).toBeInTheDocument();
+    expect(screen.getByText('Beta')).toBeInTheDocument();
+    expect(screen.getByText('Gamma')).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Select tag Work'));
+    // After selecting a tag, only that tag's entries are shown
     expect(screen.getByText('Alpha')).toBeInTheDocument();
+    expect(screen.getByText('Beta')).toBeInTheDocument();
+    expect(screen.queryByText('Gamma')).not.toBeInTheDocument();
   });
 
   it('filters tags based on tag search input', () => {

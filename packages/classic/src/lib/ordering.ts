@@ -245,3 +245,7 @@ export function getNoteCountByTagId(
   }
   return counts;
 }
+
+export function getAllNoteIds(state: ClassicState): string[] {
+  return Object.keys(state.notesById);
+}

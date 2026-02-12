@@ -7,6 +7,7 @@ import {
 } from '../lib/constants';
 import {
   getActiveTagNoteIds,
+  getAllNoteIds,
   getNoteCountByTagId,
   getUntaggedNoteIds,
   reorderNoteInTag,
@@ -53,6 +54,9 @@ export function ClassicApp({
   const entrySearchInputRef = useRef<HTMLInputElement>(null);
 
   const activeTagName = useMemo(() => {
+    if (state.activeTagId === null) {
+      return 'All Entries';
+    }
     if (state.activeTagId === UNTAGGED_TAG_ID) {
       return UNTAGGED_TAG_NAME;
     }
@@ -84,6 +88,9 @@ export function ClassicApp({
   const noteCountByTagId = useMemo(() => getNoteCountByTagId(state), [state]);
 
   const noteIds = useMemo(() => {
+    if (state.activeTagId === null) {
+      return getAllNoteIds(state);
+    }
     if (state.activeTagId === UNTAGGED_TAG_ID) {
       return untaggedNoteIds;
     }
@@ -238,14 +245,28 @@ export function ClassicApp({
   }, [editingTagId, state, updateState]);
 
   const handleCreateNote = useCallback(() => {
-    if (!state.activeTagId) return;
-
     const newNoteId = generateId();
     const newNote = {
       id: newNoteId,
       title: DEFAULT_CLASSIC_NOTE_TITLE,
       body: ''
     };
+
+    // If no tag selected or viewing untagged, create an untagged note
+    if (!state.activeTagId || state.activeTagId === UNTAGGED_TAG_ID) {
+      const nextState: ClassicState = {
+        ...state,
+        notesById: {
+          ...state.notesById,
+          [newNoteId]: newNote
+        }
+      };
+      updateState(nextState);
+      setEditingNoteId(newNoteId);
+      return;
+    }
+
+    // Otherwise link to the active tag
     const currentNoteOrder = state.noteOrderByTagId[state.activeTagId] ?? [];
     const nextState: ClassicState = {
       ...state,

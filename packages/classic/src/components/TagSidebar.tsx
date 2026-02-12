@@ -246,7 +246,7 @@ export function TagSidebar({
                 type="button"
                 onClick={() => void onCreateTag()}
                 onContextMenu={(e) => e.preventDefault()}
-                className="w-full border border-dashed border-zinc-300 bg-zinc-50 px-2 py-0.5 text-left hover:border-zinc-400 hover:bg-zinc-100"
+                className="w-full border border-zinc-300 border-dashed bg-zinc-50 px-2 py-0.5 text-left hover:border-zinc-400 hover:bg-zinc-100"
                 aria-label={CREATE_CLASSIC_TAG_ARIA_LABEL}
               >
                 <div className="flex items-center gap-2">
