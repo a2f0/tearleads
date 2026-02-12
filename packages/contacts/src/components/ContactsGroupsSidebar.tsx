@@ -126,24 +126,21 @@ export function ContactsGroupsSidebar({
       try {
         const db = getDatabase();
         const uniqueIds = Array.from(new Set(groupIds));
-          const counts = await Promise.all(
-            uniqueIds.map(async (groupId) => {
-              const [{ count }] = await db
-                .select({
-                  count: sql<number>`COUNT(*)`.mapWith(Number)
-                })
-                .from(vfsLinks)
-                .innerJoin(
-                  contacts,
-                  and(
-                    eq(contacts.id, vfsLinks.childId),
-                    eq(contacts.deleted, false)
-                  )
-                )
-                .where(eq(vfsLinks.parentId, groupId));
-              return { groupId, count };
-            })
-          );
+        const counts = await Promise.all(
+          uniqueIds.map(async (groupId) => {
+            const [{ count }] = await db
+              .select({
+                count: sql<number>`COUNT(*)`.mapWith(Number)
+              })
+              .from(vfsLinks)
+              .innerJoin(
+                contacts,
+                and(eq(contacts.id, vfsLinks.childId), eq(contacts.deleted, false))
+              )
+              .where(eq(vfsLinks.parentId, groupId));
+            return { groupId, count };
+          })
+        );
         setGroupCounts((prev) => {
           const next = { ...prev };
           for (const { groupId, count } of counts) {
