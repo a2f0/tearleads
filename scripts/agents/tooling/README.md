@@ -24,7 +24,7 @@ Actions:
 
 Options:
 
-- `--title <value>`: required for `setQueued` and `setVscodeTitle`
+- `--title <value>`: required for `setQueued`, optional for `setVscodeTitle` (defaults to `<workspace> - <branch>`)
 - `--timeout-seconds <n>`: default `300`, default `3600` for `refresh`
 - `--repo-root <path>`: force execution from a specific git repo root
 - `--dry-run`: validate action/script resolution without executing target script

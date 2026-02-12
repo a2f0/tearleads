@@ -54,6 +54,14 @@ is_positive_int() {
     esac
 }
 
+# Handle --help/-h before requiring an action
+case "${1:-}" in
+    -h|--help)
+        usage
+        exit 0
+        ;;
+esac
+
 if [ "$#" -lt 1 ]; then
     usage >&2
     exit 1

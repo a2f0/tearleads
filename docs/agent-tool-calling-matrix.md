@@ -47,7 +47,7 @@ Legend:
 | `scripts/agents/refresh.sh` | Now | Common post-merge sync op | No args; long timeout |
 | `scripts/agents/setQueued.sh` | Now | Core queue UX signal | `title` arg required |
 | `scripts/agents/setReady.sh` | Now | Common status signal | Optional `title` |
-| `scripts/agents/setVscodeTitle.sh` | Now | Shared primitive | `title` arg required |
+| `scripts/agents/setVscodeTitle.sh` | Now | Shared primitive | Optional `title` (defaults to `<workspace> - <branch>`) |
 | `scripts/agents/setWaiting.sh` | Now | Common status signal | Optional `title` |
 | `scripts/agents/setWorking.sh` | Now | Common status signal | Optional `title` |
 | `scripts/agents/title-lib.sh` | Manual | Library, not entrypoint | N/A |
