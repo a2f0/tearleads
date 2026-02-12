@@ -419,6 +419,64 @@ describe('FloatingWindow', () => {
     ).not.toBeInTheDocument();
   });
 
+  describe('title bar context menu', () => {
+    it('opens rename menu on title bar context menu', () => {
+      render(<FloatingWindow {...defaultProps} />);
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.contextMenu(titleBar, { clientX: 120, clientY: 180 });
+
+      expect(
+        screen.getByTestId('floating-window-test-window-title-bar-context-menu')
+      ).toBeInTheDocument();
+      expect(
+        screen.getByTestId('floating-window-test-window-rename-title-menu-item')
+      ).toBeInTheDocument();
+    });
+
+    it('renames window title from title bar context menu', async () => {
+      const user = userEvent.setup();
+      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Renamed');
+      render(<FloatingWindow {...defaultProps} />);
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.contextMenu(titleBar, { clientX: 120, clientY: 180 });
+      await user.click(
+        screen.getByTestId('floating-window-test-window-rename-title-menu-item')
+      );
+
+      expect(promptSpy).toHaveBeenCalledWith(
+        'Rename window title',
+        'Test Window'
+      );
+      expect(screen.getByText('Renamed')).toBeInTheDocument();
+      expect(screen.getByRole('dialog')).toHaveAttribute('aria-label', 'Renamed');
+
+      promptSpy.mockRestore();
+    });
+
+    it('does not rename when prompt is cancelled', async () => {
+      const user = userEvent.setup();
+      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
+      render(<FloatingWindow {...defaultProps} />);
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.contextMenu(titleBar, { clientX: 120, clientY: 180 });
+      await user.click(
+        screen.getByTestId('floating-window-test-window-rename-title-menu-item')
+      );
+
+      expect(screen.getByText('Test Window')).toBeInTheDocument();
+      promptSpy.mockRestore();
+    });
+  });
+
   describe('mobile mode', () => {
     beforeEach(() => {
       Object.defineProperty(window, 'innerWidth', {
