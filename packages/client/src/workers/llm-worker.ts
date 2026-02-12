@@ -286,10 +286,8 @@ async function generate(
       // The slice API accepts [start, null] to mean "from start to end", but types don't reflect this
       const inputTensor = (inputs as ModelInputs).input_ids as Tensor;
       const inputLength = inputTensor.dims[1] ?? 0;
-      const generatedIds = output.slice(null, [
-        inputLength,
-        null
-      ] as unknown as number[]);
+      const sliceSpec: Array<number | null> = [inputLength, null];
+      const generatedIds = output.slice(null, sliceSpec);
 
       // Decode the generated tokens
       const decoded = processor.batch_decode(generatedIds, {

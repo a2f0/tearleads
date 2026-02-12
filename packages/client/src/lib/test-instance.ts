@@ -15,6 +15,12 @@
 const WORKER_INDEX_GLOBAL = '__PLAYWRIGHT_WORKER_INDEX__';
 const TEST_INSTANCE_PREFIX = 'test-worker-';
 
+declare global {
+  interface Window {
+    __PLAYWRIGHT_WORKER_INDEX__?: unknown;
+  }
+}
+
 /**
  * Check if the app is running in Playwright test mode.
  */
@@ -27,9 +33,7 @@ export function isTestMode(): boolean {
  */
 export function getTestWorkerIndex(): number | null {
   if (typeof window === 'undefined') return null;
-  const index = (window as unknown as Record<string, unknown>)[
-    WORKER_INDEX_GLOBAL
-  ];
+  const index = window.__PLAYWRIGHT_WORKER_INDEX__;
   return typeof index === 'number' && Number.isFinite(index) && index >= 0
     ? index
     : null;

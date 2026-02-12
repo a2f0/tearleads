@@ -166,8 +166,7 @@ type SQLite3InitModule = (options: {
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 import sqlite3InitModuleFactory from '@/workers/sqlite-wasm/sqlite3.js';
 
-const sqlite3InitModule =
-  sqlite3InitModuleFactory as unknown as SQLite3InitModule;
+const sqlite3InitModule: SQLite3InitModule = sqlite3InitModuleFactory;
 let sqlite3: SQLite3Module | null = null;
 let db: SQLiteDatabase | null = null;
 let encryptionKey: string | null = null;
