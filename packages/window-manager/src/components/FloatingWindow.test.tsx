@@ -438,7 +438,6 @@ describe('FloatingWindow', () => {
 
     it('renames window title from title bar context menu', async () => {
       const user = userEvent.setup();
-      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Renamed');
       render(<FloatingWindow {...defaultProps} />);
       const titleBar = screen.getByTestId(
         'floating-window-test-window-title-bar'
@@ -448,23 +447,20 @@ describe('FloatingWindow', () => {
       await user.click(
         screen.getByTestId('floating-window-test-window-rename-title-menu-item')
       );
-
-      expect(promptSpy).toHaveBeenCalledWith(
-        'Rename window title',
-        'Test Window'
+      const titleInput = screen.getByTestId(
+        'floating-window-test-window-title-input'
       );
+      await user.clear(titleInput);
+      await user.type(titleInput, 'Renamed{Enter}');
       expect(screen.getByText('Renamed')).toBeInTheDocument();
       expect(screen.getByRole('dialog')).toHaveAttribute(
         'aria-label',
         'Renamed'
       );
-
-      promptSpy.mockRestore();
     });
 
-    it('does not rename when prompt is cancelled', async () => {
+    it('does not rename when title edit is cancelled', async () => {
       const user = userEvent.setup();
-      const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue(null);
       render(<FloatingWindow {...defaultProps} />);
       const titleBar = screen.getByTestId(
         'floating-window-test-window-title-bar'
@@ -474,9 +470,12 @@ describe('FloatingWindow', () => {
       await user.click(
         screen.getByTestId('floating-window-test-window-rename-title-menu-item')
       );
-
+      const titleInput = screen.getByTestId(
+        'floating-window-test-window-title-input'
+      );
+      await user.clear(titleInput);
+      await user.type(titleInput, 'Renamed{Escape}');
       expect(screen.getByText('Test Window')).toBeInTheDocument();
-      promptSpy.mockRestore();
     });
   });
 

@@ -1,5 +1,5 @@
 import { Copy, Minus, Pencil, Square, X } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { cn } from '../../lib/utils.js';
 import { WindowContextMenu } from '../WindowContextMenu.js';
 import { WindowContextMenuItem } from '../WindowContextMenuItem.js';
@@ -57,6 +57,18 @@ export function WindowTitleBar({
     x: number;
     y: number;
   } | null>(null);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [draftTitle, setDraftTitle] = useState(title);
+  const titleInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (isEditingTitle) {
+      titleInputRef.current?.focus();
+      titleInputRef.current?.select();
+      return;
+    }
+    setDraftTitle(title);
+  }, [isEditingTitle, title]);
 
   const openContextMenu = (event: React.MouseEvent<HTMLDivElement>) => {
     event.preventDefault();
@@ -70,13 +82,25 @@ export function WindowTitleBar({
   const handleRename = () => {
     closeContextMenu();
     if (!onRenameTitle) return;
+    setDraftTitle(title);
+    setIsEditingTitle(true);
+  };
 
-    const nextTitle = window.prompt('Rename window title', title);
-    if (nextTitle === null) return;
+  const commitTitleRename = () => {
+    if (!onRenameTitle) {
+      setIsEditingTitle(false);
+      return;
+    }
+    const trimmedTitle = draftTitle.trim();
+    if (trimmedTitle.length > 0 && trimmedTitle !== title) {
+      onRenameTitle(trimmedTitle);
+    }
+    setIsEditingTitle(false);
+  };
 
-    const trimmedTitle = nextTitle.trim();
-    if (trimmedTitle.length === 0 || trimmedTitle === title) return;
-    onRenameTitle(trimmedTitle);
+  const cancelTitleRename = () => {
+    setDraftTitle(title);
+    setIsEditingTitle(false);
   };
 
   return (
@@ -85,22 +109,58 @@ export function WindowTitleBar({
       <div
         className={cn(
           'flex h-7 shrink-0 items-center justify-between border-b bg-muted/50 px-2',
-          isDesktop && !isMaximized && 'cursor-grab active:cursor-grabbing'
+          isDesktop &&
+            !isMaximized &&
+            !isEditingTitle &&
+            'cursor-grab active:cursor-grabbing'
         )}
         ref={titleBarRef}
         onMouseDown={
-          isDesktop && !isMaximized ? dragHandlers.onMouseDown : undefined
+          isDesktop && !isMaximized && !isEditingTitle
+            ? dragHandlers.onMouseDown
+            : undefined
         }
         onTouchStart={
-          isDesktop && !isMaximized ? dragHandlers.onTouchStart : undefined
+          isDesktop && !isMaximized && !isEditingTitle
+            ? dragHandlers.onTouchStart
+            : undefined
         }
-        onDoubleClick={isDesktop ? onToggleMaximize : undefined}
+        onDoubleClick={
+          isDesktop && !isEditingTitle ? onToggleMaximize : undefined
+        }
         onContextMenu={openContextMenu}
         data-testid={`floating-window-${id}-title-bar`}
       >
-        <span className="select-none font-medium text-muted-foreground text-xs">
-          {title}
-        </span>
+        {isEditingTitle ? (
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={draftTitle}
+            onChange={(event) => setDraftTitle(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                commitTitleRename();
+              }
+              if (event.key === 'Escape') {
+                event.preventDefault();
+                event.stopPropagation();
+                cancelTitleRename();
+              }
+            }}
+            onBlur={commitTitleRename}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
+            className="h-5 rounded border bg-background px-1.5 font-medium text-base text-muted-foreground"
+            aria-label={`Edit ${title} title`}
+            data-testid={`floating-window-${id}-title-input`}
+          />
+        ) : (
+          <span className="select-none font-medium text-muted-foreground text-xs">
+            {title}
+          </span>
+        )}
         <div className="flex items-center gap-0.5">
           {onMinimize && (
             <button
