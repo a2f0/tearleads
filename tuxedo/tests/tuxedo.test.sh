@@ -131,21 +131,9 @@ assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads-main"
 assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads2"
 assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads3"
 
-TITLE_LOG="$TEMP_DIR/title.log"
-(
-    sync_vscode_title() {
-        echo "$1:$2" >> "$TITLE_LOG"
-    }
-    BASE_DIR="$TEMP_DIR/base"
-    WORKSPACE_PREFIX="tearleads"
-    WORKSPACE_START=2
-    MAIN_DIR="$BASE_DIR/${WORKSPACE_PREFIX}-main"
-    NUM_WORKSPACES=3
-    sync_all_titles
-)
-assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/tearleads-main:tearleads-main"
-assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/tearleads2:tearleads2"
-assert_contains "$(cat "$TITLE_LOG")" "$TEMP_DIR/base/tearleads3:tearleads3"
+# sync_all_titles is now a no-op (title syncing disabled to prevent pollution)
+# Just verify the function exists and can be called
+sync_all_titles
 
 BASE_DIR="$TEMP_DIR"
 WORKSPACE_PREFIX="tearleads"
@@ -182,28 +170,9 @@ assert_eq "../../../tearleads-shared/packages/api/.env" "$(readlink "$WORKSPACE_
 
 update_from_main "$BASE_DIR/not-a-repo"
 
-if command -v jq >/dev/null 2>&1; then
-    TMUX_LOG="$TEMP_DIR/tmux.log"
-    export TMUX_LOG
-    mkdir -p "$TEMP_DIR/bin"
-    cat <<'EOF' > "$TEMP_DIR/bin/tmux"
-#!/bin/sh
-echo "$@" >> "$TMUX_LOG"
-EOF
-    chmod +x "$TEMP_DIR/bin/tmux"
-    PATH="$TEMP_DIR/bin:$PATH_BACKUP"
-
-    mkdir -p "$WORKSPACE_DIR/.vscode"
-    cat <<'EOF' > "$WORKSPACE_DIR/.vscode/settings.json"
-{
-  "window.title": "tuxedo test window title that is pretty long"
-}
-EOF
-
-    sync_vscode_title "$WORKSPACE_DIR" "tearleads2"
-    expected_title=$(tuxedo_truncate_title "tuxedo test window title that is pretty long" 25)
-    assert_contains "$(cat "$TMUX_LOG")" "rename-window -t tuxedo:tearleads2 $expected_title"
-fi
+# sync_vscode_title is now a no-op (title syncing disabled to prevent pollution)
+# Just verify the function exists and can be called without error
+sync_vscode_title "$WORKSPACE_DIR" "tearleads2"
 
 GHOSTTY_LOG="$TEMP_DIR/ghostty.log"
 export GHOSTTY_LOG

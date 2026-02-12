@@ -7,37 +7,23 @@ description: Add the high-priority label to a PR so merge-queue automation yield
 
 Add the `high-priority` label to a PR so other merge-queue sessions yield to it.
 
-## Setup
-
-Determine the repository for all `gh` commands:
-
-```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-```
-
-Always pass `-R "$REPO"` to `gh` commands.
-
 ## Workflow
 
-1. Get PR info:
+1. Get PR number:
 
    ```bash
-   gh pr view --json number,labels -R "$REPO"
+   gh pr view --json number --jq '.number'
    ```
 
-2. If the PR already has `high-priority`, report that and exit.
-
-3. Add the label:
+2. Add the label using the agent tool:
 
    ```bash
-   gh pr edit <pr-number> --add-label "high-priority" -R "$REPO"
+   ./scripts/agents/tooling/agentTool.sh addLabel --type pr --number <pr-number> --label "high-priority"
    ```
 
-4. Confirm:
+   The script automatically checks if the label is already present and verifies success.
 
-   ```bash
-   gh pr view <pr-number> --json labels -R "$REPO"
-   ```
+3. Report that the label was added.
 
 ## Notes
 

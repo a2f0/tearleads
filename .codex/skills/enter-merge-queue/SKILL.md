@@ -294,8 +294,11 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    Post-merge QA handling for `associated_issue_number`:
    - Reopen the issue if closed.
-   - Ensure the `needs-qa` label is applied.
-   - Prefer updating the issue body with merge status.
+   - Add the `needs-qa` label:
+
+     ```bash
+     ./scripts/agents/tooling/agentTool.sh addLabel --type issue --number <associated_issue_number> --label "needs-qa"
+     ```
 
 5. Report success with PR URL, a short description of the merged changes, and the associated issue status.
 

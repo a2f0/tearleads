@@ -214,36 +214,15 @@ tuxedo_truncate_title() {
     printf '%.*s...' "$truncate_len" "$title"
 }
 
-# Sync VS Code window title to tmux window name
-# If .vscode/settings.json has a window.title, use it for tmux
-# Truncates long titles to keep tmux tab bar readable
+# Disabled: VS Code title syncing caused window name pollution.
+# The pane border in tmux.conf already shows path:branch dynamically.
+# Window names are set once at creation time by tuxedo and not changed.
 sync_vscode_title() {
-    workspace="$1"
-    window_name="$2"
-    settings_file="$workspace/.vscode/settings.json"
-    max_length=25
-
-    # Skip if no settings file or jq not available
-    [ -f "$settings_file" ] && command -v jq >/dev/null 2>&1 || return 0
-
-    # Read the window.title from VS Code settings
-    vscode_title=$(jq -r '.["window.title"] // empty' "$settings_file" 2>/dev/null)
-
-    # If a title is set, truncate and rename the tmux window
-    if [ -n "$vscode_title" ]; then
-        vscode_title=$(tuxedo_truncate_title "$vscode_title" "$max_length")
-        tmux rename-window -t "$SESSION_NAME:$window_name" "$vscode_title" 2>/dev/null || true
-    fi
+    :
 }
 
-# Sync all workspace titles from VS Code to tmux
 sync_all_titles() {
-    sync_vscode_title "$MAIN_DIR" "${WORKSPACE_PREFIX}-main"
-    i=$WORKSPACE_START
-    while [ "$i" -le "$NUM_WORKSPACES" ]; do
-        sync_vscode_title "$BASE_DIR/${WORKSPACE_PREFIX}${i}" "${WORKSPACE_PREFIX}${i}"
-        i=$((i + 1))
-    done
+    :
 }
 
 # Build a workspace-specific PATH that includes that workspace's scripts
