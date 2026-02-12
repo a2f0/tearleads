@@ -19,6 +19,7 @@ Actions:
   solicitClaudeCodeReview
   solicitCodexReview
   setVscodeTitle
+  approveSkippedChecks
 
 Options:
   --title <value>          Title to set (optional for setVscodeTitle)
@@ -106,7 +107,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$ACTION" in
-    refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview) ;;
+    refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview|approveSkippedChecks) ;;
     *)
         echo "Error: Unknown action '$ACTION'." >&2
         usage >&2
@@ -137,7 +138,7 @@ if [ -z "$REPO_ROOT" ]; then
 fi
 
 case "$ACTION" in
-    solicitCodexReview|solicitClaudeCodeReview)
+    solicitCodexReview|solicitClaudeCodeReview|approveSkippedChecks)
         SCRIPT="$REPO_ROOT/scripts/$ACTION.sh"
         ;;
     *)
