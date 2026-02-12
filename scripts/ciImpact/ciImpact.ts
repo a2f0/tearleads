@@ -448,17 +448,19 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
       file === 'packages/client/playwright.electron.config.ts'
   );
   const hasWebsiteFiles = changedFiles.some((file) => file.startsWith('packages/website/'));
-  const hasMobileSpecific = changedFiles.some(
+  const hasAndroidSpecific = changedFiles.some(
     (file) =>
       file.startsWith('packages/client/android/') ||
-      file.startsWith('packages/client/ios/') ||
-      file.startsWith('packages/client/.maestro/') ||
-      file.startsWith('packages/client/fastlane/') ||
-      file === 'packages/client/capacitor.config.ts' ||
       file.startsWith('android/') ||
-      file.startsWith('ios/') ||
-      file.startsWith('fastlane/')
+      file.startsWith('fastlane/') ||
+      file === 'packages/client/capacitor.config.ts'
   );
+  const hasIosSpecific = changedFiles.some(
+    (file) =>
+      file.startsWith('packages/client/ios/') || file.startsWith('ios/') || file.startsWith('fastlane/')
+  );
+  const hasMaestroSpecific = changedFiles.some((file) => file.startsWith('packages/client/.maestro/'));
+  const hasMobileSpecific = hasAndroidSpecific || hasIosSpecific || hasMaestroSpecific;
 
   if (hasWebE2ETestFiles || hasClientImpact || hasApiImpact || hasClientRuntimeImpact) {
     jobs['web-e2e'].run = true;
@@ -476,14 +478,25 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
   }
 
   if (hasMobileSpecific || hasClientRuntimeImpact) {
-    jobs.android.run = true;
-    jobs.android.reasons.push('mobile or shared client runtime surface impacted');
+    if (hasAndroidSpecific || hasClientRuntimeImpact || hasMaestroSpecific) {
+      jobs.android.run = true;
+      jobs.android.reasons.push(
+        hasAndroidSpecific ? 'android-specific files changed' : 'shared client runtime surface impacted'
+      );
+      jobs['android-maestro-release'].run = true;
+      jobs['android-maestro-release'].reasons.push(
+        hasAndroidSpecific || hasMaestroSpecific
+          ? 'android/maestro files changed'
+          : 'shared client runtime surface impacted'
+      );
+    }
 
-    jobs['android-maestro-release'].run = true;
-    jobs['android-maestro-release'].reasons.push('mobile or shared client runtime surface impacted');
-
-    jobs['ios-maestro-release'].run = true;
-    jobs['ios-maestro-release'].reasons.push('mobile or shared client runtime surface impacted');
+    if (hasIosSpecific || hasClientRuntimeImpact || hasMaestroSpecific) {
+      jobs['ios-maestro-release'].run = true;
+      jobs['ios-maestro-release'].reasons.push(
+        hasIosSpecific || hasMaestroSpecific ? 'ios/maestro files changed' : 'shared client runtime surface impacted'
+      );
+    }
   }
 
   const tuxedoOnly =
