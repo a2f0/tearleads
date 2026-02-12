@@ -73,11 +73,13 @@ NEW_LABEL="tuxedo:$INSTANCE_NAME"
 CURRENT_LABELS=$(gh pr view "$PR_NUMBER" --json labels --jq '.labels[].name' -R "$REPO" 2>/dev/null || echo "")
 
 OLD_TUXEDO_LABELS=$(echo "$CURRENT_LABELS" | grep '^tuxedo:' || true)
+
+if [ "$(echo "$OLD_TUXEDO_LABELS" | grep -c .)" -eq 1 ] && [ "$OLD_TUXEDO_LABELS" = "$NEW_LABEL" ]; then
+    echo "Label '$NEW_LABEL' is already the only tuxedo label on PR #$PR_NUMBER."
+    exit 0
+fi
+
 for OLD_LABEL in $OLD_TUXEDO_LABELS; do
-    if [ "$OLD_LABEL" = "$NEW_LABEL" ]; then
-        echo "Label '$NEW_LABEL' already present on PR #$PR_NUMBER."
-        exit 0
-    fi
     gh pr edit "$PR_NUMBER" --remove-label "$OLD_LABEL" -R "$REPO" 2>/dev/null || true
     echo "Removed label '$OLD_LABEL' from PR #$PR_NUMBER."
 done
