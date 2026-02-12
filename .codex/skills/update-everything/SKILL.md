@@ -25,8 +25,10 @@ Use the shared script to perform the standard update flow:
 Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
 
 Script exits early on dependency hygiene checks—fix then rerun:
+
 - Caret/tilde ranges in `dependencies`/`devDependencies` are blocked. Pin versions where reported.
 - Pinned `peerDependencies` must match `packages/client/package.json` versions. Align the peer versions to the client version before rerunning.
+
 
 ## Node.js Version Alignment (Electron)
 
