@@ -126,13 +126,13 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    If Gemini reports unsupported file types, set `gemini_can_review = false` and continue to CI.
 
-   If Gemini reports daily quota exhaustion with text like:
+   **Daily quota exhaustion** can happen at ANY point - during initial review OR during follow-up interactions after an initial review was already provided. Check for this pattern in ALL Gemini responses:
    > "You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!"
 
-   then:
+   When detected at any point:
    - Set `gemini_quota_exhausted = true`
    - Set `gemini_can_review = false` for this session
-   - Run one cross-agent fallback review:
+   - If `used_fallback_agent_review` is still `false`, run one cross-agent fallback review:
 
    ```bash
    ./scripts/agents/tooling/agentTool.sh solicitClaudeCodeReview
@@ -140,6 +140,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    - Set `used_fallback_agent_review = true`
    - Treat this single fallback review as sufficient to pass the review step for this loop iteration (do not block on further Gemini responses in this session)
+   - Any unresolved Gemini threads from before quota exhaustion should be resolved by the agent based on whether the feedback was already addressed in code
 
    **Address feedback while CI runs**:
 
