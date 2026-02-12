@@ -44,6 +44,12 @@ Dry-run quality selection:
 pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --files "packages/shared/src/index.ts" --dry-run
 ```
 
+Derive required GitHub workflow names from ciImpact output (used by `CI Gate`):
+
+```bash
+pnpm exec tsx scripts/ciImpact/requiredWorkflows.ts --base origin/main --head HEAD
+```
+
 ## Inputs
 
 - `scripts/ciImpact/job-groups.json`: job groups and path policy
@@ -72,6 +78,12 @@ JSON with:
 - selective per-package TypeScript checks
 - selective per-package builds
 - full legacy quality pipeline on high-risk config/workflow changes
+
+`requiredWorkflows.ts` maps `jobs.<job>.run` decisions to concrete workflow names
+and emits:
+
+- `requiredWorkflows`
+- `reasons` keyed by workflow name
 
 ## Safety Rules
 
