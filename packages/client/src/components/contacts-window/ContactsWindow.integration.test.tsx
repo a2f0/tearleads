@@ -222,11 +222,7 @@ describe('Contacts drag and drop integration', () => {
     });
 
     await user.click(
-      await screen.findByRole(
-        'button',
-        { name: /Family/i },
-        { timeout: 10000 }
-      )
+      await screen.findByRole('button', { name: /Family/i }, { timeout: 10000 })
     );
 
     await waitFor(() => {
