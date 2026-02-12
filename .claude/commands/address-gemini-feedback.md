@@ -14,7 +14,7 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 PR_NUMBER=$(gh pr view --json number --jq '.number')
 ```
 
-**IMPORTANT**: Run these as separate commands, not chained. After capturing `PR_NUMBER`, use `-R "$REPO"` with explicit PR number for subsequent commands.
+**IMPORTANT**: Run these as separate commands, not chained with `&&`. The `gh pr view` command without arguments infers the PR from the current branch and does NOT work with `-R` flag. After capturing `PR_NUMBER`, use `-R "$REPO"` with explicit PR number for all subsequent `gh pr` commands (e.g., `gh pr view "$PR_NUMBER" -R "$REPO"`).
 
 ## CRITICAL: Never Create Pending/Draft Reviews
 
