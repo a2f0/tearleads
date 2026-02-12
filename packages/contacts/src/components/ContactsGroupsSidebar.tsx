@@ -135,7 +135,10 @@ export function ContactsGroupsSidebar({
               .from(vfsLinks)
               .innerJoin(
                 contacts,
-                and(eq(contacts.id, vfsLinks.childId), eq(contacts.deleted, false))
+                and(
+                  eq(contacts.id, vfsLinks.childId),
+                  eq(contacts.deleted, false)
+                )
               )
               .where(eq(vfsLinks.parentId, groupId));
             return { groupId, count };
