@@ -45,6 +45,7 @@ npm-debug.log*
 packages/client/src/workers/sqlite-wasm/
 packages/client/public/sqlite/
 packages/client/public/assets/sqlite3-opfs-async-proxy.js
+packages/client/.generated/
 
 # Downloaded v86 emulator (use scripts/downloadV86.sh to download)
 packages/client/public/v86/

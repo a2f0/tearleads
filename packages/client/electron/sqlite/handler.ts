@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { app, ipcMain, safeStorage } from 'electron';
 import Database from 'better-sqlite3-multiple-ciphers';
+import { resolveSqliteNativeBindingPath } from './nativeBinding';
 
 interface QueryResult {
   rows: Record<string, unknown>[];
@@ -23,6 +24,23 @@ let db: Database.Database | null = null;
 function getDatabasePath(name: string): string {
   const userDataPath = app.getPath('userData');
   return path.join(userDataPath, `${name}.db`);
+}
+
+function getNativeBindingPath(): string {
+  const nativeBindingPath = resolveSqliteNativeBindingPath({
+    devBasePath: path.resolve(__dirname, '../../..'),
+    envOverride: process.env['TEARLEADS_SQLITE_NATIVE_BINDING'],
+    isPackaged: app.isPackaged,
+    resourcesPath: process.resourcesPath,
+  });
+
+  if (!fs.existsSync(nativeBindingPath)) {
+    throw new Error(
+      `Missing Electron SQLite native binary at ${nativeBindingPath}. Run "pnpm --filter @tearleads/client electron:prepare-sqlite".`
+    );
+  }
+
+  return nativeBindingPath;
 }
 
 /**
@@ -44,11 +62,14 @@ function initializeDatabase(config: {
   }
 
   const dbPath = getDatabasePath(config.name);
+  const nativeBindingPath = getNativeBindingPath();
   const keyBuffer = Buffer.from(config.encryptionKey);
 
   try {
     // Open database with encryption
-    db = new Database(dbPath);
+    db = new Database(dbPath, {
+      nativeBinding: nativeBindingPath,
+    });
 
     // Set up encryption using SQLite3MultipleCiphers
     // Use ChaCha20-Poly1305 cipher (recommended)
