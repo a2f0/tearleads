@@ -343,4 +343,31 @@ describe('ClassicApp', () => {
     fireEvent.keyDown(entrySearch, { key: 'Escape' });
     expect(entrySearch).toHaveFocus();
   });
+
+  it('keeps the editing tag visible when a tag search would otherwise hide it', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Personal'));
+    fireEvent.click(screen.getByLabelText('Edit tag Personal'));
+
+    fireEvent.change(screen.getByLabelText('Search tags'), {
+      target: { value: 'work' }
+    });
+
+    expect(screen.getByLabelText('Edit tag Personal')).toBeInTheDocument();
+    expect(screen.getByLabelText('Select tag Work')).toBeInTheDocument();
+  });
+
+  it('keeps the editing entry visible when an entry search would otherwise hide it', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    fireEvent.contextMenu(screen.getByText('Beta'));
+    fireEvent.click(screen.getByLabelText('Edit note Beta'));
+
+    fireEvent.change(screen.getByLabelText('Search entries'), {
+      target: { value: 'gamma' }
+    });
+
+    expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
+  });
 });
