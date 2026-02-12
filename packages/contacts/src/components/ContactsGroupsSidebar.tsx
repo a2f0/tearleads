@@ -1,5 +1,4 @@
 import { contactEmails, contacts, vfsLinks } from '@tearleads/db/sqlite';
-import { inArray } from 'drizzle-orm';
 import {
   useResizableSidebar,
   useSidebarDragOver,
@@ -8,7 +7,7 @@ import {
   WindowSidebarItem,
   WindowSidebarLoading
 } from '@tearleads/window-manager';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, sql } from 'drizzle-orm';
 import { Folder, FolderPlus, Mail, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useContactsContext, useContactsUI } from '../context';
@@ -135,10 +134,7 @@ export function ContactsGroupsSidebar({
           .from(vfsLinks)
           .innerJoin(
             contacts,
-            and(
-              eq(contacts.id, vfsLinks.childId),
-              eq(contacts.deleted, false)
-            )
+            and(eq(contacts.id, vfsLinks.childId), eq(contacts.deleted, false))
           )
           .where(inArray(vfsLinks.parentId, uniqueIds))
           .groupBy(vfsLinks.parentId);

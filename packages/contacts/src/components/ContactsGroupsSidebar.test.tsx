@@ -154,10 +154,7 @@ describe('ContactsGroupsSidebar', () => {
     const user = userEvent.setup();
     const openEmailComposer = vi.fn(() => true);
 
-    // Track call count to return different results for different queries
-    let selectCallCount = 0;
     mockDb.select.mockImplementation(() => {
-      selectCallCount++;
       const chainable: Record<string, unknown> = {};
       chainable['from'] = () => chainable;
       chainable['innerJoin'] = () => chainable;
