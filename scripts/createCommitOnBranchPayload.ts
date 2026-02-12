@@ -120,7 +120,7 @@ function collectFileChanges(diffOutput: string): {
         process.exit(1);
       }
       deletions.push({ path: oldPath });
-      additions.push({ path: newPath, contents: readFileSync(newPath, { encoding: 'base64' }) });
+      additions.push({ path: newPath, contents: readFileSync(newPath).toString('base64') });
       continue;
     }
 
@@ -139,7 +139,7 @@ function collectFileChanges(diffOutput: string): {
       console.error(`Invalid status line: ${line}`);
       process.exit(1);
     }
-    additions.push({ path, contents: readFileSync(path, { encoding: 'base64' }) });
+    additions.push({ path, contents: readFileSync(path).toString('base64') });
   }
 
   return { additions, deletions };

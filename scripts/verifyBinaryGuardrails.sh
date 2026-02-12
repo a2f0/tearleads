@@ -30,19 +30,25 @@ fi
 # Check 4: Pre-push hook calls binary and JS checks
 if [ ! -f ".husky/pre-push" ]; then
   errors+=("Missing .husky/pre-push hook")
-elif ! grep -q "checkBinaryFiles.sh --from-upstream" ".husky/pre-push"; then
-  errors+=(".husky/pre-push does not call checkBinaryFiles.sh --from-upstream")
-elif ! grep -q "checkJs.sh --from-upstream" ".husky/pre-push"; then
-  errors+=(".husky/pre-push does not call checkJs.sh --from-upstream")
+else
+  if ! grep -q "checkBinaryFiles.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call checkBinaryFiles.sh --from-upstream")
+  fi
+  if ! grep -q "checkJs.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call checkJs.sh --from-upstream")
+  fi
 fi
 
 # Check 5: CI workflow includes binary and JS checks
 if [ ! -f ".github/workflows/build.yml" ]; then
   errors+=("Missing .github/workflows/build.yml")
-elif ! grep -q "checkBinaryFiles.sh" ".github/workflows/build.yml"; then
-  errors+=(".github/workflows/build.yml does not include binary file check")
-elif ! grep -q "checkJs.sh" ".github/workflows/build.yml"; then
-  errors+=(".github/workflows/build.yml does not include plain JavaScript file check")
+else
+  if ! grep -q "checkBinaryFiles.sh" ".github/workflows/build.yml"; then
+    errors+=(".github/workflows/build.yml does not include binary file check")
+  fi
+  if ! grep -q "checkJs.sh" ".github/workflows/build.yml"; then
+    errors+=(".github/workflows/build.yml does not include plain JavaScript file check")
+  fi
 fi
 
 # Check 6: Agent instructions include binary/JS policy
