@@ -121,6 +121,12 @@ If conflicts are on the exact same lines and truly incompatible, abort and ask f
 - Binary guardrails run in `pre-commit` (staged files) and `pre-push` (unpushed commits).
 - Allowed binaries must be explicitly listed in `scripts/checkBinaryFiles.sh` with documented rationale in the issue or PR.
 
+## JavaScript Files Policy
+
+- Do not commit plain JavaScript files (`.js`, `.mjs`, `.cjs`, `.jsx`) to the repo.
+- Use TypeScript files (`.ts`, `.tsx`) instead.
+- JavaScript guardrails run in `pre-push` and CI via `scripts/checkJs.sh`.
+
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
