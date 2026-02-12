@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { TagSidebar } from './TagSidebar';
 
 describe('TagSidebar', () => {
-  it('renders empty state with silhouette and add button', () => {
+  it('renders empty state with clickable silhouette', () => {
     const onCreateTag = vi.fn();
 
     render(
@@ -18,8 +18,11 @@ describe('TagSidebar', () => {
       />
     );
 
-    expect(screen.getByLabelText('Create new tag')).toBeInTheDocument();
-    expect(screen.getByText('Add Tag')).toBeInTheDocument();
+    const silhouette = screen.getByLabelText('Create new tag');
+    expect(silhouette).toBeInTheDocument();
+
+    fireEvent.click(silhouette);
+    expect(onCreateTag).toHaveBeenCalledTimes(1);
   });
 
   it('renders tags and emits events', () => {

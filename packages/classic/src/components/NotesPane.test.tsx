@@ -20,7 +20,7 @@ describe('NotesPane', () => {
     ).toBeInTheDocument();
   });
 
-  it('renders empty-tag notes state with silhouette and add button', () => {
+  it('renders empty-tag notes state with clickable silhouette', () => {
     const onCreateNote = vi.fn();
 
     render(
@@ -36,8 +36,11 @@ describe('NotesPane', () => {
       />
     );
 
-    expect(screen.getByLabelText('Create new entry')).toBeInTheDocument();
-    expect(screen.getByText('Add Entry')).toBeInTheDocument();
+    const silhouette = screen.getByLabelText('Create new entry');
+    expect(silhouette).toBeInTheDocument();
+
+    fireEvent.click(silhouette);
+    expect(onCreateNote).toHaveBeenCalledTimes(1);
   });
 
   it('renders notes and move controls', () => {

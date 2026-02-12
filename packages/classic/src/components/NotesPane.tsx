@@ -195,41 +195,38 @@ export function NotesPane({
             </svg>
             <span className="text-sm">Select a tag to view entries</span>
           </div>
+        ) : noteIds.length === 0 && onCreateNote ? (
+          <button
+            type="button"
+            onClick={() => void onCreateNote()}
+            onContextMenu={(e) => e.preventDefault()}
+            className="w-full rounded border border-dashed border-zinc-300 bg-zinc-50 p-3 text-left hover:border-zinc-400 hover:bg-zinc-100"
+            aria-label={CREATE_CLASSIC_NOTE_ARIA_LABEL}
+          >
+            <div className="flex items-start gap-2">
+              <span className="w-4 shrink-0 pt-1 text-center text-xs text-zinc-300">
+                ⋮⋮
+              </span>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <span className="block h-4 w-2/3 rounded bg-zinc-200" />
+                <span className="block h-3 w-full rounded bg-zinc-200" />
+              </div>
+            </div>
+          </button>
         ) : noteIds.length === 0 ? (
-          <div className="space-y-3">
-            <div className="rounded border border-dashed border-zinc-300 bg-zinc-50 p-3">
-              <div className="flex items-start gap-2">
-                <span className="w-4 shrink-0 pt-1 text-center text-xs text-zinc-300">
-                  ⋮⋮
-                </span>
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <span className="block h-4 w-2/3 rounded bg-zinc-200" />
-                  <span className="block h-3 w-full rounded bg-zinc-200" />
-                </div>
+          <div
+            className="rounded border border-dashed border-zinc-300 bg-zinc-50 p-3"
+            onContextMenu={(e) => e.preventDefault()}
+          >
+            <div className="flex items-start gap-2">
+              <span className="w-4 shrink-0 pt-1 text-center text-xs text-zinc-300">
+                ⋮⋮
+              </span>
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <span className="block h-4 w-2/3 rounded bg-zinc-200" />
+                <span className="block h-3 w-full rounded bg-zinc-200" />
               </div>
             </div>
-            <div className="rounded border border-dashed border-zinc-300 bg-zinc-50 p-3">
-              <div className="flex items-start gap-2">
-                <span className="w-4 shrink-0 pt-1 text-center text-xs text-zinc-300">
-                  ⋮⋮
-                </span>
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <span className="block h-4 w-1/2 rounded bg-zinc-200" />
-                  <span className="block h-3 w-4/5 rounded bg-zinc-200" />
-                </div>
-              </div>
-            </div>
-            {onCreateNote && (
-              <button
-                type="button"
-                onClick={() => void onCreateNote()}
-                className="flex w-full items-center justify-center gap-1 rounded border border-dashed border-zinc-400 bg-white px-3 py-2 text-sm text-zinc-600 hover:border-zinc-500 hover:bg-zinc-50"
-                aria-label={CREATE_CLASSIC_NOTE_ARIA_LABEL}
-              >
-                <span aria-hidden="true">+</span>
-                Add Entry
-              </button>
-            )}
           </div>
         ) : (
           <ol className="space-y-2" aria-label="Note List">
