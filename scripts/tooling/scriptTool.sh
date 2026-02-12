@@ -207,75 +207,41 @@ if [ -z "$REPO_ROOT" ]; then
     fi
 fi
 
-# Map action to script path and build arguments
-build_command() {
+# Map action to script path
+resolve_script() {
     case "$ACTION" in
         analyzeBundle)
             SCRIPT="$REPO_ROOT/scripts/analyzeBundle.sh"
-            ARGS=""
             ;;
         checkBinaryFiles)
             SCRIPT="$REPO_ROOT/scripts/checkBinaryFiles.sh"
-            if [ "$STAGED" = true ]; then
-                ARGS="--staged"
-            elif [ "$FROM_UPSTREAM" = true ]; then
-                ARGS="--from-upstream"
-            fi
             ;;
         ciImpact)
             SCRIPT="$REPO_ROOT/scripts/ciImpact/ciImpact.ts"
-            ARGS="--base $BASE_SHA --head $HEAD_SHA"
             ;;
         runImpactedQuality)
             SCRIPT="$REPO_ROOT/scripts/ciImpact/runImpactedQuality.ts"
-            ARGS="--base $BASE_SHA --head $HEAD_SHA"
             ;;
         runImpactedTests)
             SCRIPT="$REPO_ROOT/scripts/ciImpact/runImpactedTests.ts"
-            ARGS="--base $BASE_SHA --head $HEAD_SHA"
             ;;
         runAllTests)
             SCRIPT="$REPO_ROOT/scripts/runAllTests.sh"
-            if [ "$HEADED" = true ]; then
-                ARGS="--headed"
-            else
-                ARGS=""
-            fi
             ;;
         runElectronTests)
             SCRIPT="$REPO_ROOT/scripts/runElectronTests.sh"
-            ARGS=""
-            if [ "$HEADED" = true ]; then
-                ARGS="$ARGS --headed"
-            fi
-            if [ -n "$FILTER" ]; then
-                ARGS="$ARGS -g \"$FILTER\""
-            fi
-            if [ -n "$TEST_FILE" ]; then
-                ARGS="$ARGS $TEST_FILE"
-            fi
             ;;
         runPlaywrightTests)
             SCRIPT="$REPO_ROOT/scripts/runPlaywrightTests.sh"
-            ARGS=""
-            if [ "$HEADED" = true ]; then
-                ARGS="$ARGS --headed"
-            fi
-            if [ -n "$FILTER" ]; then
-                ARGS="$ARGS -g \"$FILTER\""
-            fi
-            if [ -n "$TEST_FILE" ]; then
-                ARGS="$ARGS $TEST_FILE"
-            fi
             ;;
         verifyBinaryGuardrails)
             SCRIPT="$REPO_ROOT/scripts/verifyBinaryGuardrails.sh"
-            ARGS=""
             ;;
     esac
 }
 
-build_command
+
+resolve_script
 
 if [ ! -f "$SCRIPT" ]; then
     echo "Error: Script not found: $SCRIPT" >&2
@@ -304,52 +270,134 @@ trap 'rm -f "$TMP_OUTPUT"' EXIT
 
 EXIT_CODE=0
 if [ "$DRY_RUN" = true ]; then
-    printf 'dry-run: would run %s %s from %s\n' "$SCRIPT" "$ARGS" "$REPO_ROOT" >"$TMP_OUTPUT"
+    printf 'dry-run: would run %s for action %s from %s\n' "$SCRIPT" "$ACTION" "$REPO_ROOT" >"$TMP_OUTPUT"
 else
-    # Determine how to run the script (shell vs tsx)
-    case "$SCRIPT" in
-        *.ts)
-            RUNNER="pnpm exec tsx"
-            ;;
-        *)
-            RUNNER=""
-            ;;
-    esac
-
     if command -v timeout >/dev/null 2>&1; then
-        if ! timeout "$TIMEOUT_SECONDS" sh -c '
-            set -eu
-            REPO_ROOT="$1"
-            SCRIPT="$2"
-            ARGS="$3"
-            RUNNER="$4"
-            cd "$REPO_ROOT"
-            if [ -n "$RUNNER" ]; then
-                eval "$RUNNER $SCRIPT $ARGS"
-            elif [ -n "$ARGS" ]; then
-                eval "$SCRIPT $ARGS"
-            else
-                "$SCRIPT"
-            fi
-        ' _ "$REPO_ROOT" "$SCRIPT" "$ARGS" "$RUNNER" >"$TMP_OUTPUT" 2>&1; then
+        if ! timeout "$TIMEOUT_SECONDS" sh -c "$(cat <<'RUNNER_SCRIPT'
+set -eu
+# Import all variables needed for run_script
+ACTION="$1"
+REPO_ROOT="$2"
+SCRIPT="$3"
+STAGED="$4"
+FROM_UPSTREAM="$5"
+BASE_SHA="$6"
+HEAD_SHA="$7"
+HEADED="$8"
+FILTER="$9"
+shift 9
+TEST_FILE="$1"
+
+cd "$REPO_ROOT" || exit 1
+
+case "$ACTION" in
+    analyzeBundle|verifyBinaryGuardrails)
+        "$SCRIPT"
+        ;;
+    checkBinaryFiles)
+        if [ "$STAGED" = true ]; then
+            "$SCRIPT" --staged
+        elif [ "$FROM_UPSTREAM" = true ]; then
+            "$SCRIPT" --from-upstream
+        fi
+        ;;
+    ciImpact|runImpactedQuality|runImpactedTests)
+        pnpm exec tsx "$SCRIPT" --base "$BASE_SHA" --head "$HEAD_SHA"
+        ;;
+    runAllTests)
+        if [ "$HEADED" = true ]; then
+            "$SCRIPT" --headed
+        else
+            "$SCRIPT"
+        fi
+        ;;
+    runElectronTests|runPlaywrightTests)
+        # Build argument list safely without eval
+        if [ "$HEADED" = true ] && [ -n "$FILTER" ] && [ -n "$TEST_FILE" ]; then
+            "$SCRIPT" --headed -g "$FILTER" "$TEST_FILE"
+        elif [ "$HEADED" = true ] && [ -n "$FILTER" ]; then
+            "$SCRIPT" --headed -g "$FILTER"
+        elif [ "$HEADED" = true ] && [ -n "$TEST_FILE" ]; then
+            "$SCRIPT" --headed "$TEST_FILE"
+        elif [ -n "$FILTER" ] && [ -n "$TEST_FILE" ]; then
+            "$SCRIPT" -g "$FILTER" "$TEST_FILE"
+        elif [ "$HEADED" = true ]; then
+            "$SCRIPT" --headed
+        elif [ -n "$FILTER" ]; then
+            "$SCRIPT" -g "$FILTER"
+        elif [ -n "$TEST_FILE" ]; then
+            "$SCRIPT" "$TEST_FILE"
+        else
+            "$SCRIPT"
+        fi
+        ;;
+esac
+RUNNER_SCRIPT
+)" _ "$ACTION" "$REPO_ROOT" "$SCRIPT" "$STAGED" "$FROM_UPSTREAM" "$BASE_SHA" "$HEAD_SHA" "$HEADED" "$FILTER" "$TEST_FILE" >"$TMP_OUTPUT" 2>&1; then
             EXIT_CODE=$?
         fi
     else
-        if ! sh -c '
-            set -eu
-            REPO_ROOT="$1"
-            SCRIPT="$2"
-            ARGS="$3"
-            RUNNER="$4"
-            cd "$REPO_ROOT"
-            if [ -n "$RUNNER" ]; then
-                eval "$RUNNER $SCRIPT $ARGS"
-            elif [ -n "$ARGS" ]; then
-                eval "$SCRIPT $ARGS"
-            else
-                "$SCRIPT"
-            fi
-        ' _ "$REPO_ROOT" "$SCRIPT" "$ARGS" "$RUNNER" >"$TMP_OUTPUT" 2>&1; then
+        if ! sh -c "$(cat <<'RUNNER_SCRIPT'
+set -eu
+# Import all variables needed for run_script
+ACTION="$1"
+REPO_ROOT="$2"
+SCRIPT="$3"
+STAGED="$4"
+FROM_UPSTREAM="$5"
+BASE_SHA="$6"
+HEAD_SHA="$7"
+HEADED="$8"
+FILTER="$9"
+shift 9
+TEST_FILE="$1"
+
+cd "$REPO_ROOT" || exit 1
+
+case "$ACTION" in
+    analyzeBundle|verifyBinaryGuardrails)
+        "$SCRIPT"
+        ;;
+    checkBinaryFiles)
+        if [ "$STAGED" = true ]; then
+            "$SCRIPT" --staged
+        elif [ "$FROM_UPSTREAM" = true ]; then
+            "$SCRIPT" --from-upstream
+        fi
+        ;;
+    ciImpact|runImpactedQuality|runImpactedTests)
+        pnpm exec tsx "$SCRIPT" --base "$BASE_SHA" --head "$HEAD_SHA"
+        ;;
+    runAllTests)
+        if [ "$HEADED" = true ]; then
+            "$SCRIPT" --headed
+        else
+            "$SCRIPT"
+        fi
+        ;;
+    runElectronTests|runPlaywrightTests)
+        # Build argument list safely without eval
+        if [ "$HEADED" = true ] && [ -n "$FILTER" ] && [ -n "$TEST_FILE" ]; then
+            "$SCRIPT" --headed -g "$FILTER" "$TEST_FILE"
+        elif [ "$HEADED" = true ] && [ -n "$FILTER" ]; then
+            "$SCRIPT" --headed -g "$FILTER"
+        elif [ "$HEADED" = true ] && [ -n "$TEST_FILE" ]; then
+            "$SCRIPT" --headed "$TEST_FILE"
+        elif [ -n "$FILTER" ] && [ -n "$TEST_FILE" ]; then
+            "$SCRIPT" -g "$FILTER" "$TEST_FILE"
+        elif [ "$HEADED" = true ]; then
+            "$SCRIPT" --headed
+        elif [ -n "$FILTER" ]; then
+            "$SCRIPT" -g "$FILTER"
+        elif [ -n "$TEST_FILE" ]; then
+            "$SCRIPT" "$TEST_FILE"
+        else
+            "$SCRIPT"
+        fi
+        ;;
+esac
+RUNNER_SCRIPT
+)" _ "$ACTION" "$REPO_ROOT" "$SCRIPT" "$STAGED" "$FROM_UPSTREAM" "$BASE_SHA" "$HEAD_SHA" "$HEADED" "$FILTER" "$TEST_FILE" >"$TMP_OUTPUT" 2>&1; then
             EXIT_CODE=$?
         fi
     fi
