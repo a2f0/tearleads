@@ -1,5 +1,7 @@
 import { notes } from '@tearleads/db/sqlite';
+import { WindowPaneState } from '@tearleads/window-manager';
 import { asc, desc, eq } from 'drizzle-orm';
+import { Loader2, Plus, StickyNote } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type NoteInfo,
@@ -7,10 +9,7 @@ import {
   useNotesContext,
   useNotesUI
 } from '../context/NotesContext';
-import { DatabaseLoadingCard } from './shared/DatabaseLoadingCard';
 import { NotesContextMenus } from './shared/NotesContextMenus';
-import { NotesEmptyStateCard } from './shared/NotesEmptyStateCard';
-import { NotesLoadingCard } from './shared/NotesLoadingCard';
 import { NotesViewHeader } from './shared/NotesViewHeader';
 import { useCreateNote } from './shared/useCreateNote';
 import { NotesTable } from './table-view/NotesTable';
@@ -219,25 +218,41 @@ export function NotesWindowTableView({
         RefreshButton={RefreshButton}
       />
 
-      {isLoading && <DatabaseLoadingCard />}
+      {isLoading && (
+        <WindowPaneState
+          layout="inline"
+          title="Loading database..."
+          className="text-center"
+        />
+      )}
 
       {!isLoading && !isUnlocked && <InlineUnlock description="notes" />}
 
-      {error && (
-        <div className="whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
-          {error}
-        </div>
-      )}
+      {error && <WindowPaneState layout="inline" tone="error" title={error} />}
 
       {isUnlocked &&
         !error &&
         (loading && !hasFetched ? (
-          <NotesLoadingCard />
+          <WindowPaneState
+            layout="inline"
+            icon={<Loader2 className="h-4 w-4 animate-spin" />}
+            title="Loading notes..."
+          />
         ) : notesList.length === 0 && hasFetched ? (
-          <NotesEmptyStateCard
-            createButtonTestId="table-empty-create-note"
-            onCreateNote={handleCreateNote}
-            Button={Button}
+          <WindowPaneState
+            icon={<StickyNote className="h-8 w-8 text-muted-foreground" />}
+            title="No notes yet"
+            description="Create your first note"
+            action={
+              <Button
+                size="sm"
+                onClick={handleCreateNote}
+                data-testid="table-empty-create-note"
+              >
+                <Plus className="mr-1 h-3 w-3" />
+                Create
+              </Button>
+            }
           />
         ) : (
           <NotesTable

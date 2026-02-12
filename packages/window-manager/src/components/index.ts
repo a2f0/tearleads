@@ -16,6 +16,10 @@ export {
   type WindowContextMenuItemProps
 } from './WindowContextMenuItem.js';
 export {
+  WindowPaneState,
+  type WindowPaneStateProps
+} from './WindowPaneState.js';
+export {
   WindowSidebarError,
   type WindowSidebarErrorProps
 } from './WindowSidebarError.js';

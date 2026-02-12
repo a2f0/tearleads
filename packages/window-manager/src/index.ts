@@ -10,6 +10,8 @@ export {
   type WindowContextMenuItemProps,
   type WindowContextMenuProps,
   type WindowDimensions,
+  WindowPaneState,
+  type WindowPaneStateProps,
   WindowSidebarError,
   type WindowSidebarErrorProps,
   WindowSidebarHeader,
