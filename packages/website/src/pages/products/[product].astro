@@ -1,40 +1,24 @@
 ---
-import { defaultLanguage } from "../../i18n/config";
-import Layout from "../../layouts/Layout.astro";
+import Layout from '../../layouts/Layout.astro';
+import { defaultLanguage } from '../../i18n/config';
 
 export function getStaticPaths() {
-	const products = [
-		{
-			product: "desktop",
-			title: "Desktop",
-			description: "Desktop application content coming soon.",
-		},
-		{
-			product: "mobile",
-			title: "Mobile",
-			description: "Mobile application content coming soon.",
-		},
-		{
-			product: "web",
-			title: "Web",
-			description: "Web application content coming soon.",
-		},
-		{
-			product: "chrome-extension",
-			title: "Chrome Extension",
-			description: "Chrome extension content coming soon.",
-		},
-	];
+  const products = [
+    { product: 'desktop', title: 'Desktop', description: 'Desktop application content coming soon.' },
+    { product: 'mobile', title: 'Mobile', description: 'Mobile application content coming soon.' },
+    { product: 'web', title: 'Web', description: 'Web application content coming soon.' },
+    { product: 'chrome-extension', title: 'Chrome Extension', description: 'Chrome extension content coming soon.' },
+  ];
 
-	return products.map((p) => ({
-		params: { product: p.product },
-		props: { title: p.title, description: p.description },
-	}));
+  return products.map((p) => ({
+    params: { product: p.product },
+    props: { title: p.title, description: p.description },
+  }));
 }
 
 interface Props {
-	title: string;
-	description: string;
+  title: string;
+  description: string;
 }
 
 const { title, description } = Astro.props;

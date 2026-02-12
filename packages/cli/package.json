@@ -1,52 +1,52 @@
 {
-	"name": "@tearleads/cli",
-	"version": "0.0.38",
-	"description": "Tearleads CLI for database management",
-	"type": "module",
-	"bin": {
-		"tearleads": "./dist/index.js"
-	},
-	"main": "dist/index.js",
-	"files": [
-		"dist"
-	],
-	"scripts": {
-		"build": "tsup",
-		"dev": "tsx src/index.ts",
-		"clean": "rm -rf dist",
-		"test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-		"test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage",
-		"prepublishOnly": "pnpm build"
-	},
-	"publishConfig": {
-		"access": "public",
-		"registry": "https://registry.npmjs.org/"
-	},
-	"keywords": [
-		"cli",
-		"tearleads",
-		"sqlite"
-	],
-	"author": "",
-	"license": "MIT",
-	"repository": {
-		"type": "git",
-		"url": "https://github.com/a2f0/tearleads.git",
-		"directory": "packages/cli"
-	},
-	"dependencies": {
-		"better-sqlite3-multiple-ciphers": "12.6.2",
-		"commander": "14.0.3"
-	},
-	"devDependencies": {
-		"@tearleads/shared": "workspace:*",
-		"@types/better-sqlite3": "7.6.13",
-		"@types/node": "25.2.3",
-		"@vitest/coverage-v8": "4.0.18",
-		"tsup": "8.5.1",
-		"tsx": "4.21.0",
-		"typescript": "5.9.3",
-		"vitest": "4.0.18",
-		"vitest-fail-on-console": "0.10.1"
-	}
+  "name": "@tearleads/cli",
+  "version": "0.0.38",
+  "description": "Tearleads CLI for database management",
+  "type": "module",
+  "bin": {
+    "tearleads": "./dist/index.js"
+  },
+  "main": "dist/index.js",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsx src/index.ts",
+    "clean": "rm -rf dist",
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage",
+    "prepublishOnly": "pnpm build"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "cli",
+    "tearleads",
+    "sqlite"
+  ],
+  "author": "",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/a2f0/tearleads.git",
+    "directory": "packages/cli"
+  },
+  "dependencies": {
+    "better-sqlite3-multiple-ciphers": "12.6.2",
+    "commander": "14.0.3"
+  },
+  "devDependencies": {
+    "@tearleads/shared": "workspace:*",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "25.2.3",
+    "@vitest/coverage-v8": "4.0.18",
+    "tsup": "8.5.1",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18",
+    "vitest-fail-on-console": "0.10.1"
+  }
 }

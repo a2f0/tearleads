@@ -1,33 +1,45 @@
 {
-	"ignoredPrefixes": [".claude/", ".codex/", "docs/", ".vscode/"],
-	"ignoredExact": ["LICENSE"],
-	"ignoredSuffixes": [".md"],
-	"workflowCriticalPrefixes": [".github/workflows/", ".github/actions/"],
-	"clientRuntimePackages": [
-		"@tearleads/client",
-		"@tearleads/shared",
-		"@tearleads/ui",
-		"@tearleads/window-manager",
-		"@tearleads/audio",
-		"@tearleads/calendar",
-		"@tearleads/classic",
-		"@tearleads/contacts",
-		"@tearleads/db",
-		"@tearleads/db-test-utils",
-		"@tearleads/email",
-		"@tearleads/keychain",
-		"@tearleads/mls-chat",
-		"@tearleads/notes",
-		"@tearleads/terminal",
-		"@tearleads/vfs-explorer"
-	],
-	"jobNames": [
-		"build",
-		"web-e2e",
-		"website-e2e",
-		"electron-e2e",
-		"android",
-		"android-maestro-release",
-		"ios-maestro-release"
-	]
+  "ignoredPrefixes": [
+    ".claude/",
+    ".codex/",
+    "docs/",
+    ".vscode/"
+  ],
+  "ignoredExact": [
+    "LICENSE"
+  ],
+  "ignoredSuffixes": [
+    ".md"
+  ],
+  "workflowCriticalPrefixes": [
+    ".github/workflows/",
+    ".github/actions/"
+  ],
+  "clientRuntimePackages": [
+    "@tearleads/client",
+    "@tearleads/shared",
+    "@tearleads/ui",
+    "@tearleads/window-manager",
+    "@tearleads/audio",
+    "@tearleads/calendar",
+    "@tearleads/classic",
+    "@tearleads/contacts",
+    "@tearleads/db",
+    "@tearleads/db-test-utils",
+    "@tearleads/email",
+    "@tearleads/keychain",
+    "@tearleads/mls-chat",
+    "@tearleads/notes",
+    "@tearleads/terminal",
+    "@tearleads/vfs-explorer"
+  ],
+  "jobNames": [
+    "build",
+    "web-e2e",
+    "website-e2e",
+    "electron-e2e",
+    "android",
+    "android-maestro-release",
+    "ios-maestro-release"
+  ]
 }

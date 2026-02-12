@@ -1,51 +1,51 @@
 {
-	"name": "@tearleads/shared",
-	"version": "0.0.1",
-	"description": "Shared TypeScript utilities and types for Tearleads",
-	"type": "module",
-	"main": "dist/index.js",
-	"types": "dist/index.d.ts",
-	"exports": {
-		".": {
-			"types": "./dist/index.d.ts",
-			"import": "./dist/index.js"
-		},
-		"./redis": {
-			"types": "./dist/redis/index.d.ts",
-			"import": "./dist/redis/index.js"
-		},
-		"./licenses.json": "./dist/licenses.json"
-	},
-	"files": [
-		"dist"
-	],
-	"scripts": {
-		"build": "tsc && pnpm generateLicenses",
-		"clean": "rm -rf dist",
-		"generateLicenses": "tsx scripts/generate-licenses.ts",
-		"test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
-		"test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
-	},
-	"keywords": [
-		"shared",
-		"utils",
-		"types",
-		"typescript"
-	],
-	"author": "",
-	"license": "UNLICENSED",
-	"dependencies": {
-		"@noble/ciphers": "2.1.1",
-		"@noble/curves": "2.0.1",
-		"@noble/hashes": "2.0.1",
-		"@noble/post-quantum": "0.5.4",
-		"redis": "5.10.0"
-	},
-	"devDependencies": {
-		"@vitest/coverage-v8": "4.0.18",
-		"tsx": "4.21.0",
-		"typescript": "5.9.3",
-		"vitest": "4.0.18",
-		"vitest-fail-on-console": "0.10.1"
-	}
+  "name": "@tearleads/shared",
+  "version": "0.0.1",
+  "description": "Shared TypeScript utilities and types for Tearleads",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./redis": {
+      "types": "./dist/redis/index.d.ts",
+      "import": "./dist/redis/index.js"
+    },
+    "./licenses.json": "./dist/licenses.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && pnpm generateLicenses",
+    "clean": "rm -rf dist",
+    "generateLicenses": "tsx scripts/generate-licenses.ts",
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+  },
+  "keywords": [
+    "shared",
+    "utils",
+    "types",
+    "typescript"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "dependencies": {
+    "@noble/ciphers": "2.1.1",
+    "@noble/curves": "2.0.1",
+    "@noble/hashes": "2.0.1",
+    "@noble/post-quantum": "0.5.4",
+    "redis": "5.10.0"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "4.0.18",
+    "tsx": "4.21.0",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18",
+    "vitest-fail-on-console": "0.10.1"
+  }
 }
