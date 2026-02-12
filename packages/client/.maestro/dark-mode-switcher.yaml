@@ -6,7 +6,7 @@ androidWebViewHierarchy: devtools
 
 - assertVisible: "Tearleads"
 
--# Stabilize initial render
+- # Stabilize initial render
 - extendedWaitUntil:
     visible: "Files"
     timeout: 8000
