@@ -1,8 +1,8 @@
+import { AccountSwitcher } from '@client/components/AccountSwitcher';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { AccountSwitcher } from '@/components/AccountSwitcher';
 import { Console } from './Console';
 
 const mockSetup = vi.fn();
@@ -32,12 +32,12 @@ const mockContext = {
   switchInstance: mockSwitchInstance
 };
 
-vi.mock('@/db/hooks', () => ({
+vi.mock('@client/db/hooks', () => ({
   useDatabaseContext: () => mockContext
 }));
 
 const mockSaveFile = vi.fn();
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@client/lib/file-utils', () => ({
   generateBackupFilename: vi.fn(() => 'tearleads-backup.db'),
   readFileAsUint8Array: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
   saveFile: (...args: unknown[]) => mockSaveFile(...args)

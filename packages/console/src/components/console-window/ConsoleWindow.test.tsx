@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { ConsoleWindow } from './ConsoleWindow';
 
 // Mock database hooks
-vi.mock('@/db/hooks', () => ({
+vi.mock('@client/db/hooks', () => ({
   useDatabaseContext: () => ({
     isUnlocked: true,
     isLoading: false,
@@ -14,7 +14,7 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 // Mock FloatingWindow
-vi.mock('@/components/floating-window', () => ({
+vi.mock('@client/components/floating-window', () => ({
   FloatingWindow: ({
     children,
     title,
@@ -35,7 +35,7 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 // Mock Terminal component
-vi.mock('@/components/terminal', () => ({
+vi.mock('@client/components/terminal', () => ({
   ClientTerminal: ({
     className,
     autoFocus
@@ -61,7 +61,7 @@ vi.mock('@/components/terminal', () => ({
   }
 }));
 
-vi.mock('@/components/help-links/HelpDocumentation', () => ({
+vi.mock('@client/components/help-links/HelpDocumentation', () => ({
   HelpDocumentation: ({ docId }: { docId: string }) => (
     <div data-testid="help-documentation">{docId}</div>
   )

@@ -1,10 +1,10 @@
-import { Columns2, Rows2 } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+} from '@client/components/ui/dropdown-menu';
+import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
+import { Columns2, Rows2 } from 'lucide-react';
 
 interface ConsoleWindowMenuBarProps {
   onNewTab: () => void;

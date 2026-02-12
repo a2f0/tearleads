@@ -44,4 +44,9 @@ export const createViteAliases = (dirname: string): AliasMap => ({
   '@tearleads/vfs-explorer/package.json': path.resolve(dirname, '../vfs-explorer/package.json'),
   '@tearleads/vfs-explorer': path.resolve(dirname, '../vfs-explorer/src/index.ts'),
   '@tearleads/window-manager': path.resolve(dirname, '../window-manager/src/index.ts'),
+  '@tearleads/console/package.json': path.resolve(
+    dirname,
+    '../console/package.json'
+  ),
+  '@tearleads/console': path.resolve(dirname, '../console/src/index.ts'),
 });

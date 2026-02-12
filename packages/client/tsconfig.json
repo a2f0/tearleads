@@ -16,6 +16,8 @@
       "@tearleads/audio": ["../audio/src/index.ts"],
       "@tearleads/calendar/package.json": ["../calendar/package.json"],
       "@tearleads/calendar": ["../calendar/src/index.ts"],
+      "@tearleads/console/package.json": ["../console/package.json"],
+      "@tearleads/console": ["../console/src/index.ts"],
       "@tearleads/classic/package.json": ["../classic/package.json"],
       "@tearleads/classic": ["../classic/src/index.ts"],
       "@tearleads/contacts/package.json": ["../contacts/package.json"],

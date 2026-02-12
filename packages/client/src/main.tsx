@@ -104,7 +104,7 @@ const ContactDetail = lazy(() =>
   import('./pages/ContactDetail').then((m) => ({ default: m.ContactDetail }))
 );
 const Console = lazy(() =>
-  import('./pages/console').then((m) => ({ default: m.Console }))
+  import('@tearleads/console').then((m) => ({ default: m.Console }))
 );
 const ContactNew = lazy(() =>
   import('./pages/ContactNew').then((m) => ({ default: m.ContactNew }))

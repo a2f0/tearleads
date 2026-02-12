@@ -61,7 +61,7 @@ vi.mock('@/components/notes-window', () => ({
   )
 }));
 
-vi.mock('@/components/console-window', () => ({
+vi.mock('@tearleads/console', () => ({
   ConsoleWindow: ({
     id,
     onClose,
