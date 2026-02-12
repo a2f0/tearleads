@@ -16,7 +16,7 @@ import {
 } from '@/lib/docsWindowSizing';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
-type HelpView = 'index' | 'api' | HelpDocId;
+type HelpView = 'index' | 'developer' | 'api' | HelpDocId;
 
 function getHelpWindowTitle(view: HelpView): string {
   switch (view) {
@@ -24,6 +24,8 @@ function getHelpWindowTitle(view: HelpView): string {
       return 'Help';
     case 'api':
       return 'API Docs';
+    case 'developer':
+      return 'Developer';
     default:
       return getHelpDocLabel(view);
   }
@@ -88,7 +90,28 @@ export function HelpWindow({
               </div>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                 <HelpLinksGrid
+                  view="topLevel"
                   onApiDocsClick={() => setView('api')}
+                  onDeveloperClick={() => setView('developer')}
+                  onDocClick={(docId) => setView(docId)}
+                />
+              </div>
+            </div>
+          ) : view === 'developer' ? (
+            <div className="space-y-6">
+              <button
+                type="button"
+                onClick={() => setView('index')}
+                className="inline-flex items-center text-muted-foreground hover:text-foreground"
+              >
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Back to Help
+              </button>
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
+                <HelpLinksGrid
+                  view="developer"
+                  onApiDocsClick={() => setView('api')}
+                  onDeveloperClick={() => setView('developer')}
                   onDocClick={(docId) => setView(docId)}
                 />
               </div>

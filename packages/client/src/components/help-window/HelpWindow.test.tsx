@@ -71,6 +71,7 @@ describe('HelpWindow', () => {
   const docCases = [
     { label: 'CLI', title: 'CLI', docId: 'cli' },
     { label: 'CLI Reference', title: 'CLI Reference', docId: 'cliReference' },
+    { label: 'CI', title: 'CI', docId: 'ci' },
     {
       label: 'Chrome Extension',
       title: 'Chrome Extension',
@@ -101,11 +102,7 @@ describe('HelpWindow', () => {
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.getByText('API Docs')).toBeInTheDocument();
-    expect(screen.getByText('CLI')).toBeInTheDocument();
-    expect(screen.getByText('CLI Reference')).toBeInTheDocument();
-    expect(screen.getByText('Chrome Extension')).toBeInTheDocument();
-    expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
-    expect(screen.getByText('Tuxedo')).toBeInTheDocument();
+    expect(screen.getByText('Developer')).toBeInTheDocument();
   });
 
   it('navigates to API docs when clicking API Docs', async () => {
@@ -163,6 +160,7 @@ describe('HelpWindow', () => {
     );
 
     for (const { label, title, docId } of docCases) {
+      await user.click(screen.getByText('Developer'));
       await user.click(screen.getByText(label));
       expect(screen.getByTestId('window-title')).toHaveTextContent(title);
       expect(screen.getByTestId('help-documentation')).toHaveTextContent(docId);

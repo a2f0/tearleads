@@ -1,5 +1,6 @@
 import { useTheme } from '@tearleads/ui';
 import {
+  Cog,
   Download,
   type LucideIcon,
   Puzzle,
@@ -14,6 +15,7 @@ import { useTypedTranslation } from '@/i18n';
 import backupRestoreDocumentationEn from '../../../../../docs/en/backup-restore.md?raw';
 import chromeExtensionDocumentationEn from '../../../../../docs/en/chrome-extension.md?raw';
 import cliReferenceDocumentationEn from '../../../../../docs/en/cli-reference.md?raw';
+import ciDocumentationEn from '../../../../../docs/en/ci.md?raw';
 import cliDocumentationEn from '../../../../../docs/en/getting-started.md?raw';
 import tuxedoDocumentationEn from '../../../../../docs/en/tuxedo.md?raw';
 import backupRestoreDocumentationEs from '../../../../../docs/es/backup-restore.md?raw';
@@ -41,6 +43,11 @@ const HELP_DOC_MARKDOWN: Record<
     es: cliReferenceDocumentationEs,
     ua: cliReferenceDocumentationUa
   },
+  ci: {
+    en: ciDocumentationEn,
+    es: ciDocumentationEn,
+    ua: ciDocumentationEn
+  },
   chromeExtension: {
     en: chromeExtensionDocumentationEn,
     es: chromeExtensionDocumentationEs,
@@ -61,6 +68,7 @@ const HELP_DOC_MARKDOWN: Record<
 const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
   cli: 'Setup and workflow notes for command-line development.',
   cliReference: 'Command reference for the tearleads CLI.',
+  ci: 'How CI impact analysis and status-check gating works in pull requests.',
   chromeExtension: 'Build, load, and test the Tearleads Chrome extension.',
   backupRestore:
     'Full guide for secure backup and restore workflows across platforms.',
@@ -70,6 +78,7 @@ const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
 const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
   cli: Terminal,
   cliReference: TerminalSquare,
+  ci: Cog,
   chromeExtension: Puzzle,
   backupRestore: Download,
   tuxedo: Shirt
