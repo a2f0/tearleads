@@ -165,10 +165,12 @@ Required behavior:
 
 ## Suggested Rollout
 
-Phase 1 (immediate):
+Phase 1 (immediate): ✅ COMPLETE
 
-- Toolize all `scripts/agents/*`.
-- Toolize `analyzeBundle`, `checkBinaryFiles`, `ciImpact/*`, `runAllTests`, `runPlaywrightTests`, `runElectronTests`, `verifyBinaryGuardrails`.
+- Toolize all `scripts/agents/*` → `scripts/agents/tooling/agentTool.sh` (PR #1571)
+  - Actions: `refresh`, `setVscodeTitle`, `solicitCodexReview`, `solicitClaudeCodeReview`
+- Toolize `analyzeBundle`, `checkBinaryFiles`, `ciImpact/*`, `runAllTests`, `runPlaywrightTests`, `runElectronTests`, `verifyBinaryGuardrails` → `scripts/tooling/scriptTool.sh` (PR #1596)
+  - Actions: `analyzeBundle`, `checkBinaryFiles`, `ciImpact`, `runImpactedQuality`, `runImpactedTests`, `runAllTests`, `runElectronTests`, `runPlaywrightTests`, `verifyBinaryGuardrails`
 
 Phase 2:
 
@@ -177,3 +179,54 @@ Phase 2:
 Phase 3:
 
 - Keep deploy/secrets/infra scripts manual by policy, or add hard-gated wrappers only if required.
+
+## Wrapper Usage
+
+### Phase 1: Agent Workspace Tools
+
+```bash
+# Set VS Code window title
+./scripts/agents/tooling/agentTool.sh setVscodeTitle
+
+# Refresh workspace (switch to main, pull latest)
+./scripts/agents/tooling/agentTool.sh refresh
+
+# Request code review from another agent
+./scripts/agents/tooling/agentTool.sh solicitCodexReview
+./scripts/agents/tooling/agentTool.sh solicitClaudeCodeReview
+```
+
+### Phase 1: CI/Testing Tools
+
+```bash
+# Analyze CI impact for changed files
+./scripts/tooling/scriptTool.sh ciImpact --base origin/main --head HEAD --json
+
+# Run quality checks on impacted files
+./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+
+# Run tests on impacted packages
+./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+
+# Run full test suite
+./scripts/tooling/scriptTool.sh runAllTests
+
+# Run E2E tests
+./scripts/tooling/scriptTool.sh runPlaywrightTests --filter "login" --headed
+./scripts/tooling/scriptTool.sh runElectronTests --file tests/smoke.spec.ts
+
+# Check binary files in staged changes
+./scripts/tooling/scriptTool.sh checkBinaryFiles --staged --json
+
+# Verify binary guardrail configuration
+./scripts/tooling/scriptTool.sh verifyBinaryGuardrails --json
+```
+
+### Common Options
+
+Both wrappers support:
+
+- `--timeout-seconds <n>` - Override default timeout
+- `--repo-root <path>` - Execute from specific git root
+- `--dry-run` - Validate without executing
+- `--json` - Emit structured JSON summary
