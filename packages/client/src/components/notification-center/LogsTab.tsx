@@ -1,5 +1,5 @@
-import { Trash2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { Copy, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import { type LogEntry, logStore } from '@/stores/logStore';
 
@@ -36,6 +36,17 @@ export function LogsTab() {
     logStore.clearLogs();
   };
 
+  const handleCopy = useCallback(async () => {
+    const text = logs
+      .map((log) => {
+        const time = formatTime(log.timestamp);
+        const details = log.details ? `\n${log.details}` : '';
+        return `[${time}] ${log.level.toUpperCase()}: ${log.message}${details}`;
+      })
+      .join('\n');
+    await navigator.clipboard.writeText(text);
+  }, [logs]);
+
   const toggleExpand = (id: string) => {
     setExpandedId((prev) => (prev === id ? null : id));
   };
@@ -54,14 +65,26 @@ export function LogsTab() {
         <span className="font-medium text-muted-foreground text-xs">
           {logs.length} log{logs.length !== 1 ? 's' : ''}
         </span>
-        <button
-          type="button"
-          onClick={handleClear}
-          className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Clear logs"
-        >
-          <Trash2 className="h-3 w-3" />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={handleCopy}
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Copy logs"
+            title="Copy logs to clipboard"
+          >
+            <Copy className="h-3 w-3" />
+          </button>
+          <button
+            type="button"
+            onClick={handleClear}
+            className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
+            aria-label="Clear logs"
+            title="Clear logs"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
+        </div>
       </div>
 
       <div className="max-h-64 space-y-1 overflow-y-auto">
