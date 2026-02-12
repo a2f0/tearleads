@@ -22,6 +22,22 @@ The impact system operates at two levels:
 
 Core analyzer that determines which CI jobs should run. Used by both GitHub Actions and local scripts.
 
+**Preferred: Use the scriptTool wrapper:**
+
+```bash
+# Analyze current branch vs main
+./scripts/tooling/scriptTool.sh ciImpact --base origin/main --head HEAD --json
+
+# Run quality checks on impacted files
+./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+
+# Run tests on impacted packages
+./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+```
+
+<details>
+<summary>Direct invocation (for tuning/debugging)</summary>
+
 ```bash
 # Analyze current branch vs main
 pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD
@@ -30,6 +46,8 @@ pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD
 pnpm exec tsx scripts/ciImpact/ciImpact.ts \
   --files "packages/client/src/App.tsx,packages/api/src/index.ts"
 ```
+
+</details>
 
 **Output JSON includes:**
 
@@ -44,6 +62,15 @@ pnpm exec tsx scripts/ciImpact/ciImpact.ts \
 
 Pre-push hook for selective quality checks. Runs biome, tsc, and build only for impacted packages.
 
+**Preferred: Use the scriptTool wrapper:**
+
+```bash
+./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+```
+
+<details>
+<summary>Direct invocation (for pre-push hook)</summary>
+
 ```bash
 # Normal run (invoked by husky pre-push)
 pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts
@@ -52,9 +79,20 @@ pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts
 pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --dry-run
 ```
 
+</details>
+
 ### `scripts/ciImpact/runImpactedTests.ts`
 
 Pre-push hook for selective coverage tests. Only runs `test:coverage` for impacted packages.
+
+**Preferred: Use the scriptTool wrapper:**
+
+```bash
+./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+```
+
+<details>
+<summary>Direct invocation (for pre-push hook)</summary>
 
 ```bash
 # Normal run (invoked by husky pre-push)
@@ -63,6 +101,8 @@ pnpm exec tsx scripts/ciImpact/runImpactedTests.ts
 # Dry run to see what would execute
 pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --dry-run
 ```
+
+</details>
 
 ## Configuration
 

@@ -1,6 +1,6 @@
 # Agent Tool-Calling Matrix
 
-Date: 2026-02-11
+Date: 2026-02-12 (Phase 2 complete)
 
 Scope:
 
@@ -39,76 +39,76 @@ Legend:
 
 ### scripts/agents
 
-| Script | Decision | Why | Wrapper Notes |
+| Script | Decision | Wrapped | Wrapper Notes |
 | --- | --- | --- | --- |
-| `scripts/agents/refresh.sh` | Now | Common post-merge sync op | No args; long timeout |
-| `scripts/agents/setVscodeTitle.sh` | Now | Shared primitive | Optional `title` (defaults to `<workspace> - <branch>`) |
-| `scripts/agents/title-lib.sh` | Manual | Library, not entrypoint | N/A |
+| `scripts/agents/refresh.sh` | Now | ✅ | `agentTool.sh refresh` |
+| `scripts/agents/setVscodeTitle.sh` | Now | ✅ | `agentTool.sh setVscodeTitle [--title <value>]` |
+| `scripts/agents/title-lib.sh` | Manual | N/A | Library, not entrypoint |
 
 ### scripts
 
-| Script | Decision | Why | Wrapper Notes |
+| Script | Decision | Wrapped | Wrapper Notes |
 | --- | --- | --- | --- |
-| `scripts/analyzeBundle.sh` | Now | Read-only artifact analysis | Capture summary JSON if possible |
-| `scripts/checkBinaryFiles.sh` | Now | Guardrail validation | Read-only check mode |
-| `scripts/checkPort.ts` | Now | Local environment check | Arg: port |
-| `scripts/checkSmtpPort.ts` | Now | Local environment check | No args |
-| `scripts/ciImpact/ciImpact.ts` | Now | Deterministic planning helper | Args passthrough, JSON output |
-| `scripts/ciImpact/README.md` | Manual | Documentation, not executable | N/A |
-| `scripts/ciImpact/job-groups.json` | Manual | Data/config, not executable | N/A |
-| `scripts/ciImpact/runImpactedQuality.ts` | Now | Bounded CI helper | Explicit base/head args |
-| `scripts/ciImpact/runImpactedTests.ts` | Now | Bounded CI helper | Explicit base/head args |
-| `scripts/countLines.ts` | Now | Read-only utility | Output normalization |
-| `scripts/dropPostgresDb.ts` | Later | Mutates local DB state | Require env + confirm flag |
-| `scripts/killPnpmDev.ts` | Later | Stops local processes | Require target/scope args |
-| `scripts/lib/pg-helpers.ts` | Manual | Library file, not entrypoint | N/A |
-| `scripts/listAdmins.ts` | Later | External/system dependency | Read-only but env-sensitive |
-| `scripts/rebuildSqliteForVitest.sh` | Later | Build-time local mutation | Use only in test-repair flows |
-| `scripts/runAllTests.sh` | Now | Standard validation entrypoint | Long timeout; stream summarized |
-| `scripts/runElectronTests.sh` | Now | Standard validation entrypoint | Long timeout |
-| `scripts/runMaestroAndroidTests.sh` | Later | Emulator/device dependency | Preflight check wrapper |
-| `scripts/runMaestroIosTests.sh` | Later | Simulator/device dependency | Preflight check wrapper |
-| `scripts/runPlaywrightTests.sh` | Now | Standard validation entrypoint | Arg: suite/filter |
-| `scripts/solicitClaudeCodeReview.sh` | Later | External reviewer workflow | Keep explicit invocation |
-| `scripts/solicitCodexReview.sh` | Later | External reviewer workflow | Keep explicit invocation |
-| `scripts/syncCliAuth.sh` | Later | Auth/system side effects | Require explicit confirm flag |
-| `scripts/toggleAndroidKeyboard.sh` | Later | Local device state mutation | Device preflight |
-| `scripts/verifyBinaryGuardrails.sh` | Now | Safety check | Read-only mode default |
-| `scripts/verifyCleanIosBuild.sh` | Later | Heavy, env-sensitive | Long timeout + preflight |
-| `scripts/clearAndroidData.sh` | Manual | Destructive local reset | Explicit manual only |
-| `scripts/clearAppData.sh` | Manual | Destructive local reset | Explicit manual only |
-| `scripts/copyTestFilesAndroid.sh` | Later | Local test setup mutation | Safe with targeted args |
-| `scripts/copyTestFilesIos.sh` | Later | Local test setup mutation | Safe with targeted args |
-| `scripts/createAccount.ts` | Manual | Potential external state mutation | Keep explicit manual |
-| `scripts/createTuxedoDeployKey.sh` | Manual | Secrets/key management | Hard-gated/manual |
-| `scripts/deliverMail.sh` | Manual | External side effects | Hard-gated/manual |
-| `scripts/deployApi.sh` | Manual | Production/deployment blast radius | Hard-gated/manual |
-| `scripts/deployClient.sh` | Manual | Production/deployment blast radius | Hard-gated/manual |
-| `scripts/deployWebsite.sh` | Manual | Production/deployment blast radius | Hard-gated/manual |
-| `scripts/downloadSqliteWasm.sh` | Later | Download side effects | Cache + checksum wrapper |
-| `scripts/downloadV86.sh` | Later | Download side effects | Cache + checksum wrapper |
-| `scripts/makeAdmin.sh` | Manual | Privilege mutation | Hard-gated/manual |
-| `scripts/muteIosSimulatorAudio.sh` | Later | Local simulator state mutation | Device preflight |
-| `scripts/reinstallFromPlayStore.sh` | Manual | Device/account side effects | Hard-gated/manual |
-| `scripts/resetAndroidEmulator.sh` | Manual | Destructive emulator reset | Manual only |
-| `scripts/resetIosSimulator.sh` | Manual | Destructive simulator reset | Manual only |
-| `scripts/runAndroid.sh` | Later | Device/runtime dependency | Preflight wrapper |
-| `scripts/runAnsible.sh` | Manual | Infra mutation risk | Hard-gated/manual |
-| `scripts/runAnsibleTuxedo.sh` | Manual | Infra mutation risk | Hard-gated/manual |
-| `scripts/runElectron.sh` | Later | Local runtime helper | Optional tool after stabilization |
-| `scripts/runIos.sh` | Later | Device/runtime dependency | Preflight wrapper |
-| `scripts/runIpad.sh` | Later | Device/runtime dependency | Preflight wrapper |
-| `scripts/runPostgresMigration.sh` | Manual | DB schema mutation | Hard-gated/manual |
-| `scripts/selfHostedRunner.sh` | Manual | Runner/infra management | Hard-gated/manual |
-| `scripts/setGithubVars.sh` | Manual | Secrets/org-repo setting mutation | Hard-gated/manual |
-| `scripts/setTerraformCloudVars.sh` | Manual | Secrets/infra mutation | Hard-gated/manual |
-| `scripts/setupPostgresDev.sh` | Later | Local env bootstrap with mutation | Safe with clear preflight |
-| `scripts/setupSerenaMcp.sh` | Later | Local tooling bootstrap | Good candidate after wrappers |
-| `scripts/setupTuxedoRepos.sh` | Later | Multi-repo local mutation | Safe with dry-run support |
-| `scripts/tuxedo.sh` | Later | Orchestration helper | Wrapper with mode args |
-| `scripts/tuxedoKill.sh` | Later | Process-control side effects | Scope args required |
-| `scripts/updateEverything.sh` | Later | Broad dependency mutation | Explicit mode + dry-run first |
-| `scripts/codex.sh` | Later | Agent bootstrap helper | Tool once interface stabilized |
+| `scripts/analyzeBundle.sh` | Now | ✅ | `scriptTool.sh analyzeBundle` |
+| `scripts/checkBinaryFiles.sh` | Now | ✅ | `scriptTool.sh checkBinaryFiles --staged\|--from-upstream` |
+| `scripts/checkPort.ts` | Now | | Arg: port |
+| `scripts/checkSmtpPort.ts` | Now | | No args |
+| `scripts/ciImpact/ciImpact.ts` | Now | ✅ | `scriptTool.sh ciImpact --base <sha> --head <sha>` |
+| `scripts/ciImpact/README.md` | Manual | N/A | Documentation, not executable |
+| `scripts/ciImpact/job-groups.json` | Manual | N/A | Data/config, not executable |
+| `scripts/ciImpact/runImpactedQuality.ts` | Now | ✅ | `scriptTool.sh runImpactedQuality --base <sha> --head <sha>` |
+| `scripts/ciImpact/runImpactedTests.ts` | Now | ✅ | `scriptTool.sh runImpactedTests --base <sha> --head <sha>` |
+| `scripts/countLines.ts` | Now | | Output normalization |
+| `scripts/dropPostgresDb.ts` | Later | | Require env + confirm flag |
+| `scripts/killPnpmDev.ts` | Later | | Require target/scope args |
+| `scripts/lib/pg-helpers.ts` | Manual | N/A | Library file, not entrypoint |
+| `scripts/listAdmins.ts` | Later | | Read-only but env-sensitive |
+| `scripts/rebuildSqliteForVitest.sh` | Later | | Use only in test-repair flows |
+| `scripts/runAllTests.sh` | Now | ✅ | `scriptTool.sh runAllTests [--headed]` |
+| `scripts/runElectronTests.sh` | Now | ✅ | `scriptTool.sh runElectronTests [--headed] [--filter <pattern>] [--file <path>]` |
+| `scripts/runMaestroAndroidTests.sh` | Later | | Preflight check wrapper |
+| `scripts/runMaestroIosTests.sh` | Later | | Preflight check wrapper |
+| `scripts/runPlaywrightTests.sh` | Now | ✅ | `scriptTool.sh runPlaywrightTests [--headed] [--filter <pattern>] [--file <path>]` |
+| `scripts/solicitClaudeCodeReview.sh` | Now | ✅ | `agentTool.sh solicitClaudeCodeReview` |
+| `scripts/solicitCodexReview.sh` | Now | ✅ | `agentTool.sh solicitCodexReview` |
+| `scripts/syncCliAuth.sh` | Later | | Require explicit confirm flag |
+| `scripts/toggleAndroidKeyboard.sh` | Later | | Device preflight |
+| `scripts/verifyBinaryGuardrails.sh` | Now | ✅ | `scriptTool.sh verifyBinaryGuardrails` |
+| `scripts/verifyCleanIosBuild.sh` | Later | | Long timeout + preflight |
+| `scripts/clearAndroidData.sh` | Manual | N/A | Destructive local reset |
+| `scripts/clearAppData.sh` | Manual | N/A | Destructive local reset |
+| `scripts/copyTestFilesAndroid.sh` | Later | | Safe with targeted args |
+| `scripts/copyTestFilesIos.sh` | Later | | Safe with targeted args |
+| `scripts/createAccount.ts` | Manual | N/A | Potential external state mutation |
+| `scripts/createTuxedoDeployKey.sh` | Manual | N/A | Secrets/key management |
+| `scripts/deliverMail.sh` | Manual | N/A | External side effects |
+| `scripts/deployApi.sh` | Manual | N/A | Production/deployment blast radius |
+| `scripts/deployClient.sh` | Manual | N/A | Production/deployment blast radius |
+| `scripts/deployWebsite.sh` | Manual | N/A | Production/deployment blast radius |
+| `scripts/downloadSqliteWasm.sh` | Later | | Cache + checksum wrapper |
+| `scripts/downloadV86.sh` | Later | | Cache + checksum wrapper |
+| `scripts/makeAdmin.sh` | Manual | N/A | Privilege mutation |
+| `scripts/muteIosSimulatorAudio.sh` | Later | | Device preflight |
+| `scripts/reinstallFromPlayStore.sh` | Manual | N/A | Device/account side effects |
+| `scripts/resetAndroidEmulator.sh` | Manual | N/A | Destructive emulator reset |
+| `scripts/resetIosSimulator.sh` | Manual | N/A | Destructive simulator reset |
+| `scripts/runAndroid.sh` | Later | | Preflight wrapper |
+| `scripts/runAnsible.sh` | Manual | N/A | Infra mutation risk |
+| `scripts/runAnsibleTuxedo.sh` | Manual | N/A | Infra mutation risk |
+| `scripts/runElectron.sh` | Later | | Optional tool after stabilization |
+| `scripts/runIos.sh` | Later | | Preflight wrapper |
+| `scripts/runIpad.sh` | Later | | Preflight wrapper |
+| `scripts/runPostgresMigration.sh` | Manual | N/A | DB schema mutation |
+| `scripts/selfHostedRunner.sh` | Manual | N/A | Runner/infra management |
+| `scripts/setGithubVars.sh` | Manual | N/A | Secrets/org-repo setting mutation |
+| `scripts/setTerraformCloudVars.sh` | Manual | N/A | Secrets/infra mutation |
+| `scripts/setupPostgresDev.sh` | Later | | Safe with clear preflight |
+| `scripts/setupSerenaMcp.sh` | Later | | Good candidate after wrappers |
+| `scripts/setupTuxedoRepos.sh` | Later | | Safe with dry-run support |
+| `scripts/tuxedo.sh` | Later | | Wrapper with mode args |
+| `scripts/tuxedoKill.sh` | Later | | Scope args required |
+| `scripts/updateEverything.sh` | Later | | Explicit mode + dry-run first |
+| `scripts/codex.sh` | Later | | Tool once interface stabilized |
 
 Note:
 
@@ -165,24 +165,26 @@ Required behavior:
 
 ## Suggested Rollout
 
-Phase 1 (immediate): ✅ COMPLETE
+Phase 1 (immediate): ✅ COMPLETE (PR #1571)
 
-- Toolize all `scripts/agents/*` → `scripts/agents/tooling/agentTool.sh` (PR #1571)
+- Toolized all `scripts/agents/*` → `scripts/agents/tooling/agentTool.sh`
   - Actions: `refresh`, `setVscodeTitle`, `solicitCodexReview`, `solicitClaudeCodeReview`
-- Toolize `analyzeBundle`, `checkBinaryFiles`, `ciImpact/*`, `runAllTests`, `runPlaywrightTests`, `runElectronTests`, `verifyBinaryGuardrails` → `scripts/tooling/scriptTool.sh` (PR #1596)
+
+Phase 2 (safe utilities): ✅ COMPLETE (PR #1596)
+
+- Toolized safe utility scripts → `scripts/tooling/scriptTool.sh`
   - Actions: `analyzeBundle`, `checkBinaryFiles`, `ciImpact`, `runImpactedQuality`, `runImpactedTests`, `runAllTests`, `runElectronTests`, `runPlaywrightTests`, `verifyBinaryGuardrails`
+- Updated `.claude/commands/optimize-test-execution.md` to prefer wrapper invocation
 
-Phase 2:
+Phase 3 (env/device/bootstrap):
 
-- Toolize local bootstrap/test env scripts (`setup*`, `runAndroid/iOS`, `verifyCleanIosBuild`, reviewer solicitation scripts).
+- Candidate scripts: `setupPostgresDev`, `setupSerenaMcp`, `runAndroid/iOS`, `verifyCleanIosBuild`, `updateEverything`
+- Add preflight checks for device/simulator availability
+- Keep deploy/secrets/infra scripts manual by policy, or add hard-gated wrappers only if required
 
-Phase 3:
+## Wrapper Usage (Phase 1 + 2)
 
-- Keep deploy/secrets/infra scripts manual by policy, or add hard-gated wrappers only if required.
-
-## Wrapper Usage
-
-### Phase 1: Agent Workspace Tools
+### Agent Workspace Tools (`agentTool.sh`)
 
 ```bash
 # Set VS Code window title
@@ -196,7 +198,7 @@ Phase 3:
 ./scripts/agents/tooling/agentTool.sh solicitClaudeCodeReview
 ```
 
-### Phase 1: CI/Testing Tools
+### CI/Testing Tools (`scriptTool.sh`)
 
 ```bash
 # Analyze CI impact for changed files
