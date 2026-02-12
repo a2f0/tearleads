@@ -5,8 +5,48 @@ on:
   workflow_dispatch:
 
 jobs:
+  detect-impact:
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
+    outputs:
+      should-deploy: ${{ steps.decide.outputs.should-deploy }}
+      impact-json: ${{ steps.decide.outputs.impact-json }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install tsx
+        run: npm install -g tsx
+
+      - name: Decide deploy impact
+        id: decide
+        run: |
+          BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || echo "${{ github.sha }}")
+          HEAD_SHA="${{ github.sha }}"
+          tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
+          SHOULD_DEPLOY=$(jq -r '(.jobs["web-e2e"].run or .jobs["website-e2e"].run or .jobs["electron-e2e"].run)' ci-impact.json)
+          echo "should-deploy=$SHOULD_DEPLOY" >> "$GITHUB_OUTPUT"
+          echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"
+          cat ci-impact.json >> "$GITHUB_OUTPUT"
+          echo "JSON" >> "$GITHUB_OUTPUT"
+
+      - name: Publish impact summary
+        if: ${{ always() }}
+        run: |
+          echo "### Deploy impact (web stack)" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '\"- deploy: \" + ((.jobs[\"web-e2e\"].run or .jobs[\"website-e2e\"].run or .jobs[\"electron-e2e\"].run)|tostring)' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '\"- changed packages: \" + (.changedPackages|join(\", \"))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r 'if (.warnings|length) > 0 then \"- warnings: \" + (.warnings|join(\"; \")) else \"- warnings: none\" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+
   deploy:
     name: Deploy Website, Client, API & SMTP Listener
+    needs: detect-impact
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-deploy == 'true' }}
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 10
 
