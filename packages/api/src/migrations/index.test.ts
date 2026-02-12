@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 15 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 16 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(15);
+      expect(result.currentVersion).toBe(16);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 15 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 16 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -158,9 +158,9 @@ describe('migrations', () => {
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([
-        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
+        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16
       ]);
-      expect(result.currentVersion).toBe(15);
+      expect(result.currentVersion).toBe(16);
     });
   });
 
@@ -315,6 +315,23 @@ describe('migrations', () => {
       expect(queries).toContain(
         'CREATE INDEX IF NOT EXISTS "user_groups_group_idx"'
       );
+    });
+  });
+
+  describe('v016 migration', () => {
+    it('adds is_admin column to user_organizations table', async () => {
+      const pool = createMockPool(new Map());
+
+      const v016 = migrations.find((m: Migration) => m.version === 16);
+      if (!v016) {
+        throw new Error('v016 migration not found');
+      }
+
+      await v016.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('ALTER TABLE "user_organizations"');
+      expect(queries).toContain('"is_admin" BOOLEAN NOT NULL DEFAULT FALSE');
     });
   });
 });

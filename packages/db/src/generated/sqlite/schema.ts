@@ -87,7 +87,8 @@ export const userOrganizations = sqliteTable(
     organizationId: text('organization_id')
       .primaryKey()
       .references(() => organizations.id, { onDelete: 'cascade' }),
-    joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull()
+    joinedAt: integer('joined_at', { mode: 'timestamp_ms' }).notNull(),
+    isAdmin: integer('is_admin', { mode: 'boolean' }).notNull().default(false)
   },
   (table) => [index('user_organizations_org_idx').on(table.organizationId)]
 );
