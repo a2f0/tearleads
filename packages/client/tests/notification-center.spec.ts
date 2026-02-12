@@ -63,7 +63,9 @@ async function dragCorner(
   deltaY: number,
   { steps = 10 }: { steps?: number } = {}
 ) {
-  const handle = page.getByTestId(`notification-center-resize-handle-${corner}`);
+  const handle = page.getByTestId(
+    `floating-window-notification-center-resize-handle-${corner}`
+  );
   await expect(handle).toBeVisible();
   const box = await handle.boundingBox();
   if (!box) throw new Error(`Resize handle ${corner} not found`);
@@ -83,7 +85,9 @@ async function dragTitleBar(
   deltaY: number,
   { steps = 10 }: { steps?: number } = {}
 ) {
-  const titleBar = page.getByTestId('notification-center-title-bar');
+  const titleBar = page.getByTestId(
+    'floating-window-notification-center-title-bar'
+  );
   await expect(titleBar).toBeVisible();
   const box = await titleBar.boundingBox();
   if (!box) throw new Error('Title bar not found');
@@ -110,13 +114,21 @@ test.describe('Notification Center Floating Window', () => {
 
   test('should display the Notification Center with all 4 resize handles', async ({ page }) => {
     // Verify all 4 corner handles are visible
-    await expect(page.getByTestId('notification-center-resize-handle-top-left')).toBeVisible();
-    await expect(page.getByTestId('notification-center-resize-handle-top-right')).toBeVisible();
     await expect(
-      page.getByTestId('notification-center-resize-handle-bottom-left')
+      page.getByTestId('floating-window-notification-center-resize-handle-top-left')
     ).toBeVisible();
     await expect(
-      page.getByTestId('notification-center-resize-handle-bottom-right')
+      page.getByTestId('floating-window-notification-center-resize-handle-top-right')
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(
+        'floating-window-notification-center-resize-handle-bottom-left'
+      )
+    ).toBeVisible();
+    await expect(
+      page.getByTestId(
+        'floating-window-notification-center-resize-handle-bottom-right'
+      )
     ).toBeVisible();
   });
 
