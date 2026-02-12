@@ -43,31 +43,40 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
 
 1. Get the PR number: `gh pr view --json number,title,url | cat`
 
-2. Find unresolved Gemini review comments using the GraphQL API to check `isResolved` status:
+2. Find unresolved Gemini review comments using the GraphQL API to check `isResolved` status.
 
-   ```bash
-   gh api graphql -f query='
-     query($owner: String!, $repo: String!, $pr: Int!) {
-       repository(owner: $owner, name: $repo) {
-         pullRequest(number: $pr) {
-           reviewThreads(first: 50) {
-             nodes {
-               id
-               isResolved
-               comments(first: 10) {
-                 nodes {
-                   id
-                   databaseId
-                   author { login }
-                   body
-                 }
+   **IMPORTANT**: Do NOT pass the query inline with `-f query='...'` as the shell mangles special characters like `!`. Instead, write the query to a temp file first using the Write tool, then reference it:
+
+   First, use the **Write tool** to create `/tmp/gemini-threads.graphql` with this content:
+
+   ```graphql
+   query($owner: String!, $repo: String!, $pr: Int!) {
+     repository(owner: $owner, name: $repo) {
+       pullRequest(number: $pr) {
+         reviewThreads(first: 50) {
+           nodes {
+             id
+             isResolved
+             comments(first: 10) {
+               nodes {
+                 id
+                 databaseId
+                 author { login }
+                 body
                }
              }
-             pageInfo { hasNextPage endCursor }
            }
+           pageInfo { hasNextPage endCursor }
          }
        }
-     }' -f owner=OWNER -f repo=REPO -F pr=PR_NUMBER
+     }
+   }
+   ```
+
+   Then run:
+
+   ```bash
+   gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=a2f0 -f repo=tearleads -F pr=$PR_NUMBER
    ```
 
 3. For each unresolved comment that has been addressed and pushed:

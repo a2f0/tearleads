@@ -28,10 +28,17 @@ interface MockDb {
 }
 
 export const createMockDatabase = (): MockDb => {
+  const chainable = {
+    from: vi.fn(() => chainable),
+    innerJoin: vi.fn(() => chainable),
+    where: vi.fn(() => chainable),
+    groupBy: vi.fn(() => Promise.resolve([])),
+    orderBy: vi.fn(() => Promise.resolve([]))
+  };
   const mockDb: MockDb = {
-    select: vi.fn().mockReturnThis(),
-    from: vi.fn().mockReturnThis(),
-    where: vi.fn().mockReturnThis(),
+    select: vi.fn(() => chainable),
+    from: vi.fn(() => chainable),
+    where: vi.fn(() => chainable),
     orderBy: vi.fn().mockResolvedValue([]),
     insert: vi.fn(() => ({
       values: vi.fn().mockResolvedValue(undefined)

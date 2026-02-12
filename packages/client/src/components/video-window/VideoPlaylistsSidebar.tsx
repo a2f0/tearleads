@@ -38,8 +38,55 @@ export function VideoPlaylistsSidebar({
   onPlaylistChanged,
   onDropToPlaylist
 }: VideoPlaylistsSidebarProps) {
-  const { playlists, loading, error, refetch, deletePlaylist, renamePlaylist } =
-    useVideoPlaylists();
+  const {
+    playlists,
+    loading,
+    error,
+    refetch,
+    deletePlaylist,
+    renamePlaylist,
+    getTrackIdsInPlaylist
+  } = useVideoPlaylists();
+  const [playlistCounts, setPlaylistCounts] = useState<Record<string, number>>(
+    {}
+  );
+
+  const updatePlaylistCounts = useCallback(
+    async (playlistIds: string[]) => {
+      if (playlistIds.length === 0) return;
+      try {
+        const uniqueIds = Array.from(new Set(playlistIds));
+        const counts = await Promise.all(
+          uniqueIds.map(async (id) => {
+            const idsInPlaylist = await getTrackIdsInPlaylist(id);
+            return { id, count: idsInPlaylist.length };
+          })
+        );
+        setPlaylistCounts((prev) => {
+          const next = { ...prev };
+          for (const { id, count } of counts) {
+            next[id] = count;
+          }
+          return next;
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error ?? '');
+        const causeMessage =
+          error && typeof error === 'object' && 'cause' in error
+            ? String((error as { cause?: unknown }).cause ?? '')
+            : '';
+        if (
+          message.includes('Database not initialized') ||
+          causeMessage.includes('Database not initialized')
+        ) {
+          return;
+        }
+        console.error('Failed to update video playlist counts', error);
+      }
+    },
+    [getTrackIdsInPlaylist]
+  );
 
   // Track which playlist is being dragged over for visual feedback
   const [dragOverPlaylistId, setDragOverPlaylistId] = useState<string | null>(
@@ -89,7 +136,7 @@ export function VideoPlaylistsSidebar({
   );
 
   const handlePlaylistDrop = useCallback(
-    (e: React.DragEvent, playlistId: string) => {
+    async (e: React.DragEvent, playlistId: string) => {
       if (!onDropToPlaylist || isNativePlatform) return;
       e.preventDefault();
       e.stopPropagation();
@@ -99,20 +146,32 @@ export function VideoPlaylistsSidebar({
       setDragOverPlaylistId(null);
 
       const videoIds = getMediaDragIds(e.dataTransfer, 'video');
-      if (videoIds.length > 0) {
-        void onDropToPlaylist(playlistId, [], videoIds);
-        return;
-      }
-
-      // Get files and filter for videos
       const files = Array.from(e.dataTransfer.files);
       const videoFiles = filterFilesByAccept(files, 'video/*');
 
-      if (videoFiles.length > 0) {
-        void onDropToPlaylist(playlistId, videoFiles);
+      try {
+        if (videoIds.length > 0) {
+          await onDropToPlaylist(playlistId, [], videoIds);
+        } else if (videoFiles.length > 0) {
+          await onDropToPlaylist(playlistId, videoFiles);
+        } else {
+          return;
+        }
+
+        await refetch();
+        onPlaylistChanged?.();
+        await updatePlaylistCounts([playlistId]);
+      } catch (error) {
+        console.error('Failed to handle video playlist drop', error);
       }
     },
-    [onDropToPlaylist, isNativePlatform]
+    [
+      onDropToPlaylist,
+      isNativePlatform,
+      onPlaylistChanged,
+      refetch,
+      updatePlaylistCounts
+    ]
   );
 
   const [newPlaylistDialogOpen, setNewPlaylistDialogOpen] = useState(false);
@@ -137,15 +196,17 @@ export function VideoPlaylistsSidebar({
   useEffect(() => {
     if (refreshToken === undefined) return;
 
-    if (
-      lastRefreshTokenRef.current !== null &&
-      lastRefreshTokenRef.current !== refreshToken
-    ) {
+    if (lastRefreshTokenRef.current !== refreshToken) {
       void refetch();
     }
 
     lastRefreshTokenRef.current = refreshToken;
   }, [refreshToken, refetch]);
+
+  useEffect(() => {
+    if (playlists.length === 0) return;
+    void updatePlaylistCounts(playlists.map((p) => p.id));
+  }, [playlists, updatePlaylistCounts]);
 
   const { resizeHandleProps } = useResizableSidebar({
     width,
@@ -257,7 +318,7 @@ export function VideoPlaylistsSidebar({
               <List className="h-4 w-4 shrink-0 text-primary" />
               <span className="flex-1 truncate">{playlist.name}</span>
               <span className="text-muted-foreground text-xs">
-                {playlist.trackCount}
+                {playlistCounts[playlist.id] ?? playlist.trackCount}
               </span>
             </button>
           ))}

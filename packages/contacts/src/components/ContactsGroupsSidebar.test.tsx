@@ -62,7 +62,7 @@ describe('ContactsGroupsSidebar', () => {
     expect(onGroupSelect).toHaveBeenCalledWith('group-1');
   });
 
-  it('renders 0 when group contact count is NaN', () => {
+  it('renders 0 when group contact count is NaN', async () => {
     mockUseContactGroups.mockReturnValue({
       groups: [
         { id: 'group-1', name: 'Empty Group', contactCount: Number.NaN }
@@ -87,9 +87,11 @@ describe('ContactsGroupsSidebar', () => {
       </TestContactsProvider>
     );
 
-    expect(screen.getByText('Empty Group')).toBeInTheDocument();
-    expect(screen.getByText('0')).toBeInTheDocument();
-    expect(screen.queryByText('NaN')).not.toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Empty Group')).toBeInTheDocument();
+      expect(screen.getByText('0')).toBeInTheDocument();
+      expect(screen.queryByText('NaN')).not.toBeInTheDocument();
+    });
   });
   it('creates a new group from dialog', async () => {
     const user = userEvent.setup();
@@ -152,22 +154,26 @@ describe('ContactsGroupsSidebar', () => {
     const user = userEvent.setup();
     const openEmailComposer = vi.fn(() => true);
 
-    mockDb.select.mockImplementation(() => ({
-      from: () => ({
-        innerJoin: () => ({
-          innerJoin: () => ({
-            where: () => ({
-              orderBy: () =>
-                Promise.resolve([
-                  { email: 'family@example.com' },
-                  { email: 'family@example.com' },
-                  { email: 'work@example.com' }
-                ])
-            })
-          })
-        })
-      })
-    }));
+    mockDb.select.mockImplementation(() => {
+      const chainable: Record<string, unknown> = {};
+      chainable['from'] = () => chainable;
+      chainable['innerJoin'] = () => chainable;
+      chainable['where'] = () => chainable;
+      // First call: updateGroupCounts uses groupBy
+      chainable['groupBy'] = () =>
+        Promise.resolve([
+          { groupId: 'group-1', count: 2 },
+          { groupId: 'group-2', count: 3 }
+        ]);
+      // Second call: sendEmail uses orderBy
+      chainable['orderBy'] = () =>
+        Promise.resolve([
+          { email: 'family@example.com' },
+          { email: 'family@example.com' },
+          { email: 'work@example.com' }
+        ]);
+      return chainable;
+    });
 
     render(
       <TestContactsProvider
@@ -182,6 +188,10 @@ describe('ContactsGroupsSidebar', () => {
         />
       </TestContactsProvider>
     );
+
+    await waitFor(() => {
+      expect(screen.getByText('Family')).toBeInTheDocument();
+    });
 
     const groupButton = screen.getByText('Family').closest('button');
     expect(groupButton).not.toBeNull();

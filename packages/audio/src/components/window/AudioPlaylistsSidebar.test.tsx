@@ -15,13 +15,22 @@ const mockUseAudioPlaylists: {
   refetch: ReturnType<typeof vi.fn>;
   deletePlaylist: ReturnType<typeof vi.fn>;
   renamePlaylist: ReturnType<typeof vi.fn>;
+  getTrackIdsInPlaylist: ReturnType<typeof vi.fn>;
 } = {
   playlists: mockPlaylists,
   loading: false,
   error: null,
   refetch: vi.fn(),
   deletePlaylist: vi.fn().mockResolvedValue(undefined),
-  renamePlaylist: vi.fn().mockResolvedValue(undefined)
+  renamePlaylist: vi.fn().mockResolvedValue(undefined),
+  getTrackIdsInPlaylist: vi.fn().mockImplementation((id: string) => {
+    const playlist = mockPlaylists.find((p) => p.id === id);
+    return Promise.resolve(
+      playlist
+        ? Array.from({ length: playlist.trackCount }, (_, i) => `track-${i}`)
+        : []
+    );
+  })
 };
 
 vi.mock('./useAudioPlaylists', () => ({
@@ -120,21 +129,27 @@ describe('AudioPlaylistsSidebar', () => {
     mockUseAudioPlaylists.error = null;
   });
 
-  it('renders All Tracks option', () => {
+  it('renders All Tracks option', async () => {
     render(<AudioPlaylistsSidebar {...defaultProps} />);
-    expect(screen.getByText('All Tracks')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('All Tracks')).toBeInTheDocument();
+    });
   });
 
-  it('renders playlist list', () => {
+  it('renders playlist list', async () => {
     render(<AudioPlaylistsSidebar {...defaultProps} />);
-    expect(screen.getByText('Road Trip')).toBeInTheDocument();
-    expect(screen.getByText('Focus')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Road Trip')).toBeInTheDocument();
+      expect(screen.getByText('Focus')).toBeInTheDocument();
+    });
   });
 
-  it('shows track counts', () => {
+  it('shows track counts', async () => {
     render(<AudioPlaylistsSidebar {...defaultProps} />);
-    expect(screen.getByText('12')).toBeInTheDocument();
-    expect(screen.getByText('4')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('12')).toBeInTheDocument();
+      expect(screen.getByText('4')).toBeInTheDocument();
+    });
   });
 
   it('refetches when refresh token changes', async () => {
@@ -142,7 +157,12 @@ describe('AudioPlaylistsSidebar', () => {
       <AudioPlaylistsSidebar {...defaultProps} refreshToken={0} />
     );
 
-    expect(mockUseAudioPlaylists.refetch).not.toHaveBeenCalled();
+    // Wait for initial mount effects to settle
+    await waitFor(() => {
+      expect(mockUseAudioPlaylists.getTrackIdsInPlaylist).toHaveBeenCalled();
+    });
+
+    vi.clearAllMocks();
 
     rerender(<AudioPlaylistsSidebar {...defaultProps} refreshToken={1} />);
 
@@ -181,7 +201,7 @@ describe('AudioPlaylistsSidebar', () => {
     expect(onPlaylistSelect).toHaveBeenCalledWith('playlist-1');
   });
 
-  it('highlights selected playlist', () => {
+  it('highlights selected playlist', async () => {
     render(
       <AudioPlaylistsSidebar
         {...defaultProps}
@@ -189,11 +209,13 @@ describe('AudioPlaylistsSidebar', () => {
       />
     );
 
-    const playlistButton = screen.getByText('Road Trip').closest('button');
-    expect(playlistButton).toHaveClass('bg-accent');
+    await waitFor(() => {
+      const playlistButton = screen.getByText('Road Trip').closest('button');
+      expect(playlistButton).toHaveClass('bg-accent');
+    });
   });
 
-  it('highlights All Tracks when selected', () => {
+  it('highlights All Tracks when selected', async () => {
     render(
       <AudioPlaylistsSidebar
         {...defaultProps}
@@ -201,8 +223,10 @@ describe('AudioPlaylistsSidebar', () => {
       />
     );
 
-    const allTracksButton = screen.getByText('All Tracks').closest('button');
-    expect(allTracksButton).toHaveClass('bg-accent');
+    await waitFor(() => {
+      const allTracksButton = screen.getByText('All Tracks').closest('button');
+      expect(allTracksButton).toHaveClass('bg-accent');
+    });
   });
 
   it('opens new playlist dialog on button click', async () => {
@@ -226,21 +250,26 @@ describe('AudioPlaylistsSidebar', () => {
     });
   });
 
-  it('shows loading state', () => {
+  it('shows loading state', async () => {
     mockUseAudioPlaylists.loading = true;
     mockUseAudioPlaylists.playlists = [];
 
     render(<AudioPlaylistsSidebar {...defaultProps} />);
 
-    expect(screen.getByText('All Tracks')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('All Tracks')).toBeInTheDocument();
+    });
   });
 
-  it('shows error state', () => {
+  it('shows error state', async () => {
     mockUseAudioPlaylists.error = 'Failed to load';
+    mockUseAudioPlaylists.playlists = [];
 
     render(<AudioPlaylistsSidebar {...defaultProps} />);
 
-    expect(screen.getByText('Failed to load')).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByText('Failed to load')).toBeInTheDocument();
+    });
   });
 
   it('exports ALL_AUDIO_ID constant', () => {

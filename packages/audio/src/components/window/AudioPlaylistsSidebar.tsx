@@ -45,8 +45,55 @@ export function AudioPlaylistsSidebar({
   onPlaylistChanged,
   onDropToPlaylist
 }: AudioPlaylistsSidebarProps) {
-  const { playlists, loading, error, refetch, deletePlaylist, renamePlaylist } =
-    useAudioPlaylists();
+  const {
+    playlists,
+    loading,
+    error,
+    refetch,
+    deletePlaylist,
+    renamePlaylist,
+    getTrackIdsInPlaylist
+  } = useAudioPlaylists();
+  const [playlistCounts, setPlaylistCounts] = useState<Record<string, number>>(
+    {}
+  );
+
+  const updatePlaylistCounts = useCallback(
+    async (playlistIds: string[]) => {
+      if (playlistIds.length === 0) return;
+      try {
+        const uniqueIds = Array.from(new Set(playlistIds));
+        const counts = await Promise.all(
+          uniqueIds.map(async (id) => {
+            const idsInPlaylist = await getTrackIdsInPlaylist(id);
+            return { id, count: idsInPlaylist.length };
+          })
+        );
+        setPlaylistCounts((prev) => {
+          const next = { ...prev };
+          for (const { id, count } of counts) {
+            next[id] = count;
+          }
+          return next;
+        });
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : String(error ?? '');
+        const causeMessage =
+          error && typeof error === 'object' && 'cause' in error
+            ? String((error as { cause?: unknown }).cause ?? '')
+            : '';
+        if (
+          message.includes('Database not initialized') ||
+          causeMessage.includes('Database not initialized')
+        ) {
+          return;
+        }
+        console.error('Failed to update audio playlist counts', error);
+      }
+    },
+    [getTrackIdsInPlaylist]
+  );
 
   // Detect platform to disable drag-drop on mobile
   const isNativePlatform = useMemo(() => {
@@ -90,7 +137,7 @@ export function AudioPlaylistsSidebar({
   );
 
   const handlePlaylistDrop = useCallback(
-    (e: React.DragEvent, playlistId: string) => {
+    async (e: React.DragEvent, playlistId: string) => {
       if (!onDropToPlaylist || isNativePlatform) return;
       e.preventDefault();
       e.stopPropagation();
@@ -99,20 +146,33 @@ export function AudioPlaylistsSidebar({
       clearDragState(playlistId);
 
       const audioIds = getMediaDragIds(e.dataTransfer, 'audio');
-      if (audioIds.length > 0) {
-        void onDropToPlaylist(playlistId, [], audioIds);
-        return;
-      }
-
-      // Get files and filter for audio
       const files = Array.from(e.dataTransfer.files);
       const audioFiles = filterFilesByAccept(files, 'audio/*');
 
-      if (audioFiles.length > 0) {
-        void onDropToPlaylist(playlistId, audioFiles);
+      try {
+        if (audioIds.length > 0) {
+          await onDropToPlaylist(playlistId, [], audioIds);
+        } else if (audioFiles.length > 0) {
+          await onDropToPlaylist(playlistId, audioFiles);
+        } else {
+          return;
+        }
+
+        await refetch();
+        onPlaylistChanged?.();
+        await updatePlaylistCounts([playlistId]);
+      } catch (error) {
+        console.error('Failed to handle audio playlist drop', error);
       }
     },
-    [onDropToPlaylist, isNativePlatform, clearDragState]
+    [
+      onDropToPlaylist,
+      isNativePlatform,
+      clearDragState,
+      onPlaylistChanged,
+      refetch,
+      updatePlaylistCounts
+    ]
   );
 
   const [newPlaylistDialogOpen, setNewPlaylistDialogOpen] = useState(false);
@@ -137,15 +197,17 @@ export function AudioPlaylistsSidebar({
   useEffect(() => {
     if (refreshToken === undefined) return;
 
-    if (
-      lastRefreshTokenRef.current !== null &&
-      lastRefreshTokenRef.current !== refreshToken
-    ) {
+    if (lastRefreshTokenRef.current !== refreshToken) {
       void refetch();
     }
 
     lastRefreshTokenRef.current = refreshToken;
   }, [refreshToken, refetch]);
+
+  useEffect(() => {
+    if (playlists.length === 0) return;
+    void updatePlaylistCounts(playlists.map((p) => p.id));
+  }, [playlists, updatePlaylistCounts]);
 
   const { resizeHandleProps } = useResizableSidebar({
     width,
@@ -230,7 +292,7 @@ export function AudioPlaylistsSidebar({
               onDragEnter={(e) => handlePlaylistDragEnter(e, playlist.id)}
               onDragLeave={(e) => handlePlaylistDragLeave(e, playlist.id)}
               onDrop={(e) => handlePlaylistDrop(e, playlist.id)}
-              count={playlist.trackCount}
+              count={playlistCounts[playlist.id] ?? playlist.trackCount}
               leadingSpacer
             />
           ))}
