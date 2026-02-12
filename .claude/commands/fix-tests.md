@@ -4,13 +4,17 @@ description: Fix failing tests from CI
 
 # Fix Failing Tests
 
-**First**: Determine the repository for all `gh` commands:
+**First**: Determine the repository and PR number:
 
 ```bash
+# Get repo (works with -R flag)
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+
+# Get PR number (infers from current branch - do NOT use -R flag here)
+PR_NUMBER=$(gh pr view --json number --jq '.number')
 ```
 
-Use `-R "$REPO"` with all `gh` commands in this skill.
+**IMPORTANT**: Run these as separate commands, not chained. After capturing `PR_NUMBER`, use `-R "$REPO"` with explicit PR number for subsequent commands.
 
 This skill diagnoses and fixes failing CI jobs. It can target a specific job when called with an argument (e.g., `/fix-tests electron-e2e`) or diagnose all failures when called without arguments.
 
@@ -27,13 +31,9 @@ This skill diagnoses and fixes failing CI jobs. It can target a specific job whe
 
 ## 1. Identify Failing Jobs
 
-Get the current PR and find the failing workflow run:
+Get the failing workflow run for the current commit:
 
 ```bash
-# Get PR info
-gh pr view --json number,headRefName -R "$REPO"
-
-# Get the latest workflow run for current commit
 COMMIT=$(git rev-parse HEAD)
 gh run list --commit "$COMMIT" --limit 1 --json databaseId,status,conclusion -R "$REPO"
 ```
