@@ -16,8 +16,7 @@ agent_current_branch() {
 agent_workspace_title() {
     repo_root="$1"
     project_name=$(basename "$repo_root")
-    branch=$(agent_current_branch "$repo_root")
-    printf '%s - %s\n' "$project_name" "$branch"
+    printf '%s\n' "$project_name"
 }
 
 agent_sync_tmux_title() {
