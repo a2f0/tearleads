@@ -1,18 +1,6 @@
 import { notes, vfsRegistry } from '@tearleads/db/sqlite';
-import {
-  WINDOW_TABLE_TYPOGRAPHY,
-  WindowTableRow
-} from '@tearleads/window-manager';
 import { asc, desc, eq } from 'drizzle-orm';
-import {
-  ChevronDown,
-  ChevronUp,
-  Info,
-  Loader2,
-  Plus,
-  StickyNote,
-  Trash2
-} from 'lucide-react';
+import { Info, Loader2, Plus, StickyNote, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   type NoteInfo,
@@ -20,53 +8,14 @@ import {
   useNotesContext,
   useNotesUI
 } from '../context/NotesContext';
-import { formatDate } from '../lib/utils';
+import { NotesTable } from './table-view/NotesTable';
+import type { SortColumn, SortDirection } from './table-view/SortHeader';
 
 type MenuPosition = { x: number; y: number };
-
-type SortColumn = 'title' | 'createdAt' | 'updatedAt';
-type SortDirection = 'asc' | 'desc';
 
 interface NotesWindowTableViewProps {
   onSelectNote: (noteId: string) => void;
   showDeleted: boolean;
-}
-
-interface SortHeaderProps {
-  column: SortColumn;
-  label: string;
-  currentColumn: SortColumn;
-  direction: SortDirection;
-  onClick: (column: SortColumn) => void;
-}
-
-function SortHeader({
-  column,
-  label,
-  currentColumn,
-  direction,
-  onClick
-}: SortHeaderProps) {
-  const isActive = column === currentColumn;
-
-  return (
-    <button
-      type="button"
-      className="flex items-center gap-1 text-left font-medium hover:text-foreground"
-      onClick={() => onClick(column)}
-    >
-      {label}
-      {isActive && (
-        <span className="shrink-0">
-          {direction === 'asc' ? (
-            <ChevronUp className="h-3 w-3" />
-          ) : (
-            <ChevronDown className="h-3 w-3" />
-          )}
-        </span>
-      )}
-    </button>
-  );
 }
 
 export function NotesWindowTableView({
@@ -369,88 +318,15 @@ export function NotesWindowTableView({
             </Button>
           </div>
         ) : (
-          <div
-            role="application"
-            className="flex-1 overflow-auto rounded-lg border"
-            onContextMenu={handleBlankSpaceContextMenu}
-          >
-            <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
-              <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
-                <tr>
-                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                    <SortHeader
-                      column="title"
-                      label="Title"
-                      currentColumn={sortColumn}
-                      direction={sortDirection}
-                      onClick={handleSortChange}
-                    />
-                  </th>
-                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                    <SortHeader
-                      column="createdAt"
-                      label="Created"
-                      currentColumn={sortColumn}
-                      direction={sortDirection}
-                      onClick={handleSortChange}
-                    />
-                  </th>
-                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                    <SortHeader
-                      column="updatedAt"
-                      label="Updated"
-                      currentColumn={sortColumn}
-                      direction={sortDirection}
-                      onClick={handleSortChange}
-                    />
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {notesList.map((note) => (
-                  <WindowTableRow
-                    key={note.id}
-                    isDimmed={note.deleted}
-                    className={
-                      note.deleted
-                        ? 'cursor-default hover:bg-transparent'
-                        : undefined
-                    }
-                    onClick={() => {
-                      if (!note.deleted) {
-                        onSelectNote(note.id);
-                      }
-                    }}
-                    onContextMenu={
-                      note.deleted
-                        ? undefined
-                        : (e) => handleContextMenu(e, note)
-                    }
-                  >
-                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
-                      <div className="flex items-center gap-1.5">
-                        <StickyNote className="h-3 w-3 shrink-0 text-muted-foreground" />
-                        <span
-                          className={`truncate ${
-                            note.deleted ? 'line-through' : ''
-                          }`}
-                        >
-                          {note.title}
-                        </span>
-                      </div>
-                    </td>
-                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                      {formatDate(note.createdAt)}
-                    </td>
-                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                      {formatDate(note.updatedAt)}
-                      {note.deleted && ' · Deleted'}
-                    </td>
-                  </WindowTableRow>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <NotesTable
+            notesList={notesList}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSortChange={handleSortChange}
+            onSelectNote={onSelectNote}
+            onNoteContextMenu={handleContextMenu}
+            onBlankSpaceContextMenu={handleBlankSpaceContextMenu}
+          />
         ))}
 
       {contextMenu && (
