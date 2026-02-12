@@ -9,41 +9,25 @@ WORKSPACE_DIR="$WORK_DIR/workspace"
 OUTPUT_BINARY="$GENERATED_DIR/better_sqlite3.node"
 STAMP_FILE="$GENERATED_DIR/build-stamp.txt"
 
-ELECTRON_VERSION="$(node -e "
+get_pkg_version() {
+  query="$1"
+  error_msg="$2"
+  node -e "
 const fs = require('node:fs');
 const path = require('node:path');
 const packageJsonPath = path.resolve('$CLIENT_DIR', 'package.json');
 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const value = pkg.devDependencies.electron;
+const value = $query;
 if (typeof value !== 'string' || value.length === 0) {
-  throw new Error('Missing devDependencies.electron in packages/client/package.json');
+  throw new Error('$error_msg');
 }
 process.stdout.write(value);
-")"
+"
+}
 
-SQLITE_VERSION="$(node -e "
-const fs = require('node:fs');
-const path = require('node:path');
-const packageJsonPath = path.resolve('$CLIENT_DIR', 'package.json');
-const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const value = pkg.dependencies['better-sqlite3-multiple-ciphers'];
-if (typeof value !== 'string' || value.length === 0) {
-  throw new Error('Missing dependencies.better-sqlite3-multiple-ciphers in packages/client/package.json');
-}
-process.stdout.write(value);
-")"
-
-REBUILD_VERSION="$(node -e "
-const fs = require('node:fs');
-const path = require('node:path');
-const packageJsonPath = path.resolve('$CLIENT_DIR', 'package.json');
-const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const value = pkg.devDependencies['@electron/rebuild'];
-if (typeof value !== 'string' || value.length === 0) {
-  throw new Error('Missing devDependencies.@electron/rebuild in packages/client/package.json');
-}
-process.stdout.write(value);
-")"
+ELECTRON_VERSION="$(get_pkg_version "pkg.devDependencies.electron" "Missing devDependencies.electron in packages/client/package.json")"
+SQLITE_VERSION="$(get_pkg_version "pkg.dependencies['better-sqlite3-multiple-ciphers']" "Missing dependencies.better-sqlite3-multiple-ciphers in packages/client/package.json")"
+REBUILD_VERSION="$(get_pkg_version "pkg.devDependencies['@electron/rebuild']" "Missing devDependencies.@electron/rebuild in packages/client/package.json")"
 PLATFORM="$(node -p "process.platform")"
 ARCH="$(node -p "process.arch")"
 

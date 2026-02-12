@@ -573,7 +573,10 @@ async function importDatabase(
     await fs.promises.writeFile(dbPath, data);
 
     // Reopen the database with encryption
-    db = new Database(dbPath);
+    const nativeBindingPath = getNativeBindingPath();
+    db = new Database(dbPath, {
+      nativeBinding: nativeBindingPath,
+    });
 
     const keyBuffer = Buffer.from(key);
     const keyHex = keyBuffer.toString('hex');
