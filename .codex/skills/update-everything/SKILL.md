@@ -29,6 +29,8 @@ Script exits early on dependency hygiene checks—fix then rerun:
 - Caret/tilde ranges in `dependencies`/`devDependencies` are blocked. Pin versions where reported.
 - Pinned `peerDependencies` must match `packages/client/package.json` versions. Align the peer versions to the client version before rerunning.
 
+Capacitor + pnpm: if CocoaPods can’t find `pods_helpers.rb`, resolve paths from `.pnpm` (e.g., use a helper that glob-matches `node_modules/.pnpm/@capacitor+ios@*/node_modules/@capacitor/ios`). Avoid hard-coding versioned pnpm paths that break when Capacitor bumps.
+
 ## Node.js Version Alignment (Electron)
 
 When updating `electron`, align Node.js versions:
