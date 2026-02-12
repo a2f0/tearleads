@@ -23,7 +23,7 @@ Actions:
   approveSkippedChecks
   tagPrWithTuxedoInstance
 
-  # GitHub API actions (Phase 4)
+  # GitHub API actions (Phase 4) - High Priority
   getPrInfo                Get PR info (number, state, merge status, etc.)
   getReviewThreads         Fetch review threads via GraphQL
   replyToComment           Reply to a PR review comment in-thread
@@ -31,6 +31,14 @@ Actions:
   getCiStatus              Get workflow run and job statuses
   cancelWorkflow           Cancel a workflow run
   rerunWorkflow            Rerun a workflow
+
+  # GitHub API actions (Phase 4) - Medium Priority
+  downloadArtifact         Download CI artifact to local path
+  enableAutoMerge          Enable auto-merge on a PR
+  findPrForBranch          Find PR associated with a branch
+  listHighPriorityPrs      List open high-priority PRs with merge state
+  triggerGeminiReview      Post /gemini review and poll for response
+  findDeferredWork         Find deferred work comments in a PR
 
 Options:
   --title <value>          Title to set (optional for setVscodeTitle)
@@ -43,7 +51,12 @@ Options:
   --body <text>            Comment body (for replyToComment)
   --thread-id <id>         Thread node ID (for resolveThread)
   --commit <sha>           Commit SHA (for getCiStatus)
-  --run-id <id>            Workflow run ID (for getCiStatus, cancelWorkflow, rerunWorkflow)
+  --run-id <id>            Workflow run ID (for getCiStatus, cancelWorkflow, rerunWorkflow, downloadArtifact)
+  --artifact <name>        Artifact name (for downloadArtifact)
+  --dest <path>            Destination path (for downloadArtifact)
+  --branch <name>          Branch name (for findPrForBranch)
+  --state <open|merged>    PR state filter (for findPrForBranch, default: open)
+  --poll-timeout <secs>    Polling timeout in seconds (for triggerGeminiReview, default: 300)
   --timeout-seconds <n>    Timeout in seconds (default: 300, refresh: 3600)
   --repo-root <path>       Execute from this repo root instead of auto-detecting
   --dry-run                Validate and report without executing the target script
@@ -96,6 +109,11 @@ BODY=""
 THREAD_ID=""
 COMMIT_SHA=""
 RUN_ID=""
+ARTIFACT_NAME=""
+DEST_PATH=""
+BRANCH_NAME=""
+STATE_FILTER=""
+POLL_TIMEOUT=""
 TIMEOUT_SECONDS=""
 REPO_ROOT=""
 DRY_RUN=false
@@ -156,6 +174,31 @@ while [ "$#" -gt 0 ]; do
             require_value "--run-id" "${1:-}"
             RUN_ID="$1"
             ;;
+        --artifact)
+            shift
+            require_value "--artifact" "${1:-}"
+            ARTIFACT_NAME="$1"
+            ;;
+        --dest)
+            shift
+            require_value "--dest" "${1:-}"
+            DEST_PATH="$1"
+            ;;
+        --branch)
+            shift
+            require_value "--branch" "${1:-}"
+            BRANCH_NAME="$1"
+            ;;
+        --state)
+            shift
+            require_value "--state" "${1:-}"
+            STATE_FILTER="$1"
+            ;;
+        --poll-timeout)
+            shift
+            require_value "--poll-timeout" "${1:-}"
+            POLL_TIMEOUT="$1"
+            ;;
         --timeout-seconds)
             shift
             require_value "--timeout-seconds" "${1:-}"
@@ -188,6 +231,7 @@ done
 case "$ACTION" in
     refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview|addLabel|approveSkippedChecks|tagPrWithTuxedoInstance) ;;
     getPrInfo|getReviewThreads|replyToComment|resolveThread|getCiStatus|cancelWorkflow|rerunWorkflow) ;;
+    downloadArtifact|enableAutoMerge|findPrForBranch|listHighPriorityPrs|triggerGeminiReview|findDeferredWork) ;;
     *)
         echo "Error: Unknown action '$ACTION'." >&2
         usage >&2
@@ -284,6 +328,69 @@ if [ "$ACTION" = "rerunWorkflow" ]; then
     fi
 fi
 
+# downloadArtifact requires --run-id, --artifact, and --dest
+if [ "$ACTION" = "downloadArtifact" ]; then
+    if [ -z "$RUN_ID" ]; then
+        echo "Error: downloadArtifact requires --run-id." >&2
+        exit 1
+    fi
+    if [ -z "$ARTIFACT_NAME" ]; then
+        echo "Error: downloadArtifact requires --artifact." >&2
+        exit 1
+    fi
+    if [ -z "$DEST_PATH" ]; then
+        echo "Error: downloadArtifact requires --dest." >&2
+        exit 1
+    fi
+fi
+
+# enableAutoMerge requires --number (PR number)
+if [ "$ACTION" = "enableAutoMerge" ]; then
+    if [ -z "$LABEL_NUMBER" ]; then
+        echo "Error: enableAutoMerge requires --number (PR number)." >&2
+        exit 1
+    fi
+fi
+
+# findPrForBranch requires --branch
+if [ "$ACTION" = "findPrForBranch" ]; then
+    if [ -z "$BRANCH_NAME" ]; then
+        echo "Error: findPrForBranch requires --branch." >&2
+        exit 1
+    fi
+    # Default state to open
+    if [ -z "$STATE_FILTER" ]; then
+        STATE_FILTER="open"
+    fi
+    case "$STATE_FILTER" in
+        open|merged) ;;
+        *)
+            echo "Error: --state must be 'open' or 'merged'." >&2
+            exit 1
+            ;;
+    esac
+fi
+
+# triggerGeminiReview requires --number (PR number)
+if [ "$ACTION" = "triggerGeminiReview" ]; then
+    if [ -z "$LABEL_NUMBER" ]; then
+        echo "Error: triggerGeminiReview requires --number (PR number)." >&2
+        exit 1
+    fi
+    # Default poll timeout to 300 seconds
+    if [ -z "$POLL_TIMEOUT" ]; then
+        POLL_TIMEOUT="300"
+    fi
+fi
+
+# findDeferredWork requires --number (PR number)
+if [ "$ACTION" = "findDeferredWork" ]; then
+    if [ -z "$LABEL_NUMBER" ]; then
+        echo "Error: findDeferredWork requires --number (PR number)." >&2
+        exit 1
+    fi
+fi
+
 if [ -n "$TIMEOUT_SECONDS" ] && ! is_positive_int "$TIMEOUT_SECONDS"; then
     echo "Error: --timeout-seconds must be a positive integer." >&2
     exit 1
@@ -308,6 +415,10 @@ fi
 IS_INLINE_ACTION=false
 case "$ACTION" in
     getPrInfo|getReviewThreads|replyToComment|resolveThread|getCiStatus|cancelWorkflow|rerunWorkflow)
+        IS_INLINE_ACTION=true
+        SCRIPT=""
+        ;;
+    downloadArtifact|enableAutoMerge|findPrForBranch|listHighPriorityPrs|triggerGeminiReview|findDeferredWork)
         IS_INLINE_ACTION=true
         SCRIPT=""
         ;;
@@ -340,11 +451,14 @@ if [ "$ACTION" = "addLabel" ] || [ "$ACTION" = "tagPrWithTuxedoInstance" ]; then
 fi
 # GitHub API actions: read-only vs write
 case "$ACTION" in
-    getPrInfo|getReviewThreads|getCiStatus)
+    getPrInfo|getReviewThreads|getCiStatus|findPrForBranch|listHighPriorityPrs|findDeferredWork)
         SAFETY_CLASS="safe_read"
         ;;
-    replyToComment|resolveThread|cancelWorkflow|rerunWorkflow)
+    replyToComment|resolveThread|cancelWorkflow|rerunWorkflow|enableAutoMerge|triggerGeminiReview)
         SAFETY_CLASS="safe_write_remote"
+        ;;
+    downloadArtifact)
+        SAFETY_CLASS="safe_write_local"
         ;;
 esac
 
@@ -435,6 +549,46 @@ run_inline_action() {
             gh run rerun "$RUN_ID" -R "$REPO"
             echo '{"status": "rerun_triggered", "run_id": "'"$RUN_ID"'"}'
             ;;
+        downloadArtifact)
+            gh run download "$RUN_ID" -n "$ARTIFACT_NAME" -D "$DEST_PATH" -R "$REPO"
+            printf '{"status": "downloaded", "run_id": "%s", "artifact": "%s", "dest": "%s"}\n' "$RUN_ID" "$ARTIFACT_NAME" "$DEST_PATH"
+            ;;
+        enableAutoMerge)
+            gh pr merge "$LABEL_NUMBER" --auto --merge -R "$REPO"
+            printf '{"status": "auto_merge_enabled", "pr": %s}\n' "$LABEL_NUMBER"
+            ;;
+        findPrForBranch)
+            gh pr list --head "$BRANCH_NAME" --state "$STATE_FILTER" --json number,title,state,url -R "$REPO" --jq '.[0] // {"error": "No PR found"}'
+            ;;
+        listHighPriorityPrs)
+            # Get high-priority PRs then fetch merge state for each
+            PRS=$(gh pr list --label "high-priority" --state open --search "-is:draft" --json number -R "$REPO" --jq '.[].number')
+            if [ -z "$PRS" ]; then
+                echo '[]'
+            else
+                echo '['
+                FIRST=true
+                for PR_NUM in $PRS; do
+                    if [ "$FIRST" = true ]; then
+                        FIRST=false
+                    else
+                        printf ','
+                    fi
+                    gh pr view "$PR_NUM" --json number,title,mergeStateStatus -R "$REPO"
+                done
+                echo ']'
+            fi
+            ;;
+        triggerGeminiReview)
+            # Post /gemini review command
+            gh pr comment "$LABEL_NUMBER" -R "$REPO" --body "/gemini review"
+            printf '{"status": "review_requested", "pr": %s}\n' "$LABEL_NUMBER"
+            ;;
+        findDeferredWork)
+            # Search PR comments for deferred work patterns
+            gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments" --paginate \
+                --jq '.[] | select(.body | test("defer|follow[- ]?up|future PR|later|TODO|FIXME"; "i")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}'
+            ;;
     esac
 }
 
@@ -448,6 +602,7 @@ if [ "$DRY_RUN" = true ]; then
 elif [ "$IS_INLINE_ACTION" = true ]; then
     # Export variables for subshell access
     export ACTION FIELDS UNRESOLVED_ONLY LABEL_NUMBER COMMENT_ID BODY THREAD_ID COMMIT_SHA RUN_ID
+    export ARTIFACT_NAME DEST_PATH BRANCH_NAME STATE_FILTER POLL_TIMEOUT
     # Execute inline GitHub API action with timeout if available
     if command -v timeout >/dev/null 2>&1; then
         if ! timeout "$TIMEOUT_SECONDS" sh -c '
@@ -495,6 +650,42 @@ elif [ "$IS_INLINE_ACTION" = true ]; then
                 rerunWorkflow)
                     gh run rerun "$RUN_ID" -R "$REPO"
                     printf "{\"status\": \"rerun_triggered\", \"run_id\": \"%s\"}\n" "$RUN_ID"
+                    ;;
+                downloadArtifact)
+                    gh run download "$RUN_ID" -n "$ARTIFACT_NAME" -D "$DEST_PATH" -R "$REPO"
+                    printf "{\"status\": \"downloaded\", \"run_id\": \"%s\", \"artifact\": \"%s\", \"dest\": \"%s\"}\n" "$RUN_ID" "$ARTIFACT_NAME" "$DEST_PATH"
+                    ;;
+                enableAutoMerge)
+                    gh pr merge "$LABEL_NUMBER" --auto --merge -R "$REPO"
+                    printf "{\"status\": \"auto_merge_enabled\", \"pr\": %s}\n" "$LABEL_NUMBER"
+                    ;;
+                findPrForBranch)
+                    gh pr list --head "$BRANCH_NAME" --state "$STATE_FILTER" --json number,title,state,url -R "$REPO" --jq ".[0] // {\"error\": \"No PR found\"}"
+                    ;;
+                listHighPriorityPrs)
+                    PRS=$(gh pr list --label "high-priority" --state open --search "-is:draft" --json number -R "$REPO" --jq ".[].number")
+                    if [ -z "$PRS" ]; then
+                        echo "[]"
+                    else
+                        echo "["
+                        FIRST=true
+                        for PR_NUM in $PRS; do
+                            if [ "$FIRST" = true ]; then
+                                FIRST=false
+                            else
+                                printf ","
+                            fi
+                            gh pr view "$PR_NUM" --json number,title,mergeStateStatus -R "$REPO"
+                        done
+                        echo "]"
+                    fi
+                    ;;
+                triggerGeminiReview)
+                    gh pr comment "$LABEL_NUMBER" -R "$REPO" --body "/gemini review"
+                    printf "{\"status\": \"review_requested\", \"pr\": %s}\n" "$LABEL_NUMBER"
+                    ;;
+                findDeferredWork)
+                    gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments" --paginate --jq ".[] | select(.body | test(\"defer|follow[- ]?up|future PR|later|TODO|FIXME\"; \"i\")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}"
                     ;;
             esac
         ' >"$TMP_OUTPUT" 2>&1; then
