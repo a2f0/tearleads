@@ -132,7 +132,7 @@ describe('ClassicWorkspace', () => {
     });
 
     await user.click(
-      screen.getByRole('button', { name: 'Trigger State Change' })
+      await screen.findByRole('button', { name: 'Trigger State Change' })
     );
 
     await waitFor(() => {
@@ -172,7 +172,7 @@ describe('ClassicWorkspace', () => {
     });
 
     await user.click(
-      screen.getByRole('button', { name: 'Trigger State Change' })
+      await screen.findByRole('button', { name: 'Trigger State Change' })
     );
 
     await waitFor(() => {
