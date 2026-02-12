@@ -454,7 +454,10 @@ describe('FloatingWindow', () => {
         'Test Window'
       );
       expect(screen.getByText('Renamed')).toBeInTheDocument();
-      expect(screen.getByRole('dialog')).toHaveAttribute('aria-label', 'Renamed');
+      expect(screen.getByRole('dialog')).toHaveAttribute(
+        'aria-label',
+        'Renamed'
+      );
 
       promptSpy.mockRestore();
     });
