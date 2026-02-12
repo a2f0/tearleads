@@ -8,7 +8,7 @@ PODS:
     - SQLCipher
     - ZIPFoundation
   - CapacitorCordova (8.1.0)
-  - CapacitorFilesystem (8.1.0):
+  - CapacitorFilesystem (8.1.1):
     - Capacitor
     - IONFilesystemLib (~> 1.1.0)
   - CapacitorKeyboard (8.0.0):
@@ -34,7 +34,7 @@ DEPENDENCIES:
   - "CapacitorApp (from `../../../../node_modules/.pnpm/@capacitor+app@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/app`)"
   - "CapacitorCommunitySqlite (from `../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite`)"
   - "CapacitorCordova (from `../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
-  - "CapacitorFilesystem (from `../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem`)"
+  - "CapacitorFilesystem (from `../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.1_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem`)"
   - "CapacitorKeyboard (from `../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard`)"
   - "CapacitorPreferences (from `../../../../node_modules/.pnpm/@capacitor+preferences@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/preferences`)"
   - "CapacitorShare (from `../../../../node_modules/.pnpm/@capacitor+share@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/share`)"
@@ -57,7 +57,7 @@ EXTERNAL SOURCES:
   CapacitorCordova:
     :path: "../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios"
   CapacitorFilesystem:
-    :path: "../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem"
+    :path: "../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.1_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem"
   CapacitorKeyboard:
     :path: "../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard"
   CapacitorPreferences:
@@ -74,7 +74,7 @@ SPEC CHECKSUMS:
   CapacitorApp: 3963a84197280757b84f126afd1520a85ae3b092
   CapacitorCommunitySqlite: 8a61c1d599927d4321c13b28f132de8ca94b6d95
   CapacitorCordova: e8b76fd95fc1e157775abc484c59cc0de464095d
-  CapacitorFilesystem: a957d4a4b6860844c4eba5bf441607a5166f92a7
+  CapacitorFilesystem: f2b2caa158383b3f568383b33e47296f7c48c470
   CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
   CapacitorPreferences: 443fabe9670226200e595658a87ef0b1566716d4
   CapacitorShare: 12f1d192170cbcf9f108fd675ac8e343761a4638

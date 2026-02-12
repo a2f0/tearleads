@@ -53,6 +53,8 @@ This ensures:
 2. No stale cached frameworks or build artifacts
 3. Proper resolution of xcframework Swift interface files
 
+**Important**: The regenerated `Podfile.lock` must be committed along with other dependency changes. Always verify `packages/client/ios/App/Podfile.lock` is staged before committing.
+
 Skip with `SKIP_POD_CLEAN=1` if you need to preserve local pod modifications.
 
 ## Node.js Version Alignment

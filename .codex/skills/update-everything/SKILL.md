@@ -99,5 +99,6 @@ Collect warnings/deprecations from `pnpm`, bundler, CocoaPods, Gradle, and test 
 ## Finish
 
 - Review changes with `git status` and `git diff`.
+- **Verify `packages/client/ios/App/Podfile.lock` is staged** if iOS dependencies changed (the script regenerates it via `pod install`).
 - Commit and push using `/commit-and-push`.
 - Prepare the PR for merging using `/enter-merge-queue`.
