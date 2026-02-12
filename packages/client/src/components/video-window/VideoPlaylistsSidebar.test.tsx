@@ -35,9 +35,16 @@ describe('VideoPlaylistsSidebar', () => {
 
   it('renders playlists from context', async () => {
     const fetchPlaylists = vi.fn(async () => mockPlaylists);
+    // Mock getTrackIdsInPlaylist to return arrays matching playlist.trackCount
+    const getTrackIdsInPlaylist = vi.fn(async (playlistId: string) => {
+      if (playlistId === 'playlist-1') return ['v1', 'v2', 'v3', 'v4', 'v5'];
+      if (playlistId === 'playlist-2') return ['v1', 'v2', 'v3'];
+      return [];
+    });
     const Wrapper = createVideoPlaylistWrapper({
       databaseState: { isUnlocked: true },
-      fetchPlaylists
+      fetchPlaylists,
+      getTrackIdsInPlaylist
     });
 
     render(
@@ -56,9 +63,11 @@ describe('VideoPlaylistsSidebar', () => {
       expect(screen.getByText('Comedy')).toBeInTheDocument();
     });
 
-    // Check track counts
-    expect(screen.getByText('5')).toBeInTheDocument();
-    expect(screen.getByText('3')).toBeInTheDocument();
+    // Check track counts (updated dynamically via getTrackIdsInPlaylist)
+    await waitFor(() => {
+      expect(screen.getByText('5')).toBeInTheDocument();
+      expect(screen.getByText('3')).toBeInTheDocument();
+    });
   });
 
   it('refetches when refresh token changes', async () => {
