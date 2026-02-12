@@ -23,11 +23,27 @@ Actions:
   approveSkippedChecks
   tagPrWithTuxedoInstance
 
+  # GitHub API actions (Phase 4)
+  getPrInfo                Get PR info (number, state, merge status, etc.)
+  getReviewThreads         Fetch review threads via GraphQL
+  replyToComment           Reply to a PR review comment in-thread
+  resolveThread            Resolve a review thread
+  getCiStatus              Get workflow run and job statuses
+  cancelWorkflow           Cancel a workflow run
+  rerunWorkflow            Rerun a workflow
+
 Options:
   --title <value>          Title to set (optional for setVscodeTitle)
   --type <pr|issue>        Target type for addLabel (required for addLabel)
-  --number <n>             PR or issue number for addLabel (required for addLabel)
+  --number <n>             PR or issue number (for addLabel, getReviewThreads, replyToComment)
   --label <name>           Label name for addLabel (required for addLabel)
+  --fields <list>          Comma-separated fields for getPrInfo (default: number,state,mergeStateStatus)
+  --unresolved-only        Only return unresolved threads (for getReviewThreads)
+  --comment-id <id>        Comment database ID (for replyToComment)
+  --body <text>            Comment body (for replyToComment)
+  --thread-id <id>         Thread node ID (for resolveThread)
+  --commit <sha>           Commit SHA (for getCiStatus)
+  --run-id <id>            Workflow run ID (for getCiStatus, cancelWorkflow, rerunWorkflow)
   --timeout-seconds <n>    Timeout in seconds (default: 300, refresh: 3600)
   --repo-root <path>       Execute from this repo root instead of auto-detecting
   --dry-run                Validate and report without executing the target script
@@ -73,6 +89,13 @@ TITLE=""
 LABEL_TYPE=""
 LABEL_NUMBER=""
 LABEL_NAME=""
+FIELDS=""
+UNRESOLVED_ONLY=false
+COMMENT_ID=""
+BODY=""
+THREAD_ID=""
+COMMIT_SHA=""
+RUN_ID=""
 TIMEOUT_SECONDS=""
 REPO_ROOT=""
 DRY_RUN=false
@@ -99,6 +122,39 @@ while [ "$#" -gt 0 ]; do
             shift
             require_value "--label" "${1:-}"
             LABEL_NAME="$1"
+            ;;
+        --fields)
+            shift
+            require_value "--fields" "${1:-}"
+            FIELDS="$1"
+            ;;
+        --unresolved-only)
+            UNRESOLVED_ONLY=true
+            ;;
+        --comment-id)
+            shift
+            require_value "--comment-id" "${1:-}"
+            COMMENT_ID="$1"
+            ;;
+        --body)
+            shift
+            require_value "--body" "${1:-}"
+            BODY="$1"
+            ;;
+        --thread-id)
+            shift
+            require_value "--thread-id" "${1:-}"
+            THREAD_ID="$1"
+            ;;
+        --commit)
+            shift
+            require_value "--commit" "${1:-}"
+            COMMIT_SHA="$1"
+            ;;
+        --run-id)
+            shift
+            require_value "--run-id" "${1:-}"
+            RUN_ID="$1"
             ;;
         --timeout-seconds)
             shift
@@ -131,6 +187,7 @@ done
 
 case "$ACTION" in
     refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview|addLabel|approveSkippedChecks|tagPrWithTuxedoInstance) ;;
+    getPrInfo|getReviewThreads|replyToComment|resolveThread|getCiStatus|cancelWorkflow|rerunWorkflow) ;;
     *)
         echo "Error: Unknown action '$ACTION'." >&2
         usage >&2
@@ -167,6 +224,66 @@ if [ "$ACTION" = "addLabel" ]; then
     fi
 fi
 
+# getReviewThreads requires --number (PR number)
+if [ "$ACTION" = "getReviewThreads" ]; then
+    if [ -z "$LABEL_NUMBER" ]; then
+        echo "Error: getReviewThreads requires --number (PR number)." >&2
+        exit 1
+    fi
+    if ! is_positive_int "$LABEL_NUMBER"; then
+        echo "Error: --number must be a positive integer." >&2
+        exit 1
+    fi
+fi
+
+# replyToComment requires --number, --comment-id, and --body
+if [ "$ACTION" = "replyToComment" ]; then
+    if [ -z "$LABEL_NUMBER" ]; then
+        echo "Error: replyToComment requires --number (PR number)." >&2
+        exit 1
+    fi
+    if [ -z "$COMMENT_ID" ]; then
+        echo "Error: replyToComment requires --comment-id." >&2
+        exit 1
+    fi
+    if [ -z "$BODY" ]; then
+        echo "Error: replyToComment requires --body." >&2
+        exit 1
+    fi
+fi
+
+# resolveThread requires --thread-id
+if [ "$ACTION" = "resolveThread" ]; then
+    if [ -z "$THREAD_ID" ]; then
+        echo "Error: resolveThread requires --thread-id." >&2
+        exit 1
+    fi
+fi
+
+# getCiStatus requires either --commit or --run-id
+if [ "$ACTION" = "getCiStatus" ]; then
+    if [ -z "$COMMIT_SHA" ] && [ -z "$RUN_ID" ]; then
+        echo "Error: getCiStatus requires --commit or --run-id." >&2
+        exit 1
+    fi
+fi
+
+# cancelWorkflow requires --run-id
+if [ "$ACTION" = "cancelWorkflow" ]; then
+    if [ -z "$RUN_ID" ]; then
+        echo "Error: cancelWorkflow requires --run-id." >&2
+        exit 1
+    fi
+fi
+
+# rerunWorkflow requires --run-id
+if [ "$ACTION" = "rerunWorkflow" ]; then
+    if [ -z "$RUN_ID" ]; then
+        echo "Error: rerunWorkflow requires --run-id." >&2
+        exit 1
+    fi
+fi
+
 if [ -n "$TIMEOUT_SECONDS" ] && ! is_positive_int "$TIMEOUT_SECONDS"; then
     echo "Error: --timeout-seconds must be a positive integer." >&2
     exit 1
@@ -187,7 +304,13 @@ if [ -z "$REPO_ROOT" ]; then
     fi
 fi
 
+# GitHub API actions are handled inline (no external script)
+IS_INLINE_ACTION=false
 case "$ACTION" in
+    getPrInfo|getReviewThreads|replyToComment|resolveThread|getCiStatus|cancelWorkflow|rerunWorkflow)
+        IS_INLINE_ACTION=true
+        SCRIPT=""
+        ;;
     solicitCodexReview|solicitClaudeCodeReview|approveSkippedChecks)
         SCRIPT="$REPO_ROOT/scripts/$ACTION.sh"
         ;;
@@ -199,7 +322,7 @@ case "$ACTION" in
         ;;
 esac
 
-if [ ! -x "$SCRIPT" ]; then
+if [ "$IS_INLINE_ACTION" = false ] && [ ! -x "$SCRIPT" ]; then
     echo "Error: Script not executable: $SCRIPT" >&2
     exit 1
 fi
@@ -215,14 +338,173 @@ fi
 if [ "$ACTION" = "addLabel" ] || [ "$ACTION" = "tagPrWithTuxedoInstance" ]; then
     SAFETY_CLASS="safe_write_remote"
 fi
+# GitHub API actions: read-only vs write
+case "$ACTION" in
+    getPrInfo|getReviewThreads|getCiStatus)
+        SAFETY_CLASS="safe_read"
+        ;;
+    replyToComment|resolveThread|cancelWorkflow|rerunWorkflow)
+        SAFETY_CLASS="safe_write_remote"
+        ;;
+esac
 
 START_MS=$(node -e 'console.log(Date.now())')
 TMP_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/agentTool.XXXXXX")
 trap 'rm -f "$TMP_OUTPUT"' EXIT
 
+# Execute inline GitHub API action (writes to TMP_OUTPUT, sets EXIT_CODE)
+run_inline_action() {
+    REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+    case "$ACTION" in
+        getPrInfo)
+            if [ -z "$FIELDS" ]; then
+                FIELDS="number,state,mergeStateStatus,headRefName,baseRefName,url"
+            fi
+            gh pr view --json "$FIELDS" -R "$REPO"
+            ;;
+        getReviewThreads)
+            if [ "$UNRESOLVED_ONLY" = true ]; then
+                FILTER='select(.isResolved == false)'
+            else
+                FILTER='.'
+            fi
+            # Extract owner and repo name
+            OWNER=$(echo "$REPO" | cut -d'/' -f1)
+            REPO_NAME=$(echo "$REPO" | cut -d'/' -f2)
+            gh api graphql -f query='
+                query($owner: String!, $repo: String!, $pr: Int!) {
+                    repository(owner: $owner, name: $repo) {
+                        pullRequest(number: $pr) {
+                            reviewThreads(first: 100) {
+                                nodes {
+                                    id
+                                    isResolved
+                                    path
+                                    line
+                                    comments(first: 20) {
+                                        nodes {
+                                            id
+                                            databaseId
+                                            author { login }
+                                            body
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            ' -f owner="$OWNER" -f repo="$REPO_NAME" -F pr="$LABEL_NUMBER" \
+                --jq ".data.repository.pullRequest.reviewThreads.nodes[] | $FILTER"
+            ;;
+        replyToComment)
+            gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" \
+                -f body="$BODY"
+            ;;
+        resolveThread)
+            gh api graphql -f query='
+                mutation($threadId: ID!) {
+                    resolveReviewThread(input: {threadId: $threadId}) {
+                        thread { isResolved }
+                    }
+                }
+            ' -f threadId="$THREAD_ID"
+            ;;
+        getCiStatus)
+            if [ -n "$RUN_ID" ]; then
+                gh run view "$RUN_ID" --json status,conclusion,jobs \
+                    --jq '{status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}' \
+                    -R "$REPO"
+            else
+                # Get run ID from commit, then get status
+                FOUND_RUN_ID=$(gh run list --commit "$COMMIT_SHA" --limit 1 --json databaseId --jq '.[0].databaseId' -R "$REPO")
+                if [ -z "$FOUND_RUN_ID" ] || [ "$FOUND_RUN_ID" = "null" ]; then
+                    echo '{"error": "No workflow run found for commit"}' >&2
+                    return 1
+                fi
+                gh run view "$FOUND_RUN_ID" --json status,conclusion,jobs,databaseId \
+                    --jq '{run_id: .databaseId, status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}' \
+                    -R "$REPO"
+            fi
+            ;;
+        cancelWorkflow)
+            gh run cancel "$RUN_ID" -R "$REPO"
+            echo '{"status": "cancelled", "run_id": "'"$RUN_ID"'"}'
+            ;;
+        rerunWorkflow)
+            gh run rerun "$RUN_ID" -R "$REPO"
+            echo '{"status": "rerun_triggered", "run_id": "'"$RUN_ID"'"}'
+            ;;
+    esac
+}
+
 EXIT_CODE=0
 if [ "$DRY_RUN" = true ]; then
-    printf 'dry-run: would run %s from %s\n' "$SCRIPT" "$REPO_ROOT" >"$TMP_OUTPUT"
+    if [ "$IS_INLINE_ACTION" = true ]; then
+        printf 'dry-run: would run inline action %s\n' "$ACTION" >"$TMP_OUTPUT"
+    else
+        printf 'dry-run: would run %s from %s\n' "$SCRIPT" "$REPO_ROOT" >"$TMP_OUTPUT"
+    fi
+elif [ "$IS_INLINE_ACTION" = true ]; then
+    # Export variables for subshell access
+    export ACTION FIELDS UNRESOLVED_ONLY LABEL_NUMBER COMMENT_ID BODY THREAD_ID COMMIT_SHA RUN_ID
+    # Execute inline GitHub API action with timeout if available
+    if command -v timeout >/dev/null 2>&1; then
+        if ! timeout "$TIMEOUT_SECONDS" sh -c '
+            set -eu
+            REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+            case "$ACTION" in
+                getPrInfo)
+                    if [ -z "$FIELDS" ]; then
+                        FIELDS="number,state,mergeStateStatus,headRefName,baseRefName,url"
+                    fi
+                    gh pr view --json "$FIELDS" -R "$REPO"
+                    ;;
+                getReviewThreads)
+                    if [ "$UNRESOLVED_ONLY" = true ]; then
+                        FILTER="select(.isResolved == false)"
+                    else
+                        FILTER="."
+                    fi
+                    OWNER=$(echo "$REPO" | cut -d/ -f1)
+                    REPO_NAME=$(echo "$REPO" | cut -d/ -f2)
+                    gh api graphql -f query="query(\$owner: String!, \$repo: String!, \$pr: Int!) { repository(owner: \$owner, name: \$repo) { pullRequest(number: \$pr) { reviewThreads(first: 100) { nodes { id isResolved path line comments(first: 20) { nodes { id databaseId author { login } body } } } } } } }" -f owner="$OWNER" -f repo="$REPO_NAME" -F pr="$LABEL_NUMBER" --jq ".data.repository.pullRequest.reviewThreads.nodes[] | $FILTER"
+                    ;;
+                replyToComment)
+                    gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" -f body="$BODY"
+                    ;;
+                resolveThread)
+                    gh api graphql -f query="mutation(\$threadId: ID!) { resolveReviewThread(input: {threadId: \$threadId}) { thread { isResolved } } }" -f threadId="$THREAD_ID"
+                    ;;
+                getCiStatus)
+                    if [ -n "$RUN_ID" ]; then
+                        gh run view "$RUN_ID" --json status,conclusion,jobs --jq "{status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}" -R "$REPO"
+                    else
+                        FOUND_RUN_ID=$(gh run list --commit "$COMMIT_SHA" --limit 1 --json databaseId --jq ".[0].databaseId" -R "$REPO")
+                        if [ -z "$FOUND_RUN_ID" ] || [ "$FOUND_RUN_ID" = "null" ]; then
+                            echo "{\"error\": \"No workflow run found for commit\"}" >&2
+                            exit 1
+                        fi
+                        gh run view "$FOUND_RUN_ID" --json status,conclusion,jobs,databaseId --jq "{run_id: .databaseId, status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}" -R "$REPO"
+                    fi
+                    ;;
+                cancelWorkflow)
+                    gh run cancel "$RUN_ID" -R "$REPO"
+                    printf "{\"status\": \"cancelled\", \"run_id\": \"%s\"}\n" "$RUN_ID"
+                    ;;
+                rerunWorkflow)
+                    gh run rerun "$RUN_ID" -R "$REPO"
+                    printf "{\"status\": \"rerun_triggered\", \"run_id\": \"%s\"}\n" "$RUN_ID"
+                    ;;
+            esac
+        ' >"$TMP_OUTPUT" 2>&1; then
+            EXIT_CODE=$?
+        fi
+    else
+        if ! run_inline_action >"$TMP_OUTPUT" 2>&1; then
+            EXIT_CODE=$?
+        fi
+    fi
 else
     if command -v timeout >/dev/null 2>&1; then
         if ! timeout "$TIMEOUT_SECONDS" sh -c '
