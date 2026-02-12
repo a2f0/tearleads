@@ -166,16 +166,8 @@ export function ContactsGroupsSidebar({
 
   useEffect(() => {
     if (groups.length === 0) return;
-    setGroupCounts((prev) => {
-      const next = { ...prev };
-      groups.forEach((group) => {
-        next[group.id] = Number.isFinite(group.contactCount)
-          ? group.contactCount
-          : 0;
-      });
-      return next;
-    });
-  }, [groups]);
+    void updateGroupCounts(groups.map((g) => g.id));
+  }, [groups, updateGroupCounts]);
 
   const handleGroupDeleted = useCallback(
     async (groupId: string) => {
