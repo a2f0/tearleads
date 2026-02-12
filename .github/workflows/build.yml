@@ -238,4 +238,3 @@ jobs:
               echo "" >> $GITHUB_STEP_SUMMARY
             fi
           done
-# trigger required build check
