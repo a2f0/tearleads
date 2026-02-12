@@ -47,6 +47,7 @@ bundle update
 ```
 
 **When to update fastlane**: Always check for fastlane updates when:
+
 - Running a full dependency update
 - Encountering App Store Connect API errors
 - Seeing deprecation warnings from fastlane actions
