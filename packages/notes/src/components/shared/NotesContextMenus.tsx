@@ -3,7 +3,6 @@ import type { ComponentType } from 'react';
 import type {
   ContextMenuItemProps,
   ContextMenuProps,
-  NotesTranslationKey,
   TranslationFunction
 } from '../../context/NotesContext';
 
@@ -20,10 +19,6 @@ interface NotesContextMenusProps {
   t: TranslationFunction;
   ContextMenu: ComponentType<ContextMenuProps>;
   ContextMenuItem: ComponentType<ContextMenuItemProps>;
-}
-
-function label(t: TranslationFunction, key: NotesTranslationKey) {
-  return t(key);
 }
 
 export function NotesContextMenus({
@@ -50,13 +45,13 @@ export function NotesContextMenus({
             icon={<Info className="h-4 w-4" />}
             onClick={onGetInfo}
           >
-            {label(t, 'getInfo')}
+            {t('getInfo')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
             onClick={onDelete}
           >
-            {label(t, 'delete')}
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}
@@ -71,7 +66,7 @@ export function NotesContextMenus({
             icon={<Plus className="h-4 w-4" />}
             onClick={onCreateNoteFromMenu}
           >
-            {label(t, 'newNote')}
+            {t('newNote')}
           </ContextMenuItem>
         </ContextMenu>
       )}
