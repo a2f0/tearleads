@@ -313,8 +313,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
       - Always run Gemini evaluation and close-out checks on every poll iteration, including when CI jobs are still running or have failed.
       - Run `/address-gemini-feedback` to fetch and address unresolved comments.
-      - Immediately run `/follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
       - If code changes were made, push and continue polling (CI will restart).
+      - Immediately run `/follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
       - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Codex fallback review above.
       - **IMPORTANT**: Do not wait for CI completion to resolve review threads. After these sub-skills complete, continue the polling loop - do NOT exit.
 
@@ -334,7 +334,6 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
           - Log: "Job '<job-name>' failed (attempt X/3). Starting fix."
           - Run `/fix-tests <job-name>` targeting the specific job
           - If fix was pushed:
-            - Re-run `/address-gemini-feedback` and `/follow-up-with-gemini` before the next poll iteration so Gemini feedback does not wait on full CI completion.
             - Cancel the obsolete workflow: `gh run cancel $RUN_ID -R "$REPO"`
             - Log: "Cancelled obsolete workflow. New CI starting."
             - Break out of job loop (new workflow will start, pick it up next poll)
