@@ -1,3 +1,7 @@
+---
+description: Preen Split React Components
+---
+
 # Preen Split React Components
 
 Proactively search the monorepo for oversized React component files and refactor them into small, named, one-component-per-file modules with clear folder organization and colocated tests.

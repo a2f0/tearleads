@@ -1,3 +1,7 @@
+---
+description: Serena Bootstrap
+---
+
 # Serena Bootstrap
 
 Configure Serena MCP on this machine, then start a session with a consistent bootstrap prompt.

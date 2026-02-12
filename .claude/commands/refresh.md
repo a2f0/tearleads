@@ -1,3 +1,7 @@
+---
+description: Refresh Workspace
+---
+
 # Refresh Workspace
 
 Run the workspace refresh script to update after a PR is merged.
