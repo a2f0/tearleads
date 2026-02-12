@@ -65,43 +65,43 @@ export function NotificationCenter({
       maxWidthPercent={MAX_WIDTH_PERCENT}
       maxHeightPercent={MAX_HEIGHT_PERCENT}
     >
-        <div className="flex h-full flex-col">
-          {/* Menu bar */}
-          <div className="flex shrink-0 border-b bg-muted/30 px-1">
-            <DropdownMenu trigger="File">
-              <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
-            </DropdownMenu>
-            <DropdownMenu trigger="Help">
-              <AboutMenuItem appName="Notification Center" closeLabel="Close" />
-            </DropdownMenu>
-          </div>
-
-          {/* Tab navigation */}
-          <div className="flex items-center gap-1 border-b px-3 py-2">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className={cn(
-                  'rounded px-3 py-1 font-mono text-xs transition-colors',
-                  activeTab === tab.id
-                    ? 'bg-primary text-primary-foreground'
-                    : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-                )}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-
-          {/* Tab content */}
-          <div className="flex-1 overflow-auto p-3">
-            {activeTab === 'analytics' && <AnalyticsTab />}
-            {activeTab === 'logs' && <LogsTab />}
-            {activeTab === 'notifications' && <NotificationsTab />}
-          </div>
+      <div className="flex h-full flex-col">
+        {/* Menu bar */}
+        <div className="flex shrink-0 border-b bg-muted/30 px-1">
+          <DropdownMenu trigger="File">
+            <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+          </DropdownMenu>
+          <DropdownMenu trigger="Help">
+            <AboutMenuItem appName="Notification Center" closeLabel="Close" />
+          </DropdownMenu>
         </div>
-      </FloatingWindow>
+
+        {/* Tab navigation */}
+        <div className="flex items-center gap-1 border-b px-3 py-2">
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'rounded px-3 py-1 font-mono text-xs transition-colors',
+                activeTab === tab.id
+                  ? 'bg-primary text-primary-foreground'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Tab content */}
+        <div className="flex-1 overflow-auto p-3">
+          {activeTab === 'analytics' && <AnalyticsTab />}
+          {activeTab === 'logs' && <LogsTab />}
+          {activeTab === 'notifications' && <NotificationsTab />}
+        </div>
+      </div>
+    </FloatingWindow>
   );
 }

@@ -267,7 +267,10 @@ export function ContactsGroupsSidebar({
           })
           .from(contacts)
           .where(inArray(contacts.id, childIds));
-        console.log('[GroupEmail] Step 2 - contacts with those IDs:', contactsCheck);
+        console.log(
+          '[GroupEmail] Step 2 - contacts with those IDs:',
+          contactsCheck
+        );
 
         // Step 3: Check emails for those contacts
         const emailsCheck = await db
@@ -278,7 +281,10 @@ export function ContactsGroupsSidebar({
           })
           .from(contactEmails)
           .where(inArray(contactEmails.contactId, childIds));
-        console.log('[GroupEmail] Step 3 - emails for those contacts:', emailsCheck);
+        console.log(
+          '[GroupEmail] Step 3 - emails for those contacts:',
+          emailsCheck
+        );
 
         // Step 3b: Check ALL emails in the database to see if they exist with different contactId
         const allEmails = await db
@@ -288,7 +294,10 @@ export function ContactsGroupsSidebar({
             isPrimary: contactEmails.isPrimary
           })
           .from(contactEmails);
-        console.log('[GroupEmail] Step 3b - ALL emails in database:', allEmails);
+        console.log(
+          '[GroupEmail] Step 3b - ALL emails in database:',
+          allEmails
+        );
       }
 
       // Original query

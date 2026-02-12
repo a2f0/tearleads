@@ -114,7 +114,11 @@ describe('NotificationCenter', () => {
 
       await user.click(screen.getByRole('button', { name: /minimize/i }));
 
-      const dimensions = onMinimize.mock.calls[0][0];
+      const dimensions = onMinimize.mock.calls[0]?.[0] as {
+        width: number;
+        height: number;
+      };
+      expect(dimensions).toBeDefined();
       expect(dimensions.width).toBeGreaterThan(0);
       expect(dimensions.height).toBeGreaterThan(0);
     });

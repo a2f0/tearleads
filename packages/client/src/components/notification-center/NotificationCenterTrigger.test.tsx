@@ -75,7 +75,9 @@ describe('NotificationCenterTrigger', () => {
       name: /open notification center/i
     });
     // The second one is the menu item (first is the trigger)
-    await user.click(menuItems[1]);
+    const menuItem = menuItems[1];
+    expect(menuItem).toBeDefined();
+    await user.click(menuItem as HTMLElement);
     expect(mockOpenWindow).toHaveBeenCalledWith('notification-center');
   });
 
