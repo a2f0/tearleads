@@ -174,6 +174,44 @@ describe('Calendar', () => {
     promptSpy.mockRestore();
   });
 
+  it('does not rename calendar for cancel, empty, or duplicate names', async () => {
+    const user = userEvent.setup();
+    const promptSpy = vi.spyOn(window, 'prompt');
+    render(<CalendarContent />);
+
+    fireEvent(
+      window,
+      new CustomEvent(CALENDAR_CREATE_SUBMIT_EVENT, {
+        detail: { name: 'Work' }
+      })
+    );
+
+    const openRenameMenu = () => {
+      fireEvent.contextMenu(screen.getByRole('button', { name: 'Work' }), {
+        clientX: 220,
+        clientY: 180
+      });
+    };
+
+    promptSpy.mockReturnValueOnce(null);
+    openRenameMenu();
+    await user.click(screen.getByTestId('calendar-sidebar-item-rename'));
+    expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument();
+
+    promptSpy.mockReturnValueOnce('   ');
+    openRenameMenu();
+    await user.click(screen.getByTestId('calendar-sidebar-item-rename'));
+    expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument();
+
+    promptSpy.mockReturnValueOnce('Personal');
+    openRenameMenu();
+    await user.click(screen.getByTestId('calendar-sidebar-item-rename'));
+    expect(screen.getByRole('button', { name: 'Work' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Personal' })).toBeInTheDocument();
+
+    promptSpy.mockRestore();
+  });
+
   it('navigates month view with previous and next controls', () => {
     render(<Calendar />);
 
