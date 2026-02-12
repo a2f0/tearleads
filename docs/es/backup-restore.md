@@ -1,4 +1,6 @@
-# Arquitectura de Respaldo y Restauración
+# Respaldo y Restauración
+
+_Actualizado para reflejar la versión en inglés del 11 de febrero de 2026._
 
 Tearleads proporciona funcionalidad de respaldo y restauración para proteger sus datos. Debido a restricciones específicas de la plataforma con bases de datos SQLite cifradas, el formato de respaldo y el proceso varían según la plataforma.
 

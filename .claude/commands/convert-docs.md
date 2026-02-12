@@ -63,6 +63,11 @@ done
 ls docs/<target>/
 ```
 
+1. **Finish automation**:
+
+- Run `/commit-and-push` to commit and push the translation changes.
+- Then run `/enter-merge-queue` to carry the PR through merge.
+
 ## Language-Specific Guidelines
 
 ### Spanish (es)
