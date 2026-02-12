@@ -43,6 +43,7 @@ Always pass `-R "$REPO"` to `gh` commands.
    - If no PR exists, create one with `gh pr create`.
    - Do not include auto-close keywords (`Closes`, `Fixes`, `Resolves`).
    - Use the Claude-style PR body format and include the evaluated agent id.
+   - Avoid shell interpolation bugs in PR bodies: always build body content with a **single-quoted heredoc** and pass it via `--body-file` (or `--body "$(cat ...)"` only when no backticks/$/[] are present).
 
    Compute the agent id:
 
@@ -50,10 +51,11 @@ Always pass `-R "$REPO"` to `gh` commands.
    AGENT_ID=$(basename "$(git rev-parse --show-toplevel)")
    ```
 
-   PR body template (fill in real bullets, keep section order):
+   PR body template (fill in real bullets, keep section order). Prefer this safe pattern:
 
    ```bash
-   PR_BODY=$(cat <<EOF
+   PR_BODY_FILE=$(mktemp)
+   cat <<'EOF' > "$PR_BODY_FILE"
    ## Summary
    - <verb-led, concrete change>
    - <second concrete change if needed>
@@ -64,9 +66,11 @@ Always pass `-R "$REPO"` to `gh` commands.
    ## Issue
    - #<issue-number>
 
-   Agent: ${AGENT_ID}
+   Agent: __AGENT_ID__
    EOF
-   )
+   sed -i'' -e "s/__AGENT_ID__/${AGENT_ID}/g" "$PR_BODY_FILE"
+   gh pr create ... --body-file "$PR_BODY_FILE"
+   rm -f "$PR_BODY_FILE"
    ```
 
    If there is no associated issue, replace the `## Issue` section with:

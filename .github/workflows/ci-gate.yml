@@ -1,0 +1,148 @@
+name: CI Gate
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  detect-required-workflows:
+    name: Detect Required Workflows
+    runs-on: ubuntu-latest
+    outputs:
+      head_sha: ${{ steps.compute.outputs.head_sha }}
+      required_workflows: ${{ steps.compute.outputs.required_workflows }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install tsx
+        run: pnpm add -g tsx
+
+      - name: Compute ciImpact required workflows
+        id: compute
+        run: |
+          set -eu
+
+          BASE_SHA='${{ github.event.pull_request.base.sha }}'
+          HEAD_SHA='${{ github.event.pull_request.head.sha }}'
+
+          tsx scripts/ciImpact/requiredWorkflows.ts --base "$BASE_SHA" --head "$HEAD_SHA" > required-workflows.json
+
+          REQUIRED=$(jq -rc '.requiredWorkflows' required-workflows.json)
+
+          echo "head_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
+          echo "required_workflows=$REQUIRED" >> "$GITHUB_OUTPUT"
+
+          {
+            echo "## CI Gate Required Workflows"
+            jq -r '.requiredWorkflows[]? // "(none)"' required-workflows.json
+            echo ""
+            echo "### Reasons"
+            jq -r '.reasons | to_entries[]? | "- \(.key): \(.value | join("; "))"' required-workflows.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  ci-gate:
+    name: CI Gate
+    needs: detect-required-workflows
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+      HEAD_SHA: ${{ needs.detect-required-workflows.outputs.head_sha }}
+      REQUIRED_WORKFLOWS_JSON: ${{ needs.detect-required-workflows.outputs.required_workflows }}
+    steps:
+      - name: Wait for required workflows and validate conclusions
+        run: |
+          set -eu
+
+          REQUIRED_FILE="$RUNNER_TEMP/required-workflows.json"
+          printf '%s' "$REQUIRED_WORKFLOWS_JSON" > "$REQUIRED_FILE"
+
+          if [ "$(jq 'length' "$REQUIRED_FILE")" -eq 0 ]; then
+            echo "No required workflows for this change set." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          START_TS=$(date +%s)
+          MAX_WAIT_SECONDS=$((85 * 60))
+
+          while true; do
+            NOW_TS=$(date +%s)
+            ELAPSED=$((NOW_TS - START_TS))
+
+            RUNS_JSON=$(gh api "/repos/$REPO/actions/runs?head_sha=$HEAD_SHA&per_page=100")
+
+            pending_count=0
+            failure_count=0
+            missing_count=0
+            status_lines=""
+
+            while IFS= read -r workflow_name; do
+              [ -n "$workflow_name" ] || continue
+
+              workflow_state=$(jq -r --arg wf "$workflow_name" '
+                [.workflow_runs[] | select(.name == $wf)]
+                | sort_by(.created_at)
+                | last
+                | if . == null then
+                    "missing||"
+                  else
+                    (.status + "|" + (.conclusion // "") + "|" + (.html_url // ""))
+                  end
+              ' <<< "$RUNS_JSON")
+
+              status=$(echo "$workflow_state" | cut -d'|' -f1)
+              conclusion=$(echo "$workflow_state" | cut -d'|' -f2)
+              url=$(echo "$workflow_state" | cut -d'|' -f3)
+
+              if [ "$status" = "missing" ]; then
+                missing_count=$((missing_count + 1))
+                status_lines="$status_lines\n- $workflow_name: missing"
+              elif [ "$status" = "completed" ] && [ "$conclusion" = "success" ]; then
+                status_lines="$status_lines\n- $workflow_name: success"
+              elif [ "$status" = "completed" ]; then
+                failure_count=$((failure_count + 1))
+                status_lines="$status_lines\n- $workflow_name: FAILED ($conclusion) $url"
+              else
+                pending_count=$((pending_count + 1))
+                status_lines="$status_lines\n- $workflow_name: $status"
+              fi
+            done < <(jq -r '.[]' "$REQUIRED_FILE")
+
+            {
+              echo "## CI Gate Status"
+              echo "Elapsed: ${ELAPSED}s"
+              printf '%b\n' "$status_lines"
+            } >> "$GITHUB_STEP_SUMMARY"
+
+            if [ "$failure_count" -gt 0 ]; then
+              echo "One or more required workflows failed." >&2
+              exit 1
+            fi
+
+            if [ "$pending_count" -eq 0 ] && [ "$missing_count" -eq 0 ]; then
+              echo "All required workflows succeeded." >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            if [ "$ELAPSED" -ge "$MAX_WAIT_SECONDS" ]; then
+              echo "Timed out waiting for required workflows to report success." >&2
+              exit 1
+            fi
+
+            sleep 20
+          done

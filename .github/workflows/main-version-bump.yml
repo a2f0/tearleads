@@ -1,0 +1,134 @@
+name: Main Version Bump
+
+on:
+  workflow_run:
+    workflows: ["build"]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: main-version-bump
+  cancel-in-progress: false
+
+jobs:
+  bump:
+    name: Bump Versions On Main
+    if: github.event.workflow_run.conclusion == 'success'
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Prepare source diff
+        id: prepare
+        env:
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_MESSAGE: ${{ github.event.workflow_run.head_commit.message }}
+        run: |
+          set -eu
+
+          if echo "$SOURCE_MESSAGE" | grep -Eq '^chore\(release\): bump versions'; then
+            echo "skip_reason=bump_commit" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch --no-tags origin "$SOURCE_SHA" main
+
+          PARENT_SHA=$(git rev-list --parents -n 1 "$SOURCE_SHA" | awk '{print $2}')
+          if [ -z "$PARENT_SHA" ]; then
+            echo "skip_reason=missing_parent" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          CHANGED_FILES_PATH="$RUNNER_TEMP/changed-files.txt"
+          git diff --name-only "$PARENT_SHA" "$SOURCE_SHA" > "$CHANGED_FILES_PATH"
+          echo "changed_files_path=$CHANGED_FILES_PATH" >> "$GITHUB_OUTPUT"
+
+          if ! grep -Eq '^packages/' "$CHANGED_FILES_PATH"; then
+            echo "skip_reason=no_package_changes" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+      - name: Bump versions and push with retries
+        if: steps.prepare.outputs.skip_reason == ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+          SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
+          CHANGED_FILES_PATH: ${{ steps.prepare.outputs.changed_files_path }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+
+          ATTEMPTS=5
+          PUSHED=false
+
+          for attempt in $(seq 1 "$ATTEMPTS"); do
+            echo "Attempt $attempt/$ATTEMPTS" | tee -a "$GITHUB_STEP_SUMMARY"
+
+            git fetch --no-tags origin main
+            git checkout -B main origin/main
+
+            BASE_BRANCH=main CHANGED_FILES_FILE="$CHANGED_FILES_PATH" ./scripts/bumpVersion.sh
+
+            if git diff --quiet; then
+              {
+                echo "## Main Version Bump"
+                echo "No version changes were required for source $SOURCE_SHA."
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            EXPECTED_HEAD_OID=$(git rev-parse origin/main)
+            PAYLOAD_PATH="$RUNNER_TEMP/create-commit-payload.json"
+
+            node scripts/createCommitOnBranchPayload.mjs \
+              --repo "$REPO" \
+              --branch "main" \
+              --expected-head-oid "$EXPECTED_HEAD_OID" \
+              --headline "chore(release): bump versions [skip ci]" \
+              --body "source-sha: $SOURCE_SHA"$'\n'"source-run-id: $SOURCE_RUN_ID" \
+              --output "$PAYLOAD_PATH"
+
+            if RESPONSE=$(gh api graphql --input "$PAYLOAD_PATH" --jq '.data.createCommitOnBranch.commit'); then
+              echo "Commit response: $RESPONSE" >> "$GITHUB_STEP_SUMMARY"
+              PUSHED=true
+              {
+                echo "## Main Version Bump"
+                echo "Pushed bump commit on attempt $attempt/$ATTEMPTS."
+                echo "Source commit: $SOURCE_SHA"
+              } >> "$GITHUB_STEP_SUMMARY"
+              break
+            fi
+
+            sleep $((attempt * 2))
+          done
+
+          if [ "$PUSHED" != "true" ]; then
+            {
+              echo "## Main Version Bump"
+              echo "Failed to push bump commit after $ATTEMPTS attempts."
+              echo "Source commit: $SOURCE_SHA"
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+
+      - name: Summarize skipped run
+        if: steps.prepare.outputs.skip_reason != ''
+        env:
+          SKIP_REASON: ${{ steps.prepare.outputs.skip_reason }}
+          SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: |
+          set -eu
+          {
+            echo "## Main Version Bump"
+            echo "Skipped bump run."
+            echo "Reason: $SKIP_REASON"
+            echo "Source commit: $SOURCE_SHA"
+          } >> "$GITHUB_STEP_SUMMARY"

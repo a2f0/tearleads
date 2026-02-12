@@ -1,6 +1,6 @@
 ---
 name: enter-merge-queue
-description: Guarantee a PR merges by repeatedly rebasing from the base branch, fixing CI, addressing Gemini review feedback, enabling auto-merge, and waiting until the PR is merged. Use when you are asked to babysit a PR through the merge queue, resolve CI failures, handle Gemini review threads, or keep a branch up to date until merge.
+description: Guarantee a PR merges by handling CI, addressing Gemini review feedback, enabling auto-merge, and waiting until the PR is merged. Use when you are asked to babysit a PR through the merge queue, resolve CI failures, handle Gemini review threads, or monitor a PR until merge.
 ---
 
 # Enter Merge Queue
@@ -20,7 +20,6 @@ Always pass `-R "$REPO"` to `gh` commands.
 
 Track these state flags:
 
-- `has_bumped_version`: Boolean, starts `false`. Set to `true` after version bump is applied.
 - `has_waited_for_gemini`: Boolean, starts `false`. Set to `true` after waiting once for Gemini.
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files.
 - `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini reports its daily quota limit.
@@ -70,7 +69,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    4a. Yield to high-priority PRs unless the current PR has `high-priority`.
 
    - List high-priority PRs and check their `mergeStateStatus`.
-   - Yield if any high-priority PR is `CLEAN`, `BLOCKED`, `BEHIND`, `UNKNOWN`, `UNSTABLE`, or `HAS_HOOKS`.
+   - Yield if any high-priority PR is `CLEAN`, `BLOCKED`, `UNKNOWN`, `UNSTABLE`, or `HAS_HOOKS`.
    - Skip yielding if all high-priority PRs are `DIRTY`.
 
    4b. Check merge status:
@@ -80,12 +79,12 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    ```
 
    - `MERGED`: exit loop.
-   - `BEHIND`: update from base (4c).
+   - `BEHIND`: continue waiting for checks/merge queue unless a rebase is explicitly needed for another reason.
    - `BLOCKED` or `UNKNOWN`: handle Gemini feedback while waiting for CI (4d/4e).
    - `CLEAN`: enable auto-merge (4f).
-   - **Note**: You can merge your own PRs once the branch is up to date, all required checks pass, and Gemini feedback is fully addressed. If blocked, confirm those three conditions before waiting longer.
+   - **Note**: You can merge your own PRs once required checks pass and Gemini feedback is fully addressed. If blocked, confirm those conditions before waiting longer.
 
-   4c. Rebase on base and bump version once:
+   4c. Rebase on base:
 
    ```bash
    git fetch origin <baseRefName> >/dev/null
@@ -107,7 +106,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    Reset `job_failure_counts` after rebase (new base = fresh start).
 
-   If `has_bumped_version` is `false`, run `bumpVersion.sh`, stage the version files, amend the last commit with a GPG-signed message, and set `has_bumped_version = true`. Force push after rebase:
+   Version bumping is handled in `main` CI (`main-version-bump` workflow). Do not run `bumpVersion.sh` on PR branches. Force push after rebase:
 
    ```bash
    git push --force-with-lease >/dev/null
@@ -191,14 +190,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    **At each poll**:
 
-   1. Check if branch is behind: `gh pr view "$PR_NUMBER" --json mergeStateStatus -R "$REPO"`
-      - If `BEHIND`, cancel the current workflow run to save CI minutes (only if `RUN_ID` is set), then return to 4c immediately:
-
-        ```bash
-        if [ -n "$RUN_ID" ]; then
-          gh run cancel $RUN_ID -R "$REPO"
-        fi
-        ```
+   1. Continue monitoring merge/check status while CI runs.
 
    2. Handle Gemini feedback (if applicable)
       - Always run Gemini evaluation/close-out on every poll iteration, even when CI jobs are still running or have failed.
@@ -225,7 +217,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    4f. Enable auto-merge and continue looping until merged:
 
-   If `has_bumped_version` is still `false`, perform the bump, amend, force push, and return to 4e.
+   Do not perform version bumps in this loop; they are owned by `main` CI after merge.
 
    ```bash
    gh pr merge "$PR_NUMBER" --auto --merge -R "$REPO"
@@ -234,13 +226,12 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 
    - Only enable auto-merge after:
      - All required status checks pass
-     - Branch is up to date with `main` (not `BEHIND`)
      - Gemini feedback is fully addressed (per sentiment analysis)
    - If auto-merge is unavailable, try a direct merge (same conditions) and continue polling.
 
    After enabling auto-merge, do NOT exit. Continue polling in the main loop:
    - If `MERGED`: exit loop.
-   - If `BEHIND`: return to 4c to rebase, push, and keep auto-merge eligible.
+   - If `BEHIND`: continue monitoring and only rebase if explicitly needed for another reason.
    - If `BLOCKED`/`UNKNOWN`: resume 4d/4e.
    - If `CLEAN`: keep auto-merge enabled and continue.
 

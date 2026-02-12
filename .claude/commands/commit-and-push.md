@@ -23,12 +23,13 @@ Commit and push the current changes following these rules:
 2. **Analyze changes**: Run `git status` and `git diff --staged` to understand what's being committed.
    - If tooling reports actions (e.g., postinstall builds) but `git status` shows no unexpected changes, proceed without asking about generated files or extra diffs.
 
-3. **Commit format**: Follow `CLAUDE.md` guidelines (conventional commits, GPG signed with 5s timeout, no co-author/footers, no binary files). Don't bump versions - that happens in `/enter-merge-queue`.
+3. **Commit format**: Follow `CLAUDE.md` guidelines (conventional commits, GPG signed with 5s timeout, no co-author/footers, no binary files). Don't bump versions on PR branches - that happens in `main` CI (`main-version-bump` workflow).
 
 4. **Push**: After successful commit, push to the current branch's remote.
    - The pre-push hook runs full builds and all unit tests; it can take several minutes. Use a longer command timeout and do not assume a timeout means failure.
 
 5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Do NOT include auto-close keywords (e.g., `Closes`, `Fixes`, `Resolves`) - all issues are marked `needs-qa` after merge via `/enter-merge-queue`. Use the Claude-style PR body format and include the computed agent ID.
+   - To avoid shell escaping/substitution bugs in PR bodies, always render content with a **single-quoted heredoc** and pass it using `--body-file`.
 
    **Compute agent id**:
 
@@ -36,10 +37,11 @@ Commit and push the current changes following these rules:
    AGENT_ID=$(basename "$(git rev-parse --show-toplevel)")
    ```
 
-   **PR body template** (fill in real bullets, keep sections and ordering):
+   **PR body template** (fill in real bullets, keep sections and ordering). Safe pattern:
 
    ```bash
-   PR_BODY=$(cat <<EOF
+   PR_BODY_FILE=$(mktemp)
+   cat <<'EOF' > "$PR_BODY_FILE"
    ## Summary
    - <verb-led, concrete change>
    - <second concrete change if needed>
@@ -50,9 +52,11 @@ Commit and push the current changes following these rules:
    ## Issue
    - #<issue-number>
 
-   Agent: ${AGENT_ID}
+   Agent: __AGENT_ID__
    EOF
-   )
+   perl -0pi -e "s/__AGENT_ID__/${AGENT_ID}/g" "$PR_BODY_FILE"
+   gh pr create ... --body-file "$PR_BODY_FILE"
+   rm -f "$PR_BODY_FILE"
    ```
 
    If there is no associated issue, replace the `## Issue` section with:

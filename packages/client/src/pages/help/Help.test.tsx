@@ -21,12 +21,13 @@ describe('Help', () => {
   const docCases = [
     { label: 'CLI', path: '/help/docs/cli' },
     { label: 'CLI Reference', path: '/help/docs/cli-reference' },
+    { label: 'CI', path: '/help/docs/ci' },
     { label: 'Chrome Extension', path: '/help/docs/chrome-extension' },
     { label: 'Backup & Restore', path: '/help/docs/backup-restore' },
     { label: 'Tuxedo', path: '/help/docs/tuxedo' }
   ] as const;
 
-  it('renders help page with all help options', () => {
+  it('renders help page with top-level help options', () => {
     render(
       <MemoryRouter>
         <Help />
@@ -35,11 +36,7 @@ describe('Help', () => {
 
     expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
     expect(screen.getByText('API Docs')).toBeInTheDocument();
-    expect(screen.getByText('CLI')).toBeInTheDocument();
-    expect(screen.getByText('CLI Reference')).toBeInTheDocument();
-    expect(screen.getByText('Chrome Extension')).toBeInTheDocument();
-    expect(screen.getByText('Backup & Restore')).toBeInTheDocument();
-    expect(screen.getByText('Tuxedo')).toBeInTheDocument();
+    expect(screen.getByText('Developer')).toBeInTheDocument();
   });
 
   it('navigates to /help/api when API Docs is clicked', async () => {
@@ -64,11 +61,28 @@ describe('Help', () => {
       </MemoryRouter>
     );
 
+    await user.click(screen.getByText('Developer'));
+
     for (const { label, path } of docCases) {
       await user.click(screen.getByText(label));
       expect(mockNavigate).toHaveBeenLastCalledWith(path);
     }
 
     expect(mockNavigate).toHaveBeenCalledTimes(docCases.length);
+  });
+
+  it('shows developer docs and returns to top-level help', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Help />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByText('Developer'));
+    expect(screen.getByText('CI')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Back to Help'));
+    expect(screen.getByText('Developer')).toBeInTheDocument();
   });
 });
