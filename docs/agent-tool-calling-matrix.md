@@ -1,11 +1,13 @@
 # Agent Tool-Calling Matrix
 
-Date: 2026-02-12 (Phase 2 complete)
+Date: 2026-02-12 (Phase 2 complete, Phase 4 planned)
 
 Scope:
 
 - `scripts/agents/*`
 - `scripts/*`
+- `.claude/commands/*` (skills)
+- `CLAUDE.md`, `AGENTS.md`
 - Excludes `scripts/bumpVersion.sh` (moving to CI in `#1569`)
 
 Goal:
@@ -19,15 +21,21 @@ Goal:
 - `scripts/agents/*` status/title helpers
 - Local analysis/test helpers with bounded side effects
 
-1. Tool later:
+2. Tool later:
 
 - Dev environment bootstrap/reset scripts
 - Reviewer/automation helpers that touch GitHub but are operationally safe
 
-1. Keep shell/manual (or hard-gated tools):
+3. Keep shell/manual (or hard-gated tools):
 
 - Deploy/provisioning/secrets scripts
 - Scripts with external infra mutation or high blast radius
+
+4. Extract from skills (Phase 4):
+
+- GitHub API patterns repeated across skills (`gh pr view`, GraphQL queries, CI status)
+- Comment thread management (reply, resolve)
+- Gemini interaction helpers
 
 ## Matrix
 
@@ -181,6 +189,12 @@ Phase 3 (env/device/bootstrap):
 - Add preflight checks for device/simulator availability
 - Keep deploy/secrets/infra scripts manual by policy, or add hard-gated wrappers only if required
 
+Phase 4 (GitHub API patterns from skills):
+
+- Extract repeated `gh` CLI and GraphQL patterns from skills into `agentTool.sh` actions
+- Eliminates boilerplate, enforces token efficiency, standardizes error handling
+- See "Skill API Pattern Extraction" section below
+
 ## Wrapper Usage (Phase 1 + 2)
 
 ### Agent Workspace Tools (`agentTool.sh`)
@@ -231,3 +245,45 @@ Both wrappers support:
 - `--repo-root <path>` - Execute from specific git root
 - `--dry-run` - Validate without executing
 - `--json` - Emit structured JSON summary
+
+## Skill API Pattern Extraction (Phase 4)
+
+Raw `gh` CLI and GraphQL patterns found in `.claude/commands/` skills that should be extracted into `agentTool.sh` actions for consistency, token efficiency, and error handling.
+
+### High Priority (cross-skill patterns)
+
+| Pattern | Skills Using It | Proposed Action | Args |
+| --- | --- | --- | --- |
+| Get PR info | solicit-gemini-review, fix-tests, address-gemini-feedback, follow-up-with-gemini, enter-merge-queue, commit-and-push | `agentTool.sh getPrInfo` | `[--fields <comma-sep>]` |
+| Get review threads (GraphQL) | address-gemini-feedback, follow-up-with-gemini | `agentTool.sh getReviewThreads` | `--pr <number> [--unresolved-only]` |
+| Reply to PR comment in-thread | follow-up-with-gemini, enter-merge-queue | `agentTool.sh replyToComment` | `--pr <number> --comment-id <id> --body <message>` |
+| Resolve review thread | follow-up-with-gemini | `agentTool.sh resolveThread` | `--thread-id <id>` |
+| Get CI run/job status | fix-tests, enter-merge-queue | `agentTool.sh getCiStatus` | `[--commit <sha>] [--run-id <id>]` |
+| Cancel workflow run | fix-tests, enter-merge-queue | `agentTool.sh cancelWorkflow` | `--run-id <id>` |
+| Rerun workflow | fix-tests, enter-merge-queue | `agentTool.sh rerunWorkflow` | `--run-id <id>` |
+
+### Medium Priority (single-skill but complex)
+
+| Pattern | Skill | Proposed Action | Args |
+| --- | --- | --- | --- |
+| Download CI artifact | fix-tests | `agentTool.sh downloadArtifact` | `--run-id <id> --name <artifact> --dest <path>` |
+| Enable auto-merge | enter-merge-queue | `agentTool.sh enableAutoMerge` | `--pr <number>` |
+| Find PR for branch | enter-merge-queue | `agentTool.sh findPrForBranch` | `--branch <name> [--state <open\|merged>]` |
+| List high-priority PRs | enter-merge-queue | `agentTool.sh listHighPriorityPrs` | (none) |
+| Post Gemini review + poll | solicit-gemini-review | `agentTool.sh triggerGeminiReview` | `--pr <number> [--timeout <seconds>]` |
+| Find deferred work in PR | preen-deferred-fixes | `agentTool.sh findDeferredWork` | `--pr <number>` |
+
+### Benefits of Extraction
+
+1. **Token efficiency**: Wrappers use `--json` with minimal fields, suppress verbose output
+2. **Repo handling**: Auto-resolve repo via `gh repo view --json nameWithOwner`; no repeated boilerplate
+3. **Error handling**: Consistent exit codes, structured error messages
+4. **GraphQL simplification**: No temp-file workarounds for complex queries
+5. **Audit trail**: Wrapper logs include `invoked_by`, timestamp for traceability
+
+### Implementation Notes
+
+- Add new actions to `scripts/agents/tooling/agentTool.sh`
+- Each action follows the existing wrapper contract (structured JSON output, timeouts, dry-run support)
+- Update skills to use wrappers after implementation
+- GraphQL queries can be embedded in the wrapper script (no temp file needed)
