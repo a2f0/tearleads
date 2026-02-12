@@ -144,6 +144,34 @@ describe('Calendar', () => {
     });
   });
 
+  it('renames a sidebar calendar from its context menu', async () => {
+    const user = userEvent.setup();
+    const promptSpy = vi.spyOn(window, 'prompt').mockReturnValue('Work Renamed');
+    render(<CalendarContent />);
+
+    fireEvent(
+      window,
+      new CustomEvent(CALENDAR_CREATE_SUBMIT_EVENT, {
+        detail: { name: 'Work' }
+      })
+    );
+
+    fireEvent.contextMenu(screen.getByRole('button', { name: 'Work' }), {
+      clientX: 220,
+      clientY: 180
+    });
+    await user.click(screen.getByTestId('calendar-sidebar-item-rename'));
+
+    expect(promptSpy).toHaveBeenCalledWith('Rename calendar', 'Work');
+    expect(
+      screen.getByRole('button', { name: 'Work Renamed' })
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Work' })
+    ).not.toBeInTheDocument();
+    promptSpy.mockRestore();
+  });
+
   it('navigates month view with previous and next controls', () => {
     render(<Calendar />);
 
