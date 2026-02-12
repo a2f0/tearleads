@@ -121,6 +121,38 @@ if [ "${SKIP_POD_CLEAN:-0}" -ne 1 ]; then
   )
 fi
 
+# Ensure Capacitor JS dependency versions stay aligned with iOS native resolution.
+POD_LOCK="packages/client/ios/App/Podfile.lock"
+CAPACITOR_MISMATCHES=""
+if [ -f "$CLIENT_PKG" ] && [ -f "$POD_LOCK" ]; then
+  while IFS= read -r dep || [ -n "$dep" ]; do
+    [ -z "$dep" ] && continue
+    DEP_NAME="${dep%%=*}"
+    DEP_VER="${dep#*=}"
+    CAP_PACKAGE="${DEP_NAME#@capacitor/}"
+    LOCK_TOKEN="@capacitor+${CAP_PACKAGE}@"
+
+    # Skip packages not represented in Podfile.lock for this project.
+    if ! grep -Fq "$LOCK_TOKEN" "$POD_LOCK"; then
+      continue
+    fi
+
+    LOCK_VER=$(grep -oE "@capacitor\\+${CAP_PACKAGE}@[0-9A-Za-z.+-]+" "$POD_LOCK" | head -n 1 | sed "s/^@capacitor+${CAP_PACKAGE}@//")
+    if [ -n "$LOCK_VER" ] && [ "$LOCK_VER" != "$DEP_VER" ]; then
+      CAPACITOR_MISMATCHES="${CAPACITOR_MISMATCHES}${DEP_NAME}: package.json=${DEP_VER}, Podfile.lock=${LOCK_VER}
+"
+    fi
+  done <<EOF
+$(jq -r '((.dependencies // {}) + (.devDependencies // {})) | to_entries[] | select(.key | startswith("@capacitor/")) | select(.value | startswith("workspace:") | not) | "\(.key)=\(.value)"' "$CLIENT_PKG" 2>/dev/null || true)
+EOF
+fi
+if [ -n "$CAPACITOR_MISMATCHES" ]; then
+  echo "Capacitor dependency mismatches detected between package.json and Podfile.lock:" >&2
+  echo "$CAPACITOR_MISMATCHES" >&2
+  echo "Update packages/client/package.json and regenerate iOS dependencies (cap:sync / pod install)." >&2
+  exit 1
+fi
+
 if [ "${SKIP_MAESTRO:-0}" -ne 1 ]; then
   "$SCRIPT_DIR/runMaestroIosTests.sh" --headless
   "$SCRIPT_DIR/runMaestroAndroidTests.sh" --headless

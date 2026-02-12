@@ -31,6 +31,8 @@ Use the shared update script:
 
 Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
 
+The script also fails fast if `@capacitor/*` versions in `packages/client/package.json` drift from the resolved versions in `packages/client/ios/App/Podfile.lock`.
+
 ## CocoaPods Clean Install
 
 When Capacitor plugins update their native iOS dependencies (e.g., xcframeworks like `IONFilesystemLib`), stale CocoaPods caches can cause build failures even when the upstream library is correctly packaged. Symptoms include:
