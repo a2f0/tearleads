@@ -38,7 +38,7 @@ jobs:
     needs: detect-impact
     if: ${{ github.event_name == 'workflow_call' || needs.detect-impact.outputs.should-run == 'true' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - name: Free disk space
         run: |
