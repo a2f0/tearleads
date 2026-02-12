@@ -2,7 +2,9 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { TagSidebar } from './TagSidebar';
 
 describe('TagSidebar', () => {
-  it('renders empty state', () => {
+  it('renders empty state with silhouette and add button', () => {
+    const onCreateTag = vi.fn();
+
     render(
       <TagSidebar
         tags={[]}
@@ -10,12 +12,14 @@ describe('TagSidebar', () => {
         onSelectTag={() => {}}
         onMoveTag={() => {}}
         onReorderTag={() => {}}
+        onCreateTag={onCreateTag}
         searchValue=""
         onSearchChange={() => {}}
       />
     );
 
-    expect(screen.getByText('No tags found.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Create new tag')).toBeInTheDocument();
+    expect(screen.getByText('Add Tag')).toBeInTheDocument();
   });
 
   it('renders tags and emits events', () => {
@@ -155,8 +159,10 @@ describe('TagSidebar', () => {
       />
     );
 
-    fireEvent.contextMenu(screen.getByText('No tags found.'));
-    fireEvent.click(screen.getByLabelText('Create new tag'));
+    fireEvent.contextMenu(
+      screen.getByLabelText('Tag list, press Shift+F10 for context menu')
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create new tag' }));
     expect(onCreateTag).toHaveBeenCalledTimes(1);
   });
 

@@ -15,10 +15,14 @@ describe('NotesPane', () => {
       />
     );
 
-    expect(screen.getByText('Select a tag to view notes.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Select a tag to view entries')
+    ).toBeInTheDocument();
   });
 
-  it('renders empty-tag notes state', () => {
+  it('renders empty-tag notes state with silhouette and add button', () => {
+    const onCreateNote = vi.fn();
+
     render(
       <NotesPane
         activeTagName="Work"
@@ -26,12 +30,14 @@ describe('NotesPane', () => {
         notesById={{}}
         onMoveNote={() => {}}
         onReorderNote={() => {}}
+        onCreateNote={onCreateNote}
         searchValue=""
         onSearchChange={() => {}}
       />
     );
 
-    expect(screen.getByText('No entries in this tag.')).toBeInTheDocument();
+    expect(screen.getByLabelText('Create new entry')).toBeInTheDocument();
+    expect(screen.getByText('Add Entry')).toBeInTheDocument();
   });
 
   it('renders notes and move controls', () => {
@@ -193,8 +199,10 @@ describe('NotesPane', () => {
       />
     );
 
-    fireEvent.contextMenu(screen.getByText('No entries in this tag.'));
-    fireEvent.click(screen.getByLabelText('Create new entry'));
+    fireEvent.contextMenu(
+      screen.getByLabelText('Entry list, press Shift+F10 for context menu')
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create new entry' }));
     expect(onCreateNote).toHaveBeenCalledTimes(1);
   });
 

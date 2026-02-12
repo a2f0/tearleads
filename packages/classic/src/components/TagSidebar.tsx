@@ -241,7 +241,35 @@ export function TagSidebar({
           {tags.length === 0 &&
             untaggedCount === 0 &&
             deletedTags.length === 0 && (
-              <p className="text-sm text-zinc-500">No tags found.</p>
+              <div className="space-y-2 px-2">
+                <div className="border border-dashed border-zinc-300 bg-zinc-50 px-2 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 shrink-0 text-center text-xs text-zinc-300">
+                      ⋮⋮
+                    </span>
+                    <span className="h-4 flex-1 rounded bg-zinc-200" />
+                  </div>
+                </div>
+                <div className="border border-dashed border-zinc-300 bg-zinc-50 px-2 py-1.5">
+                  <div className="flex items-center gap-2">
+                    <span className="w-4 shrink-0 text-center text-xs text-zinc-300">
+                      ⋮⋮
+                    </span>
+                    <span className="h-4 flex-1 rounded bg-zinc-200" />
+                  </div>
+                </div>
+                {onCreateTag && (
+                  <button
+                    type="button"
+                    onClick={() => void onCreateTag()}
+                    className="flex w-full items-center justify-center gap-1 rounded border border-dashed border-zinc-400 bg-white px-2 py-1.5 text-sm text-zinc-600 hover:border-zinc-500 hover:bg-zinc-50"
+                    aria-label={CREATE_CLASSIC_TAG_ARIA_LABEL}
+                  >
+                    <span aria-hidden="true">+</span>
+                    Add Tag
+                  </button>
+                )}
+              </div>
             )}
           {tags.length > 0 && (
             <ul className="m-0 list-none space-y-1 p-0" aria-label="Tag List">

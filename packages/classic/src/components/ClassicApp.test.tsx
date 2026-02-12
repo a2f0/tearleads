@@ -157,7 +157,9 @@ describe('ClassicApp', () => {
 
   it('renders with no active tag and supports optional callback omission', () => {
     render(<ClassicApp initialState={createState(null)} />);
-    expect(screen.getByText('Select a tag to view notes.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Select a tag to view entries')
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByLabelText('Select tag Work'));
     expect(screen.getByText('Alpha')).toBeInTheDocument();
