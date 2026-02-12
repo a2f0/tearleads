@@ -240,8 +240,16 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    2. Handle Gemini feedback (if applicable)
       - Always run Gemini evaluation/close-out on every poll iteration, even when CI jobs are still running or have failed.
       - Run `/address-gemini-feedback` to process unresolved feedback.
-      - If code changes were made, push them before continuing.
-      - Run `/follow-up-with-gemini` to resolve confirmed threads in parallel with CI fixes.
+      - If code changes were made, push them and **verify push completed before replying**:
+
+        ```bash
+        BRANCH=$(git branch --show-current)
+        git fetch origin "$BRANCH"
+        [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
+        ```
+
+        **Do NOT run `/follow-up-with-gemini` until push is verified.** Replying with "Fixed in commit X" when X is not visible on remote creates confusion.
+      - Once push is verified, run `/follow-up-with-gemini` to resolve confirmed threads in parallel with CI fixes.
       - Do not defer thread close-out until the workflow finishes; keep reviews moving in parallel with CI fixes.
 
    3. Check job statuses:

@@ -28,7 +28,23 @@ Commit and push the current changes following these rules:
 4. **Push**: After successful commit, push to the current branch's remote.
    - The pre-push hook runs full builds and all unit tests; it can take several minutes. Use a longer command timeout and do not assume a timeout means failure.
 
-5. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Do NOT include auto-close keywords (e.g., `Closes`, `Fixes`, `Resolves`) - all issues are marked `needs-qa` after merge via `/enter-merge-queue`. Use the Claude-style PR body format and include the computed agent ID.
+5. **Verify push completed**: Before proceeding to PR creation or Gemini follow-up, verify the push actually completed:
+
+   ```bash
+   BRANCH=$(git branch --show-current)
+   git fetch origin "$BRANCH"
+   LOCAL_SHA=$(git rev-parse HEAD)
+   REMOTE_SHA=$(git rev-parse "origin/$BRANCH")
+
+   if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+     echo "ERROR: Push not yet complete. Retry push before proceeding."
+     exit 1
+   fi
+   ```
+
+   **Do NOT proceed to step 6 or 7 until this verification passes.** Replying to Gemini with "Fixed in commit X" when X is not yet visible on remote creates confusion.
+
+6. **Open PR**: If no PR exists for this branch, create one with `gh pr create`. Do NOT include auto-close keywords (e.g., `Closes`, `Fixes`, `Resolves`) - all issues are marked `needs-qa` after merge via `/enter-merge-queue`. Use the Claude-style PR body format and include the computed agent ID.
    - To avoid shell escaping/substitution bugs in PR bodies, always render content with a **single-quoted heredoc** and pass it using `--body-file`.
 
    **Compute agent id**:
@@ -68,9 +84,9 @@ Commit and push the current changes following these rules:
 
    After creating the PR, run `./scripts/agents/tooling/agentTool.sh setVscodeTitle`.
 
-6. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
+7. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 
-7. **Address feedback**: Run `/address-gemini-feedback` to handle unresolved comments.
+8. **Address feedback**: Run `/address-gemini-feedback` to handle unresolved comments.
 
    **IMPORTANT**: When replying to Gemini comments, use the REST API (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies`), NOT `gh pr review`. The `gh pr review` command creates pending/draft reviews that Gemini cannot see until submitted. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification.
 

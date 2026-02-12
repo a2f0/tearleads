@@ -294,8 +294,16 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
       - Always run Gemini evaluation and close-out checks on every poll iteration, including when CI jobs are still running or have failed.
       - Run `/address-gemini-feedback` to fetch and address unresolved comments.
-      - If code changes were made, push and continue polling (CI will restart).
-      - Immediately run `/follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
+      - If code changes were made, push and **verify push completed before replying**:
+
+        ```bash
+        BRANCH=$(git branch --show-current)
+        git fetch origin "$BRANCH"
+        [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
+        ```
+
+        **Do NOT run `/follow-up-with-gemini` until push is verified.** Replying with "Fixed in commit X" when X is not visible on remote creates confusion.
+      - Once push is verified, run `/follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
       - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Codex fallback review above.
       - **IMPORTANT**: Do not wait for CI completion to resolve review threads. After these sub-skills complete, continue the polling loop - do NOT exit.
 
