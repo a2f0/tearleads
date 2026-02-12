@@ -18,14 +18,17 @@ description: Guarantee PR merge by cycling until merged
 
 ---
 
-**First**: Determine the repository for all `gh` commands:
+**First**: Determine the repository and PR number for all `gh` commands:
 
 ```bash
+# Get repo (works with -R flag)
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+
+# Get PR number (infers from current branch - do NOT use -R flag here)
 PR_NUMBER=$(gh pr view --json number --jq '.number')
 ```
 
-Use `-R "$REPO"` for all `gh` commands after `PR_NUMBER` is captured.
+**IMPORTANT**: Run these as separate commands, not chained with `&&`. The `gh pr view` command without arguments infers the PR from the current branch and does NOT work with `-R` flag. After capturing `PR_NUMBER`, use `-R "$REPO"` with explicit PR number for all subsequent `gh pr` commands (e.g., `gh pr view "$PR_NUMBER" -R "$REPO"`).
 
 This skill guarantees a PR gets merged by continuously monitoring CI, addressing reviews, and waiting until the PR is actually merged.
 

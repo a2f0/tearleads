@@ -4,13 +4,17 @@ description: Query the open PR and resolve Gemini's feedback.
 
 # Address Gemini Feedback
 
-**First**: Determine the repository for all `gh` commands:
+**First**: Determine the repository and PR number:
 
 ```bash
+# Get repo (works with -R flag)
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+
+# Get PR number (infers from current branch - do NOT use -R flag here)
+PR_NUMBER=$(gh pr view --json number --jq '.number')
 ```
 
-Use `-R "$REPO"` with all `gh` commands in this skill.
+**IMPORTANT**: Run these as separate commands, not chained with `&&`. The `gh pr view` command without arguments infers the PR from the current branch and does NOT work with `-R` flag. After capturing `PR_NUMBER`, use `-R "$REPO"` with explicit PR number for all subsequent `gh pr` commands (e.g., `gh pr view "$PR_NUMBER" -R "$REPO"`).
 
 ## CRITICAL: Never Create Pending/Draft Reviews
 
@@ -22,9 +26,7 @@ See `/follow-up-with-gemini` for the correct API usage and examples.
 
 ## Steps
 
-1. **Get PR info**: Run `gh pr view --json number,title,url | cat` to obtain the PR number for this branch. Note: Do not use `-R "$REPO"` for this command - `gh pr view` infers from the current branch when no argument is provided.
-
-2. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`:
+1. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`:
 
    ```bash
    gh api graphql -f query='
@@ -55,14 +57,14 @@ See `/follow-up-with-gemini` for the correct API usage and examples.
 
    Handle pagination via `pageInfo.hasNextPage` and `endCursor`.
 
-3. **Address feedback**: For each unresolved comment that you think is relevant/important:
+2. **Address feedback**: For each unresolved comment that you think is relevant/important:
    - Make the necessary code changes
    - Make sure linting passes and TypeScript compiles
 
-4. **Commit and push**: Commit with conventional message (e.g., `fix: address Gemini review feedback`), note the SHA for thread replies, and push directly (do NOT use `/commit-and-push` to avoid loops).
+3. **Commit and push**: Commit with conventional message (e.g., `fix: address Gemini review feedback`), note the SHA for thread replies, and push directly (do NOT use `/commit-and-push` to avoid loops).
 
-5. **Update PR description**: If changes are significant, update the PR body with `gh pr edit --body`.
+4. **Update PR description**: If changes are significant, update the PR body with `gh pr edit --body`.
 
-6. **Follow up**: Run `/follow-up-with-gemini` to reply, wait for confirmation, and resolve threads.
+5. **Follow up**: Run `/follow-up-with-gemini` to reply, wait for confirmation, and resolve threads.
 
-7. **Repeat**: If Gemini requests further changes, repeat from step 2.
+6. **Repeat**: If Gemini requests further changes, repeat from step 1.
