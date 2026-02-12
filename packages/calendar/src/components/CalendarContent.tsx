@@ -288,8 +288,6 @@ export function CalendarContent({
     [calendarEvents, isSameDay, selectedDate]
   );
 
-  const dayEventCount = dayEvents.length;
-
   const eventCountByDay = useMemo(() => {
     const countMap = new Map<string, number>();
     for (const event of calendarEvents) {
@@ -649,11 +647,6 @@ export function CalendarContent({
         <section className="flex min-h-0 flex-1 flex-col p-4">
           <div className="mb-3 flex items-center justify-between">
             <p className="font-medium text-base">{activeCalendar}</p>
-            {viewMode !== 'Day' ? (
-              <p className="text-muted-foreground text-xs">
-                {dayEventCount} events on selected day
-              </p>
-            ) : null}
             <div className="flex items-center gap-2">
               <div
                 className="inline-flex items-center rounded-full border bg-muted/30 p-1"
