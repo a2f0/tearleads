@@ -88,7 +88,7 @@ if (isUser(response.data)) {
 }
 ```
 
-2. **Use assertion functions**: For cases where you want to throw on invalid data
+1. **Use assertion functions**: For cases where you want to throw on invalid data
 
 ```typescript
 function assertIsUser(value: unknown): asserts value is User {
@@ -98,7 +98,7 @@ function assertIsUser(value: unknown): asserts value is User {
 }
 ```
 
-3. **Fix the source**: Often the upstream type is wrong and should be fixed there
+1. **Fix the source**: Often the upstream type is wrong and should be fixed there
 
 ### Eliminating `@ts-ignore` / `@ts-expect-error`
 
@@ -136,6 +136,55 @@ function handle(error: unknown) {
     console.log('Unknown error:', String(error));
   }
 }
+```
+
+### Validating Network/Storage Data
+
+Always validate data from external sources (SSE, WebSocket, Redis, localStorage):
+
+```typescript
+// Before - trusting external data
+const parsed = JSON.parse(data) as StoredUser;
+
+// After - validate before use
+interface StoredUser {
+  id: string;
+  email: string;
+}
+
+function isStoredUser(value: unknown): value is StoredUser {
+  return (
+    isRecord(value) &&
+    typeof value['id'] === 'string' &&
+    typeof value['email'] === 'string'
+  );
+}
+
+const parsed: unknown = JSON.parse(data);
+if (!isStoredUser(parsed)) {
+  return null; // or throw
+}
+// parsed is now safely typed as StoredUser
+```
+
+### Cleaner Global Type Access
+
+Use `globalThis` with a typed intersection instead of `window as unknown as {...}`:
+
+```typescript
+// Before - verbose and uses `unknown`
+const handlers = (
+  window as unknown as {
+    __messageHandler?: Map<string, (msg: Message) => void>;
+  }
+).__messageHandler;
+
+// After - cleaner with globalThis
+type MessageHandlerRegistry = Map<string, (msg: Message) => void>;
+
+const handlers = (
+  globalThis as { __messageHandler?: MessageHandlerRegistry }
+).__messageHandler;
 ```
 
 ## Type Guard Patterns
