@@ -379,7 +379,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    1. Add the "needs-qa" label to the associated issue:
 
       ```bash
-      gh issue edit <associated_issue_number> --add-label "needs-qa" -R "$REPO"
+      ./scripts/agents/tooling/agentTool.sh addLabel --type issue --number <associated_issue_number> --label "needs-qa"
       ```
 
    That's it. The issue already describes the work; no need to update descriptions or add comments.

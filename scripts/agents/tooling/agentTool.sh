@@ -19,10 +19,14 @@ Actions:
   solicitClaudeCodeReview
   solicitCodexReview
   setVscodeTitle
+  addLabel
   approveSkippedChecks
 
 Options:
   --title <value>          Title to set (optional for setVscodeTitle)
+  --type <pr|issue>        Target type for addLabel (required for addLabel)
+  --number <n>             PR or issue number for addLabel (required for addLabel)
+  --label <name>           Label name for addLabel (required for addLabel)
   --timeout-seconds <n>    Timeout in seconds (default: 300, refresh: 3600)
   --repo-root <path>       Execute from this repo root instead of auto-detecting
   --dry-run                Validate and report without executing the target script
@@ -65,6 +69,9 @@ ACTION="$1"
 shift
 
 TITLE=""
+LABEL_TYPE=""
+LABEL_NUMBER=""
+LABEL_NAME=""
 TIMEOUT_SECONDS=""
 REPO_ROOT=""
 DRY_RUN=false
@@ -76,6 +83,21 @@ while [ "$#" -gt 0 ]; do
             shift
             require_value "--title" "${1:-}"
             TITLE="$1"
+            ;;
+        --type)
+            shift
+            require_value "--type" "${1:-}"
+            LABEL_TYPE="$1"
+            ;;
+        --number)
+            shift
+            require_value "--number" "${1:-}"
+            LABEL_NUMBER="$1"
+            ;;
+        --label)
+            shift
+            require_value "--label" "${1:-}"
+            LABEL_NAME="$1"
             ;;
         --timeout-seconds)
             shift
@@ -107,7 +129,7 @@ while [ "$#" -gt 0 ]; do
 done
 
 case "$ACTION" in
-    refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview|approveSkippedChecks) ;;
+    refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview|addLabel|approveSkippedChecks) ;;
     *)
         echo "Error: Unknown action '$ACTION'." >&2
         usage >&2
@@ -116,6 +138,33 @@ case "$ACTION" in
 esac
 
 # setVscodeTitle defaults to '<workspace> - <branch>' when --title is not provided
+
+# addLabel requires --type, --number, and --label
+if [ "$ACTION" = "addLabel" ]; then
+    if [ -z "$LABEL_TYPE" ]; then
+        echo "Error: addLabel requires --type." >&2
+        exit 1
+    fi
+    if [ -z "$LABEL_NUMBER" ]; then
+        echo "Error: addLabel requires --number." >&2
+        exit 1
+    fi
+    if [ -z "$LABEL_NAME" ]; then
+        echo "Error: addLabel requires --label." >&2
+        exit 1
+    fi
+    case "$LABEL_TYPE" in
+        pr|issue) ;;
+        *)
+            echo "Error: --type must be 'pr' or 'issue'." >&2
+            exit 1
+            ;;
+    esac
+    if ! is_positive_int "$LABEL_NUMBER"; then
+        echo "Error: --number must be a positive integer." >&2
+        exit 1
+    fi
+fi
 
 if [ -n "$TIMEOUT_SECONDS" ] && ! is_positive_int "$TIMEOUT_SECONDS"; then
     echo "Error: --timeout-seconds must be a positive integer." >&2
@@ -141,6 +190,9 @@ case "$ACTION" in
     solicitCodexReview|solicitClaudeCodeReview|approveSkippedChecks)
         SCRIPT="$REPO_ROOT/scripts/$ACTION.sh"
         ;;
+    addLabel)
+        SCRIPT="$AGENTS_DIR/addLabel.sh"
+        ;;
     *)
         SCRIPT="$AGENTS_DIR/$ACTION.sh"
         ;;
@@ -159,6 +211,9 @@ fi
 if [ "$ACTION" = "solicitCodexReview" ] || [ "$ACTION" = "solicitClaudeCodeReview" ]; then
     SAFETY_CLASS="safe_read"
 fi
+if [ "$ACTION" = "addLabel" ]; then
+    SAFETY_CLASS="safe_write_remote"
+fi
 
 START_MS=$(node -e 'console.log(Date.now())')
 TMP_OUTPUT=$(mktemp "${TMPDIR:-/tmp}/agentTool.XXXXXX")
@@ -174,13 +229,19 @@ else
             REPO_ROOT="$1"
             SCRIPT="$2"
             TITLE="$3"
+            ACTION="$4"
+            LABEL_TYPE="$5"
+            LABEL_NUMBER="$6"
+            LABEL_NAME="$7"
             cd "$REPO_ROOT"
-            if [ -n "$TITLE" ]; then
+            if [ "$ACTION" = "addLabel" ]; then
+                "$SCRIPT" --type "$LABEL_TYPE" --number "$LABEL_NUMBER" --label "$LABEL_NAME"
+            elif [ -n "$TITLE" ]; then
                 "$SCRIPT" "$TITLE"
             else
                 "$SCRIPT"
             fi
-        ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" >"$TMP_OUTPUT" 2>&1; then
+        ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" "$ACTION" "$LABEL_TYPE" "$LABEL_NUMBER" "$LABEL_NAME" >"$TMP_OUTPUT" 2>&1; then
             EXIT_CODE=$?
         fi
     else
@@ -189,13 +250,19 @@ else
             REPO_ROOT="$1"
             SCRIPT="$2"
             TITLE="$3"
+            ACTION="$4"
+            LABEL_TYPE="$5"
+            LABEL_NUMBER="$6"
+            LABEL_NAME="$7"
             cd "$REPO_ROOT"
-            if [ -n "$TITLE" ]; then
+            if [ "$ACTION" = "addLabel" ]; then
+                "$SCRIPT" --type "$LABEL_TYPE" --number "$LABEL_NUMBER" --label "$LABEL_NAME"
+            elif [ -n "$TITLE" ]; then
                 "$SCRIPT" "$TITLE"
             else
                 "$SCRIPT"
             fi
-        ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" >"$TMP_OUTPUT" 2>&1; then
+        ' _ "$REPO_ROOT" "$SCRIPT" "$TITLE" "$ACTION" "$LABEL_TYPE" "$LABEL_NUMBER" "$LABEL_NAME" >"$TMP_OUTPUT" 2>&1; then
             EXIT_CODE=$?
         fi
     fi

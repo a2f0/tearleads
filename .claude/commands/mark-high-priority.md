@@ -4,33 +4,21 @@ description: Mark a PR as high-priority to skip merge queue yielding
 
 # Mark High Priority
 
-**First**: Determine the repository for all `gh` commands:
-
-```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-```
-
-Use `-R "$REPO"` with all `gh` commands in this skill.
-
 Add the `high-priority` label to the current PR so that other PRs in the merge queue will yield to it.
 
 ## Steps
 
-1. **Get PR info**: Run `gh pr view --json number,labels` to get the PR number and current labels.
+1. **Get PR number**: Run `gh pr view --json number` to get the PR number (infers from current branch).
 
-2. **Check if already high-priority**: If the PR already has the `high-priority` label, inform the user and exit.
-
-3. **Add the label**: Use the GitHub CLI to add the `high-priority` label:
+2. **Add the label**: Use the agent tool to add the `high-priority` label:
 
    ```bash
-   gh pr edit <pr-number> --add-label "high-priority"
+   ./scripts/agents/tooling/agentTool.sh addLabel --type pr --number <pr-number> --label "high-priority"
    ```
 
-4. **Confirm**: Verify the label was added and report success:
+   The script automatically checks if the label is already present and verifies success.
 
-   ```bash
-   gh pr view <pr-number> --json labels
-   ```
+3. **Report**: Confirm the label was added.
 
 ## What This Does
 
@@ -50,4 +38,4 @@ When a PR has the `high-priority` label:
 
 - The `high-priority` label must exist in the repository (create it if it doesn't)
 - Use sparingly - overuse defeats the purpose of prioritization
-- To remove the label later: `gh pr edit <pr-number> --remove-label "high-priority"`
+- To remove the label later: `gh pr edit <pr-number> --remove-label "high-priority" -R "$REPO"`
