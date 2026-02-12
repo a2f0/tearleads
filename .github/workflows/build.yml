@@ -57,33 +57,45 @@ jobs:
 
   build:
     needs: detect-impact
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 20
 
     steps:
+      - name: Report no impact detected
+        if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
+        run: |
+          echo "::notice::No code changes detected that impact this job - reporting success"
+          echo "## Build Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "No code changes detected that require this job to run." >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
 
       - name: Check for binary files
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./scripts/checkBinaryFiles.sh --from-upstream
 
       - name: Check for plain JavaScript files
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./scripts/checkJs.sh --from-upstream
 
       - name: Verify binary guardrails
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./scripts/verifyBinaryGuardrails.sh
 
       - name: Setup pnpm
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: Setup Ruby
-        if: vars.USE_SELF_HOSTED != 'true'
+        if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && vars.USE_SELF_HOSTED != 'true' }}
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3.0'
@@ -91,14 +103,16 @@ jobs:
           working-directory: packages/client
 
       - name: Install Ruby dependencies (self-hosted)
-        if: vars.USE_SELF_HOSTED == 'true'
+        if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && vars.USE_SELF_HOSTED == 'true' }}
         run: bundle install
         working-directory: packages/client
 
       - name: Install dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm install
 
       - name: Cache SQLite WASM
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -108,55 +122,69 @@ jobs:
           key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
 
       - name: Download SQLite WASM
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./scripts/downloadSqliteWasm.sh
 
       - name: Install Playwright for mermaid rendering
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/website exec playwright install chromium
 
       - name: Lint
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm lint
 
       - name: Lint scripts
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm lint:scripts
 
       - name: Lint Markdown
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm lint:md
 
       - name: Lint RuboCop
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm lint:rubocop
 
       - name: Setup Python
-        if: vars.USE_SELF_HOSTED != 'true'
+        if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && vars.USE_SELF_HOSTED != 'true' }}
         uses: actions/setup-python@v5
         with:
           python-version-file: '.python-version'
           cache: 'pip'
 
       - name: Install ansible-lint
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pip3 install ansible-lint ansible passlib
 
       - name: Cache Ansible collections
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/cache@v4
         with:
           path: ~/.ansible/collections
           key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
 
       - name: Install Ansible collections
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Lint Ansible
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm lint:ansible
 
       - name: Type check
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm exec tsc -b
 
       - name: Build
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm build
 
       - name: Install bashcov
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: gem install bashcov
 
       - name: Test with Coverage
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           pnpm --filter @tearleads/shared test:coverage
           pnpm --filter @tearleads/ui test:coverage
@@ -172,6 +200,7 @@ jobs:
           pnpm test:coverage
 
       - name: Upload Coverage Reports
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
@@ -191,6 +220,7 @@ jobs:
           retention-days: 30
 
       - name: Coverage Summary
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

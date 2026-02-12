@@ -54,18 +54,27 @@ jobs:
   android:
     name: Android Instrumented Tests
     needs: detect-impact
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
+      - name: Report no impact detected
+        if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
+        run: |
+          echo "::notice::No code changes detected that impact this job - reporting success"
+          echo "## Android Instrumented Tests Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "No code changes detected that require this job to run." >> "$GITHUB_STEP_SUMMARY"
+
       - name: Free disk space
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           sudo rm -rf /usr/share/dotnet
           sudo rm -rf /opt/ghc
 
       - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
 
       - name: Capture runner hardware specs
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           mkdir -p packages/client/android-test-artifacts
           {
@@ -93,33 +102,40 @@ jobs:
           cat packages/client/android-test-artifacts/hardware-specs.txt
 
       - name: Enable KVM
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
       - name: Setup pnpm
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: Setup Java
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version-file: '.java-version'
 
       - name: Setup Gradle
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: gradle/actions/setup-gradle@v4
 
       - name: Setup Android SDK
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: android-actions/setup-android@v3
 
       - name: Setup Ruby
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3.0'
@@ -127,9 +143,11 @@ jobs:
           working-directory: packages/client
 
       - name: Install dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm install
 
       - name: Cache SQLite WASM
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -139,58 +157,75 @@ jobs:
           key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
 
       - name: Download SQLite WASM
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./scripts/downloadSqliteWasm.sh
 
       - name: Install ImageMagick
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
           sudo apt-get install -y --no-install-recommends imagemagick librsvg2-bin
 
       - name: Build API (for OpenAPI spec)
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/api build
 
       - name: Build window-manager
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/window-manager build
 
       - name: Build UI
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/ui build
 
       - name: Build notes
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/notes build
 
       - name: Build email
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/email build
 
       - name: Build vfs-explorer
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/vfs-explorer build
 
       - name: Build audio
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/audio build
 
       - name: Build contacts
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/contacts build
 
       - name: Build db-test-utils
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/db-test-utils build
 
       - name: Build web assets
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/client build
 
       - name: Generate Android images
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./packages/client/scripts/buildAndroidImageAssets.sh
 
       - name: Sync Capacitor
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/client run cap:sync
 
       - name: Download Gradle wrapper
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./packages/client/scripts/downloadGradleWrapper.sh
 
       - name: Setup Android keystore
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           mkdir -p .secrets
           echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/tearleads-release.keystore
 
       - name: Create keystore.properties
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           cat > packages/client/android/keystore.properties << EOF
           storeFile=${{ github.workspace }}/.secrets/tearleads-release.keystore
@@ -200,15 +235,18 @@ jobs:
           EOF
 
       - name: Run Android unit tests
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: bundle exec fastlane android test
         working-directory: packages/client
 
       - name: Restart adb
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           adb kill-server || true
           adb start-server
 
       - name: Run Android instrumented tests
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 31
@@ -225,7 +263,7 @@ jobs:
 
       - name: Upload Android test artifacts
         uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') }}
         with:
           name: android-instrumented-test-artifacts
           path: packages/client/android-test-artifacts/

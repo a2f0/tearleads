@@ -54,14 +54,22 @@ jobs:
   website-e2e:
     name: Website E2E Tests (Release)
     needs: detect-impact
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
+      - name: Report no impact detected
+        if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
+        run: |
+          echo "::notice::No code changes detected that impact this job - reporting success"
+          echo "## Website E2E Tests Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "No code changes detected that require this job to run." >> "$GITHUB_STEP_SUMMARY"
+
       - uses: actions/checkout@v4
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
 
       - name: Capture runner hardware specs
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           mkdir -p packages/website/playwright-report
           {
@@ -89,22 +97,27 @@ jobs:
           cat packages/website/playwright-report/hardware-specs.txt
 
       - name: Setup pnpm
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
 
       - name: Install dependencies
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm install
 
       - name: Get Playwright version
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         id: playwright-version
         run: echo "version=$(pnpm --filter @tearleads/website exec playwright --version)" >> $GITHUB_OUTPUT
 
       - name: Cache Playwright browsers
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/cache@v4
         id: playwright-cache
         with:
@@ -112,20 +125,23 @@ jobs:
           key: playwright-website-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
 
       - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && steps.playwright-cache.outputs.cache-hit != 'true' }}
         run: pnpm --filter @tearleads/website exec playwright install --with-deps chromium firefox webkit
 
       - name: Install Playwright dependencies
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && steps.playwright-cache.outputs.cache-hit == 'true' }}
         run: pnpm --filter @tearleads/website exec playwright install-deps
 
       - name: Build API OpenAPI spec
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/api buildOpenapi
 
       - name: Build website
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/website build
 
       - name: Generate self-signed certificate
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           sudo mkdir -p /etc/ssl/private
           sudo openssl req -x509 -nodes -days 1 \
@@ -138,6 +154,7 @@ jobs:
           sudo chmod 600 /etc/ssl/private/localhost.key
 
       - name: Make workspace accessible to NGINX
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           # NGINX runs as www-data and needs execute permission on ALL parent directories
           current="$GITHUB_WORKSPACE"
@@ -148,21 +165,24 @@ jobs:
           sudo chmod -R a+rX "$GITHUB_WORKSPACE"
 
       - name: Install and configure NGINX
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           sudo apt-get update && sudo apt-get install -y nginx ansible
           ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=website
 
       - name: Verify NGINX is serving
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: curl -k https://localhost:8444/ -I
 
       - name: Run Playwright tests
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/website test:e2e
         env:
           BASE_URL: https://localhost:8444
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
-        if: always()
+        if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') }}
         with:
           name: website-playwright-report
           path: packages/website/playwright-report/
