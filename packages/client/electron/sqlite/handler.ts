@@ -138,9 +138,12 @@ function execute(sql: string, params?: unknown[]): QueryResult {
   }
 
   const stmt = db.prepare(sql);
-  const isSelect =
-    sql.trim().toUpperCase().startsWith('SELECT') ||
-    sql.trim().toUpperCase().startsWith('PRAGMA');
+  const trimmedSql = sql.trim().toUpperCase();
+  // PRAGMA with = is a setter (e.g., PRAGMA foreign_keys = ON) and doesn't return data.
+  // Only treat PRAGMA as a query when it doesn't contain = (e.g., PRAGMA table_info(...)).
+  const isPragmaQuery =
+    trimmedSql.startsWith('PRAGMA') && !trimmedSql.includes('=');
+  const isSelect = trimmedSql.startsWith('SELECT') || isPragmaQuery;
 
   if (isSelect) {
     const rows = params ? stmt.all(...params) : stmt.all();
