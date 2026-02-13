@@ -124,6 +124,29 @@ These warnings are expected and do not require action:
 - **electron-builder peer dependency mismatches**: Internal conflicts between `dmg-builder`/`electron-builder-squirrel-windows` tracked upstream
 - **Deprecated transitive dependencies**: `glob`, `rimraf`, `inflight` etc. are deep deps resolved when upstream updates
 
+## Drizzle-ORM Peer Dependency Conflicts
+
+When `drizzle-orm` is used across multiple packages, its optional peer dependencies (like `sql.js`) can resolve to different versions. This causes TypeScript errors like:
+
+```text
+Types have separate declarations of a private property 'shouldInlineParams'.
+Type 'SQL<unknown>' is not assignable to type 'SQL<unknown>'.
+```
+
+**Diagnosis**: Run `pnpm why sql.js --recursive` to see version mismatches.
+
+**Fix**: Add a pnpm override in root `package.json`:
+
+```json
+"pnpm": {
+  "overrides": {
+    "sql.js": "1.14.0"
+  }
+}
+```
+
+Then run `pnpm install` to apply.
+
 ## Warnings/Deprecations
 
 Collect warnings/deprecations from `pnpm`, bundler, CocoaPods, Gradle, and test runs. Summarize them in the final response along with any required follow-ups.

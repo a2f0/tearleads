@@ -189,6 +189,29 @@ Some warnings are expected and do not require action:
 - **electron-builder peer dependency mismatches**: Internal version conflicts between `dmg-builder` and `electron-builder-squirrel-windows` are tracked upstream and do not affect builds
 - **Deprecated transitive dependencies**: Packages like `glob`, `rimraf`, `inflight` are deep transitive deps and will be resolved when upstream packages update
 
+## Drizzle-ORM Peer Dependency Conflicts
+
+When `drizzle-orm` is used across multiple packages, its optional peer dependencies (like `sql.js`) can resolve to different versions in different packages. This causes TypeScript errors like:
+
+```text
+Types have separate declarations of a private property 'shouldInlineParams'.
+Type 'SQL<unknown>' is not assignable to type 'SQL<unknown>'.
+```
+
+**Diagnosis**: Run `pnpm why sql.js --recursive` to see if different packages resolve different versions.
+
+**Fix**: Add a pnpm override in root `package.json` to force a single version:
+
+```json
+"pnpm": {
+  "overrides": {
+    "sql.js": "1.14.0"
+  }
+}
+```
+
+Then run `pnpm install` to apply the override.
+
 ## Token Efficiency
 
 The update script and its sub-commands produce thousands of lines of output. Suppress stdout where only the exit code matters:
