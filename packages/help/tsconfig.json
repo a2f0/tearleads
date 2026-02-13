@@ -10,13 +10,13 @@
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
     "jsx": "react-jsx",
     "composite": true,
+    "resolveJsonModule": true,
     "baseUrl": ".",
     "paths": {
       "@/*": ["../client/src/*"],
       "@client/*": ["../client/src/*"],
-      "@console/*": ["./src/*"],
-      "@tearleads/help/package.json": ["../help/package.json"],
-      "@tearleads/help": ["../help/src/index.ts"]
+      "@help/*": ["./src/*"],
+      "@tearleads/api/dist/openapi.json": ["../api/dist/openapi.json"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },

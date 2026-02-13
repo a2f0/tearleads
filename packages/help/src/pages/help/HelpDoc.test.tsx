@@ -3,7 +3,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { HelpDocPage } from './HelpDoc';
 
-vi.mock('@/components/help-links/HelpDocumentation', () => ({
+vi.mock('../../components/help-links/HelpDocumentation', () => ({
   HelpDocumentation: ({ docId }: { docId: string }) => (
     <div data-testid="help-documentation">{docId}</div>
   )

@@ -63,6 +63,7 @@
     "@tearleads/contacts": "workspace:*",
     "@tearleads/db": "workspace:*",
     "@tearleads/email": "workspace:*",
+    "@tearleads/help": "workspace:*",
     "@tearleads/keychain": "workspace:*",
     "@tearleads/mls-chat": "workspace:*",
     "@tearleads/notes": "workspace:*",

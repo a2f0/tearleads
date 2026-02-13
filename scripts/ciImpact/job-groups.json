@@ -27,6 +27,7 @@
     "@tearleads/db",
     "@tearleads/db-test-utils",
     "@tearleads/email",
+    "@tearleads/help",
     "@tearleads/keychain",
     "@tearleads/mls-chat",
     "@tearleads/notes",

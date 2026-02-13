@@ -42,6 +42,9 @@ export default defineConfig({
       '@tearleads/terminal': fileURLToPath(
         new URL('../terminal/src/index.ts', import.meta.url)
       ),
+      '@tearleads/help': fileURLToPath(
+        new URL('../help/src/index.ts', import.meta.url)
+      ),
       '@tearleads/ui': fileURLToPath(
         new URL('../ui/src/index.ts', import.meta.url)
       )

@@ -4,8 +4,6 @@ import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { HelpDocumentation } from '@/components/help-links/HelpDocumentation';
-import { HelpLinksGrid } from '@/components/help-links/HelpLinksGrid';
 import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
 import {
   DOCS_WINDOW_MAX_HEIGHT_PERCENT,
@@ -14,6 +12,8 @@ import {
   DOCS_WINDOW_MIN_WIDTH,
   getDocsWindowDefaults
 } from '@/lib/docsWindowSizing';
+import { HelpDocumentation } from '../help-links/HelpDocumentation';
+import { HelpLinksGrid } from '../help-links/HelpLinksGrid';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
 type HelpView = 'index' | 'developer' | 'api' | HelpDocId;

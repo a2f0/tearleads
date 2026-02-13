@@ -47,7 +47,7 @@ vi.mock('@/components/floating-window', () => ({
   )
 }));
 
-vi.mock('@/components/help-links/HelpDocumentation', () => ({
+vi.mock('../help-links/HelpDocumentation', () => ({
   HelpDocumentation: ({ docId }: { docId: string }) => (
     <div data-testid="help-documentation">{docId}</div>
   )
