@@ -299,11 +299,10 @@ tuxedo_attach_or_create() {
 
     # Create dedicated PR windows first (no editor split panes).
     # These open in DASHBOARD_DIR (the canonical tearleads repo for PR operations).
+    # Don't set @workspace so status bar shows window name (open-prs, closed-prs).
     dashboard_path=$(workspace_path "$DASHBOARD_DIR")
     tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$DASHBOARD_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
-    set_window_title_options "$DASHBOARD_DIR" "$OPEN_PRS_WINDOW_NAME"
     tmux new-window -t "$SESSION_NAME:" -c "$DASHBOARD_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
-    set_window_title_options "$DASHBOARD_DIR" "$CLOSED_PRS_WINDOW_NAME"
 
     # Add shared workspace as third window (source of truth).
     # Terminal pane runs in a persistent screen session.
