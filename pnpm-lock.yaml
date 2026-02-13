@@ -655,6 +655,9 @@ importers:
         specifier: 0.563.0
         version: 0.563.0(react@19.2.4)
     devDependencies:
+      '@tearleads/help':
+        specifier: workspace:*
+        version: link:../help
       '@tearleads/terminal':
         specifier: workspace:*
         version: link:../terminal
