@@ -12,11 +12,9 @@ import { useTypedTranslation } from '@/i18n';
 import type { FileWithThumbnail } from './types';
 
 interface FilesListContextMenuProps {
-  contextMenu: {
-    file: FileWithThumbnail;
-    x: number;
-    y: number;
-  };
+  file: FileWithThumbnail;
+  x: number;
+  y: number;
   isPlayingCurrentFile: boolean;
   onClose: () => void;
   onGetInfo: () => void;
@@ -27,7 +25,9 @@ interface FilesListContextMenuProps {
 }
 
 export function FilesListContextMenu({
-  contextMenu,
+  file,
+  x,
+  y,
   isPlayingCurrentFile,
   onClose,
   onGetInfo,
@@ -39,14 +39,14 @@ export function FilesListContextMenu({
   const { t } = useTypedTranslation('contextMenu');
 
   const isViewable =
-    contextMenu.file.mimeType.startsWith('audio/') ||
-    contextMenu.file.mimeType.startsWith('image/') ||
-    contextMenu.file.mimeType.startsWith('video/') ||
-    contextMenu.file.mimeType === 'application/pdf';
+    file.mimeType.startsWith('audio/') ||
+    file.mimeType.startsWith('image/') ||
+    file.mimeType.startsWith('video/') ||
+    file.mimeType === 'application/pdf';
 
   return (
-    <ContextMenu x={contextMenu.x} y={contextMenu.y} onClose={onClose}>
-      {contextMenu.file.deleted ? (
+    <ContextMenu x={x} y={y} onClose={onClose}>
+      {file.deleted ? (
         <ContextMenuItem
           icon={<RotateCcw className="h-4 w-4" />}
           onClick={onRestore}
@@ -55,7 +55,7 @@ export function FilesListContextMenu({
         </ContextMenuItem>
       ) : (
         <>
-          {contextMenu.file.mimeType.startsWith('audio/') && (
+          {file.mimeType.startsWith('audio/') && (
             <ContextMenuItem
               icon={
                 isPlayingCurrentFile ? (
@@ -69,7 +69,7 @@ export function FilesListContextMenu({
               {isPlayingCurrentFile ? t('pause') : t('play')}
             </ContextMenuItem>
           )}
-          {contextMenu.file.mimeType.startsWith('video/') && (
+          {file.mimeType.startsWith('video/') && (
             <ContextMenuItem
               icon={<Play className="h-4 w-4" />}
               onClick={onGetInfo}

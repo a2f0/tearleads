@@ -744,7 +744,9 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
 
         {contextMenu && (
           <FilesListContextMenu
-            contextMenu={contextMenu}
+            file={contextMenu.file}
+            x={contextMenu.x}
+            y={contextMenu.y}
             isPlayingCurrentFile={
               contextMenu.file.id === currentTrack?.id && isPlaying
             }

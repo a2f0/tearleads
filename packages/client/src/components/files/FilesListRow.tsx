@@ -39,78 +39,72 @@ export function FilesListRow({
   const isClickable =
     (viewableTypes.includes(fileType) || isPdf) && !file.deleted;
 
-  const content = (
-    <>
-      <div className="relative shrink-0">
-        {file.thumbnailUrl ? (
-          <img
-            src={file.thumbnailUrl}
-            alt=""
-            className="h-8 w-8 rounded object-cover"
-          />
-        ) : file.mimeType.startsWith('audio/') ? (
-          <Music className="h-5 w-5 text-muted-foreground" />
-        ) : isPdf ? (
-          <FileText className="h-5 w-5 text-muted-foreground" />
-        ) : (
-          <FileIcon className="h-5 w-5 text-muted-foreground" />
-        )}
-        {isRecentlyUploaded && (
-          // biome-ignore lint/a11y/useSemanticElements: Cannot use button as it may be nested inside another button
-          <span
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation();
-              onClearRecentlyUploaded();
-            }}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' || e.key === ' ') {
-                e.preventDefault();
-                e.stopPropagation();
-                e.currentTarget.click();
-              }
-            }}
-            className="absolute -top-1 -right-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-success text-success-foreground"
-            title="Upload successful - click to dismiss"
-            data-testid="upload-success-badge"
-          >
-            <Check className="h-3 w-3" />
-          </span>
-        )}
-      </div>
-      <div className="min-w-0 flex-1">
-        <p
-          className={`truncate font-medium text-sm ${
-            file.deleted ? 'line-through' : ''
-          }`}
-        >
-          {file.name}
-        </p>
-        <p className="text-muted-foreground text-xs">
-          {formatFileSize(file.size)} · {file.uploadDate.toLocaleDateString()}
-          {file.deleted && ' · Deleted'}
-        </p>
-      </div>
-    </>
+  const thumbnailContent = (
+    <div className="shrink-0">
+      {file.thumbnailUrl ? (
+        <img
+          src={file.thumbnailUrl}
+          alt=""
+          className="h-8 w-8 rounded object-cover"
+        />
+      ) : file.mimeType.startsWith('audio/') ? (
+        <Music className="h-5 w-5 text-muted-foreground" />
+      ) : isPdf ? (
+        <FileText className="h-5 w-5 text-muted-foreground" />
+      ) : (
+        <FileIcon className="h-5 w-5 text-muted-foreground" />
+      )}
+    </div>
+  );
+
+  const textContent = (
+    <div className="min-w-0 flex-1">
+      <p
+        className={`truncate font-medium text-sm ${
+          file.deleted ? 'line-through' : ''
+        }`}
+      >
+        {file.name}
+      </p>
+      <p className="text-muted-foreground text-xs">
+        {formatFileSize(file.size)} · {file.uploadDate.toLocaleDateString()}
+        {file.deleted && ' · Deleted'}
+      </p>
+    </div>
   );
 
   return (
     <ListRow
-      className={`${file.deleted ? 'opacity-60' : ''}`}
+      className={`relative ${file.deleted ? 'opacity-60' : ''}`}
       onContextMenu={onContextMenu}
     >
+      {isRecentlyUploaded && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClearRecentlyUploaded();
+          }}
+          className="absolute top-1 left-1 z-10 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-success text-success-foreground"
+          title="Upload successful - click to dismiss"
+          data-testid="upload-success-badge"
+        >
+          <Check className="h-3 w-3" />
+        </button>
+      )}
       {isClickable ? (
         <button
           type="button"
           className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
           onClick={onView}
         >
-          {content}
+          {thumbnailContent}
+          {textContent}
         </button>
       ) : (
         <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-          {content}
+          {thumbnailContent}
+          {textContent}
         </div>
       )}
       <div className="flex shrink-0 gap-1">
