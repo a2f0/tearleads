@@ -3,8 +3,8 @@
 @import "@tearleads/ui/theme.css";
 
 @source "../../admin/src";
-@source "../../ui/src";
 @source "../../calendar/src";
+@source "../../ui/src";
 
 /* Edge-to-edge safe area handling */
 .safe-area-inset {
