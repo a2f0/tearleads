@@ -102,8 +102,19 @@ export const postItemsItemidSharesHandler = async (
     let targetName = 'Unknown';
     if (payload.shareType === 'user') {
       const result = await pool.query<{ email: string }>(
-        'SELECT email FROM users WHERE id = $1',
-        [payload.targetId]
+        `SELECT u.email
+           FROM users u
+          WHERE u.id = $1
+            AND EXISTS (
+              SELECT 1
+                FROM user_organizations requestor_uo
+                INNER JOIN user_organizations target_uo
+                  ON target_uo.organization_id = requestor_uo.organization_id
+               WHERE requestor_uo.user_id = $2
+                 AND target_uo.user_id = u.id
+            )
+          LIMIT 1`,
+        [payload.targetId, claims.sub]
       );
       if (result.rows[0]) {
         targetExists = true;
@@ -111,8 +122,14 @@ export const postItemsItemidSharesHandler = async (
       }
     } else if (payload.shareType === 'group') {
       const result = await pool.query<{ name: string }>(
-        'SELECT name FROM groups WHERE id = $1',
-        [payload.targetId]
+        `SELECT g.name
+           FROM groups g
+           INNER JOIN user_organizations uo
+             ON uo.organization_id = g.organization_id
+          WHERE g.id = $1
+            AND uo.user_id = $2
+          LIMIT 1`,
+        [payload.targetId, claims.sub]
       );
       if (result.rows[0]) {
         targetExists = true;
@@ -120,8 +137,14 @@ export const postItemsItemidSharesHandler = async (
       }
     } else if (payload.shareType === 'organization') {
       const result = await pool.query<{ name: string }>(
-        'SELECT name FROM organizations WHERE id = $1',
-        [payload.targetId]
+        `SELECT o.name
+           FROM organizations o
+           INNER JOIN user_organizations uo
+             ON uo.organization_id = o.id
+          WHERE o.id = $1
+            AND uo.user_id = $2
+          LIMIT 1`,
+        [payload.targetId, claims.sub]
       );
       if (result.rows[0]) {
         targetExists = true;

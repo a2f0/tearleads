@@ -94,8 +94,14 @@ export const postItemsItemidOrgSharesHandler = async (
     }
 
     const sourceOrgResult = await pool.query<{ name: string }>(
-      'SELECT name FROM organizations WHERE id = $1',
-      [payload.sourceOrgId]
+      `SELECT o.name
+         FROM organizations o
+         INNER JOIN user_organizations uo
+           ON uo.organization_id = o.id
+        WHERE o.id = $1
+          AND uo.user_id = $2
+        LIMIT 1`,
+      [payload.sourceOrgId, claims.sub]
     );
     if (!sourceOrgResult.rows[0]) {
       res.status(404).json({ error: 'Source organization not found' });
