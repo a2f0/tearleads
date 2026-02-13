@@ -12,7 +12,7 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { api } from '@/lib/api';
 
 interface OrganizationsListProps {
-  onCreateClick?: () => void;
+  onCreateClick?: (() => void) | undefined;
   onOrganizationSelect: (organizationId: string) => void;
   organizationId?: string | null;
 }

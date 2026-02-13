@@ -11,7 +11,7 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { api } from '@/lib/api';
 
 interface GroupsListProps {
-  onCreateClick?: () => void;
+  onCreateClick?: (() => void) | undefined;
   onGroupSelect: (groupId: string) => void;
   organizationId?: string | null;
 }
