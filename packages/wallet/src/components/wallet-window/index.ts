@@ -1,0 +1,1 @@
+export { WalletWindow } from './WalletWindow';

@@ -9,7 +9,9 @@ vi.mock('@tearleads/db/sqlite', () => ({
   migrations: {},
   secrets: {},
   syncMetadata: {},
-  userSettings: {}
+  userSettings: {},
+  walletItemMedia: {},
+  walletItems: {}
 }));
 
 vi.mock('@/components/contacts/column-mapper/ColumnMapper', () => ({

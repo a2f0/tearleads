@@ -82,6 +82,7 @@ export default defineConfig({
         'src/pages/models/index.ts',
         'src/pages/opfs/index.ts',
         'src/pages/search/index.ts',
+        'src/pages/wallet/index.ts',
         'src/sse/index.ts',
         'src/video/index.ts',
         'src/components/admin-groups/index.ts',
@@ -97,6 +98,7 @@ export default defineConfig({
         'src/components/floating-window/index.ts',
         'src/components/contacts-window/index.tsx',
         'src/components/notes-window/index.ts',
+        'src/components/wallet-window/index.ts',
         'src/components/ui/drop-zone-overlay/index.ts',
         // Wrapper component that delegates to @tearleads/audio package
         'src/components/audio-window/index.tsx',

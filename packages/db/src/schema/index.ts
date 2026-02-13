@@ -19,7 +19,9 @@ export {
   mlsWelcomeMessagesTable,
   secretsTable,
   syncMetadataTable,
-  userSettingsTable
+  userSettingsTable,
+  walletItemMediaTable,
+  walletItemsTable
 } from './definition.js';
 export type {
   ColumnDefinition,

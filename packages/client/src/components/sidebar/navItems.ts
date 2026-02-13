@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarDays,
   CircleHelp,
+  CreditCard,
   Database,
   FileIcon,
   FileText,
@@ -172,6 +173,13 @@ export const navItems: NavItem[] = [
     labelKey: 'keychain',
     inMobileMenu: true,
     testId: 'keychain-link'
+  },
+  {
+    path: '/wallet',
+    icon: CreditCard,
+    labelKey: 'wallet',
+    inMobileMenu: true,
+    testId: 'wallet-link'
   },
   {
     path: '/ai',

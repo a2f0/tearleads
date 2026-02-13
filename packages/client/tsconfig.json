@@ -33,6 +33,8 @@
       "@tearleads/help": ["../help/src/index.ts"],
       "@tearleads/keychain/package.json": ["../keychain/package.json"],
       "@tearleads/keychain": ["../keychain/src/index.ts"],
+      "@tearleads/wallet/package.json": ["../wallet/package.json"],
+      "@tearleads/wallet": ["../wallet/src/index.ts"],
       "@tearleads/notes/package.json": ["../notes/package.json"],
       "@tearleads/notes": ["../notes/src/index.ts"],
       "@tearleads/search/package.json": ["../search/package.json"],

@@ -34,6 +34,7 @@ export const ua = {
     cacheStorage: 'Кеш',
     localStorage: 'Локальне сховище',
     keychain: "Зв'язка ключів",
+    wallet: 'Гаманець',
     chat: 'AI',
     mlsChat: 'MLS Чат',
     models: 'Моделі',
