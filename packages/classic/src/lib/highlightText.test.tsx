@@ -36,13 +36,14 @@ describe('highlightText', () => {
     expect(mark).toHaveTextContent('lo Wo');
   });
 
-  it('highlights matching substring at the end', () => {
+  it('highlights matching substring at the end and applies styling', () => {
     const { container } = render(
       <span>{highlightText('Hello World', 'World')}</span>
     );
     const mark = container.querySelector('mark');
     expect(mark).toBeInTheDocument();
     expect(mark).toHaveTextContent('World');
+    expect(mark).toHaveClass('bg-yellow-200');
   });
 
   it('performs case-insensitive matching', () => {
@@ -61,13 +62,5 @@ describe('highlightText', () => {
     const mark = container.querySelector('mark');
     expect(mark).toBeInTheDocument();
     expect(mark).toHaveTextContent('HeLLo');
-  });
-
-  it('applies yellow background styling to mark element', () => {
-    const { container } = render(
-      <span>{highlightText('Hello World', 'World')}</span>
-    );
-    const mark = container.querySelector('mark');
-    expect(mark).toHaveClass('bg-yellow-200');
   });
 });
