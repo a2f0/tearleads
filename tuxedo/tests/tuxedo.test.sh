@@ -131,8 +131,8 @@ assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads-main"
 assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads2"
 assert_contains "$(cat "$UPDATE_LOG")" "$TEMP_DIR/base/tearleads3"
 
-# sync_all_titles is now a no-op (title syncing disabled to prevent pollution)
-# Just verify the function exists and can be called
+# sync_all_titles sets @workspace options for automatic-rename-format
+# Verify the function exists and handles missing tmux session gracefully
 sync_all_titles
 
 BASE_DIR="$TEMP_DIR"
@@ -170,8 +170,8 @@ assert_eq "../../../tearleads-shared/packages/api/.env" "$(readlink "$WORKSPACE_
 
 update_from_main "$BASE_DIR/not-a-repo"
 
-# sync_vscode_title is now a no-op (title syncing disabled to prevent pollution)
-# Just verify the function exists and can be called without error
+# sync_vscode_title sets @workspace option for a window (enables dynamic titles)
+# Verify the function exists and handles missing tmux session gracefully
 sync_vscode_title "$WORKSPACE_DIR" "tearleads2"
 
 GHOSTTY_LOG="$TEMP_DIR/ghostty.log"

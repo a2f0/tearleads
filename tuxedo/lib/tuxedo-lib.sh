@@ -214,15 +214,44 @@ tuxedo_truncate_title() {
     printf '%.*s...' "$truncate_len" "$title"
 }
 
-# Disabled: VS Code title syncing caused window name pollution.
-# The pane border in tmux.conf already shows path:branch dynamically.
-# Window names are set once at creation time by tuxedo and not changed.
-sync_vscode_title() {
-    :
+# Set window options to enable dynamic title (workspace:branch format)
+# - @workspace: stores the workspace directory for automatic-rename-format
+# - automatic-rename: must be enabled per-window since -n name disables it
+set_window_title_options() {
+    workspace_dir="$1"
+    window_name="$2"
+    [ -z "$workspace_dir" ] || [ -z "$window_name" ] && return 0
+    tmux set-option -w -t "$SESSION_NAME:$window_name" @workspace "$workspace_dir" 2>/dev/null || true
+    tmux set-option -w -t "$SESSION_NAME:$window_name" automatic-rename on 2>/dev/null || true
 }
 
+# Legacy alias for backward compatibility
+sync_vscode_title() {
+    set_window_title_options "$@"
+}
+
+# Set window options for all workspace windows (for existing sessions)
+# Iterates through all windows in the session and sets @workspace based on
+# the TUXEDO_WORKSPACE environment variable stored in each window's pane.
 sync_all_titles() {
-    :
+    # Get all windows in the session
+    windows=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_name}' 2>/dev/null) || return 0
+
+    for window_name in $windows; do
+        # Get the workspace directory from the pane's environment or current path
+        # First try TUXEDO_WORKSPACE from the pane's shell environment
+        workspace_dir=$(tmux show-environment -t "$SESSION_NAME:$window_name" TUXEDO_WORKSPACE 2>/dev/null | cut -d= -f2-)
+
+        # If not found, fall back to pane's current path
+        if [ -z "$workspace_dir" ] || [ "$workspace_dir" = "-TUXEDO_WORKSPACE" ]; then
+            workspace_dir=$(tmux display-message -t "$SESSION_NAME:$window_name" -p '#{pane_current_path}' 2>/dev/null)
+        fi
+
+        # Only set if we have a valid directory
+        if [ -n "$workspace_dir" ] && [ -d "$workspace_dir" ]; then
+            set_window_title_options "$workspace_dir" "$window_name"
+        fi
+    done
 }
 
 # Build a workspace-specific PATH that includes that workspace's scripts
@@ -279,7 +308,9 @@ tuxedo_attach_or_create() {
     # These open in DASHBOARD_DIR (the canonical tearleads repo for PR operations).
     dashboard_path=$(workspace_path "$DASHBOARD_DIR")
     tmux -f "$TMUX_CONF" new-session -d -s "$SESSION_NAME" -c "$DASHBOARD_DIR" -n "$OPEN_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
+    set_window_title_options "$DASHBOARD_DIR" "$OPEN_PRS_WINDOW_NAME"
     tmux new-window -t "$SESSION_NAME:" -c "$DASHBOARD_DIR" -n "$CLOSED_PRS_WINDOW_NAME" -e "PATH=$dashboard_path" -e "TUXEDO_WORKSPACE=$DASHBOARD_DIR"
+    set_window_title_options "$DASHBOARD_DIR" "$CLOSED_PRS_WINDOW_NAME"
 
     # Add shared workspace as third window (source of truth).
     # Terminal pane runs in a persistent screen session.
@@ -291,6 +322,7 @@ tuxedo_attach_or_create() {
     else
         tmux new-window -t "$SESSION_NAME:" -c "$SHARED_DIR" -n "$shared_window_name" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR"
     fi
+    set_window_title_options "$SHARED_DIR" "$shared_window_name"
     tmux split-window -h -t "$SESSION_NAME:$shared_window_name" -c "$SHARED_DIR" -e "PATH=$shared_path" -e "TUXEDO_WORKSPACE=$SHARED_DIR" "$EDITOR"
 
     # Add main workspace as second window
@@ -304,6 +336,7 @@ tuxedo_attach_or_create() {
     else
         tmux new-window -t "$SESSION_NAME:" -c "$MAIN_DIR" -n "$main_window_name" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR"
     fi
+    set_window_title_options "$MAIN_DIR" "$main_window_name"
     tmux split-window -h -t "$SESSION_NAME:$main_window_name" -c "$MAIN_DIR" -e "PATH=$main_path" -e "TUXEDO_WORKSPACE=$MAIN_DIR" "$EDITOR"
 
     i=$WORKSPACE_START
@@ -319,6 +352,7 @@ tuxedo_attach_or_create() {
         else
             tmux new-window -t "$SESSION_NAME:" -c "$workspace_dir" -n "$window_name" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir"
         fi
+        set_window_title_options "$workspace_dir" "$window_name"
         tmux split-window -h -t "$SESSION_NAME:$window_name" -c "$workspace_dir" -e "PATH=$ws_path" -e "TUXEDO_WORKSPACE=$workspace_dir" "$EDITOR"
         i=$((i + 1))
     done
