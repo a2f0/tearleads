@@ -143,9 +143,13 @@ describe('sorting', () => {
 
   it('handles null timestamp edge cases when sorting tags by date', () => {
     const state = createState();
+    const sortMetadata = state.sortMetadata;
+    if (!sortMetadata) {
+      throw new Error('Expected sort metadata');
+    }
 
     state.sortMetadata = {
-      ...state.sortMetadata,
+      ...sortMetadata,
       tagCreatedAtById: {
         'tag-1': null,
         'tag-2': null,
