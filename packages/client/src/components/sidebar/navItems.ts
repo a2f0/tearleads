@@ -6,6 +6,7 @@ import {
   Bug,
   Building2,
   CalendarDays,
+  Camera,
   CircleHelp,
   CreditCard,
   Database,
@@ -82,6 +83,13 @@ export const navItems: NavItem[] = [
     labelKey: 'photos',
     inMobileMenu: true,
     testId: 'photos-link'
+  },
+  {
+    path: '/camera',
+    icon: Camera,
+    labelKey: 'camera',
+    inMobileMenu: true,
+    testId: 'camera-link'
   },
   {
     path: '/documents',

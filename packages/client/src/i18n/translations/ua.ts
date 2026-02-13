@@ -20,6 +20,7 @@ export const ua = {
     businesses: 'Підприємства',
     contacts: 'Контакти',
     photos: 'Фото',
+    camera: 'Камера',
     documents: 'Документи',
     help: 'Допомога',
     notes: 'Нотатки',

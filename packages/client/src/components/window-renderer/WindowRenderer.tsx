@@ -17,6 +17,7 @@ import { BackupWindow } from '@/components/backup-window';
 import { BusinessesWindow } from '@/components/businesses-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { CalendarWindow } from '@/components/calendar-window';
+import { CameraWindow } from '@/components/camera-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ClassicWindow } from '@/components/classic-window';
 import { ContactsWindow } from '@/components/contacts-window';
@@ -145,6 +146,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   email: { Component: EmailWindow },
   contacts: { Component: ContactsWindow },
   photos: { Component: PhotosWindow },
+  camera: { Component: CameraWindow },
   keychain: { Component: KeychainWindow },
   wallet: { Component: WalletWindow },
   sqlite: { Component: SqliteWindow },

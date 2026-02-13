@@ -828,6 +828,41 @@ vi.mock('@/components/audio-window', () => ({
   )
 }));
 
+vi.mock('@/components/camera-window', () => ({
+  CameraWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`camera-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 840, height: 620 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@tearleads/admin', () => ({
   AdminWindow: ({
     id,
@@ -1554,6 +1589,18 @@ describe('WindowRenderer', () => {
       }
     },
     {
+      label: 'camera',
+      type: 'camera',
+      id: 'camera-1',
+      windowTestId: 'camera-window-camera-1',
+      closeTestId: 'close-camera-1',
+      focusTestId: 'camera-window-camera-1',
+      minimize: {
+        testId: 'minimize-camera-1',
+        dimensions: { x: 0, y: 0, width: 840, height: 620 }
+      }
+    },
+    {
       label: 'models',
       type: 'models',
       id: 'models-1',
@@ -1846,7 +1893,7 @@ describe('WindowRenderer', () => {
     expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
   });
 
-  it('renders all twenty-four window types together', () => {
+  it('renders all twenty-five window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -1855,23 +1902,24 @@ describe('WindowRenderer', () => {
       { id: 'files-1', type: 'files', zIndex: 104 },
       { id: 'videos-1', type: 'videos', zIndex: 105 },
       { id: 'photos-1', type: 'photos', zIndex: 106 },
-      { id: 'models-1', type: 'models', zIndex: 107 },
-      { id: 'keychain-1', type: 'keychain', zIndex: 108 },
-      { id: 'wallet-1', type: 'wallet', zIndex: 109 },
-      { id: 'contacts-1', type: 'contacts', zIndex: 110 },
-      { id: 'sqlite-1', type: 'sqlite', zIndex: 111 },
-      { id: 'chat-1', type: 'chat', zIndex: 112 },
-      { id: 'analytics-1', type: 'analytics', zIndex: 113 },
-      { id: 'audio-1', type: 'audio', zIndex: 114 },
-      { id: 'admin-1', type: 'admin', zIndex: 115 },
-      { id: 'tables-1', type: 'tables', zIndex: 116 },
-      { id: 'debug-1', type: 'debug', zIndex: 117 },
-      { id: 'documents-1', type: 'documents', zIndex: 118 },
-      { id: 'help-1', type: 'help', zIndex: 119 },
-      { id: 'local-storage-1', type: 'local-storage', zIndex: 120 },
-      { id: 'opfs-1', type: 'opfs', zIndex: 121 },
-      { id: 'calendar-1', type: 'calendar', zIndex: 122 },
-      { id: 'businesses-1', type: 'businesses', zIndex: 123 }
+      { id: 'camera-1', type: 'camera', zIndex: 107 },
+      { id: 'models-1', type: 'models', zIndex: 108 },
+      { id: 'keychain-1', type: 'keychain', zIndex: 109 },
+      { id: 'wallet-1', type: 'wallet', zIndex: 110 },
+      { id: 'contacts-1', type: 'contacts', zIndex: 111 },
+      { id: 'sqlite-1', type: 'sqlite', zIndex: 112 },
+      { id: 'chat-1', type: 'chat', zIndex: 113 },
+      { id: 'analytics-1', type: 'analytics', zIndex: 114 },
+      { id: 'audio-1', type: 'audio', zIndex: 115 },
+      { id: 'admin-1', type: 'admin', zIndex: 116 },
+      { id: 'tables-1', type: 'tables', zIndex: 117 },
+      { id: 'debug-1', type: 'debug', zIndex: 118 },
+      { id: 'documents-1', type: 'documents', zIndex: 119 },
+      { id: 'help-1', type: 'help', zIndex: 120 },
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 121 },
+      { id: 'opfs-1', type: 'opfs', zIndex: 122 },
+      { id: 'calendar-1', type: 'calendar', zIndex: 123 },
+      { id: 'businesses-1', type: 'businesses', zIndex: 124 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -1883,6 +1931,7 @@ describe('WindowRenderer', () => {
     expect(screen.getByTestId('files-window-files-1')).toBeInTheDocument();
     expect(screen.getByTestId('video-window-videos-1')).toBeInTheDocument();
     expect(screen.getByTestId('photos-window-photos-1')).toBeInTheDocument();
+    expect(screen.getByTestId('camera-window-camera-1')).toBeInTheDocument();
     expect(screen.getByTestId('models-window-models-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('keychain-window-keychain-1')
