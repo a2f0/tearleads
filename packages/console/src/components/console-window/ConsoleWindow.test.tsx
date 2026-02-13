@@ -154,7 +154,9 @@ describe('ConsoleWindow', () => {
     expect(
       screen.getByTestId('console-window-control-split-vertical')
     ).toBeInTheDocument();
-    expect(screen.queryByTestId('console-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('console-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('calls onClose when close button is clicked', async () => {
@@ -445,11 +447,15 @@ describe('ConsoleWindow', () => {
     expect(screen.getByTestId('help-documentation')).toHaveTextContent(
       'consoleReference'
     );
-    expect(screen.getByTestId('console-window-control-back')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('console-window-control-back')
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('console-window-control-back'));
 
     expect(screen.getByTestId('terminal')).toBeInTheDocument();
-    expect(screen.queryByTestId('console-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('console-window-control-back')
+    ).not.toBeInTheDocument();
   });
 });

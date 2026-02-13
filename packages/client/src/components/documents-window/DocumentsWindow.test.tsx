@@ -354,7 +354,9 @@ describe('DocumentsWindow', () => {
 
     await user.click(screen.getByTestId('select-document'));
     expect(screen.getByTestId('document-detail')).toBeInTheDocument();
-    expect(screen.getByTestId('documents-window-control-back')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('documents-window-control-back')
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('documents-window-control-back'));
 

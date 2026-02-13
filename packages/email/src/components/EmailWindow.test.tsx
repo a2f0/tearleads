@@ -468,8 +468,12 @@ describe('EmailWindow', () => {
   it('renders control bar compose and refresh actions in list view', async () => {
     await renderLoadedWindow();
     expect(screen.getByTestId('control-bar')).toBeInTheDocument();
-    expect(screen.getByTestId('email-window-control-compose')).toBeInTheDocument();
-    expect(screen.getByTestId('email-window-control-refresh')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('email-window-control-compose')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('email-window-control-refresh')
+    ).toBeInTheDocument();
   });
 
   it('opens compose from the control bar compose action', async () => {
@@ -488,7 +492,9 @@ describe('EmailWindow', () => {
 
     await user.click(screen.getByText('Test Subject'));
     await waitFor(() => {
-      expect(screen.getByTestId('email-window-control-back')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('email-window-control-back')
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByTestId('email-window-control-back'));
@@ -496,7 +502,9 @@ describe('EmailWindow', () => {
     await waitFor(() => {
       expect(screen.getByTestId('window-title')).toHaveTextContent('All Mail');
     });
-    expect(screen.queryByTestId('email-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('email-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('opens compose in the main panel tab', async () => {

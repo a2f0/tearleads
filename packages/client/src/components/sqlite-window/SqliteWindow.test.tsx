@@ -169,8 +169,12 @@ describe('SqliteWindow', () => {
 
   it('renders control bar refresh action on table view', () => {
     render(<SqliteWindow {...defaultProps} />);
-    expect(screen.getByTestId('sqlite-window-control-refresh')).toBeInTheDocument();
-    expect(screen.queryByTestId('sqlite-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('sqlite-window-control-refresh')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('sqlite-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('calls onClose from File menu Close option', async () => {

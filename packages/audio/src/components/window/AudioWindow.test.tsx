@@ -118,7 +118,9 @@ describe('AudioWindow', () => {
   it('renders control bar actions in list view', () => {
     renderWithProviders();
     expect(screen.getByTestId('control-bar')).toBeInTheDocument();
-    expect(screen.getByTestId('audio-window-control-upload')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('audio-window-control-upload')
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('audio-window-control-refresh')
     ).toBeInTheDocument();

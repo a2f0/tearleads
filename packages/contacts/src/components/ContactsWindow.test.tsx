@@ -42,11 +42,8 @@ vi.mock('../context', () => ({
 }));
 
 vi.mock('../lib/linkContactsToGroup', () => ({
-  linkContactsToGroup: (
-    db: unknown,
-    groupId: string,
-    contactIds: string[]
-  ) => mockLinkContactsToGroup(db, groupId, contactIds)
+  linkContactsToGroup: (db: unknown, groupId: string, contactIds: string[]) =>
+    mockLinkContactsToGroup(db, groupId, contactIds)
 }));
 
 vi.mock('./ContactsWindowContent', () => ({
@@ -109,7 +106,12 @@ vi.mock('./ContactsWindowDetail', () => ({
 }));
 
 vi.mock('./ContactsWindowNew', () => ({
-  ContactsWindowNew: ({ onBack }: { onBack: () => void; onCreated: () => void }) => (
+  ContactsWindowNew: ({
+    onBack
+  }: {
+    onBack: () => void;
+    onCreated: () => void;
+  }) => (
     <div data-testid="contacts-new">
       <button type="button" data-testid="new-back" onClick={onBack}>
         Back
@@ -150,14 +152,18 @@ describe('ContactsWindow', () => {
     render(<ContactsWindow {...defaultProps} />);
 
     expect(screen.getByTestId('control-bar')).toBeInTheDocument();
-    expect(screen.getByTestId('contacts-window-control-new')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('contacts-window-control-new')
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('contacts-window-control-import')
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('contacts-window-control-refresh')
     ).toBeInTheDocument();
-    expect(screen.queryByTestId('contacts-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('contacts-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('opens create view from control bar and returns with control back', async () => {
@@ -167,12 +173,16 @@ describe('ContactsWindow', () => {
     await user.click(screen.getByTestId('contacts-window-control-new'));
 
     expect(screen.getByTestId('contacts-new')).toBeInTheDocument();
-    expect(screen.getByTestId('contacts-window-control-back')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('contacts-window-control-back')
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('contacts-window-control-back'));
 
     expect(screen.getByTestId('contacts-list')).toBeInTheDocument();
-    expect(screen.queryByTestId('contacts-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('contacts-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('opens the file picker from control bar import action', async () => {
@@ -216,7 +226,9 @@ describe('ContactsWindow', () => {
     await user.click(screen.getByTestId('select-contact'));
 
     expect(screen.getByTestId('contacts-detail')).toBeInTheDocument();
-    expect(screen.getByTestId('contacts-window-control-back')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('contacts-window-control-back')
+    ).toBeInTheDocument();
 
     await user.click(screen.getByTestId('contacts-window-control-back'));
 

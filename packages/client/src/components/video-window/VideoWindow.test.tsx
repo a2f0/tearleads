@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useEffect } from 'react';
 import type React from 'react';
+import { useEffect } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { VideoWindow } from './VideoWindow';
@@ -188,9 +188,15 @@ describe('VideoWindow', () => {
 
   it('renders control bar actions in list view', () => {
     render(<VideoWindow {...defaultProps} />);
-    expect(screen.getByTestId('video-window-control-upload')).toBeInTheDocument();
-    expect(screen.getByTestId('video-window-control-refresh')).toBeInTheDocument();
-    expect(screen.queryByTestId('video-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.getByTestId('video-window-control-upload')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('video-window-control-refresh')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('video-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('wraps list content in a scrollable container', () => {
@@ -238,7 +244,9 @@ describe('VideoWindow', () => {
 
     await user.click(screen.getByTestId('video-window-control-back'));
     expect(screen.getByTestId('open-video')).toBeInTheDocument();
-    expect(screen.queryByTestId('video-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('video-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('switches to the table view from the menu', async () => {

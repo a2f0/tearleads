@@ -221,11 +221,15 @@ describe('FilesWindow', () => {
 
   it('renders control bar actions in list view', () => {
     render(<FilesWindow {...defaultProps} />);
-    expect(screen.getByTestId('files-window-control-upload')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('files-window-control-upload')
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('files-window-control-refresh')
     ).toBeInTheDocument();
-    expect(screen.queryByTestId('files-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('files-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('renders files content', () => {

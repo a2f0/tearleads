@@ -99,7 +99,9 @@ describe('HelpWindow', () => {
     expect(screen.getByText('API Docs')).toBeInTheDocument();
     expect(screen.getByText('Developer')).toBeInTheDocument();
     expect(screen.getByText('Legal')).toBeInTheDocument();
-    expect(screen.queryByTestId('help-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('help-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('navigates to API docs when clicking API Docs', async () => {
@@ -143,7 +145,9 @@ describe('HelpWindow', () => {
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.queryByTestId('api-docs')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('help-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('help-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('navigates to documentation views when clicking docs links', async () => {

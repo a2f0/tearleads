@@ -304,11 +304,15 @@ describe('PhotosWindow', () => {
 
   it('renders control bar actions in list view', () => {
     render(<PhotosWindow {...defaultProps} />);
-    expect(screen.getByTestId('photos-window-control-upload')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('photos-window-control-upload')
+    ).toBeInTheDocument();
     expect(
       screen.getByTestId('photos-window-control-refresh')
     ).toBeInTheDocument();
-    expect(screen.queryByTestId('photos-window-control-back')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('photos-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('toggles showDropzone from the menu', async () => {
@@ -532,7 +536,9 @@ describe('PhotosWindow', () => {
     await user.click(screen.getByTestId('select-photo-button'));
     await waitFor(() => {
       expect(screen.getByTestId('photos-detail')).toBeInTheDocument();
-      expect(screen.getByTestId('photos-window-control-back')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('photos-window-control-back')
+      ).toBeInTheDocument();
     });
 
     await user.click(screen.getByTestId('photos-window-control-back'));
