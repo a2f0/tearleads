@@ -1,3 +1,4 @@
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Check if SMTP port is in use and kill existing listener if from this repo.
  * Usage: tsx scripts/checkSmtpPort.ts

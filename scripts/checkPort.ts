@@ -1,3 +1,4 @@
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Check if a port is already in use. Exits with code 1 if the port is occupied.
  * Usage: tsx scripts/checkPort.ts <port> [host]
