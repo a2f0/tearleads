@@ -11,14 +11,14 @@ import {
 } from '@/test/screensaver-mock';
 import {
   GAP,
-  Home,
   ICON_LABEL_GAP,
   ICON_SIZE,
   ITEM_HEIGHT,
   LABEL_HEIGHT,
   OVERLAP_PADDING,
   resolveOverlaps
-} from './Home';
+} from './desktopIconUtils';
+import { Home } from './Home';
 
 const mockNavigate = vi.fn();
 vi.mock('react-router-dom', async () => {
