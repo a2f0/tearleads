@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { createContext, useCallback, useContext, useState } from 'react';
-import type { VfsObjectType } from '../hooks';
+import type { VfsObjectType } from '../lib/vfsTypes';
 
 /**
  * Represents an item in the clipboard
