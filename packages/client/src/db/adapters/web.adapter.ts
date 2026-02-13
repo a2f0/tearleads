@@ -12,7 +12,12 @@ import type {
 } from '@/workers/sqlite.worker.interface';
 import { generateRequestId } from '@/workers/sqlite.worker.interface';
 
-import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
+import type {
+  DatabaseAdapter,
+  DatabaseConfig,
+  DrizzleConnection,
+  QueryResult
+} from './types';
 import { convertRowsToArrays } from './utils';
 
 interface PendingRequest {
@@ -267,8 +272,8 @@ export class WebAdapter implements DatabaseAdapter {
     });
   }
 
-  getConnection(): unknown {
-    // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
+  getConnection(): DrizzleConnection {
+    // For Drizzle sqlite-proxy, return a function that always returns { rows: unknown[] }
     // IMPORTANT: Drizzle sqlite-proxy expects rows as ARRAYS of values, not objects.
     // The values must be in the same order as columns in the SELECT clause.
     // We convert from the worker's object format to array format here.
@@ -286,7 +291,7 @@ export class WebAdapter implements DatabaseAdapter {
         })
       );
 
-      // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
+      // Drizzle sqlite-proxy expects { rows: unknown[] } for ALL methods
       // The rows must be ARRAYS of values in SELECT column order, not objects.
       // convertRowsToArrays handles both explicit SELECT and SELECT * queries.
       const arrayRows = convertRowsToArrays(sql, result.rows);

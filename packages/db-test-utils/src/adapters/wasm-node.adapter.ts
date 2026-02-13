@@ -11,7 +11,12 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isRecord } from '@tearleads/shared';
 import { locateWasmDir } from '../locate-wasm.js';
-import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types.js';
+import type {
+  DatabaseAdapter,
+  DatabaseConfig,
+  DrizzleConnection,
+  QueryResult
+} from './types.js';
 import { convertRowsToArrays } from './utils.js';
 
 declare global {
@@ -434,7 +439,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     this.encryptionKey = newHexKey;
   }
 
-  getConnection(): unknown {
+  getConnection(): DrizzleConnection {
     return async (
       sql: string,
       params: unknown[],

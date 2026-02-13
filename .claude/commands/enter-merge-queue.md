@@ -29,6 +29,22 @@ This returns JSON with the requested fields. Extract `number` as `PR_NUMBER` for
 
 This skill guarantees a PR gets merged by continuously monitoring CI, addressing reviews, and waiting until the PR is actually merged.
 
+## Environment Preflight (CRITICAL)
+
+Before running CI-impact scripts or any push that triggers hooks, ensure Node matches `.nvmrc`:
+
+```bash
+./scripts/checkNodeVersion.sh
+```
+
+If it fails, run `nvm use` in the repo and re-run the command. Do not proceed on a mismatched Node version.
+
+To avoid noisy Node webstorage warnings in nonstandard environments, ensure pre-push commands include:
+
+```bash
+NODE_OPTIONS=--no-experimental-webstorage
+```
+
 ## State Tracking
 
 Track the following state during execution:

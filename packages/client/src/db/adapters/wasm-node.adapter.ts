@@ -10,7 +10,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isRecord } from '@tearleads/shared';
-import type { DatabaseAdapter, DatabaseConfig, QueryResult } from './types';
+import type {
+  DatabaseAdapter,
+  DatabaseConfig,
+  DrizzleConnection,
+  QueryResult
+} from './types';
 import { convertRowsToArrays } from './utils';
 
 declare global {
@@ -449,8 +454,8 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     this.encryptionKey = newHexKey;
   }
 
-  getConnection(): unknown {
-    // For Drizzle sqlite-proxy, return a function that always returns { rows: any[] }
+  getConnection(): DrizzleConnection {
+    // For Drizzle sqlite-proxy, return a function that always returns { rows: unknown[] }
     // IMPORTANT: Drizzle sqlite-proxy expects rows as ARRAYS of values, not objects.
     return async (
       sql: string,
@@ -459,7 +464,7 @@ export class WasmNodeAdapter implements DatabaseAdapter {
     ): Promise<{ rows: unknown[] }> => {
       const result = await this.execute(sql, params);
 
-      // Drizzle sqlite-proxy expects { rows: any[] } for ALL methods
+      // Drizzle sqlite-proxy expects { rows: unknown[] } for ALL methods
       // The rows must be ARRAYS of values in SELECT column order, not objects.
       const arrayRows = convertRowsToArrays(sql, result.rows);
       return { rows: arrayRows };

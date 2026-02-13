@@ -14,7 +14,7 @@ const createAdapter = (
   commitTransaction: vi.fn(async () => {}),
   rollbackTransaction: vi.fn(async () => {}),
   rekeyDatabase: vi.fn(async () => {}),
-  getConnection: vi.fn(() => null),
+  getConnection: vi.fn(() => async () => ({ rows: [] })),
   exportDatabase: vi.fn(async () => new Uint8Array()),
   importDatabase: vi.fn(async () => {})
 });
