@@ -269,7 +269,7 @@ Raw `gh` CLI and GraphQL patterns found in `.claude/commands/` skills that shoul
 
 | Pattern | Skill | Proposed Action | Args |
 | --- | --- | --- | --- |
-| Download CI artifact | fix-tests | `agentTool.ts downloadArtifact` | `--run-id <id> --name <artifact> --dest <path>` |
+| Download CI artifact | fix-tests | `agentTool.ts downloadArtifact` | `--run-id <id> --artifact <name> --dest <path>` |
 | Enable auto-merge | enter-merge-queue | `agentTool.ts enableAutoMerge` | `--number <pr>` |
 | Find PR for branch | enter-merge-queue | `agentTool.ts findPrForBranch` | `--branch <name> [--state <open\|merged>]` |
 | List high-priority PRs | enter-merge-queue | `agentTool.ts listHighPriorityPrs` | (none) |

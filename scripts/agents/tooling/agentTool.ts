@@ -219,6 +219,12 @@ function runWithTimeout(
   };
 }
 
+function sleepMs(milliseconds: number): void {
+  const waitBuffer = new SharedArrayBuffer(4);
+  const waitArray = new Int32Array(waitBuffer);
+  Atomics.wait(waitArray, 0, 0, milliseconds);
+}
+
 function extractKeyLines(output: string, count = 5): string[] {
   return output
     .split('\n')
@@ -231,29 +237,51 @@ function extractKeyLines(output: string, count = 5): string[] {
 // Inline GitHub API Actions
 // ============================================================================
 
-function runInlineAction(action: ActionName, options: GlobalOptions, repo: string): string {
+function runInlineAction(
+  action: ActionName,
+  options: GlobalOptions,
+  repo: string,
+  timeoutMs: number
+): string {
+  const runGh = (args: string[]): string =>
+    execFileSync('gh', args, {
+      encoding: 'utf8',
+      timeout: timeoutMs,
+    });
+
   switch (action) {
     case 'getPrInfo': {
       const fields = options.fields ?? 'number,state,mergeStateStatus,headRefName,baseRefName,url';
-      return execFileSync('gh', ['pr', 'view', '--json', fields, '-R', repo], {
-        encoding: 'utf8',
-      });
+      return runGh(['pr', 'view', '--json', fields, '-R', repo]);
     }
 
     case 'getReviewThreads': {
+      if (options.number === undefined) {
+        throw new Error('getReviewThreads requires --number');
+      }
       const [owner, repoName] = repo.split('/');
-      const filter = options.unresolvedOnly ? 'select(.isResolved == false)' : '.';
+      if (!owner || !repoName) {
+        throw new Error(`Invalid repository format: ${repo}`);
+      }
+      const filter = options.unresolvedOnly ? 'map(select(.isResolved == false))' : '.';
       const query = `
-        query($owner: String!, $repo: String!, $pr: Int!) {
+        query($owner: String!, $repo: String!, $pr: Int!, $after: String) {
           repository(owner: $owner, name: $repo) {
             pullRequest(number: $pr) {
-              reviewThreads(first: 100) {
+              reviewThreads(first: 100, after: $after) {
+                pageInfo {
+                  hasNextPage
+                  endCursor
+                }
                 nodes {
                   id
                   isResolved
                   path
                   line
-                  comments(first: 20) {
+                  comments(first: 100) {
+                    pageInfo {
+                      hasNextPage
+                    }
                     nodes {
                       id
                       databaseId
@@ -267,9 +295,11 @@ function runInlineAction(action: ActionName, options: GlobalOptions, repo: strin
           }
         }
       `;
-      return execFileSync(
-        'gh',
-        [
+      const threadJsonChunks: string[] = [];
+      let afterCursor: string | undefined;
+
+      while (true) {
+        const queryArgs = [
           'api',
           'graphql',
           '-f',
@@ -280,42 +310,80 @@ function runInlineAction(action: ActionName, options: GlobalOptions, repo: strin
           `repo=${repoName}`,
           '-F',
           `pr=${options.number}`,
+        ];
+        if (afterCursor) {
+          queryArgs.push('-F', `after=${afterCursor}`);
+        }
+
+        const pageHasNext = runGh([
+          ...queryArgs,
           '--jq',
-          `.data.repository.pullRequest.reviewThreads.nodes[] | ${filter}`,
-        ],
-        { encoding: 'utf8' }
-      );
+          '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage',
+        ]).trim();
+        const pageEndCursor = runGh([
+          ...queryArgs,
+          '--jq',
+          '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // ""',
+        ]).trim();
+
+        const threadIdsWithExtraComments = runGh([
+          ...queryArgs,
+          '--jq',
+          '.data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.pageInfo.hasNextPage == true) | .id',
+        ]).trim();
+        if (threadIdsWithExtraComments) {
+          throw new Error(
+            `getReviewThreads found threads with >100 comments; unsupported pagination for thread IDs: ${threadIdsWithExtraComments}`
+          );
+        }
+
+        const pageThreads = runGh([
+          ...queryArgs,
+          '--jq',
+          `.data.repository.pullRequest.reviewThreads.nodes | ${filter}`,
+        ]).trim();
+        if (pageThreads.startsWith('[') && pageThreads.endsWith(']')) {
+          const innerJson = pageThreads.slice(1, -1).trim();
+          if (innerJson.length > 0) {
+            threadJsonChunks.push(innerJson);
+          }
+        } else {
+          throw new Error('Unexpected getReviewThreads response shape');
+        }
+
+        if (pageHasNext !== 'true') {
+          break;
+        }
+        if (!pageEndCursor) {
+          throw new Error('getReviewThreads pagination indicated next page but missing endCursor');
+        }
+        afterCursor = pageEndCursor;
+      }
+
+      return `[${threadJsonChunks.join(',')}]`;
     }
 
     case 'replyToComment': {
-      return execFileSync(
-        'gh',
-        [
-          'api',
-          '-X',
-          'POST',
-          `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
-          '-f',
-          `body=${options.body}`,
-        ],
-        { encoding: 'utf8' }
-      );
+      return runGh([
+        'api',
+        '-X',
+        'POST',
+        `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
+        '-f',
+        `body=${options.body}`,
+      ]);
     }
 
     case 'replyToGemini': {
       const body = `@gemini-code-assist Fixed in commit ${options.commit}. Please confirm this addresses the issue.`;
-      return execFileSync(
-        'gh',
-        [
-          'api',
-          '-X',
-          'POST',
-          `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
-          '-f',
-          `body=${body}`,
-        ],
-        { encoding: 'utf8' }
-      );
+      return runGh([
+        'api',
+        '-X',
+        'POST',
+        `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
+        '-f',
+        `body=${body}`,
+      ]);
     }
 
     case 'resolveThread': {
@@ -326,88 +394,68 @@ function runInlineAction(action: ActionName, options: GlobalOptions, repo: strin
           }
         }
       `;
-      return execFileSync(
-        'gh',
-        ['api', 'graphql', '-f', `query=${mutation}`, '-f', `threadId=${options.threadId}`],
-        { encoding: 'utf8' }
-      );
+      return runGh(['api', 'graphql', '-f', `query=${mutation}`, '-f', `threadId=${options.threadId}`]);
     }
 
     case 'getCiStatus': {
       if (options.runId) {
-        return execFileSync(
-          'gh',
-          [
-            'run',
-            'view',
-            options.runId,
-            '--json',
-            'status,conclusion,jobs',
-            '--jq',
-            '{status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
-            '-R',
-            repo,
-          ],
-          { encoding: 'utf8' }
-        );
-      }
-      // Find run from commit
-      const runIdOutput = execFileSync(
-        'gh',
-        [
-          'run',
-          'list',
-          '--commit',
-          options.commit!,
-          '--limit',
-          '1',
-          '--json',
-          'databaseId',
-          '--jq',
-          '.[0].databaseId',
-          '-R',
-          repo,
-        ],
-        { encoding: 'utf8' }
-      ).trim();
-
-      if (!runIdOutput || runIdOutput === 'null') {
-        return JSON.stringify({ error: 'No workflow run found for commit' });
-      }
-
-      return execFileSync(
-        'gh',
-        [
+        return runGh([
           'run',
           'view',
-          runIdOutput,
+          options.runId,
           '--json',
-          'status,conclusion,jobs,databaseId',
+          'status,conclusion,jobs',
           '--jq',
-          '{run_id: .databaseId, status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
+          '{status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
           '-R',
           repo,
-        ],
-        { encoding: 'utf8' }
-      );
+        ]);
+      }
+      // Find run from commit
+      const runIdOutput = runGh([
+        'run',
+        'list',
+        '--commit',
+        options.commit!,
+        '--limit',
+        '1',
+        '--json',
+        'databaseId',
+        '--jq',
+        '.[0].databaseId',
+        '-R',
+        repo,
+      ]).trim();
+
+      if (!runIdOutput || runIdOutput === 'null') {
+        throw new Error('No workflow run found for commit');
+      }
+
+      return runGh([
+        'run',
+        'view',
+        runIdOutput,
+        '--json',
+        'status,conclusion,jobs,databaseId',
+        '--jq',
+        '{run_id: .databaseId, status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
+        '-R',
+        repo,
+      ]);
     }
 
     case 'cancelWorkflow': {
-      execFileSync('gh', ['run', 'cancel', options.runId!, '-R', repo], { encoding: 'utf8' });
+      runGh(['run', 'cancel', options.runId!, '-R', repo]);
       return JSON.stringify({ status: 'cancelled', run_id: options.runId });
     }
 
     case 'rerunWorkflow': {
-      execFileSync('gh', ['run', 'rerun', options.runId!, '-R', repo], { encoding: 'utf8' });
+      runGh(['run', 'rerun', options.runId!, '-R', repo]);
       return JSON.stringify({ status: 'rerun_triggered', run_id: options.runId });
     }
 
     case 'downloadArtifact': {
-      execFileSync(
-        'gh',
-        ['run', 'download', options.runId!, '-n', options.artifact!, '-D', options.dest!, '-R', repo],
-        { encoding: 'utf8' }
-      );
+      runGh(['run', 'download', options.runId!, '-n', options.artifact!, '-D', options.dest!, '-R', repo]);
       return JSON.stringify({
         status: 'downloaded',
         run_id: options.runId,
@@ -417,55 +465,45 @@ function runInlineAction(action: ActionName, options: GlobalOptions, repo: strin
     }
 
     case 'enableAutoMerge': {
-      execFileSync('gh', ['pr', 'merge', String(options.number), '--auto', '--merge', '-R', repo], {
-        encoding: 'utf8',
-      });
+      runGh(['pr', 'merge', String(options.number), '--auto', '--merge', '-R', repo]);
       return JSON.stringify({ status: 'auto_merge_enabled', pr: options.number });
     }
 
     case 'findPrForBranch': {
       const state = options.state ?? 'open';
-      return execFileSync(
-        'gh',
-        [
-          'pr',
-          'list',
-          '--head',
-          options.branch!,
-          '--state',
-          state,
-          '--json',
-          'number,title,state,url',
-          '-R',
-          repo,
-          '--jq',
-          '.[0] // {"error": "No PR found"}',
-        ],
-        { encoding: 'utf8' }
-      );
+      return runGh([
+        'pr',
+        'list',
+        '--head',
+        options.branch!,
+        '--state',
+        state,
+        '--json',
+        'number,title,state,url',
+        '-R',
+        repo,
+        '--jq',
+        '.[0] // {"error": "No PR found"}',
+      ]);
     }
 
     case 'listHighPriorityPrs': {
-      const prsOutput = execFileSync(
-        'gh',
-        [
-          'pr',
-          'list',
-          '--label',
-          'high-priority',
-          '--state',
-          'open',
-          '--search',
-          '-is:draft',
-          '--json',
-          'number',
-          '-R',
-          repo,
-          '--jq',
-          '.[].number',
-        ],
-        { encoding: 'utf8' }
-      ).trim();
+      const prsOutput = runGh([
+        'pr',
+        'list',
+        '--label',
+        'high-priority',
+        '--state',
+        'open',
+        '--search',
+        '-is:draft',
+        '--json',
+        'number',
+        '-R',
+        repo,
+        '--jq',
+        '.[].number',
+      ]).trim();
 
       if (!prsOutput) return '[]';
 
@@ -473,11 +511,7 @@ function runInlineAction(action: ActionName, options: GlobalOptions, repo: strin
       const results: string[] = [];
 
       for (const prNum of prNumbers) {
-        const prData = execFileSync(
-          'gh',
-          ['pr', 'view', prNum, '--json', 'number,title,mergeStateStatus', '-R', repo],
-          { encoding: 'utf8' }
-        ).trim();
+        const prData = runGh(['pr', 'view', prNum, '--json', 'number,title,mergeStateStatus', '-R', repo]).trim();
         results.push(prData);
       }
 
@@ -485,24 +519,57 @@ function runInlineAction(action: ActionName, options: GlobalOptions, repo: strin
     }
 
     case 'triggerGeminiReview': {
-      execFileSync('gh', ['pr', 'comment', String(options.number), '-R', repo, '--body', '/gemini review'], {
-        encoding: 'utf8',
+      const pollTimeoutSeconds = options.pollTimeout ?? 300;
+      const pollIntervalMilliseconds = 15_000;
+      const prNumber = String(options.number);
+      const latestGeminiReviewQuery = [
+        'pr',
+        'view',
+        prNumber,
+        '--json',
+        'reviews',
+        '-R',
+        repo,
+        '--jq',
+        '[.reviews[] | select(.author.login == "gemini-code-assist") | .submittedAt] | max // ""',
+      ];
+
+      const latestReviewBeforeRequest = runGh(latestGeminiReviewQuery).trim();
+
+      runGh(['pr', 'comment', prNumber, '-R', repo, '--body', '/gemini review']);
+
+      const deadline = Date.now() + pollTimeoutSeconds * 1000;
+      while (Date.now() < deadline) {
+        const latestReviewAfterRequest = runGh(latestGeminiReviewQuery).trim();
+        if (
+          latestReviewAfterRequest &&
+          (!latestReviewBeforeRequest || latestReviewAfterRequest > latestReviewBeforeRequest)
+        ) {
+          return JSON.stringify({
+            status: 'review_received',
+            pr: options.number,
+            submitted_at: latestReviewAfterRequest,
+          });
+        }
+        sleepMs(pollIntervalMilliseconds);
+      }
+
+      return JSON.stringify({
+        status: 'review_requested',
+        pr: options.number,
+        timed_out: true,
+        poll_timeout_seconds: pollTimeoutSeconds,
       });
-      return JSON.stringify({ status: 'review_requested', pr: options.number });
     }
 
     case 'findDeferredWork': {
-      return execFileSync(
-        'gh',
-        [
-          'api',
-          `repos/${repo}/pulls/${options.number}/comments`,
-          '--paginate',
-          '--jq',
-          '.[] | select(.body | test("defer|follow[- ]?up|future PR|later|TODO|FIXME"; "i")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}',
-        ],
-        { encoding: 'utf8' }
-      );
+      return runGh([
+        'api',
+        `repos/${repo}/pulls/${options.number}/comments`,
+        '--paginate',
+        '--jq',
+        '.[] | select(.body | test("defer|follow[- ]?up|future PR|later|TODO|FIXME"; "i")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}',
+      ]);
     }
 
     default:
@@ -627,7 +694,15 @@ function createActionCommand(actionName: ActionName): Command {
         .requiredOption('--dest <path>', 'Destination path');
       break;
     case 'enableAutoMerge':
+      cmd.requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'));
+      break;
     case 'triggerGeminiReview':
+      cmd
+        .requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'))
+        .option('--poll-timeout <secs>', 'Polling timeout in seconds', (v) =>
+          parsePositiveInt(v, '--poll-timeout')
+        );
+      break;
     case 'findDeferredWork':
       cmd.requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'));
       break;
@@ -659,7 +734,7 @@ function createActionCommand(actionName: ActionName): Command {
         }
       } else if (config.isInline) {
         const repo = getRepo();
-        output = runInlineAction(actionName, opts, repo);
+        output = runInlineAction(actionName, opts, repo, timeoutMs);
       } else {
         const result = runDelegatedAction(actionName, opts, repoRoot, timeoutMs);
         output = result.stdout + result.stderr;
