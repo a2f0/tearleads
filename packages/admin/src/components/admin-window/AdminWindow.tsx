@@ -1,10 +1,6 @@
-import { ArrowLeft, Shield } from 'lucide-react';
-import { useState } from 'react';
 import type { AdminOptionId } from '@admin/components/admin';
 import { AdminOptionsGrid } from '@admin/components/admin';
 import { PostgresTableRowsView } from '@admin/components/admin-postgres/PostgresTableRowsView';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 import { Admin } from '@admin/pages/admin/Admin';
 import { AiRequestsAdminPage } from '@admin/pages/admin/AiRequestsAdminPage';
 import { GroupDetailPage } from '@admin/pages/admin/GroupDetailPage';
@@ -14,6 +10,10 @@ import { OrganizationsAdmin } from '@admin/pages/admin/OrganizationsAdmin';
 import { PostgresAdmin } from '@admin/pages/admin/PostgresAdmin';
 import { UsersAdmin } from '@admin/pages/admin/UsersAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
+import { ArrowLeft, Shield } from 'lucide-react';
+import { useState } from 'react';
+import type { WindowDimensions } from '@/components/floating-window';
+import { FloatingWindow } from '@/components/floating-window';
 import { AdminWindowMenuBar } from './AdminWindowMenuBar';
 
 type AdminView =

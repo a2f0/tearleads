@@ -1,10 +1,10 @@
-import { ArrowLeft } from 'lucide-react';
-import { useState } from 'react';
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 import { GroupDetailPage } from '@admin/pages/admin/GroupDetailPage';
 import { GroupsAdmin } from '@admin/pages/admin/GroupsAdmin';
+import { ArrowLeft } from 'lucide-react';
+import { useState } from 'react';
+import type { WindowDimensions } from '@/components/floating-window';
+import { FloatingWindow } from '@/components/floating-window';
 
 type GroupsWindowView = { type: 'index' } | { type: 'group'; groupId: string };
 

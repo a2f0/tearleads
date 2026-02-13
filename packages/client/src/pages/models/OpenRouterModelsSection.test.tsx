@@ -18,7 +18,13 @@ describe('OpenRouterModelsSection', () => {
       />
     );
 
-    await user.click(screen.getAllByRole('button', { name: 'Use' })[0]!);
+    const useButtons = screen.getAllByRole('button', { name: 'Use' });
+    const firstUseButton = useButtons[0];
+    if (!firstUseButton) {
+      throw new Error('Expected at least one Use button');
+    }
+
+    await user.click(firstUseButton);
 
     expect(onLoad).toHaveBeenCalledWith(OPENROUTER_MODELS[0]?.id);
   });

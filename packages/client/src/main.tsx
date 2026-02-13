@@ -63,7 +63,9 @@ const GroupDetailPageRoute = lazy(() =>
   import('@tearleads/admin').then((m) => ({ default: m.GroupDetailPageRoute }))
 );
 const OrganizationsAdminPage = lazy(() =>
-  import('@tearleads/admin').then((m) => ({ default: m.OrganizationsAdminPage }))
+  import('@tearleads/admin').then((m) => ({
+    default: m.OrganizationsAdminPage
+  }))
 );
 const OrganizationDetailPageRoute = lazy(() =>
   import('@tearleads/admin').then((m) => ({

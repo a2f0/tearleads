@@ -199,7 +199,14 @@ describe('ModelsTableView', () => {
   it('calls onUnload when Disconnect is clicked for loaded OpenRouter model', async () => {
     const user = userEvent.setup();
     const onUnload = vi.fn();
-    const model = OPENROUTER_MODELS[0]!;
+    const model = OPENROUTER_MODELS[0] ?? {
+      id: 'openrouter-test',
+      name: 'OpenRouter Test',
+      size: 'OpenRouter',
+      description: 'Test OpenRouter model',
+      source: 'openrouter',
+      isVision: false
+    };
 
     render(
       <ModelsTableView

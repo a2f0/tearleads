@@ -1,7 +1,7 @@
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
+import { Admin } from '@admin/pages/admin/Admin';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { Admin } from '@admin/pages/admin/Admin';
 
 interface AdminRedisWindowProps {
   id: string;

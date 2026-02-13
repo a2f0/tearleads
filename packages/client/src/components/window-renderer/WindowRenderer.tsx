@@ -1,5 +1,3 @@
-import { ConsoleWindow } from '@tearleads/console';
-import { KeychainWindow } from '@tearleads/keychain';
 import {
   AdminGroupsWindow,
   AdminOrganizationsWindow,
@@ -8,6 +6,8 @@ import {
   AdminUsersWindow,
   AdminWindow
 } from '@tearleads/admin';
+import { ConsoleWindow } from '@tearleads/console';
+import { KeychainWindow } from '@tearleads/keychain';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import { AnalyticsWindow } from '@/components/analytics-window';

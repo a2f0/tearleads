@@ -1,9 +1,9 @@
-import { Plus } from 'lucide-react';
-import { useState } from 'react';
 import {
   CreateOrganizationDialog,
   OrganizationsList
 } from '@admin/components/admin-organizations';
+import { Plus } from 'lucide-react';
+import { useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 

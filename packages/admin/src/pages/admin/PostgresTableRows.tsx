@@ -1,5 +1,5 @@
-import { useParams } from 'react-router-dom';
 import { PostgresTableRowsView } from '@admin/components/admin-postgres/PostgresTableRowsView';
+import { useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 
 export function PostgresTableRows() {

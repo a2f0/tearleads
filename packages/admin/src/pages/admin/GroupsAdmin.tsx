@@ -1,6 +1,6 @@
+import { CreateGroupDialog, GroupsList } from '@admin/components/admin-groups';
 import { Plus } from 'lucide-react';
 import { useState } from 'react';
-import { CreateGroupDialog, GroupsList } from '@admin/components/admin-groups';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 

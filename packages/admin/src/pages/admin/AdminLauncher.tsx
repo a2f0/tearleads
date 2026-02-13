@@ -1,6 +1,6 @@
+import { AdminOptionsGrid } from '@admin/components/admin';
 import { Shield } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { AdminOptionsGrid } from '@admin/components/admin';
 import { BackLink } from '@/components/ui/back-link';
 
 export function AdminLauncher() {
