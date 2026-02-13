@@ -159,3 +159,32 @@ Some warnings are expected and do not require action:
 
 - **electron-builder peer dependency mismatches**: Internal version conflicts between `dmg-builder` and `electron-builder-squirrel-windows` are tracked upstream and do not affect builds
 - **Deprecated transitive dependencies**: Packages like `glob`, `rimraf`, `inflight` are deep transitive deps and will be resolved when upstream packages update
+
+## Token Efficiency
+
+The update script and its sub-commands produce thousands of lines of output. Suppress stdout where only the exit code matters:
+
+```bash
+# Suppress verbose output - only show errors
+./scripts/updateEverything.sh >/dev/null
+
+# Or capture to file for debugging later
+./scripts/updateEverything.sh > /tmp/update.log 2>&1
+```
+
+When running individual commands manually:
+
+```bash
+pnpm install >/dev/null
+pnpm build >/dev/null
+pnpm test:coverage >/dev/null
+bundle install >/dev/null
+pod install --repo-update >/dev/null
+./gradlew assembleDebug >/dev/null
+```
+
+On failure, stderr is preserved. Re-run without suppression to debug:
+
+```bash
+./scripts/updateEverything.sh  # Full output for debugging
+```

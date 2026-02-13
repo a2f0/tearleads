@@ -203,3 +203,21 @@ When modifying the impact system, update together:
 - `scripts/ciImpact/runImpactedQuality.ts` - `FULL_RUN_PREFIXES` array
 - `scripts/ciImpact/runImpactedTests.ts` - `FULL_RUN_PREFIXES` array
 - `.github/workflows/*.yml` - Workflow gating conditions
+
+## Token Efficiency
+
+The `scriptTool.sh` wrappers already provide structured JSON output with `--json` flag. Prefer wrappers over direct invocation:
+
+```bash
+# Preferred - returns structured summary, suppresses verbose output
+./scripts/tooling/scriptTool.sh ciImpact --base origin/main --head HEAD --json
+./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+```
+
+For debugging, use direct invocation without wrappers. Suppress git operations:
+
+```bash
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```

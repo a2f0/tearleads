@@ -139,3 +139,16 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
    Get thread IDs from `repository.pullRequest.reviewThreads` query (handle pagination via `endCursor`).
 
 8. If Gemini requests further changes, do NOT resolve - return to `/address-gemini-feedback`.
+
+## Token Efficiency
+
+Use `--json` with `--jq` filtering to minimize output from `gh` commands. The GraphQL queries above already return structured data - parse what you need and discard the rest.
+
+```bash
+# Only fetch needed fields
+gh pr view --json number,title,url
+
+# Suppress git operations
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```

@@ -51,3 +51,25 @@ Report:
 - Deferred items completed (mapped to files/tests changed)
 - Validation commands run and results
 - Follow-ups that were intentionally left out of scope
+
+## Token Efficiency
+
+Use `--jq` filtering to limit PR comment output:
+
+```bash
+# Filter to deferred work patterns only
+gh api "repos/$REPO/pulls/<pr>/comments" --paginate \
+  --jq '.[] | select(.body | test("defer|follow[- ]?up"; "i")) | {id,path,body}'
+```
+
+Suppress verbose validation output:
+
+```bash
+pnpm lint >/dev/null
+pnpm typecheck >/dev/null
+pnpm test >/dev/null
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```
+
+On failure, re-run without suppression to debug.

@@ -180,8 +180,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    Use rebase to keep the branch history clean (no merge commits for updates):
 
    ```bash
-   git fetch origin <baseRefName>
-   git rebase origin/<baseRefName>
+   git fetch origin <baseRefName> >/dev/null
+   git rebase origin/<baseRefName> >/dev/null
    ```
 
    - If rebase conflicts occur, the goal is to **preserve BOTH the PR's changes AND main's changes**:
@@ -211,7 +211,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    Force push (required after rebase):
 
    ```bash
-   git push --force-with-lease
+   git push --force-with-lease >/dev/null
    ```
 
    Continue to step 4e.

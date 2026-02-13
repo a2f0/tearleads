@@ -118,3 +118,16 @@ Always pass `-R "$REPO"` to `gh` commands.
    ```
 
 8. If Gemini requests further changes, do NOT resolve - return to `/address-gemini-feedback`.
+
+## Token Efficiency
+
+Use `--json` with `--jq` filtering to minimize output from `gh` commands. The GraphQL queries above already return structured data - parse what you need and discard the rest.
+
+```bash
+# Only fetch needed fields
+gh pr view --json number,title,url
+
+# Suppress git operations
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```

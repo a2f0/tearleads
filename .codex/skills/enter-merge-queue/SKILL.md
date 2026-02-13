@@ -343,16 +343,37 @@ AGENT_ID=$(basename "$(git rev-parse --show-toplevel)")
 
 Then ensure the PR body ends with `Agent: ${AGENT_ID}`. Add bullets for significant changes (CI fixes, Gemini feedback addressed).
 
-## Token Efficiency
+## Token Efficiency (CRITICAL)
 
-Suppress stdout on git commands:
+Merge queue sessions can run for 30+ minutes. Without strict token discipline, a single session can burn through the entire context window.
+
+### MANDATORY: Suppress stdout on ALL git operations
 
 ```bash
+# CORRECT - always use these forms
 git push --force-with-lease >/dev/null
 git push >/dev/null
 git commit -S -m "message" >/dev/null
-git fetch origin <baseRefName> >/dev/null
-git rebase origin/<baseRefName> >/dev/null
+git fetch origin main >/dev/null
+git rebase origin/main >/dev/null
+
+# WRONG - NEVER run without stdout suppression
+git push                    # Burns 5000+ tokens on pre-push hooks
+git push --force-with-lease # Burns 5000+ tokens on pre-push hooks
 ```
 
-Always use minimal `--json` fields and avoid redundant fetches.
+### Other mandatory token-saving practices
+
+- **Cache immutable PR data**: Fetch `number`, `baseRefName`, `headRefName`, `url` ONCE in step 1. Never re-fetch.
+- **Minimal `--json` fields**: Always specify exactly the fields needed:
+
+  ```bash
+  # CORRECT
+  gh pr view "$PR_NUMBER" --json state,mergeStateStatus -R "$REPO"
+
+  # WRONG - fetches unnecessary data
+  gh pr view
+  ```
+
+- **Skip redundant operations**: Use state flags (`gemini_can_review`) religiously.
+- **No redundant file reads**: If you read a file, cache its content. Don't re-read unchanged files.

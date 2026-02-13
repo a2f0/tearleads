@@ -217,3 +217,22 @@ In each PR description, include:
 - Files changed and why
 - Any new type guards added
 - Test evidence
+
+## Token Efficiency
+
+Discovery commands can return many lines. Always limit output:
+
+```bash
+# Count first, then list limited results
+grep -rl ... | wc -l              # Get count
+grep -rl ... | head -20           # Then sample
+
+# Suppress verbose validation output
+pnpm typecheck >/dev/null
+pnpm lint >/dev/null
+pnpm test >/dev/null
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```
+
+On failure, re-run without suppression to see errors.

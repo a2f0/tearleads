@@ -107,3 +107,12 @@ The Ukrainian version in `docs/ua/getting-started.md` should be:
 
 Виконайте ці кроки для налаштування додатку.
 ```
+
+## Token Efficiency
+
+This skill primarily writes files (low token cost). Suppress git operations at the end:
+
+```bash
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```

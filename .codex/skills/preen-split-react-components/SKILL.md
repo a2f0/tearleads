@@ -98,3 +98,20 @@ In each PR description, include:
 - What boundaries were extracted
 - Confirmation of no behavior change
 - Test evidence
+
+## Token Efficiency
+
+Discovery commands can return many lines. Always limit output:
+
+```bash
+# Already limited with head -20 and head -10 above
+
+# Suppress verbose validation output
+pnpm lint >/dev/null
+pnpm typecheck >/dev/null
+pnpm test >/dev/null
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```
+
+On failure, re-run without suppression to see errors.

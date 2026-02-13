@@ -51,3 +51,16 @@ Request a fresh review from Gemini Code Assist on the current PR.
 - This is useful when you've made changes and want Gemini to re-review the PR
 - Gemini will post new review comments if it finds issues
 - Use `/address-gemini-feedback` after this to handle any new feedback
+
+## Token Efficiency
+
+Use `--json` with `--jq` filtering to minimize output:
+
+```bash
+# Only fetch needed fields
+gh pr view --json number -q .number
+gh pr view --json reviews --jq '.reviews[] | select(...)'
+
+# Filter comments to relevant author
+gh api ... --jq '.[] | select(.user.login == "gemini-code-assist") | {path, line, body}'
+```
