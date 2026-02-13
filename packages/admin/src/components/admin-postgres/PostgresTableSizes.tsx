@@ -5,6 +5,7 @@ import {
 } from '@tearleads/window-manager';
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
 
@@ -28,9 +29,23 @@ interface PostgresTableSizesProps {
 }
 
 export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
+  const navigate = useNavigate();
   const [tables, setTables] = useState<PostgresTableInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleTableClick = useCallback(
+    (schema: string, name: string) => {
+      if (onTableSelect) {
+        onTableSelect(schema, name);
+      } else {
+        navigate(
+          `/admin/postgres/tables/${encodeURIComponent(schema)}/${encodeURIComponent(name)}`
+        );
+      }
+    },
+    [onTableSelect, navigate]
+  );
 
   const totalBytes = useMemo(
     () => tables.reduce((sum, table) => sum + table.totalBytes, 0),
@@ -124,22 +139,16 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
                     return (
                       <WindowTableRow
                         key={label}
-                        onClick={
-                          onTableSelect
-                            ? () => onTableSelect(table.schema, table.name)
-                            : undefined
+                        onClick={() =>
+                          handleTableClick(table.schema, table.name)
                         }
-                        tabIndex={onTableSelect ? 0 : undefined}
-                        onKeyDown={
-                          onTableSelect
-                            ? (e) => {
-                                if (e.key === 'Enter' || e.key === ' ') {
-                                  e.preventDefault();
-                                  onTableSelect(table.schema, table.name);
-                                }
-                              }
-                            : undefined
-                        }
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleTableClick(table.schema, table.name);
+                          }
+                        }}
                       >
                         <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                           <span className="font-mono text-muted-foreground">
