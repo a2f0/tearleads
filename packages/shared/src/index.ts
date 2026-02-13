@@ -255,6 +255,19 @@ export interface RegisterRequest {
   password: string;
 }
 
+export const PASSWORD_MIN_LENGTH = 12;
+export const PASSWORD_COMPLEXITY_ERROR =
+  'Password must include at least one uppercase letter, one lowercase letter, one number, and one symbol';
+
+export function passwordMeetsComplexity(password: string): boolean {
+  return (
+    /[a-z]/.test(password) &&
+    /[A-Z]/.test(password) &&
+    /\d/.test(password) &&
+    /[^\w\s]/.test(password)
+  );
+}
+
 export interface AuthResponse {
   accessToken: string;
   refreshToken: string;

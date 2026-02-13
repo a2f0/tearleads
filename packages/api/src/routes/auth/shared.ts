@@ -1,4 +1,10 @@
-import { isRecord, type RegisterRequest } from '@tearleads/shared';
+import {
+  isRecord,
+  PASSWORD_COMPLEXITY_ERROR,
+  PASSWORD_MIN_LENGTH,
+  passwordMeetsComplexity,
+  type RegisterRequest
+} from '@tearleads/shared';
 import {
   getAccessTokenTtlSeconds,
   getRefreshTokenTtlSeconds
@@ -6,7 +12,9 @@ import {
 
 export const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
 export const REFRESH_TOKEN_TTL_SECONDS = getRefreshTokenTtlSeconds();
-export const MIN_PASSWORD_LENGTH = 8;
+// COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
+export const MIN_PASSWORD_LENGTH = PASSWORD_MIN_LENGTH;
+export { PASSWORD_COMPLEXITY_ERROR, passwordMeetsComplexity };
 export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 
 export type LoginPayload = {
