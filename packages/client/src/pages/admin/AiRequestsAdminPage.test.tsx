@@ -263,7 +263,7 @@ describe('AiRequestsAdminPage', () => {
 
     await screen.findByRole('heading', { name: 'AI Requests Admin' });
     expect(screen.getByDisplayValue('user-2')).toBeInTheDocument();
-    expect(screen.getByText('usage-2')).toBeInTheDocument();
+    expect(await screen.findByText('usage-2')).toBeInTheDocument();
     expect(screen.queryByText('usage-1')).not.toBeInTheDocument();
   });
 
