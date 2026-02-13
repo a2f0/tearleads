@@ -30,6 +30,7 @@
     "@tearleads/keychain",
     "@tearleads/mls-chat",
     "@tearleads/notes",
+    "@tearleads/search",
     "@tearleads/terminal",
     "@tearleads/vfs-explorer"
   ],

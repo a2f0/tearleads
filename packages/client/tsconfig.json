@@ -28,6 +28,8 @@
       "@tearleads/keychain": ["../keychain/src/index.ts"],
       "@tearleads/notes/package.json": ["../notes/package.json"],
       "@tearleads/notes": ["../notes/src/index.ts"],
+      "@tearleads/search/package.json": ["../search/package.json"],
+      "@tearleads/search": ["../search/src/index.ts"],
       "@tearleads/terminal/package.json": ["../terminal/package.json"],
       "@tearleads/terminal": ["../terminal/src/index.ts"],
       "@tearleads/vfs-explorer/package.json": ["../vfs-explorer/package.json"],

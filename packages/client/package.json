@@ -66,6 +66,7 @@
     "@tearleads/keychain": "workspace:*",
     "@tearleads/mls-chat": "workspace:*",
     "@tearleads/notes": "workspace:*",
+    "@tearleads/search": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "@tearleads/terminal": "workspace:*",
     "@tearleads/ui": "workspace:*",

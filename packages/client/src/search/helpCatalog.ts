@@ -1,10 +1,10 @@
+import type { SearchableDocument } from '@tearleads/search';
 import type { HelpDocId } from '@/constants/help';
 import { getHelpDocLabel, getHelpDocRouteSegment } from '@/constants/help';
 import backupRestoreDocumentationEn from '../../../../docs/en/backup-restore.md?raw';
 import chromeExtensionDocumentationEn from '../../../../docs/en/chrome-extension.md?raw';
 import cliReferenceDocumentationEn from '../../../../docs/en/cli-reference.md?raw';
 import cliDocumentationEn from '../../../../docs/en/getting-started.md?raw';
-import type { SearchableDocument } from './types';
 
 interface SearchableHelpDocDefinition {
   id: HelpDocId;
