@@ -1,4 +1,5 @@
 import {
+  type AnySQLiteColumn,
   index,
   integer,
   primaryKey,
@@ -56,7 +57,16 @@ export const users = sqliteTable(
     admin: integer('admin', { mode: 'boolean' }).notNull().default(false),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
-    lastActiveAt: integer('last_active_at', { mode: 'timestamp_ms' })
+    lastActiveAt: integer('last_active_at', { mode: 'timestamp_ms' }),
+    disabled: integer('disabled', { mode: 'boolean' }).notNull().default(false),
+    disabledAt: integer('disabled_at', { mode: 'timestamp_ms' }),
+    disabledBy: text('disabled_by').references((): AnySQLiteColumn => users.id),
+    markedForDeletionAt: integer('marked_for_deletion_at', {
+      mode: 'timestamp_ms'
+    }),
+    markedForDeletionBy: text('marked_for_deletion_by').references(
+      (): AnySQLiteColumn => users.id
+    )
   },
   (table) => [index('users_email_idx').on(table.email)]
 );

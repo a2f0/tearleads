@@ -397,3 +397,33 @@ export async function rotateTokensAtomically(
 
   await multi.exec();
 }
+
+/**
+ * Delete all sessions for a user. Used when disabling an account.
+ * Also deletes associated refresh tokens.
+ * @returns The number of sessions deleted
+ */
+export async function deleteAllSessionsForUser(
+  userId: string
+): Promise<number> {
+  const client = await getRedisClient();
+  const userSessionsKey = getUserSessionsKey(userId);
+
+  const sessionIds = await client.sMembers(userSessionsKey);
+  if (sessionIds.length === 0) {
+    return 0;
+  }
+
+  const multi = client.multi();
+
+  for (const sessionId of sessionIds) {
+    multi.del(getSessionKey(sessionId));
+    multi.del(getRefreshTokenKey(sessionId));
+  }
+
+  multi.del(userSessionsKey);
+
+  await multi.exec();
+
+  return sessionIds.length;
+}

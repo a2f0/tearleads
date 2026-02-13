@@ -13,6 +13,11 @@ export type UserRow = {
   admin: boolean;
   organization_ids: string[] | null;
   created_at?: Date | string | null;
+  disabled: boolean;
+  disabled_at?: Date | string | null;
+  disabled_by?: string | null;
+  marked_for_deletion_at?: Date | string | null;
+  marked_for_deletion_by?: string | null;
 };
 
 type AdminUserOverrides = {
@@ -59,7 +64,12 @@ export function mapUserRow(
       : [],
     createdAt: overrides.createdAt ?? normalizeDate(row.created_at),
     lastActiveAt: overrides.lastActiveAt ?? null,
-    accounting: overrides.accounting ?? emptyAccounting
+    accounting: overrides.accounting ?? emptyAccounting,
+    disabled: row.disabled,
+    disabledAt: normalizeDate(row.disabled_at),
+    disabledBy: row.disabled_by ?? null,
+    markedForDeletionAt: normalizeDate(row.marked_for_deletion_at),
+    markedForDeletionBy: row.marked_for_deletion_by ?? null
   };
 }
 
@@ -159,6 +169,22 @@ export function parseUserUpdatePayload(
     }
 
     updates.organizationIds = Array.from(new Set(trimmed));
+  }
+
+  if ('disabled' in body) {
+    const disabledValue = body['disabled'];
+    if (typeof disabledValue !== 'boolean') {
+      return null;
+    }
+    updates.disabled = disabledValue;
+  }
+
+  if ('markedForDeletion' in body) {
+    const markedValue = body['markedForDeletion'];
+    if (typeof markedValue !== 'boolean') {
+      return null;
+    }
+    updates.markedForDeletion = markedValue;
   }
 
   if (Object.keys(updates).length === 0) {

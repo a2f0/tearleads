@@ -1,4 +1,5 @@
 import {
+  type AnyPgColumn,
   boolean,
   index,
   integer,
@@ -56,7 +57,16 @@ export const users = pgTable(
     admin: boolean('admin').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
-    lastActiveAt: timestamp('last_active_at', { withTimezone: true })
+    lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
+    disabled: boolean('disabled').notNull().default(false),
+    disabledAt: timestamp('disabled_at', { withTimezone: true }),
+    disabledBy: text('disabled_by').references((): AnyPgColumn => users.id),
+    markedForDeletionAt: timestamp('marked_for_deletion_at', {
+      withTimezone: true
+    }),
+    markedForDeletionBy: text('marked_for_deletion_by').references(
+      (): AnyPgColumn => users.id
+    )
   },
   (table) => [index('users_email_idx').on(table.email)]
 );
