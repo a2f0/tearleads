@@ -17,7 +17,8 @@ export type UserSettingKey =
   | 'font'
   | 'desktopPattern'
   | 'desktopIconDepth'
-  | 'desktopIconBackground';
+  | 'desktopIconBackground'
+  | 'windowOpacity';
 
 // Per-setting value types
 export const THEME_VALUES: readonly [
@@ -45,6 +46,8 @@ export const DESKTOP_ICON_BACKGROUND_VALUES = [
 ] as const;
 export type DesktopIconBackgroundValue =
   (typeof DESKTOP_ICON_BACKGROUND_VALUES)[number];
+export const WINDOW_OPACITY_VALUES = ['translucent', 'opaque'] as const;
+export type WindowOpacityValue = (typeof WINDOW_OPACITY_VALUES)[number];
 
 // Map settings keys to their value types
 export interface SettingValueMap {
@@ -55,6 +58,7 @@ export interface SettingValueMap {
   desktopPattern: DesktopPatternValue;
   desktopIconDepth: DesktopIconDepthValue;
   desktopIconBackground: DesktopIconBackgroundValue;
+  windowOpacity: WindowOpacityValue;
 }
 
 // Default values for each setting
@@ -65,7 +69,8 @@ export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   font: 'system',
   desktopPattern: 'isometric',
   desktopIconDepth: 'debossed',
-  desktopIconBackground: 'colored'
+  desktopIconBackground: 'colored',
+  windowOpacity: 'translucent'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
@@ -76,7 +81,8 @@ export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
   font: 'font',
   desktopPattern: 'desktopPattern',
   desktopIconDepth: 'desktopIconDepth',
-  desktopIconBackground: 'desktopIconBackground'
+  desktopIconBackground: 'desktopIconBackground',
+  windowOpacity: 'windowOpacity'
 };
 
 // Type guard functions
@@ -116,6 +122,12 @@ export function isDesktopIconBackgroundValue(
   return DESKTOP_ICON_BACKGROUND_VALUES.some((item) => item === value);
 }
 
+export function isWindowOpacityValue(
+  value: string
+): value is WindowOpacityValue {
+  return WINDOW_OPACITY_VALUES.some((item) => item === value);
+}
+
 // Map of setting keys to their type guard validators
 const SETTING_VALIDATORS: {
   [K in UserSettingKey]: (value: string) => value is SettingValueMap[K];
@@ -126,7 +138,8 @@ const SETTING_VALIDATORS: {
   font: isFontValue,
   desktopPattern: isDesktopPatternValue,
   desktopIconDepth: isDesktopIconDepthValue,
-  desktopIconBackground: isDesktopIconBackgroundValue
+  desktopIconBackground: isDesktopIconBackgroundValue,
+  windowOpacity: isWindowOpacityValue
 };
 
 // Settings sync event detail type
