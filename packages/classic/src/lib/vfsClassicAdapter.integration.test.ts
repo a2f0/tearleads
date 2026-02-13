@@ -9,7 +9,7 @@ import {
   classicTestMigrations,
   withRealDatabase
 } from '@tearleads/db-test-utils';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type {
   VfsLinkLikeRow,
@@ -17,6 +17,7 @@ import type {
   VfsRegistryLikeRow,
   VfsTagLikeRow
 } from './types';
+import { sortNoteIds, sortTags } from './sorting';
 import { buildClassicStateFromVfs } from './vfsClassicAdapter';
 import { buildClassicPositionUpdates } from './vfsPositionUpdates';
 
@@ -161,6 +162,150 @@ describe('Classic VFS Integration (real database)', () => {
           body: 'Content 1'
         });
         expect(state.noteOrderByTagId['tag-1']).toEqual(['note-1', 'note-2']);
+      },
+      { migrations: classicTestMigrations }
+    );
+  });
+
+  it('hydrates metadata for menu-bar date and count sorting', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        await seedClassicRoot(db, new Date('2024-01-01T00:00:00.000Z'));
+
+        await seedTag(db, {
+          id: 'tag-1',
+          name: 'Alpha',
+          position: 0,
+          now: new Date('2024-01-02T00:00:00.000Z')
+        });
+        await seedTag(db, {
+          id: 'tag-2',
+          name: 'Beta',
+          position: 1,
+          now: new Date('2024-01-03T00:00:00.000Z')
+        });
+
+        await seedNote(db, {
+          id: 'note-1',
+          title: 'Zulu',
+          content: 'ccc',
+          tagId: 'tag-1',
+          position: 0,
+          now: new Date('2024-01-04T00:00:00.000Z')
+        });
+        await seedNote(db, {
+          id: 'note-2',
+          title: 'Alpha',
+          content: 'aaa',
+          tagId: 'tag-1',
+          position: 1,
+          now: new Date('2024-01-05T00:00:00.000Z')
+        });
+
+        await db
+          .update(vfsLinks)
+          .set({ createdAt: new Date('2024-01-06T00:00:00.000Z') })
+          .where(
+            and(eq(vfsLinks.parentId, 'tag-1'), eq(vfsLinks.childId, 'note-1'))
+          );
+
+        await db
+          .update(vfsLinks)
+          .set({ createdAt: new Date('2024-01-07T00:00:00.000Z') })
+          .where(
+            and(eq(vfsLinks.parentId, 'tag-1'), eq(vfsLinks.childId, 'note-2'))
+          );
+
+        await db
+          .update(notes)
+          .set({ updatedAt: new Date('2024-01-10T00:00:00.000Z') })
+          .where(eq(notes.id, 'note-1'));
+
+        await db
+          .update(notes)
+          .set({ updatedAt: new Date('2024-01-09T00:00:00.000Z') })
+          .where(eq(notes.id, 'note-2'));
+
+        await db.insert(vfsLinks).values({
+          id: crypto.randomUUID(),
+          parentId: 'tag-2',
+          childId: 'note-2',
+          wrappedSessionKey: 'test-key',
+          position: 0,
+          createdAt: new Date('2024-01-11T00:00:00.000Z')
+        });
+
+        const data = await queryClassicData(db);
+        const state = buildClassicStateFromVfs({
+          rootTagParentId: CLASSIC_ROOT_ID,
+          ...data
+        });
+
+        expect(
+          sortTags({
+            state,
+            tags: state.tags,
+            sortOrder: 'date-created-desc'
+          }).map((tag) => tag.id)
+        ).toEqual(['tag-2', 'tag-1']);
+
+        expect(
+          sortTags({
+            state,
+            tags: state.tags,
+            sortOrder: 'entry-count-desc'
+          }).map((tag) => tag.id)
+        ).toEqual(['tag-1', 'tag-2']);
+
+        expect(
+          sortTags({
+            state,
+            tags: state.tags,
+            sortOrder: 'date-last-used-desc'
+          }).map((tag) => tag.id)
+        ).toEqual(['tag-2', 'tag-1']);
+
+        const tag1NoteIds = state.noteOrderByTagId['tag-1'];
+        if (!tag1NoteIds) {
+          throw new Error('Expected notes for tag-1');
+        }
+
+        expect(
+          sortNoteIds({
+            state,
+            noteIds: tag1NoteIds,
+            activeTagId: 'tag-1',
+            sortOrder: 'date-tagged-desc'
+          })
+        ).toEqual(['note-2', 'note-1']);
+
+        expect(
+          sortNoteIds({
+            state,
+            noteIds: tag1NoteIds,
+            activeTagId: 'tag-1',
+            sortOrder: 'subject-asc'
+          })
+        ).toEqual(['note-2', 'note-1']);
+
+        const allNoteIds = Object.keys(state.notesById);
+        expect(
+          sortNoteIds({
+            state,
+            noteIds: allNoteIds,
+            activeTagId: null,
+            sortOrder: 'date-updated-desc'
+          })
+        ).toEqual(['note-1', 'note-2']);
+
+        expect(
+          sortNoteIds({
+            state,
+            noteIds: allNoteIds,
+            activeTagId: null,
+            sortOrder: 'tag-count-desc'
+          })
+        ).toEqual(['note-2', 'note-1']);
       },
       { migrations: classicTestMigrations }
     );
@@ -542,7 +687,8 @@ async function queryClassicData(db: TestDb): Promise<{
   const registryRows = await db
     .select({
       id: vfsRegistry.id,
-      objectType: vfsRegistry.objectType
+      objectType: vfsRegistry.objectType,
+      createdAt: vfsRegistry.createdAt
     })
     .from(vfsRegistry);
 
@@ -558,7 +704,9 @@ async function queryClassicData(db: TestDb): Promise<{
     .select({
       id: notes.id,
       title: notes.title,
-      content: notes.content
+      content: notes.content,
+      createdAt: notes.createdAt,
+      updatedAt: notes.updatedAt
     })
     .from(notes);
 
@@ -566,7 +714,8 @@ async function queryClassicData(db: TestDb): Promise<{
     .select({
       parentId: vfsLinks.parentId,
       childId: vfsLinks.childId,
-      position: vfsLinks.position
+      position: vfsLinks.position,
+      createdAt: vfsLinks.createdAt
     })
     .from(vfsLinks);
 

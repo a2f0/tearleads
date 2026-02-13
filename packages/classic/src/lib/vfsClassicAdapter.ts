@@ -7,6 +7,7 @@ import type {
   VfsRegistryLikeRow,
   VfsTagLikeRow
 } from './types';
+import { buildClassicSortMetadata } from './sorting';
 
 function sortByPositionThenId(a: VfsLinkLikeRow, b: VfsLinkLikeRow): number {
   const aPos = a.position ?? Number.MAX_SAFE_INTEGER;
@@ -107,13 +108,19 @@ export function buildClassicStateFromVfs(
   }
 
   const activeTagId = tags[0]?.id ?? null;
+  const sortMetadata = buildClassicSortMetadata({
+    registryRows: args.registryRows,
+    noteRows: args.noteRows,
+    linkRows: args.linkRows
+  });
 
   return {
     tags,
     deletedTags,
     notesById,
     noteOrderByTagId,
-    activeTagId
+    activeTagId,
+    sortMetadata
   };
 }
 

@@ -19,7 +19,14 @@ import {
   softDeleteTag,
   tagNote
 } from '../lib/ordering';
+import {
+  sortNoteIds,
+  sortTags,
+  type EntrySortOrder,
+  type TagSortOrder
+} from '../lib/sorting';
 import type { ClassicState } from '../lib/types';
+import { ClassicMenuBar } from './ClassicMenuBar';
 import type { ClassicContextMenuComponents } from './ClassicContextMenu';
 import { NotesPane } from './NotesPane';
 import { TagSidebar } from './TagSidebar';
@@ -71,6 +78,10 @@ export function ClassicApp({
   const [entrySearch, setEntrySearch] = useState('');
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [tagSortOrder, setTagSortOrder] =
+    useState<TagSortOrder>('user-defined');
+  const [entrySortOrder, setEntrySortOrder] =
+    useState<EntrySortOrder>('user-defined');
   const tagSearchInputRef = useRef<HTMLInputElement>(null);
   const entrySearchInputRef = useRef<HTMLInputElement>(null);
 
@@ -96,31 +107,42 @@ export function ClassicApp({
     return state.tags.find((tag) => tag.id === state.activeTagId)?.name ?? null;
   }, [state.activeTagId, state.tags]);
 
+  const noteCountByTagId = useMemo(() => getNoteCountByTagId(state), [state]);
+
+  const sortedTags = useMemo(
+    () =>
+      sortTags({
+        state,
+        tags: state.tags,
+        sortOrder: tagSortOrder,
+        noteCountByTagId
+      }),
+    [noteCountByTagId, state, tagSortOrder]
+  );
+
   const filteredTags = useMemo(() => {
     if (!tagSearch.trim()) {
-      return state.tags;
+      return sortedTags;
     }
 
     const searchLower = tagSearch.toLowerCase();
-    const filtered = state.tags.filter((tag) =>
+    const filtered = sortedTags.filter((tag) =>
       tag.name.toLowerCase().includes(searchLower)
     );
 
     if (editingTagId) {
-      const editingTag = state.tags.find((tag) => tag.id === editingTagId);
+      const editingTag = sortedTags.find((tag) => tag.id === editingTagId);
       if (editingTag && !filtered.some((tag) => tag.id === editingTagId)) {
         return [...filtered, editingTag];
       }
     }
 
     return filtered;
-  }, [editingTagId, state.tags, tagSearch]);
+  }, [editingTagId, sortedTags, tagSearch]);
 
   const untaggedNoteIds = useMemo(() => getUntaggedNoteIds(state), [state]);
 
-  const noteCountByTagId = useMemo(() => getNoteCountByTagId(state), [state]);
-
-  const noteIds = useMemo(() => {
+  const baseNoteIds = useMemo(() => {
     if (state.activeTagId === null) {
       return getAllNoteIds(state);
     }
@@ -130,12 +152,23 @@ export function ClassicApp({
     return getActiveTagNoteIds(state);
   }, [state, untaggedNoteIds]);
 
+  const sortedNoteIds = useMemo(
+    () =>
+      sortNoteIds({
+        state,
+        noteIds: baseNoteIds,
+        activeTagId: state.activeTagId,
+        sortOrder: entrySortOrder
+      }),
+    [baseNoteIds, entrySortOrder, state]
+  );
+
   const filteredNoteIds = useMemo(() => {
     if (!entrySearch.trim()) {
-      return noteIds;
+      return sortedNoteIds;
     }
     const searchLower = entrySearch.toLowerCase();
-    const filtered = noteIds.filter((noteId) => {
+    const filtered = sortedNoteIds.filter((noteId) => {
       const note = state.notesById[noteId];
       if (!note) return false;
       return (
@@ -144,7 +177,7 @@ export function ClassicApp({
       );
     });
 
-    if (editingNoteId && noteIds.includes(editingNoteId)) {
+    if (editingNoteId && sortedNoteIds.includes(editingNoteId)) {
       const editingNote = state.notesById[editingNoteId];
       if (editingNote && !filtered.includes(editingNoteId)) {
         return [...filtered, editingNoteId];
@@ -152,7 +185,7 @@ export function ClassicApp({
     }
 
     return filtered;
-  }, [editingNoteId, entrySearch, noteIds, state.notesById]);
+  }, [editingNoteId, entrySearch, sortedNoteIds, state.notesById]);
 
   const updateState = useCallback(
     (next: ClassicState) => {
@@ -415,49 +448,57 @@ export function ClassicApp({
   );
 
   return (
-    <div className="flex h-full min-h-[420px] w-full overflow-hidden bg-white">
-      <TagSidebar
-        tags={filteredTags}
-        deletedTags={state.deletedTags}
-        activeTagId={state.activeTagId}
-        editingTagId={editingTagId}
-        {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
-        untaggedCount={untaggedNoteIds.length}
-        noteCountByTagId={noteCountByTagId}
-        onSelectTag={handleSelectTag}
-        onMoveTag={handleMoveTag}
-        onReorderTag={handleReorderTag}
-        onCreateTag={handleCreateTag}
-        onStartEditTag={setEditingTagId}
-        onRenameTag={handleRenameTag}
-        onCancelEditTag={handleCancelEditTag}
-        onDeleteTag={handleDeleteTag}
-        onRestoreTag={handleRestoreTag}
-        onTagNote={handleTagNote}
-        searchValue={tagSearch}
-        onSearchChange={setTagSearch}
-        onSearchKeyDown={handleTagSearchKeyDown}
-        searchInputRef={tagSearchInputRef}
-        contextMenuComponents={contextMenuComponents}
+    <div className="flex h-full min-h-[420px] w-full flex-col overflow-hidden bg-white">
+      <ClassicMenuBar
+        tagSortOrder={tagSortOrder}
+        entrySortOrder={entrySortOrder}
+        onTagSortOrderChange={setTagSortOrder}
+        onEntrySortOrderChange={setEntrySortOrder}
       />
-      <NotesPane
-        activeTagName={activeTagName}
-        noteIds={filteredNoteIds}
-        notesById={state.notesById}
-        editingNoteId={editingNoteId}
-        onMoveNote={handleMoveNote}
-        onReorderNote={handleReorderNote}
-        onCreateNote={handleCreateNote}
-        onStartEditNote={setEditingNoteId}
-        onUpdateNote={handleUpdateNote}
-        onCancelEditNote={handleCancelEditNote}
-        onTagNote={handleTagNote}
-        searchValue={entrySearch}
-        onSearchChange={setEntrySearch}
-        onSearchKeyDown={handleEntrySearchKeyDown}
-        searchInputRef={entrySearchInputRef}
-        contextMenuComponents={contextMenuComponents}
-      />
+      <div className="flex min-h-0 flex-1">
+        <TagSidebar
+          tags={filteredTags}
+          deletedTags={state.deletedTags}
+          activeTagId={state.activeTagId}
+          editingTagId={editingTagId}
+          {...(autoFocusSearch !== undefined ? { autoFocusSearch } : {})}
+          untaggedCount={untaggedNoteIds.length}
+          noteCountByTagId={noteCountByTagId}
+          onSelectTag={handleSelectTag}
+          onMoveTag={handleMoveTag}
+          onReorderTag={handleReorderTag}
+          onCreateTag={handleCreateTag}
+          onStartEditTag={setEditingTagId}
+          onRenameTag={handleRenameTag}
+          onCancelEditTag={handleCancelEditTag}
+          onDeleteTag={handleDeleteTag}
+          onRestoreTag={handleRestoreTag}
+          onTagNote={handleTagNote}
+          searchValue={tagSearch}
+          onSearchChange={setTagSearch}
+          onSearchKeyDown={handleTagSearchKeyDown}
+          searchInputRef={tagSearchInputRef}
+          contextMenuComponents={contextMenuComponents}
+        />
+        <NotesPane
+          activeTagName={activeTagName}
+          noteIds={filteredNoteIds}
+          notesById={state.notesById}
+          editingNoteId={editingNoteId}
+          onMoveNote={handleMoveNote}
+          onReorderNote={handleReorderNote}
+          onCreateNote={handleCreateNote}
+          onStartEditNote={setEditingNoteId}
+          onUpdateNote={handleUpdateNote}
+          onCancelEditNote={handleCancelEditNote}
+          onTagNote={handleTagNote}
+          searchValue={entrySearch}
+          onSearchChange={setEntrySearch}
+          onSearchKeyDown={handleEntrySearchKeyDown}
+          searchInputRef={entrySearchInputRef}
+          contextMenuComponents={contextMenuComponents}
+        />
+      </div>
     </div>
   );
 }
