@@ -85,7 +85,7 @@ render_document() {
     claude)
       frontmatter=$(cat <<'EOF_FRONTMATTER'
 ---
-description: Stateful single-pass preening across all preen skills (project)
+description: Stateful preening across all preen skills (project)
 ---
 EOF_FRONTMATTER
 )
@@ -95,7 +95,7 @@ EOF_FRONTMATTER
       frontmatter=$(cat <<'EOF_FRONTMATTER'
 ---
 name: preen
-description: Stateful single-pass preening across all preen skills. Lands focused improvements, opens a PR, and enters merge queue.
+description: Stateful preening across all preen skills. Lands focused improvements, opens a PR, and enters merge queue.
 ---
 EOF_FRONTMATTER
 )
@@ -116,7 +116,7 @@ Perform a proactive, stateful pass through preen skills, implement focused impro
 
 ## When to Run
 
-Run this meta-skill regularly for continuous quality improvement. It is intentionally iterative: default mode lands one meaningful fix per run and advances to the next category over time.
+Run this meta-skill regularly for continuous quality improvement. It supports broad sweeps in default mode and targeted incremental passes in rotating modes.
 
 ## Self-Update Check (CRITICAL)
 
@@ -157,17 +157,17 @@ Use `PREEN_MODE` to control scope:
 
 | Mode | Behavior |
 | ---- | -------- |
-| `single` (default) | Run exactly one rotating category and land at most one fix |
-| `full` | Run all categories and land at most one fix per category |
+| `full` (default) | Run all categories and land at most one fix per category |
+| `single` | Run exactly one rotating category and land at most one fix |
 | `security` | Run only security categories and land at most one fix |
 | `audit` | Run discovery + scoring only; no edits, no branch, no PR |
 
 ## Stateful Iteration (CRITICAL)
 
-Persist rotation state locally so repeated runs naturally cover the full quality surface.
+Persist rotation state locally so repeated runs in rotating modes naturally cover the full quality surface.
 
 ```bash
-MODE="${PREEN_MODE:-single}"
+MODE="${PREEN_MODE:-full}"
 STATE_DIR=".git/preen"
 CURSOR_FILE="$STATE_DIR/cursor"
 RUNS_FILE="$STATE_DIR/runs.jsonl"
@@ -455,9 +455,9 @@ If no high-value candidate is found, or `audit` mode is used:
 - Still advance cursor in rotating modes (`single`, `audit`)
 - Record structured run metadata in `.git/preen/runs.jsonl`
 
-## Single-Pass Philosophy
+## Default-Mode Philosophy
 
-Default `single` mode keeps PRs reviewable and low-risk by landing one meaningful improvement at a time. Repeated runs provide broad coverage via cursor rotation.
+Default `full` mode enables broad, category-by-category sweeps. Use `single` when you want smaller, lower-risk incremental changes that rotate over time.
 
 ## Guardrails
 
