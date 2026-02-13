@@ -38,13 +38,13 @@ pnpm --filter @tearleads/tee-api build
 pnpm --filter @tearleads/tee-api buildBundle
 ```
 
-2. Install Ansible collections:
+1. Install Ansible collections:
 
 ```bash
 ./scripts/ansible-setup.sh
 ```
 
-3. Provision the image builder host (or localhost in a Packer image build):
+1. Provision the image builder host (or localhost in a Packer image build):
 
 ```bash
 TEE_API_BUNDLE_SRC="$(pwd)/../packages/tee-api/dist/server.cjs" \

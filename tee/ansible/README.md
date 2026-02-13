@@ -19,7 +19,7 @@ pnpm --filter @tearleads/tee-api build
 pnpm --filter @tearleads/tee-api buildBundle
 ```
 
-2. Install required collections:
+1. Install required collections:
 
 ```bash
 ./tee/ansible/scripts/setup.sh
