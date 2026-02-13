@@ -103,13 +103,23 @@ Always pass `-R "$REPO"` to `gh` commands.
    - Reply to Gemini using the REST API comment reply endpoint, not `gh pr review`.
    - Always include `@gemini-code-assist` in replies.
 
-## Token Efficiency
+## Token Efficiency (CRITICAL)
 
-Suppress stdout on git commit and push:
+**MANDATORY**: ALL git commit and push commands MUST redirect stdout to `/dev/null`. Failure to do this wastes thousands of tokens on hook output.
 
 ```bash
+# CORRECT - always use these forms
 git commit -S -m "message" >/dev/null
 git push >/dev/null
+
+# WRONG - NEVER run without stdout suppression
+git commit -m "message"  # Burns 1000+ tokens on pre-commit output
+git push                 # Burns 5000+ tokens on pre-push output
 ```
 
-Do not run `git commit` or `git push` without stdout suppression.
+**Why this is non-negotiable**:
+
+- Husky pre-commit hooks output lint results, type-check results
+- Husky pre-push hooks run full test suites and builds
+- A single unsuppressed `git push` can add 5,000+ lines to context
+- Errors go to stderr, which `>/dev/null` preserves

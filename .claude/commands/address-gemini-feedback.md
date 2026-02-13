@@ -95,3 +95,20 @@ See `/follow-up-with-gemini` for the correct API usage and examples.
 6. **Follow up**: Run `/follow-up-with-gemini` to reply, wait for confirmation, and resolve threads. The follow-up skill will re-verify push status before replying.
 
 7. **Repeat**: If Gemini requests further changes, repeat from step 1.
+
+## Token Efficiency
+
+Suppress verbose output where only exit codes matter:
+
+```bash
+# Suppress lint/typecheck/test output
+pnpm lint >/dev/null
+pnpm typecheck >/dev/null
+pnpm test >/dev/null
+
+# Suppress git operations
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```
+
+Use `--json` with `--jq` filtering for `gh` commands to get only needed fields. On failure, re-run without suppression to debug.

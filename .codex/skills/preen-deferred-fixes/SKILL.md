@@ -53,3 +53,25 @@ If both are available, start from the issue and use the PR for thread context.
 - All checklist items are implemented.
 - Tests exist for each item and pass locally.
 - Branch is pushed and ready for PR/merge-queue flow.
+
+## Token Efficiency
+
+Use `--jq` filtering to limit PR comment output:
+
+```bash
+# Filter to deferred work patterns only
+gh api "repos/$REPO/pulls/<pr>/comments" --paginate \
+  --jq '.[] | select(.body | test("defer|follow[- ]?up"; "i")) | {id,path,body}'
+```
+
+Suppress verbose validation output:
+
+```bash
+pnpm lint >/dev/null
+pnpm typecheck >/dev/null
+pnpm test >/dev/null
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```
+
+On failure, re-run without suppression to debug.

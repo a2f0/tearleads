@@ -132,5 +132,30 @@ Collect warnings/deprecations from `pnpm`, bundler, CocoaPods, Gradle, and test 
 
 - Review changes with `git status` and `git diff`.
 - **Verify `packages/client/ios/App/Podfile.lock` is staged** if iOS dependencies changed (the script regenerates it via `pod install`).
-- Commit and push using `/commit-and-push`.
-- Prepare the PR for merging using `/enter-merge-queue`.
+- Commit and push using `$commit-and-push`.
+- Prepare the PR for merging using `$enter-merge-queue`.
+
+## Token Efficiency
+
+The update script and its sub-commands produce thousands of lines of output. Suppress stdout where only the exit code matters:
+
+```bash
+# Suppress verbose output - only show errors
+./scripts/updateEverything.sh >/dev/null
+
+# Or capture to file for debugging later
+./scripts/updateEverything.sh > /tmp/update.log 2>&1
+```
+
+When running individual commands manually:
+
+```bash
+pnpm install >/dev/null
+pnpm build >/dev/null
+pnpm test:coverage >/dev/null
+bundle install >/dev/null
+pod install --repo-update >/dev/null
+./gradlew assembleDebug >/dev/null
+```
+
+On failure, stderr is preserved. Re-run without suppression to debug.

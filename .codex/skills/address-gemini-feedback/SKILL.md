@@ -101,3 +101,20 @@ gh api -X POST /repos/$REPO/pulls/<pr_number>/comments/<comment_id>/replies \
 ```
 
 1. Repeat until no actionable unresolved Gemini comments remain.
+
+## Token Efficiency
+
+Suppress verbose output where only exit codes matter:
+
+```bash
+# Suppress lint/typecheck/test output
+pnpm lint >/dev/null
+pnpm typecheck >/dev/null
+pnpm test >/dev/null
+
+# Suppress git operations
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```
+
+Use `--json` with `--jq` filtering for `gh` commands to get only needed fields. On failure, re-run without suppression to debug.

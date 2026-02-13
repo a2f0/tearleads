@@ -57,3 +57,16 @@ gh api /repos/$REPO/pulls/$PR_NUM/comments \
 
 - Do not run `gh pr view -R "$REPO"` without specifying PR number or branch context.
 - Use in-thread replies for follow-up on review comments (REST replies endpoint), not `gh pr review`.
+
+## Token Efficiency
+
+Use `--json` with `--jq` filtering to minimize output:
+
+```bash
+# Only fetch needed fields
+gh pr view --json number -q .number
+gh pr view --json reviews --jq '.reviews[] | select(...)'
+
+# Filter comments to relevant author
+gh api ... --jq '.[] | select(.user.login == "gemini-code-assist") | {path, line, body}'
+```

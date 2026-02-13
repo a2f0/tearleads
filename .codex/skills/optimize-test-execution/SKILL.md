@@ -171,3 +171,28 @@ When modifying the impact system, update together:
 - `scripts/ciImpact/runImpactedQuality.ts` - `FULL_RUN_PREFIXES` array
 - `scripts/ciImpact/runImpactedTests.ts` - `FULL_RUN_PREFIXES` array
 - `.github/workflows/*.yml` - Workflow gating conditions
+
+## Token Efficiency
+
+Use `--dry-run` mode for debugging without executing commands:
+
+```bash
+# Preview what would run (no actual execution)
+pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --dry-run
+pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --dry-run
+```
+
+Suppress verbose output when only exit codes matter:
+
+```bash
+# Suppress validation output
+pnpm lint >/dev/null
+pnpm typecheck >/dev/null
+pnpm test >/dev/null
+
+# Suppress git operations
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```
+
+On failure, re-run without suppression to debug.

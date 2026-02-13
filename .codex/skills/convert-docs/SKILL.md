@@ -66,3 +66,15 @@ ls docs/<target>/
 - Every file in `docs/en/` has a same-named translated counterpart in `docs/<target>/`.
 - No orphaned translated files remain.
 - Formatting and code samples are structurally identical to source docs.
+
+## Token Efficiency
+
+Suppress verbose output when only exit codes matter:
+
+```bash
+# Suppress git operations
+git commit -S -m "message" >/dev/null
+git push >/dev/null
+```
+
+On failure, re-run without suppression to debug.
