@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { ListRow } from '@/components/ui/list-row';
 import { formatFileSize } from '@/lib/utils';
 
+const VIEWABLE_TYPES = ['image', 'audio', 'video'];
+
 export interface FileWithThumbnail {
   id: string;
   name: string;
@@ -45,10 +47,9 @@ export function FileListItem({
   onClearRecentlyUploaded
 }: FileListItemProps) {
   const fileType = file.mimeType.split('/')[0] ?? '';
-  const viewableTypes = ['image', 'audio', 'video'];
   const isPdf = file.mimeType === 'application/pdf';
   const isClickable =
-    (viewableTypes.includes(fileType) || isPdf) && !file.deleted;
+    (VIEWABLE_TYPES.includes(fileType) || isPdf) && !file.deleted;
 
   const content = (
     <>

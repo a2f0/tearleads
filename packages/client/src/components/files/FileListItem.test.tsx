@@ -200,7 +200,7 @@ describe('FileListItem', () => {
 
     const row = screen
       .getByText('test-document.pdf')
-      .closest('[class*="flex"]');
+      .closest('[data-slot="list-row"]');
     if (row) {
       await user.pointer({ target: row, keys: '[MouseRight]' });
     }
