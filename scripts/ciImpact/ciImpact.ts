@@ -2,25 +2,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execSync } from 'node:child_process';
-
-type JobName =
-  | 'build'
-  | 'web-e2e'
-  | 'website-e2e'
-  | 'electron-e2e'
-  | 'android'
-  | 'android-maestro-release'
-  | 'ios-maestro-release';
-
-const ALL_JOB_NAMES: ReadonlyArray<JobName> = [
-  'build',
-  'web-e2e',
-  'website-e2e',
-  'electron-e2e',
-  'android',
-  'android-maestro-release',
-  'ios-maestro-release'
-];
+import { ALL_JOB_NAMES, type JobName } from './workflowConfig.js';
 
 type StringSetMap = Map<string, Set<string>>;
 
@@ -335,6 +317,26 @@ function startsWithOneOf(file: string, prefixes: string[]): boolean {
   return prefixes.some((prefix) => file.startsWith(prefix));
 }
 
+function isAndroidNativePath(file: string): boolean {
+  return file.startsWith('packages/client/android/') || file.startsWith('android/');
+}
+
+function isIosNativePath(file: string): boolean {
+  return file.startsWith('packages/client/ios/') || file.startsWith('ios/');
+}
+
+function isSharedMobileReleasePath(file: string): boolean {
+  return (
+    file.startsWith('packages/client/fastlane/') ||
+    file.startsWith('fastlane/') ||
+    file === 'packages/client/capacitor.config.ts'
+  );
+}
+
+function isMaestroPath(file: string): boolean {
+  return file.startsWith('packages/client/.maestro/');
+}
+
 function isIgnored(file: string, config: Config): boolean {
   if (config.ignoredExact.includes(file)) {
     return true;
@@ -433,7 +435,9 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
     return jobs;
   }
 
-  const hasClientRuntimeImpact = [...affectedPackages].some((pkgName) => config.clientRuntimePackages.includes(pkgName));
+  const hasClientRuntimePackageImpact = [...affectedPackages].some((pkgName) =>
+    config.clientRuntimePackages.includes(pkgName)
+  );
   const hasWebsiteImpact = affectedPackages.has('@tearleads/website');
   const hasApiImpact = affectedPackages.has('@tearleads/api');
   const hasClientImpact = affectedPackages.has('@tearleads/client');
@@ -448,26 +452,19 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
       file === 'packages/client/playwright.electron.config.ts'
   );
   const hasWebsiteFiles = changedFiles.some((file) => file.startsWith('packages/website/'));
-  const hasAndroidSpecific = changedFiles.some(
-    (file) =>
-      file.startsWith('packages/client/android/') ||
-      file.startsWith('android/') ||
-      file.startsWith('packages/client/fastlane/') ||
-      file.startsWith('fastlane/') ||
-      file === 'packages/client/capacitor.config.ts'
-  );
-  const hasIosSpecific = changedFiles.some(
-    (file) =>
-      file.startsWith('packages/client/ios/') ||
-      file.startsWith('ios/') ||
-      file.startsWith('packages/client/fastlane/') ||
-      file.startsWith('fastlane/') ||
-      file === 'packages/client/capacitor.config.ts'
-  );
-  const hasMaestroSpecific = changedFiles.some((file) => file.startsWith('packages/client/.maestro/'));
+  const hasAndroidNativeSpecific = changedFiles.some((file) => isAndroidNativePath(file));
+  const hasIosNativeSpecific = changedFiles.some((file) => isIosNativePath(file));
+  const hasSharedMobileReleaseSpecific = changedFiles.some((file) => isSharedMobileReleasePath(file));
+  const hasMaestroSpecific = changedFiles.some((file) => isMaestroPath(file));
+  const hasAndroidSpecific = hasAndroidNativeSpecific || hasSharedMobileReleaseSpecific;
+  const hasIosSpecific = hasIosNativeSpecific || hasSharedMobileReleaseSpecific;
   const hasMobileSpecific = hasAndroidSpecific || hasIosSpecific || hasMaestroSpecific;
+  const mobilePlatformIsolatedChange =
+    materialFiles.length > 0 &&
+    materialFiles.every((file) => isAndroidNativePath(file) || isIosNativePath(file));
+  const hasSharedClientRuntimeImpact = hasClientRuntimePackageImpact && !mobilePlatformIsolatedChange;
 
-  if (hasWebE2ETestFiles || hasClientImpact || hasApiImpact || hasClientRuntimeImpact) {
+  if (hasWebE2ETestFiles || hasClientImpact || hasApiImpact || hasSharedClientRuntimeImpact) {
     jobs['web-e2e'].run = true;
     jobs['web-e2e'].reasons.push('client/web runtime or e2e test surface impacted');
   }
@@ -477,36 +474,42 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
     jobs['website-e2e'].reasons.push('website or API surface impacted');
   }
 
-  if (hasElectronSpecific || hasClientImpact || hasClientRuntimeImpact) {
+  if (hasElectronSpecific || hasClientImpact || hasSharedClientRuntimeImpact) {
     jobs['electron-e2e'].run = true;
     jobs['electron-e2e'].reasons.push('electron/client runtime surface impacted');
   }
 
-  if (hasMobileSpecific || hasClientRuntimeImpact) {
-    if (hasAndroidSpecific || hasClientRuntimeImpact || hasMaestroSpecific) {
+  if (hasMobileSpecific || hasSharedClientRuntimeImpact) {
+    if (hasAndroidSpecific || hasSharedClientRuntimeImpact || hasMaestroSpecific) {
       jobs.android.run = true;
       jobs.android.reasons.push(
-        hasAndroidSpecific
+        hasAndroidNativeSpecific
           ? 'android-specific files changed'
+          : hasSharedMobileReleaseSpecific
+            ? 'shared mobile release config changed'
           : hasMaestroSpecific
             ? 'maestro files changed'
             : 'shared client runtime surface impacted'
       );
       jobs['android-maestro-release'].run = true;
       jobs['android-maestro-release'].reasons.push(
-        hasAndroidSpecific
+        hasAndroidNativeSpecific
           ? 'android files changed'
+          : hasSharedMobileReleaseSpecific
+            ? 'shared mobile release config changed'
           : hasMaestroSpecific
             ? 'maestro files changed'
             : 'shared client runtime surface impacted'
       );
     }
 
-    if (hasIosSpecific || hasClientRuntimeImpact || hasMaestroSpecific) {
+    if (hasIosSpecific || hasSharedClientRuntimeImpact || hasMaestroSpecific) {
       jobs['ios-maestro-release'].run = true;
       jobs['ios-maestro-release'].reasons.push(
-        hasIosSpecific
+        hasIosNativeSpecific
           ? 'ios files changed'
+          : hasSharedMobileReleaseSpecific
+            ? 'shared mobile release config changed'
           : hasMaestroSpecific
             ? 'maestro files changed'
             : 'shared client runtime surface impacted'

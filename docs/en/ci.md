@@ -90,7 +90,53 @@ Simulate with explicit files:
 pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "scripts/ciImpact/ciImpact.ts,.github/workflows/ci-gate.yml"
 ```
 
+Check for mapping drift between `ciImpact`, required workflows, and workflow files:
+
+```bash
+pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
+```
+
 ## Notes
 
 - If a commit changes only ignored paths (for example docs-only paths configured in workflow triggers), some workflows may not report.
 - `CI Gate` should be the merge requirement so merges are blocked only on relevant workflow outcomes for the PR.
+
+## Runbook
+
+When a workflow unexpectedly skipped or ran, use this flow:
+
+1. Reproduce the decision locally with explicit files:
+
+   ```bash
+   pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "path/a.ts,path/b.ts"
+   ```
+
+2. Inspect `jobs.<job>.run` and `jobs.<job>.reasons` in the JSON output.
+3. Derive gate expectations and verify workflow names:
+
+   ```bash
+   pnpm exec tsx scripts/ciImpact/requiredWorkflows.ts --files "path/a.ts,path/b.ts"
+   ```
+
+4. Validate mapping drift:
+
+   ```bash
+   pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
+   ```
+
+5. If behavior still looks wrong, check nightly validation output in `CI Impact Validation` workflow artifacts.
+
+Safe tuning guidance:
+
+- Keep fail-open behavior for ambiguous files (prefer extra runs over missed runs).
+- Update `scripts/ciImpact/job-groups.json` and logic in `scripts/ciImpact/ciImpact.ts` together.
+- Add or update scenario tests in:
+  - `scripts/ciImpact/ciImpact.test.ts`
+  - `scripts/ciImpact/requiredWorkflows.test.ts`
+- Re-run drift + coverage checks before merging:
+
+  ```bash
+  pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
+  node --import tsx --test scripts/ciImpact/ciImpact.test.ts scripts/ciImpact/requiredWorkflows.test.ts
+  pnpm dlx c8 --reporter=text-summary node --import tsx --test scripts/ciImpact/ciImpact.test.ts scripts/ciImpact/requiredWorkflows.test.ts
+  ```

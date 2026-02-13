@@ -31,6 +31,9 @@ jobs:
       - name: Install tsx
         run: pnpm add -g tsx
 
+      - name: Validate ciImpact workflow mapping
+        run: tsx scripts/ciImpact/checkWorkflowDrift.ts
+
       - name: Compute ciImpact required workflows
         id: compute
         run: |
