@@ -32,8 +32,6 @@
     { "path": "./packages/businesses/tsconfig.test.json" },
     { "path": "./packages/contacts" },
     { "path": "./packages/contacts/tsconfig.test.json" },
-    { "path": "./packages/wallet" },
-    { "path": "./packages/wallet/tsconfig.test.json" },
     { "path": "./packages/api" },
     { "path": "./packages/api/tsconfig.test.json" },
     { "path": "./packages/cli" },
