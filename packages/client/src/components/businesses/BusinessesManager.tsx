@@ -1,6 +1,16 @@
 import { normalizeBusinessIdentifiers } from '@tearleads/businesses';
-import { Building2, CircleAlert, CircleCheckBig } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
+import {
+  Building2,
+  ChevronDown,
+  ChevronUp,
+  CircleAlert,
+  CircleCheckBig
+} from 'lucide-react';
+import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -17,10 +27,57 @@ interface BusinessFormErrors {
   ein?: string;
 }
 
+type SortColumn = 'name' | 'dunsNumber' | 'ein' | 'status';
+type SortDirection = 'asc' | 'desc';
+
 const EMPTY_VALUE_LABEL = 'N/A';
 
 function createBusinessId(): string {
   return crypto.randomUUID();
+}
+
+function formatDunsNumber(value?: string): string {
+  if (!value) {
+    return EMPTY_VALUE_LABEL;
+  }
+
+  return `${value.slice(0, 2)}-${value.slice(2, 5)}-${value.slice(5)}`;
+}
+
+function formatEin(value?: string): string {
+  if (!value) {
+    return EMPTY_VALUE_LABEL;
+  }
+
+  return `${value.slice(0, 2)}-${value.slice(2)}`;
+}
+
+function hasValidIdentifier(business: BusinessRecord): boolean {
+  return Boolean(business.dunsNumber || business.ein);
+}
+
+function compareTextValues(left: string, right: string): number {
+  return left.localeCompare(right, undefined, {
+    numeric: true,
+    sensitivity: 'base'
+  });
+}
+
+function compareOptionalValues(left?: string, right?: string): number {
+  const leftValue = left ?? '';
+  const rightValue = right ?? '';
+
+  if (leftValue.length === 0 && rightValue.length === 0) {
+    return 0;
+  }
+  if (leftValue.length === 0) {
+    return 1;
+  }
+  if (rightValue.length === 0) {
+    return -1;
+  }
+
+  return compareTextValues(leftValue, rightValue);
 }
 
 export function BusinessesManager() {
@@ -29,6 +86,8 @@ export function BusinessesManager() {
   const [ein, setEin] = useState('');
   const [errors, setErrors] = useState<BusinessFormErrors>({});
   const [businesses, setBusinesses] = useState<BusinessRecord[]>([]);
+  const [sortColumn, setSortColumn] = useState<SortColumn>('name');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const handleSubmit = useCallback(
     (event: React.FormEvent<HTMLFormElement>) => {
@@ -73,6 +132,67 @@ export function BusinessesManager() {
       setEin('');
     },
     [dunsNumber, ein, name]
+  );
+
+  const handleSortChange = useCallback((column: SortColumn) => {
+    setSortColumn((currentColumn) => {
+      if (currentColumn === column) {
+        setSortDirection((currentDirection) =>
+          currentDirection === 'asc' ? 'desc' : 'asc'
+        );
+        return currentColumn;
+      }
+
+      setSortDirection('asc');
+      return column;
+    });
+  }, []);
+
+  const sortedBusinesses = useMemo(() => {
+    const entries = [...businesses];
+
+    entries.sort((left, right) => {
+      const sortResult = (() => {
+        switch (sortColumn) {
+          case 'name':
+            return compareTextValues(left.name, right.name);
+          case 'dunsNumber':
+            return compareOptionalValues(left.dunsNumber, right.dunsNumber);
+          case 'ein':
+            return compareOptionalValues(left.ein, right.ein);
+          case 'status': {
+            const leftStatus = Number(hasValidIdentifier(left));
+            const rightStatus = Number(hasValidIdentifier(right));
+            return leftStatus - rightStatus;
+          }
+          default:
+            return 0;
+        }
+      })();
+
+      if (sortResult === 0) {
+        return compareTextValues(left.name, right.name);
+      }
+
+      return sortDirection === 'asc' ? sortResult : -sortResult;
+    });
+
+    return entries;
+  }, [businesses, sortColumn, sortDirection]);
+
+  const getSortIcon = useCallback(
+    (column: SortColumn) => {
+      if (sortColumn !== column) {
+        return null;
+      }
+
+      return sortDirection === 'asc' ? (
+        <ChevronUp className="h-3 w-3" />
+      ) : (
+        <ChevronDown className="h-3 w-3" />
+      );
+    },
+    [sortColumn, sortDirection]
   );
 
   return (
@@ -143,7 +263,7 @@ export function BusinessesManager() {
         </div>
       </form>
 
-      <section className="min-h-0 flex-1 overflow-auto rounded-md border">
+      <section className="min-h-0 flex-1 overflow-hidden rounded-md border">
         {businesses.length === 0 ? (
           <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <Building2 className="h-5 w-5" />
@@ -151,34 +271,85 @@ export function BusinessesManager() {
             <p className="text-sm">Add your first business above.</p>
           </div>
         ) : (
-          <div className="divide-y">
-            {businesses.map((business) => {
-              const duns = business.dunsNumber
-                ? `${business.dunsNumber.slice(0, 2)}-${business.dunsNumber.slice(2, 5)}-${business.dunsNumber.slice(5)}`
-                : EMPTY_VALUE_LABEL;
-              const formattedEin = business.ein
-                ? `${business.ein.slice(0, 2)}-${business.ein.slice(2)}`
-                : EMPTY_VALUE_LABEL;
-
-              return (
-                <article
-                  key={business.id}
-                  className="grid grid-cols-1 gap-2 p-3 md:grid-cols-[1fr_auto_auto_auto]"
-                >
-                  <div className="font-medium">{business.name}</div>
-                  <div className="text-muted-foreground text-sm">{duns}</div>
-                  <div className="text-muted-foreground text-sm">
-                    {formattedEin}
-                  </div>
-                  {business.dunsNumber || business.ein ? (
-                    <div className="flex items-center gap-1 text-emerald-700 text-xs dark:text-emerald-400">
-                      <CircleCheckBig className="h-3.5 w-3.5" />
-                      Valid
-                    </div>
-                  ) : null}
-                </article>
-              );
-            })}
+          <div className="h-full overflow-auto" data-testid="businesses-table">
+            <table
+              className={WINDOW_TABLE_TYPOGRAPHY.table}
+              aria-label="Businesses table"
+            >
+              <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
+                <tr>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-left font-medium hover:text-foreground"
+                      onClick={() => handleSortChange('name')}
+                    >
+                      Business Name
+                      {getSortIcon('name')}
+                    </button>
+                  </th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-left font-medium hover:text-foreground"
+                      onClick={() => handleSortChange('dunsNumber')}
+                    >
+                      DUNS Number
+                      {getSortIcon('dunsNumber')}
+                    </button>
+                  </th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-left font-medium hover:text-foreground"
+                      onClick={() => handleSortChange('ein')}
+                    >
+                      EIN
+                      {getSortIcon('ein')}
+                    </button>
+                  </th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    <button
+                      type="button"
+                      className="flex items-center gap-1 text-left font-medium hover:text-foreground"
+                      onClick={() => handleSortChange('status')}
+                    >
+                      Status
+                      {getSortIcon('status')}
+                    </button>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {sortedBusinesses.map((business) => (
+                  <WindowTableRow key={business.id}>
+                    <td
+                      className={`${WINDOW_TABLE_TYPOGRAPHY.cell} font-medium`}
+                    >
+                      {business.name}
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      {formatDunsNumber(business.dunsNumber)}
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                      {formatEin(business.ein)}
+                    </td>
+                    <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                      {hasValidIdentifier(business) ? (
+                        <span className="flex items-center gap-1 text-emerald-700 text-xs dark:text-emerald-400">
+                          <CircleCheckBig className="h-3.5 w-3.5" />
+                          Valid
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">
+                          {EMPTY_VALUE_LABEL}
+                        </span>
+                      )}
+                    </td>
+                  </WindowTableRow>
+                ))}
+              </tbody>
+            </table>
           </div>
         )}
       </section>
