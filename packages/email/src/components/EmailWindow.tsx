@@ -295,13 +295,6 @@ export function EmailWindow({
               ) : selectedEmailId && selectedEmail ? (
                 <div className="flex h-full flex-col">
                   <div className="border-b p-3">
-                    <button
-                      type="button"
-                      onClick={handleBackToInbox}
-                      className="mb-2 text-muted-foreground text-xs hover:text-foreground"
-                    >
-                      &larr; Back to Inbox
-                    </button>
                     <h2 className="font-medium text-sm">
                       {selectedEmail.subject || '(No Subject)'}
                     </h2>

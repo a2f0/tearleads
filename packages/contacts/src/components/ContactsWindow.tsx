@@ -183,7 +183,6 @@ export function ContactsWindow({
       return (
         <ContactsWindowDetail
           contactId={selectedContactId}
-          onBack={handleBack}
           onDeleted={handleDeleted}
         />
       );

@@ -89,18 +89,13 @@ vi.mock('./ContactsWindowTableView', () => ({
 
 vi.mock('./ContactsWindowDetail', () => ({
   ContactsWindowDetail: ({
-    contactId,
-    onBack
+    contactId
   }: {
     contactId: string;
-    onBack: () => void;
     onDeleted: () => void;
   }) => (
     <div data-testid="contacts-detail">
       <span data-testid="contact-id">{contactId}</span>
-      <button type="button" data-testid="detail-back" onClick={onBack}>
-        Back
-      </button>
     </div>
   )
 }));

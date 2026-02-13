@@ -314,7 +314,9 @@ describe('EmailWindow', () => {
     await user.click(screen.getByText('Test Subject'));
 
     await waitFor(() => {
-      expect(screen.getByText(/Back to Inbox/)).toBeInTheDocument();
+      expect(
+        screen.getByTestId('email-window-control-back')
+      ).toBeInTheDocument();
     });
 
     expect(screen.getByText('From: sender@example.com')).toBeInTheDocument();
@@ -338,16 +340,20 @@ describe('EmailWindow', () => {
     await user.click(screen.getByText('Test Subject'));
 
     await waitFor(() => {
-      expect(screen.getByText(/Back to Inbox/)).toBeInTheDocument();
+      expect(
+        screen.getByTestId('email-window-control-back')
+      ).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText(/Back to Inbox/));
+    await user.click(screen.getByTestId('email-window-control-back'));
 
     await waitFor(() => {
       expect(screen.getByTestId('window-title')).toHaveTextContent('All Mail');
     });
 
-    expect(screen.queryByText(/Back to Inbox/)).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('email-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('renders table view when view mode is switched', async () => {

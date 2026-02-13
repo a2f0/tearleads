@@ -1,7 +1,6 @@
 import { contactEmails, contactPhones, contacts } from '@tearleads/db/sqlite';
 import { and, asc, desc, eq } from 'drizzle-orm';
 import {
-  ArrowLeft,
   Cake,
   Calendar,
   Loader2,
@@ -70,13 +69,11 @@ interface PhoneFormData {
 
 interface ContactsWindowDetailProps {
   contactId: string;
-  onBack: () => void;
   onDeleted: () => void;
 }
 
 export function ContactsWindowDetail({
   contactId,
-  onBack,
   onDeleted
 }: ContactsWindowDetailProps) {
   const { databaseState, getDatabase, formatDate } = useContactsContext();
@@ -357,15 +354,6 @@ export function ContactsWindowDetail({
   return (
     <div className="flex h-full flex-col overflow-auto p-3">
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="h-7 px-2"
-          data-testid="window-contact-back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
         {contact && !isEditing && (
           <div className="ml-auto flex items-center gap-1">
             <Button
