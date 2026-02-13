@@ -38,11 +38,6 @@ if [ -z "$DIFF" ]; then
   exit 1
 fi
 
-# Build the review prompt
-PROMPT="Review this PR diff for code quality, bugs, security issues, and style. Be concise and actionable. Output your review to stdout.
-
-Branch: $BRANCH
-PR: #$PR_NUMBER"
-
 # Run Codex review in non-interactive mode (outputs to stdout)
-exec "$ROOT_DIR/scripts/codex.sh" review --base main "$PROMPT"
+# --base and [PROMPT] are mutually exclusive; use --base for the diff, --title for context
+"$ROOT_DIR/scripts/codex.sh" review --base main --title "PR #$PR_NUMBER ($BRANCH)"

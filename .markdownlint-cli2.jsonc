@@ -16,6 +16,7 @@
     "**/Pods",
     "**/fastlane/README.md",
     "**/playwright-report",
-    "**/test-results"
+    "**/test-results",
+    ".claude/commands/skills/.system"
   ]
 }

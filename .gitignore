@@ -79,3 +79,6 @@ coverage/
 
 # Serena MCP local project state
 .serena/
+
+# Codex system skills (local-only)
+.claude/commands/skills/.system/
