@@ -1,3 +1,4 @@
+import { IconSquare } from '@tearleads/ui';
 import {
   CodeXml,
   Download,
@@ -9,7 +10,6 @@ import {
   Shirt,
   TerminalSquare
 } from 'lucide-react';
-import { GridSquare } from '@/components/ui/grid-square';
 import type { HelpDocId } from '@/constants/help';
 
 interface HelpLinksGridProps {
@@ -76,24 +76,13 @@ export function HelpLinksGrid({
   if (view === 'topLevel') {
     return (
       <>
-        <GridSquare onClick={onApiDocsClick}>
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-            <FileText className="h-12 w-12 text-muted-foreground" />
-            <span className="text-center font-medium text-sm">API Docs</span>
-          </div>
-        </GridSquare>
-        <GridSquare onClick={onDeveloperClick}>
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-            <CodeXml className="h-12 w-12 text-muted-foreground" />
-            <span className="text-center font-medium text-sm">Developer</span>
-          </div>
-        </GridSquare>
-        <GridSquare onClick={onLegalClick}>
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-            <Scale className="h-12 w-12 text-muted-foreground" />
-            <span className="text-center font-medium text-sm">Legal</span>
-          </div>
-        </GridSquare>
+        <IconSquare icon={FileText} label="API Docs" onClick={onApiDocsClick} />
+        <IconSquare
+          icon={CodeXml}
+          label="Developer"
+          onClick={onDeveloperClick}
+        />
+        <IconSquare icon={Scale} label="Legal" onClick={onLegalClick} />
       </>
     );
   }
@@ -102,12 +91,12 @@ export function HelpLinksGrid({
     return (
       <>
         {LEGAL_DOC_ITEMS.map(({ docId, label, Icon }) => (
-          <GridSquare key={label} onClick={() => onDocClick(docId)}>
-            <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-              <Icon className="h-12 w-12 text-muted-foreground" />
-              <span className="text-center font-medium text-sm">{label}</span>
-            </div>
-          </GridSquare>
+          <IconSquare
+            key={label}
+            icon={Icon}
+            label={label}
+            onClick={() => onDocClick(docId)}
+          />
         ))}
       </>
     );
@@ -116,12 +105,12 @@ export function HelpLinksGrid({
   return (
     <>
       {DEVELOPER_DOC_ITEMS.map(({ docId, label, Icon }) => (
-        <GridSquare key={label} onClick={() => onDocClick(docId)}>
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-            <Icon className="h-12 w-12 text-muted-foreground" />
-            <span className="text-center font-medium text-sm">{label}</span>
-          </div>
-        </GridSquare>
+        <IconSquare
+          key={label}
+          icon={Icon}
+          label={label}
+          onClick={() => onDocClick(docId)}
+        />
       ))}
     </>
   );

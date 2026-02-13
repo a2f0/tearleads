@@ -1,7 +1,11 @@
 import type { PostgresTableInfo } from '@tearleads/shared';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { LinkWithFrom } from '@/components/ui/back-link/LinkWithFrom';
+import { useNavigate } from 'react-router-dom';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { api } from '@/lib/api';
 
@@ -25,9 +29,23 @@ interface PostgresTableSizesProps {
 }
 
 export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
+  const navigate = useNavigate();
   const [tables, setTables] = useState<PostgresTableInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const handleTableClick = useCallback(
+    (schema: string, name: string) => {
+      if (onTableSelect) {
+        onTableSelect(schema, name);
+      } else {
+        navigate(
+          `/admin/postgres/tables/${encodeURIComponent(schema)}/${encodeURIComponent(name)}`
+        );
+      }
+    },
+    [onTableSelect, navigate]
+  );
 
   const totalBytes = useMemo(
     () => tables.reduce((sum, table) => sum + table.totalBytes, 0),
@@ -96,52 +114,62 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
               No tables found
             </div>
           ) : (
-            <div className="space-y-1">
-              <div className="grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 border-b pb-1 font-medium text-muted-foreground text-xs">
-                <span>Table</span>
-                <span className="text-right">Size</span>
-                <span className="text-right">Rows</span>
-              </div>
-              {tables.map((table) => {
-                const label = `${table.schema}.${table.name}`;
-                const tablePath = `/admin/postgres/tables/${encodeURIComponent(table.schema)}/${encodeURIComponent(table.name)}`;
-                const rowClassName =
-                  'group grid w-full grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-3 rounded px-2 py-1 hover:bg-accent';
-                const rowContent = (
-                  <>
-                    <span className="truncate font-mono text-muted-foreground group-hover:text-foreground">
-                      {label}
-                    </span>
-                    <span className="shrink-0 text-right font-mono text-xs">
-                      {formatBytes(table.totalBytes)}
-                    </span>
-                    <span className="shrink-0 text-right font-mono text-xs">
-                      {formatRowCount(table.rowCount)}
-                    </span>
-                  </>
-                );
-                return (
-                  <div key={label}>
-                    {onTableSelect ? (
-                      <button
-                        type="button"
-                        onClick={() => onTableSelect(table.schema, table.name)}
-                        className={`${rowClassName} text-left`}
+            <div className="overflow-auto rounded-lg border">
+              <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+                <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
+                  <tr>
+                    <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                      Table
+                    </th>
+                    <th
+                      className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
+                    >
+                      Size
+                    </th>
+                    <th
+                      className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
+                    >
+                      Rows
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tables.map((table) => {
+                    const label = `${table.schema}.${table.name}`;
+                    return (
+                      <WindowTableRow
+                        key={label}
+                        onClick={() =>
+                          handleTableClick(table.schema, table.name)
+                        }
+                        tabIndex={0}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            handleTableClick(table.schema, table.name);
+                          }
+                        }}
                       >
-                        {rowContent}
-                      </button>
-                    ) : (
-                      <LinkWithFrom
-                        to={tablePath}
-                        fromLabel="Back to Postgres"
-                        className={rowClassName}
-                      >
-                        {rowContent}
-                      </LinkWithFrom>
-                    )}
-                  </div>
-                );
-              })}
+                        <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                          <span className="font-mono text-muted-foreground">
+                            {label}
+                          </span>
+                        </td>
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} text-right font-mono`}
+                        >
+                          {formatBytes(table.totalBytes)}
+                        </td>
+                        <td
+                          className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} text-right font-mono`}
+                        >
+                          {formatRowCount(table.rowCount)}
+                        </td>
+                      </WindowTableRow>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

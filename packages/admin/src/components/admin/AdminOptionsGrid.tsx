@@ -1,6 +1,5 @@
+import { cn, IconSquare } from '@tearleads/ui';
 import { Database } from 'lucide-react';
-import { GridSquare } from '@/components/ui/grid-square';
-import { cn } from '@/lib/utils';
 
 const ADMIN_OPTIONS = [
   { id: 'redis', label: 'Redis' },
@@ -24,19 +23,17 @@ export function AdminOptionsGrid({
   return (
     <div
       className={cn(
-        'grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4',
+        'grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6',
         gridClassName
       )}
     >
       {ADMIN_OPTIONS.map((option) => (
-        <GridSquare key={option.id} onClick={() => onSelect(option.id)}>
-          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
-            <Database className="h-12 w-12 text-muted-foreground" />
-            <span className="text-center font-medium text-sm">
-              {option.label}
-            </span>
-          </div>
-        </GridSquare>
+        <IconSquare
+          key={option.id}
+          icon={Database}
+          label={option.label}
+          onClick={() => onSelect(option.id)}
+        />
       ))}
     </div>
   );

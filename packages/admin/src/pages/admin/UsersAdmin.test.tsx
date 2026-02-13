@@ -75,9 +75,9 @@ describe('UsersAdmin', () => {
     ).toBeInTheDocument();
     expect(await screen.findByText('admin@example.com')).toBeVisible();
     expect(screen.getByText('regular@example.com')).toBeVisible();
-    expect(screen.getByText('Account Created')).toBeInTheDocument();
+    expect(screen.getByText('Created')).toBeInTheDocument();
     expect(screen.getByText('Last Active')).toBeInTheDocument();
-    expect(screen.getByText('Total Tokens')).toBeInTheDocument();
+    expect(screen.getByText('Tokens')).toBeInTheDocument();
     expect(screen.getAllByText('—').length).toBeGreaterThan(0);
   });
 

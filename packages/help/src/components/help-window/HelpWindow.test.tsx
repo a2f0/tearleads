@@ -29,6 +29,11 @@ vi.mock('@tearleads/api/dist/openapi.json', () => ({
 vi.mock('@tearleads/ui', () => ({
   ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
     <div data-testid="api-docs">{spec.info.title}</div>
+  ),
+  IconSquare: ({ label, onClick }: { label: string; onClick?: () => void }) => (
+    <button type="button" onClick={onClick} data-testid="icon-square">
+      {label}
+    </button>
   )
 }));
 
@@ -50,20 +55,6 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('../help-links/HelpDocumentation', () => ({
   HelpDocumentation: ({ docId }: { docId: string }) => (
     <div data-testid="help-documentation">{docId}</div>
-  )
-}));
-
-vi.mock('@/components/ui/grid-square', () => ({
-  GridSquare: ({
-    children,
-    onClick
-  }: {
-    children: React.ReactNode;
-    onClick?: () => void;
-  }) => (
-    <button type="button" onClick={onClick} data-testid="grid-square">
-      {children}
-    </button>
   )
 }));
 
