@@ -77,9 +77,9 @@ export function OrganizationsAdmin({
         key={refreshKey}
         onOrganizationSelect={onOrganizationSelect}
         organizationId={selectedOrganizationId}
-        {...(canCreateOrganization
-          ? { onCreateClick: () => setCreateDialogOpen(true) }
-          : {})}
+        onCreateClick={
+          canCreateOrganization ? () => setCreateDialogOpen(true) : undefined
+        }
       />
       {canCreateOrganization ? (
         <CreateOrganizationDialog

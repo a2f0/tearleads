@@ -72,9 +72,7 @@ export function GroupsAdmin({
         key={refreshKey}
         onGroupSelect={onGroupSelect}
         organizationId={selectedOrganizationId}
-        {...(canCreateGroup
-          ? { onCreateClick: () => setCreateDialogOpen(true) }
-          : {})}
+        onCreateClick={canCreateGroup ? () => setCreateDialogOpen(true) : undefined}
       />
       <CreateGroupDialog
         open={createDialogOpen}
