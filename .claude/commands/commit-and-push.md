@@ -4,6 +4,18 @@ description: Commit staged changes and push to remote using conventional commits
 
 # Commit and Push
 
+**First**: Determine the repository for all `gh` commands:
+
+```bash
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+```
+
+Use `-R "$REPO"` with all `gh` commands in this skill.
+
+Track these state flags during execution:
+
+- `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini returns its daily quota message.
+- `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback cross-agent review.
 Commit and push the current changes following these rules:
 
 1. **Check branch**: If on `main`, create a new branch with an appropriate name based on the changes. After creating or switching branches, update the VS Code title:
@@ -80,23 +92,34 @@ Commit and push the current changes following these rules:
 
 7. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 
-8. **Check for quota exhaustion**: After waiting, check Gemini's response for quota limit:
+8. **Check for quota exhaustion**: After waiting, check Gemini responses for quota limit:
 
-   ```bash
-   ./scripts/agents/tooling/agentTool.ts getPrInfo --fields comments
-   ```
+```bash
+   QUOTA_MSG="You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!"
+   (
+     gh pr view "$PR_NUMBER" -R "$REPO" --json reviews --jq '.reviews[].body' 2>/dev/null
+     gh api "/repos/$REPO/pulls/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null
+     gh api "/repos/$REPO/issues/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null
+   ) | rg -F "$QUOTA_MSG"
+```
 
-   Parse the comments to find `gemini-code-assist` responses. If the response contains "You have reached your daily quota limit":
-   - Fall back to Codex review:
+If that quota message is found at any point:
+- Set `gemini_quota_exhausted=true`.
+- If `used_fallback_agent_review=false`, run one fallback review via cross-agent review (Codex):
 
-     ```bash
-     ./scripts/agents/tooling/agentTool.ts solicitCodexReview
-     ```
+```bash
+# Equivalent skill invocation: /cross-agent-review codex
+./scripts/agents/tooling/agentTool.ts solicitCodexReview
+```
 
-   - Skip `/address-gemini-feedback` (no Gemini feedback to address)
-   - Proceed to `/enter-merge-queue` or end the skill
+- Set `used_fallback_agent_review=true`.
+- Skip further Gemini follow-ups for this run.
+- Proceed to `/enter-merge-queue` or end the skill
 
-9. **Address feedback**: If Gemini did not hit quota, run `/address-gemini-feedback` to handle unresolved comments.
+9. **Address feedback**: If `gemini_quota_exhausted=false`, run `/address-gemini-feedback` to handle unresolved comments.
+
+   - Re-run the same quota check after each Gemini interaction (including follow-up replies). Quota exhaustion can appear after an initial review was already posted.
+   - If quota is detected later, immediately apply step 8 fallback behavior and stop Gemini-specific follow-ups.
 
    **IMPORTANT**: When replying to Gemini comments, use the agentTool wrappers:
 

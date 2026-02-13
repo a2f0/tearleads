@@ -17,6 +17,11 @@ REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
 
 Always pass `-R "$REPO"` to `gh` commands.
 
+Track these state flags during execution:
+
+- `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini returns its daily quota message.
+- `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback cross-agent review.
+
 ## Workflow
 
 1. Check branch:
@@ -98,10 +103,37 @@ Always pass `-R "$REPO"` to `gh` commands.
 7. Wait for Gemini:
    - Wait 60 seconds for Gemini Code Assist to review.
 
-8. Address feedback:
-   - Run `/address-gemini-feedback` for unresolved comments.
+8. Check for quota exhaustion:
+   - Gemini quota exhaustion can happen during the initial wait OR later follow-up interactions.
+   - Check all Gemini response surfaces for the quota message:
+
+   ```bash
+   QUOTA_MSG="You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!"
+   (
+     gh pr view "$PR_NUMBER" -R "$REPO" --json reviews --jq '.reviews[].body' 2>/dev/null
+     gh api "/repos/$REPO/pulls/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null
+     gh api "/repos/$REPO/issues/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null
+   ) | rg -F "$QUOTA_MSG"
+   ```
+
+   - If found:
+     - Set `gemini_quota_exhausted=true`.
+     - If `used_fallback_agent_review=false`, run one fallback cross-agent review (Claude Code):
+
+     ```bash
+     # Equivalent skill invocation: /cross-agent-review claude
+     ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+     ```
+
+     - Set `used_fallback_agent_review=true`.
+     - Skip further Gemini follow-ups for this run.
+     - Proceed to `/enter-merge-queue` or end the skill.
+
+9. Address feedback:
+   - If `gemini_quota_exhausted=false`, run `/address-gemini-feedback` for unresolved comments.
    - Reply to Gemini with `./scripts/agents/tooling/agentTool.ts replyToGemini --number <pr> --comment-id <id> --commit <sha>` (not `gh pr review`).
    - Use `replyToComment` only for custom non-fix responses.
+   - Re-run step 8 after each Gemini interaction. If quota appears later, switch to fallback immediately.
 
 ## Token Efficiency (CRITICAL)
 
