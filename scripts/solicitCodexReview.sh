@@ -23,21 +23,31 @@ if [ "$BRANCH" = "main" ]; then
 fi
 
 # Check if there's an associated PR
-PR_NUMBER=$(gh pr view --json number -q .number 2>/dev/null || echo "")
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
+
+if [ -z "$REPO" ]; then
+  echo "Error: Could not determine repository. Ensure gh is authenticated." >&2
+  exit 1
+fi
+
+PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO" 2>/dev/null || echo "")
 
 if [ -z "$PR_NUMBER" ]; then
   echo "Error: No PR found for branch '$BRANCH'. Create a PR first." >&2
   exit 1
 fi
 
-# Ensure there are changes against main
-DIFF=$(git diff main...HEAD)
+# Resolve the actual PR base branch (supports roll-up PRs not targeting main)
+BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+
+# Ensure there are changes against PR base
+DIFF=$(git diff "$BASE_REF"...HEAD)
 
 if [ -z "$DIFF" ]; then
-  echo "Error: No changes found between main and current branch." >&2
+  echo "Error: No changes found between $BASE_REF and current branch." >&2
   exit 1
 fi
 
 # Run Codex review in non-interactive mode (outputs to stdout)
 # --base and [PROMPT] are mutually exclusive; use --base for the diff, --title for context
-CODEX_HOME="$ROOT_DIR/.claude/commands" codex review --base main --title "PR #$PR_NUMBER ($BRANCH)"
+CODEX_HOME="${CODEX_HOME:-$ROOT_DIR/.claude/commands}" codex review --base "$BASE_REF" --title "PR #$PR_NUMBER ($BRANCH)"
