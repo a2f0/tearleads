@@ -37,7 +37,7 @@ If the response contains "You have reached your daily quota limit":
 - Fall back to Codex review:
 
   ```bash
-  ./scripts/agents/tooling/agentTool.sh solicitCodexReview
+  ./scripts/agents/tooling/agentTool.ts solicitCodexReview
   ```
 
 - Skip the remaining steps (no Gemini feedback to address)

@@ -46,7 +46,7 @@ If at any point Gemini responds with quota exhaustion ("You have reached your da
 - Fall back to Codex review:
 
   ```bash
-  ./scripts/agents/tooling/agentTool.sh solicitCodexReview
+  ./scripts/agents/tooling/agentTool.ts solicitCodexReview
   ```
 
 - Skip waiting for Gemini's response

@@ -49,8 +49,8 @@ Legend:
 
 | Script | Decision | Wrapped | Wrapper Notes |
 | --- | --- | --- | --- |
-| `scripts/agents/refresh.sh` | Now | ✅ | `agentTool.sh refresh` |
-| `scripts/agents/setVscodeTitle.sh` | Now | ✅ | `agentTool.sh setVscodeTitle [--title <value>]` |
+| `scripts/agents/refresh.sh` | Now | ✅ | `agentTool.ts refresh` |
+| `scripts/agents/setVscodeTitle.sh` | Now | ✅ | `agentTool.ts setVscodeTitle [--title <value>]` |
 | `scripts/agents/title-lib.sh` | Manual | N/A | Library, not entrypoint |
 
 ### scripts
@@ -174,7 +174,7 @@ Required behavior:
 
 Phase 1 (immediate): ✅ COMPLETE (PR #1571)
 
-- Toolized all `scripts/agents/*` → `scripts/agents/tooling/agentTool.sh`
+- Toolized all `scripts/agents/*` → `scripts/agents/tooling/agentTool.ts`
   - Actions: `refresh`, `setVscodeTitle`, `solicitCodexReview`, `solicitClaudeCodeReview`
 
 Phase 2 (safe utilities): ✅ COMPLETE (PR #1596)
@@ -191,7 +191,7 @@ Phase 3 (env/device/bootstrap):
 
 Phase 4 (GitHub API patterns from skills): 🔄 IN PROGRESS (PR #1623)
 
-- Extract repeated `gh` CLI and GraphQL patterns from skills into `agentTool.sh` actions
+- Extract repeated `gh` CLI and GraphQL patterns from skills into `agentTool.ts` actions
 - ✅ High-priority actions implemented: `getPrInfo`, `getReviewThreads`, `replyToComment`, `resolveThread`, `getCiStatus`, `cancelWorkflow`, `rerunWorkflow`
 - ✅ Medium-priority actions implemented: `downloadArtifact`, `enableAutoMerge`, `findPrForBranch`, `listHighPriorityPrs`, `triggerGeminiReview`, `findDeferredWork`
 - ✅ Token Efficiency sections added to all 18 skills
@@ -200,18 +200,18 @@ Phase 4 (GitHub API patterns from skills): 🔄 IN PROGRESS (PR #1623)
 
 ## Wrapper Usage (Phase 1 + 2)
 
-### Agent Workspace Tools (`agentTool.sh`)
+### Agent Workspace Tools (`agentTool.ts`)
 
 ```bash
 # Set VS Code window title
-./scripts/agents/tooling/agentTool.sh setVscodeTitle
+./scripts/agents/tooling/agentTool.ts setVscodeTitle
 
 # Refresh workspace (switch to main, pull latest)
-./scripts/agents/tooling/agentTool.sh refresh
+./scripts/agents/tooling/agentTool.ts refresh
 
 # Request code review from another agent
-./scripts/agents/tooling/agentTool.sh solicitCodexReview
-./scripts/agents/tooling/agentTool.sh solicitClaudeCodeReview
+./scripts/agents/tooling/agentTool.ts solicitCodexReview
+./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
 ```
 
 ### CI/Testing Tools (`scriptTool.sh`)
@@ -251,31 +251,31 @@ Both wrappers support:
 
 ## Skill API Pattern Extraction (Phase 4)
 
-Raw `gh` CLI and GraphQL patterns found in `.claude/commands/` skills that should be extracted into `agentTool.sh` actions for consistency, token efficiency, and error handling.
+Raw `gh` CLI and GraphQL patterns found in `.claude/commands/` skills that should be extracted into `agentTool.ts` actions for consistency, token efficiency, and error handling.
 
 ### High Priority (cross-skill patterns)
 
 | Pattern | Skills Using It | Proposed Action | Args |
 | --- | --- | --- | --- |
-| Get PR info | solicit-gemini-review, fix-tests, address-gemini-feedback, follow-up-with-gemini, enter-merge-queue, commit-and-push | `agentTool.sh getPrInfo` | `[--fields <comma-sep>]` |
-| Get review threads (GraphQL) | address-gemini-feedback, follow-up-with-gemini | `agentTool.sh getReviewThreads` | `--number <pr> [--unresolved-only]` |
-| Reply to Gemini feedback in-thread (commit-hash template) | follow-up-with-gemini, enter-merge-queue, address-gemini-feedback | `agentTool.sh replyToGemini` | `--number <pr> --comment-id <id> --commit <sha>` |
-| Reply to PR comment in-thread (custom body) | follow-up-with-gemini, enter-merge-queue | `agentTool.sh replyToComment` | `--number <pr> --comment-id <id> --body <message>` |
-| Resolve review thread | follow-up-with-gemini | `agentTool.sh resolveThread` | `--thread-id <id>` |
-| Get CI run/job status | fix-tests, enter-merge-queue | `agentTool.sh getCiStatus` | `[--commit <sha>] [--run-id <id>]` |
-| Cancel workflow run | fix-tests, enter-merge-queue | `agentTool.sh cancelWorkflow` | `--run-id <id>` |
-| Rerun workflow | fix-tests, enter-merge-queue | `agentTool.sh rerunWorkflow` | `--run-id <id>` |
+| Get PR info | solicit-gemini-review, fix-tests, address-gemini-feedback, follow-up-with-gemini, enter-merge-queue, commit-and-push | `agentTool.ts getPrInfo` | `[--fields <comma-sep>]` |
+| Get review threads (GraphQL) | address-gemini-feedback, follow-up-with-gemini | `agentTool.ts getReviewThreads` | `--number <pr> [--unresolved-only]` |
+| Reply to Gemini feedback in-thread (commit-hash template) | follow-up-with-gemini, enter-merge-queue, address-gemini-feedback | `agentTool.ts replyToGemini` | `--number <pr> --comment-id <id> --commit <sha>` |
+| Reply to PR comment in-thread (custom body) | follow-up-with-gemini, enter-merge-queue | `agentTool.ts replyToComment` | `--number <pr> --comment-id <id> --body <message>` |
+| Resolve review thread | follow-up-with-gemini | `agentTool.ts resolveThread` | `--thread-id <id>` |
+| Get CI run/job status | fix-tests, enter-merge-queue | `agentTool.ts getCiStatus` | `[--commit <sha>] [--run-id <id>]` |
+| Cancel workflow run | fix-tests, enter-merge-queue | `agentTool.ts cancelWorkflow` | `--run-id <id>` |
+| Rerun workflow | fix-tests, enter-merge-queue | `agentTool.ts rerunWorkflow` | `--run-id <id>` |
 
 ### Medium Priority (single-skill but complex)
 
 | Pattern | Skill | Proposed Action | Args |
 | --- | --- | --- | --- |
-| Download CI artifact | fix-tests | `agentTool.sh downloadArtifact` | `--run-id <id> --name <artifact> --dest <path>` |
-| Enable auto-merge | enter-merge-queue | `agentTool.sh enableAutoMerge` | `--number <pr>` |
-| Find PR for branch | enter-merge-queue | `agentTool.sh findPrForBranch` | `--branch <name> [--state <open\|merged>]` |
-| List high-priority PRs | enter-merge-queue | `agentTool.sh listHighPriorityPrs` | (none) |
-| Post Gemini review + poll | solicit-gemini-review | `agentTool.sh triggerGeminiReview` | `--number <pr> [--poll-timeout <seconds>]` |
-| Find deferred work in PR | preen-deferred-fixes | `agentTool.sh findDeferredWork` | `--number <pr>` |
+| Download CI artifact | fix-tests | `agentTool.ts downloadArtifact` | `--run-id <id> --name <artifact> --dest <path>` |
+| Enable auto-merge | enter-merge-queue | `agentTool.ts enableAutoMerge` | `--number <pr>` |
+| Find PR for branch | enter-merge-queue | `agentTool.ts findPrForBranch` | `--branch <name> [--state <open\|merged>]` |
+| List high-priority PRs | enter-merge-queue | `agentTool.ts listHighPriorityPrs` | (none) |
+| Post Gemini review + poll | solicit-gemini-review | `agentTool.ts triggerGeminiReview` | `--number <pr> [--poll-timeout <seconds>]` |
+| Find deferred work in PR | preen-deferred-fixes | `agentTool.ts findDeferredWork` | `--number <pr>` |
 
 ### Benefits of Extraction
 
@@ -287,7 +287,7 @@ Raw `gh` CLI and GraphQL patterns found in `.claude/commands/` skills that shoul
 
 ### Implementation Notes
 
-- Add new actions to `scripts/agents/tooling/agentTool.sh`
+- Add new actions to `scripts/agents/tooling/agentTool.ts`
 - Each action follows the existing wrapper contract (structured JSON output, timeouts, dry-run support)
 - Update skills to use wrappers after implementation
 - GraphQL queries can be embedded in the wrapper script (no temp file needed)

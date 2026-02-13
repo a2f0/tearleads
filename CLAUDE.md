@@ -174,7 +174,7 @@ The `.claude/commands/` folder contains reusable skills (slash commands). Each w
 When working on PRs, tag them with the tuxedo instance (workspace folder name) to track which agent workspace worked on them. This is handled automatically by `/commit-and-push` and `/enter-merge-queue`, but can be invoked manually:
 
 ```bash
-./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance
+./scripts/agents/tooling/agentTool.ts tagPrWithTuxedoInstance
 ```
 
 This:

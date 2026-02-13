@@ -13,7 +13,7 @@ Add the `high-priority` label to the current PR so that other PRs in the merge q
 2. **Add the label**: Use the agent tool to add the `high-priority` label:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.sh addLabel --type pr --number <pr-number> --label "high-priority"
+   ./scripts/agents/tooling/agentTool.ts addLabel --type pr --number <pr-number> --label "high-priority"
    ```
 
    The script automatically checks if the label is already present and verifies success.

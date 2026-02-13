@@ -7,7 +7,7 @@ description: Refresh Workspace
 Run the workspace refresh script to update after a PR is merged.
 
 ```bash
-./scripts/agents/tooling/agentTool.sh refresh
+./scripts/agents/tooling/agentTool.ts refresh
 ```
 
 This script:
