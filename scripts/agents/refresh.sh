@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Refresh workspace after a PR is merged: switches to main, pulls latest,
 # installs dependencies, builds packages, then resets title to '<workspace> - main'.
 set -eu
