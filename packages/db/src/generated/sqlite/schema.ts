@@ -325,6 +325,89 @@ export const notes = sqliteTable(
 );
 
 /**
+ * Health exercises table for workout exercise selection.
+ */
+export const healthExercises = sqliteTable(
+  'health_exercises',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [index('health_exercises_name_idx').on(table.name)]
+);
+
+/**
+ * Health weight readings table for storing body weight measurements.
+ * Values are stored as centi-units to preserve decimal precision.
+ */
+export const healthWeightReadings = sqliteTable(
+  'health_weight_readings',
+  {
+    id: text('id').primaryKey(),
+    recordedAt: integer('recorded_at', { mode: 'timestamp_ms' }).notNull(),
+    valueCenti: integer('value_centi').notNull(),
+    unit: text('unit', {
+      enum: ['lb', 'kg']
+    })
+      .notNull()
+      .default('lb'),
+    note: text('note'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [
+    index('health_weight_readings_recorded_at_idx').on(table.recordedAt)
+  ]
+);
+
+/**
+ * Health blood pressure readings table for systolic/diastolic tracking.
+ */
+export const healthBloodPressureReadings = sqliteTable(
+  'health_blood_pressure_readings',
+  {
+    id: text('id').primaryKey(),
+    recordedAt: integer('recorded_at', { mode: 'timestamp_ms' }).notNull(),
+    systolic: integer('systolic').notNull(),
+    diastolic: integer('diastolic').notNull(),
+    pulse: integer('pulse'),
+    note: text('note'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [
+    index('health_blood_pressure_recorded_at_idx').on(table.recordedAt)
+  ]
+);
+
+/**
+ * Health workout entries table for exercise, reps, and weight tracking.
+ * Weight values are stored as centi-units to preserve decimal precision.
+ */
+export const healthWorkoutEntries = sqliteTable(
+  'health_workout_entries',
+  {
+    id: text('id').primaryKey(),
+    performedAt: integer('performed_at', { mode: 'timestamp_ms' }).notNull(),
+    exerciseId: text('exercise_id')
+      .notNull()
+      .references(() => healthExercises.id, { onDelete: 'restrict' }),
+    reps: integer('reps').notNull(),
+    weightCenti: integer('weight_centi').notNull(),
+    weightUnit: text('weight_unit', {
+      enum: ['lb', 'kg']
+    })
+      .notNull()
+      .default('lb'),
+    note: text('note'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [
+    index('health_workout_entries_performed_at_idx').on(table.performedAt),
+    index('health_workout_entries_exercise_idx').on(table.exerciseId)
+  ]
+);
+
+/**
  * Groups table for organizing users into named groups.
  */
 export const groups = sqliteTable(
@@ -992,6 +1075,10 @@ export const schema = {
   contactEmails,
   analyticsEvents,
   notes,
+  healthExercises,
+  healthWeightReadings,
+  healthBloodPressureReadings,
+  healthWorkoutEntries,
   groups,
   userGroups,
   userKeys,

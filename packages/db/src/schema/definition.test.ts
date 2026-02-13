@@ -11,6 +11,10 @@ import {
   emailsTable,
   filesTable,
   groupsTable,
+  healthBloodPressureReadingsTable,
+  healthExercisesTable,
+  healthWeightReadingsTable,
+  healthWorkoutEntriesTable,
   migrationsTable,
   mlsGroupMembersTable,
   mlsGroupStateTable,
@@ -406,6 +410,88 @@ describe('notesTable', () => {
   });
 });
 
+describe('healthExercisesTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(healthExercisesTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(healthExercisesTable.name).toBe('health_exercises');
+    expect(healthExercisesTable.propertyName).toBe('healthExercises');
+  });
+
+  it('has required columns', () => {
+    expect(healthExercisesTable.columns['id']).toBeDefined();
+    expect(healthExercisesTable.columns['name']).toBeDefined();
+    expect(healthExercisesTable.columns['createdAt']).toBeDefined();
+  });
+});
+
+describe('healthWeightReadingsTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(healthWeightReadingsTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(healthWeightReadingsTable.name).toBe('health_weight_readings');
+    expect(healthWeightReadingsTable.propertyName).toBe('healthWeightReadings');
+  });
+
+  it('has required columns', () => {
+    expect(healthWeightReadingsTable.columns['id']).toBeDefined();
+    expect(healthWeightReadingsTable.columns['recordedAt']).toBeDefined();
+    expect(healthWeightReadingsTable.columns['valueCenti']).toBeDefined();
+    expect(healthWeightReadingsTable.columns['unit']).toBeDefined();
+    expect(healthWeightReadingsTable.columns['createdAt']).toBeDefined();
+  });
+});
+
+describe('healthBloodPressureReadingsTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(healthBloodPressureReadingsTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(healthBloodPressureReadingsTable.name).toBe(
+      'health_blood_pressure_readings'
+    );
+    expect(healthBloodPressureReadingsTable.propertyName).toBe(
+      'healthBloodPressureReadings'
+    );
+  });
+
+  it('has required columns', () => {
+    expect(healthBloodPressureReadingsTable.columns['id']).toBeDefined();
+    expect(
+      healthBloodPressureReadingsTable.columns['recordedAt']
+    ).toBeDefined();
+    expect(healthBloodPressureReadingsTable.columns['systolic']).toBeDefined();
+    expect(healthBloodPressureReadingsTable.columns['diastolic']).toBeDefined();
+    expect(healthBloodPressureReadingsTable.columns['createdAt']).toBeDefined();
+  });
+});
+
+describe('healthWorkoutEntriesTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(healthWorkoutEntriesTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(healthWorkoutEntriesTable.name).toBe('health_workout_entries');
+    expect(healthWorkoutEntriesTable.propertyName).toBe('healthWorkoutEntries');
+  });
+
+  it('has required columns', () => {
+    expect(healthWorkoutEntriesTable.columns['id']).toBeDefined();
+    expect(healthWorkoutEntriesTable.columns['performedAt']).toBeDefined();
+    expect(healthWorkoutEntriesTable.columns['exerciseId']).toBeDefined();
+    expect(healthWorkoutEntriesTable.columns['reps']).toBeDefined();
+    expect(healthWorkoutEntriesTable.columns['weightCenti']).toBeDefined();
+    expect(healthWorkoutEntriesTable.columns['weightUnit']).toBeDefined();
+    expect(healthWorkoutEntriesTable.columns['createdAt']).toBeDefined();
+  });
+});
+
 describe('tagsTable', () => {
   it('has soft-delete column', () => {
     expect(tagsTable.columns['deleted']).toBeDefined();
@@ -413,8 +499,8 @@ describe('tagsTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 42 tables', () => {
-    expect(allTables).toHaveLength(42);
+  it('contains all 46 tables', () => {
+    expect(allTables).toHaveLength(46);
   });
 
   it('contains all table definitions', () => {
@@ -434,6 +520,10 @@ describe('allTables', () => {
     expect(allTables).toContain(contactEmailsTable);
     expect(allTables).toContain(analyticsEventsTable);
     expect(allTables).toContain(notesTable);
+    expect(allTables).toContain(healthExercisesTable);
+    expect(allTables).toContain(healthWeightReadingsTable);
+    expect(allTables).toContain(healthBloodPressureReadingsTable);
+    expect(allTables).toContain(healthWorkoutEntriesTable);
     expect(allTables).toContain(groupsTable);
     expect(allTables).toContain(userGroupsTable);
     expect(allTables).toContain(userKeysTable);
