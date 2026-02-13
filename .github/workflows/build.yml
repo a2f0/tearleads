@@ -260,6 +260,20 @@ jobs:
           name: build-dist
           path: packages
 
+      - name: Cache SQLite WASM
+        if: matrix.package == 'client'
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/client/src/workers/sqlite-wasm
+            packages/client/public/sqlite
+            packages/client/public/assets/sqlite3-opfs-async-proxy.js
+          key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
+
+      - name: Download SQLite WASM
+        if: matrix.package == 'client'
+        run: ./scripts/downloadSqliteWasm.sh
+
       - name: Test with Coverage
         run: pnpm --filter @tearleads/${{ matrix.package }} test:coverage
 
