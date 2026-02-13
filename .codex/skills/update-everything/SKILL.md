@@ -105,6 +105,16 @@ When biome is updated, migrate the schema:
 pnpm biome migrate --write
 ```
 
+## pdfjs-dist and react-pdf Version Coupling
+
+**CRITICAL**: `pdfjs-dist` must match the version expected by `react-pdf`. Check with:
+
+```bash
+cat packages/client/node_modules/react-pdf/package.json | grep '"pdfjs-dist"'
+```
+
+If versions differ, revert pdfjs-dist to match react-pdf's dependency. The update script should NOT update pdfjs-dist independently.
+
 ## Researching Breaking Changes
 
 After updates, review changelogs for major version bumps:
@@ -157,7 +167,7 @@ Some CI failures are transient infrastructure issues:
 
 ### PDF Worker E2E Tests
 
-PDF loading tests may timeout after pdfjs-dist updates (shows "Loading..." instead of "Page 1 of"). **Fix**: Usually transient - rerun. If persistent, verify worker path and Vite config.
+PDF loading tests may timeout after pdfjs-dist updates (shows "Loading..." instead of "Page 1 of"). **Fix**: Check for version mismatch with react-pdf - see "pdfjs-dist and react-pdf Version Coupling" section.
 
 ## Warnings/Deprecations
 

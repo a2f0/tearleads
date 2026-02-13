@@ -169,6 +169,23 @@ pnpm biome migrate --write
 
 This updates the `$schema` URL to match the installed biome version. The migration is automatic and non-breaking.
 
+## pdfjs-dist and react-pdf Version Coupling
+
+**CRITICAL**: `pdfjs-dist` must match the version expected by `react-pdf`. Version mismatches cause PDF loading failures (PDFs stuck at "Loading...").
+
+**Check react-pdf's pdfjs-dist dependency**:
+
+```bash
+cat packages/client/node_modules/react-pdf/package.json | grep '"pdfjs-dist"'
+```
+
+If `pdfjs-dist` in `package.json` differs from react-pdf's dependency:
+
+1. **Revert pdfjs-dist** to match react-pdf's version, OR
+2. **Wait for react-pdf update** that supports the newer pdfjs-dist version
+
+The update script should NOT update pdfjs-dist independently of react-pdf.
+
 ## Researching Breaking Changes
 
 After updates complete, review changelogs for significant package upgrades:
@@ -237,16 +254,9 @@ Timeout: 30000ms
 Error: element(s) not found (shows "Loading...")
 ```
 
-**Causes**:
+**Cause**: Usually a **version mismatch** between `pdfjs-dist` and `react-pdf`. See "pdfjs-dist and react-pdf Version Coupling" section above.
 
-- PDF worker initialization timing varies across environments
-- pdfjs-dist updates may change worker loading behavior
-
-**Fix**: Usually transient - rerun the workflow. If persistent, check:
-
-1. Worker path: `pdfjs-dist/build/pdf.worker.min.mjs` still exists
-2. Vite config properly handles worker imports
-3. Consider increasing test timeout if loading is slower
+**Fix**: Revert `pdfjs-dist` to match the version `react-pdf` expects.
 
 ## Token Efficiency
 
