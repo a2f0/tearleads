@@ -106,18 +106,24 @@ pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
 When a workflow unexpectedly skipped or ran, use this flow:
 
 1. Reproduce the decision locally with explicit files:
+
    ```bash
    pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "path/a.ts,path/b.ts"
    ```
+
 2. Inspect `jobs.<job>.run` and `jobs.<job>.reasons` in the JSON output.
 3. Derive gate expectations and verify workflow names:
+
    ```bash
    pnpm exec tsx scripts/ciImpact/requiredWorkflows.ts --files "path/a.ts,path/b.ts"
    ```
+
 4. Validate mapping drift:
+
    ```bash
    pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
    ```
+
 5. If behavior still looks wrong, check nightly validation output in `CI Impact Validation` workflow artifacts.
 
 Safe tuning guidance:
@@ -128,6 +134,7 @@ Safe tuning guidance:
   - `scripts/ciImpact/ciImpact.test.ts`
   - `scripts/ciImpact/requiredWorkflows.test.ts`
 - Re-run drift + coverage checks before merging:
+
   ```bash
   pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
   node --import tsx --test scripts/ciImpact/ciImpact.test.ts scripts/ciImpact/requiredWorkflows.test.ts
