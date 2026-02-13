@@ -1,13 +1,10 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { desc, eq } from 'drizzle-orm';
 import {
-  Check,
   Download,
   FileIcon,
-  FileText,
   Info,
   Loader2,
-  Music,
   Pause,
   Play,
   RotateCcw,
@@ -26,7 +23,6 @@ import {
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { ListRow } from '@/components/ui/list-row';
@@ -53,6 +49,7 @@ import {
   getFileStorage,
   initializeFileStorage
 } from '@/storage/opfs';
+import { FileListItem, type FileWithThumbnail } from './FileListItem';
 
 interface FileInfo {
   id: string;
@@ -63,10 +60,6 @@ interface FileInfo {
   storagePath: string;
   thumbnailPath: string | null;
   deleted: boolean;
-}
-
-interface FileWithThumbnail extends FileInfo {
-  thumbnailUrl: string | null;
 }
 
 interface UploadingFile {
@@ -733,73 +726,6 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                         const file = filteredFiles[virtualItem.index];
                         if (!file) return null;
 
-                        const isRecentlyUploaded = recentlyUploadedIds.has(
-                          file.id
-                        );
-                        const fileType = file.mimeType.split('/')[0] ?? '';
-                        const viewableTypes = ['image', 'audio', 'video'];
-                        const isPdf = file.mimeType === 'application/pdf';
-                        const isClickable =
-                          (viewableTypes.includes(fileType) || isPdf) &&
-                          !file.deleted;
-
-                        const content = (
-                          <>
-                            <div className="relative shrink-0">
-                              {file.thumbnailUrl ? (
-                                <img
-                                  src={file.thumbnailUrl}
-                                  alt=""
-                                  className="h-8 w-8 rounded object-cover"
-                                />
-                              ) : file.mimeType.startsWith('audio/') ? (
-                                <Music className="h-5 w-5 text-muted-foreground" />
-                              ) : isPdf ? (
-                                <FileText className="h-5 w-5 text-muted-foreground" />
-                              ) : (
-                                <FileIcon className="h-5 w-5 text-muted-foreground" />
-                              )}
-                              {isRecentlyUploaded && (
-                                // biome-ignore lint/a11y/useSemanticElements: Cannot use button as it may be nested inside another button
-                                <span
-                                  role="button"
-                                  tabIndex={0}
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    clearRecentlyUploaded(file.id);
-                                  }}
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter' || e.key === ' ') {
-                                      e.preventDefault();
-                                      e.stopPropagation();
-                                      e.currentTarget.click();
-                                    }
-                                  }}
-                                  className="absolute -top-1 -right-1 flex h-4 w-4 cursor-pointer items-center justify-center rounded-full bg-success text-success-foreground"
-                                  title="Upload successful - click to dismiss"
-                                  data-testid="upload-success-badge"
-                                >
-                                  <Check className="h-3 w-3" />
-                                </span>
-                              )}
-                            </div>
-                            <div className="min-w-0 flex-1">
-                              <p
-                                className={`truncate font-medium text-sm ${
-                                  file.deleted ? 'line-through' : ''
-                                }`}
-                              >
-                                {file.name}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {formatFileSize(file.size)} ·{' '}
-                                {file.uploadDate.toLocaleDateString()}
-                                {file.deleted && ' · Deleted'}
-                              </p>
-                            </div>
-                          </>
-                        );
-
                         return (
                           <div
                             key={file.id}
@@ -810,58 +736,20 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
                               transform: `translateY(${virtualItem.start}px)`
                             }}
                           >
-                            <ListRow
-                              className={`${file.deleted ? 'opacity-60' : ''}`}
-                              onContextMenu={(e) => handleContextMenu(e, file)}
-                            >
-                              {isClickable ? (
-                                <button
-                                  type="button"
-                                  className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
-                                  onClick={() => handleView(file)}
-                                >
-                                  {content}
-                                </button>
-                              ) : (
-                                <div className="flex min-w-0 flex-1 items-center gap-3 overflow-hidden">
-                                  {content}
-                                </div>
+                            <FileListItem
+                              file={file}
+                              isRecentlyUploaded={recentlyUploadedIds.has(
+                                file.id
                               )}
-                              <div className="flex shrink-0 gap-1">
-                                {file.deleted ? (
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleRestore(file)}
-                                    title="Restore"
-                                  >
-                                    <RotateCcw className="h-4 w-4" />
-                                  </Button>
-                                ) : (
-                                  <>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleDownload(file)}
-                                      title="Download"
-                                    >
-                                      <Download className="h-4 w-4" />
-                                    </Button>
-                                    <Button
-                                      variant="ghost"
-                                      size="icon"
-                                      className="h-8 w-8"
-                                      onClick={() => handleDelete(file)}
-                                      title="Delete"
-                                    >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </>
-                                )}
-                              </div>
-                            </ListRow>
+                              onView={() => handleView(file)}
+                              onDownload={() => handleDownload(file)}
+                              onDelete={() => handleDelete(file)}
+                              onRestore={() => handleRestore(file)}
+                              onContextMenu={(e) => handleContextMenu(e, file)}
+                              onClearRecentlyUploaded={() =>
+                                clearRecentlyUploaded(file.id)
+                              }
+                            />
                           </div>
                         );
                       })}
