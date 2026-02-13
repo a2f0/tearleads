@@ -64,10 +64,7 @@ export async function adminAccessMiddleware(
   }
 }
 
-export function requireRootAdmin(
-  req: Request<any, any, any, any>,
-  res: Response
-): boolean {
+export function requireRootAdmin(req: Request, res: Response): boolean {
   const access = req.adminAccess;
   if (!access || !access.isRootAdmin) {
     res.status(403).json({ error: 'Forbidden' });
@@ -77,7 +74,7 @@ export function requireRootAdmin(
 }
 
 export function canAccessOrganization(
-  req: Request<any, any, any, any>,
+  req: Request,
   organizationId: string
 ): boolean {
   const access = req.adminAccess;
@@ -91,7 +88,7 @@ export function canAccessOrganization(
 }
 
 export function ensureOrganizationAccess(
-  req: Request<any, any, any, any>,
+  req: Request,
   res: Response,
   organizationId: string
 ): boolean {
@@ -103,7 +100,7 @@ export function ensureOrganizationAccess(
 }
 
 export function parseOrganizationIdQuery(
-  req: Request<any, any, any, any>,
+  req: Request,
   res: Response
 ): string | null | undefined {
   const raw = req.query['organizationId'];

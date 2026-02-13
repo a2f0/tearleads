@@ -25,7 +25,7 @@ import { mapOrganizationRow, type OrganizationRow } from './shared.js';
  *         description: Database error
  */
 export const postRootHandler = async (
-  req: Request<unknown, unknown, CreateOrganizationRequest>,
+  req: Request<Record<string, never>, unknown, CreateOrganizationRequest>,
   res: Response
 ) => {
   if (!requireRootAdmin(req, res)) {
