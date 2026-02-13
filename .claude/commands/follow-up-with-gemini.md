@@ -39,6 +39,18 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
 - Asking for clarification
 - Deferring to an issue
 
+## Quota Exhaustion Fallback
+
+If at any point Gemini responds with quota exhaustion ("You have reached your daily quota limit"):
+- Fall back to Codex review:
+
+  ```bash
+  ./scripts/agents/tooling/agentTool.sh solicitCodexReview
+  ```
+
+- Skip waiting for Gemini's response
+- Return early with a message that Codex was used as fallback
+
 ## Steps
 
 1. Get the PR number: `gh pr view --json number,title,url | cat`
