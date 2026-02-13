@@ -6,7 +6,7 @@ import {
   DEFAULT_CLASSIC_TAG_NAME,
   type VfsLinkLikeRow
 } from '@tearleads/classic';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, or, sql } from 'drizzle-orm';
 import { getDatabase } from '@/db';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
 
@@ -89,22 +89,24 @@ export async function persistClassicOrderToDatabase(
   }
 
   const db = getDatabase();
-
-  await db.transaction(async (tx) => {
-    await Promise.all(
-      updates.map((update) =>
-        tx
-          .update(vfsLinks)
-          .set({ position: update.position })
-          .where(
-            and(
-              eq(vfsLinks.parentId, update.parentId),
-              eq(vfsLinks.childId, update.childId)
-            )
-          )
-      )
+  const targetedUpdates = updates.map((update) => {
+    const condition = and(
+      eq(vfsLinks.parentId, update.parentId),
+      eq(vfsLinks.childId, update.childId)
     );
+    return { condition, position: update.position };
   });
+  const positionCaseExpression = sql<number>`CASE ${sql.join(
+    targetedUpdates.map(
+      ({ condition, position }) => sql`WHEN ${condition} THEN ${position}`
+    ),
+    sql` `
+  )} ELSE ${vfsLinks.position} END`;
+
+  await db
+    .update(vfsLinks)
+    .set({ position: positionCaseExpression })
+    .where(or(...targetedUpdates.map(({ condition }) => condition)));
 
   const updateLookup = new Map(
     updates.map((update) => [
