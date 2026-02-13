@@ -220,10 +220,10 @@ describe('GroupsList', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument();
     });
 
-    const groupButton = screen
+    const groupRow = screen
       .getByText('Test Group')
-      .closest('button') as HTMLButtonElement;
-    await user.pointer({ keys: '[MouseRight]', target: groupButton });
+      .closest('tr') as HTMLElement;
+    await user.pointer({ keys: '[MouseRight]', target: groupRow });
 
     expect(screen.getByText('Delete')).toBeInTheDocument();
   });
@@ -250,10 +250,10 @@ describe('GroupsList', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument();
     });
 
-    const groupButton = screen
+    const groupRow = screen
       .getByText('Test Group')
-      .closest('button') as HTMLButtonElement;
-    await user.pointer({ keys: '[MouseRight]', target: groupButton });
+      .closest('tr') as HTMLElement;
+    await user.pointer({ keys: '[MouseRight]', target: groupRow });
     await user.click(screen.getByText('Delete'));
 
     expect(
@@ -286,10 +286,10 @@ describe('GroupsList', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument();
     });
 
-    const groupButton = screen
+    const groupRow = screen
       .getByText('Test Group')
-      .closest('button') as HTMLButtonElement;
-    await user.pointer({ keys: '[MouseRight]', target: groupButton });
+      .closest('tr') as HTMLElement;
+    await user.pointer({ keys: '[MouseRight]', target: groupRow });
     await user.click(screen.getByText('Delete'));
 
     const confirmButton = screen.getByRole('button', { name: 'Delete' });
@@ -322,10 +322,10 @@ describe('GroupsList', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument();
     });
 
-    const groupButton = screen
+    const groupRow = screen
       .getByText('Test Group')
-      .closest('button') as HTMLButtonElement;
-    await user.pointer({ keys: '[MouseRight]', target: groupButton });
+      .closest('tr') as HTMLElement;
+    await user.pointer({ keys: '[MouseRight]', target: groupRow });
     await user.click(screen.getByText('Delete'));
 
     const cancelButton = screen.getByRole('button', { name: 'Cancel' });
@@ -362,10 +362,10 @@ describe('GroupsList', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument();
     });
 
-    const groupButton = screen
+    const groupRow = screen
       .getByText('Test Group')
-      .closest('button') as HTMLButtonElement;
-    await user.pointer({ keys: '[MouseRight]', target: groupButton });
+      .closest('tr') as HTMLElement;
+    await user.pointer({ keys: '[MouseRight]', target: groupRow });
 
     expect(screen.getByText('Delete')).toBeInTheDocument();
 
@@ -398,10 +398,10 @@ describe('GroupsList', () => {
       expect(screen.getByText('Test Group')).toBeInTheDocument();
     });
 
-    const groupButton = screen
+    const groupRow = screen
       .getByText('Test Group')
-      .closest('button') as HTMLButtonElement;
-    await user.pointer({ keys: '[MouseRight]', target: groupButton });
+      .closest('tr') as HTMLElement;
+    await user.pointer({ keys: '[MouseRight]', target: groupRow });
 
     expect(screen.getByText('Delete')).toBeInTheDocument();
 

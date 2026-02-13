@@ -30,13 +30,7 @@ vi.mock('@tearleads/ui', () => ({
   ApiDocs: ({ spec }: { spec: { info: { title: string } } }) => (
     <div data-testid="api-docs">{spec.info.title}</div>
   ),
-  IconSquare: ({
-    label,
-    onClick
-  }: {
-    label: string;
-    onClick?: () => void;
-  }) => (
+  IconSquare: ({ label, onClick }: { label: string; onClick?: () => void }) => (
     <button type="button" onClick={onClick} data-testid="icon-square">
       {label}
     </button>

@@ -1,4 +1,8 @@
 import type { AdminUser } from '@tearleads/shared';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { Check, Loader2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
@@ -80,75 +84,102 @@ export function UsersAdmin({
       )}
 
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
-        <div className="min-w-[1120px]">
-          <div className="grid grid-cols-[minmax(140px,1fr)_minmax(200px,2fr)_minmax(160px,1fr)_minmax(160px,1fr)_minmax(120px,0.7fr)_minmax(100px,0.5fr)_minmax(140px,0.9fr)_minmax(110px,0.6fr)_minmax(160px,1fr)] items-center gap-3 border-b bg-muted/40 px-4 py-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-            <span>User ID</span>
-            <span>Email</span>
-            <span>Account Created</span>
-            <span>Last Active</span>
-            <span>Email Confirmed</span>
-            <span>Admin</span>
-            <span>Total Tokens</span>
-            <span>Requests</span>
-            <span>Last Usage</span>
-          </div>
-
-          {loading && users.length === 0 ? (
-            <div className="flex items-center justify-center gap-2 px-4 py-10 text-muted-foreground text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading users...
-            </div>
-          ) : users.length === 0 ? (
-            <div className="px-4 py-10 text-center text-muted-foreground text-sm">
-              No users found.
-            </div>
-          ) : (
-            users.map((user) => (
-              <button
-                key={user.id}
-                type="button"
-                onClick={() => handleUserClick(user.id)}
-                className="grid w-full grid-cols-[minmax(140px,1fr)_minmax(200px,2fr)_minmax(160px,1fr)_minmax(160px,1fr)_minmax(120px,0.7fr)_minmax(100px,0.5fr)_minmax(140px,0.9fr)_minmax(110px,0.6fr)_minmax(160px,1fr)] items-center gap-3 border-b px-4 py-3 text-left text-sm transition-colors last:border-b-0 hover:bg-muted/50"
-              >
-                <div className="truncate font-mono text-muted-foreground text-xs">
-                  {user.id}
-                </div>
-                <div className="truncate">{user.email}</div>
-                <div className="text-muted-foreground text-xs">
-                  {formatTimestamp(user.createdAt)}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {formatTimestamp(user.lastActiveAt)}
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                  {user.emailConfirmed ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground/50" />
-                  )}
-                  {user.emailConfirmed ? 'Yes' : 'No'}
-                </div>
-                <div className="flex items-center gap-1 text-muted-foreground text-xs">
-                  {user.admin ? (
-                    <Check className="h-4 w-4 text-green-600" />
-                  ) : (
-                    <X className="h-4 w-4 text-muted-foreground/50" />
-                  )}
-                  {user.admin ? 'Yes' : 'No'}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {formatNumber(user.accounting.totalTokens)}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {formatNumber(user.accounting.requestCount)}
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  {formatTimestamp(user.accounting.lastUsedAt)}
-                </div>
-              </button>
-            ))
-          )}
-        </div>
+        <table className={`${WINDOW_TABLE_TYPOGRAPHY.table} min-w-[1120px]`}>
+          <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
+            <tr>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>User ID</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Email</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Created</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                Last Active
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Confirmed</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Admin</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Tokens</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Requests</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Last Usage</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading && users.length === 0 ? (
+              <tr>
+                <td colSpan={9} className="px-4 py-10 text-center">
+                  <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Loading users...
+                  </div>
+                </td>
+              </tr>
+            ) : users.length === 0 ? (
+              <tr>
+                <td
+                  colSpan={9}
+                  className="px-4 py-10 text-center text-muted-foreground text-sm"
+                >
+                  No users found.
+                </td>
+              </tr>
+            ) : (
+              users.map((user) => (
+                <WindowTableRow
+                  key={user.id}
+                  onClick={() => handleUserClick(user.id)}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault();
+                      handleUserClick(user.id);
+                    }
+                  }}
+                >
+                  <td
+                    className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} max-w-[140px]`}
+                  >
+                    <span className="block truncate font-mono">{user.id}</span>
+                  </td>
+                  <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                    <span className="block truncate">{user.email}</span>
+                  </td>
+                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                    {formatTimestamp(user.createdAt)}
+                  </td>
+                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                    {formatTimestamp(user.lastActiveAt)}
+                  </td>
+                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                    <div className="flex items-center gap-1">
+                      {user.emailConfirmed ? (
+                        <Check className="h-3 w-3 text-green-600" />
+                      ) : (
+                        <X className="h-3 w-3 text-muted-foreground/50" />
+                      )}
+                      {user.emailConfirmed ? 'Yes' : 'No'}
+                    </div>
+                  </td>
+                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                    <div className="flex items-center gap-1">
+                      {user.admin ? (
+                        <Check className="h-3 w-3 text-green-600" />
+                      ) : (
+                        <X className="h-3 w-3 text-muted-foreground/50" />
+                      )}
+                      {user.admin ? 'Yes' : 'No'}
+                    </div>
+                  </td>
+                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                    {formatNumber(user.accounting.totalTokens)}
+                  </td>
+                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                    {formatNumber(user.accounting.requestCount)}
+                  </td>
+                  <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                    {formatTimestamp(user.accounting.lastUsedAt)}
+                  </td>
+                </WindowTableRow>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
     </div>
   );

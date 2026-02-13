@@ -1,4 +1,8 @@
 import type { GroupWithMemberCount } from '@tearleads/shared';
+import {
+  WINDOW_TABLE_TYPOGRAPHY,
+  WindowTableRow
+} from '@tearleads/window-manager';
 import { Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -100,32 +104,52 @@ export function GroupsList({ onCreateClick, onGroupSelect }: GroupsListProps) {
 
   return (
     <>
-      <div className="space-y-2">
-        {groups.map((group) => (
-          <button
-            key={group.id}
-            type="button"
-            onClick={() => onGroupSelect(group.id)}
-            onContextMenu={(e) => handleContextMenu(e, group)}
-            className="flex w-full items-center justify-between rounded-lg border bg-card p-4 text-left transition-colors hover:bg-accent"
-          >
-            <div className="min-w-0 flex-1">
-              <h3 className="truncate font-medium">{group.name}</h3>
-              {group.description && (
-                <p className="mt-1 truncate text-muted-foreground text-sm">
-                  {group.description}
-                </p>
-              )}
-            </div>
-            <div className="ml-4 flex items-center gap-2 text-muted-foreground text-sm">
-              <Users className="h-4 w-4" />
-              <span>
-                {group.memberCount}{' '}
-                {group.memberCount === 1 ? 'member' : 'members'}
-              </span>
-            </div>
-          </button>
-        ))}
+      <div className="overflow-auto rounded-lg border">
+        <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
+          <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
+            <tr>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Name</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                Description
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Members</th>
+            </tr>
+          </thead>
+          <tbody>
+            {groups.map((group) => (
+              <WindowTableRow
+                key={group.id}
+                onClick={() => onGroupSelect(group.id)}
+                onContextMenu={(e) => handleContextMenu(e, group)}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    onGroupSelect(group.id);
+                  }
+                }}
+              >
+                <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
+                  <div className="flex items-center gap-2">
+                    <Users className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <span className="truncate font-medium">{group.name}</span>
+                  </div>
+                </td>
+                <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                  {group.description ? (
+                    <span className="block truncate">{group.description}</span>
+                  ) : (
+                    <span className="text-muted-foreground/70">—</span>
+                  )}
+                </td>
+                <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
+                  {group.memberCount}{' '}
+                  {group.memberCount === 1 ? 'member' : 'members'}
+                </td>
+              </WindowTableRow>
+            ))}
+          </tbody>
+        </table>
       </div>
 
       {contextMenu && (
