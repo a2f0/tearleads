@@ -4,6 +4,10 @@ import type {
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import {
+  ensureOrganizationAccess,
+  parseOrganizationIdQuery
+} from '../../../middleware/admin-access.js';
 
 /**
  * @openapi
@@ -45,10 +49,27 @@ import { getPostgresPool } from '../../../lib/postgres.js';
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-export const getRootHandler = async (_req: Request, res: Response) => {
+export const getRootHandler = async (req: Request, res: Response) => {
   try {
+    const access = req.adminAccess;
+    if (!access) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+
+    const requestedOrganizationId = parseOrganizationIdQuery(req, res);
+    if (requestedOrganizationId === undefined) {
+      return;
+    }
+    if (
+      requestedOrganizationId &&
+      !ensureOrganizationAccess(req, res, requestedOrganizationId)
+    ) {
+      return;
+    }
+
     const pool = await getPostgresPool();
-    const result = await pool.query<{
+    type GroupsListRow = {
       id: string;
       organization_id: string;
       name: string;
@@ -56,20 +77,45 @@ export const getRootHandler = async (_req: Request, res: Response) => {
       created_at: Date;
       updated_at: Date;
       member_count: string;
-    }>(`
-      SELECT
-        g.id,
-        g.organization_id,
-        g.name,
-        g.description,
-        g.created_at,
-        g.updated_at,
-        COUNT(ug.user_id)::text AS member_count
-      FROM groups g
-      LEFT JOIN user_groups ug ON ug.group_id = g.id
-      GROUP BY g.id
-      ORDER BY g.name
-    `);
+    };
+
+    let result: { rows: GroupsListRow[] };
+    if (access.isRootAdmin && !requestedOrganizationId) {
+      result = await pool.query<GroupsListRow>(`
+        SELECT
+          g.id,
+          g.organization_id,
+          g.name,
+          g.description,
+          g.created_at,
+          g.updated_at,
+          COUNT(ug.user_id)::text AS member_count
+        FROM groups g
+        LEFT JOIN user_groups ug ON ug.group_id = g.id
+        GROUP BY g.id
+        ORDER BY g.name
+      `);
+    } else {
+      const scopedOrganizationIds = requestedOrganizationId
+        ? [requestedOrganizationId]
+        : access.organizationIds;
+      result = await pool.query<GroupsListRow>(
+        `SELECT
+           g.id,
+           g.organization_id,
+           g.name,
+           g.description,
+           g.created_at,
+           g.updated_at,
+           COUNT(ug.user_id)::text AS member_count
+         FROM groups g
+         LEFT JOIN user_groups ug ON ug.group_id = g.id
+         WHERE g.organization_id = ANY($1::text[])
+         GROUP BY g.id
+         ORDER BY g.name`,
+        [scopedOrganizationIds]
+      );
+    }
 
     const groups: GroupWithMemberCount[] = result.rows.map((row) => ({
       id: row.id,

@@ -1,7 +1,9 @@
+import express from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
+import { getRootHandler } from './organizations/get-root.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
@@ -80,6 +82,143 @@ describe('admin organizations routes', () => {
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'database error' });
       consoleError.mockRestore();
+    });
+
+    it('returns org-scoped organizations for org admin users', async () => {
+      const orgAdminHeader = await createAuthHeader({
+        id: 'org-admin-1',
+        email: 'org-admin@example.com',
+        admin: false
+      });
+      const now = new Date();
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery
+          .mockResolvedValueOnce({
+            rows: [{ organization_id: 'org-2' }]
+          })
+          .mockResolvedValueOnce({
+            rows: [
+              {
+                id: 'org-2',
+                name: 'Beta',
+                description: null,
+                created_at: now,
+                updated_at: now
+              }
+            ]
+          })
+      });
+
+      const response = await request(app)
+        .get('/v1/admin/organizations')
+        .set('Authorization', orgAdminHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        organizations: [
+          {
+            id: 'org-2',
+            name: 'Beta',
+            description: null,
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString()
+          }
+        ]
+      });
+      expect(mockQuery).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('WHERE id = ANY($1::text[])'),
+        [['org-2']]
+      );
+    });
+
+    it('returns 403 when org admin requests an unauthorized organization', async () => {
+      const orgAdminHeader = await createAuthHeader({
+        id: 'org-admin-2',
+        email: 'org-admin2@example.com',
+        admin: false
+      });
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValueOnce({
+          rows: [{ organization_id: 'org-1' }]
+        })
+      });
+
+      const response = await request(app)
+        .get('/v1/admin/organizations?organizationId=org-2')
+        .set('Authorization', orgAdminHeader);
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({ error: 'Forbidden' });
+    });
+
+    it('returns 400 for non-string organizationId query', async () => {
+      const response = await request(app)
+        .get(
+          '/v1/admin/organizations?organizationId=org-1&organizationId=org-2'
+        )
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'organizationId query must be a string'
+      });
+    });
+
+    it('supports root admin filtering by organizationId query', async () => {
+      const now = new Date();
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'org-1',
+              name: 'Alpha',
+              description: null,
+              created_at: now,
+              updated_at: now
+            }
+          ]
+        })
+      });
+
+      const response = await request(app)
+        .get('/v1/admin/organizations?organizationId=org-1')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(200);
+      expect(response.body.organizations).toHaveLength(1);
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('WHERE id = ANY($1::text[])'),
+        [['org-1']]
+      );
+    });
+
+    it('returns fallback error message on non-Error organization query failure', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockRejectedValueOnce('database error')
+      });
+      const consoleError = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => {});
+
+      const response = await request(app)
+        .get('/v1/admin/organizations')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to fetch organizations' });
+      expect(consoleError).toHaveBeenCalled();
+      consoleError.mockRestore();
+    });
+
+    it('returns 401 when organizations handler is mounted without admin access middleware', async () => {
+      const isolatedApp = express();
+      isolatedApp.get('/', getRootHandler);
+
+      const response = await request(isolatedApp).get('/');
+
+      expect(response.status).toBe(401);
+      expect(response.body).toEqual({ error: 'Unauthorized' });
     });
   });
 

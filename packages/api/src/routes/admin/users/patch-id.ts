@@ -5,6 +5,7 @@ import {
   deleteAllSessionsForUser,
   getLatestLastActiveByUserIds
 } from '../../../lib/sessions.js';
+import { requireRootAdmin } from '../../../middleware/admin-access.js';
 import {
   emptyAccounting,
   getUserAccounting,
@@ -70,6 +71,10 @@ import {
  *               $ref: '#/components/schemas/Error'
  */
 export const patchIdHandler = async (req: Request, res: Response) => {
+  if (!requireRootAdmin(req, res)) {
+    return;
+  }
+
   const updates = parseUserUpdatePayload(req.body);
   if (!updates) {
     res.status(400).json({ error: 'Invalid user update payload' });

@@ -1,5 +1,6 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { requireRootAdmin } from '../../../middleware/admin-access.js';
 
 /**
  * @openapi
@@ -19,6 +20,10 @@ export const deleteIdHandler = async (
   req: Request<{ id: string }>,
   res: Response
 ) => {
+  if (!requireRootAdmin(req, res)) {
+    return;
+  }
+
   try {
     const { id } = req.params;
     const pool = await getPostgresPool();

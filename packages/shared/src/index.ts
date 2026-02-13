@@ -147,6 +147,17 @@ export interface AdminUserUpdateResponse {
   user: AdminUser;
 }
 
+export interface AdminScopeOrganization {
+  id: string;
+  name: string;
+}
+
+export interface AdminAccessContextResponse {
+  isRootAdmin: boolean;
+  organizations: AdminScopeOrganization[];
+  defaultOrganizationId: string | null;
+}
+
 // Groups Admin types
 export interface Group {
   id: string;

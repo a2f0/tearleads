@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { CreateOrganizationRequest } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { requireRootAdmin } from '../../../middleware/admin-access.js';
 import { isDuplicateConstraintError } from '../lib/db.js';
 import { mapOrganizationRow, type OrganizationRow } from './shared.js';
 
@@ -24,9 +25,13 @@ import { mapOrganizationRow, type OrganizationRow } from './shared.js';
  *         description: Database error
  */
 export const postRootHandler = async (
-  req: Request<unknown, unknown, CreateOrganizationRequest>,
+  req: Request<Record<string, never>, unknown, CreateOrganizationRequest>,
   res: Response
 ) => {
+  if (!requireRootAdmin(req, res)) {
+    return;
+  }
+
   try {
     const { name, description } = req.body;
 

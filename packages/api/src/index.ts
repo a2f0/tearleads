@@ -9,8 +9,10 @@ import packageJson from '../package.json' with { type: 'json' };
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
+import { adminAccessMiddleware } from './middleware/admin-access.js';
 import { adminSessionMiddleware } from './middleware/admin-session.js';
 import { authMiddleware } from './middleware/auth.js';
+import { adminContextRouter } from './routes/admin/context.js';
 import { groupsRouter } from './routes/admin/groups.js';
 import { organizationsRouter } from './routes/admin/organizations.js';
 import { postgresRouter } from './routes/admin/postgres.js';
@@ -107,11 +109,12 @@ app.get('/v1/ping', (_req: Request, res: Response) => {
 app.use('/v1', authMiddleware);
 
 // Admin routes
-app.use('/v1/admin/groups', adminSessionMiddleware, groupsRouter);
-app.use('/v1/admin/organizations', adminSessionMiddleware, organizationsRouter);
 app.use('/v1/admin/redis', adminSessionMiddleware, redisRouter);
 app.use('/v1/admin/postgres', adminSessionMiddleware, postgresRouter);
-app.use('/v1/admin/users', adminSessionMiddleware, usersRouter);
+app.use('/v1/admin/context', adminAccessMiddleware, adminContextRouter);
+app.use('/v1/admin/groups', adminAccessMiddleware, groupsRouter);
+app.use('/v1/admin/organizations', adminAccessMiddleware, organizationsRouter);
+app.use('/v1/admin/users', adminAccessMiddleware, usersRouter);
 
 // Auth routes
 app.use('/v1/auth', authRouter);

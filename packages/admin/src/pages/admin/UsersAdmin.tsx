@@ -1,3 +1,5 @@
+import { OrganizationScopeSelector } from '@admin/components/admin-scope';
+import { useAdminScope } from '@admin/hooks/useAdminScope';
 import type { AdminUser } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -22,15 +24,30 @@ export function UsersAdmin({
   onUserSelect,
   onViewAiRequests
 }: UsersAdminProps) {
+  const {
+    context,
+    selectedOrganizationId,
+    loading: scopeLoading,
+    error: scopeError,
+    setSelectedOrganizationId
+  } = useAdminScope();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchUsers = useCallback(async () => {
+    if (!context) {
+      return;
+    }
+
     setLoading(true);
     setError(null);
     try {
-      const response = await api.admin.users.list();
+      const response = await api.admin.users.list(
+        selectedOrganizationId
+          ? { organizationId: selectedOrganizationId }
+          : undefined
+      );
       setUsers(response.users);
     } catch (err) {
       console.error('Failed to fetch users:', err);
@@ -38,11 +55,15 @@ export function UsersAdmin({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [context, selectedOrganizationId]);
 
   useEffect(() => {
-    fetchUsers();
-  }, [fetchUsers]);
+    if (!context) {
+      return;
+    }
+
+    void fetchUsers();
+  }, [context, fetchUsers]);
 
   const handleUserClick = useCallback(
     (userId: string) => {
@@ -55,31 +76,46 @@ export function UsersAdmin({
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
         {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="font-bold text-2xl tracking-tight">Users Admin</h1>
-            <p className="text-muted-foreground text-sm">
-              Manage user access and profiles
-            </p>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="font-bold text-2xl tracking-tight">Users Admin</h1>
+              <p className="text-muted-foreground text-sm">
+                Manage user access and profiles
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {onViewAiRequests ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={onViewAiRequests}
+                >
+                  AI Requests
+                </Button>
+              ) : null}
+              <RefreshButton
+                onClick={() => {
+                  void fetchUsers();
+                }}
+                loading={loading || scopeLoading}
+              />
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            {onViewAiRequests ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onViewAiRequests}
-              >
-                AI Requests
-              </Button>
-            ) : null}
-            <RefreshButton onClick={fetchUsers} loading={loading} />
-          </div>
+          {context ? (
+            <OrganizationScopeSelector
+              organizations={context.organizations}
+              selectedOrganizationId={selectedOrganizationId}
+              onSelectOrganization={setSelectedOrganizationId}
+              allowAllOrganizations={context.isRootAdmin}
+            />
+          ) : null}
         </div>
       </div>
 
-      {error && (
+      {(scopeError || error) && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          {error}
+          {scopeError ?? error}
         </div>
       )}
 

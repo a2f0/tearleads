@@ -1,9 +1,14 @@
 import type { UpdateGroupRequest } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { ensureOrganizationAccess } from '../../../middleware/admin-access.js';
 import { isDuplicateConstraintError } from '../lib/db.js';
 import { ensureOrganizationExists } from '../lib/organizations.js';
-import { type GroupRow, mapGroupRow } from './shared.js';
+import {
+  type GroupRow,
+  getGroupOrganizationId,
+  mapGroupRow
+} from './shared.js';
 
 /**
  * @openapi
@@ -69,6 +74,15 @@ export const putIdHandler = async (
     const { name, description, organizationId } = req.body;
     const pool = await getPostgresPool();
 
+    const currentOrganizationId = await getGroupOrganizationId(pool, id);
+    if (!currentOrganizationId) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+    if (!ensureOrganizationAccess(req, res, currentOrganizationId)) {
+      return;
+    }
+
     const updates: string[] = [];
     const values: (string | Date | null)[] = [];
     let paramIndex = 1;
@@ -92,11 +106,15 @@ export const putIdHandler = async (
         res.status(400).json({ error: 'Organization ID cannot be empty' });
         return;
       }
-      if (!(await ensureOrganizationExists(pool, organizationId, res))) {
+      const trimmedOrganizationId = organizationId.trim();
+      if (!(await ensureOrganizationExists(pool, trimmedOrganizationId, res))) {
+        return;
+      }
+      if (!ensureOrganizationAccess(req, res, trimmedOrganizationId)) {
         return;
       }
       updates.push(`organization_id = $${paramIndex++}`);
-      values.push(organizationId);
+      values.push(trimmedOrganizationId);
     }
 
     if (updates.length === 0) {

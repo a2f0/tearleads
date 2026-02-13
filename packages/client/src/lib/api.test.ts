@@ -978,6 +978,35 @@ describe('api', () => {
       vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
     });
 
+    it('calls admin context endpoint', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            isRootAdmin: true,
+            organizations: [],
+            defaultOrganizationId: null
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        )
+      );
+
+      const { api } = await import('./api');
+      await api.admin.getContext();
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/admin/context',
+        {}
+      );
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_organizations',
+        expect.any(Number),
+        true
+      );
+    });
+
     it('calls list organizations endpoint', async () => {
       vi.mocked(global.fetch).mockResolvedValue(
         new Response(JSON.stringify({ organizations: [] }), {
@@ -991,6 +1020,23 @@ describe('api', () => {
 
       expect(global.fetch).toHaveBeenCalledWith(
         'http://localhost:3000/admin/organizations',
+        {}
+      );
+    });
+
+    it('calls list organizations endpoint with organizationId filter', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ organizations: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.organizations.list({ organizationId: 'org-2' });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/admin/organizations?organizationId=org-2',
         {}
       );
     });
@@ -1103,6 +1149,46 @@ describe('api', () => {
       expect(call[0]).toBe('http://localhost:3000/admin/organizations/org-1');
       const options = call[1];
       expect(options?.method).toBe('DELETE');
+    });
+  });
+
+  describe('admin scoped list endpoints', () => {
+    beforeEach(() => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+    });
+
+    it('calls groups list endpoint with organizationId filter', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ groups: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.groups.list({ organizationId: 'org-2' });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/admin/groups?organizationId=org-2',
+        {}
+      );
+    });
+
+    it('calls users list endpoint with organizationId filter', async () => {
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ users: [] }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { api } = await import('./api');
+      await api.admin.users.list({ organizationId: 'org-2' });
+
+      expect(global.fetch).toHaveBeenCalledWith(
+        'http://localhost:3000/admin/users?organizationId=org-2',
+        {}
+      );
     });
   });
 

@@ -1,6 +1,7 @@
 import type { OrganizationGroupsResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { ensureOrganizationAccess } from '../../../middleware/admin-access.js';
 import { ensureOrganizationExists } from '../lib/organizations.js';
 
 /**
@@ -32,6 +33,7 @@ export const getIdGroupsHandler = async (
 ) => {
   try {
     const { id } = req.params;
+    if (!ensureOrganizationAccess(req, res, id)) return;
     const pool = await getPostgresPool();
     if (!(await ensureOrganizationExists(pool, id, res))) return;
 

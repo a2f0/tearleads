@@ -4,6 +4,10 @@ import type {
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import {
+  ensureOrganizationAccess,
+  parseOrganizationIdQuery
+} from '../../../middleware/admin-access.js';
 import { mapOrganizationRow, type OrganizationRow } from './shared.js';
 
 /**
@@ -20,14 +24,43 @@ import { mapOrganizationRow, type OrganizationRow } from './shared.js';
  *       500:
  *         description: Database error
  */
-export const getRootHandler = async (_req: Request, res: Response) => {
+export const getRootHandler = async (req: Request, res: Response) => {
   try {
+    const access = req.adminAccess;
+    if (!access) {
+      res.status(401).json({ error: 'Unauthorized' });
+      return;
+    }
+    const requestedOrganizationId = parseOrganizationIdQuery(req, res);
+    if (requestedOrganizationId === undefined) {
+      return;
+    }
+    if (
+      requestedOrganizationId &&
+      !ensureOrganizationAccess(req, res, requestedOrganizationId)
+    ) {
+      return;
+    }
+
     const pool = await getPostgresPool();
-    const result = await pool.query<OrganizationRow>(
-      `SELECT id, name, description, created_at, updated_at
-       FROM organizations
-       ORDER BY name`
-    );
+    const result =
+      access.isRootAdmin && !requestedOrganizationId
+        ? await pool.query<OrganizationRow>(
+            `SELECT id, name, description, created_at, updated_at
+             FROM organizations
+             ORDER BY name`
+          )
+        : await pool.query<OrganizationRow>(
+            `SELECT id, name, description, created_at, updated_at
+           FROM organizations
+           WHERE id = ANY($1::text[])
+           ORDER BY name`,
+            [
+              requestedOrganizationId
+                ? [requestedOrganizationId]
+                : access.organizationIds
+            ]
+          );
 
     const organizations: Organization[] = result.rows.map(mapOrganizationRow);
 

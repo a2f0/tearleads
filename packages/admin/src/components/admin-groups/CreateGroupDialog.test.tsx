@@ -216,4 +216,42 @@ describe('CreateGroupDialog', () => {
 
     expect(screen.getByLabelText('Name')).toHaveValue('');
   });
+
+  it('uses scoped organization options when provided', async () => {
+    const user = userEvent.setup();
+    mockCreate.mockResolvedValue({
+      group: {
+        id: 'new-group',
+        name: 'Scoped Group',
+        description: null,
+        createdAt: '2024-01-01T00:00:00Z',
+        updatedAt: '2024-01-01T00:00:00Z'
+      }
+    });
+
+    render(
+      <CreateGroupDialog
+        open={true}
+        onOpenChange={vi.fn()}
+        onCreated={vi.fn()}
+        organizations={[
+          { id: 'org-1', name: 'Org One' },
+          { id: 'org-2', name: 'Org Two' }
+        ]}
+        defaultOrganizationId="org-2"
+      />
+    );
+
+    expect(screen.getByLabelText('Organization ID')).toHaveValue('org-2');
+
+    await user.type(screen.getByLabelText('Name'), 'Scoped Group');
+    await user.click(screen.getByRole('button', { name: 'Create' }));
+
+    await waitFor(() => {
+      expect(mockCreate).toHaveBeenCalledWith({
+        name: 'Scoped Group',
+        organizationId: 'org-2'
+      });
+    });
+  });
 });
