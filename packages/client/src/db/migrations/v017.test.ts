@@ -32,7 +32,9 @@ describe('v017 migration', () => {
     const statements = executeMany.mock.calls[0]?.[0] ?? [];
 
     expect(statements).toHaveLength(9);
-    expect(statements[0]).toContain('CREATE TABLE IF NOT EXISTS "wallet_items"');
+    expect(statements[0]).toContain(
+      'CREATE TABLE IF NOT EXISTS "wallet_items"'
+    );
     expect(statements[0]).toContain('"item_type" TEXT NOT NULL');
     expect(statements[5]).toContain(
       'CREATE TABLE IF NOT EXISTS "wallet_item_media"'
