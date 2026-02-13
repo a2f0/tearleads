@@ -242,12 +242,7 @@ async function seedLargeClassicFixture(
   }
 ): Promise<void> {
   const now = new Date();
-  const registryRows: Array<{
-    id: string;
-    objectType: 'folder' | 'tag' | 'note';
-    ownerId: null;
-    createdAt: Date;
-  }> = [
+  const registryRows: (typeof vfsRegistry.$inferInsert)[] = [
     {
       id: CLASSIC_TAG_PARENT_ID,
       objectType: 'folder',
@@ -255,29 +250,9 @@ async function seedLargeClassicFixture(
       createdAt: now
     }
   ];
-  const tagRows: Array<{
-    id: string;
-    encryptedName: string;
-    deleted: boolean;
-    color: null;
-    icon: null;
-  }> = [];
-  const noteRows: Array<{
-    id: string;
-    title: string;
-    content: string;
-    createdAt: Date;
-    updatedAt: Date;
-    deleted: boolean;
-  }> = [];
-  const linkRows: Array<{
-    id: string;
-    parentId: string;
-    childId: string;
-    wrappedSessionKey: string;
-    position: number;
-    createdAt: Date;
-  }> = [];
+  const tagRows: (typeof tags.$inferInsert)[] = [];
+  const noteRows: (typeof notes.$inferInsert)[] = [];
+  const linkRows: (typeof vfsLinks.$inferInsert)[] = [];
 
   for (let tagIndex = 0; tagIndex < options.tagCount; tagIndex += 1) {
     const tagId = `perf-tag-${tagIndex}`;

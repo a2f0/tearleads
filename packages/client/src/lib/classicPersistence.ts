@@ -103,12 +103,10 @@ export async function persistClassicOrderToDatabase(
     sql` `
   )} ELSE ${vfsLinks.position} END`;
 
-  await db.transaction(async (tx) => {
-    await tx
-      .update(vfsLinks)
-      .set({ position: positionCaseExpression })
-      .where(or(...targetedUpdates.map(({ condition }) => condition)));
-  });
+  await db
+    .update(vfsLinks)
+    .set({ position: positionCaseExpression })
+    .where(or(...targetedUpdates.map(({ condition }) => condition)));
 
   const updateLookup = new Map(
     updates.map((update) => [
