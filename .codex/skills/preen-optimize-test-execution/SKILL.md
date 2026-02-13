@@ -1,6 +1,6 @@
 ---
-name: optimize-test-execution
-description: Dependency-aware impact analysis system that decides which CI jobs and local checks should run based on changed files.
+name: preen-optimize-test-execution
+description: Tune CI impact analysis by keeping workflow filters aligned with package dependencies.
 ---
 
 # Optimize Test Execution

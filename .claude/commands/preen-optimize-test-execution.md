@@ -1,5 +1,5 @@
 ---
-description: Optimize CI test execution by mapping PR changes to impacted jobs
+description: Tune CI impact analysis by keeping workflow filters aligned with package dependencies
 ---
 
 # Optimize Test Execution
