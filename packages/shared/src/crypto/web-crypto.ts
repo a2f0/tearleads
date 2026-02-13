@@ -5,7 +5,7 @@
  * This module is compatible with both Node.js and browser environments.
  */
 
-import { assertPlainArrayBuffer } from '../index.js';
+import { assertPlainArrayBuffer } from '../type-guards.js';
 
 const ALGORITHM = 'AES-GCM';
 const KEY_LENGTH = 256;
