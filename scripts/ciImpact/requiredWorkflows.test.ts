@@ -1,5 +1,8 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 interface RequiredWorkflowsOutput {
@@ -11,6 +14,47 @@ interface Scenario {
   name: string;
   files: string[];
   expectedWorkflows: string[];
+}
+
+function baseImpactOutput(): string {
+  return JSON.stringify({
+    base: 'origin/main',
+    head: 'HEAD',
+    jobs: {
+      build: { run: false, reasons: [] },
+      'web-e2e': { run: false, reasons: [] },
+      'website-e2e': { run: false, reasons: [] },
+      'electron-e2e': { run: false, reasons: [] },
+      android: { run: false, reasons: [] },
+      'android-maestro-release': { run: false, reasons: [] },
+      'ios-maestro-release': { run: false, reasons: [] }
+    }
+  });
+}
+
+function withStubPnpm(stubOutput: string): { tempDir: string; argsFile: string; pathValue: string } {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'required-workflows-stub-'));
+  const argsFile = path.join(tempDir, 'pnpm-args.txt');
+  const stubPath = path.join(tempDir, 'pnpm');
+  const script = `#!/bin/sh
+if [ -n "$STUB_ARGS_FILE" ]; then
+  printf '%s\\n' "$@" > "$STUB_ARGS_FILE"
+fi
+cat <<'JSON'
+${stubOutput}
+JSON
+`;
+
+  fs.writeFileSync(stubPath, script, { encoding: 'utf8', mode: 0o755 });
+  const pathValue = `${tempDir}:${process.env.PATH ?? ''}`;
+  return { tempDir, argsFile, pathValue };
+}
+
+function runRequiredWorkflowsViaNode(args: string[], env: NodeJS.ProcessEnv): ReturnType<typeof spawnSync> {
+  return spawnSync('node', ['--import', 'tsx', 'scripts/ciImpact/requiredWorkflows.ts', ...args], {
+    encoding: 'utf8',
+    env
+  });
 }
 
 function runRequiredWorkflows(files: string[]): RequiredWorkflowsOutput {
@@ -125,4 +169,94 @@ for (const scenario of scenarios) {
 test('required workflows: docs-only change has empty reasons', () => {
   const output = runRequiredWorkflows(['docs/en/ci.md']);
   assert.deepEqual(output.reasons, {});
+});
+
+test('required workflows uses default base/head when args are omitted', () => {
+  const stub = withStubPnpm(baseImpactOutput());
+  try {
+    const result = runRequiredWorkflowsViaNode([], {
+      ...process.env,
+      PATH: stub.pathValue,
+      STUB_ARGS_FILE: stub.argsFile
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const argsLogged = fs.readFileSync(stub.argsFile, 'utf8');
+    assert.ok(argsLogged.includes('--base\norigin/main'));
+    assert.ok(argsLogged.includes('--head\nHEAD'));
+  } finally {
+    fs.rmSync(stub.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('required workflows ignores incomplete --base flag and keeps defaults', () => {
+  const stub = withStubPnpm(baseImpactOutput());
+  try {
+    const result = runRequiredWorkflowsViaNode(['--base'], {
+      ...process.env,
+      PATH: stub.pathValue,
+      STUB_ARGS_FILE: stub.argsFile
+    });
+    assert.equal(result.status, 0, result.stderr);
+    const argsLogged = fs.readFileSync(stub.argsFile, 'utf8');
+    assert.ok(argsLogged.includes('--base\norigin/main'));
+    assert.ok(argsLogged.includes('--head\nHEAD'));
+  } finally {
+    fs.rmSync(stub.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('required workflows fails when ciImpact output has non-boolean run value', () => {
+  const invalidRunType = JSON.stringify({
+    base: 'origin/main',
+    head: 'HEAD',
+    jobs: {
+      build: { run: 'true', reasons: [] },
+      'web-e2e': { run: false, reasons: [] },
+      'website-e2e': { run: false, reasons: [] },
+      'electron-e2e': { run: false, reasons: [] },
+      android: { run: false, reasons: [] },
+      'android-maestro-release': { run: false, reasons: [] },
+      'ios-maestro-release': { run: false, reasons: [] }
+    }
+  });
+  const stub = withStubPnpm(invalidRunType);
+  try {
+    const result = runRequiredWorkflowsViaNode([], {
+      ...process.env,
+      PATH: stub.pathValue,
+      STUB_ARGS_FILE: stub.argsFile
+    });
+    assert.notEqual(result.status, 0);
+    assert.ok(result.stderr.includes('Invalid ciImpact output.jobs.build.run'));
+  } finally {
+    fs.rmSync(stub.tempDir, { recursive: true, force: true });
+  }
+});
+
+test('required workflows fails when ciImpact output has invalid job object', () => {
+  const invalidJobShape = JSON.stringify({
+    base: 'origin/main',
+    head: 'HEAD',
+    jobs: {
+      build: { run: false, reasons: [] },
+      'web-e2e': null,
+      'website-e2e': { run: false, reasons: [] },
+      'electron-e2e': { run: false, reasons: [] },
+      android: { run: false, reasons: [] },
+      'android-maestro-release': { run: false, reasons: [] },
+      'ios-maestro-release': { run: false, reasons: [] }
+    }
+  });
+  const stub = withStubPnpm(invalidJobShape);
+  try {
+    const result = runRequiredWorkflowsViaNode([], {
+      ...process.env,
+      PATH: stub.pathValue,
+      STUB_ARGS_FILE: stub.argsFile
+    });
+    assert.notEqual(result.status, 0);
+    assert.ok(result.stderr.includes('Invalid ciImpact output.jobs.web-e2e'));
+  } finally {
+    fs.rmSync(stub.tempDir, { recursive: true, force: true });
+  }
 });

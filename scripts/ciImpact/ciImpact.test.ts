@@ -21,21 +21,20 @@ interface Scenario {
   expectedRuns: Record<JobName, boolean>;
 }
 
-function runCiImpact(files: string[]): CiImpactOutput {
-  const output = execFileSync(
-    'pnpm',
-    ['exec', 'tsx', 'scripts/ciImpact/ciImpact.ts', '--files', files.join(',')],
-    {
-      encoding: 'utf8'
-    }
-  );
-
+function runCiImpactWithArgs(args: string[]): CiImpactOutput {
+  const output = execFileSync('pnpm', ['exec', 'tsx', 'scripts/ciImpact/ciImpact.ts', ...args], {
+    encoding: 'utf8'
+  });
   const parsed = JSON.parse(output);
   if (typeof parsed !== 'object' || parsed === null) {
     throw new Error('ciImpact output must be a JSON object');
   }
 
   return parsed;
+}
+
+function runCiImpact(files: string[]): CiImpactOutput {
+  return runCiImpactWithArgs(['--files', files.join(',')]);
 }
 
 const scenarios: ReadonlyArray<Scenario> = [
@@ -139,4 +138,47 @@ test('ciImpact docs-only change emits ignored-path warning', () => {
     output.warnings.includes('All file changes are ignored by trigger policy (docs/config-only).'),
     'docs-only change should explain why jobs were skipped'
   );
+});
+
+test('ciImpact fallback diff path works when base ref is invalid', () => {
+  const output = runCiImpactWithArgs(['--base', 'not-a-real-ref', '--head', 'HEAD']);
+  assert.equal(output.base, 'not-a-real-ref');
+  assert.equal(output.head, 'HEAD');
+  assert.ok(Array.isArray(output.changedFiles));
+});
+
+test('ciImpact returns empty change set when base/head are identical', () => {
+  const output = runCiImpactWithArgs(['--base', 'HEAD', '--head', 'HEAD']);
+  assert.deepEqual(output.changedFiles, []);
+  assert.deepEqual(output.materialFiles, []);
+});
+
+test('ciImpact warns for unmapped files under packages/', () => {
+  const output = runCiImpactWithArgs(['--files', 'packages/not-a-workspace/src/index.ts']);
+  assert.ok(
+    output.warnings.includes('Some files under packages/ did not map to a package.json workspace.'),
+    'expected unmapped workspace warning'
+  );
+});
+
+test('ciImpact handles tuxedo-only changes without mobile jobs', () => {
+  const output = runCiImpactWithArgs(['--files', 'tuxedo/tests/run.sh']);
+  assert.equal(output.jobs.build.run, true);
+  assert.equal(output.jobs.android.run, false);
+  assert.equal(output.jobs['android-maestro-release'].run, false);
+  assert.equal(output.jobs['ios-maestro-release'].run, false);
+});
+
+test('ciImpact treats maestro changes as cross-platform mobile impact', () => {
+  const output = runCiImpactWithArgs(['--files', 'packages/client/.maestro/flows/smoke.yaml']);
+  assert.equal(output.jobs.android.run, true);
+  assert.equal(output.jobs['android-maestro-release'].run, true);
+  assert.equal(output.jobs['ios-maestro-release'].run, true);
+});
+
+test('ciImpact treats shared mobile release config as cross-platform mobile impact', () => {
+  const output = runCiImpactWithArgs(['--files', 'packages/client/fastlane/Fastfile']);
+  assert.equal(output.jobs.android.run, true);
+  assert.equal(output.jobs['android-maestro-release'].run, true);
+  assert.equal(output.jobs['ios-maestro-release'].run, true);
 });
