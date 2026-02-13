@@ -51,7 +51,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    **Tag with tuxedo instance**: Tag the PR with the current workspace name:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance
+   ./scripts/agents/tooling/agentTool.ts tagPrWithTuxedoInstance
    ```
 
    **Roll-up PR detection**: Check if `baseRefName` is `main` or `master`. If NOT:
@@ -185,7 +185,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - If `used_fallback_agent_review` is still `false`, run one cross-agent fallback review:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.sh solicitClaudeCodeReview
+   ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
    ```
 
    - Set `used_fallback_agent_review = true`
@@ -197,8 +197,8 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
    - Reply **only inside the review thread**:
      - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
-     - Fixed-comment reply: `./scripts/agents/tooling/agentTool.sh replyToGemini --number <pr-number> --comment-id <comment_id> --commit <sha>`
-     - Custom-comment reply: `./scripts/agents/tooling/agentTool.sh replyToComment --number <pr-number> --comment-id <comment_id> --body "...@gemini-code-assist ..."`
+     - Fixed-comment reply: `./scripts/agents/tooling/agentTool.ts replyToGemini --number <pr-number> --comment-id <comment_id> --commit <sha>`
+     - Custom-comment reply: `./scripts/agents/tooling/agentTool.ts replyToComment --number <pr-number> --comment-id <comment_id> --body "...@gemini-code-assist ..."`
    - **Never reply in the PR body or top-level PR comments** for review feedback.
      - Do **not** use `gh pr edit --body` or `gh pr comment` to answer reviewer feedback.
      - Do **not** use issue comments (`/repos/$REPO/issues/<pr-number>/comments`) for review feedback.
@@ -304,7 +304,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
 4. Refresh workspace after merge:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.sh refresh
+   ./scripts/agents/tooling/agentTool.ts refresh
    ```
 
    Post-merge QA handling for `associated_issue_number`:
@@ -312,7 +312,7 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Add the `needs-qa` label:
 
      ```bash
-     ./scripts/agents/tooling/agentTool.sh addLabel --type issue --number <associated_issue_number> --label "needs-qa"
+     ./scripts/agents/tooling/agentTool.ts addLabel --type issue --number <associated_issue_number> --label "needs-qa"
      ```
 
 5. Report success with PR URL, a short description of the merged changes, and the associated issue status.

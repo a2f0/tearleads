@@ -1,39 +1,61 @@
-# Agent Tool Wrappers (Phase 1)
+# Agent Tool Wrappers
 
-`agentTool.sh` is a thin wrapper around `scripts/agents/*` commands for safer tool-calling.
+`agentTool.ts` is a TypeScript CLI wrapper around `scripts/agents/*` commands and GitHub API actions for safer tool-calling with strong typing.
 
 ## Usage
 
 ```sh
-./scripts/agents/tooling/agentTool.sh <action> [options]
+./scripts/agents/tooling/agentTool.ts <action> [options]
 ```
 
-Actions:
+Run `--help` for full action and option list:
 
-- `refresh`
-- `solicitClaudeCodeReview`
-- `solicitCodexReview`
-- `setVscodeTitle`
-- `replyToGemini` (reply in-thread with standardized commit-hash message)
-- `replyToComment` (reply in-thread with custom body)
+```sh
+./scripts/agents/tooling/agentTool.ts --help
+./scripts/agents/tooling/agentTool.ts <action> --help
+```
 
-Options:
+## Actions
 
-- `--title <value>`: optional for `setVscodeTitle` (defaults to `<workspace> - <branch>`)
-- `--number <n>`: PR number for review comment actions
-- `--comment-id <id>`: review comment database ID for reply actions
-- `--commit <sha>`: commit SHA for `replyToGemini`
-- `--body <text>`: custom comment body for `replyToComment`
-- `--timeout-seconds <n>`: default `300`, default `3600` for `refresh`
-- `--repo-root <path>`: force execution from a specific git repo root
-- `--dry-run`: validate action/script resolution without executing target script
-- `--json`: emit structured summary output
+### Script Wrappers
+
+- `refresh` - Switch to main, pull, install, build
+- `setVscodeTitle` - Set VS Code window title
+- `solicitClaudeCodeReview` - Request Claude Code review
+- `solicitCodexReview` - Request Codex review
+- `addLabel` - Add label to PR/issue
+- `approveSkippedChecks` - Create passing check runs for skipped CI
+- `tagPrWithTuxedoInstance` - Tag PR with workspace instance label
+
+### GitHub API Actions
+
+- `getPrInfo` - Get PR info (state, merge status, etc.)
+- `getReviewThreads` - Fetch review threads via GraphQL
+- `replyToComment` - Reply in-thread with custom body
+- `replyToGemini` - Reply in-thread with commit-hash message
+- `resolveThread` - Resolve a review thread
+- `getCiStatus` - Get workflow run status
+- `cancelWorkflow` - Cancel a workflow run
+- `rerunWorkflow` - Rerun a workflow
+- `downloadArtifact` - Download CI artifact
+- `enableAutoMerge` - Enable auto-merge on PR
+- `findPrForBranch` - Find PR for a branch
+- `listHighPriorityPrs` - List open high-priority PRs
+- `triggerGeminiReview` - Post /gemini review
+- `findDeferredWork` - Find deferred work comments
+
+## Common Options
+
+- `--timeout-seconds <n>` - Timeout (default: 300, refresh: 3600)
+- `--repo-root <path>` - Execute from specific git repo root
+- `--dry-run` - Validate without executing
+- `--json` - Emit structured JSON summary
 
 ## Examples
 
 ```sh
-./scripts/agents/tooling/agentTool.sh setVscodeTitle --title "tearleads6 - main"
-./scripts/agents/tooling/agentTool.sh solicitCodexReview --dry-run --json
-./scripts/agents/tooling/agentTool.sh replyToGemini --number 1618 --comment-id 2801563279 --commit d9948cca79f7f13c940edcade20b5665b1bf0762
-./scripts/agents/tooling/agentTool.sh refresh
+./scripts/agents/tooling/agentTool.ts setVscodeTitle --title "tearleads6 - main"
+./scripts/agents/tooling/agentTool.ts solicitCodexReview --dry-run --json
+./scripts/agents/tooling/agentTool.ts replyToGemini --number 1618 --comment-id 2801563279 --commit d9948cca79f7f13c940edcade20b5665b1bf0762
+./scripts/agents/tooling/agentTool.ts refresh
 ```

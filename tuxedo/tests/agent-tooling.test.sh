@@ -3,7 +3,12 @@ set -eu
 
 TEST_DIR=$(cd -- "$(dirname -- "$0")" && pwd -P)
 REPO_ROOT=$(cd -- "$TEST_DIR/../.." && pwd -P)
-TOOL="$REPO_ROOT/scripts/agents/tooling/agentTool.sh"
+TOOL_SCRIPT="$REPO_ROOT/scripts/agents/tooling/agentTool.ts"
+
+# Run the TypeScript tool via pnpm exec tsx
+run_tool() {
+    pnpm exec tsx "$TOOL_SCRIPT" "$@"
+}
 
 fail() {
     echo "FAIL: $1" >&2
@@ -38,34 +43,34 @@ touch "$TEST_REPO/.keep"
 git -C "$TEST_REPO" add .keep
 git -C "$TEST_REPO" commit -qm "init"
 
-if "$TOOL" unknownAction --repo-root "$TEST_REPO" >/dev/null 2>&1; then
+if run_tool unknownAction --repo-root "$TEST_REPO" >/dev/null 2>&1; then
     fail "expected unknown action to fail"
 fi
 
 SETTINGS_FILE="$TEST_REPO/.vscode/settings.json"
 
 CODEX_JSON="$TEMP_DIR/solicitCodexReview.json"
-"$TOOL" solicitCodexReview --repo-root "$REPO_ROOT" --dry-run --json >"$CODEX_JSON"
+run_tool solicitCodexReview --repo-root "$REPO_ROOT" --dry-run --json >"$CODEX_JSON"
 assert_file_exists "$CODEX_JSON"
 CODEX_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${String(d.dry_run)}`);' "$CODEX_JSON")
 assert_contains "$CODEX_STATUS" "success|solicitCodexReview|true"
 
 CLAUDE_JSON="$TEMP_DIR/solicitClaudeCodeReview.json"
-"$TOOL" solicitClaudeCodeReview --repo-root "$REPO_ROOT" --dry-run --json >"$CLAUDE_JSON"
+run_tool solicitClaudeCodeReview --repo-root "$REPO_ROOT" --dry-run --json >"$CLAUDE_JSON"
 assert_file_exists "$CLAUDE_JSON"
 CLAUDE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${String(d.dry_run)}`);' "$CLAUDE_JSON")
 assert_contains "$CLAUDE_STATUS" "success|solicitClaudeCodeReview|true"
 
 # Test --help flag
-HELP_OUTPUT=$("$TOOL" --help 2>&1)
+HELP_OUTPUT=$(run_tool --help 2>&1)
 assert_contains "$HELP_OUTPUT" "Usage:"
-assert_contains "$HELP_OUTPUT" "Actions:"
+assert_contains "$HELP_OUTPUT" "Commands:"
 assert_contains "$HELP_OUTPUT" "Options:"
 assert_contains "$HELP_OUTPUT" "replyToGemini"
 
 # Test setVscodeTitle without --title (should use default '<workspace>')
 TITLE_JSON="$TEMP_DIR/setVscodeTitle.json"
-"$TOOL" setVscodeTitle --repo-root "$TEST_REPO" --json >"$TITLE_JSON"
+run_tool setVscodeTitle --repo-root "$TEST_REPO" --json >"$TITLE_JSON"
 assert_file_exists "$TITLE_JSON"
 TITLE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}`);' "$TITLE_JSON")
 assert_contains "$TITLE_STATUS" "success|setVscodeTitle"
@@ -74,24 +79,24 @@ DEFAULT_TITLE=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileS
 assert_contains "$DEFAULT_TITLE" "repo"
 
 # replyToGemini should require --commit
-if "$TOOL" replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 >/dev/null 2>&1; then
+if run_tool replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 >/dev/null 2>&1; then
     fail "expected replyToGemini without --commit to fail"
 fi
 
 # replyToGemini should validate SHA format
-if "$TOOL" replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 --commit not-a-sha >/dev/null 2>&1; then
+if run_tool replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 --commit not-a-sha >/dev/null 2>&1; then
     fail "expected replyToGemini with invalid --commit to fail"
 fi
 
 # replyToGemini should pass argument validation in dry-run mode
 GEMINI_REPLY_JSON="$TEMP_DIR/replyToGemini.json"
-"$TOOL" replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 --commit abc1234 --dry-run --json >"$GEMINI_REPLY_JSON"
+run_tool replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 --commit abc1234 --dry-run --json >"$GEMINI_REPLY_JSON"
 assert_file_exists "$GEMINI_REPLY_JSON"
 GEMINI_REPLY_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${String(d.dry_run)}`);' "$GEMINI_REPLY_JSON")
 assert_contains "$GEMINI_REPLY_STATUS" "success|replyToGemini|true"
 
 # replyToComment should still require explicit --body
-if "$TOOL" replyToComment --repo-root "$TEST_REPO" --number 1 --comment-id 2 >/dev/null 2>&1; then
+if run_tool replyToComment --repo-root "$TEST_REPO" --number 1 --comment-id 2 >/dev/null 2>&1; then
     fail "expected replyToComment without --body to fail"
 fi
 

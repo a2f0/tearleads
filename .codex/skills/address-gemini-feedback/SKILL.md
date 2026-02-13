@@ -96,7 +96,7 @@ gh pr view --json number,title,url,headRefName,baseRefName -R "$REPO"
 1. Reply in each addressed thread using the parameterized agent tool action:
 
 ```bash
-./scripts/agents/tooling/agentTool.sh replyToGemini \
+./scripts/agents/tooling/agentTool.ts replyToGemini \
   --number <pr_number> \
   --comment-id <comment_id> \
   --commit <commit_sha>
@@ -105,7 +105,7 @@ gh pr view --json number,title,url,headRefName,baseRefName -R "$REPO"
    For non-fix replies (e.g., deferrals or scope clarifications), use:
 
 ```bash
-./scripts/agents/tooling/agentTool.sh replyToComment \
+./scripts/agents/tooling/agentTool.ts replyToComment \
   --number <pr_number> \
   --comment-id <comment_id> \
   --body "@gemini-code-assist <custom response>"

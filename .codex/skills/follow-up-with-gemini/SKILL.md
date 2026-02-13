@@ -88,7 +88,7 @@ Always pass `-R "$REPO"` to `gh` commands.
 4. For each unresolved comment that has been addressed and pushed (verified in step 2), reply using the parameterized agent tool action:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.sh replyToGemini \
+   ./scripts/agents/tooling/agentTool.ts replyToGemini \
      --number "$PR_NUMBER" \
      --comment-id <comment_database_id> \
      --commit <sha>
@@ -98,10 +98,10 @@ Always pass `-R "$REPO"` to `gh` commands.
    - Use the exact commit SHA that fixed the issue
 
    If deferring to an issue:
-   - Example: `./scripts/agents/tooling/agentTool.sh replyToComment --number "$PR_NUMBER" --comment-id <comment_database_id> --body "@gemini-code-assist Tracked in #456 for follow-up. This is out of scope for the current PR."`
+   - Example: `./scripts/agents/tooling/agentTool.ts replyToComment --number "$PR_NUMBER" --comment-id <comment_database_id> --body "@gemini-code-assist Tracked in #456 for follow-up. This is out of scope for the current PR."`
 
    If explaining why feedback doesn't apply:
-   - Example: `./scripts/agents/tooling/agentTool.sh replyToComment --number "$PR_NUMBER" --comment-id <comment_database_id> --body "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"`
+   - Example: `./scripts/agents/tooling/agentTool.ts replyToComment --number "$PR_NUMBER" --comment-id <comment_database_id> --body "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"`
 
 5. Do NOT comment on the main PR thread. Only reply inside discussion threads.
 

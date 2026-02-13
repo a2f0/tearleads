@@ -48,7 +48,7 @@ Request a fresh review from Gemini Code Assist on the current PR.
    - Fall back to Codex review:
 
      ```bash
-     ./scripts/agents/tooling/agentTool.sh solicitCodexReview
+     ./scripts/agents/tooling/agentTool.ts solicitCodexReview
      ```
 
    - Report that Gemini quota was exhausted and Codex was used instead

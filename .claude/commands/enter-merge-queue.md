@@ -63,7 +63,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    **Tag with tuxedo instance**: Tag the PR with the current workspace name:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance
+   ./scripts/agents/tooling/agentTool.ts tagPrWithTuxedoInstance
    ```
 
    **Roll-up PR detection**: Check if `baseRefName` is `main` or `master`. If NOT:
@@ -254,7 +254,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - If `used_fallback_agent_review` is still `false`, run one cross-agent fallback review:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.sh solicitCodexReview
+   ./scripts/agents/tooling/agentTool.ts solicitCodexReview
    ```
 
    - Set `used_fallback_agent_review = true`
@@ -383,7 +383,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 4. **Refresh workspace**: Once the PR is merged, run:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.sh refresh
+   ./scripts/agents/tooling/agentTool.ts refresh
    ```
 
    This sets the VS Code window title to "ready" and switches back to main with the latest changes.
@@ -393,7 +393,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    1. Add the "needs-qa" label to the associated issue:
 
       ```bash
-      ./scripts/agents/tooling/agentTool.sh addLabel --type issue --number <associated_issue_number> --label "needs-qa"
+      ./scripts/agents/tooling/agentTool.ts addLabel --type issue --number <associated_issue_number> --label "needs-qa"
       ```
 
    That's it. The issue already describes the work; no need to update descriptions or add comments.
