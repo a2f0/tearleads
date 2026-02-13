@@ -10,7 +10,7 @@ import {
   Share2
 } from 'lucide-react';
 import { useVfsClipboard, useVfsExplorerContext } from '../context';
-import type { DisplayItem } from './VfsDetailsPanel';
+import type { DisplayItem } from '../lib';
 
 export type ContextMenuItemType = 'cut' | 'copy' | 'share';
 

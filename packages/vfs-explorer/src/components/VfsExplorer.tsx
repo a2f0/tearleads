@@ -11,17 +11,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UNFILED_FOLDER_ID } from '../constants';
 import { useVfsClipboard, VfsClipboardProvider } from '../context';
 import { useCopyVfsItem, useMoveVfsItem, type VfsFolderNode } from '../hooks';
+import type { DisplayItem, VfsOpenItem, VfsViewMode } from '../lib';
 import { SharingPanel } from './SharingPanel';
-import { type DisplayItem, VfsDetailsPanel } from './VfsDetailsPanel';
+import { VfsDetailsPanel } from './VfsDetailsPanel';
 import type { DragItemData } from './VfsDraggableItem';
 import { VfsDragOverlay } from './VfsDragOverlay';
 import { VfsStatusBar } from './VfsStatusBar';
 import { VfsTreePanel } from './VfsTreePanel';
 
-export type VfsViewMode = 'list' | 'table';
-
-/** Item data passed to onItemOpen callback */
-export type VfsOpenItem = DisplayItem;
+export type { VfsOpenItem, VfsViewMode };
 
 interface VfsExplorerProps {
   className?: string;

@@ -42,21 +42,19 @@ import {
   type VfsItem,
   type VfsObjectType
 } from '../hooks';
-import { cn, OBJECT_TYPE_COLORS, OBJECT_TYPE_ICONS } from '../lib';
-import type { VfsSortColumn, VfsSortState } from '../lib/vfsTypes';
+import {
+  cn,
+  type DisplayItem,
+  OBJECT_TYPE_COLORS,
+  OBJECT_TYPE_ICONS,
+  type VfsSortColumn,
+  type VfsSortState,
+  type VfsViewMode
+} from '../lib';
 import { ItemContextMenu } from './ItemContextMenu';
 import { VfsDraggableItem } from './VfsDraggableItem';
-import type { VfsViewMode } from './VfsExplorer';
 
-export type { VfsItem, VfsObjectType };
-
-// Item shape used in the details panel (shared between folder contents and unfiled items)
-export interface DisplayItem {
-  id: string;
-  objectType: VfsObjectType;
-  name: string;
-  createdAt: Date;
-}
+export type { DisplayItem, VfsItem, VfsObjectType };
 
 interface VfsDetailsPanelProps {
   folderId: string | null;
