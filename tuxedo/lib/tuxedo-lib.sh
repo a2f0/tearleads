@@ -214,15 +214,13 @@ tuxedo_truncate_title() {
     printf '%.*s...' "$truncate_len" "$title"
 }
 
-# Set window options to enable dynamic title (workspace:branch format)
-# - @workspace: stores the workspace directory for automatic-rename-format
-# - automatic-rename: must be enabled per-window since -n name disables it
+# Set window options for workspace:branch display in status bar
+# - @workspace: stores the workspace directory, used by window-status-format
 set_window_title_options() {
     workspace_dir="$1"
     window_name="$2"
     [ -z "$workspace_dir" ] || [ -z "$window_name" ] && return 0
     tmux set-option -w -t "$SESSION_NAME:$window_name" @workspace "$workspace_dir" 2>/dev/null || true
-    tmux set-option -w -t "$SESSION_NAME:$window_name" automatic-rename on 2>/dev/null || true
 }
 
 # Legacy alias for backward compatibility
