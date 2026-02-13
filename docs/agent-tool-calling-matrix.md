@@ -1,6 +1,6 @@
 # Agent Tool-Calling Matrix
 
-Date: 2026-02-12 (Phase 2 complete, Phase 4 planned)
+Date: 2026-02-13 (Phase 2 complete, Phase 4 complete)
 
 Scope:
 
@@ -188,13 +188,13 @@ Phase 3 (env/device/bootstrap):
 - Add preflight checks for device/simulator availability
 - Keep deploy/secrets/infra scripts manual by policy, or add hard-gated wrappers only if required
 
-Phase 4 (GitHub API patterns from skills): 🔄 IN PROGRESS (PR #1623)
+Phase 4 (GitHub API patterns from skills): ✅ COMPLETE (PR #1623)
 
 - Extract repeated `gh` CLI and GraphQL patterns from skills into `agentTool.ts` actions
 - ✅ High-priority actions implemented: `getPrInfo`, `getReviewThreads`, `replyToComment`, `resolveThread`, `getCiStatus`, `cancelWorkflow`, `rerunWorkflow`
 - ✅ Medium-priority actions implemented: `downloadArtifact`, `enableAutoMerge`, `findPrForBranch`, `listHighPriorityPrs`, `triggerGeminiReview`, `findDeferredWork`
 - ✅ Token Efficiency sections added to all 18 skills
-- ⏳ Remaining: Update skills to use new wrappers
+- ✅ Wrapper-first skill updates completed for both `.claude/commands/*` and `.codex/skills/*`
 - See "Skill API Pattern Extraction" section below
 
 ## Wrapper Usage (Phase 1 + 2)

@@ -142,13 +142,24 @@ run_discovery() {
       rg -n --glob '*.ts' "router\\.(get|post|put|patch|delete)|authClaims|req\\.session|pool\\.query|client\\.query" packages/api/src/routes | head -40
       ;;
     preen-skill-tooling)
+      extract_union_actions() {
+        local file="$1"
+        awk '
+          /^type ActionName =/ {in_union=1; next}
+          in_union {
+            print
+            if ($0 ~ /;/) in_union=0
+          }
+        ' "$file" | rg -o "'[A-Za-z][A-Za-z0-9]*'" | tr -d "'" | sort -u
+      }
       # Check for undefined actions (invoked but not defined)
-      AGENT_DEFINED=$(grep -oP "^\s+'[a-zA-Z]+'" scripts/agents/tooling/agentTool.ts 2>/dev/null | tr -d "' " | sort -u)
-      AGENT_INVOKED=$(grep -rh "agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "agentTool\.ts\s+\K[a-zA-Z]+" | sort -u)
+      AGENT_DEFINED=$(extract_union_actions scripts/agents/tooling/agentTool.ts)
+      AGENT_INVOKED=$(rg --no-filename "/agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
       echo "=== Undefined agentTool actions ===" && comm -23 <(echo "$AGENT_INVOKED") <(echo "$AGENT_DEFINED")
       echo "=== Unused agentTool actions ===" && comm -23 <(echo "$AGENT_DEFINED") <(echo "$AGENT_INVOKED")
-      SCRIPT_DEFINED=$(grep -oP "^\s+'[a-zA-Z]+'" scripts/tooling/scriptTool.ts 2>/dev/null | tr -d "' " | sort -u)
-      SCRIPT_INVOKED=$(grep -rh "scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "scriptTool\.ts\s+\K[a-zA-Z]+" | sort -u)
+      SCRIPT_DEFINED=$(extract_union_actions scripts/tooling/scriptTool.ts)
+      SCRIPT_INVOKED_ALL=$(rg --no-filename "/scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
+      SCRIPT_INVOKED=$(echo "$SCRIPT_INVOKED_ALL" | rg -v '^generateDocs$' || true)
       echo "=== Undefined scriptTool actions ===" && comm -23 <(echo "$SCRIPT_INVOKED") <(echo "$SCRIPT_DEFINED")
       echo "=== Unused scriptTool actions ===" && comm -23 <(echo "$SCRIPT_DEFINED") <(echo "$SCRIPT_INVOKED")
       echo "=== README freshness ===" && ./scripts/tooling/scriptTool.ts generateDocs --json 2>/dev/null | grep '"changed"'

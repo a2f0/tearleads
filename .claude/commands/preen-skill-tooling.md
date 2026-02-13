@@ -19,13 +19,22 @@ Run this skill when:
 ### 1. Extract defined actions from tool wrappers
 
 ```bash
-# agentTool.ts actions (from ACTION_CONFIG keys)
-echo "=== agentTool.ts defined actions ==="
-grep -oP "^\s+'[a-zA-Z]+'" scripts/agents/tooling/agentTool.ts | tr -d "' " | sort -u
+extract_union_actions() {
+  local file="$1"
+  awk '
+    /^type ActionName =/ {in_union=1; next}
+    in_union {
+      print
+      if ($0 ~ /;/) in_union=0
+    }
+  ' "$file" | rg -o "'[A-Za-z][A-Za-z0-9]*'" | tr -d "'" | sort -u
+}
 
-# scriptTool.ts actions (from ACTION_CONFIG keys)
+echo "=== agentTool.ts defined actions ==="
+extract_union_actions scripts/agents/tooling/agentTool.ts
+
 echo "=== scriptTool.ts defined actions ==="
-grep -oP "^\s+'[a-zA-Z]+'" scripts/tooling/scriptTool.ts | tr -d "' " | sort -u
+extract_union_actions scripts/tooling/scriptTool.ts
 ```
 
 ### 2. Extract invoked actions from skills
@@ -33,44 +42,58 @@ grep -oP "^\s+'[a-zA-Z]+'" scripts/tooling/scriptTool.ts | tr -d "' " | sort -u
 ```bash
 # agentTool.ts invocations in Claude skills
 echo "=== agentTool.ts invocations in Claude skills ==="
-grep -rh "agentTool\.ts" .claude/commands/*.md | grep -oP "agentTool\.ts\s+\K[a-zA-Z]+" | sort -u
+rg --no-filename "/agentTool\.ts" .claude/commands/*.md | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
 
 # agentTool.ts invocations in Codex skills
 echo "=== agentTool.ts invocations in Codex skills ==="
-grep -rh "agentTool\.ts" .codex/skills/*/SKILL.md | grep -oP "agentTool\.ts\s+\K[a-zA-Z]+" | sort -u
+rg --no-filename "/agentTool\.ts" .codex/skills/*/SKILL.md | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
 
 # scriptTool.ts invocations in Claude skills
 echo "=== scriptTool.ts invocations in Claude skills ==="
-grep -rh "scriptTool\.ts" .claude/commands/*.md | grep -oP "scriptTool\.ts\s+\K[a-zA-Z]+" | sort -u
+rg --no-filename "/scriptTool\.ts" .claude/commands/*.md | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
 
 # scriptTool.ts invocations in Codex skills
 echo "=== scriptTool.ts invocations in Codex skills ==="
-grep -rh "scriptTool\.ts" .codex/skills/*/SKILL.md | grep -oP "scriptTool\.ts\s+\K[a-zA-Z]+" | sort -u
+rg --no-filename "/scriptTool\.ts" .codex/skills/*/SKILL.md | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
 ```
 
 ### 3. Cross-reference for issues
 
 ```bash
+extract_union_actions() {
+  local file="$1"
+  awk '
+    /^type ActionName =/ {in_union=1; next}
+    in_union {
+      print
+      if ($0 ~ /;/) in_union=0
+    }
+  ' "$file" | rg -o "'[A-Za-z][A-Za-z0-9]*'" | tr -d "'" | sort -u
+}
+
 # Find undefined actions (invoked but not defined)
 echo "=== Checking for undefined agentTool actions ==="
-DEFINED=$(grep -oP "^\s+'[a-zA-Z]+'" scripts/agents/tooling/agentTool.ts | tr -d "' " | sort -u)
-INVOKED=$(grep -rh "agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "agentTool\.ts\s+\K[a-zA-Z]+" | sort -u)
+DEFINED=$(extract_union_actions scripts/agents/tooling/agentTool.ts)
+INVOKED=$(rg --no-filename "/agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
 comm -23 <(echo "$INVOKED") <(echo "$DEFINED")
 
 echo "=== Checking for undefined scriptTool actions ==="
-DEFINED=$(grep -oP "^\s+'[a-zA-Z]+'" scripts/tooling/scriptTool.ts | tr -d "' " | sort -u)
-INVOKED=$(grep -rh "scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "scriptTool\.ts\s+\K[a-zA-Z]+" | sort -u)
+DEFINED=$(extract_union_actions scripts/tooling/scriptTool.ts)
+INVOKED_ALL=$(rg --no-filename "/scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
+# scriptTool.ts expose `generateDocs` as a top-level command (not in ActionName union).
+INVOKED=$(echo "$INVOKED_ALL" | rg -v '^generateDocs$' || true)
 comm -23 <(echo "$INVOKED") <(echo "$DEFINED")
 
 # Find dead code (defined but never invoked)
 echo "=== Checking for unused agentTool actions ==="
-DEFINED=$(grep -oP "^\s+'[a-zA-Z]+'" scripts/agents/tooling/agentTool.ts | tr -d "' " | sort -u)
-INVOKED=$(grep -rh "agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "agentTool\.ts\s+\K[a-zA-Z]+" | sort -u)
+DEFINED=$(extract_union_actions scripts/agents/tooling/agentTool.ts)
+INVOKED=$(rg --no-filename "/agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
 comm -23 <(echo "$DEFINED") <(echo "$INVOKED")
 
 echo "=== Checking for unused scriptTool actions ==="
-DEFINED=$(grep -oP "^\s+'[a-zA-Z]+'" scripts/tooling/scriptTool.ts | tr -d "' " | sort -u)
-INVOKED=$(grep -rh "scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "scriptTool\.ts\s+\K[a-zA-Z]+" | sort -u)
+DEFINED=$(extract_union_actions scripts/tooling/scriptTool.ts)
+INVOKED_ALL=$(rg --no-filename "/scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
+INVOKED=$(echo "$INVOKED_ALL" | rg -v '^generateDocs$' || true)
 comm -23 <(echo "$DEFINED") <(echo "$INVOKED")
 ```
 
@@ -89,7 +112,7 @@ echo "=== Checking scriptTool.ts README freshness ==="
 | -------- | -------- | ------ |
 | Undefined action invoked | High | Fix skill to use correct action name, or add missing action to tool |
 | Defined action never used | Low | Consider removing dead code, or document why it exists |
-| Skill/Codex parity mismatch | Medium | Ensure both Claude and Codex versions reference same actions |
+| Skill/Codex parity mismatch | Medium | Ensure both Claude and Codex versions reference equivalent actions (cross-agent fallback action names may differ) |
 | README out of date | Medium | Run `./scripts/tooling/scriptTool.ts generateDocs` to regenerate |
 
 ## Prioritization
@@ -97,7 +120,7 @@ echo "=== Checking scriptTool.ts README freshness ==="
 Fix issues in this order:
 
 1. **Undefined actions** - Skills will fail at runtime
-2. **Parity mismatches** - Claude and Codex skills should be identical
+2. **Parity mismatches** - Claude and Codex skills should be equivalent for runtime behavior
 3. **Unused actions** - Dead code, lower priority unless cleanup pass
 
 ## Fix Strategies
@@ -117,7 +140,7 @@ Fix issues in this order:
 ### Parity Mismatch
 
 1. Compare `.claude/commands/<skill>.md` with `.codex/skills/<skill>/SKILL.md`
-2. Sync the files to use identical action references
+2. Sync the files to use equivalent action references (allow `solicitCodexReview` vs `solicitClaudeCodeReview` when agent context differs)
 3. Run the parity check from main `preen` skill
 
 ### README Out of Date
@@ -148,7 +171,7 @@ If no issues found during discovery, do not create a branch.
 ## Quality Bar
 
 - Zero undefined action references in skills
-- Zero parity mismatches between Claude and Codex skills
+- Zero unresolved parity mismatches between Claude and Codex skills (excluding intentional cross-agent fallback action differences)
 - All unused actions either removed or documented
 - Tool wrapper tests pass
 - Auto-generated READMEs are up to date
@@ -157,8 +180,8 @@ If no issues found during discovery, do not create a branch.
 
 ```bash
 # Limit discovery output
-grep -rh "agentTool\.ts" .claude/commands/*.md | head -20
-grep -rh "scriptTool\.ts" .claude/commands/*.md | head -20
+rg --no-filename "/agentTool\.ts" .claude/commands/*.md | head -20
+rg --no-filename "/scriptTool\.ts" .claude/commands/*.md | head -20
 
 # Suppress validation output
 pnpm typecheck >/dev/null
