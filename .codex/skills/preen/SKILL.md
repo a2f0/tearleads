@@ -46,6 +46,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-api-security` | Audit API for authorization, data access, and security issues |
 | `preen-dependency-security` | Audit dependency vulnerabilities and unsafe versioning |
 | `preen-test-flakiness` | Reduce flaky tests and nondeterministic waiting patterns |
+| `preen-msw-parity` | Audit MSW handlers against API routes and improve test coverage assertions |
 | `preen-skill-tooling` | Validate skills are wired into agentTool.ts and scriptTool.ts |
 
 ## Run Modes
@@ -78,6 +79,7 @@ CATEGORIES=(
   "preen-api-security"
   "preen-dependency-security"
   "preen-test-flakiness"
+  "preen-msw-parity"
   "preen-skill-tooling"
 )
 
@@ -178,6 +180,10 @@ run_discovery() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(' packages . | head -30 || true
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true
       ;;
+    preen-msw-parity)
+      ./scripts/preen/checkMswParity.ts
+      ./scripts/preen/checkMswParity.ts --json | head -40
+      ;;
     preen-skill-tooling)
       ./scripts/checkPreenEcosystem.sh --summary
       ;;
@@ -209,6 +215,9 @@ metric_count() {
       ;;
     preen-test-flakiness)
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
+      ;;
+    preen-msw-parity)
+      ./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount'
       ;;
     preen-skill-tooling)
       ./scripts/checkPreenEcosystem.sh --count-issues
@@ -315,6 +324,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - API security findings in touched area
 - High/Critical dependency findings
 - Flaky-pattern matches in tests
+- MSW uncovered API route count
 - Skill parity/tooling issues
 
 Quality gate for the selected category:
@@ -356,6 +366,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] API security boundaries
 - [ ] Dependency/security hygiene
 - [ ] Test flakiness hardening
+- [ ] MSW/API parity and request-assertion wiring
 - [ ] Skill tooling validation
 
 ## Quality Delta
