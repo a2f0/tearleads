@@ -10,7 +10,7 @@ Last Updated: February 13, 2026
 
 ## 1. Acceptance of Terms
 
-These Terms of Service ("Terms") constitute a legally binding agreement between you ("you," "your," or "User") and Tearleads, LLC ("Tearleads," "Company," "we," "us," or "our") governing your access to and use of our website, applications, software, products, and services (collectively, the "Services").
+These Terms of Service ("Terms") constitute a legally binding agreement between you ("you," "your," or "User") and Tearleads, LLC, a limited liability company organized under the laws of the State of Tennessee, United States ("Tearleads," "Company," "we," "us," or "our"), governing your access to and use of our website, applications, software, products, and services (collectively, the "Services").
 
 By creating an account, accessing, or using the Services, you represent and warrant that:
 
@@ -267,11 +267,11 @@ Upon termination:
 
 ### 14.1 Governing Law
 
-These Terms shall be governed by and construed in accordance with the laws of the State of Delaware, United States, without regard to its conflict of law principles.
+These Terms shall be governed by and construed in accordance with the laws of the State of Tennessee, United States, without regard to its conflict of law principles.
 
 ### 14.2 Exclusive Jurisdiction
 
-Subject to Section 15 (Arbitration), any legal action or proceeding arising out of or related to these Terms shall be brought exclusively in the federal or state courts located in Delaware, and you consent to the personal jurisdiction of such courts.
+Subject to Section 15 (Arbitration), any legal action or proceeding arising out of or related to these Terms shall be brought exclusively in the federal or state courts located in Tennessee, and you consent to the personal jurisdiction of such courts.
 
 ## 15. Dispute Resolution and Arbitration
 
@@ -286,7 +286,7 @@ Before initiating any formal dispute resolution, you agree to first contact us a
 **Any dispute, controversy, or claim arising out of or relating to these Terms or the Services shall be resolved by binding arbitration administered by the American Arbitration Association ("AAA") in accordance with its Commercial Arbitration Rules.**
 
 - The arbitration shall be conducted in English.
-- The arbitration shall take place in Wilmington, Delaware, or remotely by videoconference.
+- The arbitration shall take place in Nashville, Tennessee, or remotely by videoconference.
 - The arbitrator's decision shall be final and binding.
 - Judgment on the award may be entered in any court of competent jurisdiction.
 
@@ -355,6 +355,7 @@ If you are a U.S. government entity, the Services are provided as "commercial co
 For questions about these Terms, please contact us at:
 
 Tearleads, LLC
+A Tennessee Limited Liability Company
 
 Email: `legal@tearleads.com`
 
