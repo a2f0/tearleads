@@ -107,6 +107,7 @@ export const patchIdHandler = async (req: Request, res: Response) => {
     index += 1;
 
     if (updates.disabled) {
+      // COMPLIANCE_SENTINEL: TL-ACCT-002 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=account-disable-attribution
       // When disabling, set timestamp and actor
       setClauses.push(`"disabled_at" = NOW()`);
       if (adminUserId) {
@@ -123,6 +124,7 @@ export const patchIdHandler = async (req: Request, res: Response) => {
 
   if (updates.markedForDeletion !== undefined) {
     if (updates.markedForDeletion) {
+      // COMPLIANCE_SENTINEL: TL-ACCT-003 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=deletion-marking-attribution
       // When marking for deletion, set timestamp and actor
       setClauses.push(`"marked_for_deletion_at" = NOW()`);
       if (adminUserId) {
@@ -157,6 +159,7 @@ export const patchIdHandler = async (req: Request, res: Response) => {
 
       // If user was just disabled, delete all their sessions
       if (updates.disabled === true && updatedUser) {
+        // COMPLIANCE_SENTINEL: TL-ACCT-002 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=account-disable-attribution
         await deleteAllSessionsForUser(updatedUser.id);
       }
     } else {

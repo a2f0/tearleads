@@ -6,6 +6,7 @@ import {
 
 export const ACCESS_TOKEN_TTL_SECONDS = getAccessTokenTtlSeconds();
 export const REFRESH_TOKEN_TTL_SECONDS = getRefreshTokenTtlSeconds();
+// COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
 export const MIN_PASSWORD_LENGTH = 8;
 export const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
 

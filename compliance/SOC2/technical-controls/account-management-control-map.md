@@ -1,0 +1,16 @@
+# Account Management Technical Control Map
+
+This map ties account-management policy controls to concrete implementation and test evidence.
+
+## Sentinel Controls
+
+| Sentinel | Description | Implementation Evidence | Test Evidence |
+| --- | --- | --- | --- |
+| `TL-ACCT-001` | Password complexity baseline enforcement at registration | `packages/api/src/routes/auth/shared.ts`, `packages/api/src/routes/auth/post-register.ts`, `packages/client/src/components/auth/RegisterForm.tsx` | `packages/api/src/routes/auth.test.ts`, `packages/client/src/components/auth/RegisterForm.test.tsx` |
+| `TL-ACCT-002` | Disable action records actor and timestamp; active sessions revoked | `packages/api/src/routes/admin/users/patch-id.ts` | `packages/api/src/routes/admin/users.test.ts` |
+| `TL-ACCT-003` | Deletion-mark action records actor and timestamp | `packages/api/src/routes/admin/users/patch-id.ts` | `packages/api/src/routes/admin/users.test.ts` |
+
+## Notes
+
+- This is the first scoped policy/procedure/control mapping for SOC2 in this repository.
+- Additional account-management controls (for example, disabled-login enforcement) can be introduced as new sentinel IDs in this file.

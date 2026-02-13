@@ -63,6 +63,7 @@ describe('RegisterForm', () => {
     expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
   });
 
+  // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
   it('shows password length requirement hint', () => {
     render(<RegisterForm />);
 
