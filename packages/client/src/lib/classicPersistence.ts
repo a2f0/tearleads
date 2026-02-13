@@ -97,8 +97,8 @@ export async function persistClassicOrderToDatabase(
     return { condition, position: update.position };
   });
   const positionCaseExpression = sql<number>`CASE ${sql.join(
-    targetedUpdates.map(({ condition, position }) =>
-      sql`WHEN ${condition} THEN ${position}`
+    targetedUpdates.map(
+      ({ condition, position }) => sql`WHEN ${condition} THEN ${position}`
     ),
     sql` `
   )} ELSE ${vfsLinks.position} END`;

@@ -303,11 +303,7 @@ async function seedLargeClassicFixture(
       createdAt: now
     });
 
-    for (
-      let noteIndex = 0;
-      noteIndex < options.notesPerTag;
-      noteIndex += 1
-    ) {
+    for (let noteIndex = 0; noteIndex < options.notesPerTag; noteIndex += 1) {
       const noteId = `perf-note-${tagIndex}-${noteIndex}`;
       registryRows.push({
         id: noteId,
