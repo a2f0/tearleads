@@ -12,6 +12,7 @@ interface FilesWindowContentProps {
   onStatusTextChange?: (text: string) => void;
   refreshToken?: number;
   onUpload?: () => void;
+  onUploadInProgressChange?: (inProgress: boolean) => void;
 }
 
 export const FilesWindowContent = forwardRef<
@@ -24,7 +25,8 @@ export const FilesWindowContent = forwardRef<
     onSelectFile,
     onStatusTextChange,
     refreshToken,
-    onUpload
+    onUpload,
+    onUploadInProgressChange
   },
   ref
 ) {
@@ -52,6 +54,7 @@ export const FilesWindowContent = forwardRef<
         {...(onStatusTextChange && { onStatusTextChange })}
         {...(refreshToken !== undefined && { refreshToken })}
         {...(onUpload && { onUpload })}
+        {...(onUploadInProgressChange && { onUploadInProgressChange })}
       />
     </div>
   );

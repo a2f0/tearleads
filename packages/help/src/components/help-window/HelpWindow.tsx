@@ -124,14 +124,6 @@ export function HelpWindow({
             </div>
           ) : view === 'developer' || view === 'legal' ? (
             <div className="space-y-6">
-              <button
-                type="button"
-                onClick={() => setView('index')}
-                className="inline-flex items-center text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Help
-              </button>
               <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6">
                 <HelpLinksGrid
                   view={view}
@@ -143,27 +135,11 @@ export function HelpWindow({
               </div>
             </div>
           ) : view === 'api' ? (
-            <div className="h-full space-y-6 overflow-auto">
-              <button
-                type="button"
-                onClick={() => setView('index')}
-                className="inline-flex items-center text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Help
-              </button>
+            <div className="h-full overflow-auto">
               <ApiDocs spec={openapiSpec} />
             </div>
           ) : (
-            <div className="flex h-full min-h-0 flex-col gap-6 overflow-hidden">
-              <button
-                type="button"
-                onClick={() => setView('index')}
-                className="inline-flex items-center text-muted-foreground hover:text-foreground"
-              >
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Back to Help
-              </button>
+            <div className="flex h-full min-h-0 flex-col overflow-hidden">
               <div className="min-h-0 flex-1">
                 <HelpDocumentation docId={view} />
               </div>

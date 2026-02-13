@@ -168,7 +168,7 @@ describe('HelpWindow', () => {
       await user.click(screen.getByText(label));
       expect(screen.getByTestId('window-title')).toHaveTextContent(title);
       expect(screen.getByTestId('help-documentation')).toHaveTextContent(docId);
-      await user.click(screen.getByText('Back to Help'));
+      await user.click(screen.getByTestId('help-window-control-back'));
     }
   });
 
@@ -188,7 +188,7 @@ describe('HelpWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Developer');
     expect(screen.getByText('CI')).toBeInTheDocument();
 
-    await user.click(screen.getByText('Back to Help'));
+    await user.click(screen.getByTestId('help-window-control-back'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
   });
 
@@ -209,7 +209,7 @@ describe('HelpWindow', () => {
     expect(screen.getByText('Privacy Policy')).toBeInTheDocument();
     expect(screen.getByText('Terms of Service')).toBeInTheDocument();
 
-    await user.click(screen.getByText('Back to Help'));
+    await user.click(screen.getByTestId('help-window-control-back'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
   });
 
@@ -244,7 +244,7 @@ describe('HelpWindow', () => {
       await user.click(screen.getByText(label));
       expect(screen.getByTestId('window-title')).toHaveTextContent(title);
       expect(screen.getByTestId('help-documentation')).toHaveTextContent(docId);
-      await user.click(screen.getByText('Back to Help'));
+      await user.click(screen.getByTestId('help-window-control-back'));
     }
   });
 });

@@ -125,7 +125,8 @@ vi.mock('./FilesWindowContent', () => ({
       refreshToken,
       ref,
       onSelectFile,
-      onStatusTextChange
+      onStatusTextChange,
+      onUploadInProgressChange
     }: {
       showDeleted: boolean;
       showDropzone: boolean;
@@ -135,6 +136,7 @@ vi.mock('./FilesWindowContent', () => ({
       } | null>;
       onSelectFile?: (fileId: string) => void;
       onStatusTextChange?: (text: string) => void;
+      onUploadInProgressChange?: (inProgress: boolean) => void;
     }) => {
       // Simulate forwardRef behavior by exposing uploadFiles
       if (ref) {
@@ -152,6 +154,24 @@ vi.mock('./FilesWindowContent', () => ({
             {showDropzone ? 'true' : 'false'}
           </span>
           <span data-testid="content-refresh-token">{refreshToken}</span>
+          {onUploadInProgressChange && (
+            <>
+              <button
+                type="button"
+                data-testid="set-upload-in-progress"
+                onClick={() => onUploadInProgressChange(true)}
+              >
+                Set Upload In Progress
+              </button>
+              <button
+                type="button"
+                data-testid="clear-upload-in-progress"
+                onClick={() => onUploadInProgressChange(false)}
+              >
+                Clear Upload In Progress
+              </button>
+            </>
+          )}
           {onSelectFile && (
             <button
               type="button"
@@ -342,6 +362,24 @@ describe('FilesWindow', () => {
     await user.click(screen.getByTestId('files-window-control-refresh'));
 
     expect(screen.getByTestId('content-refresh-token')).toHaveTextContent('1');
+  });
+
+  it('disables control bar upload and refresh while upload is in progress', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    const uploadButton = screen.getByTestId('files-window-control-upload');
+    const refreshButton = screen.getByTestId('files-window-control-refresh');
+
+    expect(uploadButton).toBeEnabled();
+    expect(refreshButton).toBeEnabled();
+
+    await user.click(screen.getByTestId('set-upload-in-progress'));
+
+    await waitFor(() => {
+      expect(uploadButton).toBeDisabled();
+      expect(refreshButton).toBeDisabled();
+    });
   });
 
   it('handles file input change with files', () => {
