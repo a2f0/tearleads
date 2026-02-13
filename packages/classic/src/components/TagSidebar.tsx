@@ -7,6 +7,7 @@ import {
   UNTAGGED_TAG_ID,
   UNTAGGED_TAG_NAME
 } from '../lib/constants';
+import { highlightText } from '../lib/highlightText';
 import type { ClassicTag } from '../lib/types';
 import {
   ClassicContextMenu,
@@ -471,7 +472,7 @@ export function TagSidebar({
                           aria-label={`Select tag ${tag.name}`}
                         >
                           <span className="text-zinc-700">
-                            {tag.name}
+                            {highlightText(tag.name, searchValue)}
                             {noteCountByTagId[tag.id] !== undefined &&
                               ` (${noteCountByTagId[tag.id]})`}
                           </span>

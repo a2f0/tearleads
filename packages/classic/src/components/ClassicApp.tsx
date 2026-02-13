@@ -53,6 +53,18 @@ export function ClassicApp({
   const tagSearchInputRef = useRef<HTMLInputElement>(null);
   const entrySearchInputRef = useRef<HTMLInputElement>(null);
 
+  const restoreFocusToTagSearch = useCallback(() => {
+    setTimeout(() => {
+      tagSearchInputRef.current?.focus();
+    }, 0);
+  }, []);
+
+  const restoreFocusToEntrySearch = useCallback(() => {
+    setTimeout(() => {
+      entrySearchInputRef.current?.focus();
+    }, 0);
+  }, []);
+
   const activeTagName = useMemo(() => {
     if (state.activeTagId === null) {
       return 'All Entries';
@@ -221,8 +233,9 @@ export function ClassicApp({
       };
       updateState(nextState);
       setEditingTagId(null);
+      restoreFocusToTagSearch();
     },
-    [state, updateState]
+    [restoreFocusToTagSearch, state, updateState]
   );
 
   const handleCancelEditTag = useCallback(() => {
@@ -242,7 +255,8 @@ export function ClassicApp({
       }
     }
     setEditingTagId(null);
-  }, [editingTagId, state, updateState]);
+    restoreFocusToTagSearch();
+  }, [editingTagId, restoreFocusToTagSearch, state, updateState]);
 
   const handleCreateNote = useCallback(() => {
     const newNoteId = generateId();
@@ -294,8 +308,9 @@ export function ClassicApp({
       };
       updateState(nextState);
       setEditingNoteId(null);
+      restoreFocusToEntrySearch();
     },
-    [state, updateState]
+    [restoreFocusToEntrySearch, state, updateState]
   );
 
   const handleCancelEditNote = useCallback(() => {
@@ -321,7 +336,8 @@ export function ClassicApp({
       }
     }
     setEditingNoteId(null);
-  }, [editingNoteId, state, updateState]);
+    restoreFocusToEntrySearch();
+  }, [editingNoteId, restoreFocusToEntrySearch, state, updateState]);
 
   const handleTagSearchKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {

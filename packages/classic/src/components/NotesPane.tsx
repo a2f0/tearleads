@@ -5,6 +5,7 @@ import {
   DRAG_TYPE_NOTE,
   DRAG_TYPE_TAG
 } from '../lib/constants';
+import { highlightText } from '../lib/highlightText';
 import type { ClassicNote } from '../lib/types';
 import {
   ClassicContextMenu,
@@ -386,9 +387,11 @@ export function NotesPane({
                       </div>
                     ) : (
                       <div className="min-w-0">
-                        <h3 className="text-sm">{note.title}</h3>
+                        <h3 className="text-sm">
+                          {highlightText(note.title, searchValue)}
+                        </h3>
                         <p className="font-mono text-xs text-zinc-600">
-                          {note.body}
+                          {highlightText(note.body, searchValue)}
                         </p>
                       </div>
                     )}
