@@ -118,6 +118,7 @@ git push                 # Burns 5000+ tokens on pre-push output
 ```
 
 **Why this is non-negotiable**:
+
 - Husky pre-commit hooks output lint results, type-check results
 - Husky pre-push hooks run full test suites and builds
 - A single unsuppressed `git push` can add 5,000+ lines to context

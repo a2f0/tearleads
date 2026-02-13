@@ -21,17 +21,17 @@ Goal:
 - `scripts/agents/*` status/title helpers
 - Local analysis/test helpers with bounded side effects
 
-2. Tool later:
+1. Tool later:
 
 - Dev environment bootstrap/reset scripts
 - Reviewer/automation helpers that touch GitHub but are operationally safe
 
-3. Keep shell/manual (or hard-gated tools):
+1. Keep shell/manual (or hard-gated tools):
 
 - Deploy/provisioning/secrets scripts
 - Scripts with external infra mutation or high blast radius
 
-4. Extract from skills (Phase 4):
+1. Extract from skills (Phase 4):
 
 - GitHub API patterns repeated across skills (`gh pr view`, GraphQL queries, CI status)
 - Comment thread management (reply, resolve)
