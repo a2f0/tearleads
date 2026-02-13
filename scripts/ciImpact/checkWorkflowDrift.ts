@@ -15,6 +15,7 @@ interface CiImpactConfig {
 
 const ROOT = process.cwd();
 
+// Escape literal job keys before interpolation into a RegExp pattern.
 function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
@@ -100,7 +101,7 @@ function main(): void {
       );
     }
 
-    const expectedImpactLookup = `.jobs["${jobName}"].run`;
+    const expectedImpactLookup = `.jobs["${jobName}"].run or .jobs['${jobName}'].run`;
     if (!hasCiImpactLookup(workflowRaw, jobName)) {
       errors.push(
         `Workflow ${workflowFile} is missing ciImpact lookup ${expectedImpactLookup} (job-key drift)`
