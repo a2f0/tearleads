@@ -189,10 +189,13 @@ Phase 3 (env/device/bootstrap):
 - Add preflight checks for device/simulator availability
 - Keep deploy/secrets/infra scripts manual by policy, or add hard-gated wrappers only if required
 
-Phase 4 (GitHub API patterns from skills):
+Phase 4 (GitHub API patterns from skills): 🔄 IN PROGRESS (PR #1623)
 
 - Extract repeated `gh` CLI and GraphQL patterns from skills into `agentTool.sh` actions
-- Eliminates boilerplate, enforces token efficiency, standardizes error handling
+- ✅ High-priority actions implemented: `getPrInfo`, `getReviewThreads`, `replyToComment`, `resolveThread`, `getCiStatus`, `cancelWorkflow`, `rerunWorkflow`
+- ✅ Medium-priority actions implemented: `downloadArtifact`, `enableAutoMerge`, `findPrForBranch`, `listHighPriorityPrs`, `triggerGeminiReview`, `findDeferredWork`
+- ✅ Token Efficiency sections added to all 18 skills
+- ⏳ Remaining: Update skills to use new wrappers
 - See "Skill API Pattern Extraction" section below
 
 ## Wrapper Usage (Phase 1 + 2)
