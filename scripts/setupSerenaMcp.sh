@@ -5,9 +5,9 @@ usage() {
   cat <<'USAGE'
 Usage: scripts/setupSerenaMcp.sh [--dry-run]
 
-Configures Serena MCP for both Codex and Claude Code on this machine.
-- Codex: configures a stdio MCP server named "serena" with --context codex
-- Claude Code: configures a local MCP server named "serena" with --context claude-code and --project <repo-root>
+Configures Serena MCP for Claude Code (and optionally Codex) on this machine.
+- Claude Code (required): configures a local MCP server named "serena" with --context claude-code and --project <repo-root>
+- Codex (optional): if codex CLI is available, configures a stdio MCP server named "serena" with --context codex
 
 Options:
   --dry-run  Print commands without applying changes
@@ -40,8 +40,16 @@ check_dep() {
   fi
 }
 
-check_dep codex
+has_cmd() {
+  command -v "$1" >/dev/null 2>&1
+}
+
+# Claude CLI is required; Codex is optional
 check_dep claude
+HAS_CODEX=false
+if has_cmd codex; then
+  HAS_CODEX=true
+fi
 
 repo_root=$(git rev-parse --show-toplevel)
 
@@ -89,17 +97,28 @@ run() {
 }
 
 echo "Using uvx binary: $uvx_bin"
-echo "Configuring Codex MCP server: serena"
-run codex mcp remove serena >/dev/null 2>&1 || true
-run codex mcp add serena -- "$uvx_bin" --from git+https://github.com/oraios/serena serena start-mcp-server --context codex --open-web-dashboard false
+
+if [ "$HAS_CODEX" = true ]; then
+  echo "Configuring Codex MCP server: serena"
+  run codex mcp remove serena >/dev/null 2>&1 || true
+  run codex mcp add serena -- "$uvx_bin" --from git+https://github.com/oraios/serena serena start-mcp-server --context codex --open-web-dashboard false
+else
+  echo "Skipping Codex setup (codex CLI not found)"
+fi
 
 echo "Configuring Claude Code MCP server: serena (scope=local)"
 run claude mcp remove --scope local serena >/dev/null 2>&1 || true
 run claude mcp add --scope local serena -- "$uvx_bin" --from git+https://github.com/oraios/serena serena start-mcp-server --context claude-code --project "$repo_root" --open-web-dashboard false
 
-cat <<'NEXT'
+if [ "$HAS_CODEX" = true ]; then
+  echo ""
+  echo "Done. Start a new Codex/Claude Code session and use this bootstrap prompt once:"
+else
+  echo ""
+  echo "Done. Start a new Claude Code session and use this bootstrap prompt once:"
+fi
 
-Done. Start a new Codex/Claude session and use this bootstrap prompt once:
+cat <<'NEXT'
 
 Call serena.activate_project with the current repo path,
 then serena.check_onboarding_performed and serena.initial_instructions.
