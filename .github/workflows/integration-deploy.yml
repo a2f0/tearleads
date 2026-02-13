@@ -54,24 +54,24 @@ jobs:
 
   deploy-web:
     name: Deploy Web
-    needs: [web-e2e, website-e2e, electron-e2e, android, android-maestro, ios-maestro]
+    needs: [web-e2e, website-e2e, electron-e2e]
     uses: ./.github/workflows/deploy-web.yml
     secrets: inherit
 
   deploy-android:
     name: Deploy Android
-    needs: [web-e2e, website-e2e, electron-e2e, android, android-maestro, ios-maestro]
+    needs: [android, android-maestro]
     uses: ./.github/workflows/deploy-android-play-store.yml
     secrets: inherit
 
   deploy-ios:
     name: Deploy iOS
-    needs: [web-e2e, website-e2e, electron-e2e, android, android-maestro, ios-maestro]
+    needs: [ios-maestro]
     uses: ./.github/workflows/deploy-ios-testflight.yml
     secrets: inherit
 
   deploy-desktop:
     name: Deploy Desktop
-    needs: [web-e2e, website-e2e, electron-e2e, android, android-maestro, ios-maestro]
+    needs: [web-e2e, electron-e2e]
     uses: ./.github/workflows/deploy-desktop.yml
     secrets: inherit

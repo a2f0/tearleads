@@ -39,9 +39,9 @@ jobs:
         if: ${{ always() }}
         run: |
           echo "### Deploy impact (web stack)" >> "$GITHUB_STEP_SUMMARY"
-          jq -r '\"- deploy: \" + ((.jobs[\"web-e2e\"].run or .jobs[\"website-e2e\"].run or .jobs[\"electron-e2e\"].run)|tostring)' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
-          jq -r '\"- changed packages: \" + (.changedPackages|join(\", \"))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
-          jq -r 'if (.warnings|length) > 0 then \"- warnings: \" + (.warnings|join(\"; \")) else \"- warnings: none\" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '"- deploy: " + ((.jobs["web-e2e"].run or .jobs["website-e2e"].run or .jobs["electron-e2e"].run)|tostring)' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '"- changed packages: " + (.changedPackages|join(", "))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r 'if (.warnings|length) > 0 then "- warnings: " + (.warnings|join("; ")) else "- warnings: none" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     name: Deploy Website, Client, API & SMTP Listener
@@ -120,7 +120,7 @@ jobs:
       - name: Deploy API
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "mkdir -p /opt/tearleads-api/dist"
+            "sudo mkdir -p /opt/tearleads-api/dist && sudo chown -R ${{ secrets.DEPLOY_USER }}:www-data /opt/tearleads-api"
           rsync -avz --delete -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/api/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/tearleads-api/dist/
@@ -143,7 +143,7 @@ jobs:
       - name: Deploy SMTP Listener
         run: |
           ssh -i ~/.ssh/deploy.key ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }} \
-            "mkdir -p /opt/tearleads-smtp-listener/dist"
+            "sudo mkdir -p /opt/tearleads-smtp-listener/dist && sudo chown -R ${{ secrets.DEPLOY_USER }}:www-data /opt/tearleads-smtp-listener"
           rsync -avz --delete -e "ssh -vvv -i ~/.ssh/deploy.key" \
             packages/smtp-listener/dist/ \
             ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_DOMAIN }}:/opt/tearleads-smtp-listener/dist/

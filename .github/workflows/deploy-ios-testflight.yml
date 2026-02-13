@@ -43,9 +43,9 @@ jobs:
         if: ${{ always() }}
         run: |
           echo "### Deploy impact (ios)" >> "$GITHUB_STEP_SUMMARY"
-          jq -r '\"- deploy: \" + (.jobs[\"ios-maestro-release\"].run|tostring)' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
-          jq -r '\"- changed packages: \" + (.changedPackages|join(\", \"))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
-          jq -r 'if (.warnings|length) > 0 then \"- warnings: \" + (.warnings|join(\"; \")) else \"- warnings: none\" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '"- deploy: " + (.jobs["ios-maestro-release"].run|tostring)' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r '"- changed packages: " + (.changedPackages|join(", "))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          jq -r 'if (.warnings|length) > 0 then "- warnings: " + (.warnings|join("; ")) else "- warnings: none" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
 
   deploy:
     name: Deploy to TestFlight
