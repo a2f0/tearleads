@@ -37,7 +37,15 @@ Before running CI-impact scripts or any push that triggers hooks, ensure Node ma
 ./scripts/checkNodeVersion.sh
 ```
 
-If it fails, run `nvm use` in the repo and re-run the command. Do not proceed on a mismatched Node version.
+If it fails, source nvm and switch to the correct version:
+
+```bash
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+nvm use
+```
+
+Do not proceed on a mismatched Node version.
 
 To avoid noisy Node webstorage warnings in nonstandard environments, ensure pre-push commands include:
 

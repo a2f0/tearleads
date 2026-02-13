@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Refresh workspace after a PR is merged: switches to main, pulls latest,
 # installs dependencies, builds packages, then resets title to '<workspace> - main'.
 set -eu
@@ -21,6 +21,9 @@ git pull
 
 # Ensure correct Node.js version is active
 echo "Installing Node.js version from .nvmrc..."
+export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
+# shellcheck source=/dev/null
+[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
 nvm install
 
 # Install pnpm dependencies
