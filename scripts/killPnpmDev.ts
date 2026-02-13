@@ -1,3 +1,4 @@
+#!/usr/bin/env -S pnpm exec tsx
 /**
  * Kill existing pnpm dev processes running from this repo.
  * Usage: tsx scripts/killPnpmDev.ts
