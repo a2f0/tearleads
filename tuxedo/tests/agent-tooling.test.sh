@@ -61,6 +61,7 @@ HELP_OUTPUT=$("$TOOL" --help 2>&1)
 assert_contains "$HELP_OUTPUT" "Usage:"
 assert_contains "$HELP_OUTPUT" "Actions:"
 assert_contains "$HELP_OUTPUT" "Options:"
+assert_contains "$HELP_OUTPUT" "replyToGemini"
 
 # Test setVscodeTitle without --title (should use default '<workspace>')
 TITLE_JSON="$TEMP_DIR/setVscodeTitle.json"
@@ -71,5 +72,27 @@ assert_contains "$TITLE_STATUS" "success|setVscodeTitle"
 # Verify the default title format was applied (should be '<workspace>')
 DEFAULT_TITLE=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(String(d["window.title"] || ""));' "$SETTINGS_FILE")
 assert_contains "$DEFAULT_TITLE" "repo"
+
+# replyToGemini should require --commit
+if "$TOOL" replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 >/dev/null 2>&1; then
+    fail "expected replyToGemini without --commit to fail"
+fi
+
+# replyToGemini should validate SHA format
+if "$TOOL" replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 --commit not-a-sha >/dev/null 2>&1; then
+    fail "expected replyToGemini with invalid --commit to fail"
+fi
+
+# replyToGemini should pass argument validation in dry-run mode
+GEMINI_REPLY_JSON="$TEMP_DIR/replyToGemini.json"
+"$TOOL" replyToGemini --repo-root "$TEST_REPO" --number 1 --comment-id 2 --commit abc1234 --dry-run --json >"$GEMINI_REPLY_JSON"
+assert_file_exists "$GEMINI_REPLY_JSON"
+GEMINI_REPLY_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${String(d.dry_run)}`);' "$GEMINI_REPLY_JSON")
+assert_contains "$GEMINI_REPLY_STATUS" "success|replyToGemini|true"
+
+# replyToComment should still require explicit --body
+if "$TOOL" replyToComment --repo-root "$TEST_REPO" --number 1 --comment-id 2 >/dev/null 2>&1; then
+    fail "expected replyToComment without --body to fail"
+fi
 
 echo "All tests passed."

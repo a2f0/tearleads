@@ -100,8 +100,8 @@ Always pass `-R "$REPO"` to `gh` commands.
 
 8. Address feedback:
    - Run `/address-gemini-feedback` for unresolved comments.
-   - Reply to Gemini using the REST API comment reply endpoint, not `gh pr review`.
-   - Always include `@gemini-code-assist` in replies.
+   - Reply to Gemini with `./scripts/agents/tooling/agentTool.sh replyToGemini --number <pr> --comment-id <id> --commit <sha>` (not `gh pr review`).
+   - Use `replyToComment` only for custom non-fix responses.
 
 ## Token Efficiency (CRITICAL)
 

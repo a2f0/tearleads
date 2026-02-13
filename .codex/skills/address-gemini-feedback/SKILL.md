@@ -93,11 +93,22 @@ gh pr view --json number,title,url,headRefName,baseRefName -R "$REPO"
 
    **Do NOT reply to Gemini until this verification passes.**
 
-1. Reply in each addressed thread via REST API:
+1. Reply in each addressed thread using the parameterized agent tool action:
 
 ```bash
-gh api -X POST /repos/$REPO/pulls/<pr_number>/comments/<comment_id>/replies \
-  -f body="@gemini-code-assist Fixed in <commit_sha>. Please confirm this addresses the issue."
+./scripts/agents/tooling/agentTool.sh replyToGemini \
+  --number <pr_number> \
+  --comment-id <comment_id> \
+  --commit <commit_sha>
+```
+
+   For non-fix replies (e.g., deferrals or scope clarifications), use:
+
+```bash
+./scripts/agents/tooling/agentTool.sh replyToComment \
+  --number <pr_number> \
+  --comment-id <comment_id> \
+  --body "@gemini-code-assist <custom response>"
 ```
 
 1. Repeat until no actionable unresolved Gemini comments remain.
