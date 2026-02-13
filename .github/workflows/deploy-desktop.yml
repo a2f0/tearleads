@@ -48,6 +48,7 @@ jobs:
             --source-sha "${{ github.sha }}" \
             --apply \
             --github-output "$GITHUB_OUTPUT"
+        shell: bash
 
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
