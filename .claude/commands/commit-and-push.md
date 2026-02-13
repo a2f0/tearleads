@@ -94,30 +94,30 @@ Commit and push the current changes following these rules:
 
 8. **Check for quota exhaustion**: After waiting, check Gemini responses for quota limit:
 
-```bash
+   ```bash
    QUOTA_MSG="You have reached your daily quota limit. Please wait up to 24 hours and I will start processing your requests again!"
    (
      gh pr view "$PR_NUMBER" -R "$REPO" --json reviews --jq '.reviews[].body' 2>/dev/null
      gh api "/repos/$REPO/pulls/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null
      gh api "/repos/$REPO/issues/$PR_NUMBER/comments" --jq '.[].body' 2>/dev/null
    ) | rg -F "$QUOTA_MSG"
-```
+   ```
 
-If that quota message is found at any point:
+   If that quota message is found at any point:
 
-- Set `gemini_quota_exhausted=true`.
-- If `used_fallback_agent_review=false`, run one fallback review via cross-agent review (Codex):
+   - Set `gemini_quota_exhausted=true`.
+   - If `used_fallback_agent_review=false`, run one fallback review via cross-agent review (Codex):
 
-```bash
-# Equivalent skill invocation: /cross-agent-review codex
-./scripts/agents/tooling/agentTool.ts solicitCodexReview
-```
+   ```bash
+   # Equivalent skill invocation: /cross-agent-review codex
+   ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+   ```
 
-- Set `used_fallback_agent_review=true`.
-- Skip further Gemini follow-ups for this run.
-- Proceed to `/enter-merge-queue` or end the skill
+   - Set `used_fallback_agent_review=true`.
+   - Skip further Gemini follow-ups for this run.
+   - Proceed to `/enter-merge-queue` or end the skill
 
-1. **Address feedback**: If `gemini_quota_exhausted=false`, run `/address-gemini-feedback` to handle unresolved comments.
+9. **Address feedback**: If `gemini_quota_exhausted=false`, run `/address-gemini-feedback` to handle unresolved comments.
 
    - Re-run the same quota check after each Gemini interaction (including follow-up replies). Quota exhaustion can appear after an initial review was already posted.
    - If quota is detected later, immediately apply step 8 fallback behavior and stop Gemini-specific follow-ups.
