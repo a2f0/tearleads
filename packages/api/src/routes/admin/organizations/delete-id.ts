@@ -27,6 +27,23 @@ export const deleteIdHandler = async (
   try {
     const { id } = req.params;
     const pool = await getPostgresPool();
+    const existing = await pool.query<{ is_personal: boolean }>(
+      'SELECT is_personal FROM organizations WHERE id = $1',
+      [id]
+    );
+
+    const organization = existing.rows[0];
+    if (!organization) {
+      res.json({ deleted: false });
+      return;
+    }
+
+    if (organization.is_personal) {
+      res.status(400).json({
+        error: 'Personal organizations cannot be deleted'
+      });
+      return;
+    }
 
     const result = await pool.query('DELETE FROM organizations WHERE id = $1', [
       id

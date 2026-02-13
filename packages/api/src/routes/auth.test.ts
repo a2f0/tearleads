@@ -317,6 +317,22 @@ describe('Auth routes', () => {
       });
 
       expect(mockClient.query).toHaveBeenCalledWith('BEGIN');
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('personal_organization_id'),
+        expect.any(Array)
+      );
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO organizations'),
+        expect.any(Array)
+      );
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO user_organizations'),
+        expect.any(Array)
+      );
+      expect(mockClient.query).toHaveBeenCalledWith(
+        expect.stringContaining('INSERT INTO organization_billing_accounts'),
+        expect.any(Array)
+      );
       expect(mockClient.query).toHaveBeenCalledWith('COMMIT');
       expect(mockClient.release).toHaveBeenCalled();
 

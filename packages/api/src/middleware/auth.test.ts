@@ -36,6 +36,17 @@ describe('Auth middleware', () => {
     expect(response.body).toEqual({ error: 'email and password are required' });
   });
 
+  it('allows RevenueCat webhook route without bearer auth', async () => {
+    vi.stubEnv('REVENUECAT_WEBHOOK_SECRET', 'test-secret');
+    const response = await request(app)
+      .post('/v1/revenuecat/webhooks')
+      .set('Content-Type', 'application/json')
+      .send('{}');
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Invalid webhook signature' });
+  });
+
   it('rejects missing auth on protected routes', async () => {
     const response = await request(app)
       .post('/v1/chat/completions')

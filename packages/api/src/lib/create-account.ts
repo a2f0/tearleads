@@ -3,6 +3,8 @@ export type CreateAccountInput = {
   password: string;
 };
 
+const PERSONAL_ORGANIZATION_ID_PREFIX = 'personal-org-';
+
 export function normalizeEmail(value: string): string {
   const normalized = value.trim().toLowerCase();
   if (!normalized) {
@@ -27,4 +29,12 @@ export function buildCreateAccountInput(
     email: normalizeEmail(email),
     password: normalizePassword(password)
   };
+}
+
+export function buildPersonalOrganizationId(userId: string): string {
+  return `${PERSONAL_ORGANIZATION_ID_PREFIX}${userId}`;
+}
+
+export function buildPersonalOrganizationName(userId: string): string {
+  return `Personal ${userId}`;
 }

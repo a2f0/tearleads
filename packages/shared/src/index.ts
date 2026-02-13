@@ -255,6 +255,30 @@ export interface OrganizationGroupsResponse {
   groups: OrganizationGroup[];
 }
 
+export type OrganizationBillingEntitlementStatus =
+  | 'inactive'
+  | 'trialing'
+  | 'active'
+  | 'grace_period'
+  | 'expired';
+
+export interface OrganizationBillingAccount {
+  organizationId: string;
+  revenueCatAppUserId: string;
+  entitlementStatus: OrganizationBillingEntitlementStatus;
+  activeProductId: string | null;
+  periodEndsAt: string | null;
+  willRenew: boolean | null;
+  lastWebhookEventId: string | null;
+  lastWebhookAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface OrganizationBillingAccountResponse {
+  billingAccount: OrganizationBillingAccount;
+}
+
 // Auth types
 export interface AuthUser {
   id: string;

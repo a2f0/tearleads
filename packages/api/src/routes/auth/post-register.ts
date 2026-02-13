@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
 import type { Request, Response, Router as RouterType } from 'express';
+import { buildRevenueCatAppUserId } from '../../lib/billing.js';
+import {
+  buildPersonalOrganizationId,
+  buildPersonalOrganizationName
+} from '../../lib/create-account.js';
 import { createJwt } from '../../lib/jwt.js';
 import { hashPassword } from '../../lib/passwords.js';
 import { getPostgresPool } from '../../lib/postgres.js';
@@ -117,12 +122,61 @@ export const postRegisterHandler = async (
       await client.query('BEGIN');
 
       const userId = randomUUID();
+      const personalOrganizationId = buildPersonalOrganizationId(userId);
+      const personalOrganizationName = buildPersonalOrganizationName(userId);
+      const revenueCatAppUserId = buildRevenueCatAppUserId(
+        personalOrganizationId
+      );
       const now = new Date().toISOString();
 
       await client.query(
-        `INSERT INTO users (id, email, email_confirmed, admin, created_at, updated_at)
-         VALUES ($1, $2, true, false, $3, $3)`,
-        [userId, payload.email, now]
+        `INSERT INTO users (
+           id,
+           email,
+           email_confirmed,
+           admin,
+           personal_organization_id,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, true, false, $3, $4, $4)`,
+        [userId, payload.email, personalOrganizationId, now]
+      );
+
+      await client.query(
+        `INSERT INTO organizations (
+           id,
+           name,
+           description,
+           is_personal,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, $3, true, $4, $4)`,
+        [
+          personalOrganizationId,
+          personalOrganizationName,
+          `Personal organization for ${payload.email}`,
+          now
+        ]
+      );
+
+      await client.query(
+        `INSERT INTO user_organizations (user_id, organization_id, joined_at, is_admin)
+         VALUES ($1, $2, $3, true)`,
+        [userId, personalOrganizationId, now]
+      );
+
+      await client.query(
+        `INSERT INTO organization_billing_accounts (
+           organization_id,
+           revenuecat_app_user_id,
+           entitlement_status,
+           created_at,
+           updated_at
+         )
+         VALUES ($1, $2, 'inactive', $3, $3)`,
+        [personalOrganizationId, revenueCatAppUserId, now]
       );
 
       await client.query(

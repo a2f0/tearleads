@@ -55,6 +55,9 @@ export const users = pgTable(
     email: text('email').notNull(),
     emailConfirmed: boolean('email_confirmed').notNull().default(false),
     admin: boolean('admin').notNull().default(false),
+    personalOrganizationId: text('personal_organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
     createdAt: timestamp('created_at', { withTimezone: true }),
     updatedAt: timestamp('updated_at', { withTimezone: true }),
     lastActiveAt: timestamp('last_active_at', { withTimezone: true }),
@@ -68,7 +71,12 @@ export const users = pgTable(
       (): AnyPgColumn => users.id
     )
   },
-  (table) => [index('users_email_idx').on(table.email)]
+  (table) => [
+    index('users_email_idx').on(table.email),
+    uniqueIndex('users_personal_organization_id_idx').on(
+      table.personalOrganizationId
+    )
+  ]
 );
 
 /**
@@ -80,10 +88,14 @@ export const organizations = pgTable(
     id: text('id').primaryKey(),
     name: text('name').notNull(),
     description: text('description'),
+    isPersonal: boolean('is_personal').notNull().default(false),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
     updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
   },
-  (table) => [uniqueIndex('organizations_name_idx').on(table.name)]
+  (table) => [
+    uniqueIndex('organizations_name_idx').on(table.name),
+    index('organizations_is_personal_idx').on(table.isPersonal)
+  ]
 );
 
 /**
@@ -104,6 +116,66 @@ export const userOrganizations = pgTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.organizationId] }),
     index('user_organizations_org_idx').on(table.organizationId)
+  ]
+);
+
+/**
+ * Organization billing accounts for RevenueCat integration.
+ * Stores one billing account record per organization.
+ */
+export const organizationBillingAccounts = pgTable(
+  'organization_billing_accounts',
+  {
+    organizationId: text('organization_id')
+      .primaryKey()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    revenuecatAppUserId: text('revenuecat_app_user_id').notNull(),
+    entitlementStatus: text('entitlement_status', {
+      enum: ['inactive', 'trialing', 'active', 'grace_period', 'expired']
+    })
+      .notNull()
+      .default('inactive'),
+    activeProductId: text('active_product_id'),
+    periodEndsAt: timestamp('period_ends_at', { withTimezone: true }),
+    willRenew: boolean('will_renew'),
+    lastWebhookEventId: text('last_webhook_event_id'),
+    lastWebhookAt: timestamp('last_webhook_at', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    uniqueIndex('organization_billing_app_user_idx').on(
+      table.revenuecatAppUserId
+    ),
+    index('organization_billing_entitlement_idx').on(table.entitlementStatus),
+    index('organization_billing_period_end_idx').on(table.periodEndsAt)
+  ]
+);
+
+/**
+ * RevenueCat webhook event archive and processing state.
+ * Supports idempotent processing by unique event ID.
+ */
+export const revenuecatWebhookEvents = pgTable(
+  'revenuecat_webhook_events',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('event_id').notNull(),
+    eventType: text('event_type').notNull(),
+    organizationId: text('organization_id').references(() => organizations.id, {
+      onDelete: 'set null'
+    }),
+    revenuecatAppUserId: text('revenuecat_app_user_id').notNull(),
+    payload: jsonb('payload').notNull(),
+    receivedAt: timestamp('received_at', { withTimezone: true }).notNull(),
+    processedAt: timestamp('processed_at', { withTimezone: true }),
+    processingError: text('processing_error')
+  },
+  (table) => [
+    uniqueIndex('revenuecat_events_event_id_idx').on(table.eventId),
+    index('revenuecat_events_org_idx').on(table.organizationId),
+    index('revenuecat_events_app_user_idx').on(table.revenuecatAppUserId),
+    index('revenuecat_events_received_idx').on(table.receivedAt)
   ]
 );
 

@@ -182,7 +182,23 @@ export const patchIdHandler = async (req: Request, res: Response) => {
     }
 
     if (updates.organizationIds !== undefined) {
-      const organizationIds = updates.organizationIds;
+      const personalOrgResult = await pool.query<{
+        personal_organization_id: string | null;
+      }>('SELECT personal_organization_id FROM users WHERE id = $1', [userId]);
+      const personalOrganizationId =
+        personalOrgResult.rows[0]?.personal_organization_id ?? null;
+
+      if (!personalOrganizationId) {
+        await pool.query('ROLLBACK');
+        res.status(500).json({
+          error: 'User personal organization is missing'
+        });
+        return;
+      }
+
+      const organizationIds = Array.from(
+        new Set([...updates.organizationIds, personalOrganizationId])
+      );
       if (organizationIds.length > 0) {
         const orgResult = await pool.query<{ id: string }>(
           'SELECT id FROM organizations WHERE id = ANY($1::text[])',
@@ -201,9 +217,10 @@ export const patchIdHandler = async (req: Request, res: Response) => {
 
       if (organizationIds.length > 0) {
         await pool.query(
-          `INSERT INTO user_organizations (user_id, organization_id, joined_at)
-           SELECT $1, unnest($2::text[]), NOW()`,
-          [userId, organizationIds]
+          `INSERT INTO user_organizations (user_id, organization_id, joined_at, is_admin)
+           SELECT $1, organization_id, NOW(), organization_id = $3
+           FROM unnest($2::text[]) AS organization_id`,
+          [userId, organizationIds, personalOrganizationId]
         );
       }
     }

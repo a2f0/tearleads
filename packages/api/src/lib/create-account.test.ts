@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildCreateAccountInput,
+  buildPersonalOrganizationId,
+  buildPersonalOrganizationName,
   normalizeEmail,
   normalizePassword
 } from './create-account.js';
@@ -33,5 +35,19 @@ describe('buildCreateAccountInput', () => {
       email: 'user@example.com',
       password: 'pass'
     });
+  });
+});
+
+describe('buildPersonalOrganizationId', () => {
+  it('builds a stable personal organization id from user id', () => {
+    expect(buildPersonalOrganizationId('user-123')).toBe(
+      'personal-org-user-123'
+    );
+  });
+});
+
+describe('buildPersonalOrganizationName', () => {
+  it('builds a human-readable personal organization name', () => {
+    expect(buildPersonalOrganizationName('user-123')).toBe('Personal user-123');
   });
 });

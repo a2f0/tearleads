@@ -19,9 +19,11 @@ import {
   mlsMessagesTable,
   mlsWelcomeMessagesTable,
   notesTable,
+  organizationBillingAccountsTable,
   organizationsTable,
   orgSharesTable,
   playlistsTable,
+  revenuecatWebhookEventsTable,
   secretsTable,
   syncMetadataTable,
   tagsTable,
@@ -98,6 +100,7 @@ describe('usersTable', () => {
     expect(usersTable.columns['email']).toBeDefined();
     expect(usersTable.columns['emailConfirmed']).toBeDefined();
     expect(usersTable.columns['admin']).toBeDefined();
+    expect(usersTable.columns['personalOrganizationId']).toBeDefined();
   });
 });
 
@@ -115,6 +118,7 @@ describe('organizationsTable', () => {
     expect(organizationsTable.columns['id']).toBeDefined();
     expect(organizationsTable.columns['name']).toBeDefined();
     expect(organizationsTable.columns['description']).toBeDefined();
+    expect(organizationsTable.columns['isPersonal']).toBeDefined();
     expect(organizationsTable.columns['createdAt']).toBeDefined();
     expect(organizationsTable.columns['updatedAt']).toBeDefined();
   });
@@ -134,6 +138,56 @@ describe('userOrganizationsTable', () => {
     expect(userOrganizationsTable.columns['userId']).toBeDefined();
     expect(userOrganizationsTable.columns['organizationId']).toBeDefined();
     expect(userOrganizationsTable.columns['joinedAt']).toBeDefined();
+  });
+});
+
+describe('organizationBillingAccountsTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(organizationBillingAccountsTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(organizationBillingAccountsTable.name).toBe(
+      'organization_billing_accounts'
+    );
+    expect(organizationBillingAccountsTable.propertyName).toBe(
+      'organizationBillingAccounts'
+    );
+  });
+
+  it('has required columns', () => {
+    expect(
+      organizationBillingAccountsTable.columns['organizationId']
+    ).toBeDefined();
+    expect(
+      organizationBillingAccountsTable.columns['revenuecatAppUserId']
+    ).toBeDefined();
+    expect(
+      organizationBillingAccountsTable.columns['entitlementStatus']
+    ).toBeDefined();
+    expect(organizationBillingAccountsTable.columns['createdAt']).toBeDefined();
+    expect(organizationBillingAccountsTable.columns['updatedAt']).toBeDefined();
+  });
+});
+
+describe('revenuecatWebhookEventsTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(revenuecatWebhookEventsTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(revenuecatWebhookEventsTable.name).toBe('revenuecat_webhook_events');
+    expect(revenuecatWebhookEventsTable.propertyName).toBe(
+      'revenuecatWebhookEvents'
+    );
+  });
+
+  it('has required columns', () => {
+    expect(revenuecatWebhookEventsTable.columns['id']).toBeDefined();
+    expect(revenuecatWebhookEventsTable.columns['eventId']).toBeDefined();
+    expect(revenuecatWebhookEventsTable.columns['eventType']).toBeDefined();
+    expect(revenuecatWebhookEventsTable.columns['payload']).toBeDefined();
+    expect(revenuecatWebhookEventsTable.columns['receivedAt']).toBeDefined();
   });
 });
 
@@ -359,8 +413,8 @@ describe('tagsTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 40 tables', () => {
-    expect(allTables).toHaveLength(40);
+  it('contains all 42 tables', () => {
+    expect(allTables).toHaveLength(42);
   });
 
   it('contains all table definitions', () => {
@@ -369,6 +423,8 @@ describe('allTables', () => {
     expect(allTables).toContain(usersTable);
     expect(allTables).toContain(organizationsTable);
     expect(allTables).toContain(userOrganizationsTable);
+    expect(allTables).toContain(organizationBillingAccountsTable);
+    expect(allTables).toContain(revenuecatWebhookEventsTable);
     expect(allTables).toContain(userCredentialsTable);
     expect(allTables).toContain(migrationsTable);
     expect(allTables).toContain(secretsTable);

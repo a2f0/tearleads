@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 17 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 19 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(17);
+      expect(result.currentVersion).toBe(19);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 17 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 19 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -158,9 +158,9 @@ describe('migrations', () => {
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([
-        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17
+        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
       ]);
-      expect(result.currentVersion).toBe(17);
+      expect(result.currentVersion).toBe(19);
     });
   });
 
@@ -332,6 +332,51 @@ describe('migrations', () => {
       const queries = pool.queries.join('\n');
       expect(queries).toContain('ALTER TABLE "user_organizations"');
       expect(queries).toContain('"is_admin" BOOLEAN NOT NULL DEFAULT FALSE');
+    });
+  });
+
+  describe('v018 migration', () => {
+    it('adds personal organization linkage for users', async () => {
+      const pool = createMockPool(new Map());
+
+      const v018 = migrations.find((m: Migration) => m.version === 18);
+      if (!v018) {
+        throw new Error('v018 migration not found');
+      }
+
+      await v018.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('ADD COLUMN IF NOT EXISTS "is_personal"');
+      expect(queries).toContain(
+        'ADD COLUMN IF NOT EXISTS "personal_organization_id" TEXT'
+      );
+      expect(queries).toContain('users_personal_organization_id_fkey');
+      expect(queries).toContain('users_personal_organization_id_idx');
+      expect(queries).toContain('"personal_organization_id" SET NOT NULL');
+    });
+  });
+
+  describe('v019 migration', () => {
+    it('creates organization billing and RevenueCat event tables', async () => {
+      const pool = createMockPool(new Map());
+
+      const v019 = migrations.find((m: Migration) => m.version === 19);
+      if (!v019) {
+        throw new Error('v019 migration not found');
+      }
+
+      await v019.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "organization_billing_accounts"'
+      );
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "revenuecat_webhook_events"'
+      );
+      expect(queries).toContain("'org:' || o.id");
+      expect(queries).toContain('INSERT INTO organization_billing_accounts');
     });
   });
 });
