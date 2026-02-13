@@ -37,7 +37,9 @@ rg -n --glob '*.{ts,tsx}' "export {.*} from '\\./[^']*'" . | head -20
 
 ## Issue Categories
 
-### 1. Cyclical Imports
+### 1. Cyclical Imports (Enforced by CI)
+
+> **Note**: Cyclical imports are now blocked by `scripts/checkCircularImports.sh` in both CI and pre-push hooks. New circular imports cannot be merged. This section is retained for reference when fixing failures.
 
 Modules that import each other directly or indirectly, causing:
 
@@ -49,6 +51,8 @@ Modules that import each other directly or indirectly, causing:
 
 ```bash
 npx madge --circular --extensions ts,tsx packages/
+# Or run the guardrail script directly:
+./scripts/checkCircularImports.sh
 ```
 
 **Resolution strategies:**

@@ -180,6 +180,9 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Check for circular imports
+        run: ./scripts/checkCircularImports.sh
+
       - name: Cache SQLite WASM
         uses: actions/cache@v4
         with:
