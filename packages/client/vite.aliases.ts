@@ -51,6 +51,8 @@ export const createViteAliases = (dirname: string): AliasMap => ({
   '@tearleads/notes': path.resolve(dirname, '../notes/src/index.ts'),
   '@tearleads/search/package.json': path.resolve(dirname, '../search/package.json'),
   '@tearleads/search': path.resolve(dirname, '../search/src/index.ts'),
+  '@tearleads/sync/package.json': path.resolve(dirname, '../sync/package.json'),
+  '@tearleads/sync': path.resolve(dirname, '../sync/src/index.ts'),
   '@tearleads/terminal/package.json': path.resolve(dirname, '../terminal/package.json'),
   '@tearleads/terminal': path.resolve(dirname, '../terminal/src/index.ts'),
   '@tearleads/vfs-explorer/package.json': path.resolve(dirname, '../vfs-explorer/package.json'),

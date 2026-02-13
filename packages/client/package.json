@@ -71,6 +71,7 @@
     "@tearleads/notes": "workspace:*",
     "@tearleads/search": "workspace:*",
     "@tearleads/shared": "workspace:*",
+    "@tearleads/sync": "workspace:*",
     "@tearleads/terminal": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/vfs-explorer": "workspace:*",

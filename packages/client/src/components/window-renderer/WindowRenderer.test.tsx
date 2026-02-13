@@ -268,6 +268,41 @@ vi.mock('@tearleads/keychain', () => ({
   )
 }));
 
+vi.mock('@tearleads/sync', () => ({
+  SyncWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`sync-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 400, height: 450 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/files-window', () => ({
   FilesWindow: ({
     id,

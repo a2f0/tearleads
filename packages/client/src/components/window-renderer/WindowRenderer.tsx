@@ -8,6 +8,7 @@ import {
 } from '@tearleads/admin';
 import { ConsoleWindow } from '@tearleads/console';
 import { KeychainWindow } from '@tearleads/keychain';
+import { SyncWindow } from '@tearleads/sync';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import { AnalyticsWindow } from '@/components/analytics-window';
@@ -35,7 +36,6 @@ import { PhotosWindow } from '@/components/photos-window';
 import { SearchWindow } from '@/components/search-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
-import { SyncWindow } from '@/components/sync-window';
 import { TablesWindow } from '@/components/tables-window';
 import { VfsWindow } from '@/components/vfs-window';
 import { VideoWindow } from '@/components/video-window';
