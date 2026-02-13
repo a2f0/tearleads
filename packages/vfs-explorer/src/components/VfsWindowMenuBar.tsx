@@ -1,7 +1,8 @@
 import { FolderPlus, Link, List, RefreshCw, Table2 } from 'lucide-react';
 import { useVfsExplorerContext } from '../context';
+import type { VfsViewMode } from '../lib';
 
-export type VfsViewMode = 'list' | 'table';
+export type { VfsViewMode };
 
 interface VfsWindowMenuBarProps {
   viewMode: VfsViewMode;

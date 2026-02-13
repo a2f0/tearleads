@@ -9,10 +9,13 @@ export {
 } from './vfsQuery';
 export { sortVfsItems } from './vfsSorting';
 export type {
+  DisplayItem,
   VfsItemBase,
   VfsObjectType,
+  VfsOpenItem,
   VfsRegistryRow,
   VfsSortColumn,
   VfsSortDirection,
-  VfsSortState
+  VfsSortState,
+  VfsViewMode
 } from './vfsTypes';

@@ -14,8 +14,7 @@ import {
 import { useCallback, useEffect, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 import { useShareTargetSearch, useVfsShares } from '../hooks';
-import { cn } from '../lib';
-import type { DisplayItem } from './VfsDetailsPanel';
+import { cn, type DisplayItem } from '../lib';
 
 export interface SharingPanelProps {
   item: DisplayItem;

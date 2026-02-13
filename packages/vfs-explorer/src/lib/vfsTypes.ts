@@ -58,3 +58,19 @@ export interface VfsSortState {
   column: VfsSortColumn | null;
   direction: VfsSortDirection | null;
 }
+
+/**
+ * Display item shape used in the details panel.
+ * Alias for VfsItemBase - shared between folder contents and unfiled items.
+ */
+export type DisplayItem = VfsItemBase;
+
+/**
+ * View mode for the VFS explorer (list or table view).
+ */
+export type VfsViewMode = 'list' | 'table';
+
+/**
+ * Item data passed to onItemOpen callback.
+ */
+export type VfsOpenItem = DisplayItem;
