@@ -86,14 +86,18 @@ if [ "$APPLY" = "true" ]; then
   IOS_PROJECT="$REPO_ROOT/packages/client/ios/App/App.xcodeproj/project.pbxproj"
 
   TMP_FILE="$(mktemp)"
-  jq --arg v "$CLIENT_VERSION" '.version = $v' "$CLIENT_PACKAGE_JSON" > "$TMP_FILE" && mv "$TMP_FILE" "$CLIENT_PACKAGE_JSON"
+  if ! jq --arg v "$CLIENT_VERSION" '.version = $v' "$CLIENT_PACKAGE_JSON" > "$TMP_FILE"; then
+    rm -f "$TMP_FILE"
+    exit 1
+  fi
+  mv "$TMP_FILE" "$CLIENT_PACKAGE_JSON"
 
   CURRENT_ANDROID_CODE="$(grep -E 'versionCode [0-9]+' "$ANDROID_GRADLE" | head -1 | sed -E 's/.*versionCode ([0-9]+).*/\1/')"
   CURRENT_ANDROID_NAME="$(grep -E 'versionName "[^"]+"' "$ANDROID_GRADLE" | head -1 | sed -E 's/.*versionName "([^"]+)".*/\1/')"
 
   sedi "s/versionCode $CURRENT_ANDROID_CODE/versionCode $ANDROID_VERSION_CODE/" "$ANDROID_GRADLE"
   sedi "s/versionName \"$CURRENT_ANDROID_NAME\"/versionName \"$ANDROID_VERSION_NAME\"/" "$ANDROID_GRADLE"
-  sedi "s/CURRENT_PROJECT_VERSION = [0-9]\\+/CURRENT_PROJECT_VERSION = $IOS_BUILD_NUMBER/g" "$IOS_PROJECT"
+  sedi "s/CURRENT_PROJECT_VERSION = [0-9][0-9]*/CURRENT_PROJECT_VERSION = $IOS_BUILD_NUMBER/g" "$IOS_PROJECT"
 fi
 
 echo "source_sha=$SOURCE_SHA"
