@@ -63,9 +63,9 @@
       "qualityMetric": "API security findings in touched area",
       "security": true,
       "discoveryCommands": [
-        "rg -n --glob '*.ts' 'router\\\\.(get|post|put|patch|delete)|authClaims|req\\\\.session|pool\\\\.query|client\\\\.query' packages/api/src/routes | head -40"
+        "rg -n --glob '*.ts' 'router\\.(get|post|put|patch|delete)|authClaims|req\\.session|pool\\.query|client\\.query' packages/api/src/routes | head -40"
       ],
-      "metricCountCommand": "rg -L --glob '*.ts' 'authClaims|req\\\\.session' packages/api/src/routes | rg -v 'index\\\\.ts|shared\\\\.ts|test\\\\.' | wc -l"
+      "metricCountCommand": "rg -L --glob '*.ts' 'authClaims|req\\.session' packages/api/src/routes | rg -v 'index\\.ts|shared\\.ts|test\\.' | wc -l"
     },
     {
       "id": "preen-dependency-security",
@@ -86,10 +86,10 @@
       "qualityMetric": "Flaky-pattern matches in tests",
       "security": false,
       "discoveryCommands": [
-        "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\\\(|waitForTimeout\\\\(|sleep\\\\(' packages . | head -30 || true",
+        "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\(|waitForTimeout\\(|sleep\\(' packages . | head -30 || true",
         "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true"
       ],
-      "metricCountCommand": "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\\\(|waitForTimeout\\\\(|sleep\\\\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l"
+      "metricCountCommand": "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\(|waitForTimeout\\(|sleep\\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l"
     },
     {
       "id": "preen-skill-tooling",

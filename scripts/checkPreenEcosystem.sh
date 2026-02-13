@@ -86,24 +86,29 @@ check_prefix_usage() {
   local file_path="$1"
   local expected_style="$2"
   local command_name
+  local grep_output
+
+  grep_output="$(mktemp)"
 
   for command_name in "${COMMAND_NAMES[@]}"; do
     if [ "$expected_style" = "codex" ]; then
-      if grep -nE "(^|[^[:alnum:]_.-])/${command_name}([^[:alnum:]-]|$)" "$file_path" >/tmp/preen-check-grep.txt; then
+      if grep -nE "(^|[^[:alnum:]_.-])/${command_name}([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
         report_issue "Codex skill uses slash command '/${command_name}' in ${file_path}"
         if [ "$MODE" != "count" ]; then
-          sed 's/^/  /' /tmp/preen-check-grep.txt >&2
+          sed 's/^/  /' "$grep_output" >&2
         fi
       fi
     else
-      if grep -nE "(^|[^[:alnum:]_.-])\\\$${command_name}([^[:alnum:]-]|$)" "$file_path" >/tmp/preen-check-grep.txt; then
+      if grep -nE "(^|[^[:alnum:]_.-])\\\$${command_name}([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
         report_issue "Claude command uses dollar command '\$${command_name}' in ${file_path}"
         if [ "$MODE" != "count" ]; then
-          sed 's/^/  /' /tmp/preen-check-grep.txt >&2
+          sed 's/^/  /' "$grep_output" >&2
         fi
       fi
     fi
   done
+
+  rm -f "$grep_output"
 }
 
 compare_normalized_pair() {
@@ -113,34 +118,42 @@ compare_normalized_pair() {
 
   local left_norm
   local right_norm
+  local diff_output
   left_norm="$(mktemp)"
   right_norm="$(mktemp)"
+  diff_output="$(mktemp)"
 
   normalize_file "$left_file" "$left_norm"
   normalize_file "$right_file" "$right_norm"
 
-  if ! diff -u "$left_norm" "$right_norm" >/tmp/preen-check-diff.txt; then
+  if ! diff -u "$left_norm" "$right_norm" >"$diff_output"; then
     report_issue "Semantic drift detected for ${label}"
     if [ "$MODE" != "count" ]; then
-      sed -n '1,120p' /tmp/preen-check-diff.txt >&2
+      sed -n '1,120p' "$diff_output" >&2
     fi
   fi
 
-  rm -f "$left_norm" "$right_norm"
+  rm -f "$left_norm" "$right_norm" "$diff_output"
 }
 
 check_registry_generation() {
+  local gendoc_output
+  gendoc_output="$(mktemp)"
+
   if [ ! -x ./scripts/preen/generatePreenDocs.sh ]; then
     report_issue "Missing executable generator: scripts/preen/generatePreenDocs.sh"
+    rm -f "$gendoc_output"
     return
   fi
 
-  if ! ./scripts/preen/generatePreenDocs.sh --check >/tmp/preen-check-gendoc.txt 2>&1; then
+  if ! ./scripts/preen/generatePreenDocs.sh --check >"$gendoc_output" 2>&1; then
     report_issue "Top-level preen docs are not generated from scripts/preen/registry.json"
     if [ "$MODE" != "count" ]; then
-      sed -n '1,120p' /tmp/preen-check-gendoc.txt >&2
+      sed -n '1,120p' "$gendoc_output" >&2
     fi
   fi
+
+  rm -f "$gendoc_output"
 }
 
 # Prefix-style lint for preen ecosystem files.

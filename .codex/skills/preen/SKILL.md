@@ -167,14 +167,14 @@ run_discovery() {
       pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40
       ;;
     preen-api-security)
-      rg -n --glob '*.ts' 'router\\.(get|post|put|patch|delete)|authClaims|req\\.session|pool\\.query|client\\.query' packages/api/src/routes | head -40
+      rg -n --glob '*.ts' 'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query' packages/api/src/routes | head -40
       ;;
     preen-dependency-security)
       pnpm audit --prod --audit-level high --json 2>/dev/null | head -40 || true
       rg -n --glob 'package.json' 'latest|next|canary|beta' packages scripts . | head -20 || true
       ;;
     preen-test-flakiness)
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\(|waitForTimeout\\(|sleep\\(' packages . | head -30 || true
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(' packages . | head -30 || true
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true
       ;;
     preen-skill-tooling)
@@ -201,13 +201,13 @@ metric_count() {
       pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
       ;;
     preen-api-security)
-      rg -L --glob '*.ts' 'authClaims|req\\.session' packages/api/src/routes | rg -v 'index\\.ts|shared\\.ts|test\\.' | wc -l
+      rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l
       ;;
     preen-dependency-security)
       pnpm audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == "high" or . == "critical")] | length' 2>/dev/null || echo 0
       ;;
     preen-test-flakiness)
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\(|waitForTimeout\\(|sleep\\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
       ;;
     preen-skill-tooling)
       ./scripts/checkPreenEcosystem.sh --count-issues
