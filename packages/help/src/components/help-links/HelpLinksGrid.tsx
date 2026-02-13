@@ -2,6 +2,7 @@ import {
   CodeXml,
   Download,
   FileText,
+  FolderTree,
   Puzzle,
   Scale,
   Shield,
@@ -39,6 +40,11 @@ const DEVELOPER_DOC_ITEMS = [
     docId: 'tuxedo',
     label: 'Tuxedo',
     Icon: Shirt
+  },
+  {
+    docId: 'vfs',
+    label: 'VFS',
+    Icon: FolderTree
   },
   {
     docId: 'ci',

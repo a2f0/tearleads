@@ -2,6 +2,7 @@ import { useTheme } from '@tearleads/ui';
 import {
   Cog,
   Download,
+  FolderTree,
   type LucideIcon,
   Puzzle,
   Scale,
@@ -23,6 +24,7 @@ import cliDocumentationEn from '../../../../../docs/en/getting-started.md?raw';
 import privacyPolicyEn from '../../../../../docs/en/privacy-policy.md?raw';
 import termsOfServiceEn from '../../../../../docs/en/terms-of-service.md?raw';
 import tuxedoDocumentationEn from '../../../../../docs/en/tuxedo.md?raw';
+import vfsDocumentationEn from '../../../../../docs/en/vfs.md?raw';
 import backupRestoreDocumentationEs from '../../../../../docs/es/backup-restore.md?raw';
 import chromeExtensionDocumentationEs from '../../../../../docs/es/chrome-extension.md?raw';
 import cliReferenceDocumentationEs from '../../../../../docs/es/cli-reference.md?raw';
@@ -82,6 +84,11 @@ const HELP_DOC_MARKDOWN: Record<
     en: termsOfServiceEn,
     es: termsOfServiceEn,
     ua: termsOfServiceEn
+  },
+  vfs: {
+    en: vfsDocumentationEn,
+    es: vfsDocumentationEn,
+    ua: vfsDocumentationEn
   }
 };
 
@@ -97,7 +104,8 @@ const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
   privacyPolicy:
     'How Tearleads collects, uses, and protects your personal information.',
   termsOfService:
-    'Terms and conditions governing your use of Tearleads services.'
+    'Terms and conditions governing your use of Tearleads services.',
+  vfs: 'Design notes for the Virtual Filesystem model and encrypted sharing flow.'
 };
 
 const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
@@ -109,7 +117,8 @@ const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
   backupRestore: Download,
   tuxedo: Shirt,
   privacyPolicy: Shield,
-  termsOfService: Scale
+  termsOfService: Scale,
+  vfs: FolderTree
 };
 
 function resolveLanguage(language: string | undefined): SupportedLanguage {

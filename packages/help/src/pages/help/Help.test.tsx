@@ -23,6 +23,7 @@ describe('Help', () => {
     { label: 'CI', path: '/help/docs/ci' },
     { label: 'Chrome Extension', path: '/help/docs/chrome-extension' },
     { label: 'Backup & Restore', path: '/help/docs/backup-restore' },
+    { label: 'VFS', path: '/help/docs/vfs' },
     { label: 'Tuxedo', path: '/help/docs/tuxedo' }
   ] as const;
 
