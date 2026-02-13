@@ -1,0 +1,76 @@
+name: CI Impact Validation
+
+on:
+  schedule:
+    - cron: '20 06 * * *'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  validate-ci-impact:
+    name: Validate CI Impact Predictions
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Install tsx
+        run: pnpm add -g tsx
+
+      - name: Refresh main refs
+        run: git fetch --no-tags --prune origin main
+
+      - name: Validate recent ciImpact decisions
+        run: |
+          tsx scripts/ciImpact/validateRecentDecisions.ts \
+            --repo "${{ github.repository }}" \
+            --sample-size 30 \
+            --lookback-hours 24 \
+            --output ci-impact-validation.json
+
+      - name: Publish validation summary
+        run: |
+          CHECKED_COUNT=$(jq '.checkedPullRequests | length' ci-impact-validation.json)
+          FLAGGED_COUNT=$(jq '.potentialFalseNegatives | length' ci-impact-validation.json)
+
+          {
+            echo "## CI Impact Nightly Validation"
+            echo "- Checked merged PRs: $CHECKED_COUNT"
+            echo "- Potential false negatives: $FLAGGED_COUNT"
+            echo ""
+            if [ "$FLAGGED_COUNT" -eq 0 ]; then
+              echo "No potential false negatives detected in this sample window."
+            else
+              echo "### Flagged Pull Requests"
+              jq -r '.potentialFalseNegatives[] | "- #" + (.number|tostring) + " (" + .headSha[0:7] + "): missing=" + (.missingWorkflows | join(", "))' ci-impact-validation.json
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload validation artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-impact-validation
+          path: ci-impact-validation.json
+          retention-days: 14
+
+      - name: Fail on potential false negatives
+        run: |
+          FLAGGED_COUNT=$(jq '.potentialFalseNegatives | length' ci-impact-validation.json)
+          if [ "$FLAGGED_COUNT" -gt 0 ]; then
+            echo "Potential ciImpact false negatives detected. Review ci-impact-validation.json artifact." >&2
+            exit 1
+          fi

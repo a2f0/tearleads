@@ -1,5 +1,6 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { execSync } from 'node:child_process';
+import { ALL_JOB_NAMES, WORKFLOW_BY_JOB, type JobName } from './workflowConfig.js';
 
 interface CliArgs {
   base?: string;
@@ -12,20 +13,10 @@ interface JobState {
   reasons: string[];
 }
 
-interface CiImpactJobs {
-  build: JobState;
-  'web-e2e': JobState;
-  'website-e2e': JobState;
-  'electron-e2e': JobState;
-  android: JobState;
-  'android-maestro-release': JobState;
-  'ios-maestro-release': JobState;
-}
-
 interface CiImpactOutput {
   base: string;
   head: string;
-  jobs: CiImpactJobs;
+  jobs: Record<JobName, JobState>;
 }
 
 interface RequiredWorkflowsOutput {
@@ -37,16 +28,6 @@ interface RequiredWorkflowsOutput {
 
 const DEFAULT_BASE = 'origin/main';
 const DEFAULT_HEAD = 'HEAD';
-
-const WORKFLOW_BY_JOB: Readonly<Record<keyof CiImpactJobs, string>> = {
-  build: 'build',
-  'web-e2e': 'Web E2E Tests (Release)',
-  'website-e2e': 'Website E2E Tests (Release)',
-  'electron-e2e': 'Electron E2E Tests (Release)',
-  android: 'Android Instrumented Tests',
-  'android-maestro-release': 'Android Maestro Tests (Release)',
-  'ios-maestro-release': 'iOS Maestro Tests (Release)'
-};
 
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
@@ -162,17 +143,7 @@ function main(): void {
   const requiredWorkflows: string[] = [];
   const reasons: Record<string, string[]> = {};
 
-  const jobNames: Array<keyof CiImpactJobs> = [
-    'build',
-    'web-e2e',
-    'website-e2e',
-    'electron-e2e',
-    'android',
-    'android-maestro-release',
-    'ios-maestro-release'
-  ];
-
-  for (const jobName of jobNames) {
+  for (const jobName of ALL_JOB_NAMES) {
     const jobState = impact.jobs[jobName];
     if (!jobState.run) {
       continue;

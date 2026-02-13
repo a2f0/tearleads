@@ -50,6 +50,24 @@ Derive required GitHub workflow names from ciImpact output (used by `CI Gate`):
 pnpm exec tsx scripts/ciImpact/requiredWorkflows.ts --base origin/main --head HEAD
 ```
 
+Validate workflow mapping drift (job keys/workflow names/CI Gate wiring):
+
+```bash
+pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
+```
+
+Sample recent merged PRs and compare predicted required workflows to observed workflow runs:
+
+```bash
+pnpm exec tsx scripts/ciImpact/validateRecentDecisions.ts --repo a2f0/tearleads --sample-size 30 --lookback-hours 24
+```
+
+Baseline script coverage for the ciImpact/required-workflow decision path:
+
+```bash
+pnpm dlx c8 --reporter=text-summary node --import tsx --test scripts/ciImpact/ciImpact.test.ts scripts/ciImpact/requiredWorkflows.test.ts
+```
+
 ## Inputs
 
 - `scripts/ciImpact/job-groups.json`: job groups and path policy
