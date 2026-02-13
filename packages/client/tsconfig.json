@@ -24,6 +24,8 @@
       "@tearleads/contacts": ["../contacts/src/index.ts"],
       "@tearleads/email/package.json": ["../email/package.json"],
       "@tearleads/email": ["../email/src/index.ts"],
+      "@tearleads/help/package.json": ["../help/package.json"],
+      "@tearleads/help": ["../help/src/index.ts"],
       "@tearleads/keychain/package.json": ["../keychain/package.json"],
       "@tearleads/keychain": ["../keychain/src/index.ts"],
       "@tearleads/notes/package.json": ["../notes/package.json"],

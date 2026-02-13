@@ -1,7 +1,7 @@
 import type { WindowDimensions } from '@client/components/floating-window';
 import { FloatingWindow } from '@client/components/floating-window';
-import { HelpDocumentation } from '@client/components/help-links/HelpDocumentation';
 import { ClientTerminal } from '@client/components/terminal';
+import { HelpDocumentation } from '@tearleads/help';
 import { cn } from '@tearleads/ui';
 import { X } from 'lucide-react';
 import { useCallback, useState } from 'react';

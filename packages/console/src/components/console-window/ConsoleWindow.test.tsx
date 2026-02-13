@@ -61,7 +61,7 @@ vi.mock('@client/components/terminal', () => ({
   }
 }));
 
-vi.mock('@client/components/help-links/HelpDocumentation', () => ({
+vi.mock('@tearleads/help', () => ({
   HelpDocumentation: ({ docId }: { docId: string }) => (
     <div data-testid="help-documentation">{docId}</div>
   )

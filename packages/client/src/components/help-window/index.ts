@@ -1,1 +1,1 @@
-export { HelpWindow } from './HelpWindow';
+export { HelpWindow } from '@tearleads/help';

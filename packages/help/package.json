@@ -1,7 +1,7 @@
 {
-  "name": "@tearleads/console",
+  "name": "@tearleads/help",
   "version": "0.0.1",
-  "description": "Console pages and window for Tearleads",
+  "description": "Help pages and window for Tearleads",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",
@@ -16,28 +16,23 @@
     "src"
   ],
   "scripts": {
-    "build": "echo \"@tearleads/console is source-consumed via Vite aliases\"",
+    "build": "echo \"@tearleads/help is source-consumed via Vite aliases\"",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
-    "@tearleads/help": "workspace:*",
-    "@tearleads/terminal": "workspace:*",
     "@tearleads/ui": "workspace:*",
-    "@tearleads/window-manager": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-i18next": "16.5.4",
     "react-router-dom": "7.13.0"
   },
   "dependencies": {
     "lucide-react": "0.563.0"
   },
   "devDependencies": {
-    "@tearleads/help": "workspace:*",
-    "@tearleads/terminal": "workspace:*",
     "@tearleads/ui": "workspace:*",
-    "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.2",
     "@testing-library/user-event": "14.6.1",
@@ -46,10 +41,11 @@
     "@types/react-dom": "19.2.3",
     "@vitejs/plugin-react": "5.1.4",
     "@vitest/coverage-v8": "4.0.18",
-    "cross-env": "7.0.3",
+    "cross-env": "10.1.0",
     "jsdom": "28.0.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
+    "react-i18next": "16.5.4",
     "react-router-dom": "7.13.0",
     "typescript": "5.9.3",
     "vitest": "4.0.18",

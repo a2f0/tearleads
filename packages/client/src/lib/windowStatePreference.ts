@@ -6,6 +6,26 @@ const DEFAULT_PRESERVE = true;
 let cachedValue: boolean | null = null;
 const listeners = new Set<() => void>();
 
+function getStorage(): Storage | null {
+  if (
+    typeof window === 'undefined' ||
+    typeof window.localStorage === 'undefined'
+  ) {
+    return null;
+  }
+
+  const storage = window.localStorage;
+  if (
+    typeof storage.getItem !== 'function' ||
+    typeof storage.setItem !== 'function' ||
+    typeof storage.removeItem !== 'function'
+  ) {
+    return null;
+  }
+
+  return storage;
+}
+
 function parseStored(value: string | null): boolean | null {
   if (value === 'true') return true;
   if (value === 'false') return false;
@@ -17,8 +37,14 @@ export function getPreserveWindowState(): boolean {
     return cachedValue;
   }
 
+  const storage = getStorage();
+  if (!storage) {
+    cachedValue = DEFAULT_PRESERVE;
+    return cachedValue;
+  }
+
   try {
-    const stored = localStorage.getItem(STORAGE_KEY);
+    const stored = storage.getItem(STORAGE_KEY);
     const parsed = parseStored(stored);
     cachedValue = parsed ?? DEFAULT_PRESERVE;
   } catch (error) {
@@ -31,11 +57,14 @@ export function getPreserveWindowState(): boolean {
 
 export function setPreserveWindowState(next: boolean): void {
   cachedValue = next;
+  const storage = getStorage();
 
-  try {
-    localStorage.setItem(STORAGE_KEY, String(next));
-  } catch (error) {
-    console.warn('Failed to save window state preference:', error);
+  if (storage) {
+    try {
+      storage.setItem(STORAGE_KEY, String(next));
+    } catch (error) {
+      console.warn('Failed to save window state preference:', error);
+    }
   }
 
   if (!next) {
@@ -56,10 +85,13 @@ export function subscribePreserveWindowState(listener: () => void): () => void {
 
 export function clearPreserveWindowState(): void {
   cachedValue = null;
-  try {
-    localStorage.removeItem(STORAGE_KEY);
-  } catch (error) {
-    console.warn('Failed to clear window state preference:', error);
+  const storage = getStorage();
+  if (storage) {
+    try {
+      storage.removeItem(STORAGE_KEY);
+    } catch (error) {
+      console.warn('Failed to clear window state preference:', error);
+    }
   }
   listeners.forEach((listener) => {
     listener();
