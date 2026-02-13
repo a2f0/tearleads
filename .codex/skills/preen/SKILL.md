@@ -45,7 +45,7 @@ If parity fails, STOP and update both:
 | `preen-inefficient-resolution` | Fix cyclical imports and module resolution issues |
 | `preen-deferred-fixes` | Complete deferred follow-ups from merged PR reviews |
 | `preen-optimize-test-execution` | Tune CI impact analysis (workflow filters, package dependencies) |
-| `preen-api-security` | Audit API auth boundaries, data access, and input validation |
+| `preen-skill-tooling` | Validate skills are wired into agentTool.ts and scriptTool.ts |
 
 ## Run Modes
 
@@ -74,6 +74,7 @@ CATEGORIES=(
   "preen-deferred-fixes"
   "preen-optimize-test-execution"
   "preen-api-security"
+  "preen-skill-tooling"
 )
 
 mkdir -p "$STATE_DIR"
@@ -140,6 +141,17 @@ run_discovery() {
       ;;
     preen-api-security)
       rg -n --glob '*.ts' "router\\.(get|post|put|patch|delete)|authClaims|req\\.session|pool\\.query|client\\.query" packages/api/src/routes | head -40
+      ;;
+    preen-skill-tooling)
+      # Check for undefined actions (invoked but not defined)
+      AGENT_DEFINED=$(grep -oP "^\s+'[a-zA-Z]+'" scripts/agents/tooling/agentTool.ts 2>/dev/null | tr -d "' " | sort -u)
+      AGENT_INVOKED=$(grep -rh "agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "agentTool\.ts\s+\K[a-zA-Z]+" | sort -u)
+      echo "=== Undefined agentTool actions ===" && comm -23 <(echo "$AGENT_INVOKED") <(echo "$AGENT_DEFINED")
+      echo "=== Unused agentTool actions ===" && comm -23 <(echo "$AGENT_DEFINED") <(echo "$AGENT_INVOKED")
+      SCRIPT_DEFINED=$(grep -oP "^\s+'[a-zA-Z]+'" scripts/tooling/scriptTool.ts 2>/dev/null | tr -d "' " | sort -u)
+      SCRIPT_INVOKED=$(grep -rh "scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "scriptTool\.ts\s+\K[a-zA-Z]+" | sort -u)
+      echo "=== Undefined scriptTool actions ===" && comm -23 <(echo "$SCRIPT_INVOKED") <(echo "$SCRIPT_DEFINED")
+      echo "=== Unused scriptTool actions ===" && comm -23 <(echo "$SCRIPT_DEFINED") <(echo "$SCRIPT_INVOKED")
       ;;
   esac
 }
@@ -223,6 +235,7 @@ gh pr create --repo "$REPO" --title "refactor(preen): stateful single-pass impro
 - [ ] Deferred fixes from PR reviews
 - [ ] CI impact/test execution tuning
 - [ ] API security boundaries
+- [ ] Skill tooling validation
 
 ## Quality Delta
 - [ ] Baseline metrics captured
