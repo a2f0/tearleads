@@ -38,7 +38,22 @@ Request a fresh review from Gemini Code Assist on the current PR.
    gh api repos/${REPO}/pulls/${PR_NUM}/comments --jq '.[] | select(.user.login == "gemini-code-assist") | {path: .path, line: .line, body: .body}'
    ```
 
-5. **Report**: Output a summary of Gemini's review and any specific comments.
+5. **Check for quota exhaustion**: After Gemini responds, check for quota limit:
+
+   ```bash
+   gh pr view "$PR_NUM" -R "$REPO" --json comments --jq '.comments[] | select(.author.login == "gemini-code-assist") | .body' | tail -1
+   ```
+
+   If the response contains "You have reached your daily quota limit":
+   - Fall back to Codex review:
+
+     ```bash
+     ./scripts/agents/tooling/agentTool.sh solicitCodexReview
+     ```
+
+   - Report that Gemini quota was exhausted and Codex was used instead
+
+6. **Report**: Output a summary of Gemini's review (or Codex review if fallback was used) and any specific comments.
 
 ## Important
 

@@ -24,6 +24,24 @@ When replying to Gemini comments, you MUST use the REST API to create immediate 
 
 See `/follow-up-with-gemini` for the correct API usage and examples.
 
+## Quota Exhaustion Fallback
+
+Before fetching comments, check if Gemini has hit its daily quota:
+
+```bash
+gh pr view "$PR_NUMBER" -R "$REPO" --json comments --jq '.comments[] | select(.author.login == "gemini-code-assist") | .body' | tail -1
+```
+
+If the response contains "You have reached your daily quota limit":
+- Fall back to Codex review:
+
+  ```bash
+  ./scripts/agents/tooling/agentTool.sh solicitCodexReview
+  ```
+
+- Skip the remaining steps (no Gemini feedback to address)
+- Return early with a message that Codex was used as fallback
+
 ## Steps
 
 1. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`.

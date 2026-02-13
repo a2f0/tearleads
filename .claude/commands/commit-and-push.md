@@ -88,7 +88,23 @@ Commit and push the current changes following these rules:
 
 7. **Wait for Gemini**: Wait 60 seconds for Gemini Code Assist to review.
 
-8. **Address feedback**: Run `/address-gemini-feedback` to handle unresolved comments.
+8. **Check for quota exhaustion**: After waiting, check Gemini's response for quota limit:
+
+   ```bash
+   gh pr view "$PR_NUMBER" -R "$REPO" --json comments --jq '.comments[] | select(.author.login == "gemini-code-assist") | .body' | head -1
+   ```
+
+   If the response contains "You have reached your daily quota limit":
+   - Fall back to Codex review:
+
+     ```bash
+     ./scripts/agents/tooling/agentTool.sh solicitCodexReview
+     ```
+
+   - Skip `/address-gemini-feedback` (no Gemini feedback to address)
+   - Proceed to `/enter-merge-queue` or end the skill
+
+9. **Address feedback**: If Gemini did not hit quota, run `/address-gemini-feedback` to handle unresolved comments.
 
    **IMPORTANT**: When replying to Gemini comments, use the REST API (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies`), NOT `gh pr review`. The `gh pr review` command creates pending/draft reviews that Gemini cannot see until submitted. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification.
 
