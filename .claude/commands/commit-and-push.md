@@ -104,6 +104,7 @@ Commit and push the current changes following these rules:
 ```
 
 If that quota message is found at any point:
+
 - Set `gemini_quota_exhausted=true`.
 - If `used_fallback_agent_review=false`, run one fallback review via cross-agent review (Codex):
 
@@ -116,7 +117,7 @@ If that quota message is found at any point:
 - Skip further Gemini follow-ups for this run.
 - Proceed to `/enter-merge-queue` or end the skill
 
-9. **Address feedback**: If `gemini_quota_exhausted=false`, run `/address-gemini-feedback` to handle unresolved comments.
+1. **Address feedback**: If `gemini_quota_exhausted=false`, run `/address-gemini-feedback` to handle unresolved comments.
 
    - Re-run the same quota check after each Gemini interaction (including follow-up replies). Quota exhaustion can appear after an initial review was already posted.
    - If quota is detected later, immediately apply step 8 fallback behavior and stop Gemini-specific follow-ups.
