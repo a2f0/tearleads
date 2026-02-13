@@ -18,8 +18,8 @@ TITLE="$(agent_workspace_title "$REPO_ROOT")"
 usage() {
     echo "Usage: $0 [--title <value> | <value>]"
     echo ""
-    echo "Sets VS Code and tmux window titles."
-    echo "Default title: '<workspace> - <branch>'"
+    echo "Sets VS Code window title."
+    echo "Default title: '<workspace>'"
     echo "With --title or a positional value: uses that exact title."
     exit 0
 }
@@ -95,7 +95,5 @@ else
 }
 EOT
 fi
-
-agent_sync_tmux_title "$TITLE"
 
 echo "Window title set to: $TITLE"

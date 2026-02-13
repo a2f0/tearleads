@@ -18,11 +18,3 @@ agent_workspace_title() {
     project_name=$(basename "$repo_root")
     printf '%s\n' "$project_name"
 }
-
-agent_sync_tmux_title() {
-    # Disabled: tmux rename-window renames the FOCUSED window, not the window
-    # associated with this workspace. This caused title pollution when agents
-    # in different workspaces ran concurrently. The pane border in tmux.conf
-    # already shows the correct path:branch dynamically.
-    :
-}
