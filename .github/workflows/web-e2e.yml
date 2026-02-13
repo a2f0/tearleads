@@ -85,6 +85,9 @@ jobs:
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
+      - name: Install Playwright for website build
+        run: pnpm --filter @tearleads/website exec playwright install chromium
+
       - name: Build all packages
         run: pnpm build
         env:
