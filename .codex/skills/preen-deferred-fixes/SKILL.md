@@ -7,31 +7,45 @@ description: Implement deferred follow-up commitments from merged PR review thre
 
 Complete deferred follow-up commitments from recently merged PR review threads, then ship the fixes with tests.
 
-Use this when a tracking issue exists (for example `#1442`) or when reviewers explicitly deferred work to a future PR.
+## Finding Deferred Work
+
+Deferred fixes are tracked via GitHub issues with the `deferred-fix` label. These issues are created automatically by `$enter-merge-queue` when review feedback is deferred rather than fixed on-the-fly.
 
 ## Workflow
 
-1. Identify deferred commitments.
+1. **Find deferred fix issues**:
 
    ```bash
-   # Start from the tracking issue
+   REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+   gh issue list -R "$REPO" --label "deferred-fix" --state open --json number,title,url
+   ```
+
+   If a specific issue number is provided, start from that:
+
+   ```bash
    gh issue view <issue-number> --json title,body,url
+   ```
 
-   # If the issue references a merged PR, get PR info and find deferred work
-   ./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,title,body,files
+2. **Identify deferred commitments** from the issue body:
 
+   - The issue body contains a "Deferred Items" section with checkboxes
+   - The issue references the source PR and review threads
+   - If more context is needed, use `findDeferredWork` on the source PR:
+
+   ```bash
    # Find comments containing deferred work patterns
    ./scripts/agents/tooling/agentTool.ts findDeferredWork --number <pr-number>
    ```
 
    The `findDeferredWork` action searches for comments containing patterns like "defer", "follow-up", "future PR", "later", "TODO", or "FIXME" and returns `{id, path, line, body, html_url}` for each match.
 
-2. Convert commitments into a checklist with clear, testable items.
-3. Implement each item with minimal, behavior-preserving refactors.
-4. Add or update tests for every item (unit/integration/e2e as needed).
-5. Validate locally using the smallest reliable command set first, then broader coverage if the area is cross-cutting.
-6. Summarize completed checklist items and any remaining risks.
-7. Commit and push with `$commit-and-push`, then prepare merge with `$enter-merge-queue`.
+3. Convert commitments into a checklist with clear, testable items.
+4. Implement each item with minimal, behavior-preserving refactors.
+5. Add or update tests for every item (unit/integration/e2e as needed).
+6. Validate locally using the smallest reliable command set first, then broader coverage if the area is cross-cutting.
+7. Summarize completed checklist items and any remaining risks.
+8. Commit and push with `$commit-and-push`, then prepare merge with `$enter-merge-queue`.
+9. **After merge**: Close the deferred fix issue (if all items are addressed).
 
 ## Quality Bar
 

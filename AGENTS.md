@@ -23,13 +23,18 @@ gh pr view 123 -R "$REPO"
 
 ## Issue Tracking
 
-**Do NOT create issues automatically.** Only create GitHub issues when the user explicitly asks for one.
+**Do NOT create issues automatically** except for deferred fixes. Only create GitHub issues when:
+
+1. The user explicitly asks for one, OR
+2. Review feedback is being deferred to a follow-up PR (handled by `$enter-merge-queue` and `$address-gemini-feedback`)
+
+### User-Requested Issues
 
 When the user explicitly requests an issue:
 
 1. **Check for existing issue**: Search for a related open issue first
-2. **Create an issue if none exists**: Use the template below. After merge, `/enter-merge-queue` adds "Needs QA" label to this issue.
-3. **Do NOT auto-close issues**: Never use `Closes #`, `Fixes #`, or `Resolves #` in PR descriptions. Issues are marked "Needs QA" after merge for verification before manual closure.
+2. **Create an issue if none exists**: Use the template below. After merge, `$enter-merge-queue` adds "needs-qa" label to this issue.
+3. **Do NOT auto-close issues**: Never use `Closes #`, `Fixes #`, or `Resolves #` in PR descriptions. Issues are marked "needs-qa" after merge for verification before manual closure.
 
 ```bash
 # Create an issue for the user's request (rewrite in your own words; add context)
@@ -48,6 +53,34 @@ cat <<'EOF' | gh issue create --title "feat: <brief description>" --body-file -
 <initial approach, dependencies, or questions to resolve>
 EOF
 ```
+
+### Deferred Fix Issues
+
+When review feedback cannot be addressed in the current PR and must be deferred:
+
+1. **Create a tracking issue** with the `deferred-fix` label
+2. **Reference the source PR** in the issue body
+3. **Do NOT create issues for on-the-fly fixes** - only for work explicitly deferred
+
+The `$enter-merge-queue` and `$address-gemini-feedback` skills handle deferred fix issue creation automatically. The `$preen-deferred-fixes` skill finds issues with the `deferred-fix` label to implement.
+
+```bash
+# Create a deferred fix issue (handled by skills, shown for reference)
+cat <<'EOF' | gh issue create --title "chore: deferred fix from PR #<number>" --label "deferred-fix" --body-file -
+## Summary
+<brief description of what was deferred>
+
+## Source
+- PR: #<pr-number>
+- Review thread: <url to thread>
+
+## Deferred Items
+- [ ] <item 1 from review feedback>
+- [ ] <item 2 from review feedback>
+EOF
+```
+
+### Issue Guidelines
 
 Issue-writing guidelines:
 

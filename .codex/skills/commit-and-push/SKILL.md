@@ -21,6 +21,7 @@ Track these state flags during execution:
 
 - `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini returns its daily quota message.
 - `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback cross-agent review.
+- `deferred_items`: Array of `{thread_id, path, line, body, html_url}`, starts empty. Populated by `$address-gemini-feedback` when review feedback is deferred rather than fixed on-the-fly. Pass this state to `$enter-merge-queue` for issue creation.
 
 ## Workflow
 
@@ -130,10 +131,18 @@ Track these state flags during execution:
      - Proceed to `/enter-merge-queue` or end the skill.
 
 9. Address feedback:
-   - If `gemini_quota_exhausted=false`, run `/address-gemini-feedback` for unresolved comments.
+   - If `gemini_quota_exhausted=false`, run `$address-gemini-feedback` for unresolved comments.
    - Reply to Gemini with `./scripts/agents/tooling/agentTool.ts replyToGemini --number <pr> --comment-id <id> --commit <sha>` (not `gh pr review`).
    - Use `replyToComment` only for custom non-fix responses.
    - Re-run step 8 after each Gemini interaction. If quota appears later, switch to fallback immediately.
+   - `$address-gemini-feedback` may populate `deferred_items` if any feedback is deferred rather than fixed on-the-fly.
+
+10. Report state for downstream skills:
+    - PR number and URL
+    - Whether Gemini quota was exhausted
+    - Any `deferred_items` that were collected
+
+    If `deferred_items` is non-empty, mention that `$enter-merge-queue` will create a tracking issue with the `deferred-fix` label after merge.
 
 ## Token Efficiency (CRITICAL)
 
