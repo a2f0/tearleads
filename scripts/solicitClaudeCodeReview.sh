@@ -23,18 +23,28 @@ if [ "$BRANCH" = "main" ]; then
 fi
 
 # Check if there's an associated PR
-PR_NUMBER=$(gh pr view --json number -q .number 2>/dev/null || echo "")
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
+
+if [ -z "$REPO" ]; then
+  echo "Error: Could not determine repository. Ensure gh is authenticated." >&2
+  exit 1
+fi
+
+PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO" 2>/dev/null || echo "")
 
 if [ -z "$PR_NUMBER" ]; then
   echo "Error: No PR found for branch '$BRANCH'. Create a PR first." >&2
   exit 1
 fi
 
-# Get the diff against main
-DIFF=$(git diff main...HEAD)
+# Resolve the actual PR base branch (supports roll-up PRs not targeting main)
+BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
+
+# Ensure there are changes against PR base
+DIFF=$(git diff "$BASE_REF"...HEAD)
 
 if [ -z "$DIFF" ]; then
-  echo "Error: No changes found between main and current branch." >&2
+  echo "Error: No changes found between $BASE_REF and current branch." >&2
   exit 1
 fi
 
@@ -43,6 +53,7 @@ PROMPT="Review this PR diff for code quality, bugs, security issues, and style. 
 
 Branch: $BRANCH
 PR: #$PR_NUMBER
+Base: $BASE_REF
 
 Diff:
 $DIFF"

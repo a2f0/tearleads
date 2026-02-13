@@ -50,4 +50,5 @@ fi
 
 # Run Codex review in non-interactive mode (outputs to stdout)
 # --base and [PROMPT] are mutually exclusive; use --base for the diff, --title for context
-CODEX_HOME="${CODEX_HOME:-$ROOT_DIR/.claude/commands}" codex review --base "$BASE_REF" --title "PR #$PR_NUMBER ($BRANCH)"
+# NOTE: Do NOT override CODEX_HOME here - auth lives in ~/.codex/auth.json
+codex review --base "$BASE_REF" --title "PR #$PR_NUMBER ($BRANCH)"
