@@ -9,8 +9,8 @@ const mockAdapter = {
   execute: vi.fn()
 };
 
-// Mock dependencies
-vi.mock('./index', () => ({
+// Mock dependencies - state.ts provides getDatabaseAdapter and isDatabaseInitialized
+vi.mock('./state', () => ({
   getDatabaseAdapter: vi.fn(() => mockAdapter),
   isDatabaseInitialized: vi.fn(() => true)
 }));
@@ -27,7 +27,7 @@ import {
   measureOperation
 } from './analytics';
 import type { Database } from './index';
-import { isDatabaseInitialized } from './index';
+import { isDatabaseInitialized } from './state';
 
 // Create mock database
 const mockDb = {

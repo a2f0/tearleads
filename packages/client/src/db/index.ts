@@ -7,16 +7,24 @@
 import type { Database } from '@tearleads/db/sqlite';
 import { schema } from '@tearleads/db/sqlite';
 import { drizzle } from 'drizzle-orm/sqlite-proxy';
-import type { DatabaseAdapter, PlatformInfo } from './adapters';
+import type { PlatformInfo } from './adapters';
 import { createAdapter, getPlatformInfo } from './adapters';
 import { logEvent } from './analytics';
 import { getKeyManagerForInstance, setCurrentInstanceId } from './crypto';
 import { runMigrations } from './migrations';
+import {
+  _getAdapterInstance,
+  _getDatabaseInstance,
+  _setAdapterInstance,
+  _setDatabaseInstance,
+  getDatabase,
+  getDatabaseAdapter,
+  isDatabaseInitialized
+} from './state';
 
 export type { Database };
+export { getDatabase, getDatabaseAdapter, isDatabaseInitialized };
 
-let databaseInstance: Database | null = null;
-let adapterInstance: DatabaseAdapter | null = null;
 let platformInfoCache: PlatformInfo | null = null;
 let currentInstanceId: string | null = null;
 
@@ -63,12 +71,12 @@ export async function setupDatabase(
   password: string,
   instanceId: string
 ): Promise<Database> {
-  if (databaseInstance && currentInstanceId === instanceId) {
+  if (_getDatabaseInstance() && currentInstanceId === instanceId) {
     throw new Error('Database already initialized for this instance');
   }
 
   // Close existing database if switching instances
-  if (databaseInstance && currentInstanceId !== instanceId) {
+  if (_getDatabaseInstance() && currentInstanceId !== instanceId) {
     await closeDatabase();
   }
 
@@ -114,15 +122,16 @@ export async function unlockDatabase(
 ): Promise<UnlockResult | null> {
   const keyManager = getKeyManagerForInstance(instanceId);
 
-  if (databaseInstance && currentInstanceId === instanceId) {
+  const dbInstance = _getDatabaseInstance();
+  if (dbInstance && currentInstanceId === instanceId) {
     return {
-      db: databaseInstance,
+      db: dbInstance,
       sessionPersisted: await keyManager.hasPersistedSession()
     };
   }
 
   // Close existing database if switching instances
-  if (databaseInstance && currentInstanceId !== instanceId) {
+  if (dbInstance && currentInstanceId !== instanceId) {
     await closeDatabase();
   }
 
@@ -177,12 +186,13 @@ export async function hasPersistedSession(
 export async function restoreDatabaseSession(
   instanceId: string
 ): Promise<Database | null> {
-  if (databaseInstance && currentInstanceId === instanceId) {
-    return databaseInstance;
+  const dbInstance = _getDatabaseInstance();
+  if (dbInstance && currentInstanceId === instanceId) {
+    return dbInstance;
   }
 
   // Close existing database if switching instances
-  if (databaseInstance && currentInstanceId !== instanceId) {
+  if (dbInstance && currentInstanceId !== instanceId) {
     await closeDatabase();
   }
 
@@ -253,7 +263,7 @@ async function initializeDatabaseWithKey(
   const platformInfo = getCurrentPlatform();
 
   // Reuse existing adapter if available (keeps worker/WASM memory alive on web)
-  const adapter = adapterInstance ?? (await createAdapter(platformInfo));
+  const adapter = _getAdapterInstance() ?? (await createAdapter(platformInfo));
 
   const dbName = getDatabaseName(instanceId);
 
@@ -263,48 +273,18 @@ async function initializeDatabaseWithKey(
     location: platformInfo.platform === 'ios' ? 'library' : 'default'
   });
 
-  adapterInstance = adapter;
+  _setAdapterInstance(adapter);
 
   // Create Drizzle instance with the sqlite-proxy driver
   // The adapters return { rows: unknown[] } for all methods as expected by Drizzle
   const connection = adapter.getConnection();
-  databaseInstance = drizzle(connection, { schema });
+  const db = drizzle(connection, { schema });
+  _setDatabaseInstance(db);
 
   // Run migrations
-  await runMigrations(adapterInstance);
+  await runMigrations(adapter);
 
-  return databaseInstance;
-}
-
-/**
- * Get the current database instance.
- * Throws if the database is not initialized.
- */
-export function getDatabase(): Database {
-  if (!databaseInstance) {
-    throw new Error(
-      'Database not initialized. Call setupDatabase or unlockDatabase first.'
-    );
-  }
-  return databaseInstance;
-}
-
-/**
- * Get the database adapter instance.
- */
-export function getDatabaseAdapter(): DatabaseAdapter {
-  if (!adapterInstance) {
-    throw new Error('Database not initialized');
-  }
-  return adapterInstance;
-}
-
-/**
- * Check if the database is initialized and ready for use.
- * This is true after setup/unlock and false after close/reset.
- */
-export function isDatabaseInitialized(): boolean {
-  return databaseInstance !== null;
+  return db;
 }
 
 /**
@@ -313,12 +293,13 @@ export function isDatabaseInitialized(): boolean {
  * This allows data to persist across lock/unlock cycles within a session.
  */
 export async function closeDatabase(): Promise<void> {
+  const adapterInstance = _getAdapterInstance();
   if (adapterInstance) {
     await adapterInstance.close();
     // Don't null out the adapter - keep it for potential unlock
     // The worker stays alive with the encrypted file in WASM VFS
   }
-  databaseInstance = null;
+  _setDatabaseInstance(null);
 
   // Clear the encryption key from memory for current instance
   if (currentInstanceId) {
@@ -334,7 +315,9 @@ export async function changePassword(
   oldPassword: string,
   newPassword: string
 ): Promise<boolean> {
-  if (!adapterInstance || !databaseInstance || !currentInstanceId) {
+  const adapterInstance = _getAdapterInstance();
+  const dbInstance = _getDatabaseInstance();
+  if (!adapterInstance || !dbInstance || !currentInstanceId) {
     throw new Error('Database not initialized');
   }
 
@@ -354,7 +337,7 @@ export async function changePassword(
   // Log the password change event
   const durationMs = performance.now() - startTime;
   try {
-    await logEvent(databaseInstance, 'db_password_change', durationMs, true);
+    await logEvent(dbInstance, 'db_password_change', durationMs, true);
   } catch (err) {
     // Don't let logging errors affect the main operation
     console.warn('Failed to log db_password_change analytics event:', err);
@@ -369,7 +352,7 @@ export async function changePassword(
  */
 export async function resetDatabase(instanceId: string): Promise<void> {
   // Store adapter reference before closing
-  const adapter = adapterInstance;
+  const adapter = _getAdapterInstance();
 
   // Only close if this is the current instance
   if (currentInstanceId === instanceId) {
@@ -408,7 +391,7 @@ export async function resetDatabase(instanceId: string): Promise<void> {
   }
 
   // Always clear the adapter instance on reset
-  adapterInstance = null;
+  _setAdapterInstance(null);
 
   const keyManager = getKeyManagerForInstance(instanceId);
   // Clear any persisted session before full reset
@@ -422,6 +405,7 @@ export async function resetDatabase(instanceId: string): Promise<void> {
  * @returns The encrypted database as a Uint8Array
  */
 export async function exportDatabase(): Promise<Uint8Array> {
+  const adapterInstance = _getAdapterInstance();
   if (!adapterInstance) {
     throw new Error('Database not initialized');
   }
@@ -439,6 +423,7 @@ export async function exportDatabase(): Promise<Uint8Array> {
  * @param data The encrypted database backup as a Uint8Array
  */
 export async function importDatabase(data: Uint8Array): Promise<void> {
+  const adapterInstance = _getAdapterInstance();
   if (!adapterInstance || !currentInstanceId) {
     throw new Error('Database not initialized');
   }
