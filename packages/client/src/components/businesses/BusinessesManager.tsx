@@ -1,8 +1,4 @@
-import {
-  formatDunsNumber,
-  formatEin,
-  normalizeBusinessIdentifiers
-} from '@tearleads/businesses';
+import { normalizeBusinessIdentifiers } from '@tearleads/businesses';
 import { Building2, CircleAlert, CircleCheckBig } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -23,8 +19,8 @@ interface BusinessFormErrors {
 
 const EMPTY_VALUE_LABEL = 'N/A';
 
-function createBusinessId(index: number): string {
-  return `business-${index}`;
+function createBusinessId(): string {
+  return crypto.randomUUID();
 }
 
 export function BusinessesManager() {
@@ -59,15 +55,12 @@ export function BusinessesManager() {
         setErrors(nextErrors);
         return;
       }
-      if (!normalizedIdentifiers.ok) {
-        return;
-      }
 
       setErrors({});
       setBusinesses((previous) => [
         ...previous,
         {
-          id: createBusinessId(previous.length + 1),
+          id: createBusinessId(),
           name: trimmedName,
           ...normalizedIdentifiers.value
         }
@@ -158,10 +151,10 @@ export function BusinessesManager() {
           <div className="divide-y">
             {businesses.map((business) => {
               const duns = business.dunsNumber
-                ? (formatDunsNumber(business.dunsNumber) ?? business.dunsNumber)
+                ? `${business.dunsNumber.slice(0, 2)}-${business.dunsNumber.slice(2, 5)}-${business.dunsNumber.slice(5)}`
                 : EMPTY_VALUE_LABEL;
               const formattedEin = business.ein
-                ? (formatEin(business.ein) ?? business.ein)
+                ? `${business.ein.slice(0, 2)}-${business.ein.slice(2)}`
                 : EMPTY_VALUE_LABEL;
 
               return (
@@ -174,10 +167,12 @@ export function BusinessesManager() {
                   <div className="text-muted-foreground text-sm">
                     {formattedEin}
                   </div>
-                  <div className="flex items-center gap-1 text-emerald-700 text-xs dark:text-emerald-400">
-                    <CircleCheckBig className="h-3.5 w-3.5" />
-                    Valid
-                  </div>
+                  {business.dunsNumber || business.ein ? (
+                    <div className="flex items-center gap-1 text-emerald-700 text-xs dark:text-emerald-400">
+                      <CircleCheckBig className="h-3.5 w-3.5" />
+                      Valid
+                    </div>
+                  ) : null}
                 </article>
               );
             })}

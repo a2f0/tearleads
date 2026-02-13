@@ -41,4 +41,15 @@ describe('BusinessesManager', () => {
     expect(screen.getByText('EIN prefix cannot be 00')).toBeInTheDocument();
     expect(screen.queryByText('Valid')).not.toBeInTheDocument();
   });
+
+  it('does not show valid status when no identifiers are provided', async () => {
+    const user = userEvent.setup();
+    render(<BusinessesManager />);
+
+    await user.type(screen.getByLabelText('Business Name'), 'No Id Co');
+    await user.click(screen.getByRole('button', { name: 'Save Business' }));
+
+    expect(screen.getByText('No Id Co')).toBeInTheDocument();
+    expect(screen.queryByText('Valid')).not.toBeInTheDocument();
+  });
 });
