@@ -191,6 +191,23 @@ pnpm biome migrate --write
 
 This updates the `$schema` URL to match the installed biome version. The migration is automatic and non-breaking.
 
+## pdfjs-dist and react-pdf Version Coupling
+
+**CRITICAL**: `pdfjs-dist` must match the version expected by `react-pdf`. Version mismatches cause PDF loading failures (PDFs stuck at "Loading...").
+
+**Check react-pdf's pdfjs-dist dependency**:
+
+```bash
+cat packages/client/node_modules/react-pdf/package.json | grep '"pdfjs-dist"'
+```
+
+If `pdfjs-dist` in `package.json` differs from react-pdf's dependency:
+
+1. **Revert pdfjs-dist** to match react-pdf's version, OR
+2. **Wait for react-pdf update** that supports the newer pdfjs-dist version
+
+The update script should NOT update pdfjs-dist independently of react-pdf.
+
 ## Researching Breaking Changes
 
 After updates complete, review changelogs for significant package upgrades:
@@ -210,6 +227,79 @@ Some warnings are expected and do not require action:
 
 - **electron-builder peer dependency mismatches**: Internal version conflicts between `dmg-builder` and `electron-builder-squirrel-windows` are tracked upstream and do not affect builds
 - **Deprecated transitive dependencies**: Packages like `glob`, `rimraf`, `inflight` are deep transitive deps and will be resolved when upstream packages update
+
+## Drizzle-ORM Peer Dependency Conflicts
+
+When `drizzle-orm` is used across multiple packages, its optional peer dependencies (like `sql.js`) can resolve to different versions in different packages. This causes TypeScript errors like:
+
+```text
+Types have separate declarations of a private property 'shouldInlineParams'.
+Type 'SQL<unknown>' is not assignable to type 'SQL<unknown>'.
+```
+
+**Diagnosis**: Run `pnpm why sql.js --recursive` to see if different packages resolve different versions.
+
+**Fix**: Add a pnpm override in root `package.json` to force a single version:
+
+```json
+"pnpm": {
+  "overrides": {
+    "sql.js": "1.14.0"
+  }
+}
+```
+
+Then run `pnpm install` to apply the override.
+
+## Known Flaky CI Issues
+
+Some CI failures are transient infrastructure issues, not code problems:
+
+### Android Instrumented Tests Packaging
+
+The `capacitor-community-sqlite:packageDebugAndroidTest` task occasionally fails with:
+
+```text
+Execution failed for task ':capacitor-community-sqlite:packageDebugAndroidTest'.
+> A failure occurred while executing PackageAndroidArtifact$IncrementalSplitterRunnable
+```
+
+**Fix**: Rerun the workflow - this is a Gradle incremental build cache issue.
+
+### PDF Worker E2E Tests
+
+The `should load PDF without fake worker warning` test may timeout after pdfjs-dist updates:
+
+```text
+Expected substring: "Page 1 of"
+Timeout: 30000ms
+Error: element(s) not found (shows "Loading...")
+```
+
+**Cause**: Usually a **version mismatch** between `pdfjs-dist` and `react-pdf`. See "pdfjs-dist and react-pdf Version Coupling" section above.
+
+**Fix**: Revert `pdfjs-dist` to match the version `react-pdf` expects.
+
+### iOS Maestro "App crashed or stopped" Across Random Flows
+
+iOS Maestro can intermittently fail with:
+
+```text
+App crashed or stopped while executing flow
+```
+
+The failing flow is not stable (`database-reset-setup`, `sync-login-landscape-keyboard`, `orphan-cleanup`, etc.). In Maestro debug logs this often appears as:
+
+```text
+XCTestDriver request failed ... "Application com.tearleads.app is not running"
+```
+
+immediately after `Launch app "com.tearleads.app" with clear state`.
+
+**Fix**:
+
+1. Rerun only the failed iOS Maestro workflow/job.
+2. If `CI Gate` already failed from the first attempt, rerun `CI Gate` after iOS Maestro is green.
 
 ## Token Efficiency
 

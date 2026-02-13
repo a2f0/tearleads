@@ -59,7 +59,8 @@
   "pnpm": {
     "overrides": {
       "@esbuild-kit/core-utils>esbuild": ">=0.25.0",
-      "pg": "8.18.0"
+      "pg": "8.18.0",
+      "sql.js": "1.14.0"
     }
   }
 }

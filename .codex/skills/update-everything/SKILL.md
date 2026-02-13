@@ -128,6 +128,16 @@ When biome is updated, migrate the schema:
 pnpm biome migrate --write
 ```
 
+## pdfjs-dist and react-pdf Version Coupling
+
+**CRITICAL**: `pdfjs-dist` must match the version expected by `react-pdf`. Check with:
+
+```bash
+cat packages/client/node_modules/react-pdf/package.json | grep '"pdfjs-dist"'
+```
+
+If versions differ, revert pdfjs-dist to match react-pdf's dependency. The update script should NOT update pdfjs-dist independently.
+
 ## Researching Breaking Changes
 
 After updates, review changelogs for major version bumps:
@@ -146,6 +156,62 @@ These warnings are expected and do not require action:
 
 - **electron-builder peer dependency mismatches**: Internal conflicts between `dmg-builder`/`electron-builder-squirrel-windows` tracked upstream
 - **Deprecated transitive dependencies**: `glob`, `rimraf`, `inflight` etc. are deep deps resolved when upstream updates
+
+## Drizzle-ORM Peer Dependency Conflicts
+
+When `drizzle-orm` is used across multiple packages, its optional peer dependencies (like `sql.js`) can resolve to different versions. This causes TypeScript errors like:
+
+```text
+Types have separate declarations of a private property 'shouldInlineParams'.
+Type 'SQL<unknown>' is not assignable to type 'SQL<unknown>'.
+```
+
+**Diagnosis**: Run `pnpm why sql.js --recursive` to see version mismatches.
+
+**Fix**: Add a pnpm override in root `package.json`:
+
+```json
+"pnpm": {
+  "overrides": {
+    "sql.js": "1.14.0"
+  }
+}
+```
+
+Then run `pnpm install` to apply.
+
+## Known Flaky CI Issues
+
+Some CI failures are transient infrastructure issues:
+
+### Android Instrumented Tests Packaging
+
+`capacitor-community-sqlite:packageDebugAndroidTest` may fail with `PackageAndroidArtifact$IncrementalSplitterRunnable` error. **Fix**: Rerun workflow (Gradle cache issue).
+
+### PDF Worker E2E Tests
+
+PDF loading tests may timeout after pdfjs-dist updates (shows "Loading..." instead of "Page 1 of"). **Fix**: Check for version mismatch with react-pdf - see "pdfjs-dist and react-pdf Version Coupling" section.
+
+### iOS Maestro "App crashed or stopped" Across Random Flows
+
+iOS Maestro may fail with:
+
+```text
+App crashed or stopped while executing flow
+```
+
+The failing flow can vary (`database-reset-setup`, `sync-login-landscape-keyboard`, `orphan-cleanup`, etc.). In `maestro.log`, this often appears as:
+
+```text
+XCTestDriver request failed ... "Application com.tearleads.app is not running"
+```
+
+immediately after `Launch app "com.tearleads.app" with clear state`.
+
+**Fix**:
+
+1. Rerun only the failed iOS Maestro workflow/job.
+2. If `CI Gate` already failed due to that first attempt, rerun `CI Gate` after the iOS rerun is green.
 
 ## Warnings/Deprecations
 
