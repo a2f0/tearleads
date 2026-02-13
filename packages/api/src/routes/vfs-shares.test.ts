@@ -241,6 +241,27 @@ describe('VFS Shares routes', () => {
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'user not found' });
+      expect(mockQuery.mock.calls[1]?.[0]).toContain(
+        'INNER JOIN user_organizations target_uo'
+      );
+    });
+
+    it('returns 404 when target user is outside caller org scope', async () => {
+      const authHeader = await createAuthHeader();
+      // Item exists
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
+      // Target exists globally but not in a shared org (scoped query returns no rows)
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/shares')
+        .set('Authorization', authHeader)
+        .send(validPayload);
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'user not found' });
     });
 
     it('returns 404 when target group not found', async () => {
@@ -321,6 +342,9 @@ describe('VFS Shares routes', () => {
       expect(response.status).toBe(201);
       expect(response.body.share.id).toBe('share-new');
       expect(response.body.share.shareType).toBe('user');
+      expect(mockQuery.mock.calls[1]?.[0]).toContain(
+        'INNER JOIN user_organizations target_uo'
+      );
     });
 
     it('returns 500 on database error', async () => {
@@ -636,6 +660,27 @@ describe('VFS Shares routes', () => {
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Source organization not found' });
+      expect(mockQuery.mock.calls[1]?.[0]).toContain(
+        'INNER JOIN user_organizations uo'
+      );
+    });
+
+    it('returns 404 when source org is outside caller org scope', async () => {
+      const authHeader = await createAuthHeader();
+      // Item exists
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
+      // Scoped source-org query returns no rows
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/org-shares')
+        .set('Authorization', authHeader)
+        .send(validPayload);
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Source organization not found' });
     });
 
     it('returns 404 when target org not found', async () => {
@@ -703,6 +748,9 @@ describe('VFS Shares routes', () => {
       expect(response.body.orgShare.id).toBe('orgshare-new');
       expect(response.body.orgShare.sourceOrgId).toBe('org-source');
       expect(response.body.orgShare.targetOrgId).toBe('org-target');
+      expect(mockQuery.mock.calls[1]?.[0]).toContain(
+        'INNER JOIN user_organizations uo'
+      );
     });
 
     it('returns 500 on database error', async () => {
