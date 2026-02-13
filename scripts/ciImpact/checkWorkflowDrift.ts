@@ -15,6 +15,11 @@ interface CiImpactConfig {
 
 const ROOT = process.cwd();
 
+// Escape literal job keys before interpolation into a RegExp pattern.
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function readFile(relativePath: string): string {
   return fs.readFileSync(path.join(ROOT, relativePath), 'utf8');
 }
@@ -43,6 +48,12 @@ function parseWorkflowName(rawWorkflow: string): string | null {
 
 function sorted(values: string[]): string[] {
   return [...values].sort((a, b) => a.localeCompare(b));
+}
+
+function hasCiImpactLookup(workflowRaw: string, jobName: string): boolean {
+  const escapedJobName = escapeRegex(jobName);
+  const pattern = new RegExp(`\\.jobs\\s*\\[\\s*['"]${escapedJobName}['"]\\s*\\]\\s*\\.\\s*run`);
+  return pattern.test(workflowRaw);
 }
 
 function main(): void {
@@ -90,8 +101,8 @@ function main(): void {
       );
     }
 
-    const expectedImpactLookup = `.jobs[\"${jobName}\"].run`;
-    if (!workflowRaw.includes(expectedImpactLookup)) {
+    const expectedImpactLookup = `.jobs["${jobName}"].run or .jobs['${jobName}'].run`;
+    if (!hasCiImpactLookup(workflowRaw, jobName)) {
       errors.push(
         `Workflow ${workflowFile} is missing ciImpact lookup ${expectedImpactLookup} (job-key drift)`
       );
@@ -115,8 +126,10 @@ function main(): void {
       errors.push(`${CI_GATE_WORKFLOW_FILE} must invoke scripts/ciImpact/requiredWorkflows.ts`);
     }
 
-    if (!ciGateRaw.includes('name: CI Gate')) {
-      errors.push(`${CI_GATE_WORKFLOW_FILE} must include a CI Gate job named \"CI Gate\"`);
+    if (!ciGateRaw.includes(`name: ${CI_GATE_WORKFLOW_NAME}`)) {
+      errors.push(
+        `${CI_GATE_WORKFLOW_FILE} must include a CI Gate job named \"${CI_GATE_WORKFLOW_NAME}\"`
+      );
     }
   }
 
