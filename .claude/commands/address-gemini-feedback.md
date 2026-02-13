@@ -72,8 +72,26 @@ See `/follow-up-with-gemini` for the correct API usage and examples.
 
 3. **Commit and push**: Commit with conventional message (e.g., `fix: address Gemini review feedback`), note the SHA for thread replies, and push directly (do NOT use `/commit-and-push` to avoid loops).
 
-4. **Update PR description**: If changes are significant, update the PR body with `gh pr edit --body`.
+4. **CRITICAL: Verify push completed before replying.**
 
-5. **Follow up**: Run `/follow-up-with-gemini` to reply, wait for confirmation, and resolve threads.
+   After pushing, verify commits are visible on remote:
 
-6. **Repeat**: If Gemini requests further changes, repeat from step 1.
+   ```bash
+   BRANCH=$(git branch --show-current)
+   git fetch origin "$BRANCH"
+   LOCAL_SHA=$(git rev-parse HEAD)
+   REMOTE_SHA=$(git rev-parse "origin/$BRANCH")
+
+   if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+     echo "ERROR: Push not yet complete. Wait and retry."
+     exit 1
+   fi
+   ```
+
+   **Do NOT proceed to step 5 until this verification passes.** Replying to Gemini with "Fixed in commit X" when X is not yet on remote creates confusion.
+
+5. **Update PR description**: If changes are significant, update the PR body with `gh pr edit --body`.
+
+6. **Follow up**: Run `/follow-up-with-gemini` to reply, wait for confirmation, and resolve threads. The follow-up skill will re-verify push status before replying.
+
+7. **Repeat**: If Gemini requests further changes, repeat from step 1.

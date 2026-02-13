@@ -31,7 +31,25 @@ Always pass `-R "$REPO"` to `gh` commands.
    PR_NUMBER=$(gh pr view --json number -q .number)
    ```
 
-2. Find unresolved Gemini review comments using GraphQL.
+2. **CRITICAL: Verify commits are pushed to remote before replying.**
+
+   Gemini can only see commits that are visible on the remote. Before replying to ANY comment, verify:
+
+   ```bash
+   BRANCH=$(git branch --show-current)
+   git fetch origin "$BRANCH"
+   LOCAL_SHA=$(git rev-parse HEAD)
+   REMOTE_SHA=$(git rev-parse "origin/$BRANCH")
+
+   if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+     echo "ERROR: Local commits not yet pushed. Push first before replying."
+     exit 1
+   fi
+   ```
+
+   **Do NOT proceed to reply until this verification passes.**
+
+3. Find unresolved Gemini review comments using GraphQL.
 
    First, write the query to a temp file:
 
@@ -67,7 +85,7 @@ Always pass `-R "$REPO"` to `gh` commands.
    gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=OWNER -f repo=REPO -F pr=$PR_NUMBER
    ```
 
-3. For each unresolved comment that has been addressed and pushed, reply using the REST API:
+4. For each unresolved comment that has been addressed and pushed (verified in step 2), reply using the REST API:
 
    ```bash
    gh api repos/$REPO/pulls/$PR_NUMBER/comments/<comment_database_id>/replies \
@@ -83,9 +101,9 @@ Always pass `-R "$REPO"` to `gh` commands.
    If explaining why feedback doesn't apply:
    - Example: "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"
 
-4. Do NOT comment on the main PR thread. Only reply inside discussion threads.
+5. Do NOT comment on the main PR thread. Only reply inside discussion threads.
 
-5. **Wait for Gemini's response**: Poll for Gemini's reply every 30 seconds (up to 5 minutes):
+6. **Wait for Gemini's response**: Poll for Gemini's reply every 30 seconds (up to 5 minutes):
    - Use GraphQL to fetch the comment thread and check for new replies from `gemini-code-assist`
    - Confirmation detection:
      1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
@@ -93,10 +111,10 @@ Always pass `-R "$REPO"` to `gh` commands.
      3. Only treat as confirmation if both conditions are met
    - Example of false positive to avoid: "Thank you for the update, but I still see an issue" - do NOT resolve
 
-6. **Resolve satisfied comments**: When Gemini confirms, resolve the thread via GraphQL:
+7. **Resolve satisfied comments**: When Gemini confirms, resolve the thread via GraphQL:
 
    ```bash
    gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "<thread_id>"}) { thread { isResolved } } }'
    ```
 
-7. If Gemini requests further changes, do NOT resolve - return to `/address-gemini-feedback`.
+8. If Gemini requests further changes, do NOT resolve - return to `/address-gemini-feedback`.

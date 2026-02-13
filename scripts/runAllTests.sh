@@ -33,7 +33,6 @@ BUILD_TIME=$((BUILD_END - BUILD_START))
 
 echo "==> Running unit tests..."
 UNIT_START=$(date +%s)
-./scripts/rebuildSqliteForVitest.sh
 pnpm test
 UNIT_END=$(date +%s)
 UNIT_TIME=$((UNIT_END - UNIT_START))
@@ -110,8 +109,6 @@ IOS_TIME=$((IOS_END - IOS_START))
 
 echo "==> Running Electron tests..."
 ELECTRON_START=$(date +%s)
-echo "==> Rebuilding better-sqlite3-multiple-ciphers for Electron..."
-pnpm --filter @tearleads/client exec electron-rebuild -f -o better-sqlite3-multiple-ciphers
 pnpm --filter @tearleads/client electron:test
 ELECTRON_END=$(date +%s)
 ELECTRON_TIME=$((ELECTRON_END - ELECTRON_START))

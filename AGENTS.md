@@ -193,6 +193,23 @@ This:
 - Do not create a new PR review when replying (avoid GraphQL review comment mutations).
 - Include the relevant commit message(s) in replies to Gemini.
 
+### Push Before Reply (CRITICAL)
+
+**Never reply to reviewer comments referencing commits that are not yet pushed to remote.** Reviewers can only see commits that are visible on the remote branch. Before replying with "Fixed in commit X":
+
+1. Push your commits first
+2. Verify the push completed by checking local HEAD matches remote:
+
+   ```bash
+   BRANCH=$(git branch --show-current)
+   git fetch origin "$BRANCH"
+   [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
+   ```
+
+3. Only then reply to review comments
+
+Replying before pushing creates confusion - reviewers see "Fixed in commit abc123" but cannot find that commit on the PR.
+
 ### Adding, modifying, or deleting a skill
 
 Skills are version-controlled like any other file. Create, edit, or delete files in `.codex/skills/` and commit as normal.

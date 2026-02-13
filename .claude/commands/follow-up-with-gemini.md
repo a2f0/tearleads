@@ -43,7 +43,30 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
 
 1. Get the PR number: `gh pr view --json number,title,url | cat`
 
-2. Find unresolved Gemini review comments using the GraphQL API to check `isResolved` status.
+2. **CRITICAL: Verify commits are pushed to remote before replying.**
+
+   Gemini and reviewers can only see commits that are visible on the remote. Before replying to ANY comment, verify your fix commits are actually pushed:
+
+   ```bash
+   # Get the current branch
+   BRANCH=$(git branch --show-current)
+
+   # Fetch latest remote state
+   git fetch origin "$BRANCH"
+
+   # Compare local HEAD with remote - they MUST match
+   LOCAL_SHA=$(git rev-parse HEAD)
+   REMOTE_SHA=$(git rev-parse "origin/$BRANCH")
+
+   if [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
+     echo "ERROR: Local commits not yet pushed. Push first before replying."
+     exit 1
+   fi
+   ```
+
+   **Do NOT proceed to reply until this verification passes.** Replying with "Fixed in commit X" when commit X is not yet on remote creates confusion for reviewers.
+
+3. Find unresolved Gemini review comments using the GraphQL API to check `isResolved` status.
 
    **IMPORTANT**: Do NOT pass the query inline with `-f query='...'` as the shell mangles special characters like `!`. Instead, write the query to a temp file first using the Write tool, then reference it:
 
@@ -79,7 +102,7 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
    gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=a2f0 -f repo=tearleads -F pr=$PR_NUMBER
    ```
 
-3. For each unresolved comment that has been addressed and pushed:
+4. For each unresolved comment that has been addressed and pushed (verified in step 2):
    - Reply directly using the REST API (NOT GraphQL reviews):
 
      ```bash
@@ -88,7 +111,7 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
        -f body="Fixed in commit abc1234. @gemini-code-assist Please confirm this addresses your feedback."
      ```
 
-   - **Include the commit SHA** that fixed the issue
+   - **Include the commit SHA** that fixed the issue (must be visible on remote per step 2)
    - Tag @gemini-code-assist and ask for confirmation
 
    If deferring to an issue instead of fixing directly:
@@ -97,9 +120,9 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
    If explaining why feedback doesn't apply (disagreeing):
    - Example: "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"
 
-4. Do NOT comment on the main PR thread. Only reply inside discussion threads.
+5. Do NOT comment on the main PR thread. Only reply inside discussion threads.
 
-5. **Wait for Gemini's response**: Poll for Gemini's reply every 30 seconds (up to 5 minutes):
+6. **Wait for Gemini's response**: Poll for Gemini's reply every 30 seconds (up to 5 minutes):
    - Use GraphQL to fetch the comment thread and check for new replies from `gemini-code-assist`
    - To detect confirmation:
      1. Look for positive phrases: "looks good", "resolved", "satisfied", "fixed", "approved", "thank you", "lgtm"
@@ -107,7 +130,7 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
      3. Only treat as confirmation if both conditions are met (positive phrase present AND no negative qualifiers)
    - Example of false positive to avoid: "Thank you for the update, but I still see an issue" contains "thank you" but also "but" and "still" - do NOT resolve
 
-6. **Resolve satisfied comments**: When Gemini confirms, resolve the thread via GraphQL:
+7. **Resolve satisfied comments**: When Gemini confirms, resolve the thread via GraphQL:
 
    ```bash
    gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "<thread_id>"}) { thread { isResolved } } }'
@@ -115,4 +138,4 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
 
    Get thread IDs from `repository.pullRequest.reviewThreads` query (handle pagination via `endCursor`).
 
-7. If Gemini requests further changes, do NOT resolve - return to `/address-gemini-feedback`.
+8. If Gemini requests further changes, do NOT resolve - return to `/address-gemini-feedback`.

@@ -39,7 +39,18 @@ Always pass `-R "$REPO"` to `gh` commands.
    - Push the current branch to the remote after the commit.
    - The pre-push hook runs full builds and tests; set a long timeout and do not assume timeouts mean failure.
 
-5. Open PR:
+5. Verify push completed:
+   - Before proceeding to PR creation or Gemini follow-up, verify the push actually completed:
+
+   ```bash
+   BRANCH=$(git branch --show-current)
+   git fetch origin "$BRANCH"
+   [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
+   ```
+
+   - **Do NOT proceed to step 6 or 7 until verification passes.** Replying to Gemini with "Fixed in commit X" when X is not visible on remote creates confusion.
+
+6. Open PR:
    - If no PR exists, create one with `gh pr create`.
    - Do not include auto-close keywords (`Closes`, `Fixes`, `Resolves`).
    - Use the Claude-style PR body format and include the evaluated agent id.
@@ -84,10 +95,10 @@ Always pass `-R "$REPO"` to `gh` commands.
      - `./scripts/agents/tooling/agentTool.sh setVscodeTitle`
      - `./scripts/agents/tooling/agentTool.sh tagPrWithTuxedoInstance`
 
-6. Wait for Gemini:
+7. Wait for Gemini:
    - Wait 60 seconds for Gemini Code Assist to review.
 
-7. Address feedback:
+8. Address feedback:
    - Run `/address-gemini-feedback` for unresolved comments.
    - Reply to Gemini using the REST API comment reply endpoint, not `gh pr review`.
    - Always include `@gemini-code-assist` in replies.
