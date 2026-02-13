@@ -28,7 +28,7 @@ For machine-readable output:
 ./scripts/preen/checkMswParity.ts --json
 ```
 
-To fail on any uncovered route:
+To fail when parity has missing routes or low-confidence matcher coverage:
 
 ```bash
 ./scripts/preen/checkMswParity.ts --strict
@@ -48,7 +48,7 @@ Work in this order:
 1. Run parity discovery and capture baseline counts.
 2. Select one endpoint cluster and add/adjust handlers in `packages/msw/src/handlers.ts`.
 3. Add/expand Vitest coverage that uses real fetch/MSW and asserts request metadata.
-4. Re-run parity script and confirm missing count decreased.
+4. Re-run parity script and confirm missing/low-confidence counts are stable or decreased.
 5. Run focused tests for touched suites.
 6. Commit and open PR only when parity delta is positive.
 

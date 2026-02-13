@@ -1,7 +1,11 @@
 import {
   getRecordedApiRequests,
+  HttpResponse,
+  http,
+  server,
   wasApiRequestMade
 } from '@tearleads/msw/node';
+import { AUTH_REFRESH_TOKEN_KEY, AUTH_TOKEN_KEY } from '@/lib/auth-storage';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const loadApi = async () => {
@@ -13,6 +17,7 @@ describe('api with msw', () => {
   beforeEach(() => {
     vi.resetModules();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
+    localStorage.clear();
   });
 
   afterEach(() => {
@@ -42,6 +47,73 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('GET', '/auth/sessions')).toBe(true);
     expect(wasApiRequestMade('DELETE', '/auth/sessions/session%201')).toBe(true);
     expect(wasApiRequestMade('POST', '/auth/logout')).toBe(true);
+  });
+
+  it('supports /v1-prefixed API base URLs', async () => {
+    vi.resetModules();
+    vi.stubEnv('VITE_API_URL', 'http://localhost/v1');
+    const api = await loadApi();
+
+    await api.auth.login('user@example.com', 'password');
+    await api.admin.redis.getDbSize();
+    await api.vfs.getMyKeys();
+    await api.ai.getUsageSummary();
+
+    expect(wasApiRequestMade('POST', '/v1/auth/login')).toBe(true);
+    expect(wasApiRequestMade('GET', '/v1/admin/redis/dbsize')).toBe(true);
+    expect(wasApiRequestMade('GET', '/v1/vfs/keys/me')).toBe(true);
+    expect(wasApiRequestMade('GET', '/v1/ai/usage/summary')).toBe(true);
+  });
+
+  it('retries auth requests after refresh and records request order', async () => {
+    const api = await loadApi();
+
+    let sessionsAttemptCount = 0;
+    let refreshPayload: unknown = null;
+
+    server.use(
+      http.get('http://localhost/auth/sessions', ({ request }) => {
+        sessionsAttemptCount += 1;
+        const authHeader = request.headers.get('authorization');
+        if (sessionsAttemptCount === 1) {
+          expect(authHeader).toBe('Bearer stale-access-token');
+          return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
+        }
+
+        expect(authHeader).toBe('Bearer fresh-access-token');
+        return HttpResponse.json({ sessions: [] });
+      }),
+      http.post('http://localhost/auth/refresh', async ({ request }) => {
+        refreshPayload = await request.json();
+        return HttpResponse.json({
+          accessToken: 'fresh-access-token',
+          refreshToken: 'fresh-refresh-token'
+        });
+      })
+    );
+
+    localStorage.setItem(AUTH_TOKEN_KEY, 'stale-access-token');
+    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'stale-refresh-token');
+
+    const sessionsResponse = await api.auth.getSessions();
+
+    expect(sessionsResponse.sessions).toEqual([]);
+    expect(sessionsAttemptCount).toBe(2);
+    expect(refreshPayload).toEqual({ refreshToken: 'stale-refresh-token' });
+    expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe('fresh-access-token');
+    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
+      'fresh-refresh-token'
+    );
+
+    expect(
+      getRecordedApiRequests().map(
+        (request) => `${request.method} ${request.pathname}`
+      )
+    ).toEqual([
+      'GET /auth/sessions',
+      'POST /auth/refresh',
+      'GET /auth/sessions'
+    ]);
   });
 
   it('routes admin requests through msw and preserves query/encoding', async () => {

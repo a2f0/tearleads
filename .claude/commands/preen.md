@@ -216,7 +216,7 @@ metric_count() {
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
       ;;
     preen-msw-parity)
-      ./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount'
+      ./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
       ;;
     preen-skill-tooling)
       ./scripts/checkPreenEcosystem.sh --count-issues
@@ -323,7 +323,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - API security findings in touched area
 - High/Critical dependency findings
 - Flaky-pattern matches in tests
-- MSW uncovered API route count
+- MSW parity risk count (missing + low-confidence)
 - Skill parity/tooling issues
 
 Quality gate for the selected category:
