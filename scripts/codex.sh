@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 set -eu
 SCRIPT_PATH=$0
 case $SCRIPT_PATH in
@@ -19,12 +19,12 @@ for arg in "$@"; do
   if [ "$arg" = "--unsafe" ]; then
     unsafe=true
   else
-    printf '%s\n' "$arg" >> "$args_tmp"
+    printf '%s\0' "$arg" >> "$args_tmp"
   fi
 done
 
 set --
-while IFS= read -r arg; do
+while IFS= read -r -d '' arg; do
   set -- "$@" "$arg"
 done < "$args_tmp"
 
