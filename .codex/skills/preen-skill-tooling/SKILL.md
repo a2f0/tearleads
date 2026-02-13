@@ -5,7 +5,7 @@ description: Validate skills are wired into agentTool.ts and scriptTool.ts
 
 # Preen Skill Tooling
 
-Validate that skills referencing `agentTool.ts` or `scriptTool.ts` actions are using actions that actually exist, and identify dead code (actions defined but never used by any skill).
+Validate that skills referencing `agentTool.ts` or `scriptTool.ts` actions are using actions that actually exist, identify dead code (actions defined but never used by any skill), and ensure auto-generated documentation is up to date.
 
 ## When to Run
 
@@ -75,6 +75,15 @@ INVOKED=$(grep -rh "scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.
 comm -23 <(echo "$DEFINED") <(echo "$INVOKED")
 ```
 
+### 4. Check documentation freshness
+
+```bash
+# Check if scriptTool.ts README is up to date
+echo "=== Checking scriptTool.ts README freshness ==="
+./scripts/tooling/scriptTool.ts generateDocs --json
+# If "changed": true, the README needs regeneration
+```
+
 ## Issue Categories
 
 | Category | Severity | Action |
@@ -82,6 +91,7 @@ comm -23 <(echo "$DEFINED") <(echo "$INVOKED")
 | Undefined action invoked | High | Fix skill to use correct action name, or add missing action to tool |
 | Defined action never used | Low | Consider removing dead code, or document why it exists |
 | Skill/Codex parity mismatch | Medium | Ensure both Claude and Codex versions reference same actions |
+| README out of date | Medium | Run `./scripts/tooling/scriptTool.ts generateDocs` to regenerate |
 
 ## Prioritization
 
@@ -111,6 +121,12 @@ Fix issues in this order:
 2. Sync the files to use identical action references
 3. Run the parity check from main `preen` skill
 
+### README Out of Date
+
+1. Run `./scripts/tooling/scriptTool.ts generateDocs` to regenerate
+2. Review the diff to ensure changes are expected
+3. Commit the updated README
+
 ## Workflow
 
 1. **Discovery**: Run discovery commands to identify mismatches
@@ -136,6 +152,7 @@ If no issues found during discovery, do not create a branch.
 - Zero parity mismatches between Claude and Codex skills
 - All unused actions either removed or documented
 - Tool wrapper tests pass
+- Auto-generated READMEs are up to date
 
 ## Token Efficiency
 

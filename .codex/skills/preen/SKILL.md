@@ -152,6 +152,7 @@ run_discovery() {
       SCRIPT_INVOKED=$(grep -rh "scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | grep -oP "scriptTool\.ts\s+\K[a-zA-Z]+" | sort -u)
       echo "=== Undefined scriptTool actions ===" && comm -23 <(echo "$SCRIPT_INVOKED") <(echo "$SCRIPT_DEFINED")
       echo "=== Unused scriptTool actions ===" && comm -23 <(echo "$SCRIPT_DEFINED") <(echo "$SCRIPT_INVOKED")
+      echo "=== README freshness ===" && ./scripts/tooling/scriptTool.ts generateDocs --json 2>/dev/null | grep '"changed"'
       ;;
   esac
 }

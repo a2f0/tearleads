@@ -8,7 +8,7 @@
  * Usage: tsx scripts/tooling/scriptTool.ts <action> [options]
  */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { program, Command, InvalidArgumentError } from 'commander';
 
@@ -43,12 +43,24 @@ interface GlobalOptions {
   json?: boolean;
 }
 
+interface ActionOption {
+  name: string;
+  description: string;
+  required?: boolean;
+}
+
 interface ActionConfig {
   safetyClass: SafetyClass;
   retrySafe: boolean;
   defaultTimeoutSeconds: number;
   scriptPath: (repoRoot: string) => string;
   scriptType: 'shell' | 'typescript';
+  /** Short description for documentation */
+  description: string;
+  /** Category for grouping in documentation */
+  category: 'analysis' | 'quality' | 'testing';
+  /** Action-specific options */
+  options?: ActionOption[];
 }
 
 interface JsonOutput {
@@ -74,6 +86,8 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 600,
     scriptPath: (repo) => path.join(repo, 'scripts', 'analyzeBundle.sh'),
     scriptType: 'shell',
+    description: 'Build and open bundle analysis report',
+    category: 'analysis',
   },
   checkBinaryFiles: {
     safetyClass: 'safe_read',
@@ -81,6 +95,12 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 300,
     scriptPath: (repo) => path.join(repo, 'scripts', 'checkBinaryFiles.sh'),
     scriptType: 'shell',
+    description: 'Check for binary files (guardrail validation)',
+    category: 'analysis',
+    options: [
+      { name: '--staged', description: 'Check staged files' },
+      { name: '--from-upstream', description: 'Check files changed from upstream' },
+    ],
   },
   ciImpact: {
     safetyClass: 'safe_read',
@@ -88,6 +108,12 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 300,
     scriptPath: (repo) => path.join(repo, 'scripts', 'ciImpact', 'ciImpact.ts'),
     scriptType: 'typescript',
+    description: 'Analyze CI impact for changed files (JSON output)',
+    category: 'analysis',
+    options: [
+      { name: '--base <sha>', description: 'Base commit for diff', required: true },
+      { name: '--head <sha>', description: 'Head commit for diff', required: true },
+    ],
   },
   runImpactedQuality: {
     safetyClass: 'safe_write_local',
@@ -95,6 +121,12 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 300,
     scriptPath: (repo) => path.join(repo, 'scripts', 'ciImpact', 'runImpactedQuality.ts'),
     scriptType: 'typescript',
+    description: 'Run quality checks on impacted files only',
+    category: 'quality',
+    options: [
+      { name: '--base <sha>', description: 'Base commit for diff', required: true },
+      { name: '--head <sha>', description: 'Head commit for diff', required: true },
+    ],
   },
   runImpactedTests: {
     safetyClass: 'safe_write_local',
@@ -102,6 +134,12 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 300,
     scriptPath: (repo) => path.join(repo, 'scripts', 'ciImpact', 'runImpactedTests.ts'),
     scriptType: 'typescript',
+    description: 'Run tests on impacted packages only',
+    category: 'testing',
+    options: [
+      { name: '--base <sha>', description: 'Base commit for diff', required: true },
+      { name: '--head <sha>', description: 'Head commit for diff', required: true },
+    ],
   },
   runAllTests: {
     safetyClass: 'safe_write_local',
@@ -109,6 +147,9 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 3600,
     scriptPath: (repo) => path.join(repo, 'scripts', 'runAllTests.sh'),
     scriptType: 'shell',
+    description: 'Run full test suite (lint, build, unit, e2e)',
+    category: 'testing',
+    options: [{ name: '--headed', description: 'Run tests with visible browser' }],
   },
   runElectronTests: {
     safetyClass: 'safe_write_local',
@@ -116,6 +157,13 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 1800,
     scriptPath: (repo) => path.join(repo, 'scripts', 'runElectronTests.sh'),
     scriptType: 'shell',
+    description: 'Run Electron E2E tests',
+    category: 'testing',
+    options: [
+      { name: '--headed', description: 'Run tests with visible browser' },
+      { name: '--filter <pattern>', description: 'Test filter pattern' },
+      { name: '--file <path>', description: 'Specific test file' },
+    ],
   },
   runPlaywrightTests: {
     safetyClass: 'safe_write_local',
@@ -123,6 +171,13 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 1800,
     scriptPath: (repo) => path.join(repo, 'scripts', 'runPlaywrightTests.sh'),
     scriptType: 'shell',
+    description: 'Run Playwright E2E tests',
+    category: 'testing',
+    options: [
+      { name: '--headed', description: 'Run tests with visible browser' },
+      { name: '--filter <pattern>', description: 'Test filter pattern' },
+      { name: '--file <path>', description: 'Specific test file' },
+    ],
   },
   verifyBinaryGuardrails: {
     safetyClass: 'safe_read',
@@ -130,6 +185,8 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     defaultTimeoutSeconds: 300,
     scriptPath: (repo) => path.join(repo, 'scripts', 'verifyBinaryGuardrails.sh'),
     scriptType: 'shell',
+    description: 'Verify binary guardrail configuration',
+    category: 'analysis',
   },
 };
 
@@ -386,6 +443,205 @@ function createActionCommand(actionName: ActionName): Command {
 }
 
 // ============================================================================
+// Documentation Generation
+// ============================================================================
+
+function formatTimeout(seconds: number): string {
+  if (seconds >= 3600) return `${seconds / 3600} hour${seconds > 3600 ? 's' : ''}`;
+  if (seconds >= 60) return `${seconds / 60} minutes`;
+  return `${seconds} seconds`;
+}
+
+function generateReadme(): string {
+  const lines: string[] = [];
+
+  lines.push('# Script Tool Wrappers');
+  lines.push('');
+  lines.push('> **Auto-generated from `scriptTool.ts`** - Do not edit manually.');
+  lines.push('> Run `./scripts/tooling/scriptTool.ts generateDocs` to regenerate.');
+  lines.push('');
+  lines.push('`scriptTool.ts` is a TypeScript wrapper around utility scripts in `scripts/` for safer tool-calling.');
+  lines.push('');
+
+  // Usage section
+  lines.push('## Usage');
+  lines.push('');
+  lines.push('```sh');
+  lines.push('./scripts/tooling/scriptTool.ts <action> [options]');
+  lines.push('```');
+  lines.push('');
+
+  // Group actions by category
+  const categories: Record<string, ActionName[]> = {
+    analysis: [],
+    quality: [],
+    testing: [],
+  };
+
+  for (const [name, config] of Object.entries(ACTION_CONFIG) as [ActionName, ActionConfig][]) {
+    categories[config.category].push(name);
+  }
+
+  // Actions section
+  lines.push('## Actions');
+  lines.push('');
+
+  const categoryTitles: Record<string, string> = {
+    analysis: 'Analysis',
+    quality: 'Quality',
+    testing: 'Testing',
+  };
+
+  for (const [category, actions] of Object.entries(categories)) {
+    if (actions.length === 0) continue;
+
+    lines.push(`### ${categoryTitles[category]}`);
+    lines.push('');
+
+    for (const actionName of actions) {
+      const config = ACTION_CONFIG[actionName];
+      lines.push(`- \`${actionName}\` - ${config.description}`);
+    }
+    lines.push('');
+  }
+
+  // Common options section
+  lines.push('## Common Options');
+  lines.push('');
+  lines.push('All actions support these options:');
+  lines.push('');
+  lines.push('| Option | Description |');
+  lines.push('| ------ | ----------- |');
+  lines.push('| `--timeout-seconds <n>` | Override default timeout |');
+  lines.push('| `--repo-root <path>` | Execute from specific git root |');
+  lines.push('| `--dry-run` | Validate without executing |');
+  lines.push('| `--json` | Emit structured JSON summary |');
+  lines.push('');
+
+  // Action-specific options
+  lines.push('## Action-Specific Options');
+  lines.push('');
+
+  for (const [actionName, config] of Object.entries(ACTION_CONFIG) as [ActionName, ActionConfig][]) {
+    if (!config.options || config.options.length === 0) continue;
+
+    lines.push(`### ${actionName}`);
+    lines.push('');
+    lines.push('| Option | Description | Required |');
+    lines.push('| ------ | ----------- | -------- |');
+
+    for (const opt of config.options) {
+      lines.push(`| \`${opt.name}\` | ${opt.description} | ${opt.required ? 'Yes' : 'No'} |`);
+    }
+    lines.push('');
+  }
+
+  // Default timeouts section
+  lines.push('## Default Timeouts');
+  lines.push('');
+  lines.push('| Action | Timeout |');
+  lines.push('| ------ | ------- |');
+
+  for (const [actionName, config] of Object.entries(ACTION_CONFIG) as [ActionName, ActionConfig][]) {
+    lines.push(`| \`${actionName}\` | ${formatTimeout(config.defaultTimeoutSeconds)} |`);
+  }
+  lines.push('');
+
+  // Safety classes section
+  lines.push('## Safety Classes');
+  lines.push('');
+  lines.push('| Class | Actions |');
+  lines.push('| ----- | ------- |');
+
+  const safetyGroups: Record<SafetyClass, ActionName[]> = {
+    safe_read: [],
+    safe_write_local: [],
+  };
+
+  for (const [name, config] of Object.entries(ACTION_CONFIG) as [ActionName, ActionConfig][]) {
+    safetyGroups[config.safetyClass].push(name);
+  }
+
+  for (const [safetyClass, actions] of Object.entries(safetyGroups)) {
+    if (actions.length > 0) {
+      lines.push(`| \`${safetyClass}\` | ${actions.map((a) => `\`${a}\``).join(', ')} |`);
+    }
+  }
+  lines.push('');
+
+  // Examples section
+  lines.push('## Examples');
+  lines.push('');
+  lines.push('```sh');
+  lines.push('# Analyze CI impact between commits');
+  lines.push('./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json');
+  lines.push('');
+  lines.push('# Run impacted quality checks');
+  lines.push('./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD');
+  lines.push('');
+  lines.push('# Run impacted tests only');
+  lines.push('./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD');
+  lines.push('');
+  lines.push('# Check for binary files in staged changes');
+  lines.push('./scripts/tooling/scriptTool.ts checkBinaryFiles --staged --json');
+  lines.push('');
+  lines.push('# Run Playwright tests with filter');
+  lines.push('./scripts/tooling/scriptTool.ts runPlaywrightTests --filter "login" --headed');
+  lines.push('');
+  lines.push('# Dry-run to validate command');
+  lines.push('./scripts/tooling/scriptTool.ts runAllTests --dry-run --json');
+  lines.push('```');
+  lines.push('');
+
+  // JSON output format section
+  lines.push('## JSON Output Format');
+  lines.push('');
+  lines.push('When `--json` is specified, output includes:');
+  lines.push('');
+  lines.push('```json');
+  lines.push('{');
+  lines.push('  "status": "success",');
+  lines.push('  "exit_code": 0,');
+  lines.push('  "duration_ms": 1234,');
+  lines.push('  "action": "ciImpact",');
+  lines.push('  "repo_root": "/path/to/repo",');
+  lines.push('  "safety_class": "safe_read",');
+  lines.push('  "retry_safe": true,');
+  lines.push('  "dry_run": false,');
+  lines.push('  "key_lines": ["last", "few", "lines", "of", "output"]');
+  lines.push('}');
+  lines.push('```');
+  lines.push('');
+
+  return lines.join('\n');
+}
+
+function runGenerateDocs(repoRoot: string, dryRun: boolean): { output: string; changed: boolean } {
+  const readmePath = path.join(repoRoot, 'scripts', 'tooling', 'README.md');
+  const newContent = generateReadme();
+
+  if (dryRun) {
+    return { output: newContent, changed: false };
+  }
+
+  let existingContent = '';
+  if (existsSync(readmePath)) {
+    existingContent = readFileSync(readmePath, 'utf8');
+  }
+
+  const changed = existingContent !== newContent;
+
+  if (changed) {
+    writeFileSync(readmePath, newContent, 'utf8');
+  }
+
+  return {
+    output: changed ? `Updated ${readmePath}` : `No changes needed for ${readmePath}`,
+    changed,
+  };
+}
+
+// ============================================================================
 // CLI Setup
 // ============================================================================
 
@@ -398,5 +654,54 @@ program
 for (const actionName of Object.keys(ACTION_CONFIG) as ActionName[]) {
   program.addCommand(createActionCommand(actionName));
 }
+
+// Add generateDocs command
+program
+  .command('generateDocs')
+  .description('Generate README.md from action configurations')
+  .option('--repo-root <path>', 'Repository root path')
+  .option('--dry-run', 'Print generated content without writing')
+  .option('--json', 'Emit structured JSON summary')
+  .action((opts: { repoRoot?: string; dryRun?: boolean; json?: boolean }) => {
+    const startMs = Date.now();
+    let exitCode = 0;
+    let output = '';
+    let changed = false;
+
+    try {
+      const repoRoot = getRepoRoot(opts.repoRoot);
+      const result = runGenerateDocs(repoRoot, opts.dryRun ?? false);
+      output = result.output;
+      changed = result.changed;
+    } catch (err) {
+      output = err instanceof Error ? err.message : String(err);
+      exitCode = 1;
+    }
+
+    const durationMs = Date.now() - startMs;
+
+    if (opts.json) {
+      console.log(
+        JSON.stringify(
+          {
+            status: exitCode === 0 ? 'success' : 'failure',
+            exit_code: exitCode,
+            duration_ms: durationMs,
+            action: 'generateDocs',
+            changed,
+            dry_run: opts.dryRun ?? false,
+          },
+          null,
+          2
+        )
+      );
+    } else {
+      console.log(output);
+    }
+
+    if (exitCode !== 0) {
+      process.exit(exitCode);
+    }
+  });
 
 program.parse();
