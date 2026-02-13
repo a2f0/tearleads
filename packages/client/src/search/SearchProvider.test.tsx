@@ -23,12 +23,20 @@ vi.mock('@/hooks/useInstanceChange', () => ({
   ) => mockUseOnInstanceChange(callback)
 }));
 
-vi.mock('./SearchStore', () => ({
-  getSearchStoreForInstance: (instanceId: string) =>
-    mockGetSearchStoreForInstance(instanceId),
-  closeSearchStoreForInstance: (instanceId: string) =>
-    mockCloseSearchStoreForInstance(instanceId)
-}));
+vi.mock('@tearleads/search', async () => {
+  const actual =
+    await vi.importActual<typeof import('@tearleads/search')>(
+      '@tearleads/search'
+    );
+
+  return {
+    ...actual,
+    getSearchStoreForInstance: (instanceId: string) =>
+      mockGetSearchStoreForInstance(instanceId),
+    closeSearchStoreForInstance: (instanceId: string) =>
+      mockCloseSearchStoreForInstance(instanceId)
+  };
+});
 
 describe('SearchProvider', () => {
   const mockInitialize = vi.fn();

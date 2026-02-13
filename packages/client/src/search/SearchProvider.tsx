@@ -10,6 +10,14 @@ import {
   files,
   notes
 } from '@tearleads/db/sqlite';
+import type { SearchableDocument } from '@tearleads/search';
+import {
+  closeSearchStoreForInstance,
+  createContactDocument,
+  createFileDocument,
+  createNoteDocument,
+  getSearchStoreForInstance
+} from '@tearleads/search';
 import { eq, inArray } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import {
@@ -25,16 +33,6 @@ import { useDatabaseContext } from '@/db/hooks/useDatabase';
 import { useOnInstanceChange } from '@/hooks/useInstanceChange';
 import { createSearchableAppDocuments } from './appCatalog';
 import { createSearchableHelpDocuments } from './helpCatalog';
-import {
-  createContactDocument,
-  createFileDocument,
-  createNoteDocument
-} from './integration';
-import {
-  closeSearchStoreForInstance,
-  getSearchStoreForInstance
-} from './SearchStore';
-import type { SearchableDocument } from './types';
 
 interface SearchContextValue {
   /**

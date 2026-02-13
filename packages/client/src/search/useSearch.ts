@@ -3,15 +3,15 @@
  * Provides search functionality with state tracking.
  */
 
+import {
+  getSearchStoreForInstance,
+  type SearchableEntityType,
+  type SearchOptions,
+  type SearchResponse,
+  type SearchStoreState
+} from '@tearleads/search';
 import { useCallback, useMemo, useSyncExternalStore } from 'react';
 import { useDatabaseContext } from '@/db/hooks/useDatabase';
-import { getSearchStoreForInstance } from './SearchStore';
-import type {
-  SearchableEntityType,
-  SearchOptions,
-  SearchResponse,
-  SearchStoreState
-} from './types';
 
 interface UseSearchOptions {
   /** Filter results to specific entity types */

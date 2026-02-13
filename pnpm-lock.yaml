@@ -458,6 +458,9 @@ importers:
       '@tearleads/notes':
         specifier: workspace:*
         version: link:../notes
+      '@tearleads/search':
+        specifier: workspace:*
+        version: link:../search
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
@@ -1121,6 +1124,34 @@ importers:
       react-router-dom:
         specifier: 7.13.0
         version: 7.13.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
+      typescript:
+        specifier: 5.9.3
+        version: 5.9.3
+      vitest:
+        specifier: 4.0.18
+        version: 4.0.18(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0(@noble/hashes@2.0.1))(lightningcss@1.30.2)(msw@2.12.10(@types/node@25.2.3)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1)
+      vitest-fail-on-console:
+        specifier: 0.10.1
+        version: 0.10.1(@vitest/utils@4.0.18)(vite@7.3.1(@types/node@25.2.3)(jiti@2.6.1)(lightningcss@1.30.2)(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))(vitest@4.0.18(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0(@noble/hashes@2.0.1))(lightningcss@1.30.2)(msw@2.12.10(@types/node@25.2.3)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
+
+  packages/search:
+    dependencies:
+      '@orama/orama':
+        specifier: 3.1.18
+        version: 3.1.18
+    devDependencies:
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@types/node':
+        specifier: 25.2.3
+        version: 25.2.3
+      '@vitest/coverage-v8':
+        specifier: 4.0.18
+        version: 4.0.18(vitest@4.0.18(@types/node@25.2.3)(jiti@2.6.1)(jsdom@28.0.0(@noble/hashes@2.0.1))(lightningcss@1.30.2)(msw@2.12.10(@types/node@25.2.3)(typescript@5.9.3))(terser@5.46.0)(tsx@4.21.0)(yaml@2.8.1))
+      cross-env:
+        specifier: 10.1.0
+        version: 10.1.0
       typescript:
         specifier: 5.9.3
         version: 5.9.3

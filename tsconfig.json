@@ -16,6 +16,8 @@
     { "path": "./packages/audio/tsconfig.test.json" },
     { "path": "./packages/notes" },
     { "path": "./packages/notes/tsconfig.test.json" },
+    { "path": "./packages/search" },
+    { "path": "./packages/search/tsconfig.test.json" },
     { "path": "./packages/vfs-explorer" },
     { "path": "./packages/vfs-explorer/tsconfig.test.json" },
     { "path": "./packages/classic" },

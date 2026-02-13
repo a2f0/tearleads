@@ -31,6 +31,7 @@ CHROME_EXT_PACKAGE="$REPO_ROOT/packages/chrome-extension/package.json"
 CHROME_EXT_MANIFEST="$REPO_ROOT/packages/chrome-extension/public/manifest.json"
 EMAIL_PACKAGE="$REPO_ROOT/packages/email/package.json"
 NOTES_PACKAGE="$REPO_ROOT/packages/notes/package.json"
+SEARCH_PACKAGE="$REPO_ROOT/packages/search/package.json"
 TERMINAL_PACKAGE="$REPO_ROOT/packages/terminal/package.json"
 UI_PACKAGE="$REPO_ROOT/packages/ui/package.json"
 VFS_EXPLORER_PACKAGE="$REPO_ROOT/packages/vfs-explorer/package.json"
@@ -133,6 +134,7 @@ CHROME_EXT_CHANGED=false
 CLIENT_CHANGED=false
 EMAIL_CHANGED=false
 NOTES_CHANGED=false
+SEARCH_CHANGED=false
 TERMINAL_CHANGED=false
 UI_CHANGED=false
 VFS_EXPLORER_CHANGED=false
@@ -150,6 +152,7 @@ has_changes "packages/client" \
   "packages/client/ios/App/App.xcodeproj/project.pbxproj" && CLIENT_CHANGED=true
 has_changes "packages/email" "packages/email/package.json" && EMAIL_CHANGED=true
 has_changes "packages/notes" "packages/notes/package.json" && NOTES_CHANGED=true
+has_changes "packages/search" "packages/search/package.json" && SEARCH_CHANGED=true
 has_changes "packages/terminal" "packages/terminal/package.json" && TERMINAL_CHANGED=true
 has_changes "packages/ui" "packages/ui/package.json" && UI_CHANGED=true
 has_changes "packages/vfs-explorer" "packages/vfs-explorer/package.json" && VFS_EXPLORER_CHANGED=true
@@ -235,6 +238,7 @@ bump_npm_package_version "Classic" "$CLASSIC_PACKAGE" "$CLASSIC_CHANGED"
 bump_npm_package_version "CLI" "$CLI_PACKAGE" "$CLI_CHANGED"
 bump_npm_package_version "Email" "$EMAIL_PACKAGE" "$EMAIL_CHANGED"
 bump_npm_package_version "Notes" "$NOTES_PACKAGE" "$NOTES_CHANGED"
+bump_npm_package_version "Search" "$SEARCH_PACKAGE" "$SEARCH_CHANGED"
 bump_npm_package_version "Terminal" "$TERMINAL_PACKAGE" "$TERMINAL_CHANGED"
 bump_npm_package_version "UI" "$UI_PACKAGE" "$UI_CHANGED"
 bump_npm_package_version "VFS Explorer" "$VFS_EXPLORER_PACKAGE" "$VFS_EXPLORER_CHANGED"
