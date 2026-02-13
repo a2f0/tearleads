@@ -25,32 +25,34 @@ Use this skill when you need to evolve the preen ecosystem itself, not just run 
 ## Workflow
 
 1. Update `scripts/preen/registry.json` for category additions/removals/ordering.
-2. Regenerate top-level docs:
+1. Regenerate top-level docs:
 
 ```bash
 ./scripts/preen/generatePreenDocs.sh
 ```
 
-3. Run strict ecosystem checks:
+1. Run strict ecosystem checks:
 
 ```bash
 ./scripts/checkPreenEcosystem.sh --strict
 ```
 
-4. Resolve any parity, command-style, or generation drift findings.
-5. Run impacted quality/tests for touched code paths.
-6. Commit with a focused message and proceed through the normal PR + merge queue flow.
+1. Resolve any parity, command-style, or generation drift findings.
+1. Run impacted quality/tests for touched code paths.
+1. Commit with a focused message and proceed through the normal PR + merge queue flow.
 
 ## Adding a New Preen Category
 
 When adding a category (for example `preen-foo`):
 
 1. Add registry entry in `scripts/preen/registry.json`.
-2. Create paired docs:
+1. Create paired docs:
+
 - `.claude/commands/preen-foo.md`
 - `.codex/skills/preen-foo/SKILL.md`
-3. Ensure Codex uses `$commit-and-push` and `$enter-merge-queue`.
-4. Regenerate docs and rerun strict checks.
+
+1. Ensure Codex uses `$commit-and-push` and `$enter-merge-queue`.
+1. Regenerate docs and rerun strict checks.
 
 ## Guardrails
 

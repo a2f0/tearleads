@@ -128,7 +128,7 @@ Before running, verify skill parity, command syntax, and registry drift:
 ./scripts/checkPreenEcosystem.sh --summary
 ```
 
-2. Ensure top-level preen docs are generated from registry:
+1. Ensure top-level preen docs are generated from registry:
 
 ```bash
 ./scripts/preen/generatePreenDocs.sh --check
