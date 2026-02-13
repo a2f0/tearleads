@@ -4,41 +4,36 @@ description: Request code review from another AI agent (Codex or Claude Code)
 
 # Cross-Agent Review
 
-Request a code review from another AI agent. This enables one agent (e.g., Claude Code) to solicit a review from another agent (e.g., Codex), or to invoke a fresh review from itself.
+Request a code review from another AI agent. This enables one agent (e.g., Claude Code) to solicit a review from another agent (e.g., Codex), or request a fresh self-review.
 
 ## Arguments
 
 - `$ARGUMENTS` - Optional: `codex` or `claude` (defaults to `codex`)
+
+## Prerequisites
+
+- The underlying scripts must exist: `./scripts/agents/tooling/agentTool.ts`
+- For Codex reviews: `OPENAI_API_KEY` must be configured
+- For Claude Code reviews: Claude CLI must be authenticated
 
 ## Steps
 
 1. **Get PR info**: Verify we're on a PR branch:
 
    ```bash
-   # Get current branch
    BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-   if [ "$BRANCH" = "main" ]; then
-     echo "Error: Cannot review main branch. Checkout a PR branch first."
-     exit 1
-   fi
-
-   # Get repo
    REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-
-   # Get PR number
    PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO" 2>/dev/null || echo "")
    ```
 
-   If no PR exists, report the error and stop.
+   If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
 2. **Determine agent**: Parse the argument:
 
-   - If `$ARGUMENTS` is empty or `codex`: use Codex
    - If `$ARGUMENTS` is `claude`: use Claude Code
-   - Otherwise: report invalid argument and stop
+   - Otherwise: use Codex (default)
 
-3. **Run the review**:
+3. **Run the review**: Execute the appropriate agentTool command.
 
    **For Codex review**:
 
@@ -52,6 +47,8 @@ Request a code review from another AI agent. This enables one agent (e.g., Claud
    ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
    ```
 
+   If the command fails, report the error to the user and stop.
+
 4. **Report results**: Output the review results to the user. Include:
    - Which agent performed the review
    - The PR number and branch
@@ -61,7 +58,7 @@ Request a code review from another AI agent. This enables one agent (e.g., Claud
 
 - **Fallback review**: When Gemini quota is exhausted, invoke Codex or Claude as a fallback
 - **Second opinion**: Get a review from a different agent for validation
-- **Self-review**: Claude can invoke itself for a fresh review perspective
+- **Self-review**: Claude can request a fresh self-review
 
 ## Notes
 
