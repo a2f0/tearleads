@@ -17,6 +17,7 @@ set -euo pipefail
 
 RUNNER_DIR="${RUNNER_DIR:-$HOME/actions-runner}"
 RUNNER_VERSION="${RUNNER_VERSION:-2.331.0}"
+RUNNER_GITCONFIG="${RUNNER_GITCONFIG:-$RUNNER_DIR/.gitconfig.runner}"
 REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null || echo "")
 
 # Colors for output
@@ -52,6 +53,98 @@ ensure_nvm() {
   fi
 }
 
+upsert_env_var() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  local tmp
+
+  [[ -f "$file" ]] || touch "$file"
+  tmp=$(mktemp)
+
+  awk -F= -v key="$key" -v value="$value" '
+    BEGIN { written = 0 }
+    $1 == key {
+      if (written == 0) {
+        print key "=" value
+        written = 1
+      }
+      next
+    }
+    { print }
+    END {
+      if (written == 0) {
+        print key "=" value
+      }
+    }
+  ' "$file" > "$tmp"
+
+  mv "$tmp" "$file"
+}
+
+ensure_runner_gitconfig() {
+  local runner_gitconfig="$1"
+  local include_path="$HOME/.gitconfig"
+  local include_exists=1
+
+  mkdir -p "$(dirname "$runner_gitconfig")"
+
+  if [[ ! -f "$runner_gitconfig" ]]; then
+    touch "$runner_gitconfig"
+  fi
+
+  if [[ "$runner_gitconfig" != "$include_path" ]]; then
+    if git config --file "$runner_gitconfig" --get-all include.path >/dev/null 2>&1; then
+      git config --file "$runner_gitconfig" --get-all include.path | grep -Fxq "$include_path" || include_exists=0
+    else
+      include_exists=0
+    fi
+
+    if [[ "$include_exists" -eq 0 ]]; then
+      if ! git config --file "$runner_gitconfig" --add include.path "$include_path"; then
+        log_error "Failed to add include.path to $runner_gitconfig"
+        return 1
+      fi
+    fi
+  fi
+}
+
+cleanup_user_gitconfig_safe_directories() {
+  local user_gitconfig="$HOME/.gitconfig"
+  local entries
+  local filtered_entries
+  local runner_work_prefix="$RUNNER_DIR/_work/"
+
+  [[ -f "$user_gitconfig" ]] || return 0
+
+  entries="$(git config --file "$user_gitconfig" --get-all safe.directory 2>/dev/null || true)"
+  [[ -n "$entries" ]] || return 0
+
+  filtered_entries="$(printf '%s\n' "$entries" | awk -v runner_prefix="$runner_work_prefix" '
+    NF == 0 { next }
+    index($0, runner_prefix) == 1 { next }
+    { print }
+  ')"
+
+  git config --file "$user_gitconfig" --unset-all safe.directory 2>/dev/null || true
+
+  if [[ -n "$filtered_entries" ]]; then
+    while IFS= read -r safe_dir; do
+      [[ -n "$safe_dir" ]] || continue
+      git config --file "$user_gitconfig" --add safe.directory "$safe_dir"
+    done <<< "$filtered_entries"
+  fi
+}
+
+configure_runner_git_behavior() {
+  local runner_env="$RUNNER_DIR/.env"
+
+  [[ -d "$RUNNER_DIR" ]] || return 0
+
+  ensure_runner_gitconfig "$RUNNER_GITCONFIG"
+  upsert_env_var "$runner_env" "GIT_CONFIG_GLOBAL" "$RUNNER_GITCONFIG"
+  cleanup_user_gitconfig_safe_directories
+}
 cmd_prereqs() {
   ensure_nvm
   log_info "Installing Node.js from .nvmrc via nvm..."
@@ -132,6 +225,9 @@ cmd_install() {
   log_info "Configuring runner..."
   ./config.sh --url "https://github.com/${REPO}" --token "$TOKEN" --name "$(hostname)-self-hosted" --labels "self-hosted,macOS,${ARCH_LABEL}" --work "_work"
 
+  # Keep checkout safe.directory writes out of the user's ~/.gitconfig.
+  configure_runner_git_behavior
+
   log_info "Runner installed successfully!"
   echo ""
   echo "Next steps:"
@@ -145,6 +241,9 @@ cmd_start() {
     exit 1
   fi
 
+  configure_runner_git_behavior
+  export GIT_CONFIG_GLOBAL="$RUNNER_GITCONFIG"
+
   log_info "Starting runner in foreground (Ctrl+C to stop)..."
   cd "$RUNNER_DIR"
   ./run.sh
@@ -155,6 +254,8 @@ cmd_service() {
     log_error "Runner not installed. Run: ./scripts/selfHostedRunner.sh install"
     exit 1
   fi
+
+  configure_runner_git_behavior
 
   cd "$RUNNER_DIR"
 
@@ -279,6 +380,7 @@ cmd_help() {
   echo "Environment variables:"
   echo "  RUNNER_DIR      Runner installation directory (default: ~/actions-runner)"
   echo "  RUNNER_VERSION  Runner version to install (default: 2.331.0)"
+  echo "  RUNNER_GITCONFIG  Runner-specific global git config path (default: ~/actions-runner/.gitconfig.runner)"
 }
 
 # Main
