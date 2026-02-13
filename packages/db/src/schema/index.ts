@@ -5,6 +5,10 @@ export {
   contactPhonesTable,
   contactsTable,
   filesTable,
+  healthBloodPressureReadingsTable,
+  healthExercisesTable,
+  healthWeightReadingsTable,
+  healthWorkoutEntriesTable,
   migrationsTable,
   // MLS tables
   mlsGroupMembersTable,
