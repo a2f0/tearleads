@@ -1,4 +1,3 @@
-import type { ClassicState } from './types';
 import {
   buildClassicSortMetadata,
   getNoteTagCountById,
@@ -7,6 +6,7 @@ import {
   sortNoteIds,
   sortTags
 } from './sorting';
+import type { ClassicState } from './types';
 
 function createState(): ClassicState {
   return {

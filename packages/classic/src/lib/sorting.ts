@@ -119,7 +119,9 @@ function buildTagCountById(state: ClassicState): Record<string, number> {
   return counts;
 }
 
-export function getNoteTagCountById(state: ClassicState): Record<string, number> {
+export function getNoteTagCountById(
+  state: ClassicState
+): Record<string, number> {
   const counts: Record<string, number> = {};
   for (const noteId of Object.keys(state.notesById)) {
     counts[noteId] = 0;
@@ -251,7 +253,10 @@ export function sortNoteIds({
     let primary = 0;
     switch (sortOrder) {
       case 'date-tagged-asc':
-        primary = compareNullableNumber(noteTaggedAtById[leftId], noteTaggedAtById[rightId]);
+        primary = compareNullableNumber(
+          noteTaggedAtById[leftId],
+          noteTaggedAtById[rightId]
+        );
         break;
       case 'date-tagged-desc':
         primary = compareNullableNumber(
@@ -264,13 +269,21 @@ export function sortNoteIds({
         primary = compareText(leftNote?.title ?? '', rightNote?.title ?? '');
         break;
       case 'subject-desc':
-        primary = compareText(leftNote?.title ?? '', rightNote?.title ?? '', true);
+        primary = compareText(
+          leftNote?.title ?? '',
+          rightNote?.title ?? '',
+          true
+        );
         break;
       case 'body-asc':
         primary = compareText(leftNote?.body ?? '', rightNote?.body ?? '');
         break;
       case 'body-desc':
-        primary = compareText(leftNote?.body ?? '', rightNote?.body ?? '', true);
+        primary = compareText(
+          leftNote?.body ?? '',
+          rightNote?.body ?? '',
+          true
+        );
         break;
       case 'date-created-asc':
         primary = compareNullableNumber(
@@ -324,9 +337,21 @@ export function sortNoteIds({
 }
 
 export interface BuildClassicSortMetadataArgs {
-  registryRows: ReadonlyArray<{ id: string; objectType: string; createdAt?: Date | null }>;
-  noteRows: ReadonlyArray<{ id: string; createdAt?: Date | null; updatedAt?: Date | null }>;
-  linkRows: ReadonlyArray<{ parentId: string; childId: string; createdAt?: Date | null }>;
+  registryRows: ReadonlyArray<{
+    id: string;
+    objectType: string;
+    createdAt?: Date | null;
+  }>;
+  noteRows: ReadonlyArray<{
+    id: string;
+    createdAt?: Date | null;
+    updatedAt?: Date | null;
+  }>;
+  linkRows: ReadonlyArray<{
+    parentId: string;
+    childId: string;
+    createdAt?: Date | null;
+  }>;
 }
 
 export function buildClassicSortMetadata({
@@ -349,12 +374,17 @@ export function buildClassicSortMetadata({
   }
 
   for (const row of noteRows) {
-    noteCreatedAtById[row.id] = toTimestamp(row.createdAt) ?? noteCreatedAtById[row.id] ?? null;
+    noteCreatedAtById[row.id] =
+      toTimestamp(row.createdAt) ?? noteCreatedAtById[row.id] ?? null;
     noteUpdatedAtById[row.id] = toTimestamp(row.updatedAt);
   }
 
   for (const row of linkRows) {
-    const taggedAtById = (noteTaggedAtByTagId[row.parentId] ??= {});
+    let taggedAtById = noteTaggedAtByTagId[row.parentId];
+    if (taggedAtById === undefined) {
+      taggedAtById = {};
+      noteTaggedAtByTagId[row.parentId] = taggedAtById;
+    }
     taggedAtById[row.childId] = toTimestamp(row.createdAt);
   }
 

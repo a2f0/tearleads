@@ -1,3 +1,4 @@
+import { buildClassicSortMetadata } from './sorting';
 import type {
   ClassicNote,
   ClassicState,
@@ -7,7 +8,6 @@ import type {
   VfsRegistryLikeRow,
   VfsTagLikeRow
 } from './types';
-import { buildClassicSortMetadata } from './sorting';
 
 function sortByPositionThenId(a: VfsLinkLikeRow, b: VfsLinkLikeRow): number {
   const aPos = a.position ?? Number.MAX_SAFE_INTEGER;

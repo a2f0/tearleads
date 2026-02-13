@@ -11,13 +11,13 @@ import {
 } from '@tearleads/db-test-utils';
 import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { sortNoteIds, sortTags } from './sorting';
 import type {
   VfsLinkLikeRow,
   VfsNoteLikeRow,
   VfsRegistryLikeRow,
   VfsTagLikeRow
 } from './types';
-import { sortNoteIds, sortTags } from './sorting';
 import { buildClassicStateFromVfs } from './vfsClassicAdapter';
 import { buildClassicPositionUpdates } from './vfsPositionUpdates';
 

@@ -1,9 +1,9 @@
 import {
   ENTRY_SORT_OPTIONS,
-  TAG_SORT_OPTIONS,
+  type EntrySortOrder,
   isEntrySortOrder,
   isTagSortOrder,
-  type EntrySortOrder,
+  TAG_SORT_OPTIONS,
   type TagSortOrder
 } from '../lib/sorting';
 

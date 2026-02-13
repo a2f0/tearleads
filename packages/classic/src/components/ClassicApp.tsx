@@ -20,14 +20,14 @@ import {
   tagNote
 } from '../lib/ordering';
 import {
+  type EntrySortOrder,
   sortNoteIds,
   sortTags,
-  type EntrySortOrder,
   type TagSortOrder
 } from '../lib/sorting';
 import type { ClassicState } from '../lib/types';
-import { ClassicMenuBar } from './ClassicMenuBar';
 import type { ClassicContextMenuComponents } from './ClassicContextMenu';
+import { ClassicMenuBar } from './ClassicMenuBar';
 import { NotesPane } from './NotesPane';
 import { TagSidebar } from './TagSidebar';
 
