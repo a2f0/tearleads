@@ -217,10 +217,10 @@ tuxedo_truncate_title() {
 # Set window options for workspace:branch display in status bar
 # - @workspace: stores the workspace directory, used by window-status-format
 set_window_title_options() {
-    workspace_dir="$1"
-    window_name="$2"
-    [ -z "$workspace_dir" ] || [ -z "$window_name" ] && return 0
-    tmux set-option -w -t "$SESSION_NAME:$window_name" @workspace "$workspace_dir" 2>/dev/null || true
+    local ws_dir="$1"
+    local win_name="$2"
+    [ -z "$ws_dir" ] || [ -z "$win_name" ] && return 0
+    tmux set-option -w -t "$SESSION_NAME:$win_name" @workspace "$ws_dir" 2>/dev/null || true
 }
 
 # Legacy alias for backward compatibility
@@ -230,24 +230,19 @@ sync_vscode_title() {
 
 # Set window options for all workspace windows (for existing sessions)
 # Iterates through all windows in the session and sets @workspace based on
-# the TUXEDO_WORKSPACE environment variable stored in each window's pane.
+# the pane's current working directory.
 sync_all_titles() {
     # Get all windows in the session
     windows=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_name}' 2>/dev/null) || return 0
 
-    for window_name in $windows; do
-        # Get the workspace directory from the pane's environment or current path
-        # First try TUXEDO_WORKSPACE from the pane's shell environment
-        workspace_dir=$(tmux show-environment -t "$SESSION_NAME:$window_name" TUXEDO_WORKSPACE 2>/dev/null | cut -d= -f2-)
-
-        # If not found, fall back to pane's current path
-        if [ -z "$workspace_dir" ] || [ "$workspace_dir" = "-TUXEDO_WORKSPACE" ]; then
-            workspace_dir=$(tmux display-message -t "$SESSION_NAME:$window_name" -p '#{pane_current_path}' 2>/dev/null)
-        fi
+    for win in $windows; do
+        # Get workspace directory from pane's current path
+        # Note: tmux show-environment doesn't work per-window, only per-session
+        ws_dir=$(tmux display-message -t "$SESSION_NAME:$win" -p '#{pane_current_path}' 2>/dev/null)
 
         # Only set if we have a valid directory
-        if [ -n "$workspace_dir" ] && [ -d "$workspace_dir" ]; then
-            set_window_title_options "$workspace_dir" "$window_name"
+        if [ -n "$ws_dir" ] && [ -d "$ws_dir" ]; then
+            set_window_title_options "$ws_dir" "$win"
         fi
     done
 }
@@ -357,8 +352,9 @@ tuxedo_attach_or_create() {
 
     tuxedo_start_pr_dashboards
 
-    # Sync VS Code titles to tmux window names
-    sync_all_titles
+    # Note: Don't call sync_all_titles here - windows already have correct @workspace
+    # from set_window_title_options calls above. sync_all_titles is only for reattaching
+    # to existing sessions where we need to infer workspace from pane_current_path.
 
     tmux select-window -t "$SESSION_NAME:$OPEN_PRS_WINDOW_NAME" 2>/dev/null || true
     tmux attach-session -t "$SESSION_NAME"
