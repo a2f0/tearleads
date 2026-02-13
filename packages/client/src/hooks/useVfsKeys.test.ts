@@ -69,8 +69,8 @@ import { api } from '@/lib/api';
 
 describe('useVfsKeys', () => {
   const mockKeyManager = {
-    getCurrentKey: vi.fn<() => Uint8Array | null>(
-      () => new Uint8Array(32).fill(5)
+    getCurrentKey: vi.fn<() => Uint8Array | null>(() =>
+      new Uint8Array(32).fill(5)
     )
   };
 
