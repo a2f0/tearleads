@@ -3,6 +3,8 @@ import {
   Download,
   FileText,
   Puzzle,
+  Scale,
+  Shield,
   Shirt,
   TerminalSquare
 } from 'lucide-react';
@@ -10,9 +12,10 @@ import { GridSquare } from '@/components/ui/grid-square';
 import type { HelpDocId } from '@/constants/help';
 
 interface HelpLinksGridProps {
-  view: 'topLevel' | 'developer';
+  view: 'topLevel' | 'developer' | 'legal';
   onApiDocsClick: () => void;
   onDeveloperClick: () => void;
+  onLegalClick: () => void;
   onDocClick: (docId: HelpDocId) => void;
 }
 
@@ -44,10 +47,24 @@ const DEVELOPER_DOC_ITEMS = [
   }
 ] as const;
 
+const LEGAL_DOC_ITEMS = [
+  {
+    docId: 'privacyPolicy',
+    label: 'Privacy Policy',
+    Icon: Shield
+  },
+  {
+    docId: 'termsOfService',
+    label: 'Terms of Service',
+    Icon: Scale
+  }
+] as const;
+
 export function HelpLinksGrid({
   view,
   onApiDocsClick,
   onDeveloperClick,
+  onLegalClick,
   onDocClick
 }: HelpLinksGridProps) {
   if (view === 'topLevel') {
@@ -65,6 +82,27 @@ export function HelpLinksGrid({
             <span className="text-center font-medium text-sm">Developer</span>
           </div>
         </GridSquare>
+        <GridSquare onClick={onLegalClick}>
+          <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+            <Scale className="h-12 w-12 text-muted-foreground" />
+            <span className="text-center font-medium text-sm">Legal</span>
+          </div>
+        </GridSquare>
+      </>
+    );
+  }
+
+  if (view === 'legal') {
+    return (
+      <>
+        {LEGAL_DOC_ITEMS.map(({ docId, label, Icon }) => (
+          <GridSquare key={label} onClick={() => onDocClick(docId)}>
+            <div className="flex h-full flex-col items-center justify-center gap-2 p-4">
+              <Icon className="h-12 w-12 text-muted-foreground" />
+              <span className="text-center font-medium text-sm">{label}</span>
+            </div>
+          </GridSquare>
+        ))}
       </>
     );
   }

@@ -102,6 +102,7 @@ describe('HelpWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.getByText('API Docs')).toBeInTheDocument();
     expect(screen.getByText('Developer')).toBeInTheDocument();
+    expect(screen.getByText('Legal')).toBeInTheDocument();
   });
 
   it('navigates to API docs when clicking API Docs', async () => {
@@ -185,5 +186,61 @@ describe('HelpWindow', () => {
 
     await user.click(screen.getByText('Back to Help'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
+  });
+
+  it('navigates to legal category and back to help', async () => {
+    const user = userEvent.setup();
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    await user.click(screen.getByText('Legal'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Legal');
+    expect(screen.getByText('Privacy Policy')).toBeInTheDocument();
+    expect(screen.getByText('Terms of Service')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Back to Help'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
+  });
+
+  const legalDocCases = [
+    {
+      label: 'Privacy Policy',
+      title: 'Privacy Policy',
+      docId: 'privacyPolicy'
+    },
+    {
+      label: 'Terms of Service',
+      title: 'Terms of Service',
+      docId: 'termsOfService'
+    }
+  ] as const;
+
+  it('navigates to legal documentation views when clicking legal docs links', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+      />
+    );
+
+    for (const { label, title, docId } of legalDocCases) {
+      await user.click(screen.getByText('Legal'));
+      await user.click(screen.getByText(label));
+      expect(screen.getByTestId('window-title')).toHaveTextContent(title);
+      expect(screen.getByTestId('help-documentation')).toHaveTextContent(docId);
+      await user.click(screen.getByText('Back to Help'));
+    }
   });
 });

@@ -16,7 +16,7 @@ import { HelpDocumentation } from '../help-links/HelpDocumentation';
 import { HelpLinksGrid } from '../help-links/HelpLinksGrid';
 import { HelpWindowMenuBar } from './HelpWindowMenuBar';
 
-type HelpView = 'index' | 'developer' | 'api' | HelpDocId;
+type HelpView = 'index' | 'developer' | 'legal' | 'api' | HelpDocId;
 
 function getHelpWindowTitle(view: HelpView): string {
   switch (view) {
@@ -26,6 +26,8 @@ function getHelpWindowTitle(view: HelpView): string {
       return 'API Docs';
     case 'developer':
       return 'Developer';
+    case 'legal':
+      return 'Legal';
     default:
       return getHelpDocLabel(view);
   }
@@ -97,11 +99,12 @@ export function HelpWindow({
                   view="topLevel"
                   onApiDocsClick={() => setView('api')}
                   onDeveloperClick={() => setView('developer')}
+                  onLegalClick={() => setView('legal')}
                   onDocClick={(docId) => setView(docId)}
                 />
               </div>
             </div>
-          ) : view === 'developer' ? (
+          ) : view === 'developer' || view === 'legal' ? (
             <div className="space-y-6">
               <button
                 type="button"
@@ -113,9 +116,10 @@ export function HelpWindow({
               </button>
               <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4">
                 <HelpLinksGrid
-                  view="developer"
+                  view={view}
                   onApiDocsClick={() => setView('api')}
                   onDeveloperClick={() => setView('developer')}
+                  onLegalClick={() => setView('legal')}
                   onDocClick={(docId) => setView(docId)}
                 />
               </div>
