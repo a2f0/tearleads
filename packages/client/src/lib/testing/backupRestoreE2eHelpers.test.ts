@@ -27,6 +27,19 @@ describe('backupRestoreE2eHelpers', () => {
     expect(page.waitForURL).toHaveBeenCalledWith('**/sqlite');
   });
 
+  it('navigates without waiting for URL when waitForUrl is false', async () => {
+    const page = {
+      evaluate: vi.fn(async () => {}),
+      waitForURL: vi.fn(async (_value: string) => {}),
+      getByTestId: vi.fn((_testId: string) => createLocator())
+    };
+
+    await navigateInApp(page, '/settings', false);
+
+    expect(page.evaluate).toHaveBeenCalledTimes(1);
+    expect(page.waitForURL).not.toHaveBeenCalled();
+  });
+
   it('sets up database flow', async () => {
     const resetButton = createLocator();
     const passwordInput = createLocator();

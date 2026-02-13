@@ -376,4 +376,321 @@ describe('ClassicApp', () => {
 
     expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
   });
+
+  it('restores focus to tag search after renaming a tag', async () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagSearch = screen.getByLabelText('Search tags');
+    tagSearch.focus();
+    expect(tagSearch).toHaveFocus();
+
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
+    fireEvent.click(screen.getByLabelText('Edit tag Work'));
+
+    const editInput = screen.getByLabelText('Edit tag Work');
+    await vi.waitFor(() => {
+      expect(editInput).toHaveFocus();
+    });
+
+    fireEvent.change(editInput, { target: { value: 'Work Updated' } });
+    fireEvent.keyDown(editInput, { key: 'Enter' });
+
+    await vi.waitFor(() => {
+      expect(tagSearch).toHaveFocus();
+    });
+  });
+
+  it('restores focus to tag search after canceling tag edit', async () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagSearch = screen.getByLabelText('Search tags');
+    tagSearch.focus();
+
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
+    fireEvent.click(screen.getByLabelText('Edit tag Work'));
+
+    const editInput = screen.getByLabelText('Edit tag Work');
+    fireEvent.keyDown(editInput, { key: 'Escape' });
+
+    await vi.waitFor(() => {
+      expect(tagSearch).toHaveFocus();
+    });
+  });
+
+  it('restores focus to entry search after updating a note', async () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const entrySearch = screen.getByLabelText('Search entries');
+    entrySearch.focus();
+    expect(entrySearch).toHaveFocus();
+
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    fireEvent.click(screen.getByLabelText('Edit note Alpha'));
+
+    const editInput = screen.getByLabelText('Edit entry title');
+    await vi.waitFor(() => {
+      expect(editInput).toHaveFocus();
+    });
+
+    fireEvent.change(editInput, { target: { value: 'Alpha Updated' } });
+    fireEvent.keyDown(editInput, { key: 'Enter' });
+
+    await vi.waitFor(() => {
+      expect(entrySearch).toHaveFocus();
+    });
+  });
+
+  it('restores focus to entry search after canceling note edit', async () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const entrySearch = screen.getByLabelText('Search entries');
+    entrySearch.focus();
+
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    fireEvent.click(screen.getByLabelText('Edit note Alpha'));
+
+    const editInput = screen.getByLabelText('Edit entry title');
+    await vi.waitFor(() => {
+      expect(editInput).toHaveFocus();
+    });
+
+    fireEvent.keyDown(editInput, { key: 'Escape' });
+
+    await vi.waitFor(() => {
+      expect(entrySearch).toHaveFocus();
+    });
+  });
+
+  it('restores focus to tag search after creating and naming a new tag', async () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagSearch = screen.getByLabelText('Search tags');
+    tagSearch.focus();
+
+    const tagPane = screen
+      .getByLabelText('Tags Sidebar')
+      .querySelector('.overflow-auto');
+    if (!tagPane) {
+      throw new Error('Expected tag pane');
+    }
+    fireEvent.contextMenu(tagPane);
+    fireEvent.click(screen.getByLabelText('Create new tag'));
+
+    const editInput = screen.getByLabelText(/Edit tag/);
+    fireEvent.change(editInput, { target: { value: 'My New Tag' } });
+    fireEvent.keyDown(editInput, { key: 'Enter' });
+
+    await vi.waitFor(() => {
+      expect(tagSearch).toHaveFocus();
+    });
+  });
+
+  it('restores focus to entry search after creating and naming a new note', async () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const entrySearch = screen.getByLabelText('Search entries');
+    entrySearch.focus();
+
+    const entryPane = screen
+      .getByLabelText('Notes Pane')
+      .querySelector('.overflow-auto');
+    if (!entryPane) {
+      throw new Error('Expected entry pane');
+    }
+    fireEvent.contextMenu(entryPane);
+    fireEvent.click(screen.getByLabelText('Create new entry'));
+
+    const editInput = screen.getByLabelText('Edit entry title');
+    await vi.waitFor(() => {
+      expect(editInput).toHaveFocus();
+    });
+
+    fireEvent.change(editInput, { target: { value: 'My New Note' } });
+    fireEvent.keyDown(editInput, { key: 'Enter' });
+
+    await vi.waitFor(() => {
+      expect(entrySearch).toHaveFocus();
+    });
+  });
+
+  it('defaults to tag search when editing starts with no search focused', async () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    const tagSearch = screen.getByLabelText('Search tags');
+
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
+    fireEvent.click(screen.getByLabelText('Edit tag Work'));
+
+    const editInput = screen.getByLabelText('Edit tag Work');
+    fireEvent.change(editInput, { target: { value: 'Work Updated' } });
+    fireEvent.keyDown(editInput, { key: 'Enter' });
+
+    await vi.waitFor(() => {
+      expect(tagSearch).toHaveFocus();
+    });
+  });
+
+  it('highlights matching text in tag names when searching', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    fireEvent.change(screen.getByLabelText('Search tags'), {
+      target: { value: 'ork' }
+    });
+
+    const tagButton = screen.getByLabelText('Select tag Work');
+    const mark = tagButton.querySelector('mark');
+    expect(mark).toBeInTheDocument();
+    expect(mark).toHaveTextContent('ork');
+  });
+
+  it('highlights matching text in entry titles when searching', () => {
+    render(<ClassicApp initialState={createState()} />);
+
+    fireEvent.change(screen.getByLabelText('Search entries'), {
+      target: { value: 'lph' }
+    });
+
+    const noteList = screen.getByLabelText('Note List');
+    const mark = noteList.querySelector('mark');
+    expect(mark).toBeInTheDocument();
+    expect(mark).toHaveTextContent('lph');
+  });
+
+  it('highlights matching text in entry body when searching', () => {
+    const stateWithBody = createState();
+    const note1 = stateWithBody.notesById['note-1'];
+    if (note1) note1.body = 'Contains keyword xyz here';
+
+    render(<ClassicApp initialState={stateWithBody} />);
+
+    fireEvent.change(screen.getByLabelText('Search entries'), {
+      target: { value: 'xyz' }
+    });
+
+    const noteList = screen.getByLabelText('Note List');
+    const mark = noteList.querySelector('mark');
+    expect(mark).toBeInTheDocument();
+    expect(mark).toHaveTextContent('xyz');
+  });
+
+  it('calls onCreateTag when saving a new tag with placeholder name', async () => {
+    const onCreateTag = vi.fn();
+    const onRenameTag = vi.fn();
+
+    render(
+      <ClassicApp
+        initialState={createState()}
+        onCreateTag={onCreateTag}
+        onRenameTag={onRenameTag}
+      />
+    );
+
+    // Create a new tag (enters edit mode with placeholder name)
+    fireEvent.contextMenu(
+      screen.getByLabelText('Tag list, press Shift+F10 for context menu')
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create new tag' }));
+
+    // Edit and save the tag name
+    await vi.waitFor(() => {
+      expect(screen.getByLabelText('Edit tag New Tag')).toBeInTheDocument();
+    });
+    const editInput = screen.getByLabelText('Edit tag New Tag');
+    fireEvent.change(editInput, { target: { value: 'My New Tag' } });
+    fireEvent.click(screen.getByLabelText('Save tag name'));
+
+    expect(onCreateTag).toHaveBeenCalledTimes(1);
+    expect(onCreateTag.mock.calls[0]?.[1]).toBe('My New Tag');
+    expect(onRenameTag).not.toHaveBeenCalled();
+  });
+
+  it('calls onRenameTag when renaming an existing tag', async () => {
+    const onCreateTag = vi.fn();
+    const onRenameTag = vi.fn();
+
+    render(
+      <ClassicApp
+        initialState={createState()}
+        onCreateTag={onCreateTag}
+        onRenameTag={onRenameTag}
+      />
+    );
+
+    // Start editing an existing tag
+    fireEvent.contextMenu(screen.getByLabelText('Select tag Work'));
+    fireEvent.click(screen.getByLabelText('Edit tag Work'));
+
+    // Change the name and save
+    await vi.waitFor(() => {
+      expect(screen.getByLabelText('Edit tag Work')).toBeInTheDocument();
+    });
+    const editInput = screen.getByLabelText('Edit tag Work');
+    fireEvent.change(editInput, { target: { value: 'Projects' } });
+    fireEvent.click(screen.getByLabelText('Save tag name'));
+
+    expect(onRenameTag).toHaveBeenCalledWith('tag-1', 'Projects');
+    expect(onCreateTag).not.toHaveBeenCalled();
+  });
+
+  it('calls onCreateNote when saving a new note with placeholder title', async () => {
+    const onCreateNote = vi.fn();
+    const onUpdateNote = vi.fn();
+
+    render(
+      <ClassicApp
+        initialState={createState()}
+        onCreateNote={onCreateNote}
+        onUpdateNote={onUpdateNote}
+      />
+    );
+
+    // Create a new note
+    fireEvent.contextMenu(
+      screen.getByLabelText('Entry list, press Shift+F10 for context menu')
+    );
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Create new entry' }));
+
+    // Edit and save the note
+    await vi.waitFor(() => {
+      expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
+    });
+    const titleInput = screen.getByLabelText('Edit entry title');
+    const bodyInput = screen.getByLabelText('Edit entry body');
+    fireEvent.change(titleInput, { target: { value: 'My New Note' } });
+    fireEvent.change(bodyInput, { target: { value: 'Note content' } });
+    fireEvent.click(screen.getByLabelText('Save entry'));
+
+    expect(onCreateNote).toHaveBeenCalledTimes(1);
+    expect(onCreateNote.mock.calls[0]?.[2]).toBe('My New Note');
+    expect(onCreateNote.mock.calls[0]?.[3]).toBe('Note content');
+    expect(onUpdateNote).not.toHaveBeenCalled();
+  });
+
+  it('calls onUpdateNote when updating an existing note', async () => {
+    const onCreateNote = vi.fn();
+    const onUpdateNote = vi.fn();
+
+    render(
+      <ClassicApp
+        initialState={createState()}
+        onCreateNote={onCreateNote}
+        onUpdateNote={onUpdateNote}
+      />
+    );
+
+    // Start editing an existing note
+    fireEvent.contextMenu(screen.getByText('Alpha'));
+    fireEvent.click(screen.getByLabelText('Edit note Alpha'));
+
+    // Edit and save
+    await vi.waitFor(() => {
+      expect(screen.getByLabelText('Edit entry title')).toBeInTheDocument();
+    });
+    const titleInput = screen.getByLabelText('Edit entry title');
+    fireEvent.change(titleInput, { target: { value: 'Updated Alpha' } });
+    fireEvent.click(screen.getByLabelText('Save entry'));
+
+    expect(onUpdateNote).toHaveBeenCalledWith('note-1', 'Updated Alpha', 'A');
+    expect(onCreateNote).not.toHaveBeenCalled();
+  });
 });

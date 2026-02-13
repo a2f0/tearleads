@@ -32,8 +32,25 @@ export interface ClassicAppProps {
   initialState: ClassicState;
   autoFocusSearch?: boolean;
   onStateChange?: ((state: ClassicState) => void) | undefined;
+  onCreateTag?:
+    | ((tagId: string, name: string) => void | Promise<void>)
+    | undefined;
   onDeleteTag?: ((tagId: string) => void | Promise<void>) | undefined;
   onRestoreTag?: ((tagId: string) => void | Promise<void>) | undefined;
+  onRenameTag?:
+    | ((tagId: string, newName: string) => void | Promise<void>)
+    | undefined;
+  onCreateNote?:
+    | ((
+        noteId: string,
+        tagId: string | null,
+        title: string,
+        body: string
+      ) => void | Promise<void>)
+    | undefined;
+  onUpdateNote?:
+    | ((noteId: string, title: string, body: string) => void | Promise<void>)
+    | undefined;
   contextMenuComponents?: ClassicContextMenuComponents | undefined;
 }
 
@@ -41,8 +58,12 @@ export function ClassicApp({
   initialState,
   autoFocusSearch,
   onStateChange,
+  onCreateTag,
   onDeleteTag,
   onRestoreTag,
+  onRenameTag,
+  onCreateNote,
+  onUpdateNote,
   contextMenuComponents
 }: ClassicAppProps) {
   const [state, setState] = useState<ClassicState>(initialState);
@@ -52,6 +73,18 @@ export function ClassicApp({
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const tagSearchInputRef = useRef<HTMLInputElement>(null);
   const entrySearchInputRef = useRef<HTMLInputElement>(null);
+
+  const restoreFocusToTagSearch = useCallback(() => {
+    setTimeout(() => {
+      tagSearchInputRef.current?.focus();
+    }, 0);
+  }, []);
+
+  const restoreFocusToEntrySearch = useCallback(() => {
+    setTimeout(() => {
+      entrySearchInputRef.current?.focus();
+    }, 0);
+  }, []);
 
   const activeTagName = useMemo(() => {
     if (state.activeTagId === null) {
@@ -213,6 +246,9 @@ export function ClassicApp({
 
   const handleRenameTag = useCallback(
     (tagId: string, newName: string) => {
+      const existingTag = state.tags.find((t) => t.id === tagId);
+      const isNewTag = existingTag?.name === DEFAULT_CLASSIC_TAG_NAME;
+
       const nextState: ClassicState = {
         ...state,
         tags: state.tags.map((tag) =>
@@ -220,9 +256,17 @@ export function ClassicApp({
         )
       };
       updateState(nextState);
+
+      if (isNewTag) {
+        void onCreateTag?.(tagId, newName);
+      } else {
+        void onRenameTag?.(tagId, newName);
+      }
+
       setEditingTagId(null);
+      restoreFocusToTagSearch();
     },
-    [state, updateState]
+    [onCreateTag, onRenameTag, restoreFocusToTagSearch, state, updateState]
   );
 
   const handleCancelEditTag = useCallback(() => {
@@ -242,7 +286,8 @@ export function ClassicApp({
       }
     }
     setEditingTagId(null);
-  }, [editingTagId, state, updateState]);
+    restoreFocusToTagSearch();
+  }, [editingTagId, restoreFocusToTagSearch, state, updateState]);
 
   const handleCreateNote = useCallback(() => {
     const newNoteId = generateId();
@@ -285,6 +330,11 @@ export function ClassicApp({
 
   const handleUpdateNote = useCallback(
     (noteId: string, title: string, body: string) => {
+      const existingNote = state.notesById[noteId];
+      const isNewNote =
+        existingNote?.title === DEFAULT_CLASSIC_NOTE_TITLE &&
+        existingNote?.body === '';
+
       const nextState: ClassicState = {
         ...state,
         notesById: {
@@ -293,9 +343,25 @@ export function ClassicApp({
         }
       };
       updateState(nextState);
+
+      if (isNewNote) {
+        // Find which tag this note belongs to (if any)
+        let tagId: string | null = null;
+        for (const [tid, noteIds] of Object.entries(state.noteOrderByTagId)) {
+          if (noteIds.includes(noteId)) {
+            tagId = tid;
+            break;
+          }
+        }
+        void onCreateNote?.(noteId, tagId, title, body);
+      } else {
+        void onUpdateNote?.(noteId, title, body);
+      }
+
       setEditingNoteId(null);
+      restoreFocusToEntrySearch();
     },
-    [state, updateState]
+    [onCreateNote, onUpdateNote, restoreFocusToEntrySearch, state, updateState]
   );
 
   const handleCancelEditNote = useCallback(() => {
@@ -321,7 +387,8 @@ export function ClassicApp({
       }
     }
     setEditingNoteId(null);
-  }, [editingNoteId, state, updateState]);
+    restoreFocusToEntrySearch();
+  }, [editingNoteId, restoreFocusToEntrySearch, state, updateState]);
 
   const handleTagSearchKeyDown = useCallback(
     (event: React.KeyboardEvent<HTMLInputElement>) => {

@@ -1,9 +1,12 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearFeatureFlagOverride,
+  FEATURE_FLAG_KEYS,
   FEATURE_FLAGS_STORAGE_KEY,
   getFeatureFlagOverrides,
   getFeatureFlagValue,
+  listFeatureFlags,
+  onFeatureFlagsChange,
   resetFeatureFlagOverrides,
   setFeatureFlagOverride
 } from './feature-flags';
@@ -77,5 +80,23 @@ describe('feature flags', () => {
 
     expect(getFeatureFlagOverrides()).toEqual({});
     expect(getFeatureFlagValue('vfsServerRegistration')).toBe(false);
+  });
+
+  it('listFeatureFlags returns all flag keys', () => {
+    const flags = listFeatureFlags();
+    expect(flags).toEqual([...FEATURE_FLAG_KEYS]);
+    expect(flags).not.toBe(FEATURE_FLAG_KEYS);
+  });
+
+  it('onFeatureFlagsChange notifies listeners when flags change', () => {
+    const listener = vi.fn();
+    const unsubscribe = onFeatureFlagsChange(listener);
+
+    setFeatureFlagOverride('vfsServerRegistration', true);
+    expect(listener).toHaveBeenCalledTimes(1);
+
+    unsubscribe();
+    setFeatureFlagOverride('vfsServerRegistration', false);
+    expect(listener).toHaveBeenCalledTimes(1);
   });
 });

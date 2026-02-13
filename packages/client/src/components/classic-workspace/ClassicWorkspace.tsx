@@ -9,10 +9,14 @@ import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   CLASSIC_EMPTY_STATE,
+  createClassicNote,
+  createClassicTag,
   deleteClassicTag,
   loadClassicStateFromDatabase,
   persistClassicOrderToDatabase,
-  restoreClassicTag
+  renameClassicTag,
+  restoreClassicTag,
+  updateClassicNote
 } from '@/lib/classicPersistence';
 
 export function ClassicWorkspace() {
@@ -117,6 +121,9 @@ export function ClassicWorkspace() {
           initialState={initialState}
           autoFocusSearch
           onStateChange={handleStateChange}
+          onCreateTag={async (tagId, name) => {
+            await createClassicTag(name, tagId);
+          }}
           onDeleteTag={async (tagId) => {
             await deleteClassicTag(tagId);
             await fetchClassicState();
@@ -124,6 +131,15 @@ export function ClassicWorkspace() {
           onRestoreTag={async (tagId) => {
             await restoreClassicTag(tagId);
             await fetchClassicState();
+          }}
+          onRenameTag={async (tagId, newName) => {
+            await renameClassicTag(tagId, newName);
+          }}
+          onCreateNote={async (noteId, tagId, title, body) => {
+            await createClassicNote(tagId, title, body, noteId);
+          }}
+          onUpdateNote={async (noteId, title, body) => {
+            await updateClassicNote(noteId, title, body);
           }}
           contextMenuComponents={{ ContextMenu, ContextMenuItem }}
         />

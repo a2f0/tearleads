@@ -7,6 +7,7 @@ import {
   UNTAGGED_TAG_ID,
   UNTAGGED_TAG_NAME
 } from '../lib/constants';
+import { highlightText } from '../lib/highlightText';
 import type { ClassicTag } from '../lib/types';
 import {
   ClassicContextMenu,
@@ -127,7 +128,27 @@ export function TagSidebar({
   };
 
   const handleEditBlur = (tagId: string) => {
-    commitOrCancelEdit(tagId);
+    setTimeout(() => {
+      const activeElement = document.activeElement;
+      const isStillEditing =
+        activeElement === editInputRef.current ||
+        activeElement?.closest(`[data-tag-id="${tagId}"]`);
+      if (!isStillEditing) {
+        commitOrCancelEdit(tagId);
+      }
+    }, 0);
+  };
+
+  const handleSave = (tagId: string) => {
+    if (editValue.trim() && onRenameTag) {
+      onRenameTag(tagId, editValue.trim());
+    } else {
+      onCancelEditTag?.();
+    }
+  };
+
+  const handleCancel = () => {
+    onCancelEditTag?.();
   };
   const openEmptySpaceContextMenu = (x: number, y: number) => {
     setContextMenu({
@@ -452,16 +473,36 @@ export function TagSidebar({
                         ⋮⋮
                       </span>
                       {editingTagId === tag.id ? (
-                        <input
-                          ref={editInputRef}
-                          type="text"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => handleEditKeyDown(e, tag.id)}
-                          onBlur={() => handleEditBlur(tag.id)}
-                          className="min-w-0 flex-1 border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
-                          aria-label={`Edit tag ${tag.name}`}
-                        />
+                        <div className="min-w-0 flex-1" data-tag-id={tag.id}>
+                          <input
+                            ref={editInputRef}
+                            type="text"
+                            value={editValue}
+                            onChange={(e) => setEditValue(e.target.value)}
+                            onKeyDown={(e) => handleEditKeyDown(e, tag.id)}
+                            onBlur={() => handleEditBlur(tag.id)}
+                            className="w-full border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
+                            aria-label={`Edit tag ${tag.name}`}
+                          />
+                          <div className="mt-1 grid grid-cols-2 gap-0.5">
+                            <button
+                              type="button"
+                              onClick={() => handleSave(tag.id)}
+                              className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
+                              aria-label="Save tag name"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={handleCancel}
+                              className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
+                              aria-label="Cancel editing"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
                       ) : (
                         <button
                           type="button"
@@ -471,7 +512,7 @@ export function TagSidebar({
                           aria-label={`Select tag ${tag.name}`}
                         >
                           <span className="text-zinc-700">
-                            {tag.name}
+                            {highlightText(tag.name, searchValue)}
                             {noteCountByTagId[tag.id] !== undefined &&
                               ` (${noteCountByTagId[tag.id]})`}
                           </span>
