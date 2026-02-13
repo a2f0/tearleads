@@ -44,6 +44,9 @@ export function BusinessesManager() {
         dunsNumber,
         ein
       });
+      const normalizedValue = normalizedIdentifiers.ok
+        ? normalizedIdentifiers.value
+        : {};
 
       if (!normalizedIdentifiers.ok) {
         for (const error of normalizedIdentifiers.errors) {
@@ -62,7 +65,7 @@ export function BusinessesManager() {
         {
           id: createBusinessId(),
           name: trimmedName,
-          ...normalizedIdentifiers.value
+          ...normalizedValue
         }
       ]);
       setName('');
