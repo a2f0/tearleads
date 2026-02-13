@@ -96,7 +96,8 @@ jobs:
               --body "source-sha: $SOURCE_SHA"$'\n'"source-run-id: $SOURCE_RUN_ID" \
               --output "$PAYLOAD_PATH"
 
-            if RESPONSE=$(gh api graphql --input "$PAYLOAD_PATH" --jq '.data.createCommitOnBranch.commit'); then
+            GH_ERROR_PATH="$RUNNER_TEMP/gh-create-commit-error.txt"
+            if RESPONSE=$(gh api graphql --input "$PAYLOAD_PATH" --jq '.data.createCommitOnBranch.commit' 2> "$GH_ERROR_PATH"); then
               echo "Commit response: $RESPONSE" >> "$GITHUB_STEP_SUMMARY"
               PUSHED=true
               {
@@ -105,6 +106,15 @@ jobs:
                 echo "Source commit: $SOURCE_SHA"
               } >> "$GITHUB_STEP_SUMMARY"
               break
+            fi
+
+            if grep -q "Changes must be made through a pull request" "$GH_ERROR_PATH"; then
+              {
+                echo "## Main Version Bump"
+                echo "Skipped bump commit because branch protection requires pull requests for main."
+                echo "Source commit: $SOURCE_SHA"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
             fi
 
             sleep $((attempt * 2))
