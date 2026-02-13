@@ -1,10 +1,6 @@
 import { cn, useTheme } from '@tearleads/ui';
 import { FileText, ShieldCheck } from 'lucide-react';
-import {
-  type AnchorHTMLAttributes,
-  type ReactNode,
-  useCallback
-} from 'react';
+import { type AnchorHTMLAttributes, type ReactNode, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { MarkdownWithToc } from '@/components/markdown-viewer/MarkdownWithToc';
 import { BackLink } from '@/components/ui/back-link';
@@ -46,8 +42,12 @@ export function ComplianceDocPage() {
   const { resolvedTheme } = useTheme();
 
   const frameworkId = decodeRouteSegment(params.framework);
-  const frameworkDocuments = frameworkId ? getFrameworkDocuments(frameworkId) : [];
-  const frameworkLabel = frameworkId ? getFrameworkLabel(frameworkId) : 'Compliance';
+  const frameworkDocuments = frameworkId
+    ? getFrameworkDocuments(frameworkId)
+    : [];
+  const frameworkLabel = frameworkId
+    ? getFrameworkLabel(frameworkId)
+    : 'Compliance';
   const activeDocument = frameworkId
     ? getComplianceDocument(frameworkId, params['*'])
     : null;
@@ -119,7 +119,9 @@ export function ComplianceDocPage() {
         <BackLink defaultTo="/compliance" defaultLabel="Back to Compliance" />
         <div className="flex items-center gap-3">
           <ShieldCheck className="h-8 w-8 text-muted-foreground" />
-          <h1 className="font-bold text-2xl tracking-tight">{frameworkLabel}</h1>
+          <h1 className="font-bold text-2xl tracking-tight">
+            {frameworkLabel}
+          </h1>
         </div>
         <p className="text-muted-foreground text-sm">
           Browse framework documentation and follow policy/procedure links in

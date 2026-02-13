@@ -1,12 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { AnchorHTMLAttributes, ReactNode } from 'react';
-import {
-  MemoryRouter,
-  Route,
-  Routes,
-  useLocation
-} from 'react-router-dom';
+import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { describe, expect, it, vi } from 'vitest';
 import { ComplianceDocPage } from './ComplianceDocPage';
 
@@ -24,7 +19,9 @@ vi.mock('@/components/markdown-viewer/MarkdownWithToc', () => ({
     linkComponent
   }: {
     source: string;
-    linkComponent?: (props: AnchorHTMLAttributes<HTMLAnchorElement>) => ReactNode;
+    linkComponent?: (
+      props: AnchorHTMLAttributes<HTMLAnchorElement>
+    ) => ReactNode;
   }) => (
     <div>
       <div data-testid="markdown-preview">{source.slice(0, 24)}</div>
@@ -46,7 +43,10 @@ describe('ComplianceDocPage', () => {
     render(
       <MemoryRouter initialEntries={['/compliance/SOC2']}>
         <Routes>
-          <Route path="/compliance/:framework/*" element={<ComplianceDocPage />} />
+          <Route
+            path="/compliance/:framework/*"
+            element={<ComplianceDocPage />}
+          />
         </Routes>
       </MemoryRouter>
     );
@@ -62,7 +62,10 @@ describe('ComplianceDocPage', () => {
     render(
       <MemoryRouter initialEntries={['/compliance/SOC2']}>
         <Routes>
-          <Route path="/compliance/:framework/*" element={<ComplianceDocPage />} />
+          <Route
+            path="/compliance/:framework/*"
+            element={<ComplianceDocPage />}
+          />
         </Routes>
         <LocationDisplay />
       </MemoryRouter>
@@ -79,7 +82,10 @@ describe('ComplianceDocPage', () => {
     render(
       <MemoryRouter initialEntries={['/compliance/UNKNOWN']}>
         <Routes>
-          <Route path="/compliance/:framework/*" element={<ComplianceDocPage />} />
+          <Route
+            path="/compliance/:framework/*"
+            element={<ComplianceDocPage />}
+          />
         </Routes>
       </MemoryRouter>
     );
@@ -93,7 +99,10 @@ describe('ComplianceDocPage', () => {
     render(
       <MemoryRouter initialEntries={['/compliance/SOC2/not-a-real-doc.md']}>
         <Routes>
-          <Route path="/compliance/:framework/*" element={<ComplianceDocPage />} />
+          <Route
+            path="/compliance/:framework/*"
+            element={<ComplianceDocPage />}
+          />
         </Routes>
       </MemoryRouter>
     );

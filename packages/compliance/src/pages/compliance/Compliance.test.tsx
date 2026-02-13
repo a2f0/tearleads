@@ -25,7 +25,9 @@ describe('Compliance', () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole('heading', { name: 'Compliance' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Compliance' })
+    ).toBeInTheDocument();
     expect(screen.getByText('SOC 2')).toBeInTheDocument();
     expect(screen.getByText('HIPAA')).toBeInTheDocument();
     expect(screen.getByText('NIST SP 800-53')).toBeInTheDocument();

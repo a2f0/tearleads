@@ -23,7 +23,9 @@ describe('complianceCatalog', () => {
     const frameworkDocuments = getFrameworkDocuments('SOC2');
 
     expect(
-      frameworkDocuments.some((document) => document.docPath === 'POLICY_INDEX.md')
+      frameworkDocuments.some(
+        (document) => document.docPath === 'POLICY_INDEX.md'
+      )
     ).toBe(true);
 
     const policyIndex = getComplianceDocument('SOC2', 'POLICY_INDEX.md');

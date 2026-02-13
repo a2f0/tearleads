@@ -102,7 +102,10 @@ function buildComplianceDocuments(
   return documents;
 }
 
-function compareDocuments(a: ComplianceDocument, b: ComplianceDocument): number {
+function compareDocuments(
+  a: ComplianceDocument,
+  b: ComplianceDocument
+): number {
   if (a.docPath === DEFAULT_DOC_PATH && b.docPath !== DEFAULT_DOC_PATH) {
     return -1;
   }
@@ -133,7 +136,10 @@ function compareFrameworkIds(a: string, b: string): number {
   return a.localeCompare(b);
 }
 
-function buildComplianceDocumentRoute(frameworkId: string, docPath: string): string {
+function buildComplianceDocumentRoute(
+  frameworkId: string,
+  docPath: string
+): string {
   return `/compliance/${encodeURIComponent(frameworkId)}/${docPath}`;
 }
 
@@ -252,7 +258,9 @@ export function getComplianceFrameworks(): ComplianceFramework[] {
   });
 }
 
-export function getFrameworkDocuments(frameworkId: string): ComplianceDocument[] {
+export function getFrameworkDocuments(
+  frameworkId: string
+): ComplianceDocument[] {
   const frameworkDocuments = frameworkDocumentsById.get(frameworkId);
   if (!frameworkDocuments) {
     return [];
