@@ -1,6 +1,8 @@
 export type {
   DatabaseAdapter,
   DatabaseConfig,
+  DrizzleConnection,
+  DrizzleConnectionMethod,
   QueryResult
 } from './types.js';
 export {

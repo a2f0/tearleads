@@ -23,6 +23,14 @@ export interface QueryResult {
   lastInsertRowId?: number;
 }
 
+export type DrizzleConnectionMethod = 'all' | 'get' | 'run' | 'values';
+
+export type DrizzleConnection = (
+  sql: string,
+  params: unknown[],
+  method: DrizzleConnectionMethod
+) => Promise<{ rows: unknown[] }>;
+
 export interface DatabaseAdapter {
   /**
    * Initialize the database connection with encryption.
@@ -74,9 +82,8 @@ export interface DatabaseAdapter {
 
   /**
    * Get the raw database connection for Drizzle.
-   * The type varies by platform.
    */
-  getConnection(): unknown;
+  getConnection(): DrizzleConnection;
 
   /**
    * Delete the database file.
