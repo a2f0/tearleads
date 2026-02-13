@@ -15,7 +15,10 @@ const loadApi = async () => {
 
 type RecordedApiRequest = ReturnType<typeof getRecordedApiRequests>[number];
 
-const getRequestsFor = (method: string, pathname: string): RecordedApiRequest[] =>
+const getRequestsFor = (
+  method: string,
+  pathname: string
+): RecordedApiRequest[] =>
   getRecordedApiRequests().filter(
     (request) =>
       request.method === method.toUpperCase() && request.pathname === pathname
@@ -351,12 +354,16 @@ describe('api with msw', () => {
       cursor: '5',
       limit: '2'
     });
-    expectSingleRequestQuery('GET', '/admin/postgres/tables/public/users/rows', {
-      limit: '10',
-      offset: '20',
-      sortColumn: 'id',
-      sortDirection: 'desc'
-    });
+    expectSingleRequestQuery(
+      'GET',
+      '/admin/postgres/tables/public/users/rows',
+      {
+        limit: '10',
+        offset: '20',
+        sortColumn: 'id',
+        sortDirection: 'desc'
+      }
+    );
   });
 
   it('routes vfs and ai requests through msw', async () => {
