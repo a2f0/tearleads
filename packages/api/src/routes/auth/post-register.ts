@@ -82,14 +82,14 @@ export const postRegisterHandler = async (
   }
 
   if (payload.password.length < MIN_PASSWORD_LENGTH) {
-    // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
+    // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
     res.status(400).json({
       error: `Password must be at least ${MIN_PASSWORD_LENGTH} characters`
     });
     return;
   }
   if (!passwordMeetsComplexity(payload.password)) {
-    // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
+    // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
     res.status(400).json({
       error: PASSWORD_COMPLEXITY_ERROR
     });
