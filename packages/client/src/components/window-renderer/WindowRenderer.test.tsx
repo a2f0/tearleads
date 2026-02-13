@@ -268,6 +268,41 @@ vi.mock('@tearleads/keychain', () => ({
   )
 }));
 
+vi.mock('@tearleads/sync', () => ({
+  SyncWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`sync-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 400, height: 450 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/files-window', () => ({
   FilesWindow: ({
     id,
@@ -1529,6 +1564,18 @@ describe('WindowRenderer', () => {
       minimize: {
         testId: 'minimize-sqlite-1',
         dimensions: { x: 0, y: 0, width: 600, height: 500 }
+      }
+    },
+    {
+      label: 'sync',
+      type: 'sync',
+      id: 'sync-1',
+      windowTestId: 'sync-window-sync-1',
+      closeTestId: 'close-sync-1',
+      focusTestId: 'sync-window-sync-1',
+      minimize: {
+        testId: 'minimize-sync-1',
+        dimensions: { x: 0, y: 0, width: 400, height: 450 }
       }
     },
     {

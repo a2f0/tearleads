@@ -185,7 +185,7 @@ const Settings = lazy(() =>
   import('./pages/Settings').then((m) => ({ default: m.Settings }))
 );
 const Sync = lazy(() =>
-  import('./pages/Sync').then((m) => ({ default: m.Sync }))
+  import('@tearleads/sync').then((m) => ({ default: m.Sync }))
 );
 const Sqlite = lazy(() =>
   import('./pages/Sqlite').then((m) => ({ default: m.Sqlite }))

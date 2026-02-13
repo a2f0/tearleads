@@ -1,11 +1,11 @@
+import { LoginForm, RegisterForm } from '@client/components/auth';
+import { SessionList } from '@client/components/sessions';
+import { BackLink } from '@client/components/ui/back-link';
+import { Button } from '@client/components/ui/button';
+import { useAuth } from '@client/contexts/AuthContext';
+import { api } from '@client/lib/api';
 import { LogOut, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { LoginForm, RegisterForm } from '@/components/auth';
-import { SessionList } from '@/components/sessions';
-import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
-import { useAuth } from '@/contexts/AuthContext';
-import { api } from '@/lib/api';
 
 type AuthMode = 'login' | 'register';
 

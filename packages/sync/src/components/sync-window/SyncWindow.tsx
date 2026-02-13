@@ -1,7 +1,7 @@
+import type { WindowDimensions } from '@client/components/floating-window';
+import { FloatingWindow } from '@client/components/floating-window';
 import { WindowControlBar } from '@tearleads/window-manager';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
-import { Sync } from '@/pages/Sync';
+import { Sync } from '../../pages/sync';
 import { SyncWindowMenuBar } from './SyncWindowMenuBar';
 
 interface SyncWindowProps {

@@ -32,6 +32,7 @@
     "@tearleads/mls-chat",
     "@tearleads/notes",
     "@tearleads/search",
+    "@tearleads/sync",
     "@tearleads/terminal",
     "@tearleads/vfs-explorer"
   ],

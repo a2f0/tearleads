@@ -1,9 +1,9 @@
+import { AuthProvider } from '@client/contexts/AuthContext';
+import { createTestJwtExpiresIn } from '@client/test/jwt-test-utils';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AuthProvider } from '@/contexts/AuthContext';
-import { createTestJwtExpiresIn } from '@/test/jwt-test-utils';
 import { Sync } from './Sync';
 
 const mockLogin = vi.fn();
@@ -11,7 +11,7 @@ const mockLogout = vi.fn();
 const mockPingGet = vi.fn();
 const mockTryRefreshToken = vi.fn().mockResolvedValue(false);
 
-vi.mock('@/lib/api', () => ({
+vi.mock('@client/lib/api', () => ({
   api: {
     auth: {
       login: (...args: unknown[]) => mockLogin(...args),

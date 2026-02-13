@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { SyncWindow } from './SyncWindow';
 
 // Mock FloatingWindow
-vi.mock('@/components/floating-window', () => ({
+vi.mock('@client/components/floating-window', () => ({
   FloatingWindow: ({
     children,
     title,
@@ -36,7 +36,7 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 // Mock Sync component
-vi.mock('@/pages/Sync', () => ({
+vi.mock('../../pages/sync', () => ({
   Sync: ({ showBackLink }: { showBackLink?: boolean }) => (
     <div data-testid="sync-content">
       <span data-testid="sync-backlink">{showBackLink ? 'true' : 'false'}</span>

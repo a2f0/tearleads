@@ -37,6 +37,8 @@
       "@tearleads/notes": ["../notes/src/index.ts"],
       "@tearleads/search/package.json": ["../search/package.json"],
       "@tearleads/search": ["../search/src/index.ts"],
+      "@tearleads/sync/package.json": ["../sync/package.json"],
+      "@tearleads/sync": ["../sync/src/index.ts"],
       "@tearleads/terminal/package.json": ["../terminal/package.json"],
       "@tearleads/terminal": ["../terminal/src/index.ts"],
       "@tearleads/ui/package.json": ["../ui/package.json"],
