@@ -17,6 +17,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
 
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
@@ -37,6 +40,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install
+
+      - name: Apply CI version from source commit
+        id: ci_version
+        run: |
+          ./scripts/applyCiVersionFromSha.sh \
+            --source-sha "${{ github.sha }}" \
+            --apply \
+            --github-output "$GITHUB_OUTPUT"
 
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
@@ -147,10 +158,20 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Resolve CI version
+        id: ci_version
+        run: |
+          ./scripts/applyCiVersionFromSha.sh \
+            --source-sha "${{ github.sha }}" \
+            --github-output "$GITHUB_OUTPUT"
 
       - name: Resolve app version
         run: |
-          APP_VERSION=$(node -p "require('./packages/client/package.json').version")
+          APP_VERSION="${{ steps.ci_version.outputs.client_version }}"
           echo "APP_VERSION=$APP_VERSION" >> "$GITHUB_ENV"
 
       - name: Download desktop artifacts
