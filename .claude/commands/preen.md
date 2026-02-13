@@ -37,6 +37,7 @@ If you discover preen skills not in the registry below, STOP and:
 | `preen-split-react-components` | Split oversized React components into smaller files |
 | `preen-inefficient-resolution` | Fix cyclical imports and module resolution issues |
 | `preen-deferred-fixes` | Complete deferred follow-ups from merged PR reviews |
+| `preen-optimize-test-execution` | Tune CI impact analysis (workflow filters, package dependencies) |
 
 ## Workflow
 
