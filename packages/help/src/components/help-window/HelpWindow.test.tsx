@@ -99,6 +99,9 @@ describe('HelpWindow', () => {
     expect(screen.getByText('API Docs')).toBeInTheDocument();
     expect(screen.getByText('Developer')).toBeInTheDocument();
     expect(screen.getByText('Legal')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('help-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('navigates to API docs when clicking API Docs', async () => {
@@ -117,6 +120,7 @@ describe('HelpWindow', () => {
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
     expect(screen.getByTestId('api-docs')).toHaveTextContent('Client Docs');
+    expect(screen.getByTestId('help-window-control-back')).toBeInTheDocument();
   });
 
   it('navigates back to index from API docs view', async () => {
@@ -134,12 +138,16 @@ describe('HelpWindow', () => {
     // Navigate to API docs
     await user.click(screen.getByText('API Docs'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('API Docs');
+    expect(screen.getByTestId('help-window-control-back')).toBeInTheDocument();
 
-    // Navigate back to index
-    await user.click(screen.getByText('Back to Help'));
+    // Navigate back to index from the control bar
+    await user.click(screen.getByTestId('help-window-control-back'));
 
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
     expect(screen.queryByTestId('api-docs')).not.toBeInTheDocument();
+    expect(
+      screen.queryByTestId('help-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('navigates to documentation views when clicking docs links', async () => {
@@ -160,7 +168,7 @@ describe('HelpWindow', () => {
       await user.click(screen.getByText(label));
       expect(screen.getByTestId('window-title')).toHaveTextContent(title);
       expect(screen.getByTestId('help-documentation')).toHaveTextContent(docId);
-      await user.click(screen.getByText('Back to Help'));
+      await user.click(screen.getByTestId('help-window-control-back'));
     }
   });
 
@@ -180,7 +188,7 @@ describe('HelpWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Developer');
     expect(screen.getByText('CI')).toBeInTheDocument();
 
-    await user.click(screen.getByText('Back to Help'));
+    await user.click(screen.getByTestId('help-window-control-back'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
   });
 
@@ -201,7 +209,7 @@ describe('HelpWindow', () => {
     expect(screen.getByText('Privacy Policy')).toBeInTheDocument();
     expect(screen.getByText('Terms of Service')).toBeInTheDocument();
 
-    await user.click(screen.getByText('Back to Help'));
+    await user.click(screen.getByTestId('help-window-control-back'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
   });
 
@@ -236,7 +244,7 @@ describe('HelpWindow', () => {
       await user.click(screen.getByText(label));
       expect(screen.getByTestId('window-title')).toHaveTextContent(title);
       expect(screen.getByTestId('help-documentation')).toHaveTextContent(docId);
-      await user.click(screen.getByText('Back to Help'));
+      await user.click(screen.getByTestId('help-window-control-back'));
     }
   });
 });

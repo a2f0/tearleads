@@ -16,6 +16,22 @@ export {
   type WindowContextMenuItemProps
 } from './WindowContextMenuItem.js';
 export {
+  WindowControlBar,
+  type WindowControlBarProps
+} from './WindowControlBar.js';
+export {
+  WindowControlButton,
+  type WindowControlButtonProps
+} from './WindowControlButton.js';
+export {
+  WindowControlDivider,
+  type WindowControlDividerProps
+} from './WindowControlDivider.js';
+export {
+  WindowControlGroup,
+  type WindowControlGroupProps
+} from './WindowControlGroup.js';
+export {
   WindowPaneState,
   type WindowPaneStateProps
 } from './WindowPaneState.js';

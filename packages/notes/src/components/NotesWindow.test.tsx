@@ -17,6 +17,24 @@ import { NotesWindow } from './NotesWindow';
 vi.mock('@tearleads/window-manager', () => ({
   FloatingWindow: ({ children }: { children: ReactNode }) => (
     <div data-testid="floating-window">{children}</div>
+  ),
+  WindowControlBar: ({ children }: { children: ReactNode }) => (
+    <div data-testid="control-bar">{children}</div>
+  ),
+  WindowControlGroup: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  WindowControlButton: ({
+    children,
+    onClick,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" onClick={onClick} {...props}>
+      {children}
+    </button>
+  ),
+  WindowPaneState: ({ title }: { title: string }) => (
+    <div data-testid="window-pane-state">{title}</div>
   )
 }));
 
@@ -120,5 +138,19 @@ describe('NotesWindow', () => {
   it('renders the View dropdown menu', () => {
     renderNotesWindow({ isUnlocked: false });
     expect(screen.getByTestId('dropdown-view')).toBeInTheDocument();
+  });
+
+  it('renders control bar with disabled New action when locked', () => {
+    renderNotesWindow({ isUnlocked: false });
+    expect(screen.getByTestId('control-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('notes-window-control-new')).toBeDisabled();
+  });
+
+  it('renders enabled New action when unlocked', () => {
+    renderNotesWindow({ isUnlocked: true });
+
+    const newButton = screen.getByTestId('notes-window-control-new');
+    expect(newButton).toBeEnabled();
+    expect(screen.getByTestId('control-bar')).toBeInTheDocument();
   });
 });

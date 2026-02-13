@@ -122,17 +122,21 @@ vi.mock('./FilesWindowContent', () => ({
     ({
       showDeleted,
       showDropzone,
+      refreshToken,
       ref,
       onSelectFile,
-      onStatusTextChange
+      onStatusTextChange,
+      onUploadInProgressChange
     }: {
       showDeleted: boolean;
       showDropzone: boolean;
+      refreshToken?: number;
       ref?: React.RefObject<{
         uploadFiles: (files: File[]) => void;
       } | null>;
       onSelectFile?: (fileId: string) => void;
       onStatusTextChange?: (text: string) => void;
+      onUploadInProgressChange?: (inProgress: boolean) => void;
     }) => {
       // Simulate forwardRef behavior by exposing uploadFiles
       if (ref) {
@@ -149,6 +153,25 @@ vi.mock('./FilesWindowContent', () => ({
           <span data-testid="content-show-dropzone">
             {showDropzone ? 'true' : 'false'}
           </span>
+          <span data-testid="content-refresh-token">{refreshToken}</span>
+          {onUploadInProgressChange && (
+            <>
+              <button
+                type="button"
+                data-testid="set-upload-in-progress"
+                onClick={() => onUploadInProgressChange(true)}
+              >
+                Set Upload In Progress
+              </button>
+              <button
+                type="button"
+                data-testid="clear-upload-in-progress"
+                onClick={() => onUploadInProgressChange(false)}
+              >
+                Clear Upload In Progress
+              </button>
+            </>
+          )}
           {onSelectFile && (
             <button
               type="button"
@@ -214,6 +237,19 @@ describe('FilesWindow', () => {
   it('renders menu bar', () => {
     render(<FilesWindow {...defaultProps} />);
     expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+  });
+
+  it('renders control bar actions in list view', () => {
+    render(<FilesWindow {...defaultProps} />);
+    expect(
+      screen.getByTestId('files-window-control-upload')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('files-window-control-refresh')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('files-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('renders files content', () => {
@@ -303,6 +339,47 @@ describe('FilesWindow', () => {
     await user.click(screen.getByTestId('upload-button'));
 
     expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('triggers file input when control bar upload is clicked', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId('file-input');
+    const clickSpy = vi.spyOn(fileInput, 'click');
+
+    await user.click(screen.getByTestId('files-window-control-upload'));
+
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('refreshes list content when control bar refresh is clicked', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    expect(screen.getByTestId('content-refresh-token')).toHaveTextContent('0');
+
+    await user.click(screen.getByTestId('files-window-control-refresh'));
+
+    expect(screen.getByTestId('content-refresh-token')).toHaveTextContent('1');
+  });
+
+  it('disables control bar upload and refresh while upload is in progress', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    const uploadButton = screen.getByTestId('files-window-control-upload');
+    const refreshButton = screen.getByTestId('files-window-control-refresh');
+
+    expect(uploadButton).toBeEnabled();
+    expect(refreshButton).toBeEnabled();
+
+    await user.click(screen.getByTestId('set-upload-in-progress'));
+
+    await waitFor(() => {
+      expect(uploadButton).toBeDisabled();
+      expect(refreshButton).toBeDisabled();
+    });
   });
 
   it('handles file input change with files', () => {
@@ -443,6 +520,19 @@ describe('FilesWindow', () => {
     expect(screen.queryByTestId('files-detail')).not.toBeInTheDocument();
     expect(screen.getByTestId('files-content')).toBeInTheDocument();
     expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
+  });
+
+  it('returns to list view when control bar back is clicked', async () => {
+    const user = userEvent.setup();
+    render(<FilesWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-file-button'));
+    expect(screen.getByTestId('files-window-control-back')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('files-window-control-back'));
+
+    expect(screen.queryByTestId('files-detail')).not.toBeInTheDocument();
+    expect(screen.getByTestId('files-content')).toBeInTheDocument();
   });
 
   it('returns to list view when file is deleted', async () => {

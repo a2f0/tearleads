@@ -1,12 +1,16 @@
-import { WindowStatusBar } from '@tearleads/window-manager';
-import { ArrowLeft } from 'lucide-react';
+import {
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup,
+  WindowStatusBar
+} from '@tearleads/window-manager';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { DatabaseTest } from '@/components/sqlite/DatabaseTest';
 import { TableRowsView } from '@/components/sqlite/TableRowsView';
 import { TableSizes } from '@/components/sqlite/TableSizes';
-import { Button } from '@/components/ui/button';
 import { SqliteWindowMenuBar } from './SqliteWindowMenuBar';
 
 interface SqliteWindowProps {
@@ -81,6 +85,30 @@ export function SqliteWindow({
           exportCsvDisabled={!exportHandler || exportingCsv}
           showExportCsv={Boolean(selectedTable)}
         />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {selectedTable ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={() => {
+                  setSelectedTable(null);
+                  setTableStatusText(defaultStatusText);
+                }}
+                data-testid="sqlite-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            ) : (
+              <WindowControlButton
+                icon={<RefreshCw className="h-3 w-3" />}
+                onClick={handleRefresh}
+                data-testid="sqlite-window-control-refresh"
+              >
+                Refresh
+              </WindowControlButton>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="flex min-h-0 flex-1 flex-col p-4">
           {selectedTable ? (
             <TableRowsView
@@ -89,22 +117,6 @@ export function SqliteWindow({
               containerClassName="flex min-h-0 flex-1 flex-col space-y-4 overflow-hidden"
               showInlineStatus={false}
               onExportCsvChange={handleExportCsvChange}
-              backLink={
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2"
-                  onClick={() => {
-                    setSelectedTable(null);
-                    setTableStatusText(defaultStatusText);
-                  }}
-                  aria-label="Back to SQLite"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="sr-only">Back to SQLite</span>
-                </Button>
-              }
               onStatusTextChange={setTableStatusText}
             />
           ) : (

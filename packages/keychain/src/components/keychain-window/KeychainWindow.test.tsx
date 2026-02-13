@@ -22,6 +22,21 @@ vi.mock('@tearleads/window-manager', () => ({
       </button>
       {children}
     </div>
+  ),
+  WindowControlBar: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="control-bar">{children}</div>
+  ),
+  WindowControlGroup: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  WindowControlButton: ({
+    children,
+    onClick,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" onClick={onClick} {...props}>
+      {children}
+    </button>
   )
 }));
 
@@ -132,6 +147,14 @@ describe('KeychainWindow', () => {
     expect(screen.getByTestId('keychain-content')).toBeInTheDocument();
   });
 
+  it('renders control bar refresh action in list view', () => {
+    render(<KeychainWindow {...defaultProps} />);
+    expect(screen.getByTestId('control-bar')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('keychain-window-control-refresh')
+    ).toBeInTheDocument();
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -169,6 +192,14 @@ describe('KeychainWindow', () => {
     );
   });
 
+  it('calls refresh from the control bar refresh action', async () => {
+    const user = userEvent.setup();
+    render(<KeychainWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('keychain-window-control-refresh'));
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
   it('returns to list after closing detail view', async () => {
     const user = userEvent.setup();
     render(<KeychainWindow {...defaultProps} />);
@@ -177,6 +208,19 @@ describe('KeychainWindow', () => {
     expect(screen.getByTestId('keychain-detail')).toBeInTheDocument();
 
     await user.click(screen.getByTestId('detail-back'));
+    expect(screen.getByTestId('keychain-content')).toBeInTheDocument();
+  });
+
+  it('returns to list from control bar back action in detail view', async () => {
+    const user = userEvent.setup();
+    render(<KeychainWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('open-detail'));
+    expect(
+      screen.getByTestId('keychain-window-control-back')
+    ).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('keychain-window-control-back'));
     expect(screen.getByTestId('keychain-content')).toBeInTheDocument();
   });
 });

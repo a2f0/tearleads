@@ -57,6 +57,10 @@ export function AudioWindow({
     fileInputRef.current?.click();
   }, []);
 
+  const handleRefresh = useCallback(() => {
+    setRefreshToken((value) => value + 1);
+  }, []);
+
   // Handler for uploading files with optional target playlist override
   const handleUploadFilesToPlaylist = useCallback(
     async (files: File[], targetPlaylistId?: string | null) => {
@@ -176,6 +180,7 @@ export function AudioWindow({
       <AudioWindowContent
         onClose={onClose}
         onUpload={handleUpload}
+        onRefresh={handleRefresh}
         view={view}
         onViewChange={setView}
         showDeleted={showDeleted}

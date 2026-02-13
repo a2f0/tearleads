@@ -20,6 +20,7 @@ interface ContactsWindowContentProps {
   onGroupSelect: (groupId: string | null) => void;
   onGroupChanged: () => void;
   onDropToGroup: (groupId: string, contactIds: string[]) => Promise<void>;
+  controlBar?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -38,6 +39,7 @@ export function ContactsWindowContent({
   onGroupSelect,
   onGroupChanged,
   onDropToGroup,
+  controlBar,
   children
 }: ContactsWindowContentProps) {
   return (
@@ -51,6 +53,7 @@ export function ContactsWindowContent({
         isNewContactDisabled={isNewContactDisabled}
         isImportDisabled={isImportDisabled}
       />
+      {controlBar}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {isUnlocked && (
           <ContactsGroupsSidebar

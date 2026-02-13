@@ -60,6 +60,7 @@ export interface FilesListProps {
   onStatusTextChange?: (text: string) => void;
   refreshToken?: number;
   onUpload?: () => void;
+  onUploadInProgressChange?: (inProgress: boolean) => void;
 }
 
 export const FilesList = forwardRef<FilesListRef, FilesListProps>(
@@ -74,7 +75,8 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
       onSelectFile,
       onStatusTextChange,
       refreshToken,
-      onUpload
+      onUpload,
+      onUploadInProgressChange
     },
     ref
   ) {
@@ -101,6 +103,20 @@ export const FilesList = forwardRef<FilesListRef, FilesListProps>(
       y: number;
     } | null>(null);
     const audioObjectUrlRef = useRef<string | null>(null);
+    const isUploadInProgress = uploadingFiles.some(
+      (entry) => entry.status === 'pending' || entry.status === 'uploading'
+    );
+
+    useEffect(() => {
+      onUploadInProgressChange?.(isUploadInProgress);
+    }, [isUploadInProgress, onUploadInProgressChange]);
+
+    useEffect(
+      () => () => {
+        onUploadInProgressChange?.(false);
+      },
+      [onUploadInProgressChange]
+    );
 
     useEffect(() => {
       return () => {

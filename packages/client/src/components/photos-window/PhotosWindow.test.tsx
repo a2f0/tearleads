@@ -117,7 +117,8 @@ vi.mock('./PhotosWindowMenuBar', () => ({
 vi.mock('./PhotosWindowContent', () => ({
   PhotosWindowContent: ({
     onSelectPhoto,
-    showDeleted
+    showDeleted,
+    refreshToken
   }: {
     onSelectPhoto?: (photoId: string) => void;
     refreshToken: number;
@@ -129,6 +130,7 @@ vi.mock('./PhotosWindowContent', () => ({
       <span data-testid="content-show-deleted">
         {showDeleted ? 'true' : 'false'}
       </span>
+      <span data-testid="content-refresh-token">{refreshToken}</span>
       <button
         type="button"
         onClick={() => onSelectPhoto?.('photo-123')}
@@ -300,6 +302,19 @@ describe('PhotosWindow', () => {
     expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
   });
 
+  it('renders control bar actions in list view', () => {
+    render(<PhotosWindow {...defaultProps} />);
+    expect(
+      screen.getByTestId('photos-window-control-upload')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('photos-window-control-refresh')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('photos-window-control-back')
+    ).not.toBeInTheDocument();
+  });
+
   it('toggles showDropzone from the menu', async () => {
     const user = userEvent.setup();
     render(<PhotosWindow {...defaultProps} />);
@@ -376,6 +391,18 @@ describe('PhotosWindow', () => {
     expect(clickSpy).toHaveBeenCalled();
   });
 
+  it('triggers file input when control bar upload button is clicked', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId('photo-file-input');
+    const clickSpy = vi.spyOn(fileInput, 'click');
+
+    await user.click(screen.getByTestId('photos-window-control-upload'));
+
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
   it('calls refresh when refresh button is clicked', async () => {
     const user = userEvent.setup();
     render(<PhotosWindow {...defaultProps} />);
@@ -383,6 +410,17 @@ describe('PhotosWindow', () => {
     await user.click(screen.getByTestId('refresh-button'));
 
     expect(screen.getByTestId('photos-content')).toBeInTheDocument();
+  });
+
+  it('refreshes content when control bar refresh is clicked', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    expect(screen.getByTestId('content-refresh-token')).toHaveTextContent('0');
+
+    await user.click(screen.getByTestId('photos-window-control-refresh'));
+
+    expect(screen.getByTestId('content-refresh-token')).toHaveTextContent('1');
   });
 
   it('handles file input change with files', async () => {
@@ -485,6 +523,26 @@ describe('PhotosWindow', () => {
     await user.click(screen.getByTestId('detail-delete-button'));
 
     // Should return to content view
+    await waitFor(() => {
+      expect(screen.queryByTestId('photos-detail')).not.toBeInTheDocument();
+      expect(screen.getByTestId('photos-content')).toBeInTheDocument();
+    });
+  });
+
+  it('returns to content view when control bar back is clicked', async () => {
+    const user = userEvent.setup();
+    render(<PhotosWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-photo-button'));
+    await waitFor(() => {
+      expect(screen.getByTestId('photos-detail')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('photos-window-control-back')
+      ).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('photos-window-control-back'));
+
     await waitFor(() => {
       expect(screen.queryByTestId('photos-detail')).not.toBeInTheDocument();
       expect(screen.getByTestId('photos-content')).toBeInTheDocument();

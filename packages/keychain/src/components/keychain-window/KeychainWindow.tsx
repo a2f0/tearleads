@@ -1,5 +1,11 @@
 import type { WindowDimensions } from '@tearleads/window-manager';
-import { FloatingWindow } from '@tearleads/window-manager';
+import {
+  FloatingWindow,
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindowContent } from './KeychainWindowContent';
@@ -62,6 +68,27 @@ export function KeychainWindow({
     >
       <div className="flex h-full flex-col">
         <KeychainWindowMenuBar onRefresh={handleRefresh} onClose={onClose} />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {selectedInstanceId ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={handleCloseDetail}
+                data-testid="keychain-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            ) : (
+              <WindowControlButton
+                icon={<RefreshCw className="h-3 w-3" />}
+                onClick={handleRefresh}
+                data-testid="keychain-window-control-refresh"
+              >
+                Refresh
+              </WindowControlButton>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {selectedInstanceId ? (
             <KeychainWindowDetail

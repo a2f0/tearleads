@@ -3,7 +3,12 @@ import { FloatingWindow } from '@client/components/floating-window';
 import { ClientTerminal } from '@client/components/terminal';
 import { HelpDocumentation } from '@tearleads/help';
 import { cn } from '@tearleads/ui';
-import { X } from 'lucide-react';
+import {
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
+import { ArrowLeft, Columns2, Plus, Rows2, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { ConsoleWindowMenuBar } from './ConsoleWindowMenuBar';
 
@@ -150,6 +155,43 @@ export function ConsoleWindow({
           onSplitVertical={handleSplitVertical}
           onOpenDocumentation={() => setShowDocumentation(true)}
         />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {showDocumentation ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={() => setShowDocumentation(false)}
+                data-testid="console-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            ) : (
+              <>
+                <WindowControlButton
+                  icon={<Plus className="h-3 w-3" />}
+                  onClick={handleNewTab}
+                  data-testid="console-window-control-new-tab"
+                >
+                  New Tab
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<Rows2 className="h-3 w-3" />}
+                  onClick={handleSplitHorizontal}
+                  data-testid="console-window-control-split-horizontal"
+                >
+                  Split H
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<Columns2 className="h-3 w-3" />}
+                  onClick={handleSplitVertical}
+                  data-testid="console-window-control-split-vertical"
+                >
+                  Split V
+                </WindowControlButton>
+              </>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         {showDocumentation ? (
           <div className="flex-1 overflow-auto p-4">
             <div className="space-y-4">

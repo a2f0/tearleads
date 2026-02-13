@@ -1,10 +1,13 @@
 import {
   FloatingWindow,
   WINDOW_TABLE_TYPOGRAPHY,
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup,
   type WindowDimensions,
   WindowTableRow
 } from '@tearleads/window-manager';
-import { Loader2, Mail, X } from 'lucide-react';
+import { ArrowLeft, Edit, Loader2, Mail, RefreshCw, X } from 'lucide-react';
 import { type ReactNode, useCallback, useEffect, useState } from 'react';
 import { useHasEmailFolderOperations } from '../context/EmailContext.js';
 import { useEmails } from '../hooks';
@@ -99,6 +102,11 @@ export function EmailWindow({
     []
   );
 
+  const handleBackToInbox = useCallback(() => {
+    setSelectedEmailId(null);
+    setActiveTab('inbox');
+  }, []);
+
   const handleEmailSent = useCallback(() => {
     fetchEmails();
     closeComposeTab();
@@ -157,6 +165,44 @@ export function EmailWindow({
           onClose={onClose}
           onCompose={handleCompose}
         />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {selectedEmailId ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={handleBackToInbox}
+                data-testid="email-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            ) : activeTab === 'compose' ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={closeComposeTab}
+                data-testid="email-window-control-close-compose"
+              >
+                Inbox
+              </WindowControlButton>
+            ) : (
+              <>
+                <WindowControlButton
+                  icon={<Edit className="h-3 w-3" />}
+                  onClick={handleCompose}
+                  data-testid="email-window-control-compose"
+                >
+                  Compose
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<RefreshCw className="h-3 w-3" />}
+                  onClick={fetchEmails}
+                  data-testid="email-window-control-refresh"
+                >
+                  Refresh
+                </WindowControlButton>
+              </>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="flex flex-1 overflow-hidden">
           {isUnlocked && hasFolderOperations && (
             <EmailFoldersSidebar
@@ -249,13 +295,6 @@ export function EmailWindow({
               ) : selectedEmailId && selectedEmail ? (
                 <div className="flex h-full flex-col">
                   <div className="border-b p-3">
-                    <button
-                      type="button"
-                      onClick={() => setSelectedEmailId(null)}
-                      className="mb-2 text-muted-foreground text-xs hover:text-foreground"
-                    >
-                      &larr; Back to Inbox
-                    </button>
                     <h2 className="font-medium text-sm">
                       {selectedEmail.subject || '(No Subject)'}
                     </h2>
