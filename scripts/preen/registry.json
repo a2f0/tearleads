@@ -63,11 +63,11 @@
       "qualityMetric": "N+1 loop/query anti-pattern matches",
       "security": false,
       "discoveryCommands": [
-        "rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\\s*\\([^)]*\\)\\s*\\{[^{}]{0,400}?await\\s+[^\\n;]*db\\.(select|query|execute)' packages | head -40 || true",
+        "rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\\s*\\([^)]*\\)\\s*\\{.{0,400}?await\\s+[^\\n;]*db\\.(select|query|execute)' packages | head -40 || true",
         "rg -n --glob '*.{ts,tsx}' '\\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\\(' packages | head -40 || true",
         "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'withRealDatabase\\(|createTestDatabase\\(' packages | head -40 || true"
       ],
-      "metricCountCommand": "rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\\s*\\([^)]*\\)\\s*\\{[^{}]{0,400}?await\\s+[^\\n;]*db\\.(select|query|execute)' packages | wc -l"
+      "metricCountCommand": "rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\\s*\\([^)]*\\)\\s*\\{.{0,400}?await\\s+[^\\n;]*db\\.(select|query|execute)' packages | wc -l"
     },
     {
       "id": "preen-api-security",

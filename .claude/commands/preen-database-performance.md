@@ -21,7 +21,7 @@ Start by finding likely hotspots and existing real-db tests you can extend:
 
 ```bash
 # N+1 pattern: query calls inside loops
-rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{[^{}]{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
+rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
 
 # Join-heavy query builders to inspect for poor predicates/index coverage
 rg -n --glob '*.{ts,tsx}' '\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\(' packages | head -40 || true
@@ -187,7 +187,7 @@ pnpm exec tsx scripts/ciImpact/runImpactedTests.ts >/dev/null
 ## Token Efficiency
 
 ```bash
-rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{[^{}]{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
+rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
 rg -n --glob '*.{ts,tsx}' '\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\(' packages | head -40 || true
 pnpm vitest run <path-to-performance-test>
 pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts >/dev/null

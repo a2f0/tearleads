@@ -168,7 +168,7 @@ run_discovery() {
       pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40
       ;;
     preen-database-performance)
-      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{[^{}]{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
+      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
       rg -n --glob '*.{ts,tsx}' '\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\(' packages | head -40 || true
       rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'withRealDatabase\(|createTestDatabase\(' packages | head -40 || true
       ;;
@@ -207,7 +207,7 @@ metric_count() {
       pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
       ;;
     preen-database-performance)
-      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{[^{}]{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | wc -l
+      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | wc -l
       ;;
     preen-api-security)
       rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l
