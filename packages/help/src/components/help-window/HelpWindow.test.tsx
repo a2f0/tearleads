@@ -82,6 +82,11 @@ describe('HelpWindow', () => {
       docId: 'backupRestore'
     },
     {
+      label: 'VFS',
+      title: 'VFS',
+      docId: 'vfs'
+    },
+    {
       label: 'Tuxedo',
       title: 'Tuxedo',
       docId: 'tuxedo'

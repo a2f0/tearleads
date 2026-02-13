@@ -7,7 +7,8 @@ export type HelpDocId =
   | 'tuxedo'
   | 'ci'
   | 'privacyPolicy'
-  | 'termsOfService';
+  | 'termsOfService'
+  | 'vfs';
 
 const HELP_DOC_ROUTE_SEGMENTS: Record<HelpDocId, string> = {
   cli: 'cli',
@@ -18,7 +19,8 @@ const HELP_DOC_ROUTE_SEGMENTS: Record<HelpDocId, string> = {
   tuxedo: 'tuxedo',
   ci: 'ci',
   privacyPolicy: 'privacy-policy',
-  termsOfService: 'terms-of-service'
+  termsOfService: 'terms-of-service',
+  vfs: 'vfs'
 };
 
 const HELP_DOC_LABELS: Record<HelpDocId, string> = {
@@ -30,7 +32,8 @@ const HELP_DOC_LABELS: Record<HelpDocId, string> = {
   tuxedo: 'Tuxedo',
   ci: 'CI',
   privacyPolicy: 'Privacy Policy',
-  termsOfService: 'Terms of Service'
+  termsOfService: 'Terms of Service',
+  vfs: 'VFS'
 };
 
 const HELP_DOC_IDS_BY_ROUTE_SEGMENT: Record<string, HelpDocId> = {
@@ -42,7 +45,8 @@ const HELP_DOC_IDS_BY_ROUTE_SEGMENT: Record<string, HelpDocId> = {
   [HELP_DOC_ROUTE_SEGMENTS.tuxedo]: 'tuxedo',
   [HELP_DOC_ROUTE_SEGMENTS.ci]: 'ci',
   [HELP_DOC_ROUTE_SEGMENTS.privacyPolicy]: 'privacyPolicy',
-  [HELP_DOC_ROUTE_SEGMENTS.termsOfService]: 'termsOfService'
+  [HELP_DOC_ROUTE_SEGMENTS.termsOfService]: 'termsOfService',
+  [HELP_DOC_ROUTE_SEGMENTS.vfs]: 'vfs'
 };
 
 export function getHelpDocRouteSegment(docId: HelpDocId): string {

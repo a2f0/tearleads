@@ -5,6 +5,7 @@ import backupRestoreDocumentationEn from '../../../../docs/en/backup-restore.md?
 import chromeExtensionDocumentationEn from '../../../../docs/en/chrome-extension.md?raw';
 import cliReferenceDocumentationEn from '../../../../docs/en/cli-reference.md?raw';
 import cliDocumentationEn from '../../../../docs/en/getting-started.md?raw';
+import vfsDocumentationEn from '../../../../docs/en/vfs.md?raw';
 
 interface SearchableHelpDocDefinition {
   id: HelpDocId;
@@ -34,6 +35,11 @@ const SEARCHABLE_HELP_DOCS: SearchableHelpDocDefinition[] = [
     id: 'backupRestore',
     keywords: [...COMMON_KEYWORDS, 'backup', 'restore'],
     content: backupRestoreDocumentationEn
+  },
+  {
+    id: 'vfs',
+    keywords: [...COMMON_KEYWORDS, 'virtual filesystem', 'sharing', 'crypto'],
+    content: vfsDocumentationEn
   }
 ];
 
