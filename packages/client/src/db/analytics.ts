@@ -2,13 +2,13 @@
  * Analytics logging module for tracking database operations.
  */
 
+import type { Database } from '@tearleads/db/sqlite';
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import type {
   AnalyticsEventDetail,
   AnalyticsEventSlug,
   EventDetailMap
 } from './analytics-events';
-import type { Database } from './index';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 import { analyticsEvents } from './schema';
 

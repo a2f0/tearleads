@@ -19,7 +19,7 @@ import {
   useRef,
   useState
 } from 'react';
-import { useDatabaseOptional } from './hooks';
+import { useDatabaseOptional } from './hooks/useDatabase';
 import type { SettingValueMap, UserSettingKey } from './user-settings';
 import {
   dispatchSettingsSyncedEvent,

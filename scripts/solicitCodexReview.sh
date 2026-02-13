@@ -40,4 +40,4 @@ fi
 
 # Run Codex review in non-interactive mode (outputs to stdout)
 # --base and [PROMPT] are mutually exclusive; use --base for the diff, --title for context
-"$ROOT_DIR/scripts/codex.sh" review --base main --title "PR #$PR_NUMBER ($BRANCH)"
+CODEX_HOME="$ROOT_DIR/.claude/commands" codex review --base main --title "PR #$PR_NUMBER ($BRANCH)"
