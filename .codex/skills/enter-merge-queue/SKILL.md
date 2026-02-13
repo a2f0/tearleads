@@ -197,7 +197,8 @@ actual_wait = base_wait × (0.8 + random() × 0.4)
    - Use `/address-gemini-feedback` and `/follow-up-with-gemini`.
    - Reply **only inside the review thread**:
      - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
-     - Reply in-thread: `gh api -X POST /repos/$REPO/pulls/<pr-number>/comments -F in_reply_to=<comment_id> -f body="...@gemini-code-assist ..."`
+     - Fixed-comment reply: `./scripts/agents/tooling/agentTool.sh replyToGemini --number <pr-number> --comment-id <comment_id> --commit <sha>`
+     - Custom-comment reply: `./scripts/agents/tooling/agentTool.sh replyToComment --number <pr-number> --comment-id <comment_id> --body "...@gemini-code-assist ..."`
    - **Never reply in the PR body or top-level PR comments** for review feedback.
      - Do **not** use `gh pr edit --body` or `gh pr comment` to answer reviewer feedback.
      - Do **not** use issue comments (`/repos/$REPO/issues/<pr-number>/comments`) for review feedback.

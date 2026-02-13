@@ -85,21 +85,23 @@ Always pass `-R "$REPO"` to `gh` commands.
    gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=OWNER -f repo=REPO -F pr=$PR_NUMBER
    ```
 
-4. For each unresolved comment that has been addressed and pushed (verified in step 2), reply using the REST API:
+4. For each unresolved comment that has been addressed and pushed (verified in step 2), reply using the parameterized agent tool action:
 
    ```bash
-   gh api repos/$REPO/pulls/$PR_NUMBER/comments/<comment_database_id>/replies \
-     -f body="Fixed in commit <sha>. @gemini-code-assist Please confirm this addresses your feedback."
+   ./scripts/agents/tooling/agentTool.sh replyToGemini \
+     --number "$PR_NUMBER" \
+     --comment-id <comment_database_id> \
+     --commit <sha>
    ```
 
-   - Include the commit SHA that fixed the issue
-   - Tag @gemini-code-assist and ask for confirmation
+   - `replyToGemini` guarantees the reply includes `@gemini-code-assist` and the commit SHA
+   - Use the exact commit SHA that fixed the issue
 
    If deferring to an issue:
-   - Example: "@gemini-code-assist Tracked in #456 for follow-up. This is out of scope for the current PR."
+   - Example: `./scripts/agents/tooling/agentTool.sh replyToComment --number "$PR_NUMBER" --comment-id <comment_database_id> --body "@gemini-code-assist Tracked in #456 for follow-up. This is out of scope for the current PR."`
 
    If explaining why feedback doesn't apply:
-   - Example: "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"
+   - Example: `./scripts/agents/tooling/agentTool.sh replyToComment --number "$PR_NUMBER" --comment-id <comment_database_id> --body "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"`
 
 5. Do NOT comment on the main PR thread. Only reply inside discussion threads.
 

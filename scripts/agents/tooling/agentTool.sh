@@ -27,6 +27,7 @@ Actions:
   getPrInfo                Get PR info (number, state, merge status, etc.)
   getReviewThreads         Fetch review threads via GraphQL
   replyToComment           Reply to a PR review comment in-thread
+  replyToGemini            Reply to Gemini with standardized commit-hash message
   resolveThread            Resolve a review thread
   getCiStatus              Get workflow run and job statuses
   cancelWorkflow           Cancel a workflow run
@@ -43,14 +44,14 @@ Actions:
 Options:
   --title <value>          Title to set (optional for setVscodeTitle)
   --type <pr|issue>        Target type for addLabel (required for addLabel)
-  --number <n>             PR or issue number (for addLabel, getReviewThreads, replyToComment)
+  --number <n>             PR or issue number (for addLabel, getReviewThreads, replyToComment, replyToGemini)
   --label <name>           Label name for addLabel (required for addLabel)
   --fields <list>          Comma-separated fields for getPrInfo (default: number,state,mergeStateStatus)
   --unresolved-only        Only return unresolved threads (for getReviewThreads)
-  --comment-id <id>        Comment database ID (for replyToComment)
+  --comment-id <id>        Comment database ID (for replyToComment, replyToGemini)
   --body <text>            Comment body (for replyToComment)
   --thread-id <id>         Thread node ID (for resolveThread)
-  --commit <sha>           Commit SHA (for getCiStatus)
+  --commit <sha>           Commit SHA (for getCiStatus, replyToGemini)
   --run-id <id>            Workflow run ID (for getCiStatus, cancelWorkflow, rerunWorkflow, downloadArtifact)
   --artifact <name>        Artifact name (for downloadArtifact)
   --dest <path>            Destination path (for downloadArtifact)
@@ -80,6 +81,14 @@ is_positive_int() {
         0) return 1 ;;
         *) return 0 ;;
     esac
+}
+
+is_sha_like() {
+    case "$1" in
+        ''|*[!0-9a-fA-F]*) return 1 ;;
+    esac
+    SHA_LEN=${#1}
+    [ "$SHA_LEN" -ge 7 ] && [ "$SHA_LEN" -le 40 ]
 }
 
 # Handle --help/-h before requiring an action
@@ -230,7 +239,7 @@ done
 
 case "$ACTION" in
     refresh|setVscodeTitle|solicitCodexReview|solicitClaudeCodeReview|addLabel|approveSkippedChecks|tagPrWithTuxedoInstance) ;;
-    getPrInfo|getReviewThreads|replyToComment|resolveThread|getCiStatus|cancelWorkflow|rerunWorkflow) ;;
+    getPrInfo|getReviewThreads|replyToComment|replyToGemini|resolveThread|getCiStatus|cancelWorkflow|rerunWorkflow) ;;
     downloadArtifact|enableAutoMerge|findPrForBranch|listHighPriorityPrs|triggerGeminiReview|findDeferredWork) ;;
     *)
         echo "Error: Unknown action '$ACTION'." >&2
@@ -292,6 +301,26 @@ if [ "$ACTION" = "replyToComment" ]; then
     fi
     if [ -z "$BODY" ]; then
         echo "Error: replyToComment requires --body." >&2
+        exit 1
+    fi
+fi
+
+# replyToGemini requires --number, --comment-id, and --commit
+if [ "$ACTION" = "replyToGemini" ]; then
+    if [ -z "$LABEL_NUMBER" ]; then
+        echo "Error: replyToGemini requires --number (PR number)." >&2
+        exit 1
+    fi
+    if [ -z "$COMMENT_ID" ]; then
+        echo "Error: replyToGemini requires --comment-id." >&2
+        exit 1
+    fi
+    if [ -z "$COMMIT_SHA" ]; then
+        echo "Error: replyToGemini requires --commit." >&2
+        exit 1
+    fi
+    if ! is_sha_like "$COMMIT_SHA"; then
+        echo "Error: --commit must be a 7-40 character hexadecimal SHA." >&2
         exit 1
     fi
 fi
@@ -414,7 +443,7 @@ fi
 # GitHub API actions are handled inline (no external script)
 IS_INLINE_ACTION=false
 case "$ACTION" in
-    getPrInfo|getReviewThreads|replyToComment|resolveThread|getCiStatus|cancelWorkflow|rerunWorkflow)
+    getPrInfo|getReviewThreads|replyToComment|replyToGemini|resolveThread|getCiStatus|cancelWorkflow|rerunWorkflow)
         IS_INLINE_ACTION=true
         SCRIPT=""
         ;;
@@ -454,7 +483,7 @@ case "$ACTION" in
     getPrInfo|getReviewThreads|getCiStatus|findPrForBranch|listHighPriorityPrs|findDeferredWork)
         SAFETY_CLASS="safe_read"
         ;;
-    replyToComment|resolveThread|cancelWorkflow|rerunWorkflow|enableAutoMerge|triggerGeminiReview)
+    replyToComment|replyToGemini|resolveThread|cancelWorkflow|rerunWorkflow|enableAutoMerge|triggerGeminiReview)
         SAFETY_CLASS="safe_write_remote"
         ;;
     downloadArtifact)
@@ -512,7 +541,12 @@ run_inline_action() {
                 --jq ".data.repository.pullRequest.reviewThreads.nodes[] | $FILTER"
             ;;
         replyToComment)
-            gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" \
+            gh api -X POST "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" \
+                -f body="$BODY"
+            ;;
+        replyToGemini)
+            BODY="@gemini-code-assist Fixed in commit $COMMIT_SHA. Please confirm this addresses the issue."
+            gh api -X POST "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" \
                 -f body="$BODY"
             ;;
         resolveThread)
@@ -625,7 +659,11 @@ elif [ "$IS_INLINE_ACTION" = true ]; then
                     gh api graphql -f query="query(\$owner: String!, \$repo: String!, \$pr: Int!) { repository(owner: \$owner, name: \$repo) { pullRequest(number: \$pr) { reviewThreads(first: 100) { nodes { id isResolved path line comments(first: 20) { nodes { id databaseId author { login } body } } } } } } }" -f owner="$OWNER" -f repo="$REPO_NAME" -F pr="$LABEL_NUMBER" --jq ".data.repository.pullRequest.reviewThreads.nodes[] | $FILTER"
                     ;;
                 replyToComment)
-                    gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" -f body="$BODY"
+                    gh api -X POST "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" -f body="$BODY"
+                    ;;
+                replyToGemini)
+                    BODY="@gemini-code-assist Fixed in commit $COMMIT_SHA. Please confirm this addresses the issue."
+                    gh api -X POST "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" -f body="$BODY"
                     ;;
                 resolveThread)
                     gh api graphql -f query="mutation(\$threadId: ID!) { resolveReviewThread(input: {threadId: \$threadId}) { thread { isResolved } } }" -f threadId="$THREAD_ID"
