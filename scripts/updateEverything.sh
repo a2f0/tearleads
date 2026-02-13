@@ -7,6 +7,7 @@
 #   SKIP_TOOLCHAIN_ANDROID=1 Skip Android SDK sync inside toolchain sync
 #   TOOLCHAIN_SYNC_MAX_ANDROID_JUMP=<n> Max Android API bump in one run (default: 1)
 #   TOOLCHAIN_SYNC_ALLOW_RUNTIME_MISMATCH=1 Continue even if active Node != .nvmrc
+#   Node runtime is always managed with nvm; script exits if nvm is unavailable
 #   SKIP_RUBY=1       Skip bundle update/install
 #   SKIP_CAP_SYNC=1   Skip pnpm cap:sync
 #   SKIP_POD_CLEAN=1  Skip clean pod install (removes Pods/ and Podfile.lock)
@@ -26,11 +27,32 @@ esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd -P)
 
+ensure_nvm_node_runtime() {
+  LOGIN_SHELL="${SHELL:-/bin/bash}"
+  if [ ! -x "$LOGIN_SHELL" ]; then
+    echo "updateEverything: interactive shell '$LOGIN_SHELL' is not executable." >&2
+    exit 1
+  fi
+
+  if ! "$LOGIN_SHELL" -ic 'command -v nvm >/dev/null 2>&1'; then
+    echo "updateEverything: nvm is required and must be available in interactive shell PATH." >&2
+    echo "Install/load nvm and rerun. Homebrew Node management is not supported in this flow." >&2
+    exit 1
+  fi
+
+  if ! "$LOGIN_SHELL" -ic 'nvm install && nvm use'; then
+    echo "updateEverything: failed to activate Node from .nvmrc via nvm." >&2
+    exit 1
+  fi
+}
+
 cd "$REPO_ROOT"
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "Warning: working tree is not clean. Continuing anyway." >&2
 fi
+
+ensure_nvm_node_runtime
 
 if [ "${SKIP_TOOLCHAIN_SYNC:-0}" -ne 1 ]; then
   TOOLCHAIN_ARGS="--apply --max-android-jump ${TOOLCHAIN_SYNC_MAX_ANDROID_JUMP:-1}"

@@ -30,6 +30,8 @@ Use the shared update script:
 ./scripts/updateEverything.sh
 ```
 
+The script enforces Node runtime management with `nvm` only (`nvm install && nvm use`) and fails if `nvm` is unavailable in an interactive shell PATH. Do not install/update Node with Homebrew in this flow.
+
 Optional toggles (set to `1` as needed): `SKIP_TOOLCHAIN_SYNC`, `SKIP_TOOLCHAIN_NODE`, `SKIP_TOOLCHAIN_ANDROID`, `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
 
 Additional toolchain controls:

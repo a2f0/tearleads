@@ -160,6 +160,12 @@ If conflicts are on the exact same lines and truly incompatible, abort and ask f
 - Use TypeScript files (`.ts`, `.tsx`) instead.
 - JavaScript guardrails run in `pre-push` and CI via `scripts/checkJs.sh`.
 
+## Node Version Management Policy
+
+- Use `nvm` for all Node version management.
+- Do not install or upgrade Node with Homebrew in agent workflows.
+- Scripts that manage Node versions must fail fast when `nvm` is unavailable, then run `nvm install && nvm use` against repo `.nvmrc`.
+
 ## PR Guidelines
 
 - Do NOT add "Generated with Claude Code" footers to PR descriptions
