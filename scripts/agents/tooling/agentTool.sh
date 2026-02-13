@@ -541,12 +541,12 @@ run_inline_action() {
                 --jq ".data.repository.pullRequest.reviewThreads.nodes[] | $FILTER"
             ;;
         replyToComment)
-            gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" \
+            gh api -X POST "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" \
                 -f body="$BODY"
             ;;
         replyToGemini)
             BODY="@gemini-code-assist Fixed in commit $COMMIT_SHA. Please confirm this addresses the issue."
-            gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" \
+            gh api -X POST "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" \
                 -f body="$BODY"
             ;;
         resolveThread)
@@ -659,11 +659,11 @@ elif [ "$IS_INLINE_ACTION" = true ]; then
                     gh api graphql -f query="query(\$owner: String!, \$repo: String!, \$pr: Int!) { repository(owner: \$owner, name: \$repo) { pullRequest(number: \$pr) { reviewThreads(first: 100) { nodes { id isResolved path line comments(first: 20) { nodes { id databaseId author { login } body } } } } } } }" -f owner="$OWNER" -f repo="$REPO_NAME" -F pr="$LABEL_NUMBER" --jq ".data.repository.pullRequest.reviewThreads.nodes[] | $FILTER"
                     ;;
                 replyToComment)
-                    gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" -f body="$BODY"
+                    gh api -X POST "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" -f body="$BODY"
                     ;;
                 replyToGemini)
                     BODY="@gemini-code-assist Fixed in commit $COMMIT_SHA. Please confirm this addresses the issue."
-                    gh api "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" -f body="$BODY"
+                    gh api -X POST "repos/$REPO/pulls/$LABEL_NUMBER/comments/$COMMENT_ID/replies" -f body="$BODY"
                     ;;
                 resolveThread)
                     gh api graphql -f query="mutation(\$threadId: ID!) { resolveReviewThread(input: {threadId: \$threadId}) { thread { isResolved } } }" -f threadId="$THREAD_ID"

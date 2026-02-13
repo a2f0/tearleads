@@ -258,7 +258,7 @@ Raw `gh` CLI and GraphQL patterns found in `.claude/commands/` skills that shoul
 | Pattern | Skills Using It | Proposed Action | Args |
 | --- | --- | --- | --- |
 | Get PR info | solicit-gemini-review, fix-tests, address-gemini-feedback, follow-up-with-gemini, enter-merge-queue, commit-and-push | `agentTool.sh getPrInfo` | `[--fields <comma-sep>]` |
-| Get review threads (GraphQL) | address-gemini-feedback, follow-up-with-gemini | `agentTool.sh getReviewThreads` | `--pr <number> [--unresolved-only]` |
+| Get review threads (GraphQL) | address-gemini-feedback, follow-up-with-gemini | `agentTool.sh getReviewThreads` | `--number <pr> [--unresolved-only]` |
 | Reply to Gemini feedback in-thread (commit-hash template) | follow-up-with-gemini, enter-merge-queue, address-gemini-feedback | `agentTool.sh replyToGemini` | `--number <pr> --comment-id <id> --commit <sha>` |
 | Reply to PR comment in-thread (custom body) | follow-up-with-gemini, enter-merge-queue | `agentTool.sh replyToComment` | `--number <pr> --comment-id <id> --body <message>` |
 | Resolve review thread | follow-up-with-gemini | `agentTool.sh resolveThread` | `--thread-id <id>` |
@@ -271,11 +271,11 @@ Raw `gh` CLI and GraphQL patterns found in `.claude/commands/` skills that shoul
 | Pattern | Skill | Proposed Action | Args |
 | --- | --- | --- | --- |
 | Download CI artifact | fix-tests | `agentTool.sh downloadArtifact` | `--run-id <id> --name <artifact> --dest <path>` |
-| Enable auto-merge | enter-merge-queue | `agentTool.sh enableAutoMerge` | `--pr <number>` |
+| Enable auto-merge | enter-merge-queue | `agentTool.sh enableAutoMerge` | `--number <pr>` |
 | Find PR for branch | enter-merge-queue | `agentTool.sh findPrForBranch` | `--branch <name> [--state <open\|merged>]` |
 | List high-priority PRs | enter-merge-queue | `agentTool.sh listHighPriorityPrs` | (none) |
-| Post Gemini review + poll | solicit-gemini-review | `agentTool.sh triggerGeminiReview` | `--pr <number> [--timeout <seconds>]` |
-| Find deferred work in PR | preen-deferred-fixes | `agentTool.sh findDeferredWork` | `--pr <number>` |
+| Post Gemini review + poll | solicit-gemini-review | `agentTool.sh triggerGeminiReview` | `--number <pr> [--poll-timeout <seconds>]` |
+| Find deferred work in PR | preen-deferred-fixes | `agentTool.sh findDeferredWork` | `--number <pr>` |
 
 ### Benefits of Extraction
 
