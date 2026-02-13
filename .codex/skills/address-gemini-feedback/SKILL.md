@@ -5,77 +5,65 @@ description: Query the open PR and resolve Gemini review feedback, replying in-t
 
 # Address Gemini Feedback
 
-Resolve open Gemini review comments on the current PR.
-
-## Setup
-
-Determine repository for all `gh` commands:
+**First**: Get PR info using the agentTool wrapper:
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,headRefName
 ```
 
-Always pass `-R "$REPO"` where supported.
+Extract `number` as `PR_NUMBER` for use in subsequent commands.
 
-## Critical Rules
+## CRITICAL: Never Create Pending/Draft Reviews
 
-- Never use `gh pr review` to reply to Gemini comments.
-- Never create pending/draft reviews for thread replies.
-- Always reply in-thread with REST API and include `@gemini-code-assist`.
+When replying to Gemini comments, you MUST use the REST API to create immediate comment replies. Do NOT use `gh pr review` or GraphQL review mutations - these create pending/draft reviews that remain invisible until submitted, and Gemini will never see them.
 
-## Workflow
+**Always tag `@gemini-code-assist`** in every reply to ensure Gemini receives a notification and responds.
 
-1. Get PR metadata for current branch:
+See `/follow-up-with-gemini` for the correct API usage and examples.
+
+## Quota Exhaustion Fallback
+
+Before fetching comments, check if Gemini has hit its daily quota:
 
 ```bash
-gh pr view --json number,title,url,headRefName,baseRefName -R "$REPO"
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields comments
 ```
 
-1. Fetch unresolved review threads (GraphQL, paginate as needed).
+Parse the comments to check for Gemini's quota message. If the response contains "You have reached your daily quota limit":
 
-   **IMPORTANT**: Do NOT pass the query inline with `-f query='...'` as the shell mangles special characters. Write the query to a temp file first:
+- Fall back to Claude Code review:
 
-   ```bash
-   cat > /tmp/gemini-threads.graphql <<'EOF'
-   query($owner: String!, $repo: String!, $pr: Int!) {
-     repository(owner: $owner, name: $repo) {
-       pullRequest(number: $pr) {
-         reviewThreads(first: 50) {
-           nodes {
-             id
-             isResolved
-             path
-             line
-             comments(first: 10) {
-               nodes {
-                 id
-                 databaseId
-                 author { login }
-                 body
-               }
-             }
-           }
-           pageInfo { hasNextPage endCursor }
-         }
-       }
-     }
-   }
-   EOF
-   ```
+  ```bash
+  ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+  ```
 
-   Then run:
+- Skip the remaining steps (no Gemini feedback to address)
+- Return early with a message that Claude Code was used as fallback
+
+## Steps
+
+1. **Fetch unresolved comments**: Use the agentTool wrapper to get review threads:
 
    ```bash
-   gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=OWNER -f repo=REPO -F pr=$PR_NUMBER
+   ./scripts/agents/tooling/agentTool.ts getReviewThreads --number $PR_NUMBER --unresolved-only
    ```
 
-1. Implement fixes for important unresolved feedback.
+   This returns JSON array of unresolved review threads with:
+   - `id`: Thread node ID (for resolving)
+   - `isResolved`: Boolean (will be false due to `--unresolved-only`)
+   - `path`: File path
+   - `line`: Line number
+   - `comments`: Array with `{id, databaseId, author: {login}, body}`
 
-1. Run relevant tests/lint/type-check.
+   The wrapper handles pagination automatically.
 
-1. Commit and push fixes directly (do not invoke commit-and-push recursively).
+2. **Address feedback**: For each unresolved comment that you think is relevant/important:
+   - Make the necessary code changes
+   - Make sure linting passes and TypeScript compiles
 
-1. **CRITICAL: Verify push completed before replying.**
+3. **Commit and push**: Commit with conventional message (e.g., `fix: address Gemini review feedback`), note the SHA for thread replies, and push directly (do NOT use `/commit-and-push` to avoid loops).
+
+4. **CRITICAL: Verify push completed before replying.**
 
    After pushing, verify commits are visible on remote:
 
@@ -91,27 +79,13 @@ gh pr view --json number,title,url,headRefName,baseRefName -R "$REPO"
    fi
    ```
 
-   **Do NOT reply to Gemini until this verification passes.**
+   **Do NOT proceed to step 5 until this verification passes.** Replying to Gemini with "Fixed in commit X" when X is not yet on remote creates confusion.
 
-1. Reply in each addressed thread using the parameterized agent tool action:
+5. **Update PR description**: If changes are significant, update the PR body with `gh pr edit --body`.
 
-```bash
-./scripts/agents/tooling/agentTool.ts replyToGemini \
-  --number <pr_number> \
-  --comment-id <comment_id> \
-  --commit <commit_sha>
-```
+6. **Follow up**: Run `/follow-up-with-gemini` to reply, wait for confirmation, and resolve threads. The follow-up skill will re-verify push status before replying.
 
-   For non-fix replies (e.g., deferrals or scope clarifications), use:
-
-```bash
-./scripts/agents/tooling/agentTool.ts replyToComment \
-  --number <pr_number> \
-  --comment-id <comment_id> \
-  --body "@gemini-code-assist <custom response>"
-```
-
-1. Repeat until no actionable unresolved Gemini comments remain.
+7. **Repeat**: If Gemini requests further changes, repeat from step 1.
 
 ## Token Efficiency
 

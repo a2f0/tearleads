@@ -5,68 +5,64 @@ description: Request a fresh Gemini Code Assist review on the current PR, wait f
 
 # Solicit Gemini Review
 
-Request a new Gemini Code Assist review on the current PR.
+Request a fresh review from Gemini Code Assist on the current PR.
 
-## Setup
+## Steps
 
-Determine the repository for all `gh` commands:
+1. **Get PR number**:
 
-```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-```
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts getPrInfo --fields number
+   ```
 
-Always pass `-R "$REPO"` to `gh` commands that support it.
+   Extract the PR number from the JSON response.
 
-## Workflow
+2. **Trigger Gemini review and wait**:
 
-1. Get PR number for the current branch:
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts triggerGeminiReview --number $PR_NUMBER
+   ```
 
-```bash
-PR_NUM=$(gh pr view --json number -q .number)
-```
+   This action:
+   - Posts a `/gemini review` comment on the PR
+   - Polls every 15 seconds for up to 5 minutes (configurable via `--poll-timeout`)
+   - Returns JSON with status:
+     - `{"status": "review_received", "pr": N, "submitted_at": "..."}` - Gemini responded
+     - `{"status": "review_requested", "pr": N, "timed_out": true}` - Timeout (review may still arrive)
 
-1. Request a Gemini review by posting the command comment:
+3. **Get review threads** (if review was received):
 
-```bash
-gh pr comment "$PR_NUM" -R "$REPO" --body "/gemini review"
-```
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts getReviewThreads --number $PR_NUMBER
+   ```
 
-1. Wait for Gemini review (poll up to 5 minutes):
+   Filter for threads where the first comment is from `gemini-code-assist`.
 
-```bash
-gh pr view "$PR_NUM" -R "$REPO" --json reviews \
-  --jq '.reviews[] | select(.author.login == "gemini-code-assist")'
-```
+4. **Check for quota exhaustion**: If Gemini's response contains "You have reached your daily quota limit":
+   - Fall back to Claude Code review:
 
-Poll every 30 seconds until a matching review appears.
+     ```bash
+     ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
+     ```
 
-1. Fetch Gemini inline review comments:
+   - Report that Gemini quota was exhausted and Claude Code was used instead
 
-```bash
-gh api /repos/$REPO/pulls/$PR_NUM/comments \
-  --jq '.[] | select(.user.login == "gemini-code-assist[bot]") | {path, line, body}'
-```
+5. **Report**: Output a summary of Gemini's review (or Claude Code review if fallback was used) and any specific comments.
 
-1. Summarize results:
+## Notes
 
-- Report whether a Gemini review was found.
-- List unresolved or actionable inline comments.
-- Recommend running `address-gemini-feedback` next when comments exist.
-
-## Important Notes
-
-- Do not run `gh pr view -R "$REPO"` without specifying PR number or branch context.
-- Use in-thread replies for follow-up on review comments (REST replies endpoint), not `gh pr review`.
+- This is useful when you've made changes and want Gemini to re-review the PR
+- Gemini will post new review comments if it finds issues
+- Use `/address-gemini-feedback` after this to handle any new feedback
 
 ## Token Efficiency
 
-Use `--json` with `--jq` filtering to minimize output:
+The agentTool wrappers already use minimal JSON fields and handle output efficiently:
 
 ```bash
 # Only fetch needed fields
-gh pr view --json number -q .number
-gh pr view --json reviews --jq '.reviews[] | select(...)'
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields number
 
-# Filter comments to relevant author
-gh api ... --jq '.[] | select(.user.login == "gemini-code-assist") | {path, line, body}'
+# Review threads with pagination handled
+./scripts/agents/tooling/agentTool.ts getReviewThreads --number $PR_NUMBER
 ```

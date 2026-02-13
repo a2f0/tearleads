@@ -329,7 +329,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
           - Log: "Job '<job-name>' failed (attempt X/3). Starting fix."
           - Run `/fix-tests <job-name>` targeting the specific job
           - If fix was pushed:
-            - Cancel the obsolete workflow: `gh run cancel $RUN_ID -R "$REPO"`
+            - Cancel the obsolete workflow: `./scripts/agents/tooling/agentTool.ts cancelWorkflow --run-id "$RUN_ID"`
             - Log: "Cancelled obsolete workflow. New CI starting."
             - Break out of job loop (new workflow will start, pick it up next poll)
 
@@ -444,7 +444,7 @@ git rebase origin/<baseRefName>      # Can be noisy and waste tokens
   ```bash
   # CORRECT
   gh pr view "$PR_NUMBER" --json state,mergeStateStatus -R "$REPO"
-  gh run list --json status,conclusion,databaseId --limit 1 -R "$REPO"
+  ./scripts/agents/tooling/agentTool.ts getCiStatus --commit "$(git rev-parse HEAD)"
 
   # WRONG - fetches unnecessary data
   gh pr view
