@@ -39,7 +39,7 @@ const mockDb = {
 };
 
 // Mock useDatabaseOptional hook
-vi.mock('./hooks', () => ({
+vi.mock('./hooks/useDatabase', () => ({
   useDatabaseOptional: vi.fn(() => null)
 }));
 
@@ -55,7 +55,7 @@ vi.mock('./user-settings', async (importOriginal) => {
 });
 
 // Import after mocks
-import { useDatabaseOptional } from './hooks';
+import { useDatabaseOptional } from './hooks/useDatabase';
 import {
   SettingsProvider,
   useSettings,

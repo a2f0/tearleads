@@ -38,6 +38,7 @@ If parity fails, STOP and update both:
 
 | Skill | Purpose |
 | ----- | ------- |
+| `preen-api-security` | Audit API for authorization, data access, and security issues |
 | `preen-typescript` | Fix weak TypeScript typings (`any`, `as` casts, `@ts-ignore`) |
 | `preen-split-react-components` | Split oversized React components into smaller files |
 | `preen-inefficient-resolution` | Fix cyclical imports and module resolution issues |

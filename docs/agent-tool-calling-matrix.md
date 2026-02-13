@@ -115,7 +115,6 @@ Legend:
 | `scripts/tuxedo.sh` | Later | Orchestration helper | Wrapper with mode args |
 | `scripts/tuxedoKill.sh` | Later | Process-control side effects | Scope args required |
 | `scripts/updateEverything.sh` | Later | Broad dependency mutation | Explicit mode + dry-run first |
-| `scripts/codex.sh` | Later | Agent bootstrap helper | Tool once interface stabilized |
 
 Note:
 
