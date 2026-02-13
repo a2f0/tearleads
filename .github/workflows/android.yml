@@ -249,7 +249,7 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 31
+          api-level: 35
           arch: x86_64
           working-directory: packages/client
           emulator-port: 5556

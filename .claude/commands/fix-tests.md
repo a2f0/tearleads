@@ -258,6 +258,41 @@ androidWebViewHierarchy: devtools
 - assertVisible: "My Text"
 ```
 
+### Android: JavaScript Errors / Blank Screen
+
+If the app shows a blank white screen after launch, check logcat for JavaScript errors:
+
+```bash
+# Check for JS errors in Maestro debug output
+grep -i "Capacitor/Console\|TypeError\|Error" /tmp/maestro/logcat.txt
+
+# Common error: "Object.hasOwn is not a function"
+# This occurs on WebView < Chrome 93 (system images ship with WebView 91)
+```
+
+**Root cause**: Android system images (even API 35) ship with WebView 91 by default. WebView 91 doesn't support ES2022 features like `Object.hasOwn`.
+
+**Fix**: Add polyfills for missing features in `packages/client/src/main.tsx`:
+
+```typescript
+// Before any imports
+if (!Object.hasOwn) {
+  Object.defineProperty(Object, 'hasOwn', {
+    value: function (obj: object, prop: PropertyKey) {
+      return Object.prototype.hasOwnProperty.call(obj, prop);
+    },
+    configurable: true,
+    writable: true
+  });
+}
+```
+
+**Check WebView version** on emulator:
+
+```bash
+adb shell "dumpsys webviewupdate" | grep "Current WebView"
+```
+
 ### Maestro: Use evalScript for Complex Interactions
 
 ```yaml

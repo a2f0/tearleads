@@ -18,6 +18,18 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- Polyfills for older WebViews (Chrome < 93, Android WebView 91) -->
+    <script>
+      if (!Object.hasOwn) {
+        Object.defineProperty(Object, 'hasOwn', {
+          value: function(obj, prop) {
+            return Object.prototype.hasOwnProperty.call(obj, prop);
+          },
+          configurable: true,
+          writable: true
+        });
+      }
+    </script>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

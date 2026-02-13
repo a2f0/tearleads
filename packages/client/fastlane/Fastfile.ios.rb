@@ -212,6 +212,13 @@ platform :ios do
     sh("xcrun simctl uninstall #{simulator} #{APP_ID} || true")
     sh("xcrun simctl install #{simulator} '#{app_path}'")
 
+    # Preflight launch: Initialize app before Maestro tests (matches CI workflow)
+    # This ensures first-launch setup completes and WebView is initialized
+    UI.message('Preflight app launch...')
+    sh("xcrun simctl launch #{simulator} #{APP_ID}")
+    sleep(3)
+    sh("xcrun simctl terminate #{simulator} #{APP_ID} || true")
+
     recording_pid = nil
     if record_video_enabled
       FileUtils.mkdir_p(debug_dir)
@@ -221,7 +228,7 @@ platform :ios do
     end
 
     begin
-      sh("MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_DEVICE=#{simulator} $HOME/.maestro/bin/maestro --platform ios test #{maestro_target} --output maestro-report --debug-output maestro-debug")
+      sh("MAESTRO_CLI_NO_ANALYTICS=1 MAESTRO_DRIVER_STARTUP_TIMEOUT=600000 MAESTRO_DEVICE=#{simulator} $HOME/.maestro/bin/maestro --platform ios test #{maestro_target} --output maestro-report --debug-output maestro-debug")
     ensure
       if record_video_enabled && recording_pid
         Process.kill('INT', recording_pid)

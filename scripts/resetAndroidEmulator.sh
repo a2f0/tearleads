@@ -1,7 +1,12 @@
 #!/bin/sh
 set -eu
 
-DEVICE="Maestro_Pixel_6_API_33_1"
+# Default to API 35 AVD, fall back to API 33 for backwards compatibility
+DEVICE="${ANDROID_AVD_NAME:-Maestro_Pixel_6_API_35}"
+if [ ! -d "${ANDROID_AVD_HOME:-$HOME/.android/avd}/${DEVICE}.avd" ]; then
+    # Fall back to old AVD name if new one doesn't exist
+    DEVICE="Maestro_Pixel_6_API_33_1"
+fi
 AVD_DIR="${ANDROID_AVD_HOME:-$HOME/.android/avd}/${DEVICE}.avd"
 AVD_CONFIG="$AVD_DIR/config.ini"
 

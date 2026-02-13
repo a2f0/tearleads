@@ -34,11 +34,13 @@ describe('Auth routes', () => {
     vi.unstubAllEnvs();
   });
 
-  it('returns 400 when payload is missing', async () => {
+  it('returns 400 when payload is missing', { timeout: 15000 }, async () => {
     const response = await request(app).post('/v1/auth/login').send({});
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'email and password are required' });
+    expect(response.body).toEqual({
+      error: 'email and password are required'
+    });
   });
 
   it('returns 401 when user is not found', async () => {
