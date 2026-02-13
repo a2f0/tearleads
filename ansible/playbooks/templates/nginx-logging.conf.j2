@@ -1,0 +1,25 @@
+{# COMPLIANCE_SENTINEL: TL-AUDT-001 | policy=compliance/SOC2/policies/02-audit-logging-policy.md | procedure=compliance/SOC2/procedures/02-audit-logging-procedure.md | control=nginx-access-logging #}
+{# COMPLIANCE_SENTINEL: TL-NAUDT-001 | policy=compliance/NIST.SP.800-53/policies/02-audit-logging-policy.md | procedure=compliance/NIST.SP.800-53/procedures/02-audit-logging-procedure.md | control=nginx-access-logging #}
+{# COMPLIANCE_SENTINEL: TL-HAUDT-001 | policy=compliance/HIPAA/policies/02-audit-logging-policy.md | procedure=compliance/HIPAA/procedures/02-audit-logging-procedure.md | control=nginx-access-logging #}
+
+# Nginx Compliance Logging Configuration
+# Deployed via Ansible - do not edit manually
+# Provides audit-grade access logging with extended fields
+
+# Compliance audit log format
+# Fields: remote_addr, remote_user, timestamp (ISO8601), request, status,
+#         body_bytes_sent, referer, user_agent, request_time, upstream_response_time,
+#         ssl_protocol, ssl_cipher, request_id
+log_format audit_combined '$remote_addr - $remote_user [$time_iso8601] '
+                          '"$request" $status $body_bytes_sent '
+                          '"$http_referer" "$http_user_agent" '
+                          'rt=$request_time uct=$upstream_connect_time '
+                          'uht=$upstream_header_time urt=$upstream_response_time '
+                          'ssl=$ssl_protocol cipher=$ssl_cipher '
+                          'rid=$request_id';
+
+# Default access log with audit format
+access_log /var/log/nginx/access.log audit_combined;
+
+# Error log with warn level for compliance visibility
+error_log /var/log/nginx/error.log warn;

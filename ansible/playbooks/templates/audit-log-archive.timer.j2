@@ -1,0 +1,10 @@
+[Unit]
+Description=Monthly Audit Log Archive Timer
+
+[Timer]
+OnCalendar=monthly
+Persistent=true
+RandomizedDelaySec=3600
+
+[Install]
+WantedBy=timers.target

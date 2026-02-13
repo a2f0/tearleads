@@ -1,0 +1,27 @@
+{# COMPLIANCE_SENTINEL: TL-AUDT-002 | policy=compliance/SOC2/policies/02-audit-logging-policy.md | procedure=compliance/SOC2/procedures/02-audit-logging-procedure.md | control=journald-retention #}
+{# COMPLIANCE_SENTINEL: TL-NAUDT-002 | policy=compliance/NIST.SP.800-53/policies/02-audit-logging-policy.md | procedure=compliance/NIST.SP.800-53/procedures/02-audit-logging-procedure.md | control=journald-retention #}
+{# COMPLIANCE_SENTINEL: TL-HAUDT-002 | policy=compliance/HIPAA/policies/02-audit-logging-policy.md | procedure=compliance/HIPAA/procedures/02-audit-logging-procedure.md | control=journald-retention #}
+
+# Journald Compliance Configuration
+# Deployed via Ansible - do not edit manually
+# 90-day operational retention with persistent storage
+
+[Journal]
+# Persistent storage ensures logs survive reboots
+Storage=persistent
+
+# Retain logs for 90 days (operational retention period)
+MaxRetentionSec={{ audit_log_retention_days }}d
+
+# Storage limits
+SystemMaxUse={{ journald_system_max_use }}
+RuntimeMaxUse={{ journald_runtime_max_use }}
+
+# Compression for storage efficiency
+Compress=yes
+
+# Seal journal files for tamper detection (if supported)
+Seal=yes
+
+# Forward to syslog for external aggregation if configured
+ForwardToSyslog=yes
