@@ -233,9 +233,10 @@ sync_vscode_title() {
 # the pane's current working directory.
 sync_all_titles() {
     # Get all windows in the session
-    windows=$(tmux list-windows -t "$SESSION_NAME" -F '#{window_name}' 2>/dev/null) || return 0
+    # Use while read to handle window names with spaces correctly
+    tmux list-windows -t "$SESSION_NAME" -F '#{window_name}' 2>/dev/null | while IFS= read -r win; do
+        [ -z "$win" ] && continue
 
-    for win in $windows; do
         # Get workspace directory from pane's current path
         # Note: tmux show-environment doesn't work per-window, only per-session
         ws_dir=$(tmux display-message -t "$SESSION_NAME:$win" -p '#{pane_current_path}' 2>/dev/null)
