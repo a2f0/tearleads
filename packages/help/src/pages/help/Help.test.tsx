@@ -36,6 +36,7 @@ describe('Help', () => {
     expect(screen.getByRole('heading', { name: 'Help' })).toBeInTheDocument();
     expect(screen.getByText('API Docs')).toBeInTheDocument();
     expect(screen.getByText('Developer')).toBeInTheDocument();
+    expect(screen.getByText('Legal')).toBeInTheDocument();
   });
 
   it('navigates to /help/api when API Docs is clicked', async () => {
@@ -83,5 +84,41 @@ describe('Help', () => {
 
     await user.click(screen.getByText('Back to Help'));
     expect(screen.getByText('Developer')).toBeInTheDocument();
+  });
+
+  it('navigates to legal documentation pages', async () => {
+    const user = userEvent.setup();
+
+    render(
+      <MemoryRouter>
+        <Help />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByText('Legal'));
+
+    await user.click(screen.getByText('Privacy Policy'));
+    expect(mockNavigate).toHaveBeenLastCalledWith('/help/docs/privacy-policy');
+
+    await user.click(screen.getByText('Terms of Service'));
+    expect(mockNavigate).toHaveBeenLastCalledWith(
+      '/help/docs/terms-of-service'
+    );
+  });
+
+  it('shows legal docs and returns to top-level help', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <Help />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByText('Legal'));
+    expect(screen.getByText('Privacy Policy')).toBeInTheDocument();
+    expect(screen.getByText('Terms of Service')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Back to Help'));
+    expect(screen.getByText('Legal')).toBeInTheDocument();
   });
 });

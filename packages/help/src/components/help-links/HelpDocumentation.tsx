@@ -4,6 +4,8 @@ import {
   Download,
   type LucideIcon,
   Puzzle,
+  Scale,
+  Shield,
   Shirt,
   Terminal,
   TerminalSquare
@@ -18,6 +20,8 @@ import ciDocumentationEn from '../../../../../docs/en/ci.md?raw';
 import cliReferenceDocumentationEn from '../../../../../docs/en/cli-reference.md?raw';
 import consoleReferenceDocumentationEn from '../../../../../docs/en/console-reference.md?raw';
 import cliDocumentationEn from '../../../../../docs/en/getting-started.md?raw';
+import privacyPolicyEn from '../../../../../docs/en/privacy-policy.md?raw';
+import termsOfServiceEn from '../../../../../docs/en/terms-of-service.md?raw';
 import tuxedoDocumentationEn from '../../../../../docs/en/tuxedo.md?raw';
 import backupRestoreDocumentationEs from '../../../../../docs/es/backup-restore.md?raw';
 import chromeExtensionDocumentationEs from '../../../../../docs/es/chrome-extension.md?raw';
@@ -68,6 +72,16 @@ const HELP_DOC_MARKDOWN: Record<
     en: tuxedoDocumentationEn,
     es: tuxedoDocumentationEs,
     ua: tuxedoDocumentationUa
+  },
+  privacyPolicy: {
+    en: privacyPolicyEn,
+    es: privacyPolicyEn,
+    ua: privacyPolicyEn
+  },
+  termsOfService: {
+    en: termsOfServiceEn,
+    es: termsOfServiceEn,
+    ua: termsOfServiceEn
   }
 };
 
@@ -79,7 +93,11 @@ const HELP_DOC_DESCRIPTIONS: Record<HelpDocId, string> = {
   chromeExtension: 'Build, load, and test the Tearleads Chrome extension.',
   backupRestore:
     'Full guide for secure backup and restore workflows across platforms.',
-  tuxedo: 'Tmux workspace orchestrator setup, usage, and behavior details.'
+  tuxedo: 'Tmux workspace orchestrator setup, usage, and behavior details.',
+  privacyPolicy:
+    'How Tearleads collects, uses, and protects your personal information.',
+  termsOfService:
+    'Terms and conditions governing your use of Tearleads services.'
 };
 
 const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
@@ -89,7 +107,9 @@ const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
   ci: Cog,
   chromeExtension: Puzzle,
   backupRestore: Download,
-  tuxedo: Shirt
+  tuxedo: Shirt,
+  privacyPolicy: Shield,
+  termsOfService: Scale
 };
 
 function resolveLanguage(language: string | undefined): SupportedLanguage {
