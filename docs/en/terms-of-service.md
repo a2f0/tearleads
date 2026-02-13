@@ -10,7 +10,7 @@ Last Updated: February 13, 2026
 
 ## 1. Acceptance of Terms
 
-These Terms of Service ("Terms") constitute a legally binding agreement between you ("you," "your," or "User") and Tearleads, LLC ("Tearleads," "Company," "we," "us," or "our") governing your access to and use of our website, applications, software, products, and services (collectively, the "Services").
+These Terms of Service ("Terms") constitute a legally binding agreement between you ("you," "your," or "User") and Tearleads, LLC, a limited liability company organized under the laws of the State of Tennessee, United States ("Tearleads," "Company," "we," "us," or "our"), governing your access to and use of our website, applications, software, products, and services (collectively, the "Services").
 
 By creating an account, accessing, or using the Services, you represent and warrant that:
 
@@ -355,6 +355,7 @@ If you are a U.S. government entity, the Services are provided as "commercial co
 For questions about these Terms, please contact us at:
 
 Tearleads, LLC
+A Tennessee Limited Liability Company
 
 Email: `legal@tearleads.com`
 

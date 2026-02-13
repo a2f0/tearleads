@@ -4,7 +4,7 @@ Tearleads, LLC
 
 Last Updated: February 13, 2026
 
-This Privacy Policy ("Policy") describes how Tearleads, LLC ("Tearleads," "Company," "we," "us," or "our") collects, uses, discloses, and protects information in connection with our website, applications, products, and services (collectively, the "Services"). By accessing or using our Services, you acknowledge that you have read, understood, and agree to be bound by this Policy.
+This Privacy Policy ("Policy") describes how Tearleads, LLC, a limited liability company organized under the laws of the State of Tennessee, United States ("Tearleads," "Company," "we," "us," or "our"), collects, uses, discloses, and protects information in connection with our website, applications, products, and services (collectively, the "Services"). By accessing or using our Services, you acknowledge that you have read, understood, and agree to be bound by this Policy.
 
 ## 1. Information We Collect
 
@@ -166,6 +166,7 @@ We may update this Policy from time to time. If we make material changes, we wil
 If you have questions or concerns about this Policy or our privacy practices, please contact us at:
 
 Tearleads, LLC
+A Tennessee Limited Liability Company
 
 Email: `privacy@tearleads.com`
 
