@@ -110,11 +110,10 @@ echo "Configuring Claude Code MCP server: serena (scope=local)"
 run claude mcp remove --scope local serena >/dev/null 2>&1 || true
 run claude mcp add --scope local serena -- "$uvx_bin" --from git+https://github.com/oraios/serena serena start-mcp-server --context claude-code --project "$repo_root" --open-web-dashboard false
 
+echo ""
 if [ "$HAS_CODEX" = true ]; then
-  echo ""
   echo "Done. Start a new Codex/Claude Code session and use this bootstrap prompt once:"
 else
-  echo ""
   echo "Done. Start a new Claude Code session and use this bootstrap prompt once:"
 fi
 
