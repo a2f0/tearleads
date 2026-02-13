@@ -131,13 +131,13 @@ version_files_for_package() {
 
   case "$PACKAGE_DIR" in
     packages/client)
-      echo "$PACKAGE_DIR/package.json $CLIENT_ANDROID_REL $CLIENT_IOS_REL"
+      printf '%s\n' "$PACKAGE_DIR/package.json" "$CLIENT_ANDROID_REL" "$CLIENT_IOS_REL"
       ;;
     packages/chrome-extension)
-      echo "$PACKAGE_DIR/package.json $CHROME_EXT_MANIFEST_REL"
+      printf '%s\n' "$PACKAGE_DIR/package.json" "$CHROME_EXT_MANIFEST_REL"
       ;;
     *)
-      echo "$PACKAGE_DIR/package.json"
+      printf '%s\n' "$PACKAGE_DIR/package.json"
       ;;
   esac
 }
