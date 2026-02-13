@@ -4,13 +4,13 @@ description: Respond to Gemini's comments after resolving and pushing feedback.
 
 # Follow Up With Gemini
 
-**First**: Determine the repository for all `gh` commands:
+**First**: Get PR info using the agentTool wrapper:
 
 ```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,title,url,headRefName
 ```
 
-Use `-R "$REPO"` with all `gh` commands in this skill.
+Extract `number` as `PR_NUMBER` for use in subsequent commands.
 
 ## CRITICAL: Avoid Pending/Draft Reviews
 
@@ -23,11 +23,14 @@ gh pr review --request-changes
 gh api graphql -f query='mutation { addPullRequestReview(...) }'
 ```
 
-**ALWAYS** use the REST API to reply directly to comment threads - these are immediately visible:
+**ALWAYS** use the agentTool wrapper to reply directly to comment threads - these are immediately visible:
 
 ```bash
 # CORRECT - creates immediate comment reply
-gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f body="message"
+./scripts/agents/tooling/agentTool.ts replyToComment --number $PR_NUMBER --comment-id <comment_database_id> --body "message"
+
+# For Gemini-specific replies with commit hash
+./scripts/agents/tooling/agentTool.ts replyToGemini --number $PR_NUMBER --comment-id <comment_database_id> --commit <sha>
 ```
 
 ## CRITICAL: Always Tag @gemini-code-assist
@@ -54,7 +57,11 @@ If at any point Gemini responds with quota exhaustion ("You have reached your da
 
 ## Steps
 
-1. Get the PR number: `gh pr view --json number,title,url | cat`
+1. Get the PR number (if not already retrieved):
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,title,url
+   ```
 
 2. **CRITICAL: Verify commits are pushed to remote before replying.**
 
@@ -79,59 +86,47 @@ If at any point Gemini responds with quota exhaustion ("You have reached your da
 
    **Do NOT proceed to reply until this verification passes.** Replying with "Fixed in commit X" when commit X is not yet on remote creates confusion for reviewers.
 
-3. Find unresolved Gemini review comments using the GraphQL API to check `isResolved` status.
-
-   **IMPORTANT**: Do NOT pass the query inline with `-f query='...'` as the shell mangles special characters like `!`. Instead, write the query to a temp file first using the Write tool, then reference it:
-
-   First, use the **Write tool** to create `/tmp/gemini-threads.graphql` with this content:
-
-   ```graphql
-   query($owner: String!, $repo: String!, $pr: Int!) {
-     repository(owner: $owner, name: $repo) {
-       pullRequest(number: $pr) {
-         reviewThreads(first: 50) {
-           nodes {
-             id
-             isResolved
-             comments(first: 10) {
-               nodes {
-                 id
-                 databaseId
-                 author { login }
-                 body
-               }
-             }
-           }
-           pageInfo { hasNextPage endCursor }
-         }
-       }
-     }
-   }
-   ```
-
-   Then run:
+3. Find unresolved Gemini review comments using the agentTool wrapper:
 
    ```bash
-   gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=a2f0 -f repo=tearleads -F pr=$PR_NUMBER
+   ./scripts/agents/tooling/agentTool.ts getReviewThreads --number $PR_NUMBER --unresolved-only
    ```
 
+   This returns JSON array of unresolved review threads with:
+   - `id`: Thread node ID (for resolving)
+   - `isResolved`: Boolean (will be false due to `--unresolved-only`)
+   - `comments`: Array with `{id, databaseId, author: {login}, body}`
+
+   The wrapper handles pagination automatically.
+
 4. For each unresolved comment that has been addressed and pushed (verified in step 2):
-   - Reply directly using the REST API (NOT GraphQL reviews):
+   - Reply using the agentTool wrapper:
 
      ```bash
      # Use the databaseId from the comment you're replying to
-     gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies \
-       -f body="Fixed in commit abc1234. @gemini-code-assist Please confirm this addresses your feedback."
+     ./scripts/agents/tooling/agentTool.ts replyToComment --number $PR_NUMBER --comment-id <comment_database_id> \
+       --body "Fixed in commit abc1234. @gemini-code-assist Please confirm this addresses your feedback."
+
+     # Or use the Gemini-specific helper for standard commit-fix replies:
+     ./scripts/agents/tooling/agentTool.ts replyToGemini --number $PR_NUMBER --comment-id <comment_database_id> --commit abc1234
      ```
 
    - **Include the commit SHA** that fixed the issue (must be visible on remote per step 2)
    - Tag @gemini-code-assist and ask for confirmation
 
    If deferring to an issue instead of fixing directly:
-   - Example: "@gemini-code-assist Tracked in #456 for follow-up. This is out of scope for the current PR."
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts replyToComment --number $PR_NUMBER --comment-id <id> \
+     --body "@gemini-code-assist Tracked in #456 for follow-up. This is out of scope for the current PR."
+   ```
 
    If explaining why feedback doesn't apply (disagreeing):
-   - Example: "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts replyToComment --number $PR_NUMBER --comment-id <id> \
+     --body "@gemini-code-assist The code is correct as written because [explanation]. Could you please re-review?"
+   ```
 
 5. Do NOT comment on the main PR thread. Only reply inside discussion threads.
 
@@ -143,23 +138,23 @@ If at any point Gemini responds with quota exhaustion ("You have reached your da
      3. Only treat as confirmation if both conditions are met (positive phrase present AND no negative qualifiers)
    - Example of false positive to avoid: "Thank you for the update, but I still see an issue" contains "thank you" but also "but" and "still" - do NOT resolve
 
-7. **Resolve satisfied comments**: When Gemini confirms, resolve the thread via GraphQL:
+7. **Resolve satisfied comments**: When Gemini confirms, resolve the thread:
 
    ```bash
-   gh api graphql -f query='mutation { resolveReviewThread(input: {threadId: "<thread_id>"}) { thread { isResolved } } }'
+   ./scripts/agents/tooling/agentTool.ts resolveThread --thread-id "<thread_node_id>"
    ```
 
-   Get thread IDs from `repository.pullRequest.reviewThreads` query (handle pagination via `endCursor`).
+   Get thread IDs (`id` field) from the `getReviewThreads` output.
 
 8. If Gemini requests further changes, do NOT resolve - return to `/address-gemini-feedback`.
 
 ## Token Efficiency
 
-Use `--json` with `--jq` filtering to minimize output from `gh` commands. The GraphQL queries above already return structured data - parse what you need and discard the rest.
+The agentTool wrappers already use minimal JSON fields and handle output efficiently. Suppress git operations to avoid token waste:
 
 ```bash
-# Only fetch needed fields
-gh pr view --json number,title,url
+# Only fetch needed fields via wrapper
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,title,url
 
 # Suppress git operations
 git commit -S -m "message" >/dev/null
