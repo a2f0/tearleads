@@ -20,6 +20,7 @@ Run `--help` for full action and option list:
 ### Script Wrappers
 
 - `refresh` - Switch to main, pull, install, build
+- `syncToolchainVersions` - Run toolchain sync checks/updates (Node/Electron + Android SDK)
 - `setVscodeTitle` - Set VS Code window title
 - `solicitClaudeCodeReview` - Request Claude Code review
 - `solicitCodexReview` - Request Codex review
@@ -55,6 +56,7 @@ Run `--help` for full action and option list:
 
 ```sh
 ./scripts/agents/tooling/agentTool.ts setVscodeTitle --title "tearleads6 - main"
+./scripts/agents/tooling/agentTool.ts syncToolchainVersions --check --max-android-jump 1
 ./scripts/agents/tooling/agentTool.ts solicitCodexReview --dry-run --json
 ./scripts/agents/tooling/agentTool.ts replyToGemini --number 1618 --comment-id 2801563279 --commit d9948cca79f7f13c940edcade20b5665b1bf0762
 ./scripts/agents/tooling/agentTool.ts triggerGeminiReview --number 1651 --poll-timeout 120 --json

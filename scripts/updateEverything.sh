@@ -2,6 +2,11 @@
 # Update everything in the repo. Run from anywhere.
 #
 # Optional environment toggles:
+#   SKIP_TOOLCHAIN_SYNC=1   Skip toolchain sync (Node/Electron + Android SDK)
+#   SKIP_TOOLCHAIN_NODE=1   Skip Node/Electron sync inside toolchain sync
+#   SKIP_TOOLCHAIN_ANDROID=1 Skip Android SDK sync inside toolchain sync
+#   TOOLCHAIN_SYNC_MAX_ANDROID_JUMP=<n> Max Android API bump in one run (default: 1)
+#   TOOLCHAIN_SYNC_ALLOW_RUNTIME_MISMATCH=1 Continue even if active Node != .nvmrc
 #   SKIP_RUBY=1       Skip bundle update/install
 #   SKIP_CAP_SYNC=1   Skip pnpm cap:sync
 #   SKIP_POD_CLEAN=1  Skip clean pod install (removes Pods/ and Podfile.lock)
@@ -25,6 +30,20 @@ cd "$REPO_ROOT"
 
 if [ -n "$(git status --porcelain)" ]; then
   echo "Warning: working tree is not clean. Continuing anyway." >&2
+fi
+
+if [ "${SKIP_TOOLCHAIN_SYNC:-0}" -ne 1 ]; then
+  TOOLCHAIN_ARGS="--apply --max-android-jump ${TOOLCHAIN_SYNC_MAX_ANDROID_JUMP:-1}"
+  if [ "${SKIP_TOOLCHAIN_NODE:-0}" -eq 1 ]; then
+    TOOLCHAIN_ARGS="$TOOLCHAIN_ARGS --skip-node"
+  fi
+  if [ "${SKIP_TOOLCHAIN_ANDROID:-0}" -eq 1 ]; then
+    TOOLCHAIN_ARGS="$TOOLCHAIN_ARGS --skip-android"
+  fi
+  # shellcheck disable=SC2086
+  MAX_ANDROID_API_JUMP="${TOOLCHAIN_SYNC_MAX_ANDROID_JUMP:-1}" \
+  TOOLCHAIN_SYNC_ALLOW_RUNTIME_MISMATCH="${TOOLCHAIN_SYNC_ALLOW_RUNTIME_MISMATCH:-0}" \
+    "$SCRIPT_DIR/syncToolchainVersions.sh" $TOOLCHAIN_ARGS
 fi
 
 if [ "${SKIP_UPDATE:-0}" -ne 1 ]; then

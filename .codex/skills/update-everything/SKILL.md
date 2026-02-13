@@ -22,13 +22,36 @@ Use the shared script to perform the standard update flow:
 ./scripts/updateEverything.sh
 ```
 
-Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+This now includes an automatic toolchain sync step before dependency updates.
+
+Optional toggles (set to `1` as needed): `SKIP_TOOLCHAIN_SYNC`, `SKIP_TOOLCHAIN_NODE`, `SKIP_TOOLCHAIN_ANDROID`, `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+
+Additional toolchain controls:
+
+- `TOOLCHAIN_SYNC_MAX_ANDROID_JUMP=<n>`: limit Android API-level bump in one run (default: `1`)
+- `TOOLCHAIN_SYNC_ALLOW_RUNTIME_MISMATCH=1`: continue even when active `node` runtime differs from updated `.nvmrc`
 
 Script exits early on dependency hygiene checks—fix then rerun:
 
 - Caret/tilde ranges in `dependencies`/`devDependencies` are blocked. Pin versions where reported.
 - Pinned `peerDependencies` must match `packages/client/package.json` versions. Align the peer versions to the client version before rerunning.
 - `@capacitor/*` versions in `packages/client/package.json` must match the resolved versions in `packages/client/ios/App/Podfile.lock` (when present). Align and rerun sync/pod install if mismatched.
+
+## Automatic Toolchain Sync
+
+`./scripts/updateEverything.sh` runs `./scripts/syncToolchainVersions.sh --apply` before package updates:
+
+1. **Node/Electron**: reads `electron` from `packages/client/package.json`, resolves its bundled Node version from `https://releases.electronjs.org/releases.json`, then aligns:
+   - `.nvmrc`
+   - `package.json` `engines.node`
+2. **Android SDK levels**: reads latest stable platform API from `https://dl.google.com/android/repository/repository2-1.xml`, then bumps:
+   - `packages/client/android/variables.gradle` `compileSdkVersion`
+   - `packages/client/android/variables.gradle` `targetSdkVersion`
+
+Guardrails:
+
+- Android bumps are capped by `TOOLCHAIN_SYNC_MAX_ANDROID_JUMP` to avoid large blind jumps.
+- If Node files are updated and active runtime does not match `.nvmrc`, the toolchain script exits so you can run `nvm use` and rerun.
 
 ## Fastlane and Ruby Gems Update
 
@@ -63,7 +86,7 @@ bundle exec fastlane ios build_release --dry_run
 
 ## Node.js Version Alignment (Electron)
 
-When updating `electron`, align Node.js versions:
+Node alignment is now automatic via toolchain sync. For manual fallback, when updating `electron`, align Node.js versions:
 
 1. Check Electron's bundled Node.js version at <https://releases.electronjs.org/>.
 2. Update `.nvmrc` to match (e.g., `v22.21.1`).
