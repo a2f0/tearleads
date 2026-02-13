@@ -1,76 +1,140 @@
-# Script Tool Wrappers (Phase 2)
+# Script Tool Wrappers
 
-`scriptTool.sh` is a thin wrapper around utility scripts in `scripts/` for safer tool-calling.
+> **Auto-generated from `scriptTool.ts`** - Do not edit manually.
+> Run `./scripts/tooling/scriptTool.ts generateDocs` to regenerate.
+
+`scriptTool.ts` is a TypeScript wrapper around utility scripts in `scripts/` for safer tool-calling.
 
 ## Usage
 
 ```sh
-./scripts/tooling/scriptTool.sh <action> [options]
+./scripts/tooling/scriptTool.ts <action> [options]
 ```
 
 ## Actions
 
-### Read-only / Analysis
+### Analysis
 
 - `analyzeBundle` - Build and open bundle analysis report
 - `checkBinaryFiles` - Check for binary files (guardrail validation)
 - `ciImpact` - Analyze CI impact for changed files (JSON output)
 - `verifyBinaryGuardrails` - Verify binary guardrail configuration
 
-### Quality / Testing
+### Quality
 
 - `runImpactedQuality` - Run quality checks on impacted files only
+
+### Testing
+
 - `runImpactedTests` - Run tests on impacted packages only
 - `runAllTests` - Run full test suite (lint, build, unit, e2e)
 - `runElectronTests` - Run Electron E2E tests
 - `runPlaywrightTests` - Run Playwright E2E tests
 
-## Options
+## Common Options
 
-- `--base <sha>` - Base commit for diff (required for ciImpact, runImpactedQuality, runImpactedTests)
-- `--head <sha>` - Head commit for diff (required for ciImpact, runImpactedQuality, runImpactedTests)
-- `--staged` - Check staged files (checkBinaryFiles, one of --staged or --from-upstream required)
-- `--from-upstream` - Check files changed from upstream (checkBinaryFiles)
-- `--headed` - Run tests with visible browser (runAllTests, runPlaywrightTests, runElectronTests)
-- `--filter <pattern>` - Test filter pattern (runPlaywrightTests, runElectronTests)
-- `--file <path>` - Specific test file (runPlaywrightTests, runElectronTests)
-- `--timeout-seconds <n>` - Override default timeout (all actions)
-- `--repo-root <path>` - Force execution from specific git root (all actions)
-- `--dry-run` - Validate without executing (all actions)
-- `--json` - Emit structured JSON summary (all actions)
+All actions support these options:
+
+| Option | Description |
+| ------ | ----------- |
+| `--timeout-seconds <n>` | Override default timeout |
+| `--repo-root <path>` | Execute from specific git root |
+| `--dry-run` | Validate without executing |
+| `--json` | Emit structured JSON summary |
+
+## Action-Specific Options
+
+### checkBinaryFiles
+
+| Option | Description | Required |
+| ------ | ----------- | -------- |
+| `--staged` | Check staged files | No |
+| `--from-upstream` | Check files changed from upstream | No |
+
+### ciImpact
+
+| Option | Description | Required |
+| ------ | ----------- | -------- |
+| `--base <sha>` | Base commit for diff | Yes |
+| `--head <sha>` | Head commit for diff | Yes |
+
+### runImpactedQuality
+
+| Option | Description | Required |
+| ------ | ----------- | -------- |
+| `--base <sha>` | Base commit for diff | Yes |
+| `--head <sha>` | Head commit for diff | Yes |
+
+### runImpactedTests
+
+| Option | Description | Required |
+| ------ | ----------- | -------- |
+| `--base <sha>` | Base commit for diff | Yes |
+| `--head <sha>` | Head commit for diff | Yes |
+
+### runAllTests
+
+| Option | Description | Required |
+| ------ | ----------- | -------- |
+| `--headed` | Run tests with visible browser | No |
+
+### runElectronTests
+
+| Option | Description | Required |
+| ------ | ----------- | -------- |
+| `--headed` | Run tests with visible browser | No |
+| `--filter <pattern>` | Test filter pattern | No |
+| `--file <path>` | Specific test file | No |
+
+### runPlaywrightTests
+
+| Option | Description | Required |
+| ------ | ----------- | -------- |
+| `--headed` | Run tests with visible browser | No |
+| `--filter <pattern>` | Test filter pattern | No |
+| `--file <path>` | Specific test file | No |
 
 ## Default Timeouts
 
-- `runAllTests` - 60 minutes
-- `runElectronTests`, `runPlaywrightTests` - 30 minutes
-- `analyzeBundle` - 10 minutes
-- All others - 5 minutes
+| Action | Timeout |
+| ------ | ------- |
+| `analyzeBundle` | 10 minutes |
+| `checkBinaryFiles` | 5 minutes |
+| `ciImpact` | 5 minutes |
+| `runImpactedQuality` | 5 minutes |
+| `runImpactedTests` | 5 minutes |
+| `runAllTests` | 1 hour |
+| `runElectronTests` | 30 minutes |
+| `runPlaywrightTests` | 30 minutes |
+| `verifyBinaryGuardrails` | 5 minutes |
 
 ## Safety Classes
 
-- `safe_read` - ciImpact, checkBinaryFiles, verifyBinaryGuardrails
-- `safe_write_local` - All others (local filesystem/process changes only)
+| Class | Actions |
+| ----- | ------- |
+| `safe_read` | `checkBinaryFiles`, `ciImpact`, `verifyBinaryGuardrails` |
+| `safe_write_local` | `analyzeBundle`, `runImpactedQuality`, `runImpactedTests`, `runAllTests`, `runElectronTests`, `runPlaywrightTests` |
 
 ## Examples
 
 ```sh
 # Analyze CI impact between commits
-./scripts/tooling/scriptTool.sh ciImpact --base origin/main --head HEAD --json
+./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json
 
 # Run impacted quality checks
-./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
 
 # Run impacted tests only
-./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
 
 # Check for binary files in staged changes
-./scripts/tooling/scriptTool.sh checkBinaryFiles --staged --json
+./scripts/tooling/scriptTool.ts checkBinaryFiles --staged --json
 
 # Run Playwright tests with filter
-./scripts/tooling/scriptTool.sh runPlaywrightTests --filter "login" --headed
+./scripts/tooling/scriptTool.ts runPlaywrightTests --filter "login" --headed
 
 # Dry-run to validate command
-./scripts/tooling/scriptTool.sh runAllTests --dry-run --json
+./scripts/tooling/scriptTool.ts runAllTests --dry-run --json
 ```
 
 ## JSON Output Format

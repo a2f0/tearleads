@@ -41,7 +41,7 @@ Run `--help` for full action and option list:
 - `enableAutoMerge` - Enable auto-merge on PR
 - `findPrForBranch` - Find PR for a branch
 - `listHighPriorityPrs` - List open high-priority PRs
-- `triggerGeminiReview` - Post /gemini review
+- `triggerGeminiReview` - Post /gemini review and poll for response
 - `findDeferredWork` - Find deferred work comments
 
 ## Common Options
@@ -57,5 +57,6 @@ Run `--help` for full action and option list:
 ./scripts/agents/tooling/agentTool.ts setVscodeTitle --title "tearleads6 - main"
 ./scripts/agents/tooling/agentTool.ts solicitCodexReview --dry-run --json
 ./scripts/agents/tooling/agentTool.ts replyToGemini --number 1618 --comment-id 2801563279 --commit d9948cca79f7f13c940edcade20b5665b1bf0762
+./scripts/agents/tooling/agentTool.ts triggerGeminiReview --number 1651 --poll-timeout 120 --json
 ./scripts/agents/tooling/agentTool.ts refresh
 ```

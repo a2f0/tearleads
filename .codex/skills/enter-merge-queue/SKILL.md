@@ -355,8 +355,8 @@ Merge queue sessions can run for 30+ minutes. Without strict token discipline, a
 git push --force-with-lease >/dev/null
 git push >/dev/null
 git commit -S -m "message" >/dev/null
-git fetch origin main >/dev/null
-git rebase origin/main >/dev/null
+git fetch origin <baseRefName> >/dev/null
+git rebase origin/<baseRefName> >/dev/null
 
 # WRONG - NEVER run without stdout suppression
 git push                    # Burns 5000+ tokens on pre-push hooks

@@ -178,7 +178,7 @@ Phase 1 (immediate): ✅ COMPLETE (PR #1571)
 
 Phase 2 (safe utilities): ✅ COMPLETE (PR #1596)
 
-- Toolized safe utility scripts → `scripts/tooling/scriptTool.sh`
+- Toolized safe utility scripts → `scripts/tooling/scriptTool.ts`
   - Actions: `analyzeBundle`, `checkBinaryFiles`, `ciImpact`, `runImpactedQuality`, `runImpactedTests`, `runAllTests`, `runElectronTests`, `runPlaywrightTests`, `verifyBinaryGuardrails`
 - Updated `.claude/commands/optimize-test-execution.md` to prefer wrapper invocation
 
@@ -213,30 +213,30 @@ Phase 4 (GitHub API patterns from skills): 🔄 IN PROGRESS (PR #1623)
 ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
 ```
 
-### CI/Testing Tools (`scriptTool.sh`)
+### CI/Testing Tools (`scriptTool.ts`)
 
 ```bash
 # Analyze CI impact for changed files
-./scripts/tooling/scriptTool.sh ciImpact --base origin/main --head HEAD --json
+./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json
 
 # Run quality checks on impacted files
-./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
 
 # Run tests on impacted packages
-./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
 
 # Run full test suite
-./scripts/tooling/scriptTool.sh runAllTests
+./scripts/tooling/scriptTool.ts runAllTests
 
 # Run E2E tests
-./scripts/tooling/scriptTool.sh runPlaywrightTests --filter "login" --headed
-./scripts/tooling/scriptTool.sh runElectronTests --file tests/smoke.spec.ts
+./scripts/tooling/scriptTool.ts runPlaywrightTests --filter "login" --headed
+./scripts/tooling/scriptTool.ts runElectronTests --file tests/smoke.spec.ts
 
 # Check binary files in staged changes
-./scripts/tooling/scriptTool.sh checkBinaryFiles --staged --json
+./scripts/tooling/scriptTool.ts checkBinaryFiles --staged --json
 
 # Verify binary guardrail configuration
-./scripts/tooling/scriptTool.sh verifyBinaryGuardrails --json
+./scripts/tooling/scriptTool.ts verifyBinaryGuardrails --json
 ```
 
 ### Common Options
@@ -269,7 +269,7 @@ Raw `gh` CLI and GraphQL patterns found in `.claude/commands/` skills that shoul
 
 | Pattern | Skill | Proposed Action | Args |
 | --- | --- | --- | --- |
-| Download CI artifact | fix-tests | `agentTool.ts downloadArtifact` | `--run-id <id> --name <artifact> --dest <path>` |
+| Download CI artifact | fix-tests | `agentTool.ts downloadArtifact` | `--run-id <id> --artifact <name> --dest <path>` |
 | Enable auto-merge | enter-merge-queue | `agentTool.ts enableAutoMerge` | `--number <pr>` |
 | Find PR for branch | enter-merge-queue | `agentTool.ts findPrForBranch` | `--branch <name> [--state <open\|merged>]` |
 | List high-priority PRs | enter-merge-queue | `agentTool.ts listHighPriorityPrs` | (none) |

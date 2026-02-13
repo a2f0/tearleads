@@ -26,13 +26,13 @@ Core analyzer that determines which CI jobs should run. Used by both GitHub Acti
 
 ```bash
 # Analyze current branch vs main
-./scripts/tooling/scriptTool.sh ciImpact --base origin/main --head HEAD --json
+./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json
 
 # Run quality checks on impacted files
-./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
 
 # Run tests on impacted packages
-./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
 ```
 
 <details>
@@ -65,7 +65,7 @@ Pre-push hook for selective quality checks. Runs biome, tsc, and build only for 
 **Preferred: Use the scriptTool wrapper:**
 
 ```bash
-./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
 ```
 
 <details>
@@ -88,7 +88,7 @@ Pre-push hook for selective coverage tests. Only runs `test:coverage` for impact
 **Preferred: Use the scriptTool wrapper:**
 
 ```bash
-./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
 ```
 
 <details>
@@ -254,13 +254,13 @@ When modifying the impact system, update together:
 
 ## Token Efficiency
 
-The `scriptTool.sh` wrappers already provide structured JSON output with `--json` flag. Prefer wrappers over direct invocation:
+The `scriptTool.ts` wrappers already provide structured JSON output with `--json` flag. Prefer wrappers over direct invocation:
 
 ```bash
 # Preferred - returns structured summary, suppresses verbose output
-./scripts/tooling/scriptTool.sh ciImpact --base origin/main --head HEAD --json
-./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
-./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
 ```
 
 For debugging, use direct invocation without wrappers. Suppress git operations:
