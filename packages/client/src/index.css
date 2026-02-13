@@ -2,6 +2,7 @@
 @import "@tearleads/ui/styles.css";
 @import "@tearleads/ui/theme.css";
 
+@source "../../admin/src";
 @source "../../ui/src";
 @source "../../calendar/src";
 
