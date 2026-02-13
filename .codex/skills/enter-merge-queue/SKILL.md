@@ -41,6 +41,8 @@ Track the following state during execution:
 - `original_base_ref`: String or null. For roll-up PRs, stores the original base branch name before retargeting to main.
 - `job_failure_counts`: Map of job name → failure count. Tracks how many times each job has failed across workflow runs. Reset when job succeeds or PR is rebased.
 - `current_run_id`: Number or null. The workflow run ID being monitored. Used to detect when a new workflow starts after a fix push.
+- `deferred_items`: Array of `{thread_id, path, line, body, html_url}`. Collects review feedback explicitly deferred to a follow-up PR. Populated by `$address-gemini-feedback` when a fix is deferred rather than applied on-the-fly.
+- `deferred_fix_issue_number`: Number or null. If deferred items exist, a tracking issue is created with the `deferred-fix` label before merge.
 
 ## Polling with Jitter
 
@@ -398,10 +400,37 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    That's it. The issue already describes the work; no need to update descriptions or add comments.
 
+   **Post-merge deferred fix handling**: If `deferred_items` is non-empty:
+
+   1. Create a tracking issue with the `deferred-fix` label:
+
+      ```bash
+      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+      cat <<EOF | gh issue create --title "chore: deferred fixes from PR #$PR_NUMBER" --label "deferred-fix" --body-file - -R "$REPO"
+      ## Summary
+      Review feedback deferred from PR #$PR_NUMBER to a follow-up PR.
+
+      ## Source
+      - PR: #$PR_NUMBER
+      - URL: $PR_URL
+
+      ## Deferred Items
+      $(for item_json in "${deferred_items[@]}"; do echo "$item_json" | jq -r '"- [ ] \(.body) - `\(.path):\(.line)` ([thread](\(.html_url)))"'; done)
+
+      ## Notes
+      These items were explicitly marked for deferral during review. Address each item and check it off, then close this issue.
+      EOF
+      ```
+
+   2. Store the new issue number as `deferred_fix_issue_number`
+
+   **IMPORTANT**: Only create deferred fix issues for items explicitly deferred. Do NOT create issues for feedback that was addressed on-the-fly during the PR review cycle.
+
 5. **Report success**: Confirm the PR was merged and provide a summary:
    - Show the PR URL
    - Output a brief description of what was merged (1-3 sentences summarizing the changes based on the PR title and commits)
    - If an associated issue exists, mention it was labeled `needs-qa`
+   - If a deferred fix issue was created, mention it with its number and link
 
 ## Opening GitHub Issues
 
@@ -461,7 +490,8 @@ git rebase origin/<baseRefName>      # Can be noisy and waste tokens
 - Loops until PR is **actually merged**, not just auto-merge enabled
 - Non-high-priority PRs yield to high-priority ones unless all are `DIRTY` (check every 2 min with jitter)
 - Auto-close language is removed from PR bodies; associated issues get `needs-qa` label after merge
-- Do NOT create "QA: ..." issues - issues are only created when explicitly requested by the user
+- Do NOT create "QA: ..." issues - issues are only created when explicitly requested by the user OR for deferred fixes
+- **Deferred fixes**: Create issues ONLY for review feedback explicitly deferred to a follow-up PR. Do NOT create issues for feedback fixed on-the-fly during the review cycle.
 - Prioritize continuous CI/review monitoring in congested queues
 - Fixable: lint/type errors, test failures. Non-fixable: merge conflicts, infra failures
 - If stuck (same job fails 3 times after 2 fix attempts), ask user for help

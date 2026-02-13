@@ -16,6 +16,8 @@ Track these state flags during execution:
 
 - `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini returns its daily quota message.
 - `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback cross-agent review.
+- `deferred_items`: Array of `{thread_id, path, line, body, html_url}`, starts empty. Populated by `/address-gemini-feedback` when review feedback is deferred rather than fixed on-the-fly. Pass this state to `/enter-merge-queue` for issue creation.
+
 Commit and push the current changes following these rules:
 
 1. **Check branch**: If on `main`, create a new branch with an appropriate name based on the changes. After creating or switching branches, update the VS Code title:
@@ -121,6 +123,7 @@ Commit and push the current changes following these rules:
 
    - Re-run the same quota check after each Gemini interaction (including follow-up replies). Quota exhaustion can appear after an initial review was already posted.
    - If quota is detected later, immediately apply step 8 fallback behavior and stop Gemini-specific follow-ups.
+   - `/address-gemini-feedback` may populate `deferred_items` if any feedback is deferred rather than fixed on-the-fly.
 
    **IMPORTANT**: When replying to Gemini comments, use the agentTool wrappers:
 
@@ -131,6 +134,13 @@ Commit and push the current changes following these rules:
    ```
 
    Do NOT use `gh pr review` - it creates pending/draft reviews that Gemini cannot see. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification.
+
+10. **Report state for downstream skills**: After completing feedback handling, report:
+    - PR number and URL
+    - Whether Gemini quota was exhausted
+    - Any `deferred_items` that were collected
+
+    If `deferred_items` is non-empty, mention that `/enter-merge-queue` will create a tracking issue with the `deferred-fix` label after merge.
 
 ## Token Efficiency (CRITICAL - DO NOT SKIP)
 
