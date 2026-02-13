@@ -1,6 +1,4 @@
-import type { ResolvedTheme } from '@tearleads/ui';
-import { useTheme } from '@tearleads/ui';
-import { GridSquare } from '@/components/ui/grid-square';
+import { GridSquare, type ResolvedTheme, useTheme } from '@tearleads/ui';
 import { useTypedTranslation } from '@/i18n';
 import { ThemePreview } from './ThemePreview';
 

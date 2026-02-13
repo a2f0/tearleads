@@ -22,6 +22,7 @@
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },
   "peerDependencies": {
+    "@tearleads/ui": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "react": "19.2.4",
     "react-dom": "19.2.4",
@@ -33,6 +34,8 @@
     "sonner": "2.0.7"
   },
   "devDependencies": {
+    "@tearleads/ui": "workspace:*",
+    "@tearleads/window-manager": "workspace:*",
     "@tanstack/react-virtual": "3.13.18",
     "@tearleads/window-manager": "workspace:*",
     "@testing-library/jest-dom": "6.9.1",

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { GridSquare } from './GridSquare';
+import { GridSquare } from './GridSquare.js';
 
 describe('GridSquare', () => {
   it('renders children', () => {

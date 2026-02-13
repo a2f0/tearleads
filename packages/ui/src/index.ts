@@ -1,6 +1,12 @@
 // Components
 export { ApiDocs } from './components/api-docs/ApiDocs.js';
 export {
+  GridSquare,
+  type GridSquareProps,
+  IconSquare,
+  type IconSquareProps
+} from './components/grid-square/index.js';
+export {
   ConnectionIndicator,
   type ConnectionIndicatorProps,
   type ConnectionState

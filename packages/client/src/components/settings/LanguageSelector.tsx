@@ -1,4 +1,4 @@
-import { GridSquare } from '@/components/ui/grid-square';
+import { GridSquare } from '@tearleads/ui';
 import type { SupportedLanguage } from '@/i18n';
 import { loadLanguage, supportedLanguages, useTypedTranslation } from '@/i18n';
 

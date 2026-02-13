@@ -1,4 +1,4 @@
-import { GridSquare } from '@/components/ui/grid-square';
+import { GridSquare } from '@tearleads/ui';
 import { useSettings } from '@/db/SettingsProvider';
 import type { DesktopPatternValue } from '@/db/user-settings';
 import { PatternPreview } from './PatternPreview';
