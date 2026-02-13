@@ -281,7 +281,10 @@ describe('Auth routes', () => {
 
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'existing@example.com', password: 'SecurePassword123!' });
+        .send({
+          email: 'existing@example.com',
+          password: 'SecurePassword123!'
+        });
 
       expect(response.status).toBe(409);
       expect(response.body).toEqual({ error: 'Email already registered' });

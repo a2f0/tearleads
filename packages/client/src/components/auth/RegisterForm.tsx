@@ -1,9 +1,9 @@
-import { useCallback, useId, useRef, useState } from 'react';
 import {
   PASSWORD_COMPLEXITY_ERROR,
   PASSWORD_MIN_LENGTH,
   passwordMeetsComplexity
 } from '@tearleads/shared';
+import { useCallback, useId, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
