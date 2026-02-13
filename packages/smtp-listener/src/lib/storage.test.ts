@@ -139,6 +139,140 @@ describe('storage', () => {
 
       expect(result).toBeNull();
     });
+
+    it('should return null for invalid stored data (missing required fields)', async () => {
+      mockGet.mockResolvedValue(JSON.stringify({ id: 'test', invalid: true }));
+
+      const storage = await createStorage('redis://localhost:6379');
+      const result = await storage.get('test-123');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for invalid envelope mailFrom', async () => {
+      mockGet.mockResolvedValue(
+        JSON.stringify({
+          id: 'test',
+          rawData: 'data',
+          receivedAt: '2024-01-01',
+          size: 100,
+          envelope: {
+            mailFrom: { invalid: true }, // missing 'address'
+            rcptTo: [{ address: 'test@example.com' }]
+          }
+        })
+      );
+
+      const storage = await createStorage('redis://localhost:6379');
+      const result = await storage.get('test-123');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null for invalid envelope rcptTo', async () => {
+      mockGet.mockResolvedValue(
+        JSON.stringify({
+          id: 'test',
+          rawData: 'data',
+          receivedAt: '2024-01-01',
+          size: 100,
+          envelope: {
+            mailFrom: false,
+            rcptTo: [{ invalid: true }] // missing 'address'
+          }
+        })
+      );
+
+      const storage = await createStorage('redis://localhost:6379');
+      const result = await storage.get('test-123');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when envelope is not an object', async () => {
+      mockGet.mockResolvedValue(
+        JSON.stringify({
+          id: 'test',
+          rawData: 'data',
+          receivedAt: '2024-01-01',
+          size: 100,
+          envelope: 'invalid' // not an object
+        })
+      );
+
+      const storage = await createStorage('redis://localhost:6379');
+      const result = await storage.get('test-123');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when stored data is not an object', async () => {
+      mockGet.mockResolvedValue(JSON.stringify('not an object'));
+
+      const storage = await createStorage('redis://localhost:6379');
+      const result = await storage.get('test-123');
+
+      expect(result).toBeNull();
+    });
+
+    it('should return null when rcptTo is not an array', async () => {
+      mockGet.mockResolvedValue(
+        JSON.stringify({
+          id: 'test',
+          rawData: 'data',
+          receivedAt: '2024-01-01',
+          size: 100,
+          envelope: {
+            mailFrom: false,
+            rcptTo: 'not an array'
+          }
+        })
+      );
+
+      const storage = await createStorage('redis://localhost:6379');
+      const result = await storage.get('test-123');
+
+      expect(result).toBeNull();
+    });
+
+    it('should accept email with optional name field', async () => {
+      const emailWithName: StoredEmail = {
+        id: 'test-456',
+        envelope: {
+          mailFrom: { address: 'sender@example.com', name: 'Sender Name' },
+          rcptTo: [{ address: 'recipient@example.com', name: 'Recipient' }]
+        },
+        rawData: 'data',
+        receivedAt: '2024-01-01',
+        size: 100
+      };
+      mockGet.mockResolvedValue(JSON.stringify(emailWithName));
+
+      const storage = await createStorage('redis://localhost:6379');
+      const result = await storage.get('test-456');
+
+      expect(result).toEqual(emailWithName);
+    });
+
+    it('should return null when email address name is not a string', async () => {
+      mockGet.mockResolvedValue(
+        JSON.stringify({
+          id: 'test',
+          rawData: 'data',
+          receivedAt: '2024-01-01',
+          size: 100,
+          envelope: {
+            mailFrom: { address: 'test@example.com', name: 123 }, // name should be string or undefined
+            rcptTo: [{ address: 'test@example.com' }]
+          }
+        })
+      );
+
+      const storage = await createStorage('redis://localhost:6379');
+      const result = await storage.get('test-123');
+
+      expect(result).toBeNull();
+    });
   });
 
   describe('list', () => {

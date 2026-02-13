@@ -4,7 +4,8 @@
  * Uses fetch + ReadableStream for header-based auth (more secure than query params).
  */
 
-import type { MlsMessage } from '@tearleads/shared';
+import type { MlsMessage, MlsMessageType } from '@tearleads/shared';
+import { isRecord } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useMlsChatApi } from '../context/index.js';
@@ -21,6 +22,66 @@ interface UseMlsRealtimeResult {
 interface SSEEvent {
   event: string;
   data: string;
+}
+
+/** Parsed SSE message envelope */
+interface SseMessageEnvelope {
+  type: string;
+  payload: unknown;
+}
+
+/** Commit message payload from SSE */
+interface CommitPayload {
+  groupId: string;
+  commit: string;
+}
+
+/** Global message handler registry type */
+type MlsMessageHandlerRegistry = Map<string, (msg: MlsMessage) => void>;
+
+/** Type guard for SSE message envelope */
+function isSseMessageEnvelope(value: unknown): value is SseMessageEnvelope {
+  return isRecord(value) && typeof value['type'] === 'string';
+}
+
+const VALID_MESSAGE_TYPES: MlsMessageType[] = [
+  'application',
+  'commit',
+  'proposal'
+];
+
+function isValidMessageType(value: unknown): value is MlsMessageType {
+  return (
+    typeof value === 'string' &&
+    VALID_MESSAGE_TYPES.includes(value as MlsMessageType)
+  );
+}
+
+/** Type guard for MlsMessage payload */
+function isMlsMessage(value: unknown): value is MlsMessage {
+  if (!isRecord(value)) return false;
+  return (
+    typeof value['id'] === 'string' &&
+    typeof value['groupId'] === 'string' &&
+    typeof value['epoch'] === 'number' &&
+    typeof value['ciphertext'] === 'string' &&
+    isValidMessageType(value['messageType']) &&
+    typeof value['contentType'] === 'string' &&
+    typeof value['sequenceNumber'] === 'number' &&
+    typeof value['sentAt'] === 'string' &&
+    typeof value['createdAt'] === 'string' &&
+    (value['senderUserId'] === null ||
+      typeof value['senderUserId'] === 'string')
+  );
+}
+
+/** Type guard for commit message payload */
+function isCommitPayload(value: unknown): value is CommitPayload {
+  return (
+    isRecord(value) &&
+    typeof value['groupId'] === 'string' &&
+    typeof value['commit'] === 'string'
+  );
 }
 
 function parseSSEEvents(chunk: string, buffer: string): [SSEEvent[], string] {
@@ -160,21 +221,22 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
 
           for (const { data } of events) {
             try {
-              const parsed = JSON.parse(data) as {
-                type: string;
-                payload: unknown;
-              };
+              const parsed: unknown = JSON.parse(data);
+
+              if (!isSseMessageEnvelope(parsed)) {
+                continue;
+              }
 
               if (parsed.type === 'mls:message') {
-                const message = parsed.payload as MlsMessage;
+                if (!isMlsMessage(parsed.payload)) {
+                  continue;
+                }
+                const message = parsed.payload;
 
                 // Dispatch to message handler if registered
                 const handlers = (
-                  window as unknown as {
-                    __mlsMessageHandler?: Map<
-                      string,
-                      (msg: MlsMessage) => void
-                    >;
+                  globalThis as {
+                    __mlsMessageHandler?: MlsMessageHandlerRegistry;
                   }
                 ).__mlsMessageHandler;
 
@@ -183,10 +245,10 @@ export function useMlsRealtime(client: MlsClient | null): UseMlsRealtimeResult {
                 }
               } else if (parsed.type === 'mls:commit') {
                 // Handle commit messages (epoch updates)
-                const { groupId, commit } = parsed.payload as {
-                  groupId: string;
-                  commit: string;
-                };
+                if (!isCommitPayload(parsed.payload)) {
+                  continue;
+                }
+                const { groupId, commit } = parsed.payload;
 
                 if (client?.hasGroup(groupId)) {
                   const commitBytes = Uint8Array.from(atob(commit), (c) =>

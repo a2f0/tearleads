@@ -1,11 +1,52 @@
+import { isRecord } from '@tearleads/shared';
 import {
   closeRedisClient,
   getRedisClient,
   type RedisClient
 } from '@tearleads/shared/redis';
-import type { StoredEmail } from '../types/email.js';
+import type { EmailAddress, StoredEmail } from '../types/email.js';
 
 const EMAIL_PREFIX = 'smtp:email:';
+
+function isEmailAddress(value: unknown): value is EmailAddress {
+  return (
+    isRecord(value) &&
+    typeof value['address'] === 'string' &&
+    (value['name'] === undefined || typeof value['name'] === 'string')
+  );
+}
+
+function isStoredEmail(value: unknown): value is StoredEmail {
+  if (!isRecord(value)) return false;
+
+  // Validate required string fields
+  if (
+    typeof value['id'] !== 'string' ||
+    typeof value['rawData'] !== 'string' ||
+    typeof value['receivedAt'] !== 'string' ||
+    typeof value['size'] !== 'number'
+  ) {
+    return false;
+  }
+
+  // Validate envelope
+  const envelope = value['envelope'];
+  if (!isRecord(envelope)) return false;
+
+  // mailFrom can be EmailAddress or false
+  const mailFrom = envelope['mailFrom'];
+  if (mailFrom !== false && !isEmailAddress(mailFrom)) {
+    return false;
+  }
+
+  // rcptTo must be an array of EmailAddress
+  const rcptTo = envelope['rcptTo'];
+  if (!Array.isArray(rcptTo) || !rcptTo.every(isEmailAddress)) {
+    return false;
+  }
+
+  return true;
+}
 const EMAIL_LIST_PREFIX = 'smtp:emails:';
 const EMAIL_USERS_PREFIX = 'smtp:email:users:';
 
@@ -64,7 +105,11 @@ export async function createStorage(redisUrl?: string): Promise<EmailStorage> {
       if (!data) {
         return null;
       }
-      return JSON.parse(data) as StoredEmail;
+      const parsed: unknown = JSON.parse(data);
+      if (!isStoredEmail(parsed)) {
+        return null;
+      }
+      return parsed;
     },
 
     async list(userId: string): Promise<string[]> {
