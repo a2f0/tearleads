@@ -4,10 +4,16 @@ set -eu
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 CLIENT_DIR="$ROOT_DIR/packages/client"
 GENERATED_DIR="$CLIENT_DIR/.generated/electron-native"
-WORK_DIR="${TMPDIR:-/tmp}/tearleads-electron-sqlite-build"
+WORK_DIR="$(mktemp -d "${TMPDIR:-/tmp}/tearleads-electron-sqlite-build.XXXXXX")"
 WORKSPACE_DIR="$WORK_DIR/workspace"
 OUTPUT_BINARY="$GENERATED_DIR/better_sqlite3.node"
 STAMP_FILE="$GENERATED_DIR/build-stamp.txt"
+
+cleanup() {
+  rm -rf "$WORK_DIR"
+}
+
+trap cleanup EXIT INT TERM
 
 get_pkg_version() {
   query="$1"
@@ -30,8 +36,9 @@ SQLITE_VERSION="$(get_pkg_version "pkg.dependencies['better-sqlite3-multiple-cip
 REBUILD_VERSION="$(get_pkg_version "pkg.devDependencies['@electron/rebuild']" "Missing devDependencies.@electron/rebuild in packages/client/package.json")"
 PLATFORM="$(node -p "process.platform")"
 ARCH="$(node -p "process.arch")"
+NODE_VERSION="$(node -p "process.version")"
 
-BUILD_STAMP="electron=${ELECTRON_VERSION};sqlite=${SQLITE_VERSION};rebuild=${REBUILD_VERSION};platform=${PLATFORM};arch=${ARCH}"
+BUILD_STAMP="electron=${ELECTRON_VERSION};sqlite=${SQLITE_VERSION};rebuild=${REBUILD_VERSION};platform=${PLATFORM};arch=${ARCH};node=${NODE_VERSION}"
 
 if [ "${FORCE_ELECTRON_SQLITE_REBUILD:-0}" != "1" ] &&
   [ -f "$OUTPUT_BINARY" ] &&
