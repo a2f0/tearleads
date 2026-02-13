@@ -1,7 +1,9 @@
+import express from 'express';
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
+import { getRootHandler as getUsersRootHandler } from './users/get-root.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();
@@ -180,6 +182,100 @@ describe('admin users routes', () => {
     expect(response.body).toEqual({ error: 'query failed' });
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+
+  it('GET /v1/admin/users returns scoped users for org admin', async () => {
+    const orgAdminHeader = await createAuthHeader({
+      id: 'org-admin-1',
+      email: 'org-admin@example.com',
+      admin: false
+    });
+    mockGetLatestLastActiveByUserIds.mockResolvedValue({});
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery
+        .mockResolvedValueOnce({
+          rows: [{ organization_id: 'org-2' }]
+        })
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'user-2',
+              email: 'beta@example.com',
+              email_confirmed: false,
+              admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null,
+              organization_ids: ['org-2'],
+              created_at: '2024-02-01T00:00:00.000Z'
+            }
+          ]
+        })
+        .mockResolvedValueOnce({
+          rows: []
+        })
+    });
+
+    const response = await request(app)
+      .get('/v1/admin/users')
+      .set('Authorization', orgAdminHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body.users).toHaveLength(1);
+    expect(mockQuery).toHaveBeenNthCalledWith(
+      2,
+      expect.stringContaining('WHERE EXISTS'),
+      [['org-2']]
+    );
+  });
+
+  it('GET /v1/admin/users supports root admin filtering by organizationId', async () => {
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValueOnce({
+        rows: []
+      })
+    });
+
+    const response = await request(app)
+      .get('/v1/admin/users?organizationId=org-1')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ users: [] });
+    expect(mockQuery).toHaveBeenCalledWith(
+      expect.stringContaining('WHERE EXISTS'),
+      [['org-1']]
+    );
+  });
+
+  it('GET /v1/admin/users returns fallback error on non-Error failures', async () => {
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockRejectedValueOnce('query failed')
+    });
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+
+    const response = await request(app)
+      .get('/v1/admin/users')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Failed to query users' });
+    expect(consoleError).toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('GET /v1/admin/users returns 401 when users handler is mounted without admin access middleware', async () => {
+    const isolatedApp = express();
+    isolatedApp.get('/', getUsersRootHandler);
+
+    const response = await request(isolatedApp).get('/');
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
   });
 
   it('GET /v1/admin/users/:id returns a single user', async () => {
@@ -426,6 +522,48 @@ describe('admin users routes', () => {
 
     expect(response.status).toBe(403);
     expect(response.body).toEqual({ error: 'Forbidden' });
+  });
+
+  it('GET /v1/admin/users returns 403 when org admin requests unauthorized organization', async () => {
+    const orgAdminHeader = await createAuthHeader({
+      id: 'org-admin-1',
+      email: 'org-admin@example.com',
+      admin: false
+    });
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValueOnce({
+        rows: [{ organization_id: 'org-1' }]
+      })
+    });
+
+    const response = await request(app)
+      .get('/v1/admin/users?organizationId=org-2')
+      .set('Authorization', orgAdminHeader);
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: 'Forbidden' });
+  });
+
+  it('GET /v1/admin/users returns 400 for non-string organizationId query', async () => {
+    const response = await request(app)
+      .get('/v1/admin/users?organizationId=org-1&organizationId=org-2')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'organizationId query must be a string'
+    });
+  });
+
+  it('GET /v1/admin/users returns 400 for empty organizationId query', async () => {
+    const response = await request(app)
+      .get('/v1/admin/users?organizationId=%20%20')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'organizationId query cannot be empty'
+    });
   });
 
   it('PATCH /v1/admin/users/:id updates emailConfirmed field', async () => {
