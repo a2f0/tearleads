@@ -118,6 +118,19 @@ export function NotesPane({
       }
     }, 0);
   };
+
+  const handleSave = (noteId: string) => {
+    if (editTitle.trim() && onUpdateNote) {
+      onUpdateNote(noteId, editTitle.trim(), editBody);
+    } else {
+      onCancelEditNote?.();
+    }
+  };
+
+  const handleCancel = () => {
+    onCancelEditNote?.();
+  };
+
   const openEmptySpaceContextMenu = (x: number, y: number) => {
     setContextMenu({
       x,
@@ -384,6 +397,24 @@ export function NotesPane({
                           rows={2}
                           aria-label="Edit entry body"
                         />
+                        <div className="grid grid-cols-2 gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => handleSave(note.id)}
+                            className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
+                            aria-label="Save entry"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleCancel}
+                            className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
+                            aria-label="Cancel editing"
+                          >
+                            Cancel
+                          </button>
+                        </div>
                       </div>
                     ) : (
                       <div className="min-w-0">

@@ -29,7 +29,9 @@ import {
   linkNoteToTag,
   loadClassicStateFromDatabase,
   persistClassicOrderToDatabase,
-  restoreClassicTag
+  renameClassicTag,
+  restoreClassicTag,
+  updateClassicNote
 } from './classicPersistence';
 
 async function withClassicTestDatabase(
@@ -579,6 +581,122 @@ describe('classicPersistence integration', () => {
       for (const noteOrder of Object.values(state.noteOrderByTagId)) {
         expect(noteOrder).not.toContain(createdNoteId);
       }
+    });
+  });
+
+  it('renames a tag and persists the change across reloads', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      // Verify initial name
+      const { state: initialState } = await loadClassicStateFromDatabase();
+      const tagA = initialState.tags.find((t) => t.id === 'tag-a');
+      expect(tagA?.name).toBe('Work');
+
+      // Rename the tag
+      await renameClassicTag('tag-a', 'Projects');
+
+      // Reload and verify persisted
+      const { state: reloadedState } = await loadClassicStateFromDatabase();
+      const renamedTag = reloadedState.tags.find((t) => t.id === 'tag-a');
+      expect(renamedTag?.name).toBe('Projects');
+
+      // Verify directly in database
+      const dbTagRows = await db
+        .select({ name: tags.encryptedName })
+        .from(tags)
+        .where(eq(tags.id, 'tag-a'));
+      expect(dbTagRows[0]?.name).toBe('Projects');
+    });
+  });
+
+  it('updates note title and body and persists the change across reloads', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      // Verify initial content
+      const { state: initialState } = await loadClassicStateFromDatabase();
+      expect(initialState.notesById['note-a1']?.title).toBe('A1');
+      expect(initialState.notesById['note-a1']?.body).toBe('alpha');
+
+      // Update the note
+      await updateClassicNote(
+        'note-a1',
+        'Updated Title',
+        'Updated body content'
+      );
+
+      // Reload and verify persisted
+      const { state: reloadedState } = await loadClassicStateFromDatabase();
+      expect(reloadedState.notesById['note-a1']?.title).toBe('Updated Title');
+      expect(reloadedState.notesById['note-a1']?.body).toBe(
+        'Updated body content'
+      );
+
+      // Verify directly in database
+      const dbNoteRows = await db
+        .select({ title: notes.title, content: notes.content })
+        .from(notes)
+        .where(eq(notes.id, 'note-a1'));
+      expect(dbNoteRows[0]?.title).toBe('Updated Title');
+      expect(dbNoteRows[0]?.content).toBe('Updated body content');
+    });
+  });
+
+  it('creates a tag with pre-generated ID and persists across reloads', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      // Simulate the flow: ClassicApp generates ID, then calls onCreateTag
+      const preGeneratedId = 'pre-gen-tag-id';
+      await createClassicTag('My New Tag', preGeneratedId);
+
+      // Reload and verify persisted
+      const { state: reloadedState } = await loadClassicStateFromDatabase();
+      const newTag = reloadedState.tags.find((t) => t.id === preGeneratedId);
+      expect(newTag).toBeDefined();
+      expect(newTag?.name).toBe('My New Tag');
+
+      // Verify directly in database
+      const dbTagRows = await db
+        .select({ name: tags.encryptedName })
+        .from(tags)
+        .where(eq(tags.id, preGeneratedId));
+      expect(dbTagRows[0]?.name).toBe('My New Tag');
+    });
+  });
+
+  it('creates a note with pre-generated ID, title, and body and persists across reloads', async () => {
+    await withClassicTestDatabase(async ({ db }) => {
+      await seedClassicFixture(db);
+
+      // Simulate the flow: ClassicApp generates ID, then calls onCreateNote
+      const preGeneratedId = 'pre-gen-note-id';
+      await createClassicNote(
+        'tag-a',
+        'My New Note',
+        'Note body here',
+        preGeneratedId
+      );
+
+      // Reload and verify persisted
+      const { state: reloadedState } = await loadClassicStateFromDatabase();
+      expect(reloadedState.notesById[preGeneratedId]).toBeDefined();
+      expect(reloadedState.notesById[preGeneratedId]?.title).toBe(
+        'My New Note'
+      );
+      expect(reloadedState.notesById[preGeneratedId]?.body).toBe(
+        'Note body here'
+      );
+      expect(reloadedState.noteOrderByTagId['tag-a']).toContain(preGeneratedId);
+
+      // Verify directly in database
+      const dbNoteRows = await db
+        .select({ title: notes.title, content: notes.content })
+        .from(notes)
+        .where(eq(notes.id, preGeneratedId));
+      expect(dbNoteRows[0]?.title).toBe('My New Note');
+      expect(dbNoteRows[0]?.content).toBe('Note body here');
     });
   });
 });

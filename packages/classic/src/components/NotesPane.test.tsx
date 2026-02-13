@@ -305,4 +305,84 @@ describe('NotesPane', () => {
     fireEvent.drop(noteItem, { dataTransfer });
     expect(onTagNote).toHaveBeenCalledWith('tag-1', 'note-1');
   });
+
+  it('shows Save and Cancel buttons when editing an entry', () => {
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        editingNoteId="note-1"
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onUpdateNote={() => {}}
+        onCancelEditNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    expect(screen.getByLabelText('Save entry')).toBeInTheDocument();
+    expect(screen.getByLabelText('Cancel editing')).toBeInTheDocument();
+  });
+
+  it('calls onUpdateNote when Save button is clicked', () => {
+    const onUpdateNote = vi.fn();
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        editingNoteId="note-1"
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onUpdateNote={onUpdateNote}
+        onCancelEditNote={() => {}}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    const titleInput = screen.getByLabelText('Edit entry title');
+    const bodyInput = screen.getByLabelText('Edit entry body');
+    fireEvent.change(titleInput, { target: { value: 'Updated Title' } });
+    fireEvent.change(bodyInput, { target: { value: 'Updated Body' } });
+    fireEvent.click(screen.getByLabelText('Save entry'));
+
+    expect(onUpdateNote).toHaveBeenCalledWith(
+      'note-1',
+      'Updated Title',
+      'Updated Body'
+    );
+  });
+
+  it('calls onCancelEditNote when Cancel button is clicked', () => {
+    const onCancelEditNote = vi.fn();
+
+    render(
+      <NotesPane
+        activeTagName="Work"
+        noteIds={['note-1']}
+        notesById={{
+          'note-1': { id: 'note-1', title: 'Alpha', body: 'A body' }
+        }}
+        editingNoteId="note-1"
+        onMoveNote={() => {}}
+        onReorderNote={() => {}}
+        onUpdateNote={() => {}}
+        onCancelEditNote={onCancelEditNote}
+        searchValue=""
+        onSearchChange={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByLabelText('Cancel editing'));
+
+    expect(onCancelEditNote).toHaveBeenCalledTimes(1);
+  });
 });

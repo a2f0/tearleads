@@ -1,9 +1,6 @@
 import type { ReactNode } from 'react';
 
-export function highlightText(
-  text: string,
-  searchTerm: string
-): ReactNode {
+export function highlightText(text: string, searchTerm: string): ReactNode {
   if (!searchTerm.trim()) {
     return text;
   }

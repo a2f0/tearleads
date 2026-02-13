@@ -182,10 +182,11 @@ export async function createClassicTag(
 
 export async function createClassicNote(
   tagId: string | null,
-  title: string = DEFAULT_CLASSIC_NOTE_TITLE
+  title: string = DEFAULT_CLASSIC_NOTE_TITLE,
+  content: string = '',
+  noteId: string = crypto.randomUUID()
 ): Promise<string> {
   const db = getDatabase();
-  const noteId = crypto.randomUUID();
   const now = new Date();
 
   await db.transaction(async (tx) => {
@@ -199,7 +200,7 @@ export async function createClassicNote(
     await tx.insert(notes).values({
       id: noteId,
       title,
-      content: '',
+      content,
       createdAt: now,
       updatedAt: now,
       deleted: false
@@ -265,4 +266,29 @@ export async function restoreClassicTag(tagId: string): Promise<void> {
   const db = getDatabase();
 
   await db.update(tags).set({ deleted: false }).where(eq(tags.id, tagId));
+}
+
+export async function renameClassicTag(
+  tagId: string,
+  newName: string
+): Promise<void> {
+  const db = getDatabase();
+
+  await db
+    .update(tags)
+    .set({ encryptedName: newName })
+    .where(eq(tags.id, tagId));
+}
+
+export async function updateClassicNote(
+  noteId: string,
+  title: string,
+  content: string
+): Promise<void> {
+  const db = getDatabase();
+
+  await db
+    .update(notes)
+    .set({ title, content, updatedAt: new Date() })
+    .where(eq(notes.id, noteId));
 }
