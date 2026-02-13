@@ -416,6 +416,9 @@ describe('admin users routes', () => {
       email: 'user@example.com',
       admin: false
     });
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockResolvedValue({ rows: [] })
+    });
 
     const response = await request(app)
       .get('/v1/admin/users')

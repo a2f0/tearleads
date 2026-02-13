@@ -1,6 +1,7 @@
 import type { OrganizationResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { ensureOrganizationAccess } from '../../../middleware/admin-access.js';
 import { mapOrganizationRow, type OrganizationRow } from './shared.js';
 
 /**
@@ -24,6 +25,10 @@ export const getIdHandler = async (
   res: Response
 ) => {
   try {
+    if (!ensureOrganizationAccess(req, res, req.params['id'])) {
+      return;
+    }
+
     const pool = await getPostgresPool();
     const result = await pool.query<OrganizationRow>(
       `SELECT id, name, description, created_at, updated_at

@@ -4,15 +4,23 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { OrganizationsAdmin } from './OrganizationsAdmin';
 
+const mockUseAdminScope = vi.fn();
+
+vi.mock('@admin/hooks/useAdminScope', () => ({
+  useAdminScope: () => mockUseAdminScope()
+}));
+
 const mockOrganizationsList = vi.fn(
   ({
     onOrganizationSelect,
-    onCreateClick
+    onCreateClick,
+    organizationId
   }: {
     onOrganizationSelect: (id: string) => void;
     onCreateClick?: () => void;
+    organizationId?: string | null;
   }) => (
-    <div>
+    <div data-organization-id={organizationId ?? ''}>
       <button type="button" onClick={() => onOrganizationSelect('org-1')}>
         Select Org 1
       </button>
@@ -53,6 +61,17 @@ describe('OrganizationsAdmin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockOrganizationsList.mockClear();
+    mockUseAdminScope.mockReturnValue({
+      context: {
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Org One' }],
+        defaultOrganizationId: null
+      },
+      selectedOrganizationId: null,
+      loading: false,
+      error: null,
+      setSelectedOrganizationId: vi.fn()
+    });
   });
 
   const defaultProps = {
@@ -133,5 +152,25 @@ describe('OrganizationsAdmin', () => {
     await waitFor(() => {
       expect(mockOrganizationsList.mock.calls.length).toBeGreaterThan(1);
     });
+  });
+
+  it('hides create organization button for org admins', () => {
+    mockUseAdminScope.mockReturnValue({
+      context: {
+        isRootAdmin: false,
+        organizations: [{ id: 'org-1', name: 'Org One' }],
+        defaultOrganizationId: 'org-1'
+      },
+      selectedOrganizationId: 'org-1',
+      loading: false,
+      error: null,
+      setSelectedOrganizationId: vi.fn()
+    });
+
+    renderOrganizationsAdmin();
+
+    expect(
+      screen.queryByRole('button', { name: 'Create Organization' })
+    ).not.toBeInTheDocument();
   });
 });

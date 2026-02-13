@@ -11,7 +11,7 @@ vi.mock('@/lib/api', () => ({
   api: {
     admin: {
       groups: {
-        list: () => mockList(),
+        list: (options?: { organizationId?: string }) => mockList(options),
         delete: (id: string) => mockDelete(id)
       }
     }
@@ -30,6 +30,7 @@ describe('GroupsList', () => {
   function renderGroupsList(props?: {
     onCreateClick?: () => void;
     onGroupSelect?: (groupId: string) => void;
+    organizationId?: string | null;
   }) {
     const mergedProps = { ...defaultProps, ...props };
     return render(
@@ -44,6 +45,16 @@ describe('GroupsList', () => {
     renderGroupsList();
 
     expect(document.querySelector('.animate-spin')).toBeInTheDocument();
+  });
+
+  it('requests groups scoped to selected organization', async () => {
+    mockList.mockResolvedValue({ groups: [] });
+
+    renderGroupsList({ organizationId: 'org-2' });
+
+    await waitFor(() => {
+      expect(mockList).toHaveBeenCalledWith({ organizationId: 'org-2' });
+    });
   });
 
   it('renders groups list after loading', async () => {

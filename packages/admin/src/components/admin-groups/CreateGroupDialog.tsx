@@ -1,3 +1,4 @@
+import type { AdminScopeOrganization } from '@tearleads/shared';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -5,16 +6,22 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { api } from '@/lib/api';
 
+const EMPTY_ORGANIZATIONS: AdminScopeOrganization[] = [];
+
 interface CreateGroupDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onCreated?: () => void;
+  organizations?: AdminScopeOrganization[];
+  defaultOrganizationId?: string | null;
 }
 
 export function CreateGroupDialog({
   open,
   onOpenChange,
-  onCreated
+  onCreated,
+  organizations = EMPTY_ORGANIZATIONS,
+  defaultOrganizationId = null
 }: CreateGroupDialogProps) {
   const [name, setName] = useState('');
   const [organizationId, setOrganizationId] = useState('');
@@ -23,16 +30,17 @@ export function CreateGroupDialog({
   const [error, setError] = useState<string | null>(null);
   const dialogRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const hasOrganizationOptions = organizations.length > 0;
 
   useEffect(() => {
     if (open) {
       setName('');
-      setOrganizationId('');
+      setOrganizationId(defaultOrganizationId ?? organizations[0]?.id ?? '');
       setDescription('');
       setError(null);
       setTimeout(() => nameInputRef.current?.focus(), 0);
     }
-  }, [open]);
+  }, [defaultOrganizationId, open, organizations]);
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -139,13 +147,30 @@ export function CreateGroupDialog({
             <label htmlFor="group-org" className="font-medium text-sm">
               Organization ID
             </label>
-            <Input
-              id="group-org"
-              value={organizationId}
-              onChange={(e) => setOrganizationId(e.target.value)}
-              placeholder="Enter organization ID"
-              disabled={loading}
-            />
+            {hasOrganizationOptions ? (
+              <select
+                id="group-org"
+                value={organizationId}
+                onChange={(event) => setOrganizationId(event.target.value)}
+                disabled={loading}
+                className="h-10 w-full rounded-md border border-input bg-background px-3 text-base text-foreground"
+              >
+                <option value="">Select organization</option>
+                {organizations.map((organization) => (
+                  <option key={organization.id} value={organization.id}>
+                    {organization.name}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Input
+                id="group-org"
+                value={organizationId}
+                onChange={(e) => setOrganizationId(e.target.value)}
+                placeholder="Enter organization ID"
+                disabled={loading}
+              />
+            )}
           </div>
           {error && <p className="text-destructive text-sm">{error}</p>}
 

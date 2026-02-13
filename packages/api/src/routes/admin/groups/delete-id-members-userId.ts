@@ -1,5 +1,7 @@
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { ensureOrganizationAccess } from '../../../middleware/admin-access.js';
+import { getGroupOrganizationId } from './shared.js';
 
 /**
  * @openapi
@@ -46,6 +48,14 @@ export const deleteIdMembersUseridHandler = async (
   try {
     const { id, userId } = req.params;
     const pool = await getPostgresPool();
+    const organizationId = await getGroupOrganizationId(pool, id);
+    if (!organizationId) {
+      res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+    if (!ensureOrganizationAccess(req, res, organizationId)) {
+      return;
+    }
 
     const result = await pool.query(
       'DELETE FROM user_groups WHERE group_id = $1 AND user_id = $2',

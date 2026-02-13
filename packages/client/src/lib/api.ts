@@ -1,6 +1,7 @@
 import type {
   AddAiMessageRequest,
   AddAiMessageResponse,
+  AdminAccessContextResponse,
   AdminUserResponse,
   AdminUsersResponse,
   AdminUserUpdatePayload,
@@ -345,6 +346,10 @@ export const api = {
     get: () => request<PingData>('/ping', { eventName: 'api_get_ping' })
   },
   admin: {
+    getContext: () =>
+      request<AdminAccessContextResponse>('/admin/context', {
+        eventName: 'api_get_admin_organizations'
+      }),
     postgres: {
       getInfo: () =>
         request<PostgresAdminInfoResponse>('/admin/postgres/info', {
@@ -412,10 +417,19 @@ export const api = {
         })
     },
     groups: {
-      list: () =>
-        request<GroupsListResponse>('/admin/groups', {
-          eventName: 'api_get_admin_groups'
-        }),
+      list: (options?: { organizationId?: string }) => {
+        const params = new URLSearchParams();
+        if (options?.organizationId) {
+          params.set('organizationId', options.organizationId);
+        }
+        const query = params.toString();
+        return request<GroupsListResponse>(
+          `/admin/groups${query ? `?${query}` : ''}`,
+          {
+            eventName: 'api_get_admin_groups'
+          }
+        );
+      },
       get: (id: string) =>
         request<GroupDetailResponse>(
           `/admin/groups/${encodeURIComponent(id)}`,
@@ -474,10 +488,19 @@ export const api = {
         )
     },
     organizations: {
-      list: () =>
-        request<OrganizationsListResponse>('/admin/organizations', {
-          eventName: 'api_get_admin_organizations'
-        }),
+      list: (options?: { organizationId?: string }) => {
+        const params = new URLSearchParams();
+        if (options?.organizationId) {
+          params.set('organizationId', options.organizationId);
+        }
+        const query = params.toString();
+        return request<OrganizationsListResponse>(
+          `/admin/organizations${query ? `?${query}` : ''}`,
+          {
+            eventName: 'api_get_admin_organizations'
+          }
+        );
+      },
       get: (id: string) =>
         request<OrganizationResponse>(
           `/admin/organizations/${encodeURIComponent(id)}`,
@@ -524,10 +547,19 @@ export const api = {
         )
     },
     users: {
-      list: () =>
-        request<AdminUsersResponse>('/admin/users', {
-          eventName: 'api_get_admin_users'
-        }),
+      list: (options?: { organizationId?: string }) => {
+        const params = new URLSearchParams();
+        if (options?.organizationId) {
+          params.set('organizationId', options.organizationId);
+        }
+        const query = params.toString();
+        return request<AdminUsersResponse>(
+          `/admin/users${query ? `?${query}` : ''}`,
+          {
+            eventName: 'api_get_admin_users'
+          }
+        );
+      },
       get: (id: string) =>
         request<AdminUserResponse>(`/admin/users/${encodeURIComponent(id)}`, {
           eventName: 'api_get_admin_user'

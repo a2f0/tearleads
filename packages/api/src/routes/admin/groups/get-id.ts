@@ -1,6 +1,7 @@
 import type { GroupDetailResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { ensureOrganizationAccess } from '../../../middleware/admin-access.js';
 import {
   type GroupMemberRow,
   type GroupRow,
@@ -64,6 +65,9 @@ export const getIdHandler = async (
     const groupRow = groupResult.rows[0];
     if (!groupRow) {
       res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+    if (!ensureOrganizationAccess(req, res, groupRow.organization_id)) {
       return;
     }
 

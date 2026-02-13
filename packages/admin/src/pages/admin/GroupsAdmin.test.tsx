@@ -1,18 +1,26 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GroupsAdmin } from './GroupsAdmin';
+
+const mockUseAdminScope = vi.fn();
+
+vi.mock('@admin/hooks/useAdminScope', () => ({
+  useAdminScope: () => mockUseAdminScope()
+}));
 
 vi.mock('@admin/components/admin-groups', () => ({
   GroupsList: ({
     onCreateClick,
-    onGroupSelect
+    onGroupSelect,
+    organizationId
   }: {
     onCreateClick?: () => void;
     onGroupSelect: (groupId: string) => void;
+    organizationId?: string | null;
   }) => (
-    <div data-testid="groups-list">
+    <div data-testid="groups-list" data-organization-id={organizationId ?? ''}>
       <button type="button" onClick={onCreateClick}>
         Create from list
       </button>
@@ -24,14 +32,17 @@ vi.mock('@admin/components/admin-groups', () => ({
   CreateGroupDialog: ({
     open,
     onOpenChange,
-    onCreated
+    onCreated,
+    defaultOrganizationId
   }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
     onCreated?: () => void;
+    defaultOrganizationId?: string | null;
   }) =>
     open ? (
       <div data-testid="create-group-dialog">
+        <div>{defaultOrganizationId}</div>
         <button type="button" onClick={() => onOpenChange(false)}>
           Close
         </button>
@@ -50,6 +61,21 @@ vi.mock('@admin/components/admin-groups', () => ({
 }));
 
 describe('GroupsAdmin', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseAdminScope.mockReturnValue({
+      context: {
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Org One' }],
+        defaultOrganizationId: null
+      },
+      selectedOrganizationId: null,
+      loading: false,
+      error: null,
+      setSelectedOrganizationId: vi.fn()
+    });
+  });
+
   const defaultProps = {
     onGroupSelect: vi.fn()
   };

@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import type { CreateGroupRequest } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { ensureOrganizationAccess } from '../../../middleware/admin-access.js';
 import { isDuplicateConstraintError } from '../lib/db.js';
 import { ensureOrganizationExists } from '../lib/organizations.js';
 import { type GroupRow, mapGroupRow } from './shared.js';
@@ -79,6 +80,9 @@ export const postRootHandler = async (
     const trimmedOrganizationId = organizationId.trim();
 
     const pool = await getPostgresPool();
+    if (!ensureOrganizationAccess(req, res, trimmedOrganizationId)) {
+      return;
+    }
     if (!(await ensureOrganizationExists(pool, trimmedOrganizationId, res))) {
       return;
     }

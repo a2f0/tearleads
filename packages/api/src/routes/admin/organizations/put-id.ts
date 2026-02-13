@@ -4,6 +4,7 @@ import type {
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { requireRootAdmin } from '../../../middleware/admin-access.js';
 import { isDuplicateConstraintError } from '../lib/db.js';
 import { mapOrganizationRow, type OrganizationRow } from './shared.js';
 
@@ -31,6 +32,10 @@ export const putIdHandler = async (
   req: Request<{ id: string }, unknown, UpdateOrganizationRequest>,
   res: Response
 ) => {
+  if (!requireRootAdmin(req, res)) {
+    return;
+  }
+
   try {
     const { id } = req.params;
     const { name, description } = req.body;

@@ -13,9 +13,14 @@ import { api } from '@/lib/api';
 interface GroupsListProps {
   onCreateClick?: () => void;
   onGroupSelect: (groupId: string) => void;
+  organizationId?: string | null;
 }
 
-export function GroupsList({ onCreateClick, onGroupSelect }: GroupsListProps) {
+export function GroupsList({
+  onCreateClick,
+  onGroupSelect,
+  organizationId
+}: GroupsListProps) {
   const [groups, setGroups] = useState<GroupWithMemberCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,14 +37,16 @@ export function GroupsList({ onCreateClick, onGroupSelect }: GroupsListProps) {
     try {
       setLoading(true);
       setError(null);
-      const response = await api.admin.groups.list();
+      const response = await api.admin.groups.list(
+        organizationId ? { organizationId } : undefined
+      );
       setGroups(response.groups);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to fetch groups');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     void fetchGroups();

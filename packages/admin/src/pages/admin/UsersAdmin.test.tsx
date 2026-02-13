@@ -5,6 +5,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersAdmin } from './UsersAdmin';
 
 const mockList = vi.fn();
+const mockUseAdminScope = vi.fn();
+const mockSetSelectedOrganizationId = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
@@ -16,9 +18,24 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
+vi.mock('@admin/hooks/useAdminScope', () => ({
+  useAdminScope: () => mockUseAdminScope()
+}));
+
 describe('UsersAdmin', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockUseAdminScope.mockReturnValue({
+      context: {
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Org One' }],
+        defaultOrganizationId: null
+      },
+      selectedOrganizationId: null,
+      loading: false,
+      error: null,
+      setSelectedOrganizationId: mockSetSelectedOrganizationId
+    });
   });
 
   const usersResponse = {

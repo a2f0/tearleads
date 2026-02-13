@@ -14,11 +14,13 @@ import { api } from '@/lib/api';
 interface OrganizationsListProps {
   onCreateClick?: () => void;
   onOrganizationSelect: (organizationId: string) => void;
+  organizationId?: string | null;
 }
 
 export function OrganizationsList({
   onCreateClick,
-  onOrganizationSelect
+  onOrganizationSelect,
+  organizationId
 }: OrganizationsListProps) {
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,7 +36,9 @@ export function OrganizationsList({
     try {
       setLoading(true);
       setError(null);
-      const response = await api.admin.organizations.list();
+      const response = await api.admin.organizations.list(
+        organizationId ? { organizationId } : undefined
+      );
       setOrganizations(response.organizations);
     } catch (err) {
       setError(
@@ -43,7 +47,7 @@ export function OrganizationsList({
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     void fetchOrganizations();

@@ -1,6 +1,7 @@
 import type { AddMemberRequest } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
+import { ensureOrganizationAccess } from '../../../middleware/admin-access.js';
 import { isDuplicateConstraintError } from '../lib/db.js';
 import { getGroupOrganizationId } from './shared.js';
 
@@ -83,6 +84,9 @@ export const postIdMembersHandler = async (
     const organizationId = await getGroupOrganizationId(pool, id);
     if (!organizationId) {
       res.status(404).json({ error: 'Group not found' });
+      return;
+    }
+    if (!ensureOrganizationAccess(req, res, organizationId)) {
       return;
     }
 

@@ -398,6 +398,7 @@ describe('admin groups routes', () => {
       const now = new Date();
       mockGetPostgresPool.mockResolvedValue({
         query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
           .mockResolvedValueOnce({ rows: [{ id: 'org-2' }] })
           .mockResolvedValueOnce({
             rows: [
@@ -470,7 +471,9 @@ describe('admin groups routes', () => {
 
     it('returns 404 when organization not found', async () => {
       mockGetPostgresPool.mockResolvedValue({
-        query: mockQuery.mockResolvedValueOnce({ rows: [] })
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+          .mockResolvedValueOnce({ rows: [] })
       });
 
       const response = await request(app)
@@ -522,7 +525,9 @@ describe('admin groups routes', () => {
   describe('DELETE /v1/admin/groups/:id', () => {
     it('deletes a group successfully', async () => {
       mockGetPostgresPool.mockResolvedValue({
-        query: mockQuery.mockResolvedValue({ rowCount: 1 })
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+          .mockResolvedValueOnce({ rowCount: 1 })
       });
 
       const response = await request(app)
@@ -535,7 +540,9 @@ describe('admin groups routes', () => {
 
     it('returns deleted: false when group not found', async () => {
       mockGetPostgresPool.mockResolvedValue({
-        query: mockQuery.mockResolvedValue({ rowCount: 0 })
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+          .mockResolvedValueOnce({ rowCount: 0 })
       });
 
       const response = await request(app)
@@ -726,7 +733,9 @@ describe('admin groups routes', () => {
   describe('DELETE /v1/admin/groups/:id/members/:userId', () => {
     it('removes a member successfully', async () => {
       mockGetPostgresPool.mockResolvedValue({
-        query: mockQuery.mockResolvedValue({ rowCount: 1 })
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+          .mockResolvedValueOnce({ rowCount: 1 })
       });
 
       const response = await request(app)
@@ -739,7 +748,9 @@ describe('admin groups routes', () => {
 
     it('returns removed: false when member not found', async () => {
       mockGetPostgresPool.mockResolvedValue({
-        query: mockQuery.mockResolvedValue({ rowCount: 0 })
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ organization_id: 'org-1' }] })
+          .mockResolvedValueOnce({ rowCount: 0 })
       });
 
       const response = await request(app)
