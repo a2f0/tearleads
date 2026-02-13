@@ -89,8 +89,7 @@ describe('detectPlatform', () => {
 
   describe('Electron detection', () => {
     it('detects electron platform when window.electron exists', () => {
-      // @ts-expect-error - electron is added dynamically
-      window.electron = {};
+      Reflect.set(window, 'electron', {});
       expect(detectPlatform()).toBe('electron');
     });
 
@@ -282,8 +281,7 @@ describe('getWebGPUErrorInfo', () => {
 
   it('returns generic error info on electron', () => {
     // Electron is treated like desktop/web for WebGPU purposes
-    // @ts-expect-error - electron is added dynamically
-    window.electron = {};
+    Reflect.set(window, 'electron', {});
     const info = getWebGPUErrorInfo();
     expect(info.title).toBe('WebGPU Not Supported');
     expect(info.message).toContain('browser');
