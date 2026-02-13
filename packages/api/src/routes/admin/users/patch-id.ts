@@ -179,10 +179,7 @@ export const patchIdHandler = async (req: Request, res: Response) => {
     if (updates.organizationIds !== undefined) {
       const personalOrgResult = await pool.query<{
         personal_organization_id: string | null;
-      }>(
-        'SELECT personal_organization_id FROM users WHERE id = $1',
-        [userId]
-      );
+      }>('SELECT personal_organization_id FROM users WHERE id = $1', [userId]);
       const personalOrganizationId =
         personalOrgResult.rows[0]?.personal_organization_id ?? null;
 
