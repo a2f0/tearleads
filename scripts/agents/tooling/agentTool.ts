@@ -264,7 +264,9 @@ function runInlineAction(
   switch (action) {
     case 'getPrInfo': {
       const fields = options.fields ?? 'number,state,mergeStateStatus,headRefName,baseRefName,url';
-      return runGh(['pr', 'view', '--json', fields, '-R', repo]);
+      // When using -R, gh pr view needs an explicit branch/PR reference
+      const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+      return runGh(['pr', 'view', branch, '--json', fields, '-R', repo]);
     }
 
     case 'getReviewThreads': {
