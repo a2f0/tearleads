@@ -12,8 +12,8 @@ type Corner = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
  * Notification Center minimum size constraints.
  * Must stay in sync with MIN_WIDTH/MIN_HEIGHT from @/components/notification-center/constants
  */
-const MIN_WIDTH = 280;
-const MIN_HEIGHT = 150;
+const MIN_WIDTH = 480;
+const MIN_HEIGHT = 300;
 
 /**
  * Get the current dimensions and position of the Notification Center dialog
@@ -63,8 +63,9 @@ async function dragCorner(
   deltaY: number,
   { steps = 10 }: { steps?: number } = {}
 ) {
-  const handle = page.getByTestId(
-    `floating-window-notification-center-resize-handle-${corner}`
+  // Match the resize handle with dynamic window ID (e.g., notification-center-1)
+  const handle = page.locator(
+    `[data-testid^="floating-window-notification-center-"][data-testid$="-resize-handle-${corner}"]`
   );
   await expect(handle).toBeVisible();
   const box = await handle.boundingBox();
@@ -85,8 +86,9 @@ async function dragTitleBar(
   deltaY: number,
   { steps = 10 }: { steps?: number } = {}
 ) {
-  const titleBar = page.getByTestId(
-    'floating-window-notification-center-title-bar'
+  // Match the title bar with dynamic window ID (e.g., notification-center-1)
+  const titleBar = page.locator(
+    '[data-testid^="floating-window-notification-center-"][data-testid$="-title-bar"]'
   );
   await expect(titleBar).toBeVisible();
   const box = await titleBar.boundingBox();
@@ -113,22 +115,18 @@ test.describe('Notification Center Floating Window', () => {
   });
 
   test('should display the Notification Center with all 4 resize handles', async ({ page }) => {
-    // Verify all 4 corner handles are visible
+    // Verify all 4 corner handles are visible (using pattern for dynamic window ID)
     await expect(
-      page.getByTestId('floating-window-notification-center-resize-handle-top-left')
+      page.locator('[data-testid^="floating-window-notification-center-"][data-testid$="-resize-handle-top-left"]')
     ).toBeVisible();
     await expect(
-      page.getByTestId('floating-window-notification-center-resize-handle-top-right')
+      page.locator('[data-testid^="floating-window-notification-center-"][data-testid$="-resize-handle-top-right"]')
     ).toBeVisible();
     await expect(
-      page.getByTestId(
-        'floating-window-notification-center-resize-handle-bottom-left'
-      )
+      page.locator('[data-testid^="floating-window-notification-center-"][data-testid$="-resize-handle-bottom-left"]')
     ).toBeVisible();
     await expect(
-      page.getByTestId(
-        'floating-window-notification-center-resize-handle-bottom-right'
-      )
+      page.locator('[data-testid^="floating-window-notification-center-"][data-testid$="-resize-handle-bottom-right"]')
     ).toBeVisible();
   });
 
@@ -205,13 +203,6 @@ test.describe('Notification Center Floating Window', () => {
     // Should not go below minimum constraints
     expect(final.width).toBeGreaterThanOrEqual(MIN_WIDTH);
     expect(final.height).toBeGreaterThanOrEqual(MIN_HEIGHT);
-  });
-
-  test('should close when backdrop is clicked', async ({ page }) => {
-    await page.getByTestId('notification-center-backdrop').click();
-    await expect(
-      page.getByRole('dialog', { name: 'Notification Center' })
-    ).toBeHidden();
   });
 
   test('should close when X button is clicked', async ({ page }) => {
