@@ -1,5 +1,13 @@
-import { contactEmails, contacts, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
-import { contactsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
+import {
+  contactEmails,
+  contacts,
+  vfsLinks,
+  vfsRegistry
+} from '@tearleads/db/sqlite';
+import {
+  contactsTestMigrations,
+  withRealDatabase
+} from '@tearleads/db-test-utils';
 import { describe, expect, it, vi } from 'vitest';
 import { getPrimaryEmailsForGroup } from './getPrimaryEmailsForGroup';
 
@@ -27,16 +35,17 @@ async function seedGroupData(
   }
 ): Promise<number> {
   const now = new Date();
-  const registryRows: typeof vfsRegistry.$inferInsert[] = [];
-  const contactRows: typeof contacts.$inferInsert[] = [];
-  const contactEmailRows: typeof contactEmails.$inferInsert[] = [];
-  const linkRows: typeof vfsLinks.$inferInsert[] = [];
+  const registryRows: (typeof vfsRegistry.$inferInsert)[] = [];
+  const contactRows: (typeof contacts.$inferInsert)[] = [];
+  const contactEmailRows: (typeof contactEmails.$inferInsert)[] = [];
+  const linkRows: (typeof vfsLinks.$inferInsert)[] = [];
 
   let activeCount = 0;
   for (let index = 0; index < input.count; index += 1) {
     const contactNumber = input.start + index;
     const contactId = `contact-${contactNumber}`;
-    const isDeleted = input.deletedEvery > 0 && index % input.deletedEvery === 0;
+    const isDeleted =
+      input.deletedEvery > 0 && index % input.deletedEvery === 0;
 
     registryRows.push({
       id: contactId,

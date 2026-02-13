@@ -15,7 +15,10 @@ export async function getPrimaryEmailsForGroup(
     )
     .innerJoin(
       contactEmails,
-      and(eq(contactEmails.contactId, contacts.id), eq(contactEmails.isPrimary, true))
+      and(
+        eq(contactEmails.contactId, contacts.id),
+        eq(contactEmails.isPrimary, true)
+      )
     )
     .where(eq(vfsLinks.parentId, groupId))
     .orderBy(asc(contactEmails.email));
