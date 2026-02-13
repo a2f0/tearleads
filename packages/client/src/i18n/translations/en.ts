@@ -122,6 +122,11 @@ export const en = {
     windowOpacityDescription:
       'Choose whether floating windows are translucent or fully opaque',
     windowOpacityTranslucent: 'Translucent',
-    windowOpacityOpaque: 'Opaque'
+    windowOpacityOpaque: 'Opaque',
+    borderRadius: 'Border radius',
+    borderRadiusDescription:
+      'Choose whether UI and windows use rounded corners or right angles',
+    borderRadiusRounded: 'Rounded',
+    borderRadiusSquare: 'Square'
   }
 } as const satisfies I18NextTranslations;

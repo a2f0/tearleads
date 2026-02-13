@@ -1,6 +1,7 @@
 import { ChevronRight, Scale } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import {
+  BorderRadiusToggle,
   FeatureFlags,
   FontSelector,
   IconBackgroundToggle,
@@ -14,8 +15,6 @@ import {
 import { LanguageSelector } from '@/components/settings/LanguageSelector';
 import { BackLink } from '@/components/ui/back-link';
 import { useAppVersion } from '@/hooks/useAppVersion';
-import { useFontEffect } from '@/hooks/useFontEffect';
-import { useWindowOpacityEffect } from '@/hooks/useWindowOpacityEffect';
 
 interface SettingsProps {
   showBackLink?: boolean;
@@ -23,8 +22,6 @@ interface SettingsProps {
 
 export function Settings({ showBackLink = true }: SettingsProps) {
   const version = useAppVersion();
-  useFontEffect();
-  useWindowOpacityEffect();
 
   return (
     <div className="space-y-6">
@@ -51,6 +48,10 @@ export function Settings({ showBackLink = true }: SettingsProps) {
 
       <SettingsSection>
         <WindowOpacityToggle />
+      </SettingsSection>
+
+      <SettingsSection>
+        <BorderRadiusToggle />
       </SettingsSection>
 
       <SettingsSection>

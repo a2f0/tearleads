@@ -8,6 +8,12 @@ vi.mock('./FontSelector', () => ({
   FontSelector: () => <div data-testid="font-selector">FontSelector</div>
 }));
 
+vi.mock('./BorderRadiusToggle', () => ({
+  BorderRadiusToggle: () => (
+    <div data-testid="border-radius-toggle">BorderRadiusToggle</div>
+  )
+}));
+
 vi.mock('./IconBackgroundToggle', () => ({
   IconBackgroundToggle: () => (
     <div data-testid="icon-background">IconBackgroundToggle</div>
@@ -80,6 +86,7 @@ describe('DisplayPropertiesWindow', () => {
     expect(screen.getByTestId('icon-depth')).toBeInTheDocument();
     expect(screen.getByTestId('icon-background')).toBeInTheDocument();
     expect(screen.getByTestId('font-selector')).toBeInTheDocument();
+    expect(screen.getByTestId('border-radius-toggle')).toBeInTheDocument();
   });
 
   it('calls onOpenChange with false when close button is clicked', async () => {

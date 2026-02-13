@@ -18,7 +18,8 @@ export type UserSettingKey =
   | 'desktopPattern'
   | 'desktopIconDepth'
   | 'desktopIconBackground'
-  | 'windowOpacity';
+  | 'windowOpacity'
+  | 'borderRadius';
 
 // Per-setting value types
 export const THEME_VALUES: readonly [
@@ -48,6 +49,8 @@ export type DesktopIconBackgroundValue =
   (typeof DESKTOP_ICON_BACKGROUND_VALUES)[number];
 export const WINDOW_OPACITY_VALUES = ['translucent', 'opaque'] as const;
 export type WindowOpacityValue = (typeof WINDOW_OPACITY_VALUES)[number];
+export const BORDER_RADIUS_VALUES = ['rounded', 'square'] as const;
+export type BorderRadiusValue = (typeof BORDER_RADIUS_VALUES)[number];
 
 // Map settings keys to their value types
 export interface SettingValueMap {
@@ -59,6 +62,7 @@ export interface SettingValueMap {
   desktopIconDepth: DesktopIconDepthValue;
   desktopIconBackground: DesktopIconBackgroundValue;
   windowOpacity: WindowOpacityValue;
+  borderRadius: BorderRadiusValue;
 }
 
 // Default values for each setting
@@ -70,7 +74,8 @@ export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
   desktopPattern: 'isometric',
   desktopIconDepth: 'debossed',
   desktopIconBackground: 'colored',
-  windowOpacity: 'translucent'
+  windowOpacity: 'translucent',
+  borderRadius: 'rounded'
 };
 
 // localStorage keys for each setting (maps our keys to existing localStorage keys)
@@ -82,7 +87,8 @@ export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
   desktopPattern: 'desktopPattern',
   desktopIconDepth: 'desktopIconDepth',
   desktopIconBackground: 'desktopIconBackground',
-  windowOpacity: 'windowOpacity'
+  windowOpacity: 'windowOpacity',
+  borderRadius: 'borderRadius'
 };
 
 // Type guard functions
@@ -128,6 +134,10 @@ export function isWindowOpacityValue(
   return WINDOW_OPACITY_VALUES.some((item) => item === value);
 }
 
+export function isBorderRadiusValue(value: string): value is BorderRadiusValue {
+  return BORDER_RADIUS_VALUES.some((item) => item === value);
+}
+
 // Map of setting keys to their type guard validators
 const SETTING_VALIDATORS: {
   [K in UserSettingKey]: (value: string) => value is SettingValueMap[K];
@@ -139,7 +149,8 @@ const SETTING_VALIDATORS: {
   desktopPattern: isDesktopPatternValue,
   desktopIconDepth: isDesktopIconDepthValue,
   desktopIconBackground: isDesktopIconBackgroundValue,
-  windowOpacity: isWindowOpacityValue
+  windowOpacity: isWindowOpacityValue,
+  borderRadius: isBorderRadiusValue
 };
 
 // Settings sync event detail type

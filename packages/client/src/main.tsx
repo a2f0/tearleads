@@ -8,6 +8,7 @@ import App from './App';
 import { AudioProvider } from './audio';
 import { AppTooltipProvider } from './components/AppTooltipProvider';
 import { AndroidMediaSessionBridge } from './components/audio/AndroidMediaSessionBridge';
+import { GlobalSettingsEffects } from './components/GlobalSettingsEffects';
 import { RequireAuth } from './components/auth';
 import { InstanceChangeHandler } from './components/InstanceChangeHandler';
 import {
@@ -235,6 +236,7 @@ if (rootElement) {
               <Toaster richColors closeButton position="top-center" />
               <DatabaseProvider>
                 <SettingsProvider>
+                  <GlobalSettingsEffects />
                   <SearchProvider>
                     <AppTooltipProvider>
                       <InstanceChangeHandler />

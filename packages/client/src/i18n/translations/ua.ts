@@ -124,6 +124,11 @@ export const ua = {
     windowOpacityDescription:
       'Оберіть, чи плаваючі вікна напівпрозорі або повністю непрозорі',
     windowOpacityTranslucent: 'Напівпрозорі',
-    windowOpacityOpaque: 'Непрозорі'
+    windowOpacityOpaque: 'Непрозорі',
+    borderRadius: 'Радіус кутів',
+    borderRadiusDescription:
+      'Оберіть, чи інтерфейс і вікна мають заокруглені кути або прямі',
+    borderRadiusRounded: 'Заокруглені',
+    borderRadiusSquare: 'Прямі'
   }
 } as const satisfies I18NextTranslations;
