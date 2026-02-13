@@ -13,9 +13,6 @@ Tuxedo — це оркестратор робочих просторів на б
 - `tuxedo/scripts/`: скрипти PR-дашборду, які використовуються у вікнах Tuxedo
 - `tuxedo/tests/`: shell-тести та скрипти покриття
 
-Wrapper-скрипти залишаються в `scripts/tuxedo.sh` і `scripts/tuxedoKill.sh` для
-зворотної сумісності.
-
 ## Іменування workspace
 
 Tuxedo очікує workspace `tearleads-shared` плюс один або кілька пронумерованих workspace:
@@ -35,11 +32,7 @@ Tuxedo очікує workspace `tearleads-shared` плюс один або кіл
 ## Використання
 
 ```sh
-# Запустити tuxedo
 ./tuxedo/tuxedo.sh
-
-# Або через legacy wrapper
-./scripts/tuxedo.sh
 ```
 
 ### Змінні середовища

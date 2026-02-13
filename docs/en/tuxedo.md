@@ -13,9 +13,6 @@ persist each workspace shell via GNU screen.
 - `tuxedo/scripts/`: PR dashboard scripts used by Tuxedo windows
 - `tuxedo/tests/`: shell tests and coverage scripts
 
-Wrapper scripts remain at `scripts/tuxedo.sh` and `scripts/tuxedoKill.sh` for
-backwards compatibility.
-
 ## Workspace naming
 
 Tuxedo assumes a `tearleads-shared` workspace plus one or more numbered workspaces:
@@ -35,11 +32,7 @@ Tuxedo assumes a `tearleads-shared` workspace plus one or more numbered workspac
 ## Usage
 
 ```sh
-# Run tuxedo
 ./tuxedo/tuxedo.sh
-
-# Or via legacy wrapper
-./scripts/tuxedo.sh
 ```
 
 ### Environment variables
