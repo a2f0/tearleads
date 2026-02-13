@@ -55,9 +55,9 @@ const mockDb = {
 // Import after mocks
 import {
   dispatchSettingsSyncedEvent,
-  isBorderRadiusValue,
   getSettingFromStorage,
   getSettingsFromDb,
+  isBorderRadiusValue,
   isDesktopIconBackgroundValue,
   isDesktopIconDepthValue,
   isDesktopPatternValue,

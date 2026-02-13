@@ -8,8 +8,8 @@ import App from './App';
 import { AudioProvider } from './audio';
 import { AppTooltipProvider } from './components/AppTooltipProvider';
 import { AndroidMediaSessionBridge } from './components/audio/AndroidMediaSessionBridge';
-import { GlobalSettingsEffects } from './components/GlobalSettingsEffects';
 import { RequireAuth } from './components/auth';
+import { GlobalSettingsEffects } from './components/GlobalSettingsEffects';
 import { InstanceChangeHandler } from './components/InstanceChangeHandler';
 import {
   LaserScreensaver,
