@@ -9,8 +9,8 @@ import type {
   AnalyticsEventSlug,
   EventDetailMap
 } from './analytics-events';
-import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 import { analyticsEvents } from './schema';
+import { getDatabaseAdapter, isDatabaseInitialized } from './state';
 
 export type DatabaseInsert = Pick<Database, 'insert'>;
 export interface AnalyticsEvent {
