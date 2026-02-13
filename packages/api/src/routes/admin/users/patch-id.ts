@@ -1,7 +1,10 @@
 import type { AdminUserUpdateResponse } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../../lib/postgres.js';
-import { getLatestLastActiveByUserIds } from '../../../lib/sessions.js';
+import {
+  deleteAllSessionsForUser,
+  getLatestLastActiveByUserIds
+} from '../../../lib/sessions.js';
 import {
   emptyAccounting,
   getUserAccounting,
@@ -41,6 +44,10 @@ import {
  *                 type: array
  *                 items:
  *                   type: string
+ *               disabled:
+ *                 type: boolean
+ *               markedForDeletion:
+ *                 type: boolean
  *     responses:
  *       200:
  *         description: Updated user
@@ -91,6 +98,45 @@ export const patchIdHandler = async (req: Request, res: Response) => {
     index += 1;
   }
 
+  // Get admin user ID from session for tracking who performed the action
+  const adminUserId = req.session?.userId;
+
+  if (updates.disabled !== undefined) {
+    setClauses.push(`"disabled" = $${index}`);
+    values.push(updates.disabled);
+    index += 1;
+
+    if (updates.disabled) {
+      // When disabling, set timestamp and actor
+      setClauses.push(`"disabled_at" = NOW()`);
+      if (adminUserId) {
+        setClauses.push(`"disabled_by" = $${index}`);
+        values.push(adminUserId);
+        index += 1;
+      }
+    } else {
+      // When re-enabling, clear timestamp and actor
+      setClauses.push(`"disabled_at" = NULL`);
+      setClauses.push(`"disabled_by" = NULL`);
+    }
+  }
+
+  if (updates.markedForDeletion !== undefined) {
+    if (updates.markedForDeletion) {
+      // When marking for deletion, set timestamp and actor
+      setClauses.push(`"marked_for_deletion_at" = NOW()`);
+      if (adminUserId) {
+        setClauses.push(`"marked_for_deletion_by" = $${index}`);
+        values.push(adminUserId);
+        index += 1;
+      }
+    } else {
+      // When unmarking, clear timestamp and actor
+      setClauses.push(`"marked_for_deletion_at" = NULL`);
+      setClauses.push(`"marked_for_deletion_by" = NULL`);
+    }
+  }
+
   let pool: Awaited<ReturnType<typeof getPostgresPool>> | null = null;
   try {
     pool = await getPostgresPool();
@@ -104,13 +150,18 @@ export const patchIdHandler = async (req: Request, res: Response) => {
         `UPDATE users
          SET ${setClauses.join(', ')}
          WHERE id = $${index}
-         RETURNING id, email, email_confirmed, admin`,
+         RETURNING id, email, email_confirmed, admin, disabled, disabled_at, disabled_by, marked_for_deletion_at, marked_for_deletion_by`,
         [...values, userId]
       );
       updatedUser = result.rows[0];
+
+      // If user was just disabled, delete all their sessions
+      if (updates.disabled === true && updatedUser) {
+        await deleteAllSessionsForUser(updatedUser.id);
+      }
     } else {
       const result = await pool.query<UserRow>(
-        'SELECT id, email, email_confirmed, admin FROM users WHERE id = $1',
+        'SELECT id, email, email_confirmed, admin, disabled, disabled_at, disabled_by, marked_for_deletion_at, marked_for_deletion_by FROM users WHERE id = $1',
         [userId]
       );
       updatedUser = result.rows[0];

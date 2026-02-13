@@ -682,4 +682,86 @@ describe('sessions', () => {
       vi.useRealTimers();
     });
   });
+
+  describe('deleteAllSessionsForUser', () => {
+    it('deletes all sessions for a user', async () => {
+      const { createSession, getSession, deleteAllSessionsForUser } =
+        await import('./sessions.js');
+
+      await createSession('session-1', {
+        userId: 'user-delete-all',
+        email: 'deleteall@test.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      await createSession('session-2', {
+        userId: 'user-delete-all',
+        email: 'deleteall@test.com',
+        admin: false,
+        ipAddress: '127.0.0.2'
+      });
+
+      await createSession('session-3', {
+        userId: 'user-delete-all',
+        email: 'deleteall@test.com',
+        admin: false,
+        ipAddress: '127.0.0.3'
+      });
+
+      const session1Before = await getSession('session-1');
+      const session2Before = await getSession('session-2');
+      const session3Before = await getSession('session-3');
+      expect(session1Before).not.toBeNull();
+      expect(session2Before).not.toBeNull();
+      expect(session3Before).not.toBeNull();
+
+      const deletedCount = await deleteAllSessionsForUser('user-delete-all');
+
+      expect(deletedCount).toBe(3);
+
+      const session1After = await getSession('session-1');
+      const session2After = await getSession('session-2');
+      const session3After = await getSession('session-3');
+      expect(session1After).toBeNull();
+      expect(session2After).toBeNull();
+      expect(session3After).toBeNull();
+    });
+
+    it('returns 0 when user has no sessions', async () => {
+      const { deleteAllSessionsForUser } = await import('./sessions.js');
+
+      const deletedCount = await deleteAllSessionsForUser(
+        'user-with-no-sessions'
+      );
+
+      expect(deletedCount).toBe(0);
+    });
+
+    it('does not affect sessions of other users', async () => {
+      const { createSession, getSession, deleteAllSessionsForUser } =
+        await import('./sessions.js');
+
+      await createSession('user1-session', {
+        userId: 'user-1-isolated',
+        email: 'user1@test.com',
+        admin: false,
+        ipAddress: '127.0.0.1'
+      });
+
+      await createSession('user2-session', {
+        userId: 'user-2-isolated',
+        email: 'user2@test.com',
+        admin: false,
+        ipAddress: '127.0.0.2'
+      });
+
+      await deleteAllSessionsForUser('user-1-isolated');
+
+      const user1Session = await getSession('user1-session');
+      const user2Session = await getSession('user2-session');
+      expect(user1Session).toBeNull();
+      expect(user2Session).not.toBeNull();
+    });
+  });
 });

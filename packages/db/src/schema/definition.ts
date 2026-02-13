@@ -122,6 +122,30 @@ export const usersTable: TableDefinition = {
     lastActiveAt: {
       type: 'timestamp',
       sqlName: 'last_active_at'
+    },
+    disabled: {
+      type: 'boolean',
+      sqlName: 'disabled',
+      notNull: true,
+      defaultValue: false
+    },
+    disabledAt: {
+      type: 'timestamp',
+      sqlName: 'disabled_at'
+    },
+    disabledBy: {
+      type: 'text',
+      sqlName: 'disabled_by',
+      references: { table: 'users', column: 'id' }
+    },
+    markedForDeletionAt: {
+      type: 'timestamp',
+      sqlName: 'marked_for_deletion_at'
+    },
+    markedForDeletionBy: {
+      type: 'text',
+      sqlName: 'marked_for_deletion_by',
+      references: { table: 'users', column: 'id' }
     }
   },
   indexes: [{ name: 'users_email_idx', columns: ['email'] }]

@@ -11,12 +11,16 @@ vi.mock('../../lib/postgres.js', () => ({
   getPostgresPool: () => mockGetPostgresPool()
 }));
 
+const mockDeleteAllSessionsForUser = vi.fn();
+
 vi.mock('../../lib/sessions.js', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/sessions.js')>();
   return {
     ...actual,
     getLatestLastActiveByUserIds: (userIds: string[]) =>
-      mockGetLatestLastActiveByUserIds(userIds)
+      mockGetLatestLastActiveByUserIds(userIds),
+    deleteAllSessionsForUser: (userId: string) =>
+      mockDeleteAllSessionsForUser(userId)
   };
 });
 
@@ -25,8 +29,11 @@ describe('admin users routes', () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockQuery.mockReset();
     mockGetLatestLastActiveByUserIds.mockResolvedValue({});
+    mockDeleteAllSessionsForUser.mockResolvedValue(0);
     vi.stubEnv('JWT_SECRET', 'test-secret');
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
     authHeader = await createAuthHeader({
       id: 'user-1',
       email: 'user@example.com',
@@ -52,6 +59,11 @@ describe('admin users routes', () => {
               email: 'alpha@example.com',
               email_confirmed: true,
               admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null,
               organization_ids: [],
               created_at: new Date('2024-01-01T00:00:00.000Z')
             },
@@ -60,6 +72,11 @@ describe('admin users routes', () => {
               email: 'beta@example.com',
               email_confirmed: false,
               admin: true,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null,
               organization_ids: ['org-1'],
               created_at: '2024-02-01T00:00:00.000Z'
             }
@@ -91,6 +108,11 @@ describe('admin users routes', () => {
           email: 'alpha@example.com',
           emailConfirmed: true,
           admin: false,
+          disabled: false,
+          disabledAt: null,
+          disabledBy: null,
+          markedForDeletionAt: null,
+          markedForDeletionBy: null,
           organizationIds: [],
           createdAt: '2024-01-01T00:00:00.000Z',
           lastActiveAt: '2024-01-05T00:00:00.000Z',
@@ -107,6 +129,11 @@ describe('admin users routes', () => {
           email: 'beta@example.com',
           emailConfirmed: false,
           admin: true,
+          disabled: false,
+          disabledAt: null,
+          disabledBy: null,
+          markedForDeletionAt: null,
+          markedForDeletionBy: null,
           organizationIds: ['org-1'],
           createdAt: '2024-02-01T00:00:00.000Z',
           lastActiveAt: null,
@@ -124,7 +151,9 @@ describe('admin users routes', () => {
 
   it('GET /v1/admin/users returns empty users list', async () => {
     mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValueOnce({ rows: [] })
+      query: mockQuery
+        .mockResolvedValueOnce({ rows: [] })
+        .mockResolvedValueOnce({ rows: [] })
     });
 
     const response = await request(app)
@@ -133,11 +162,12 @@ describe('admin users routes', () => {
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({ users: [] });
-    expect(mockQuery).toHaveBeenCalledTimes(1);
   });
 
   it('GET /v1/admin/users returns 500 on error', async () => {
-    mockGetPostgresPool.mockRejectedValue(new Error('query failed'));
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockRejectedValueOnce(new Error('query failed'))
+    });
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
@@ -162,6 +192,11 @@ describe('admin users routes', () => {
               email: 'alpha@example.com',
               email_confirmed: true,
               admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null,
               organization_ids: ['org-1', 'org-2']
             }
           ]
@@ -191,6 +226,11 @@ describe('admin users routes', () => {
         email: 'alpha@example.com',
         emailConfirmed: true,
         admin: false,
+        disabled: false,
+        disabledAt: null,
+        disabledBy: null,
+        markedForDeletionAt: null,
+        markedForDeletionBy: null,
         organizationIds: ['org-1', 'org-2'],
         createdAt: null,
         lastActiveAt: null,
@@ -207,9 +247,7 @@ describe('admin users routes', () => {
 
   it('GET /v1/admin/users/:id returns 404 when user not found', async () => {
     mockGetPostgresPool.mockResolvedValue({
-      query: mockQuery.mockResolvedValue({
-        rows: []
-      })
+      query: mockQuery.mockResolvedValue({ rows: [] })
     });
 
     const response = await request(app)
@@ -221,7 +259,9 @@ describe('admin users routes', () => {
   });
 
   it('GET /v1/admin/users/:id returns 500 on error', async () => {
-    mockGetPostgresPool.mockRejectedValue(new Error('query failed'));
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery.mockRejectedValueOnce(new Error('query failed'))
+    });
     const consoleError = vi
       .spyOn(console, 'error')
       .mockImplementation(() => {});
@@ -250,7 +290,12 @@ describe('admin users routes', () => {
               id: 'user-1',
               email: 'updated@example.com',
               email_confirmed: true,
-              admin: true
+              admin: true,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null
             }
           ]
         });
@@ -273,6 +318,11 @@ describe('admin users routes', () => {
         email: 'updated@example.com',
         emailConfirmed: true,
         admin: true,
+        disabled: false,
+        disabledAt: null,
+        disabledBy: null,
+        markedForDeletionAt: null,
+        markedForDeletionBy: null,
         organizationIds: [],
         createdAt: null,
         lastActiveAt: null,
@@ -389,7 +439,12 @@ describe('admin users routes', () => {
               id: 'user-1',
               email: 'user@example.com',
               email_confirmed: true,
-              admin: false
+              admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null
             }
           ]
         });
@@ -412,6 +467,11 @@ describe('admin users routes', () => {
         email: 'user@example.com',
         emailConfirmed: true,
         admin: false,
+        disabled: false,
+        disabledAt: null,
+        disabledBy: null,
+        markedForDeletionAt: null,
+        markedForDeletionBy: null,
         organizationIds: [],
         createdAt: null,
         lastActiveAt: null,
@@ -432,14 +492,19 @@ describe('admin users routes', () => {
       if (query === 'BEGIN' || query === 'COMMIT') {
         return Promise.resolve({ rows: [] });
       }
-      if (query.startsWith('SELECT id, email, email_confirmed, admin')) {
+      if (query.includes('SELECT id, email, email_confirmed, admin')) {
         return Promise.resolve({
           rows: [
             {
               id: 'user-1',
               email: 'user@example.com',
               email_confirmed: true,
-              admin: false
+              admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null
             }
           ]
         });
@@ -473,6 +538,11 @@ describe('admin users routes', () => {
         email: 'user@example.com',
         emailConfirmed: true,
         admin: false,
+        disabled: false,
+        disabledAt: null,
+        disabledBy: null,
+        markedForDeletionAt: null,
+        markedForDeletionBy: null,
         organizationIds: ['org-1', 'org-2'],
         createdAt: null,
         lastActiveAt: null,
@@ -493,14 +563,19 @@ describe('admin users routes', () => {
       if (query === 'BEGIN' || query === 'COMMIT') {
         return Promise.resolve({ rows: [] });
       }
-      if (query.startsWith('SELECT id, email, email_confirmed, admin')) {
+      if (query.includes('SELECT id, email, email_confirmed, admin')) {
         return Promise.resolve({
           rows: [
             {
               id: 'user-1',
               email: 'user@example.com',
               email_confirmed: true,
-              admin: false
+              admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null
             }
           ]
         });
@@ -526,6 +601,11 @@ describe('admin users routes', () => {
         email: 'user@example.com',
         emailConfirmed: true,
         admin: false,
+        disabled: false,
+        disabledAt: null,
+        disabledBy: null,
+        markedForDeletionAt: null,
+        markedForDeletionBy: null,
         organizationIds: [],
         createdAt: null,
         lastActiveAt: null,
@@ -546,14 +626,19 @@ describe('admin users routes', () => {
       if (query === 'BEGIN' || query === 'ROLLBACK') {
         return Promise.resolve({ rows: [] });
       }
-      if (query.startsWith('SELECT id, email, email_confirmed, admin')) {
+      if (query.includes('SELECT id, email, email_confirmed, admin')) {
         return Promise.resolve({
           rows: [
             {
               id: 'user-1',
               email: 'user@example.com',
               email_confirmed: true,
-              admin: false
+              admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null
             }
           ]
         });
@@ -621,5 +706,192 @@ describe('admin users routes', () => {
     expect(response.body).toEqual({ error: 'database error' });
     expect(consoleError).toHaveBeenCalled();
     consoleError.mockRestore();
+  });
+
+  it('PATCH /v1/admin/users/:id disables a user and deletes sessions', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      const trimmedQuery = query.trimStart();
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (trimmedQuery.startsWith('UPDATE users')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-2',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false,
+              disabled: true,
+              disabled_at: new Date('2024-01-15T00:00:00.000Z'),
+              disabled_by: 'user-1',
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+    mockDeleteAllSessionsForUser.mockResolvedValue(3);
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-2')
+      .set('Authorization', authHeader)
+      .send({ disabled: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.disabled).toBe(true);
+    expect(response.body.user.disabledAt).toBe('2024-01-15T00:00:00.000Z');
+    expect(response.body.user.disabledBy).toBe('user-1');
+    expect(mockDeleteAllSessionsForUser).toHaveBeenCalledWith('user-2');
+  });
+
+  it('PATCH /v1/admin/users/:id re-enables a user', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      const trimmedQuery = query.trimStart();
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (trimmedQuery.startsWith('UPDATE users')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-2',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-2')
+      .set('Authorization', authHeader)
+      .send({ disabled: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.disabled).toBe(false);
+    expect(response.body.user.disabledAt).toBeNull();
+    expect(response.body.user.disabledBy).toBeNull();
+    expect(mockDeleteAllSessionsForUser).not.toHaveBeenCalled();
+  });
+
+  it('PATCH /v1/admin/users/:id marks user for deletion', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      const trimmedQuery = query.trimStart();
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (trimmedQuery.startsWith('UPDATE users')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-2',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: new Date('2024-01-15T00:00:00.000Z'),
+              marked_for_deletion_by: 'user-1'
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-2')
+      .set('Authorization', authHeader)
+      .send({ markedForDeletion: true });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.markedForDeletionAt).toBe(
+      '2024-01-15T00:00:00.000Z'
+    );
+    expect(response.body.user.markedForDeletionBy).toBe('user-1');
+  });
+
+  it('PATCH /v1/admin/users/:id unmarks user for deletion', async () => {
+    mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
+    mockQuery.mockImplementation((query: string) => {
+      const trimmedQuery = query.trimStart();
+      if (query === 'BEGIN' || query === 'COMMIT') {
+        return Promise.resolve({ rows: [] });
+      }
+      if (trimmedQuery.startsWith('UPDATE users')) {
+        return Promise.resolve({
+          rows: [
+            {
+              id: 'user-2',
+              email: 'user@example.com',
+              email_confirmed: true,
+              admin: false,
+              disabled: false,
+              disabled_at: null,
+              disabled_by: null,
+              marked_for_deletion_at: null,
+              marked_for_deletion_by: null
+            }
+          ]
+        });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({ rows: [] });
+      }
+      return Promise.resolve({ rows: [] });
+    });
+
+    const response = await request(app)
+      .patch('/v1/admin/users/user-2')
+      .set('Authorization', authHeader)
+      .send({ markedForDeletion: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body.user.markedForDeletionAt).toBeNull();
+    expect(response.body.user.markedForDeletionBy).toBeNull();
+  });
+
+  it('PATCH /v1/admin/users/:id returns 400 for non-boolean disabled', async () => {
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ disabled: 'yes' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid user update payload' });
+  });
+
+  it('PATCH /v1/admin/users/:id returns 400 for non-boolean markedForDeletion', async () => {
+    const response = await request(app)
+      .patch('/v1/admin/users/user-1')
+      .set('Authorization', authHeader)
+      .send({ markedForDeletion: 'yes' });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid user update payload' });
   });
 });

@@ -45,6 +45,11 @@ export const getRootHandler = async (_req: Request, res: Response) => {
          u.email,
          u.email_confirmed,
          u.admin,
+         u.disabled,
+         u.disabled_at,
+         u.disabled_by,
+         u.marked_for_deletion_at,
+         u.marked_for_deletion_by,
          MIN(uc.created_at) AS created_at,
          COALESCE(
            ARRAY_AGG(uo.organization_id) FILTER (WHERE uo.organization_id IS NOT NULL),

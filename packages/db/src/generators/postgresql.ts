@@ -14,7 +14,8 @@ import {
 function generateColumn(
   propertyName: string,
   column: ColumnDefinition,
-  isCompositePk: boolean
+  isCompositePk: boolean,
+  currentTableName: string
 ): string {
   const typeInfo = getPostgresTypeInfo(column.type);
 
@@ -45,7 +46,10 @@ function generateColumn(
     const { table, column: columnName, onDelete } = column.references;
     const tablePropertyName = getPropertyName(table);
     const options = onDelete ? `, { onDelete: '${onDelete}' }` : '';
-    result += `.references(() => ${tablePropertyName}.${columnName}${options})`;
+    // Self-referencing columns need AnyPgColumn type annotation to avoid circular inference
+    const isSelfReference = table === currentTableName;
+    const returnType = isSelfReference ? ': AnyPgColumn' : '';
+    result += `.references(()${returnType} => ${tablePropertyName}.${columnName}${options})`;
   }
 
   // Default value
@@ -91,7 +95,12 @@ function generateTable(table: TableDefinition): string {
   // Columns
   const columnEntries = Object.entries(table.columns);
   columnEntries.forEach(([propertyName, column], i) => {
-    const columnStr = generateColumn(propertyName, column, isCompositePk);
+    const columnStr = generateColumn(
+      propertyName,
+      column,
+      isCompositePk,
+      table.name
+    );
     const indent = needsConfigBlock ? '    ' : '  ';
     const comma = i < columnEntries.length - 1 ? ',' : '';
     lines.push(`${indent}${columnStr}${comma}`);
@@ -131,6 +140,18 @@ function generateTable(table: TableDefinition): string {
 }
 
 /**
+ * Check if a table has self-referencing columns.
+ */
+function hasSelfReferences(table: TableDefinition): boolean {
+  for (const column of Object.values(table.columns)) {
+    if (column.references && column.references.table === table.name) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Collect all unique Drizzle type functions needed for the schema.
  */
 function collectDrizzleTypes(tables: TableDefinition[]): string[] {
@@ -151,6 +172,11 @@ function collectDrizzleTypes(tables: TableDefinition[]): string[] {
     for (const column of Object.values(table.columns)) {
       const typeInfo = getPostgresTypeInfo(column.type);
       types.add(typeInfo.drizzleType);
+    }
+
+    // Check for self-referencing columns
+    if (hasSelfReferences(table)) {
+      types.add('type AnyPgColumn');
     }
   }
 

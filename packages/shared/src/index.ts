@@ -117,6 +117,11 @@ export interface AdminUser {
   createdAt: string | null;
   lastActiveAt: string | null;
   accounting: AdminUserAccounting;
+  disabled: boolean;
+  disabledAt: string | null;
+  disabledBy: string | null;
+  markedForDeletionAt: string | null;
+  markedForDeletionBy: string | null;
 }
 
 export interface AdminUsersResponse {
@@ -132,6 +137,8 @@ export interface AdminUserUpdatePayload {
   emailConfirmed?: boolean;
   admin?: boolean;
   organizationIds?: string[];
+  disabled?: boolean;
+  markedForDeletion?: boolean;
 }
 
 export interface AdminUserUpdateResponse {
