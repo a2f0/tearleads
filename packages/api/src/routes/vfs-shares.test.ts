@@ -753,6 +753,49 @@ describe('VFS Shares routes', () => {
       );
     });
 
+    it('uses Unknown when org share creator email is missing', async () => {
+      const authHeader = await createAuthHeader();
+      // Item exists
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ id: 'item-123', owner_id: 'user-1' }]
+      });
+      // Source org exists
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ name: 'Source Org' }]
+      });
+      // Target org exists
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ name: 'Target Org' }]
+      });
+      // Insert org share
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'orgshare-new',
+            source_org_id: 'org-source',
+            target_org_id: 'org-target',
+            item_id: 'item-123',
+            permission_level: 'view',
+            created_by: 'user-001',
+            created_at: new Date('2024-01-01'),
+            expires_at: null
+          }
+        ]
+      });
+      // Creator email missing
+      mockQuery.mockResolvedValueOnce({
+        rows: []
+      });
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/org-shares')
+        .set('Authorization', authHeader)
+        .send(validPayload);
+
+      expect(response.status).toBe(201);
+      expect(response.body.orgShare.createdByEmail).toBe('Unknown');
+    });
+
     it('returns 500 on database error', async () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
