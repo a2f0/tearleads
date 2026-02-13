@@ -23,18 +23,6 @@
       "metricCountCommand": "find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \\; 2>/dev/null | awk '$1 > 300' | wc -l"
     },
     {
-      "id": "preen-inefficient-resolution",
-      "purpose": "Fix cyclical imports and module resolution issues",
-      "checklistLabel": "Module resolution (cycles, deep imports)",
-      "qualityMetric": "Circular imports / deep relative imports",
-      "security": false,
-      "discoveryCommands": [
-        "npx madge --circular --extensions ts,tsx packages/ 2>/dev/null | head -20 || true",
-        "rg -n --glob '*.{ts,tsx}' \"from '\\.\\./\\.\\./\\.\\./\\.\\.\" . | head -20"
-      ],
-      "metricCountCommand": "rg -n --glob '*.{ts,tsx}' \"from '\\.\\./\\.\\./\\.\\./\\.\\.\" . | wc -l"
-    },
-    {
       "id": "preen-deferred-fixes",
       "purpose": "Complete deferred follow-ups from merged PR reviews",
       "checklistLabel": "Deferred fixes from PR reviews",

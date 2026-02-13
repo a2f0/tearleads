@@ -40,7 +40,6 @@ If checks fail, STOP and sync before running preen:
 | ----- | ------- |
 | `preen-typescript` | Fix weak TypeScript typings (`any`, `as` casts, `@ts-ignore`) |
 | `preen-split-react-components` | Split oversized React components into smaller files |
-| `preen-inefficient-resolution` | Fix cyclical imports and module resolution issues |
 | `preen-deferred-fixes` | Complete deferred follow-ups from merged PR reviews |
 | `preen-optimize-test-execution` | Tune CI impact analysis (workflow filters, package dependencies) |
 | `preen-database-performance` | Find and fix database performance issues (N+1 queries, inefficient joins, index gaps) |
@@ -73,7 +72,6 @@ RUNS_FILE="$STATE_DIR/runs.jsonl"
 CATEGORIES=(
   "preen-typescript"
   "preen-split-react-components"
-  "preen-inefficient-resolution"
   "preen-deferred-fixes"
   "preen-optimize-test-execution"
   "preen-database-performance"
@@ -158,10 +156,6 @@ run_discovery() {
     preen-split-react-components)
       find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | sort -rn | head -20
       ;;
-    preen-inefficient-resolution)
-      npx madge --circular --extensions ts,tsx packages/ 2>/dev/null | head -20 || true
-      rg -n --glob '*.{ts,tsx}' "from '\.\./\.\./\.\./\.\." . | head -20
-      ;;
     preen-deferred-fixes)
       REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R "$REPO" --label 'deferred' --state open --limit 20 2>/dev/null || true
       ;;
@@ -197,9 +191,6 @@ metric_count() {
       ;;
     preen-split-react-components)
       find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | wc -l
-      ;;
-    preen-inefficient-resolution)
-      rg -n --glob '*.{ts,tsx}' "from '\.\./\.\./\.\./\.\." . | wc -l
       ;;
     preen-deferred-fixes)
       REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R "$REPO" --label 'deferred' --state open --json number --jq 'length' 2>/dev/null || echo 0
@@ -318,7 +309,6 @@ Before opening a PR, record measurable improvement. Example metrics:
 
 - Type safety findings (`any`, unsafe casts, `@ts-ignore`)
 - Oversized React files
-- Circular imports / deep relative imports
 - Deferred issue count
 - CI impact warnings
 - N+1 loop/query anti-pattern matches
@@ -360,7 +350,6 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 ## Categories Checked
 - [ ] TypeScript types (`any`, `as` casts, `@ts-ignore`)
 - [ ] React component splitting
-- [ ] Module resolution (cycles, deep imports)
 - [ ] Deferred fixes from PR reviews
 - [ ] CI impact/test execution tuning
 - [ ] Database performance (N+1, joins, indexes)
