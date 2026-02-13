@@ -68,9 +68,7 @@ export function AnalyticsTab() {
           );
         }
       } finally {
-        if (!isCancelled) {
-          setLoading(false);
-        }
+        setLoading(false);
         fetchingRef.current = false;
       }
     };
