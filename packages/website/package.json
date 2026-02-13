@@ -18,7 +18,7 @@
     "@tearleads/api": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "astro": "5.17.2",
-    "lucide-react": "0.563.0",
+    "lucide-react": "0.564.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"
   },
