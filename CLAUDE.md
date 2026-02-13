@@ -66,7 +66,7 @@ The `/enter-merge-queue` and `/address-gemini-feedback` skills handle deferred f
 
 ```bash
 # Create a deferred fix issue (handled by skills, shown for reference)
-cat <<'EOF' | gh issue create --title "chore: deferred fix from PR #<number>" --label "deferred-fix" --body-file -
+cat <<EOF | gh issue create --title "chore: deferred fix from PR #<number>" --label "deferred-fix" --body-file -
 ## Summary
 <brief description of what was deferred>
 

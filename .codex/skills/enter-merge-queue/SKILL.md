@@ -415,7 +415,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
       - URL: $PR_URL
 
       ## Deferred Items
-      $(for item in "${deferred_items[@]}"; do echo "- [ ] $item"; done)
+      $(for item_json in "${deferred_items[@]}"; do echo "$item_json" | jq -r '"- [ ] \(.body) - `\(.path):\(.line)` ([thread](\(.html_url)))"'; done)
 
       ## Notes
       These items were explicitly marked for deferral during review. Address each item and check it off, then close this issue.
