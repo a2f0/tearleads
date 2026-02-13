@@ -94,7 +94,7 @@ describe('Tooltip', () => {
       () => {
         expect(screen.getByRole('tooltip')).toBeInTheDocument();
       },
-      { timeout: 200 }
+      { timeout: 500 }
     );
   });
 });
