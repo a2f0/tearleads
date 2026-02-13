@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   getRevenueCatWebhookMetricsSnapshot,
   recordRevenueCatWebhookMetric,
@@ -8,6 +8,7 @@ import {
 describe('revenuecat observability metrics', () => {
   afterEach(() => {
     resetRevenueCatWebhookMetricsForTests();
+    vi.unstubAllEnvs();
   });
 
   it('tracks counters by outcome and event type', () => {
@@ -44,5 +45,37 @@ describe('revenuecat observability metrics', () => {
       RENEWAL: 2,
       INITIAL_PURCHASE: 1
     });
+  });
+
+  it('does not track empty event type names', () => {
+    recordRevenueCatWebhookMetric({
+      outcome: 'accepted',
+      durationMs: 5,
+      eventType: '   '
+    });
+
+    const snapshot = getRevenueCatWebhookMetricsSnapshot();
+    expect(snapshot.eventTypes).toEqual({});
+  });
+
+  it('emits structured logs outside test environment', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    const consoleInfo = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+    recordRevenueCatWebhookMetric({
+      outcome: 'invalid_payload',
+      durationMs: 3,
+      reason: 'invalid_payload_shape'
+    });
+
+    expect(consoleInfo).toHaveBeenCalledWith(
+      'RevenueCat webhook metric:',
+      expect.objectContaining({
+        outcome: 'invalid_payload',
+        durationMs: 3,
+        reason: 'invalid_payload_shape'
+      })
+    );
+    consoleInfo.mockRestore();
   });
 });

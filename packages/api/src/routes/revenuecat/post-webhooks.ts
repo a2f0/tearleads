@@ -31,7 +31,6 @@ type InsertWebhookEventRow = {
 };
 
 type IgnoreReason =
-  | 'unsupported_event_type'
   | 'missing_event_timestamp'
   | 'event_too_old'
   | 'event_too_far_in_future';
@@ -307,42 +306,45 @@ export const postWebhooksHandler = async (
     }
 
     try {
-      const ignoredReason: IgnoreReason | null =
-        !isSupportedRevenueCatEventType(event.type)
-          ? 'unsupported_event_type'
-          : replayWindowValidation.valid
-            ? null
-            : replayWindowValidation.reason;
-
-      if (ignoredReason) {
+      if (!isSupportedRevenueCatEventType(event.type)) {
         await markWebhookEventProcessed(
           pool,
           event.id,
-          `Ignored webhook event: ${ignoredReason}`
+          'Ignored webhook event: unsupported_event_type'
         );
-        emitMetric(
-          ignoredReason === 'unsupported_event_type'
-            ? 'unsupported_event_type'
-            : 'replay_window_rejected',
-          {
-            eventType: event.type,
-            eventId: event.id,
-            organizationId,
-            reason: ignoredReason
-          }
-        );
+        emitMetric('unsupported_event_type', {
+          eventType: event.type,
+          eventId: event.id,
+          organizationId,
+          reason: 'unsupported_event_type'
+        });
         res.status(200).json({
           received: true,
           duplicate: false,
           ignored: true,
-          reason: ignoredReason
+          reason: 'unsupported_event_type'
         });
         return;
       }
 
       if (!replayWindowValidation.valid) {
-        res.status(500).json({
-          error: 'Failed to process RevenueCat webhook'
+        const replayReason: IgnoreReason = replayWindowValidation.reason;
+        await markWebhookEventProcessed(
+          pool,
+          event.id,
+          `Ignored webhook event: ${replayReason}`
+        );
+        emitMetric('replay_window_rejected', {
+          eventType: event.type,
+          eventId: event.id,
+          organizationId,
+          reason: replayReason
+        });
+        res.status(200).json({
+          received: true,
+          duplicate: false,
+          ignored: true,
+          reason: replayReason
         });
         return;
       }

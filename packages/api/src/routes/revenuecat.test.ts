@@ -300,4 +300,93 @@ describe('RevenueCat webhook routes', () => {
     expect(String(mockQuery.mock.calls[3]?.[0])).toContain('processing_error');
     consoleError.mockRestore();
   });
+
+  it('returns 500 when webhook secret is missing', async () => {
+    vi.unstubAllEnvs();
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const body = JSON.stringify({
+      event: {
+        id: 'evt_missing_secret',
+        type: 'RENEWAL',
+        app_user_id: 'org:org-1',
+        event_timestamp_ms: Date.now()
+      }
+    });
+
+    const response = await request(app)
+      .post('/v1/revenuecat/webhooks')
+      .set('Content-Type', 'application/json')
+      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .send(body);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: 'RevenueCat webhook secret is not configured'
+    });
+    expect(mockQuery).not.toHaveBeenCalled();
+    consoleError.mockRestore();
+  });
+
+  it('returns 500 when event ingestion fails before processing', async () => {
+    const consoleError = vi
+      .spyOn(console, 'error')
+      .mockImplementation(() => {});
+    const body = JSON.stringify({
+      event: {
+        id: 'evt_ingest_fail',
+        type: 'RENEWAL',
+        app_user_id: 'org:org-1',
+        event_timestamp_ms: Date.now()
+      }
+    });
+
+    mockGetPostgresPool.mockRejectedValue(new Error('pool unavailable'));
+
+    const response = await request(app)
+      .post('/v1/revenuecat/webhooks')
+      .set('Content-Type', 'application/json')
+      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .send(body);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: 'Failed to ingest RevenueCat webhook'
+    });
+    consoleError.mockRestore();
+  });
+
+  it('ignores events that are too far in the future', async () => {
+    vi.stubEnv('REVENUECAT_WEBHOOK_MAX_FUTURE_SKEW_SECONDS', '60');
+    const body = JSON.stringify({
+      event: {
+        id: 'evt_future',
+        type: 'RENEWAL',
+        app_user_id: 'org:org-1',
+        event_timestamp_ms: Date.now() + 10 * 60 * 1000
+      }
+    });
+
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery
+        .mockResolvedValueOnce({ rows: [{ id: 'org-1' }] })
+        .mockResolvedValueOnce({ rows: [{ event_id: 'evt_future' }] })
+        .mockResolvedValueOnce({ rows: [] })
+    });
+
+    const response = await request(app)
+      .post('/v1/revenuecat/webhooks')
+      .set('Content-Type', 'application/json')
+      .set('x-revenuecat-signature', signPayload(body, webhookSecret))
+      .send(body);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      received: true,
+      duplicate: false,
+      ignored: true,
+      reason: 'event_too_far_in_future'
+    });
+  });
 });
