@@ -10,6 +10,7 @@ const mockQuit = vi.fn();
 const mockSubscribe = vi.fn();
 const mockUnsubscribe = vi.fn();
 const mockDuplicate = vi.fn();
+const mockQuery = vi.fn();
 
 type ParserCallback = (error: Error | null, body: unknown) => void;
 
@@ -44,6 +45,14 @@ vi.mock('../lib/redisPubSub.js', () => ({
   getRedisSubscriberClient: vi.fn(() =>
     Promise.resolve({
       duplicate: mockDuplicate
+    })
+  )
+}));
+
+vi.mock('../lib/postgres.js', () => ({
+  getPostgresPool: vi.fn(() =>
+    Promise.resolve({
+      query: mockQuery
     })
   )
 }));
@@ -117,9 +126,12 @@ describe('SSE Routes', () => {
       expect(response.body).toContain('"channels":["broadcast"]');
     });
 
-    it('subscribes to custom channels', async () => {
+    it('subscribes to authorized channels', async () => {
+      // Mock group membership check - user-1 is member of group-1
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+
       const response = await request(app)
-        .get('/v1/sse?channels=channel1,channel2')
+        .get('/v1/sse?channels=mls:user:user-1,mls:group:group-1')
         .set('Authorization', authHeader)
         .buffer(true)
         .parse(
@@ -130,15 +142,55 @@ describe('SSE Routes', () => {
           })
         );
 
-      expect(response.body).toContain('"channels":["channel1","channel2"]');
+      expect(response.body).toContain(
+        '"channels":["mls:user:user-1","mls:group:group-1"]'
+      );
       expect(mockSubscribe).toHaveBeenCalledWith(
-        'channel1',
+        'mls:user:user-1',
         expect.any(Function)
       );
       expect(mockSubscribe).toHaveBeenCalledWith(
-        'channel2',
+        'mls:group:group-1',
         expect.any(Function)
       );
+    });
+
+    it('filters out unauthorized channels', async () => {
+      const response = await request(app)
+        .get('/v1/sse?channels=mls:user:other-user,mls:user:user-1')
+        .set('Authorization', authHeader)
+        .buffer(true)
+        .parse(
+          createSseParser((data, res) => {
+            if (data.includes('event: connected')) {
+              if (isDestroyable(res)) res.destroy();
+            }
+          })
+        );
+
+      expect(response.body).toContain('"channels":["mls:user:user-1"]');
+      expect(mockSubscribe).toHaveBeenCalledTimes(1);
+      expect(mockSubscribe).toHaveBeenCalledWith(
+        'mls:user:user-1',
+        expect.any(Function)
+      );
+    });
+
+    it('returns error when no channels are authorized', async () => {
+      const response = await request(app)
+        .get('/v1/sse?channels=mls:user:other-user,unauthorized-channel')
+        .set('Authorization', authHeader)
+        .buffer(true)
+        .parse(
+          createSseParser((data, res) => {
+            if (data.includes('event: error')) {
+              if (isDestroyable(res)) res.destroy();
+            }
+          })
+        );
+
+      expect(response.body).toContain('event: error');
+      expect(response.body).toContain('No authorized channels');
     });
 
     it('sends keepalive events', async () => {
@@ -177,7 +229,7 @@ describe('SSE Routes', () => {
         .mockImplementation(() => {});
 
       await request(app)
-        .get('/v1/sse?channels=channel1')
+        .get('/v1/sse?channels=broadcast')
         .set('Authorization', authHeader)
         .buffer(true)
         .parse(
@@ -198,8 +250,11 @@ describe('SSE Routes', () => {
     });
 
     it('cleans up subscriptions on close', async () => {
+      // Mock group membership check - user-1 is member of group-1
+      mockQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+
       await request(app)
-        .get('/v1/sse?channels=channel1,channel2')
+        .get('/v1/sse?channels=mls:user:user-1,mls:group:group-1')
         .set('Authorization', authHeader)
         .buffer(true)
         .parse(
@@ -212,8 +267,8 @@ describe('SSE Routes', () => {
 
       await new Promise((resolve) => setTimeout(resolve, 0));
 
-      expect(mockUnsubscribe).toHaveBeenCalledWith('channel1');
-      expect(mockUnsubscribe).toHaveBeenCalledWith('channel2');
+      expect(mockUnsubscribe).toHaveBeenCalledWith('mls:user:user-1');
+      expect(mockUnsubscribe).toHaveBeenCalledWith('mls:group:group-1');
       expect(mockQuit).toHaveBeenCalled();
     });
 
@@ -264,7 +319,7 @@ describe('SSE Routes', () => {
 
     it('trims and filters empty channel names', async () => {
       const response = await request(app)
-        .get('/v1/sse?channels=channel1, , channel2 ,')
+        .get('/v1/sse?channels=mls:user:user-1, , broadcast ,')
         .set('Authorization', authHeader)
         .buffer(true)
         .parse(
@@ -275,7 +330,9 @@ describe('SSE Routes', () => {
           })
         );
 
-      expect(response.body).toContain('"channels":["channel1","channel2"]');
+      expect(response.body).toContain(
+        '"channels":["mls:user:user-1","broadcast"]'
+      );
       expect(mockSubscribe).toHaveBeenCalledTimes(2);
     });
 
