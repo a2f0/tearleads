@@ -55,64 +55,127 @@ jobs:
           jq -r '"- changed packages: " + (.changedPackages|join(", "))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
           jq -r 'if (.warnings|length) > 0 then "- warnings: " + (.warnings|join("; ")) else "- warnings: none" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
 
-  build:
+  # Lint jobs run in parallel
+  lint:
     needs: detect-impact
-    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
-    timeout-minutes: 20
-
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        lint-type: [biome, scripts, markdown, rubocop, ansible]
     steps:
       - name: Report no impact detected
         if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
         run: |
           echo "::notice::No code changes detected that impact this job - reporting success"
-          echo "## Build Skipped" >> "$GITHUB_STEP_SUMMARY"
-          echo "No code changes detected that require this job to run." >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/checkout@v4
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-
-      - name: Check for binary files
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: ./scripts/checkBinaryFiles.sh --from-upstream
-
-      - name: Check for plain JavaScript files
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: ./scripts/checkJs.sh --from-upstream
-
-      - name: Verify binary guardrails
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: ./scripts/verifyBinaryGuardrails.sh
 
       - name: Setup pnpm
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: pnpm/action-setup@v4
 
       - name: Setup Node.js
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
           cache: 'pnpm'
 
+      - name: Install dependencies
+        run: pnpm install
+
       - name: Setup Ruby
-        if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && vars.USE_SELF_HOSTED != 'true' }}
+        if: matrix.lint-type == 'rubocop'
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3.0'
           bundler-cache: true
           working-directory: packages/client
 
-      - name: Install Ruby dependencies (self-hosted)
-        if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && vars.USE_SELF_HOSTED == 'true' }}
-        run: bundle install
-        working-directory: packages/client
+      - name: Setup Python
+        if: matrix.lint-type == 'ansible'
+        uses: actions/setup-python@v5
+        with:
+          python-version-file: '.python-version'
+          cache: 'pip'
+          cache-dependency-path: 'requirements.txt'
+
+      - name: Install ansible-lint
+        if: matrix.lint-type == 'ansible'
+        run: pip3 install -r requirements.txt
+
+      - name: Cache Ansible collections
+        if: matrix.lint-type == 'ansible'
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
+
+      - name: Install Ansible collections
+        if: matrix.lint-type == 'ansible'
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+
+      - name: Lint (biome)
+        if: matrix.lint-type == 'biome'
+        run: pnpm lint
+
+      - name: Lint scripts (shellcheck)
+        if: matrix.lint-type == 'scripts'
+        run: pnpm lint:scripts
+
+      - name: Lint Markdown
+        if: matrix.lint-type == 'markdown'
+        run: pnpm lint:md
+
+      - name: Lint RuboCop
+        if: matrix.lint-type == 'rubocop'
+        run: pnpm lint:rubocop
+
+      - name: Lint Ansible
+        if: matrix.lint-type == 'ansible'
+        run: pnpm lint:ansible
+
+  # Check for binary/JS files and verify guardrails
+  guardrails:
+    needs: detect-impact
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for binary files
+        run: ./scripts/checkBinaryFiles.sh --from-upstream
+
+      - name: Check for plain JavaScript files
+        run: ./scripts/checkJs.sh --from-upstream
+
+      - name: Verify binary guardrails
+        run: ./scripts/verifyBinaryGuardrails.sh
+
+  # Typecheck and build (sequential dependency)
+  typecheck-build:
+    needs: [detect-impact, guardrails]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
 
       - name: Install dependencies
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm install
 
       - name: Cache SQLite WASM
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         uses: actions/cache@v4
         with:
           path: |
@@ -122,106 +185,191 @@ jobs:
           key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
 
       - name: Download SQLite WASM
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: ./scripts/downloadSqliteWasm.sh
 
       - name: Install Playwright for mermaid rendering
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/website exec playwright install chromium
 
-      - name: Lint
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm lint
-
-      - name: Lint scripts
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm lint:scripts
-
-      - name: Lint Markdown
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm lint:md
-
-      - name: Lint RuboCop
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm lint:rubocop
-
-      - name: Setup Python
-        if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && vars.USE_SELF_HOSTED != 'true' }}
-        uses: actions/setup-python@v5
-        with:
-          python-version-file: '.python-version'
-          cache: 'pip'
-          cache-dependency-path: 'requirements.txt'
-
-      - name: Install ansible-lint
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pip3 install -r requirements.txt
-
-      - name: Cache Ansible collections
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        uses: actions/cache@v4
-        with:
-          path: ~/.ansible/collections
-          key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
-
-      - name: Install Ansible collections
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: ansible-galaxy collection install -r ansible/requirements.yml
-
-      - name: Lint Ansible
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm lint:ansible
-
       - name: Type check
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm exec tsc -b
 
       - name: Build
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm build
 
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-dist
+          path: |
+            packages/*/dist
+            !packages/*/node_modules
+          retention-days: 1
+
+  # Unit tests run in parallel matrix
+  test:
+    needs: [detect-impact, typecheck-build]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        package:
+          - shared
+          - ui
+          - window-manager
+          - audio
+          - terminal
+          - keychain
+          - api
+          - smtp-listener
+          - client
+          - chrome-extension
+          - website
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Ruby
+        if: ${{ vars.USE_SELF_HOSTED != 'true' }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install Ruby dependencies (self-hosted)
+        if: ${{ vars.USE_SELF_HOSTED == 'true' }}
+        run: bundle install
+        working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: build-dist
+          path: packages
+
+      - name: Cache SQLite WASM
+        if: matrix.package == 'client'
+        uses: actions/cache@v4
+        with:
+          path: |
+            packages/client/src/workers/sqlite-wasm
+            packages/client/public/sqlite
+            packages/client/public/assets/sqlite3-opfs-async-proxy.js
+          key: sqlite-wasm-${{ hashFiles('scripts/downloadSqliteWasm.sh') }}
+
+      - name: Download SQLite WASM
+        if: matrix.package == 'client'
+        run: ./scripts/downloadSqliteWasm.sh
+
+      - name: Test with Coverage
+        run: pnpm --filter @tearleads/${{ matrix.package }} test:coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-${{ matrix.package }}
+          path: packages/${{ matrix.package }}/coverage/
+          retention-days: 30
+
+  # Tuxedo shell tests (separate job)
+  test-tuxedo:
+    needs: [detect-impact, typecheck-build]
+    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Ruby
+        if: ${{ vars.USE_SELF_HOSTED != 'true' }}
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
       - name: Install bashcov
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: gem install bashcov
 
       - name: Test with Coverage
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: |
-          pnpm --filter @tearleads/shared test:coverage
-          pnpm --filter @tearleads/ui test:coverage
-          pnpm --filter @tearleads/window-manager test:coverage
-          pnpm --filter @tearleads/audio test:coverage
-          pnpm --filter @tearleads/terminal test:coverage
-          pnpm --filter @tearleads/keychain test:coverage
-          pnpm --filter @tearleads/api test:coverage
-          pnpm --filter @tearleads/smtp-listener test:coverage
-          pnpm --filter @tearleads/client test:coverage
-          pnpm --filter @tearleads/chrome-extension test:coverage
-          pnpm --filter @tearleads/website test:coverage
-          pnpm test:coverage
+        run: pnpm test:coverage
 
-      - name: Upload Coverage Reports
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-tuxedo
+          path: tuxedo/tests/coverage/
+          retention-days: 30
+
+  # Aggregate coverage reports and create summary
+  coverage-summary:
+    needs: [detect-impact, test, test-tuxedo]
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Download all coverage artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: coverage-*
+          path: coverage-reports
+
+      - name: Reorganize coverage reports
+        run: |
+          mkdir -p packages
+          for pkg in shared ui window-manager audio terminal keychain api smtp-listener client chrome-extension website; do
+            if [ -d "coverage-reports/coverage-$pkg" ]; then
+              mkdir -p "packages/$pkg/coverage"
+              cp -r "coverage-reports/coverage-$pkg"/* "packages/$pkg/coverage/" 2>/dev/null || true
+            fi
+          done
+          if [ -d "coverage-reports/coverage-tuxedo" ]; then
+            mkdir -p "tuxedo/tests/coverage"
+            cp -r "coverage-reports/coverage-tuxedo"/* "tuxedo/tests/coverage/" 2>/dev/null || true
+          fi
+
+      - name: Upload Combined Coverage Reports
         uses: actions/upload-artifact@v4
         with:
           name: coverage-reports
           path: |
-            packages/shared/coverage/
-            packages/ui/coverage/
-            packages/window-manager/coverage/
-            packages/audio/coverage/
-            packages/terminal/coverage/
-            packages/keychain/coverage/
-            packages/api/coverage/
-            packages/smtp-listener/coverage/
-            packages/client/coverage/
-            packages/chrome-extension/coverage/
-            packages/website/coverage/
+            packages/*/coverage/
             tuxedo/tests/coverage/
           retention-days: 30
 
       - name: Coverage Summary
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
           echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
@@ -241,3 +389,30 @@ jobs:
               echo "" >> $GITHUB_STEP_SUMMARY
             fi
           done
+
+  # Final build status (for branch protection)
+  build:
+    needs: [detect-impact, lint, guardrails, typecheck-build, test, test-tuxedo, coverage-summary]
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Report no impact detected
+        if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
+        run: |
+          echo "::notice::No code changes detected that impact this job - reporting success"
+          echo "## Build Skipped" >> "$GITHUB_STEP_SUMMARY"
+          echo "No code changes detected that require this job to run." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Check job results
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+        run: |
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.guardrails.result }}" != "success" ] || \
+             [ "${{ needs.typecheck-build.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.test-tuxedo.result }}" != "success" ] || \
+             [ "${{ needs.coverage-summary.result }}" != "success" ]; then
+            echo "One or more jobs did not complete successfully"
+            exit 1
+          fi
+          echo "All jobs passed successfully"
