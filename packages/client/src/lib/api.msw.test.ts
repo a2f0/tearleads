@@ -5,8 +5,8 @@ import {
   server,
   wasApiRequestMade
 } from '@tearleads/msw/node';
-import { AUTH_REFRESH_TOKEN_KEY, AUTH_TOKEN_KEY } from '@/lib/auth-storage';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { AUTH_REFRESH_TOKEN_KEY, AUTH_TOKEN_KEY } from '@/lib/auth-storage';
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -45,7 +45,9 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('POST', '/auth/login')).toBe(true);
     expect(wasApiRequestMade('POST', '/auth/register')).toBe(true);
     expect(wasApiRequestMade('GET', '/auth/sessions')).toBe(true);
-    expect(wasApiRequestMade('DELETE', '/auth/sessions/session%201')).toBe(true);
+    expect(wasApiRequestMade('DELETE', '/auth/sessions/session%201')).toBe(
+      true
+    );
     expect(wasApiRequestMade('POST', '/auth/logout')).toBe(true);
   });
 
@@ -121,7 +123,10 @@ describe('api with msw', () => {
 
     server.use(
       http.post('http://localhost/auth/login', () =>
-        HttpResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+        HttpResponse.json(
+          { error: 'Invalid email or password' },
+          { status: 401 }
+        )
       )
     );
 
@@ -279,7 +284,9 @@ describe('api with msw', () => {
 
     expect(wasApiRequestMade('GET', '/admin/redis/keys')).toBe(true);
     expect(wasApiRequestMade('GET', '/admin/redis/keys/user%3A1')).toBe(true);
-    expect(wasApiRequestMade('DELETE', '/admin/redis/keys/user%3A1')).toBe(true);
+    expect(wasApiRequestMade('DELETE', '/admin/redis/keys/user%3A1')).toBe(
+      true
+    );
     expect(wasApiRequestMade('GET', '/admin/redis/dbsize')).toBe(true);
 
     expect(wasApiRequestMade('GET', '/admin/groups')).toBe(true);
@@ -287,25 +294,29 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('POST', '/admin/groups')).toBe(true);
     expect(wasApiRequestMade('PUT', '/admin/groups/group%201')).toBe(true);
     expect(wasApiRequestMade('DELETE', '/admin/groups/group%201')).toBe(true);
-    expect(wasApiRequestMade('GET', '/admin/groups/group%201/members')).toBe(true);
-    expect(wasApiRequestMade('POST', '/admin/groups/group%201/members')).toBe(true);
+    expect(wasApiRequestMade('GET', '/admin/groups/group%201/members')).toBe(
+      true
+    );
+    expect(wasApiRequestMade('POST', '/admin/groups/group%201/members')).toBe(
+      true
+    );
     expect(
       wasApiRequestMade('DELETE', '/admin/groups/group%201/members/user%202')
     ).toBe(true);
 
     expect(wasApiRequestMade('GET', '/admin/organizations')).toBe(true);
     expect(wasApiRequestMade('GET', '/admin/organizations/org%201')).toBe(true);
-    expect(
-      wasApiRequestMade('GET', '/admin/organizations/org%201/users')
-    ).toBe(true);
+    expect(wasApiRequestMade('GET', '/admin/organizations/org%201/users')).toBe(
+      true
+    );
     expect(
       wasApiRequestMade('GET', '/admin/organizations/org%201/groups')
     ).toBe(true);
     expect(wasApiRequestMade('POST', '/admin/organizations')).toBe(true);
     expect(wasApiRequestMade('PUT', '/admin/organizations/org%201')).toBe(true);
-    expect(
-      wasApiRequestMade('DELETE', '/admin/organizations/org%201')
-    ).toBe(true);
+    expect(wasApiRequestMade('DELETE', '/admin/organizations/org%201')).toBe(
+      true
+    );
 
     expect(wasApiRequestMade('GET', '/admin/users')).toBe(true);
     expect(wasApiRequestMade('GET', '/admin/users/user-2')).toBe(true);
@@ -406,7 +417,9 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('POST', '/vfs/items/item%201/shares')).toBe(true);
     expect(wasApiRequestMade('PATCH', '/vfs/shares/share%201')).toBe(true);
     expect(wasApiRequestMade('DELETE', '/vfs/shares/share%201')).toBe(true);
-    expect(wasApiRequestMade('POST', '/vfs/items/item%201/org-shares')).toBe(true);
+    expect(wasApiRequestMade('POST', '/vfs/items/item%201/org-shares')).toBe(
+      true
+    );
     expect(wasApiRequestMade('DELETE', '/vfs/org-shares/org%20share%201')).toBe(
       true
     );

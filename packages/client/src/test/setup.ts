@@ -1,8 +1,5 @@
 import '@testing-library/jest-dom/vitest';
-import {
-  resetMockApiServerState,
-  server
-} from '@tearleads/msw/node';
+import { resetMockApiServerState, server } from '@tearleads/msw/node';
 import { cleanup } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { createElement, Fragment } from 'react';

@@ -1,8 +1,5 @@
+import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { DEFAULT_OPENROUTER_MODEL_ID } from '@tearleads/shared';
-import {
-  getRecordedApiRequests,
-  wasApiRequestMade
-} from '@tearleads/msw/node';
 import { describe, expect, it } from 'vitest';
 
 describe('msw handlers', () => {

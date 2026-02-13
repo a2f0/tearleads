@@ -6,8 +6,8 @@ import type {
   AdminUserUpdateResponse,
   AiConversation,
   AiConversationDetailResponse,
-  AiConversationsListResponse,
   AiConversationResponse,
+  AiConversationsListResponse,
   AiMessage,
   AiUsage,
   AiUsageListResponse,
@@ -371,7 +371,8 @@ const initialAdminUsers: AdminUsersResponse['users'] = [
   }
 ];
 
-let adminUsers: AdminUsersResponse['users'] = structuredClone(initialAdminUsers);
+let adminUsers: AdminUsersResponse['users'] =
+  structuredClone(initialAdminUsers);
 
 export const resetMockApiState = (): void => {
   adminUsers = structuredClone(initialAdminUsers);
@@ -383,26 +384,38 @@ export const handlers = [
   ),
 
   http.post(withOptionalV1Prefix('/auth/login'), () => ok(defaultAuthResponse)),
-  http.post(withOptionalV1Prefix('/auth/register'), () => ok(defaultAuthResponse)),
-  http.post(withOptionalV1Prefix('/auth/refresh'), () => ok(defaultAuthResponse)),
-  http.post(withOptionalV1Prefix('/auth/logout'), () => ok({ loggedOut: true })),
-  http.get(withOptionalV1Prefix('/auth/sessions'), () => ok(defaultSessionsResponse)),
+  http.post(withOptionalV1Prefix('/auth/register'), () =>
+    ok(defaultAuthResponse)
+  ),
+  http.post(withOptionalV1Prefix('/auth/refresh'), () =>
+    ok(defaultAuthResponse)
+  ),
+  http.post(withOptionalV1Prefix('/auth/logout'), () =>
+    ok({ loggedOut: true })
+  ),
+  http.get(withOptionalV1Prefix('/auth/sessions'), () =>
+    ok(defaultSessionsResponse)
+  ),
   http.delete(withOptionalV1Prefix('/auth/sessions/[^/]+'), () =>
     ok({ deleted: true })
   ),
 
-  http.get(withOptionalV1Prefix('/admin/context'), () => ok(defaultAdminContext)),
+  http.get(withOptionalV1Prefix('/admin/context'), () =>
+    ok(defaultAdminContext)
+  ),
   http.get(withOptionalV1Prefix('/admin/postgres/info'), () =>
     ok<PostgresAdminInfoResponse>(defaultPostgresInfo)
   ),
   http.get(withOptionalV1Prefix('/admin/postgres/tables'), () =>
     ok<PostgresTablesResponse>(defaultPostgresTables)
   ),
-  http.get(withOptionalV1Prefix('/admin/postgres/tables/[^/]+/[^/]+/columns'), () =>
-    ok<PostgresColumnsResponse>(defaultPostgresColumns)
+  http.get(
+    withOptionalV1Prefix('/admin/postgres/tables/[^/]+/[^/]+/columns'),
+    () => ok<PostgresColumnsResponse>(defaultPostgresColumns)
   ),
-  http.get(withOptionalV1Prefix('/admin/postgres/tables/[^/]+/[^/]+/rows'), () =>
-    ok<PostgresRowsResponse>(defaultPostgresRows)
+  http.get(
+    withOptionalV1Prefix('/admin/postgres/tables/[^/]+/[^/]+/rows'),
+    () => ok<PostgresRowsResponse>(defaultPostgresRows)
   ),
 
   http.get(withOptionalV1Prefix('/admin/redis/dbsize'), () =>
@@ -447,42 +460,45 @@ export const handlers = [
     const response: AdminUserResponse = { user };
     return ok(response);
   }),
-  http.patch(withOptionalV1Prefix('/admin/users/[^/]+'), async ({ request }) => {
-    const url = new URL(request.url);
-    const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');
-    const body = await request.json().catch(() => null);
-    const existingUser = adminUsers.find((user) => user.id === id);
-    if (!existingUser) {
-      return HttpResponse.json({ error: 'User not found' }, { status: 404 });
+  http.patch(
+    withOptionalV1Prefix('/admin/users/[^/]+'),
+    async ({ request }) => {
+      const url = new URL(request.url);
+      const id = decodeURIComponent(url.pathname.split('/').pop() ?? '');
+      const body = await request.json().catch(() => null);
+      const existingUser = adminUsers.find((user) => user.id === id);
+      if (!existingUser) {
+        return HttpResponse.json({ error: 'User not found' }, { status: 404 });
+      }
+
+      const email =
+        isRecord(body) && typeof body['email'] === 'string'
+          ? body['email']
+          : existingUser.email;
+      const emailConfirmed =
+        isRecord(body) && typeof body['emailConfirmed'] === 'boolean'
+          ? body['emailConfirmed']
+          : existingUser.emailConfirmed;
+      const admin =
+        isRecord(body) && typeof body['admin'] === 'boolean'
+          ? body['admin']
+          : existingUser.admin;
+
+      const updatedUser = {
+        ...existingUser,
+        email,
+        emailConfirmed,
+        admin
+      };
+
+      adminUsers = adminUsers.map((user) =>
+        user.id === id ? updatedUser : user
+      );
+
+      const response: AdminUserUpdateResponse = { user: updatedUser };
+      return ok(response);
     }
-
-    const email =
-      isRecord(body) && typeof body['email'] === 'string'
-        ? body['email']
-        : existingUser.email;
-    const emailConfirmed =
-      isRecord(body) && typeof body['emailConfirmed'] === 'boolean'
-        ? body['emailConfirmed']
-        : existingUser.emailConfirmed;
-    const admin =
-      isRecord(body) && typeof body['admin'] === 'boolean'
-        ? body['admin']
-        : existingUser.admin;
-
-    const updatedUser = {
-      ...existingUser,
-      email,
-      emailConfirmed,
-      admin
-    };
-
-    adminUsers = adminUsers.map((user) =>
-      user.id === id ? updatedUser : user
-    );
-
-    const response: AdminUserUpdateResponse = { user: updatedUser };
-    return ok(response);
-  }),
+  ),
 
   http.get(withOptionalV1Prefix('/admin/groups'), () =>
     ok<GroupsListResponse>(defaultGroupsList)
@@ -570,7 +586,9 @@ export const handlers = [
   }),
 
   http.get(withOptionalV1Prefix('/emails/drafts'), () => ok({ drafts: [] })),
-  http.get(withOptionalV1Prefix('/emails/drafts/[^/]+'), () => ok({ draft: null })),
+  http.get(withOptionalV1Prefix('/emails/drafts/[^/]+'), () =>
+    ok({ draft: null })
+  ),
   http.post(withOptionalV1Prefix('/emails/drafts'), () =>
     ok({ draft: { id: 'draft-1' } })
   ),
@@ -580,7 +598,9 @@ export const handlers = [
   http.post(withOptionalV1Prefix('/emails/send'), () => ok({ sent: true })),
   http.get(withOptionalV1Prefix('/emails'), () => ok({ emails: [] })),
   http.get(withOptionalV1Prefix('/emails/[^/]+'), () => ok({ email: null })),
-  http.delete(withOptionalV1Prefix('/emails/[^/]+'), () => ok({ deleted: true })),
+  http.delete(withOptionalV1Prefix('/emails/[^/]+'), () =>
+    ok({ deleted: true })
+  ),
 
   http.get(withOptionalV1Prefix('/ai/conversations'), () => {
     const response: AiConversationsListResponse = {
@@ -615,8 +635,9 @@ export const handlers = [
     };
     return ok(response);
   }),
-  http.delete(withOptionalV1Prefix('/ai/conversations/[^/]+'), () =>
-    new HttpResponse(null, { status: 204 })
+  http.delete(
+    withOptionalV1Prefix('/ai/conversations/[^/]+'),
+    () => new HttpResponse(null, { status: 204 })
   ),
   http.post(withOptionalV1Prefix('/ai/usage'), () => {
     const response: RecordAiUsageResponse = {
@@ -675,12 +696,14 @@ export const handlers = [
     ok<ShareTargetSearchResponse>(defaultShareTargetSearchResponse)
   ),
 
-  http.get(withOptionalV1Prefix('/sse'), () =>
-    new HttpResponse('event: connected\\ndata: {}\\n\\n', {
-      headers: {
-        'Content-Type': 'text/event-stream'
-      }
-    })
+  http.get(
+    withOptionalV1Prefix('/sse'),
+    () =>
+      new HttpResponse('event: connected\\ndata: {}\\n\\n', {
+        headers: {
+          'Content-Type': 'text/event-stream'
+        }
+      })
   ),
 
   http.get(withOptionalV1Prefix('/mls/groups'), () => ok({ ok: true })),
@@ -694,7 +717,9 @@ export const handlers = [
     ok({ ok: true })
   ),
   http.get(withOptionalV1Prefix('/mls/groups/[^/]+'), () => ok({ ok: true })),
-  http.get(withOptionalV1Prefix('/mls/key-packages/me'), () => ok({ ok: true })),
+  http.get(withOptionalV1Prefix('/mls/key-packages/me'), () =>
+    ok({ ok: true })
+  ),
   http.get(withOptionalV1Prefix('/mls/key-packages/[^/]+'), () =>
     ok({ ok: true })
   ),
@@ -719,7 +744,9 @@ export const handlers = [
   http.delete(withOptionalV1Prefix('/mls/groups/[^/]+/members/[^/]+'), () =>
     ok({ ok: true })
   ),
-  http.delete(withOptionalV1Prefix('/mls/groups/[^/]+'), () => ok({ ok: true })),
+  http.delete(withOptionalV1Prefix('/mls/groups/[^/]+'), () =>
+    ok({ ok: true })
+  ),
   http.delete(withOptionalV1Prefix('/mls/key-packages/[^/]+'), () =>
     ok({ ok: true })
   ),
