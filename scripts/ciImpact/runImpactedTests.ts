@@ -33,7 +33,19 @@ const COVERAGE_PACKAGES: ReadonlyArray<string> = [
 ];
 
 const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json'];
-const FULL_RUN_PREFIXES: ReadonlyArray<string> = ['.github/workflows/', '.github/actions/', 'scripts/ciImpact/'];
+const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
+  '.github/actions/',
+  'scripts/ciImpact/',
+  '.github/workflows/build.yml',
+  '.github/workflows/ci-gate.yml',
+  '.github/workflows/integration-deploy.yml',
+  '.github/workflows/web-e2e.yml',
+  '.github/workflows/website-e2e.yml',
+  '.github/workflows/electron-e2e.yml',
+  '.github/workflows/android.yml',
+  '.github/workflows/android-maestro-release.yml',
+  '.github/workflows/ios-maestro-release.yml'
+];
 
 function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { dryRun: false };
