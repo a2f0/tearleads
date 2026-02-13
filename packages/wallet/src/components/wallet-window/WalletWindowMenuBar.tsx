@@ -21,7 +21,10 @@ export function WalletWindowMenuBar({
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
       <DropdownMenu trigger="File">
-        <DropdownMenuItem icon={<Plus className="h-3 w-3" />} onClick={onCreateItem}>
+        <DropdownMenuItem
+          icon={<Plus className="h-3 w-3" />}
+          onClick={onCreateItem}
+        >
           New Item
         </DropdownMenuItem>
         <DropdownMenuItem

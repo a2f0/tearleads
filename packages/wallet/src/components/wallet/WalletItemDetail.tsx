@@ -1,18 +1,18 @@
-import { useCallback, useEffect, useState } from 'react';
-import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
 import { InlineUnlock } from '@client/components/sqlite/InlineUnlock';
 import { Button } from '@client/components/ui/button';
 import { Input } from '@client/components/ui/input';
 import { useDatabaseContext } from '@client/db/hooks';
+import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  WALLET_ITEM_TYPES,
   getWalletItemDetail,
   getWalletItemTypeLabel,
   listWalletMediaFiles,
+  type SaveWalletItemResult,
   saveWalletItem,
   softDeleteWalletItem,
   toDateInputValue,
-  type SaveWalletItemResult,
+  WALLET_ITEM_TYPES,
   type WalletItemDetailRecord,
   type WalletItemType,
   type WalletMediaFileOption
@@ -263,7 +263,9 @@ export function WalletItemDetail({
           <select
             id="wallet-item-type"
             value={form.itemType}
-            onChange={(event) => handleFieldChange('itemType', event.target.value)}
+            onChange={(event) =>
+              handleFieldChange('itemType', event.target.value)
+            }
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-base shadow-sm"
           >
             {WALLET_ITEM_TYPES.map((itemType) => (
@@ -289,7 +291,10 @@ export function WalletItemDetail({
         </div>
 
         <div className="space-y-2">
-          <label className="font-medium text-sm" htmlFor="wallet-issuing-authority">
+          <label
+            className="font-medium text-sm"
+            htmlFor="wallet-issuing-authority"
+          >
             Issuing Authority
           </label>
           <Input
@@ -338,7 +343,9 @@ export function WalletItemDetail({
             id="wallet-issued-on"
             type="date"
             value={form.issuedOn}
-            onChange={(event) => handleFieldChange('issuedOn', event.target.value)}
+            onChange={(event) =>
+              handleFieldChange('issuedOn', event.target.value)
+            }
           />
         </div>
 
@@ -404,7 +411,9 @@ export function WalletItemDetail({
             <select
               id="wallet-back-file"
               value={form.backFileId}
-              onChange={(event) => handleFieldChange('backFileId', event.target.value)}
+              onChange={(event) =>
+                handleFieldChange('backFileId', event.target.value)
+              }
               className="h-10 w-full rounded-md border border-input bg-background px-3 text-base shadow-sm"
             >
               <option value="">No file linked</option>

@@ -1,4 +1,3 @@
-import { and, desc, eq, like, or } from 'drizzle-orm';
 import { getDatabase, getDatabaseAdapter } from '@client/db';
 import {
   files,
@@ -7,6 +6,7 @@ import {
   walletItems
 } from '@client/db/schema';
 import { readStoredAuth } from '@client/lib/auth-storage';
+import { and, desc, eq, like, or } from 'drizzle-orm';
 
 export const WALLET_ITEM_TYPES = [
   'passport',
@@ -141,7 +141,10 @@ export async function listWalletMediaFiles(): Promise<WalletMediaFileOption[]> {
     .where(
       and(
         eq(files.deleted, false),
-        or(like(files.mimeType, 'image/%'), eq(files.mimeType, 'application/pdf'))
+        or(
+          like(files.mimeType, 'image/%'),
+          eq(files.mimeType, 'application/pdf')
+        )
       )
     )
     .orderBy(desc(files.uploadDate));
@@ -248,7 +251,9 @@ async function syncWalletMediaLink(
 
   if (!fileId) {
     if (existing) {
-      await db.delete(walletItemMedia).where(eq(walletItemMedia.id, existing.id));
+      await db
+        .delete(walletItemMedia)
+        .where(eq(walletItemMedia.id, existing.id));
     }
     return;
   }

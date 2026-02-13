@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useState } from 'react';
-import { CreditCard, Loader2, Plus } from 'lucide-react';
 import { InlineUnlock } from '@client/components/sqlite/InlineUnlock';
 import { Button } from '@client/components/ui/button';
 import { RefreshButton } from '@client/components/ui/refresh-button';
 import { useDatabaseContext } from '@client/db/hooks';
+import { CreditCard, Loader2, Plus } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import {
   getWalletItemTypeLabel,
   listWalletItems,
@@ -49,6 +49,14 @@ export function WalletItemsList({
 
   useEffect(() => {
     if (!isUnlocked) {
+      return;
+    }
+
+    void fetchItems();
+  }, [fetchItems, isUnlocked]);
+
+  useEffect(() => {
+    if (!isUnlocked || refreshSignal === 0) {
       return;
     }
 

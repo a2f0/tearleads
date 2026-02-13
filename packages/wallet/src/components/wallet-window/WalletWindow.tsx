@@ -7,10 +7,13 @@ import {
 } from '@tearleads/window-manager';
 import { ArrowLeft, Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useRef, useState } from 'react';
-import { WalletWindowContent, type WalletWindowContentRef } from './WalletWindowContent';
+import type { SaveWalletItemResult } from '../../lib/walletData';
+import {
+  WalletWindowContent,
+  type WalletWindowContentRef
+} from './WalletWindowContent';
 import { WalletWindowDetail } from './WalletWindowDetail';
 import { WalletWindowMenuBar } from './WalletWindowMenuBar';
-import type { SaveWalletItemResult } from '../../lib/walletData';
 
 interface WalletWindowProps {
   id: string;

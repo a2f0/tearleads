@@ -1,5 +1,5 @@
-import { WalletItemDetail } from '../wallet/WalletItemDetail';
 import type { SaveWalletItemResult } from '../../lib/walletData';
+import { WalletItemDetail } from '../wallet/WalletItemDetail';
 
 interface WalletWindowDetailProps {
   itemId: string;
