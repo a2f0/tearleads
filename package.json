@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=22.21.1 <23"
+    "node": ">=24.13.0 <25"
   },
   "scripts": {
     "postinstall": "pnpm buildPreDev",
