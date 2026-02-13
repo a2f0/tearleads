@@ -19,6 +19,7 @@ interface SearchWindowProps {
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
   onDimensionsChange?: (dimensions: WindowDimensions) => void;
+  onRename?: ((title: string) => void) | undefined;
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions;
@@ -29,6 +30,7 @@ export function SearchWindow({
   onClose,
   onMinimize,
   onDimensionsChange,
+  onRename,
   onFocus,
   zIndex,
   initialDimensions
@@ -42,6 +44,7 @@ export function SearchWindow({
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}
+      onRename={onRename}
       onFocus={onFocus}
       zIndex={zIndex}
       {...(initialDimensions && { initialDimensions })}

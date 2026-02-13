@@ -90,6 +90,7 @@ export function Taskbar({ className, onContextMenu }: TaskbarProps) {
             <TaskbarButton
               key={window.id}
               type={window.type}
+              title={window.title}
               isActive={window.id === topWindowId && !window.isMinimized}
               isMinimized={window.isMinimized}
               onClick={() => handleClick(window.id, window.isMinimized)}

@@ -29,6 +29,7 @@ export function FloatingWindow({
   onClose,
   onMinimize,
   onDimensionsChange,
+  onRename,
   initialDimensions,
   defaultWidth = 500,
   defaultHeight = 400,
@@ -214,6 +215,14 @@ export function FloatingWindow({
     setWindowTitle(title);
   }, [title]);
 
+  const handleRenameTitle = useCallback(
+    (newTitle: string) => {
+      setWindowTitle(newTitle);
+      onRename?.(newTitle);
+    },
+    [onRename]
+  );
+
   useEffect(() => {
     const handleResize = () => {
       setIsDesktop(window.innerWidth >= DESKTOP_BREAKPOINT);
@@ -343,7 +352,7 @@ export function FloatingWindow({
           dragHandlers,
           titleBarRef,
           preMaximizeDimensions: preMaximizeStateRef.current,
-          onRenameTitle: setWindowTitle
+          onRenameTitle: handleRenameTitle
         }}
         contentRef={contentRef}
         contentClassName={contentClassName}

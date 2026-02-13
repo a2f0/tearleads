@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it } from 'vitest';
+import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import {
   clearPreserveWindowState,
   setPreserveWindowState
@@ -59,6 +60,56 @@ describe('WindowManagerContext', () => {
       expect(result.current.windows[0]?.id).toBe(windowId);
       expect(result.current.windows[0]?.type).toBe('notes');
       expect(result.current.windows[0]?.zIndex).toBe(100);
+    });
+
+    it('opens window without dimensions on mobile viewport', () => {
+      Object.defineProperty(window, 'innerWidth', {
+        value: MOBILE_BREAKPOINT - 1,
+        configurable: true
+      });
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'mobile-window');
+      });
+
+      const win = result.current.getWindow('mobile-window');
+      expect(win?.dimensions).toBeUndefined();
+    });
+
+    it('opens window without dimensions when innerHeight is zero', () => {
+      Object.defineProperty(window, 'innerHeight', {
+        value: 0,
+        configurable: true
+      });
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'zero-height-window');
+      });
+
+      const win = result.current.getWindow('zero-height-window');
+      expect(win?.dimensions).toBeUndefined();
+    });
+
+    it('clamps dimensions when viewport height is limited', () => {
+      Object.defineProperty(window, 'innerWidth', {
+        value: 1200,
+        configurable: true
+      });
+      Object.defineProperty(window, 'innerHeight', {
+        value: 500,
+        configurable: true
+      });
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'constrained-window');
+      });
+
+      const win = result.current.getWindow('constrained-window');
+      expect(win?.dimensions).toBeDefined();
+      expect(win?.dimensions?.height).toBeLessThanOrEqual(500);
     });
 
     it('opens a window with custom id', () => {
@@ -594,6 +645,42 @@ describe('WindowManagerContext', () => {
 
       const saved = localStorage.getItem('window-dimensions:notes');
       expect(saved).toBeNull();
+    });
+  });
+
+  describe('renameWindow', () => {
+    it('updates window title', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'to-rename');
+      });
+
+      expect(result.current.getWindow('to-rename')?.title).toBeUndefined();
+
+      act(() => {
+        result.current.renameWindow('to-rename', 'My Custom Title');
+      });
+
+      expect(result.current.getWindow('to-rename')?.title).toBe(
+        'My Custom Title'
+      );
+    });
+
+    it('does nothing when renaming non-existent window', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'existing');
+      });
+
+      const beforeRename = [...result.current.windows];
+
+      act(() => {
+        result.current.renameWindow('non-existent', 'New Title');
+      });
+
+      expect(result.current.windows).toEqual(beforeRename);
     });
   });
 

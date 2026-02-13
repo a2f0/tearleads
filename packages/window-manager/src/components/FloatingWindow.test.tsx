@@ -487,6 +487,48 @@ describe('FloatingWindow', () => {
       await user.type(titleInput, 'Renamed{Escape}');
       expect(screen.getByText('Test Window')).toBeInTheDocument();
     });
+
+    it('calls onRename with the new title when renamed', async () => {
+      const user = userEvent.setup();
+      const onRename = vi.fn();
+      render(<FloatingWindow {...defaultProps} onRename={onRename} />);
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.contextMenu(titleBar, { clientX: 120, clientY: 180 });
+      await user.click(
+        screen.getByTestId('floating-window-test-window-rename-title-menu-item')
+      );
+      const titleInput = screen.getByTestId(
+        'floating-window-test-window-title-input'
+      );
+      await user.clear(titleInput);
+      await user.type(titleInput, 'Custom Name{Enter}');
+
+      expect(onRename).toHaveBeenCalledWith('Custom Name');
+    });
+
+    it('does not call onRename when title edit is cancelled', async () => {
+      const user = userEvent.setup();
+      const onRename = vi.fn();
+      render(<FloatingWindow {...defaultProps} onRename={onRename} />);
+      const titleBar = screen.getByTestId(
+        'floating-window-test-window-title-bar'
+      );
+
+      fireEvent.contextMenu(titleBar, { clientX: 120, clientY: 180 });
+      await user.click(
+        screen.getByTestId('floating-window-test-window-rename-title-menu-item')
+      );
+      const titleInput = screen.getByTestId(
+        'floating-window-test-window-title-input'
+      );
+      await user.clear(titleInput);
+      await user.type(titleInput, 'New Title{Escape}');
+
+      expect(onRename).not.toHaveBeenCalled();
+    });
   });
 
   describe('mobile mode', () => {

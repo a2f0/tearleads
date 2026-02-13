@@ -19,6 +19,7 @@ interface AdminOrganizationsWindowProps {
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
   onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
+  onRename?: ((title: string) => void) | undefined;
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
@@ -29,6 +30,7 @@ export function AdminOrganizationsWindow({
   onClose,
   onMinimize,
   onDimensionsChange,
+  onRename,
   onFocus,
   zIndex,
   initialDimensions
@@ -88,6 +90,7 @@ export function AdminOrganizationsWindow({
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}
+      onRename={onRename}
       onFocus={onFocus}
       zIndex={zIndex}
       {...(initialDimensions && { initialDimensions })}

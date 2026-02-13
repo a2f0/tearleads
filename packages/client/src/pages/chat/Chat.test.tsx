@@ -1151,6 +1151,94 @@ describe('Chat', () => {
     });
   });
 
+  describe('database loading state', () => {
+    it('shows loading message when database is loading', () => {
+      mockUseDatabaseContext.mockReturnValue({
+        isUnlocked: false,
+        isLoading: true,
+        currentInstanceId: null
+      });
+
+      renderChat();
+
+      expect(screen.getByText('Loading database...')).toBeInTheDocument();
+    });
+  });
+
+  describe('conversation handlers', () => {
+    const mockCreateConversation = vi.fn().mockResolvedValue('conv-123');
+    const mockSelectConversation = vi.fn().mockResolvedValue(undefined);
+
+    beforeEach(async () => {
+      const { useConversations } = await import('@/hooks/useConversations');
+      vi.mocked(useConversations).mockReturnValue({
+        conversations: [
+          {
+            id: 'conv-1',
+            title: 'Test Conversation',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            userId: 'user-1',
+            organizationId: 'org-1',
+            modelId: 'model-1',
+            messageCount: 0
+          }
+        ],
+        loading: false,
+        error: null,
+        currentConversationId: null,
+        currentMessages: [],
+        currentSessionKey: null,
+        messagesLoading: false,
+        createConversation: mockCreateConversation,
+        selectConversation: mockSelectConversation,
+        renameConversation: vi.fn().mockResolvedValue(undefined),
+        deleteConversation: vi.fn().mockResolvedValue(undefined),
+        addMessage: vi.fn().mockResolvedValue(undefined),
+        refetch: vi.fn().mockResolvedValue(undefined),
+        clearCurrentConversation: vi.fn()
+      });
+    });
+
+    it('calls selectConversation when conversation is clicked', async () => {
+      renderChat();
+
+      const conversationButton = screen.getByText('Test Conversation');
+      await act(async () => {
+        fireEvent.click(conversationButton);
+      });
+
+      expect(mockSelectConversation).toHaveBeenCalledWith('conv-1');
+    });
+
+    it('calls createConversation when new conversation is confirmed', async () => {
+      renderChat();
+
+      // Click the "New Conversation" button (Plus icon)
+      const newButton = screen.getByTitle('New Conversation');
+      await act(async () => {
+        fireEvent.click(newButton);
+      });
+
+      // Wait for dialog to appear
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('new-conversation-dialog')
+        ).toBeInTheDocument();
+      });
+
+      // Click the Create button
+      const createButton = screen.getByTestId('new-conversation-dialog-create');
+      await act(async () => {
+        fireEvent.click(createButton);
+      });
+
+      await waitFor(() => {
+        expect(mockCreateConversation).toHaveBeenCalled();
+      });
+    });
+  });
+
   describe('ChatInterface useEffect sync', () => {
     beforeEach(() => {
       vi.mocked(useLLM).mockReturnValue({
