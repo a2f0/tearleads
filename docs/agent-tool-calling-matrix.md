@@ -1,6 +1,6 @@
 # Agent Tool-Calling Matrix
 
-Date: 2026-02-13 (Phase 2 complete, Phase 4 complete)
+Date: 2026-02-13 (Phase 2 complete, Phase 3 complete, Phase 4 complete)
 
 Scope:
 
@@ -73,19 +73,19 @@ Legend:
 | `scripts/listAdmins.ts` | Later | External/system dependency | Read-only but env-sensitive |
 | `scripts/runAllTests.sh` | Now | Standard validation entrypoint | Long timeout; stream summarized |
 | `scripts/runElectronTests.sh` | Now | Standard validation entrypoint | Long timeout |
-| `scripts/runMaestroAndroidTests.sh` | Later | Emulator/device dependency | Preflight check wrapper |
-| `scripts/runMaestroIosTests.sh` | Later | Simulator/device dependency | Preflight check wrapper |
+| `scripts/runMaestroAndroidTests.sh` | Now | Emulator/device dependency | `scriptTool.ts runMaestroAndroidTests` with preflight checks |
+| `scripts/runMaestroIosTests.sh` | Now | Simulator/device dependency | `scriptTool.ts runMaestroIosTests` with preflight checks |
 | `scripts/runPlaywrightTests.sh` | Now | Standard validation entrypoint | Arg: suite/filter |
 | `scripts/solicitClaudeCodeReview.sh` | Later | External reviewer workflow | Keep explicit invocation |
 | `scripts/solicitCodexReview.sh` | Later | External reviewer workflow | Keep explicit invocation |
-| `scripts/syncCliAuth.sh` | Later | Auth/system side effects | Require explicit confirm flag |
-| `scripts/toggleAndroidKeyboard.sh` | Later | Local device state mutation | Device preflight |
+| `scripts/syncCliAuth.sh` | Now | Auth/system side effects | `scriptTool.ts syncCliAuth` requires `--host` + `--confirm` |
+| `scripts/toggleAndroidKeyboard.sh` | Now | Local device state mutation | `scriptTool.ts toggleAndroidKeyboard` with emulator preflight |
 | `scripts/verifyBinaryGuardrails.sh` | Now | Safety check | Read-only mode default |
-| `scripts/verifyCleanIosBuild.sh` | Later | Heavy, env-sensitive | Long timeout + preflight |
+| `scripts/verifyCleanIosBuild.sh` | Now | Heavy, env-sensitive | `scriptTool.ts verifyCleanIosBuild` with long timeout + preflight |
 | `scripts/clearAndroidData.sh` | Manual | Destructive local reset | Explicit manual only |
 | `scripts/clearAppData.sh` | Manual | Destructive local reset | Explicit manual only |
-| `scripts/copyTestFilesAndroid.sh` | Later | Local test setup mutation | Safe with targeted args |
-| `scripts/copyTestFilesIos.sh` | Later | Local test setup mutation | Safe with targeted args |
+| `scripts/copyTestFilesAndroid.sh` | Now | Local test setup mutation | `scriptTool.ts copyTestFilesAndroid` with emulator preflight |
+| `scripts/copyTestFilesIos.sh` | Now | Local test setup mutation | `scriptTool.ts copyTestFilesIos` with `--bundle-id` + simulator preflight |
 | `scripts/createAccount.ts` | Manual | Potential external state mutation | Keep explicit manual |
 | `scripts/createTuxedoDeployKey.sh` | Manual | Secrets/key management | Hard-gated/manual |
 | `scripts/deliverMail.sh` | Manual | External side effects | Hard-gated/manual |
@@ -95,26 +95,26 @@ Legend:
 | `scripts/downloadSqliteWasm.sh` | Later | Download side effects | Cache + checksum wrapper |
 | `scripts/downloadV86.sh` | Later | Download side effects | Cache + checksum wrapper |
 | `scripts/makeAdmin.sh` | Manual | Privilege mutation | Hard-gated/manual |
-| `scripts/muteIosSimulatorAudio.sh` | Later | Local simulator state mutation | Device preflight |
+| `scripts/muteIosSimulatorAudio.sh` | Now | Local simulator state mutation | `scriptTool.ts muteIosSimulatorAudio` with preflight |
 | `scripts/reinstallFromPlayStore.sh` | Manual | Device/account side effects | Hard-gated/manual |
 | `scripts/resetAndroidEmulator.sh` | Manual | Destructive emulator reset | Manual only |
 | `scripts/resetIosSimulator.sh` | Manual | Destructive simulator reset | Manual only |
-| `scripts/runAndroid.sh` | Later | Device/runtime dependency | Preflight wrapper |
+| `scripts/runAndroid.sh` | Now | Device/runtime dependency | `scriptTool.ts runAndroid` with toolchain preflight |
 | `scripts/runAnsible.sh` | Manual | Infra mutation risk | Hard-gated/manual |
 | `scripts/runAnsibleTuxedo.sh` | Manual | Infra mutation risk | Hard-gated/manual |
-| `scripts/runElectron.sh` | Later | Local runtime helper | Optional tool after stabilization |
-| `scripts/runIos.sh` | Later | Device/runtime dependency | Preflight wrapper |
-| `scripts/runIpad.sh` | Later | Device/runtime dependency | Preflight wrapper |
+| `scripts/runElectron.sh` | Now | Local runtime helper | `scriptTool.ts runElectron` |
+| `scripts/runIos.sh` | Now | Device/runtime dependency | `scriptTool.ts runIos` with preflight + `--device` |
+| `scripts/runIpad.sh` | Now | Device/runtime dependency | `scriptTool.ts runIpad` with preflight |
 | `scripts/runPostgresMigration.sh` | Manual | DB schema mutation | Hard-gated/manual |
 | `scripts/selfHostedRunner.sh` | Manual | Runner/infra management | Hard-gated/manual |
 | `scripts/setGithubVars.sh` | Manual | Secrets/org-repo setting mutation | Hard-gated/manual |
 | `scripts/setTerraformCloudVars.sh` | Manual | Secrets/infra mutation | Hard-gated/manual |
-| `scripts/setupPostgresDev.sh` | Later | Local env bootstrap with mutation | Safe with clear preflight |
-| `scripts/setupSerenaMcp.sh` | Later | Local tooling bootstrap | Good candidate after wrappers |
-| `scripts/setupTuxedoRepos.sh` | Later | Multi-repo local mutation | Safe with dry-run support |
-| `scripts/tuxedo.sh` | Later | Orchestration helper | Wrapper with mode args |
-| `scripts/tuxedoKill.sh` | Later | Process-control side effects | Scope args required |
-| `scripts/updateEverything.sh` | Later | Broad dependency mutation | Explicit mode + dry-run first |
+| `scripts/setupPostgresDev.sh` | Now | Local env bootstrap with mutation | `scriptTool.ts setupPostgresDev` with preflight |
+| `scripts/setupSerenaMcp.sh` | Now | Local tooling bootstrap | `scriptTool.ts setupSerenaMcp` with optional `--script-dry-run` |
+| `scripts/setupTuxedoRepos.sh` | Now | Multi-repo local mutation | `scriptTool.ts setupTuxedoRepos` with dry-run + scoped env args |
+| `scripts/tuxedo.sh` | Now | Orchestration helper | `scriptTool.ts tuxedo` with required `--mode` |
+| `scripts/tuxedoKill.sh` | Now | Process-control side effects | `scriptTool.ts tuxedoKill` requires `--scope all --confirm` |
+| `scripts/updateEverything.sh` | Now | Broad dependency mutation | `scriptTool.ts updateEverything` with required `--mode`, confirm gate, dry-run |
 
 Note:
 
@@ -182,11 +182,11 @@ Phase 2 (safe utilities): ✅ COMPLETE (PR #1596)
   - Actions: `analyzeBundle`, `checkBinaryFiles`, `ciImpact`, `runImpactedQuality`, `runImpactedTests`, `runAllTests`, `runElectronTests`, `runPlaywrightTests`, `verifyBinaryGuardrails`
 - Updated `.claude/commands/optimize-test-execution.md` to prefer wrapper invocation
 
-Phase 3 (env/device/bootstrap):
+Phase 3 (env/device/bootstrap): ✅ COMPLETE
 
-- Candidate scripts: `setupPostgresDev`, `setupSerenaMcp`, `runAndroid/iOS`, `verifyCleanIosBuild`, `updateEverything`
-- Add preflight checks for device/simulator availability
-- Keep deploy/secrets/infra scripts manual by policy, or add hard-gated wrappers only if required
+- Toolized env/device/bootstrap scripts in `scriptTool.ts`
+- Added preflight checks for device/simulator/tooling availability
+- Added strict gating for risky operations (`syncCliAuth`, `tuxedoKill`, `updateEverything`)
 
 Phase 4 (GitHub API patterns from skills): ✅ COMPLETE (PR #1623)
 
@@ -197,7 +197,7 @@ Phase 4 (GitHub API patterns from skills): ✅ COMPLETE (PR #1623)
 - ✅ Wrapper-first skill updates completed for both `.claude/commands/*` and `.codex/skills/*`
 - See "Skill API Pattern Extraction" section below
 
-## Wrapper Usage (Phase 1 + 2)
+## Wrapper Usage (Phase 1 + 2 + 3)
 
 ### Agent Workspace Tools (`agentTool.ts`)
 

@@ -17,7 +17,6 @@ description: Guarantee a PR merges by handling CI, addressing Gemini review feed
 
 **The ONLY valid exit condition is the `getPrInfo` action returning `"state":"MERGED"`.**
 
-
 **First**: Get PR info using the agentTool wrapper:
 
 ```bash
