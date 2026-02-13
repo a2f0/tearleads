@@ -43,10 +43,12 @@ Parse the comments to check for Gemini's quota message. If the response contains
 ## Deferred Fix Tracking
 
 When addressing feedback, distinguish between:
+
 - **On-the-fly fixes**: Feedback you address immediately in this PR cycle
 - **Deferred fixes**: Feedback you explicitly defer to a follow-up PR
 
 **Do NOT defer fixes casually.** Only defer when:
+
 - The fix is out of scope for the current PR
 - The fix requires significant refactoring that would delay merge
 - The reviewer explicitly agrees to defer
