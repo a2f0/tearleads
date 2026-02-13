@@ -99,6 +99,9 @@ const CacheStorage = lazy(() =>
 const Calendar = lazy(() =>
   import('./pages/Calendar').then((m) => ({ default: m.Calendar }))
 );
+const Businesses = lazy(() =>
+  import('./pages/Businesses').then((m) => ({ default: m.Businesses }))
+);
 const Chat = lazy(() =>
   import('./pages/chat').then((m) => ({ default: m.Chat }))
 );
@@ -267,6 +270,10 @@ if (rootElement) {
                                         <Route
                                           path="calendar"
                                           element={<Calendar />}
+                                        />
+                                        <Route
+                                          path="businesses"
+                                          element={<Businesses />}
                                         />
                                         <Route
                                           path="contacts/new"

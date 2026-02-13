@@ -17,6 +17,7 @@ export const ua = {
     search: 'Пошук',
     calendar: 'Календар',
     files: 'Файли',
+    businesses: 'Підприємства',
     contacts: 'Контакти',
     photos: 'Фото',
     documents: 'Документи',

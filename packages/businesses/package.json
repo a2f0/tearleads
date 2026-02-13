@@ -1,0 +1,38 @@
+{
+  "name": "@tearleads/businesses",
+  "version": "0.0.1",
+  "description": "Business identifier utilities for Tearleads",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "clean": "rm -rf dist",
+    "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
+    "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
+  },
+  "keywords": [
+    "business",
+    "duns",
+    "ein",
+    "typescript"
+  ],
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@vitest/coverage-v8": "4.0.18",
+    "typescript": "5.9.3",
+    "vitest": "4.0.18",
+    "vitest-fail-on-console": "0.10.1"
+  }
+}

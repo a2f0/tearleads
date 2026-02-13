@@ -17,6 +17,7 @@ export const en = {
     search: 'Search',
     calendar: 'Calendar',
     files: 'Files',
+    businesses: 'Businesses',
     contacts: 'Contacts',
     photos: 'Photos',
     documents: 'Documents',
