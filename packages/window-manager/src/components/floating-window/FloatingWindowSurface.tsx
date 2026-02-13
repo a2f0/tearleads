@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { cn } from '../../lib/utils.js';
 import { buildFloatingWindowStyles } from './windowStyles.js';
 
@@ -33,9 +34,28 @@ export function FloatingWindowSurface({
 }: FloatingWindowSurfaceProps) {
   const { isDesktop, isMaximized } = styleProps;
 
-  const isOpaqueWindows =
-    typeof document !== 'undefined' &&
-    document.documentElement.classList.contains('opaque-windows');
+  const [isOpaqueWindows, setIsOpaqueWindows] = useState(
+    () =>
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('opaque-windows')
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const observer = new MutationObserver(() => {
+      setIsOpaqueWindows(
+        document.documentElement.classList.contains('opaque-windows')
+      );
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  }, []);
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Window focus on click

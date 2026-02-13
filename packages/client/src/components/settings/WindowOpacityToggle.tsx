@@ -2,19 +2,19 @@ import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { useSettings } from '@/db/SettingsProvider';
-import type { WindowOpacityValue } from '@/db/user-settings';
 
 export function WindowOpacityToggle() {
   const { t } = useTranslation('settings');
   const { getSetting, setSetting } = useSettings();
   const translucent = getSetting('windowOpacity') === 'translucent';
 
-  const handleToggle = useCallback(
-    (value: WindowOpacityValue) => {
-      setSetting('windowOpacity', value);
-    },
-    [setSetting]
-  );
+  const handleSetTranslucent = useCallback(() => {
+    setSetting('windowOpacity', 'translucent');
+  }, [setSetting]);
+
+  const handleSetOpaque = useCallback(() => {
+    setSetting('windowOpacity', 'opaque');
+  }, [setSetting]);
 
   return (
     <div className="space-y-3">
@@ -27,7 +27,7 @@ export function WindowOpacityToggle() {
       <div className="flex gap-2" data-testid="window-opacity-toggle-container">
         <Button
           variant={translucent ? 'default' : 'outline'}
-          onClick={() => handleToggle('translucent')}
+          onClick={handleSetTranslucent}
           data-testid="window-opacity-translucent-button"
           size="sm"
         >
@@ -35,7 +35,7 @@ export function WindowOpacityToggle() {
         </Button>
         <Button
           variant={!translucent ? 'default' : 'outline'}
-          onClick={() => handleToggle('opaque')}
+          onClick={handleSetOpaque}
           data-testid="window-opacity-opaque-button"
           size="sm"
         >
