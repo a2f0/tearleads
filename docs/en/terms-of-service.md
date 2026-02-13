@@ -1,8 +1,8 @@
 # Terms of Service
 
-**Tearleads, LLC**
+Tearleads, LLC
 
-**Last Updated: February 13, 2026**
+Last Updated: February 13, 2026
 
 **IMPORTANT: PLEASE READ THESE TERMS OF SERVICE CAREFULLY. BY ACCESSING OR USING THE SERVICES, YOU AGREE TO BE BOUND BY THESE TERMS. IF YOU DO NOT AGREE TO ALL OF THESE TERMS, DO NOT ACCESS OR USE THE SERVICES.**
 
@@ -279,7 +279,7 @@ Subject to Section 15 (Arbitration), any legal action or proceeding arising out 
 
 ### 15.1 Informal Resolution
 
-Before initiating any formal dispute resolution, you agree to first contact us at legal@tearleads.com to attempt to resolve the dispute informally. If the dispute is not resolved within 60 days, either party may proceed as set forth below.
+Before initiating any formal dispute resolution, you agree to first contact us at `legal@tearleads.com` to attempt to resolve the dispute informally. If the dispute is not resolved within 60 days, either party may proceed as set forth below.
 
 ### 15.2 Binding Arbitration
 
@@ -306,7 +306,7 @@ Notwithstanding the above, either party may seek injunctive or other equitable r
 
 ### 15.6 Opt-Out
 
-You may opt out of the arbitration and class action waiver provisions by sending written notice to legal@tearleads.com within 30 days of first accepting these Terms. The notice must include your name, address, email, and a clear statement that you wish to opt out.
+You may opt out of the arbitration and class action waiver provisions by sending written notice to `legal@tearleads.com` within 30 days of first accepting these Terms. The notice must include your name, address, email, and a clear statement that you wish to opt out.
 
 ## 16. General Provisions
 
@@ -336,7 +336,7 @@ We shall not be liable for any failure or delay in performance due to causes bey
 
 ### 16.7 Notices
 
-Notices to you may be sent to the email address associated with your account. Notices to us must be sent to legal@tearleads.com.
+Notices to you may be sent to the email address associated with your account. Notices to us must be sent to `legal@tearleads.com`.
 
 ### 16.8 Headings
 
@@ -354,9 +354,9 @@ If you are a U.S. government entity, the Services are provided as "commercial co
 
 For questions about these Terms, please contact us at:
 
-**Tearleads, LLC**
+Tearleads, LLC
 
-Email: legal@tearleads.com
+Email: `legal@tearleads.com`
 
 ---
 

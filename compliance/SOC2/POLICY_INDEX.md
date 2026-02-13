@@ -19,10 +19,8 @@ This index catalogs the SOC 2 Trust Services Criteria for agent-based compliance
 
 ## Report Types
 
-| Type | Description | Coverage Period |
-|------|-------------|-----------------|
-| SOC 2 Type I | Point-in-time assessment of control design | Single date |
-| SOC 2 Type II | Assessment of control design and operating effectiveness | Minimum 6 months |
+- **SOC 2 Type I**: Point-in-time assessment of control design (single date)
+- **SOC 2 Type II**: Assessment of control design and operating effectiveness (minimum 6 months)
 
 ---
 
@@ -30,13 +28,11 @@ This index catalogs the SOC 2 Trust Services Criteria for agent-based compliance
 
 SOC 2 reports may include one or more of the following categories:
 
-| Category | Code | Required | Description |
-|----------|------|----------|-------------|
-| Security | CC | Yes (Always) | Protection against unauthorized access |
-| Availability | A | Optional | Accessibility of systems as committed |
-| Processing Integrity | PI | Optional | Complete, accurate, timely processing |
-| Confidentiality | C | Optional | Protection of confidential information |
-| Privacy | P | Optional | Personal information handling per privacy notice |
+- **Security (CC)**: Protection against unauthorized access - REQUIRED
+- **Availability (A)**: Accessibility of systems as committed - Optional
+- **Processing Integrity (PI)**: Complete, accurate, timely processing - Optional
+- **Confidentiality (C)**: Protection of confidential information - Optional
+- **Privacy (P)**: Personal information handling per privacy notice - Optional
 
 ---
 
@@ -48,97 +44,79 @@ The Security category is mandatory for all SOC 2 reports and contains 9 Common C
 
 Establishes the organizational framework for security controls.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC1.1 | COSO Principle 1: Demonstrates commitment to integrity and ethical values |
-| CC1.2 | COSO Principle 2: Board exercises oversight responsibility |
-| CC1.3 | COSO Principle 3: Management establishes structures, reporting lines, authorities |
-| CC1.4 | COSO Principle 4: Demonstrates commitment to attract, develop, retain competent individuals |
-| CC1.5 | COSO Principle 5: Holds individuals accountable for internal control responsibilities |
+- **CC1.1**: COSO Principle 1 - Demonstrates commitment to integrity and ethical values
+- **CC1.2**: COSO Principle 2 - Board exercises oversight responsibility
+- **CC1.3**: COSO Principle 3 - Management establishes structures, reporting lines, authorities
+- **CC1.4**: COSO Principle 4 - Demonstrates commitment to attract, develop, retain competent individuals
+- **CC1.5**: COSO Principle 5 - Holds individuals accountable for internal control responsibilities
 
 ### CC2: Communication and Information
 
 Ensures policies and procedures are communicated effectively.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC2.1 | COSO Principle 13: Obtains/generates and uses relevant, quality information |
-| CC2.2 | COSO Principle 14: Internally communicates information, including objectives |
-| CC2.3 | COSO Principle 15: Communicates with external parties regarding matters affecting functioning |
+- **CC2.1**: COSO Principle 13 - Obtains/generates and uses relevant, quality information
+- **CC2.2**: COSO Principle 14 - Internally communicates information, including objectives
+- **CC2.3**: COSO Principle 15 - Communicates with external parties regarding matters affecting functioning
 
 ### CC3: Risk Assessment
 
 Identifies and manages risks to system and data security.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC3.1 | COSO Principle 6: Specifies objectives with sufficient clarity |
-| CC3.2 | COSO Principle 7: Identifies and analyzes risks to achievement of objectives |
-| CC3.3 | COSO Principle 8: Considers potential for fraud in assessing risks |
-| CC3.4 | COSO Principle 9: Identifies and assesses changes that could impact internal controls |
+- **CC3.1**: COSO Principle 6 - Specifies objectives with sufficient clarity
+- **CC3.2**: COSO Principle 7 - Identifies and analyzes risks to achievement of objectives
+- **CC3.3**: COSO Principle 8 - Considers potential for fraud in assessing risks
+- **CC3.4**: COSO Principle 9 - Identifies and assesses changes that could impact internal controls
 
 ### CC4: Monitoring of Controls
 
 Ensures ongoing evaluation and remediation of control effectiveness.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC4.1 | COSO Principle 16: Selects, develops, performs ongoing/separate evaluations |
-| CC4.2 | COSO Principle 17: Evaluates and communicates internal control deficiencies |
+- **CC4.1**: COSO Principle 16 - Selects, develops, performs ongoing/separate evaluations
+- **CC4.2**: COSO Principle 17 - Evaluates and communicates internal control deficiencies
 
 ### CC5: Control Activities
 
 Implements controls to achieve objectives and address risks.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC5.1 | COSO Principle 10: Selects and develops control activities contributing to risk mitigation |
-| CC5.2 | COSO Principle 11: Selects and develops general controls over technology |
-| CC5.3 | COSO Principle 12: Deploys control activities through policies and procedures |
+- **CC5.1**: COSO Principle 10 - Selects and develops control activities contributing to risk mitigation
+- **CC5.2**: COSO Principle 11 - Selects and develops general controls over technology
+- **CC5.3**: COSO Principle 12 - Deploys control activities through policies and procedures
 
 ### CC6: Logical and Physical Access Controls
 
 Restricts access to systems and data.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC6.1 | Implements logical access security software, infrastructure, architectures |
-| CC6.2 | Registers/authorizes users prior to issuing credentials; removes access when no longer authorized |
-| CC6.3 | Authorizes, modifies, removes access based on roles, responsibilities, segregation of duties |
-| CC6.4 | Restricts physical access to facilities and protected information assets |
-| CC6.5 | Disposes of, destroys, sanitizes assets to prevent unauthorized access |
-| CC6.6 | Implements logical access controls to protect against threats from outside system boundaries |
-| CC6.7 | Restricts transmission, movement, removal of information to authorized parties |
-| CC6.8 | Implements controls to prevent/detect unauthorized/malicious software |
+- **CC6.1**: Implements logical access security software, infrastructure, architectures
+- **CC6.2**: Registers/authorizes users prior to issuing credentials; removes access when no longer authorized
+- **CC6.3**: Authorizes, modifies, removes access based on roles, responsibilities, segregation of duties
+- **CC6.4**: Restricts physical access to facilities and protected information assets
+- **CC6.5**: Disposes of, destroys, sanitizes assets to prevent unauthorized access
+- **CC6.6**: Implements logical access controls to protect against threats from outside system boundaries
+- **CC6.7**: Restricts transmission, movement, removal of information to authorized parties
+- **CC6.8**: Implements controls to prevent/detect unauthorized/malicious software
 
 ### CC7: System Operations
 
 Ensures systems function securely during daily operations.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC7.1 | Detects and monitors security events and configuration changes introducing vulnerabilities |
-| CC7.2 | Monitors system components for anomalies indicative of malicious acts, natural disasters, errors |
-| CC7.3 | Evaluates security events to determine whether failures or incidents |
-| CC7.4 | Responds to identified security incidents through defined response process |
-| CC7.5 | Identifies, develops, implements activities to recover from identified incidents |
+- **CC7.1**: Detects and monitors security events and configuration changes introducing vulnerabilities
+- **CC7.2**: Monitors system components for anomalies indicative of malicious acts, natural disasters, errors
+- **CC7.3**: Evaluates security events to determine whether failures or incidents
+- **CC7.4**: Responds to identified security incidents through defined response process
+- **CC7.5**: Identifies, develops, implements activities to recover from identified incidents
 
 ### CC8: Change Management
 
 Controls changes to system infrastructure and software.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC8.1 | Authorizes, designs, develops/acquires, configures, documents, tests, approves, implements changes |
+- **CC8.1**: Authorizes, designs, develops/acquires, configures, documents, tests, approves, implements changes
 
 ### CC9: Risk Mitigation
 
 Addresses business disruption risks and vendor management.
 
-| Criterion | Description |
-|-----------|-------------|
-| CC9.1 | Identifies and mitigates risks related to business disruption |
-| CC9.2 | Assesses and manages risks associated with vendors and business partners |
+- **CC9.1**: Identifies and mitigates risks related to business disruption
+- **CC9.2**: Assesses and manages risks associated with vendors and business partners
 
 ---
 
@@ -146,11 +124,9 @@ Addresses business disruption risks and vendor management.
 
 Ensures systems are available for operation as committed.
 
-| Criterion | Description |
-|-----------|-------------|
-| A1.1 | Maintains, monitors, evaluates current processing capacity and use |
-| A1.2 | Authorizes, designs, develops, implements activities to maintain availability and recover |
-| A1.3 | Tests recovery plan procedures supporting system recovery objectives |
+- **A1.1**: Maintains, monitors, evaluates current processing capacity and use
+- **A1.2**: Authorizes, designs, develops, implements activities to maintain availability and recover
+- **A1.3**: Tests recovery plan procedures supporting system recovery objectives
 
 ---
 
@@ -158,13 +134,11 @@ Ensures systems are available for operation as committed.
 
 Ensures system processing is complete, valid, accurate, timely, and authorized.
 
-| Criterion | Description |
-|-----------|-------------|
-| PI1.1 | Obtains/generates, uses relevant quality information for processing activities |
-| PI1.2 | Implements policies/procedures over system inputs, including accuracy and completeness |
-| PI1.3 | Implements policies/procedures over system processing ensuring accuracy and completeness |
-| PI1.4 | Implements policies/procedures to validate processing outputs are complete and accurate |
-| PI1.5 | Implements policies/procedures for output storage, distribution, retention |
+- **PI1.1**: Obtains/generates, uses relevant quality information for processing activities
+- **PI1.2**: Implements policies/procedures over system inputs, including accuracy and completeness
+- **PI1.3**: Implements policies/procedures over system processing ensuring accuracy and completeness
+- **PI1.4**: Implements policies/procedures to validate processing outputs are complete and accurate
+- **PI1.5**: Implements policies/procedures for output storage, distribution, retention
 
 ---
 
@@ -172,10 +146,8 @@ Ensures system processing is complete, valid, accurate, timely, and authorized.
 
 Protects information designated as confidential.
 
-| Criterion | Description |
-|-----------|-------------|
-| C1.1 | Identifies and maintains confidential information to meet entity objectives |
-| C1.2 | Disposes of confidential information to meet entity objectives |
+- **C1.1**: Identifies and maintains confidential information to meet entity objectives
+- **C1.2**: Disposes of confidential information to meet entity objectives
 
 ---
 
@@ -183,26 +155,24 @@ Protects information designated as confidential.
 
 Governs collection, use, retention, disclosure, and disposal of personal information.
 
-| Criterion | Description |
-|-----------|-------------|
-| P1.1 | Provides notice about privacy practices regarding collection, use, retention, disclosure, disposal |
-| P2.1 | Communicates choices available regarding collection, use, retention, disclosure, disposal |
-| P3.1 | Collects personal information consistent with privacy objectives |
-| P3.2 | For information collected from third parties, entity confirms third parties are reliable |
-| P4.1 | Limits use of personal information to purposes identified in privacy notice |
-| P4.2 | Retains personal information consistent with privacy objectives |
-| P4.3 | Disposes of personal information to meet privacy objectives |
-| P5.1 | Grants identified/authenticated data subjects access to their personal information |
-| P5.2 | Corrects, amends, appends personal information based on data subject requests |
-| P6.1 | Discloses personal information to third parties only for identified purposes |
-| P6.2 | Creates and retains complete, accurate, timely records of authorized disclosures |
-| P6.3 | Creates and retains records of detected/reported unauthorized disclosures |
-| P6.4 | Obtains privacy commitments from vendors and monitors compliance |
-| P6.5 | Obtains commitments from third parties with access to personal information |
-| P6.6 | Provides notification of breaches and incidents to affected data subjects |
-| P6.7 | Provides information about breaches/incidents to regulators |
-| P7.1 | Collects and maintains accurate, complete, relevant personal information |
-| P8.1 | Implements processes for data subjects to file complaints or inquiries |
+- **P1.1**: Provides notice about privacy practices regarding collection, use, retention, disclosure, disposal
+- **P2.1**: Communicates choices available regarding collection, use, retention, disclosure, disposal
+- **P3.1**: Collects personal information consistent with privacy objectives
+- **P3.2**: For information collected from third parties, entity confirms third parties are reliable
+- **P4.1**: Limits use of personal information to purposes identified in privacy notice
+- **P4.2**: Retains personal information consistent with privacy objectives
+- **P4.3**: Disposes of personal information to meet privacy objectives
+- **P5.1**: Grants identified/authenticated data subjects access to their personal information
+- **P5.2**: Corrects, amends, appends personal information based on data subject requests
+- **P6.1**: Discloses personal information to third parties only for identified purposes
+- **P6.2**: Creates and retains complete, accurate, timely records of authorized disclosures
+- **P6.3**: Creates and retains records of detected/reported unauthorized disclosures
+- **P6.4**: Obtains privacy commitments from vendors and monitors compliance
+- **P6.5**: Obtains commitments from third parties with access to personal information
+- **P6.6**: Provides notification of breaches and incidents to affected data subjects
+- **P6.7**: Provides information about breaches/incidents to regulators
+- **P7.1**: Collects and maintains accurate, complete, relevant personal information
+- **P8.1**: Implements processes for data subjects to file complaints or inquiries
 
 ---
 
@@ -210,40 +180,34 @@ Governs collection, use, retention, disclosure, and disposal of personal informa
 
 Points of focus provide guidance for each criterion but are not prescriptive requirements. Key areas include:
 
-| Area | Examples |
-|------|----------|
-| Technology Controls | Firewalls, encryption, access management systems |
-| Operational Procedures | Change management processes, incident response |
-| Vendor Management | Third-party risk assessments, contractual requirements |
-| Data Protection | Classification, encryption at rest and in transit |
-| Monitoring | Security event logging, anomaly detection, alerting |
+- **Technology Controls**: Firewalls, encryption, access management systems
+- **Operational Procedures**: Change management processes, incident response
+- **Vendor Management**: Third-party risk assessments, contractual requirements
+- **Data Protection**: Classification, encryption at rest and in transit
+- **Monitoring**: Security event logging, anomaly detection, alerting
 
 ---
 
 ## Agent Compliance Skills Mapping
 
-| Skill Category | Relevant SOC 2 Criteria |
-|----------------|------------------------|
-| Access Control | CC6.1, CC6.2, CC6.3, CC6.6 |
-| Audit Logging | CC7.1, CC7.2, CC4.1 |
-| Change Management | CC8.1 |
-| Incident Response | CC7.3, CC7.4, CC7.5 |
-| Risk Assessment | CC3.1, CC3.2, CC3.3, CC3.4 |
-| Training/Awareness | CC1.4, CC2.2 |
-| Vendor Management | CC9.2, P6.4, P6.5 |
-| Data Backup/Recovery | A1.2, A1.3, CC9.1 |
-| Data Protection | CC6.5, CC6.7, C1.1, C1.2 |
-| Malware Protection | CC6.8 |
-| Physical Security | CC6.4 |
+- **Access Control**: CC6.1, CC6.2, CC6.3, CC6.6
+- **Audit Logging**: CC7.1, CC7.2, CC4.1
+- **Change Management**: CC8.1
+- **Incident Response**: CC7.3, CC7.4, CC7.5
+- **Risk Assessment**: CC3.1, CC3.2, CC3.3, CC3.4
+- **Training/Awareness**: CC1.4, CC2.2
+- **Vendor Management**: CC9.2, P6.4, P6.5
+- **Data Backup/Recovery**: A1.2, A1.3, CC9.1
+- **Data Protection**: CC6.5, CC6.7, C1.1, C1.2
+- **Malware Protection**: CC6.8
+- **Physical Security**: CC6.4
 
 ---
 
 ## Examination Considerations
 
-| Aspect | Description |
-|--------|-------------|
-| Management Assertion | Management provides written assertion about system description and controls |
-| Auditor Report | CPA provides opinion on fairness of description and control effectiveness |
-| System Description | Detailed description of services, infrastructure, software, data, policies |
-| Test of Controls | Auditor tests operating effectiveness over examination period (Type II) |
-| Complementary Controls | User entity controls required to achieve control objectives |
+- **Management Assertion**: Management provides written assertion about system description and controls
+- **Auditor Report**: CPA provides opinion on fairness of description and control effectiveness
+- **System Description**: Detailed description of services, infrastructure, software, data, policies
+- **Test of Controls**: Auditor tests operating effectiveness over examination period (Type II)
+- **Complementary Controls**: User entity controls required to achieve control objectives

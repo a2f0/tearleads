@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Tearleads, LLC**
+Tearleads, LLC
 
-**Last Updated: February 13, 2026**
+Last Updated: February 13, 2026
 
 This Privacy Policy ("Policy") describes how Tearleads, LLC ("Tearleads," "Company," "we," "us," or "our") collects, uses, discloses, and protects information in connection with our website, applications, products, and services (collectively, the "Services"). By accessing or using our Services, you acknowledge that you have read, understood, and agree to be bound by this Policy.
 
@@ -136,7 +136,9 @@ If you are located in the European Economic Area (EEA), United Kingdom, or Switz
 To exercise these rights, contact us at the information provided below. You also have the right to lodge a complaint with a supervisory authority.
 
 **Legal Basis for Processing**: We process personal data based on:
+
 - Performance of a contract with you.
+
 - Compliance with legal obligations.
 - Legitimate interests (such as security, fraud prevention, and improving our Services).
 - Your consent.
@@ -163,9 +165,9 @@ We may update this Policy from time to time. If we make material changes, we wil
 
 If you have questions or concerns about this Policy or our privacy practices, please contact us at:
 
-**Tearleads, LLC**
+Tearleads, LLC
 
-Email: privacy@tearleads.com
+Email: `privacy@tearleads.com`
 
 ---
 
@@ -175,14 +177,12 @@ Email: privacy@tearleads.com
 
 In the preceding 12 months, we have collected the following categories of personal information:
 
-| Category | Examples | Collected |
-|----------|----------|-----------|
-| Identifiers | Name, email, IP address, account name | Yes |
-| Commercial Information | Transaction history, purchase records | Yes |
-| Internet Activity | Browsing history, interactions with Services | Yes |
-| Geolocation Data | Approximate location based on IP | Yes |
-| Professional Information | Job title, employer (if provided) | Yes |
-| Inferences | Preferences, characteristics derived from above | Yes |
+- **Identifiers**: Name, email, IP address, account name - Yes
+- **Commercial Information**: Transaction history, purchase records - Yes
+- **Internet Activity**: Browsing history, interactions with Services - Yes
+- **Geolocation Data**: Approximate location based on IP - Yes
+- **Professional Information**: Job title, employer (if provided) - Yes
+- **Inferences**: Preferences, characteristics derived from above - Yes
 
 ### 14.2 Sources of Personal Information
 
