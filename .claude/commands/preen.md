@@ -42,6 +42,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-inefficient-resolution` | Fix cyclical imports and module resolution issues |
 | `preen-deferred-fixes` | Complete deferred follow-ups from merged PR reviews |
 | `preen-optimize-test-execution` | Tune CI impact analysis (workflow filters, package dependencies) |
+| `preen-database-performance` | Find and fix database performance issues (N+1 queries, inefficient joins, index gaps) |
 | `preen-api-security` | Audit API for authorization, data access, and security issues |
 | `preen-dependency-security` | Audit dependency vulnerabilities and unsafe versioning |
 | `preen-test-flakiness` | Reduce flaky tests and nondeterministic waiting patterns |
@@ -74,6 +75,7 @@ CATEGORIES=(
   "preen-inefficient-resolution"
   "preen-deferred-fixes"
   "preen-optimize-test-execution"
+  "preen-database-performance"
   "preen-api-security"
   "preen-dependency-security"
   "preen-test-flakiness"
@@ -165,6 +167,11 @@ run_discovery() {
     preen-optimize-test-execution)
       pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40
       ;;
+    preen-database-performance)
+      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
+      rg -n --glob '*.{ts,tsx}' '\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\(' packages | head -40 || true
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'withRealDatabase\(|createTestDatabase\(' packages | head -40 || true
+      ;;
     preen-api-security)
       rg -n --glob '*.ts' 'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query' packages/api/src/routes | head -40
       ;;
@@ -198,6 +205,9 @@ metric_count() {
       ;;
     preen-optimize-test-execution)
       pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
+      ;;
+    preen-database-performance)
+      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | wc -l
       ;;
     preen-api-security)
       rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l
@@ -310,6 +320,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - Circular imports / deep relative imports
 - Deferred issue count
 - CI impact warnings
+- N+1 loop/query anti-pattern matches
 - API security findings in touched area
 - High/Critical dependency findings
 - Flaky-pattern matches in tests
@@ -351,6 +362,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] Module resolution (cycles, deep imports)
 - [ ] Deferred fixes from PR reviews
 - [ ] CI impact/test execution tuning
+- [ ] Database performance (N+1, joins, indexes)
 - [ ] API security boundaries
 - [ ] Dependency/security hygiene
 - [ ] Test flakiness hardening

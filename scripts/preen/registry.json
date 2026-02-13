@@ -57,6 +57,19 @@
       "metricCountCommand": "pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0"
     },
     {
+      "id": "preen-database-performance",
+      "purpose": "Find and fix database performance issues (N+1 queries, inefficient joins, index gaps)",
+      "checklistLabel": "Database performance (N+1, joins, indexes)",
+      "qualityMetric": "N+1 loop/query anti-pattern matches",
+      "security": false,
+      "discoveryCommands": [
+        "rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\\s*\\([^)]*\\)\\s*\\{.{0,400}?await\\s+[^\\n;]*db\\.(select|query|execute)' packages | head -40 || true",
+        "rg -n --glob '*.{ts,tsx}' '\\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\\(' packages | head -40 || true",
+        "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'withRealDatabase\\(|createTestDatabase\\(' packages | head -40 || true"
+      ],
+      "metricCountCommand": "rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\\s*\\([^)]*\\)\\s*\\{.{0,400}?await\\s+[^\\n;]*db\\.(select|query|execute)' packages | wc -l"
+    },
+    {
       "id": "preen-api-security",
       "purpose": "Audit API for authorization, data access, and security issues",
       "checklistLabel": "API security boundaries",
