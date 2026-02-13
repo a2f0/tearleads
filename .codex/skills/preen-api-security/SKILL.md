@@ -31,28 +31,28 @@ Search the API for security issues:
 
 ```bash
 # Find routes that may be missing auth checks
-grep -r --include="*.ts" "router\.\(get\|post\|put\|patch\|delete\)" packages/api/src/routes | grep -v "test\." | head -30
+rg -n --glob '*.ts' 'router\.(get|post|put|patch|delete)' packages/api/src/routes | rg -v 'test\.' | head -30
 
 # Find handlers that don't check authClaims
-grep -rL --include="*.ts" "authClaims\|req\.session" packages/api/src/routes | grep -v "index\.ts\|shared\.ts\|test\." | head -20
+rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | head -20
 
 # Find direct database queries that may not filter by user/org/group
-grep -r --include="*.ts" "pool\.query\|client\.query" packages/api/src/routes | grep -v "WHERE.*user_id\|WHERE.*owner_id\|WHERE.*organization_id\|WHERE.*group_id" | head -20
+rg -n --glob '*.ts' 'pool\.query|client\.query' packages/api/src/routes | rg -v 'WHERE.*user_id|WHERE.*owner_id|WHERE.*organization_id|WHERE.*group_id' | head -20
 
 # Find group-scoped handlers that may miss membership checks
-grep -r --include="*.ts" "group_id\|groups\|group_members\|group_users" packages/api/src/routes | head -30
+rg -n --glob '*.ts' 'group_id|groups|group_members|group_users' packages/api/src/routes | head -30
 
 # Find admin routes to verify they use adminSessionMiddleware
-grep -r --include="*.ts" "/admin" packages/api/src/routes | head -20
+rg -n --glob '*.ts' '/admin' packages/api/src/routes | head -20
 
 # Find potential SQL injection risks (string concatenation in queries)
-grep -r --include="*.ts" "\`.*\${.*pool\.query\|\`.*\${.*client\.query" packages/api/src/routes | head -20
+rg -n --glob '*.ts' '\`.*\${.*pool\.query|\`.*\${.*client\.query' packages/api/src/routes | head -20
 
 # Find missing input validation (handlers without parseXxxPayload or validation)
-grep -rL --include="*.ts" "parse.*Payload\|z\.\|isRecord\|typeof.*===\|validateRequest" packages/api/src/routes | grep -v "index\.ts\|shared\.ts\|test\." | head -20
+rg -L --glob '*.ts' 'parse.*Payload|z\.|isRecord|typeof.*===|validateRequest' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | head -20
 
 # Find routes returning raw database results (potential data leakage)
-grep -r --include="*.ts" "res\.json(.*rows\[0\]\|res\.json(.*result\.rows" packages/api/src/routes | head -20
+rg -n --glob '*.ts' 'res\.json\(.*rows\[0\]|res\.json\(.*result\.rows' packages/api/src/routes | head -20
 ```
 
 ## Security Audit Categories
@@ -385,8 +385,8 @@ Discovery commands can return many lines. Always limit output:
 
 ```bash
 # Count first, then list limited results
-grep -rl ... | wc -l              # Get count
-grep -rl ... | head -20           # Then sample
+rg -l ... | wc -l                 # Get count
+rg -l ... | head -20              # Then sample
 
 # Suppress verbose validation output
 pnpm --filter @tearleads/api typecheck >/dev/null

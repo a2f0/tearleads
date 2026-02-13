@@ -15,6 +15,20 @@ Run this skill when:
 - Creating or modifying skills that invoke tool wrappers
 - During regular preen passes to catch drift between skills and tool definitions
 
+## Fast Path
+
+Run the single-source checker first:
+
+```bash
+./scripts/checkPreenEcosystem.sh --strict
+```
+
+This validates:
+
+- Semantic parity between `.claude/commands/preen*.md` and `.codex/skills/preen*/SKILL.md`
+- Command prefix style (`/command` in Claude docs, `$command` in Codex docs)
+- Top-level preen docs are generated from `scripts/preen/registry.json`
+
 ## Discovery Phase
 
 ### 1. Extract defined actions from tool wrappers
@@ -152,13 +166,13 @@ Fix issues in this order:
 
 ## Workflow
 
-1. **Discovery**: Run discovery commands to identify mismatches
+1. **Discovery**: Run `./scripts/checkPreenEcosystem.sh --summary` and targeted discovery commands as needed
 2. **Categorize**: Group findings by severity
 3. **Create branch**: `git checkout -b refactor/skill-tooling-<date>`
 4. **Fix issues**: Update skills or tools as needed
 5. **Validate**: Run discovery again to confirm fixes
 6. **Test**: Ensure affected skills still work
-7. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`
+7. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`
 
 If no issues found during discovery, do not create a branch.
 
