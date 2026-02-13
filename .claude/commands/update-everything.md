@@ -100,6 +100,35 @@ When updating `electron`, ensure Node.js versions are aligned:
 
 This alignment is recommended for consistency between development and production environments. While integration tests use SQLite WASM (avoiding native module ABI issues), Electron's production build uses native modules compiled for its bundled Node.js version. Keeping versions aligned ensures consistent behavior across all environments.
 
+## Android Emulator Update
+
+The Android emulator's system image should be kept up-to-date to ensure modern JavaScript features are supported in WebView. Symptoms of an outdated WebView include:
+
+- `TypeError: Object.hasOwn is not a function` (WebView < Chrome 93)
+- Blank white screen on app startup
+- JavaScript errors for ES2022+ features
+
+To update the Android emulator:
+
+```bash
+./scripts/updateAndroidEmulator.sh
+```
+
+This script:
+
+1. Installs/updates the Android 35 system image with Google Play Store
+2. Deletes old AVDs (`Maestro_Pixel_6_API_33_1`, `Maestro_Pixel_6_API_35`)
+3. Creates a new AVD with modern WebView support
+4. Configures optimal emulator settings for Maestro tests
+
+**When to update**: Run this script when:
+
+- Maestro tests fail with JavaScript errors in logcat
+- WebView version is below Chrome 93 (check with `adb shell dumpsys webviewupdate`)
+- A new Android API level is released
+
+**Note**: This is a one-time setup per machine. The AVD persists across reboots.
+
 ## Gradle Version Update
 
 To update the Gradle wrapper version:

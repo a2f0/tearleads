@@ -17,6 +17,9 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
+# Ensure gradle wrapper is present (idempotent - script exits early if already exists)
+./packages/client/scripts/downloadGradleWrapper.sh
+
 TOTAL_START=$(date +%s)
 
 echo "==> Running lint..."
