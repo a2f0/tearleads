@@ -5,7 +5,7 @@ description: Proactively audit the API for security vulnerabilities, focusing on
 
 # Preen API Security
 
-Proactively audit the API (`packages/api`) for security vulnerabilities, focusing on authorization boundaries, data access controls, and common security issues.
+Proactively audit the API (`packages/api`) for security vulnerabilities, focusing on authorization boundaries, data access controls, and common security issues, including group-scoped authorization where groups are local to an organization and can contain many users.
 
 ## Permission Hierarchy
 
@@ -13,7 +13,8 @@ The API enforces the following permission boundaries (highest to lowest):
 
 1. **Admin (Root User)** - Global admin flag (`users.admin = true`). Has access to everything. This is the most protected role.
 2. **Org Admin** - Organization-level administrator. Permissions enforced at organization boundary.
-3. **Regular User** - Standard user. Permissions enforced at user boundary for data I/O.
+3. **Group Scope** - Groups are organization-local collections of users. Group-scoped resources must enforce both organization and group membership boundaries.
+4. **Regular User** - Standard user. Permissions enforced at user boundary for data I/O.
 
 ## When to Run
 
@@ -35,8 +36,11 @@ grep -r --include="*.ts" "router\.\(get\|post\|put\|patch\|delete\)" packages/ap
 # Find handlers that don't check authClaims
 grep -rL --include="*.ts" "authClaims\|req\.session" packages/api/src/routes | grep -v "index\.ts\|shared\.ts\|test\." | head -20
 
-# Find direct database queries that may not filter by user/org
-grep -r --include="*.ts" "pool\.query\|client\.query" packages/api/src/routes | grep -v "WHERE.*user_id\|WHERE.*owner_id\|WHERE.*organization_id" | head -20
+# Find direct database queries that may not filter by user/org/group
+grep -r --include="*.ts" "pool\.query\|client\.query" packages/api/src/routes | grep -v "WHERE.*user_id\|WHERE.*owner_id\|WHERE.*organization_id\|WHERE.*group_id" | head -20
+
+# Find group-scoped handlers that may miss membership checks
+grep -r --include="*.ts" "group_id\|groups\|group_members\|group_users" packages/api/src/routes | head -30
 
 # Find admin routes to verify they use adminSessionMiddleware
 grep -r --include="*.ts" "/admin" packages/api/src/routes | head -20
@@ -67,6 +71,13 @@ grep -r --include="*.ts" "res\.json(.*rows\[0\]\|res\.json(.*result\.rows" packa
 - Queries must filter by `organization_id` when accessing org-scoped data
 - Cross-organization data access is a critical vulnerability
 
+**Group Boundaries (Organization-Local):**
+
+- A `group_id` must always resolve to a group inside the requester's organization
+- Group-scoped access must verify requester membership in the target group (many users can belong to one group)
+- Never trust client-supplied `group_id` without server-side membership verification
+- Cross-group access without membership is a critical vulnerability
+
 **User Boundaries:**
 
 - Users should only access their own data (files, settings, conversations)
@@ -92,7 +103,28 @@ Exempt routes (defined in `middleware/auth.ts`):
 - `/ping` - Health check
 - `/auth/login`, `/auth/register`, `/auth/refresh`
 
-### 3. Owner Verification Pattern
+### 3. Group Membership Verification Pattern
+
+Group-scoped resource access must verify membership and organization scope:
+
+```typescript
+const membership = await pool.query(
+  `SELECT 1
+   FROM groups g
+   INNER JOIN group_users gu ON gu.group_id = g.id
+   WHERE g.id = $1
+     AND g.organization_id = $2
+     AND gu.user_id = $3`,
+  [groupId, organizationId, claims.sub]
+);
+
+if (membership.rows.length === 0) {
+  res.status(403).json({ error: 'Forbidden' });
+  return;
+}
+```
+
+### 4. Owner Verification Pattern
 
 Resource access must verify ownership:
 
@@ -109,7 +141,7 @@ if (result.rows[0]?.owner_id !== claims.sub) {
 }
 ```
 
-### 4. SQL Injection Prevention
+### 5. SQL Injection Prevention
 
 All queries must use parameterized queries:
 
@@ -122,7 +154,7 @@ const query = `SELECT * FROM users WHERE id = $1`;
 const result = await pool.query(query, [userId]);
 ```
 
-### 5. Input Validation
+### 6. Input Validation
 
 All request payloads must be validated:
 
@@ -138,7 +170,7 @@ export function parseUserUpdatePayload(body: unknown): UserUpdatePayload | null 
 }
 ```
 
-### 6. Data Exposure Prevention
+### 7. Data Exposure Prevention
 
 Avoid exposing sensitive fields in responses:
 
@@ -147,7 +179,7 @@ Avoid exposing sensitive fields in responses:
 - Strip internal fields before sending responses
 - Use explicit field selection instead of `SELECT *`
 
-### 7. Session Handling
+### 8. Session Handling
 
 Verify proper session management:
 
@@ -163,11 +195,12 @@ Fix issues in this order (highest impact first):
 1. **Missing auth checks** - Any route without authentication is critical
 2. **Admin bypass vulnerabilities** - Non-admins accessing admin routes
 3. **Organization boundary violations** - Cross-org data access
-4. **User boundary violations (IDOR)** - Accessing other users' data
-5. **SQL injection risks** - String concatenation in queries
-6. **Missing input validation** - Unparsed request bodies
-7. **Data exposure** - Returning sensitive fields
-8. **Missing rate limiting** - DoS vulnerabilities
+4. **Group boundary violations** - Cross-group access or group/org mismatch
+5. **User boundary violations (IDOR)** - Accessing other users' data
+6. **SQL injection risks** - String concatenation in queries
+7. **Missing input validation** - Unparsed request bodies
+8. **Data exposure** - Returning sensitive fields
+9. **Missing rate limiting** - DoS vulnerabilities
 
 ## Workflow
 
@@ -234,6 +267,37 @@ const result = await pool.query(
 );
 ```
 
+### Adding Group Boundary
+
+```typescript
+// Before: Group ID trusted without membership verification
+const result = await pool.query(
+  `SELECT * FROM group_resources WHERE group_id = $1`,
+  [req.params.groupId]
+);
+
+// After: Enforce org + group membership
+const membership = await pool.query(
+  `SELECT 1
+   FROM groups g
+   INNER JOIN group_users gu ON gu.group_id = g.id
+   WHERE g.id = $1
+     AND g.organization_id = $2
+     AND gu.user_id = $3`,
+  [req.params.groupId, orgId, claims.sub]
+);
+
+if (membership.rows.length === 0) {
+  res.status(403).json({ error: 'Forbidden' });
+  return;
+}
+
+const result = await pool.query(
+  `SELECT * FROM group_resources WHERE organization_id = $1 AND group_id = $2`,
+  [orgId, req.params.groupId]
+);
+```
+
 ### Adding Input Validation
 
 ```typescript
@@ -277,6 +341,7 @@ export const updateHandler = async (req: Request, res: Response) => {
 - `packages/api/src/migrations/v007.ts` - Organizations
 - `packages/api/src/migrations/v008.ts` - VFS encryption & sharing
 - `packages/api/src/migrations/v017.ts` - Account disable/deletion
+- `packages/api/src/migrations/` - Group and membership tables (for example `groups`, `group_users`) must enforce organization-local constraints
 
 ## Guardrails
 
@@ -293,6 +358,7 @@ export const updateHandler = async (req: Request, res: Response) => {
 - All routes have appropriate auth checks
 - All user-scoped queries filter by user/owner ID
 - All org-scoped queries filter by organization ID
+- All group-scoped queries filter by `group_id` and verify membership within the same organization
 - All input is validated before use
 - All tests pass
 - Lint and typecheck pass
@@ -302,8 +368,8 @@ export const updateHandler = async (req: Request, res: Response) => {
 Use incremental PRs by category:
 
 - PR 1: Fix missing authorization checks
-- PR 2: Add organization boundary enforcement
-- PR 3: Fix IDOR vulnerabilities
+- PR 2: Add organization and group boundary enforcement
+- PR 3: Fix IDOR vulnerabilities (user and group scope)
 - PR 4: Add input validation to routes
 
 In each PR description, include:
