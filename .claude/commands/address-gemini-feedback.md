@@ -33,6 +33,7 @@ gh pr view "$PR_NUMBER" -R "$REPO" --json comments --jq '.comments[] | select(.a
 ```
 
 If the response contains "You have reached your daily quota limit":
+
 - Fall back to Codex review:
 
   ```bash
