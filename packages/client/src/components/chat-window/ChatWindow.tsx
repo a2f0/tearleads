@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -115,6 +116,15 @@ export function ChatWindow({
       minHeight={400}
     >
       <div className="flex h-full flex-col overflow-hidden">
+        {isUnlocked && (
+          <ChatWindowMenuBar
+            onNewChat={handleNewConversation}
+            onClose={onClose}
+            modelDisplayName={modelDisplayName}
+          />
+        )}
+        <WindowControlBar>{null}</WindowControlBar>
+
         {isDatabaseLoading && (
           <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
             Loading database...
@@ -128,55 +138,48 @@ export function ChatWindow({
         )}
 
         {isUnlocked && (
-          <>
-            <ChatWindowMenuBar
-              onNewChat={handleNewConversation}
-              onClose={onClose}
-              modelDisplayName={modelDisplayName}
+          <div className="flex flex-1 overflow-hidden">
+            <ConversationsSidebar
+              width={sidebarWidth}
+              onWidthChange={setSidebarWidth}
+              conversations={conversations}
+              selectedConversationId={currentConversationId}
+              onConversationSelect={handleConversationSelect}
+              onNewConversation={handleNewConversation}
+              onRenameConversation={renameConversation}
+              onDeleteConversation={deleteConversation}
+              loading={conversationsLoading}
+              error={conversationsError}
             />
-            <div className="flex flex-1 overflow-hidden">
-              <ConversationsSidebar
-                width={sidebarWidth}
-                onWidthChange={setSidebarWidth}
-                conversations={conversations}
-                selectedConversationId={currentConversationId}
-                onConversationSelect={handleConversationSelect}
-                onNewConversation={handleNewConversation}
-                onRenameConversation={renameConversation}
-                onDeleteConversation={deleteConversation}
-                loading={conversationsLoading}
-                error={conversationsError}
-              />
-              <div className="flex flex-1 flex-col overflow-hidden">
-                {activeView === 'models' ? (
-                  <div className="flex h-full flex-col">
-                    <div className="border-b bg-muted/30 px-2 py-1">
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleBackToChat}
-                      >
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Back to AI
-                      </Button>
-                    </div>
-                    <div className="flex-1 overflow-auto p-4">
-                      <ModelsContent showBackLink={false} />
-                    </div>
+            <div className="flex flex-1 flex-col overflow-hidden">
+              {activeView === 'models' ? (
+                <div className="flex h-full flex-col">
+                  <div className="border-b bg-muted/30 px-2 py-1">
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleBackToChat}
+                    >
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Back to AI
+                    </Button>
                   </div>
-                ) : loadedModel ? (
-                  <ChatInterface
-                    key={currentConversationId ?? 'default'}
-                    generate={generate}
-                    isVisionModel={isVisionModel}
-                  />
-                ) : (
-                  <NoModelLoadedContent onOpenModels={handleOpenModels} />
-                )}
-              </div>
+                  <div className="flex-1 overflow-auto p-4">
+                    <ModelsContent showBackLink={false} />
+                  </div>
+                </div>
+              ) : loadedModel ? (
+                <ChatInterface
+                  key={currentConversationId ?? 'default'}
+                  generate={generate}
+                  isVisionModel={isVisionModel}
+                />
+              ) : (
+                <NoModelLoadedContent onOpenModels={handleOpenModels} />
+              )}
             </div>
-          </>
+          </div>
         )}
       </div>
     </FloatingWindow>

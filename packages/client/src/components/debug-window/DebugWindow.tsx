@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Debug } from '@/pages/debug';
@@ -42,6 +43,7 @@ export function DebugWindow({
     >
       <div className="flex h-full flex-col">
         <DebugWindowMenuBar onClose={onClose} />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 overflow-y-auto p-6">
           <Debug showTitle={false} />
         </div>

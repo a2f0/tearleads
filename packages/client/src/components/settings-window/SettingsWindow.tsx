@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { Settings } from '@/pages/Settings';
@@ -45,6 +46,7 @@ export function SettingsWindow({
     >
       <div className="flex h-full flex-col">
         <SettingsWindowMenuBar onClose={onClose} />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 overflow-auto p-3">
           <Settings showBackLink={false} />
         </div>

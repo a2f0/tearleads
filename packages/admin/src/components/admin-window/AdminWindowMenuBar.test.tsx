@@ -18,6 +18,23 @@ describe('AdminWindowMenuBar', () => {
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
 
+  it('renders shared window controls row', () => {
+    render(<AdminWindowMenuBar {...defaultProps} />);
+    expect(screen.getByTestId('admin-window-controls')).toBeInTheDocument();
+  });
+
+  it('renders custom controls in the shared controls row', () => {
+    render(
+      <AdminWindowMenuBar
+        {...defaultProps}
+        controls={<button type="button">Back to Admin</button>}
+      />
+    );
+    expect(
+      screen.getByRole('button', { name: 'Back to Admin' })
+    ).toBeInTheDocument();
+  });
+
   it('shows Close option in File menu', async () => {
     const user = userEvent.setup();
     render(<AdminWindowMenuBar {...defaultProps} />);

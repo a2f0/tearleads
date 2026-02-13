@@ -3,6 +3,10 @@ import { GroupDetailPage } from '@admin/pages/admin/GroupDetailPage';
 import { OrganizationDetailPage } from '@admin/pages/admin/OrganizationDetailPage';
 import { OrganizationsAdmin } from '@admin/pages/admin/OrganizationsAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
+import {
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -72,16 +76,35 @@ export function AdminOrganizationsWindow({
     setView({ type: 'organization', organizationId });
   };
 
-  const renderBackToOrganizationButton = (organizationId: string) => (
-    <button
-      type="button"
-      onClick={() => handleBackToOrganization(organizationId)}
-      className="inline-flex items-center text-muted-foreground hover:text-foreground"
-    >
-      <ArrowLeft className="mr-2 h-4 w-4" />
-      Back to Organization
-    </button>
-  );
+  const backControl = (() => {
+    if (view.type === 'organization') {
+      return {
+        label: 'Back to Organizations',
+        onClick: handleBack,
+        testId: 'admin-organizations-control-back-to-list'
+      };
+    }
+    if (view.type === 'user' || view.type === 'group') {
+      return {
+        label: 'Back to Organization',
+        onClick: () => handleBackToOrganization(view.organizationId),
+        testId: 'admin-organizations-control-back-to-organization'
+      };
+    }
+    return null;
+  })();
+
+  const controls = backControl ? (
+    <WindowControlGroup>
+      <WindowControlButton
+        icon={<ArrowLeft className="h-3 w-3" />}
+        onClick={backControl.onClick}
+        data-testid={backControl.testId}
+      >
+        {backControl.label}
+      </WindowControlButton>
+    </WindowControlGroup>
+  ) : null;
 
   return (
     <FloatingWindow
@@ -100,7 +123,7 @@ export function AdminOrganizationsWindow({
       minHeight={420}
     >
       <div className="flex h-full flex-col">
-        <AdminWindowMenuBar onClose={onClose} />
+        <AdminWindowMenuBar onClose={onClose} controls={controls} />
         <div className="flex-1 overflow-auto p-3">
           {view.type === 'index' ? (
             <OrganizationsAdmin
@@ -111,29 +134,17 @@ export function AdminOrganizationsWindow({
             <OrganizationDetailPage
               organizationId={view.organizationId}
               onDelete={handleBack}
+              backLink={false}
               onUserSelect={handleUserSelect}
               onGroupSelect={handleGroupSelect}
-              backLink={
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Organizations
-                </button>
-              }
             />
           ) : view.type === 'user' ? (
-            <UsersAdminDetail
-              userId={view.userId}
-              backLink={renderBackToOrganizationButton(view.organizationId)}
-            />
+            <UsersAdminDetail userId={view.userId} backLink={false} />
           ) : (
             <GroupDetailPage
               groupId={view.groupId}
               onDelete={() => handleBackToOrganization(view.organizationId)}
-              backLink={renderBackToOrganizationButton(view.organizationId)}
+              backLink={false}
             />
           )}
         </div>

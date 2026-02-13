@@ -256,6 +256,18 @@ describe('AdminOrganizationsWindow', () => {
     render(<AdminOrganizationsWindow {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-controls')).toBeInTheDocument();
+  });
+
+  it('shows control-bar back action in organization detail view', async () => {
+    const user = userEvent.setup();
+    render(<AdminOrganizationsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-org-btn'));
+
+    expect(
+      screen.getByTestId('admin-organizations-control-back-to-list')
+    ).toBeVisible();
   });
 
   it('calls onClose from File menu Close option', async () => {

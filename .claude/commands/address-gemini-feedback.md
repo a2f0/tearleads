@@ -81,6 +81,7 @@ Then resolve the thread.
    ```
 
    This returns JSON array of unresolved review threads with:
+
    - `id`: Thread node ID (for resolving)
    - `isResolved`: Boolean (will be false due to `--unresolved-only`)
    - `path`: File path
@@ -90,6 +91,7 @@ Then resolve the thread.
    The wrapper handles pagination automatically.
 
 2. **Address feedback**: For each unresolved comment that you think is relevant/important:
+
    - **Fix on-the-fly** (preferred): Make the necessary code changes. Make sure linting passes and TypeScript compiles.
    - **Defer** (when necessary): Add to `deferred_items` and reply explaining the deferral.
 

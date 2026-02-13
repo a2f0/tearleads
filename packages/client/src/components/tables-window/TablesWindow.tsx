@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -44,6 +45,7 @@ export function TablesWindow({
     >
       <div className="flex h-full flex-col overflow-hidden">
         <TablesWindowMenuBar onClose={onClose} />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex min-h-0 flex-1 flex-col p-4">
           <Routes>
             <Route

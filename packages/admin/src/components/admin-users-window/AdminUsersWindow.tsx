@@ -2,6 +2,10 @@ import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMe
 import { AiRequestsAdminPage } from '@admin/pages/admin/AiRequestsAdminPage';
 import { UsersAdmin } from '@admin/pages/admin/UsersAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
+import {
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -58,6 +62,36 @@ export function AdminUsersWindow({
     setView({ type: 'index' });
   };
 
+  const backControl = (() => {
+    if (view.type === 'ai-requests') {
+      return {
+        label: view.from === 'user' ? 'Back to User' : 'Back to Users',
+        onClick: handleAiRequestsBack,
+        testId: 'admin-users-control-back-ai-requests'
+      };
+    }
+    if (view.type === 'user') {
+      return {
+        label: 'Back to Users',
+        onClick: handleBack,
+        testId: 'admin-users-control-back'
+      };
+    }
+    return null;
+  })();
+
+  const controls = backControl ? (
+    <WindowControlGroup>
+      <WindowControlButton
+        icon={<ArrowLeft className="h-3 w-3" />}
+        onClick={backControl.onClick}
+        data-testid={backControl.testId}
+      >
+        {backControl.label}
+      </WindowControlButton>
+    </WindowControlGroup>
+  ) : null;
+
   return (
     <FloatingWindow
       id={id}
@@ -75,7 +109,7 @@ export function AdminUsersWindow({
       minHeight={420}
     >
       <div className="flex h-full flex-col">
-        <AdminWindowMenuBar onClose={onClose} />
+        <AdminWindowMenuBar onClose={onClose} controls={controls} />
         <div className="flex-1 overflow-auto p-3">
           {view.type === 'index' ? (
             <UsersAdmin
@@ -89,16 +123,7 @@ export function AdminUsersWindow({
             <AiRequestsAdminPage
               showBackLink={false}
               initialUserId={view.userId}
-              backLink={
-                <button
-                  type="button"
-                  onClick={handleAiRequestsBack}
-                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  {view.from === 'user' ? 'Back to User' : 'Back to Users'}
-                </button>
-              }
+              backLink={false}
             />
           ) : (
             <UsersAdminDetail
@@ -106,16 +131,7 @@ export function AdminUsersWindow({
               onViewAiRequests={(userId) =>
                 setView({ type: 'ai-requests', userId, from: 'user' })
               }
-              backLink={
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Users
-                </button>
-              }
+              backLink={false}
             />
           )}
         </div>

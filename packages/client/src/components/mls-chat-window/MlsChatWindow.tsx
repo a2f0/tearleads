@@ -11,6 +11,7 @@ import {
   useMlsRealtime,
   useWelcomeMessages
 } from '@tearleads/mls-chat';
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useCallback, useEffect, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -314,6 +315,7 @@ function MlsChatWindowInner({ onClose }: MlsChatWindowInnerProps) {
     return (
       <div className="flex h-full flex-col">
         <MlsChatWindowMenuBar onClose={onClose} />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
             <h2 className="mb-4 font-semibold text-xl">MLS Chat Setup</h2>
@@ -340,6 +342,7 @@ function MlsChatWindowInner({ onClose }: MlsChatWindowInnerProps) {
   return (
     <>
       <MlsChatWindowMenuBar onClose={onClose} />
+      <WindowControlBar>{null}</WindowControlBar>
       <div className="flex flex-1 overflow-hidden">
         <MlsChatGroupsSidebar
           width={sidebarWidth}

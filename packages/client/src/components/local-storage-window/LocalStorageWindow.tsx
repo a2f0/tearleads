@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -52,6 +53,7 @@ export function LocalStorageWindow({
           onRefresh={handleRefresh}
           onClose={onClose}
         />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 overflow-auto p-4" key={refreshKey}>
           <LocalStorage showBackLink={false} />
         </div>

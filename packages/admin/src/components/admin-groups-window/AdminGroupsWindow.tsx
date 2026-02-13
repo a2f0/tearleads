@@ -1,6 +1,10 @@
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
 import { GroupDetailPage } from '@admin/pages/admin/GroupDetailPage';
 import { GroupsAdmin } from '@admin/pages/admin/GroupsAdmin';
+import {
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -41,6 +45,19 @@ export function AdminGroupsWindow({
     setView({ type: 'index' });
   };
 
+  const controls =
+    view.type === 'group' ? (
+      <WindowControlGroup>
+        <WindowControlButton
+          icon={<ArrowLeft className="h-3 w-3" />}
+          onClick={handleBack}
+          data-testid="admin-groups-control-back"
+        >
+          Back to Groups
+        </WindowControlButton>
+      </WindowControlGroup>
+    ) : null;
+
   return (
     <FloatingWindow
       id={id}
@@ -58,7 +75,7 @@ export function AdminGroupsWindow({
       minHeight={420}
     >
       <div className="flex h-full flex-col">
-        <AdminWindowMenuBar onClose={onClose} />
+        <AdminWindowMenuBar onClose={onClose} controls={controls} />
         <div className="flex-1 overflow-auto p-3">
           {view.type === 'index' ? (
             <GroupsAdmin
@@ -68,16 +85,7 @@ export function AdminGroupsWindow({
           ) : (
             <GroupDetailPage
               groupId={view.groupId}
-              backLink={
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Groups
-                </button>
-              }
+              backLink={false}
               onDelete={handleBack}
             />
           )}

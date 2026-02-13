@@ -5,6 +5,7 @@ import {
   CalendarContent,
   type CalendarEventItem
 } from '@tearleads/calendar';
+import { WindowControlBar } from '@tearleads/window-manager';
 import { CalendarPlus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -167,6 +168,7 @@ export function CalendarWindow({
           showBirthdaysFromContacts={showBirthdaysFromContacts}
           onShowBirthdaysFromContactsChange={setShowBirthdaysFromContacts}
         />
+        <WindowControlBar>{null}</WindowControlBar>
         {isDatabaseLoading ? (
           <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
             Loading database...

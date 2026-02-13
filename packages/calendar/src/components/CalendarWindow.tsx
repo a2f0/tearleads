@@ -1,5 +1,6 @@
 import {
   FloatingWindow,
+  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { CalendarContent } from './CalendarContent';
@@ -41,7 +42,10 @@ export function CalendarWindow({
       minWidth={680}
       minHeight={420}
     >
-      <CalendarContent />
+      <div className="flex h-full flex-col">
+        <WindowControlBar>{null}</WindowControlBar>
+        <CalendarContent />
+      </div>
     </FloatingWindow>
   );
 }

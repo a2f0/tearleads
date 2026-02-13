@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -49,6 +50,7 @@ export function BackupWindow({
           onClose={onClose}
           onOpenDocumentation={() => setShowDocumentation(true)}
         />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 overflow-y-auto p-4">
           {showDocumentation ? (
             <BackupDocumentation onBack={() => setShowDocumentation(false)} />

@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -61,6 +62,7 @@ export function SearchWindow({
           onViewModeChange={setViewMode}
           onClose={onClose}
         />
+        <WindowControlBar>{null}</WindowControlBar>
         <SearchWindowContent viewMode={viewMode} />
       </div>
     </FloatingWindow>
