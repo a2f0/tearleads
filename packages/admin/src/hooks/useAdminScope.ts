@@ -102,4 +102,3 @@ export function useAdminScope(): UseAdminScopeResult {
     setSelectedOrganizationId
   };
 }
-

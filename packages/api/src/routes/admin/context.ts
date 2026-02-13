@@ -2,7 +2,12 @@ import type {
   AdminAccessContextResponse,
   AdminScopeOrganization
 } from '@tearleads/shared';
-import { Router, type Request, type Response, type Router as RouterType } from 'express';
+import {
+  type Request,
+  type Response,
+  Router,
+  type Router as RouterType
+} from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
 async function loadOrganizationsForRoot(): Promise<AdminScopeOrganization[]> {
@@ -49,17 +54,16 @@ adminContextRouter.get('/', async (req: Request, res: Response) => {
     const response: AdminAccessContextResponse = {
       isRootAdmin: access.isRootAdmin,
       organizations,
-      defaultOrganizationId:
-        access.isRootAdmin ? null : organizations[0]?.id ?? null
+      defaultOrganizationId: access.isRootAdmin
+        ? null
+        : (organizations[0]?.id ?? null)
     };
     res.json(response);
   } catch (error) {
     console.error('Admin context error:', error);
     res.status(500).json({
       error:
-        error instanceof Error
-          ? error.message
-          : 'Failed to load admin context'
+        error instanceof Error ? error.message : 'Failed to load admin context'
     });
   }
 });
