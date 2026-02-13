@@ -266,28 +266,14 @@ async function initializeDatabaseWithKey(
   adapterInstance = adapter;
 
   // Create Drizzle instance with the sqlite-proxy driver
-  // The adapters return { rows: any[] } for all methods as expected by Drizzle
+  // The adapters return { rows: unknown[] } for all methods as expected by Drizzle
   const connection = adapter.getConnection();
-  if (!isDrizzleConnection(connection)) {
-    throw new Error('Database adapter returned invalid connection');
-  }
-
   databaseInstance = drizzle(connection, { schema });
 
   // Run migrations
   await runMigrations(adapterInstance);
 
   return databaseInstance;
-}
-
-type DrizzleConnection = (
-  sql: string,
-  params: unknown[],
-  method: 'all' | 'get' | 'run' | 'values'
-) => Promise<{ rows: unknown[] }>;
-
-function isDrizzleConnection(value: unknown): value is DrizzleConnection {
-  return typeof value === 'function';
 }
 
 /**

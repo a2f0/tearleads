@@ -24,6 +24,8 @@ import { WebAdapter } from './web.adapter';
 export type {
   DatabaseAdapter,
   DatabaseConfig,
+  DrizzleConnection,
+  DrizzleConnectionMethod,
   Platform,
   PlatformInfo,
   QueryResult
