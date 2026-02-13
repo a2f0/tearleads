@@ -116,6 +116,108 @@ describe('api with msw', () => {
     ]);
   });
 
+  it('does not attempt refresh for login 401 responses', async () => {
+    const api = await loadApi();
+
+    server.use(
+      http.post('http://localhost/auth/login', () =>
+        HttpResponse.json({ error: 'Invalid email or password' }, { status: 401 })
+      )
+    );
+
+    await expect(
+      api.auth.login('user@example.com', 'bad-password')
+    ).rejects.toThrow('Invalid email or password');
+
+    expect(wasApiRequestMade('POST', '/auth/login')).toBe(true);
+    expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(false);
+  });
+
+  it('clears auth when refresh fails and refresh token is removed', async () => {
+    const api = await loadApi();
+
+    localStorage.setItem(AUTH_TOKEN_KEY, 'stale-access-token');
+    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'stale-refresh-token');
+
+    server.use(
+      http.get('http://localhost/auth/sessions', () =>
+        HttpResponse.json({ error: 'unauthorized' }, { status: 401 })
+      ),
+      http.post('http://localhost/auth/refresh', () => {
+        localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+        return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
+      })
+    );
+
+    await expect(api.auth.getSessions()).rejects.toThrow('API error: 401');
+
+    expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
+    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBeNull();
+
+    expect(
+      getRecordedApiRequests().map(
+        (request) => `${request.method} ${request.pathname}`
+      )
+    ).toEqual(['GET /auth/sessions', 'POST /auth/refresh']);
+  });
+
+  it('deduplicates concurrent refresh attempts for parallel 401 responses', async () => {
+    const api = await loadApi();
+
+    localStorage.setItem(AUTH_TOKEN_KEY, 'stale-access-token');
+    localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'stale-refresh-token');
+
+    let sessionsRequestCount = 0;
+    let refreshRequestCount = 0;
+    let releaseRefreshGate: () => void = () => undefined;
+    const refreshGate = new Promise<void>((resolve) => {
+      releaseRefreshGate = resolve;
+    });
+
+    server.use(
+      http.get('http://localhost/auth/sessions', () => {
+        sessionsRequestCount += 1;
+        if (sessionsRequestCount <= 2) {
+          if (sessionsRequestCount === 2) {
+            releaseRefreshGate();
+          }
+          return HttpResponse.json({ error: 'unauthorized' }, { status: 401 });
+        }
+
+        return HttpResponse.json({ sessions: [] });
+      }),
+      http.post('http://localhost/auth/refresh', async () => {
+        refreshRequestCount += 1;
+        await refreshGate;
+        return HttpResponse.json({
+          accessToken: 'fresh-access-token',
+          refreshToken: 'fresh-refresh-token'
+        });
+      })
+    );
+
+    const [first, second] = await Promise.all([
+      api.auth.getSessions(),
+      api.auth.getSessions()
+    ]);
+
+    expect(first.sessions).toEqual([]);
+    expect(second.sessions).toEqual([]);
+    expect(refreshRequestCount).toBe(1);
+    expect(sessionsRequestCount).toBe(4);
+    expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe('fresh-access-token');
+    expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
+      'fresh-refresh-token'
+    );
+
+    const requestSequence = getRecordedApiRequests().map(
+      (request) => `${request.method} ${request.pathname}`
+    );
+    expect(
+      requestSequence.filter((request) => request === 'POST /auth/refresh')
+    ).toHaveLength(1);
+  });
+
   it('routes admin requests through msw and preserves query/encoding', async () => {
     const api = await loadApi();
 
