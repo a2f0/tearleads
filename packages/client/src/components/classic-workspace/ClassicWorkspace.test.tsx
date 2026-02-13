@@ -130,7 +130,7 @@ describe('ClassicWorkspace', () => {
       expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
     });
 
-    expect(screen.getByTestId('classic-app')).toBeInTheDocument();
+    expect(await screen.findByTestId('classic-app')).toBeInTheDocument();
   });
 
   it('persists state changes from classic app', async () => {
