@@ -38,7 +38,7 @@ Folder-specific metadata for registry items of type `folder`.
 Parent-child relationships between registry items.
 
 - `parent_id`, `child_id`
-- `wrapped_session_key`: child's session key wrapped with parent key
+- `wrapped_session_key`: child's session key wrapped with parent's hierarchical key
 - `wrapped_hierarchical_key`: wrapped child hierarchical key (optional)
 - `visible_children`: optional child filtering for partial share views
 
