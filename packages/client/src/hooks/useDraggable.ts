@@ -66,10 +66,15 @@ export function useDraggable({
     setPosition(computeDefault());
 
     const handleResize = () => {
-      setPosition((prev) => ({
-        left: Math.max(0, Math.min(prev.left, window.innerWidth - width)),
-        top: Math.max(0, Math.min(prev.top, window.innerHeight - height))
-      }));
+      setPosition((prev) => {
+        const rect = elementRef.current?.getBoundingClientRect();
+        const w = rect?.width ?? width;
+        const h = rect?.height ?? height;
+        return {
+          left: Math.max(0, Math.min(prev.left, window.innerWidth - w)),
+          top: Math.max(0, Math.min(prev.top, window.innerHeight - h))
+        };
+      });
     };
 
     window.addEventListener('resize', handleResize);
