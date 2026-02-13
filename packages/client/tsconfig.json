@@ -47,6 +47,9 @@
       "@tearleads/vfs-explorer": ["../vfs-explorer/src/index.ts"],
       "@tearleads/mls-chat/package.json": ["../mls-chat/package.json"],
       "@tearleads/mls-chat": ["../mls-chat/src/index.ts"],
+      "@tearleads/msw/package.json": ["../msw/package.json"],
+      "@tearleads/msw": ["../msw/src/index.ts"],
+      "@tearleads/msw/node": ["../msw/src/node.ts"],
       "@tearleads/window-manager": ["../window-manager/src/index.ts"]
     }
   },

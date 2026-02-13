@@ -93,6 +93,18 @@
       "metricCountCommand": "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\(|waitForTimeout\\(|sleep\\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l"
     },
     {
+      "id": "preen-msw-parity",
+      "purpose": "Audit MSW handlers against API routes and improve test coverage assertions",
+      "checklistLabel": "MSW/API parity and request-assertion wiring",
+      "qualityMetric": "MSW parity risk count (missing + low-confidence)",
+      "security": false,
+      "discoveryCommands": [
+        "./scripts/preen/checkMswParity.ts",
+        "./scripts/preen/checkMswParity.ts --json | head -40"
+      ],
+      "metricCountCommand": "./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'"
+    },
+    {
       "id": "preen-skill-tooling",
       "purpose": "Validate skills are wired into agentTool.ts and scriptTool.ts",
       "checklistLabel": "Skill tooling validation",

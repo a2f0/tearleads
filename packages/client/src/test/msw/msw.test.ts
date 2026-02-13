@@ -1,3 +1,4 @@
+import { getRecordedApiRequests, wasApiRequestMade } from '@tearleads/msw/node';
 import { DEFAULT_OPENROUTER_MODEL_ID } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 
@@ -6,6 +7,7 @@ describe('msw handlers', () => {
     const response = await fetch('http://localhost/ping');
 
     expect(response.ok).toBe(true);
+    expect(wasApiRequestMade('GET', '/ping')).toBe(true);
     await expect(response.json()).resolves.toEqual({
       version: 'test',
       dbVersion: '0'
@@ -16,6 +18,7 @@ describe('msw handlers', () => {
     const keysResponse = await fetch('http://localhost/admin/redis/keys');
     const keysPayload = await keysResponse.json();
 
+    expect(wasApiRequestMade('GET', '/admin/redis/keys')).toBe(true);
     expect(keysPayload).toEqual({
       keys: [
         { key: 'key:1', type: 'string', ttl: -1 },
@@ -38,6 +41,7 @@ describe('msw handlers', () => {
     );
     const keyPayload = await keyResponse.json();
 
+    expect(wasApiRequestMade('GET', '/admin/redis/keys/user%3A1')).toBe(true);
     expect(keyPayload).toEqual({
       key: 'user:1',
       type: 'string',
@@ -50,6 +54,7 @@ describe('msw handlers', () => {
     const infoResponse = await fetch('http://localhost/admin/postgres/info');
     const infoPayload = await infoResponse.json();
 
+    expect(wasApiRequestMade('GET', '/admin/postgres/info')).toBe(true);
     expect(infoPayload).toEqual({
       status: 'ok',
       info: {
@@ -66,6 +71,7 @@ describe('msw handlers', () => {
     );
     const tablesPayload = await tablesResponse.json();
 
+    expect(wasApiRequestMade('GET', '/admin/postgres/tables')).toBe(true);
     expect(tablesPayload).toEqual({
       tables: [
         {
@@ -91,6 +97,7 @@ describe('msw handlers', () => {
     });
 
     expect(response.ok).toBe(true);
+    expect(wasApiRequestMade('POST', '/chat/completions')).toBe(true);
     await expect(response.json()).resolves.toEqual({
       id: 'chatcmpl-test',
       model: DEFAULT_OPENROUTER_MODEL_ID,
@@ -113,6 +120,7 @@ describe('msw handlers', () => {
     });
 
     expect(response.status).toBe(400);
+    expect(wasApiRequestMade('POST', '/chat/completions')).toBe(true);
     await expect(response.json()).resolves.toEqual({
       error: 'messages must be a non-empty array'
     });
@@ -129,8 +137,35 @@ describe('msw handlers', () => {
     });
 
     expect(response.status).toBe(400);
+    expect(wasApiRequestMade('POST', '/chat/completions')).toBe(true);
     await expect(response.json()).resolves.toEqual({
       error: 'model must be a supported OpenRouter chat model'
     });
+  });
+
+  it('records request metadata for debugging parity', async () => {
+    await fetch('http://localhost/ping');
+    await fetch('http://localhost/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: DEFAULT_OPENROUTER_MODEL_ID,
+        messages: [{ role: 'user', content: 'Hello' }]
+      })
+    });
+
+    const recordedRequests = getRecordedApiRequests();
+    expect(recordedRequests).toEqual([
+      {
+        method: 'GET',
+        pathname: '/ping',
+        url: 'http://localhost/ping'
+      },
+      {
+        method: 'POST',
+        pathname: '/chat/completions',
+        url: 'http://localhost/chat/completions'
+      }
+    ]);
   });
 });

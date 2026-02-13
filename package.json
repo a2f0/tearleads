@@ -36,6 +36,7 @@
     "lint:ansible": "ansible-lint ansible/",
     "lint:md": "markdownlint-cli2 '**/*.md'",
     "lintPreen": "./scripts/checkPreenEcosystem.sh --strict",
+    "checkMswParity": "./scripts/preen/checkMswParity.ts",
     "format": "biome format --write .",
     "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
     "prepare": "husky"

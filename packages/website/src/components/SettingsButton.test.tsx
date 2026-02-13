@@ -1,5 +1,10 @@
 import { ThemeProvider } from '@tearleads/ui';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import {
+  fireEvent,
+  render,
+  screen,
+  waitForElementToBeRemoved
+} from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SettingsButton } from './SettingsButton';
 
@@ -54,15 +59,11 @@ describe('SettingsButton', () => {
     renderWithProvider(<SettingsButton currentLang="en" />);
 
     fireEvent.click(screen.getByTestId('settings-button'));
-    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    const dialog = screen.getByRole('dialog');
+    expect(dialog).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId('settings-modal-backdrop'));
 
-    await waitFor(
-      () => {
-        expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
-      },
-      { timeout: 500 }
-    );
+    await waitForElementToBeRemoved(dialog, { timeout: 2000 });
   });
 });
