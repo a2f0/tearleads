@@ -81,6 +81,13 @@ export const navItems: NavItem[] = [
     testId: 'calendar-link'
   },
   {
+    path: '/businesses',
+    icon: Building2,
+    labelKey: 'businesses',
+    inMobileMenu: true,
+    testId: 'businesses-link'
+  },
+  {
     path: '/contacts',
     icon: UsersIcon,
     labelKey: 'contacts',

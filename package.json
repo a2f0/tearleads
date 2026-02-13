@@ -11,6 +11,7 @@
     "buildPreDev": "pnpm build:shared && pnpm build:db",
     "build:shared": "pnpm --filter @tearleads/shared build",
     "build:db": "pnpm --filter @tearleads/db build",
+    "build:businesses": "pnpm --filter @tearleads/businesses build",
     "build:ui": "pnpm --filter @tearleads/ui build",
     "build:window-manager": "pnpm --filter @tearleads/window-manager build",
     "build:notes": "pnpm --filter @tearleads/notes build",

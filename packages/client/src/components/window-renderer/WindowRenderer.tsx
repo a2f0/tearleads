@@ -13,6 +13,7 @@ import { memo, useCallback, useMemo, useRef } from 'react';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
 import { BackupWindow } from '@/components/backup-window';
+import { BusinessesWindow } from '@/components/businesses-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { CalendarWindow } from '@/components/calendar-window';
 import { ChatWindow } from '@/components/chat-window';
@@ -169,6 +170,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   'mls-chat': { Component: MlsChatWindow },
   search: { Component: SearchWindow },
   calendar: { Component: CalendarWindow },
+  businesses: { Component: BusinessesWindow },
   'notification-center': { Component: NotificationCenter }
 };
 

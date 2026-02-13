@@ -33,5 +33,6 @@ export const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/backups': 'backup',
   '/mls-chat': 'mls-chat',
   '/search': 'search',
-  '/calendar': 'calendar'
+  '/calendar': 'calendar',
+  '/businesses': 'businesses'
 };

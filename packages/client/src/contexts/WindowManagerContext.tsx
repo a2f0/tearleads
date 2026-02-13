@@ -55,6 +55,7 @@ export type WindowType =
   | 'mls-chat'
   | 'search'
   | 'calendar'
+  | 'businesses'
   | 'notification-center';
 
 export interface WindowOpenRequestPayloads {
