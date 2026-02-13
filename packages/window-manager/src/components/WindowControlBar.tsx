@@ -11,6 +11,7 @@ export function WindowControlBar({
 }: WindowControlBarProps) {
   return (
     <div
+      data-testid="window-control-bar"
       className={cn(
         'flex h-6 shrink-0 items-center border-b bg-muted/20 px-1',
         className

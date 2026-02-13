@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useVfsExplorerContext, type WindowDimensions } from '../context';
 import { NewFolderDialog } from './NewFolderDialog';
 import { VfsExplorer, type VfsOpenItem } from './VfsExplorer';
@@ -83,6 +84,7 @@ export function VfsWindow({
           onRefresh={handleRefresh}
           onClose={onClose}
         />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="min-h-0 flex-1 overflow-y-auto">
           <VfsExplorer
             viewMode={viewMode}

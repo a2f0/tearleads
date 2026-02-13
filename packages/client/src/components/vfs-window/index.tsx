@@ -1,6 +1,9 @@
 import type { VfsOpenItem } from '@tearleads/vfs-explorer';
 import { VfsWindow as VfsWindowBase } from '@tearleads/vfs-explorer';
-import type { WindowDimensions } from '@tearleads/window-manager';
+import {
+  WindowControlBar,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { useCallback } from 'react';
 import { FloatingWindow } from '@/components/floating-window';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -144,6 +147,7 @@ export function VfsWindow({
         minHeight={400}
       >
         <div className="flex h-full flex-col">
+          <WindowControlBar>{null}</WindowControlBar>
           {isDatabaseLoading && (
             <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
               Loading database...

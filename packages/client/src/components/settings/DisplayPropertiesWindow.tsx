@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { FloatingWindow } from '@/components/floating-window';
 import { ScreensaverButton } from '@/components/screensaver';
 import { DisplayPropertiesWindowMenuBar } from './DisplayPropertiesWindowMenuBar';
@@ -34,6 +35,7 @@ export function DisplayPropertiesWindow({
     >
       <div className="flex h-full flex-col">
         <DisplayPropertiesWindowMenuBar onClose={() => onOpenChange(false)} />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 space-y-6 overflow-y-auto p-5">
           <ThemeSelector />
           <PatternSelector />

@@ -517,6 +517,7 @@ describe('AdminWindow', () => {
     render(<AdminWindow {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-controls')).toBeInTheDocument();
   });
 
   it('calls onClose from File menu Close option', async () => {

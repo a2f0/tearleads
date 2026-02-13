@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -75,6 +76,7 @@ export function NotificationCenter({
             <AboutMenuItem appName="Notification Center" closeLabel="Close" />
           </DropdownMenu>
         </div>
+        <WindowControlBar>{null}</WindowControlBar>
 
         {/* Tab navigation */}
         <div className="flex items-center gap-1 border-b px-3 py-2">

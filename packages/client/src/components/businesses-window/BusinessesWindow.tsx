@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { BusinessesManager } from '@/components/businesses';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -44,8 +45,11 @@ export function BusinessesWindow({
       minWidth={BUSINESSES_WINDOW_MIN_WIDTH}
       minHeight={BUSINESSES_WINDOW_MIN_HEIGHT}
     >
-      <div className="flex h-full min-h-0 flex-col p-3">
-        <BusinessesManager />
+      <div className="flex h-full min-h-0 flex-col">
+        <WindowControlBar>{null}</WindowControlBar>
+        <div className="min-h-0 flex-1 p-3">
+          <BusinessesManager />
+        </div>
       </div>
     </FloatingWindow>
   );

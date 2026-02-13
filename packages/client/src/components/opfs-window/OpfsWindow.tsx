@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useCallback, useRef } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -62,6 +63,7 @@ export function OpfsWindow({
           onCollapseAll={handleCollapseAll}
           onClose={onClose}
         />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 overflow-auto p-4">
           <OpfsBrowser ref={opfsRef} showRefreshButton={false} />
         </div>

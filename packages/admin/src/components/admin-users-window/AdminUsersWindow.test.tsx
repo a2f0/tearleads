@@ -211,6 +211,16 @@ describe('AdminUsersWindow', () => {
     render(<AdminUsersWindow {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-controls')).toBeInTheDocument();
+  });
+
+  it('shows control-bar back action in user detail view', async () => {
+    const user = userEvent.setup();
+    render(<AdminUsersWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-user-btn'));
+
+    expect(screen.getByTestId('admin-users-control-back')).toBeVisible();
   });
 
   it('calls onClose from File menu Close option', async () => {

@@ -170,6 +170,16 @@ describe('AdminPostgresWindow', () => {
     render(<AdminPostgresWindow {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-controls')).toBeInTheDocument();
+  });
+
+  it('shows control-bar back action in table view', async () => {
+    const user = userEvent.setup();
+    render(<AdminPostgresWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-table'));
+
+    expect(screen.getByTestId('admin-postgres-control-back')).toBeVisible();
   });
 
   it('calls onClose from File menu Close option', async () => {

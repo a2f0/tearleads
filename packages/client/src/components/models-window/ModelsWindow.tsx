@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -50,6 +51,7 @@ export function ModelsWindow({
           onViewModeChange={setViewMode}
           onClose={onClose}
         />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 overflow-y-auto p-4">
           <ModelsContent showBackLink={false} viewMode={viewMode} />
         </div>

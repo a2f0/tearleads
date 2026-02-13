@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -66,6 +67,7 @@ export function AnalyticsWindow({
           onExportCsv={handleExportCsv}
           exportCsvDisabled={!exportHandler || exportingCsv}
         />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="flex-1 overflow-hidden px-4 pb-4">
           <Analytics
             showBackLink={false}

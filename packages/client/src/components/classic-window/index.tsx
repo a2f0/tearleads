@@ -1,3 +1,4 @@
+import { WindowControlBar } from '@tearleads/window-manager';
 import { ClassicWorkspace } from '@/components/classic-workspace/ClassicWorkspace';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -42,6 +43,7 @@ export function ClassicWindow({
     >
       <div className="flex h-full flex-col">
         <ClassicWindowMenuBar onClose={onClose} />
+        <WindowControlBar>{null}</WindowControlBar>
         <div className="h-full px-3">
           <ClassicWorkspace />
         </div>

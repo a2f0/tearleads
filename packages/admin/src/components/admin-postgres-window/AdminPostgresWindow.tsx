@@ -1,6 +1,7 @@
 import { PostgresTableRowsView } from '@admin/components/admin-postgres/PostgresTableRowsView';
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
 import { PostgresAdmin } from '@admin/pages/admin/PostgresAdmin';
+import { WindowControlButton, WindowControlGroup } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -46,6 +47,19 @@ export function AdminPostgresWindow({
     setView({ type: 'index' });
   };
 
+  const controls =
+    view.type === 'table' ? (
+      <WindowControlGroup>
+        <WindowControlButton
+          icon={<ArrowLeft className="h-3 w-3" />}
+          onClick={handleBack}
+          data-testid="admin-postgres-control-back"
+        >
+          Back to Postgres
+        </WindowControlButton>
+      </WindowControlGroup>
+    ) : null;
+
   return (
     <FloatingWindow
       id={id}
@@ -63,7 +77,7 @@ export function AdminPostgresWindow({
       minHeight={420}
     >
       <div className="flex h-full flex-col">
-        <AdminWindowMenuBar onClose={onClose} />
+        <AdminWindowMenuBar onClose={onClose} controls={controls} />
         <div className="flex-1 overflow-auto p-3">
           {view.type === 'index' ? (
             <PostgresAdmin
@@ -74,16 +88,6 @@ export function AdminPostgresWindow({
             <PostgresTableRowsView
               schema={view.schema}
               tableName={view.tableName}
-              backLink={
-                <button
-                  type="button"
-                  onClick={handleBack}
-                  className="inline-flex items-center text-muted-foreground hover:text-foreground"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" />
-                  Back to Postgres
-                </button>
-              }
             />
           )}
         </div>
