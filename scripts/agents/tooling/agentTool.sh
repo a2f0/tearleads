@@ -566,17 +566,16 @@ run_inline_action() {
             if [ -z "$PRS" ]; then
                 echo '[]'
             else
-                echo '['
+                printf '['
                 FIRST=true
                 for PR_NUM in $PRS; do
-                    if [ "$FIRST" = true ]; then
-                        FIRST=false
-                    else
+                    if [ "$FIRST" = false ]; then
                         printf ','
                     fi
                     gh pr view "$PR_NUM" --json number,title,mergeStateStatus -R "$REPO"
+                    FIRST=false
                 done
-                echo ']'
+                printf ']\n'
             fi
             ;;
         triggerGeminiReview)
@@ -667,17 +666,16 @@ elif [ "$IS_INLINE_ACTION" = true ]; then
                     if [ -z "$PRS" ]; then
                         echo "[]"
                     else
-                        echo "["
+                        printf "["
                         FIRST=true
                         for PR_NUM in $PRS; do
-                            if [ "$FIRST" = true ]; then
-                                FIRST=false
-                            else
+                            if [ "$FIRST" = false ]; then
                                 printf ","
                             fi
                             gh pr view "$PR_NUM" --json number,title,mergeStateStatus -R "$REPO"
+                            FIRST=false
                         done
-                        echo "]"
+                        printf "]\n"
                     fi
                     ;;
                 triggerGeminiReview)
