@@ -46,6 +46,56 @@ function parseWorkflowName(rawWorkflow: string): string | null {
   return line.slice('name: '.length).trim();
 }
 
+function stripQuotes(value: string): string {
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1);
+  }
+  return trimmed;
+}
+
+function parseJobName(rawWorkflow: string, jobId: string): string | null {
+  const lines = rawWorkflow.split('\n');
+  let inJobs = false;
+  let inTargetJob = false;
+
+  for (const line of lines) {
+    if (!inJobs) {
+      if (/^jobs:\s*$/.test(line)) {
+        inJobs = true;
+      }
+      continue;
+    }
+
+    if (/^[^\s].*:\s*$/.test(line) && !/^jobs:\s*$/.test(line)) {
+      break;
+    }
+
+    const jobHeader = line.match(/^ {2}([A-Za-z0-9_-]+):\s*$/);
+    if (jobHeader !== null) {
+      if (inTargetJob) {
+        break;
+      }
+      inTargetJob = jobHeader[1] === jobId;
+      continue;
+    }
+
+    if (!inTargetJob) {
+      continue;
+    }
+
+    const jobNameMatch = line.match(/^ {4}name:\s*(.+?)\s*$/);
+    if (jobNameMatch !== null) {
+      return stripQuotes(jobNameMatch[1]);
+    }
+  }
+
+  return null;
+}
+
 function sorted(values: string[]): string[] {
   return [...values].sort((a, b) => a.localeCompare(b));
 }
@@ -126,9 +176,10 @@ function main(): void {
       errors.push(`${CI_GATE_WORKFLOW_FILE} must invoke scripts/ciImpact/requiredWorkflows.ts`);
     }
 
-    if (!ciGateRaw.includes(`name: ${CI_GATE_WORKFLOW_NAME}`)) {
+    const ciGateJobName = parseJobName(ciGateRaw, 'ci-gate');
+    if (ciGateJobName !== CI_GATE_WORKFLOW_NAME) {
       errors.push(
-        `${CI_GATE_WORKFLOW_FILE} must include a CI Gate job named \"${CI_GATE_WORKFLOW_NAME}\"`
+        `${CI_GATE_WORKFLOW_FILE} must include a ci-gate job named \"${CI_GATE_WORKFLOW_NAME}\" (found \"${ciGateJobName ?? '(missing)'}\")`
       );
     }
   }
