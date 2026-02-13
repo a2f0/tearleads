@@ -226,6 +226,10 @@ All actions support these options:
 
 ## Safety Classes
 
+- `safe_read`: read-only checks and analysis (no local/remote mutations)
+- `safe_write_local`: mutates local workspace/device state only
+- `safe_write_remote`: may mutate remote systems/accounts and requires explicit confirmation
+
 | Class | Actions |
 | ----- | ------- |
 | `safe_read` | `checkBinaryFiles`, `ciImpact`, `verifyBinaryGuardrails` |

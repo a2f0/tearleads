@@ -739,6 +739,7 @@ function buildScriptInvocation(action: ActionName, options: ScriptArgs): ScriptI
 
     case 'setupTuxedoRepos':
       if (options.baseDir) env.TUXEDO_BASE_DIR = options.baseDir;
+      // setupTuxedoRepos.sh reads TUXEDO_WORKSPACE_COUNT.
       if (options.workspaceCount !== undefined) env.TUXEDO_WORKSPACE_COUNT = String(options.workspaceCount);
       break;
 
@@ -759,6 +760,7 @@ function buildScriptInvocation(action: ActionName, options: ScriptArgs): ScriptI
 
     case 'tuxedo':
       if (options.baseDir) env.TUXEDO_BASE_DIR = options.baseDir;
+      // tuxedo/tuxedo.sh reads TUXEDO_WORKSPACES.
       if (options.workspaceCount !== undefined) env.TUXEDO_WORKSPACES = String(options.workspaceCount);
       if (options.mode === 'no-pr-dashboards') {
         env.TUXEDO_ENABLE_PR_DASHBOARDS = '0';
@@ -773,6 +775,7 @@ function buildScriptInvocation(action: ActionName, options: ScriptArgs): ScriptI
     case 'runAndroid':
     case 'runIpad':
     case 'runElectron':
+    case 'setupPostgresDev':
     case 'toggleAndroidKeyboard':
     case 'tuxedoKill':
     case 'verifyCleanIosBuild':
@@ -1153,6 +1156,10 @@ function generateReadme(): string {
 
   // Safety classes section
   lines.push('## Safety Classes');
+  lines.push('');
+  lines.push('- `safe_read`: read-only checks and analysis (no local/remote mutations)');
+  lines.push('- `safe_write_local`: mutates local workspace/device state only');
+  lines.push('- `safe_write_remote`: may mutate remote systems/accounts and requires explicit confirmation');
   lines.push('');
   lines.push('| Class | Actions |');
   lines.push('| ----- | ------- |');
