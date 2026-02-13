@@ -36,9 +36,13 @@ vi.mock('@/lib/classicPersistence', () => ({
 
 vi.mock('@tearleads/classic', () => ({
   ClassicApp: ({
-    onStateChange
+    onStateChange,
+    onDeleteTag,
+    onRestoreTag
   }: {
     onStateChange?: ((state: unknown) => void) | undefined;
+    onDeleteTag?: ((tagId: string) => Promise<void>) | undefined;
+    onRestoreTag?: ((tagId: string) => Promise<void>) | undefined;
   }) => (
     <div>
       <div data-testid="classic-app">Classic App</div>
@@ -55,6 +59,12 @@ vi.mock('@tearleads/classic', () => ({
         }
       >
         Trigger State Change
+      </button>
+      <button type="button" onClick={() => void onDeleteTag?.('tag-a')}>
+        Trigger Delete Tag
+      </button>
+      <button type="button" onClick={() => void onRestoreTag?.('tag-a')}>
+        Trigger Restore Tag
       </button>
     </div>
   )
@@ -183,5 +193,47 @@ describe('ClassicWorkspace', () => {
 
     expect(consoleErrorSpy).toHaveBeenCalled();
     consoleErrorSpy.mockRestore();
+  });
+
+  it('deletes a tag and refreshes classic state', async () => {
+    const user = userEvent.setup();
+    render(<ClassicWorkspace />);
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Trigger Delete Tag' })
+    );
+
+    await waitFor(() => {
+      expect(mockDeleteClassicTag).toHaveBeenCalledWith('tag-a');
+    });
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('restores a tag and refreshes classic state', async () => {
+    const user = userEvent.setup();
+    render(<ClassicWorkspace />);
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    await user.click(
+      await screen.findByRole('button', { name: 'Trigger Restore Tag' })
+    );
+
+    await waitFor(() => {
+      expect(mockRestoreClassicTag).toHaveBeenCalledWith('tag-a');
+    });
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(2);
+    });
   });
 });

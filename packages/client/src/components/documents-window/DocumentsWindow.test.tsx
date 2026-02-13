@@ -4,10 +4,12 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DocumentsWindow } from './DocumentsWindow';
 
+const mockOpenWindow = vi.fn();
+
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowOpenRequest: () => undefined,
   useWindowManagerActions: () => ({
-    openWindow: vi.fn()
+    openWindow: mockOpenWindow
   })
 }));
 
@@ -373,5 +375,17 @@ describe('DocumentsWindow', () => {
       )
     ).not.toThrow();
     expect(screen.getByTestId('documents-content')).toBeInTheDocument();
+  });
+
+  it('opens AI chat from documents callback', () => {
+    render(<DocumentsWindow {...defaultProps} />);
+
+    const onOpenAIChat = lastDocumentsProps?.['onOpenAIChat'];
+    if (typeof onOpenAIChat !== 'function') {
+      throw new Error('Expected onOpenAIChat callback');
+    }
+
+    onOpenAIChat();
+    expect(mockOpenWindow).toHaveBeenCalledWith('chat');
   });
 });

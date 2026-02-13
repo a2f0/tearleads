@@ -150,4 +150,15 @@ describe('TaskbarButton', () => {
     ).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Close' })).toBeInTheDocument();
   });
+
+  it('calls onMinimize when Minimize context menu item is clicked', async () => {
+    const user = userEvent.setup();
+    const onMinimize = vi.fn();
+    renderTaskbarButton({ onMinimize });
+
+    fireEvent.contextMenu(screen.getByTestId('taskbar-button-notes'));
+    await user.click(screen.getByRole('button', { name: 'Minimize' }));
+
+    expect(onMinimize).toHaveBeenCalledTimes(1);
+  });
 });

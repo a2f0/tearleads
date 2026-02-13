@@ -195,4 +195,28 @@ describe('ModelsTableView', () => {
       screen.getByRole('button', { name: 'Disconnect' })
     ).toBeInTheDocument();
   });
+
+  it('calls onUnload when Disconnect is clicked for loaded OpenRouter model', async () => {
+    const user = userEvent.setup();
+    const onUnload = vi.fn();
+    const model = OPENROUTER_MODELS[0]!;
+
+    render(
+      <ModelsTableView
+        recommendedModels={[]}
+        openRouterModels={[model]}
+        loadedModel={model.id}
+        loadingModelId={null}
+        loadProgress={null}
+        getModelStatus={() => 'not_downloaded'}
+        onLoad={vi.fn()}
+        onUnload={onUnload}
+        onDelete={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Disconnect' }));
+
+    expect(onUnload).toHaveBeenCalledTimes(1);
+  });
 });

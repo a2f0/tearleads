@@ -38,6 +38,7 @@
     "electron:test:ui": "pnpm electron:build && playwright test --config=playwright.electron.config.ts --ui"
   },
   "dependencies": {
+    "@tearleads/admin": "workspace:*",
     "@assistant-ui/react": "0.12.10",
     "@capacitor-community/sqlite": "8.0.0",
     "@capacitor/app": "8.0.1",
