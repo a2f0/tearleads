@@ -1,26 +1,7 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  WINDOW_TABLE_TYPOGRAPHY,
-  WindowTableRow
-} from '@tearleads/window-manager';
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  CheckCircle,
-  Clock,
-  Loader2,
-  Trash2,
-  XCircle
-} from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { DurationChart } from '@/components/duration-chart';
 import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import {
   type AnalyticsEvent,
@@ -28,15 +9,17 @@ import {
   type EventStats,
   getDistinctEventTypes,
   getEventCount,
-  getEventDisplayName,
   getEventStats,
   getEvents,
   type SortColumn,
-  type SortDirection,
   type StatsSortColumn
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
-import { SortIcon, type SortState } from './SortIcon';
+import { AnalyticsEventsPanel } from './components/AnalyticsEventsPanel';
+import { AnalyticsFiltersSummaryPanel } from './components/AnalyticsFiltersSummaryPanel';
+import { AnalyticsPageHeader } from './components/AnalyticsPageHeader';
+import type { SortState } from './SortIcon';
+import type { SummarySortState, TimeFilter } from './types';
 
 interface AnalyticsProps {
   showBackLink?: boolean;
@@ -45,45 +28,6 @@ interface AnalyticsProps {
     exporting: boolean
   ) => void;
 }
-
-interface SummarySortState {
-  column: StatsSortColumn | null;
-  direction: SortDirection | null;
-}
-
-function SummarySortIcon({
-  column,
-  sort
-}: {
-  column: StatsSortColumn;
-  sort: SummarySortState;
-}) {
-  if (sort.column !== column) {
-    return <ArrowUpDown className="h-3 w-3 opacity-50" />;
-  }
-  return sort.direction === 'asc' ? (
-    <ArrowUp className="h-3 w-3" />
-  ) : (
-    <ArrowDown className="h-3 w-3" />
-  );
-}
-
-type TimeFilter = 'hour' | 'day' | 'week' | 'all';
-
-const TIME_FILTER_LABELS: Record<TimeFilter, string> = {
-  hour: 'Last Hour',
-  day: 'Last 24h',
-  week: 'Last Week',
-  all: 'All Time'
-};
-const TIME_FILTERS: TimeFilter[] = ['hour', 'day', 'week', 'all'];
-
-const getSuccessRateColor = (rate: number) => {
-  if (rate == null || Number.isNaN(rate)) return 'text-muted-foreground';
-  if (rate >= 90) return 'text-success';
-  if (rate >= 70) return 'text-warning';
-  return 'text-destructive';
-};
 
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
@@ -391,7 +335,7 @@ export function Analytics({
   // Fetch data when unlocked state or time filter changes
   useEffect(() => {
     if (isUnlocked) {
-      fetchData(true);
+      void fetchData(true);
     }
   }, [isUnlocked, fetchData]);
 
@@ -416,7 +360,7 @@ export function Analytics({
 
     const lastItem = virtualItems[virtualItems.length - 1];
     if (lastItem && lastItem.index >= events.length - 5) {
-      fetchData(false);
+      void fetchData(false);
     }
   }, [
     initialLoadComplete,
@@ -452,31 +396,29 @@ export function Analytics({
     return `${rate}%`;
   };
 
+  const handleRefresh = useCallback(() => {
+    void fetchData(true);
+  }, [fetchData]);
+
+  const handleMeasureElement = useCallback(
+    (element: HTMLDivElement | null) => {
+      virtualizer.measureElement(element);
+    },
+    [virtualizer]
+  );
+
   return (
     <div className="flex h-full min-w-0 flex-col overflow-hidden">
-      {/* Fixed header with title and buttons */}
-      <div className="flex flex-col gap-2 pb-4">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
-        <div className="flex items-center justify-between">
-          <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
-            Analytics
-          </h1>
-          {isUnlocked && (
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClear}
-                disabled={loading || events.length === 0}
-                aria-label="Clear events"
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-              <RefreshButton onClick={fetchData} loading={loading} />
-            </div>
-          )}
-        </div>
-      </div>
+      <AnalyticsPageHeader
+        showBackLink={showBackLink}
+        isUnlocked={isUnlocked}
+        loading={loading}
+        hasEvents={events.length > 0}
+        onClear={() => {
+          void handleClear();
+        }}
+        onRefresh={handleRefresh}
+      />
 
       {isLoading && (
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
@@ -497,395 +439,42 @@ export function Analytics({
           className="flex min-h-0 flex-1 flex-col gap-4 overflow-hidden"
           data-testid="analytics-scroll-container"
         >
-          {/* Top section: filters, event types, summary - scrollable with max height */}
-          <div className="max-h-[40%] shrink-0 space-y-4 overflow-auto">
-            {/* Time filter */}
-            <div className="flex flex-wrap gap-2">
-              {TIME_FILTERS.map((filter) => (
-                <Button
-                  key={filter}
-                  variant={timeFilter === filter ? 'default' : 'outline'}
-                  size="sm"
-                  className="text-xs sm:text-sm"
-                  onClick={() => setTimeFilter(filter)}
-                >
-                  {TIME_FILTER_LABELS[filter]}
-                </Button>
-              ))}
-            </div>
+          <AnalyticsFiltersSummaryPanel
+            timeFilter={timeFilter}
+            onTimeFilterChange={setTimeFilter}
+            eventTypes={eventTypes}
+            selectedEventTypes={selectedEventTypes}
+            onToggleEventType={toggleEventType}
+            onSelectAllEventTypes={selectAllEventTypes}
+            onClearAllEventTypes={clearAllEventTypes}
+            filteredStats={filteredStats}
+            summarySort={summarySort}
+            onSummarySort={handleSummarySort}
+            formatCount={formatCount}
+            formatDuration={formatDuration}
+            formatSuccessRate={formatSuccessRate}
+          />
 
-            {/* Event type picker */}
-            {eventTypes.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h2 className="font-semibold text-base sm:text-lg">
-                    Event Types
-                  </h2>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs sm:text-sm"
-                      onClick={selectAllEventTypes}
-                      disabled={selectedEventTypes.size === eventTypes.length}
-                    >
-                      Select All
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="text-xs sm:text-sm"
-                      onClick={clearAllEventTypes}
-                      disabled={selectedEventTypes.size === 0}
-                    >
-                      Clear All
-                    </Button>
-                  </div>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {eventTypes.map((eventType) => (
-                    <Button
-                      key={eventType}
-                      variant={
-                        selectedEventTypes.has(eventType)
-                          ? 'default'
-                          : 'outline'
-                      }
-                      size="sm"
-                      className="text-xs sm:text-sm"
-                      onClick={() => toggleEventType(eventType)}
-                    >
-                      {getEventDisplayName(eventType)}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Stats summary table */}
-            {filteredStats.length > 0 && (
-              <div className="space-y-2">
-                <h2 className="font-semibold text-base sm:text-lg">Summary</h2>
-                <div className="overflow-x-auto rounded-lg border">
-                  <table
-                    className={`${WINDOW_TABLE_TYPOGRAPHY.table} sm:text-sm`}
-                  >
-                    <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
-                      <tr>
-                        <th
-                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:px-4 sm:py-2`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleSummarySort('eventName')}
-                            className="inline-flex items-center gap-1 font-medium hover:text-foreground"
-                            data-testid="summary-sort-eventName"
-                          >
-                            Event
-                            <SummarySortIcon
-                              column="eventName"
-                              sort={summarySort}
-                            />
-                          </button>
-                        </th>
-                        <th
-                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:px-4 sm:py-2`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleSummarySort('count')}
-                            className="inline-flex items-center gap-1 font-medium hover:text-foreground"
-                            data-testid="summary-sort-count"
-                          >
-                            Count
-                            <SummarySortIcon
-                              column="count"
-                              sort={summarySort}
-                            />
-                          </button>
-                        </th>
-                        <th
-                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:px-4 sm:py-2`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleSummarySort('avgDurationMs')}
-                            className="inline-flex items-center gap-1 font-medium hover:text-foreground"
-                            data-testid="summary-sort-avgDurationMs"
-                          >
-                            Avg
-                            <SummarySortIcon
-                              column="avgDurationMs"
-                              sort={summarySort}
-                            />
-                          </button>
-                        </th>
-                        <th
-                          className={`hidden ${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:table-cell sm:px-4 sm:py-2`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleSummarySort('minDurationMs')}
-                            className="inline-flex items-center gap-1 font-medium hover:text-foreground"
-                            data-testid="summary-sort-minDurationMs"
-                          >
-                            Min
-                            <SummarySortIcon
-                              column="minDurationMs"
-                              sort={summarySort}
-                            />
-                          </button>
-                        </th>
-                        <th
-                          className={`hidden ${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:table-cell sm:px-4 sm:py-2`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleSummarySort('maxDurationMs')}
-                            className="inline-flex items-center gap-1 font-medium hover:text-foreground"
-                            data-testid="summary-sort-maxDurationMs"
-                          >
-                            Max
-                            <SummarySortIcon
-                              column="maxDurationMs"
-                              sort={summarySort}
-                            />
-                          </button>
-                        </th>
-                        <th
-                          className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} sm:px-4 sm:py-2`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => handleSummarySort('successRate')}
-                            className="inline-flex items-center gap-1 font-medium hover:text-foreground"
-                            data-testid="summary-sort-successRate"
-                          >
-                            Success
-                            <SummarySortIcon
-                              column="successRate"
-                              sort={summarySort}
-                            />
-                          </button>
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredStats.map((stat) => (
-                        <WindowTableRow
-                          key={stat.eventName}
-                          className="cursor-default last:border-b-0 hover:bg-transparent"
-                          data-testid="summary-row"
-                        >
-                          <td
-                            className={`truncate ${WINDOW_TABLE_TYPOGRAPHY.cell} font-medium sm:px-4 sm:py-2`}
-                          >
-                            {getEventDisplayName(stat.eventName)}
-                          </td>
-                          <td
-                            className={`${WINDOW_TABLE_TYPOGRAPHY.cell} sm:px-4 sm:py-2`}
-                          >
-                            {formatCount(stat.count)}
-                          </td>
-                          <td
-                            className={`${WINDOW_TABLE_TYPOGRAPHY.cell} sm:px-4 sm:py-2`}
-                          >
-                            {formatDuration(stat.avgDurationMs)}
-                          </td>
-                          <td
-                            className={`hidden ${WINDOW_TABLE_TYPOGRAPHY.cell} sm:table-cell sm:px-4 sm:py-2`}
-                          >
-                            {formatDuration(stat.minDurationMs)}
-                          </td>
-                          <td
-                            className={`hidden ${WINDOW_TABLE_TYPOGRAPHY.cell} sm:table-cell sm:px-4 sm:py-2`}
-                          >
-                            {formatDuration(stat.maxDurationMs)}
-                          </td>
-                          <td
-                            className={`${WINDOW_TABLE_TYPOGRAPHY.cell} sm:px-4 sm:py-2`}
-                          >
-                            <span
-                              className={getSuccessRateColor(stat.successRate)}
-                            >
-                              {formatSuccessRate(stat.successRate)}
-                            </span>
-                          </td>
-                        </WindowTableRow>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Bottom section: chart, status, headers, virtual table - scrollable with parentRef */}
-          <div
-            ref={parentRef}
-            data-testid="analytics-events-scroll-container"
-            className="flex min-h-0 flex-1 flex-col overflow-auto"
-          >
-            {/* Sticky header section - chart, status line, and table header */}
-            <div className="sticky top-0 z-10 bg-background pb-2">
-              <DurationChart
-                events={visibleEvents}
-                selectedEventTypes={selectedEventTypes}
-                timeFilter={timeFilter}
-              />
-              <div className="mt-4 flex flex-col gap-2">
-                <VirtualListStatus
-                  firstVisible={firstVisible}
-                  lastVisible={lastVisible}
-                  loadedCount={events.length}
-                  totalCount={totalCount}
-                  hasMore={hasMore}
-                  itemLabel="event"
-                />
-                {events.length > 0 && (
-                  <div
-                    data-testid="analytics-header"
-                    className="grid grid-cols-[1fr_80px_80px] gap-2 rounded-t-lg border-x border-t bg-muted/50 px-2 py-2 font-medium text-xs sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3 sm:text-sm"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleSort('eventName')}
-                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
-                      data-testid="sort-eventName"
-                    >
-                      Event
-                      <SortIcon column="eventName" sort={sort} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSort('durationMs')}
-                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
-                      data-testid="sort-durationMs"
-                    >
-                      <span className="hidden sm:inline">Duration</span>
-                      <span className="sm:hidden">Dur</span>
-                      <SortIcon column="durationMs" sort={sort} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSort('success')}
-                      className="inline-flex items-center gap-1 text-left hover:text-foreground"
-                      data-testid="sort-success"
-                    >
-                      Status
-                      <SortIcon column="success" sort={sort} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handleSort('timestamp')}
-                      className="hidden items-center gap-1 text-left hover:text-foreground sm:inline-flex"
-                      data-testid="sort-timestamp"
-                    >
-                      Time
-                      <SortIcon column="timestamp" sort={sort} />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Events table */}
-            {loading && events.length === 0 ? (
-              <div className="rounded-lg border p-8 text-center text-muted-foreground">
-                Loading events...
-              </div>
-            ) : events.length === 0 ? (
-              <div className="rounded-lg border p-8 text-center text-muted-foreground">
-                No events recorded yet. Events will appear here after database
-                operations.
-              </div>
-            ) : (
-              <div className="rounded-b-lg border-x border-b">
-                <div
-                  className="relative w-full"
-                  style={{ height: `${virtualizer.getTotalSize()}px` }}
-                >
-                  {virtualItems.map((virtualItem) => {
-                    const isLoaderRow = virtualItem.index >= events.length;
-
-                    if (isLoaderRow) {
-                      return (
-                        <div
-                          key="loader"
-                          className="absolute top-0 left-0 flex w-full items-center justify-center border-b p-4 text-muted-foreground text-xs sm:text-sm"
-                          style={{
-                            height: `${virtualItem.size}px`,
-                            transform: `translateY(${virtualItem.start}px)`
-                          }}
-                        >
-                          {loadingMore && (
-                            <>
-                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                              Loading more...
-                            </>
-                          )}
-                        </div>
-                      );
-                    }
-
-                    const event = events[virtualItem.index];
-                    if (!event) return null;
-
-                    return (
-                      <div
-                        key={event.id}
-                        data-index={virtualItem.index}
-                        data-testid="analytics-row"
-                        ref={virtualizer.measureElement}
-                        className="absolute top-0 left-0 w-full border-b text-xs last:border-0 sm:text-sm"
-                        style={{
-                          transform: `translateY(${virtualItem.start}px)`
-                        }}
-                      >
-                        <div className="grid grid-cols-[1fr_80px_80px] gap-2 px-2 py-2 sm:grid-cols-[1fr_100px_100px_160px] sm:gap-4 sm:px-4 sm:py-3">
-                          <div className="truncate font-medium">
-                            {getEventDisplayName(event.eventName)}
-                          </div>
-                          <div>
-                            <span className="inline-flex items-center gap-1">
-                              <Clock className="h-3 w-3 text-muted-foreground" />
-                              {formatDuration(event.durationMs)}
-                            </span>
-                          </div>
-                          <div>
-                            {event.success ? (
-                              <span className="inline-flex items-center gap-1 text-success">
-                                <CheckCircle
-                                  className="h-3 w-3 sm:h-4 sm:w-4"
-                                  aria-hidden="true"
-                                />
-                                <span className="sr-only sm:not-sr-only">
-                                  Success
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 text-destructive">
-                                <XCircle
-                                  className="h-3 w-3 sm:h-4 sm:w-4"
-                                  aria-hidden="true"
-                                />
-                                <span className="sr-only sm:not-sr-only">
-                                  Failed
-                                </span>
-                              </span>
-                            )}
-                          </div>
-                          <div className="hidden text-muted-foreground sm:block">
-                            {formatTime(event.timestamp)}
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-          </div>
+          <AnalyticsEventsPanel
+            parentRef={parentRef}
+            visibleEvents={visibleEvents}
+            selectedEventTypes={selectedEventTypes}
+            timeFilter={timeFilter}
+            firstVisible={firstVisible}
+            lastVisible={lastVisible}
+            events={events}
+            totalCount={totalCount}
+            hasMore={hasMore}
+            sort={sort}
+            onSort={handleSort}
+            loading={loading}
+            loadingMore={loadingMore}
+            virtualItems={virtualItems}
+            totalVirtualSize={virtualizer.getTotalSize()}
+            measureElement={handleMeasureElement}
+            formatDuration={formatDuration}
+            formatTime={formatTime}
+          />
         </div>
       )}
     </div>
