@@ -32,7 +32,8 @@ export async function loadClassicStateFromDatabase(): Promise<LoadedClassicState
     db
       .select({
         id: vfsRegistry.id,
-        objectType: vfsRegistry.objectType
+        objectType: vfsRegistry.objectType,
+        createdAt: vfsRegistry.createdAt
       })
       .from(vfsRegistry)
       .where(inArray(vfsRegistry.objectType, ['tag', 'note'])),
@@ -47,7 +48,9 @@ export async function loadClassicStateFromDatabase(): Promise<LoadedClassicState
       .select({
         id: notes.id,
         title: notes.title,
-        content: notes.content
+        content: notes.content,
+        createdAt: notes.createdAt,
+        updatedAt: notes.updatedAt
       })
       .from(notes)
       .where(eq(notes.deleted, false)),
@@ -55,7 +58,8 @@ export async function loadClassicStateFromDatabase(): Promise<LoadedClassicState
       .select({
         parentId: vfsLinks.parentId,
         childId: vfsLinks.childId,
-        position: vfsLinks.position
+        position: vfsLinks.position,
+        createdAt: vfsLinks.createdAt
       })
       .from(vfsLinks)
   ]);

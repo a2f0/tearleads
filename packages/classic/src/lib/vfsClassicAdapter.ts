@@ -1,3 +1,4 @@
+import { buildClassicSortMetadata } from './sorting';
 import type {
   ClassicNote,
   ClassicState,
@@ -107,13 +108,19 @@ export function buildClassicStateFromVfs(
   }
 
   const activeTagId = tags[0]?.id ?? null;
+  const sortMetadata = buildClassicSortMetadata({
+    registryRows: args.registryRows,
+    noteRows: args.noteRows,
+    linkRows: args.linkRows
+  });
 
   return {
     tags,
     deletedTags,
     notesById,
     noteOrderByTagId,
-    activeTagId
+    activeTagId,
+    sortMetadata
   };
 }
 
