@@ -69,7 +69,9 @@ import { api } from '@/lib/api';
 
 describe('useVfsKeys', () => {
   const mockKeyManager = {
-    getCurrentKey: vi.fn(() => new Uint8Array(32).fill(5))
+    getCurrentKey: vi.fn<() => Uint8Array | null>(
+      () => new Uint8Array(32).fill(5)
+    )
   };
 
   beforeEach(() => {
@@ -195,8 +197,7 @@ describe('useVfsKeys', () => {
 
     it('throws when database is not unlocked', async () => {
       vi.mocked(api.vfs.getMyKeys).mockRejectedValueOnce(new Error('404'));
-      // biome-ignore lint/suspicious/noExplicitAny: Testing null return for getCurrentKey
-      mockKeyManager.getCurrentKey.mockReturnValueOnce(null as any);
+      mockKeyManager.getCurrentKey.mockReturnValueOnce(null);
 
       await expect(ensureVfsKeys()).rejects.toThrow('Database is not unlocked');
     });
