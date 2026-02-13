@@ -39,6 +39,12 @@ variable "vm_size" {
   default     = "Standard_DC2as_v5"
 }
 
+variable "source_image_id" {
+  description = "Optional managed image ID for the VM. When null, uses the default Ubuntu CVM image."
+  type        = string
+  default     = null
+}
+
 variable "admin_username" {
   description = "Admin username for the VM."
   type        = string
