@@ -11,8 +11,8 @@ import type { Migration } from './types.js';
  * - marked_for_deletion_at: Timestamp when account was marked for deletion
  * - marked_for_deletion_by: User ID of admin who marked for deletion (FK to users)
  *
- * COMPLIANCE_SENTINEL: TL-ACCT-002 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=account-disable-attribution
- * COMPLIANCE_SENTINEL: TL-ACCT-003 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=deletion-marking-attribution
+ * COMPLIANCE_SENTINEL: TL-ACCT-002 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=account-disable-attribution
+ * COMPLIANCE_SENTINEL: TL-ACCT-003 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=deletion-marking-attribution
  */
 export const v017: Migration = {
   version: 17,

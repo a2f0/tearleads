@@ -70,13 +70,13 @@ export function RegisterForm({
       }
 
       if (password.length < PASSWORD_MIN_LENGTH) {
-        // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
+        // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
         setError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
         return;
       }
 
       if (!passwordMeetsComplexity(password)) {
-        // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
+        // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
         setError(PASSWORD_COMPLEXITY_ERROR);
         return;
       }

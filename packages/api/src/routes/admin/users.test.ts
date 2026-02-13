@@ -878,7 +878,7 @@ describe('admin users routes', () => {
     consoleError.mockRestore();
   });
 
-  // COMPLIANCE_SENTINEL: TL-ACCT-002 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=account-disable-attribution
+  // COMPLIANCE_SENTINEL: TL-ACCT-002 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=account-disable-attribution
   it('PATCH /v1/admin/users/:id disables a user and deletes sessions', async () => {
     mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
     mockQuery.mockImplementation((query: string) => {
@@ -964,7 +964,7 @@ describe('admin users routes', () => {
     expect(mockDeleteAllSessionsForUser).not.toHaveBeenCalled();
   });
 
-  // COMPLIANCE_SENTINEL: TL-ACCT-003 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=deletion-marking-attribution
+  // COMPLIANCE_SENTINEL: TL-ACCT-003 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=deletion-marking-attribution
   it('PATCH /v1/admin/users/:id marks user for deletion', async () => {
     mockGetPostgresPool.mockResolvedValue({ query: mockQuery });
     mockQuery.mockImplementation((query: string) => {

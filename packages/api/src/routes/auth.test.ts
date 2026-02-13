@@ -234,7 +234,7 @@ describe('Auth routes', () => {
       expect(response.body).toEqual({ error: 'Invalid email format' });
     });
 
-    // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/01-account-management-policy.md | procedure=compliance/SOC2/procedures/01-account-management-procedure.md | control=password-complexity
+    // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
     it('returns 400 for password too short', async () => {
       const response = await request(app)
         .post('/v1/auth/register')
