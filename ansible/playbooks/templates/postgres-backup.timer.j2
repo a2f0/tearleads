@@ -1,0 +1,10 @@
+[Unit]
+Description=Daily PostgreSQL database backup timer
+
+[Timer]
+OnCalendar=*-*-* {{ (backup_time.split(':') + ['00','00'])[:3] | join(':') }} {{ backup_timezone }}
+Persistent=true
+RandomizedDelaySec=300
+
+[Install]
+WantedBy=timers.target

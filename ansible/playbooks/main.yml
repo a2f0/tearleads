@@ -27,6 +27,11 @@
     postgresql_version: 16
     tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
     tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
+    # PostgreSQL backup configuration
+    backup_dir: /var/backups/postgres
+    backup_retention_days: 7
+    backup_time: "02:00"
+    backup_timezone: "UTC"
 
   tasks:
     - name: Add GitHub Actions deploy key to authorized_keys
@@ -429,6 +434,62 @@
     - name: Enable and start sync-last-active timer
       ansible.builtin.systemd:
         name: sync-last-active.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    # PostgreSQL daily backup
+    - name: Create PostgreSQL backup directory
+      ansible.builtin.file:
+        path: "{{ backup_dir }}"
+        state: directory
+        owner: postgres
+        group: postgres
+        mode: "0750"
+
+    - name: Deploy PostgreSQL backup script
+      ansible.builtin.template:
+        src: scripts/postgres-backup.sh.j2
+        dest: /usr/local/sbin/postgres-backup.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy PostgreSQL restore script
+      ansible.builtin.template:
+        src: scripts/postgres-restore.sh.j2
+        dest: /usr/local/sbin/postgres-restore.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy PostgreSQL list-backups script
+      ansible.builtin.template:
+        src: scripts/postgres-list-backups.sh.j2
+        dest: /usr/local/sbin/postgres-list-backups.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy postgres-backup systemd service
+      ansible.builtin.template:
+        src: postgres-backup.service.j2
+        dest: /etc/systemd/system/postgres-backup.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Deploy postgres-backup systemd timer
+      ansible.builtin.template:
+        src: postgres-backup.timer.j2
+        dest: /etc/systemd/system/postgres-backup.timer
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable and start postgres-backup timer
+      ansible.builtin.systemd:
+        name: postgres-backup.timer
         enabled: true
         state: started
         daemon_reload: true

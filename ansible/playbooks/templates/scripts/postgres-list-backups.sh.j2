@@ -1,0 +1,18 @@
+#!/bin/bash
+
+# PostgreSQL List Backups Script
+# Lists all available database backups
+
+BACKUP_DIR="{{ backup_dir }}"
+
+echo "=== PostgreSQL Backups ==="
+echo "Backup directory: ${BACKUP_DIR}"
+echo ""
+
+if ls "${BACKUP_DIR}"/tearleads-*-Fc 1>/dev/null 2>&1; then
+    ls -lh "${BACKUP_DIR}"/tearleads-*-Fc
+    echo ""
+    echo "Total size: $(du -sh "${BACKUP_DIR}" | cut -f1)"
+else
+    echo "No backups found."
+fi

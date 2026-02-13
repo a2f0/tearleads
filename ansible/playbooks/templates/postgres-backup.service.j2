@@ -1,0 +1,10 @@
+[Unit]
+Description=PostgreSQL database backup
+After=postgresql.service
+Requires=postgresql.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/postgres-backup.sh
+StandardOutput=journal
+StandardError=journal
