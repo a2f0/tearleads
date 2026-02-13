@@ -43,13 +43,12 @@ pnpm cap sync
 echo "Installing Ruby gems..."
 bundle install
 
-# Clean install CocoaPods to ensure fresh native dependencies.
-# This prevents stale xcframework caches from causing build failures
-# when native libraries are updated in merged PRs.
-echo "Clean installing CocoaPods..."
+# Install CocoaPods using the committed Podfile.lock.
+# Clean installs belong in update-everything (when dependencies change),
+# not in refresh (which restores to the committed state).
+echo "Installing CocoaPods..."
 cd "$CLIENT_DIR/ios/App"
-rm -rf Pods Podfile.lock
-bundle exec pod install --repo-update
+bundle exec pod install
 
 # Return to repo root
 cd "$REPO_ROOT"
