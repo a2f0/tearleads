@@ -16,6 +16,7 @@ Update all of the dependencies in the `packages` folder and:
 - Make sure Capacitor's Podfile.lock is sync'd (`cap:sync` should pass).
 - Clean and reinstall CocoaPods to ensure fresh native dependencies (see CocoaPods section below).
 - Update Ruby dependencies in `packages/client` (Gemfile and Gemfile.lock), including fastlane.
+- Automatically sync Node/Electron and Android SDK levels before dependency updates (see Toolchain Sync section below).
 - Update the Gradle wrapper if a new version is available (see Gradle Version Update section below).
 - Make sure Maestro tests pass (both iOS and Android).
 - Commit and push changes using `/commit-and-push`.
@@ -29,9 +30,30 @@ Use the shared update script:
 ./scripts/updateEverything.sh
 ```
 
-Optional toggles (set to `1` as needed): `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+Optional toggles (set to `1` as needed): `SKIP_TOOLCHAIN_SYNC`, `SKIP_TOOLCHAIN_NODE`, `SKIP_TOOLCHAIN_ANDROID`, `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
+
+Additional toolchain controls:
+
+- `TOOLCHAIN_SYNC_MAX_ANDROID_JUMP=<n>`: limit Android API-level bump in one run (default: `1`)
+- `TOOLCHAIN_SYNC_ALLOW_RUNTIME_MISMATCH=1`: continue even when active `node` runtime differs from updated `.nvmrc`
 
 The script also fails fast if `@capacitor/*` versions in `packages/client/package.json` drift from the resolved versions in `packages/client/ios/App/Podfile.lock`.
+
+## Toolchain Sync (Automatic)
+
+`./scripts/updateEverything.sh` now runs `./scripts/syncToolchainVersions.sh --apply` before dependency updates:
+
+1. **Node/Electron**: reads `electron` from `packages/client/package.json`, resolves its bundled Node version from `https://releases.electronjs.org/releases.json`, then aligns:
+   - `.nvmrc`
+   - `package.json` `engines.node`
+2. **Android SDK levels**: reads latest stable platform API from `https://dl.google.com/android/repository/repository2-1.xml`, then bumps:
+   - `packages/client/android/variables.gradle` `compileSdkVersion`
+   - `packages/client/android/variables.gradle` `targetSdkVersion`
+
+Guardrails:
+
+- Android bumps are capped by `TOOLCHAIN_SYNC_MAX_ANDROID_JUMP` to avoid large blind jumps.
+- If Node files are updated and active runtime does not match `.nvmrc`, the toolchain script exits so you can run `nvm use` and rerun.
 
 ## CocoaPods Clean Install
 
@@ -92,7 +114,7 @@ bundle exec fastlane ios build_release --dry_run
 
 ## Node.js Version Alignment
 
-When updating `electron`, ensure Node.js versions are aligned:
+Node alignment is now automatic via toolchain sync. For manual fallback, when updating `electron`, ensure Node.js versions are aligned:
 
 1. Check Electron's bundled Node.js version at <https://releases.electronjs.org/>
 2. Update `.nvmrc` to match Electron's Node.js version (e.g., `v22.21.1`)
