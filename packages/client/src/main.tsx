@@ -130,6 +130,16 @@ const HelpDocPage = lazy(() =>
 const Help = lazy(() =>
   import('./pages/help/Help').then((m) => ({ default: m.Help }))
 );
+const Compliance = lazy(() =>
+  import('./pages/compliance/Compliance').then((m) => ({
+    default: m.Compliance
+  }))
+);
+const ComplianceDocPage = lazy(() =>
+  import('./pages/compliance/ComplianceDoc').then((m) => ({
+    default: m.ComplianceDocPage
+  }))
+);
 const DocumentDetail = lazy(() =>
   import('./pages/DocumentDetail').then((m) => ({ default: m.DocumentDetail }))
 );
@@ -361,6 +371,14 @@ if (rootElement) {
                                         <Route
                                           path="help/docs/:docId"
                                           element={<HelpDocPage />}
+                                        />
+                                        <Route
+                                          path="compliance"
+                                          element={<Compliance />}
+                                        />
+                                        <Route
+                                          path="compliance/:framework/*"
+                                          element={<ComplianceDocPage />}
                                         />
                                         <Route
                                           path="ai"

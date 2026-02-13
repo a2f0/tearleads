@@ -17,8 +17,10 @@ export function AdminLauncher() {
       </div>
 
       <AdminOptionsGrid
-        onSelect={(id) => navigate(`/admin/${id}`)}
-        gridClassName="lg:grid-cols-5"
+        onSelect={(id) =>
+          navigate(id === 'compliance' ? '/compliance' : `/admin/${id}`)
+        }
+        gridClassName="lg:grid-cols-6"
       />
     </div>
   );

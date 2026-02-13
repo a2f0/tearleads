@@ -62,6 +62,7 @@
     "@tearleads/businesses": "workspace:*",
     "@tearleads/calendar": "workspace:*",
     "@tearleads/classic": "workspace:*",
+    "@tearleads/compliance": "workspace:*",
     "@tearleads/contacts": "workspace:*",
     "@tearleads/db": "workspace:*",
     "@tearleads/email": "workspace:*",
