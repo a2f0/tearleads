@@ -1,0 +1,5 @@
+# Python dependencies for CI linting
+# Used by ansible-lint step in .github/workflows/build.yml
+ansible-lint==26.1.1
+ansible==13.3.0
+passlib==1.7.4
