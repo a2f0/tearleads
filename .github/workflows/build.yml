@@ -279,6 +279,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
       - name: Setup Ruby
         if: ${{ vars.USE_SELF_HOSTED != 'true' }}
         uses: ruby/setup-ruby@v1
@@ -286,6 +295,9 @@ jobs:
           ruby-version: '3.3.0'
           bundler-cache: true
           working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
 
       - name: Install bashcov
         run: gem install bashcov
@@ -380,12 +392,13 @@ jobs:
       - name: Check job results
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
-          if [ "${{ needs.lint.result }}" = "failure" ] || \
-             [ "${{ needs.guardrails.result }}" = "failure" ] || \
-             [ "${{ needs.typecheck-build.result }}" = "failure" ] || \
-             [ "${{ needs.test.result }}" = "failure" ] || \
-             [ "${{ needs.test-tuxedo.result }}" = "failure" ]; then
-            echo "One or more jobs failed"
+          if [ "${{ needs.lint.result }}" != "success" ] || \
+             [ "${{ needs.guardrails.result }}" != "success" ] || \
+             [ "${{ needs.typecheck-build.result }}" != "success" ] || \
+             [ "${{ needs.test.result }}" != "success" ] || \
+             [ "${{ needs.test-tuxedo.result }}" != "success" ] || \
+             [ "${{ needs.coverage-summary.result }}" != "success" ]; then
+            echo "One or more jobs did not complete successfully"
             exit 1
           fi
           echo "All jobs passed successfully"

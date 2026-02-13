@@ -265,7 +265,7 @@ jobs:
   # Merge reports and validate backups
   finalize:
     name: Finalize E2E Tests
-    needs: [detect-impact, test]
+    needs: [detect-impact, build, test]
     if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -342,11 +342,15 @@ jobs:
 
       - name: Check test results
         run: |
-          if [ "${{ needs.test.result }}" = "failure" ]; then
-            echo "One or more test shards failed"
+          if [ "${{ needs.build.result }}" != "success" ]; then
+            echo "Build job did not complete successfully"
             exit 1
           fi
-          echo "All test shards passed"
+          if [ "${{ needs.test.result }}" != "success" ]; then
+            echo "One or more test shards did not complete successfully"
+            exit 1
+          fi
+          echo "Build and test shards passed"
 
   # Final status job for branch protection (maintains same job name)
   web-e2e:
@@ -365,7 +369,7 @@ jobs:
       - name: Check finalize result
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
-          if [ "${{ needs.finalize.result }}" = "failure" ]; then
+          if [ "${{ needs.finalize.result }}" != "success" ]; then
             echo "E2E tests failed"
             exit 1
           fi
