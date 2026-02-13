@@ -2,7 +2,10 @@ import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMe
 import { AiRequestsAdminPage } from '@admin/pages/admin/AiRequestsAdminPage';
 import { UsersAdmin } from '@admin/pages/admin/UsersAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
-import { WindowControlButton, WindowControlGroup } from '@tearleads/window-manager';
+import {
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';

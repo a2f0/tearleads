@@ -3,7 +3,10 @@ import { GroupDetailPage } from '@admin/pages/admin/GroupDetailPage';
 import { OrganizationDetailPage } from '@admin/pages/admin/OrganizationDetailPage';
 import { OrganizationsAdmin } from '@admin/pages/admin/OrganizationsAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
-import { WindowControlButton, WindowControlGroup } from '@tearleads/window-manager';
+import {
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -136,10 +139,7 @@ export function AdminOrganizationsWindow({
               onGroupSelect={handleGroupSelect}
             />
           ) : view.type === 'user' ? (
-            <UsersAdminDetail
-              userId={view.userId}
-              backLink={false}
-            />
+            <UsersAdminDetail userId={view.userId} backLink={false} />
           ) : (
             <GroupDetailPage
               groupId={view.groupId}

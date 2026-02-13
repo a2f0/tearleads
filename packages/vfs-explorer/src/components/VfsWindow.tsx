@@ -1,5 +1,5 @@
-import { useCallback, useState } from 'react';
 import { WindowControlBar } from '@tearleads/window-manager';
+import { useCallback, useState } from 'react';
 import { useVfsExplorerContext, type WindowDimensions } from '../context';
 import { NewFolderDialog } from './NewFolderDialog';
 import { VfsExplorer, type VfsOpenItem } from './VfsExplorer';

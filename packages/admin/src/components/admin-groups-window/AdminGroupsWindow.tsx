@@ -1,7 +1,10 @@
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
 import { GroupDetailPage } from '@admin/pages/admin/GroupDetailPage';
 import { GroupsAdmin } from '@admin/pages/admin/GroupsAdmin';
-import { WindowControlButton, WindowControlGroup } from '@tearleads/window-manager';
+import {
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';

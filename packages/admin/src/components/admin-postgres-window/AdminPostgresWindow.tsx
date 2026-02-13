@@ -1,7 +1,10 @@
 import { PostgresTableRowsView } from '@admin/components/admin-postgres/PostgresTableRowsView';
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
 import { PostgresAdmin } from '@admin/pages/admin/PostgresAdmin';
-import { WindowControlButton, WindowControlGroup } from '@tearleads/window-manager';
+import {
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
