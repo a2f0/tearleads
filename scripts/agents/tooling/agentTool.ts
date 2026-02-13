@@ -19,6 +19,7 @@ type SafetyClass = 'safe_read' | 'safe_write_local' | 'safe_write_remote';
 
 type ActionName =
   | 'refresh'
+  | 'syncToolchainVersions'
   | 'setVscodeTitle'
   | 'solicitCodexReview'
   | 'solicitClaudeCodeReview'
@@ -41,6 +42,11 @@ type ActionName =
   | 'findDeferredWork';
 
 interface GlobalOptions {
+  apply?: boolean;
+  check?: boolean;
+  skipNode?: boolean;
+  skipAndroid?: boolean;
+  maxAndroidJump?: number;
   title?: string;
   type?: 'pr' | 'issue';
   number?: number;
@@ -97,6 +103,12 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     retrySafe: false,
     isInline: false,
     scriptPath: (_repo, agents) => path.join(agents, 'refresh.sh'),
+  },
+  syncToolchainVersions: {
+    safetyClass: 'safe_write_local',
+    retrySafe: true,
+    isInline: false,
+    scriptPath: (repo) => path.join(repo, 'scripts', 'syncToolchainVersions.sh'),
   },
   setVscodeTitle: {
     safetyClass: 'safe_write_local',
@@ -602,6 +614,21 @@ function runDelegatedAction(
 
   if (action === 'setVscodeTitle' && options.title) {
     args.push('--title', options.title);
+  } else if (action === 'syncToolchainVersions') {
+    if (options.apply) {
+      args.push('--apply');
+    } else {
+      args.push('--check');
+    }
+    if (options.skipNode) {
+      args.push('--skip-node');
+    }
+    if (options.skipAndroid) {
+      args.push('--skip-android');
+    }
+    if (options.maxAndroidJump !== undefined) {
+      args.push('--max-android-jump', String(options.maxAndroidJump));
+    }
   } else if (action === 'addLabel') {
     args.push('--type', options.type!);
     args.push('--number', String(options.number));
@@ -630,6 +657,23 @@ function createActionCommand(actionName: ActionName): Command {
 
   // Action-specific options
   switch (actionName) {
+    case 'syncToolchainVersions':
+      cmd
+        .option('--apply', 'Write updates to files')
+        .option('--check', 'Check only (default)')
+        .option('--skip-node', 'Skip Electron -> Node alignment')
+        .option('--skip-android', 'Skip Android SDK alignment')
+        .option('--max-android-jump <n>', 'Max Android API bump in one run', (v) =>
+          parsePositiveInt(v, '--max-android-jump')
+        )
+        .hook('preAction', (thisCommand) => {
+          const opts = thisCommand.opts();
+          if (opts.apply && opts.check) {
+            console.error('error: choose at most one of --apply or --check');
+            process.exit(1);
+          }
+        });
+      break;
     case 'setVscodeTitle':
       cmd.option('--title <value>', 'Title to set');
       break;
