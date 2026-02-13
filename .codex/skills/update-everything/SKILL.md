@@ -147,6 +147,18 @@ Type 'SQL<unknown>' is not assignable to type 'SQL<unknown>'.
 
 Then run `pnpm install` to apply.
 
+## Known Flaky CI Issues
+
+Some CI failures are transient infrastructure issues:
+
+### Android Instrumented Tests Packaging
+
+`capacitor-community-sqlite:packageDebugAndroidTest` may fail with `PackageAndroidArtifact$IncrementalSplitterRunnable` error. **Fix**: Rerun workflow (Gradle cache issue).
+
+### PDF Worker E2E Tests
+
+PDF loading tests may timeout after pdfjs-dist updates (shows "Loading..." instead of "Page 1 of"). **Fix**: Usually transient - rerun. If persistent, verify worker path and Vite config.
+
 ## Warnings/Deprecations
 
 Collect warnings/deprecations from `pnpm`, bundler, CocoaPods, Gradle, and test runs. Summarize them in the final response along with any required follow-ups.

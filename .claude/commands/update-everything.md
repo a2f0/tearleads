@@ -212,6 +212,42 @@ Type 'SQL<unknown>' is not assignable to type 'SQL<unknown>'.
 
 Then run `pnpm install` to apply the override.
 
+## Known Flaky CI Issues
+
+Some CI failures are transient infrastructure issues, not code problems:
+
+### Android Instrumented Tests Packaging
+
+The `capacitor-community-sqlite:packageDebugAndroidTest` task occasionally fails with:
+
+```text
+Execution failed for task ':capacitor-community-sqlite:packageDebugAndroidTest'.
+> A failure occurred while executing PackageAndroidArtifact$IncrementalSplitterRunnable
+```
+
+**Fix**: Rerun the workflow - this is a Gradle incremental build cache issue.
+
+### PDF Worker E2E Tests
+
+The `should load PDF without fake worker warning` test may timeout after pdfjs-dist updates:
+
+```text
+Expected substring: "Page 1 of"
+Timeout: 30000ms
+Error: element(s) not found (shows "Loading...")
+```
+
+**Causes**:
+
+- PDF worker initialization timing varies across environments
+- pdfjs-dist updates may change worker loading behavior
+
+**Fix**: Usually transient - rerun the workflow. If persistent, check:
+
+1. Worker path: `pdfjs-dist/build/pdf.worker.min.mjs` still exists
+2. Vite config properly handles worker imports
+3. Consider increasing test timeout if loading is slower
+
 ## Token Efficiency
 
 The update script and its sub-commands produce thousands of lines of output. Suppress stdout where only the exit code matters:
