@@ -1567,6 +1567,18 @@ describe('WindowRenderer', () => {
       }
     },
     {
+      label: 'sync',
+      type: 'sync',
+      id: 'sync-1',
+      windowTestId: 'sync-window-sync-1',
+      closeTestId: 'close-sync-1',
+      focusTestId: 'sync-window-sync-1',
+      minimize: {
+        testId: 'minimize-sync-1',
+        dimensions: { x: 0, y: 0, width: 400, height: 450 }
+      }
+    },
+    {
       label: 'opfs',
       type: 'opfs',
       id: 'opfs-1',
