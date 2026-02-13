@@ -6,6 +6,19 @@
 @source "../../calendar/src";
 @source "../../ui/src";
 
+:root.square-corners {
+  --radius: 0rem;
+  --radius-xs: 0rem;
+  --radius-sm: 0rem;
+  --radius-md: 0rem;
+  --radius-lg: 0rem;
+  --radius-xl: 0rem;
+  --radius-2xl: 0rem;
+  --radius-3xl: 0rem;
+  --radius-4xl: 0rem;
+  --scrollbar-radius: 0rem;
+}
+
 /* Edge-to-edge safe area handling */
 .safe-area-inset {
   padding-top: env(safe-area-inset-top);

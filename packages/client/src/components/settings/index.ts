@@ -1,3 +1,4 @@
+export { BorderRadiusToggle } from './BorderRadiusToggle';
 export { DisplayPropertiesWindow } from './DisplayPropertiesWindow';
 export { FeatureFlags } from './FeatureFlags';
 export { FontSelector } from './FontSelector';

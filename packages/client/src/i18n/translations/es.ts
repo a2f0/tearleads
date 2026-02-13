@@ -123,6 +123,11 @@ export const es = {
     windowOpacityDescription:
       'Elige si las ventanas flotantes son translúcidas o completamente opacas',
     windowOpacityTranslucent: 'Translúcido',
-    windowOpacityOpaque: 'Opaco'
+    windowOpacityOpaque: 'Opaco',
+    borderRadius: 'Radio de bordes',
+    borderRadiusDescription:
+      'Elige si la interfaz y las ventanas usan esquinas redondeadas o rectas',
+    borderRadiusRounded: 'Redondeado',
+    borderRadiusSquare: 'Recto'
   }
 } as const satisfies I18NextTranslations;

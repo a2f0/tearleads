@@ -25,6 +25,8 @@ vi.mock('@/db/SettingsProvider', () => ({
           return 'monochrome';
         case 'tooltips':
           return 'enabled';
+        case 'borderRadius':
+          return 'rounded';
         default:
           return 'enabled';
       }
@@ -85,6 +87,12 @@ describe('Settings', () => {
 
     it('renders the feature flags panel', () => {
       expect(screen.getByTestId('feature-flags-panel')).toBeInTheDocument();
+    });
+
+    it('renders the border radius toggle', () => {
+      expect(
+        screen.getByTestId('border-radius-toggle-container')
+      ).toBeInTheDocument();
     });
 
     it('renders the icon depth toggle', () => {

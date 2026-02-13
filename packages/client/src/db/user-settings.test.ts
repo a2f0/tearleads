@@ -57,6 +57,7 @@ import {
   dispatchSettingsSyncedEvent,
   getSettingFromStorage,
   getSettingsFromDb,
+  isBorderRadiusValue,
   isDesktopIconBackgroundValue,
   isDesktopIconDepthValue,
   isDesktopPatternValue,
@@ -189,6 +190,19 @@ describe('user-settings', () => {
         expect(isWindowOpacityValue('OPAQUE')).toBe(false);
       });
     });
+
+    describe('isBorderRadiusValue', () => {
+      it('returns true for valid border radius values', () => {
+        expect(isBorderRadiusValue('rounded')).toBe(true);
+        expect(isBorderRadiusValue('square')).toBe(true);
+      });
+
+      it('returns false for invalid border radius values', () => {
+        expect(isBorderRadiusValue('soft')).toBe(false);
+        expect(isBorderRadiusValue('')).toBe(false);
+        expect(isBorderRadiusValue('ROUNDED')).toBe(false);
+      });
+    });
   });
 
   describe('constants', () => {
@@ -201,6 +215,7 @@ describe('user-settings', () => {
       expect(SETTING_DEFAULTS.desktopIconDepth).toBe('debossed');
       expect(SETTING_DEFAULTS.desktopIconBackground).toBe('colored');
       expect(SETTING_DEFAULTS.windowOpacity).toBe('translucent');
+      expect(SETTING_DEFAULTS.borderRadius).toBe('rounded');
     });
 
     it('has correct storage keys', () => {
@@ -214,6 +229,7 @@ describe('user-settings', () => {
         'desktopIconBackground'
       );
       expect(SETTING_STORAGE_KEYS.windowOpacity).toBe('windowOpacity');
+      expect(SETTING_STORAGE_KEYS.borderRadius).toBe('borderRadius');
     });
   });
 
@@ -227,6 +243,7 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('desktopIconDepth')).toBeNull();
       expect(getSettingFromStorage('desktopIconBackground')).toBeNull();
       expect(getSettingFromStorage('windowOpacity')).toBeNull();
+      expect(getSettingFromStorage('borderRadius')).toBeNull();
     });
 
     it('returns theme value from localStorage', () => {
@@ -271,6 +288,11 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('windowOpacity')).toBe('opaque');
     });
 
+    it('returns borderRadius value from localStorage', () => {
+      localStorageData['borderRadius'] = 'square';
+      expect(getSettingFromStorage('borderRadius')).toBe('square');
+    });
+
     it('returns null for invalid theme value', () => {
       localStorageData['theme'] = 'invalid-theme';
       expect(getSettingFromStorage('theme')).toBeNull();
@@ -309,6 +331,11 @@ describe('user-settings', () => {
     it('returns null for invalid windowOpacity value', () => {
       localStorageData['windowOpacity'] = 'invalid';
       expect(getSettingFromStorage('windowOpacity')).toBeNull();
+    });
+
+    it('returns null for invalid borderRadius value', () => {
+      localStorageData['borderRadius'] = 'invalid';
+      expect(getSettingFromStorage('borderRadius')).toBeNull();
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -377,6 +404,14 @@ describe('user-settings', () => {
       expect(localStorage.setItem).toHaveBeenCalledWith(
         'windowOpacity',
         'opaque'
+      );
+    });
+
+    it('sets borderRadius in localStorage', () => {
+      setSettingInStorage('borderRadius', 'square');
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        'borderRadius',
+        'square'
       );
     });
 
@@ -480,6 +515,16 @@ describe('user-settings', () => {
       expect(result.windowOpacity).toBe('opaque');
     });
 
+    it('returns borderRadius from database', async () => {
+      mockWhere.mockResolvedValueOnce([
+        { key: 'borderRadius', value: 'square' }
+      ]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.borderRadius).toBe('square');
+    });
+
     it('returns both theme and language from database', async () => {
       mockWhere.mockResolvedValueOnce([
         { key: 'theme', value: 'tokyo-night' },
@@ -576,6 +621,16 @@ describe('user-settings', () => {
 
       expect(result.windowOpacity).toBeUndefined();
     });
+
+    it('ignores invalid borderRadius values', async () => {
+      mockWhere.mockResolvedValueOnce([
+        { key: 'borderRadius', value: 'invalid' }
+      ]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.borderRadius).toBeUndefined();
+    });
   });
 
   describe('saveSettingToDb', () => {
@@ -611,6 +666,18 @@ describe('user-settings', () => {
         expect.objectContaining({
           key: 'tooltips',
           value: 'disabled'
+        })
+      );
+    });
+
+    it('inserts borderRadius with correct values', async () => {
+      await saveSettingToDb(mockDb, 'borderRadius', 'square');
+
+      expect(mockDb.insert).toHaveBeenCalled();
+      expect(mockValues).toHaveBeenCalledWith(
+        expect.objectContaining({
+          key: 'borderRadius',
+          value: 'square'
         })
       );
     });

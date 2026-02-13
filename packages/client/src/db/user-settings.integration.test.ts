@@ -200,6 +200,7 @@ describe('user-settings integration', () => {
           await saveSettingToDb(db, 'desktopPattern', 'honeycomb');
           await saveSettingToDb(db, 'desktopIconDepth', 'embossed');
           await saveSettingToDb(db, 'desktopIconBackground', 'transparent');
+          await saveSettingToDb(db, 'borderRadius', 'square');
 
           // Act
           const result = await getSettingsFromDb(db);
@@ -212,7 +213,8 @@ describe('user-settings integration', () => {
             font: 'system',
             desktopPattern: 'honeycomb',
             desktopIconDepth: 'embossed',
-            desktopIconBackground: 'transparent'
+            desktopIconBackground: 'transparent',
+            borderRadius: 'square'
           });
         },
         { migrations: commonTestMigrations }

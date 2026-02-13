@@ -1,6 +1,7 @@
 import { WindowControlBar } from '@tearleads/window-manager';
 import { FloatingWindow } from '@/components/floating-window';
 import { ScreensaverButton } from '@/components/screensaver';
+import { BorderRadiusToggle } from './BorderRadiusToggle';
 import { DisplayPropertiesWindowMenuBar } from './DisplayPropertiesWindowMenuBar';
 import { FontSelector } from './FontSelector';
 import { IconBackgroundToggle } from './IconBackgroundToggle';
@@ -42,6 +43,7 @@ export function DisplayPropertiesWindow({
           <IconDepthToggle />
           <IconBackgroundToggle />
           <FontSelector />
+          <BorderRadiusToggle />
           <ScreensaverButton />
         </div>
       </div>

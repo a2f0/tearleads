@@ -119,6 +119,10 @@ export interface SettingsTranslations {
   windowOpacityDescription: string;
   windowOpacityTranslucent: string;
   windowOpacityOpaque: string;
+  borderRadius: string;
+  borderRadiusDescription: string;
+  borderRadiusRounded: string;
+  borderRadiusSquare: string;
 }
 
 export interface Translations {
