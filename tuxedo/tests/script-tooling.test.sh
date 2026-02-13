@@ -131,5 +131,89 @@ BUNDLE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileS
 assert_contains "$BUNDLE_STATUS" "success|analyzeBundle"
 echo "Test 13 passed: analyzeBundle dry-run succeeds"
 
+# Test 14: updateEverything requires explicit --mode
+if run_tool updateEverything --repo-root "$REPO_ROOT" --dry-run >/dev/null 2>&1; then
+    fail "expected updateEverything without --mode to fail"
+fi
+echo "Test 14 passed: updateEverything requires --mode"
+
+# Test 15: updateEverything non-dry-run requires --confirm
+if run_tool updateEverything --repo-root "$REPO_ROOT" --mode quick >/dev/null 2>&1; then
+    fail "expected updateEverything without --confirm to fail"
+fi
+echo "Test 15 passed: updateEverything requires --confirm for non-dry-run"
+
+# Test 16: updateEverything quick dry-run should succeed
+UPDATE_JSON="$TEMP_DIR/updateEverything.json"
+run_tool updateEverything --repo-root "$REPO_ROOT" --mode quick --dry-run --json >"$UPDATE_JSON"
+assert_file_exists "$UPDATE_JSON"
+UPDATE_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${String(d.dry_run)}`);' "$UPDATE_JSON")
+assert_contains "$UPDATE_STATUS" "success|updateEverything|true"
+echo "Test 16 passed: updateEverything quick dry-run succeeds"
+
+# Test 17: syncCliAuth should require --confirm
+if run_tool syncCliAuth --repo-root "$REPO_ROOT" --host test@example.com >/dev/null 2>&1; then
+    fail "expected syncCliAuth without --confirm to fail"
+fi
+echo "Test 17 passed: syncCliAuth requires --confirm"
+
+# Test 18: syncCliAuth dry-run should succeed with explicit confirmation
+SYNC_JSON="$TEMP_DIR/syncCliAuth.json"
+run_tool syncCliAuth --repo-root "$REPO_ROOT" --host test@example.com --confirm --dry-run --json >"$SYNC_JSON"
+assert_file_exists "$SYNC_JSON"
+SYNC_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${d.safety_class}`);' "$SYNC_JSON")
+assert_contains "$SYNC_STATUS" "success|syncCliAuth|safe_write_remote"
+echo "Test 18 passed: syncCliAuth dry-run succeeds"
+
+# Test 19: tuxedoKill should require --scope
+if run_tool tuxedoKill --repo-root "$REPO_ROOT" --confirm >/dev/null 2>&1; then
+    fail "expected tuxedoKill without --scope to fail"
+fi
+echo "Test 19 passed: tuxedoKill requires --scope"
+
+# Test 20: tuxedoKill should reject unsupported scope
+if run_tool tuxedoKill --repo-root "$REPO_ROOT" --scope tmux --confirm >/dev/null 2>&1; then
+    fail "expected tuxedoKill with unsupported scope to fail"
+fi
+echo "Test 20 passed: tuxedoKill rejects unsupported scope"
+
+# Test 21: tuxedoKill dry-run succeeds with explicit scope/confirm
+TUXEDO_KILL_JSON="$TEMP_DIR/tuxedoKill.json"
+run_tool tuxedoKill --repo-root "$REPO_ROOT" --scope all --confirm --dry-run --json >"$TUXEDO_KILL_JSON"
+assert_file_exists "$TUXEDO_KILL_JSON"
+TUXEDO_KILL_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}`);' "$TUXEDO_KILL_JSON")
+assert_contains "$TUXEDO_KILL_STATUS" "success|tuxedoKill"
+echo "Test 21 passed: tuxedoKill dry-run succeeds"
+
+# Test 22: device/environment wrappers should parse dry-run options
+RUNIOS_JSON="$TEMP_DIR/runIos.json"
+run_tool runIos --repo-root "$REPO_ROOT" --device "iPhone 16 Pro" --dry-run --json >"$RUNIOS_JSON"
+assert_file_exists "$RUNIOS_JSON"
+RUNIOS_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}`);' "$RUNIOS_JSON")
+assert_contains "$RUNIOS_STATUS" "success|runIos"
+echo "Test 22 passed: runIos dry-run succeeds"
+
+# Test 23: runMaestroAndroidTests dry-run should accept optional flags
+MAESTRO_ANDROID_JSON="$TEMP_DIR/runMaestroAndroidTests.json"
+run_tool runMaestroAndroidTests --repo-root "$REPO_ROOT" --headless --record-video --video-seconds 90 --flow dark-mode-switcher.yaml --dry-run --json >"$MAESTRO_ANDROID_JSON"
+assert_file_exists "$MAESTRO_ANDROID_JSON"
+MAESTRO_ANDROID_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}`);' "$MAESTRO_ANDROID_JSON")
+assert_contains "$MAESTRO_ANDROID_STATUS" "success|runMaestroAndroidTests"
+echo "Test 23 passed: runMaestroAndroidTests dry-run succeeds"
+
+# Test 24: setupTuxedoRepos dry-run should accept env overrides
+SETUP_TUXEDO_JSON="$TEMP_DIR/setupTuxedoRepos.json"
+run_tool setupTuxedoRepos --repo-root "$REPO_ROOT" --base-dir /tmp/tux --workspace-count 4 --dry-run --json >"$SETUP_TUXEDO_JSON"
+assert_file_exists "$SETUP_TUXEDO_JSON"
+SETUP_TUXEDO_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}`);' "$SETUP_TUXEDO_JSON")
+assert_contains "$SETUP_TUXEDO_STATUS" "success|setupTuxedoRepos"
+echo "Test 24 passed: setupTuxedoRepos dry-run succeeds"
+
+# Test 25: help output includes phase-3 actions
+assert_contains "$HELP_OUTPUT" "updateEverything"
+assert_contains "$HELP_OUTPUT" "runIos"
+assert_contains "$HELP_OUTPUT" "syncCliAuth"
+echo "Test 25 passed: --help includes phase-3 actions"
+
 echo ""
 echo "All tests passed."
