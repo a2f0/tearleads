@@ -1,6 +1,6 @@
+import { ClientTerminal } from '@client/components/terminal';
+import { BackLink } from '@client/components/ui/back-link';
 import { Terminal as TerminalIcon } from 'lucide-react';
-import { ClientTerminal } from '@/components/terminal';
-import { BackLink } from '@/components/ui/back-link';
 
 export function Console() {
   return (

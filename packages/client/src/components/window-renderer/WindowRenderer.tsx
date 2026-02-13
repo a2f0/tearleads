@@ -1,3 +1,4 @@
+import { ConsoleWindow } from '@tearleads/console';
 import { KeychainWindow } from '@tearleads/keychain';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
@@ -14,7 +15,6 @@ import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { CalendarWindow } from '@/components/calendar-window';
 import { ChatWindow } from '@/components/chat-window';
 import { ClassicWindow } from '@/components/classic-window';
-import { ConsoleWindow } from '@/components/console-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { DebugWindow } from '@/components/debug-window';
 import { DocumentsWindow } from '@/components/documents-window';
