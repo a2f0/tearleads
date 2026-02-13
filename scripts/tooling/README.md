@@ -1,11 +1,11 @@
 # Script Tool Wrappers (Phase 2)
 
-`scriptTool.sh` is a thin wrapper around utility scripts in `scripts/` for safer tool-calling.
+`scriptTool.ts` is a thin wrapper around utility scripts in `scripts/` for safer tool-calling.
 
 ## Usage
 
 ```sh
-./scripts/tooling/scriptTool.sh <action> [options]
+./scripts/tooling/scriptTool.ts <action> [options]
 ```
 
 ## Actions
@@ -55,22 +55,22 @@
 
 ```sh
 # Analyze CI impact between commits
-./scripts/tooling/scriptTool.sh ciImpact --base origin/main --head HEAD --json
+./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json
 
 # Run impacted quality checks
-./scripts/tooling/scriptTool.sh runImpactedQuality --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
 
 # Run impacted tests only
-./scripts/tooling/scriptTool.sh runImpactedTests --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
 
 # Check for binary files in staged changes
-./scripts/tooling/scriptTool.sh checkBinaryFiles --staged --json
+./scripts/tooling/scriptTool.ts checkBinaryFiles --staged --json
 
 # Run Playwright tests with filter
-./scripts/tooling/scriptTool.sh runPlaywrightTests --filter "login" --headed
+./scripts/tooling/scriptTool.ts runPlaywrightTests --filter "login" --headed
 
 # Dry-run to validate command
-./scripts/tooling/scriptTool.sh runAllTests --dry-run --json
+./scripts/tooling/scriptTool.ts runAllTests --dry-run --json
 ```
 
 ## JSON Output Format
