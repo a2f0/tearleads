@@ -9,9 +9,9 @@ description: Guarantee a PR merges by handling CI, addressing Gemini review feed
 
 **This skill MUST run continuously until the PR state is `MERGED`.** Do NOT exit after:
 
-- Running `/address-gemini-feedback` - continue the loop
-- Running `/follow-up-with-gemini` - continue the loop
-- Running `/fix-tests` - continue the loop
+- Running `$address-gemini-feedback` - continue the loop
+- Running `$follow-up-with-gemini` - continue the loop
+- Running `$fix-tests` - continue the loop
 - CI completing successfully - continue to enable auto-merge, then keep polling
 - Enabling auto-merge - keep polling until `state` is `MERGED`
 
@@ -299,7 +299,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
       - Always run Gemini evaluation and close-out checks on every poll iteration, including when CI jobs are still running or have failed.
-      - Run `/address-gemini-feedback` to fetch and address unresolved comments.
+      - Run `$address-gemini-feedback` to fetch and address unresolved comments.
       - If code changes were made, push and **verify push completed before replying**:
 
         ```bash
@@ -308,8 +308,8 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
         [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
         ```
 
-        **Do NOT run `/follow-up-with-gemini` until push is verified.** Replying with "Fixed in commit X" when X is not visible on remote creates confusion.
-      - Once push is verified, run `/follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
+        **Do NOT run `$follow-up-with-gemini` until push is verified.** Replying with "Fixed in commit X" when X is not visible on remote creates confusion.
+      - Once push is verified, run `$follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
       - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Claude Code fallback review above.
       - **IMPORTANT**: Do not wait for CI completion to resolve review threads. After these sub-skills complete, continue the polling loop - do NOT exit.
 
@@ -326,7 +326,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
           - Stop and ask user for guidance
         - Else:
           - Log: "Job '<job-name>' failed (attempt X/3). Starting fix."
-          - Run `/fix-tests <job-name>` targeting the specific job
+          - Run `$fix-tests <job-name>` targeting the specific job
           - If fix was pushed:
             - Cancel the obsolete workflow: `./scripts/agents/tooling/agentTool.ts cancelWorkflow --run-id "$RUN_ID"`
             - Log: "Cancelled obsolete workflow. New CI starting."
@@ -409,7 +409,7 @@ Create issues for problems that shouldn't block the PR (flaky tests, infrastruct
 
 ## Resolving Conversation Threads
 
-All threads must be resolved before merge, and close-out should happen continuously during CI polling rather than after CI completion. Use `/follow-up-with-gemini` after each `/address-gemini-feedback` pass to resolve confirmed threads in-loop.
+All threads must be resolved before merge, and close-out should happen continuously during CI polling rather than after CI completion. Use `$follow-up-with-gemini` after each `$address-gemini-feedback` pass to resolve confirmed threads in-loop.
 
 ## Token Efficiency (CRITICAL - ENFORCE STRICTLY)
 
