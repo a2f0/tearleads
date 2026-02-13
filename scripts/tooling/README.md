@@ -174,7 +174,7 @@ All actions support these options:
 
 | Option | Description | Required |
 | ------ | ----------- | -------- |
-| `--mode <default|no-pr-dashboards|no-screen>` | Tuxedo launch mode | Yes |
+| `--mode <default\|no-pr-dashboards\|no-screen>` | Tuxedo launch mode | Yes |
 | `--base-dir <path>` | Set TUXEDO_BASE_DIR for this run | No |
 | `--workspace-count <n>` | Set TUXEDO_WORKSPACES for this run | No |
 
@@ -189,7 +189,7 @@ All actions support these options:
 
 | Option | Description | Required |
 | ------ | ----------- | -------- |
-| `--mode <full|quick>` | Execution profile | Yes |
+| `--mode <full\|quick>` | Execution profile | Yes |
 | `--confirm` | Required when executing without --dry-run | No |
 
 ## Default Timeouts

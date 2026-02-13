@@ -489,6 +489,10 @@ function quoteArg(value: string): string {
   return `'${value.replaceAll("'", "'\\''")}'`;
 }
 
+function escapeMarkdownTableCell(value: string): string {
+  return value.replaceAll('|', '\\|');
+}
+
 function commandExists(command: string, cwd?: string): boolean {
   const check = runWithTimeout('sh', ['-lc', `command -v ${command} >/dev/null 2>&1`], 15_000, cwd);
   return check.exitCode === 0;
@@ -1129,7 +1133,9 @@ function generateReadme(): string {
     lines.push('| ------ | ----------- | -------- |');
 
     for (const opt of config.options) {
-      lines.push(`| \`${opt.name}\` | ${opt.description} | ${opt.required ? 'Yes' : 'No'} |`);
+      lines.push(
+        `| \`${escapeMarkdownTableCell(opt.name)}\` | ${escapeMarkdownTableCell(opt.description)} | ${opt.required ? 'Yes' : 'No'} |`
+      );
     }
     lines.push('');
   }
