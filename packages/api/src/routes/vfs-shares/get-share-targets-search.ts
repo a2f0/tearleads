@@ -12,7 +12,12 @@ import { isValidShareType } from './shared.js';
  * /vfs/share-targets/search:
  *   get:
  *     summary: Search for share targets
- *     description: Search users, groups, or organizations to share with.
+ *     description: |
+ *       Search users, groups, or organizations to share with.
+ *       Results are scoped to the requesting user's organizations:
+ *       - Users: only users in the same organization(s)
+ *       - Groups: only groups belonging to the user's organization(s)
+ *       - Organizations: only organizations the user is a member of
  *     tags:
  *       - VFS Shares
  *     security:
@@ -66,66 +71,82 @@ export const getShareTargetsSearchHandler = async (
     const pool = await getPostgresPool();
     const results: ShareTargetSearchResult[] = [];
 
+    const userOrgResult = await pool.query<{ organization_id: string }>(
+      `SELECT organization_id FROM user_organizations WHERE user_id = $1`,
+      [claims.sub]
+    );
+    const userOrgIds = userOrgResult.rows.map((r) => r.organization_id);
+
     if (!filterType || filterType === 'user') {
-      const usersResult = await pool.query<{ id: string; email: string }>(
-        `SELECT id, email FROM users
-           WHERE LOWER(email) LIKE $1
-           ORDER BY email
-           LIMIT 10`,
-        [searchQuery]
-      );
-      for (const row of usersResult.rows) {
-        results.push({
-          id: row.id,
-          type: 'user',
-          name: row.email
-        });
+      if (userOrgIds.length > 0) {
+        const usersResult = await pool.query<{ id: string; email: string }>(
+          `SELECT DISTINCT u.id, u.email FROM users u
+             INNER JOIN user_organizations uo ON uo.user_id = u.id
+             WHERE LOWER(u.email) LIKE $1
+               AND uo.organization_id = ANY($2)
+             ORDER BY u.email
+             LIMIT 10`,
+          [searchQuery, userOrgIds]
+        );
+        for (const row of usersResult.rows) {
+          results.push({
+            id: row.id,
+            type: 'user',
+            name: row.email
+          });
+        }
       }
     }
 
     if (!filterType || filterType === 'group') {
-      const groupsResult = await pool.query<{
-        id: string;
-        name: string;
-        org_name: string | null;
-      }>(
-        `SELECT g.id, g.name, o.name AS org_name
-           FROM groups g
-           LEFT JOIN organizations o ON o.id = g.organization_id
-           WHERE LOWER(g.name) LIKE $1
-           ORDER BY g.name
-           LIMIT 10`,
-        [searchQuery]
-      );
-      for (const row of groupsResult.rows) {
-        results.push({
-          id: row.id,
-          type: 'group',
-          name: row.name,
-          description: row.org_name ?? undefined
-        });
+      if (userOrgIds.length > 0) {
+        const groupsResult = await pool.query<{
+          id: string;
+          name: string;
+          org_name: string | null;
+        }>(
+          `SELECT g.id, g.name, o.name AS org_name
+             FROM groups g
+             LEFT JOIN organizations o ON o.id = g.organization_id
+             WHERE LOWER(g.name) LIKE $1
+               AND g.organization_id = ANY($2)
+             ORDER BY g.name
+             LIMIT 10`,
+          [searchQuery, userOrgIds]
+        );
+        for (const row of groupsResult.rows) {
+          results.push({
+            id: row.id,
+            type: 'group',
+            name: row.name,
+            description: row.org_name ?? undefined
+          });
+        }
       }
     }
 
     if (!filterType || filterType === 'organization') {
-      const orgsResult = await pool.query<{
-        id: string;
-        name: string;
-        description: string | null;
-      }>(
-        `SELECT id, name, description FROM organizations
-           WHERE LOWER(name) LIKE $1
-           ORDER BY name
-           LIMIT 10`,
-        [searchQuery]
-      );
-      for (const row of orgsResult.rows) {
-        results.push({
-          id: row.id,
-          type: 'organization',
-          name: row.name,
-          description: row.description ?? undefined
-        });
+      if (userOrgIds.length > 0) {
+        const orgsResult = await pool.query<{
+          id: string;
+          name: string;
+          description: string | null;
+        }>(
+          `SELECT id, name, description FROM organizations
+             WHERE LOWER(name) LIKE $1
+               AND id = ANY($2)
+             ORDER BY name
+             LIMIT 10`,
+          [searchQuery, userOrgIds]
+        );
+        for (const row of orgsResult.rows) {
+          results.push({
+            id: row.id,
+            type: 'organization',
+            name: row.name,
+            description: row.description ?? undefined
+          });
+        }
       }
     }
 

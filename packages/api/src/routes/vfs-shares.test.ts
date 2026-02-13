@@ -1347,6 +1347,11 @@ describe('VFS Shares routes', () => {
 
     it('returns 200 with user results for type=user', async () => {
       const authHeader = await createAuthHeader();
+      // User organizations query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ organization_id: 'org-1' }]
+      });
+      // Users query
       mockQuery.mockResolvedValueOnce({
         rows: [
           { id: 'user-1', email: 'test@example.com' },
@@ -1365,6 +1370,11 @@ describe('VFS Shares routes', () => {
 
     it('returns 200 with group results for type=group', async () => {
       const authHeader = await createAuthHeader();
+      // User organizations query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ organization_id: 'org-1' }]
+      });
+      // Groups query
       mockQuery.mockResolvedValueOnce({
         rows: [{ id: 'group-1', name: 'Test Group', org_name: 'Test Org' }]
       });
@@ -1381,6 +1391,11 @@ describe('VFS Shares routes', () => {
 
     it('returns 200 with org results for type=organization', async () => {
       const authHeader = await createAuthHeader();
+      // User organizations query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ organization_id: 'org-1' }]
+      });
+      // Orgs query
       mockQuery.mockResolvedValueOnce({
         rows: [{ id: 'org-1', name: 'Test Org', description: 'A test org' }]
       });
@@ -1397,6 +1412,10 @@ describe('VFS Shares routes', () => {
 
     it('returns 200 with combined results when no type specified', async () => {
       const authHeader = await createAuthHeader();
+      // User organizations query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ organization_id: 'org-1' }]
+      });
       // Users query
       mockQuery.mockResolvedValueOnce({
         rows: [{ id: 'user-1', email: 'test@example.com' }]
@@ -1421,6 +1440,7 @@ describe('VFS Shares routes', () => {
     it('returns 500 on database error', async () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
+      // User organizations query fails
       mockQuery.mockRejectedValueOnce(new Error('Database error'));
 
       const response = await request(app)
@@ -1434,6 +1454,10 @@ describe('VFS Shares routes', () => {
 
     it('ignores invalid type and searches all types', async () => {
       const authHeader = await createAuthHeader();
+      // User organizations query
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ organization_id: 'org-1' }]
+      });
       // Users query
       mockQuery.mockResolvedValueOnce({
         rows: [{ id: 'user-1', email: 'test@example.com' }]
