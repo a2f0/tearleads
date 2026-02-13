@@ -499,8 +499,8 @@ describe('tagsTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 46 tables', () => {
-    expect(allTables).toHaveLength(46);
+  it('contains all 48 tables', () => {
+    expect(allTables).toHaveLength(48);
   });
 
   it('contains all table definitions', () => {
