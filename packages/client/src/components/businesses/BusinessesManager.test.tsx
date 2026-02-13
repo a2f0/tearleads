@@ -72,7 +72,9 @@ describe('BusinessesManager', () => {
       within(table)
         .getAllByRole('row')
         .slice(1)
-        .map((row) => within(row).getAllByRole('cell')[0].textContent);
+        .map(
+          (row) => within(row).getAllByRole('cell').at(0)?.textContent ?? ''
+        );
 
     expect(getNameCells()).toEqual(['Acme Co', 'Zeta Co']);
 
