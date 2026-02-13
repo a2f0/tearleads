@@ -177,7 +177,7 @@ When working on PRs, tag them with the tuxedo instance (workspace folder name) t
 ./scripts/agents/tooling/agentTool.ts tagPrWithTuxedoInstance
 ```
 
-For the full `agentTool.ts` action list and options, see `scripts/agents/tooling/README.md`.
+For the full `agentTool.ts` action list and options, see [`scripts/agents/tooling/README.md`](scripts/agents/tooling/README.md).
 
 This:
 
