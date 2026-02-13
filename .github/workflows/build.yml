@@ -151,6 +151,9 @@ jobs:
       - name: Check for plain JavaScript files
         run: ./scripts/checkJs.sh --from-upstream
 
+      - name: Check preen ecosystem parity
+        run: ./scripts/checkPreenEcosystem.sh --strict
+
       - name: Verify binary guardrails
         run: ./scripts/verifyBinaryGuardrails.sh
 

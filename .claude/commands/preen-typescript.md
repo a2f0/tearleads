@@ -16,19 +16,19 @@ Search all packages for files with type safety issues:
 
 ```bash
 # Find files with `any` type annotations
-grep -r --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist ": any\|: any\[\]\|<any>\|as any" . | wc -l
+rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any' . | wc -l
 
 # List specific files with `any`
-grep -rl --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist ": any\|: any\[\]\|<any>\|as any" . | head -20
+rg -l --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any' . | head -20
 
 # Find `as` type assertions (potential unsafe casts)
-grep -r --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist " as [A-Z]" . | grep -v "\.test\." | head -20
+rg -n --glob '*.{ts,tsx}' ' as [A-Z]' . | rg -v '\.test\.' | head -20
 
 # Find ts-ignore and ts-expect-error comments
-grep -r --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist "@ts-ignore\|@ts-expect-error" . | head -20
+rg -n --glob '*.{ts,tsx}' '@ts-ignore|@ts-expect-error' . | head -20
 
 # Find `unknown` that might need narrowing
-grep -r --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist ": unknown" . | head -20
+rg -n --glob '*.{ts,tsx}' ': unknown' . | head -20
 ```
 
 ## Prioritization
@@ -272,8 +272,8 @@ Discovery commands can return many lines. Always limit output:
 
 ```bash
 # Count first, then list limited results
-grep -rl ... | wc -l              # Get count
-grep -rl ... | head -20           # Then sample
+rg -l ... | wc -l                 # Get count
+rg -l ... | head -20              # Then sample
 
 # Suppress verbose validation output
 pnpm typecheck >/dev/null

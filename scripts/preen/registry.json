@@ -1,0 +1,106 @@
+{
+  "categories": [
+    {
+      "id": "preen-typescript",
+      "purpose": "Fix weak TypeScript typings (`any`, `as` casts, `@ts-ignore`)",
+      "checklistLabel": "TypeScript types (`any`, `as` casts, `@ts-ignore`)",
+      "qualityMetric": "Type safety findings (`any`, unsafe casts, `@ts-ignore`)",
+      "security": false,
+      "discoveryCommands": [
+        "rg -n --glob '*.{ts,tsx}' ': any|: any\\[\\]|<any>|as any|@ts-ignore|@ts-expect-error' . | head -20"
+      ],
+      "metricCountCommand": "rg -n --glob '*.{ts,tsx}' ': any|: any\\[\\]|<any>|as any|@ts-ignore|@ts-expect-error' . | wc -l"
+    },
+    {
+      "id": "preen-split-react-components",
+      "purpose": "Split oversized React components into smaller files",
+      "checklistLabel": "React component splitting",
+      "qualityMetric": "Oversized React files",
+      "security": false,
+      "discoveryCommands": [
+        "find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \\; 2>/dev/null | awk '$1 > 300' | sort -rn | head -20"
+      ],
+      "metricCountCommand": "find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \\; 2>/dev/null | awk '$1 > 300' | wc -l"
+    },
+    {
+      "id": "preen-inefficient-resolution",
+      "purpose": "Fix cyclical imports and module resolution issues",
+      "checklistLabel": "Module resolution (cycles, deep imports)",
+      "qualityMetric": "Circular imports / deep relative imports",
+      "security": false,
+      "discoveryCommands": [
+        "npx madge --circular --extensions ts,tsx packages/ 2>/dev/null | head -20 || true",
+        "rg -n --glob '*.{ts,tsx}' \"from '\\.\\./\\.\\./\\.\\./\\.\\.\" . | head -20"
+      ],
+      "metricCountCommand": "rg -n --glob '*.{ts,tsx}' \"from '\\.\\./\\.\\./\\.\\./\\.\\.\" . | wc -l"
+    },
+    {
+      "id": "preen-deferred-fixes",
+      "purpose": "Complete deferred follow-ups from merged PR reviews",
+      "checklistLabel": "Deferred fixes from PR reviews",
+      "qualityMetric": "Deferred issue count",
+      "security": false,
+      "discoveryCommands": [
+        "REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R \"$REPO\" --label 'deferred' --state open --limit 20 2>/dev/null || true"
+      ],
+      "metricCountCommand": "REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R \"$REPO\" --label 'deferred' --state open --json number --jq 'length' 2>/dev/null || echo 0"
+    },
+    {
+      "id": "preen-optimize-test-execution",
+      "purpose": "Tune CI impact analysis (workflow filters, package dependencies)",
+      "checklistLabel": "CI impact/test execution tuning",
+      "qualityMetric": "CI impact warnings",
+      "security": false,
+      "discoveryCommands": [
+        "pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40"
+      ],
+      "metricCountCommand": "pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0"
+    },
+    {
+      "id": "preen-api-security",
+      "purpose": "Audit API for authorization, data access, and security issues",
+      "checklistLabel": "API security boundaries",
+      "qualityMetric": "API security findings in touched area",
+      "security": true,
+      "discoveryCommands": [
+        "rg -n --glob '*.ts' 'router\\.(get|post|put|patch|delete)|authClaims|req\\.session|pool\\.query|client\\.query' packages/api/src/routes | head -40"
+      ],
+      "metricCountCommand": "rg -L --glob '*.ts' 'authClaims|req\\.session' packages/api/src/routes | rg -v 'index\\.ts|shared\\.ts|test\\.' | wc -l"
+    },
+    {
+      "id": "preen-dependency-security",
+      "purpose": "Audit dependency vulnerabilities and unsafe versioning",
+      "checklistLabel": "Dependency/security hygiene",
+      "qualityMetric": "High/Critical dependency findings",
+      "security": true,
+      "discoveryCommands": [
+        "pnpm audit --prod --audit-level high --json 2>/dev/null | head -40 || true",
+        "rg -n --glob 'package.json' 'latest|next|canary|beta' packages scripts . | head -20 || true"
+      ],
+      "metricCountCommand": "pnpm audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == \"high\" or . == \"critical\")] | length' 2>/dev/null || echo 0"
+    },
+    {
+      "id": "preen-test-flakiness",
+      "purpose": "Reduce flaky tests and nondeterministic waiting patterns",
+      "checklistLabel": "Test flakiness hardening",
+      "qualityMetric": "Flaky-pattern matches in tests",
+      "security": false,
+      "discoveryCommands": [
+        "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\(|waitForTimeout\\(|sleep\\(' packages . | head -30 || true",
+        "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true"
+      ],
+      "metricCountCommand": "rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\\(|waitForTimeout\\(|sleep\\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l"
+    },
+    {
+      "id": "preen-skill-tooling",
+      "purpose": "Validate skills are wired into agentTool.ts and scriptTool.ts",
+      "checklistLabel": "Skill tooling validation",
+      "qualityMetric": "Skill parity/tooling issues",
+      "security": false,
+      "discoveryCommands": [
+        "./scripts/checkPreenEcosystem.sh --summary"
+      ],
+      "metricCountCommand": "./scripts/checkPreenEcosystem.sh --count-issues"
+    }
+  ]
+}

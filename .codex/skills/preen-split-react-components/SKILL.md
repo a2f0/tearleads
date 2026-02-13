@@ -20,7 +20,7 @@ Search all packages for large TSX files that may benefit from splitting:
 find . -name "*.tsx" -not -path "*/node_modules/*" -not -path "*/.next/*" -not -path "*/dist/*" | xargs wc -l 2>/dev/null | sort -rn | head -20
 
 # Find files with multiple component definitions
-grep -r --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist --include="*.tsx" "^export function\|^export const.*=.*=>" . | cut -d: -f1 | sort | uniq -c | sort -rn | head -10
+rg -n --glob '*.tsx' '^export function|^export const.*=.*=>' . | cut -d: -f1 | sort | uniq -c | sort -rn | head -10
 ```
 
 ## Decide If Refactor Is Worth It

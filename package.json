@@ -33,7 +33,9 @@
     "lint:rubocop": "pnpm --filter @tearleads/client lint:rubocop",
     "lint:ansible": "ansible-lint ansible/",
     "lint:md": "markdownlint-cli2 '**/*.md'",
+    "lintPreen": "./scripts/checkPreenEcosystem.sh --strict",
     "format": "biome format --write .",
+    "generatePreenDocs": "./scripts/preen/generatePreenDocs.sh",
     "prepare": "husky"
   },
   "repository": {

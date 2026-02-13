@@ -31,7 +31,7 @@ Use this when a tracking issue exists (for example `#1442`) or when reviewers ex
 4. Add or update tests for every item (unit/integration/e2e as needed).
 5. Validate locally using the smallest reliable command set first, then broader coverage if the area is cross-cutting.
 6. Summarize completed checklist items and any remaining risks.
-7. Commit and push with `/commit-and-push`, then prepare merge with `/enter-merge-queue`.
+7. Commit and push with `$commit-and-push`, then prepare merge with `$enter-merge-queue`.
 
 ## Quality Bar
 

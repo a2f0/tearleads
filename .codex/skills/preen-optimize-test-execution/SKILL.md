@@ -3,16 +3,10 @@ name: preen-optimize-test-execution
 description: Tune CI impact analysis by keeping workflow filters aligned with package dependencies.
 ---
 
+
 # Optimize Test Execution
 
-Use this skill to understand, debug, or tune the CI impact analysis system.
-
-## When to Use
-
-- Debugging why a CI job ran or was skipped
-- Tuning which jobs run for specific file patterns
-- Understanding why pre-push hooks ran full checks vs selective
-- Keeping workflow filters aligned with package dependencies
+Dependency-aware impact analysis system that decides which CI jobs and local checks should run based on changed files.
 
 ## System Overview
 
@@ -30,6 +24,22 @@ The impact system operates at two levels:
 
 Core analyzer that determines which CI jobs should run. Used by both GitHub Actions and local scripts.
 
+**Preferred: Use the scriptTool wrapper:**
+
+```bash
+# Analyze current branch vs main
+./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json
+
+# Run quality checks on impacted files
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
+
+# Run tests on impacted packages
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
+```
+
+<details>
+<summary>Direct invocation (for tuning/debugging)</summary>
+
 ```bash
 # Analyze current branch vs main
 pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD
@@ -38,6 +48,8 @@ pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD
 pnpm exec tsx scripts/ciImpact/ciImpact.ts \
   --files "packages/client/src/App.tsx,packages/api/src/index.ts"
 ```
+
+</details>
 
 **Output JSON includes:**
 
@@ -52,6 +64,15 @@ pnpm exec tsx scripts/ciImpact/ciImpact.ts \
 
 Pre-push hook for selective quality checks. Runs biome, tsc, and build only for impacted packages.
 
+**Preferred: Use the scriptTool wrapper:**
+
+```bash
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
+```
+
+<details>
+<summary>Direct invocation (for pre-push hook)</summary>
+
 ```bash
 # Normal run (invoked by husky pre-push)
 pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts
@@ -60,9 +81,20 @@ pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts
 pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --dry-run
 ```
 
+</details>
+
 ### `scripts/ciImpact/runImpactedTests.ts`
 
 Pre-push hook for selective coverage tests. Only runs `test:coverage` for impacted packages.
+
+**Preferred: Use the scriptTool wrapper:**
+
+```bash
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
+```
+
+<details>
+<summary>Direct invocation (for pre-push hook)</summary>
 
 ```bash
 # Normal run (invoked by husky pre-push)
@@ -71,6 +103,8 @@ pnpm exec tsx scripts/ciImpact/runImpactedTests.ts
 # Dry run to see what would execute
 pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --dry-run
 ```
+
+</details>
 
 ## Configuration
 
@@ -133,7 +167,55 @@ The husky pre-push hook runs both local scripts before allowing push:
 1. `runImpactedQuality.ts` - Lint, typecheck, build
 2. `runImpactedTests.ts` - Coverage tests
 
+## When to Run This Skill
+
+Run this preen skill after:
+
+- Extracting code into a new package under `packages/`
+- Adding a new dependency to `@tearleads/client`
+- Modifying the impact analysis scripts (`scripts/ciImpact/`)
+- Suspecting CI is skipping tests it shouldn't (false negatives)
+
+## Detecting Missing Client Runtime Packages
+
+Cross-reference `@tearleads/client`'s workspace dependencies against `clientRuntimePackages`:
+
+```bash
+# Get client's workspace dependencies (packages starting with @tearleads/)
+CLIENT_DEPS=$(jq -r '
+  [.dependencies, .devDependencies, .peerDependencies]
+  | add
+  | keys[]
+  | select(startswith("@tearleads/"))
+' packages/client/package.json | sort)
+
+# Get configured client runtime packages
+CONFIGURED=$(jq -r '.clientRuntimePackages[]' scripts/ciImpact/job-groups.json | sort)
+
+# Find missing packages (in client deps but not in config)
+comm -23 <(echo "$CLIENT_DEPS") <(echo "$CONFIGURED")
+```
+
+If this outputs any packages, they should be added to `clientRuntimePackages` in `job-groups.json`.
+
+**Verify with simulation:**
+
+```bash
+# Test that a new package triggers client jobs
+pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "packages/<name>/src/index.ts"
+```
+
+Expected: `web-e2e`, `electron-e2e`, and mobile jobs should show `run: true`.
+
 ## Tuning the System
+
+### Adding a new client runtime package
+
+When a package is added as a dependency of `@tearleads/client`:
+
+1. Add it to `clientRuntimePackages` in `job-groups.json`
+2. Verify with: `pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "packages/<name>/src/index.ts"`
+3. Confirm `web-e2e`, `electron-e2e`, and mobile jobs show `run: true`
 
 ### Adding a new ignored path
 
@@ -174,25 +256,45 @@ When modifying the impact system, update together:
 
 ## Token Efficiency
 
-Use `--dry-run` mode for debugging without executing commands:
+The `scriptTool.ts` wrappers already provide structured JSON output with `--json` flag. Prefer wrappers over direct invocation:
 
 ```bash
-# Preview what would run (no actual execution)
-pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --dry-run
-pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --dry-run
+# Preferred - returns structured summary, suppresses verbose output
+./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json
+./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
 ```
 
-Suppress verbose output when only exit codes matter:
+For debugging, use direct invocation without wrappers. Suppress git operations:
 
 ```bash
-# Suppress validation output
-pnpm lint >/dev/null
-pnpm typecheck >/dev/null
-pnpm test >/dev/null
-
-# Suppress git operations
 git commit -S -m "message" >/dev/null
 git push >/dev/null
 ```
 
-On failure, re-run without suppression to debug.
+## Audit Checklist
+
+When running this preen skill, verify the following:
+
+1. **Client runtime packages are complete**: Run the detection script above. Any output indicates missing packages.
+
+2. **New packages are discovered**: The system auto-discovers packages from `packages/` directory. Verify new packages have:
+   - A `package.json` with a `name` field
+   - Proper dependencies declared
+
+3. **Transitive dependencies propagate**: Changes to a shared package should trigger dependents:
+
+   ```bash
+   # Verify shared triggers client
+   pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "packages/shared/src/index.ts" \
+     | jq '.affectedPackages | contains(["@tearleads/client"])'
+   ```
+
+4. **Non-client packages don't over-trigger**: Changes to API-only or website-only packages shouldn't trigger mobile tests:
+
+   ```bash
+   # Verify website doesn't trigger mobile
+   pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "packages/website/src/pages/index.astro" \
+     | jq '.jobs["android-maestro-release"].run'
+   # Should output: false
+   ```

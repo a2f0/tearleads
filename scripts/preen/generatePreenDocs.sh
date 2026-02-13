@@ -1,8 +1,115 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+usage() {
+  cat <<'USAGE' >&2
+Usage: ./scripts/preen/generatePreenDocs.sh [--check]
+
+Without arguments, rewrites both:
+  - .claude/commands/preen.md
+  - .codex/skills/preen/SKILL.md
+
+With --check, verifies generated output matches files and exits non-zero on drift.
+USAGE
+  exit 2
+}
+
+MODE="write"
+if [ "$#" -gt 1 ]; then
+  usage
+fi
+if [ "$#" -eq 1 ]; then
+  case "$1" in
+    --check)
+      MODE="check"
+      ;;
+    *)
+      usage
+      ;;
+  esac
+fi
+
+ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+cd "$ROOT_DIR"
+
+REGISTRY_FILE="scripts/preen/registry.json"
+if [ ! -f "$REGISTRY_FILE" ]; then
+  echo "Error: missing $REGISTRY_FILE" >&2
+  exit 1
+fi
+
+render_table_rows() {
+  jq -r '.categories[] | "| `\(.id)` | \(.purpose) |"' "$REGISTRY_FILE"
+}
+
+render_category_array() {
+  jq -r '.categories[] | "  \"\(.id)\""' "$REGISTRY_FILE"
+}
+
+render_security_category_array() {
+  jq -r '.categories[] | select(.security == true) | "  \"\(.id)\""' "$REGISTRY_FILE"
+}
+
+render_discovery_case() {
+  jq -r '
+    .categories[]
+    | "    \(.id))",
+      (.discoveryCommands[] | "      " + .),
+      "      ;;"
+  ' "$REGISTRY_FILE"
+}
+
+render_metric_case() {
+  jq -r '
+    .categories[]
+    | "    \(.id))",
+      "      " + .metricCountCommand,
+      "      ;;"
+  ' "$REGISTRY_FILE"
+}
+
+render_quality_metrics() {
+  jq -r '.categories[] | "- \(.qualityMetric)"' "$REGISTRY_FILE"
+}
+
+render_checklist_rows() {
+  jq -r '.categories[] | "- [ ] \(.checklistLabel)"' "$REGISTRY_FILE"
+}
+
+render_document() {
+  local platform="$1"
+  local merge_queue_command
+  local frontmatter
+
+  case "$platform" in
+    claude)
+      frontmatter=$(cat <<'EOF_FRONTMATTER'
+---
+description: Stateful single-pass preening across all preen skills (project)
+---
+EOF_FRONTMATTER
+)
+      merge_queue_command='/enter-merge-queue'
+      ;;
+    codex)
+      frontmatter=$(cat <<'EOF_FRONTMATTER'
 ---
 name: preen
 description: Stateful single-pass preening across all preen skills. Lands focused improvements, opens a PR, and enters merge queue.
 ---
+EOF_FRONTMATTER
+)
+      merge_queue_command='$enter-merge-queue'
+      ;;
+    *)
+      echo "Error: unknown platform '$platform'" >&2
+      exit 1
+      ;;
+  esac
 
+  printf '%s\n\n' "$frontmatter"
+
+  cat <<'EOF_BLOCK'
 # Preen All
 
 Perform a proactive, stateful pass through preen skills, implement focused improvements, open a PR, and enter the merge queue.
@@ -38,15 +145,11 @@ If checks fail, STOP and sync before running preen:
 
 | Skill | Purpose |
 | ----- | ------- |
-| `preen-typescript` | Fix weak TypeScript typings (`any`, `as` casts, `@ts-ignore`) |
-| `preen-split-react-components` | Split oversized React components into smaller files |
-| `preen-inefficient-resolution` | Fix cyclical imports and module resolution issues |
-| `preen-deferred-fixes` | Complete deferred follow-ups from merged PR reviews |
-| `preen-optimize-test-execution` | Tune CI impact analysis (workflow filters, package dependencies) |
-| `preen-api-security` | Audit API for authorization, data access, and security issues |
-| `preen-dependency-security` | Audit dependency vulnerabilities and unsafe versioning |
-| `preen-test-flakiness` | Reduce flaky tests and nondeterministic waiting patterns |
-| `preen-skill-tooling` | Validate skills are wired into agentTool.ts and scriptTool.ts |
+EOF_BLOCK
+
+  render_table_rows
+
+  cat <<'EOF_BLOCK'
 
 ## Run Modes
 
@@ -70,20 +173,19 @@ CURSOR_FILE="$STATE_DIR/cursor"
 RUNS_FILE="$STATE_DIR/runs.jsonl"
 
 CATEGORIES=(
-  "preen-typescript"
-  "preen-split-react-components"
-  "preen-inefficient-resolution"
-  "preen-deferred-fixes"
-  "preen-optimize-test-execution"
-  "preen-api-security"
-  "preen-dependency-security"
-  "preen-test-flakiness"
-  "preen-skill-tooling"
+EOF_BLOCK
+
+  render_category_array
+
+  cat <<'EOF_BLOCK'
 )
 
 SECURITY_CATEGORIES=(
-  "preen-api-security"
-  "preen-dependency-security"
+EOF_BLOCK
+
+  render_security_category_array
+
+  cat <<'EOF_BLOCK'
 )
 
 mkdir -p "$STATE_DIR"
@@ -150,68 +252,21 @@ Run discovery only for selected categories:
 ```bash
 run_discovery() {
   case "$1" in
-    preen-typescript)
-      rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' . | head -20
-      ;;
-    preen-split-react-components)
-      find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | sort -rn | head -20
-      ;;
-    preen-inefficient-resolution)
-      npx madge --circular --extensions ts,tsx packages/ 2>/dev/null | head -20 || true
-      rg -n --glob '*.{ts,tsx}' "from '\.\./\.\./\.\./\.\." . | head -20
-      ;;
-    preen-deferred-fixes)
-      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R "$REPO" --label 'deferred' --state open --limit 20 2>/dev/null || true
-      ;;
-    preen-optimize-test-execution)
-      pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40
-      ;;
-    preen-api-security)
-      rg -n --glob '*.ts' 'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query' packages/api/src/routes | head -40
-      ;;
-    preen-dependency-security)
-      pnpm audit --prod --audit-level high --json 2>/dev/null | head -40 || true
-      rg -n --glob 'package.json' 'latest|next|canary|beta' packages scripts . | head -20 || true
-      ;;
-    preen-test-flakiness)
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(' packages . | head -30 || true
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true
-      ;;
-    preen-skill-tooling)
-      ./scripts/checkPreenEcosystem.sh --summary
-      ;;
+EOF_BLOCK
+
+  render_discovery_case
+
+  cat <<'EOF_BLOCK'
   esac
 }
 
 metric_count() {
   case "$1" in
-    preen-typescript)
-      rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' . | wc -l
-      ;;
-    preen-split-react-components)
-      find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | wc -l
-      ;;
-    preen-inefficient-resolution)
-      rg -n --glob '*.{ts,tsx}' "from '\.\./\.\./\.\./\.\." . | wc -l
-      ;;
-    preen-deferred-fixes)
-      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R "$REPO" --label 'deferred' --state open --json number --jq 'length' 2>/dev/null || echo 0
-      ;;
-    preen-optimize-test-execution)
-      pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
-      ;;
-    preen-api-security)
-      rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l
-      ;;
-    preen-dependency-security)
-      pnpm audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == "high" or . == "critical")] | length' 2>/dev/null || echo 0
-      ;;
-    preen-test-flakiness)
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
-      ;;
-    preen-skill-tooling)
-      ./scripts/checkPreenEcosystem.sh --count-issues
-      ;;
+EOF_BLOCK
+
+  render_metric_case
+
+  cat <<'EOF_BLOCK'
     *)
       echo 0
       ;;
@@ -306,15 +361,11 @@ pnpm test >/dev/null
 
 Before opening a PR, record measurable improvement. Example metrics:
 
-- Type safety findings (`any`, unsafe casts, `@ts-ignore`)
-- Oversized React files
-- Circular imports / deep relative imports
-- Deferred issue count
-- CI impact warnings
-- API security findings in touched area
-- High/Critical dependency findings
-- Flaky-pattern matches in tests
-- Skill parity/tooling issues
+EOF_BLOCK
+
+  render_quality_metrics
+
+  cat <<'EOF_BLOCK'
 
 Quality gate for the selected category:
 
@@ -347,15 +398,11 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - Landed focused quality improvements with measurable delta
 
 ## Categories Checked
-- [ ] TypeScript types (`any`, `as` casts, `@ts-ignore`)
-- [ ] React component splitting
-- [ ] Module resolution (cycles, deep imports)
-- [ ] Deferred fixes from PR reviews
-- [ ] CI impact/test execution tuning
-- [ ] API security boundaries
-- [ ] Dependency/security hygiene
-- [ ] Test flakiness hardening
-- [ ] Skill tooling validation
+EOF_BLOCK
+
+  render_checklist_rows
+
+  cat <<'EOF_BLOCK'
 
 ## Quality Delta
 - [x] Baseline metric captured for selected category
@@ -370,7 +417,11 @@ PR_BODY
 )")
 
 PR_NUMBER=$(echo "$PR_URL" | rg -o '[0-9]+$' || true)
-$enter-merge-queue
+EOF_BLOCK
+
+  printf '%s\n' "$merge_queue_command"
+
+  cat <<'EOF_BLOCK'
 ```
 
 ### 10. Persist Cursor and Structured Run Log
@@ -432,3 +483,42 @@ git push >/dev/null
 ```
 
 On failure, re-run the failing command without suppression.
+EOF_BLOCK
+}
+
+check_or_write_file() {
+  local destination="$1"
+  local content="$2"
+
+  if [ "$MODE" = "write" ]; then
+    printf '%s\n' "$content" > "$destination"
+    return
+  fi
+
+  local temp_file
+  temp_file="$(mktemp)"
+  printf '%s\n' "$content" > "$temp_file"
+
+  if ! diff -u "$destination" "$temp_file" >/dev/null; then
+    echo "Drift detected in $destination" >&2
+    diff -u "$destination" "$temp_file" >&2 || true
+    rm -f "$temp_file"
+    return 1
+  fi
+
+  rm -f "$temp_file"
+  return 0
+}
+
+CLAUDE_DOC_CONTENT="$(render_document claude)"
+CODEX_DOC_CONTENT="$(render_document codex)"
+
+FAILED=0
+check_or_write_file ".claude/commands/preen.md" "$CLAUDE_DOC_CONTENT" || FAILED=1
+check_or_write_file ".codex/skills/preen/SKILL.md" "$CODEX_DOC_CONTENT" || FAILED=1
+
+if [ "$MODE" = "check" ] && [ "$FAILED" -ne 0 ]; then
+  exit 1
+fi
+
+echo "preen docs are up to date"

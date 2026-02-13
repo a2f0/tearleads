@@ -26,13 +26,13 @@ find . -name "index.ts" -not -path "*/node_modules/*" -not -path "*/.next/*" -no
 find . -name "index.ts" -not -path "*/node_modules/*" -not -path "*/.next/*" -not -path "*/dist/*" -exec sh -c 'exports=$(grep -c "export" "$1" 2>/dev/null); sources=$(grep -o "from '\''[^'\'']*'\''" "$1" 2>/dev/null | sort -u | wc -l); if [ "$exports" -gt 0 ] && [ "$sources" -eq 1 ]; then echo "$1 (single source)"; fi' _ {} \; | head -20
 
 # Find files importing from parent then child (../foo then ../foo/bar)
-grep -r --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist "from '\.\./[^']*'" . | head -20
+rg -n --glob '*.{ts,tsx}' "from '\\.\\./[^']*'" . | head -20
 
 # Find deep relative imports (more than 3 levels)
-grep -r --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist "from '\.\./\.\./\.\./\.\." . | head -20
+rg -n --glob '*.{ts,tsx}' "from '\\.\\./\\.\\./\\.\\./\\.\\." . | head -20
 
 # Find re-exports that just pass through (export { x } from './x')
-grep -r --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-dir=.next --exclude-dir=dist "export {.*} from '\./[^']*'" . | head -20
+rg -n --glob '*.{ts,tsx}' "export {.*} from '\\./[^']*'" . | head -20
 ```
 
 ## Issue Categories
