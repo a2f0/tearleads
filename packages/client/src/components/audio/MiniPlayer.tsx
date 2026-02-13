@@ -1,5 +1,5 @@
 import { Copy, Music, Pause, Play, SkipBack, Square, X } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useAudioContext } from '@/audio';
@@ -7,12 +7,11 @@ import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
+import { useDraggable } from '@/hooks/useDraggable';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 const MINI_PLAYER_WIDTH = 224; // w-56
 const MINI_PLAYER_HEIGHT = 56; // p-2 (8px) * 2 + h-8 button (32px)
-const MINI_PLAYER_MARGIN = 16;
-const DRAG_THRESHOLD = 3;
 
 /**
  * Mini player that appears in the lower-right corner when audio is playing.
@@ -32,50 +31,12 @@ export function MiniPlayer() {
     y: number;
   } | null>(null);
 
-  const [position, setPosition] = useState<{ left: number; top: number }>({
-    left: -1,
-    top: -1
-  });
-
-  const elementRef = useRef<HTMLElement>(null);
-  const isDraggingRef = useRef(false);
-  const hasDraggedRef = useRef(false);
-  const startMouseXRef = useRef(0);
-  const startMouseYRef = useRef(0);
-  const startXRef = useRef(0);
-  const startYRef = useRef(0);
-
-  // Initialize position to bottom-right corner and clamp on resize
-  useEffect(() => {
-    if (isMobile) return;
-
-    const computeDefault = () => ({
-      left: window.innerWidth - MINI_PLAYER_WIDTH - MINI_PLAYER_MARGIN,
-      top:
-        window.innerHeight -
-        FOOTER_HEIGHT -
-        MINI_PLAYER_MARGIN -
-        MINI_PLAYER_HEIGHT
+  const { position, isPositioned, elementRef, handleMouseDown, wasDragged } =
+    useDraggable({
+      dimensions: { width: MINI_PLAYER_WIDTH, height: MINI_PLAYER_HEIGHT },
+      bottomMargin: FOOTER_HEIGHT,
+      enabled: !isMobile
     });
-
-    setPosition(computeDefault());
-
-    const handleResize = () => {
-      setPosition((prev) => ({
-        left: Math.max(
-          0,
-          Math.min(prev.left, window.innerWidth - MINI_PLAYER_WIDTH)
-        ),
-        top: Math.max(
-          0,
-          Math.min(prev.top, window.innerHeight - MINI_PLAYER_HEIGHT)
-        )
-      }));
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, [isMobile]);
 
   const audioWindow = useMemo(
     () => windows.find((w) => w.type === 'audio'),
@@ -87,85 +48,13 @@ export function MiniPlayer() {
     (window) => window.type === 'audio' && !window.isMinimized
   );
 
-  const handleMouseMove = useCallback((e: MouseEvent) => {
-    if (!isDraggingRef.current) return;
-
-    const deltaX = e.clientX - startMouseXRef.current;
-    const deltaY = e.clientY - startMouseYRef.current;
-
-    if (
-      !hasDraggedRef.current &&
-      Math.abs(deltaX) + Math.abs(deltaY) > DRAG_THRESHOLD
-    ) {
-      hasDraggedRef.current = true;
-    }
-
-    if (!hasDraggedRef.current) return;
-
-    const rect = elementRef.current?.getBoundingClientRect();
-    const w = rect?.width || MINI_PLAYER_WIDTH;
-    const h = rect?.height || MINI_PLAYER_HEIGHT;
-
-    const newX = Math.max(
-      0,
-      Math.min(startXRef.current + deltaX, window.innerWidth - w)
-    );
-    const newY = Math.max(
-      0,
-      Math.min(startYRef.current + deltaY, window.innerHeight - h)
-    );
-
-    setPosition({ left: newX, top: newY });
-  }, []);
-
-  const handleMouseUp = useCallback(() => {
-    isDraggingRef.current = false;
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
-  }, [handleMouseMove]);
-
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent<HTMLElement>) => {
-      if (isMobile || !elementRef.current) return;
-
-      // Don't initiate drag from buttons
-      const target = e.target as HTMLElement;
-      if (target.closest('button')) return;
-
-      isDraggingRef.current = true;
-      hasDraggedRef.current = false;
-      startMouseXRef.current = e.clientX;
-      startMouseYRef.current = e.clientY;
-
-      const rect = elementRef.current.getBoundingClientRect();
-      startXRef.current = rect.left;
-      startYRef.current = rect.top;
-
-      document.body.style.cursor = 'grabbing';
-      document.body.style.userSelect = 'none';
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    },
-    [isMobile, handleMouseMove, handleMouseUp]
-  );
-
-  // Clean up listeners on unmount
-  useEffect(() => {
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [handleMouseMove, handleMouseUp]);
-
   const handleContextMenu = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
-      if (hasDraggedRef.current) return;
+      if (wasDragged()) return;
       event.preventDefault();
       setContextMenu({ x: event.clientX, y: event.clientY });
     },
-    []
+    [wasDragged]
   );
 
   const handleCloseContextMenu = useCallback(() => {
@@ -228,7 +117,7 @@ export function MiniPlayer() {
 
   const { currentTrack, isPlaying, pause, resume, stop, seek } = audio;
 
-  const positionReady = !isMobile && position.left >= 0 && position.top >= 0;
+  const positionReady = !isMobile && isPositioned;
 
   return (
     <>
