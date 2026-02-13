@@ -19,6 +19,10 @@ echo "Switching to main and pulling latest..."
 git switch main
 git pull
 
+# Ensure correct Node.js version is active
+echo "Installing Node.js version from .nvmrc..."
+nvm install
+
 # Install pnpm dependencies
 echo "Installing pnpm dependencies..."
 pnpm install
@@ -27,9 +31,13 @@ pnpm install
 echo "Building TypeScript packages..."
 pnpm build
 
+# Sync Capacitor web assets to native projects
+echo "Syncing Capacitor..."
+cd "$CLIENT_DIR"
+pnpm cap sync
+
 # Install Ruby gems (for fastlane, cocoapods, etc.)
 echo "Installing Ruby gems..."
-cd "$CLIENT_DIR"
 bundle install
 
 # Clean install CocoaPods to ensure fresh native dependencies.
