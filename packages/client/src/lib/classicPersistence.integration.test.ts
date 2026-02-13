@@ -423,10 +423,13 @@ describe('classicPersistence integration', () => {
       });
 
       const { state, linkRows } = await loadClassicStateFromDatabase();
-      const reversedNoteOrderByTagId: typeof state.noteOrderByTagId = {};
-      for (const [tagId, noteIds] of Object.entries(state.noteOrderByTagId)) {
-        reversedNoteOrderByTagId[tagId] = [...noteIds].reverse();
-      }
+      const reversedNoteOrderByTagId: typeof state.noteOrderByTagId =
+        Object.fromEntries(
+          Object.entries(state.noteOrderByTagId).map(([tagId, noteIds]) => [
+            tagId,
+            [...noteIds].reverse()
+          ])
+        );
       const reorderedState = {
         ...state,
         tags: [...state.tags].reverse(),
