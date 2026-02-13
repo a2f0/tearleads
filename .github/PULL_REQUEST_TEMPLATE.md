@@ -10,10 +10,6 @@ If nothing user-visible, check "No user-visible changes" and leave the first lin
 - [ ] User-visible change:
 - [ ] No user-visible changes
 
-## Testing
-<!-- Commands run to verify the changes, or "not run (reason)" -->
--
-
 ## Issue / Related
 <!-- Reference the issue this PR addresses, or other related items. -->
 -
