@@ -169,6 +169,27 @@ Some CI failures are transient infrastructure issues:
 
 PDF loading tests may timeout after pdfjs-dist updates (shows "Loading..." instead of "Page 1 of"). **Fix**: Check for version mismatch with react-pdf - see "pdfjs-dist and react-pdf Version Coupling" section.
 
+### iOS Maestro "App crashed or stopped" Across Random Flows
+
+iOS Maestro may fail with:
+
+```text
+App crashed or stopped while executing flow
+```
+
+The failing flow can vary (`database-reset-setup`, `sync-login-landscape-keyboard`, `orphan-cleanup`, etc.). In `maestro.log`, this often appears as:
+
+```text
+XCTestDriver request failed ... "Application com.tearleads.app is not running"
+```
+
+immediately after `Launch app "com.tearleads.app" with clear state`.
+
+**Fix**:
+
+1. Rerun only the failed iOS Maestro workflow/job.
+2. If `CI Gate` already failed due to that first attempt, rerun `CI Gate` after the iOS rerun is green.
+
 ## Warnings/Deprecations
 
 Collect warnings/deprecations from `pnpm`, bundler, CocoaPods, Gradle, and test runs. Summarize them in the final response along with any required follow-ups.

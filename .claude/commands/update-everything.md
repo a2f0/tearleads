@@ -258,6 +258,27 @@ Error: element(s) not found (shows "Loading...")
 
 **Fix**: Revert `pdfjs-dist` to match the version `react-pdf` expects.
 
+### iOS Maestro "App crashed or stopped" Across Random Flows
+
+iOS Maestro can intermittently fail with:
+
+```text
+App crashed or stopped while executing flow
+```
+
+The failing flow is not stable (`database-reset-setup`, `sync-login-landscape-keyboard`, `orphan-cleanup`, etc.). In Maestro debug logs this often appears as:
+
+```text
+XCTestDriver request failed ... "Application com.tearleads.app is not running"
+```
+
+immediately after `Launch app "com.tearleads.app" with clear state`.
+
+**Fix**:
+
+1. Rerun only the failed iOS Maestro workflow/job.
+2. If `CI Gate` already failed from the first attempt, rerun `CI Gate` after iOS Maestro is green.
+
 ## Token Efficiency
 
 The update script and its sub-commands produce thousands of lines of output. Suppress stdout where only the exit code matters:
