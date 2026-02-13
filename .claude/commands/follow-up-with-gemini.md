@@ -42,6 +42,7 @@ gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies -f
 ## Quota Exhaustion Fallback
 
 If at any point Gemini responds with quota exhaustion ("You have reached your daily quota limit"):
+
 - Fall back to Codex review:
 
   ```bash

@@ -33,7 +33,7 @@ If you discover preen skills not in the registry below, STOP and:
 ## Preen Skills Registry
 
 | Skill | Purpose |
-|-------|---------|
+| ----- | ------- |
 | `preen-typescript` | Fix weak TypeScript typings (`any`, `as` casts, `@ts-ignore`) |
 | `preen-split-react-components` | Split oversized React components into smaller files |
 | `preen-inefficient-resolution` | Fix cyclical imports and module resolution issues |
@@ -63,6 +63,7 @@ grep -rl --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude
 ```
 
 If issues found:
+
 - Pick the highest-impact file (exported types > function signatures > local variables)
 - Apply fix using proper typing, generics, or type guards
 - Do NOT fix everything - fix ONE meaningful issue per category
@@ -77,6 +78,7 @@ find . -name "*.tsx" -not -path "*/node_modules/*" -not -path "*/.next/*" -not -
 ```
 
 If issues found:
+
 - Pick the largest file with clear extraction boundaries
 - Extract ONE self-contained component
 - Create colocated test if needed
@@ -94,6 +96,7 @@ grep -r --include="*.ts" --include="*.tsx" --exclude-dir=node_modules --exclude-
 ```
 
 If issues found:
+
 - Fix ONE cycle or deep import
 - Use path aliases or restructure module boundaries
 
@@ -105,6 +108,7 @@ gh issue list -R "$REPO" --label "deferred" --state open --limit 3 2>/dev/null |
 ```
 
 If deferred issues exist:
+
 - Pick ONE deferred item from the oldest issue
 - Implement the fix with tests
 
@@ -162,7 +166,7 @@ $enter-merge-queue
 
 If no issues were found in any category, report:
 
-```
+```text
 No preen opportunities found. Codebase is clean across all categories:
 - TypeScript types: No `any`, unsafe casts, or @ts-ignore
 - React components: No oversized files needing splits
