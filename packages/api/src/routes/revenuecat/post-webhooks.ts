@@ -113,13 +113,13 @@ async function processBillingUpdate(
      )
      ON CONFLICT (organization_id) DO UPDATE
      SET revenuecat_app_user_id = EXCLUDED.revenuecat_app_user_id,
-         entitlement_status = COALESCE($3, organization_billing_accounts.entitlement_status),
-         active_product_id = COALESCE($4, organization_billing_accounts.active_product_id),
-         period_ends_at = COALESCE($5, organization_billing_accounts.period_ends_at),
-         will_renew = COALESCE($6, organization_billing_accounts.will_renew),
-         last_webhook_event_id = $7,
-         last_webhook_at = $8,
-         updated_at = $9`,
+         entitlement_status = COALESCE(EXCLUDED.entitlement_status, organization_billing_accounts.entitlement_status),
+         active_product_id = EXCLUDED.active_product_id,
+         period_ends_at = EXCLUDED.period_ends_at,
+         will_renew = EXCLUDED.will_renew,
+         last_webhook_event_id = EXCLUDED.last_webhook_event_id,
+         last_webhook_at = EXCLUDED.last_webhook_at,
+         updated_at = EXCLUDED.updated_at`,
     [
       organizationId,
       revenueCatAppUserId,
@@ -175,25 +175,11 @@ export const postWebhooksHandler = async (
       reason?: string;
     } = {}
   ): void => {
-    const metric = {
+    recordRevenueCatWebhookMetric({
       outcome,
-      durationMs: Date.now() - startedAtMs
-    };
-
-    if (options.eventType !== undefined) {
-      Object.assign(metric, { eventType: options.eventType });
-    }
-    if (options.eventId !== undefined) {
-      Object.assign(metric, { eventId: options.eventId });
-    }
-    if (options.organizationId !== undefined) {
-      Object.assign(metric, { organizationId: options.organizationId });
-    }
-    if (options.reason !== undefined) {
-      Object.assign(metric, { reason: options.reason });
-    }
-
-    recordRevenueCatWebhookMetric(metric);
+      durationMs: Date.now() - startedAtMs,
+      ...options
+    });
   };
 
   const webhookSecret = process.env['REVENUECAT_WEBHOOK_SECRET'];

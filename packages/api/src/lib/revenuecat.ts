@@ -94,19 +94,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-function getRequiredString(
-  record: Record<string, unknown>,
-  key: string
-): string | null {
-  const value = record[key];
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function getOptionalString(
+function getTrimmedString(
   record: Record<string, unknown>,
   key: string
 ): string | null {
@@ -210,9 +198,9 @@ export function parseRevenueCatEventPayload(
     return null;
   }
 
-  const eventId = getRequiredString(eventValue, 'id');
-  const eventType = getRequiredString(eventValue, 'type');
-  const appUserId = getRequiredString(eventValue, 'app_user_id');
+  const eventId = getTrimmedString(eventValue, 'id');
+  const eventType = getTrimmedString(eventValue, 'type');
+  const appUserId = getTrimmedString(eventValue, 'app_user_id');
   if (!eventId || !eventType || !appUserId) {
     return null;
   }
@@ -223,8 +211,8 @@ export function parseRevenueCatEventPayload(
       id: eventId,
       type: eventType,
       app_user_id: appUserId,
-      product_id: getOptionalString(eventValue, 'product_id'),
-      period_type: getOptionalString(eventValue, 'period_type'),
+      product_id: getTrimmedString(eventValue, 'product_id'),
+      period_type: getTrimmedString(eventValue, 'period_type'),
       event_timestamp_ms: getOptionalNumber(eventValue, 'event_timestamp_ms'),
       expiration_at_ms: getOptionalNumber(eventValue, 'expiration_at_ms')
     }
