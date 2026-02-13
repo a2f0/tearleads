@@ -1,3 +1,9 @@
+import {
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
+import { ArrowLeft, RefreshCw, Upload } from 'lucide-react';
 import { DropZoneOverlay } from '../DropZoneOverlay';
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
 import { AudioWindowDetail } from './AudioWindowDetail';
@@ -9,6 +15,7 @@ import { AudioWindowTableView } from './AudioWindowTableView';
 interface AudioWindowContentProps {
   onClose: () => void;
   onUpload: () => void;
+  onRefresh: () => void;
   view: AudioViewMode;
   onViewChange: (view: AudioViewMode) => void;
   showDeleted: boolean;
@@ -41,6 +48,7 @@ interface AudioWindowContentProps {
 export function AudioWindowContent({
   onClose,
   onUpload,
+  onRefresh,
   view,
   onViewChange,
   showDeleted,
@@ -77,6 +85,38 @@ export function AudioWindowContent({
         showDropzone={showDropzone}
         onShowDropzoneChange={onShowDropzoneChange}
       />
+      <WindowControlBar>
+        <WindowControlGroup>
+          {selectedTrackId ? (
+            <WindowControlButton
+              icon={<ArrowLeft className="h-3 w-3" />}
+              onClick={onBack}
+              data-testid="audio-window-control-back"
+            >
+              Back
+            </WindowControlButton>
+          ) : (
+            <>
+              <WindowControlButton
+                icon={<Upload className="h-3 w-3" />}
+                onClick={onUpload}
+                disabled={uploading}
+                data-testid="audio-window-control-upload"
+              >
+                Upload
+              </WindowControlButton>
+              <WindowControlButton
+                icon={<RefreshCw className="h-3 w-3" />}
+                onClick={onRefresh}
+                disabled={uploading}
+                data-testid="audio-window-control-refresh"
+              >
+                Refresh
+              </WindowControlButton>
+            </>
+          )}
+        </WindowControlGroup>
+      </WindowControlBar>
       <div className="flex min-h-0 flex-1">
         {isUnlocked && (
           <AudioPlaylistsSidebar

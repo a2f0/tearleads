@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useEffect } from 'react';
 import type React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -16,6 +17,7 @@ vi.mock('@/contexts/ClientVideoProvider', () => ({
 }));
 
 const mockAddTrackToPlaylist = vi.fn();
+const videoPageMount = vi.fn();
 
 vi.mock('./VideoPlaylistsSidebar', () => ({
   ALL_VIDEO_ID: '__ALL_VIDEO__',
@@ -105,19 +107,25 @@ vi.mock('@/pages/Video', () => ({
     ) => void;
     hideBackLink?: boolean;
     viewMode?: 'list' | 'table';
-  }) => (
-    <>
-      <div data-testid="video-view-mode">{viewMode}</div>
-      <button
-        type="button"
-        onClick={() => onOpenVideo?.('test-video')}
-        data-testid="open-video"
-      >
-        Open Video
-      </button>
-      {hideBackLink && <div data-testid="back-link-hidden" />}
-    </>
-  )
+  }) => {
+    useEffect(() => {
+      videoPageMount();
+    }, []);
+
+    return (
+      <>
+        <div data-testid="video-view-mode">{viewMode}</div>
+        <button
+          type="button"
+          onClick={() => onOpenVideo?.('test-video')}
+          data-testid="open-video"
+        >
+          Open Video
+        </button>
+        {hideBackLink && <div data-testid="back-link-hidden" />}
+      </>
+    );
+  }
 }));
 
 vi.mock('@/pages/VideoDetail', () => ({
@@ -156,6 +164,7 @@ describe('VideoWindow', () => {
     });
     mockAddTrackToPlaylist.mockClear();
     mockAddTrackToPlaylist.mockResolvedValue(undefined);
+    videoPageMount.mockClear();
   });
 
   it('renders in FloatingWindow', () => {
@@ -175,6 +184,13 @@ describe('VideoWindow', () => {
     expect(screen.getByTestId('back-link-hidden')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
+  });
+
+  it('renders control bar actions in list view', () => {
+    render(<VideoWindow {...defaultProps} />);
+    expect(screen.getByTestId('video-window-control-upload')).toBeInTheDocument();
+    expect(screen.getByTestId('video-window-control-refresh')).toBeInTheDocument();
+    expect(screen.queryByTestId('video-window-control-back')).not.toBeInTheDocument();
   });
 
   it('wraps list content in a scrollable container', () => {
@@ -211,6 +227,18 @@ describe('VideoWindow', () => {
 
     await user.click(screen.getByTestId('video-back'));
     expect(screen.getByTestId('open-video')).toBeInTheDocument();
+  });
+
+  it('returns to the list when control bar back is clicked', async () => {
+    const user = userEvent.setup();
+    render(<VideoWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('open-video'));
+    expect(screen.getByTestId('video-window-control-back')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('video-window-control-back'));
+    expect(screen.getByTestId('open-video')).toBeInTheDocument();
+    expect(screen.queryByTestId('video-window-control-back')).not.toBeInTheDocument();
   });
 
   it('switches to the table view from the menu', async () => {
@@ -345,6 +373,30 @@ describe('VideoWindow', () => {
     expect(clickSpy).toHaveBeenCalled();
 
     clickSpy.mockRestore();
+  });
+
+  it('opens the file picker from the control bar upload action', async () => {
+    const user = userEvent.setup();
+    const clickSpy = vi.spyOn(HTMLInputElement.prototype, 'click');
+
+    render(<VideoWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('video-window-control-upload'));
+
+    expect(clickSpy).toHaveBeenCalled();
+
+    clickSpy.mockRestore();
+  });
+
+  it('refreshes video page from the control bar refresh action', async () => {
+    const user = userEvent.setup();
+    render(<VideoWindow {...defaultProps} />);
+
+    expect(videoPageMount).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTestId('video-window-control-refresh'));
+
+    expect(videoPageMount).toHaveBeenCalledTimes(2);
   });
 
   it('renders without error when inside a router context (WindowRenderer is inside BrowserRouter)', () => {

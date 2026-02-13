@@ -143,6 +143,20 @@ describe('ConsoleWindow', () => {
     expect(screen.getByTestId('terminal')).toBeInTheDocument();
   });
 
+  it('renders control bar actions in terminal view', () => {
+    render(<ConsoleWindow {...defaultProps} />);
+    expect(
+      screen.getByTestId('console-window-control-new-tab')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('console-window-control-split-horizontal')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('console-window-control-split-vertical')
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId('console-window-control-back')).not.toBeInTheDocument();
+  });
+
   it('calls onClose when close button is clicked', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -184,6 +198,18 @@ describe('ConsoleWindow', () => {
     expect(screen.getByText('Terminal 2')).toBeInTheDocument();
   });
 
+  it('creates a new tab when control bar New Tab is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    expect(screen.queryByText('Terminal 1')).not.toBeInTheDocument();
+
+    await user.click(screen.getByTestId('console-window-control-new-tab'));
+
+    expect(screen.getByText('Terminal 1')).toBeInTheDocument();
+    expect(screen.getByText('Terminal 2')).toBeInTheDocument();
+  });
+
   it('creates a horizontal split when Split Horizontal is clicked', async () => {
     const user = userEvent.setup();
     render(<ConsoleWindow {...defaultProps} />);
@@ -195,6 +221,19 @@ describe('ConsoleWindow', () => {
     await user.click(screen.getByTestId('split-horizontal-button'));
 
     // Now 2 terminals (main + split pane)
+    expect(screen.getAllByTestId('terminal')).toHaveLength(2);
+  });
+
+  it('creates a split when control bar split action is clicked', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    expect(screen.getAllByTestId('terminal')).toHaveLength(1);
+
+    await user.click(
+      screen.getByTestId('console-window-control-split-horizontal')
+    );
+
     expect(screen.getAllByTestId('terminal')).toHaveLength(2);
   });
 
@@ -396,5 +435,21 @@ describe('ConsoleWindow', () => {
 
     await user.click(screen.getByRole('button', { name: 'Back to Console' }));
     expect(screen.getByTestId('terminal')).toBeInTheDocument();
+  });
+
+  it('returns from documentation via control bar back action', async () => {
+    const user = userEvent.setup();
+    render(<ConsoleWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('open-documentation-button'));
+    expect(screen.getByTestId('help-documentation')).toHaveTextContent(
+      'consoleReference'
+    );
+    expect(screen.getByTestId('console-window-control-back')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('console-window-control-back'));
+
+    expect(screen.getByTestId('terminal')).toBeInTheDocument();
+    expect(screen.queryByTestId('console-window-control-back')).not.toBeInTheDocument();
   });
 });

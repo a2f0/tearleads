@@ -190,6 +190,19 @@ describe('DocumentsWindow', () => {
     expect(lastDocumentsProps?.['showDropzone']).toBe(false);
   });
 
+  it('renders control bar actions in list view', () => {
+    render(<DocumentsWindow {...defaultProps} />);
+    expect(
+      screen.getByTestId('documents-window-control-upload')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('documents-window-control-refresh')
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('documents-window-control-back')
+    ).not.toBeInTheDocument();
+  });
+
   it('toggles showDropzone from the menu', async () => {
     const user = userEvent.setup();
     render(<DocumentsWindow {...defaultProps} />);
@@ -258,6 +271,30 @@ describe('DocumentsWindow', () => {
     expect(lastDocumentsProps?.['refreshToken']).toBe(1);
   });
 
+  it('opens file picker from control bar upload action', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    const fileInput = screen.getByTestId('documents-file-input');
+    const clickSpy = vi.spyOn(fileInput, 'click');
+
+    await user.click(screen.getByTestId('documents-window-control-upload'));
+
+    expect(clickSpy).toHaveBeenCalled();
+  });
+
+  it('refreshes documents when control bar refresh is clicked', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    expect(lastDocumentsProps?.['refreshToken']).toBe(0);
+
+    await user.click(screen.getByTestId('documents-window-control-refresh'));
+
+    await screen.findByTestId('documents-content');
+    expect(lastDocumentsProps?.['refreshToken']).toBe(1);
+  });
+
   it('updates view mode when menu view is changed', async () => {
     const user = userEvent.setup();
     render(<DocumentsWindow {...defaultProps} />);
@@ -309,6 +346,22 @@ describe('DocumentsWindow', () => {
 
     await user.click(screen.getByTestId('document-back'));
     expect(screen.getByTestId('documents-content')).toBeInTheDocument();
+  });
+
+  it('returns to documents list when control bar back is clicked', async () => {
+    const user = userEvent.setup();
+    render(<DocumentsWindow {...defaultProps} />);
+
+    await user.click(screen.getByTestId('select-document'));
+    expect(screen.getByTestId('document-detail')).toBeInTheDocument();
+    expect(screen.getByTestId('documents-window-control-back')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('documents-window-control-back'));
+
+    expect(screen.getByTestId('documents-content')).toBeInTheDocument();
+    expect(
+      screen.queryByTestId('documents-window-control-back')
+    ).not.toBeInTheDocument();
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {

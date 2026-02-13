@@ -1046,6 +1046,9 @@ importers:
       '@tearleads/ui':
         specifier: workspace:*
         version: link:../ui
+      '@tearleads/window-manager':
+        specifier: workspace:*
+        version: link:../window-manager
       '@testing-library/jest-dom':
         specifier: 6.9.1
         version: 6.9.1

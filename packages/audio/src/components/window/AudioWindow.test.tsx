@@ -9,6 +9,21 @@ import { AudioWindow } from './AudioWindow';
 vi.mock('@tearleads/window-manager', () => ({
   FloatingWindow: ({ children }: { children: ReactNode }) => (
     <div data-testid="floating-window">{children}</div>
+  ),
+  WindowControlBar: ({ children }: { children: ReactNode }) => (
+    <div data-testid="control-bar">{children}</div>
+  ),
+  WindowControlGroup: ({ children }: { children: ReactNode }) => (
+    <div>{children}</div>
+  ),
+  WindowControlButton: ({
+    children,
+    onClick,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" onClick={onClick} {...props}>
+      {children}
+    </button>
   )
 }));
 
@@ -100,6 +115,15 @@ describe('AudioWindow', () => {
     expect(screen.getByTestId('dropdown-help')).toBeInTheDocument();
   });
 
+  it('renders control bar actions in list view', () => {
+    renderWithProviders();
+    expect(screen.getByTestId('control-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('audio-window-control-upload')).toBeInTheDocument();
+    expect(
+      screen.getByTestId('audio-window-control-refresh')
+    ).toBeInTheDocument();
+  });
+
   it('renders without error when database is unlocked', () => {
     renderWithProviders({
       databaseState: { isUnlocked: true }
@@ -123,6 +147,18 @@ describe('AudioWindow', () => {
     expect(
       screen.queryByTestId('audio-playlists-sidebar')
     ).not.toBeInTheDocument();
+  });
+
+  it('triggers file input from the control bar upload action', async () => {
+    const user = userEvent.setup();
+    renderWithProviders();
+
+    const fileInput = screen.getByTestId('audio-file-input');
+    const clickSpy = vi.spyOn(fileInput, 'click');
+
+    await user.click(screen.getByTestId('audio-window-control-upload'));
+
+    expect(clickSpy).toHaveBeenCalled();
   });
 
   describe('upload to playlist', () => {

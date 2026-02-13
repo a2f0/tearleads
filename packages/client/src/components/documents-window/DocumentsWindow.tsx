@@ -1,6 +1,11 @@
 import { useMultiFileUpload } from '@tearleads/audio';
-import { WindowStatusBar } from '@tearleads/window-manager';
-import { Loader2 } from 'lucide-react';
+import {
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup,
+  WindowStatusBar
+} from '@tearleads/window-manager';
+import { ArrowLeft, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -152,6 +157,38 @@ export function DocumentsWindow({
             onClose={onClose}
           />
         )}
+        <WindowControlBar>
+          <WindowControlGroup>
+            {selectedDocumentId ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={handleBack}
+                data-testid="documents-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            ) : (
+              <>
+                <WindowControlButton
+                  icon={<Upload className="h-3 w-3" />}
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  data-testid="documents-window-control-upload"
+                >
+                  Upload
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<RefreshCw className="h-3 w-3" />}
+                  onClick={handleRefresh}
+                  disabled={uploading}
+                  data-testid="documents-window-control-refresh"
+                >
+                  Refresh
+                </WindowControlButton>
+              </>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
           {uploadError && (
             <div className="mx-3 mt-3 whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-3 text-destructive text-sm">

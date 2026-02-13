@@ -1,8 +1,12 @@
 import { notes, vfsRegistry } from '@tearleads/db/sqlite';
 import {
   FloatingWindow,
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { ArrowLeft, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNotesContext } from '../context/NotesContext';
 import { NotesWindowDetail } from './NotesWindowDetail';
@@ -158,6 +162,30 @@ export function NotesWindow({
           onNewNote={handleNewNote}
           onClose={onClose}
         />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {selectedNoteId ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={handleBack}
+                data-testid="notes-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            ) : (
+              <WindowControlButton
+                icon={<Plus className="h-3 w-3" />}
+                onClick={() => {
+                  void handleNewNote();
+                }}
+                disabled={!isUnlocked}
+                data-testid="notes-window-control-new"
+              >
+                New
+              </WindowControlButton>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {selectedNoteId ? (
             <NotesWindowDetail

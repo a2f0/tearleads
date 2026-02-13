@@ -167,6 +167,12 @@ describe('SqliteWindow', () => {
     expect(screen.getByRole('button', { name: 'View' })).toBeInTheDocument();
   });
 
+  it('renders control bar refresh action on table view', () => {
+    render(<SqliteWindow {...defaultProps} />);
+    expect(screen.getByTestId('sqlite-window-control-refresh')).toBeInTheDocument();
+    expect(screen.queryByTestId('sqlite-window-control-back')).not.toBeInTheDocument();
+  });
+
   it('calls onClose from File menu Close option', async () => {
     const user = userEvent.setup();
     const onClose = vi.fn();
@@ -229,6 +235,18 @@ describe('SqliteWindow', () => {
     expect(screen.getByTestId('table-sizes-content')).toBeInTheDocument();
   });
 
+  it('triggers refresh when control bar refresh is clicked', async () => {
+    const user = userEvent.setup();
+    render(<SqliteWindow {...defaultProps} />);
+
+    expect(databaseTestMount).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByTestId('sqlite-window-control-refresh'));
+
+    expect(databaseTestMount).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId('database-test-content')).toBeInTheDocument();
+  });
+
   it('shows table rows in window when a table is selected', async () => {
     const user = userEvent.setup();
     render(<SqliteWindow {...defaultProps} />);
@@ -240,12 +258,12 @@ describe('SqliteWindow', () => {
     expect(screen.getByText('Viewing 1-73 of 73 rows')).toBeInTheDocument();
   });
 
-  it('returns to table sizes when Back to SQLite is clicked', async () => {
+  it('returns to table sizes when Back control is clicked', async () => {
     const user = userEvent.setup();
     render(<SqliteWindow {...defaultProps} />);
 
     await user.click(screen.getByTestId('table-sizes-select'));
-    await user.click(screen.getByRole('button', { name: 'Back to SQLite' }));
+    await user.click(screen.getByTestId('sqlite-window-control-back'));
 
     expect(screen.getByTestId('table-sizes-content')).toBeInTheDocument();
   });

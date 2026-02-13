@@ -1,5 +1,10 @@
 import openapiSpec from '@tearleads/api/dist/openapi.json';
 import { ApiDocs } from '@tearleads/ui';
+import {
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -87,6 +92,19 @@ export function HelpWindow({
     >
       <div className="flex h-full flex-col overflow-hidden">
         <HelpWindowMenuBar onClose={onClose} />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {view !== 'index' && (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={() => setView('index')}
+                data-testid="help-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="min-h-0 flex-1 p-6">
           {view === 'index' ? (
             <div className="h-full space-y-6 overflow-auto">

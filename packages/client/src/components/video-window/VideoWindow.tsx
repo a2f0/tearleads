@@ -1,5 +1,10 @@
 import { useMultiFileUpload } from '@tearleads/audio';
-import { Loader2 } from 'lucide-react';
+import {
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
+import { ArrowLeft, Loader2, RefreshCw, Upload } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
@@ -88,6 +93,10 @@ function VideoWindowInner({
 
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click();
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshToken((value) => value + 1);
   }, []);
 
   // Handler for uploading files with optional target playlist override
@@ -203,6 +212,38 @@ function VideoWindowInner({
           onUpload={handleUpload}
           onClose={onClose}
         />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {activeVideoId ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={handleBack}
+                data-testid="video-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            ) : (
+              <>
+                <WindowControlButton
+                  icon={<Upload className="h-3 w-3" />}
+                  onClick={handleUpload}
+                  disabled={uploading}
+                  data-testid="video-window-control-upload"
+                >
+                  Upload
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<RefreshCw className="h-3 w-3" />}
+                  onClick={handleRefresh}
+                  disabled={uploading}
+                  data-testid="video-window-control-refresh"
+                >
+                  Refresh
+                </WindowControlButton>
+              </>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="flex flex-1 overflow-hidden">
           <VideoPlaylistsSidebar
             width={sidebarWidth}

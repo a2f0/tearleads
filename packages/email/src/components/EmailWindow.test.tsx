@@ -32,6 +32,21 @@ vi.mock('@tearleads/window-manager', () => ({
       {children}
     </div>
   ),
+  WindowControlBar: ({ children }: { children: React.ReactNode }) => (
+    <div data-testid="control-bar">{children}</div>
+  ),
+  WindowControlGroup: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  WindowControlButton: ({
+    children,
+    onClick,
+    ...props
+  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+    <button type="button" onClick={onClick} {...props}>
+      {children}
+    </button>
+  ),
   useResizableSidebar: () => ({
     resizeHandleProps: {
       role: 'separator',
@@ -448,6 +463,40 @@ describe('EmailWindow', () => {
     await waitFor(() => {
       expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
     });
+  });
+
+  it('renders control bar compose and refresh actions in list view', async () => {
+    await renderLoadedWindow();
+    expect(screen.getByTestId('control-bar')).toBeInTheDocument();
+    expect(screen.getByTestId('email-window-control-compose')).toBeInTheDocument();
+    expect(screen.getByTestId('email-window-control-refresh')).toBeInTheDocument();
+  });
+
+  it('opens compose from the control bar compose action', async () => {
+    const user = userEvent.setup();
+    await renderLoadedWindow();
+
+    await user.click(screen.getByTestId('email-window-control-compose'));
+
+    expect(screen.getByTestId('compose-dialog')).toBeInTheDocument();
+    expect(screen.getByTestId('window-title')).toHaveTextContent('New Message');
+  });
+
+  it('returns to list view from the control bar back action', async () => {
+    const user = userEvent.setup();
+    await renderLoadedWindow();
+
+    await user.click(screen.getByText('Test Subject'));
+    await waitFor(() => {
+      expect(screen.getByTestId('email-window-control-back')).toBeInTheDocument();
+    });
+
+    await user.click(screen.getByTestId('email-window-control-back'));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('window-title')).toHaveTextContent('All Mail');
+    });
+    expect(screen.queryByTestId('email-window-control-back')).not.toBeInTheDocument();
   });
 
   it('opens compose in the main panel tab', async () => {

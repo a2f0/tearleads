@@ -1,4 +1,10 @@
-import { WindowStatusBar } from '@tearleads/window-manager';
+import {
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup,
+  WindowStatusBar
+} from '@tearleads/window-manager';
+import { ArrowLeft, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -45,6 +51,10 @@ export function FilesWindow({
 
   const handleUpload = useCallback(() => {
     fileInputRef.current?.click();
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshToken((value) => value + 1);
   }, []);
 
   const handleUploadFiles = useCallback((files: File[]) => {
@@ -120,6 +130,36 @@ export function FilesWindow({
           onUpload={handleUpload}
           onClose={onClose}
         />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {selectedFileId ? (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={handleBack}
+                data-testid="files-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            ) : (
+              <>
+                <WindowControlButton
+                  icon={<Upload className="h-3 w-3" />}
+                  onClick={handleUpload}
+                  data-testid="files-window-control-upload"
+                >
+                  Upload
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<RefreshCw className="h-3 w-3" />}
+                  onClick={handleRefresh}
+                  data-testid="files-window-control-refresh"
+                >
+                  Refresh
+                </WindowControlButton>
+              </>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="relative flex-1 overflow-hidden" {...dropZoneProps}>
           {selectedFileId ? (
             <FilesWindowDetail
