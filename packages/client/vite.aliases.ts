@@ -12,6 +12,7 @@ type AliasMap = Record<string, string>;
 export const createViteAliases = (dirname: string): AliasMap => ({
   '@': path.resolve(dirname, './src'),
   '@client': path.resolve(dirname, './src'),
+  '@admin': path.resolve(dirname, '../admin/src'),
   // UI package - styles, theme, and assets
   '@tearleads/ui/styles.css': path.resolve(dirname, '../ui/src/styles/index.css'),
   '@tearleads/ui/theme.css': path.resolve(dirname, '../ui/src/styles/theme.css'),
@@ -20,6 +21,8 @@ export const createViteAliases = (dirname: string): AliasMap => ({
   // API openapi spec
   '@tearleads/api/dist/openapi.json': path.resolve(dirname, '../api/dist/openapi.json'),
   // Workspace packages aliased to source for HMR
+  '@tearleads/admin/package.json': path.resolve(dirname, '../admin/package.json'),
+  '@tearleads/admin': path.resolve(dirname, '../admin/src/index.ts'),
   '@tearleads/audio/package.json': path.resolve(dirname, '../audio/package.json'),
   '@tearleads/audio': path.resolve(dirname, '../audio/src/index.ts'),
   '@tearleads/calendar/package.json': path.resolve(dirname, '../calendar/package.json'),

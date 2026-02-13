@@ -723,7 +723,7 @@ vi.mock('@/components/audio-window', () => ({
   )
 }));
 
-vi.mock('@/components/admin-window', () => ({
+vi.mock('@tearleads/admin', () => ({
   AdminWindow: ({
     id,
     onClose,
@@ -851,10 +851,7 @@ vi.mock('@/components/admin-window', () => ({
         Minimize
       </button>
     </div>
-  )
-}));
-
-vi.mock('@/components/admin-users-window', () => ({
+  ),
   AdminUsersWindow: ({
     id,
     onClose,
@@ -886,10 +883,7 @@ vi.mock('@/components/admin-users-window', () => ({
         Minimize
       </button>
     </div>
-  )
-}));
-
-vi.mock('@/components/admin-organizations-window', () => ({
+  ),
   AdminOrganizationsWindow: ({
     id,
     onClose,

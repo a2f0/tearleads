@@ -408,4 +408,33 @@ describe('Sync', () => {
 
     expect(screen.queryByText('Email address')).not.toBeInTheDocument();
   });
+
+  it('switches from login mode to register mode', async () => {
+    const user = userEvent.setup();
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Create one' })).toBeVisible();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Create one' }));
+
+    expect(
+      screen.getByRole('button', { name: 'Create Account' })
+    ).toBeInTheDocument();
+  });
+
+  it('switches from register mode back to login mode', async () => {
+    const user = userEvent.setup();
+    renderSync();
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'Create one' })).toBeVisible();
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Create one' }));
+    await user.click(screen.getByRole('button', { name: 'Sign in' }));
+
+    expect(screen.getByRole('button', { name: 'Sign In' })).toBeInTheDocument();
+  });
 });

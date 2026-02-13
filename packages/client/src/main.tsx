@@ -45,36 +45,38 @@ if ('serviceWorker' in navigator) {
 
 // Lazy-loaded pages for code splitting
 const Admin = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.Admin }))
+  import('@tearleads/admin').then((m) => ({ default: m.Admin }))
 );
 const AdminLauncher = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.AdminLauncher }))
+  import('@tearleads/admin').then((m) => ({ default: m.AdminLauncher }))
 );
 const AiRequestsAdminPage = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.AiRequestsAdminPage }))
+  import('@tearleads/admin').then((m) => ({ default: m.AiRequestsAdminPage }))
 );
 const PostgresAdmin = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.PostgresAdmin }))
+  import('@tearleads/admin').then((m) => ({ default: m.PostgresAdmin }))
 );
 const GroupsAdminPage = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.GroupsAdminPage }))
+  import('@tearleads/admin').then((m) => ({ default: m.GroupsAdminPage }))
 );
 const GroupDetailPageRoute = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.GroupDetailPageRoute }))
+  import('@tearleads/admin').then((m) => ({ default: m.GroupDetailPageRoute }))
 );
 const OrganizationsAdminPage = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.OrganizationsAdminPage }))
+  import('@tearleads/admin').then((m) => ({
+    default: m.OrganizationsAdminPage
+  }))
 );
 const OrganizationDetailPageRoute = lazy(() =>
-  import('./pages/admin').then((m) => ({
+  import('@tearleads/admin').then((m) => ({
     default: m.OrganizationDetailPageRoute
   }))
 );
 const UsersAdminPage = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.UsersAdminPage }))
+  import('@tearleads/admin').then((m) => ({ default: m.UsersAdminPage }))
 );
 const UsersAdminDetail = lazy(() =>
-  import('./pages/admin').then((m) => ({ default: m.UsersAdminDetail }))
+  import('@tearleads/admin').then((m) => ({ default: m.UsersAdminDetail }))
 );
 const Analytics = lazy(() =>
   import('./pages/analytics').then((m) => ({ default: m.Analytics }))

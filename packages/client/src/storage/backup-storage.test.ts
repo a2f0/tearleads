@@ -133,6 +133,10 @@ describe('backup-storage', () => {
       createMockFileHandle('existing-backup.tbu', new Uint8Array([1, 2, 3]))
     );
     fileMap.set(
+      'older-backup.tbu',
+      createMockFileHandle('older-backup.tbu', new Uint8Array([7, 8]))
+    );
+    fileMap.set(
       'notes.txt',
       createMockFileHandle('notes.txt', new Uint8Array([9]))
     );
@@ -177,8 +181,11 @@ describe('backup-storage', () => {
 
   it('lists only .tbu backups', async () => {
     const backups = await listStoredBackups();
-    expect(backups).toHaveLength(1);
-    expect(backups[0]?.name).toBe('existing-backup.tbu');
+    expect(backups).toHaveLength(2);
+    expect(backups.map((backup) => backup.name).sort()).toEqual([
+      'existing-backup.tbu',
+      'older-backup.tbu'
+    ]);
   });
 
   it('saves and reads a backup file', async () => {
@@ -192,7 +199,8 @@ describe('backup-storage', () => {
   it('deletes a backup file', async () => {
     await deleteBackupFromStorage('existing-backup.tbu');
     const backups = await listStoredBackups();
-    expect(backups).toHaveLength(0);
+    expect(backups).toHaveLength(1);
+    expect(backups[0]?.name).toBe('older-backup.tbu');
   });
 
   it('computes backup storage usage', async () => {

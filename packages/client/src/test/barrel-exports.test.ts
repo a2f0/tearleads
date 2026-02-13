@@ -55,26 +55,17 @@ vi.mock('@/components/ui/bottom-sheet/BottomSheet', () => ({
   ANIMATION_DURATION_MS: 120
 }));
 
-vi.mock('@/pages/admin/Admin', () => ({
-  Admin: () => null
-}));
-vi.mock('@/pages/admin/UsersAdmin', () => ({
-  UsersAdmin: () => null
-}));
-vi.mock('@/pages/admin/UsersAdminDetail', () => ({
-  UsersAdminDetail: () => null
-}));
-vi.mock('@/pages/admin/UsersAdminPage', () => ({
-  UsersAdminPage: () => null
-}));
-vi.mock('@/pages/admin/AiRequestsAdminPage', () => ({
-  AiRequestsAdminPage: () => null
-}));
-vi.mock('@/pages/admin/GroupsAdminPage', () => ({
-  GroupsAdminPage: () => null
-}));
-vi.mock('@/pages/admin/GroupDetailPageRoute', () => ({
-  GroupDetailPageRoute: () => null
+vi.mock('@tearleads/admin', () => ({
+  Admin: () => null,
+  PostgresAdmin: () => null,
+  UsersAdmin: () => null,
+  UsersAdminDetail: () => null,
+  UsersAdminPage: () => null,
+  AiRequestsAdminPage: () => null,
+  GroupsAdminPage: () => null,
+  GroupDetailPageRoute: () => null,
+  OrganizationsAdminPage: () => null,
+  OrganizationDetailPageRoute: () => null
 }));
 vi.mock('@/pages/analytics/Analytics', () => ({
   Analytics: () => null
