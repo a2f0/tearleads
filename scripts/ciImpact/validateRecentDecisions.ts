@@ -55,6 +55,7 @@ interface ValidationOutput {
 
 const DEFAULT_SAMPLE_SIZE = 20;
 const DEFAULT_LOOKBACK_HOURS = 24;
+const COMMAND_TIMEOUT_MS = 5 * 60 * 1000;
 
 function parsePositiveInt(rawValue: string, key: string): number {
   const parsed = Number.parseInt(rawValue, 10);
@@ -105,7 +106,8 @@ function parseArgs(argv: string[]): CliArgs {
 function runCommand(command: string, args: string[]): string {
   return execFileSync(command, args, {
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
+    timeout: COMMAND_TIMEOUT_MS
   }).trim();
 }
 
@@ -202,7 +204,13 @@ function getRecentMergedPullRequests(repo: string, sampleSize: number, cutoffMs:
 }
 
 function parseRequiredWorkflows(rawJson: string): RequiredWorkflowsOutput {
-  const parsed = JSON.parse(rawJson);
+  let parsed: unknown = null;
+  try {
+    parsed = JSON.parse(rawJson);
+  } catch {
+    const snippet = rawJson.slice(0, 240).replace(/\s+/g, ' ').trim();
+    throw new Error(`requiredWorkflows output must be valid JSON: ${snippet}`);
+  }
   if (typeof parsed !== 'object' || parsed === null) {
     throw new Error('requiredWorkflows output must be a JSON object');
   }
