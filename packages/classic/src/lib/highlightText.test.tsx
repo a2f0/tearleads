@@ -18,7 +18,9 @@ describe('highlightText', () => {
   });
 
   it('highlights matching substring at the beginning', () => {
-    const { container } = render(<span>{highlightText('Hello World', 'Hello')}</span>);
+    const { container } = render(
+      <span>{highlightText('Hello World', 'Hello')}</span>
+    );
     const mark = container.querySelector('mark');
     expect(mark).toBeInTheDocument();
     expect(mark).toHaveTextContent('Hello');
@@ -26,35 +28,45 @@ describe('highlightText', () => {
   });
 
   it('highlights matching substring in the middle', () => {
-    const { container } = render(<span>{highlightText('Hello World', 'lo Wo')}</span>);
+    const { container } = render(
+      <span>{highlightText('Hello World', 'lo Wo')}</span>
+    );
     const mark = container.querySelector('mark');
     expect(mark).toBeInTheDocument();
     expect(mark).toHaveTextContent('lo Wo');
   });
 
   it('highlights matching substring at the end', () => {
-    const { container } = render(<span>{highlightText('Hello World', 'World')}</span>);
+    const { container } = render(
+      <span>{highlightText('Hello World', 'World')}</span>
+    );
     const mark = container.querySelector('mark');
     expect(mark).toBeInTheDocument();
     expect(mark).toHaveTextContent('World');
   });
 
   it('performs case-insensitive matching', () => {
-    const { container } = render(<span>{highlightText('Hello World', 'HELLO')}</span>);
+    const { container } = render(
+      <span>{highlightText('Hello World', 'HELLO')}</span>
+    );
     const mark = container.querySelector('mark');
     expect(mark).toBeInTheDocument();
     expect(mark).toHaveTextContent('Hello');
   });
 
   it('preserves original case in highlighted text', () => {
-    const { container } = render(<span>{highlightText('HeLLo WoRLd', 'hello')}</span>);
+    const { container } = render(
+      <span>{highlightText('HeLLo WoRLd', 'hello')}</span>
+    );
     const mark = container.querySelector('mark');
     expect(mark).toBeInTheDocument();
     expect(mark).toHaveTextContent('HeLLo');
   });
 
   it('applies yellow background styling to mark element', () => {
-    const { container } = render(<span>{highlightText('Hello World', 'World')}</span>);
+    const { container } = render(
+      <span>{highlightText('Hello World', 'World')}</span>
+    );
     const mark = container.querySelector('mark');
     expect(mark).toHaveClass('bg-yellow-200');
   });
