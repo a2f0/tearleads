@@ -72,13 +72,13 @@ const user = response.data as User;
 
 // After - with type guard
 function isUser(value: unknown): value is User {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const obj = value as Record<string, unknown>;
   return (
-    typeof value === 'object' &&
-    value !== null &&
-    'id' in value &&
-    'email' in value &&
-    typeof (value as User).id === 'string' &&
-    typeof (value as User).email === 'string'
+    typeof obj.id === 'string' &&
+    typeof obj.email === 'string'
   );
 }
 
