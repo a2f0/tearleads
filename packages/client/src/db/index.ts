@@ -71,12 +71,13 @@ export async function setupDatabase(
   password: string,
   instanceId: string
 ): Promise<Database> {
-  if (_getDatabaseInstance() && currentInstanceId === instanceId) {
+  const dbInstance = _getDatabaseInstance();
+  if (dbInstance && currentInstanceId === instanceId) {
     throw new Error('Database already initialized for this instance');
   }
 
   // Close existing database if switching instances
-  if (_getDatabaseInstance() && currentInstanceId !== instanceId) {
+  if (dbInstance && currentInstanceId !== instanceId) {
     await closeDatabase();
   }
 
