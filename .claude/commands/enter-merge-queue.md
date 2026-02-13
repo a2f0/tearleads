@@ -14,21 +14,18 @@ description: Guarantee PR merge by cycling until merged
 - CI completing successfully - continue to enable auto-merge, then keep polling
 - Enabling auto-merge - keep polling until `state` is `MERGED`
 
-**The ONLY valid exit condition is `gh pr view "$PR_NUMBER" --json state -R "$REPO"` returning `"state":"MERGED"`.**
+**The ONLY valid exit condition is the `getPrInfo` action returning `"state":"MERGED"`.**
 
 ---
 
-**First**: Determine the repository and PR number for all `gh` commands:
+**First**: Get PR info using the agentTool wrapper:
 
 ```bash
-# Get repo (works with -R flag)
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-
-# Get PR number (infers from current branch - do NOT use -R flag here)
-PR_NUMBER=$(gh pr view --json number --jq '.number')
+# Get PR number, state, and branch info
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,state,headRefName,baseRefName
 ```
 
-**IMPORTANT**: Run these as separate commands, not chained with `&&`. The `gh pr view` command without arguments infers the PR from the current branch and does NOT work with `-R` flag. After capturing `PR_NUMBER`, use `-R "$REPO"` with explicit PR number for all subsequent `gh pr` commands (e.g., `gh pr view "$PR_NUMBER" -R "$REPO"`).
+This returns JSON with the requested fields. Extract `number` as `PR_NUMBER` for use in subsequent commands.
 
 This skill guarantees a PR gets merged by continuously monitoring CI, addressing reviews, and waiting until the PR is actually merged.
 
@@ -58,7 +55,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
 ## Steps
 
-1. **Verify PR exists and check file types**: Run `gh pr view "$PR_NUMBER" --json number,title,headRefName,baseRefName,url,state,labels,files,body -R "$REPO"` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
+1. **Verify PR exists and check file types**: Run `./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,title,headRefName,baseRefName,url,state,labels,files,body` to get PR info. If no PR exists, abort with a message. Store the `baseRefName` for use in subsequent steps. Also check if this PR has the `high-priority` label.
 
    **Tag with tuxedo instance**: Tag the PR with the current workspace name:
 
@@ -69,10 +66,10 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    **Roll-up PR detection**: Check if `baseRefName` is `main` or `master`. If NOT:
    - This is a **roll-up PR** that depends on another PR merging first
    - Set `is_rollup_pr = true` and `original_base_ref = baseRefName`
-   - Find the base PR: `gh pr list --head <baseRefName> --state open --json number --jq '.[0].number' -R "$REPO"`
-   - If a PR is found, store it as `base_pr_number`
+   - Find the base PR: `./scripts/agents/tooling/agentTool.ts findPrForBranch --branch <baseRefName> --state open`
+   - If a PR is found (returns JSON with `number`), store it as `base_pr_number`
    - If no open PR is found for the base branch, check if it was already merged:
-     - `gh pr list --head <baseRefName> --state merged --json number --jq '.[0].number' -R "$REPO"`
+     - `./scripts/agents/tooling/agentTool.ts findPrForBranch --branch <baseRefName> --state merged`
      - If merged, proceed as normal (the roll-up PR's base will be updated by GitHub)
    - Log: "Roll-up PR detected. Base PR: #<base_pr_number> (<baseRefName>)"
 
@@ -107,13 +104,14 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    If this is a roll-up PR, the base PR must merge before this PR can proceed:
 
    ```bash
-   gh pr view <base_pr_number> --json state,mergeStateStatus -R "$REPO"
+   ./scripts/agents/tooling/agentTool.ts getPrInfo --fields state,mergeStateStatus
+   # Run from the base PR's branch, or pass --number if available
    ```
 
    **If base PR `state` is `MERGED`**:
    - Log: "Base PR #<base_pr_number> has merged. Retargeting to main."
    - GitHub automatically retargets the roll-up PR to `main` when the base PR merges
-   - Refresh PR info to get updated `baseRefName`: `gh pr view "$PR_NUMBER" --json baseRefName -R "$REPO"`
+   - Refresh PR info to get updated `baseRefName`: `./scripts/agents/tooling/agentTool.ts getPrInfo --fields baseRefName`
    - Set `is_rollup_pr = false` (now a normal PR targeting main)
    - Rebase onto main to incorporate base PR changes:
 
@@ -141,17 +139,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    If the current PR does NOT have the `high-priority` label, check if any other open PRs do.
 
-   **Step 1**: Get the list of high-priority PR numbers:
+   **Step 1**: Get the list of high-priority PRs with their merge states:
 
    ```bash
-   gh pr list --label "high-priority" --state open --search "-is:draft" --json number -R "$REPO"
+   ./scripts/agents/tooling/agentTool.ts listHighPriorityPrs
    ```
 
-   **Step 2**: For each high-priority PR, get its merge state (required because `mergeStateStatus` is not available in `gh pr list`):
-
-   ```bash
-   gh pr view <pr-number> --json mergeStateStatus -R "$REPO"
-   ```
+   This returns JSON array with `number`, `title`, and `mergeStateStatus` for each high-priority PR.
 
    **Step 3**: Determine whether to yield:
 
@@ -167,7 +161,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    ### 4c. Check PR state
 
    ```bash
-   gh pr view "$PR_NUMBER" --json state,mergeStateStatus,mergeable -R "$REPO"
+   ./scripts/agents/tooling/agentTool.ts getPrInfo --fields state,mergeStateStatus,mergeable
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5
@@ -226,15 +220,20 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    Gemini Code Assist is a GitHub App that automatically reviews PRs - do NOT use `gh pr edit --add-reviewer` as it doesn't work with GitHub App bots.
 
-   **CRITICAL - Reply in-thread only**: When replying to Gemini comments, use the review comment endpoint, NOT `gh pr review` and NOT `gh pr comment`:
-   - List review comments: `gh api /repos/$REPO/pulls/<pr-number>/comments`
-   - Reply in-thread: `gh api -X POST /repos/$REPO/pulls/<pr-number>/comments -F in_reply_to=<comment_id> -f body="...@gemini-code-assist ..."`
-   For general PR comments (issue comments), list and reply separately:
-   - List issue comments: `gh api /repos/$REPO/issues/<pr-number>/comments`
-   - Reply with a new PR comment: `gh api -X POST /repos/$REPO/issues/<pr-number>/comments -f body="...@gemini-code-assist ..."`
+   **CRITICAL - Reply in-thread only**: When replying to Gemini comments, use the agentTool wrappers:
+   - Get review threads: `./scripts/agents/tooling/agentTool.ts getReviewThreads --number <pr-number> [--unresolved-only]`
+   - Reply in-thread: `./scripts/agents/tooling/agentTool.ts replyToComment --number <pr-number> --comment-id <comment_database_id> --body "...@gemini-code-assist ..."`
+   - Reply with commit hash (Gemini-specific): `./scripts/agents/tooling/agentTool.ts replyToGemini --number <pr-number> --comment-id <comment_database_id> --commit <sha>`
+
    Top-level PR comments are not acceptable for review feedback. The `gh pr review` command creates pending/draft reviews that remain invisible until submitted - Gemini will never see them. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification. **Include the relevant commit message(s)** in the reply.
    When reporting a fix, **include the commit hash and explicitly ask if it addresses the issue** (e.g., "Commit <hash> ... does this address the issue?").
-   **Sentiment check**: If Gemini's response is an approval/confirmation without new requests, resolve the thread. If it is uncertain or requests more changes, keep the thread open and iterate.
+   **Sentiment check**: If Gemini's response is an approval/confirmation without new requests, resolve the thread:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts resolveThread --thread-id <thread_node_id>
+   ```
+
+   If it is uncertain or requests more changes, keep the thread open and iterate.
 
    #### Unsupported file types response
 
@@ -265,20 +264,22 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    **Important**: Monitor CI and review state continuously to avoid waiting on stale assumptions.
 
-   **Step 1**: Get the workflow run ID for the current commit:
+   **Step 1**: Get the workflow run status for the current commit:
 
    ```bash
    COMMIT=$(git rev-parse HEAD)
-   RUN_ID=$(gh run list --commit "$COMMIT" --limit 1 --json databaseId --jq '.[0].databaseId' -R "$REPO")
+   ./scripts/agents/tooling/agentTool.ts getCiStatus --commit "$COMMIT"
    ```
 
-   Store as `current_run_id`. If the run ID changes (new workflow started), update `current_run_id`.
+   This returns JSON with `run_id`, `status`, `conclusion`, and `jobs` array. Store the `run_id` as `current_run_id`. If the run ID changes (new workflow started), update `current_run_id`.
 
-   **Step 2**: Poll individual job statuses (not just workflow status):
+   **Step 2**: Poll individual job statuses using the run ID:
 
    ```bash
-   gh run view $RUN_ID --json jobs --jq '[.jobs[] | {name, status, conclusion}]' -R "$REPO"
+   ./scripts/agents/tooling/agentTool.ts getCiStatus --run-id "$RUN_ID"
    ```
+
+   Returns `{status, conclusion, jobs: [{name, status, conclusion}, ...]}`.
 
    **Job priority order** (process failures in this order - fastest jobs first):
    1. `build` (~15 min) - lint, types, coverage
@@ -294,7 +295,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    #### At each poll iteration
 
-   1. **Check current merge state**: `gh pr view "$PR_NUMBER" --json mergeStateStatus -R "$REPO"`
+   1. **Check current merge state**: `./scripts/agents/tooling/agentTool.ts getPrInfo --fields mergeStateStatus`
       - If `mergeStateStatus` changes, adjust monitoring behavior accordingly.
 
    2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
@@ -341,7 +342,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    After pushing a fix, cancel the obsolete workflow to save CI minutes:
 
    ```bash
-   gh run cancel $RUN_ID -R "$REPO"
+   ./scripts/agents/tooling/agentTool.ts cancelWorkflow --run-id "$RUN_ID"
    ```
 
    **Why cancel?**
@@ -356,7 +357,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    If the workflow was cancelled (not by us), rerun it:
 
    ```bash
-   gh run rerun $RUN_ID -R "$REPO"
+   ./scripts/agents/tooling/agentTool.ts rerunWorkflow --run-id "$RUN_ID"
    ```
 
    ### 4f. Enable auto-merge and wait
@@ -366,13 +367,13 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    Enable auto-merge:
 
    ```bash
-   gh pr merge "$PR_NUMBER" --auto --merge -R "$REPO"
+   ./scripts/agents/tooling/agentTool.ts enableAutoMerge --number "$PR_NUMBER"
    ```
 
    Then poll for merge completion (30 seconds with jitter). **Keep polling until merged**:
 
    ```bash
-   gh pr view "$PR_NUMBER" --json state,mergeStateStatus -R "$REPO"
+   ./scripts/agents/tooling/agentTool.ts getPrInfo --fields state,mergeStateStatus
    ```
 
    - If `state` is `MERGED`: Exit loop and proceed to step 5

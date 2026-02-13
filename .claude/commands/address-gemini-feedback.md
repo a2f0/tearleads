@@ -4,17 +4,13 @@ description: Query the open PR and resolve Gemini's feedback.
 
 # Address Gemini Feedback
 
-**First**: Determine the repository and PR number:
+**First**: Get PR info using the agentTool wrapper:
 
 ```bash
-# Get repo (works with -R flag)
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-
-# Get PR number (infers from current branch - do NOT use -R flag here)
-PR_NUMBER=$(gh pr view --json number --jq '.number')
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,headRefName
 ```
 
-**IMPORTANT**: Run these as separate commands, not chained with `&&`. The `gh pr view` command without arguments infers the PR from the current branch and does NOT work with `-R` flag. After capturing `PR_NUMBER`, use `-R "$REPO"` with explicit PR number for all subsequent `gh pr` commands (e.g., `gh pr view "$PR_NUMBER" -R "$REPO"`).
+Extract `number` as `PR_NUMBER` for use in subsequent commands.
 
 ## CRITICAL: Never Create Pending/Draft Reviews
 
@@ -29,10 +25,10 @@ See `/follow-up-with-gemini` for the correct API usage and examples.
 Before fetching comments, check if Gemini has hit its daily quota:
 
 ```bash
-gh pr view "$PR_NUMBER" -R "$REPO" --json comments --jq '.comments[] | select(.author.login == "gemini-code-assist") | .body' | tail -1
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields comments
 ```
 
-If the response contains "You have reached your daily quota limit":
+Parse the comments to check for Gemini's quota message. If the response contains "You have reached your daily quota limit":
 
 - Fall back to Codex review:
 
@@ -45,45 +41,20 @@ If the response contains "You have reached your daily quota limit":
 
 ## Steps
 
-1. **Fetch unresolved comments**: Use GitHub GraphQL API to get `reviewThreads` and filter by `isResolved: false`.
-
-   **IMPORTANT**: Do NOT pass the query inline with `-f query='...'` as the shell mangles special characters like `!`. Instead, write the query to a temp file first using the Write tool, then reference it:
-
-   First, use the **Write tool** to create `/tmp/gemini-threads.graphql` with this content:
-
-   ```graphql
-   query($owner: String!, $repo: String!, $pr: Int!) {
-     repository(owner: $owner, name: $repo) {
-       pullRequest(number: $pr) {
-         reviewThreads(first: 50) {
-           nodes {
-             id
-             isResolved
-             path
-             line
-             comments(first: 10) {
-               nodes {
-                 id
-                 databaseId
-                 author { login }
-                 body
-               }
-             }
-           }
-           pageInfo { hasNextPage endCursor }
-         }
-       }
-     }
-   }
-   ```
-
-   Then run:
+1. **Fetch unresolved comments**: Use the agentTool wrapper to get review threads:
 
    ```bash
-   gh api graphql -F query=@/tmp/gemini-threads.graphql -f owner=a2f0 -f repo=tearleads -F pr=$PR_NUMBER
+   ./scripts/agents/tooling/agentTool.ts getReviewThreads --number $PR_NUMBER --unresolved-only
    ```
 
-   Handle pagination via `pageInfo.hasNextPage` and `endCursor`.
+   This returns JSON array of unresolved review threads with:
+   - `id`: Thread node ID (for resolving)
+   - `isResolved`: Boolean (will be false due to `--unresolved-only`)
+   - `path`: File path
+   - `line`: Line number
+   - `comments`: Array with `{id, databaseId, author: {login}, body}`
+
+   The wrapper handles pagination automatically.
 
 2. **Address feedback**: For each unresolved comment that you think is relevant/important:
    - Make the necessary code changes

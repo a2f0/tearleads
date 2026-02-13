@@ -4,14 +4,6 @@ description: Commit staged changes and push to remote using conventional commits
 
 # Commit and Push
 
-**First**: Determine the repository for all `gh` commands:
-
-```bash
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-```
-
-Use `-R "$REPO"` with all `gh` commands in this skill.
-
 Commit and push the current changes following these rules:
 
 1. **Check branch**: If on `main`, create a new branch with an appropriate name based on the changes. After creating or switching branches, update the VS Code title:
@@ -91,10 +83,10 @@ Commit and push the current changes following these rules:
 8. **Check for quota exhaustion**: After waiting, check Gemini's response for quota limit:
 
    ```bash
-   gh pr view "$PR_NUMBER" -R "$REPO" --json comments --jq '.comments[] | select(.author.login == "gemini-code-assist") | .body' | head -1
+   ./scripts/agents/tooling/agentTool.ts getPrInfo --fields comments
    ```
 
-   If the response contains "You have reached your daily quota limit":
+   Parse the comments to find `gemini-code-assist` responses. If the response contains "You have reached your daily quota limit":
    - Fall back to Codex review:
 
      ```bash
@@ -106,7 +98,15 @@ Commit and push the current changes following these rules:
 
 9. **Address feedback**: If Gemini did not hit quota, run `/address-gemini-feedback` to handle unresolved comments.
 
-   **IMPORTANT**: When replying to Gemini comments, use the REST API (`gh api repos/{owner}/{repo}/pulls/{pr}/comments/{comment_database_id}/replies`), NOT `gh pr review`. The `gh pr review` command creates pending/draft reviews that Gemini cannot see until submitted. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification.
+   **IMPORTANT**: When replying to Gemini comments, use the agentTool wrappers:
+
+   ```bash
+   ./scripts/agents/tooling/agentTool.ts replyToComment --number $PR_NUMBER --comment-id <id> --body "message @gemini-code-assist"
+   # Or for commit-fix replies:
+   ./scripts/agents/tooling/agentTool.ts replyToGemini --number $PR_NUMBER --comment-id <id> --commit <sha>
+   ```
+
+   Do NOT use `gh pr review` - it creates pending/draft reviews that Gemini cannot see. **Always include `@gemini-code-assist` in your reply** to ensure Gemini receives a notification.
 
 ## Token Efficiency (CRITICAL - DO NOT SKIP)
 

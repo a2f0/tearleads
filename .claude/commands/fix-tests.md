@@ -4,17 +4,13 @@ description: Fix failing tests from CI
 
 # Fix Failing Tests
 
-**First**: Determine the repository and PR number:
+**First**: Get PR info using the agentTool wrapper:
 
 ```bash
-# Get repo (works with -R flag)
-REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-
-# Get PR number (infers from current branch - do NOT use -R flag here)
-PR_NUMBER=$(gh pr view --json number --jq '.number')
+./scripts/agents/tooling/agentTool.ts getPrInfo --fields number,headRefName
 ```
 
-**IMPORTANT**: Run these as separate commands, not chained with `&&`. The `gh pr view` command without arguments infers the PR from the current branch and does NOT work with `-R` flag. After capturing `PR_NUMBER`, use `-R "$REPO"` with explicit PR number for all subsequent `gh pr` commands (e.g., `gh pr view "$PR_NUMBER" -R "$REPO"`).
+Extract `number` as `PR_NUMBER` for use in subsequent commands.
 
 This skill diagnoses and fixes failing CI jobs. It can target a specific job when called with an argument (e.g., `/fix-tests electron-e2e`) or diagnose all failures when called without arguments.
 
@@ -35,18 +31,12 @@ Get the failing workflow run for the current commit:
 
 ```bash
 COMMIT=$(git rev-parse HEAD)
-gh run list --commit "$COMMIT" --limit 1 --json databaseId,status,conclusion -R "$REPO"
+./scripts/agents/tooling/agentTool.ts getCiStatus --commit "$COMMIT"
 ```
 
-If a specific job name was provided (e.g., `/fix-tests electron-e2e`), focus on that job. Otherwise, identify all failing jobs:
+This returns JSON with `run_id`, `status`, `conclusion`, and `jobs` array with each job's `{name, status, conclusion}`.
 
-```bash
-# Get all jobs and their statuses (token-efficient)
-gh run view <run-id> --json jobs --jq '[.jobs[] | {name, status, conclusion}]' -R "$REPO"
-
-# Filter to just failed jobs
-gh run view <run-id> --json jobs --jq '[.jobs[] | select(.conclusion=="failure") | .name]' -R "$REPO"
-```
+If a specific job name was provided (e.g., `/fix-tests electron-e2e`), focus on that job. Otherwise, identify all failing jobs from the `jobs` array where `conclusion == "failure"`.
 
 ## 2. Download Failed Job Logs
 
@@ -54,10 +44,10 @@ Download only the logs for failed jobs (not all artifacts):
 
 ```bash
 # View failed job logs directly (most token-efficient)
-gh run view <run-id> --log-failed -R "$REPO"
+gh run view <run-id> --log-failed
 
 # Or download specific artifact for detailed analysis
-gh run download <run-id> -n <artifact-name> -D /tmp/<folder> -R "$REPO"
+./scripts/agents/tooling/agentTool.ts downloadArtifact --run-id <run-id> --artifact <artifact-name> --dest /tmp/<folder>
 ```
 
 ### Artifact Names by Job
@@ -163,7 +153,7 @@ Focus on:
 **Fix**: Usually transient - rerun CI:
 
 ```bash
-gh run rerun <run-id> -R "$REPO"
+./scripts/agents/tooling/agentTool.ts rerunWorkflow --run-id <run-id>
 ```
 
 If persistent, check:
@@ -194,7 +184,7 @@ Common issues:
 
 ```bash
 # Download Playwright report
-gh run download <run-id> -n playwright-report -D /tmp/playwright -R "$REPO"
+./scripts/agents/tooling/agentTool.ts downloadArtifact --run-id <run-id> --artifact playwright-report --dest /tmp/playwright
 open /tmp/playwright/index.html
 
 # Run locally
@@ -211,7 +201,7 @@ Common issues:
 
 ```bash
 # Download debug artifacts
-gh run download <run-id> -n android-maestro-debug -D /tmp/maestro -R "$REPO"
+./scripts/agents/tooling/agentTool.ts downloadArtifact --run-id <run-id> --artifact android-maestro-debug --dest /tmp/maestro
 
 # View screenshots
 open /tmp/maestro/*.png
