@@ -14,3 +14,4 @@ export { SettingsSheet } from './SettingsSheet';
 export { ThemePreview, type ThemePreviewProps } from './ThemePreview';
 export { ThemeSelector } from './ThemeSelector';
 export { TooltipsToggle } from './TooltipsToggle';
+export { WindowOpacityToggle } from './WindowOpacityToggle';

@@ -8,12 +8,14 @@ import {
   PatternSelector,
   SettingsSection,
   ThemeSelector,
-  TooltipsToggle
+  TooltipsToggle,
+  WindowOpacityToggle
 } from '@/components/settings';
 import { LanguageSelector } from '@/components/settings/LanguageSelector';
 import { BackLink } from '@/components/ui/back-link';
 import { useAppVersion } from '@/hooks/useAppVersion';
 import { useFontEffect } from '@/hooks/useFontEffect';
+import { useWindowOpacityEffect } from '@/hooks/useWindowOpacityEffect';
 
 interface SettingsProps {
   showBackLink?: boolean;
@@ -22,6 +24,7 @@ interface SettingsProps {
 export function Settings({ showBackLink = true }: SettingsProps) {
   const version = useAppVersion();
   useFontEffect();
+  useWindowOpacityEffect();
 
   return (
     <div className="space-y-6">
@@ -44,6 +47,10 @@ export function Settings({ showBackLink = true }: SettingsProps) {
 
       <SettingsSection>
         <IconBackgroundToggle />
+      </SettingsSection>
+
+      <SettingsSection>
+        <WindowOpacityToggle />
       </SettingsSection>
 
       <SettingsSection>

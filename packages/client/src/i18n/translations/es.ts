@@ -117,6 +117,11 @@ export const es = {
     tooltipsDescription:
       'Mostrar sugerencias útiles al pasar el cursor sobre los elementos',
     tooltipsEnabled: 'Activado',
-    tooltipsDisabled: 'Desactivado'
+    tooltipsDisabled: 'Desactivado',
+    windowOpacity: 'Opacidad de ventanas',
+    windowOpacityDescription:
+      'Elige si las ventanas flotantes son translúcidas o completamente opacas',
+    windowOpacityTranslucent: 'Translúcido',
+    windowOpacityOpaque: 'Opaco'
   }
 } as const satisfies I18NextTranslations;

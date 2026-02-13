@@ -116,6 +116,11 @@ export const en = {
     tooltips: 'Tooltips',
     tooltipsDescription: 'Show helpful hints when hovering over elements',
     tooltipsEnabled: 'Enabled',
-    tooltipsDisabled: 'Disabled'
+    tooltipsDisabled: 'Disabled',
+    windowOpacity: 'Window opacity',
+    windowOpacityDescription:
+      'Choose whether floating windows are translucent or fully opaque',
+    windowOpacityTranslucent: 'Translucent',
+    windowOpacityOpaque: 'Opaque'
   }
 } as const satisfies I18NextTranslations;

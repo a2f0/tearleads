@@ -64,6 +64,7 @@ import {
   isLanguageValue,
   isThemeValue,
   isTooltipsValue,
+  isWindowOpacityValue,
   SETTING_DEFAULTS,
   SETTING_STORAGE_KEYS,
   saveSettingToDb,
@@ -175,6 +176,19 @@ describe('user-settings', () => {
         expect(isDesktopIconBackgroundValue('COLORED')).toBe(false);
       });
     });
+
+    describe('isWindowOpacityValue', () => {
+      it('returns true for valid window opacity values', () => {
+        expect(isWindowOpacityValue('translucent')).toBe(true);
+        expect(isWindowOpacityValue('opaque')).toBe(true);
+      });
+
+      it('returns false for invalid window opacity values', () => {
+        expect(isWindowOpacityValue('transparent')).toBe(false);
+        expect(isWindowOpacityValue('')).toBe(false);
+        expect(isWindowOpacityValue('OPAQUE')).toBe(false);
+      });
+    });
   });
 
   describe('constants', () => {
@@ -186,6 +200,7 @@ describe('user-settings', () => {
       expect(SETTING_DEFAULTS.desktopPattern).toBe('isometric');
       expect(SETTING_DEFAULTS.desktopIconDepth).toBe('debossed');
       expect(SETTING_DEFAULTS.desktopIconBackground).toBe('colored');
+      expect(SETTING_DEFAULTS.windowOpacity).toBe('translucent');
     });
 
     it('has correct storage keys', () => {
@@ -198,6 +213,7 @@ describe('user-settings', () => {
       expect(SETTING_STORAGE_KEYS.desktopIconBackground).toBe(
         'desktopIconBackground'
       );
+      expect(SETTING_STORAGE_KEYS.windowOpacity).toBe('windowOpacity');
     });
   });
 
@@ -210,6 +226,7 @@ describe('user-settings', () => {
       expect(getSettingFromStorage('desktopPattern')).toBeNull();
       expect(getSettingFromStorage('desktopIconDepth')).toBeNull();
       expect(getSettingFromStorage('desktopIconBackground')).toBeNull();
+      expect(getSettingFromStorage('windowOpacity')).toBeNull();
     });
 
     it('returns theme value from localStorage', () => {
@@ -249,6 +266,11 @@ describe('user-settings', () => {
       );
     });
 
+    it('returns windowOpacity value from localStorage', () => {
+      localStorageData['windowOpacity'] = 'opaque';
+      expect(getSettingFromStorage('windowOpacity')).toBe('opaque');
+    });
+
     it('returns null for invalid theme value', () => {
       localStorageData['theme'] = 'invalid-theme';
       expect(getSettingFromStorage('theme')).toBeNull();
@@ -282,6 +304,11 @@ describe('user-settings', () => {
     it('returns null for invalid desktopIconBackground value', () => {
       localStorageData['desktopIconBackground'] = 'opaque';
       expect(getSettingFromStorage('desktopIconBackground')).toBeNull();
+    });
+
+    it('returns null for invalid windowOpacity value', () => {
+      localStorageData['windowOpacity'] = 'invalid';
+      expect(getSettingFromStorage('windowOpacity')).toBeNull();
     });
 
     it('handles localStorage errors gracefully', () => {
@@ -342,6 +369,14 @@ describe('user-settings', () => {
       expect(localStorage.setItem).toHaveBeenCalledWith(
         'desktopIconBackground',
         'transparent'
+      );
+    });
+
+    it('sets windowOpacity in localStorage', () => {
+      setSettingInStorage('windowOpacity', 'opaque');
+      expect(localStorage.setItem).toHaveBeenCalledWith(
+        'windowOpacity',
+        'opaque'
       );
     });
 
@@ -435,6 +470,16 @@ describe('user-settings', () => {
       expect(result.desktopIconBackground).toBe('transparent');
     });
 
+    it('returns windowOpacity from database', async () => {
+      mockWhere.mockResolvedValueOnce([
+        { key: 'windowOpacity', value: 'opaque' }
+      ]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.windowOpacity).toBe('opaque');
+    });
+
     it('returns both theme and language from database', async () => {
       mockWhere.mockResolvedValueOnce([
         { key: 'theme', value: 'tokyo-night' },
@@ -520,6 +565,16 @@ describe('user-settings', () => {
       const result = await getSettingsFromDb(mockDb);
 
       expect(result.font).toBeUndefined();
+    });
+
+    it('ignores invalid windowOpacity values', async () => {
+      mockWhere.mockResolvedValueOnce([
+        { key: 'windowOpacity', value: 'invalid' }
+      ]);
+
+      const result = await getSettingsFromDb(mockDb);
+
+      expect(result.windowOpacity).toBeUndefined();
     });
   });
 

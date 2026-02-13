@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { cn } from '../../lib/utils.js';
 import { buildFloatingWindowStyles } from './windowStyles.js';
 
@@ -33,12 +34,38 @@ export function FloatingWindowSurface({
 }: FloatingWindowSurfaceProps) {
   const { isDesktop, isMaximized } = styleProps;
 
+  const [isOpaqueWindows, setIsOpaqueWindows] = useState(
+    () =>
+      typeof document !== 'undefined' &&
+      document.documentElement.classList.contains('opaque-windows')
+  );
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return;
+
+    const observer = new MutationObserver(() => {
+      setIsOpaqueWindows(
+        document.documentElement.classList.contains('opaque-windows')
+      );
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class']
+    });
+
+    return () => observer.disconnect();
+  }, []);
+
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: Window focus on click
     <div
       ref={windowRef}
       className={cn(
-        'floating-window fixed flex flex-col overflow-hidden border bg-background/95 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80',
+        'floating-window fixed flex flex-col overflow-hidden border shadow-lg',
+        isOpaqueWindows
+          ? 'bg-background'
+          : 'bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80',
         isDesktop && !isMaximized && 'rounded-lg',
         !isDesktop && 'inset-x-0 bottom-0 rounded-t-lg'
       )}

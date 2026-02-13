@@ -114,6 +114,10 @@ export interface SettingsTranslations {
   tooltipsDescription: string;
   tooltipsEnabled: string;
   tooltipsDisabled: string;
+  windowOpacity: string;
+  windowOpacityDescription: string;
+  windowOpacityTranslucent: string;
+  windowOpacityOpaque: string;
 }
 
 export interface Translations {

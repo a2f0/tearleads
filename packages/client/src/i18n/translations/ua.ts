@@ -118,6 +118,11 @@ export const ua = {
     tooltipsDescription:
       'Показувати корисні підказки при наведенні на елементи',
     tooltipsEnabled: 'Увімкнено',
-    tooltipsDisabled: 'Вимкнено'
+    tooltipsDisabled: 'Вимкнено',
+    windowOpacity: 'Прозорість вікон',
+    windowOpacityDescription:
+      'Оберіть, чи плаваючі вікна напівпрозорі або повністю непрозорі',
+    windowOpacityTranslucent: 'Напівпрозорі',
+    windowOpacityOpaque: 'Непрозорі'
   }
 } as const satisfies I18NextTranslations;
