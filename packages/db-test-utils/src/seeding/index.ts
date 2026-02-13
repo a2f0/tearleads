@@ -1,4 +1,5 @@
 export { commonTestMigrations } from './common-test-migrations.js';
+export { contactsTestMigrations } from './contacts-test-migrations.js';
 export type { SeedFolderOptions, SeedVfsItemOptions } from './vfs.js';
 export {
   ensureVfsRoot,

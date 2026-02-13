@@ -26,6 +26,7 @@ import { LocalStorageWindow } from '@/components/local-storage-window';
 import { MlsChatWindow } from '@/components/mls-chat-window';
 import { ModelsWindow } from '@/components/models-window';
 import { NotesWindow } from '@/components/notes-window';
+import { NotificationCenter } from '@/components/notification-center';
 import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SearchWindow } from '@/components/search-window';
@@ -165,7 +166,8 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   backup: { Component: BackupWindow },
   'mls-chat': { Component: MlsChatWindow },
   search: { Component: SearchWindow },
-  calendar: { Component: CalendarWindow }
+  calendar: { Component: CalendarWindow },
+  'notification-center': { Component: NotificationCenter }
 };
 
 export function WindowRenderer() {

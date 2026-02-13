@@ -205,4 +205,297 @@ describe('ContactsGroupsSidebar', () => {
       'work@example.com'
     ]);
   });
+
+  it('shows context menu with Send email option on right-click', async () => {
+    render(
+      <TestContactsProvider>
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+        />
+      </TestContactsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Family')).toBeInTheDocument();
+    });
+
+    const groupButton = screen.getByText('Family').closest('button');
+    expect(groupButton).not.toBeNull();
+    if (!groupButton) return;
+
+    fireEvent.contextMenu(groupButton);
+
+    expect(screen.getByText('Send email')).toBeInTheDocument();
+    expect(screen.getByText('Rename')).toBeInTheDocument();
+    expect(screen.getByText('Delete')).toBeInTheDocument();
+  });
+
+  it('handles empty group with no emails gracefully', async () => {
+    const mockDb = createMockDatabase();
+    const user = userEvent.setup();
+    const openEmailComposer = vi.fn(() => true);
+
+    mockDb.select.mockImplementation(() => {
+      const chainable: Record<string, unknown> = {};
+      chainable['from'] = () => chainable;
+      chainable['innerJoin'] = () => chainable;
+      chainable['where'] = () => chainable;
+      chainable['groupBy'] = () =>
+        Promise.resolve([{ groupId: 'group-1', count: 0 }]);
+      // Return empty array for group with no contacts that have primary emails
+      chainable['orderBy'] = () => Promise.resolve([]);
+      return chainable;
+    });
+
+    render(
+      <TestContactsProvider
+        database={mockDb}
+        openEmailComposer={openEmailComposer}
+      >
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+        />
+      </TestContactsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Family')).toBeInTheDocument();
+    });
+
+    const groupButton = screen.getByText('Family').closest('button');
+    expect(groupButton).not.toBeNull();
+    if (!groupButton) return;
+
+    fireEvent.contextMenu(groupButton);
+    await user.click(screen.getByText('Send email'));
+
+    // openEmailComposer should not be called with empty recipients
+    expect(openEmailComposer).not.toHaveBeenCalled();
+  });
+
+  it('closes context menu after sending email', async () => {
+    const mockDb = createMockDatabase();
+    const user = userEvent.setup();
+    const openEmailComposer = vi.fn(() => true);
+
+    mockDb.select.mockImplementation(() => {
+      const chainable: Record<string, unknown> = {};
+      chainable['from'] = () => chainable;
+      chainable['innerJoin'] = () => chainable;
+      chainable['where'] = () => chainable;
+      chainable['groupBy'] = () =>
+        Promise.resolve([{ groupId: 'group-1', count: 1 }]);
+      chainable['orderBy'] = () =>
+        Promise.resolve([{ email: 'test@example.com' }]);
+      return chainable;
+    });
+
+    render(
+      <TestContactsProvider
+        database={mockDb}
+        openEmailComposer={openEmailComposer}
+      >
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+        />
+      </TestContactsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Family')).toBeInTheDocument();
+    });
+
+    const groupButton = screen.getByText('Family').closest('button');
+    expect(groupButton).not.toBeNull();
+    if (!groupButton) return;
+
+    fireEvent.contextMenu(groupButton);
+    expect(screen.getByText('Send email')).toBeInTheDocument();
+
+    await user.click(screen.getByText('Send email'));
+
+    await waitFor(() => {
+      expect(screen.queryByText('Send email')).not.toBeInTheDocument();
+    });
+  });
+
+  it('handles database error when sending email', async () => {
+    const mockDb = createMockDatabase();
+    const user = userEvent.setup();
+    const openEmailComposer = vi.fn(() => true);
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    mockDb.select.mockImplementation(() => {
+      const chainable: Record<string, unknown> = {};
+      chainable['from'] = () => chainable;
+      chainable['innerJoin'] = () => chainable;
+      chainable['where'] = () => chainable;
+      chainable['groupBy'] = () =>
+        Promise.resolve([{ groupId: 'group-1', count: 1 }]);
+      chainable['orderBy'] = () =>
+        Promise.reject(new Error('Database query failed'));
+      return chainable;
+    });
+
+    render(
+      <TestContactsProvider
+        database={mockDb}
+        openEmailComposer={openEmailComposer}
+      >
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+        />
+      </TestContactsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Family')).toBeInTheDocument();
+    });
+
+    const groupButton = screen.getByText('Family').closest('button');
+    expect(groupButton).not.toBeNull();
+    if (!groupButton) return;
+
+    fireEvent.contextMenu(groupButton);
+    await user.click(screen.getByText('Send email'));
+
+    await waitFor(() => {
+      expect(consoleSpy).toHaveBeenCalledWith(
+        '[GroupEmail] Failed to send group email:',
+        expect.any(Error)
+      );
+    });
+
+    // openEmailComposer should not be called on error
+    expect(openEmailComposer).not.toHaveBeenCalled();
+
+    // Context menu should still close
+    await waitFor(() => {
+      expect(screen.queryByText('Send email')).not.toBeInTheDocument();
+    });
+
+    consoleSpy.mockRestore();
+  });
+
+  it('uses mailto fallback when openEmailComposer is not provided', async () => {
+    const mockDb = createMockDatabase();
+    const user = userEvent.setup();
+    const windowOpenSpy = vi
+      .spyOn(window, 'open')
+      .mockImplementation(() => null);
+
+    mockDb.select.mockImplementation(() => {
+      const chainable: Record<string, unknown> = {};
+      chainable['from'] = () => chainable;
+      chainable['innerJoin'] = () => chainable;
+      chainable['where'] = () => chainable;
+      chainable['groupBy'] = () =>
+        Promise.resolve([{ groupId: 'group-1', count: 2 }]);
+      chainable['orderBy'] = () =>
+        Promise.resolve([
+          { email: 'alice@example.com' },
+          { email: 'bob@example.com' }
+        ]);
+      return chainable;
+    });
+
+    render(
+      <TestContactsProvider database={mockDb}>
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+        />
+      </TestContactsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Family')).toBeInTheDocument();
+    });
+
+    const groupButton = screen.getByText('Family').closest('button');
+    expect(groupButton).not.toBeNull();
+    if (!groupButton) return;
+
+    fireEvent.contextMenu(groupButton);
+    await user.click(screen.getByText('Send email'));
+
+    await waitFor(() => {
+      expect(windowOpenSpy).toHaveBeenCalledWith(
+        'mailto:alice%40example.com,bob%40example.com',
+        '_blank',
+        'noopener,noreferrer'
+      );
+    });
+
+    windowOpenSpy.mockRestore();
+  });
+
+  it('deduplicates email addresses when sending to group', async () => {
+    const mockDb = createMockDatabase();
+    const user = userEvent.setup();
+    const openEmailComposer = vi.fn(() => true);
+
+    mockDb.select.mockImplementation(() => {
+      const chainable: Record<string, unknown> = {};
+      chainable['from'] = () => chainable;
+      chainable['innerJoin'] = () => chainable;
+      chainable['where'] = () => chainable;
+      chainable['groupBy'] = () =>
+        Promise.resolve([{ groupId: 'group-1', count: 3 }]);
+      // Return duplicate emails
+      chainable['orderBy'] = () =>
+        Promise.resolve([
+          { email: 'same@example.com' },
+          { email: 'same@example.com' },
+          { email: 'same@example.com' },
+          { email: 'different@example.com' }
+        ]);
+      return chainable;
+    });
+
+    render(
+      <TestContactsProvider
+        database={mockDb}
+        openEmailComposer={openEmailComposer}
+      >
+        <ContactsGroupsSidebar
+          width={220}
+          onWidthChange={vi.fn()}
+          selectedGroupId={ALL_CONTACTS_ID}
+          onGroupSelect={vi.fn()}
+        />
+      </TestContactsProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Family')).toBeInTheDocument();
+    });
+
+    const groupButton = screen.getByText('Family').closest('button');
+    expect(groupButton).not.toBeNull();
+    if (!groupButton) return;
+
+    fireEvent.contextMenu(groupButton);
+    await user.click(screen.getByText('Send email'));
+
+    // Should deduplicate - only unique emails
+    expect(openEmailComposer).toHaveBeenCalledWith([
+      'same@example.com',
+      'different@example.com'
+    ]);
+  });
 });

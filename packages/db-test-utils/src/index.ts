@@ -31,6 +31,7 @@ export type { SeedFolderOptions, SeedVfsItemOptions } from './seeding/index.js';
 // Seeding utilities
 export {
   commonTestMigrations,
+  contactsTestMigrations,
   ensureVfsRoot,
   seedFolder,
   seedVfsItem,

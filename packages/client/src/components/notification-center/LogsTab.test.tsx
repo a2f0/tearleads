@@ -76,6 +76,30 @@ describe('LogsTab', () => {
     expect(screen.getByText(/no logs yet/i)).toBeInTheDocument();
   });
 
+  it('copies logs to clipboard when copy button clicked', async () => {
+    const user = userEvent.setup();
+    const writeTextMock = vi.fn().mockResolvedValue(undefined);
+    vi.spyOn(navigator.clipboard, 'writeText').mockImplementation(
+      writeTextMock
+    );
+
+    await act(async () => {
+      logStore.info('Test log message');
+      logStore.error('Error message', 'Stack trace');
+    });
+    await act(async () => {
+      render(<LogsTab />);
+    });
+
+    await user.click(screen.getByRole('button', { name: /copy logs/i }));
+
+    expect(writeTextMock).toHaveBeenCalledTimes(1);
+    const copiedText = writeTextMock.mock.calls[0]?.[0] as string;
+    expect(copiedText).toContain('INFO: Test log message');
+    expect(copiedText).toContain('ERROR: Error message');
+    expect(copiedText).toContain('Stack trace');
+  });
+
   it('shows console errors captured at runtime', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     const uninstall = installConsoleErrorCapture();
