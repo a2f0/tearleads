@@ -509,8 +509,15 @@ describe('admin users routes', () => {
           ]
         });
       }
+      if (query.startsWith('SELECT personal_organization_id FROM users')) {
+        return Promise.resolve({
+          rows: [{ personal_organization_id: 'org-personal-1' }]
+        });
+      }
       if (query.startsWith('SELECT id FROM organizations')) {
-        return Promise.resolve({ rows: [{ id: 'org-1' }, { id: 'org-2' }] });
+        return Promise.resolve({
+          rows: [{ id: 'org-1' }, { id: 'org-2' }, { id: 'org-personal-1' }]
+        });
       }
       if (query.startsWith('DELETE FROM user_organizations')) {
         return Promise.resolve({ rows: [] });
@@ -520,7 +527,11 @@ describe('admin users routes', () => {
       }
       if (query.startsWith('SELECT organization_id FROM user_organizations')) {
         return Promise.resolve({
-          rows: [{ organization_id: 'org-1' }, { organization_id: 'org-2' }]
+          rows: [
+            { organization_id: 'org-1' },
+            { organization_id: 'org-2' },
+            { organization_id: 'org-personal-1' }
+          ]
         });
       }
       return Promise.resolve({ rows: [] });
@@ -543,7 +554,7 @@ describe('admin users routes', () => {
         disabledBy: null,
         markedForDeletionAt: null,
         markedForDeletionBy: null,
-        organizationIds: ['org-1', 'org-2'],
+        organizationIds: ['org-1', 'org-2', 'org-personal-1'],
         createdAt: null,
         lastActiveAt: null,
         accounting: {
@@ -580,11 +591,24 @@ describe('admin users routes', () => {
           ]
         });
       }
+      if (query.startsWith('SELECT personal_organization_id FROM users')) {
+        return Promise.resolve({
+          rows: [{ personal_organization_id: 'org-personal-1' }]
+        });
+      }
+      if (query.startsWith('SELECT id FROM organizations')) {
+        return Promise.resolve({ rows: [{ id: 'org-personal-1' }] });
+      }
       if (query.startsWith('DELETE FROM user_organizations')) {
         return Promise.resolve({ rows: [] });
       }
-      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+      if (query.startsWith('INSERT INTO user_organizations')) {
         return Promise.resolve({ rows: [] });
+      }
+      if (query.startsWith('SELECT organization_id FROM user_organizations')) {
+        return Promise.resolve({
+          rows: [{ organization_id: 'org-personal-1' }]
+        });
       }
       return Promise.resolve({ rows: [] });
     });
@@ -606,7 +630,7 @@ describe('admin users routes', () => {
         disabledBy: null,
         markedForDeletionAt: null,
         markedForDeletionBy: null,
-        organizationIds: [],
+        organizationIds: ['org-personal-1'],
         createdAt: null,
         lastActiveAt: null,
         accounting: {
@@ -641,6 +665,11 @@ describe('admin users routes', () => {
               marked_for_deletion_by: null
             }
           ]
+        });
+      }
+      if (query.startsWith('SELECT personal_organization_id FROM users')) {
+        return Promise.resolve({
+          rows: [{ personal_organization_id: 'org-personal-1' }]
         });
       }
       if (query.startsWith('SELECT id FROM organizations')) {

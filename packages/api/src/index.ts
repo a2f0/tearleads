@@ -18,10 +18,12 @@ import { redisRouter } from './routes/admin/redis.js';
 import { usersRouter } from './routes/admin/users.js';
 import { aiConversationsRouter } from './routes/ai-conversations.js';
 import { authRouter } from './routes/auth.js';
+import { billingRouter } from './routes/billing.js';
 import { chatRouter } from './routes/chat.js';
 import { emailsRouter } from './routes/emails.js';
 import { emailsComposeRouter } from './routes/emailsCompose.js';
 import { mlsRouter } from './routes/mls.js';
+import { revenuecatRouter } from './routes/revenuecat.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 import { vfsRouter } from './routes/vfs.js';
 import { vfsSharesRouter } from './routes/vfs-shares.js';
@@ -37,9 +39,22 @@ app.use(cors());
 if (process.env['NODE_ENV'] !== 'production') {
   app.use(morgan('dev'));
 }
+
+const jsonBodyLimit = process.env['API_JSON_BODY_LIMIT'] ?? '10mb';
+
+// RevenueCat webhook route needs raw body for signature verification.
+app.use(
+  '/v1/revenuecat',
+  express.raw({
+    type: 'application/json',
+    limit: jsonBodyLimit
+  }),
+  revenuecatRouter
+);
+
 app.use(
   express.json({
-    limit: process.env['API_JSON_BODY_LIMIT'] ?? '10mb'
+    limit: jsonBodyLimit
   })
 );
 
@@ -115,6 +130,9 @@ app.use('/v1/admin/users', adminSessionMiddleware, usersRouter);
 
 // Auth routes
 app.use('/v1/auth', authRouter);
+
+// Billing routes
+app.use('/v1/billing', billingRouter);
 
 // Chat completion route
 app.use('/v1/chat', chatRouter);

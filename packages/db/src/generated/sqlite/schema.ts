@@ -55,6 +55,9 @@ export const users = sqliteTable(
       .notNull()
       .default(false),
     admin: integer('admin', { mode: 'boolean' }).notNull().default(false),
+    personalOrganizationId: text('personal_organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'restrict' }),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
     lastActiveAt: integer('last_active_at', { mode: 'timestamp_ms' }),
@@ -68,7 +71,12 @@ export const users = sqliteTable(
       (): AnySQLiteColumn => users.id
     )
   },
-  (table) => [index('users_email_idx').on(table.email)]
+  (table) => [
+    index('users_email_idx').on(table.email),
+    uniqueIndex('users_personal_organization_id_idx').on(
+      table.personalOrganizationId
+    )
+  ]
 );
 
 /**
@@ -80,10 +88,16 @@ export const organizations = sqliteTable(
     id: text('id').primaryKey(),
     name: text('name').notNull(),
     description: text('description'),
+    isPersonal: integer('is_personal', { mode: 'boolean' })
+      .notNull()
+      .default(false),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
   },
-  (table) => [uniqueIndex('organizations_name_idx').on(table.name)]
+  (table) => [
+    uniqueIndex('organizations_name_idx').on(table.name),
+    index('organizations_is_personal_idx').on(table.isPersonal)
+  ]
 );
 
 /**
@@ -104,6 +118,66 @@ export const userOrganizations = sqliteTable(
   (table) => [
     primaryKey({ columns: [table.userId, table.organizationId] }),
     index('user_organizations_org_idx').on(table.organizationId)
+  ]
+);
+
+/**
+ * Organization billing accounts for RevenueCat integration.
+ * Stores one billing account record per organization.
+ */
+export const organizationBillingAccounts = sqliteTable(
+  'organization_billing_accounts',
+  {
+    organizationId: text('organization_id')
+      .primaryKey()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
+    revenuecatAppUserId: text('revenuecat_app_user_id').notNull(),
+    entitlementStatus: text('entitlement_status', {
+      enum: ['inactive', 'trialing', 'active', 'grace_period', 'expired']
+    })
+      .notNull()
+      .default('inactive'),
+    activeProductId: text('active_product_id'),
+    periodEndsAt: integer('period_ends_at', { mode: 'timestamp_ms' }),
+    willRenew: integer('will_renew', { mode: 'boolean' }),
+    lastWebhookEventId: text('last_webhook_event_id'),
+    lastWebhookAt: integer('last_webhook_at', { mode: 'timestamp_ms' }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [
+    uniqueIndex('organization_billing_app_user_idx').on(
+      table.revenuecatAppUserId
+    ),
+    index('organization_billing_entitlement_idx').on(table.entitlementStatus),
+    index('organization_billing_period_end_idx').on(table.periodEndsAt)
+  ]
+);
+
+/**
+ * RevenueCat webhook event archive and processing state.
+ * Supports idempotent processing by unique event ID.
+ */
+export const revenuecatWebhookEvents = sqliteTable(
+  'revenuecat_webhook_events',
+  {
+    id: text('id').primaryKey(),
+    eventId: text('event_id').notNull(),
+    eventType: text('event_type').notNull(),
+    organizationId: text('organization_id').references(() => organizations.id, {
+      onDelete: 'set null'
+    }),
+    revenuecatAppUserId: text('revenuecat_app_user_id').notNull(),
+    payload: text('payload').notNull(),
+    receivedAt: integer('received_at', { mode: 'timestamp_ms' }).notNull(),
+    processedAt: integer('processed_at', { mode: 'timestamp_ms' }),
+    processingError: text('processing_error')
+  },
+  (table) => [
+    uniqueIndex('revenuecat_events_event_id_idx').on(table.eventId),
+    index('revenuecat_events_org_idx').on(table.organizationId),
+    index('revenuecat_events_app_user_idx').on(table.revenuecatAppUserId),
+    index('revenuecat_events_received_idx').on(table.receivedAt)
   ]
 );
 
@@ -907,6 +981,8 @@ export const schema = {
   users,
   organizations,
   userOrganizations,
+  organizationBillingAccounts,
+  revenuecatWebhookEvents,
   userCredentials,
   migrations,
   secrets,

@@ -24,6 +24,7 @@ const isAuthExemptPath = (path: string): boolean => {
   if (path === '/auth/login') return true;
   if (path === '/auth/register') return true;
   if (path === '/auth/refresh') return true;
+  if (path === '/revenuecat/webhooks') return true;
   return false;
 };
 

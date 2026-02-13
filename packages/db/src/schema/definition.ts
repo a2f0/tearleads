@@ -111,6 +111,16 @@ export const usersTable: TableDefinition = {
       notNull: true,
       defaultValue: false
     },
+    personalOrganizationId: {
+      type: 'text',
+      sqlName: 'personal_organization_id',
+      notNull: true,
+      references: {
+        table: 'organizations',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
     createdAt: {
       type: 'timestamp',
       sqlName: 'created_at'
@@ -148,7 +158,14 @@ export const usersTable: TableDefinition = {
       references: { table: 'users', column: 'id' }
     }
   },
-  indexes: [{ name: 'users_email_idx', columns: ['email'] }]
+  indexes: [
+    { name: 'users_email_idx', columns: ['email'] },
+    {
+      name: 'users_personal_organization_id_idx',
+      columns: ['personalOrganizationId'],
+      unique: true
+    }
+  ]
 };
 
 /**
@@ -173,6 +190,12 @@ export const organizationsTable: TableDefinition = {
       type: 'text',
       sqlName: 'description'
     },
+    isPersonal: {
+      type: 'boolean',
+      sqlName: 'is_personal',
+      notNull: true,
+      defaultValue: false
+    },
     createdAt: {
       type: 'timestamp',
       sqlName: 'created_at',
@@ -184,7 +207,10 @@ export const organizationsTable: TableDefinition = {
       notNull: true
     }
   },
-  indexes: [{ name: 'organizations_name_idx', columns: ['name'], unique: true }]
+  indexes: [
+    { name: 'organizations_name_idx', columns: ['name'], unique: true },
+    { name: 'organizations_is_personal_idx', columns: ['isPersonal'] }
+  ]
 };
 
 /**
@@ -229,6 +255,171 @@ export const userOrganizationsTable: TableDefinition = {
     }
   },
   indexes: [{ name: 'user_organizations_org_idx', columns: ['organizationId'] }]
+};
+
+/**
+ * Organization billing accounts for RevenueCat integration.
+ * Stores one billing account record per organization.
+ */
+export const organizationBillingAccountsTable: TableDefinition = {
+  name: 'organization_billing_accounts',
+  propertyName: 'organizationBillingAccounts',
+  comment:
+    'Organization billing accounts for RevenueCat integration.\nStores one billing account record per organization.',
+  columns: {
+    organizationId: {
+      type: 'text',
+      sqlName: 'organization_id',
+      primaryKey: true,
+      references: {
+        table: 'organizations',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    revenuecatAppUserId: {
+      type: 'text',
+      sqlName: 'revenuecat_app_user_id',
+      notNull: true
+    },
+    entitlementStatus: {
+      type: 'text',
+      sqlName: 'entitlement_status',
+      notNull: true,
+      defaultValue: 'inactive',
+      enumValues: [
+        'inactive',
+        'trialing',
+        'active',
+        'grace_period',
+        'expired'
+      ] as const
+    },
+    activeProductId: {
+      type: 'text',
+      sqlName: 'active_product_id'
+    },
+    periodEndsAt: {
+      type: 'timestamp',
+      sqlName: 'period_ends_at'
+    },
+    willRenew: {
+      type: 'boolean',
+      sqlName: 'will_renew'
+    },
+    lastWebhookEventId: {
+      type: 'text',
+      sqlName: 'last_webhook_event_id'
+    },
+    lastWebhookAt: {
+      type: 'timestamp',
+      sqlName: 'last_webhook_at'
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    {
+      name: 'organization_billing_app_user_idx',
+      columns: ['revenuecatAppUserId'],
+      unique: true
+    },
+    {
+      name: 'organization_billing_entitlement_idx',
+      columns: ['entitlementStatus']
+    },
+    {
+      name: 'organization_billing_period_end_idx',
+      columns: ['periodEndsAt']
+    }
+  ]
+};
+
+/**
+ * RevenueCat webhook event archive and processing state.
+ * Supports idempotent processing by unique event ID.
+ */
+export const revenuecatWebhookEventsTable: TableDefinition = {
+  name: 'revenuecat_webhook_events',
+  propertyName: 'revenuecatWebhookEvents',
+  comment:
+    'RevenueCat webhook event archive and processing state.\nSupports idempotent processing by unique event ID.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    eventId: {
+      type: 'text',
+      sqlName: 'event_id',
+      notNull: true
+    },
+    eventType: {
+      type: 'text',
+      sqlName: 'event_type',
+      notNull: true
+    },
+    organizationId: {
+      type: 'text',
+      sqlName: 'organization_id',
+      references: {
+        table: 'organizations',
+        column: 'id',
+        onDelete: 'set null'
+      }
+    },
+    revenuecatAppUserId: {
+      type: 'text',
+      sqlName: 'revenuecat_app_user_id',
+      notNull: true
+    },
+    payload: {
+      type: 'json',
+      sqlName: 'payload',
+      notNull: true
+    },
+    receivedAt: {
+      type: 'timestamp',
+      sqlName: 'received_at',
+      notNull: true
+    },
+    processedAt: {
+      type: 'timestamp',
+      sqlName: 'processed_at'
+    },
+    processingError: {
+      type: 'text',
+      sqlName: 'processing_error'
+    }
+  },
+  indexes: [
+    {
+      name: 'revenuecat_events_event_id_idx',
+      columns: ['eventId'],
+      unique: true
+    },
+    {
+      name: 'revenuecat_events_org_idx',
+      columns: ['organizationId']
+    },
+    {
+      name: 'revenuecat_events_app_user_idx',
+      columns: ['revenuecatAppUserId']
+    },
+    {
+      name: 'revenuecat_events_received_idx',
+      columns: ['receivedAt']
+    }
+  ]
 };
 
 /**
@@ -2213,6 +2404,8 @@ export const allTables: TableDefinition[] = [
   usersTable,
   organizationsTable,
   userOrganizationsTable,
+  organizationBillingAccountsTable,
+  revenuecatWebhookEventsTable,
   userCredentialsTable,
   migrationsTable,
   secretsTable,

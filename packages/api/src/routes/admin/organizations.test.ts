@@ -535,7 +535,9 @@ describe('admin organizations routes', () => {
   describe('DELETE /v1/admin/organizations/:id', () => {
     it('deletes an organization', async () => {
       mockGetPostgresPool.mockResolvedValue({
-        query: mockQuery.mockResolvedValue({ rowCount: 1 })
+        query: mockQuery
+          .mockResolvedValueOnce({ rows: [{ is_personal: false }] })
+          .mockResolvedValueOnce({ rowCount: 1 })
       });
 
       const response = await request(app)
@@ -548,7 +550,7 @@ describe('admin organizations routes', () => {
 
     it('returns deleted: false when organization not found', async () => {
       mockGetPostgresPool.mockResolvedValue({
-        query: mockQuery.mockResolvedValue({ rowCount: 0 })
+        query: mockQuery.mockResolvedValue({ rows: [] })
       });
 
       const response = await request(app)
@@ -557,6 +559,23 @@ describe('admin organizations routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ deleted: false });
+    });
+
+    it('returns 400 when deleting a personal organization', async () => {
+      mockGetPostgresPool.mockResolvedValue({
+        query: mockQuery.mockResolvedValue({
+          rows: [{ is_personal: true }]
+        })
+      });
+
+      const response = await request(app)
+        .delete('/v1/admin/organizations/personal-org-1')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'Personal organizations cannot be deleted'
+      });
     });
 
     it('returns 500 on error', async () => {
