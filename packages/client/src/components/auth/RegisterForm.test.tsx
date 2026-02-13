@@ -67,7 +67,11 @@ describe('RegisterForm', () => {
   it('shows password length requirement hint', () => {
     render(<RegisterForm />);
 
-    expect(screen.getByText('Minimum 8 characters')).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Minimum 12 characters, including uppercase, lowercase, number, and symbol'
+      )
+    ).toBeInTheDocument();
   });
 
   it('disables submit button when fields are empty', () => {
@@ -89,13 +93,28 @@ describe('RegisterForm', () => {
     expect(submitButton).toBeDisabled();
   });
 
+  it('disables submit button when password lacks complexity', async () => {
+    const user = userEvent.setup();
+    render(<RegisterForm />);
+
+    await user.type(screen.getByLabelText('Email'), 'test@example.com');
+    await user.type(screen.getByLabelText('Password'), 'alllowercase1234');
+    await user.type(
+      screen.getByLabelText('Confirm Password'),
+      'alllowercase1234'
+    );
+
+    const submitButton = screen.getByRole('button', { name: 'Create Account' });
+    expect(submitButton).toBeDisabled();
+  });
+
   it('enables submit button when all fields are valid', async () => {
     const user = userEvent.setup();
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
 
     const submitButton = screen.getByRole('button', { name: 'Create Account' });
     expect(submitButton).toBeEnabled();
@@ -106,7 +125,7 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
     await user.type(
       screen.getByLabelText('Confirm Password'),
       'differentpassword'
@@ -121,7 +140,7 @@ describe('RegisterForm', () => {
     const user = userEvent.setup();
     render(<RegisterForm />);
 
-    // Type valid email and short password (under 8 chars but enable button manually for test)
+    // Type valid email and short password (under 12 chars)
     const emailInput = screen.getByLabelText('Email');
     const passwordInput = screen.getByLabelText('Password');
     const confirmInput = screen.getByLabelText('Confirm Password');
@@ -142,14 +161,14 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
       expect(mockRegister).toHaveBeenCalledWith(
         'test@example.com',
-        'password123'
+        'Password123!'
       );
     });
   });
@@ -167,8 +186,8 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     expect(
@@ -192,8 +211,8 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
@@ -209,8 +228,8 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'existing@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     // Error message should appear in the error div
@@ -230,8 +249,8 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
@@ -245,8 +264,8 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
@@ -266,8 +285,8 @@ describe('RegisterForm', () => {
     const confirmInput = screen.getByLabelText('Confirm Password');
 
     await user.type(emailInput, 'test@example.com');
-    await user.type(passwordInput, 'password123');
-    await user.type(confirmInput, 'password123');
+    await user.type(passwordInput, 'Password123!');
+    await user.type(confirmInput, 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {
@@ -290,8 +309,8 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     expect(screen.getByLabelText('Email')).toBeDisabled();
@@ -350,8 +369,8 @@ describe('RegisterForm', () => {
     render(<RegisterForm />);
 
     await user.type(screen.getByLabelText('Email'), 'test@example.com');
-    await user.type(screen.getByLabelText('Password'), 'password123');
-    await user.type(screen.getByLabelText('Confirm Password'), 'password123');
+    await user.type(screen.getByLabelText('Password'), 'Password123!');
+    await user.type(screen.getByLabelText('Confirm Password'), 'Password123!');
     await user.click(screen.getByRole('button', { name: 'Create Account' }));
 
     await waitFor(() => {

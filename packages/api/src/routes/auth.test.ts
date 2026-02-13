@@ -228,7 +228,7 @@ describe('Auth routes', () => {
     it('returns 400 for invalid email format', async () => {
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'not-an-email', password: 'securepassword123' });
+        .send({ email: 'not-an-email', password: 'SecurePassword123!' });
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({ error: 'Invalid email format' });
@@ -242,7 +242,20 @@ describe('Auth routes', () => {
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
-        error: 'Password must be at least 8 characters'
+        error: 'Password must be at least 12 characters'
+      });
+    });
+
+    it('returns 400 for password missing complexity requirements', async () => {
+      const response = await request(app).post('/v1/auth/register').send({
+        email: 'user@example.com',
+        password: 'alllowercase1234'
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error:
+          'Password must include at least one uppercase letter, one lowercase letter, one number, and one symbol'
       });
     });
 
@@ -251,7 +264,7 @@ describe('Auth routes', () => {
 
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'user@notallowed.com', password: 'securepassword123' });
+        .send({ email: 'user@notallowed.com', password: 'SecurePassword123!' });
 
       expect(response.status).toBe(400);
       expect(response.body).toEqual({
@@ -268,7 +281,7 @@ describe('Auth routes', () => {
 
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'existing@example.com', password: 'securepassword123' });
+        .send({ email: 'existing@example.com', password: 'SecurePassword123!' });
 
       expect(response.status).toBe(409);
       expect(response.body).toEqual({ error: 'Email already registered' });
@@ -289,7 +302,7 @@ describe('Auth routes', () => {
 
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'newuser@example.com', password: 'securepassword123' });
+        .send({ email: 'newuser@example.com', password: 'SecurePassword123!' });
 
       expect(response.status).toBe(200);
       expect(response.body.accessToken).toEqual(expect.any(String));
@@ -335,7 +348,7 @@ describe('Auth routes', () => {
 
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'newuser@example.com', password: 'securepassword123' });
+        .send({ email: 'newuser@example.com', password: 'SecurePassword123!' });
 
       expect(response.status).toBe(200);
 
@@ -360,7 +373,7 @@ describe('Auth routes', () => {
 
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'user@example.com', password: 'securepassword123' });
+        .send({ email: 'user@example.com', password: 'SecurePassword123!' });
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to register' });
@@ -372,7 +385,7 @@ describe('Auth routes', () => {
 
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'user@example.com', password: 'securepassword123' });
+        .send({ email: 'user@example.com', password: 'SecurePassword123!' });
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to register' });
@@ -400,7 +413,7 @@ describe('Auth routes', () => {
 
       const response = await request(app)
         .post('/v1/auth/register')
-        .send({ email: 'newuser@example.com', password: 'securepassword123' });
+        .send({ email: 'newuser@example.com', password: 'SecurePassword123!' });
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to register' });

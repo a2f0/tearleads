@@ -11,7 +11,7 @@
 
 ## Procedure Steps
 
-1. Validate password complexity enforcement.
+1. Validate password complexity enforcement (minimum length and composition requirements).
 2. Validate disablement attribution fields and session revocation behavior.
 3. Validate deletion-marking attribution fields.
 4. Record evidence (commit, test run, timestamp, reviewer).

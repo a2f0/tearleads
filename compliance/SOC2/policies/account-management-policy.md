@@ -16,15 +16,16 @@ Define mandatory controls for account lifecycle and credential quality, and map 
 
 ## Policy Statements
 
-1. Password complexity must be enforced at account registration.
+1. Password complexity must be enforced at account registration with a minimum of 12 characters and required uppercase, lowercase, number, and symbol composition.
 2. Account disable actions must record both actor (`disabled_by`) and timestamp (`disabled_at`).
 3. Account deletion-marking actions must record both actor (`marked_for_deletion_by`) and timestamp (`marked_for_deletion_at`).
 4. Administrative disablement must revoke active user sessions.
 
 ## Control Baselines
 
-- Password baseline for initial implementation: minimum length of 8 characters (`TL-ACCT-001`).
-- Disablement and deletion-marking attribution baseline: actor + timestamp capture (`TL-ACCT-002`, `TL-ACCT-003`).
+- Password baseline for initial implementation: minimum length of 12 characters plus uppercase, lowercase, number, and symbol (`TL-ACCT-001`).
+- Disablement baseline: actor + timestamp capture and session revocation (`TL-ACCT-002`).
+- Deletion-marking attribution baseline: actor + timestamp capture (`TL-ACCT-003`).
 
 ## Framework Mapping
 

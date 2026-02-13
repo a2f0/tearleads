@@ -1,13 +1,15 @@
 import { useCallback, useId, useRef, useState } from 'react';
+import {
+  PASSWORD_COMPLEXITY_ERROR,
+  PASSWORD_MIN_LENGTH,
+  passwordMeetsComplexity
+} from '@tearleads/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
 
 /** Delay before scrolling input into view, allowing keyboard to fully appear */
 const SCROLL_INTO_VIEW_DELAY_MS = 300;
-
-// COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
-const MIN_PASSWORD_LENGTH = 8;
 
 /**
  * Scroll an input element into view after keyboard appears.
@@ -67,9 +69,15 @@ export function RegisterForm({
         return;
       }
 
-      if (password.length < MIN_PASSWORD_LENGTH) {
+      if (password.length < PASSWORD_MIN_LENGTH) {
         // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
-        setError(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`);
+        setError(`Password must be at least ${PASSWORD_MIN_LENGTH} characters`);
+        return;
+      }
+
+      if (!passwordMeetsComplexity(password)) {
+        // COMPLIANCE_SENTINEL: TL-ACCT-001 | policy=compliance/SOC2/policies/account-management-policy.md | procedure=compliance/SOC2/procedures/account-management-procedure.md | control=password-complexity
+        setError(PASSWORD_COMPLEXITY_ERROR);
         return;
       }
 
@@ -97,7 +105,8 @@ export function RegisterForm({
 
   const isFormValid =
     email.length > 0 &&
-    password.length >= MIN_PASSWORD_LENGTH &&
+    password.length >= PASSWORD_MIN_LENGTH &&
+    passwordMeetsComplexity(password) &&
     confirmPassword.length > 0;
 
   return (
@@ -158,10 +167,11 @@ export function RegisterForm({
             required
             disabled={isSubmitting}
             autoComplete="new-password"
-            minLength={MIN_PASSWORD_LENGTH}
+            minLength={PASSWORD_MIN_LENGTH}
           />
           <p className="text-muted-foreground text-xs">
-            Minimum {MIN_PASSWORD_LENGTH} characters
+            Minimum {PASSWORD_MIN_LENGTH} characters, including uppercase,
+            lowercase, number, and symbol
           </p>
         </div>
 
