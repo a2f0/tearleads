@@ -82,3 +82,8 @@ coverage/
 
 # Codex system skills (local-only)
 .claude/commands/skills/.system/
+
+# Claude Code temporary/session files
+.claude/commands/tmp/
+.claude/commands/sessions/
+.claude/commands/shell_snapshots/
