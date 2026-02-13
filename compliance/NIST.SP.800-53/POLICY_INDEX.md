@@ -340,14 +340,17 @@ Manages supply chain security risks.
 ### Policies
 
 1. [P-01 Account Management Policy](./policies/01-account-management-policy.md)
+2. [P-02 Audit Logging Policy](./policies/02-audit-logging-policy.md)
 
 ### Procedures
 
 1. [PR-01 Account Management Procedure](./procedures/01-account-management-procedure.md)
+2. [PR-02 Audit Logging Procedure](./procedures/02-audit-logging-procedure.md)
 
 ### Technical Control Maps
 
 1. [TC-01 Account Management Technical Control Map](./technical-controls/01-account-management-control-map.md)
+2. [TC-02 Audit Logging Technical Control Map](./technical-controls/02-audit-logging-control-map.md)
 
 ---
 

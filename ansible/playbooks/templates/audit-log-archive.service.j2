@@ -1,0 +1,15 @@
+[Unit]
+Description=Audit Log Archive Service
+Documentation=https://github.com/a2f0/tearleads
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/audit-log-archive.sh
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=audit-log-archive
+
+# Run as root to access all logs
+User=root
+Group=root

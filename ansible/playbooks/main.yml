@@ -32,6 +32,13 @@
     backup_retention_days: 7
     backup_time: "02:00"
     backup_timezone: "UTC"
+    # Audit logging configuration (compliance)
+    audit_log_retention_days: 90
+    audit_archive_retention_years: 6
+    audit_archive_dir: /var/archive/audit-logs
+    journald_system_max_use: 4G
+    journald_runtime_max_use: 500M
+    nginx_log_rotate_days: 90
 
   tasks:
     - name: Add GitHub Actions deploy key to authorized_keys
@@ -494,6 +501,80 @@
         state: started
         daemon_reload: true
 
+    # Audit Logging Configuration (Compliance)
+    - name: Ensure journald conf.d directory exists
+      ansible.builtin.file:
+        path: /etc/systemd/journald.conf.d
+        state: directory
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy journald compliance configuration
+      ansible.builtin.template:
+        src: journald.conf.j2
+        dest: /etc/systemd/journald.conf.d/compliance.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart systemd-journald
+
+    - name: Deploy nginx logging configuration
+      ansible.builtin.template:
+        src: nginx-logging.conf.j2
+        dest: /etc/nginx/conf.d/logging.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload nginx
+
+    - name: Deploy nginx logrotate configuration
+      ansible.builtin.template:
+        src: nginx-logrotate.conf.j2
+        dest: /etc/logrotate.d/nginx
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Create audit archive directory
+      ansible.builtin.file:
+        path: "{{ audit_archive_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0750"
+
+    - name: Deploy audit log archive script
+      ansible.builtin.template:
+        src: scripts/audit-log-archive.sh.j2
+        dest: /usr/local/sbin/audit-log-archive.sh
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Deploy audit-log-archive systemd service
+      ansible.builtin.template:
+        src: audit-log-archive.service.j2
+        dest: /etc/systemd/system/audit-log-archive.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Deploy audit-log-archive systemd timer
+      ansible.builtin.template:
+        src: audit-log-archive.timer.j2
+        dest: /etc/systemd/system/audit-log-archive.timer
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable and start audit-log-archive timer
+      ansible.builtin.systemd:
+        name: audit-log-archive.timer
+        enabled: true
+        state: started
+        daemon_reload: true
+
   handlers:
     - name: Reload nginx
       ansible.builtin.systemd:
@@ -517,6 +598,11 @@
     - name: Restart postgresql
       ansible.builtin.systemd:
         name: postgresql
+        state: restarted
+
+    - name: Restart systemd-journald
+      ansible.builtin.systemd:
+        name: systemd-journald
         state: restarted
 
     - name: Restart tearleads-api
