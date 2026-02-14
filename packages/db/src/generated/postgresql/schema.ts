@@ -503,6 +503,11 @@ export const vfsRegistry = pgTable(
     encryptedSessionKey: text('encrypted_session_key'),
     publicHierarchicalKey: text('public_hierarchical_key'),
     encryptedPrivateHierarchicalKey: text('encrypted_private_hierarchical_key'),
+    encryptedName: text('encrypted_name'),
+    icon: text('icon'),
+    viewMode: text('view_mode'),
+    defaultSort: text('default_sort'),
+    sortDirection: text('sort_direction'),
     createdAt: timestamp('created_at', { withTimezone: true }).notNull()
   },
   (table) => [

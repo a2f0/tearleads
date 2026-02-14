@@ -604,6 +604,16 @@ describe('vfsCrdtOpsTable', () => {
   });
 });
 
+describe('vfsRegistryTable', () => {
+  it('includes canonical folder metadata columns for flattening', () => {
+    expect(vfsRegistryTable.columns['encryptedName']).toBeDefined();
+    expect(vfsRegistryTable.columns['icon']).toBeDefined();
+    expect(vfsRegistryTable.columns['viewMode']).toBeDefined();
+    expect(vfsRegistryTable.columns['defaultSort']).toBeDefined();
+    expect(vfsRegistryTable.columns['sortDirection']).toBeDefined();
+  });
+});
+
 describe('allTables', () => {
   it('contains all canonical tables', () => {
     expect(allTables).toHaveLength(52);

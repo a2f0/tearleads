@@ -6,11 +6,14 @@ This runbook covers staged rollout verification for the flattening migration cha
 1. `v025` (drop `vfs_blob_staging` and `vfs_blob_refs`)
 1. `v026` (drop `vfs_blob_objects` after canonical blob parity check)
 1. `v027` (drop `vfs_access` after canonical user ACL parity check)
+1. `v028` (backfill/verify `vfs_shares -> vfs_acl_entries` parity)
+1. `v029` (backfill/verify `org_shares -> vfs_acl_entries` parity)
+1. `v030` (backfill/verify `vfs_folders -> vfs_registry` metadata parity)
 
 ## Ordering Guardrails
 
-1. Deploy runtime code that writes only flattened blob lifecycle and ACL state before running destructive drops.
-1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027`).
+1. Deploy runtime code that writes flattened blob/ACL state before running destructive drops.
+1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030`).
 1. Treat any migration guardrail exception as fail-closed and stop rollout.
 1. Do not continue to a destructive migration when parity checks return non-zero rows.
 
@@ -22,6 +25,9 @@ This runbook covers staged rollout verification for the flattening migration cha
    - `packages/api/src/migrations/v025.ts`
    - `packages/api/src/migrations/v026.ts`
    - `packages/api/src/migrations/v027.ts`
+   - `packages/api/src/migrations/v028.ts`
+   - `packages/api/src/migrations/v029.ts`
+   - `packages/api/src/migrations/v030.ts`
 1. Confirm branch includes the schema retirement commit for `vfs_blob_objects` in canonical schema generation.
 1. Record baseline counts:
 
@@ -40,18 +46,25 @@ SELECT COUNT(*) AS canonical_active_user_acl
 FROM vfs_acl_entries
 WHERE principal_type = 'user'
   AND revoked_at IS NULL;
+SELECT COUNT(*) AS legacy_vfs_shares FROM vfs_shares;
+SELECT COUNT(*) AS legacy_org_shares FROM org_shares;
+SELECT COUNT(*) AS canonical_active_org_acl
+FROM vfs_acl_entries
+WHERE principal_type = 'organization'
+  AND revoked_at IS NULL;
+SELECT COUNT(*) AS legacy_vfs_folders FROM vfs_folders;
 ```
 
 ## Migration Execution
 
 1. Run normal API migration entrypoint (same mechanism used in production deploy).
-1. Verify schema version reaches `27`.
+1. Verify schema version reaches `30`.
 
 ```sql
 SELECT MAX(version) AS schema_version FROM schema_migrations;
 ```
 
-1. If schema version is below `27`, stop and inspect migration logs.
+1. If schema version is below `30`, stop and inspect migration logs.
 
 ## Post-Migration Parity Checks
 
@@ -64,6 +77,28 @@ SELECT to_regclass('public.vfs_blob_staging') AS blob_staging_table;
 SELECT to_regclass('public.vfs_blob_refs') AS blob_refs_table;
 SELECT to_regclass('public.vfs_blob_objects') AS blob_objects_table;
 SELECT to_regclass('public.vfs_access') AS vfs_access_table;
+```
+
+1. Share/ACL parity should hold for active principals.
+
+```sql
+SELECT COUNT(*) AS missing_vfs_share_acl_rows
+FROM vfs_shares s
+LEFT JOIN vfs_acl_entries acl
+  ON acl.item_id = s.item_id
+ AND acl.principal_type = s.share_type
+ AND acl.principal_id = s.target_id
+ AND acl.revoked_at IS NULL
+WHERE acl.id IS NULL;
+
+SELECT COUNT(*) AS missing_org_share_acl_rows
+FROM org_shares os
+LEFT JOIN vfs_acl_entries acl
+  ON acl.item_id = os.item_id
+ AND acl.principal_type = 'organization'
+ AND acl.principal_id = os.target_org_id
+ AND acl.revoked_at IS NULL
+WHERE acl.id IS NULL;
 ```
 
 1. Every flattened blob-stage row should have canonical `blobStage` type.
@@ -101,6 +136,20 @@ ORDER BY updated_at DESC
 LIMIT 100;
 ```
 
+1. Folder metadata parity should hold between legacy and canonical columns.
+
+```sql
+SELECT COUNT(*) AS folder_metadata_mismatches
+FROM vfs_folders f
+INNER JOIN vfs_registry r
+  ON r.id = f.id
+WHERE r.encrypted_name IS DISTINCT FROM f.encrypted_name
+   OR r.icon IS DISTINCT FROM f.icon
+   OR r.view_mode IS DISTINCT FROM f.view_mode
+   OR r.default_sort IS DISTINCT FROM f.default_sort
+   OR r.sort_direction IS DISTINCT FROM f.sort_direction;
+```
+
 ## Runtime Health Checks
 
 1. Execute synthetic API requests after migration:
@@ -116,7 +165,7 @@ LIMIT 100;
 
 Rollback/incident response should trigger immediately if any condition occurs:
 
-1. Migration fails with guardrail exception from `v024`, `v025`, `v026`, or `v027`.
+1. Migration fails with guardrail exception from `v024` through `v030`.
 1. Any post-migration parity query returns non-zero violation counts.
 1. API logs show attempts to query dropped legacy blob tables.
 1. Reconcile/pull endpoints begin returning cursor regression or write-id regression failures.

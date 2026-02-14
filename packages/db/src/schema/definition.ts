@@ -1244,6 +1244,26 @@ export const vfsRegistryTable: TableDefinition = {
       type: 'text',
       sqlName: 'encrypted_private_hierarchical_key'
     },
+    encryptedName: {
+      type: 'text',
+      sqlName: 'encrypted_name'
+    },
+    icon: {
+      type: 'text',
+      sqlName: 'icon'
+    },
+    viewMode: {
+      type: 'text',
+      sqlName: 'view_mode'
+    },
+    defaultSort: {
+      type: 'text',
+      sqlName: 'default_sort'
+    },
+    sortDirection: {
+      type: 'text',
+      sqlName: 'sort_direction'
+    },
     createdAt: {
       type: 'timestamp',
       sqlName: 'created_at',

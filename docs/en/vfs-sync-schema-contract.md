@@ -54,6 +54,10 @@ the sync-critical contract:
 on the SQL guardrail block-list to fail closed if legacy references are
 reintroduced.
 
+`vfs_shares`/`org_shares` ACL parity scaffolding is staged in `v028`/`v029`,
+and `v030` backfills folder metadata into canonical `vfs_registry` columns.
+`vfs_folders` remains active until read/write paths are fully cut over.
+
 ## Domain Mapping
 
 1. `syncFeed`
