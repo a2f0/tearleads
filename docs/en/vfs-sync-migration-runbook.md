@@ -11,11 +11,12 @@ This runbook covers staged rollout verification for the flattening migration cha
 1. `v030` (backfill/verify `vfs_folders -> vfs_registry` metadata parity)
 1. `v031` (verify `vfs_folders` retirement preconditions; non-destructive)
 1. `v032` (record retirement checkpoint snapshot; non-destructive)
+1. `v033` (drop `vfs_folders` after checkpoint/parity guards)
 
 ## Ordering Guardrails
 
 1. Deploy runtime code that writes flattened blob/ACL state before running destructive drops.
-1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030` -> `v031` -> `v032`).
+1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030` -> `v031` -> `v032` -> `v033`).
 1. Treat any migration guardrail exception as fail-closed and stop rollout.
 1. Do not continue to a destructive migration when parity checks return non-zero rows.
 
@@ -32,6 +33,7 @@ This runbook covers staged rollout verification for the flattening migration cha
    - `packages/api/src/migrations/v030.ts`
    - `packages/api/src/migrations/v031.ts`
    - `packages/api/src/migrations/v032.ts`
+   - `packages/api/src/migrations/v033.ts`
 1. Confirm branch includes the schema retirement commit for `vfs_blob_objects` in canonical schema generation.
 1. Record baseline counts:
 
@@ -62,13 +64,13 @@ SELECT COUNT(*) AS legacy_vfs_folders FROM vfs_folders;
 ## Migration Execution
 
 1. Run normal API migration entrypoint (same mechanism used in production deploy).
-1. Verify schema version reaches `32`.
+1. Verify schema version reaches `33`.
 
 ```sql
 SELECT MAX(version) AS schema_version FROM schema_migrations;
 ```
 
-1. If schema version is below `32`, stop and inspect migration logs.
+1. If schema version is below `33`, stop and inspect migration logs.
 
 ## Post-Migration Parity Checks
 
@@ -81,6 +83,7 @@ SELECT to_regclass('public.vfs_blob_staging') AS blob_staging_table;
 SELECT to_regclass('public.vfs_blob_refs') AS blob_refs_table;
 SELECT to_regclass('public.vfs_blob_objects') AS blob_objects_table;
 SELECT to_regclass('public.vfs_access') AS vfs_access_table;
+SELECT to_regclass('public.vfs_folders') AS vfs_folders_table;
 ```
 
 1. Share/ACL parity should hold for active principals.
@@ -140,18 +143,16 @@ ORDER BY updated_at DESC
 LIMIT 100;
 ```
 
-1. Folder metadata parity should hold between legacy and canonical columns.
+1. Latest retirement checkpoint snapshot should report zero mismatches.
 
 ```sql
-SELECT COUNT(*) AS folder_metadata_mismatches
-FROM vfs_folders f
-INNER JOIN vfs_registry r
-  ON r.id = f.id
-WHERE r.encrypted_name IS DISTINCT FROM f.encrypted_name
-   OR r.icon IS DISTINCT FROM f.icon
-   OR r.view_mode IS DISTINCT FROM f.view_mode
-   OR r.default_sort IS DISTINCT FROM f.default_sort
-   OR r.sort_direction IS DISTINCT FROM f.sort_direction;
+SELECT canonical_folder_count,
+       legacy_folder_count,
+       metadata_mismatch_count,
+       captured_at
+FROM vfs_folder_retirement_checkpoints
+ORDER BY captured_at DESC
+LIMIT 5;
 ```
 
 ## Runtime Health Checks
@@ -165,14 +166,14 @@ WHERE r.encrypted_name IS DISTINCT FROM f.encrypted_name
 1. Confirm client builds include local migration `v019` so `vfs_registry`
    contains canonical folder metadata columns (`encrypted_name`, `icon`,
    `view_mode`, `default_sort`, `sort_direction`) before read-path cutover.
-1. Confirm no SQL errors referencing dropped tables (`vfs_blob_staging`, `vfs_blob_refs`, `vfs_blob_objects`, `vfs_access`).
+1. Confirm no SQL errors referencing dropped tables (`vfs_blob_staging`, `vfs_blob_refs`, `vfs_blob_objects`, `vfs_access`, `vfs_folders`).
 1. Confirm guardrail violations are not emitted for cursor/write-id regression in the same rollout window.
 
 ## Rollback Triggers
 
 Rollback/incident response should trigger immediately if any condition occurs:
 
-1. Migration fails with guardrail exception from `v024` through `v032`.
+1. Migration fails with guardrail exception from `v024` through `v033`.
 1. Any post-migration parity query returns non-zero violation counts.
 1. API logs show attempts to query dropped legacy blob tables.
 1. Reconcile/pull endpoints begin returning cursor regression or write-id regression failures.
