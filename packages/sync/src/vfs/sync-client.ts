@@ -240,6 +240,24 @@ function validatePushResponse(
   return orderedResults;
 }
 
+function assertNonRegressingLastWriteIds(
+  observedLastWriteIds: Map<string, number>,
+  incomingLastWriteIds: VfsCrdtLastReconciledWriteIds
+): void {
+  for (const [replicaId, writeId] of Object.entries(incomingLastWriteIds)) {
+    const previousWriteId = observedLastWriteIds.get(replicaId) ?? 0;
+    if (writeId < previousWriteId) {
+      throw new Error(
+        `transport regressed lastReconciledWriteIds for replica ${replicaId}`
+      );
+    }
+
+    if (writeId > previousWriteId) {
+      observedLastWriteIds.set(replicaId, writeId);
+    }
+  }
+}
+
 export interface QueueVfsCrdtLocalOperationInput {
   opType: VfsCrdtOpType;
   itemId: string;
@@ -547,6 +565,7 @@ export class VfsBackgroundSyncClient {
   private async pullUntilSettled(): Promise<VfsBackgroundSyncClientSyncResult> {
     let pulledOperations = 0;
     let pullPages = 0;
+    const observedLastWriteIds = new Map<string, number>();
 
     while (true) {
       const cursorBeforePull = this.currentCursor();
@@ -564,6 +583,10 @@ export class VfsBackgroundSyncClient {
       if (!parsedWriteIds.ok) {
         throw new Error(parsedWriteIds.error);
       }
+      assertNonRegressingLastWriteIds(
+        observedLastWriteIds,
+        parsedWriteIds.value
+      );
 
       if (response.hasMore && response.items.length === 0) {
         throw new Error(
@@ -594,6 +617,14 @@ export class VfsBackgroundSyncClient {
         pageCursor = cloneCursor(response.nextCursor);
       } else if (cursorBeforePull) {
         pageCursor = cloneCursor(cursorBeforePull);
+      }
+
+      if (
+        cursorBeforePull &&
+        pageCursor &&
+        compareVfsSyncCursorOrder(pageCursor, cursorBeforePull) < 0
+      ) {
+        throw new Error('transport returned regressing sync cursor');
       }
 
       if (pageCursor) {
