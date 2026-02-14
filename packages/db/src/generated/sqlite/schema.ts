@@ -899,6 +899,84 @@ export const vfsAccess = sqliteTable(
 );
 
 /**
+ * Flattened ACL entries for VFS items.
+ * Unifies user/group/organization grants into a single principal model.
+ */
+export const vfsAclEntries = sqliteTable(
+  'vfs_acl_entries',
+  {
+    id: text('id').primaryKey(),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    principalType: text('principal_type', {
+      enum: ['user', 'group', 'organization']
+    }).notNull(),
+    principalId: text('principal_id').notNull(),
+    accessLevel: text('access_level', {
+      enum: ['read', 'write', 'admin']
+    }).notNull(),
+    wrappedSessionKey: text('wrapped_session_key'),
+    wrappedHierarchicalKey: text('wrapped_hierarchical_key'),
+    grantedBy: text('granted_by').references(() => users.id, {
+      onDelete: 'restrict'
+    }),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }),
+    revokedAt: integer('revoked_at', { mode: 'timestamp_ms' })
+  },
+  (table) => [
+    index('vfs_acl_entries_item_idx').on(table.itemId),
+    index('vfs_acl_entries_principal_idx').on(
+      table.principalType,
+      table.principalId
+    ),
+    index('vfs_acl_entries_active_idx').on(
+      table.principalType,
+      table.principalId,
+      table.revokedAt,
+      table.expiresAt
+    ),
+    uniqueIndex('vfs_acl_entries_item_principal_idx').on(
+      table.itemId,
+      table.principalType,
+      table.principalId
+    )
+  ]
+);
+
+/**
+ * Append-only VFS change feed for cursor-based differential synchronization.
+ * Records all item and ACL mutations in a stable time-ordered stream.
+ */
+export const vfsSyncChanges = sqliteTable(
+  'vfs_sync_changes',
+  {
+    id: text('id').primaryKey(),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    changeType: text('change_type', {
+      enum: ['upsert', 'delete', 'acl']
+    }).notNull(),
+    changedAt: integer('changed_at', { mode: 'timestamp_ms' }).notNull(),
+    changedBy: text('changed_by').references(() => users.id, {
+      onDelete: 'set null'
+    }),
+    rootId: text('root_id').references(() => vfsRegistry.id, {
+      onDelete: 'set null'
+    })
+  },
+  (table) => [
+    index('vfs_sync_changes_item_idx').on(table.itemId),
+    index('vfs_sync_changes_changed_at_idx').on(table.changedAt),
+    index('vfs_sync_changes_root_idx').on(table.rootId),
+    index('vfs_sync_changes_item_changed_idx').on(table.itemId, table.changedAt)
+  ]
+);
+
+/**
  * MLS key packages for user identity.
  * Each package is consumed once when used to add user to a group.
  */
@@ -1212,6 +1290,8 @@ export const schema = {
   vfsShares,
   orgShares,
   vfsAccess,
+  vfsAclEntries,
+  vfsSyncChanges,
   mlsKeyPackages,
   mlsGroups,
   mlsGroupMembers,

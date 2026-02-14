@@ -2163,6 +2163,168 @@ export const vfsAccessTable: TableDefinition = {
   ]
 };
 
+/**
+ * Flattened ACL entries for VFS items.
+ * Unifies user/group/organization grants into a single principal model.
+ */
+export const vfsAclEntriesTable: TableDefinition = {
+  name: 'vfs_acl_entries',
+  propertyName: 'vfsAclEntries',
+  comment:
+    'Flattened ACL entries for VFS items.\nUnifies user/group/organization grants into a single principal model.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    itemId: {
+      type: 'text',
+      sqlName: 'item_id',
+      notNull: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    principalType: {
+      type: 'text',
+      sqlName: 'principal_type',
+      notNull: true,
+      enumValues: ['user', 'group', 'organization'] as const
+    },
+    principalId: {
+      type: 'text',
+      sqlName: 'principal_id',
+      notNull: true
+    },
+    accessLevel: {
+      type: 'text',
+      sqlName: 'access_level',
+      notNull: true,
+      enumValues: ['read', 'write', 'admin'] as const
+    },
+    wrappedSessionKey: {
+      type: 'text',
+      sqlName: 'wrapped_session_key'
+    },
+    wrappedHierarchicalKey: {
+      type: 'text',
+      sqlName: 'wrapped_hierarchical_key'
+    },
+    grantedBy: {
+      type: 'text',
+      sqlName: 'granted_by',
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    },
+    expiresAt: {
+      type: 'timestamp',
+      sqlName: 'expires_at'
+    },
+    revokedAt: {
+      type: 'timestamp',
+      sqlName: 'revoked_at'
+    }
+  },
+  indexes: [
+    { name: 'vfs_acl_entries_item_idx', columns: ['itemId'] },
+    {
+      name: 'vfs_acl_entries_principal_idx',
+      columns: ['principalType', 'principalId']
+    },
+    {
+      name: 'vfs_acl_entries_active_idx',
+      columns: ['principalType', 'principalId', 'revokedAt', 'expiresAt']
+    },
+    {
+      name: 'vfs_acl_entries_item_principal_idx',
+      columns: ['itemId', 'principalType', 'principalId'],
+      unique: true
+    }
+  ]
+};
+
+/**
+ * Append-only VFS change feed for cursor-based differential synchronization.
+ * Records all item and ACL mutations in a stable time-ordered stream.
+ */
+export const vfsSyncChangesTable: TableDefinition = {
+  name: 'vfs_sync_changes',
+  propertyName: 'vfsSyncChanges',
+  comment:
+    'Append-only VFS change feed for cursor-based differential synchronization.\nRecords all item and ACL mutations in a stable time-ordered stream.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    itemId: {
+      type: 'text',
+      sqlName: 'item_id',
+      notNull: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    changeType: {
+      type: 'text',
+      sqlName: 'change_type',
+      notNull: true,
+      enumValues: ['upsert', 'delete', 'acl'] as const
+    },
+    changedAt: {
+      type: 'timestamp',
+      sqlName: 'changed_at',
+      notNull: true
+    },
+    changedBy: {
+      type: 'text',
+      sqlName: 'changed_by',
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'set null'
+      }
+    },
+    rootId: {
+      type: 'text',
+      sqlName: 'root_id',
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'set null'
+      }
+    }
+  },
+  indexes: [
+    { name: 'vfs_sync_changes_item_idx', columns: ['itemId'] },
+    { name: 'vfs_sync_changes_changed_at_idx', columns: ['changedAt'] },
+    { name: 'vfs_sync_changes_root_idx', columns: ['rootId'] },
+    {
+      name: 'vfs_sync_changes_item_changed_idx',
+      columns: ['itemId', 'changedAt']
+    }
+  ]
+};
+
 // =============================================================================
 // MLS (RFC 9420) Encrypted Chat Tables
 // =============================================================================
@@ -2877,6 +3039,8 @@ export const allTables: TableDefinition[] = [
   vfsSharesTable,
   orgSharesTable,
   vfsAccessTable,
+  vfsAclEntriesTable,
+  vfsSyncChangesTable,
   // MLS tables
   mlsKeyPackagesTable,
   mlsGroupsTable,

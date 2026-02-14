@@ -382,6 +382,28 @@ export interface VfsRegisterResponse {
   createdAt: string;
 }
 
+// VFS sync + ACL types
+export type VfsAclPrincipalType = 'user' | 'group' | 'organization';
+export type VfsAclAccessLevel = 'read' | 'write' | 'admin';
+export type VfsSyncChangeType = 'upsert' | 'delete' | 'acl';
+
+export interface VfsSyncItem {
+  changeId: string;
+  itemId: string;
+  changeType: VfsSyncChangeType;
+  changedAt: string;
+  objectType: VfsObjectType | null;
+  ownerId: string | null;
+  createdAt: string | null;
+  accessLevel: VfsAclAccessLevel;
+}
+
+export interface VfsSyncResponse {
+  items: VfsSyncItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 // VFS Sharing types
 export type VfsShareType = 'user' | 'group' | 'organization';
 export type VfsPermissionLevel = 'view' | 'edit' | 'download';
