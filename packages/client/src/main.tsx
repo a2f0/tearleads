@@ -154,6 +154,12 @@ const Keychain = lazy(() =>
 const KeychainDetail = lazy(() =>
   import('@tearleads/keychain').then((m) => ({ default: m.KeychainDetail }))
 );
+const Wallet = lazy(() =>
+  import('@tearleads/wallet').then((m) => ({ default: m.Wallet }))
+);
+const WalletDetail = lazy(() =>
+  import('@tearleads/wallet').then((m) => ({ default: m.WalletDetail }))
+);
 const Licenses = lazy(() =>
   import('./pages/Licenses').then((m) => ({ default: m.Licenses }))
 );
@@ -435,6 +441,14 @@ if (rootElement) {
                                         <Route
                                           path="keychain/:id"
                                           element={<KeychainDetail />}
+                                        />
+                                        <Route
+                                          path="wallet"
+                                          element={<Wallet />}
+                                        />
+                                        <Route
+                                          path="wallet/:id"
+                                          element={<WalletDetail />}
                                         />
                                         <Route
                                           path="admin"

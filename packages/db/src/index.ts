@@ -31,7 +31,9 @@ export {
   migrationsTable,
   secretsTable,
   syncMetadataTable,
-  userSettingsTable
+  userSettingsTable,
+  walletItemMediaTable,
+  walletItemsTable
 } from './schema/index.js';
 
 // Type mappings

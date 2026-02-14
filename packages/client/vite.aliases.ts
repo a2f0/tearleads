@@ -45,6 +45,8 @@ export const createViteAliases = (dirname: string): AliasMap => ({
     '../keychain/package.json'
   ),
   '@tearleads/keychain': path.resolve(dirname, '../keychain/src/index.ts'),
+  '@tearleads/wallet/package.json': path.resolve(dirname, '../wallet/package.json'),
+  '@tearleads/wallet': path.resolve(dirname, '../wallet/src/index.ts'),
   '@tearleads/mls-chat/package.json': path.resolve(dirname, '../mls-chat/package.json'),
   '@tearleads/mls-chat': path.resolve(dirname, '../mls-chat/src/index.ts'),
   '@tearleads/msw/package.json': path.resolve(dirname, '../msw/package.json'),

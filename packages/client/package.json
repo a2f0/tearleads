@@ -75,6 +75,7 @@
     "@tearleads/terminal": "workspace:*",
     "@tearleads/ui": "workspace:*",
     "@tearleads/vfs-explorer": "workspace:*",
+    "@tearleads/wallet": "workspace:*",
     "@tearleads/window-manager": "workspace:*",
     "@uiw/react-md-editor": "4.0.11",
     "better-sqlite3-multiple-ciphers": "12.6.2",

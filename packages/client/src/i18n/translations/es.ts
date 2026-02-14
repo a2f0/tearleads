@@ -34,6 +34,7 @@ export const es = {
     cacheStorage: 'Caché',
     localStorage: 'Almacenamiento Local',
     keychain: 'Llavero',
+    wallet: 'Billetera',
     chat: 'AI',
     mlsChat: 'MLS Chat',
     models: 'Modelos',

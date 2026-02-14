@@ -62,6 +62,7 @@ const MOCK_SAVED_POSITIONS = {
   '/cache-storage': { x: 400, y: 400 },
   '/local-storage': { x: 100, y: 500 },
   '/keychain': { x: 200, y: 500 },
+  '/wallet': { x: 250, y: 500 },
   '/ai': { x: 300, y: 500 },
   '/mls-chat': { x: 500, y: 500 },
   '/email': { x: 400, y: 500 },

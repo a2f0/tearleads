@@ -39,6 +39,7 @@ import { SqliteWindow } from '@/components/sqlite-window';
 import { TablesWindow } from '@/components/tables-window';
 import { VfsWindow } from '@/components/vfs-window';
 import { VideoWindow } from '@/components/video-window';
+import { WalletWindow } from '@/components/wallet-window';
 import type {
   WindowInstance,
   WindowType
@@ -145,6 +146,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   contacts: { Component: ContactsWindow },
   photos: { Component: PhotosWindow },
   keychain: { Component: KeychainWindow },
+  wallet: { Component: WalletWindow },
   sqlite: { Component: SqliteWindow },
   opfs: { Component: OpfsWindow },
   'cache-storage': { Component: CacheStorageWindow },

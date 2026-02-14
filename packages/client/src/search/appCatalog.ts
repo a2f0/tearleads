@@ -27,6 +27,12 @@ const SEARCHABLE_APPS: SearchableAppDefinition[] = [
   { windowType: 'photos', path: '/photos', title: 'Photos' },
   { windowType: 'videos', path: '/videos', title: 'Videos' },
   { windowType: 'keychain', path: '/keychain', title: 'Keychain' },
+  {
+    windowType: 'wallet',
+    path: '/wallet',
+    title: 'Wallet',
+    keywords: ['passport', 'license', 'credit card', 'identity']
+  },
   { windowType: 'sqlite', path: '/sqlite', title: 'SQLite' },
   { windowType: 'opfs', path: '/opfs', title: 'OPFS' },
   { windowType: 'chat', path: '/ai', title: 'AI', keywords: ['chat'] },

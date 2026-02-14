@@ -34,6 +34,7 @@ export type WindowType =
   | 'photos'
   | 'videos'
   | 'keychain'
+  | 'wallet'
   | 'sqlite'
   | 'opfs'
   | 'chat'

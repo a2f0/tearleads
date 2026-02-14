@@ -303,6 +303,41 @@ vi.mock('@tearleads/sync', () => ({
   )
 }));
 
+vi.mock('@/components/wallet-window', () => ({
+  WalletWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`wallet-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 760, height: 560 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/files-window', () => ({
   FilesWindow: ({
     id,
@@ -1543,6 +1578,18 @@ describe('WindowRenderer', () => {
       }
     },
     {
+      label: 'wallet',
+      type: 'wallet',
+      id: 'wallet-1',
+      windowTestId: 'wallet-window-wallet-1',
+      closeTestId: 'close-wallet-1',
+      focusTestId: 'wallet-window-wallet-1',
+      minimize: {
+        testId: 'minimize-wallet-1',
+        dimensions: { x: 0, y: 0, width: 760, height: 560 }
+      }
+    },
+    {
       label: 'contacts',
       type: 'contacts',
       id: 'contacts-1',
@@ -1799,7 +1846,7 @@ describe('WindowRenderer', () => {
     expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
   });
 
-  it('renders all twenty-three window types together', () => {
+  it('renders all twenty-four window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -1810,20 +1857,21 @@ describe('WindowRenderer', () => {
       { id: 'photos-1', type: 'photos', zIndex: 106 },
       { id: 'models-1', type: 'models', zIndex: 107 },
       { id: 'keychain-1', type: 'keychain', zIndex: 108 },
-      { id: 'contacts-1', type: 'contacts', zIndex: 109 },
-      { id: 'sqlite-1', type: 'sqlite', zIndex: 110 },
-      { id: 'chat-1', type: 'chat', zIndex: 111 },
-      { id: 'analytics-1', type: 'analytics', zIndex: 112 },
-      { id: 'audio-1', type: 'audio', zIndex: 113 },
-      { id: 'admin-1', type: 'admin', zIndex: 114 },
-      { id: 'tables-1', type: 'tables', zIndex: 115 },
-      { id: 'debug-1', type: 'debug', zIndex: 116 },
-      { id: 'documents-1', type: 'documents', zIndex: 117 },
-      { id: 'help-1', type: 'help', zIndex: 118 },
-      { id: 'local-storage-1', type: 'local-storage', zIndex: 119 },
-      { id: 'opfs-1', type: 'opfs', zIndex: 120 },
-      { id: 'calendar-1', type: 'calendar', zIndex: 121 },
-      { id: 'businesses-1', type: 'businesses', zIndex: 122 }
+      { id: 'wallet-1', type: 'wallet', zIndex: 109 },
+      { id: 'contacts-1', type: 'contacts', zIndex: 110 },
+      { id: 'sqlite-1', type: 'sqlite', zIndex: 111 },
+      { id: 'chat-1', type: 'chat', zIndex: 112 },
+      { id: 'analytics-1', type: 'analytics', zIndex: 113 },
+      { id: 'audio-1', type: 'audio', zIndex: 114 },
+      { id: 'admin-1', type: 'admin', zIndex: 115 },
+      { id: 'tables-1', type: 'tables', zIndex: 116 },
+      { id: 'debug-1', type: 'debug', zIndex: 117 },
+      { id: 'documents-1', type: 'documents', zIndex: 118 },
+      { id: 'help-1', type: 'help', zIndex: 119 },
+      { id: 'local-storage-1', type: 'local-storage', zIndex: 120 },
+      { id: 'opfs-1', type: 'opfs', zIndex: 121 },
+      { id: 'calendar-1', type: 'calendar', zIndex: 122 },
+      { id: 'businesses-1', type: 'businesses', zIndex: 123 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -1839,6 +1887,7 @@ describe('WindowRenderer', () => {
     expect(
       screen.getByTestId('keychain-window-keychain-1')
     ).toBeInTheDocument();
+    expect(screen.getByTestId('wallet-window-wallet-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('contacts-window-contacts-1')
     ).toBeInTheDocument();

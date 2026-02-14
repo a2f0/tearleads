@@ -32,6 +32,7 @@ export interface MenuTranslations {
   cacheStorage: string;
   localStorage: string;
   keychain: string;
+  wallet: string;
   chat: string;
   mlsChat: string;
   models: string;

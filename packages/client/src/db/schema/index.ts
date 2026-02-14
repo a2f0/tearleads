@@ -46,5 +46,7 @@ export {
   vfsFolders,
   vfsLinks,
   vfsRegistry,
-  vfsShares
+  vfsShares,
+  walletItemMedia,
+  walletItems
 } from '@tearleads/db/sqlite';

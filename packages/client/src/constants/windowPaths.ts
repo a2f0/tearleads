@@ -12,6 +12,7 @@ export const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/documents': 'documents',
   '/videos': 'videos',
   '/keychain': 'keychain',
+  '/wallet': 'wallet',
   '/sqlite': 'sqlite',
   '/opfs': 'opfs',
   '/debug': 'debug',

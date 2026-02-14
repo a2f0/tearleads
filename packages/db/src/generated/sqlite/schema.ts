@@ -613,6 +613,76 @@ export const tags = sqliteTable(
 );
 
 /**
+ * Wallet items - extends registry for walletItem-type entries.
+ * Stores structured identity and payment card metadata with soft-delete support.
+ */
+export const walletItems = sqliteTable(
+  'wallet_items',
+  {
+    id: text('id')
+      .primaryKey()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    itemType: text('item_type', {
+      enum: [
+        'passport',
+        'driverLicense',
+        'birthCertificate',
+        'creditCard',
+        'debitCard',
+        'identityCard',
+        'insuranceCard',
+        'other'
+      ]
+    }).notNull(),
+    displayName: text('display_name').notNull(),
+    issuingAuthority: text('issuing_authority'),
+    countryCode: text('country_code'),
+    documentNumberLast4: text('document_number_last4'),
+    issuedOn: integer('issued_on', { mode: 'timestamp_ms' }),
+    expiresOn: integer('expires_on', { mode: 'timestamp_ms' }),
+    notes: text('notes'),
+    metadata: text('metadata'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false)
+  },
+  (table) => [
+    index('wallet_items_type_idx').on(table.itemType),
+    index('wallet_items_expires_idx').on(table.expiresOn),
+    index('wallet_items_deleted_idx').on(table.deleted),
+    index('wallet_items_updated_idx').on(table.updatedAt)
+  ]
+);
+
+/**
+ * Wallet item media links front/back card images to files.
+ */
+export const walletItemMedia = sqliteTable(
+  'wallet_item_media',
+  {
+    id: text('id').primaryKey(),
+    walletItemId: text('wallet_item_id')
+      .notNull()
+      .references(() => walletItems.id, { onDelete: 'cascade' }),
+    fileId: text('file_id')
+      .notNull()
+      .references(() => files.id, { onDelete: 'cascade' }),
+    side: text('side', {
+      enum: ['front', 'back']
+    }).notNull(),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [
+    index('wallet_item_media_item_idx').on(table.walletItemId),
+    index('wallet_item_media_file_idx').on(table.fileId),
+    uniqueIndex('wallet_item_media_item_side_idx').on(
+      table.walletItemId,
+      table.side
+    )
+  ]
+);
+
+/**
  * Emails - extends registry for email-type items.
  * Stores encrypted email metadata.
  */
@@ -1090,6 +1160,8 @@ export const schema = {
   contactGroups,
   emailFolders,
   tags,
+  walletItems,
+  walletItemMedia,
   emails,
   composedEmails,
   emailAttachments,

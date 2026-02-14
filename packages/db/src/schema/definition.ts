@@ -1518,6 +1518,155 @@ export const tagsTable: TableDefinition = {
 };
 
 /**
+ * Wallet items - extends registry for walletItem-type entries.
+ * Stores structured identity and payment card metadata with soft-delete support.
+ */
+export const walletItemsTable: TableDefinition = {
+  name: 'wallet_items',
+  propertyName: 'walletItems',
+  comment:
+    'Wallet items - extends registry for walletItem-type entries.\nStores structured identity and payment card metadata with soft-delete support.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    itemType: {
+      type: 'text',
+      sqlName: 'item_type',
+      notNull: true,
+      enumValues: [
+        'passport',
+        'driverLicense',
+        'birthCertificate',
+        'creditCard',
+        'debitCard',
+        'identityCard',
+        'insuranceCard',
+        'other'
+      ] as const
+    },
+    displayName: {
+      type: 'text',
+      sqlName: 'display_name',
+      notNull: true
+    },
+    issuingAuthority: {
+      type: 'text',
+      sqlName: 'issuing_authority'
+    },
+    countryCode: {
+      type: 'text',
+      sqlName: 'country_code'
+    },
+    documentNumberLast4: {
+      type: 'text',
+      sqlName: 'document_number_last4'
+    },
+    issuedOn: {
+      type: 'timestamp',
+      sqlName: 'issued_on'
+    },
+    expiresOn: {
+      type: 'timestamp',
+      sqlName: 'expires_on'
+    },
+    notes: {
+      type: 'text',
+      sqlName: 'notes'
+    },
+    metadata: {
+      type: 'json',
+      sqlName: 'metadata'
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    },
+    deleted: {
+      type: 'boolean',
+      sqlName: 'deleted',
+      notNull: true,
+      defaultValue: false
+    }
+  },
+  indexes: [
+    { name: 'wallet_items_type_idx', columns: ['itemType'] },
+    { name: 'wallet_items_expires_idx', columns: ['expiresOn'] },
+    { name: 'wallet_items_deleted_idx', columns: ['deleted'] },
+    { name: 'wallet_items_updated_idx', columns: ['updatedAt'] }
+  ]
+};
+
+/**
+ * Wallet item media links front/back card images to files.
+ */
+export const walletItemMediaTable: TableDefinition = {
+  name: 'wallet_item_media',
+  propertyName: 'walletItemMedia',
+  comment: 'Wallet item media links front/back card images to files.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    walletItemId: {
+      type: 'text',
+      sqlName: 'wallet_item_id',
+      notNull: true,
+      references: {
+        table: 'wallet_items',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    fileId: {
+      type: 'text',
+      sqlName: 'file_id',
+      notNull: true,
+      references: {
+        table: 'files',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    side: {
+      type: 'text',
+      sqlName: 'side',
+      notNull: true,
+      enumValues: ['front', 'back'] as const
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    { name: 'wallet_item_media_item_idx', columns: ['walletItemId'] },
+    { name: 'wallet_item_media_file_idx', columns: ['fileId'] },
+    {
+      name: 'wallet_item_media_item_side_idx',
+      columns: ['walletItemId', 'side'],
+      unique: true
+    }
+  ]
+};
+
+/**
  * Emails - extends registry for email-type items.
  * Stores encrypted email metadata.
  */
@@ -2622,6 +2771,8 @@ export const allTables: TableDefinition[] = [
   contactGroupsTable,
   emailFoldersTable,
   tagsTable,
+  walletItemsTable,
+  walletItemMediaTable,
   emailsTable,
   composedEmailsTable,
   emailAttachmentsTable,
