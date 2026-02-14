@@ -50,6 +50,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-skill-tooling` | Validate skills are wired into agentTool.ts and scriptTool.ts |
 | `preen-compliance-docs` | Audit compliance documentation for gaps and cross-framework parity |
 | `preen-review-instructions` | Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md) |
+| `preen-i18n` | Audit i18n translation coverage, missing keys, and hardcoded strings |
 
 ## Run Modes
 
@@ -85,6 +86,7 @@ CATEGORIES=(
   "preen-skill-tooling"
   "preen-compliance-docs"
   "preen-review-instructions"
+  "preen-i18n"
 )
 
 SECURITY_CATEGORIES=(
@@ -200,6 +202,11 @@ run_discovery() {
       echo '=== Gemini sections ==='; rg '^##' .gemini/INSTRUCTIONS.md | head -20
       echo '=== Section comparison ==='; echo "REVIEW.md: $(rg '^## ' REVIEW.md | wc -l | tr -d ' ')"; echo "Gemini: $(rg '^## ' .gemini/INSTRUCTIONS.md | wc -l | tr -d ' ')"
       ;;
+    preen-i18n)
+      echo '=== Translation Files ==='; find packages -path '*/i18n/translations/*.ts' -not -name 'types.ts' -not -name 'index.ts' | head -20
+      echo '=== Key Count by Language ==='; for lang in en es ua pt; do count=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' '); echo "${lang}: ${count} keys"; done
+      echo '=== Potential Hardcoded Strings ==='; rg -n --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages | rg -v 'test\.' | head -20
+      ;;
   esac
 }
 
@@ -240,6 +247,9 @@ metric_count() {
       ;;
     preen-review-instructions)
       GAPS=0; [ -z "$(rg 'TypeScript Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'API Security' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'React Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'Database Performance' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'Testing Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); REVIEW_SECTIONS=$(rg '^## ' REVIEW.md 2>/dev/null | wc -l | tr -d ' '); GEMINI_SECTIONS=$(rg '^## ' .gemini/INSTRUCTIONS.md 2>/dev/null | wc -l | tr -d ' '); [ "$GEMINI_SECTIONS" -lt $((REVIEW_SECTIONS / 2)) ] && GAPS=$((GAPS + 1)); echo $GAPS
+      ;;
+    preen-i18n)
+      EN_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/en.ts 2>/dev/null | wc -l | tr -d ' '); GAPS=0; for lang in es ua pt; do LANG_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' '); [ "$LANG_KEYS" -lt "$EN_KEYS" ] && GAPS=$((GAPS + EN_KEYS - LANG_KEYS)); done; HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}'); echo $((GAPS + HARDCODED))
       ;;
     *)
       echo 0
@@ -347,6 +357,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - Skill parity/tooling issues
 - Compliance documentation gaps (missing triads + unnumbered files)
 - Review instruction gaps (missing sections + Gemini drift)
+- i18n gaps (missing translation keys + hardcoded strings)
 
 Quality gate for the selected category:
 
@@ -391,6 +402,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] Skill tooling validation
 - [ ] Compliance documentation gaps and parity
 - [ ] Review instruction completeness and sync
+- [ ] i18n translation coverage and consistency
 
 ## Quality Delta
 - [x] Baseline metric captured for selected category
