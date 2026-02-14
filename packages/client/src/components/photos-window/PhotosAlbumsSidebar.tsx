@@ -2,6 +2,7 @@ import {
   detectPlatform,
   useResizableSidebar,
   useSidebarDragOver,
+  useSidebarRefetch,
   WindowContextMenu,
   WindowSidebarError,
   WindowSidebarHeader,
@@ -9,7 +10,7 @@ import {
   WindowSidebarLoading
 } from '@tearleads/window-manager';
 import { ImagePlus, Images, Plus } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { filterFilesByAccept } from '@/lib/file-filter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
 import { DeleteAlbumDialog } from './DeleteAlbumDialog';
@@ -136,20 +137,7 @@ export function PhotosAlbumsSidebar({
   const [emptySpaceContextMenu, setEmptySpaceContextMenu] =
     useState<EmptySpaceContextMenuState | null>(null);
 
-  const lastRefreshTokenRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (refreshToken === undefined) return;
-
-    if (
-      lastRefreshTokenRef.current !== null &&
-      lastRefreshTokenRef.current !== refreshToken
-    ) {
-      void refetch();
-    }
-
-    lastRefreshTokenRef.current = refreshToken;
-  }, [refreshToken, refetch]);
+  useSidebarRefetch(refreshToken, refetch);
 
   const { resizeHandleProps } = useResizableSidebar({
     width,

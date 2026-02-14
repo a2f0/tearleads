@@ -13,7 +13,7 @@ import {
   vfsTestMigrations,
   withRealDatabase
 } from '@tearleads/db-test-utils';
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -21,6 +21,7 @@ import type { VfsExplorerProviderProps } from '../context';
 import { VfsExplorerProvider } from '../context';
 import { queryFolderContents } from '../lib/vfsQuery';
 import { useMoveVfsItem } from './useMoveVfsItem';
+import { useVfsFolders } from './useVfsFolders';
 
 const createMockUI = () => ({
   Button: ({ children }: { children: ReactNode }) => (
@@ -248,6 +249,134 @@ describe('useMoveVfsItem integration', () => {
         expect(links.every((link) => link.parentId === targetFolderId)).toBe(
           true
         );
+      },
+      { migrations: vfsTestMigrations }
+    );
+  });
+
+  it('updates folder childCount after moving an unfiled item and refetching', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const targetFolderId = await seedFolder(db, {
+          name: 'Target Folder'
+        });
+        // Create an unfiled item (no parent link)
+        const unfiledItemId = await seedVfsItem(db, {
+          objectType: 'file',
+          createLink: false
+        });
+
+        const wrapper = createWrapper(db);
+
+        // Render useVfsFolders to get initial childCount
+        const foldersHook = renderHook(() => useVfsFolders(), { wrapper });
+
+        await waitFor(() => {
+          expect(foldersHook.result.current.hasFetched).toBe(true);
+        });
+
+        // Find the target folder and verify initial childCount is 0
+        const findFolder = (id: string) => {
+          const searchFolders = (
+            folders: typeof foldersHook.result.current.folders
+          ): (typeof folders)[0] | undefined => {
+            for (const folder of folders) {
+              if (folder.id === id) return folder;
+              if (folder.children) {
+                const found = searchFolders(folder.children);
+                if (found) return found;
+              }
+            }
+            return undefined;
+          };
+          return searchFolders(foldersHook.result.current.folders);
+        };
+
+        const initialFolder = findFolder(targetFolderId);
+        expect(initialFolder?.childCount).toBe(0);
+
+        // Move the unfiled item to the target folder
+        const moveHook = renderHook(() => useMoveVfsItem(), { wrapper });
+
+        await act(async () => {
+          await moveHook.result.current.moveItem(unfiledItemId, targetFolderId);
+        });
+
+        // Verify the move happened in the database
+        const targetContents = await queryFolderContents(db, targetFolderId, {
+          column: null,
+          direction: null
+        });
+        expect(targetContents).toHaveLength(1);
+        expect(targetContents[0]?.id).toBe(unfiledItemId);
+
+        // Refetch folders to update childCount
+        await act(async () => {
+          await foldersHook.result.current.refetch();
+        });
+
+        // Verify childCount is now 1 after refetch
+        const updatedFolder = findFolder(targetFolderId);
+        expect(updatedFolder?.childCount).toBe(1);
+      },
+      { migrations: vfsTestMigrations }
+    );
+  });
+
+  it('updates both source and target folder childCounts after move and refetch', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const sourceFolderId = await seedFolder(db, { name: 'Source Folder' });
+        const targetFolderId = await seedFolder(db, { name: 'Target Folder' });
+        const itemId = await seedVfsItem(db, {
+          objectType: 'file',
+          parentId: sourceFolderId
+        });
+
+        const wrapper = createWrapper(db);
+
+        // Render useVfsFolders to get initial childCounts
+        const foldersHook = renderHook(() => useVfsFolders(), { wrapper });
+
+        await waitFor(() => {
+          expect(foldersHook.result.current.hasFetched).toBe(true);
+        });
+
+        const findFolder = (id: string) => {
+          const searchFolders = (
+            folders: typeof foldersHook.result.current.folders
+          ): (typeof folders)[0] | undefined => {
+            for (const folder of folders) {
+              if (folder.id === id) return folder;
+              if (folder.children) {
+                const found = searchFolders(folder.children);
+                if (found) return found;
+              }
+            }
+            return undefined;
+          };
+          return searchFolders(foldersHook.result.current.folders);
+        };
+
+        // Verify initial counts
+        expect(findFolder(sourceFolderId)?.childCount).toBe(1);
+        expect(findFolder(targetFolderId)?.childCount).toBe(0);
+
+        // Move the item from source to target
+        const moveHook = renderHook(() => useMoveVfsItem(), { wrapper });
+
+        await act(async () => {
+          await moveHook.result.current.moveItem(itemId, targetFolderId);
+        });
+
+        // Refetch folders
+        await act(async () => {
+          await foldersHook.result.current.refetch();
+        });
+
+        // Verify updated counts
+        expect(findFolder(sourceFolderId)?.childCount).toBe(0);
+        expect(findFolder(targetFolderId)?.childCount).toBe(1);
       },
       { migrations: vfsTestMigrations }
     );

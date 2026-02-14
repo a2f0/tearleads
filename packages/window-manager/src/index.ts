@@ -57,11 +57,16 @@ export {
 // Hooks
 export {
   type Corner,
+  type UseCombinedRefreshResult,
   type UseResizableSidebarResult,
   type UseSidebarDragOverResult,
+  type UseWindowRefreshResult,
+  useCombinedRefresh,
   useFloatingWindow,
   useResizableSidebar,
-  useSidebarDragOver
+  useSidebarDragOver,
+  useSidebarRefetch,
+  useWindowRefresh
 } from './hooks/index.js';
 
 // Utilities

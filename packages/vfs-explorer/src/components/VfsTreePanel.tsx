@@ -1,5 +1,6 @@
 import {
   useResizableSidebar,
+  useSidebarRefetch,
   WindowContextMenu
 } from '@tearleads/window-manager';
 import {
@@ -16,7 +17,7 @@ import {
   Trash2,
   UserCheck
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import {
   ALL_ITEMS_FOLDER_ID,
   SHARED_BY_ME_FOLDER_ID,
@@ -118,13 +119,7 @@ export function VfsTreePanel({
   const { folders, loading, error, refetch } = useVfsFolders();
   const { hasItems } = useVfsClipboard();
 
-  // Refetch when refreshToken changes
-  // biome-ignore lint/correctness/useExhaustiveDependencies: refetch is stable from useCallback
-  useEffect(() => {
-    if (refreshToken !== undefined && refreshToken > 0) {
-      refetch();
-    }
-  }, [refreshToken]);
+  useSidebarRefetch(refreshToken, refetch);
   const [expandedFolderIds, setExpandedFolderIds] = useState<Set<string>>(
     new Set([VFS_ROOT_ID])
   );
