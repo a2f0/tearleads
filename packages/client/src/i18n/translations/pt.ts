@@ -49,6 +49,7 @@ export const pt = {
     adminUsers: 'Admin de usuários',
     settings: 'Configurações',
     email: 'E-mail',
+    vehicles: 'Veículos',
     sync: 'Sincronizar',
     vfs: 'Explorador VFS',
     classic: 'Clássico',
