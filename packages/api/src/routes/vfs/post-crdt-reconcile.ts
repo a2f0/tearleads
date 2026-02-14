@@ -1,7 +1,8 @@
 import type { VfsCrdtReconcileResponse } from '@tearleads/shared';
 import {
   encodeVfsSyncCursor,
-  parseVfsSyncReconcilePayload
+  parseVfsCrdtLastReconciledWriteIds,
+  parseVfsCrdtReconcilePayload
 } from '@tearleads/sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
@@ -9,6 +10,7 @@ import { getPostgresPool } from '../../lib/postgres.js';
 interface ReconcileRow {
   last_reconciled_at: Date | string;
   last_reconciled_change_id: string;
+  last_reconciled_write_ids: unknown;
 }
 
 const CRDT_CLIENT_NAMESPACE = 'crdt';
@@ -55,6 +57,11 @@ function toScopedCrdtClientId(clientId: string): string {
  *                 type: string
  *               cursor:
  *                 type: string
+ *               lastReconciledWriteIds:
+ *                 type: object
+ *                 additionalProperties:
+ *                   type: integer
+ *                 description: Optional per-replica write-id watermarks to merge monotonically.
  *             required:
  *               - clientId
  *               - cursor
@@ -75,7 +82,7 @@ export const postCrdtReconcileHandler = async (req: Request, res: Response) => {
     return;
   }
 
-  const parsedPayload = parseVfsSyncReconcilePayload(req.body);
+  const parsedPayload = parseVfsCrdtReconcilePayload(req.body);
   if (!parsedPayload.ok) {
     res.status(400).json({ error: parsedPayload.error });
     return;
@@ -96,8 +103,9 @@ export const postCrdtReconcileHandler = async (req: Request, res: Response) => {
         client_id,
         last_reconciled_at,
         last_reconciled_change_id,
+        last_reconciled_write_ids,
         updated_at
-      ) VALUES ($1, $2, $3::timestamptz, $4, NOW())
+      ) VALUES ($1, $2, $3::timestamptz, $4, $5::jsonb, NOW())
       ON CONFLICT (user_id, client_id) DO UPDATE
       SET
         last_reconciled_at = CASE
@@ -114,22 +122,30 @@ export const postCrdtReconcileHandler = async (req: Request, res: Response) => {
             THEN EXCLUDED.last_reconciled_change_id
           ELSE vfs_sync_client_state.last_reconciled_change_id
         END,
+        last_reconciled_write_ids = "vfs_merge_reconciled_write_ids"(
+          vfs_sync_client_state.last_reconciled_write_ids,
+          EXCLUDED.last_reconciled_write_ids
+        ),
         updated_at = NOW()
-      RETURNING last_reconciled_at, last_reconciled_change_id
+      RETURNING last_reconciled_at, last_reconciled_change_id, last_reconciled_write_ids
       `,
       [
         claims.sub,
         toScopedCrdtClientId(parsedPayload.value.clientId),
         parsedPayload.value.cursor.changedAt,
-        parsedPayload.value.cursor.changeId
+        parsedPayload.value.cursor.changeId,
+        JSON.stringify(parsedPayload.value.lastReconciledWriteIds)
       ]
     );
 
     const row = result.rows[0];
     const reconciledAt = row ? toIsoString(row.last_reconciled_at) : null;
     const changeId = row?.last_reconciled_change_id ?? null;
+    const parsedLastWriteIds = parseVfsCrdtLastReconciledWriteIds(
+      row?.last_reconciled_write_ids
+    );
 
-    if (!reconciledAt || !changeId) {
+    if (!reconciledAt || !changeId || !parsedLastWriteIds.ok) {
       res.status(500).json({ error: 'Failed to reconcile CRDT cursor' });
       return;
     }
@@ -139,7 +155,8 @@ export const postCrdtReconcileHandler = async (req: Request, res: Response) => {
       cursor: encodeVfsSyncCursor({
         changedAt: reconciledAt,
         changeId
-      })
+      }),
+      lastReconciledWriteIds: parsedLastWriteIds.value
     };
 
     res.json(response);

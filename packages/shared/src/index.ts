@@ -163,11 +163,13 @@ export interface VfsCrdtSyncResponse {
 export interface VfsCrdtReconcileRequest {
   clientId: string;
   cursor: string;
+  lastReconciledWriteIds?: Record<string, number>;
 }
 
 export interface VfsCrdtReconcileResponse {
   clientId: string;
   cursor: string;
+  lastReconciledWriteIds: Record<string, number>;
 }
 
 // VFS Sharing types

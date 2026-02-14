@@ -55,6 +55,19 @@ export {
   type VfsCrdtFeedReplayViolationCode
 } from './sync-crdt-feed-replay.js';
 export {
+  InMemoryVfsCrdtClientStateStore,
+  mergeVfsCrdtLastReconciledWriteIds,
+  type ParseVfsCrdtLastReconciledWriteIdsResult,
+  type ParseVfsCrdtReconcilePayloadResult,
+  parseVfsCrdtLastReconciledWriteIds,
+  parseVfsCrdtReconcilePayload,
+  type ParsedVfsCrdtReconcilePayload,
+  type ReconcileVfsCrdtClientStateResult,
+  reconcileVfsCrdtClientState,
+  type VfsCrdtClientReconcileState,
+  type VfsCrdtLastReconciledWriteIds
+} from './sync-crdt-reconcile.js';
+export {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor
