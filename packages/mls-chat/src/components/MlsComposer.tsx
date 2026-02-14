@@ -23,32 +23,35 @@ export const MlsComposer: FC<MlsComposerProps> = ({
   const [message, setMessage] = useState('');
   const [isSending, setIsSending] = useState(false);
 
+  const submitMessage = useCallback(async (): Promise<void> => {
+    const trimmed = message.trim();
+    if (!trimmed || isSending || disabled) return;
+
+    setIsSending(true);
+    try {
+      await onSend(trimmed);
+      setMessage('');
+    } finally {
+      setIsSending(false);
+    }
+  }, [message, isSending, disabled, onSend]);
+
   const handleSubmit = useCallback(
-    async (e: FormEvent) => {
+    (e: FormEvent) => {
       e.preventDefault();
-
-      const trimmed = message.trim();
-      if (!trimmed || isSending || disabled) return;
-
-      setIsSending(true);
-      try {
-        await onSend(trimmed);
-        setMessage('');
-      } finally {
-        setIsSending(false);
-      }
+      void submitMessage();
     },
-    [message, isSending, disabled, onSend]
+    [submitMessage]
   );
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        void handleSubmit(e as unknown as FormEvent);
+        void submitMessage();
       }
     },
-    [handleSubmit]
+    [submitMessage]
   );
 
   return (
@@ -64,9 +67,7 @@ export const MlsComposer: FC<MlsComposerProps> = ({
           />
         </div>
         <Button
-          onClick={() =>
-            void handleSubmit({ preventDefault: () => {} } as FormEvent)
-          }
+          onClick={() => void submitMessage()}
           disabled={!message.trim() || isSending || disabled}
           size="icon"
         >
