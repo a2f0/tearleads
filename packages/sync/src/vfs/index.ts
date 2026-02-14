@@ -12,6 +12,11 @@ export {
   type VfsMemberPrincipalView
 } from './sync-access-harness.js';
 export {
+  alwaysAvailableVfsBlobObjectStore,
+  InMemoryVfsBlobObjectStore,
+  type VfsBlobObjectStore
+} from './sync-blob-object-store.js';
+export {
   type AbandonVfsBlobInput,
   type AttachVfsBlobInput,
   InMemoryVfsBlobCommitStore,

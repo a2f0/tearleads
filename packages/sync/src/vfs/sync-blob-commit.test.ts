@@ -4,6 +4,7 @@ import {
   InMemoryVfsBlobCommitStore,
   type VfsBlobCommitResult
 } from './sync-blob-commit.js';
+import { InMemoryVfsBlobObjectStore } from './sync-blob-object-store.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -26,7 +27,9 @@ class BlobCommitRaceHarness {
 
 describe('InMemoryVfsBlobCommitStore', () => {
   it('stages then attaches a blob before expiry', () => {
-    const store = new InMemoryVfsBlobCommitStore();
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    objectStore.registerBlob('blob-1');
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
 
     const staged = store.stage({
       stagingId: 'stage-1',
@@ -61,7 +64,9 @@ describe('InMemoryVfsBlobCommitStore', () => {
   });
 
   it('serializes concurrent attach attempts so only one succeeds', async () => {
-    const store = new InMemoryVfsBlobCommitStore();
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    objectStore.registerBlob('blob-2');
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
     const harness = new BlobCommitRaceHarness(store);
 
     store.stage({
@@ -116,7 +121,9 @@ describe('InMemoryVfsBlobCommitStore', () => {
   });
 
   it('resolves attach/abandon races through status checks', async () => {
-    const store = new InMemoryVfsBlobCommitStore();
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    objectStore.registerBlob('blob-3');
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
 
     store.stage({
       stagingId: 'stage-3',
@@ -152,7 +159,9 @@ describe('InMemoryVfsBlobCommitStore', () => {
   });
 
   it('blocks attaching after expiry and sweeps expired staged blobs', () => {
-    const store = new InMemoryVfsBlobCommitStore();
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    objectStore.registerBlob('blob-4');
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
 
     store.stage({
       stagingId: 'stage-4',
@@ -190,7 +199,9 @@ describe('InMemoryVfsBlobCommitStore', () => {
   });
 
   it('rejects invalid and unauthorized transitions', () => {
-    const store = new InMemoryVfsBlobCommitStore();
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    objectStore.registerBlob('blob-6');
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
 
     const invalidStage = store.stage({
       stagingId: 'stage-5',
@@ -220,7 +231,9 @@ describe('InMemoryVfsBlobCommitStore', () => {
   });
 
   it('keeps first successful attach durable across retries for email-linked items', () => {
-    const store = new InMemoryVfsBlobCommitStore();
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    objectStore.registerBlob('blob-7');
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
 
     store.stage({
       stagingId: 'stage-7',
@@ -265,7 +278,9 @@ describe('InMemoryVfsBlobCommitStore', () => {
   });
 
   it('preserves terminal state under interrupted attach/abandon races with retries', async () => {
-    const store = new InMemoryVfsBlobCommitStore();
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    objectStore.registerBlob('blob-8');
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
 
     store.stage({
       stagingId: 'stage-8',
@@ -321,5 +336,38 @@ describe('InMemoryVfsBlobCommitStore', () => {
       attachedAt: '2026-02-14T14:05:00.000Z',
       attachedItemId: 'email-8'
     });
+  });
+
+  it('fails closed when blob payload is missing from object store', () => {
+    const objectStore = new InMemoryVfsBlobObjectStore();
+    const store = new InMemoryVfsBlobCommitStore(objectStore);
+
+    store.stage({
+      stagingId: 'stage-9',
+      blobId: 'blob-9',
+      stagedBy: 'user-9',
+      stagedAt: '2026-02-14T15:00:00.000Z',
+      expiresAt: '2026-02-14T15:30:00.000Z'
+    });
+
+    const missingBlobAttach = store.attach({
+      stagingId: 'stage-9',
+      attachedBy: 'user-9',
+      itemId: 'email-9',
+      attachedAt: '2026-02-14T15:05:00.000Z'
+    });
+    expect(missingBlobAttach.status).toBe('notFound');
+    expect(store.get('stage-9')?.status).toBe('staged');
+
+    objectStore.registerBlob('blob-9');
+
+    const attached = store.attach({
+      stagingId: 'stage-9',
+      attachedBy: 'user-9',
+      itemId: 'email-9',
+      attachedAt: '2026-02-14T15:05:01.000Z'
+    });
+    expect(attached.status).toBe('applied');
+    expect(store.get('stage-9')?.attachedItemId).toBe('email-9');
   });
 });
