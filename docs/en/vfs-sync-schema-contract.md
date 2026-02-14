@@ -65,6 +65,8 @@ support rollback-aware drop planning.
 `v033` drops `vfs_folders` in API/Postgres migrations after guardrails pass.
 `v034` finalizes retirement by removing checkpoint scaffolding and requiring
 `vfs_folders` to remain absent on Postgres.
+`v035` adds non-destructive share-retirement checkpoints with fail-closed ACL
+parity + source-trace guardrails for `vfs_shares` and `org_shares`.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
