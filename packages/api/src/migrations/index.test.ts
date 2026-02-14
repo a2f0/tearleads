@@ -501,5 +501,30 @@ describe('migrations', () => {
       expect(queries).toContain('PERFORM "vfs_emit_sync_change"');
       expect(queries).toContain('INSERT INTO "vfs_crdt_ops"');
     });
+
+    it('rolls back the transaction when setup fails mid-migration', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (sql.includes('CREATE TABLE IF NOT EXISTS "vfs_blob_refs"')) {
+            throw new Error('forced migration failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v022 = migrations.find((m: Migration) => m.version === 22);
+      if (!v022) {
+        throw new Error('v022 migration not found');
+      }
+
+      await expect(v022.up(pool)).rejects.toThrow('forced migration failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
   });
 });

@@ -82,6 +82,27 @@ describe('VFS sync reconcile route', () => {
     expect(response.body).toEqual({ error: 'Invalid cursor' });
   });
 
+  it('returns 400 when clientId uses reserved namespace delimiter', async () => {
+    const authHeader = await createAuthHeader();
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2025-02-10T00:00:00.000Z',
+      changeId: 'change-10'
+    });
+
+    const response = await request(app)
+      .post('/v1/vfs/sync/reconcile')
+      .set('Authorization', authHeader)
+      .send({
+        clientId: 'desktop:sync',
+        cursor
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'clientId must not contain ":"'
+    });
+  });
+
   it('returns reconciled cursor for valid payload', async () => {
     const authHeader = await createAuthHeader();
     const incomingCursor = encodeVfsSyncCursor({
