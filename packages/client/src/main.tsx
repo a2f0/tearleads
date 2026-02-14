@@ -161,6 +161,9 @@ const Files = lazy(() =>
 const Home = lazy(() =>
   import('./pages/Home').then((m) => ({ default: m.Home }))
 );
+const Health = lazy(() =>
+  import('./pages/Health').then((m) => ({ default: m.Health }))
+);
 const Keychain = lazy(() =>
   import('@tearleads/keychain').then((m) => ({ default: m.Keychain }))
 );
@@ -295,6 +298,10 @@ if (rootElement) {
                                         <Route
                                           path="businesses"
                                           element={<Businesses />}
+                                        />
+                                        <Route
+                                          path="health"
+                                          element={<Health />}
                                         />
                                         <Route
                                           path="contacts/new"

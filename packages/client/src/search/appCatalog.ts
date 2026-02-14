@@ -92,7 +92,8 @@ const SEARCHABLE_APPS: SearchableAppDefinition[] = [
   { windowType: 'backup', path: '/backups', title: 'Backups' },
   { windowType: 'mls-chat', path: '/mls-chat', title: 'MLS Chat' },
   { windowType: 'search', path: '/search', title: 'Search' },
-  { windowType: 'calendar', path: '/calendar', title: 'Calendar' }
+  { windowType: 'calendar', path: '/calendar', title: 'Calendar' },
+  { windowType: 'health', path: '/health', title: 'Health' }
 ];
 
 const APP_ID_PREFIX = 'app:';

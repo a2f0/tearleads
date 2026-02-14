@@ -58,6 +58,7 @@ export type WindowType =
   | 'search'
   | 'calendar'
   | 'businesses'
+  | 'health'
   | 'notification-center';
 
 export interface WindowOpenRequestPayloads {

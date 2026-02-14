@@ -15,6 +15,7 @@ import {
   Film,
   FolderTree,
   HardDrive,
+  HeartPulse,
   Home,
   ImageIcon,
   Key,
@@ -69,6 +70,13 @@ export const navItems: NavItem[] = [
     labelKey: 'businesses',
     inMobileMenu: true,
     testId: 'businesses-link'
+  },
+  {
+    path: '/health',
+    icon: HeartPulse,
+    labelKey: 'health',
+    inMobileMenu: true,
+    testId: 'health-link'
   },
   {
     path: '/contacts',

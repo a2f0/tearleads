@@ -26,6 +26,7 @@ import { DocumentsWindow } from '@/components/documents-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
 import type { WindowDimensions } from '@/components/floating-window';
+import { HealthWindow } from '@/components/health-window';
 import { HelpWindow } from '@/components/help-window';
 import { LocalStorageWindow } from '@/components/local-storage-window';
 import { MlsChatWindow } from '@/components/mls-chat-window';
@@ -175,6 +176,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   search: { Component: SearchWindow },
   calendar: { Component: CalendarWindow },
   businesses: { Component: BusinessesWindow },
+  health: { Component: HealthWindow },
   'notification-center': { Component: NotificationCenter }
 };
 

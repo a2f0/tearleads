@@ -18,6 +18,7 @@ export const ua = {
     calendar: 'Календар',
     files: 'Файли',
     businesses: 'Підприємства',
+    health: "Здоров'я",
     contacts: 'Контакти',
     photos: 'Фото',
     camera: 'Камера',
