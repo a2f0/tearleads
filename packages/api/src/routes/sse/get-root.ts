@@ -10,8 +10,15 @@ async function isUserMemberOfGroup(
 ): Promise<boolean> {
   const pool = await getPostgresPool();
   const result = await pool.query(
-    `SELECT 1 FROM mls_group_members
-     WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL
+    `SELECT 1
+       FROM mls_group_members m
+       INNER JOIN mls_groups g ON g.id = m.group_id
+       INNER JOIN user_organizations uo
+               ON uo.organization_id = g.organization_id
+              AND uo.user_id = $2
+      WHERE m.group_id = $1
+        AND m.user_id = $2
+        AND m.removed_at IS NULL
      LIMIT 1`,
     [groupId, userId]
   );

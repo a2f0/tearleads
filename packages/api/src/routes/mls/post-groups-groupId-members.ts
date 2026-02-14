@@ -3,7 +3,10 @@ import type { AddMlsMemberResponse, MlsGroupMember } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseAddMemberPayload } from './shared.js';
+import {
+  getActiveMlsGroupMembership,
+  parseAddMemberPayload
+} from './shared.js';
 
 /**
  * @openapi
@@ -50,36 +53,27 @@ export const postGroupsGroupidMembersHandler = async (
   try {
     const pool = await getPostgresPool();
 
-    // Check admin membership
-    const memberCheck = await pool.query<{ role: string }>(
-      `SELECT role FROM mls_group_members
-       WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-      [groupId, claims.sub]
-    );
-
-    if (memberCheck.rows.length === 0) {
+    const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
+    if (!membership) {
       res.status(403).json({ error: 'Not a member of this group' });
       return;
     }
 
-    const role = memberCheck.rows[0]?.role;
-    if (role !== 'admin') {
+    if (membership.role !== 'admin') {
       res.status(403).json({ error: 'Only admins can add members' });
       return;
     }
 
-    const sharedOrganizationResult = await pool.query(
+    const targetOrganizationMembership = await pool.query(
       `SELECT 1
-         FROM user_organizations requestor_uo
-         INNER JOIN user_organizations target_uo
-           ON target_uo.organization_id = requestor_uo.organization_id
-        WHERE requestor_uo.user_id = $1
-          AND target_uo.user_id = $2
+         FROM user_organizations
+        WHERE user_id = $1
+          AND organization_id = $2
         LIMIT 1`,
-      [claims.sub, payload.userId]
+      [payload.userId, membership.organizationId]
     );
 
-    if (sharedOrganizationResult.rows.length === 0) {
+    if (targetOrganizationMembership.rows.length === 0) {
       res.status(404).json({ error: 'User not found' });
       return;
     }
@@ -106,8 +100,19 @@ export const postGroupsGroupidMembersHandler = async (
           WHERE key_package_ref = $2
             AND user_id = $3
             AND consumed_at IS NULL
+            AND EXISTS (
+              SELECT 1
+                FROM user_organizations
+               WHERE user_id = $3
+                 AND organization_id = $4
+            )
         RETURNING id`,
-        [groupId, payload.keyPackageRef, payload.userId]
+        [
+          groupId,
+          payload.keyPackageRef,
+          payload.userId,
+          membership.organizationId
+        ]
       );
 
       if (keyPackageResult.rowCount === 0) {

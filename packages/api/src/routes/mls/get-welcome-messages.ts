@@ -43,6 +43,9 @@ export const getWelcomeMessagesHandler = async (
               w.epoch, w.created_at
        FROM mls_welcome_messages w
        JOIN mls_groups g ON w.group_id = g.id
+       JOIN user_organizations uo
+         ON uo.organization_id = g.organization_id
+        AND uo.user_id = $1
        WHERE w.recipient_user_id = $1 AND w.consumed_at IS NULL
        ORDER BY w.created_at DESC`,
       [claims.sub]

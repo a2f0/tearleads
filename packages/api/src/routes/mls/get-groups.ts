@@ -44,6 +44,9 @@ export const getGroupsHandler = async (req: Request, res: Response) => {
               (SELECT COUNT(*) FROM mls_group_members WHERE group_id = g.id AND removed_at IS NULL)::text as member_count
        FROM mls_groups g
        JOIN mls_group_members m ON g.id = m.group_id
+       JOIN user_organizations uo
+         ON uo.user_id = m.user_id
+        AND uo.organization_id = g.organization_id
        WHERE m.user_id = $1 AND m.removed_at IS NULL
        ORDER BY g.updated_at DESC`,
       [claims.sub]

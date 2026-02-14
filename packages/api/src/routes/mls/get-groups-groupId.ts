@@ -5,7 +5,7 @@ import type {
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { toSafeCipherSuite } from './shared.js';
+import { getActiveMlsGroupMembership, toSafeCipherSuite } from './shared.js';
 
 /**
  * @openapi
@@ -43,14 +43,8 @@ export const getGroupsGroupidHandler = async (req: Request, res: Response) => {
   try {
     const pool = await getPostgresPool();
 
-    // Check membership
-    const memberCheck = await pool.query(
-      `SELECT role FROM mls_group_members
-       WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-      [groupId, claims.sub]
-    );
-
-    if (memberCheck.rows.length === 0) {
+    const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
+    if (!membership) {
       res.status(403).json({ error: 'Not a member of this group' });
       return;
     }

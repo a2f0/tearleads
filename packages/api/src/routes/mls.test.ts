@@ -143,7 +143,9 @@ describe('MLS routes', () => {
       });
 
       mockQuery
-        .mockResolvedValueOnce({ rows: [{ role: 'admin' }] })
+        .mockResolvedValueOnce({
+          rows: [{ role: 'admin', organization_id: 'org-1' }]
+        })
         .mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
@@ -178,7 +180,9 @@ describe('MLS routes', () => {
         connect: mockConnect
       });
       mockQuery
-        .mockResolvedValueOnce({ rows: [{ role: 'admin' }] })
+        .mockResolvedValueOnce({
+          rows: [{ role: 'admin', organization_id: 'org-1' }]
+        })
         .mockResolvedValueOnce({ rows: [{}] });
       mockClientQuery
         .mockResolvedValueOnce({})
@@ -201,8 +205,85 @@ describe('MLS routes', () => {
       expect(response.body).toEqual({ error: 'Key package not available' });
       expect(mockClientQuery).toHaveBeenNthCalledWith(
         3,
-        expect.stringContaining('AND user_id = $3'),
-        ['group-1', 'kp-ref', 'user-2']
+        expect.stringContaining('AND organization_id = $4'),
+        ['group-1', 'kp-ref', 'user-2', 'org-1']
+      );
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('POST /v1/mls/groups', () => {
+    it('returns 403 when caller has no scoped organization', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/mls/groups')
+        .set('Authorization', authHeader)
+        .send({
+          name: 'Group Name',
+          groupIdMls: 'group-id-mls',
+          cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
+        });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({
+        error: 'No organization found for user'
+      });
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('SELECT personal_organization_id'),
+        ['user-1']
+      );
+    });
+
+    it('creates groups with an organization scope', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+      const mockClientQuery = vi.fn();
+      const mockRelease = vi.fn();
+      const mockConnect = vi.fn().mockResolvedValue({
+        query: mockClientQuery,
+        release: mockRelease
+      });
+
+      mockGetPostgresPool.mockResolvedValueOnce({
+        query: mockQuery,
+        connect: mockConnect
+      });
+      mockQuery.mockResolvedValueOnce({
+        rows: [{ personal_organization_id: 'org-1' }]
+      });
+      mockClientQuery
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({});
+
+      const response = await request(app)
+        .post('/v1/mls/groups')
+        .set('Authorization', authHeader)
+        .send({
+          name: 'Group Name',
+          groupIdMls: 'group-id-mls',
+          cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
+        });
+
+      expect(response.status).toBe(201);
+      expect(mockClientQuery).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('id, organization_id, group_id_mls'),
+        expect.arrayContaining([
+          'org-1',
+          'group-id-mls',
+          'Group Name',
+          'user-1'
+        ])
       );
       expect(mockRelease).toHaveBeenCalledTimes(1);
     });

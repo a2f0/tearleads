@@ -878,7 +878,10 @@ export const mlsKeyPackages = sqliteTable(
     cipherSuite: integer('cipher_suite').notNull(),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
     consumedAt: integer('consumed_at', { mode: 'timestamp_ms' }),
-    consumedByGroupId: text('consumed_by_group_id')
+    consumedByGroupId: text('consumed_by_group_id').references(
+      () => mlsGroups.id,
+      { onDelete: 'set null' }
+    )
   },
   (table) => [
     index('mls_key_packages_user_idx').on(table.userId),
@@ -897,6 +900,9 @@ export const mlsGroups = sqliteTable(
     groupIdMls: text('group_id_mls').notNull(),
     name: text('name').notNull(),
     description: text('description'),
+    organizationId: text('organization_id')
+      .notNull()
+      .references(() => organizations.id, { onDelete: 'cascade' }),
     creatorUserId: text('creator_user_id')
       .notNull()
       .references(() => users.id, { onDelete: 'restrict' }),
@@ -907,6 +913,7 @@ export const mlsGroups = sqliteTable(
   },
   (table) => [
     uniqueIndex('mls_groups_group_id_mls_idx').on(table.groupIdMls),
+    index('mls_groups_org_idx').on(table.organizationId),
     index('mls_groups_creator_idx').on(table.creatorUserId)
   ]
 );

@@ -1,7 +1,11 @@
 import type { MlsGroup } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseUpdateGroupPayload, toSafeCipherSuite } from './shared.js';
+import {
+  getActiveMlsGroupMembership,
+  parseUpdateGroupPayload,
+  toSafeCipherSuite
+} from './shared.js';
 
 /**
  * @openapi
@@ -48,20 +52,13 @@ export const patchGroupsGroupidHandler = async (
   try {
     const pool = await getPostgresPool();
 
-    // Check admin membership
-    const memberCheck = await pool.query(
-      `SELECT role FROM mls_group_members
-       WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-      [groupId, claims.sub]
-    );
-
-    if (memberCheck.rows.length === 0) {
+    const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
+    if (!membership) {
       res.status(403).json({ error: 'Not a member of this group' });
       return;
     }
 
-    const role = memberCheck.rows[0]?.role;
-    if (role !== 'admin') {
+    if (membership.role !== 'admin') {
       res.status(403).json({ error: 'Only admins can update group' });
       return;
     }
