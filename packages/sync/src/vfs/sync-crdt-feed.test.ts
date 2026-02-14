@@ -1,0 +1,154 @@
+import { describe, expect, it } from 'vitest';
+import {
+  buildVfsCrdtSyncQuery,
+  mapVfsCrdtSyncRows,
+  parseVfsCrdtSyncQuery,
+  type VfsCrdtSyncDbRow
+} from './sync-crdt-feed.js';
+import { decodeVfsSyncCursor } from './sync-cursor.js';
+
+describe('parseVfsCrdtSyncQuery', () => {
+  it('uses defaults when query is empty', () => {
+    const result = parseVfsCrdtSyncQuery({});
+
+    expect(result).toEqual({
+      ok: true,
+      value: {
+        limit: 100,
+        cursor: null,
+        rootId: null
+      }
+    });
+  });
+
+  it('returns error for invalid limit', () => {
+    const result = parseVfsCrdtSyncQuery({
+      limit: '0'
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'limit must be an integer between 1 and 500'
+    });
+  });
+
+  it('returns error for invalid cursor format', () => {
+    const result = parseVfsCrdtSyncQuery({
+      cursor: 'bad-cursor'
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: 'Invalid cursor'
+    });
+  });
+});
+
+describe('buildVfsCrdtSyncQuery', () => {
+  it('builds parameterized query with cursor and root scope', () => {
+    const query = buildVfsCrdtSyncQuery({
+      userId: 'user-1',
+      limit: 25,
+      cursor: {
+        changedAt: '2026-02-14T00:00:00.000Z',
+        changeId: 'op-1'
+      },
+      rootId: 'root-1'
+    });
+
+    expect(query.values).toEqual([
+      'user-1',
+      '2026-02-14T00:00:00.000Z',
+      'op-1',
+      26,
+      'root-1'
+    ]);
+    expect(query.text).toContain('ORDER BY ops.occurred_at ASC, ops.id ASC');
+  });
+});
+
+describe('mapVfsCrdtSyncRows', () => {
+  it('paginates rows and emits nextCursor from last returned op', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-1',
+        item_id: 'item-1',
+        op_type: 'acl_add',
+        principal_type: 'user',
+        principal_id: 'user-2',
+        access_level: 'write',
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_shares',
+        source_id: 'share-1',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z')
+      },
+      {
+        op_id: 'op-2',
+        item_id: 'item-1',
+        op_type: 'acl_remove',
+        principal_type: 'user',
+        principal_id: 'user-2',
+        access_level: null,
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_shares',
+        source_id: 'share-1',
+        occurred_at: new Date('2026-02-14T00:00:01.000Z')
+      }
+    ];
+
+    const result = mapVfsCrdtSyncRows(rows, 1);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.hasMore).toBe(true);
+    expect(result.nextCursor).not.toBeNull();
+    if (!result.nextCursor) {
+      throw new Error('Expected nextCursor');
+    }
+
+    expect(decodeVfsSyncCursor(result.nextCursor)).toEqual({
+      changedAt: '2026-02-14T00:00:00.000Z',
+      changeId: 'op-1'
+    });
+  });
+
+  it('throws when rows violate ordering guardrail', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-2',
+        item_id: 'item-1',
+        op_type: 'acl_add',
+        principal_type: 'user',
+        principal_id: 'user-2',
+        access_level: 'write',
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_shares',
+        source_id: 'share-1',
+        occurred_at: new Date('2026-02-14T00:00:01.000Z')
+      },
+      {
+        op_id: 'op-1',
+        item_id: 'item-1',
+        op_type: 'acl_add',
+        principal_type: 'user',
+        principal_id: 'user-2',
+        access_level: 'write',
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_shares',
+        source_id: 'share-1',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z')
+      }
+    ];
+
+    expect(() => mapVfsCrdtSyncRows(rows, 10)).toThrowError(
+      /violates required ordering/
+    );
+  });
+});
