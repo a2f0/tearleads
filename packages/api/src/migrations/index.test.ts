@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 23 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 24 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(23);
+      expect(result.currentVersion).toBe(24);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 23 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 24 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -159,9 +159,9 @@ describe('migrations', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23
+        22, 23, 24
       ]);
-      expect(result.currentVersion).toBe(23);
+      expect(result.currentVersion).toBe(24);
     });
   });
 
@@ -571,6 +571,56 @@ describe('migrations', () => {
       }
 
       await expect(v023.up(pool)).rejects.toThrow('forced v023 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v024 migration', () => {
+    it('backfills legacy blob staging rows into flattened VFS structures', async () => {
+      const pool = createMockPool(new Map());
+
+      const v024 = migrations.find((m: Migration) => m.version === 24);
+      if (!v024) {
+        throw new Error('v024 migration not found');
+      }
+
+      await v024.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'blob object id collides with non-blob vfs_registry row'
+      );
+      expect(queries).toContain('INSERT INTO "vfs_registry" (');
+      expect(queries).toContain("'blobStage'");
+      expect(queries).toContain('INSERT INTO "vfs_links" (');
+      expect(queries).toContain("'blob-stage:staged'");
+      expect(queries).toContain("'blob-stage:attached'");
+      expect(queries).toContain("'blob-stage:abandoned'");
+      expect(queries).toContain("'attachedItemId'");
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (sql.includes('INSERT INTO "vfs_links"')) {
+            throw new Error('forced v024 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v024 = migrations.find((m: Migration) => m.version === 24);
+      if (!v024) {
+        throw new Error('v024 migration not found');
+      }
+
+      await expect(v024.up(pool)).rejects.toThrow('forced v024 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');
