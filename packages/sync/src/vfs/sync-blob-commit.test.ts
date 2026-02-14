@@ -218,4 +218,108 @@ describe('InMemoryVfsBlobCommitStore', () => {
     expect(invalidStage.status).toBe('invalid');
     expect(forbiddenAttach.status).toBe('forbidden');
   });
+
+  it('keeps first successful attach durable across retries for email-linked items', () => {
+    const store = new InMemoryVfsBlobCommitStore();
+
+    store.stage({
+      stagingId: 'stage-7',
+      blobId: 'blob-7',
+      stagedBy: 'user-7',
+      stagedAt: '2026-02-14T13:00:00.000Z',
+      expiresAt: '2026-02-14T13:30:00.000Z'
+    });
+
+    const firstAttach = store.attach({
+      stagingId: 'stage-7',
+      attachedBy: 'user-7',
+      itemId: 'email-7',
+      attachedAt: '2026-02-14T13:05:00.000Z'
+    });
+    const retrySamePayload = store.attach({
+      stagingId: 'stage-7',
+      attachedBy: 'user-7',
+      itemId: 'email-7',
+      attachedAt: '2026-02-14T13:05:00.000Z'
+    });
+    const retryDifferentTarget = store.attach({
+      stagingId: 'stage-7',
+      attachedBy: 'user-7',
+      itemId: 'email-7-retry',
+      attachedAt: '2026-02-14T13:05:01.000Z'
+    });
+
+    expect(firstAttach.status).toBe('applied');
+    expect(retrySamePayload.status).toBe('conflict');
+    expect(retryDifferentTarget.status).toBe('conflict');
+    expect(store.get('stage-7')).toEqual({
+      stagingId: 'stage-7',
+      blobId: 'blob-7',
+      stagedBy: 'user-7',
+      status: 'attached',
+      stagedAt: '2026-02-14T13:00:00.000Z',
+      expiresAt: '2026-02-14T13:30:00.000Z',
+      attachedAt: '2026-02-14T13:05:00.000Z',
+      attachedItemId: 'email-7'
+    });
+  });
+
+  it('preserves terminal state under interrupted attach/abandon races with retries', async () => {
+    const store = new InMemoryVfsBlobCommitStore();
+
+    store.stage({
+      stagingId: 'stage-8',
+      blobId: 'blob-8',
+      stagedBy: 'user-8',
+      stagedAt: '2026-02-14T14:00:00.000Z',
+      expiresAt: '2026-02-14T14:30:00.000Z'
+    });
+
+    const [attached, abandoned]: VfsBlobCommitResult[] = await Promise.all([
+      (async () => {
+        await wait(5);
+        return store.attach({
+          stagingId: 'stage-8',
+          attachedBy: 'user-8',
+          itemId: 'email-8',
+          attachedAt: '2026-02-14T14:05:00.000Z'
+        });
+      })(),
+      (async () => {
+        await wait(10);
+        return store.abandon({
+          stagingId: 'stage-8',
+          abandonedBy: 'user-8',
+          abandonedAt: '2026-02-14T14:05:01.000Z'
+        });
+      })()
+    ]);
+
+    const abandonRetry = store.abandon({
+      stagingId: 'stage-8',
+      abandonedBy: 'user-8',
+      abandonedAt: '2026-02-14T14:05:02.000Z'
+    });
+    const attachRetry = store.attach({
+      stagingId: 'stage-8',
+      attachedBy: 'user-8',
+      itemId: 'email-8-retry',
+      attachedAt: '2026-02-14T14:05:03.000Z'
+    });
+
+    expect(attached.status).toBe('applied');
+    expect(abandoned.status).toBe('conflict');
+    expect(abandonRetry.status).toBe('conflict');
+    expect(attachRetry.status).toBe('conflict');
+    expect(store.get('stage-8')).toEqual({
+      stagingId: 'stage-8',
+      blobId: 'blob-8',
+      stagedBy: 'user-8',
+      status: 'attached',
+      stagedAt: '2026-02-14T14:00:00.000Z',
+      expiresAt: '2026-02-14T14:30:00.000Z',
+      attachedAt: '2026-02-14T14:05:00.000Z',
+      attachedItemId: 'email-8'
+    });
+  });
 });
