@@ -94,6 +94,7 @@ Focus on files with the most hardcoded strings first:
 ```
 
 Common high-impact patterns:
+
 - **Menu bars** - `trigger="File"`, `trigger="Help"`, etc.
 - **Tab labels** - `{ id: 'x', label: 'Tab Name' }`
 - **Window titles** - `title="Window Name"`
@@ -278,10 +279,7 @@ echo "Before: $BASELINE → After: $AFTER (reduced by $((BASELINE - AFTER)))"
 
 ### 10. Commit and Merge
 
-```bash
-/commit-and-push
-/enter-merge-queue
-```
+Use the `commit-and-push` skill followed by the `enter-merge-queue` skill to commit changes and enter the merge queue.
 
 If no high-value fixes were found during discovery, do not create a branch or run commit/merge workflows.
 
