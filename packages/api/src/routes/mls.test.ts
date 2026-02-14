@@ -134,4 +134,180 @@ describe('MLS routes', () => {
       restoreConsole();
     });
   });
+
+  describe('POST /v1/mls/groups/:groupId/members', () => {
+    it('returns 404 when target user is outside caller org scope', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ role: 'admin' }] })
+        .mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          userId: 'user-2',
+          commit: 'commit-bytes',
+          welcome: 'welcome-bytes',
+          keyPackageRef: 'kp-ref',
+          newEpoch: 2
+        });
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'User not found' });
+    });
+
+    it('returns 409 when key package is unavailable for the target user', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+      const mockClientQuery = vi.fn();
+      const mockRelease = vi.fn();
+      const mockConnect = vi.fn().mockResolvedValue({
+        query: mockClientQuery,
+        release: mockRelease
+      });
+
+      mockGetPostgresPool.mockResolvedValueOnce({
+        query: mockQuery,
+        connect: mockConnect
+      });
+      mockQuery
+        .mockResolvedValueOnce({ rows: [{ role: 'admin' }] })
+        .mockResolvedValueOnce({ rows: [{}] });
+      mockClientQuery
+        .mockResolvedValueOnce({})
+        .mockResolvedValueOnce({ rows: [{ count: '1' }] })
+        .mockResolvedValueOnce({ rowCount: 0, rows: [] })
+        .mockResolvedValueOnce({});
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/members')
+        .set('Authorization', authHeader)
+        .send({
+          userId: 'user-2',
+          commit: 'commit-bytes',
+          welcome: 'welcome-bytes',
+          keyPackageRef: 'kp-ref',
+          newEpoch: 2
+        });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({ error: 'Key package not available' });
+      expect(mockClientQuery).toHaveBeenNthCalledWith(
+        3,
+        expect.stringContaining('AND user_id = $3'),
+        ['group-1', 'kp-ref', 'user-2']
+      );
+      expect(mockRelease).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('GET /v1/mls/groups/:groupId/messages', () => {
+    it('returns 400 for non-positive limit values', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1/messages?limit=0')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'limit must be a positive integer'
+      });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 for invalid cursor values', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      const response = await request(app)
+        .get('/v1/mls/groups/group-1/messages?cursor=not-a-number')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'cursor must be a positive integer'
+      });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('POST /v1/mls/welcome-messages/:id/ack', () => {
+    it('binds acknowledgements to both recipient and payload groupId', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      mockQuery.mockResolvedValueOnce({ rowCount: 1 });
+
+      const response = await request(app)
+        .post('/v1/mls/welcome-messages/welcome-1/ack')
+        .set('Authorization', authHeader)
+        .send({ groupId: 'group-1' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({ acknowledged: true });
+      expect(mockQuery).toHaveBeenCalledWith(
+        expect.stringContaining('AND group_id = $3'),
+        ['welcome-1', 'user-1', 'group-1']
+      );
+    });
+  });
+
+  describe('MLS payload validation hardening', () => {
+    it('rejects non-integer epochs in send-message payloads', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      const response = await request(app)
+        .post('/v1/mls/groups/group-1/messages')
+        .set('Authorization', authHeader)
+        .send({
+          ciphertext: 'ciphertext',
+          epoch: 1.5,
+          messageType: 'application'
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Invalid message payload' });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('rejects oversized key package uploads', async () => {
+      const authHeader = await createAuthHeader({
+        id: 'user-1',
+        email: 'user-1@example.com'
+      });
+
+      const oversizedBatch = Array.from({ length: 101 }, (_, index) => ({
+        keyPackageData: `kp-data-${index}`,
+        keyPackageRef: `kp-ref-${index}`,
+        cipherSuite: MLS_CIPHERSUITES.X25519_CHACHA20_SHA256_ED25519
+      }));
+
+      const response = await request(app)
+        .post('/v1/mls/key-packages')
+        .set('Authorization', authHeader)
+        .send({ keyPackages: oversizedBatch });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'Invalid key packages payload' });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+  });
 });

@@ -68,6 +68,22 @@ export const postGroupsGroupidMembersHandler = async (
       return;
     }
 
+    const sharedOrganizationResult = await pool.query(
+      `SELECT 1
+         FROM user_organizations requestor_uo
+         INNER JOIN user_organizations target_uo
+           ON target_uo.organization_id = requestor_uo.organization_id
+        WHERE requestor_uo.user_id = $1
+          AND target_uo.user_id = $2
+        LIMIT 1`,
+      [claims.sub, payload.userId]
+    );
+
+    if (sharedOrganizationResult.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
+      return;
+    }
+
     const client = await pool.connect();
     let welcomeId = '';
     let leafIndex = 0;
@@ -83,19 +99,29 @@ export const postGroupsGroupidMembersHandler = async (
       );
       leafIndex = parseInt(countResult.rows[0]?.count ?? '0', 10);
 
+      // Reserve target user's key package for this group.
+      const keyPackageResult = await client.query<{ id: string }>(
+        `UPDATE mls_key_packages
+            SET consumed_at = NOW(), consumed_by_group_id = $1
+          WHERE key_package_ref = $2
+            AND user_id = $3
+            AND consumed_at IS NULL
+        RETURNING id`,
+        [groupId, payload.keyPackageRef, payload.userId]
+      );
+
+      if (keyPackageResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        res.status(409).json({ error: 'Key package not available' });
+        return;
+      }
+
       // Add member
       await client.query(
         `INSERT INTO mls_group_members (
           group_id, user_id, leaf_index, role, joined_at, joined_at_epoch
         ) VALUES ($1, $2, $3, 'member', $4, $5)`,
         [groupId, payload.userId, leafIndex, now, payload.newEpoch]
-      );
-
-      // Mark key package as consumed
-      await client.query(
-        `UPDATE mls_key_packages SET consumed_at = NOW(), consumed_by_group_id = $1
-         WHERE key_package_ref = $2`,
-        [groupId, payload.keyPackageRef]
       );
 
       // Store welcome message

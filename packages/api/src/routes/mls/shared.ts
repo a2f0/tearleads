@@ -15,11 +15,21 @@ import { isRecord, MLS_CIPHERSUITES } from '@tearleads/shared';
 const VALID_CIPHER_SUITES = Object.values(MLS_CIPHERSUITES).filter(
   (value): value is MlsCipherSuite => typeof value === 'number'
 );
+const MAX_KEY_PACKAGES_PER_UPLOAD = 100;
 
 function isValidCipherSuite(value: unknown): value is MlsCipherSuite {
   return (
     typeof value === 'number' &&
     VALID_CIPHER_SUITES.some((cipherSuite) => cipherSuite === value)
+  );
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value >= 0
   );
 }
 
@@ -42,6 +52,8 @@ export function parseUploadKeyPackagesPayload(
   if (!isRecord(body)) return null;
   const keyPackages = body['keyPackages'];
   if (!Array.isArray(keyPackages)) return null;
+  if (keyPackages.length === 0) return null;
+  if (keyPackages.length > MAX_KEY_PACKAGES_PER_UPLOAD) return null;
 
   const parsed: UploadMlsKeyPackagesRequest['keyPackages'] = [];
   for (const kp of keyPackages) {
@@ -67,7 +79,6 @@ export function parseUploadKeyPackagesPayload(
     });
   }
 
-  if (parsed.length === 0) return null;
   return { keyPackages: parsed };
 }
 
@@ -131,7 +142,7 @@ export function parseAddMemberPayload(
     typeof commit !== 'string' ||
     typeof welcome !== 'string' ||
     typeof keyPackageRef !== 'string' ||
-    typeof newEpoch !== 'number'
+    !isNonNegativeInteger(newEpoch)
   ) {
     return null;
   }
@@ -161,7 +172,7 @@ export function parseRemoveMemberPayload(
   const commit = body['commit'];
   const newEpoch = body['newEpoch'];
 
-  if (typeof commit !== 'string' || typeof newEpoch !== 'number') {
+  if (typeof commit !== 'string' || !isNonNegativeInteger(newEpoch)) {
     return null;
   }
 
@@ -184,7 +195,7 @@ export function parseSendMessagePayload(
 
   if (
     typeof ciphertext !== 'string' ||
-    typeof epoch !== 'number' ||
+    !isNonNegativeInteger(epoch) ||
     !isValidMessageType(messageType)
   ) {
     return null;
@@ -212,7 +223,7 @@ export function parseUploadStatePayload(
   const stateHash = body['stateHash'];
 
   if (
-    typeof epoch !== 'number' ||
+    !isNonNegativeInteger(epoch) ||
     typeof encryptedState !== 'string' ||
     typeof stateHash !== 'string'
   ) {
