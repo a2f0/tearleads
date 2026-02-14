@@ -87,6 +87,10 @@ export {
   type VfsCrdtSyncTransport
 } from './sync-client.js';
 export {
+  VfsHttpCrdtSyncTransport,
+  type VfsHttpCrdtSyncTransportOptions
+} from './sync-http-transport.js';
+export {
   InMemoryVfsCrdtClientStateStore,
   mergeVfsCrdtLastReconciledWriteIds,
   type ParsedVfsCrdtReconcilePayload,
