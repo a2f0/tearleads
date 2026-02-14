@@ -43,9 +43,9 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
 
   return {
     ...actual,
-  DesktopFloatingWindow: ({ children }: { children: ReactNode }) => (
-    <div data-testid="floating-window">{children}</div>
-  )
+    DesktopFloatingWindow: ({ children }: { children: ReactNode }) => (
+      <div data-testid="floating-window">{children}</div>
+    )
   };
 });
 

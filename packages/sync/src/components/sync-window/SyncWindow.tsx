@@ -1,7 +1,7 @@
 import {
   DesktopFloatingWindow as FloatingWindow,
-  type WindowDimensions,
-  WindowControlBar
+  WindowControlBar,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import { Sync } from '../../pages/sync';
 import { SyncWindowMenuBar } from './SyncWindowMenuBar';

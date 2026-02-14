@@ -5,12 +5,12 @@ import {
   type TagSortOrder,
   type VfsLinkLikeRow
 } from '@tearleads/classic';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   CLASSIC_EMPTY_STATE,

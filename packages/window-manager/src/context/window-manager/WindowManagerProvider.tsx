@@ -82,7 +82,7 @@ export function WindowManagerProvider({
               savedDimensions,
               currentWindows: prev
             })
-          : savedDimensions ?? undefined;
+          : (savedDimensions ?? undefined);
 
         const nextZIndex = getNextZIndex(prev);
         return [

@@ -1,10 +1,10 @@
 import { render } from '@testing-library/react';
-import type { WindowContextMenuProps } from './WindowContextMenu.js';
 import {
   DESKTOP_CONTEXT_MENU_OVERLAY_Z_INDEX,
   DESKTOP_CONTEXT_MENU_Z_INDEX,
   DesktopContextMenu
 } from './DesktopContextMenu.js';
+import type { WindowContextMenuProps } from './WindowContextMenu.js';
 
 const renderedProps: WindowContextMenuProps[] = [];
 

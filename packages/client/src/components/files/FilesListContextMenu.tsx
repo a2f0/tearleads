@@ -1,4 +1,8 @@
 import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
+import {
   Download,
   Info,
   Pause,
@@ -7,10 +11,6 @@ import {
   Trash2,
   Upload
 } from 'lucide-react';
-import {
-  DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem
-} from '@tearleads/window-manager';
 import { useTypedTranslation } from '@/i18n';
 import type { FileWithThumbnail } from './types';
 

@@ -1,4 +1,8 @@
 import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
+import {
   Activity,
   AppWindow,
   Archive,
@@ -39,10 +43,6 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import {
-  DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem
-} from '@tearleads/window-manager';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { cn } from '@/lib/utils';
 

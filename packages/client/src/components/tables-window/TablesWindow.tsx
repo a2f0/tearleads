@@ -1,9 +1,9 @@
-import { WindowControlBar } from '@tearleads/window-manager';
-import { Navigate, Route, Routes } from 'react-router-dom';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { Navigate, Route, Routes } from 'react-router-dom';
 import { TableRows } from '@/pages/TableRows';
 import { Tables } from '@/pages/Tables';
 import { TablesWindowMenuBar } from './TablesWindowMenuBar';

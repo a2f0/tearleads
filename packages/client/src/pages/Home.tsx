@@ -1,4 +1,9 @@
 import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem,
+  DesktopContextMenuSeparator as ContextMenuSeparator
+} from '@tearleads/window-manager';
+import {
   AppWindow,
   ExternalLink,
   LayoutGrid,
@@ -12,11 +17,6 @@ import { useNavigate } from 'react-router-dom';
 import { navItems } from '@/components/Sidebar';
 import { useScreensaver } from '@/components/screensaver';
 import { DisplayPropertiesWindow } from '@/components/settings/DisplayPropertiesWindow';
-import {
-  DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem,
-  DesktopContextMenuSeparator as ContextMenuSeparator
-} from '@tearleads/window-manager';
 import { DesktopBackground } from '@/components/ui/desktop-background';
 import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
 import { WINDOW_PATHS } from '@/constants/windowPaths';

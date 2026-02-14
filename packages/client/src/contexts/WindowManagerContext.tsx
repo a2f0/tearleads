@@ -1,13 +1,13 @@
 import {
+  type WindowInstance as BaseWindowInstance,
+  WindowManagerProvider as BaseWindowManagerProvider,
   generateUniqueId,
   getDefaultDesktopWindowDimensions,
   getPreserveWindowState,
   loadWindowDimensions,
   saveWindowDimensions,
-  type WindowDimensions,
-  type WindowInstance as BaseWindowInstance,
-  WindowManagerProvider as BaseWindowManagerProvider,
-  useWindowManager as useBaseWindowManager
+  useWindowManager as useBaseWindowManager,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import type { ReactNode } from 'react';
 import {
@@ -317,7 +317,9 @@ function WindowManagerAdapterProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function WindowManagerProvider({ children }: WindowManagerProviderProps) {
+export function WindowManagerProvider({
+  children
+}: WindowManagerProviderProps) {
   const loadDimensionsForType = useCallback((type: string) => {
     if (!isWindowType(type)) {
       return null;

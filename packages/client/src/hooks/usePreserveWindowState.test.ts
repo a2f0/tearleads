@@ -12,10 +12,10 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
 
   return {
     ...actual,
-  getPreserveWindowState: () => mockGetPreserveWindowState(),
-  setPreserveWindowState: (next: boolean) => mockSetPreserveWindowState(next),
-  subscribePreserveWindowState: (callback: () => void) =>
-    mockSubscribePreserveWindowState(callback)
+    getPreserveWindowState: () => mockGetPreserveWindowState(),
+    setPreserveWindowState: (next: boolean) => mockSetPreserveWindowState(next),
+    subscribePreserveWindowState: (callback: () => void) =>
+      mockSubscribePreserveWindowState(callback)
   };
 });
 

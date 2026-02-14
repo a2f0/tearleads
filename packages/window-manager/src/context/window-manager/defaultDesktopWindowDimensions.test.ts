@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  getDefaultDesktopWindowDimensions,
-  type DefaultDesktopWindowDimensionsOptions
+  type DefaultDesktopWindowDimensionsOptions,
+  getDefaultDesktopWindowDimensions
 } from './defaultDesktopWindowDimensions.js';
 
 const DEFAULT_OPTIONS: DefaultDesktopWindowDimensionsOptions = {

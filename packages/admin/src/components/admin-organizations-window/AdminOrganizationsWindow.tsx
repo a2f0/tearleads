@@ -5,9 +5,9 @@ import { OrganizationsAdmin } from '@admin/pages/admin/OrganizationsAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
 import {
   DesktopFloatingWindow as FloatingWindow,
-  type WindowDimensions,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';

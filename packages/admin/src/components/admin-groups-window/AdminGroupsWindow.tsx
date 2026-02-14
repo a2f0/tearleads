@@ -3,9 +3,9 @@ import { GroupDetailPage } from '@admin/pages/admin/GroupDetailPage';
 import { GroupsAdmin } from '@admin/pages/admin/GroupsAdmin';
 import {
   DesktopFloatingWindow as FloatingWindow,
-  type WindowDimensions,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';

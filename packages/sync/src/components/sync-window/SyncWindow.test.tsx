@@ -19,7 +19,12 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
       children: React.ReactNode;
       title: string;
       onClose: () => void;
-      initialDimensions?: { width: number; height: number; x: number; y: number };
+      initialDimensions?: {
+        width: number;
+        height: number;
+        x: number;
+        y: number;
+      };
       fitContent?: boolean;
       maxWidthPercent?: number;
       maxHeightPercent?: number;

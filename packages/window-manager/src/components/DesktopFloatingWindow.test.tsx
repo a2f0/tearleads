@@ -1,9 +1,9 @@
 import { render } from '@testing-library/react';
-import type { FloatingWindowProps } from './FloatingWindow.js';
 import {
   DESKTOP_WINDOW_FOOTER_HEIGHT,
   DesktopFloatingWindow
 } from './DesktopFloatingWindow.js';
+import type { FloatingWindowProps } from './FloatingWindow.js';
 
 const renderedProps: FloatingWindowProps[] = [];
 

@@ -2,10 +2,10 @@ import openapiSpec from '@tearleads/api/dist/openapi.json';
 import { ApiDocs } from '@tearleads/ui';
 import {
   DesktopFloatingWindow as FloatingWindow,
-  type WindowDimensions,
   WindowControlBar,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useMemo, useState } from 'react';

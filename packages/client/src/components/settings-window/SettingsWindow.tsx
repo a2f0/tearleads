@@ -1,6 +1,6 @@
 import {
-  WindowControlBar,
   DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { Settings } from '@/pages/Settings';

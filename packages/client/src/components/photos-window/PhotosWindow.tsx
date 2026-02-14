@@ -1,9 +1,9 @@
 import { useMultiFileUpload } from '@tearleads/audio';
-import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   DesktopFloatingWindow as FloatingWindow,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   useWindowManagerActions,
   useWindowOpenRequest

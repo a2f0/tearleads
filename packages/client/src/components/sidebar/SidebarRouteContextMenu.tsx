@@ -1,8 +1,8 @@
-import { AppWindow, ExternalLink } from 'lucide-react';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
+import { AppWindow, ExternalLink } from 'lucide-react';
 import type { SidebarContextMenuState } from './types';
 
 interface SidebarRouteContextMenuProps {

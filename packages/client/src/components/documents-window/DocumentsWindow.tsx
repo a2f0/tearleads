@@ -1,16 +1,14 @@
 import { useMultiFileUpload } from '@tearleads/audio';
 import {
+  DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
+  type WindowDimensions,
   WindowStatusBar
 } from '@tearleads/window-manager';
 import { ArrowLeft, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import {
-  DesktopFloatingWindow as FloatingWindow,
-  type WindowDimensions
-} from '@tearleads/window-manager';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { UploadProgress } from '@/components/ui/upload-progress';
 import {

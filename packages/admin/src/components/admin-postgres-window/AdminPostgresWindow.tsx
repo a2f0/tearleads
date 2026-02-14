@@ -3,9 +3,9 @@ import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMe
 import { PostgresAdmin } from '@admin/pages/admin/PostgresAdmin';
 import {
   DesktopFloatingWindow as FloatingWindow,
-  type WindowDimensions,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';

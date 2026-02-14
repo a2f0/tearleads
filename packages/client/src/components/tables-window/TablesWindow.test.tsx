@@ -19,29 +19,29 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
 
   return {
     ...actual,
-  DesktopFloatingWindow: ({
-    children,
-    title,
-    onClose,
-    ...rest
-  }: {
-    children: React.ReactNode;
-    title: string;
-    onClose: () => void;
-    [key: string]: unknown;
-  }) => (
-    <div
-      data-testid="floating-window"
-      data-props={JSON.stringify(rest)}
-      data-props-keys={JSON.stringify(Object.keys(rest))}
-    >
-      <div data-testid="window-title">{title}</div>
-      <button type="button" onClick={onClose} data-testid="close-window">
-        Close
-      </button>
-      {children}
-    </div>
-  )
+    DesktopFloatingWindow: ({
+      children,
+      title,
+      onClose,
+      ...rest
+    }: {
+      children: React.ReactNode;
+      title: string;
+      onClose: () => void;
+      [key: string]: unknown;
+    }) => (
+      <div
+        data-testid="floating-window"
+        data-props={JSON.stringify(rest)}
+        data-props-keys={JSON.stringify(Object.keys(rest))}
+      >
+        <div data-testid="window-title">{title}</div>
+        <button type="button" onClick={onClose} data-testid="close-window">
+          Close
+        </button>
+        {children}
+      </div>
+    )
   };
 });
 

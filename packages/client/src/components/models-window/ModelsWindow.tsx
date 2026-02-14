@@ -1,9 +1,9 @@
-import { WindowControlBar } from '@tearleads/window-manager';
-import { useState } from 'react';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { useState } from 'react';
 import { ModelsContent } from '@/pages/models/ModelsContent';
 import type { ViewMode } from './ModelsWindowMenuBar';
 import { ModelsWindowMenuBar } from './ModelsWindowMenuBar';

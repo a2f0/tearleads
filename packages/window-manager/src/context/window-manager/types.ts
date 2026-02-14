@@ -40,6 +40,8 @@ export interface WindowManagerProviderProps {
   shouldPreserveState?: () => boolean;
   createWindowId?: ((type: string) => string) | undefined;
   resolveInitialDimensions?:
-    | ((options: ResolveInitialWindowDimensionsOptions) => WindowDimensions | undefined)
+    | ((
+        options: ResolveInitialWindowDimensionsOptions
+      ) => WindowDimensions | undefined)
     | undefined;
 }

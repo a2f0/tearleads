@@ -2,8 +2,8 @@ import {
   clearAllWindowDimensions as clearAllWindowDimensionsShared,
   clearWindowDimensions as clearWindowDimensionsShared,
   loadWindowDimensions as loadWindowDimensionsShared,
-  saveWindowDimensions as saveWindowDimensionsShared,
-  type StoredWindowDimensions
+  type StoredWindowDimensions,
+  saveWindowDimensions as saveWindowDimensionsShared
 } from '@tearleads/window-manager';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 

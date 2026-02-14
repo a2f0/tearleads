@@ -1,9 +1,9 @@
-import { WindowControlBar } from '@tearleads/window-manager';
-import { useCallback, useRef } from 'react';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { useCallback, useRef } from 'react';
 import { OpfsBrowser, type OpfsBrowserHandle } from '@/pages/opfs/OpfsBrowser';
 import { OpfsWindowMenuBar } from './OpfsWindowMenuBar';
 

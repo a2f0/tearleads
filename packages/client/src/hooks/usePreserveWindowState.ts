@@ -1,9 +1,9 @@
-import { useCallback, useSyncExternalStore } from 'react';
 import {
   getPreserveWindowState,
   setPreserveWindowState,
   subscribePreserveWindowState
 } from '@tearleads/window-manager';
+import { useCallback, useSyncExternalStore } from 'react';
 
 export function usePreserveWindowState() {
   const preserveWindowState = useSyncExternalStore(

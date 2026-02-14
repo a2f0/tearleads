@@ -7,14 +7,14 @@ import {
   type VfsExplorerUIComponents
 } from '@tearleads/vfs-explorer';
 import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
-import { type ReactNode, useMemo } from 'react';
-import { DesktopFloatingWindow as FloatingWindow } from '@tearleads/window-manager';
-import { Button } from '@/components/ui/button';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,
-  ContextMenuSeparator
+  ContextMenuSeparator,
+  DesktopFloatingWindow as FloatingWindow
 } from '@tearleads/window-manager';
+import { type ReactNode, useMemo } from 'react';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuItem,

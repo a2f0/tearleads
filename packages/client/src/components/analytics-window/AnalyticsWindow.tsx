@@ -1,9 +1,9 @@
-import { WindowControlBar } from '@tearleads/window-manager';
-import { useCallback, useState } from 'react';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { useCallback, useState } from 'react';
 import { Analytics } from '@/pages/analytics';
 import { AnalyticsWindowMenuBar } from './AnalyticsWindowMenuBar';
 

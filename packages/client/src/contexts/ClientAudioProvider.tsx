@@ -14,6 +14,10 @@ import {
 } from '@tearleads/audio';
 import audioPackageJson from '@tearleads/audio/package.json';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { and, desc, eq, inArray, like, sql } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { AudioPlayer } from '@/components/audio/AudioPlayer';
@@ -21,10 +25,6 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import {
-  DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem
-} from '@tearleads/window-manager';
 import {
   DropdownMenu,
   DropdownMenuItem,

@@ -11,12 +11,12 @@ import {
   useMlsRealtime,
   useWelcomeMessages
 } from '@tearleads/mls-chat';
-import { WindowControlBar } from '@tearleads/window-manager';
-import { useCallback, useEffect, useState } from 'react';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';

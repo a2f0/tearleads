@@ -3,10 +3,10 @@ import { HelpDocumentation } from '@tearleads/help';
 import { cn } from '@tearleads/ui';
 import {
   DesktopFloatingWindow as FloatingWindow,
-  type WindowDimensions,
   WindowControlBar,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, Columns2, Plus, Rows2, X } from 'lucide-react';
 import { useCallback, useState } from 'react';

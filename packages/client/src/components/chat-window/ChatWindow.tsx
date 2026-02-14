@@ -1,10 +1,10 @@
-import { WindowControlBar } from '@tearleads/window-manager';
-import { ArrowLeft } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { ArrowLeft } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { useDatabaseContext } from '@/db/hooks';

@@ -2,12 +2,12 @@
 export {
   DESKTOP_CONTEXT_MENU_OVERLAY_Z_INDEX,
   DESKTOP_CONTEXT_MENU_Z_INDEX,
+  DESKTOP_WINDOW_FOOTER_HEIGHT,
   DesktopContextMenu,
-  type DesktopContextMenuProps,
   DesktopContextMenuItem,
   type DesktopContextMenuItemProps,
+  type DesktopContextMenuProps,
   DesktopContextMenuSeparator,
-  DESKTOP_WINDOW_FOOTER_HEIGHT,
   DesktopFloatingWindow,
   type DesktopFloatingWindowProps,
   FloatingWindow,
@@ -45,8 +45,8 @@ export {
 
 // Context
 export {
-  getDefaultDesktopWindowDimensions,
   type DefaultDesktopWindowDimensionsOptions,
+  getDefaultDesktopWindowDimensions,
   useWindowManager,
   type WindowInstance,
   type WindowManagerContextValue,
