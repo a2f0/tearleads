@@ -7,7 +7,10 @@ import {
 } from '@tearleads/classic';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   CLASSIC_EMPTY_STATE,

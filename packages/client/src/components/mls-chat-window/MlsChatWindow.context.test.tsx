@@ -7,8 +7,13 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 // Mock dependencies EXCEPT @tearleads/mls-chat to test real context integration
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+  DesktopFloatingWindow: ({
     children,
     title
   }: {
@@ -19,7 +24,8 @@ vi.mock('@/components/floating-window', () => ({
       {children}
     </div>
   )
-}));
+  };
+});
 
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
   InlineUnlock: () => <div data-testid="inline-unlock" />

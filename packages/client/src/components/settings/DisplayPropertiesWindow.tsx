@@ -1,5 +1,7 @@
-import { WindowControlBar } from '@tearleads/window-manager';
-import { FloatingWindow } from '@/components/floating-window';
+import {
+  WindowControlBar,
+  DesktopFloatingWindow as FloatingWindow
+} from '@tearleads/window-manager';
 import { ScreensaverButton } from '@/components/screensaver';
 import { BorderRadiusToggle } from './BorderRadiusToggle';
 import { DisplayPropertiesWindowMenuBar } from './DisplayPropertiesWindowMenuBar';

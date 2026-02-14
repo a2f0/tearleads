@@ -21,7 +21,10 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ActionToolbar } from '@/components/ui/action-toolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import {
   DropdownMenu,
   DropdownMenuItem,

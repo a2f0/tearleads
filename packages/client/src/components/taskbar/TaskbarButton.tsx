@@ -39,7 +39,10 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import type { WindowType } from '@/contexts/WindowManagerContext';
 import { cn } from '@/lib/utils';
 

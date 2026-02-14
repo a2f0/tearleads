@@ -3,7 +3,7 @@ import {
   getPreserveWindowState,
   setPreserveWindowState,
   subscribePreserveWindowState
-} from '@/lib/windowStatePreference';
+} from '@tearleads/window-manager';
 
 export function usePreserveWindowState() {
   const preserveWindowState = useSyncExternalStore(

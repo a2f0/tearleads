@@ -15,7 +15,10 @@ import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import {
   DropdownMenu,
   DropdownMenuItem,

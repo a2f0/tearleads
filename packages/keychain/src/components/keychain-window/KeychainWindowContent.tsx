@@ -1,13 +1,13 @@
 import {
-  ContextMenu,
-  ContextMenuItem
-} from '@client/components/ui/context-menu';
-import {
   deleteSessionKeysForInstance,
   getKeyStatusForInstance
 } from '@client/db/crypto/key-manager';
 import { getInstances } from '@client/db/instance-registry';
 import { useTypedTranslation } from '@client/i18n';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { Info, Key, Loader2 } from 'lucide-react';
 import {
   forwardRef,

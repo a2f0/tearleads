@@ -13,8 +13,10 @@ import {
 } from '@tearleads/mls-chat';
 import { WindowControlBar } from '@tearleads/window-manager';
 import { useCallback, useEffect, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';

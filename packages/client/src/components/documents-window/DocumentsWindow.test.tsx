@@ -15,8 +15,13 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 
 let lastDocumentsProps: Record<string, unknown> | null = null;
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+  DesktopFloatingWindow: ({
     children,
     title,
     onClose,
@@ -39,7 +44,8 @@ vi.mock('@/components/floating-window', () => ({
       {children}
     </div>
   )
-}));
+  };
+});
 
 vi.mock('@/pages/Documents', () => ({
   Documents: ({

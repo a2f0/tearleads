@@ -5,8 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqliteWindow } from './SqliteWindow';
 
 // Mock FloatingWindow
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+  DesktopFloatingWindow: ({
     children,
     title,
     onClose,
@@ -30,7 +35,8 @@ vi.mock('@/components/floating-window', () => ({
       {children}
     </div>
   )
-}));
+  };
+});
 
 // Mock DatabaseTest component with mount tracking
 const databaseTestMount = vi.fn();

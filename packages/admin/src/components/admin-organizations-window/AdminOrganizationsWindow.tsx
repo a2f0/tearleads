@@ -4,13 +4,13 @@ import { OrganizationDetailPage } from '@admin/pages/admin/OrganizationDetailPag
 import { OrganizationsAdmin } from '@admin/pages/admin/OrganizationsAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
 import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions,
   WindowControlButton,
   WindowControlGroup
 } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 
 type OrganizationsWindowView =
   | { type: 'index' }

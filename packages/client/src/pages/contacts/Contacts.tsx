@@ -19,7 +19,10 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/column-mapper';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { Dropzone } from '@/components/ui/dropzone';
 import { Input } from '@/components/ui/input';
 import { RefreshButton } from '@/components/ui/refresh-button';

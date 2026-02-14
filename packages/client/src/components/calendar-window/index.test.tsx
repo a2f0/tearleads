@@ -72,33 +72,40 @@ vi.mock('@tearleads/calendar', () => ({
   )
 }));
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({ children }: MockFloatingWindowProps) => (
-    <div>{children}</div>
-  )
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
 
-vi.mock('@/components/ui/context-menu', () => ({
-  ContextMenu: ({ children, onClose }: MockContextMenuProps) => (
-    <div>
-      <button type="button" data-testid="context-menu-close" onClick={onClose}>
-        Close Context Menu
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({ children }: MockFloatingWindowProps) => (
+      <div>{children}</div>
+    ),
+    DesktopContextMenu: ({ children, onClose }: MockContextMenuProps) => (
+      <div>
+        <button
+          type="button"
+          data-testid="context-menu-close"
+          onClick={onClose}
+        >
+          Close Context Menu
+        </button>
+        {children}
+      </div>
+    ),
+    DesktopContextMenuItem: ({
+      children,
+      onClick
+    }: {
+      children: ReactNode;
+      onClick: () => void;
+    }) => (
+      <button type="button" onClick={onClick}>
+        {children}
       </button>
-      {children}
-    </div>
-  ),
-  ContextMenuItem: ({
-    children,
-    onClick
-  }: {
-    children: ReactNode;
-    onClick: () => void;
-  }) => (
-    <button type="button" onClick={onClick}>
-      {children}
-    </button>
-  )
-}));
+    )
+  };
+});
 
 vi.mock('./CalendarWindowMenuBar', () => ({
   CalendarWindowMenuBar: ({

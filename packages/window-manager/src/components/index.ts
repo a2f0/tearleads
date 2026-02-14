@@ -1,4 +1,20 @@
 export {
+  DESKTOP_CONTEXT_MENU_OVERLAY_Z_INDEX,
+  DESKTOP_CONTEXT_MENU_Z_INDEX,
+  DesktopContextMenu,
+  type DesktopContextMenuProps
+} from './DesktopContextMenu.js';
+export {
+  DesktopContextMenuItem,
+  type DesktopContextMenuItemProps
+} from './DesktopContextMenuItem.js';
+export { DesktopContextMenuSeparator } from './DesktopContextMenuSeparator.js';
+export {
+  DESKTOP_WINDOW_FOOTER_HEIGHT,
+  DesktopFloatingWindow,
+  type DesktopFloatingWindowProps
+} from './DesktopFloatingWindow.js';
+export {
   FloatingWindow,
   type FloatingWindowProps,
   type WindowDimensions

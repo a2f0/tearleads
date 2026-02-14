@@ -7,6 +7,13 @@ export interface WindowInstance {
   zIndex: number;
   isMinimized: boolean;
   dimensions?: WindowDimensions;
+  title?: string | undefined;
+}
+
+export interface ResolveInitialWindowDimensionsOptions {
+  type: string;
+  savedDimensions: WindowDimensions | null;
+  currentWindows: WindowInstance[];
 }
 
 export interface WindowManagerContextValue {
@@ -21,6 +28,7 @@ export interface WindowManagerContextValue {
     type: string,
     dimensions: WindowDimensions
   ) => void;
+  renameWindow: (id: string, title: string) => void;
   isWindowOpen: (type: string, id?: string) => boolean;
   getWindow: (id: string) => WindowInstance | undefined;
 }
@@ -30,4 +38,8 @@ export interface WindowManagerProviderProps {
   loadDimensions?: (type: string) => WindowDimensions | null;
   saveDimensions?: (type: string, dimensions: WindowDimensions) => void;
   shouldPreserveState?: () => boolean;
+  createWindowId?: ((type: string) => string) | undefined;
+  resolveInitialDimensions?:
+    | ((options: ResolveInitialWindowDimensionsOptions) => WindowDimensions | undefined)
+    | undefined;
 }

@@ -1,9 +1,9 @@
-import type { WindowDimensions } from '@client/components/floating-window';
-import { FloatingWindow } from '@client/components/floating-window';
 import { ClientTerminal } from '@client/components/terminal';
 import { HelpDocumentation } from '@tearleads/help';
 import { cn } from '@tearleads/ui';
 import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup

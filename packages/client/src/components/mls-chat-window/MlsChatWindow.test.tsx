@@ -174,8 +174,13 @@ vi.mock('./MlsChatWindowMenuBar', () => ({
   MlsChatWindowMenuBar: () => <div data-testid="mls-chat-menu-bar" />
 }));
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+  DesktopFloatingWindow: ({
     children,
     title
   }: {
@@ -186,7 +191,8 @@ vi.mock('@/components/floating-window', () => ({
       {children}
     </div>
   )
-}));
+  };
+});
 
 vi.mock('@/components/sqlite/InlineUnlock', () => ({
   InlineUnlock: () => <div data-testid="inline-unlock" />

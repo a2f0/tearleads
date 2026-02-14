@@ -1,4 +1,6 @@
 export {
+  getDefaultDesktopWindowDimensions,
+  type DefaultDesktopWindowDimensionsOptions,
   useWindowManager,
   type WindowInstance,
   type WindowManagerContextValue,

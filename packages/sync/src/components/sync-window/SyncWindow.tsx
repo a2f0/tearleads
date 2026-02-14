@@ -1,6 +1,8 @@
-import type { WindowDimensions } from '@client/components/floating-window';
-import { FloatingWindow } from '@client/components/floating-window';
-import { WindowControlBar } from '@tearleads/window-manager';
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions,
+  WindowControlBar
+} from '@tearleads/window-manager';
 import { Sync } from '../../pages/sync';
 import { SyncWindowMenuBar } from './SyncWindowMenuBar';
 

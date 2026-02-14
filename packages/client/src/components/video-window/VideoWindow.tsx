@@ -7,8 +7,10 @@ import {
 import { ArrowLeft, Loader2, RefreshCw, Upload } from 'lucide-react';
 import type { ChangeEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { UploadProgress } from '@/components/ui/upload-progress';
 import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';

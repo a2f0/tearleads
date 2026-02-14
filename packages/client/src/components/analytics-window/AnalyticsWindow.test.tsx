@@ -24,8 +24,13 @@ vi.mock('@/db/analytics', () => ({
   getEventDisplayName: (name: string) => name
 }));
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+  DesktopFloatingWindow: ({
     children,
     title,
     onClose,
@@ -44,7 +49,8 @@ vi.mock('@/components/floating-window', () => ({
       {children}
     </div>
   )
-}));
+  };
+});
 
 let analyticsExportState: {
   handler: (() => Promise<void>) | null;

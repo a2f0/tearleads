@@ -5,7 +5,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback } from 'react';
-import { FloatingWindow } from '@/components/floating-window';
+import { DesktopFloatingWindow as FloatingWindow } from '@tearleads/window-manager';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext';

@@ -8,8 +8,13 @@ const mockRefresh = vi.fn();
 const mockExpandAll = vi.fn();
 const mockCollapseAll = vi.fn();
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+  DesktopFloatingWindow: ({
     children,
     title,
     onClose,
@@ -33,7 +38,8 @@ vi.mock('@/components/floating-window', () => ({
       {children}
     </div>
   )
-}));
+  };
+});
 
 vi.mock('@/pages/opfs/OpfsBrowser', async () => {
   const ReactModule = await vi.importActual<typeof import('react')>('react');

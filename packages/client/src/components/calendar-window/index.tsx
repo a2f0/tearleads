@@ -8,10 +8,15 @@ import {
 import { WindowControlBar } from '@tearleads/window-manager';
 import { CalendarPlus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import {
   createCalendarEvent,
   getCalendarEvents,

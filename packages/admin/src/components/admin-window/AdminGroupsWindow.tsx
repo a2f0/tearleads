@@ -1,4 +1,4 @@
-import type { WindowDimensions } from '@/components/floating-window';
+import type { WindowDimensions } from '@tearleads/window-manager';
 import { AdminWindow } from './AdminWindow';
 
 interface AdminGroupsWindowProps {

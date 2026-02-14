@@ -22,7 +22,10 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';

@@ -4,7 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useAudioContext } from '@/audio';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useDraggable } from '@/hooks/useDraggable';

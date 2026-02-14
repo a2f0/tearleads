@@ -1,7 +1,9 @@
 import { Activity, Bell, CheckCheck, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { ContextMenu } from '@/components/ui/context-menu/ContextMenu';
-import { ContextMenuItem } from '@/components/ui/context-menu/ContextMenuItem';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { notificationStore } from '@/stores/notificationStore';
 import { NotificationBadge } from './NotificationBadge';

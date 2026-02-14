@@ -6,8 +6,10 @@ import {
 } from '@tearleads/window-manager';
 import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { DatabaseTest } from '@/components/sqlite/DatabaseTest';
 import { TableRowsView } from '@/components/sqlite/TableRowsView';
 import { TableSizes } from '@/components/sqlite/TableSizes';

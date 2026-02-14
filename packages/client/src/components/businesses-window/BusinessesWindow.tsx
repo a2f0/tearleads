@@ -1,7 +1,9 @@
 import { WindowControlBar } from '@tearleads/window-manager';
 import { BusinessesManager } from '@/components/businesses';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 
 const BUSINESSES_WINDOW_DEFAULT_WIDTH = 860;
 const BUSINESSES_WINDOW_DEFAULT_HEIGHT = 560;
