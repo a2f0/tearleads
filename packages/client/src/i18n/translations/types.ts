@@ -16,6 +16,7 @@ export interface MenuTranslations {
   calendar: string;
   files: string;
   businesses: string;
+  health: string;
   contacts: string;
   photos: string;
   camera: string;

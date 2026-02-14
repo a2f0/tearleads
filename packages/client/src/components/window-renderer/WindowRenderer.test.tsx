@@ -10,6 +10,7 @@ interface WindowDimensions {
   y: number;
   width: number;
   height: number;
+  isMaximized?: boolean;
 }
 
 vi.mock('@/components/notes-window', () => ({
@@ -56,6 +57,21 @@ vi.mock('@/components/notes-window', () => ({
         data-testid={`resize-${id}`}
       >
         Resize
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onDimensionsChange?.({
+            x: 10,
+            y: 20,
+            width: 500,
+            height: 400,
+            isMaximized: true
+          })
+        }
+        data-testid={`resize-maximized-${id}`}
+      >
+        ResizeMaximized
       </button>
     </div>
   )
@@ -758,6 +774,41 @@ vi.mock('@/components/businesses-window', () => ({
   )
 }));
 
+vi.mock('@/components/health-window', () => ({
+  HealthWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`health-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 760, height: 560 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/analytics-window', () => ({
   AnalyticsWindow: ({
     id,
@@ -1387,6 +1438,27 @@ describe('WindowRenderer', () => {
     });
   });
 
+  it('includes isMaximized when dimensions change provides it', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('resize-maximized-notes-1'));
+    expect(mockUpdateWindowDimensions).toHaveBeenCalledWith('notes-1', {
+      x: 10,
+      y: 20,
+      width: 500,
+      height: 400,
+      isMaximized: true
+    });
+    expect(mockSaveWindowDimensionsForType).toHaveBeenCalledWith('notes', {
+      x: 10,
+      y: 20,
+      width: 500,
+      height: 400
+    });
+  });
+
   it('passes correct zIndex to windows', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
@@ -1780,6 +1852,18 @@ describe('WindowRenderer', () => {
       }
     },
     {
+      label: 'health',
+      type: 'health',
+      id: 'health-1',
+      windowTestId: 'health-window-health-1',
+      closeTestId: 'close-health-1',
+      focusTestId: 'health-window-health-1',
+      minimize: {
+        testId: 'minimize-health-1',
+        dimensions: { x: 0, y: 0, width: 760, height: 560 }
+      }
+    },
+    {
       label: 'chat',
       type: 'chat',
       id: 'chat-1',
@@ -1874,6 +1958,17 @@ describe('WindowRenderer', () => {
     expect(mockFocusWindow).not.toHaveBeenCalled();
   });
 
+  it('does not call focusWindow when the clicked window no longer exists', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    mockWindows.length = 0;
+    await user.click(screen.getByTestId('notes-window-notes-1'));
+
+    expect(mockFocusWindow).not.toHaveBeenCalled();
+  });
+
   const minimizeCases: WindowMinimizeCase[] = windowCases
     .filter(hasMinimizeCase)
     .map((windowCase) => [
@@ -1893,7 +1988,7 @@ describe('WindowRenderer', () => {
     expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
   });
 
-  it('renders all twenty-five window types together', () => {
+  it('renders all twenty-six window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -1919,7 +2014,8 @@ describe('WindowRenderer', () => {
       { id: 'local-storage-1', type: 'local-storage', zIndex: 121 },
       { id: 'opfs-1', type: 'opfs', zIndex: 122 },
       { id: 'calendar-1', type: 'calendar', zIndex: 123 },
-      { id: 'businesses-1', type: 'businesses', zIndex: 124 }
+      { id: 'businesses-1', type: 'businesses', zIndex: 124 },
+      { id: 'health-1', type: 'health', zIndex: 125 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -1948,6 +2044,7 @@ describe('WindowRenderer', () => {
     expect(
       screen.getByTestId('businesses-window-businesses-1')
     ).toBeInTheDocument();
+    expect(screen.getByTestId('health-window-health-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('local-storage-window-local-storage-1')
     ).toBeInTheDocument();
