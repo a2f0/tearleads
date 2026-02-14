@@ -176,9 +176,9 @@ flowchart TB
 
 ## Referência de Plataforma
 
-| Plataforma | Biblioteca de Criptografia                | Armazenamento de Salt/KCV |
-| -------- | ------------------------------------------ | ------------------- |
-| Web      | SQLite3MultipleCiphers (WASM)              | IndexedDB           |
+| Plataforma | Biblioteca de Criptografia | Armazenamento de Salt/KCV |
+| --- | --- | --- |
+| Web | SQLite3MultipleCiphers (WASM) | IndexedDB |
 | Electron | ChaCha20 (better-sqlite3-multiple-ciphers) | Sistema de Arquivos |
-| iOS      | SQLCipher                                  | IndexedDB (WebView) |
-| Android  | SQLCipher                                  | IndexedDB (WebView) |
+| iOS | SQLCipher | IndexedDB (WebView) |
+| Android | SQLCipher | IndexedDB (WebView) |
