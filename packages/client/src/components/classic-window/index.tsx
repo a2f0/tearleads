@@ -1,10 +1,10 @@
 import type { EntrySortOrder, TagSortOrder } from '@tearleads/classic';
-import { useState } from 'react';
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { useState } from 'react';
 import { ClassicWorkspace } from '@/components/classic-workspace/ClassicWorkspace';
 import { ClassicWindowMenuBar } from './ClassicWindowMenuBar';
 

@@ -1,9 +1,6 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
 import {
   DesktopContextMenu as ContextMenu,
-  DesktopContextMenuItem as ContextMenuItem,
-  WINDOW_TABLE_TYPOGRAPHY,
-  WindowTableRow
+  DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
 import { and, desc, eq, like, or } from 'drizzle-orm';
 import {
@@ -17,7 +14,6 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { UploadProgress } from '@/components/ui/upload-progress';
