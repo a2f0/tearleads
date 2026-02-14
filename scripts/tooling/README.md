@@ -58,6 +58,13 @@
 - `runMaestroAndroidTests` - Run Maestro Android flows via Fastlane
 - `runMaestroIosTests` - Run Maestro iOS flows via Fastlane
 
+## Skill Coverage
+
+Automation skills currently invoke a focused subset of wrappers:
+
+- Skill-invoked: `ciImpact`, `runImpactedQuality`, `runImpactedTests`
+- Manual-only: `analyzeBundle`, `checkBinaryFiles`, `copyTestFilesAndroid`, `copyTestFilesIos`, `runAllTests`, `runElectronTests`, `runPlaywrightTests`, `verifyBinaryGuardrails`, `runAndroid`, `runIos`, `runIpad`, `runElectron`, `runMaestroAndroidTests`, `runMaestroIosTests`, `setupPostgresDev`, `setupSerenaMcp`, `setupTuxedoRepos`, `syncCliAuth`, `toggleAndroidKeyboard`, `tuxedo`, `tuxedoKill`, `updateEverything`, `verifyCleanIosBuild`, `muteIosSimulatorAudio`
+
 ## Common Options
 
 All actions support these options:

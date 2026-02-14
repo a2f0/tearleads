@@ -45,6 +45,13 @@ Run `--help` for full action and option list:
 - `triggerGeminiReview` - Post /gemini review and poll for response
 - `findDeferredWork` - Find deferred work comments
 
+## Skill Coverage
+
+Automation skills call most `agentTool.ts` actions directly. Two wrappers are intentionally manual-only:
+
+- `syncToolchainVersions` (operator toolchain maintenance workflow)
+- `approveSkippedChecks` (manual CI recovery when checks are skipped by routing)
+
 ## Common Options
 
 - `--timeout-seconds <n>` - Timeout (default: 300, refresh: 3600)
