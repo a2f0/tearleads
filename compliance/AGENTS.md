@@ -75,12 +75,17 @@ Key compliance-relevant configurations:
 
 ## Infrastructure Sentinel Conventions
 
-When adding sentinels to infrastructure-as-code, place them at the resource or block level that implements the control:
+When adding sentinels to infrastructure-as-code, place them at the resource or block level that implements the control.
+
+**Note**: The `policy` and `procedure` attributes are optional. Use the minimal format (`control` only) for initial sentinel placement, then add `policy` and `procedure` links when the corresponding compliance documents exist:
+
+- Minimal: `COMPLIANCE_SENTINEL: TL-INFRA-001 | control=ssh-hardening`
+- Full: `COMPLIANCE_SENTINEL: TL-INFRA-001 | policy=compliance/SOC2/policies/XX.md | procedure=compliance/SOC2/procedures/XX.md | control=ssh-hardening`
 
 ### Terraform Resources
 
 ```hcl
-# COMPLIANCE_SENTINEL: TL-INFRA-001 | policy=compliance/SOC2/policies/XX.md | procedure=compliance/SOC2/procedures/XX.md | control=ssh-hardening
+# COMPLIANCE_SENTINEL: TL-INFRA-001 | control=ssh-hardening
 resource "hcloud_server" "main" {
   # ...
 }
@@ -89,7 +94,7 @@ resource "hcloud_server" "main" {
 ### Ansible Tasks
 
 ```yaml
-# COMPLIANCE_SENTINEL: TL-INFRA-001 | policy=compliance/SOC2/policies/XX.md | procedure=compliance/SOC2/procedures/XX.md | control=ssh-hardening
+# COMPLIANCE_SENTINEL: TL-INFRA-001 | control=ssh-hardening
 - name: Disable root SSH login
   ansible.builtin.lineinfile:
     # ...
