@@ -1,73 +1,31 @@
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import { and, eq, like, or } from 'drizzle-orm';
-import {
-  ArrowLeft,
-  Calendar,
-  Download,
-  FileText,
-  FileType,
-  Film,
-  HardDrive,
-  Loader2,
-  Music,
-  Pause,
-  Play,
-  Share2,
-  Trash2
-} from 'lucide-react';
-import {
-  lazy,
-  Suspense,
-  useCallback,
-  useEffect,
-  useRef,
-  useState
-} from 'react';
+import { Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { DeleteFileDialog } from '@/components/DeleteFileDialog';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { Button } from '@/components/ui/button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { formatDate, formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
-
-const PdfViewer = lazy(() =>
-  import('@/components/pdf').then((m) => ({ default: m.PdfViewer }))
-);
-
-interface FileInfo {
-  id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  uploadDate: Date;
-  storagePath: string;
-}
+import { FileDetailActions } from './FileDetailActions';
+import { FileDetailHeader } from './FileDetailHeader';
+import { FileDetailInfoPanel } from './FileDetailInfoPanel';
+import { FileDetailPreview } from './FileDetailPreview';
+import { type FileInfo, getFileCategory } from './fileDetailTypes';
 
 interface FilesWindowDetailProps {
   fileId: string;
   onBack: () => void;
   onDeleted: () => void;
-}
-
-type FileCategory = 'image' | 'video' | 'audio' | 'document' | 'unknown';
-
-function getFileCategory(mimeType: string): FileCategory {
-  if (mimeType.startsWith('image/')) return 'image';
-  if (mimeType.startsWith('video/')) return 'video';
-  if (mimeType.startsWith('audio/')) return 'audio';
-  if (mimeType === 'application/pdf' || mimeType.startsWith('text/'))
-    return 'document';
-  return 'unknown';
 }
 
 export function FilesWindowDetail({
@@ -281,29 +239,12 @@ export function FilesWindowDetail({
 
   return (
     <div className="flex h-full flex-col space-y-3 overflow-auto p-3">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="h-7 px-2"
-          data-testid="window-file-back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        {file && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setDeleteDialogOpen(true)}
-            disabled={actionLoading !== null}
-            className="ml-auto h-7 px-2 text-destructive hover:text-destructive"
-            data-testid="window-file-delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
+      <FileDetailHeader
+        canDelete={Boolean(file)}
+        onBack={onBack}
+        onDeleteRequest={() => setDeleteDialogOpen(true)}
+        actionsDisabled={actionLoading !== null}
+      />
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
@@ -329,166 +270,22 @@ export function FilesWindowDetail({
       {isUnlocked && !loading && !error && file && (
         <div className="flex min-h-0 flex-1 flex-col space-y-3">
           <h2 className="truncate font-semibold text-sm">{file.name}</h2>
-
-          {category === 'image' && objectUrl && (
-            <div className="flex-shrink-0 overflow-hidden rounded-lg border bg-muted">
-              <img
-                src={objectUrl}
-                alt={file.name}
-                className="mx-auto max-h-48 object-contain"
-                data-testid="file-detail-image"
-              />
-            </div>
-          )}
-
-          {category === 'video' && objectUrl && (
-            <div className="flex-shrink-0 overflow-hidden rounded-lg border bg-muted p-2">
-              <video
-                src={objectUrl}
-                controls
-                playsInline
-                className="mx-auto max-h-48 w-full rounded"
-                data-testid="file-detail-video"
-              >
-                <track kind="captions" />
-              </video>
-            </div>
-          )}
-
-          {category === 'audio' && objectUrl && (
-            <div className="flex flex-col items-center gap-3 rounded-lg border bg-muted p-4">
-              <Music className="h-12 w-12 text-muted-foreground" />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handlePlayPause}
-                data-testid="file-detail-audio-play"
-              >
-                {isCurrentlyPlaying ? (
-                  <>
-                    <Pause className="mr-1 h-3 w-3" />
-                    Pause
-                  </>
-                ) : (
-                  <>
-                    <Play className="mr-1 h-3 w-3" />
-                    Play
-                  </>
-                )}
-              </Button>
-            </div>
-          )}
-
-          {category === 'document' &&
-            file.mimeType === 'application/pdf' &&
-            documentData && (
-              <Suspense
-                fallback={
-                  <div className="flex items-center justify-center gap-2 rounded-lg border bg-muted p-8 text-muted-foreground text-xs">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading viewer...
-                  </div>
-                }
-              >
-                <div
-                  className="max-h-64 overflow-auto rounded-lg border"
-                  data-testid="file-detail-pdf"
-                >
-                  <PdfViewer data={documentData} />
-                </div>
-              </Suspense>
-            )}
-
-          {category === 'document' &&
-            file.mimeType.startsWith('text/') &&
-            textContent !== null && (
-              <div
-                className="max-h-48 overflow-auto rounded-lg border bg-muted p-2"
-                data-testid="file-detail-text"
-              >
-                <pre className="whitespace-pre-wrap break-words font-mono text-xs">
-                  {textContent}
-                </pre>
-              </div>
-            )}
-
-          {category === 'unknown' && (
-            <div className="flex flex-col items-center gap-2 rounded-lg border bg-muted p-4">
-              <FileText className="h-12 w-12 text-muted-foreground" />
-              <p className="text-muted-foreground text-xs">
-                Preview not available
-              </p>
-            </div>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleDownload}
-              disabled={actionLoading !== null}
-              data-testid="window-file-download"
-            >
-              {actionLoading === 'download' ? (
-                <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-              ) : (
-                <Download className="mr-1 h-3 w-3" />
-              )}
-              Download
-            </Button>
-            {canShare && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleShare}
-                disabled={actionLoading !== null}
-                data-testid="window-file-share"
-              >
-                {actionLoading === 'share' ? (
-                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
-                ) : (
-                  <Share2 className="mr-1 h-3 w-3" />
-                )}
-                Share
-              </Button>
-            )}
-          </div>
-
-          <div className="rounded-lg border text-xs">
-            <div className="border-b px-3 py-2">
-              <h3 className="font-semibold">Details</h3>
-            </div>
-            <div className="divide-y">
-              <div className="flex items-center gap-2 px-3 py-2">
-                {category === 'image' && (
-                  <FileType className="h-3 w-3 text-muted-foreground" />
-                )}
-                {category === 'video' && (
-                  <Film className="h-3 w-3 text-muted-foreground" />
-                )}
-                {category === 'audio' && (
-                  <Music className="h-3 w-3 text-muted-foreground" />
-                )}
-                {(category === 'document' || category === 'unknown') && (
-                  <FileText className="h-3 w-3 text-muted-foreground" />
-                )}
-                <span className="text-muted-foreground">Type</span>
-                <span className="ml-auto font-mono">{file.mimeType}</span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2">
-                <HardDrive className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">Size</span>
-                <span className="ml-auto font-mono">
-                  {formatFileSize(file.size)}
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-2">
-                <Calendar className="h-3 w-3 text-muted-foreground" />
-                <span className="text-muted-foreground">Uploaded</span>
-                <span className="ml-auto">{formatDate(file.uploadDate)}</span>
-              </div>
-            </div>
-          </div>
+          <FileDetailPreview
+            category={category}
+            documentData={documentData}
+            file={file}
+            isCurrentlyPlaying={isCurrentlyPlaying}
+            objectUrl={objectUrl}
+            onPlayPause={handlePlayPause}
+            textContent={textContent}
+          />
+          <FileDetailActions
+            actionLoading={actionLoading}
+            canShare={canShare}
+            onDownload={handleDownload}
+            onShare={handleShare}
+          />
+          <FileDetailInfoPanel category={category} file={file} />
         </div>
       )}
 
