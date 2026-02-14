@@ -110,13 +110,42 @@ function isAccessLevel(value: string | null): value is VfsAclAccessLevel {
   return value === 'read' || value === 'write' || value === 'admin';
 }
 
-function normalizeRequiredString(value: string | null): string | null {
+function normalizeRequiredString(value: unknown): string | null {
   if (typeof value !== 'string') {
     return null;
   }
 
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : null;
+}
+
+function cloneCursor(cursor: VfsSyncCursor): VfsSyncCursor {
+  return {
+    changedAt: cursor.changedAt,
+    changeId: cursor.changeId
+  };
+}
+
+function normalizeCursor(cursor: VfsSyncCursor | null): VfsSyncCursor | null {
+  if (!cursor) {
+    return null;
+  }
+
+  const changedAt = normalizeRequiredString(cursor.changedAt);
+  const changeId = normalizeRequiredString(cursor.changeId);
+  if (!changedAt || !changeId) {
+    throw new Error('snapshot cursor is invalid');
+  }
+
+  const parsedMs = Date.parse(changedAt);
+  if (!Number.isFinite(parsedMs)) {
+    throw new Error('snapshot cursor is invalid');
+  }
+
+  return {
+    changedAt: new Date(parsedMs).toISOString(),
+    changeId
+  };
 }
 
 export class InMemoryVfsCrdtFeedReplayStore {
@@ -212,8 +241,69 @@ export class InMemoryVfsCrdtFeedReplayStore {
     return {
       acl,
       links,
-      cursor: this.cursor
+      cursor: this.cursor ? cloneCursor(this.cursor) : null
     };
+  }
+
+  replaceSnapshot(snapshot: VfsCrdtFeedReplaySnapshot): void {
+    const nextAclRegisters: Map<string, VfsCrdtFeedAclRegister> = new Map();
+    const nextLinkRegisters: Map<string, VfsCrdtFeedLinkRegister> = new Map();
+
+    /**
+     * Guardrail: snapshot hydration must be deterministic and reject malformed
+     * ACL/link identities. Corrupt snapshot input here would permanently poison
+     * the local replay state after restart.
+     */
+    for (const entry of snapshot.acl) {
+      const itemId = normalizeRequiredString(entry.itemId);
+      const principalType = isPrincipalType(entry.principalType)
+        ? entry.principalType
+        : null;
+      const principalId = normalizeRequiredString(entry.principalId);
+      const accessLevel = isAccessLevel(entry.accessLevel) ? entry.accessLevel : null;
+      if (!itemId || !principalType || !principalId || !accessLevel) {
+        throw new Error('snapshot acl entry is invalid');
+      }
+
+      const key = toAclKey(itemId, principalType, principalId);
+      if (nextAclRegisters.has(key)) {
+        throw new Error('snapshot acl contains duplicate principal entry');
+      }
+      nextAclRegisters.set(key, {
+        itemId,
+        principalType,
+        principalId,
+        accessLevel
+      });
+    }
+
+    for (const entry of snapshot.links) {
+      const parentId = normalizeRequiredString(entry.parentId);
+      const childId = normalizeRequiredString(entry.childId);
+      if (!parentId || !childId) {
+        throw new Error('snapshot link entry is invalid');
+      }
+
+      const key = toLinkKey(parentId, childId);
+      if (nextLinkRegisters.has(key)) {
+        throw new Error('snapshot links contain duplicate edge');
+      }
+      nextLinkRegisters.set(key, {
+        parentId,
+        childId,
+        present: true
+      });
+    }
+
+    this.aclRegisters.clear();
+    this.linkRegisters.clear();
+    for (const [key, value] of nextAclRegisters) {
+      this.aclRegisters.set(key, value);
+    }
+    for (const [key, value] of nextLinkRegisters) {
+      this.linkRegisters.set(key, value);
+    }
+    this.cursor = normalizeCursor(snapshot.cursor);
   }
 
   private applyAclItem(item: VfsCrdtSyncItem, index: number): void {

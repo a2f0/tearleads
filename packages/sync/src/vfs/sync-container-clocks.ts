@@ -138,7 +138,49 @@ export class InMemoryVfsContainerClockStore {
   snapshot(): VfsContainerClockEntry[] {
     const entries = Array.from(this.clocksByContainerId.values());
     entries.sort(compareEntries);
-    return entries;
+    return entries.map((entry) => ({
+      containerId: entry.containerId,
+      changedAt: entry.changedAt,
+      changeId: entry.changeId
+    }));
+  }
+
+  replaceSnapshot(entries: VfsContainerClockEntry[]): void {
+    const nextEntriesByContainerId: Map<string, VfsContainerClockEntry> = new Map();
+
+    /**
+     * Guardrail: container clock hydration must preserve one deterministic latest
+     * cursor per container. Duplicate container IDs or malformed cursors are
+     * treated as corruption and rejected.
+     */
+    for (const entry of entries) {
+      const containerId = normalizeRequiredString(entry.containerId);
+      const changeId = normalizeRequiredString(entry.changeId);
+      const changedAt = normalizeRequiredString(entry.changedAt);
+      if (!containerId || !changeId || !changedAt) {
+        throw new Error('snapshot container clock entry is invalid');
+      }
+
+      const parsedChangedAtMs = Date.parse(changedAt);
+      if (!Number.isFinite(parsedChangedAtMs)) {
+        throw new Error('snapshot container clock entry is invalid');
+      }
+
+      if (nextEntriesByContainerId.has(containerId)) {
+        throw new Error('snapshot container clocks contain duplicate containerId');
+      }
+
+      nextEntriesByContainerId.set(containerId, {
+        containerId,
+        changedAt: new Date(parsedChangedAtMs).toISOString(),
+        changeId
+      });
+    }
+
+    this.clocksByContainerId.clear();
+    for (const [containerId, nextEntry] of nextEntriesByContainerId) {
+      this.clocksByContainerId.set(containerId, nextEntry);
+    }
   }
 
   listChangedSince(

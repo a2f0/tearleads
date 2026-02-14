@@ -3,11 +3,15 @@ import type {
   VfsAclPrincipalType,
   VfsCrdtSyncItem
 } from '@tearleads/shared';
-import { InMemoryVfsCrdtFeedReplayStore } from './sync-crdt-feed-replay.js';
+import {
+  InMemoryVfsCrdtFeedReplayStore,
+  type VfsCrdtFeedReplaySnapshot
+} from './sync-crdt-feed-replay.js';
 import type { VfsCrdtOperation, VfsCrdtOpType } from './sync-crdt.js';
 import {
   InMemoryVfsCrdtClientStateStore,
   parseVfsCrdtLastReconciledWriteIds,
+  type VfsCrdtClientReconcileState,
   type VfsCrdtLastReconciledWriteIds
 } from './sync-crdt-reconcile.js';
 import {
@@ -28,6 +32,12 @@ const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
   'user',
   'group',
   'organization'
+];
+const VALID_OP_TYPES: VfsCrdtOpType[] = [
+  'acl_add',
+  'acl_remove',
+  'link_add',
+  'link_remove'
 ];
 
 function isAccessLevel(value: unknown): value is VfsAclAccessLevel {
@@ -107,6 +117,20 @@ function validateClientId(value: string): void {
   }
 }
 
+function parsePositiveSafeInteger(value: unknown, fieldName: string): number {
+  if (
+    typeof value !== 'number' ||
+    !Number.isFinite(value) ||
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > Number.MAX_SAFE_INTEGER
+  ) {
+    throw new Error(`${fieldName} must be a positive safe integer`);
+  }
+
+  return value;
+}
+
 function cloneCursor(cursor: VfsSyncCursor): VfsSyncCursor {
   return {
     changedAt: cursor.changedAt,
@@ -151,6 +175,13 @@ function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
     value === 'staleWriteId' ||
     value === 'outdatedOp' ||
     value === 'invalidOp'
+  );
+}
+
+function isCrdtOpType(value: unknown): value is VfsCrdtOpType {
+  return (
+    typeof value === 'string' &&
+    VALID_OP_TYPES.some((candidate) => candidate === value)
   );
 }
 
@@ -333,6 +364,14 @@ export interface VfsBackgroundSyncClientSnapshot {
   nextLocalWriteId: number;
 }
 
+export interface VfsBackgroundSyncClientPersistedState {
+  replaySnapshot: VfsCrdtFeedReplaySnapshot;
+  reconcileState: VfsCrdtClientReconcileState | null;
+  containerClocks: VfsContainerClockEntry[];
+  pendingOperations: VfsCrdtOperation[];
+  nextLocalWriteId: number;
+}
+
 export class VfsBackgroundSyncClient {
   private readonly userId: string;
   private readonly clientId: string;
@@ -473,6 +512,119 @@ export class VfsBackgroundSyncClient {
     };
   }
 
+  exportState(): VfsBackgroundSyncClientPersistedState {
+    const replaySnapshot = this.replayStore.snapshot();
+    const reconcileState = this.reconcileStateStore.get(
+      this.userId,
+      this.clientId
+    );
+
+    return {
+      replaySnapshot: {
+        acl: replaySnapshot.acl.map((entry) => ({
+          itemId: entry.itemId,
+          principalType: entry.principalType,
+          principalId: entry.principalId,
+          accessLevel: entry.accessLevel
+        })),
+        links: replaySnapshot.links.map((entry) => ({
+          parentId: entry.parentId,
+          childId: entry.childId
+        })),
+        cursor: replaySnapshot.cursor ? cloneCursor(replaySnapshot.cursor) : null
+      },
+      reconcileState: reconcileState
+        ? {
+            cursor: cloneCursor(reconcileState.cursor),
+            lastReconciledWriteIds: { ...reconcileState.lastReconciledWriteIds }
+          }
+        : null,
+      containerClocks: this.containerClockStore.snapshot(),
+      pendingOperations: this.pendingOperations.map((operation) => ({
+        ...operation
+      })),
+      nextLocalWriteId: this.nextLocalWriteId
+    };
+  }
+
+  hydrateState(state: VfsBackgroundSyncClientPersistedState): void {
+    this.assertHydrationAllowed();
+    if (typeof state !== 'object' || state === null) {
+      throw new Error('state must be a non-null object');
+    }
+
+    if (!Array.isArray(state.pendingOperations)) {
+      throw new Error('state.pendingOperations must be an array');
+    }
+    if (!Array.isArray(state.containerClocks)) {
+      throw new Error('state.containerClocks must be an array');
+    }
+
+    const normalizedReplaySnapshot = this.normalizePersistedReplaySnapshot(
+      state.replaySnapshot
+    );
+    const normalizedReconcileState = this.normalizePersistedReconcileState(
+      state.reconcileState
+    );
+    const normalizedContainerClocks = this.normalizePersistedContainerClocks(
+      state.containerClocks
+    );
+
+    const normalizedPendingOperations: VfsCrdtOperation[] = [];
+    const observedPendingOpIds: Set<string> = new Set();
+    let maxPendingWriteId = 0;
+    let previousWriteId = 0;
+    for (let index = 0; index < state.pendingOperations.length; index++) {
+      const operation = state.pendingOperations[index];
+      if (!operation) {
+        throw new Error(`state.pendingOperations[${index}] is invalid`);
+      }
+
+      const normalizedOperation = this.normalizePersistedPendingOperation(
+        operation,
+        index
+      );
+      if (observedPendingOpIds.has(normalizedOperation.opId)) {
+        throw new Error(`state.pendingOperations has duplicate opId ${normalizedOperation.opId}`);
+      }
+      if (normalizedOperation.writeId <= previousWriteId) {
+        throw new Error('state.pendingOperations writeIds must be strictly increasing');
+      }
+
+      observedPendingOpIds.add(normalizedOperation.opId);
+      normalizedPendingOperations.push(normalizedOperation);
+      maxPendingWriteId = Math.max(maxPendingWriteId, normalizedOperation.writeId);
+      previousWriteId = normalizedOperation.writeId;
+    }
+
+    this.replayStore.replaceSnapshot(normalizedReplaySnapshot);
+    this.containerClockStore.replaceSnapshot(normalizedContainerClocks);
+
+    if (normalizedReconcileState) {
+      this.reconcileStateStore.reconcile(
+        this.userId,
+        this.clientId,
+        normalizedReconcileState.cursor,
+        normalizedReconcileState.lastReconciledWriteIds
+      );
+    }
+
+    for (const operation of normalizedPendingOperations) {
+      this.pendingOperations.push({ ...operation });
+      this.pendingOpIds.add(operation.opId);
+    }
+
+    const persistedNextLocalWriteId = parsePositiveSafeInteger(
+      state.nextLocalWriteId,
+      'state.nextLocalWriteId'
+    );
+    this.nextLocalWriteId = Math.max(
+      persistedNextLocalWriteId,
+      maxPendingWriteId + 1
+    );
+    this.bumpLocalWriteIdFromReconcileState();
+  }
+
   listChangedContainers(
     cursor: VfsSyncCursor | null,
     limit?: number
@@ -528,6 +680,214 @@ export class VfsBackgroundSyncClient {
         // no-op: caller controls error handling through onBackgroundError
       });
     }
+  }
+
+  private assertHydrationAllowed(): void {
+    if (this.flushPromise) {
+      throw new Error('cannot hydrate state while flush is in progress');
+    }
+    if (this.backgroundFlushTimer) {
+      throw new Error('cannot hydrate state while background flush is active');
+    }
+
+    /**
+     * Guardrail: hydration replaces all local client state. We only allow it on
+     * a pristine client instance to avoid blending persisted state with live
+     * mutable state from a previous process lifetime.
+     */
+    if (this.pendingOperations.length > 0 || this.pendingOpIds.size > 0) {
+      throw new Error('cannot hydrate state on a non-empty pending queue');
+    }
+    const replaySnapshot = this.replayStore.snapshot();
+    const reconcileState = this.reconcileStateStore.get(this.userId, this.clientId);
+    const containerClocks = this.containerClockStore.snapshot();
+    if (
+      replaySnapshot.acl.length > 0 ||
+      replaySnapshot.links.length > 0 ||
+      replaySnapshot.cursor !== null ||
+      reconcileState !== null ||
+      containerClocks.length > 0 ||
+      this.nextLocalWriteId !== 1
+    ) {
+      throw new Error('cannot hydrate state on a non-empty client');
+    }
+  }
+
+  private normalizePersistedReplaySnapshot(
+    value: VfsCrdtFeedReplaySnapshot
+  ): VfsCrdtFeedReplaySnapshot {
+    if (typeof value !== 'object' || value === null) {
+      throw new Error('state.replaySnapshot must be an object');
+    }
+    if (!Array.isArray(value.acl)) {
+      throw new Error('state.replaySnapshot.acl must be an array');
+    }
+    if (!Array.isArray(value.links)) {
+      throw new Error('state.replaySnapshot.links must be an array');
+    }
+
+    const normalizedAcl = value.acl.map((entry, index) => {
+      const itemId = normalizeRequiredString(entry.itemId);
+      const principalType = isPrincipalType(entry.principalType)
+        ? entry.principalType
+        : null;
+      const principalId = normalizeRequiredString(entry.principalId);
+      const accessLevel = isAccessLevel(entry.accessLevel) ? entry.accessLevel : null;
+      if (!itemId || !principalType || !principalId || !accessLevel) {
+        throw new Error(`state.replaySnapshot.acl[${index}] is invalid`);
+      }
+
+      return {
+        itemId,
+        principalType,
+        principalId,
+        accessLevel
+      };
+    });
+
+    const normalizedLinks = value.links.map((entry, index) => {
+      const parentId = normalizeRequiredString(entry.parentId);
+      const childId = normalizeRequiredString(entry.childId);
+      if (!parentId || !childId) {
+        throw new Error(`state.replaySnapshot.links[${index}] is invalid`);
+      }
+
+      return {
+        parentId,
+        childId
+      };
+    });
+
+    let normalizedCursor: VfsSyncCursor | null = null;
+    if (value.cursor !== null) {
+      normalizedCursor = normalizeCursor(value.cursor, 'persisted replay cursor');
+    }
+
+    return {
+      acl: normalizedAcl,
+      links: normalizedLinks,
+      cursor: normalizedCursor
+    };
+  }
+
+  private normalizePersistedReconcileState(
+    value: VfsCrdtClientReconcileState | null
+  ): VfsCrdtClientReconcileState | null {
+    if (value === null) {
+      return null;
+    }
+
+    const normalizedCursor = normalizeCursor(
+      value.cursor,
+      'persisted reconcile cursor'
+    );
+    const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
+      value.lastReconciledWriteIds
+    );
+    if (!parsedWriteIds.ok) {
+      throw new Error(parsedWriteIds.error);
+    }
+
+    return {
+      cursor: normalizedCursor,
+      lastReconciledWriteIds: parsedWriteIds.value
+    };
+  }
+
+  private normalizePersistedContainerClocks(
+    clocks: VfsContainerClockEntry[]
+  ): VfsContainerClockEntry[] {
+    return clocks.map((clock, index) => {
+      const containerId = normalizeRequiredString(clock.containerId);
+      const changeId = normalizeRequiredString(clock.changeId);
+      const changedAt = normalizeOccurredAt(clock.changedAt);
+      if (!containerId || !changeId || !changedAt) {
+        throw new Error(`state.containerClocks[${index}] is invalid`);
+      }
+
+      return {
+        containerId,
+        changeId,
+        changedAt
+      };
+    });
+  }
+
+  private normalizePersistedPendingOperation(
+    operation: VfsCrdtOperation,
+    index: number
+  ): VfsCrdtOperation {
+    const opType = isCrdtOpType(operation.opType) ? operation.opType : null;
+    if (!opType) {
+      throw new Error(`state.pendingOperations[${index}].opType is invalid`);
+    }
+
+    const opId = normalizeRequiredString(operation.opId);
+    const itemId = normalizeRequiredString(operation.itemId);
+    const replicaId = normalizeRequiredString(operation.replicaId);
+    const occurredAt = normalizeOccurredAt(operation.occurredAt);
+    if (!opId || !itemId || !replicaId || !occurredAt) {
+      throw new Error(`state.pendingOperations[${index}] is invalid`);
+    }
+    if (replicaId !== this.clientId) {
+      throw new Error(
+        `state.pendingOperations[${index}] has replicaId that does not match clientId`
+      );
+    }
+
+    const writeId = parsePositiveSafeInteger(
+      operation.writeId,
+      `state.pendingOperations[${index}].writeId`
+    );
+
+    const normalized: VfsCrdtOperation = {
+      opId,
+      opType,
+      itemId,
+      replicaId,
+      writeId,
+      occurredAt
+    };
+
+    if (opType === 'acl_add' || opType === 'acl_remove') {
+      const principalType = isPrincipalType(operation.principalType)
+        ? operation.principalType
+        : null;
+      const principalId = normalizeRequiredString(operation.principalId);
+      if (!principalType || !principalId) {
+        throw new Error(
+          `state.pendingOperations[${index}] is missing acl principal fields`
+        );
+      }
+      normalized.principalType = principalType;
+      normalized.principalId = principalId;
+
+      if (opType === 'acl_add') {
+        const accessLevel = isAccessLevel(operation.accessLevel)
+          ? operation.accessLevel
+          : null;
+        if (!accessLevel) {
+          throw new Error(
+            `state.pendingOperations[${index}] is missing acl accessLevel`
+          );
+        }
+        normalized.accessLevel = accessLevel;
+      }
+    }
+
+    if (opType === 'link_add' || opType === 'link_remove') {
+      const parentId = normalizeRequiredString(operation.parentId);
+      const childId = normalizeRequiredString(operation.childId);
+      if (!parentId || !childId) {
+        throw new Error(
+          `state.pendingOperations[${index}] is missing link fields`
+        );
+      }
+      normalized.parentId = parentId;
+      normalized.childId = childId;
+    }
+
+    return normalized;
   }
 
   private async runFlush(): Promise<VfsBackgroundSyncClientFlushResult> {
