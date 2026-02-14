@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 20 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 21 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(20);
+      expect(result.currentVersion).toBe(21);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 20 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 21 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -158,9 +158,9 @@ describe('migrations', () => {
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([
-        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
+        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
       ]);
-      expect(result.currentVersion).toBe(20);
+      expect(result.currentVersion).toBe(21);
     });
   });
 
@@ -399,6 +399,27 @@ describe('migrations', () => {
       expect(queries).toContain('"mls_key_packages_consumed_by_group_id_fkey"');
       expect(queries).toContain('enforce_mls_group_member_org_boundary');
       expect(queries).toContain('mls_group_members_org_boundary_trigger');
+    });
+  });
+
+  describe('v021 migration', () => {
+    it('creates per-client sync cursor state table', async () => {
+      const pool = createMockPool(new Map());
+
+      const v021 = migrations.find((m: Migration) => m.version === 21);
+      if (!v021) {
+        throw new Error('v021 migration not found');
+      }
+
+      await v021.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "vfs_sync_client_state"'
+      );
+      expect(queries).toContain(
+        'CREATE INDEX IF NOT EXISTS "vfs_sync_client_state_user_idx"'
+      );
     });
   });
 });

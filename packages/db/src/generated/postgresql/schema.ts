@@ -969,6 +969,29 @@ export const vfsSyncChanges = pgTable(
 );
 
 /**
+ * Per-user/per-client sync cursor reconciliation state.
+ * Tracks the latest cursor each client has fully applied.
+ */
+export const vfsSyncClientState = pgTable(
+  'vfs_sync_client_state',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    clientId: text('client_id').notNull(),
+    lastReconciledAt: timestamp('last_reconciled_at', {
+      withTimezone: true
+    }).notNull(),
+    lastReconciledChangeId: text('last_reconciled_change_id').notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.clientId] }),
+    index('vfs_sync_client_state_user_idx').on(table.userId)
+  ]
+);
+
+/**
  * MLS key packages for user identity.
  * Each package is consumed once when used to add user to a group.
  */

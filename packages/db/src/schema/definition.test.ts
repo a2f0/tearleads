@@ -44,7 +44,8 @@ import {
   vfsLinksTable,
   vfsRegistryTable,
   vfsSharesTable,
-  vfsSyncChangesTable
+  vfsSyncChangesTable,
+  vfsSyncClientStateTable
 } from './definition.js';
 import { isTableDefinition } from './types.js';
 
@@ -549,9 +550,20 @@ describe('vfsSyncChangesTable', () => {
   });
 });
 
+describe('vfsSyncClientStateTable', () => {
+  it('tracks per-client reconcile cursors', () => {
+    expect(vfsSyncClientStateTable.columns['userId']).toBeDefined();
+    expect(vfsSyncClientStateTable.columns['clientId']).toBeDefined();
+    expect(vfsSyncClientStateTable.columns['lastReconciledAt']).toBeDefined();
+    expect(
+      vfsSyncClientStateTable.columns['lastReconciledChangeId']
+    ).toBeDefined();
+  });
+});
+
 describe('allTables', () => {
-  it('contains all 50 tables', () => {
-    expect(allTables).toHaveLength(50);
+  it('contains all 51 tables', () => {
+    expect(allTables).toHaveLength(51);
   });
 
   it('contains all table definitions', () => {
@@ -593,6 +605,7 @@ describe('allTables', () => {
     expect(allTables).toContain(vfsAccessTable);
     expect(allTables).toContain(vfsAclEntriesTable);
     expect(allTables).toContain(vfsSyncChangesTable);
+    expect(allTables).toContain(vfsSyncClientStateTable);
     expect(allTables).toContain(mlsKeyPackagesTable);
     expect(allTables).toContain(mlsGroupsTable);
     expect(allTables).toContain(mlsGroupMembersTable);
