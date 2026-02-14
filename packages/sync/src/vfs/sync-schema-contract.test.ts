@@ -109,6 +109,54 @@ describe('sync schema contract', () => {
     );
   });
 
+  it('keeps blob attach routes off transitional blob ref tables', () => {
+    const syncPackageRoot = process.cwd();
+    const postBlobStageSource = readFileSync(
+      resolve(syncPackageRoot, '../api/src/routes/vfs/post-blobs-stage.ts'),
+      'utf8'
+    );
+    const postBlobAttachSource = readFileSync(
+      resolve(
+        syncPackageRoot,
+        '../api/src/routes/vfs/post-blobs-stage-stagingId-attach.ts'
+      ),
+      'utf8'
+    );
+    const postBlobAbandonSource = readFileSync(
+      resolve(
+        syncPackageRoot,
+        '../api/src/routes/vfs/post-blobs-stage-stagingId-abandon.ts'
+      ),
+      'utf8'
+    );
+
+    const routeSql = [
+      ...extractSqlLiteralsFromSource(postBlobStageSource),
+      ...extractSqlLiteralsFromSource(postBlobAttachSource),
+      ...extractSqlLiteralsFromSource(postBlobAbandonSource)
+    ];
+    const routeReferences = Array.from(
+      new Set(routeSql.flatMap((sql) => extractSqlTableReferences(sql)))
+    ).sort((left, right) => left.localeCompare(right));
+
+    expect(routeReferences).toEqual(
+      expect.arrayContaining([
+        'vfs_blob_staging',
+        'vfs_links',
+        'vfs_registry',
+        'vfs_sync_client_state'
+      ])
+    );
+    expect(routeReferences).not.toContain('vfs_blob_refs');
+    expect(routeSql.flatMap((sql) => findTransitionalTableReferences(sql))).toEqual([
+      'vfs_blob_staging',
+      'vfs_blob_staging',
+      'vfs_blob_staging',
+      'vfs_blob_staging',
+      'vfs_blob_staging'
+    ]);
+  });
+
   it('detects SQL references that fall outside the flattened contract', () => {
     const unexpectedSql = `
       SELECT * FROM legacy_vfs_shadow_table;
