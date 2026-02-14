@@ -29,6 +29,22 @@ export {
   type VfsCrdtSnapshot
 } from './sync-crdt.js';
 export {
+  assertStronglyConsistentVfsCrdtRows,
+  type BuildVfsCrdtSyncQueryInput,
+  buildVfsCrdtSyncQuery,
+  mapVfsCrdtSyncRows,
+  type ParsedVfsCrdtSyncQuery,
+  type ParseVfsCrdtSyncQueryInput,
+  type ParseVfsCrdtSyncQueryResult,
+  parseVfsCrdtSyncQuery,
+  type VfsCrdtFeedOrderViolationCode,
+  VfsCrdtFeedOrderViolationError,
+  type VfsCrdtSyncDbQuery,
+  type VfsCrdtSyncDbRow,
+  type VfsCrdtSyncItem,
+  type VfsCrdtSyncResponse
+} from './sync-crdt-feed.js';
+export {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor

@@ -5,6 +5,7 @@
  */
 
 import { Router, type Router as RouterType } from 'express';
+import { registerGetCrdtSyncRoute } from './vfs/get-crdt-sync.js';
 import { registerGetKeysMeRoute } from './vfs/getKeysMe.js';
 import { registerGetSyncRoute } from './vfs/get-sync.js';
 import { registerPostBlobsStageRoute } from './vfs/post-blobs-stage.js';
@@ -16,6 +17,7 @@ import { registerPostSyncReconcileRoute } from './vfs/post-sync-reconcile.js';
 
 const vfsRouter: RouterType = Router();
 registerGetKeysMeRoute(vfsRouter);
+registerGetCrdtSyncRoute(vfsRouter);
 registerGetSyncRoute(vfsRouter);
 registerPostBlobsStageRoute(vfsRouter);
 registerPostBlobsStageStagingIdAttachRoute(vfsRouter);
