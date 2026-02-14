@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 concurrency:
   group: main-version-bump
@@ -18,7 +19,7 @@ jobs:
     name: Bump Versions On Main
     if: github.event.workflow_run.conclusion == 'success'
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,6 +41,11 @@ jobs:
 
           git fetch --no-tags origin "$SOURCE_SHA" main
 
+          if git log --format=%B origin/main | grep -Fxq "source-sha: $SOURCE_SHA"; then
+            echo "skip_reason=already_processed_source" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
           PARENT_SHA=$(git rev-list --parents -n 1 "$SOURCE_SHA" | awk '{print $2}')
           if [ -z "$PARENT_SHA" ]; then
             echo "skip_reason=missing_parent" >> "$GITHUB_OUTPUT"
@@ -48,82 +54,187 @@ jobs:
 
           CHANGED_FILES_PATH="$RUNNER_TEMP/changed-files.txt"
           git diff --name-only "$PARENT_SHA" "$SOURCE_SHA" > "$CHANGED_FILES_PATH"
-          echo "changed_files_path=$CHANGED_FILES_PATH" >> "$GITHUB_OUTPUT"
 
           if ! grep -Eq '^packages/' "$CHANGED_FILES_PATH"; then
             echo "skip_reason=no_package_changes" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
-      - name: Bump versions and push with retries
+      - name: Bump versions via PR branch with retries
         if: steps.prepare.outputs.skip_reason == ''
         env:
           GH_TOKEN: ${{ github.token }}
           SOURCE_SHA: ${{ github.event.workflow_run.head_sha }}
           SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}
-          CHANGED_FILES_PATH: ${{ steps.prepare.outputs.changed_files_path }}
           REPO: ${{ github.repository }}
+          BUMP_BRANCH: ci/main-version-bump
         run: |
           set -eu
 
           ATTEMPTS=5
-          PUSHED=false
+          UPDATED=false
+          PR_URL=""
 
           for attempt in $(seq 1 "$ATTEMPTS"); do
             echo "Attempt $attempt/$ATTEMPTS" | tee -a "$GITHUB_STEP_SUMMARY"
 
-            git fetch --no-tags origin main
-            git checkout -B main origin/main
+            git fetch --no-tags origin main "$BUMP_BRANCH" || true
 
-            BASE_BRANCH=main CHANGED_FILES_FILE="$CHANGED_FILES_PATH" ./scripts/bumpVersion.sh
+            PENDING_SOURCES="$RUNNER_TEMP/pending-sources.txt"
+            : > "$PENDING_SOURCES"
 
-            if git diff --quiet; then
+            if git show-ref --verify --quiet "refs/remotes/origin/$BUMP_BRANCH"; then
+              git log --reverse --format=%B "origin/main..origin/$BUMP_BRANCH" \
+                | sed -n 's/^source-sha: //p' >> "$PENDING_SOURCES"
+            fi
+
+            if ! grep -Fxq "$SOURCE_SHA" "$PENDING_SOURCES"; then
+              echo "$SOURCE_SHA" >> "$PENDING_SOURCES"
+            fi
+
+            awk 'NF && !seen[$0]++' "$PENDING_SOURCES" > "$RUNNER_TEMP/pending-sources-unique.txt"
+            mv "$RUNNER_TEMP/pending-sources-unique.txt" "$PENDING_SOURCES"
+
+            ORDERED_PENDING="$RUNNER_TEMP/pending-sources-ordered.txt"
+            : > "$ORDERED_PENDING"
+
+            git rev-list --first-parent --reverse origin/main | while IFS= read -r main_sha; do
+              if grep -Fxq "$main_sha" "$PENDING_SOURCES"; then
+                echo "$main_sha" >> "$ORDERED_PENDING"
+              fi
+            done
+
+            while IFS= read -r pending_source_sha; do
+              [ -n "$pending_source_sha" ] || continue
+              if ! grep -Fxq "$pending_source_sha" "$ORDERED_PENDING"; then
+                echo "$pending_source_sha" >> "$ORDERED_PENDING"
+              fi
+            done < "$PENDING_SOURCES"
+
+            mv "$ORDERED_PENDING" "$PENDING_SOURCES"
+
+            if [ ! -s "$PENDING_SOURCES" ]; then
+              {
+                echo "## Main Version Bump"
+                echo "No pending source commits to process."
+                echo "Source commit: $SOURCE_SHA"
+              } >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+
+            git checkout -B "$BUMP_BRANCH" origin/main
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+            APPLIED_COMMITS=0
+            while IFS= read -r pending_source_sha; do
+              [ -n "$pending_source_sha" ] || continue
+
+              if ! git rev-parse --verify "$pending_source_sha^{commit}" >/dev/null 2>&1; then
+                git fetch --no-tags origin "$pending_source_sha" || true
+              fi
+
+              if ! git rev-parse --verify "$pending_source_sha^{commit}" >/dev/null 2>&1; then
+                echo "Unable to resolve source commit $pending_source_sha; skipping."
+                continue
+              fi
+
+              PARENT_SHA=$(git rev-list --parents -n 1 "$pending_source_sha" | awk '{print $2}')
+              if [ -z "$PARENT_SHA" ]; then
+                continue
+              fi
+
+              CURRENT_CHANGED_FILES="$RUNNER_TEMP/changed-$pending_source_sha.txt"
+              git diff --name-only "$PARENT_SHA" "$pending_source_sha" > "$CURRENT_CHANGED_FILES"
+
+              if ! grep -Eq '^packages/' "$CURRENT_CHANGED_FILES"; then
+                continue
+              fi
+
+              BASE_BRANCH=main CHANGED_FILES_FILE="$CURRENT_CHANGED_FILES" ./scripts/bumpVersion.sh
+
+              if git diff --quiet; then
+                continue
+              fi
+
+              git add -A
+              if git diff --cached --quiet; then
+                continue
+              fi
+
+              COMMIT_SOURCE_RUN_ID="replay"
+              if [ "$pending_source_sha" = "$SOURCE_SHA" ]; then
+                COMMIT_SOURCE_RUN_ID="$SOURCE_RUN_ID"
+              fi
+
+              git commit \
+                -m "chore(release): bump versions [skip ci]" \
+                -m "source-sha: $pending_source_sha" \
+                -m "source-run-id: $COMMIT_SOURCE_RUN_ID"
+              APPLIED_COMMITS=$((APPLIED_COMMITS + 1))
+            done < "$PENDING_SOURCES"
+
+            if [ "$APPLIED_COMMITS" -eq 0 ]; then
+              PR_NUMBER=$(gh pr list -R "$REPO" --state open --base main --head "$BUMP_BRANCH" --json number --jq '.[0].number')
+              if [ -n "$PR_NUMBER" ]; then
+                gh pr close -R "$REPO" "$PR_NUMBER" \
+                  --comment "Closing automated bump PR because replayed source commits no longer require version updates." \
+                  --delete-branch || true
+              fi
+
               {
                 echo "## Main Version Bump"
                 echo "No version changes were required for source $SOURCE_SHA."
+                if [ -n "$PR_NUMBER" ]; then
+                  echo "Closed stale bump PR: https://github.com/$REPO/pull/$PR_NUMBER"
+                fi
               } >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
 
-            EXPECTED_HEAD_OID=$(git rev-parse origin/main)
-            PAYLOAD_PATH="$RUNNER_TEMP/create-commit-payload.json"
+            if git push --force-with-lease --set-upstream origin "$BUMP_BRANCH"; then
+              UPDATED=true
 
-            npx --yes tsx scripts/createCommitOnBranchPayload.ts \
-              --repo "$REPO" \
-              --branch "main" \
-              --expected-head-oid "$EXPECTED_HEAD_OID" \
-              --headline "chore(release): bump versions [skip ci]" \
-              --body "source-sha: $SOURCE_SHA"$'\n'"source-run-id: $SOURCE_RUN_ID" \
-              --output "$PAYLOAD_PATH"
+              PR_BODY=$(printf '%s\n\n%s\n%s\n\n%s' \
+                "Automated version bump PR for successful main builds." \
+                "Latest source commit: $SOURCE_SHA" \
+                "Latest source run: $SOURCE_RUN_ID" \
+                "This branch is rebuilt from origin/main and replays pending source-sha bumps.")
 
-            GH_ERROR_PATH="$RUNNER_TEMP/gh-create-commit-error.txt"
-            if RESPONSE=$(gh api graphql --input "$PAYLOAD_PATH" --jq '.data.createCommitOnBranch.commit' 2> "$GH_ERROR_PATH"); then
-              echo "Commit response: $RESPONSE" >> "$GITHUB_STEP_SUMMARY"
-              PUSHED=true
+              PR_NUMBER=$(gh pr list -R "$REPO" --state open --base main --head "$BUMP_BRANCH" --json number --jq '.[0].number')
+              if [ -z "$PR_NUMBER" ]; then
+                PR_URL=$(gh pr create -R "$REPO" \
+                  --base main \
+                  --head "$BUMP_BRANCH" \
+                  --title "chore(release): bump versions [skip ci]" \
+                  --body "$PR_BODY")
+                PR_NUMBER=$(echo "$PR_URL" | awk -F/ '{print $NF}')
+              else
+                gh pr edit -R "$REPO" "$PR_NUMBER" --body "$PR_BODY"
+                PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
+              fi
+
+              gh pr merge -R "$REPO" "$PR_NUMBER" --merge --auto || true
+
               {
                 echo "## Main Version Bump"
-                echo "Pushed bump commit on attempt $attempt/$ATTEMPTS."
+                echo "Updated bump PR on attempt $attempt/$ATTEMPTS."
                 echo "Source commit: $SOURCE_SHA"
+                echo "Applied bump commits: $APPLIED_COMMITS"
+                if [ -n "$PR_URL" ]; then
+                  echo "PR: $PR_URL"
+                fi
               } >> "$GITHUB_STEP_SUMMARY"
               break
-            fi
-
-            if grep -q "Changes must be made through a pull request" "$GH_ERROR_PATH"; then
-              {
-                echo "## Main Version Bump"
-                echo "Skipped bump commit because branch protection requires pull requests for main."
-                echo "Source commit: $SOURCE_SHA"
-              } >> "$GITHUB_STEP_SUMMARY"
-              exit 0
             fi
 
             sleep $((attempt * 2))
           done
 
-          if [ "$PUSHED" != "true" ]; then
+          if [ "$UPDATED" != "true" ]; then
             {
               echo "## Main Version Bump"
-              echo "Failed to push bump commit after $ATTEMPTS attempts."
+              echo "Failed to update bump PR branch after $ATTEMPTS attempts."
               echo "Source commit: $SOURCE_SHA"
             } >> "$GITHUB_STEP_SUMMARY"
             exit 1

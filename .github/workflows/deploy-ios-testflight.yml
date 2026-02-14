@@ -31,8 +31,14 @@ jobs:
       - name: Decide deploy impact
         id: decide
         run: |
-          BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || echo "${{ github.sha }}")
           HEAD_SHA="${{ github.sha }}"
+          git fetch --no-tags --prune --depth=2 origin "$HEAD_SHA" || true
+          BASE_SHA=$(git rev-list --parents -n 1 "$HEAD_SHA" | awk '{print $2}')
+          if [ -n "$BASE_SHA" ]; then
+            git fetch --no-tags --prune --depth=1 origin "$BASE_SHA" || true
+          else
+            BASE_SHA="$HEAD_SHA"
+          fi
           tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_DEPLOY=$(jq -r '.jobs["ios-maestro-release"].run' ci-impact.json)
 
