@@ -48,11 +48,10 @@ if [ -z "$DIFF" ]; then
   exit 1
 fi
 
-# Load review instructions if available (extract key sections for token efficiency)
+# Load review instructions if available
 REVIEW_INSTRUCTIONS=""
 if [ -f "$ROOT_DIR/REVIEW.md" ]; then
-  # Extract Quick Reference and key sections (first ~100 lines covers essentials)
-  REVIEW_INSTRUCTIONS=$(head -100 "$ROOT_DIR/REVIEW.md")
+  REVIEW_INSTRUCTIONS=$(cat "$ROOT_DIR/REVIEW.md")
 fi
 
 # Build the review prompt

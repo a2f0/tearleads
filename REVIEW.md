@@ -110,8 +110,8 @@ router.put('/resources/:id', async (req, res) => {
   if (!claims) return res.status(401).json({ error: 'Unauthorized' });
 
   // 2. Ownership check
-  const resource = await db.select().from(resources).where(eq(resources.id, req.params.id));
-  if (resource.userId !== claims.userId && !claims.isAdmin) {
+  const [resource] = await db.select().from(resources).where(eq(resources.id, req.params.id));
+  if (!resource || (resource.userId !== claims.userId && !claims.isAdmin)) {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
@@ -146,7 +146,7 @@ Flag this pattern:
 ```typescript
 // BAD: N+1 query
 for (const user of users) {
-  const orders = await db.select().from(orders).where(eq(orders.userId, user.id));
+  const userOrders = await db.select().from(orders).where(eq(orders.userId, user.id));
 }
 
 // GOOD: Single query with join or batch
