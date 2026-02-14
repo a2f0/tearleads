@@ -606,7 +606,7 @@ describe('vfsCrdtOpsTable', () => {
 
 describe('allTables', () => {
   it('contains all canonical tables', () => {
-    expect(allTables).toHaveLength(53);
+    expect(allTables).toHaveLength(52);
   });
 
   it('contains all table definitions', () => {
@@ -645,7 +645,7 @@ describe('allTables', () => {
     expect(allTables).toContain(emailsTable);
     expect(allTables).toContain(vfsSharesTable);
     expect(allTables).toContain(orgSharesTable);
-    expect(allTables).toContain(vfsAccessTable);
+    expect(allTables).not.toContain(vfsAccessTable);
     expect(allTables).toContain(vfsAclEntriesTable);
     expect(allTables).toContain(vfsSyncChangesTable);
     expect(allTables).toContain(vfsSyncClientStateTable);

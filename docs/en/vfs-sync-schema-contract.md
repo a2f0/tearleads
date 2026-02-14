@@ -47,11 +47,12 @@ From the generated Postgres schema (`packages/db/src/generated/postgresql/schema
 the flattening inventory currently reports these candidate VFS tables as outside
 the sync-critical contract:
 
-1. `vfs_access`
-2. `vfs_folders`
-3. `vfs_shares`
+1. `vfs_folders`
+2. `vfs_shares`
 
-These are not removed yet; they are tracked as migration/cutover work.
+`vfs_access` is retired from canonical runtime schema as of `v027`, but remains
+on the SQL guardrail block-list to fail closed if legacy references are
+reintroduced.
 
 ## Domain Mapping
 

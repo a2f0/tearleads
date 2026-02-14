@@ -868,37 +868,6 @@ export const orgShares = sqliteTable(
 );
 
 /**
- * VFS access - direct access grants for sharing items with users.
- * Stores wrapped keys encrypted with user's public key.
- */
-export const vfsAccess = sqliteTable(
-  'vfs_access',
-  {
-    itemId: text('item_id')
-      .notNull()
-      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-    userId: text('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    wrappedSessionKey: text('wrapped_session_key').notNull(),
-    wrappedHierarchicalKey: text('wrapped_hierarchical_key'),
-    permissionLevel: text('permission_level', {
-      enum: ['read', 'write', 'admin']
-    }).notNull(),
-    grantedBy: text('granted_by').references(() => users.id, {
-      onDelete: 'restrict'
-    }),
-    grantedAt: integer('granted_at', { mode: 'timestamp_ms' }).notNull(),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' })
-  },
-  (table) => [
-    primaryKey({ columns: [table.itemId, table.userId] }),
-    index('vfs_access_user_idx').on(table.userId),
-    index('vfs_access_item_idx').on(table.itemId)
-  ]
-);
-
-/**
  * Flattened ACL entries for VFS items.
  * Unifies user/group/organization grants into a single principal model.
  */
@@ -1349,7 +1318,6 @@ export const schema = {
   emailAttachments,
   vfsShares,
   orgShares,
-  vfsAccess,
   vfsAclEntries,
   vfsSyncChanges,
   vfsSyncClientState,
