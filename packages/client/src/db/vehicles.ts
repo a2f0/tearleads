@@ -89,7 +89,9 @@ function toVehicleRecord(row: RawVehicleRow): VehicleRecord {
   };
 }
 
-async function getVehicleById(id: string): Promise<VehicleRecord | null> {
+export async function getVehicleById(
+  id: string
+): Promise<VehicleRecord | null> {
   if (!isDatabaseInitialized()) {
     return null;
   }
