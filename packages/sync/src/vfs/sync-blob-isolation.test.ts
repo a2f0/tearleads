@@ -276,4 +276,219 @@ describe('InMemoryVfsBlobIsolationStore', () => {
 
     expect(forbidden.status).toBe('forbidden');
   });
+
+  it('keeps email attachment commits isolated until reconcile checkpoints catch up', () => {
+    const store = new InMemoryVfsBlobIsolationStore();
+
+    store.stage({
+      stagingId: 'stage-6',
+      blobId: 'blob-6',
+      stagedBy: 'user-1',
+      stagedAt: '2026-02-14T07:00:00.000Z',
+      expiresAt: '2026-02-14T07:10:00.000Z'
+    });
+
+    store.reconcileClient(
+      'user-1',
+      'desktop',
+      {
+        changedAt: '2026-02-14T07:00:02.000Z',
+        changeId: 'crdt-email-2'
+      },
+      {
+        desktop: 2,
+        mobile: 1
+      }
+    );
+
+    const firstRetry = store.attachWithIsolation({
+      stagingId: 'stage-6',
+      attachedBy: 'user-1',
+      itemId: 'email-1',
+      attachedAt: '2026-02-14T07:01:00.000Z',
+      userId: 'user-1',
+      clientId: 'desktop',
+      requiredCursor: {
+        changedAt: '2026-02-14T07:00:03.000Z',
+        changeId: 'crdt-email-3'
+      },
+      requiredLastWriteIds: {
+        desktop: 2,
+        mobile: 2
+      }
+    });
+    expect(firstRetry.status).toBe('reconcileBehind');
+    expect(store.getBlobStage('stage-6')?.status).toBe('staged');
+
+    const secondRetry = store.attachWithIsolation({
+      stagingId: 'stage-6',
+      attachedBy: 'user-1',
+      itemId: 'email-1',
+      attachedAt: '2026-02-14T07:01:01.000Z',
+      userId: 'user-1',
+      clientId: 'desktop',
+      requiredCursor: {
+        changedAt: '2026-02-14T07:00:03.000Z',
+        changeId: 'crdt-email-3'
+      },
+      requiredLastWriteIds: {
+        desktop: 2,
+        mobile: 2
+      }
+    });
+    expect(secondRetry.status).toBe('reconcileBehind');
+    expect(store.getBlobStage('stage-6')?.status).toBe('staged');
+
+    store.reconcileClient(
+      'user-1',
+      'desktop',
+      {
+        changedAt: '2026-02-14T07:00:03.000Z',
+        changeId: 'crdt-email-3'
+      },
+      {
+        desktop: 2,
+        mobile: 2
+      }
+    );
+
+    const attached = store.attachWithIsolation({
+      stagingId: 'stage-6',
+      attachedBy: 'user-1',
+      itemId: 'email-1',
+      attachedAt: '2026-02-14T07:01:02.000Z',
+      userId: 'user-1',
+      clientId: 'desktop',
+      requiredCursor: {
+        changedAt: '2026-02-14T07:00:03.000Z',
+        changeId: 'crdt-email-3'
+      },
+      requiredLastWriteIds: {
+        desktop: 2,
+        mobile: 2
+      }
+    });
+    expect(attached.status).toBe('applied');
+    expect(attached.record?.attachedItemId).toBe('email-1');
+
+    const postCommitRetry = store.attachWithIsolation({
+      stagingId: 'stage-6',
+      attachedBy: 'user-1',
+      itemId: 'email-1',
+      attachedAt: '2026-02-14T07:01:03.000Z',
+      userId: 'user-1',
+      clientId: 'desktop',
+      requiredCursor: {
+        changedAt: '2026-02-14T07:00:03.000Z',
+        changeId: 'crdt-email-3'
+      },
+      requiredLastWriteIds: {
+        desktop: 2,
+        mobile: 2
+      }
+    });
+    expect(postCommitRetry.status).toBe('conflict');
+  });
+
+  it('stays deterministic under interleaved email attachment retries across clients', async () => {
+    const store = new InMemoryVfsBlobIsolationStore();
+
+    store.stage({
+      stagingId: 'stage-7',
+      blobId: 'blob-7',
+      stagedBy: 'user-1',
+      stagedAt: '2026-02-14T07:00:00.000Z',
+      expiresAt: '2026-02-14T07:10:00.000Z'
+    });
+
+    store.reconcileClient(
+      'user-1',
+      'desktop',
+      {
+        changedAt: '2026-02-14T07:00:04.000Z',
+        changeId: 'crdt-email-4'
+      },
+      {
+        desktop: 4,
+        mobile: 2
+      }
+    );
+
+    const [mobileEarly, desktopAttach, mobileLate] = await Promise.all([
+      (async () => {
+        await wait(5);
+        return store.attachWithIsolation({
+          stagingId: 'stage-7',
+          attachedBy: 'user-1',
+          itemId: 'email-2',
+          attachedAt: '2026-02-14T07:02:00.000Z',
+          userId: 'user-1',
+          clientId: 'mobile',
+          requiredCursor: {
+            changedAt: '2026-02-14T07:00:04.000Z',
+            changeId: 'crdt-email-4'
+          },
+          requiredLastWriteIds: {
+            desktop: 4,
+            mobile: 2
+          }
+        });
+      })(),
+      (async () => {
+        await wait(10);
+        return store.attachWithIsolation({
+          stagingId: 'stage-7',
+          attachedBy: 'user-1',
+          itemId: 'email-2',
+          attachedAt: '2026-02-14T07:02:01.000Z',
+          userId: 'user-1',
+          clientId: 'desktop',
+          requiredCursor: {
+            changedAt: '2026-02-14T07:00:04.000Z',
+            changeId: 'crdt-email-4'
+          },
+          requiredLastWriteIds: {
+            desktop: 4,
+            mobile: 2
+          }
+        });
+      })(),
+      (async () => {
+        await wait(12);
+        store.reconcileClient(
+          'user-1',
+          'mobile',
+          {
+            changedAt: '2026-02-14T07:00:04.000Z',
+            changeId: 'crdt-email-4'
+          },
+          {
+            desktop: 4,
+            mobile: 2
+          }
+        );
+        return store.attachWithIsolation({
+          stagingId: 'stage-7',
+          attachedBy: 'user-1',
+          itemId: 'email-2',
+          attachedAt: '2026-02-14T07:02:02.000Z',
+          userId: 'user-1',
+          clientId: 'mobile',
+          requiredCursor: {
+            changedAt: '2026-02-14T07:00:04.000Z',
+            changeId: 'crdt-email-4'
+          },
+          requiredLastWriteIds: {
+            desktop: 4,
+            mobile: 2
+          }
+        });
+      })()
+    ]);
+
+    expect(mobileEarly.status).toBe('reconcileRequired');
+    expect(desktopAttach.status).toBe('applied');
+    expect(mobileLate.status).toBe('conflict');
+    expect(store.getBlobStage('stage-7')?.attachedItemId).toBe('email-2');
+  });
 });

@@ -58,6 +58,8 @@ function dominatesLastWriteIds(
 /**
  * Guardrail store that requires reconcile state to dominate client-provided
  * visibility checkpoints before blob attach is accepted.
+ * This is intentionally object-type agnostic: email attachments use the same
+ * itemId-based isolation contract as every other VFS object.
  */
 export class InMemoryVfsBlobIsolationStore {
   private readonly blobStore = new InMemoryVfsBlobCommitStore();
