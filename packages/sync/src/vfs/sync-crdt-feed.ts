@@ -409,7 +409,8 @@ export function assertStronglyConsistentVfsCrdtRows(
 
 export function mapVfsCrdtSyncRows(
   rows: VfsCrdtSyncDbRow[],
-  limit: number
+  limit: number,
+  lastReconciledWriteIds: Record<string, number> = {}
 ): VfsCrdtSyncResponse {
   assertStronglyConsistentVfsCrdtRows(rows);
 
@@ -460,7 +461,8 @@ export function mapVfsCrdtSyncRows(
   return {
     items,
     nextCursor,
-    hasMore
+    hasMore,
+    lastReconciledWriteIds
   };
 }
 

@@ -109,6 +109,18 @@ describe('VFS CRDT sync route', () => {
         }
       ]
     });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          replica_id: 'desktop',
+          max_write_id: '7'
+        },
+        {
+          replica_id: 'mobile',
+          max_write_id: 3
+        }
+      ]
+    });
 
     const response = await request(app)
       .get('/v1/vfs/crdt/sync?limit=1&rootId=root-123')
@@ -132,17 +144,26 @@ describe('VFS CRDT sync route', () => {
     });
     expect(response.body.hasMore).toBe(true);
     expect(typeof response.body.nextCursor).toBe('string');
+    expect(response.body.lastReconciledWriteIds).toEqual({
+      desktop: 7,
+      mobile: 3
+    });
     expect(decodeVfsSyncCursor(response.body.nextCursor)).toEqual({
       changedAt: '2026-02-14T00:00:00.000Z',
       changeId: 'op-1'
     });
-    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery).toHaveBeenCalledTimes(2);
     expect(mockQuery.mock.calls[0]?.[1]).toEqual([
       'user-1',
       null,
       null,
       2,
       'root-123'
+    ]);
+    expect(mockQuery.mock.calls[1]?.[1]).toEqual([
+      'vfs_crdt_client_push',
+      'user-1',
+      'user-1:'
     ]);
   });
 
@@ -163,6 +184,22 @@ describe('VFS CRDT sync route', () => {
           source_table: 'vfs_shares',
           source_id: 'share-9',
           occurred_at: new Date('2026-02-14T00:00:00.000Z')
+        }
+      ]
+    });
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          replica_id: 'desktop',
+          max_write_id: '2'
+        },
+        {
+          replica_id: '',
+          max_write_id: '9'
+        },
+        {
+          replica_id: 'broken',
+          max_write_id: 'not-a-number'
         }
       ]
     });
@@ -190,7 +227,10 @@ describe('VFS CRDT sync route', () => {
         }
       ],
       nextCursor: null,
-      hasMore: false
+      hasMore: false,
+      lastReconciledWriteIds: {
+        desktop: 2
+      }
     });
   });
 
@@ -292,6 +332,26 @@ describe('VFS CRDT sync route', () => {
     const restoreConsole = mockConsoleError();
     const authHeader = await createAuthHeader();
     mockQuery.mockRejectedValueOnce(new Error('Database failure'));
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: 'Failed to sync VFS CRDT operations'
+    });
+    restoreConsole();
+  });
+
+  it('returns 500 when replica write-id query fails', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: []
+      })
+      .mockRejectedValueOnce(new Error('Replica write-id query failed'));
 
     const response = await request(app)
       .get('/v1/vfs/crdt/sync')
