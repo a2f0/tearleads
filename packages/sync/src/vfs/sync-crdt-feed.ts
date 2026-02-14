@@ -1,4 +1,10 @@
-import type { VfsAclAccessLevel } from '@tearleads/shared';
+import type {
+  VfsAclAccessLevel,
+  VfsAclPrincipalType,
+  VfsCrdtOpType,
+  VfsCrdtSyncItem,
+  VfsCrdtSyncResponse
+} from '@tearleads/shared';
 import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
@@ -57,27 +63,6 @@ export interface VfsCrdtSyncDbRow {
   occurred_at: Date | string;
 }
 
-export interface VfsCrdtSyncItem {
-  opId: string;
-  itemId: string;
-  opType: string;
-  principalType: string | null;
-  principalId: string | null;
-  accessLevel: VfsAclAccessLevel | null;
-  parentId: string | null;
-  childId: string | null;
-  actorId: string | null;
-  sourceTable: string;
-  sourceId: string;
-  occurredAt: string;
-}
-
-export interface VfsCrdtSyncResponse {
-  items: VfsCrdtSyncItem[];
-  nextCursor: string | null;
-  hasMore: boolean;
-}
-
 export type VfsCrdtFeedOrderViolationCode =
   | 'invalidOccurredAt'
   | 'missingOpId'
@@ -101,6 +86,17 @@ export class VfsCrdtFeedOrderViolationError extends Error {
 }
 
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
+const VALID_OP_TYPES: VfsCrdtOpType[] = [
+  'acl_add',
+  'acl_remove',
+  'link_add',
+  'link_remove'
+];
+const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
+  'user',
+  'group',
+  'organization'
+];
 
 function parseSyncLimit(value: unknown): number | null {
   if (value === undefined) {
@@ -202,6 +198,30 @@ function normalizeAccessLevel(value: unknown): VfsAclAccessLevel | null {
   for (const accessLevel of VALID_ACCESS_LEVELS) {
     if (accessLevel === value) {
       return accessLevel;
+    }
+  }
+
+  return null;
+}
+
+function normalizeOpType(value: unknown): VfsCrdtOpType {
+  if (typeof value === 'string') {
+    for (const opType of VALID_OP_TYPES) {
+      if (opType === value) {
+        return opType;
+      }
+    }
+  }
+
+  return 'acl_add';
+}
+
+function normalizePrincipalType(value: unknown): VfsAclPrincipalType | null {
+  if (typeof value === 'string') {
+    for (const principalType of VALID_PRINCIPAL_TYPES) {
+      if (principalType === value) {
+        return principalType;
+      }
     }
   }
 
@@ -415,8 +435,8 @@ export function mapVfsCrdtSyncRows(
     items.push({
       opId: row.op_id,
       itemId: row.item_id,
-      opType: row.op_type,
-      principalType: row.principal_type,
+      opType: normalizeOpType(row.op_type),
+      principalType: normalizePrincipalType(row.principal_type),
       principalId: row.principal_id,
       accessLevel: normalizeAccessLevel(row.access_level),
       parentId: row.parent_id,
@@ -443,3 +463,5 @@ export function mapVfsCrdtSyncRows(
     hasMore
   };
 }
+
+export type { VfsCrdtSyncItem, VfsCrdtSyncResponse };

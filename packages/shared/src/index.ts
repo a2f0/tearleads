@@ -133,6 +133,43 @@ export interface VfsSyncReconcileResponse {
   cursor: string;
 }
 
+export type VfsCrdtOpType =
+  | 'acl_add'
+  | 'acl_remove'
+  | 'link_add'
+  | 'link_remove';
+
+export interface VfsCrdtSyncItem {
+  opId: string;
+  itemId: string;
+  opType: VfsCrdtOpType;
+  principalType: VfsAclPrincipalType | null;
+  principalId: string | null;
+  accessLevel: VfsAclAccessLevel | null;
+  parentId: string | null;
+  childId: string | null;
+  actorId: string | null;
+  sourceTable: string;
+  sourceId: string;
+  occurredAt: string;
+}
+
+export interface VfsCrdtSyncResponse {
+  items: VfsCrdtSyncItem[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
+export interface VfsCrdtReconcileRequest {
+  clientId: string;
+  cursor: string;
+}
+
+export interface VfsCrdtReconcileResponse {
+  clientId: string;
+  cursor: string;
+}
+
 // VFS Sharing types
 export type VfsShareType = 'user' | 'group' | 'organization';
 export type VfsPermissionLevel = 'view' | 'edit' | 'download';
