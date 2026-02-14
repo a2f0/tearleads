@@ -237,11 +237,9 @@ export const postBlobsStageStagingIdAttachHandler = async (
       if (!reconcileStateRow) {
         await client.query('ROLLBACK');
         inTransaction = false;
-        res
-          .status(409)
-          .json({
-            error: 'Client reconcile state is behind required visibility'
-          });
+        res.status(409).json({
+          error: 'Client reconcile state is behind required visibility'
+        });
         return;
       }
 
@@ -272,11 +270,9 @@ export const postBlobsStageStagingIdAttachHandler = async (
       ) {
         await client.query('ROLLBACK');
         inTransaction = false;
-        res
-          .status(409)
-          .json({
-            error: 'Client reconcile state is behind required visibility'
-          });
+        res.status(409).json({
+          error: 'Client reconcile state is behind required visibility'
+        });
         return;
       }
     }
