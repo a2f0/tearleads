@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { allTables } from '../src/schema/definition.js';
+import { postgresRuntimeTables } from '../src/schema/definition.js';
 import { generatePostgresSchema } from '../src/generators/postgresql.js';
 
 const outputPath = path.resolve(
@@ -9,7 +9,7 @@ const outputPath = path.resolve(
   '../src/generated/postgresql/schema.ts'
 );
 
-const schemaCode = generatePostgresSchema(allTables);
+const schemaCode = generatePostgresSchema(postgresRuntimeTables);
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, schemaCode);

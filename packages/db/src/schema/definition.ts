@@ -3338,7 +3338,10 @@ export const aiUsageTable: TableDefinition = {
 };
 
 /**
- * All table definitions in the schema.
+ * All table definitions for compatibility schema generation.
+ *
+ * `vfs_folders` is intentionally retained here while local SQLite clients
+ * still run canonical+legacy dual-write during staged cutover.
  */
 export const allTables: TableDefinition[] = [
   syncMetadataTable,
@@ -3397,3 +3400,21 @@ export const allTables: TableDefinition[] = [
   aiMessagesTable,
   aiUsageTable
 ];
+
+/**
+ * PostgreSQL runtime tables.
+ *
+ * Guardrail: server-side `vfs_folders` retirement completed in migration v033,
+ * so generated Postgres schema must not reintroduce this legacy table.
+ */
+export const postgresRuntimeTables: TableDefinition[] = allTables.filter(
+  (table) => table.name !== 'vfs_folders'
+);
+
+/**
+ * SQLite runtime tables.
+ *
+ * Local-client compatibility still requires legacy `vfs_folders` for staged
+ * dual-write/read-fallback behavior, so this remains aligned with `allTables`.
+ */
+export const sqliteRuntimeTables: TableDefinition[] = allTables;

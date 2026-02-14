@@ -517,21 +517,6 @@ export const vfsRegistry = pgTable(
 );
 
 /**
- * VFS folders - extends registry for folder-type items.
- * Stores encrypted folder metadata.
- */
-export const vfsFolders = pgTable('vfs_folders', {
-  id: text('id')
-    .primaryKey()
-    .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-  encryptedName: text('encrypted_name'),
-  icon: text('icon'),
-  viewMode: text('view_mode'),
-  defaultSort: text('default_sort'),
-  sortDirection: text('sort_direction')
-});
-
-/**
  * VFS links - flexible parent/child relationships with per-link key wrapping.
  * Enables the same item to appear in multiple folders with different visibility.
  */

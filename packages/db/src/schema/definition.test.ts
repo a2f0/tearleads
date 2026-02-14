@@ -27,8 +27,10 @@ import {
   organizationsTable,
   orgSharesTable,
   playlistsTable,
+  postgresRuntimeTables,
   revenuecatWebhookEventsTable,
   secretsTable,
+  sqliteRuntimeTables,
   syncMetadataTable,
   tagsTable,
   userCredentialsTable,
@@ -675,5 +677,22 @@ describe('allTables', () => {
     for (const table of allTables) {
       expect(isTableDefinition(table)).toBe(true);
     }
+  });
+});
+
+describe('runtime table inventories', () => {
+  it('keeps sqlite runtime tables aligned with compatibility allTables', () => {
+    expect(sqliteRuntimeTables).toEqual(allTables);
+    expect(sqliteRuntimeTables).toContain(vfsFoldersTable);
+  });
+
+  it('keeps postgres runtime tables free of retired vfs_folders', () => {
+    expect(postgresRuntimeTables).not.toContain(vfsFoldersTable);
+    expect(postgresRuntimeTables).toHaveLength(allTables.length - 1);
+
+    const postgresTableNames = new Set(
+      postgresRuntimeTables.map((table) => table.name)
+    );
+    expect(postgresTableNames.has('vfs_folders')).toBe(false);
   });
 });

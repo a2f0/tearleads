@@ -12,11 +12,12 @@ This runbook covers staged rollout verification for the flattening migration cha
 1. `v031` (verify `vfs_folders` retirement preconditions; non-destructive)
 1. `v032` (record retirement checkpoint snapshot; non-destructive)
 1. `v033` (drop `vfs_folders` after checkpoint/parity guards)
+1. `v034` (finalize retirement by dropping checkpoint scaffolding)
 
 ## Ordering Guardrails
 
 1. Deploy runtime code that writes flattened blob/ACL state before running destructive drops.
-1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030` -> `v031` -> `v032` -> `v033`).
+1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030` -> `v031` -> `v032` -> `v033` -> `v034`).
 1. Treat any migration guardrail exception as fail-closed and stop rollout.
 1. Do not continue to a destructive migration when parity checks return non-zero rows.
 
@@ -34,6 +35,7 @@ This runbook covers staged rollout verification for the flattening migration cha
    - `packages/api/src/migrations/v031.ts`
    - `packages/api/src/migrations/v032.ts`
    - `packages/api/src/migrations/v033.ts`
+   - `packages/api/src/migrations/v034.ts`
 1. Confirm branch includes the schema retirement commit for `vfs_blob_objects` in canonical schema generation.
 1. Record baseline counts:
 
@@ -64,13 +66,13 @@ SELECT COUNT(*) AS legacy_vfs_folders FROM vfs_folders;
 ## Migration Execution
 
 1. Run normal API migration entrypoint (same mechanism used in production deploy).
-1. Verify schema version reaches `33`.
+1. Verify schema version reaches `34`.
 
 ```sql
 SELECT MAX(version) AS schema_version FROM schema_migrations;
 ```
 
-1. If schema version is below `33`, stop and inspect migration logs.
+1. If schema version is below `34`, stop and inspect migration logs.
 
 ## Post-Migration Parity Checks
 
@@ -143,16 +145,10 @@ ORDER BY updated_at DESC
 LIMIT 100;
 ```
 
-1. Latest retirement checkpoint snapshot should report zero mismatches.
+1. Retirement checkpoint scaffolding should be absent after `v034`.
 
 ```sql
-SELECT canonical_folder_count,
-       legacy_folder_count,
-       metadata_mismatch_count,
-       captured_at
-FROM vfs_folder_retirement_checkpoints
-ORDER BY captured_at DESC
-LIMIT 5;
+SELECT to_regclass('public.vfs_folder_retirement_checkpoints') AS vfs_folder_retirement_checkpoints_table;
 ```
 
 ## Runtime Health Checks
@@ -173,7 +169,7 @@ LIMIT 5;
 
 Rollback/incident response should trigger immediately if any condition occurs:
 
-1. Migration fails with guardrail exception from `v024` through `v033`.
+1. Migration fails with guardrail exception from `v024` through `v034`.
 1. Any post-migration parity query returns non-zero violation counts.
 1. API logs show attempts to query dropped legacy blob tables.
 1. Reconcile/pull endpoints begin returning cursor regression or write-id regression failures.
