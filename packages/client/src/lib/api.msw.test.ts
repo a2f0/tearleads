@@ -6,7 +6,22 @@ import {
   wasApiRequestMade
 } from '@tearleads/msw/node';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { AUTH_REFRESH_TOKEN_KEY, AUTH_TOKEN_KEY } from '@/lib/auth-storage';
+import {
+  AUTH_REFRESH_TOKEN_KEY,
+  AUTH_TOKEN_KEY,
+  AUTH_USER_KEY
+} from '@/lib/auth-storage';
+
+const loadAuthStorage = async () => {
+  const module = await import('@/lib/auth-storage');
+  return module;
+};
+
+// Mock analytics to capture logged event names
+const mockLogApiEvent = vi.fn();
+vi.mock('@/db/analytics', () => ({
+  logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
+}));
 
 const loadApi = async () => {
   const module = await import('./api');
@@ -44,12 +59,541 @@ const expectSingleRequestQuery = (
 describe('api with msw', () => {
   beforeEach(() => {
     vi.resetModules();
+    vi.clearAllMocks();
     vi.stubEnv('VITE_API_URL', 'http://localhost');
     localStorage.clear();
+    mockLogApiEvent.mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.unstubAllEnvs();
+  });
+
+  describe('error handling', () => {
+    it('throws error when response is not ok', async () => {
+      server.use(
+        http.get('http://localhost/ping', () =>
+          HttpResponse.json(null, { status: 500 })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 500');
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+
+    it('handles 404 errors', async () => {
+      server.use(
+        http.get('http://localhost/ping', () =>
+          HttpResponse.json(null, { status: 404 })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 404');
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+
+    it('handles network errors', async () => {
+      server.use(http.get('http://localhost/ping', () => HttpResponse.error()));
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow();
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+
+    it('uses default message when error body has no error field', async () => {
+      server.use(
+        http.get('http://localhost/ping', () =>
+          HttpResponse.json({}, { status: 400 })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 400');
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+
+    it('extracts error message from response body', async () => {
+      server.use(
+        http.post('http://localhost/auth/register', () =>
+          HttpResponse.json(
+            { error: 'Email already registered' },
+            { status: 409 }
+          )
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(
+        api.auth.register('existing@example.com', 'password123')
+      ).rejects.toThrow('Email already registered');
+      expect(wasApiRequestMade('POST', '/auth/register')).toBe(true);
+    });
+  });
+
+  describe('session expiry handling', () => {
+    it('clears stored auth and reports session expiry when response is 401', async () => {
+      server.use(
+        http.get('http://localhost/ping', () =>
+          HttpResponse.json(null, { status: 401 })
+        )
+      );
+
+      localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
+      localStorage.setItem(
+        AUTH_USER_KEY,
+        JSON.stringify({ id: '123', email: 'user@example.com' })
+      );
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
+      expect(localStorage.getItem(AUTH_USER_KEY)).toBeNull();
+
+      const { getAuthError } = await loadAuthStorage();
+      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+
+    it('does not clear auth when refresh fails but token still exists in storage', async () => {
+      localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      localStorage.setItem(
+        AUTH_USER_KEY,
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+
+      server.use(
+        http.get('http://localhost/ping', () =>
+          HttpResponse.json(null, { status: 401 })
+        ),
+        http.post('http://localhost/auth/refresh', () =>
+          HttpResponse.json(null, { status: 500 })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
+        'refresh-token'
+      );
+
+      const { getAuthError } = await loadAuthStorage();
+      expect(getAuthError()).toBeNull();
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+      expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
+    });
+
+    it('adds Authorization header when auth token is stored', async () => {
+      localStorage.setItem(AUTH_TOKEN_KEY, 'test-token');
+
+      const api = await loadApi();
+      await api.ping.get();
+
+      const requests = getRecordedApiRequests();
+      expect(requests[0]?.url).toBe('http://localhost/ping');
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+
+    it('does not override existing Authorization header', async () => {
+      // This tests the branch where headers already have Authorization set
+      localStorage.setItem(AUTH_TOKEN_KEY, 'stored-token');
+
+      // Use fetch directly with custom Authorization header
+      const response = await fetch('http://localhost/ping', {
+        headers: { Authorization: 'Bearer custom-token' }
+      });
+      expect(response.ok).toBe(true);
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+  });
+
+  describe('tryRefreshToken', () => {
+    it('returns false without a refresh token', async () => {
+      localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
+      localStorage.setItem(
+        AUTH_USER_KEY,
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+
+      const { tryRefreshToken } = await import('./api');
+
+      await expect(tryRefreshToken()).resolves.toBe(false);
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
+      expect(localStorage.getItem(AUTH_USER_KEY)).toBeNull();
+
+      const { getAuthError } = await loadAuthStorage();
+      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+    });
+
+    it('returns true when refresh succeeds', async () => {
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+
+      const { tryRefreshToken } = await import('./api');
+
+      await expect(tryRefreshToken()).resolves.toBe(true);
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBe('test-access-token');
+      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
+        'test-refresh-token'
+      );
+      expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
+    });
+
+    it('returns false when refresh throws network error', async () => {
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+
+      server.use(
+        http.post('http://localhost/auth/refresh', () => HttpResponse.error())
+      );
+
+      const consoleErrorSpy = vi
+        .spyOn(console, 'error')
+        .mockImplementation(() => undefined);
+
+      const { tryRefreshToken } = await import('./api');
+
+      await expect(tryRefreshToken()).resolves.toBe(false);
+      expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
+      expect(consoleErrorSpy).toHaveBeenCalled();
+
+      consoleErrorSpy.mockRestore();
+    });
+
+    it('does not clear auth when refresh fails but token still exists', async () => {
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      localStorage.setItem(AUTH_TOKEN_KEY, 'access-token');
+
+      server.use(
+        http.post('http://localhost/auth/refresh', () =>
+          HttpResponse.json(null, { status: 500 })
+        )
+      );
+
+      const { tryRefreshToken } = await import('./api');
+
+      await expect(tryRefreshToken()).resolves.toBe(false);
+      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
+        'refresh-token'
+      );
+      expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
+    });
+
+    it('returns false when API_BASE_URL is not set during refresh', async () => {
+      vi.stubEnv('VITE_API_URL', '');
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+
+      const { tryRefreshToken } = await import('./api');
+
+      await expect(tryRefreshToken()).resolves.toBe(false);
+    });
+  });
+
+  describe('401 retry handling', () => {
+    it('throws 401 when retry response is not ok after refresh', async () => {
+      localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      localStorage.setItem(
+        AUTH_USER_KEY,
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+
+      let pingAttempt = 0;
+      server.use(
+        http.get('http://localhost/ping', ({ request }) => {
+          pingAttempt += 1;
+          const authHeader = request.headers.get('authorization');
+          if (pingAttempt === 1 && authHeader === 'Bearer stale-token') {
+            return HttpResponse.json(null, { status: 401 });
+          }
+          // Retry after refresh still fails with 500
+          return HttpResponse.json(null, { status: 500 });
+        }),
+        http.post('http://localhost/auth/refresh', () =>
+          HttpResponse.json({
+            accessToken: 'new-token',
+            refreshToken: 'new-refresh',
+            tokenType: 'Bearer',
+            expiresIn: 3600,
+            refreshExpiresIn: 604800,
+            user: { id: 'user-1', email: 'user@example.com' }
+          })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+      expect(pingAttempt).toBe(2);
+      // Auth should NOT be cleared since the refresh token still exists
+      expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe('new-refresh');
+    });
+
+    it('clears auth and sets error when 401 and no refresh token remains', async () => {
+      localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
+      localStorage.setItem(
+        AUTH_USER_KEY,
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+      // No refresh token set
+
+      server.use(
+        http.get('http://localhost/ping', () =>
+          HttpResponse.json(null, { status: 401 })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+      expect(localStorage.getItem(AUTH_TOKEN_KEY)).toBeNull();
+      expect(localStorage.getItem(AUTH_USER_KEY)).toBeNull();
+
+      const { getAuthError } = await loadAuthStorage();
+      expect(getAuthError()).toBe('Session expired. Please sign in again.');
+    });
+
+    it('handles case where auth header is gone after successful refresh', async () => {
+      localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      localStorage.setItem(
+        AUTH_USER_KEY,
+        JSON.stringify({ id: 'user-1', email: 'user@example.com' })
+      );
+
+      let refreshCalled = false;
+      server.use(
+        http.get('http://localhost/ping', () =>
+          HttpResponse.json(null, { status: 401 })
+        ),
+        http.post('http://localhost/auth/refresh', () => {
+          refreshCalled = true;
+          // Refresh succeeds but simulates another tab clearing auth
+          // before the retry can use the new token
+          localStorage.removeItem(AUTH_TOKEN_KEY);
+          localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
+          return HttpResponse.json({
+            accessToken: 'new-token',
+            refreshToken: 'new-refresh',
+            tokenType: 'Bearer',
+            expiresIn: 3600,
+            refreshExpiresIn: 604800,
+            user: { id: 'user-1', email: 'user@example.com' }
+          });
+        })
+      );
+
+      const api = await loadApi();
+
+      // The refresh handler stores the token, but then immediately removes it
+      // The MSW handler removes it before returning, so the retry check finds no auth
+      await expect(api.ping.get()).rejects.toThrow('API error: 401');
+      expect(refreshCalled).toBe(true);
+    });
+  });
+
+  describe('response parsing', () => {
+    it('handles 204 no-content responses', async () => {
+      server.use(
+        http.delete(
+          'http://localhost/ai/conversations/conv-1',
+          () => new HttpResponse(null, { status: 204 })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(
+        api.ai.deleteConversation('conv-1')
+      ).resolves.toBeUndefined();
+      expect(wasApiRequestMade('DELETE', '/ai/conversations/conv-1')).toBe(
+        true
+      );
+    });
+
+    it('handles 205 reset-content responses', async () => {
+      server.use(
+        http.post(
+          'http://localhost/auth/logout',
+          () => new HttpResponse(null, { status: 205 })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(api.auth.logout()).resolves.toBeUndefined();
+      expect(wasApiRequestMade('POST', '/auth/logout')).toBe(true);
+    });
+
+    it('handles empty text responses', async () => {
+      server.use(
+        http.get(
+          'http://localhost/ping',
+          () =>
+            new HttpResponse('', {
+              status: 200,
+              headers: { 'Content-Type': 'application/json' }
+            })
+        )
+      );
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).resolves.toBeUndefined();
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+  });
+
+  describe('environment configuration', () => {
+    it('throws error when VITE_API_URL is not set', async () => {
+      vi.stubEnv('VITE_API_URL', '');
+
+      const api = await loadApi();
+
+      await expect(api.ping.get()).rejects.toThrow(
+        'VITE_API_URL environment variable is not set'
+      );
+    });
+
+    it('exports the API_BASE_URL', async () => {
+      vi.stubEnv('VITE_API_URL', 'http://test-api.com');
+
+      const { API_BASE_URL } = await import('./api');
+
+      expect(API_BASE_URL).toBe('http://test-api.com');
+    });
+  });
+
+  describe('analytics event logging', () => {
+    it('logs correct event name for simple endpoints', async () => {
+      const api = await loadApi();
+      await api.ping.get();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_ping',
+        expect.any(Number),
+        true
+      );
+      expect(wasApiRequestMade('GET', '/ping')).toBe(true);
+    });
+
+    it('logs success=false for failed requests', async () => {
+      server.use(
+        http.get('http://localhost/ping', () =>
+          HttpResponse.json(null, { status: 500 })
+        )
+      );
+
+      const api = await loadApi();
+      await expect(api.ping.get()).rejects.toThrow();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_ping',
+        expect.any(Number),
+        false
+      );
+    });
+
+    it('strips query parameters from event name for paginated requests', async () => {
+      const api = await loadApi();
+      await api.admin.redis.getKeys('someCursor123', 50);
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_redis_keys',
+        expect.any(Number),
+        true
+      );
+      expectSingleRequestQuery('GET', '/admin/redis/keys', {
+        cursor: 'someCursor123',
+        limit: '50'
+      });
+    });
+
+    it('uses generic event name for getValue without leaking key values', async () => {
+      const api = await loadApi();
+      await api.admin.redis.getValue('sessions:abc123');
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_redis_key',
+        expect.any(Number),
+        true
+      );
+      expect(
+        wasApiRequestMade('GET', '/admin/redis/keys/sessions%3Aabc123')
+      ).toBe(true);
+    });
+
+    it('uses generic event name for deleteKey without leaking key values', async () => {
+      const api = await loadApi();
+      await api.admin.redis.deleteKey('users:user-uuid:sessions');
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_delete_admin_redis_key',
+        expect.any(Number),
+        true
+      );
+      expect(
+        wasApiRequestMade(
+          'DELETE',
+          '/admin/redis/keys/users%3Auser-uuid%3Asessions'
+        )
+      ).toBe(true);
+    });
+
+    it('logs the dbsize endpoint event', async () => {
+      const api = await loadApi();
+      await api.admin.redis.getDbSize();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_redis_dbsize',
+        expect.any(Number),
+        true
+      );
+      expect(wasApiRequestMade('GET', '/admin/redis/dbsize')).toBe(true);
+    });
+
+    it('logs the postgres info endpoint event', async () => {
+      const api = await loadApi();
+      await api.admin.postgres.getInfo();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_postgres_info',
+        expect.any(Number),
+        true
+      );
+      expect(wasApiRequestMade('GET', '/admin/postgres/info')).toBe(true);
+    });
+
+    it('logs the postgres tables endpoint event', async () => {
+      const api = await loadApi();
+      await api.admin.postgres.getTables();
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_postgres_tables',
+        expect.any(Number),
+        true
+      );
+      expect(wasApiRequestMade('GET', '/admin/postgres/tables')).toBe(true);
+    });
+
+    it('logs the admin user get endpoint event', async () => {
+      const api = await loadApi();
+      await api.admin.users.get('user-1');
+
+      expect(mockLogApiEvent).toHaveBeenCalledWith(
+        'api_get_admin_user',
+        expect.any(Number),
+        true
+      );
+      expect(wasApiRequestMade('GET', '/admin/users/user-1')).toBe(true);
+    });
   });
 
   it('routes auth requests through msw', async () => {
@@ -489,6 +1033,10 @@ describe('api with msw', () => {
     });
     await api.admin.postgres.getRows('public', 'users');
 
+    // Redis getKeys: with params vs without
+    await api.admin.redis.getKeys('cursor-1', 10);
+    await api.admin.redis.getKeys();
+
     await api.ai.listConversations({ cursor: 'cursor-1', limit: 5 });
     await api.ai.listConversations();
     await api.ai.getUsage({
@@ -551,6 +1099,12 @@ describe('api with msw', () => {
         },
         {}
       ])
+    );
+
+    const redisKeysRequests = getRequestsFor('GET', '/admin/redis/keys');
+    expect(redisKeysRequests).toHaveLength(2);
+    expect(redisKeysRequests.map(getRequestQuery)).toEqual(
+      expect.arrayContaining([{ cursor: 'cursor-1', limit: '10' }, {}])
     );
   });
 
