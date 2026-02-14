@@ -85,36 +85,8 @@ test.describe('Analytics page', () => {
   });
 
   test('should navigate to analytics page', async ({ page }) => {
-    // Capture console errors
-    const consoleMessages: string[] = [];
-    page.on('console', (msg) => {
-      if (msg.type() === 'error') {
-        consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
-      }
-    });
-    page.on('pageerror', (error) => {
-      consoleMessages.push(`[pageerror] ${error.message}`);
-    });
-
     await navigateTo(page, 'Analytics');
-    // Wait for network to be idle
-    await page.waitForLoadState('networkidle');
-    // Log what's on the page if heading not found
-    const heading = page.getByRole('heading', { name: 'Analytics' });
-    try {
-      await expect(heading).toBeVisible({ timeout: 5000 });
-    } catch {
-      // Take screenshot and log body HTML for debugging
-      await page.screenshot({ path: 'test-results/analytics-debug.png' });
-      const bodyHtml = await page.evaluate(
-        () => document.body?.innerHTML?.slice(0, 2000) || 'NO BODY'
-      );
-      console.log('Console errors:', consoleMessages.join('\n'));
-      console.log('Page body (first 2000 chars):', bodyHtml);
-      console.log('Page URL:', page.url());
-      // Now fail with the original error
-      await expect(heading).toBeVisible({ timeout: 1000 });
-    }
+    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
   });
 
   test('should show inline unlock when database is not unlocked', async ({
@@ -122,9 +94,7 @@ test.describe('Analytics page', () => {
   }) => {
     await navigateTo(page, 'Analytics');
 
-    await expect(
-      page.getByRole('heading', { name: 'Analytics' })
-    ).toBeVisible({ timeout: 15000 });
+    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
     // Should show inline unlock component
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
     // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
