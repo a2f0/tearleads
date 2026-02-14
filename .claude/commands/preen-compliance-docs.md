@@ -146,7 +146,7 @@ All document files should follow numbered naming: `NN-topic-{policy|procedure|co
 # Find files not matching pattern
 find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | while read f; do
   base=$(basename "$f")
-  echo "$base" | grep -qE '^[0-9]{2}-[a-z-]+-\(policy\|procedure\|control-map\)\.md$' || echo "NAMING: $f"
+  echo "$base" | grep -qE '^[0-9]{2}-[a-z-]+-(policy|procedure|control-map)\.md$' || echo "NAMING: $f"
 done
 ```
 
