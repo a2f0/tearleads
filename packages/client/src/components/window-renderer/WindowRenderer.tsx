@@ -8,6 +8,7 @@ import {
 } from '@tearleads/admin';
 import { ConsoleWindow } from '@tearleads/console';
 import { KeychainWindow } from '@tearleads/keychain';
+import { NotificationCenter } from '@tearleads/notifications';
 import { SyncWindow } from '@tearleads/sync';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import type { ComponentType } from 'react';
@@ -32,7 +33,6 @@ import { LocalStorageWindow } from '@/components/local-storage-window';
 import { MlsChatWindow } from '@/components/mls-chat-window';
 import { ModelsWindow } from '@/components/models-window';
 import { NotesWindow } from '@/components/notes-window';
-import { NotificationCenter } from '@/components/notification-center';
 import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SearchWindow } from '@/components/search-window';

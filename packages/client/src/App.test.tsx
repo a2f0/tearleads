@@ -77,7 +77,7 @@ vi.mock('./components/language-picker', () => ({
   RuntimeLanguagePicker: () => <div data-testid="runtime-language-picker" />
 }));
 
-vi.mock('./components/notification-center', () => ({
+vi.mock('@tearleads/notifications', () => ({
   NotificationCenterTrigger: () => (
     <div data-testid="notification-center-trigger" />
   )
@@ -193,13 +193,14 @@ describe('App', () => {
     );
   });
 
-  it('renders NotificationCenterTrigger outside the header', () => {
+  it('renders NotificationCenterTrigger outside the header', async () => {
     mockUseSSEContext.mockReturnValue(null);
 
     renderApp();
 
     const header = screen.getByRole('banner');
-    const notificationCenterTrigger = screen.getByTestId(
+    // NotificationCenterTrigger is lazy-loaded, so we need to wait for it
+    const notificationCenterTrigger = await screen.findByTestId(
       'notification-center-trigger'
     );
     expect(notificationCenterTrigger).toBeInTheDocument();

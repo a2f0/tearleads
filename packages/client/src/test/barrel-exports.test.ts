@@ -22,17 +22,14 @@ vi.mock('@/components/duration-chart/DurationChart', () => ({
   DurationChart: () => null
 }));
 
-vi.mock('@/components/notification-center/AnalyticsTab', () => ({
-  AnalyticsTab: () => null
-}));
-vi.mock('@/components/notification-center/NotificationCenter', () => ({
-  NotificationCenter: () => null
-}));
-vi.mock('@/components/notification-center/NotificationCenterTrigger', () => ({
-  NotificationCenterTrigger: () => null
-}));
-vi.mock('@/components/notification-center/LogsTab', () => ({
-  LogsTab: () => null
+vi.mock('@tearleads/notifications', () => ({
+  AnalyticsTab: () => null,
+  NotificationCenter: () => null,
+  NotificationCenterTrigger: () => null,
+  LogsTab: () => null,
+  NotificationsTab: () => null,
+  NotificationBadge: () => null,
+  notificationStore: {}
 }));
 
 vi.mock('@/components/pdf/PdfViewer', () => ({
@@ -98,9 +95,9 @@ vi.mock('@/pages/opfs/Opfs', () => ({
   Opfs: () => null
 }));
 
+import * as notificationCenter from '@tearleads/notifications';
 import * as columnMapper from '@/components/contacts/column-mapper/index';
 import * as durationChart from '@/components/duration-chart/index';
-import * as notificationCenter from '@/components/notification-center/index';
 import * as pdf from '@/components/pdf/index';
 import * as settings from '@/components/settings/index';
 import * as backLink from '@/components/ui/back-link/index';
@@ -137,6 +134,7 @@ describe('barrel exports', () => {
     expect(notificationCenter.NotificationCenter).toBeDefined();
     expect(notificationCenter.NotificationCenterTrigger).toBeDefined();
     expect(notificationCenter.LogsTab).toBeDefined();
+    expect(notificationCenter.notificationStore).toBeDefined();
 
     expect(pdf.PdfViewer).toBeDefined();
 

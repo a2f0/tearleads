@@ -86,7 +86,8 @@ test.describe('Analytics page', () => {
 
   test('should navigate to analytics page', async ({ page }) => {
     await navigateTo(page, 'Analytics');
-    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+    const heading = page.getByRole('heading', { name: 'Analytics' });
+    await expect(heading).toBeVisible();
   });
 
   test('should show inline unlock when database is not unlocked', async ({

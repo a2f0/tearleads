@@ -2,14 +2,27 @@ import { Footer } from '@tearleads/ui';
 import logo from '@tearleads/ui/logo.svg';
 import { WindowConnectionIndicator } from '@tearleads/window-manager';
 import { Info, Lock, Search } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useRef,
+  useState
+} from 'react';
 import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+
+const NotificationCenterTrigger = lazy(() =>
+  import('@tearleads/notifications').then((m) => ({
+    default: m.NotificationCenterTrigger
+  }))
+);
+
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
 import { RuntimeLanguagePicker } from './components/language-picker';
 import { MobileMenu } from './components/MobileMenu';
-import { NotificationCenterTrigger } from './components/notification-center';
 import { SettingsButton } from './components/SettingsButton';
 import { Sidebar } from './components/Sidebar';
 import { SSEConnectionDialog } from './components/SSEConnectionDialog';
@@ -312,7 +325,9 @@ function App() {
               onContextMenu={handleSseContextMenu}
             />
           )}
-          <NotificationCenterTrigger />
+          <Suspense fallback={null}>
+            <NotificationCenterTrigger />
+          </Suspense>
         </div>
       </div>
       <MiniPlayer />

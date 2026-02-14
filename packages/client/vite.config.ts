@@ -60,8 +60,8 @@ export default defineConfig(({ mode }) => ({
           'vendor-chat': ['@assistant-ui/react'],
           // Database dependencies
           'vendor-db': ['drizzle-orm'],
-          // UI dependencies
-          'vendor-ui': ['lucide-react', 'class-variance-authority'],
+          // UI dependencies (lucide-react removed - bundled with code that uses it to avoid chunk loading issues)
+          'vendor-ui': ['class-variance-authority'],
           // PDF viewer (lazy-loaded when viewing documents)
           'vendor-pdf': ['react-pdf'],
           // Charts (lazy-loaded in analytics)
