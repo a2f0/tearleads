@@ -193,9 +193,13 @@ describe('tee-api server integration', () => {
     const responseJson = await response.json();
     const envelope = parseTeeSecureEnvelope(responseJson);
 
+    const originalData = envelope.data as {
+      message: string;
+      receivedAt: string;
+    };
     const tamperedEnvelope = {
       ...envelope,
-      data: { message: 'tampered', receivedAt: envelope.data.receivedAt }
+      data: { message: 'tampered', receivedAt: originalData.receivedAt }
     };
 
     const verification = verifyTeeSecureEnvelope({

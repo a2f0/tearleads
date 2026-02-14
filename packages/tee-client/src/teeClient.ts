@@ -196,7 +196,9 @@ export class TeeClient {
       trustedPublicKeys: this.trustedPublicKeys,
       expectedTransport,
       maxClockSkewSeconds: this.maxClockSkewSeconds,
-      attestationPolicy: this.attestationPolicy
+      ...(this.attestationPolicy !== undefined && {
+        attestationPolicy: this.attestationPolicy
+      })
     });
 
     const responseIsNoStore =
