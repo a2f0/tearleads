@@ -3,6 +3,7 @@ import {
   type JsonValue,
   parseTeeSecureEnvelope,
   stableStringify,
+  type TeeAttestationPolicy,
   type TeeTransport,
   type TeeVerificationFailureCode,
   verifyTeeSecureEnvelope
@@ -15,6 +16,7 @@ export interface TeeClientConfig {
   allowInsecureLoopback?: boolean;
   requireNoStoreCacheControl?: boolean;
   maxClockSkewSeconds?: number;
+  attestationPolicy?: TeeAttestationPolicy;
 }
 
 export interface TeeClientRequestOptions {
@@ -33,6 +35,7 @@ export interface TeeSecurityAssertions {
   responseBindingValid: boolean;
   freshnessValid: boolean;
   transportBindingValid: boolean;
+  attestationValid: boolean;
   verificationFailureCodes: TeeVerificationFailureCode[];
   secureAndPrivate: boolean;
 }
@@ -117,6 +120,7 @@ export class TeeClient {
   private readonly allowInsecureLoopback: boolean;
   private readonly requireNoStoreCacheControl: boolean;
   private readonly maxClockSkewSeconds: number;
+  private readonly attestationPolicy: TeeAttestationPolicy | undefined;
 
   constructor(config: TeeClientConfig) {
     this.baseUrl = new URL(config.baseUrl);
@@ -125,6 +129,7 @@ export class TeeClient {
     this.allowInsecureLoopback = config.allowInsecureLoopback ?? true;
     this.requireNoStoreCacheControl = config.requireNoStoreCacheControl ?? true;
     this.maxClockSkewSeconds = config.maxClockSkewSeconds ?? 5;
+    this.attestationPolicy = config.attestationPolicy;
   }
 
   async request(options: TeeClientRequestOptions): Promise<TeeClientResponse> {
@@ -148,6 +153,7 @@ export class TeeClient {
           responseBindingValid: false,
           freshnessValid: false,
           transportBindingValid: false,
+          attestationValid: false,
           verificationFailureCodes: [],
           secureAndPrivate: false
         }
@@ -189,7 +195,10 @@ export class TeeClient {
       responseStatus: response.status,
       trustedPublicKeys: this.trustedPublicKeys,
       expectedTransport,
-      maxClockSkewSeconds: this.maxClockSkewSeconds
+      maxClockSkewSeconds: this.maxClockSkewSeconds,
+      ...(this.attestationPolicy !== undefined && {
+        attestationPolicy: this.attestationPolicy
+      })
     });
 
     const responseIsNoStore =
@@ -204,6 +213,7 @@ export class TeeClient {
       responseBindingValid: verification.responseDigestMatches,
       freshnessValid: verification.freshnessValid,
       transportBindingValid: verification.transportMatches,
+      attestationValid: verification.attestationValid,
       verificationFailureCodes: verification.failureCodes,
       secureAndPrivate: verification.isValid && responseIsNoStore
     };

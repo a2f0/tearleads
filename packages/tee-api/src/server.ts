@@ -5,19 +5,25 @@ import {
   type Server,
   type ServerResponse
 } from 'node:http';
+import { isTeeEchoRequest, TEE_ECHO_PATH } from './contracts.js';
 import {
   createTeeSecureEnvelope,
-  isTeeEchoRequest,
-  TEE_ECHO_PATH,
   type TeeAttestationEvidence,
   type TeeTransport
-} from './index.js';
+} from './secureEnvelope.js';
+
+export interface TeeSigningKeyConfig {
+  keyId: string;
+  privateKeyPem: string;
+  activatedAt?: Date;
+  deprecatedAt?: Date;
+}
 
 interface TeeApiServerConfig {
   host: string;
   port: number;
-  keyId: string;
-  privateKeyPem: string;
+  signingKeys: TeeSigningKeyConfig[];
+  graceWindowSeconds: number;
   proofTtlSeconds: number;
   transportMode: TeeTransport | 'auto';
   attestation?: TeeAttestationEvidence;
@@ -217,13 +223,137 @@ function readAttestationFromEnv(): TeeAttestationEvidence | undefined {
   };
 }
 
+interface SigningKeysEnvEntry {
+  keyId: string;
+  privateKeyPem?: string;
+  privateKeyPath?: string;
+  activatedAt?: string;
+  deprecatedAt?: string;
+}
+
+function parseSigningKeysFromJson(json: string): TeeSigningKeyConfig[] {
+  const parsed: unknown = JSON.parse(json);
+
+  if (!Array.isArray(parsed)) {
+    throw new Error('TEE_API_SIGNING_KEYS must be a JSON array');
+  }
+
+  return parsed.map((entry: unknown, index: number) => {
+    if (typeof entry !== 'object' || entry === null) {
+      throw new Error(`TEE_API_SIGNING_KEYS[${index}] must be an object`);
+    }
+
+    const { keyId, privateKeyPem, privateKeyPath, activatedAt, deprecatedAt } =
+      entry as SigningKeysEnvEntry;
+
+    if (typeof keyId !== 'string' || keyId.length === 0) {
+      throw new Error(`TEE_API_SIGNING_KEYS[${index}].keyId is required`);
+    }
+
+    let resolvedPem: string;
+    if (typeof privateKeyPem === 'string' && privateKeyPem.length > 0) {
+      resolvedPem = privateKeyPem;
+    } else if (
+      typeof privateKeyPath === 'string' &&
+      privateKeyPath.length > 0
+    ) {
+      resolvedPem = readFileSync(privateKeyPath, 'utf8');
+    } else {
+      throw new Error(
+        `TEE_API_SIGNING_KEYS[${index}] requires privateKeyPem or privateKeyPath`
+      );
+    }
+
+    const config: TeeSigningKeyConfig = {
+      keyId,
+      privateKeyPem: resolvedPem
+    };
+
+    if (typeof activatedAt === 'string') {
+      config.activatedAt = new Date(activatedAt);
+    }
+
+    if (typeof deprecatedAt === 'string') {
+      config.deprecatedAt = new Date(deprecatedAt);
+    }
+
+    return config;
+  });
+}
+
+function loadSigningKeysFromEnv(): TeeSigningKeyConfig[] {
+  const signingKeysJson = optionalEnv('TEE_API_SIGNING_KEYS');
+  if (signingKeysJson !== undefined) {
+    return parseSigningKeysFromJson(signingKeysJson);
+  }
+
+  return [
+    {
+      keyId: optionalEnv('TEE_API_SIGNING_KEY_ID') ?? 'tee-primary',
+      privateKeyPem: readPrivateKeyPem()
+    }
+  ];
+}
+
+export function selectActiveSigningKey(
+  keys: TeeSigningKeyConfig[],
+  graceWindowSeconds: number,
+  now: Date = new Date()
+): TeeSigningKeyConfig {
+  if (keys.length === 0) {
+    throw new Error('No signing keys configured');
+  }
+
+  const nowMs = now.getTime();
+  const graceMs = graceWindowSeconds * 1000;
+
+  const activeKeys = keys.filter((key) => {
+    if (key.activatedAt !== undefined && key.activatedAt.getTime() > nowMs) {
+      return false;
+    }
+
+    if (key.deprecatedAt !== undefined) {
+      const deprecatedMs = key.deprecatedAt.getTime();
+      if (nowMs > deprecatedMs + graceMs) {
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  if (activeKeys.length === 0) {
+    throw new Error('No active signing keys available');
+  }
+
+  const nonDeprecated = activeKeys.filter(
+    (key) =>
+      key.deprecatedAt === undefined || key.deprecatedAt.getTime() > nowMs
+  );
+
+  const candidates = nonDeprecated.length > 0 ? nonDeprecated : activeKeys;
+
+  candidates.sort((a, b) => {
+    const aTime = a.activatedAt?.getTime() ?? 0;
+    const bTime = b.activatedAt?.getTime() ?? 0;
+    return bTime - aTime;
+  });
+
+  const selected = candidates[0];
+  if (selected === undefined) {
+    throw new Error('No active signing keys available');
+  }
+
+  return selected;
+}
+
 export function loadTeeApiServerConfigFromEnv(): TeeApiServerConfig {
   const attestation = readAttestationFromEnv();
   const baseConfig = {
     host: optionalEnv('TEE_API_HOST') ?? '0.0.0.0',
     port: envNumber('TEE_API_PORT', 8080),
-    keyId: optionalEnv('TEE_API_SIGNING_KEY_ID') ?? 'tee-primary',
-    privateKeyPem: readPrivateKeyPem(),
+    signingKeys: loadSigningKeysFromEnv(),
+    graceWindowSeconds: envNumber('TEE_API_KEY_GRACE_WINDOW_SECONDS', 3600),
     proofTtlSeconds: envNumber('TEE_API_PROOF_TTL_SECONDS', 30),
     transportMode: parseTransportMode(optionalEnv('TEE_API_TRANSPORT_MODE'))
   };
@@ -271,9 +401,16 @@ async function routeRequest(
       return;
     }
 
+    const now = new Date();
+    const activeKey = selectActiveSigningKey(
+      config.signingKeys,
+      config.graceWindowSeconds,
+      now
+    );
+
     const data = {
       message: parsedBody.message,
-      receivedAt: new Date().toISOString()
+      receivedAt: now.toISOString()
     };
 
     const envelopeBase = {
@@ -283,10 +420,11 @@ async function routeRequest(
       requestNonce,
       requestBody: parsedBody,
       responseStatus: 200,
-      keyId: config.keyId,
-      privateKeyPem: config.privateKeyPem,
+      keyId: activeKey.keyId,
+      privateKeyPem: activeKey.privateKeyPem,
       ttlSeconds: config.proofTtlSeconds,
-      transport: resolveTransport(request, config.transportMode)
+      transport: resolveTransport(request, config.transportMode),
+      now
     };
     const envelope = createTeeSecureEnvelope(
       config.attestation === undefined
