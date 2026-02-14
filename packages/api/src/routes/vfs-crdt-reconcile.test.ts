@@ -264,6 +264,64 @@ describe('VFS CRDT reconcile route', () => {
     restoreConsole();
   });
 
+  it('returns 500 when reconcile query returns no row', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-14T00:00:00.000Z',
+      changeId: 'op-10'
+    });
+
+    mockQuery.mockResolvedValueOnce({
+      rows: []
+    });
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/reconcile')
+      .set('Authorization', authHeader)
+      .send({
+        clientId: 'desktop',
+        cursor
+      });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Failed to reconcile CRDT cursor' });
+    restoreConsole();
+  });
+
+  it('returns 500 when reconciled timestamp is invalid', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-14T00:00:00.000Z',
+      changeId: 'op-10'
+    });
+
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          last_reconciled_at: 'not-a-date',
+          last_reconciled_change_id: 'op-10',
+          last_reconciled_write_ids: {
+            desktop: 10
+          }
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/reconcile')
+      .set('Authorization', authHeader)
+      .send({
+        clientId: 'desktop',
+        cursor
+      });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Failed to reconcile CRDT cursor' });
+    restoreConsole();
+  });
+
   it('returns 500 on database error', async () => {
     const restoreConsole = mockConsoleError();
     const authHeader = await createAuthHeader();

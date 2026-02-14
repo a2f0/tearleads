@@ -348,6 +348,22 @@ describe('VFS routes', () => {
       });
     });
 
+    it('returns 400 when expiresAt is in the past', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage')
+        .set('Authorization', authHeader)
+        .send({
+          blobId: 'blob-1',
+          expiresAt: '2020-01-01T00:00:00.000Z'
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'expiresAt must be in the future' });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
     it('returns 201 when blob staging is created', async () => {
       const authHeader = await createAuthHeader();
       const stagedAt = new Date('2026-02-14T10:00:00.000Z');
@@ -383,6 +399,57 @@ describe('VFS routes', () => {
       });
     });
 
+    it('normalizes string timestamps returned from database', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            id: 'stage-2',
+            blob_id: 'blob-2',
+            status: 'staged',
+            staged_at: '2026-02-14T10:00:00.000Z',
+            expires_at: '2026-02-14T11:00:00.000Z'
+          }
+        ]
+      });
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage')
+        .set('Authorization', authHeader)
+        .send({
+          stagingId: 'stage-2',
+          blobId: 'blob-2',
+          expiresAt: '2026-02-14T11:00:00.000Z'
+        });
+
+      expect(response.status).toBe(201);
+      expect(response.body).toEqual({
+        stagingId: 'stage-2',
+        blobId: 'blob-2',
+        status: 'staged',
+        stagedAt: '2026-02-14T10:00:00.000Z',
+        expiresAt: '2026-02-14T11:00:00.000Z'
+      });
+    });
+
+    it('returns 500 when insert returns no row', async () => {
+      const restoreConsole = mockConsoleError();
+      const authHeader = await createAuthHeader();
+      mockQuery.mockResolvedValueOnce({ rows: [] });
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage')
+        .set('Authorization', authHeader)
+        .send({
+          blobId: 'blob-1',
+          expiresAt: '2099-02-14T11:00:00.000Z'
+        });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to stage blob' });
+      restoreConsole();
+    });
+
     it('returns 404 when blob object does not exist', async () => {
       const authHeader = await createAuthHeader();
       const fkError = Object.assign(new Error('fk'), { code: '23503' });
@@ -398,6 +465,44 @@ describe('VFS routes', () => {
 
       expect(response.status).toBe(404);
       expect(response.body).toEqual({ error: 'Blob object not found' });
+    });
+
+    it('returns 409 when staging id already exists', async () => {
+      const authHeader = await createAuthHeader();
+      const conflictError = Object.assign(new Error('duplicate'), {
+        code: '23505'
+      });
+      mockQuery.mockRejectedValueOnce(conflictError);
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage')
+        .set('Authorization', authHeader)
+        .send({
+          stagingId: 'stage-1',
+          blobId: 'blob-1',
+          expiresAt: '2099-02-14T11:00:00.000Z'
+        });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({ error: 'Blob staging already exists' });
+    });
+
+    it('returns 500 on unexpected stage error', async () => {
+      const restoreConsole = mockConsoleError();
+      const authHeader = await createAuthHeader();
+      mockQuery.mockRejectedValueOnce(new Error('db unavailable'));
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage')
+        .set('Authorization', authHeader)
+        .send({
+          blobId: 'blob-1',
+          expiresAt: '2099-02-14T11:00:00.000Z'
+        });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to stage blob' });
+      restoreConsole();
     });
   });
 
@@ -427,6 +532,19 @@ describe('VFS routes', () => {
       expect(response.body).toEqual({ error: 'Blob staging not found' });
       expect(mockQuery.mock.calls[1]?.[0]).toContain('FOR UPDATE');
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 400 when itemId is missing', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'itemId is required' });
+      expect(mockQuery).not.toHaveBeenCalled();
     });
 
     it('returns 200 when attach succeeds with transaction ordering guardrails', async () => {
@@ -478,6 +596,56 @@ describe('VFS routes', () => {
       expect(mockQuery.mock.calls[2]?.[0]).toContain("AND status = 'staged'");
       expect(mockQuery.mock.calls[4]?.[0]).toBe('COMMIT');
       expect(mockPoolConnect).toHaveBeenCalledTimes(1);
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('falls back to existing blob ref when insert conflicts', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: '2099-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT ... FOR UPDATE (staging)
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              blob_id: 'blob-1',
+              attached_at: '2026-02-14T10:10:00.000Z',
+              attached_item_id: 'item-1'
+            }
+          ]
+        }) // UPDATE
+        .mockResolvedValueOnce({ rows: [] }) // INSERT ref conflict
+        .mockResolvedValueOnce({
+          rows: [
+            { id: 'existing-ref-1', attached_at: '2026-02-14T10:10:01.000Z' }
+          ]
+        }) // SELECT existing ref
+        .mockResolvedValueOnce({}); // COMMIT
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1', relationKind: 'file' });
+
+      expect(response.status).toBe(200);
+      expect(response.body).toEqual({
+        attached: true,
+        stagingId: 'stage-1',
+        blobId: 'blob-1',
+        itemId: 'item-1',
+        relationKind: 'file',
+        refId: 'existing-ref-1',
+        attachedAt: '2026-02-14T10:10:01.000Z'
+      });
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
 
@@ -557,6 +725,47 @@ describe('VFS routes', () => {
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
 
+    it('returns 400 when guardrails are provided without clientId', async () => {
+      const authHeader = await createAuthHeader();
+      const requiredCursor = encodeVfsSyncCursor({
+        changedAt: '2026-02-14T10:00:02.000Z',
+        changeId: 'desktop-2'
+      });
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({
+          itemId: 'item-1',
+          requiredCursor
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error: 'clientId is required when reconcile guardrails are provided'
+      });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when guardrails are provided without requiredCursor', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({
+          itemId: 'item-1',
+          clientId: 'desktop'
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error:
+          'requiredCursor is required when reconcile guardrails are provided'
+      });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
     it('returns 409 when reconcile visibility is behind requested checkpoint', async () => {
       const authHeader = await createAuthHeader();
       const requiredCursor = encodeVfsSyncCursor({
@@ -625,6 +834,122 @@ describe('VFS routes', () => {
       expect(response.status).toBe(400);
       expect(response.body).toEqual({ error: 'Invalid requiredCursor' });
       expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('returns 400 when requiredLastReconciledWriteIds is invalid', async () => {
+      const authHeader = await createAuthHeader();
+      const requiredCursor = encodeVfsSyncCursor({
+        changedAt: '2026-02-14T10:00:02.000Z',
+        changeId: 'desktop-2'
+      });
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({
+          itemId: 'item-1',
+          clientId: 'desktop',
+          requiredCursor,
+          requiredLastReconciledWriteIds: {
+            desktop: 0
+          }
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({
+        error:
+          'lastReconciledWriteIds contains invalid writeId (must be a positive integer)'
+      });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('returns 500 when reconcile state row contains invalid write ids', async () => {
+      const authHeader = await createAuthHeader();
+      const requiredCursor = encodeVfsSyncCursor({
+        changedAt: '2026-02-14T10:00:02.000Z',
+        changeId: 'desktop-2'
+      });
+
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: '2099-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT staging
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              last_reconciled_at: '2026-02-14T10:00:03.000Z',
+              last_reconciled_change_id: 'desktop-3',
+              last_reconciled_write_ids: {
+                desktop: 'oops'
+              }
+            }
+          ]
+        }) // SELECT reconcile
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({
+          itemId: 'item-1',
+          clientId: 'desktop',
+          requiredCursor
+        });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to attach staged blob' });
+      expect(mockQuery.mock.calls[3]?.[0]).toBe('ROLLBACK');
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 500 when insert conflict fallback cannot find an existing ref', async () => {
+      const restoreConsole = mockConsoleError();
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: '2099-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT ... FOR UPDATE (staging)
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              blob_id: 'blob-1',
+              attached_at: '2026-02-14T10:10:00.000Z',
+              attached_item_id: 'item-1'
+            }
+          ]
+        }) // UPDATE
+        .mockResolvedValueOnce({ rows: [] }) // INSERT ref conflict
+        .mockResolvedValueOnce({ rows: [] }) // SELECT existing ref missing
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1', relationKind: 'file' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to attach staged blob' });
+      expect(mockQuery.mock.calls[5]?.[0]).toBe('ROLLBACK');
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+      restoreConsole();
     });
 
     it('returns 409 when staged blob is already attached', async () => {
@@ -791,6 +1116,36 @@ describe('VFS routes', () => {
       expect(response.body).toEqual({ error: 'Unauthorized' });
     });
 
+    it('returns 400 when stagingId is missing', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/%20/abandon')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body).toEqual({ error: 'stagingId is required' });
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
+    it('returns 404 when staged blob is missing', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // SELECT
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/abandon')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(404);
+      expect(response.body).toEqual({ error: 'Blob staging not found' });
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
     it('returns 200 when abandon succeeds', async () => {
       const authHeader = await createAuthHeader();
       mockQuery
@@ -836,6 +1191,27 @@ describe('VFS routes', () => {
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
 
+    it('returns 409 when staged blob is no longer staged', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'stage-1', staged_by: 'user-1', status: 'attached' }]
+        }) // SELECT
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/abandon')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Blob staging is no longer abandonable'
+      });
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
     it('returns 409 when update guardrail detects abandon race', async () => {
       const authHeader = await createAuthHeader();
       mockQuery
@@ -868,6 +1244,29 @@ describe('VFS routes', () => {
         }) // SELECT
         .mockRejectedValueOnce(new Error('update failed')) // UPDATE
         .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/abandon')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to abandon staged blob' });
+      expect(mockQuery.mock.calls[3]?.[0]).toBe('ROLLBACK');
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+      restoreConsole();
+    });
+
+    it('returns 500 when rollback also fails', async () => {
+      const restoreConsole = mockConsoleError();
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'stage-1', staged_by: 'user-1', status: 'staged' }]
+        }) // SELECT
+        .mockRejectedValueOnce(new Error('update failed')) // UPDATE
+        .mockRejectedValueOnce(new Error('rollback failed')); // ROLLBACK
 
       const response = await request(app)
         .post('/v1/vfs/blobs/stage/stage-1/abandon')

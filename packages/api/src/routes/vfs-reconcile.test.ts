@@ -166,6 +166,61 @@ describe('VFS sync reconcile route', () => {
     });
   });
 
+  it('returns 500 when reconcile query returns no row', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2025-02-10T00:00:00.000Z',
+      changeId: 'change-10'
+    });
+
+    mockQuery.mockResolvedValueOnce({
+      rows: []
+    });
+
+    const response = await request(app)
+      .post('/v1/vfs/sync/reconcile')
+      .set('Authorization', authHeader)
+      .send({
+        clientId: 'desktop',
+        cursor
+      });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Failed to reconcile sync cursor' });
+    restoreConsole();
+  });
+
+  it('returns 500 when reconciled timestamp is invalid', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2025-02-10T00:00:00.000Z',
+      changeId: 'change-10'
+    });
+
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          last_reconciled_at: 'not-a-date',
+          last_reconciled_change_id: 'change-10'
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .post('/v1/vfs/sync/reconcile')
+      .set('Authorization', authHeader)
+      .send({
+        clientId: 'desktop',
+        cursor
+      });
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Failed to reconcile sync cursor' });
+    restoreConsole();
+  });
+
   it('returns 500 on database error', async () => {
     const restoreConsole = mockConsoleError();
     const authHeader = await createAuthHeader();
