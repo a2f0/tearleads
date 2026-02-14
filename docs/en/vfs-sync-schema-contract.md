@@ -63,6 +63,9 @@ is complete.
 folder parity before any future `vfs_folders` drop.
 `v032` records explicit retirement checkpoint snapshots after parity checks to
 support rollback-aware drop planning.
+`v033` drops `vfs_folders` in API/Postgres migrations after guardrails pass.
+Local-client compatibility paths may still retain `vfs_folders` while staged
+client cutover completes.
 
 ## Domain Mapping
 
