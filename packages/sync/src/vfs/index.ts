@@ -4,6 +4,7 @@ export {
   type VfsAclSnapshotEntry
 } from './acl-key-view.js';
 export {
+  type VfsAuthoritativeMembershipSnapshot,
   type EffectiveVfsMemberItemAccessEntry,
   type EffectiveVfsAclKeyViewEntry,
   InMemoryVfsAccessHarness,
