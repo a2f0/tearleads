@@ -28,7 +28,7 @@ This document describes the CI architecture and how agents should interact with 
 ## Core Workflows
 
 | Workflow | Trigger | Purpose |
-|----------|---------|---------|
+| ---------- | --------- | --------- |
 | `build.yml` | push/PR | Lint, typecheck, build, unit tests |
 | `ci-gate.yml` | PR events | Waits for required workflows based on impact analysis |
 | `main-version-bump.yml` | workflow_run (after build on main) | Replays pending bump commits directly to main |
@@ -52,7 +52,7 @@ The impact analyzer (`scripts/ciImpact/`) determines which CI jobs should run ba
 ### Key Scripts
 
 | Script | Purpose |
-|--------|---------|
+| -------- | --------- |
 | `ciImpact.ts` | Core analyzer - maps files to packages and jobs |
 | `requiredWorkflows.ts` | Maps job decisions to workflow names for CI Gate |
 | `runImpactedQuality.ts` | Pre-push hook for selective lint/typecheck/build |
@@ -73,7 +73,7 @@ Central config: `scripts/ciImpact/job-groups.json`
 }
 ```
 
-### How It Works
+### Gate Execution
 
 1. **Detect changed files** from git diff
 2. **Map to packages** using workspace graph
@@ -160,7 +160,7 @@ The `ci-gate.yml` workflow is a required status check that waits for all impacte
 These patterns trigger full CI matrix (all jobs run):
 
 | Pattern | Rationale |
-|---------|-----------|
+| --------- | ----------- |
 | `.github/workflows/*` | CI config changes need full validation |
 | `.github/actions/*` | Shared action changes affect all jobs |
 | `scripts/ciImpact/*` | Impact system changes need validation |
