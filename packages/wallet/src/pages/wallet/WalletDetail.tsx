@@ -30,7 +30,7 @@ export function WalletDetail() {
       <BackLink defaultTo="/wallet" defaultLabel="Back to Wallet" />
       <WalletItemDetail
         itemId={itemId}
-        initialItemType={selectedItemType ?? undefined}
+        {...(selectedItemType ? { initialItemType: selectedItemType } : {})}
         onSaved={handleSaved}
         onDeleted={() => navigate('/wallet')}
         onCreateItem={() => navigate('/wallet/new')}
