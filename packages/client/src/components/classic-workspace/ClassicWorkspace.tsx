@@ -1,7 +1,7 @@
 import {
   ClassicApp,
-  type EntrySortOrder,
   type ClassicState,
+  type EntrySortOrder,
   type TagSortOrder,
   type VfsLinkLikeRow
 } from '@tearleads/classic';
@@ -24,9 +24,7 @@ import {
 interface ClassicWorkspaceProps {
   tagSortOrder?: TagSortOrder | undefined;
   entrySortOrder?: EntrySortOrder | undefined;
-  onTagSortOrderChange?:
-    | ((nextSortOrder: TagSortOrder) => void)
-    | undefined;
+  onTagSortOrderChange?: ((nextSortOrder: TagSortOrder) => void) | undefined;
   onEntrySortOrderChange?:
     | ((nextSortOrder: EntrySortOrder) => void)
     | undefined;

@@ -40,9 +40,7 @@ export interface ClassicAppProps {
   autoFocusSearch?: boolean;
   tagSortOrder?: TagSortOrder | undefined;
   entrySortOrder?: EntrySortOrder | undefined;
-  onTagSortOrderChange?:
-    | ((nextSortOrder: TagSortOrder) => void)
-    | undefined;
+  onTagSortOrderChange?: ((nextSortOrder: TagSortOrder) => void) | undefined;
   onEntrySortOrderChange?:
     | ((nextSortOrder: EntrySortOrder) => void)
     | undefined;

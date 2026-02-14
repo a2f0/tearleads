@@ -1,5 +1,5 @@
-import { WindowControlBar } from '@tearleads/window-manager';
 import type { EntrySortOrder, TagSortOrder } from '@tearleads/classic';
+import { WindowControlBar } from '@tearleads/window-manager';
 import { useState } from 'react';
 import { ClassicWorkspace } from '@/components/classic-workspace/ClassicWorkspace';
 import type { WindowDimensions } from '@/components/floating-window';

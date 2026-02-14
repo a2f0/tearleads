@@ -1,10 +1,10 @@
-import classicPackageJson from '@tearleads/classic/package.json';
 import {
   ENTRY_SORT_OPTIONS,
-  TAG_SORT_OPTIONS,
   type EntrySortOrder,
+  TAG_SORT_OPTIONS,
   type TagSortOrder
 } from '@tearleads/classic';
+import classicPackageJson from '@tearleads/classic/package.json';
 import {
   DropdownMenu,
   DropdownMenuItem,
