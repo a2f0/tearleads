@@ -4,31 +4,13 @@ export {
   type VfsAclSnapshotEntry
 } from './acl-key-view.js';
 export {
+  type EffectiveVfsAclKeyViewEntry,
+  type EffectiveVfsMemberItemAccessEntry,
+  InMemoryVfsAccessHarness,
   type VfsAuthoritativeMembershipSnapshot,
   type VfsAuthoritativePrincipalCatalogSnapshot,
-  type EffectiveVfsMemberItemAccessEntry,
-  type EffectiveVfsAclKeyViewEntry,
-  InMemoryVfsAccessHarness,
   type VfsMemberPrincipalView
 } from './sync-access-harness.js';
-export {
-  deriveVfsFlatteningInventory,
-  findTransitionalTableReferences,
-  extractSqlTableReferences,
-  extractPostgresTableNamesFromDrizzleSchema,
-  isSqlReferenceSubsetOfFlattenedContract,
-  VFS_SYNC_FLATTENED_TARGET_TABLES,
-  VFS_SYNC_SCHEMA_DEPENDENCIES,
-  VFS_TRANSITIONAL_TABLE_CANDIDATES,
-  type VfsFlatteningInventory,
-  type VfsSyncSchemaDependency,
-  type VfsSyncSchemaDomain
-} from './sync-schema-contract.js';
-export {
-  alwaysAvailableVfsBlobObjectStore,
-  InMemoryVfsBlobObjectStore,
-  type VfsBlobObjectStore
-} from './sync-blob-object-store.js';
 export {
   type AbandonVfsBlobInput,
   type AttachVfsBlobInput,
@@ -45,6 +27,41 @@ export {
   type VfsBlobIsolationAttachResult,
   type VfsBlobIsolationAttachStatus
 } from './sync-blob-isolation.js';
+export {
+  alwaysAvailableVfsBlobObjectStore,
+  InMemoryVfsBlobObjectStore,
+  type VfsBlobObjectStore
+} from './sync-blob-object-store.js';
+export {
+  delayVfsCrdtSyncTransport,
+  type InMemoryVfsCrdtSyncTransportDelayConfig,
+  type QueueVfsCrdtLocalOperationInput,
+  VfsBackgroundSyncClient,
+  type VfsBackgroundSyncClientFlushResult,
+  type VfsBackgroundSyncClientOptions,
+  type VfsBackgroundSyncClientPersistedState,
+  type VfsBackgroundSyncClientSnapshot,
+  type VfsBackgroundSyncClientSyncResult,
+  type VfsCrdtSyncPullResponse,
+  VfsCrdtSyncPushRejectedError,
+  type VfsCrdtSyncPushResponse,
+  type VfsCrdtSyncPushResult,
+  type VfsCrdtSyncPushStatus,
+  type VfsCrdtSyncReconcileResponse,
+  type VfsCrdtSyncTransport,
+  type VfsSyncGuardrailViolation,
+  type VfsSyncGuardrailViolationCode
+} from './sync-client.js';
+export {
+  InMemoryVfsCrdtSyncServer,
+  type InMemoryVfsCrdtSyncServerSnapshot,
+  InMemoryVfsCrdtSyncTransport
+} from './sync-client-harness.js';
+export {
+  InMemoryVfsContainerClockStore,
+  type ListVfsContainerClockChangesResult,
+  type VfsContainerClockEntry
+} from './sync-container-clocks.js';
 export {
   assertCanonicalVfsCrdtOperationOrder,
   InMemoryVfsCrdtStateStore,
@@ -83,40 +100,6 @@ export {
   type VfsCrdtFeedReplayViolationCode
 } from './sync-crdt-feed-replay.js';
 export {
-  InMemoryVfsCrdtSyncServer,
-  InMemoryVfsCrdtSyncTransport,
-  type InMemoryVfsCrdtSyncServerSnapshot
-} from './sync-client-harness.js';
-export {
-  InMemoryVfsContainerClockStore,
-  type ListVfsContainerClockChangesResult,
-  type VfsContainerClockEntry
-} from './sync-container-clocks.js';
-export {
-  delayVfsCrdtSyncTransport,
-  type InMemoryVfsCrdtSyncTransportDelayConfig,
-  type QueueVfsCrdtLocalOperationInput,
-  VfsBackgroundSyncClient,
-  VfsCrdtSyncPushRejectedError,
-  type VfsBackgroundSyncClientFlushResult,
-  type VfsBackgroundSyncClientOptions,
-  type VfsBackgroundSyncClientPersistedState,
-  type VfsBackgroundSyncClientSnapshot,
-  type VfsBackgroundSyncClientSyncResult,
-  type VfsCrdtSyncPushResponse,
-  type VfsCrdtSyncPushResult,
-  type VfsCrdtSyncPushStatus,
-  type VfsCrdtSyncPullResponse,
-  type VfsCrdtSyncReconcileResponse,
-  type VfsCrdtSyncTransport,
-  type VfsSyncGuardrailViolation,
-  type VfsSyncGuardrailViolationCode
-} from './sync-client.js';
-export {
-  VfsHttpCrdtSyncTransport,
-  type VfsHttpCrdtSyncTransportOptions
-} from './sync-http-transport.js';
-export {
   InMemoryVfsCrdtClientStateStore,
   mergeVfsCrdtLastReconciledWriteIds,
   type ParsedVfsCrdtReconcilePayload,
@@ -149,6 +132,10 @@ export {
   VfsSyncOrderViolationError
 } from './sync-engine.js';
 export {
+  VfsHttpCrdtSyncTransport,
+  type VfsHttpCrdtSyncTransportOptions
+} from './sync-http-transport.js';
+export {
   compareVfsSyncCursorOrder,
   InMemoryVfsSyncClientStateStore,
   type ParsedVfsSyncReconcilePayload,
@@ -157,3 +144,16 @@ export {
   type ReconcileVfsSyncCursorResult,
   reconcileVfsSyncCursor
 } from './sync-reconcile.js';
+export {
+  deriveVfsFlatteningInventory,
+  extractPostgresTableNamesFromDrizzleSchema,
+  extractSqlTableReferences,
+  findTransitionalTableReferences,
+  isSqlReferenceSubsetOfFlattenedContract,
+  VFS_SYNC_FLATTENED_TARGET_TABLES,
+  VFS_SYNC_SCHEMA_DEPENDENCIES,
+  VFS_TRANSITIONAL_TABLE_CANDIDATES,
+  type VfsFlatteningInventory,
+  type VfsSyncSchemaDependency,
+  type VfsSyncSchemaDomain
+} from './sync-schema-contract.js';

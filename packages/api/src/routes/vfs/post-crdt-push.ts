@@ -68,7 +68,8 @@ function normalizeRequiredString(value: unknown): string | null {
 
 function isValidOpType(value: unknown): value is VfsCrdtOpType {
   return (
-    typeof value === 'string' && VALID_OP_TYPES.some((candidate) => candidate === value)
+    typeof value === 'string' &&
+    VALID_OP_TYPES.some((candidate) => candidate === value)
   );
 }
 
@@ -91,7 +92,11 @@ function normalizeWriteId(value: unknown): number | null {
     return null;
   }
 
-  if (!Number.isInteger(value) || value < 1 || value > Number.MAX_SAFE_INTEGER) {
+  if (
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > Number.MAX_SAFE_INTEGER
+  ) {
     return null;
   }
 
@@ -258,7 +263,10 @@ function parsePushPayload(body: unknown): ParsePushPayloadResult {
   };
 }
 
-function toPushSourceId(userId: string, operation: VfsCrdtPushOperation): string {
+function toPushSourceId(
+  userId: string,
+  operation: VfsCrdtPushOperation
+): string {
   return `${userId}:${operation.replicaId}:${operation.writeId}:${operation.opId}`;
 }
 
@@ -284,7 +292,9 @@ function parseMaxWriteId(row: MaxWriteIdRow | undefined): number {
   return 0;
 }
 
-function parseOccurredAtMs(value: Date | string | null | undefined): number | null {
+function parseOccurredAtMs(
+  value: Date | string | null | undefined
+): number | null {
   if (!value) {
     return null;
   }
@@ -318,7 +328,9 @@ function normalizeCanonicalOccurredAt(
    * strictly increasing per-user feed clock at write time.
    */
   const canonicalOccurredAtMs =
-    inputOccurredAtMs <= maxOccurredAtMs ? maxOccurredAtMs + 1 : inputOccurredAtMs;
+    inputOccurredAtMs <= maxOccurredAtMs
+      ? maxOccurredAtMs + 1
+      : inputOccurredAtMs;
   return new Date(canonicalOccurredAtMs).toISOString();
 }
 
@@ -435,10 +447,9 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
 
       // Guardrail: serialize writes per user feed so canonical `occurred_at`
       // never regresses across replicas, preserving cursor safety.
-      await client.query(
-        'SELECT pg_advisory_xact_lock(hashtext($1::text))',
-        [`vfs_crdt_feed:${claims.sub}`]
-      );
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1::text))', [
+        `vfs_crdt_feed:${claims.sub}`
+      ]);
 
       const sourceId = toPushSourceId(claims.sub, operation);
       const existing = await client.query<ExistingSourceRow>(

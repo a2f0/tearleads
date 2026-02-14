@@ -260,7 +260,9 @@ export class InMemoryVfsCrdtFeedReplayStore {
         ? entry.principalType
         : null;
       const principalId = normalizeRequiredString(entry.principalId);
-      const accessLevel = isAccessLevel(entry.accessLevel) ? entry.accessLevel : null;
+      const accessLevel = isAccessLevel(entry.accessLevel)
+        ? entry.accessLevel
+        : null;
       if (!itemId || !principalType || !principalId || !accessLevel) {
         throw new Error('snapshot acl entry is invalid');
       }

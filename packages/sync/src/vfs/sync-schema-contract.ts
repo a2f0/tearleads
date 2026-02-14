@@ -62,7 +62,8 @@ export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
   {
     tableName: 'user_organizations',
     domain: 'crdtFeed',
-    purpose: 'resolve member organization principals for CRDT visibility filtering'
+    purpose:
+      'resolve member organization principals for CRDT visibility filtering'
   },
   {
     tableName: 'vfs_acl_entries',
@@ -97,7 +98,9 @@ export const VFS_SYNC_SCHEMA_DEPENDENCIES: VfsSyncSchemaDependency[] = [
 ];
 
 export const VFS_SYNC_FLATTENED_TARGET_TABLES = Array.from(
-  new Set(VFS_SYNC_SCHEMA_DEPENDENCIES.map((dependency) => dependency.tableName))
+  new Set(
+    VFS_SYNC_SCHEMA_DEPENDENCIES.map((dependency) => dependency.tableName)
+  )
 ).sort((left, right) => left.localeCompare(right));
 
 export const VFS_TRANSITIONAL_TABLE_CANDIDATES = [
@@ -139,7 +142,8 @@ export function extractSqlTableReferences(sql: string): string[] {
       continue;
     }
 
-    const normalizedName = normalizeSqlTableReference(rawReference).toLowerCase();
+    const normalizedName =
+      normalizeSqlTableReference(rawReference).toLowerCase();
     if (cteNames.has(normalizedName)) {
       match = pattern.exec(sql);
       continue;
@@ -181,7 +185,9 @@ export function extractPostgresTableNamesFromDrizzleSchema(
     match = pattern.exec(source);
   }
 
-  return Array.from(tableNames).sort((left, right) => left.localeCompare(right));
+  return Array.from(tableNames).sort((left, right) =>
+    left.localeCompare(right)
+  );
 }
 
 export function deriveVfsFlatteningInventory(

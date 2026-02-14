@@ -4,21 +4,21 @@ import type {
   VfsCrdtSyncItem
 } from '@tearleads/shared';
 import {
+  InMemoryVfsContainerClockStore,
+  type ListVfsContainerClockChangesResult,
+  type VfsContainerClockEntry
+} from './sync-container-clocks.js';
+import type { VfsCrdtOperation, VfsCrdtOpType } from './sync-crdt.js';
+import {
   InMemoryVfsCrdtFeedReplayStore,
   type VfsCrdtFeedReplaySnapshot
 } from './sync-crdt-feed-replay.js';
-import type { VfsCrdtOperation, VfsCrdtOpType } from './sync-crdt.js';
 import {
   InMemoryVfsCrdtClientStateStore,
   parseVfsCrdtLastReconciledWriteIds,
   type VfsCrdtClientReconcileState,
   type VfsCrdtLastReconciledWriteIds
 } from './sync-crdt-reconcile.js';
-import {
-  InMemoryVfsContainerClockStore,
-  type ListVfsContainerClockChangesResult,
-  type VfsContainerClockEntry
-} from './sync-container-clocks.js';
 import type { VfsSyncCursor } from './sync-cursor.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
@@ -419,7 +419,8 @@ export class VfsBackgroundSyncClient {
   private readonly reconcileStateStore = new InMemoryVfsCrdtClientStateStore();
   private readonly containerClockStore = new InMemoryVfsContainerClockStore();
 
-  private flushPromise: Promise<VfsBackgroundSyncClientFlushResult> | null = null;
+  private flushPromise: Promise<VfsBackgroundSyncClientFlushResult> | null =
+    null;
   private backgroundFlushTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(
@@ -509,7 +510,9 @@ export class VfsBackgroundSyncClient {
       const parentId = normalizeRequiredString(input.parentId);
       const childId = normalizeRequiredString(input.childId);
       if (!parentId || !childId) {
-        throw new Error('parentId and childId are required for link operations');
+        throw new Error(
+          'parentId and childId are required for link operations'
+        );
       }
 
       operation.parentId = parentId;
@@ -563,7 +566,9 @@ export class VfsBackgroundSyncClient {
           parentId: entry.parentId,
           childId: entry.childId
         })),
-        cursor: replaySnapshot.cursor ? cloneCursor(replaySnapshot.cursor) : null
+        cursor: replaySnapshot.cursor
+          ? cloneCursor(replaySnapshot.cursor)
+          : null
       },
       reconcileState: reconcileState
         ? {
@@ -630,7 +635,10 @@ export class VfsBackgroundSyncClient {
 
         observedPendingOpIds.add(normalizedOperation.opId);
         normalizedPendingOperations.push(normalizedOperation);
-        maxPendingWriteId = Math.max(maxPendingWriteId, normalizedOperation.writeId);
+        maxPendingWriteId = Math.max(
+          maxPendingWriteId,
+          normalizedOperation.writeId
+        );
         previousWriteId = normalizedOperation.writeId;
       }
 
@@ -664,7 +672,8 @@ export class VfsBackgroundSyncClient {
       this.emitGuardrailViolation({
         code: 'hydrateGuardrailViolation',
         stage: 'hydrate',
-        message: error instanceof Error ? error.message : 'state hydration failed'
+        message:
+          error instanceof Error ? error.message : 'state hydration failed'
       });
       throw error;
     }
@@ -756,7 +765,10 @@ export class VfsBackgroundSyncClient {
       throw new Error('cannot hydrate state on a non-empty pending queue');
     }
     const replaySnapshot = this.replayStore.snapshot();
-    const reconcileState = this.reconcileStateStore.get(this.userId, this.clientId);
+    const reconcileState = this.reconcileStateStore.get(
+      this.userId,
+      this.clientId
+    );
     const containerClocks = this.containerClockStore.snapshot();
     if (
       replaySnapshot.acl.length > 0 ||
@@ -789,7 +801,9 @@ export class VfsBackgroundSyncClient {
         ? entry.principalType
         : null;
       const principalId = normalizeRequiredString(entry.principalId);
-      const accessLevel = isAccessLevel(entry.accessLevel) ? entry.accessLevel : null;
+      const accessLevel = isAccessLevel(entry.accessLevel)
+        ? entry.accessLevel
+        : null;
       if (!itemId || !principalType || !principalId || !accessLevel) {
         throw new Error(`state.replaySnapshot.acl[${index}] is invalid`);
       }
@@ -817,7 +831,10 @@ export class VfsBackgroundSyncClient {
 
     let normalizedCursor: VfsSyncCursor | null = null;
     if (value.cursor !== null) {
-      normalizedCursor = normalizeCursor(value.cursor, 'persisted replay cursor');
+      normalizedCursor = normalizeCursor(
+        value.cursor,
+        'persisted replay cursor'
+      );
     }
 
     return {
@@ -1028,7 +1045,10 @@ export class VfsBackgroundSyncClient {
   }
 
   private currentCursor(): VfsSyncCursor | null {
-    const reconcileState = this.reconcileStateStore.get(this.userId, this.clientId);
+    const reconcileState = this.reconcileStateStore.get(
+      this.userId,
+      this.clientId
+    );
     if (reconcileState) {
       return cloneCursor(reconcileState.cursor);
     }
@@ -1038,12 +1058,16 @@ export class VfsBackgroundSyncClient {
   }
 
   private bumpLocalWriteIdFromReconcileState(): void {
-    const reconcileState = this.reconcileStateStore.get(this.userId, this.clientId);
+    const reconcileState = this.reconcileStateStore.get(
+      this.userId,
+      this.clientId
+    );
     if (!reconcileState) {
       return;
     }
 
-    const replicatedWriteId = reconcileState.lastReconciledWriteIds[this.clientId];
+    const replicatedWriteId =
+      reconcileState.lastReconciledWriteIds[this.clientId];
     if (typeof replicatedWriteId !== 'number') {
       return;
     }
@@ -1054,12 +1078,16 @@ export class VfsBackgroundSyncClient {
   }
 
   private nextWriteIdFromReconcileState(): number {
-    const reconcileState = this.reconcileStateStore.get(this.userId, this.clientId);
+    const reconcileState = this.reconcileStateStore.get(
+      this.userId,
+      this.clientId
+    );
     if (!reconcileState) {
       return this.nextLocalWriteId;
     }
 
-    const replicatedWriteId = reconcileState.lastReconciledWriteIds[this.clientId];
+    const replicatedWriteId =
+      reconcileState.lastReconciledWriteIds[this.clientId];
     if (
       typeof replicatedWriteId !== 'number' ||
       !Number.isFinite(replicatedWriteId) ||
@@ -1076,7 +1104,9 @@ export class VfsBackgroundSyncClient {
     let writeId = Math.max(1, nextWriteId);
     const cursor = this.currentCursor();
     const cursorMs = cursor ? Date.parse(cursor.changedAt) : Number.NaN;
-    let minOccurredAtMs = Number.isFinite(cursorMs) ? cursorMs : Number.NEGATIVE_INFINITY;
+    let minOccurredAtMs = Number.isFinite(cursorMs)
+      ? cursorMs
+      : Number.NEGATIVE_INFINITY;
 
     /**
      * Guardrail: rebased queued operations must remain strictly ordered by both:
@@ -1094,7 +1124,10 @@ export class VfsBackgroundSyncClient {
       let rebasedOccurredAtMs = Number.isFinite(parsedOccurredAtMs)
         ? parsedOccurredAtMs
         : minOccurredAtMs;
-      if (!Number.isFinite(rebasedOccurredAtMs) || rebasedOccurredAtMs <= minOccurredAtMs) {
+      if (
+        !Number.isFinite(rebasedOccurredAtMs) ||
+        rebasedOccurredAtMs <= minOccurredAtMs
+      ) {
         rebasedOccurredAtMs = Number.isFinite(minOccurredAtMs)
           ? minOccurredAtMs + 1
           : Date.now();
@@ -1199,7 +1232,10 @@ export class VfsBackgroundSyncClient {
     }
 
     if (
-      compareVfsSyncCursorOrder(normalizedResponseCursor, normalizedLocalCursor) < 0
+      compareVfsSyncCursorOrder(
+        normalizedResponseCursor,
+        normalizedLocalCursor
+      ) < 0
     ) {
       this.emitGuardrailViolation({
         code: 'reconcileCursorRegression',

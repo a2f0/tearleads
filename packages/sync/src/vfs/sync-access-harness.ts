@@ -166,7 +166,9 @@ function isMemberPrincipalMatch(
   }
 
   if (aclEntry.principalType === 'group') {
-    return principalView.groupIds.some((groupId) => groupId === aclEntry.principalId);
+    return principalView.groupIds.some(
+      (groupId) => groupId === aclEntry.principalId
+    );
   }
 
   return principalView.organizationIds.some(
@@ -184,7 +186,8 @@ function compareMemberAccessPriority(
     return candidateAccessRank - currentAccessRank;
   }
 
-  const candidateSpecificity = PRINCIPAL_SPECIFICITY_RANK[candidate.principalType];
+  const candidateSpecificity =
+    PRINCIPAL_SPECIFICITY_RANK[candidate.principalType];
   const currentSpecificity = PRINCIPAL_SPECIFICITY_RANK[current.principalType];
   if (candidateSpecificity !== currentSpecificity) {
     return candidateSpecificity - currentSpecificity;
@@ -212,7 +215,9 @@ function compareMemberAccessPriority(
 function toSortedMemberAccessView(
   entries: EffectiveVfsMemberItemAccessEntry[]
 ): EffectiveVfsMemberItemAccessEntry[] {
-  return entries.slice().sort((left, right) => left.itemId.localeCompare(right.itemId));
+  return entries
+    .slice()
+    .sort((left, right) => left.itemId.localeCompare(right.itemId));
 }
 
 /**
@@ -223,7 +228,10 @@ export class InMemoryVfsAccessHarness {
   private readonly crdtReplayStore = new InMemoryVfsCrdtFeedReplayStore();
   private aclSnapshotEntries: VfsAclSnapshotEntry[] = [];
   private membershipSnapshotCursor: VfsSyncCursor | null = null;
-  private membershipPrincipalViewsByUserId = new Map<string, VfsMemberPrincipalView>();
+  private membershipPrincipalViewsByUserId = new Map<
+    string,
+    VfsMemberPrincipalView
+  >();
   private principalCatalogCursor: VfsSyncCursor | null = null;
   private activePrincipalCatalog = {
     groupIds: new Set<string>(),
@@ -292,10 +300,8 @@ export class InMemoryVfsAccessHarness {
     );
     if (
       this.principalCatalogCursor &&
-      compareVfsSyncCursorOrder(
-        normalizedCursor,
-        this.principalCatalogCursor
-      ) < 0
+      compareVfsSyncCursorOrder(normalizedCursor, this.principalCatalogCursor) <
+        0
     ) {
       /**
        * Guardrail: principal catalog snapshots define which group/org IDs are
@@ -337,7 +343,10 @@ export class InMemoryVfsAccessHarness {
     now: Date = new Date()
   ): EffectiveVfsMemberItemAccessEntry[] {
     const principalView = this.resolvePrincipalViewForUser(userId);
-    return this.buildEffectiveAccessForMemberWithInheritance(principalView, now);
+    return this.buildEffectiveAccessForMemberWithInheritance(
+      principalView,
+      now
+    );
   }
 
   buildEffectiveAclKeyView(
@@ -389,8 +398,10 @@ export class InMemoryVfsAccessHarness {
      * 4) lexical principal tie-breaker.
      */
     const effectiveAclKeyView = this.buildEffectiveAclKeyView(now);
-    const winningAccessByItemId: Map<string, EffectiveVfsMemberItemAccessEntry> =
-      new Map();
+    const winningAccessByItemId: Map<
+      string,
+      EffectiveVfsMemberItemAccessEntry
+    > = new Map();
     for (const aclEntry of effectiveAclKeyView) {
       if (!isMemberPrincipalMatch(aclEntry, normalizedPrincipalView)) {
         continue;
@@ -423,8 +434,14 @@ export class InMemoryVfsAccessHarness {
     principalView: VfsMemberPrincipalView,
     now: Date = new Date()
   ): EffectiveVfsMemberItemAccessEntry[] {
-    const directAccessEntries = this.buildEffectiveAccessForMember(principalView, now);
-    const directAccessByItemId = new Map<string, EffectiveVfsMemberItemAccessEntry>();
+    const directAccessEntries = this.buildEffectiveAccessForMember(
+      principalView,
+      now
+    );
+    const directAccessByItemId = new Map<
+      string,
+      EffectiveVfsMemberItemAccessEntry
+    >();
     for (const directEntry of directAccessEntries) {
       directAccessByItemId.set(directEntry.itemId, directEntry);
     }
@@ -440,7 +457,10 @@ export class InMemoryVfsAccessHarness {
       parentsByChildId.set(link.childId, parentIds);
     }
 
-    const resolvedByItemId = new Map<string, EffectiveVfsMemberItemAccessEntry | null>();
+    const resolvedByItemId = new Map<
+      string,
+      EffectiveVfsMemberItemAccessEntry | null
+    >();
     const resolvingItems = new Set<string>();
     const resolveItemAccess = (
       itemId: string
@@ -533,16 +553,14 @@ export class InMemoryVfsAccessHarness {
   }
 
   private resolvePrincipalViewForUser(userId: string): VfsMemberPrincipalView {
-    const normalizedUserId = normalizeRequiredString(
-      userId,
-      'userId'
-    );
-    const principalView =
-      this.membershipPrincipalViewsByUserId.get(normalizedUserId) ?? {
-        userId: normalizedUserId,
-        groupIds: [],
-        organizationIds: []
-      };
+    const normalizedUserId = normalizeRequiredString(userId, 'userId');
+    const principalView = this.membershipPrincipalViewsByUserId.get(
+      normalizedUserId
+    ) ?? {
+      userId: normalizedUserId,
+      groupIds: [],
+      organizationIds: []
+    };
     if (!this.principalCatalogCursor) {
       return principalView;
     }

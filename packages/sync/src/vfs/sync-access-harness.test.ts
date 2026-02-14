@@ -733,7 +733,9 @@ describe('InMemoryVfsAccessHarness', () => {
       ]
     });
 
-    expect(harness.buildEffectiveAccessForUserWithInheritance('user-9')).toEqual([
+    expect(
+      harness.buildEffectiveAccessForUserWithInheritance('user-9')
+    ).toEqual([
       {
         itemId: 'child-item',
         accessLevel: 'read',
@@ -839,7 +841,9 @@ describe('InMemoryVfsAccessHarness', () => {
       ]
     });
 
-    expect(harness.buildEffectiveAccessForUserWithInheritance('user-7')).toEqual([
+    expect(
+      harness.buildEffectiveAccessForUserWithInheritance('user-7')
+    ).toEqual([
       {
         itemId: 'open-parent',
         accessLevel: 'write',

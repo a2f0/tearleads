@@ -1,9 +1,9 @@
+import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 import {
   InMemoryVfsContainerClockStore,
   type VfsContainerClockEntry
 } from './sync-container-clocks.js';
-import type { VfsCrdtSyncItem } from '@tearleads/shared';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
