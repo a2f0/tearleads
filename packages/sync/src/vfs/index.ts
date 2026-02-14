@@ -75,10 +75,14 @@ export {
   type InMemoryVfsCrdtSyncTransportDelayConfig,
   type QueueVfsCrdtLocalOperationInput,
   VfsBackgroundSyncClient,
+  VfsCrdtSyncPushRejectedError,
   type VfsBackgroundSyncClientFlushResult,
   type VfsBackgroundSyncClientOptions,
   type VfsBackgroundSyncClientSnapshot,
   type VfsBackgroundSyncClientSyncResult,
+  type VfsCrdtSyncPushResponse,
+  type VfsCrdtSyncPushResult,
+  type VfsCrdtSyncPushStatus,
   type VfsCrdtSyncPullResponse,
   type VfsCrdtSyncTransport
 } from './sync-client.js';
