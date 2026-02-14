@@ -28,6 +28,20 @@ function extractSqlLiteralsFromSource(source: string): string[] {
   return sqlLiterals;
 }
 
+function extractLegacyShareReadReferences(sqlLiterals: string[]): string[] {
+  return Array.from(
+    new Set(
+      sqlLiterals
+        .filter((sql) => /\bSELECT\b/i.test(sql))
+        .flatMap((sql) => extractSqlTableReferences(sql))
+        .filter(
+          (tableName) =>
+            tableName === 'vfs_shares' || tableName === 'org_shares'
+        )
+    )
+  ).sort((left, right) => left.localeCompare(right));
+}
+
 describe('sync schema contract', () => {
   it('covers SQL table references in sync and CRDT feed query builders', () => {
     const syncQuery = buildVfsSyncQuery({
@@ -176,6 +190,45 @@ describe('sync schema contract', () => {
     expect(routeReferences).toEqual(expect.arrayContaining(['vfs_shares']));
     expect(routeReferences).not.toContain('vfs_access');
     expect(routeReferences).not.toContain('vfs_folders');
+  });
+
+  it('inventories legacy share-table read surfaces for cutover sequencing', () => {
+    const syncPackageRoot = process.cwd();
+    const shareReadRouteFiles = [
+      {
+        relativePath: '../api/src/routes/vfs-shares/get-items-itemId-shares.ts',
+        expectedLegacyReadTables: ['org_shares', 'vfs_shares']
+      },
+      {
+        relativePath: '../api/src/routes/vfs-shares/patch-shares-shareId.ts',
+        expectedLegacyReadTables: ['vfs_shares']
+      },
+      {
+        relativePath: '../api/src/routes/vfs-shares/delete-shares-shareId.ts',
+        expectedLegacyReadTables: ['vfs_shares']
+      },
+      {
+        relativePath:
+          '../api/src/routes/vfs-shares/delete-org-shares-shareId.ts',
+        expectedLegacyReadTables: ['org_shares']
+      },
+      {
+        relativePath:
+          '../api/src/routes/vfs-shares/get-share-targets-search.ts',
+        expectedLegacyReadTables: []
+      }
+    ];
+
+    for (const file of shareReadRouteFiles) {
+      const source = readFileSync(
+        resolve(syncPackageRoot, file.relativePath),
+        'utf8'
+      );
+      const routeSql = extractSqlLiteralsFromSource(source);
+      expect(extractLegacyShareReadReferences(routeSql)).toEqual(
+        file.expectedLegacyReadTables
+      );
+    }
   });
 
   it('detects SQL references that fall outside the flattened contract', () => {
