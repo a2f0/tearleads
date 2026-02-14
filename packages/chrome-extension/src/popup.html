@@ -57,6 +57,10 @@
       button:hover {
         background: #1a4a7a;
       }
+      button:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+      }
       .status {
         margin-top: 12px;
         padding: 8px;
@@ -87,7 +91,7 @@
       <div class="info-label">URL</div>
       <div class="info-value" id="page-url">Loading...</div>
     </div>
-    <button id="action-btn">Take Action</button>
+    <button id="action-btn">Activate On This Tab</button>
     <div id="status" class="status"></div>
     <script type="module" src="./popup/index.ts"></script>
   </body>

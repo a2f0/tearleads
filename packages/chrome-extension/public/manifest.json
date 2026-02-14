@@ -5,9 +5,18 @@
   "description": "Tearleads Chrome Extension",
   "permissions": [
     "storage",
-    "activeTab"
+    "activeTab",
+    "scripting"
+  ],
+  "host_permissions": [
+    "https://*.tearleads.app/*",
+    "http://localhost/*",
+    "https://localhost/*",
+    "http://127.0.0.1/*",
+    "https://127.0.0.1/*"
   ],
   "action": {
+    "default_title": "Tearleads",
     "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon-16.svg",
@@ -28,7 +37,10 @@
     {
       "matches": [
         "https://*.tearleads.app/*",
-        "http://localhost/*"
+        "http://localhost/*",
+        "https://localhost/*",
+        "http://127.0.0.1/*",
+        "https://127.0.0.1/*"
       ],
       "js": [
         "content.js"

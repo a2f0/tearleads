@@ -49,6 +49,8 @@ When running in watch mode (`pnpm dev`), the extension rebuilds automatically on
 - **Content script:** Reload the target page.
 - **Popup:** Close and reopen the popup.
 
+If you're testing on a page that doesn't match the static content-script host patterns, open the popup and click **Activate On This Tab**. The extension will try to inject the content script into the active tab at runtime.
+
 ### Testing
 
 ```bash
@@ -69,8 +71,8 @@ pnpm --filter @tearleads/chrome-extension test:coverage
 The extension uses [Manifest V3](https://developer.chrome.com/docs/extensions/develop/migrate/what-is-mv3), Chrome's latest extension platform:
 
 - **Service Worker**: Background script runs as a service worker (`background.js`)
-- **Content Scripts**: Restricted to specific domains (`*.tearleads.app` and `localhost`)
-- **Permissions**: Minimal permissions (`storage`, `activeTab`)
+- **Content Scripts**: Matched on Tearleads/local hosts, with runtime injection fallback for active-tab testing
+- **Permissions**: Minimal runtime permissions (`storage`, `activeTab`, `scripting`)
 
 ### Components
 
@@ -86,8 +88,8 @@ Components communicate via Chrome's message passing API. Message types are defin
 
 ```typescript
 // Example: Send message from popup to background
-chrome.runtime.sendMessage({ type: "PING" }, (response) => {
-  console.log(response); // { type: "PONG" }
+chrome.runtime.sendMessage({ type: "GET_TAB_INFO" }, (response) => {
+  console.log(response?.url);
 });
 ```
 
