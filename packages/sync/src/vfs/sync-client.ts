@@ -177,6 +177,11 @@ export interface VfsCrdtSyncPushResponse {
   results: VfsCrdtSyncPushResult[];
 }
 
+export interface VfsCrdtSyncReconcileResponse {
+  cursor: VfsSyncCursor;
+  lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
+}
+
 export interface VfsCrdtSyncTransport {
   pushOperations(input: {
     userId: string;
@@ -189,6 +194,12 @@ export interface VfsCrdtSyncTransport {
     cursor: VfsSyncCursor | null;
     limit: number;
   }): Promise<VfsCrdtSyncPullResponse>;
+  reconcileState?(input: {
+    userId: string;
+    clientId: string;
+    cursor: VfsSyncCursor;
+    lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
+  }): Promise<VfsCrdtSyncReconcileResponse>;
 }
 
 export class VfsCrdtSyncPushRejectedError extends Error {
@@ -257,6 +268,22 @@ function assertNonRegressingLastWriteIds(
       observedLastWriteIds.set(replicaId, writeId);
     }
   }
+}
+
+function normalizeCursor(
+  cursor: VfsSyncCursor,
+  fieldName: string
+): VfsSyncCursor {
+  const normalizedChangedAt = normalizeOccurredAt(cursor.changedAt);
+  const normalizedChangeId = normalizeRequiredString(cursor.changeId);
+  if (!normalizedChangedAt || !normalizedChangeId) {
+    throw new Error(`transport returned invalid ${fieldName}`);
+  }
+
+  return {
+    changedAt: normalizedChangedAt,
+    changeId: normalizedChangeId
+  };
 }
 
 export interface QueueVfsCrdtLocalOperationInput {
@@ -508,6 +535,7 @@ export class VfsBackgroundSyncClient {
     let staleRecoveryAttempts = 0;
 
     while (this.pendingOperations.length > 0) {
+      this.ensurePendingOccurredAtAfterCursor();
       const currentBatch = this.pendingOperations.slice();
       const pushResponse = await this.transport.pushOperations({
         userId: this.userId,
@@ -544,6 +572,12 @@ export class VfsBackgroundSyncClient {
         (result) => result.status === 'staleWriteId'
       );
       if (staleResults.length > 0) {
+        /**
+         * Guardrail: stale write IDs are only recoverable by first pulling and
+         * synchronizing with server clock state, then rebasing queued writes.
+         * A hard retry cap protects against infinite push loops when the server
+         * cannot supply a forward-moving reconcile state.
+         */
         staleRecoveryAttempts += 1;
         if (staleRecoveryAttempts > MAX_STALE_PUSH_RECOVERY_ATTEMPTS) {
           throw new VfsCrdtSyncPushRejectedError(staleResults);
@@ -616,6 +650,14 @@ export class VfsBackgroundSyncClient {
     const cursorMs = cursor ? Date.parse(cursor.changedAt) : Number.NaN;
     let minOccurredAtMs = Number.isFinite(cursorMs) ? cursorMs : Number.NEGATIVE_INFINITY;
 
+    /**
+     * Guardrail: rebased queued operations must remain strictly ordered by both:
+     * 1) replica writeId (monotonic per-client), and
+     * 2) occurredAt (strictly after the reconciled cursor boundary)
+     *
+     * Without this, a recovered stale write can be accepted by push but then
+     * skipped on pull because its timestamp falls at/before the local cursor.
+     */
     for (const operation of this.pendingOperations) {
       operation.writeId = writeId;
       writeId += 1;
@@ -639,6 +681,38 @@ export class VfsBackgroundSyncClient {
     }
   }
 
+  private ensurePendingOccurredAtAfterCursor(): void {
+    const cursor = this.currentCursor();
+    if (!cursor) {
+      return;
+    }
+
+    const parsedCursorMs = Date.parse(cursor.changedAt);
+    if (!Number.isFinite(parsedCursorMs)) {
+      return;
+    }
+
+    let minOccurredAtMs = parsedCursorMs;
+    /**
+     * Guardrail: queued writes must not be pushed with occurredAt timestamps at
+     * or behind the reconciled cursor boundary. Otherwise a delayed push can be
+     * inserted into canonical feed order before the cursor and become invisible
+     * to subsequent pull windows on other replicas.
+     */
+    for (const operation of this.pendingOperations) {
+      const parsedOccurredAtMs = Date.parse(operation.occurredAt);
+      let normalizedOccurredAtMs = Number.isFinite(parsedOccurredAtMs)
+        ? parsedOccurredAtMs
+        : minOccurredAtMs;
+      if (normalizedOccurredAtMs <= minOccurredAtMs) {
+        normalizedOccurredAtMs = minOccurredAtMs + 1;
+      }
+
+      operation.occurredAt = new Date(normalizedOccurredAtMs).toISOString();
+      minOccurredAtMs = normalizedOccurredAtMs;
+    }
+  }
+
   private removePendingOperationById(opId: string): boolean {
     const index = this.pendingOperations.findIndex(
       (operation) => operation.opId === opId
@@ -650,6 +724,70 @@ export class VfsBackgroundSyncClient {
     this.pendingOperations.splice(index, 1);
     this.pendingOpIds.delete(opId);
     return true;
+  }
+
+  private async reconcileWithTransportIfSupported(): Promise<void> {
+    if (!this.transport.reconcileState) {
+      return;
+    }
+
+    const localState = this.reconcileStateStore.get(this.userId, this.clientId);
+    if (!localState) {
+      return;
+    }
+
+    const normalizedLocalCursor = normalizeCursor(
+      localState.cursor,
+      'local reconcile cursor'
+    );
+    const localWriteIds = parseVfsCrdtLastReconciledWriteIds(
+      localState.lastReconciledWriteIds
+    );
+    if (!localWriteIds.ok) {
+      throw new Error(localWriteIds.error);
+    }
+
+    const response = await this.transport.reconcileState({
+      userId: this.userId,
+      clientId: this.clientId,
+      cursor: cloneCursor(normalizedLocalCursor),
+      lastReconciledWriteIds: { ...localWriteIds.value }
+    });
+
+    /**
+     * Guardrail: remote reconcile acknowledgements must be valid and must never
+     * move backwards. If this fails, the client aborts immediately to prevent
+     * future writes from being emitted with stale cursor or replica-clock state.
+     */
+    const normalizedResponseCursor = normalizeCursor(
+      response.cursor,
+      'reconcile cursor'
+    );
+    const responseWriteIds = parseVfsCrdtLastReconciledWriteIds(
+      response.lastReconciledWriteIds
+    );
+    if (!responseWriteIds.ok) {
+      throw new Error(responseWriteIds.error);
+    }
+
+    if (
+      compareVfsSyncCursorOrder(normalizedResponseCursor, normalizedLocalCursor) < 0
+    ) {
+      throw new Error('transport reconcile regressed sync cursor');
+    }
+
+    const observedWriteIds = new Map<string, number>(
+      Object.entries(localWriteIds.value)
+    );
+    assertNonRegressingLastWriteIds(observedWriteIds, responseWriteIds.value);
+
+    this.reconcileStateStore.reconcile(
+      this.userId,
+      this.clientId,
+      normalizedResponseCursor,
+      responseWriteIds.value
+    );
+    this.bumpLocalWriteIdFromReconcileState();
   }
 
   private async pullUntilSettled(): Promise<VfsBackgroundSyncClientSyncResult> {
@@ -728,6 +866,12 @@ export class VfsBackgroundSyncClient {
       }
 
       if (!response.hasMore) {
+        /**
+         * Guardrail: when supported, finalize each pull cycle by explicitly
+         * reconciling cursor + replica clocks with the server-side state table.
+         * This keeps device-local state and durable server checkpoints aligned.
+         */
+        await this.reconcileWithTransportIfSupported();
         return {
           pulledOperations,
           pullPages

@@ -1,5 +1,6 @@
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { InMemoryVfsCrdtStateStore, type VfsCrdtOperation } from './sync-crdt.js';
+import { InMemoryVfsCrdtFeedReplayStore } from './sync-crdt-feed-replay.js';
 import type { VfsSyncCursor } from './sync-cursor.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 import {
@@ -148,10 +149,18 @@ export class InMemoryVfsCrdtSyncServer {
 
   snapshot(): InMemoryVfsCrdtSyncServerSnapshot {
     const snapshot = this.stateStore.snapshot();
+    /**
+     * Guardrail: protocol correctness is defined by canonical feed replay order
+     * (`occurredAt`, then `opId`), not by the arrival order of concurrent push
+     * RPCs. Recompute ACL/link projections from feed for deterministic checks.
+     */
+    const replayStore = new InMemoryVfsCrdtFeedReplayStore();
+    replayStore.applyPage(this.feed);
+    const replaySnapshot = replayStore.snapshot();
     return {
       feed: this.feed.slice(),
-      acl: snapshot.acl,
-      links: snapshot.links,
+      acl: replaySnapshot.acl,
+      links: replaySnapshot.links,
       lastReconciledWriteIds: snapshot.lastReconciledWriteIds
     };
   }

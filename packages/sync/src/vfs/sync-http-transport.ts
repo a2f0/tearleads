@@ -2,6 +2,7 @@ import type {
   VfsAclAccessLevel,
   VfsAclPrincipalType,
   VfsCrdtOpType,
+  VfsCrdtReconcileResponse,
   VfsCrdtPushResponse,
   VfsCrdtPushStatus,
   VfsCrdtSyncItem,
@@ -16,6 +17,7 @@ import type { VfsCrdtOperation } from './sync-crdt.js';
 import { parseVfsCrdtLastReconciledWriteIds } from './sync-crdt-reconcile.js';
 import type {
   VfsCrdtSyncPullResponse,
+  VfsCrdtSyncReconcileResponse,
   VfsCrdtSyncPushResponse,
   VfsCrdtSyncTransport
 } from './sync-client.js';
@@ -147,6 +149,10 @@ function isPushStatus(value: unknown): value is VfsCrdtPushStatus {
 }
 
 function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
+  /**
+   * Guardrail: push acknowledgements are authoritative for queue advancement.
+   * We therefore parse every field explicitly and fail closed on any shape drift.
+   */
   if (!isRecord(body)) {
     throw new Error('transport returned invalid push response payload');
   }
@@ -216,6 +222,11 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
 }
 
 function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
+  /**
+   * Guardrail: pull pages are replayed into deterministic CRDT reducers.
+   * Any invalid enum, timestamp, or cursor metadata must abort immediately so
+   * we never commit partially-trusted feed state into local reconcile stores.
+   */
   if (!isRecord(body)) {
     throw new Error('transport returned invalid pull response payload');
   }
@@ -247,6 +258,37 @@ function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
     items,
     nextCursor: nextCursorValue,
     hasMore: hasMoreValue,
+    lastReconciledWriteIds: parsedWriteIds.value
+  };
+}
+
+function parseApiReconcileResponse(body: unknown): VfsCrdtReconcileResponse {
+  /**
+   * Guardrail: reconcile responses are the durable checkpoint handshake between
+   * local state and server state. Cursor or replica-clock corruption here would
+   * poison stale-write recovery and future flush ordering.
+   */
+  if (!isRecord(body)) {
+    throw new Error('transport returned invalid reconcile response payload');
+  }
+
+  const clientId = parseRequiredString(body['clientId'], 'clientId');
+  const rawCursor = parseRequiredString(body['cursor'], 'cursor');
+  const parsedCursor = decodeVfsSyncCursor(rawCursor);
+  if (!parsedCursor) {
+    throw new Error('transport returned invalid reconcile cursor');
+  }
+
+  const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
+    body['lastReconciledWriteIds']
+  );
+  if (!parsedWriteIds.ok) {
+    throw new Error(parsedWriteIds.error);
+  }
+
+  return {
+    clientId,
+    cursor: rawCursor,
     lastReconciledWriteIds: parsedWriteIds.value
   };
 }
@@ -359,11 +401,53 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     };
   }
 
+  async reconcileState(input: {
+    userId: string;
+    clientId: string;
+    cursor: VfsSyncCursor;
+    lastReconciledWriteIds: VfsCrdtSyncReconcileResponse['lastReconciledWriteIds'];
+  }): Promise<VfsCrdtSyncReconcileResponse> {
+    const body = await this.requestJson(
+      '/vfs/crdt/reconcile',
+      {
+        clientId: input.clientId,
+        cursor: encodeVfsSyncCursor(input.cursor),
+        lastReconciledWriteIds: input.lastReconciledWriteIds
+      },
+      undefined
+    );
+    const parsed = parseApiReconcileResponse(body);
+
+    /**
+     * Guardrail: response must describe the same client namespace we reconciled.
+     * A mismatch here could merge another client replica's cursor/write clocks
+     * into this local state, which would corrupt monotonic ordering.
+     */
+    if (parsed.clientId !== input.clientId) {
+      throw new Error('transport returned reconcile response for mismatched clientId');
+    }
+
+    const decodedCursor = decodeVfsSyncCursor(parsed.cursor);
+    if (!decodedCursor) {
+      throw new Error('transport returned invalid reconcile cursor');
+    }
+
+    return {
+      cursor: decodedCursor,
+      lastReconciledWriteIds: parsed.lastReconciledWriteIds
+    };
+  }
+
   private async requestJson(
     path: string,
     body: unknown,
     query: URLSearchParams | undefined
   ): Promise<unknown> {
+    /**
+     * Guardrail: every endpoint in this transport is JSON-only. We intentionally
+     * reject non-JSON bodies (including HTML/text error pages) to avoid quietly
+     * accepting proxy or auth-layer failures as valid sync protocol payloads.
+     */
     const requestUrl = this.buildUrl(path, query);
     const headers = await this.buildHeaders(body !== undefined);
     const response = await this.fetchImpl(requestUrl, {

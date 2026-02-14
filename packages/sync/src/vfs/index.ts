@@ -84,6 +84,7 @@ export {
   type VfsCrdtSyncPushResult,
   type VfsCrdtSyncPushStatus,
   type VfsCrdtSyncPullResponse,
+  type VfsCrdtSyncReconcileResponse,
   type VfsCrdtSyncTransport
 } from './sync-client.js';
 export {

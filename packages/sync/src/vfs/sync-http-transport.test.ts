@@ -234,6 +234,67 @@ describe('VfsHttpCrdtSyncTransport', () => {
     expect(url.searchParams.get('cursor')).toBe(encodeVfsSyncCursor(cursor));
   });
 
+  it('reconciles cursor/write ids through the CRDT reconcile endpoint', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          clientId: 'desktop',
+          cursor: encodeVfsSyncCursor({
+            changedAt: '2026-02-14T20:10:05.000Z',
+            changeId: 'desktop-5'
+          }),
+          lastReconciledWriteIds: {
+            desktop: 5,
+            mobile: 3
+          }
+        }),
+        { status: 200 }
+      )
+    );
+
+    const transport = new VfsHttpCrdtSyncTransport({
+      baseUrl: 'https://sync.example.com',
+      fetchImpl: fetchMock
+    });
+
+    const result = await transport.reconcileState({
+      userId: 'user-1',
+      clientId: 'desktop',
+      cursor: {
+        changedAt: '2026-02-14T20:10:04.000Z',
+        changeId: 'desktop-4'
+      },
+      lastReconciledWriteIds: {
+        desktop: 4
+      }
+    });
+
+    expect(result).toEqual({
+      cursor: {
+        changedAt: '2026-02-14T20:10:05.000Z',
+        changeId: 'desktop-5'
+      },
+      lastReconciledWriteIds: {
+        desktop: 5,
+        mobile: 3
+      }
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    const firstCall = fetchMock.mock.calls[0];
+    expect(firstCall?.[0]).toBe('https://sync.example.com/v1/vfs/crdt/reconcile');
+    expect(getJsonBody(firstCall?.[1])).toEqual({
+      clientId: 'desktop',
+      cursor: encodeVfsSyncCursor({
+        changedAt: '2026-02-14T20:10:04.000Z',
+        changeId: 'desktop-4'
+      }),
+      lastReconciledWriteIds: {
+        desktop: 4
+      }
+    });
+  });
+
   it('throws with server-provided error details for non-2xx responses', async () => {
     const fetchMock = vi.fn(async () =>
       new Response(JSON.stringify({ error: 'bad payload' }), { status: 400 })
@@ -272,6 +333,41 @@ describe('VfsHttpCrdtSyncTransport', () => {
         operations: []
       })
     ).rejects.toThrowError(/invalid results\[0\]\.status/);
+  });
+
+  it('fails closed when reconcile response references another client', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          clientId: 'mobile',
+          cursor: encodeVfsSyncCursor({
+            changedAt: '2026-02-14T20:10:05.000Z',
+            changeId: 'mobile-1'
+          }),
+          lastReconciledWriteIds: {
+            mobile: 1
+          }
+        }),
+        { status: 200 }
+      )
+    );
+    const transport = new VfsHttpCrdtSyncTransport({
+      fetchImpl: fetchMock
+    });
+
+    await expect(
+      transport.reconcileState({
+        userId: 'user-1',
+        clientId: 'desktop',
+        cursor: {
+          changedAt: '2026-02-14T20:10:04.000Z',
+          changeId: 'desktop-4'
+        },
+        lastReconciledWriteIds: {
+          desktop: 4
+        }
+      })
+    ).rejects.toThrowError(/mismatched clientId/);
   });
 
   it('fails closed when pull response cursor is malformed', async () => {

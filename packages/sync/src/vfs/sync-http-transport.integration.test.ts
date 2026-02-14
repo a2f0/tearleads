@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import {
+  InMemoryVfsCrdtClientStateStore,
   InMemoryVfsCrdtSyncServer,
   VfsBackgroundSyncClient
 } from './index.js';
 import { decodeVfsSyncCursor, encodeVfsSyncCursor } from './sync-cursor.js';
 import type { VfsCrdtOperation } from './sync-crdt.js';
+import { parseVfsCrdtLastReconciledWriteIds } from './sync-crdt-reconcile.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
 function wait(ms: number): Promise<void> {
@@ -150,6 +152,45 @@ function parsePullLimit(searchParams: URLSearchParams): number {
   return Number.isFinite(parsed) ? parsed : 100;
 }
 
+interface ParsedReconcileBody {
+  clientId: string;
+  cursor: {
+    changedAt: string;
+    changeId: string;
+  };
+  lastReconciledWriteIds: Record<string, number>;
+}
+
+function parseReconcileBody(body: unknown): ParsedReconcileBody | null {
+  if (!isRecord(body)) {
+    return null;
+  }
+
+  const clientId = body['clientId'];
+  const cursorRaw = body['cursor'];
+  if (typeof clientId !== 'string' || typeof cursorRaw !== 'string') {
+    return null;
+  }
+
+  const cursor = decodeVfsSyncCursor(cursorRaw);
+  if (!cursor) {
+    return null;
+  }
+
+  const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
+    body['lastReconciledWriteIds']
+  );
+  if (!parsedWriteIds.ok) {
+    return null;
+  }
+
+  return {
+    clientId,
+    cursor,
+    lastReconciledWriteIds: parsedWriteIds.value
+  };
+}
+
 interface HttpHarnessDelayConfig {
   desktopPushDelayMs?: number;
   mobilePushDelayMs?: number;
@@ -160,6 +201,8 @@ function createServerBackedFetch(
   server: InMemoryVfsCrdtSyncServer,
   delays: HttpHarnessDelayConfig
 ): typeof fetch {
+  const reconcileStateStore = new InMemoryVfsCrdtClientStateStore();
+
   return async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = toRequestUrl(input);
 
@@ -217,6 +260,34 @@ function createServerBackedFetch(
             ? encodeVfsSyncCursor(pullResult.nextCursor)
             : null,
           lastReconciledWriteIds: pullResult.lastReconciledWriteIds
+        }),
+        { status: 200 }
+      );
+    }
+
+    if (
+      url.pathname === '/v1/vfs/crdt/reconcile' &&
+      (init?.method ?? 'POST') === 'POST'
+    ) {
+      const body = parseJsonBody(init.body);
+      const parsedBody = parseReconcileBody(body);
+      if (!parsedBody) {
+        return new Response(JSON.stringify({ error: 'invalid reconcile body' }), {
+          status: 400
+        });
+      }
+
+      const reconcileResult = reconcileStateStore.reconcile(
+        'user-1',
+        parsedBody.clientId,
+        parsedBody.cursor,
+        parsedBody.lastReconciledWriteIds
+      );
+      return new Response(
+        JSON.stringify({
+          clientId: parsedBody.clientId,
+          cursor: encodeVfsSyncCursor(reconcileResult.state.cursor),
+          lastReconciledWriteIds: reconcileResult.state.lastReconciledWriteIds
         }),
         { status: 200 }
       );
