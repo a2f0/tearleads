@@ -4,7 +4,7 @@ import { AppTooltipProvider } from './AppTooltipProvider';
 
 // Mock useSettings hook
 const mockGetSetting = vi.fn();
-vi.mock('@/db/SettingsProvider', () => ({
+vi.mock('@tearleads/settings', () => ({
   useSettings: () => ({
     getSetting: mockGetSetting
   })

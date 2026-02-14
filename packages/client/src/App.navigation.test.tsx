@@ -83,8 +83,8 @@ vi.mock('@/db', () => ({
   })
 }));
 
-// Mock SettingsProvider for TooltipsToggle and DesktopBackground
-vi.mock('@/db/SettingsProvider', () => ({
+// Mock settings for TooltipsToggle and DesktopBackground
+vi.mock('@tearleads/settings', () => ({
   useSettings: () => ({
     getSetting: vi.fn((key: string) => {
       switch (key) {
@@ -99,7 +99,18 @@ vi.mock('@/db/SettingsProvider', () => ({
       }
     }),
     setSetting: vi.fn()
-  })
+  }),
+  // Stub components needed by Settings page
+  BorderRadiusToggle: () => null,
+  FontSelector: () => null,
+  IconBackgroundToggle: () => null,
+  IconDepthToggle: () => null,
+  LanguageSelector: () => null,
+  PatternSelector: () => null,
+  SettingsSection: ({ children }: { children: React.ReactNode }) => children,
+  ThemeSelector: () => <div>Theme</div>,
+  TooltipsToggle: () => null,
+  WindowOpacityToggle: () => null
 }));
 
 setupScreensaverMock();

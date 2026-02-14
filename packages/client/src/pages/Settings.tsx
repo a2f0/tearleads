@@ -1,18 +1,18 @@
-import { ChevronRight, Scale } from 'lucide-react';
-import { Link } from 'react-router-dom';
 import {
   BorderRadiusToggle,
-  FeatureFlags,
   FontSelector,
   IconBackgroundToggle,
   IconDepthToggle,
+  LanguageSelector,
   PatternSelector,
   SettingsSection,
   ThemeSelector,
   TooltipsToggle,
   WindowOpacityToggle
-} from '@/components/settings';
-import { LanguageSelector } from '@/components/settings/LanguageSelector';
+} from '@tearleads/settings';
+import { ChevronRight, Scale } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { FeatureFlags } from '@/components/settings/FeatureFlags';
 import { BackLink } from '@/components/ui/back-link';
 import { useAppVersion } from '@/hooks/useAppVersion';
 

@@ -31,7 +31,7 @@ vi.mock('react-router-dom', async () => {
 
 const mockGetSetting = vi.fn();
 
-vi.mock('@/db/SettingsProvider', () => ({
+vi.mock('@tearleads/settings', () => ({
   useSettings: () => ({
     getSetting: mockGetSetting,
     setSetting: vi.fn()

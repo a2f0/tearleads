@@ -1,6 +1,8 @@
-import { useBorderRadiusEffect } from '@/hooks/useBorderRadiusEffect';
-import { useFontEffect } from '@/hooks/useFontEffect';
-import { useWindowOpacityEffect } from '@/hooks/useWindowOpacityEffect';
+import {
+  useBorderRadiusEffect,
+  useFontEffect,
+  useWindowOpacityEffect
+} from '@tearleads/settings';
 
 export function GlobalSettingsEffects() {
   useFontEffect();

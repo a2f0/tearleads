@@ -47,6 +47,8 @@ export const createViteAliases = (dirname: string): AliasMap => ({
   '@tearleads/contacts': path.resolve(dirname, '../contacts/src/index.ts'),
   '@tearleads/email/package.json': path.resolve(dirname, '../email/package.json'),
   '@tearleads/email': path.resolve(dirname, '../email/src/index.ts'),
+  '@tearleads/health/package.json': path.resolve(dirname, '../health/package.json'),
+  '@tearleads/health': path.resolve(dirname, '../health/src/index.ts'),
   '@tearleads/help/package.json': path.resolve(dirname, '../help/package.json'),
   '@tearleads/help': path.resolve(dirname, '../help/src/index.ts'),
   '@tearleads/keychain/package.json': path.resolve(
@@ -65,6 +67,8 @@ export const createViteAliases = (dirname: string): AliasMap => ({
   '@tearleads/notes': path.resolve(dirname, '../notes/src/index.ts'),
   '@tearleads/search/package.json': path.resolve(dirname, '../search/package.json'),
   '@tearleads/search': path.resolve(dirname, '../search/src/index.ts'),
+  '@tearleads/settings/package.json': path.resolve(dirname, '../settings/package.json'),
+  '@tearleads/settings': path.resolve(dirname, '../settings/src/index.ts'),
   '@tearleads/sync/package.json': path.resolve(dirname, '../sync/package.json'),
   '@tearleads/sync': path.resolve(dirname, '../sync/src/index.ts'),
   '@tearleads/terminal/package.json': path.resolve(dirname, '../terminal/package.json'),

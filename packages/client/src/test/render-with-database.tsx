@@ -11,7 +11,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { expect } from 'vitest';
 import { ScreensaverProvider } from '@/components/screensaver';
 import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
-import { SettingsProvider } from '@/db/hooks';
+import { ClientSettingsProvider } from '@/db/hooks';
 import { TestDatabaseProvider } from './test-database-provider';
 
 export interface RenderWithDatabaseOptions
@@ -79,7 +79,7 @@ function createWrapper({
           password={password}
           showLoading={showLoading}
         >
-          <SettingsProvider>
+          <ClientSettingsProvider>
             <ScreensaverProvider>
               <WindowManagerProvider>
                 <MemoryRouter initialEntries={initialEntries}>
@@ -87,7 +87,7 @@ function createWrapper({
                 </MemoryRouter>
               </WindowManagerProvider>
             </ScreensaverProvider>
-          </SettingsProvider>
+          </ClientSettingsProvider>
         </TestDatabaseProvider>
       </ThemeProvider>
     );

@@ -4,33 +4,18 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DisplayPropertiesWindow } from './DisplayPropertiesWindow';
 
-vi.mock('./FontSelector', () => ({
-  FontSelector: () => <div data-testid="font-selector">FontSelector</div>
-}));
-
-vi.mock('./BorderRadiusToggle', () => ({
+vi.mock('@tearleads/settings', () => ({
+  FontSelector: () => <div data-testid="font-selector">FontSelector</div>,
   BorderRadiusToggle: () => (
     <div data-testid="border-radius-toggle">BorderRadiusToggle</div>
-  )
-}));
-
-vi.mock('./IconBackgroundToggle', () => ({
+  ),
   IconBackgroundToggle: () => (
     <div data-testid="icon-background">IconBackgroundToggle</div>
-  )
-}));
-
-vi.mock('./IconDepthToggle', () => ({
-  IconDepthToggle: () => <div data-testid="icon-depth">IconDepthToggle</div>
-}));
-
-vi.mock('./PatternSelector', () => ({
+  ),
+  IconDepthToggle: () => <div data-testid="icon-depth">IconDepthToggle</div>,
   PatternSelector: () => (
     <div data-testid="pattern-selector">PatternSelector</div>
-  )
-}));
-
-vi.mock('./ThemeSelector', () => ({
+  ),
   ThemeSelector: () => <div data-testid="theme-selector">ThemeSelector</div>
 }));
 

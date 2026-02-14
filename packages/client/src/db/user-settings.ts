@@ -1,142 +1,63 @@
 /**
- * Strongly typed user settings definitions with localStorage/SQLite sync.
+ * Database-specific user settings functions.
  *
- * This file defines all known user settings keys, their types, defaults,
- * and provides CRUD functions for both localStorage and database storage.
+ * Types, constants, validators, and localStorage functions are re-exported
+ * from @tearleads/settings. This file only contains the database operations.
  */
 
 import { inArray } from 'drizzle-orm';
 import type { Database } from './index';
 import { userSettings } from './schema';
 
-// All known settings keys (stored in DB as key column)
-export type UserSettingKey =
-  | 'theme'
-  | 'language'
-  | 'tooltips'
-  | 'font'
-  | 'desktopPattern'
-  | 'desktopIconDepth'
-  | 'desktopIconBackground'
-  | 'windowOpacity'
-  | 'borderRadius';
+// Re-export everything from @tearleads/settings
+export {
+  BORDER_RADIUS_VALUES,
+  type BorderRadiusValue,
+  DESKTOP_ICON_BACKGROUND_VALUES,
+  DESKTOP_ICON_DEPTH_VALUES,
+  type DesktopIconBackgroundValue,
+  type DesktopIconDepthValue,
+  type DesktopPatternValue,
+  dispatchSettingsSyncedEvent,
+  type FontValue,
+  getSettingFromStorage,
+  isBorderRadiusValue,
+  isDesktopIconBackgroundValue,
+  isDesktopIconDepthValue,
+  isDesktopPatternValue,
+  isFontValue,
+  isLanguageValue,
+  isThemeValue,
+  isTooltipsValue,
+  isWindowOpacityValue,
+  type LanguageValue,
+  SETTING_DEFAULTS,
+  SETTING_STORAGE_KEYS,
+  type SettingsSyncedDetail,
+  type SettingValueMap,
+  setSettingInStorage,
+  THEME_VALUES,
+  type ThemeValue,
+  type TooltipsValue,
+  type UserSettingKey,
+  WINDOW_OPACITY_VALUES,
+  type WindowOpacityValue
+} from '@tearleads/settings';
 
-// Per-setting value types
-export const THEME_VALUES: readonly [
-  'light',
-  'dark',
-  'tokyo-night',
-  'monochrome',
-  'system'
-] = ['light', 'dark', 'tokyo-night', 'monochrome', 'system'];
-export type ThemeValue = (typeof THEME_VALUES)[number];
-export type LanguageValue = 'en' | 'es' | 'ua' | 'pt';
-export type TooltipsValue = 'enabled' | 'disabled';
-export type FontValue = 'system' | 'monospace';
-export type DesktopPatternValue =
-  | 'solid'
-  | 'honeycomb'
-  | 'isometric'
-  | 'triangles'
-  | 'diamonds';
-export const DESKTOP_ICON_DEPTH_VALUES = ['embossed', 'debossed'] as const;
-export type DesktopIconDepthValue = (typeof DESKTOP_ICON_DEPTH_VALUES)[number];
-export const DESKTOP_ICON_BACKGROUND_VALUES = [
-  'colored',
-  'transparent'
-] as const;
-export type DesktopIconBackgroundValue =
-  (typeof DESKTOP_ICON_BACKGROUND_VALUES)[number];
-export const WINDOW_OPACITY_VALUES = ['translucent', 'opaque'] as const;
-export type WindowOpacityValue = (typeof WINDOW_OPACITY_VALUES)[number];
-export const BORDER_RADIUS_VALUES = ['rounded', 'square'] as const;
-export type BorderRadiusValue = (typeof BORDER_RADIUS_VALUES)[number];
-
-// Map settings keys to their value types
-export interface SettingValueMap {
-  theme: ThemeValue;
-  language: LanguageValue;
-  tooltips: TooltipsValue;
-  font: FontValue;
-  desktopPattern: DesktopPatternValue;
-  desktopIconDepth: DesktopIconDepthValue;
-  desktopIconBackground: DesktopIconBackgroundValue;
-  windowOpacity: WindowOpacityValue;
-  borderRadius: BorderRadiusValue;
-}
-
-// Default values for each setting
-export const SETTING_DEFAULTS: { [K in UserSettingKey]: SettingValueMap[K] } = {
-  theme: 'monochrome',
-  language: 'en',
-  tooltips: 'enabled',
-  font: 'system',
-  desktopPattern: 'isometric',
-  desktopIconDepth: 'debossed',
-  desktopIconBackground: 'colored',
-  windowOpacity: 'translucent',
-  borderRadius: 'rounded'
-};
-
-// localStorage keys for each setting (maps our keys to existing localStorage keys)
-export const SETTING_STORAGE_KEYS: Record<UserSettingKey, string> = {
-  theme: 'theme',
-  language: 'i18nextLng',
-  tooltips: 'tooltips',
-  font: 'font',
-  desktopPattern: 'desktopPattern',
-  desktopIconDepth: 'desktopIconDepth',
-  desktopIconBackground: 'desktopIconBackground',
-  windowOpacity: 'windowOpacity',
-  borderRadius: 'borderRadius'
-};
-
-// Type guard functions
-export function isThemeValue(value: string): value is ThemeValue {
-  return THEME_VALUES.some((theme) => theme === value);
-}
-
-export function isLanguageValue(value: string): value is LanguageValue {
-  return ['en', 'es', 'ua', 'pt'].includes(value);
-}
-
-export function isTooltipsValue(value: string): value is TooltipsValue {
-  return ['enabled', 'disabled'].includes(value);
-}
-
-export function isFontValue(value: string): value is FontValue {
-  return ['system', 'monospace'].includes(value);
-}
-
-export function isDesktopPatternValue(
-  value: string
-): value is DesktopPatternValue {
-  return ['solid', 'honeycomb', 'isometric', 'triangles', 'diamonds'].includes(
-    value
-  );
-}
-
-export function isDesktopIconDepthValue(
-  value: string
-): value is DesktopIconDepthValue {
-  return DESKTOP_ICON_DEPTH_VALUES.some((item) => item === value);
-}
-
-export function isDesktopIconBackgroundValue(
-  value: string
-): value is DesktopIconBackgroundValue {
-  return DESKTOP_ICON_BACKGROUND_VALUES.some((item) => item === value);
-}
-
-export function isWindowOpacityValue(
-  value: string
-): value is WindowOpacityValue {
-  return WINDOW_OPACITY_VALUES.some((item) => item === value);
-}
-
-export function isBorderRadiusValue(value: string): value is BorderRadiusValue {
-  return BORDER_RADIUS_VALUES.some((item) => item === value);
-}
+import {
+  isBorderRadiusValue,
+  isDesktopIconBackgroundValue,
+  isDesktopIconDepthValue,
+  isDesktopPatternValue,
+  isFontValue,
+  isLanguageValue,
+  isThemeValue,
+  isTooltipsValue,
+  isWindowOpacityValue,
+  SETTING_DEFAULTS,
+  type SettingValueMap,
+  type UserSettingKey
+} from '@tearleads/settings';
 
 // Map of setting keys to their type guard validators
 const SETTING_VALIDATORS: {
@@ -152,46 +73,6 @@ const SETTING_VALIDATORS: {
   windowOpacity: isWindowOpacityValue,
   borderRadius: isBorderRadiusValue
 };
-
-// Settings sync event detail type
-export interface SettingsSyncedDetail {
-  settings: Partial<{ [K in UserSettingKey]: SettingValueMap[K] }>;
-}
-
-/**
- * Get a setting value from localStorage.
- */
-export function getSettingFromStorage<K extends UserSettingKey>(
-  key: K
-): SettingValueMap[K] | null {
-  try {
-    const value = localStorage.getItem(SETTING_STORAGE_KEYS[key]);
-    if (value === null) return null;
-
-    const validator = SETTING_VALIDATORS[key];
-    if (validator(value)) {
-      return value as SettingValueMap[K];
-    }
-
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Set a setting value in localStorage.
- */
-export function setSettingInStorage<K extends UserSettingKey>(
-  key: K,
-  value: SettingValueMap[K]
-): void {
-  try {
-    localStorage.setItem(SETTING_STORAGE_KEYS[key], value);
-  } catch {
-    // localStorage may not be available
-  }
-}
 
 /**
  * Get all settings from database.
@@ -244,16 +125,4 @@ export async function saveSettingToDb<K extends UserSettingKey>(
       target: userSettings.key,
       set: { value, updatedAt: now }
     });
-}
-
-/**
- * Dispatch settings-synced custom event for ThemeProvider and i18n to react.
- */
-export function dispatchSettingsSyncedEvent(
-  settings: Partial<{ [K in UserSettingKey]: SettingValueMap[K] }>
-): void {
-  const event = new CustomEvent<SettingsSyncedDetail>('settings-synced', {
-    detail: { settings }
-  });
-  window.dispatchEvent(event);
 }

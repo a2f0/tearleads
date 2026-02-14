@@ -6,8 +6,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import packageJson from '../../package.json';
 import { Settings } from './Settings';
 
-// Mock useSettings for TooltipsToggle
-vi.mock('@/db/SettingsProvider', () => ({
+// Mock @tearleads/settings with stub components that have test IDs
+vi.mock('@tearleads/settings', () => ({
   useSettings: () => ({
     getSetting: vi.fn((key: string) => {
       switch (key) {
@@ -27,12 +27,51 @@ vi.mock('@/db/SettingsProvider', () => ({
           return 'enabled';
         case 'borderRadius':
           return 'rounded';
+        case 'windowOpacity':
+          return 'translucent';
         default:
           return 'enabled';
       }
     }),
     setSetting: vi.fn()
-  })
+  }),
+  BorderRadiusToggle: () => (
+    <div data-testid="border-radius-toggle-container">BorderRadiusToggle</div>
+  ),
+  FontSelector: () => (
+    <div data-testid="font-selector-container">FontSelector</div>
+  ),
+  IconBackgroundToggle: () => (
+    <div data-testid="icon-background-toggle-container">
+      IconBackgroundToggle
+    </div>
+  ),
+  IconDepthToggle: () => (
+    <div data-testid="icon-depth-toggle-container">IconDepthToggle</div>
+  ),
+  LanguageSelector: () => (
+    <div data-testid="language-selector-container">LanguageSelector</div>
+  ),
+  PatternSelector: () => (
+    <div data-testid="pattern-selector-container">PatternSelector</div>
+  ),
+  SettingsSection: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  ThemeSelector: () => (
+    <div data-testid="theme-selector-container">
+      <button type="button" data-testid="theme-option-light">
+        Light
+      </button>
+      ThemeSelector
+    </div>
+  ),
+  TooltipsToggle: () => (
+    <div data-testid="tooltips-toggle-container">TooltipsToggle</div>
+  ),
+  WindowOpacityToggle: () => (
+    <div data-testid="window-opacity-toggle-container">WindowOpacityToggle</div>
+  )
 }));
 
 vi.mock('@/hooks/useAppVersion', () => ({
