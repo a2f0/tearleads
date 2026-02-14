@@ -32,7 +32,8 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
       name: string,
       parentId?: string | null
     ): Promise<CreateFolderResult> => {
-      if (!name.trim()) {
+      const trimmedName = name.trim();
+      if (!trimmedName) {
         throw new Error('Folder name is required');
       }
 
@@ -72,6 +73,8 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
                 objectType: 'folder',
                 ownerId: null,
                 encryptedSessionKey: null,
+                // Guardrail: canonical folder metadata lives on vfs_registry.
+                encryptedName: 'VFS Root',
                 createdAt: now
               })
               .onConflictDoNothing();
@@ -91,13 +94,15 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
             objectType: 'folder',
             ownerId: authData.user?.id ?? null,
             encryptedSessionKey,
+            // Guardrail: keep canonical metadata in sync with legacy fallback.
+            encryptedName: trimmedName,
             createdAt: now
           });
 
           // Insert into local vfs_folders
           await tx.insert(vfsFolders).values({
             id,
-            encryptedName: name.trim()
+            encryptedName: trimmedName
           });
 
           // Create link to parent folder (or VFS root if no parent specified)
@@ -127,7 +132,7 @@ export function useCreateVfsFolder(): UseCreateVfsFolderResult {
           }
         }
 
-        return { id, name: name.trim() };
+        return { id, name: trimmedName };
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
         setError(message);

@@ -55,6 +55,8 @@ export function useEnsureVfsRoot(): UseEnsureVfsRootResult {
           objectType: 'folder',
           ownerId: null,
           encryptedSessionKey: null,
+          // Guardrail: canonical folder metadata is on vfs_registry.
+          encryptedName: 'VFS Root',
           createdAt: now
         });
 
