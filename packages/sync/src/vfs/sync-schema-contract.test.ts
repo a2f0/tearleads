@@ -180,11 +180,11 @@ describe('sync schema contract', () => {
       expect.arrayContaining([
         'vfs_access',
         'vfs_blob_objects',
-        'vfs_blob_refs',
-        'vfs_blob_staging',
         'vfs_folders',
         'vfs_shares'
       ])
     );
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_refs');
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_staging');
   });
 });
