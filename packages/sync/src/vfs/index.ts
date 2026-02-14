@@ -86,7 +86,9 @@ export {
   type VfsCrdtSyncPushStatus,
   type VfsCrdtSyncPullResponse,
   type VfsCrdtSyncReconcileResponse,
-  type VfsCrdtSyncTransport
+  type VfsCrdtSyncTransport,
+  type VfsSyncGuardrailViolation,
+  type VfsSyncGuardrailViolationCode
 } from './sync-client.js';
 export {
   VfsHttpCrdtSyncTransport,

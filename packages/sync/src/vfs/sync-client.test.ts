@@ -526,6 +526,11 @@ describe('VfsBackgroundSyncClient', () => {
   it('fails closed when stale write ids cannot be recovered', async () => {
     let pushAttempts = 0;
     let pullAttempts = 0;
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async (input) => {
         pushAttempts += 1;
@@ -547,7 +552,15 @@ describe('VfsBackgroundSyncClient', () => {
       }
     };
 
-    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      onGuardrailViolation: (violation) => {
+        guardrailViolations.push({
+          code: violation.code,
+          stage: violation.stage,
+          message: violation.message
+        });
+      }
+    });
     client.queueLocalOperation({
       opType: 'acl_add',
       itemId: 'item-1',
@@ -563,6 +576,11 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.snapshot().pendingOperations).toBe(1);
     expect(pushAttempts).toBe(3);
     expect(pullAttempts).toBe(2);
+    expect(guardrailViolations).toContainEqual({
+      code: 'staleWriteRecoveryExhausted',
+      stage: 'flush',
+      message: 'stale write-id recovery exceeded max retry attempts without forward progress'
+    });
   });
 
   it('converges concurrent clients when one client requires stale-write recovery', async () => {
@@ -878,10 +896,24 @@ describe('VfsBackgroundSyncClient', () => {
   });
 
   it('fails closed when hydrated pending operations reference another replica', () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
     const client = new VfsBackgroundSyncClient(
       'user-1',
       'desktop',
-      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer())
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer()),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
     );
 
     const persisted = client.exportState();
@@ -903,6 +935,12 @@ describe('VfsBackgroundSyncClient', () => {
     expect(() => client.hydrateState(persisted)).toThrowError(
       /replicaId that does not match clientId/
     );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message:
+        'state.pendingOperations[0] has replicaId that does not match clientId'
+    });
   });
 
   it('drains queue after idempotent retry when first push fails post-commit', async () => {
@@ -978,6 +1016,11 @@ describe('VfsBackgroundSyncClient', () => {
 
   it('fails closed when pull pages regress last reconciled write ids', async () => {
     let pullCount = 0;
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
         results: []
@@ -1022,8 +1065,21 @@ describe('VfsBackgroundSyncClient', () => {
       }
     };
 
-    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      onGuardrailViolation: (violation) => {
+        guardrailViolations.push({
+          code: violation.code,
+          stage: violation.stage,
+          message: violation.message
+        });
+      }
+    });
     await expect(client.sync()).rejects.toThrowError(/regressed/);
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'pull',
+      message: 'pull response regressed replica write-id state'
+    });
   });
 
   it('applies transport reconcile acknowledgements when supported', async () => {
@@ -1075,6 +1131,11 @@ describe('VfsBackgroundSyncClient', () => {
   });
 
   it('fails closed when reconcile acknowledgement regresses cursor', async () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
         results: []
@@ -1106,11 +1167,29 @@ describe('VfsBackgroundSyncClient', () => {
       })
     };
 
-    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      onGuardrailViolation: (violation) => {
+        guardrailViolations.push({
+          code: violation.code,
+          stage: violation.stage,
+          message: violation.message
+        });
+      }
+    });
     await expect(client.sync()).rejects.toThrowError(/reconcile regressed sync cursor/);
+    expect(guardrailViolations).toContainEqual({
+      code: 'reconcileCursorRegression',
+      stage: 'reconcile',
+      message: 'reconcile acknowledgement regressed sync cursor'
+    });
   });
 
   it('fails closed when reconcile acknowledgement regresses last write ids', async () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
         results: []
@@ -1142,12 +1221,30 @@ describe('VfsBackgroundSyncClient', () => {
       })
     };
 
-    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      onGuardrailViolation: (violation) => {
+        guardrailViolations.push({
+          code: violation.code,
+          stage: violation.stage,
+          message: violation.message
+        });
+      }
+    });
     await expect(client.sync()).rejects.toThrowError(/regressed lastReconciledWriteIds/);
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'reconcile',
+      message: 'reconcile acknowledgement regressed replica write-id state'
+    });
   });
 
   it('fails closed when transport regresses cursor with no items', async () => {
     let pullCount = 0;
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
         results: []
@@ -1187,8 +1284,21 @@ describe('VfsBackgroundSyncClient', () => {
       }
     };
 
-    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      onGuardrailViolation: (violation) => {
+        guardrailViolations.push({
+          code: violation.code,
+          stage: violation.stage,
+          message: violation.message
+        });
+      }
+    });
     await client.sync();
     await expect(client.sync()).rejects.toThrowError(/regressing sync cursor/);
+    expect(guardrailViolations).toContainEqual({
+      code: 'pullCursorRegression',
+      stage: 'pull',
+      message: 'pull response regressed local sync cursor'
+    });
   });
 });

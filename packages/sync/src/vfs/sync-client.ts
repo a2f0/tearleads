@@ -213,6 +213,21 @@ export interface VfsCrdtSyncReconcileResponse {
   lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
 }
 
+export type VfsSyncGuardrailViolationCode =
+  | 'staleWriteRecoveryExhausted'
+  | 'pullPageInvariantViolation'
+  | 'pullCursorRegression'
+  | 'reconcileCursorRegression'
+  | 'lastWriteIdRegression'
+  | 'hydrateGuardrailViolation';
+
+export interface VfsSyncGuardrailViolation {
+  code: VfsSyncGuardrailViolationCode;
+  stage: 'flush' | 'pull' | 'reconcile' | 'hydrate';
+  message: string;
+  details?: Record<string, string | number | boolean | null>;
+}
+
 export interface VfsCrdtSyncTransport {
   pushOperations(input: {
     userId: string;
@@ -285,11 +300,23 @@ function validatePushResponse(
 
 function assertNonRegressingLastWriteIds(
   observedLastWriteIds: Map<string, number>,
-  incomingLastWriteIds: VfsCrdtLastReconciledWriteIds
+  incomingLastWriteIds: VfsCrdtLastReconciledWriteIds,
+  onRegression?:
+    | ((input: {
+        replicaId: string;
+        previousWriteId: number;
+        incomingWriteId: number;
+      }) => void)
+    | null
 ): void {
   for (const [replicaId, writeId] of Object.entries(incomingLastWriteIds)) {
     const previousWriteId = observedLastWriteIds.get(replicaId) ?? 0;
     if (writeId < previousWriteId) {
+      onRegression?.({
+        replicaId,
+        previousWriteId,
+        incomingWriteId: writeId
+      });
       throw new Error(
         `transport regressed lastReconciledWriteIds for replica ${replicaId}`
       );
@@ -333,6 +360,7 @@ export interface VfsBackgroundSyncClientOptions {
   pullLimit?: number;
   now?: () => Date;
   onBackgroundError?: (error: unknown) => void;
+  onGuardrailViolation?: (violation: VfsSyncGuardrailViolation) => void;
 }
 
 export interface VfsBackgroundSyncClientFlushResult {
@@ -379,6 +407,9 @@ export class VfsBackgroundSyncClient {
   private readonly transport: VfsCrdtSyncTransport;
   private readonly now: () => Date;
   private readonly onBackgroundError: ((error: unknown) => void) | null;
+  private readonly onGuardrailViolation:
+    | ((violation: VfsSyncGuardrailViolation) => void)
+    | null;
 
   private readonly pendingOperations: VfsCrdtOperation[] = [];
   private readonly pendingOpIds: Set<string> = new Set();
@@ -414,6 +445,7 @@ export class VfsBackgroundSyncClient {
     this.pullLimit = parsePullLimit(options.pullLimit);
     this.now = options.now ?? (() => new Date());
     this.onBackgroundError = options.onBackgroundError ?? null;
+    this.onGuardrailViolation = options.onGuardrailViolation ?? null;
   }
 
   queueLocalOperation(
@@ -548,81 +580,94 @@ export class VfsBackgroundSyncClient {
   }
 
   hydrateState(state: VfsBackgroundSyncClientPersistedState): void {
-    this.assertHydrationAllowed();
-    if (typeof state !== 'object' || state === null) {
-      throw new Error('state must be a non-null object');
-    }
-
-    if (!Array.isArray(state.pendingOperations)) {
-      throw new Error('state.pendingOperations must be an array');
-    }
-    if (!Array.isArray(state.containerClocks)) {
-      throw new Error('state.containerClocks must be an array');
-    }
-
-    const normalizedReplaySnapshot = this.normalizePersistedReplaySnapshot(
-      state.replaySnapshot
-    );
-    const normalizedReconcileState = this.normalizePersistedReconcileState(
-      state.reconcileState
-    );
-    const normalizedContainerClocks = this.normalizePersistedContainerClocks(
-      state.containerClocks
-    );
-
-    const normalizedPendingOperations: VfsCrdtOperation[] = [];
-    const observedPendingOpIds: Set<string> = new Set();
-    let maxPendingWriteId = 0;
-    let previousWriteId = 0;
-    for (let index = 0; index < state.pendingOperations.length; index++) {
-      const operation = state.pendingOperations[index];
-      if (!operation) {
-        throw new Error(`state.pendingOperations[${index}] is invalid`);
+    try {
+      this.assertHydrationAllowed();
+      if (typeof state !== 'object' || state === null) {
+        throw new Error('state must be a non-null object');
       }
 
-      const normalizedOperation = this.normalizePersistedPendingOperation(
-        operation,
-        index
+      if (!Array.isArray(state.pendingOperations)) {
+        throw new Error('state.pendingOperations must be an array');
+      }
+      if (!Array.isArray(state.containerClocks)) {
+        throw new Error('state.containerClocks must be an array');
+      }
+
+      const normalizedReplaySnapshot = this.normalizePersistedReplaySnapshot(
+        state.replaySnapshot
       );
-      if (observedPendingOpIds.has(normalizedOperation.opId)) {
-        throw new Error(`state.pendingOperations has duplicate opId ${normalizedOperation.opId}`);
-      }
-      if (normalizedOperation.writeId <= previousWriteId) {
-        throw new Error('state.pendingOperations writeIds must be strictly increasing');
-      }
-
-      observedPendingOpIds.add(normalizedOperation.opId);
-      normalizedPendingOperations.push(normalizedOperation);
-      maxPendingWriteId = Math.max(maxPendingWriteId, normalizedOperation.writeId);
-      previousWriteId = normalizedOperation.writeId;
-    }
-
-    this.replayStore.replaceSnapshot(normalizedReplaySnapshot);
-    this.containerClockStore.replaceSnapshot(normalizedContainerClocks);
-
-    if (normalizedReconcileState) {
-      this.reconcileStateStore.reconcile(
-        this.userId,
-        this.clientId,
-        normalizedReconcileState.cursor,
-        normalizedReconcileState.lastReconciledWriteIds
+      const normalizedReconcileState = this.normalizePersistedReconcileState(
+        state.reconcileState
       );
-    }
+      const normalizedContainerClocks = this.normalizePersistedContainerClocks(
+        state.containerClocks
+      );
 
-    for (const operation of normalizedPendingOperations) {
-      this.pendingOperations.push({ ...operation });
-      this.pendingOpIds.add(operation.opId);
-    }
+      const normalizedPendingOperations: VfsCrdtOperation[] = [];
+      const observedPendingOpIds: Set<string> = new Set();
+      let maxPendingWriteId = 0;
+      let previousWriteId = 0;
+      for (let index = 0; index < state.pendingOperations.length; index++) {
+        const operation = state.pendingOperations[index];
+        if (!operation) {
+          throw new Error(`state.pendingOperations[${index}] is invalid`);
+        }
 
-    const persistedNextLocalWriteId = parsePositiveSafeInteger(
-      state.nextLocalWriteId,
-      'state.nextLocalWriteId'
-    );
-    this.nextLocalWriteId = Math.max(
-      persistedNextLocalWriteId,
-      maxPendingWriteId + 1
-    );
-    this.bumpLocalWriteIdFromReconcileState();
+        const normalizedOperation = this.normalizePersistedPendingOperation(
+          operation,
+          index
+        );
+        if (observedPendingOpIds.has(normalizedOperation.opId)) {
+          throw new Error(
+            `state.pendingOperations has duplicate opId ${normalizedOperation.opId}`
+          );
+        }
+        if (normalizedOperation.writeId <= previousWriteId) {
+          throw new Error(
+            'state.pendingOperations writeIds must be strictly increasing'
+          );
+        }
+
+        observedPendingOpIds.add(normalizedOperation.opId);
+        normalizedPendingOperations.push(normalizedOperation);
+        maxPendingWriteId = Math.max(maxPendingWriteId, normalizedOperation.writeId);
+        previousWriteId = normalizedOperation.writeId;
+      }
+
+      this.replayStore.replaceSnapshot(normalizedReplaySnapshot);
+      this.containerClockStore.replaceSnapshot(normalizedContainerClocks);
+
+      if (normalizedReconcileState) {
+        this.reconcileStateStore.reconcile(
+          this.userId,
+          this.clientId,
+          normalizedReconcileState.cursor,
+          normalizedReconcileState.lastReconciledWriteIds
+        );
+      }
+
+      for (const operation of normalizedPendingOperations) {
+        this.pendingOperations.push({ ...operation });
+        this.pendingOpIds.add(operation.opId);
+      }
+
+      const persistedNextLocalWriteId = parsePositiveSafeInteger(
+        state.nextLocalWriteId,
+        'state.nextLocalWriteId'
+      );
+      this.nextLocalWriteId = Math.max(
+        persistedNextLocalWriteId,
+        maxPendingWriteId + 1
+      );
+      this.bumpLocalWriteIdFromReconcileState();
+    } catch (error) {
+      this.emitGuardrailViolation({
+        code: 'hydrateGuardrailViolation',
+        stage: 'hydrate',
+        message: error instanceof Error ? error.message : 'state hydration failed'
+      });
+      throw error;
+    }
   }
 
   listChangedContainers(
@@ -679,6 +724,18 @@ export class VfsBackgroundSyncClient {
       await this.flushPromise.catch(() => {
         // no-op: caller controls error handling through onBackgroundError
       });
+    }
+  }
+
+  private emitGuardrailViolation(violation: VfsSyncGuardrailViolation): void {
+    if (!this.onGuardrailViolation) {
+      return;
+    }
+
+    try {
+      this.onGuardrailViolation(violation);
+    } catch {
+      // Guardrail telemetry must never alter protocol control flow.
     }
   }
 
@@ -940,6 +997,17 @@ export class VfsBackgroundSyncClient {
          */
         staleRecoveryAttempts += 1;
         if (staleRecoveryAttempts > MAX_STALE_PUSH_RECOVERY_ATTEMPTS) {
+          this.emitGuardrailViolation({
+            code: 'staleWriteRecoveryExhausted',
+            stage: 'flush',
+            message:
+              'stale write-id recovery exceeded max retry attempts without forward progress',
+            details: {
+              attempts: staleRecoveryAttempts,
+              maxAttempts: MAX_STALE_PUSH_RECOVERY_ATTEMPTS,
+              staleResults: staleResults.length
+            }
+          });
           throw new VfsCrdtSyncPushRejectedError(staleResults);
         }
 
@@ -1133,13 +1201,39 @@ export class VfsBackgroundSyncClient {
     if (
       compareVfsSyncCursorOrder(normalizedResponseCursor, normalizedLocalCursor) < 0
     ) {
+      this.emitGuardrailViolation({
+        code: 'reconcileCursorRegression',
+        stage: 'reconcile',
+        message: 'reconcile acknowledgement regressed sync cursor',
+        details: {
+          previousChangedAt: normalizedLocalCursor.changedAt,
+          previousChangeId: normalizedLocalCursor.changeId,
+          incomingChangedAt: normalizedResponseCursor.changedAt,
+          incomingChangeId: normalizedResponseCursor.changeId
+        }
+      });
       throw new Error('transport reconcile regressed sync cursor');
     }
 
     const observedWriteIds = new Map<string, number>(
       Object.entries(localWriteIds.value)
     );
-    assertNonRegressingLastWriteIds(observedWriteIds, responseWriteIds.value);
+    assertNonRegressingLastWriteIds(
+      observedWriteIds,
+      responseWriteIds.value,
+      ({ replicaId, previousWriteId, incomingWriteId }) => {
+        this.emitGuardrailViolation({
+          code: 'lastWriteIdRegression',
+          stage: 'reconcile',
+          message: 'reconcile acknowledgement regressed replica write-id state',
+          details: {
+            replicaId,
+            previousWriteId,
+            incomingWriteId
+          }
+        });
+      }
+    );
 
     this.reconcileStateStore.reconcile(
       this.userId,
@@ -1173,10 +1267,31 @@ export class VfsBackgroundSyncClient {
       }
       assertNonRegressingLastWriteIds(
         observedLastWriteIds,
-        parsedWriteIds.value
+        parsedWriteIds.value,
+        ({ replicaId, previousWriteId, incomingWriteId }) => {
+          this.emitGuardrailViolation({
+            code: 'lastWriteIdRegression',
+            stage: 'pull',
+            message: 'pull response regressed replica write-id state',
+            details: {
+              replicaId,
+              previousWriteId,
+              incomingWriteId
+            }
+          });
+        }
       );
 
       if (response.hasMore && response.items.length === 0) {
+        this.emitGuardrailViolation({
+          code: 'pullPageInvariantViolation',
+          stage: 'pull',
+          message: 'pull response hasMore=true with an empty page',
+          details: {
+            hasMore: true,
+            itemsLength: 0
+          }
+        });
         throw new Error(
           'transport returned hasMore=true with an empty pull page'
         );
@@ -1197,6 +1312,17 @@ export class VfsBackgroundSyncClient {
           response.nextCursor &&
           compareVfsSyncCursorOrder(response.nextCursor, pageCursor) !== 0
         ) {
+          this.emitGuardrailViolation({
+            code: 'pullPageInvariantViolation',
+            stage: 'pull',
+            message: 'pull response nextCursor does not match page tail cursor',
+            details: {
+              nextCursorChangedAt: response.nextCursor.changedAt,
+              nextCursorChangeId: response.nextCursor.changeId,
+              pageCursorChangedAt: pageCursor.changedAt,
+              pageCursorChangeId: pageCursor.changeId
+            }
+          });
           throw new Error(
             'transport returned nextCursor that does not match pull page tail'
           );
@@ -1212,6 +1338,17 @@ export class VfsBackgroundSyncClient {
         pageCursor &&
         compareVfsSyncCursorOrder(pageCursor, cursorBeforePull) < 0
       ) {
+        this.emitGuardrailViolation({
+          code: 'pullCursorRegression',
+          stage: 'pull',
+          message: 'pull response regressed local sync cursor',
+          details: {
+            previousChangedAt: cursorBeforePull.changedAt,
+            previousChangeId: cursorBeforePull.changeId,
+            incomingChangedAt: pageCursor.changedAt,
+            incomingChangeId: pageCursor.changeId
+          }
+        });
         throw new Error('transport returned regressing sync cursor');
       }
 
