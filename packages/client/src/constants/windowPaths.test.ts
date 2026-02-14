@@ -10,6 +10,13 @@ const adminFlyoutPaths = [
   '/admin/organizations'
 ];
 
+const debugFlyoutPaths = [
+  '/debug/system-info',
+  '/debug/browser/opfs',
+  '/debug/browser/cache-storage',
+  '/debug/browser/local-storage'
+];
+
 describe('WINDOW_PATHS', () => {
   it('includes every sidebar launcher path', () => {
     const launcherPaths = navItems
@@ -23,6 +30,12 @@ describe('WINDOW_PATHS', () => {
 
   it('includes admin flyout window routes', () => {
     for (const path of adminFlyoutPaths) {
+      expect(WINDOW_PATHS[path]).toBeTruthy();
+    }
+  });
+
+  it('includes debug flyout window routes', () => {
+    for (const path of debugFlyoutPaths) {
       expect(WINDOW_PATHS[path]).toBeTruthy();
     }
   });

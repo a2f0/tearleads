@@ -121,7 +121,13 @@ const ContactNew = lazy(() =>
 const Contacts = lazy(() =>
   import('./pages/contacts').then((m) => ({ default: m.Contacts }))
 );
-const Debug = lazy(() =>
+const DebugBrowserLauncher = lazy(() =>
+  import('./pages/debug').then((m) => ({ default: m.DebugBrowserLauncher }))
+);
+const DebugLauncher = lazy(() =>
+  import('./pages/debug').then((m) => ({ default: m.DebugLauncher }))
+);
+const DebugSystemInfo = lazy(() =>
   import('./pages/debug').then((m) => ({ default: m.Debug }))
 );
 const ApiDocsPage = lazy(() =>
@@ -384,7 +390,49 @@ if (rootElement) {
                                         />
                                         <Route
                                           path="debug"
-                                          element={<Debug />}
+                                          element={<DebugLauncher />}
+                                        />
+                                        <Route
+                                          path="debug/system-info"
+                                          element={
+                                            <DebugSystemInfo
+                                              showBackLink
+                                              backTo="/debug"
+                                              backLabel="Back to Debug"
+                                            />
+                                          }
+                                        />
+                                        <Route
+                                          path="debug/browser"
+                                          element={<DebugBrowserLauncher />}
+                                        />
+                                        <Route
+                                          path="debug/browser/local-storage"
+                                          element={
+                                            <LocalStorage
+                                              backTo="/debug/browser"
+                                              backLabel="Back to Browser"
+                                            />
+                                          }
+                                        />
+                                        <Route
+                                          path="debug/browser/opfs"
+                                          element={
+                                            <Opfs
+                                              showBackLink
+                                              backTo="/debug/browser"
+                                              backLabel="Back to Browser"
+                                            />
+                                          }
+                                        />
+                                        <Route
+                                          path="debug/browser/cache-storage"
+                                          element={
+                                            <CacheStorage
+                                              backTo="/debug/browser"
+                                              backLabel="Back to Browser"
+                                            />
+                                          }
                                         />
                                         <Route path="help" element={<Help />} />
                                         <Route
@@ -459,15 +507,6 @@ if (rootElement) {
                                         <Route
                                           path="analytics"
                                           element={<Analytics />}
-                                        />
-                                        <Route path="opfs" element={<Opfs />} />
-                                        <Route
-                                          path="cache-storage"
-                                          element={<CacheStorage />}
-                                        />
-                                        <Route
-                                          path="local-storage"
-                                          element={<LocalStorage />}
                                         />
                                         <Route
                                           path="keychain"

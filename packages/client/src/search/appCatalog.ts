@@ -40,7 +40,7 @@ const SEARCHABLE_APPS: SearchableAppDefinition[] = [
     keywords: ['passport', 'license', 'credit card', 'identity']
   },
   { windowType: 'sqlite', path: '/sqlite', title: 'SQLite' },
-  { windowType: 'opfs', path: '/opfs', title: 'OPFS' },
+  { windowType: 'opfs', path: '/debug/browser/opfs', title: 'OPFS' },
   { windowType: 'chat', path: '/ai', title: 'AI', keywords: ['chat'] },
   { windowType: 'analytics', path: '/analytics', title: 'Analytics' },
   { windowType: 'audio', path: '/audio', title: 'Audio', keywords: ['music'] },
@@ -78,12 +78,12 @@ const SEARCHABLE_APPS: SearchableAppDefinition[] = [
   },
   {
     windowType: 'cache-storage',
-    path: '/cache-storage',
+    path: '/debug/browser/cache-storage',
     title: 'Cache Storage'
   },
   {
     windowType: 'local-storage',
-    path: '/local-storage',
+    path: '/debug/browser/local-storage',
     title: 'Local Storage'
   },
   { windowType: 'sync', path: '/sync', title: 'Sync' },

@@ -50,9 +50,15 @@ function getTotalSize(entries: StorageEntry[]): number {
 
 interface LocalStorageProps {
   showBackLink?: boolean;
+  backTo?: string;
+  backLabel?: string;
 }
 
-export function LocalStorage({ showBackLink = true }: LocalStorageProps) {
+export function LocalStorage({
+  showBackLink = true,
+  backTo = '/',
+  backLabel = 'Back to Home'
+}: LocalStorageProps) {
   const [entries, setEntries] = useState<StorageEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -157,7 +163,9 @@ export function LocalStorage({ showBackLink = true }: LocalStorageProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
+        {showBackLink && (
+          <BackLink defaultTo={backTo} defaultLabel={backLabel} />
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-bold text-2xl tracking-tight">

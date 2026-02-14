@@ -1,6 +1,7 @@
 import type { PingData } from '@tearleads/shared';
 import { Check, Copy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RefreshButton } from '@/components/ui/refresh-button';
@@ -11,9 +12,17 @@ import { InfoRow } from './InfoRow';
 
 interface DebugProps {
   showTitle?: boolean;
+  showBackLink?: boolean;
+  backTo?: string;
+  backLabel?: string;
 }
 
-export function Debug({ showTitle = true }: DebugProps) {
+export function Debug({
+  showTitle = true,
+  showBackLink = false,
+  backTo = '/',
+  backLabel = 'Back to Home'
+}: DebugProps) {
   const appVersion = useAppVersion();
   const [ping, setPing] = useState<PingData | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
@@ -104,8 +113,15 @@ export function Debug({ showTitle = true }: DebugProps) {
 
   return (
     <div className="space-y-6 overflow-x-hidden">
-      {showTitle && (
-        <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
+      {(showBackLink || showTitle) && (
+        <div className="space-y-2">
+          {showBackLink && (
+            <BackLink defaultTo={backTo} defaultLabel={backLabel} />
+          )}
+          {showTitle && (
+            <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
+          )}
+        </div>
       )}
 
       <Card>

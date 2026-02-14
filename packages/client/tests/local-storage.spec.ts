@@ -16,8 +16,8 @@ test.describe('Local storage window', () => {
   });
 
   test('clearing local storage keeps the app responsive', async ({ page }) => {
-    // Navigate directly to local-storage page (works regardless of desktop/mobile detection)
-    await page.goto('/local-storage');
+    // Navigate directly to local-storage page (now under /debug/browser/)
+    await page.goto('/debug/browser/local-storage');
 
     // Wait for the page content to load
     const clearButton = page.getByRole('button', {

@@ -769,8 +769,11 @@ test.describe('Debug page', () => {
     await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
   });
 
-  test('should display system info on debug page', async ({ page }) => {
-    await navigateTo(page, 'Debug');
+  test('should display system info on debug system-info page', async ({
+    page
+  }) => {
+    // System info is now at /debug/system-info after route consolidation
+    await page.goto('/debug/system-info');
 
     await expect(page.getByText('System Info')).toBeVisible();
     await expect(page.getByText(/Environment:/)).toBeVisible();
@@ -785,7 +788,7 @@ test.describe('Debug page', () => {
   });
 
   test('should fetch and display API version', async ({ page }) => {
-    await navigateTo(page, 'Debug');
+    await page.goto('/debug/system-info');
 
     // Wait for ping data to load (either success or error)
     // Look for version in the API Status section (green text) or error message
@@ -802,7 +805,7 @@ test.describe('Debug page', () => {
   test('should refresh API data when refresh button is clicked', async ({
     page
   }) => {
-    await navigateTo(page, 'Debug');
+    await page.goto('/debug/system-info');
 
     // Wait for initial load to complete (button becomes enabled)
     const refreshButton = page.getByRole('button', { name: /^Refresh$/ });
@@ -819,8 +822,10 @@ test.describe('Debug page', () => {
   test('should navigate back to home when Home link is clicked', async ({
     page
   }) => {
-    await navigateTo(page, 'Debug');
-    await expect(page.getByRole('heading', { name: 'Debug' })).toBeVisible();
+    await page.goto('/debug/system-info');
+    await expect(
+      page.getByRole('heading', { name: 'System Info' })
+    ).toBeVisible();
 
     // Navigate back home via sidebar
     await navigateTo(page, 'Home');

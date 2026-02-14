@@ -60,9 +60,6 @@ const MOCK_SAVED_POSITIONS = {
   '/sqlite': { x: 400, y: 300 },
   '/console': { x: 100, y: 400 },
   '/debug': { x: 200, y: 400 },
-  '/opfs': { x: 300, y: 400 },
-  '/cache-storage': { x: 400, y: 400 },
-  '/local-storage': { x: 100, y: 500 },
   '/keychain': { x: 200, y: 500 },
   '/wallet': { x: 250, y: 500 },
   '/ai': { x: 300, y: 500 },
@@ -861,7 +858,8 @@ describe('Home', () => {
 
     iconButtons.forEach((button) => {
       const path = button.getAttribute('data-icon-path');
-      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      const width =
+        path === '/admin/organizations' ? wideLabelWidth : baseLabelWidth;
       Object.defineProperty(button, 'offsetWidth', {
         value: width,
         configurable: true
@@ -932,7 +930,8 @@ describe('Home', () => {
 
     iconButtons.forEach((button) => {
       const path = button.getAttribute('data-icon-path');
-      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      const width =
+        path === '/admin/organizations' ? wideLabelWidth : baseLabelWidth;
       Object.defineProperty(button, 'offsetWidth', {
         value: width,
         configurable: true
@@ -1028,7 +1027,7 @@ describe('Home', () => {
     iconButtons.forEach((button) => {
       const path = button.getAttribute('data-icon-path');
       const height =
-        path === '/cache-storage' ? tallLabelHeight : baseLabelHeight;
+        path === '/admin/organizations' ? tallLabelHeight : baseLabelHeight;
       Object.defineProperty(button, 'offsetWidth', {
         value: 90,
         configurable: true
@@ -1086,7 +1085,8 @@ describe('Home', () => {
 
     iconButtons.forEach((button) => {
       const path = button.getAttribute('data-icon-path');
-      const width = path === '/cache-storage' ? wideLabelWidth : baseLabelWidth;
+      const width =
+        path === '/admin/organizations' ? wideLabelWidth : baseLabelWidth;
       Object.defineProperty(button, 'offsetWidth', {
         value: width,
         configurable: true
@@ -1186,14 +1186,12 @@ describe('Home', () => {
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
   });
 
-  it('shows Open in Window option for Local Storage icon', async () => {
+  it('shows Open in Window option for Debug icon from context menu', async () => {
     const user = userEvent.setup();
     renderHome();
 
-    const localStorageButton = screen.getByRole('button', {
-      name: 'Local Storage'
-    });
-    await user.pointer({ keys: '[MouseRight]', target: localStorageButton });
+    const debugButton = screen.getByRole('button', { name: 'Debug' });
+    await user.pointer({ keys: '[MouseRight]', target: debugButton });
 
     expect(screen.getByText('Open')).toBeInTheDocument();
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
@@ -1213,14 +1211,12 @@ describe('Home', () => {
     expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
   });
 
-  it('opens local storage in floating window when Open in Window is clicked', async () => {
+  it('opens debug in floating window from context menu action', async () => {
     const user = userEvent.setup();
     renderHome();
 
-    const localStorageButton = screen.getByRole('button', {
-      name: 'Local Storage'
-    });
-    await user.pointer({ keys: '[MouseRight]', target: localStorageButton });
+    const debugButton = screen.getByRole('button', { name: 'Debug' });
+    await user.pointer({ keys: '[MouseRight]', target: debugButton });
 
     const openInWindowItem = screen.getByText('Open in Window');
     await user.click(openInWindowItem);
@@ -1306,26 +1302,22 @@ describe('Home', () => {
     expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
   });
 
-  it('shows Open in Window option for Local Storage icon', async () => {
+  it('shows Open in Window option for Debug icon in later coverage block', async () => {
     const user = userEvent.setup();
     renderHome();
 
-    const localStorageButton = screen.getByRole('button', {
-      name: 'Local Storage'
-    });
-    await user.pointer({ keys: '[MouseRight]', target: localStorageButton });
+    const debugButton = screen.getByRole('button', { name: 'Debug' });
+    await user.pointer({ keys: '[MouseRight]', target: debugButton });
 
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
   });
 
-  it('opens local storage in floating window when Open in Window is clicked', async () => {
+  it('opens debug in floating window in later coverage block', async () => {
     const user = userEvent.setup();
     renderHome();
 
-    const localStorageButton = screen.getByRole('button', {
-      name: 'Local Storage'
-    });
-    await user.pointer({ keys: '[MouseRight]', target: localStorageButton });
+    const debugButton = screen.getByRole('button', { name: 'Debug' });
+    await user.pointer({ keys: '[MouseRight]', target: debugButton });
 
     const openInWindowItem = screen.getByText('Open in Window');
     await user.click(openInWindowItem);

@@ -8,9 +8,13 @@ interface SidebarNavListProps {
   isDesktop: boolean;
   activePathname: string;
   adminFlyoutItems: AdminFlyoutItem[];
+  debugFlyoutItems: AdminFlyoutItem[];
   adminButtonRef: React.RefObject<HTMLButtonElement | null>;
+  debugButtonRef: React.RefObject<HTMLButtonElement | null>;
   onAdminFlyoutOpenChange: (open: boolean) => void;
+  onDebugFlyoutOpenChange: (open: boolean) => void;
   onAdminButtonRectChange: (rect: DOMRect | null) => void;
+  onDebugButtonRectChange: (rect: DOMRect | null) => void;
   onItemClick: (path: string) => void;
   onItemContextMenu: (event: React.MouseEvent, path: string) => void;
   t: (key: MenuKeys) => string;
@@ -24,9 +28,13 @@ export function SidebarNavList({
   isDesktop,
   activePathname,
   adminFlyoutItems,
+  debugFlyoutItems,
   adminButtonRef,
+  debugButtonRef,
   onAdminFlyoutOpenChange,
+  onDebugFlyoutOpenChange,
   onAdminButtonRectChange,
+  onDebugButtonRectChange,
   onItemClick,
   onItemContextMenu,
   t
@@ -36,31 +44,41 @@ export function SidebarNavList({
       {items.map((item) => {
         const Icon = item.icon;
         const isAdminFlyout = isDesktop && item.path === '/admin';
-        const isAdminActive =
-          isAdminFlyout &&
-          adminFlyoutItems.some((subItem) =>
+        const isDebugFlyout = isDesktop && item.path === '/debug';
+        const isFlyout = isAdminFlyout || isDebugFlyout;
+        const flyoutItems = isAdminFlyout ? adminFlyoutItems : debugFlyoutItems;
+        const isFlyoutActive =
+          isFlyout &&
+          flyoutItems.some((subItem) =>
             activePathname.startsWith(subItem.path)
           );
         const isActive =
-          isAdminActive ||
+          isFlyoutActive ||
           (item.path === '/'
             ? activePathname === '/'
             : activePathname.startsWith(item.path));
 
-        if (isAdminFlyout) {
+        if (isFlyout) {
+          const buttonRef = isAdminFlyout ? adminButtonRef : debugButtonRef;
+          const onFlyoutOpenChange = isAdminFlyout
+            ? onAdminFlyoutOpenChange
+            : onDebugFlyoutOpenChange;
+          const onButtonRectChange = isAdminFlyout
+            ? onAdminButtonRectChange
+            : onDebugButtonRectChange;
+
           return (
             <li
               key={item.path}
               onMouseEnter={() => {
-                onAdminFlyoutOpenChange(true);
-                const rect =
-                  adminButtonRef.current?.getBoundingClientRect() ?? null;
-                onAdminButtonRectChange(rect);
+                onFlyoutOpenChange(true);
+                const rect = buttonRef.current?.getBoundingClientRect() ?? null;
+                onButtonRectChange(rect);
               }}
-              onMouseLeave={() => onAdminFlyoutOpenChange(false)}
+              onMouseLeave={() => onFlyoutOpenChange(false)}
             >
               <button
-                ref={adminButtonRef}
+                ref={buttonRef}
                 type="button"
                 data-testid={item.testId}
                 onClick={() => onItemClick(item.path)}
