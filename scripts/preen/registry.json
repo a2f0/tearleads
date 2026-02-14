@@ -126,6 +126,19 @@
         "find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -10"
       ],
       "metricCountCommand": "gaps=0; for fw in HIPAA NIST.SP.800-53 SOC2; do for policy in $(ls compliance/$fw/policies/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/-policy\\.md//'); do [ ! -f \"compliance/$fw/procedures/${policy}-procedure.md\" ] && gaps=$((gaps + 1)); [ ! -f \"compliance/$fw/technical-controls/${policy}-control-map.md\" ] && gaps=$((gaps + 1)); done; done; unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l); echo $((gaps + unnumbered))"
+    },
+    {
+      "id": "preen-review-instructions",
+      "purpose": "Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md)",
+      "checklistLabel": "Review instruction completeness and sync",
+      "qualityMetric": "Review instruction gaps (missing sections + Gemini drift)",
+      "security": false,
+      "discoveryCommands": [
+        "echo '=== REVIEW.md sections ==='; rg '^##' REVIEW.md | head -20",
+        "echo '=== Gemini sections ==='; rg '^##' .gemini/INSTRUCTIONS.md | head -20",
+        "echo '=== Section comparison ==='; echo \"REVIEW.md: $(rg '^## ' REVIEW.md | wc -l | tr -d ' ')\"; echo \"Gemini: $(rg '^## ' .gemini/INSTRUCTIONS.md | wc -l | tr -d ' ')\""
+      ],
+      "metricCountCommand": "GAPS=0; [ -z \"$(rg 'TypeScript Standards' REVIEW.md 2>/dev/null)\" ] && GAPS=$((GAPS + 1)); [ -z \"$(rg 'API Security' REVIEW.md 2>/dev/null)\" ] && GAPS=$((GAPS + 1)); [ -z \"$(rg 'React Standards' REVIEW.md 2>/dev/null)\" ] && GAPS=$((GAPS + 1)); [ -z \"$(rg 'Database Performance' REVIEW.md 2>/dev/null)\" ] && GAPS=$((GAPS + 1)); [ -z \"$(rg 'Testing Standards' REVIEW.md 2>/dev/null)\" ] && GAPS=$((GAPS + 1)); REVIEW_SECTIONS=$(rg '^## ' REVIEW.md 2>/dev/null | wc -l | tr -d ' '); GEMINI_SECTIONS=$(rg '^## ' .gemini/INSTRUCTIONS.md 2>/dev/null | wc -l | tr -d ' '); [ \"$GEMINI_SECTIONS\" -lt $((REVIEW_SECTIONS / 2)) ] && GAPS=$((GAPS + 1)); echo $GAPS"
     }
   ]
 }

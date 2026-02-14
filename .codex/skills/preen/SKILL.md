@@ -49,6 +49,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-msw-parity` | Audit MSW handlers against API routes and improve test coverage assertions |
 | `preen-skill-tooling` | Validate skills are wired into agentTool.ts and scriptTool.ts |
 | `preen-compliance-docs` | Audit compliance documentation for gaps and cross-framework parity |
+| `preen-review-instructions` | Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md) |
 
 ## Run Modes
 
@@ -83,6 +84,7 @@ CATEGORIES=(
   "preen-msw-parity"
   "preen-skill-tooling"
   "preen-compliance-docs"
+  "preen-review-instructions"
 )
 
 SECURITY_CATEGORIES=(
@@ -193,6 +195,11 @@ run_discovery() {
       for fw in HIPAA NIST.SP.800-53 SOC2; do echo "=== $fw ==="; echo "Policies: $(ls compliance/$fw/policies/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Procedures: $(ls compliance/$fw/procedures/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Controls: $(ls compliance/$fw/technical-controls/*.md 2>/dev/null | wc -l | tr -d ' ')"; done
       find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -10
       ;;
+    preen-review-instructions)
+      echo '=== REVIEW.md sections ==='; rg '^##' REVIEW.md | head -20
+      echo '=== Gemini sections ==='; rg '^##' .gemini/INSTRUCTIONS.md | head -20
+      echo '=== Section comparison ==='; echo "REVIEW.md: $(rg '^## ' REVIEW.md | wc -l | tr -d ' ')"; echo "Gemini: $(rg '^## ' .gemini/INSTRUCTIONS.md | wc -l | tr -d ' ')"
+      ;;
   esac
 }
 
@@ -230,6 +237,9 @@ metric_count() {
       ;;
     preen-compliance-docs)
       gaps=0; for fw in HIPAA NIST.SP.800-53 SOC2; do for policy in $(ls compliance/$fw/policies/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/-policy\.md//'); do [ ! -f "compliance/$fw/procedures/${policy}-procedure.md" ] && gaps=$((gaps + 1)); [ ! -f "compliance/$fw/technical-controls/${policy}-control-map.md" ] && gaps=$((gaps + 1)); done; done; unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l); echo $((gaps + unnumbered))
+      ;;
+    preen-review-instructions)
+      GAPS=0; [ -z "$(rg 'TypeScript Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'API Security' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'React Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'Database Performance' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'Testing Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); REVIEW_SECTIONS=$(rg '^## ' REVIEW.md 2>/dev/null | wc -l | tr -d ' '); GEMINI_SECTIONS=$(rg '^## ' .gemini/INSTRUCTIONS.md 2>/dev/null | wc -l | tr -d ' '); [ "$GEMINI_SECTIONS" -lt $((REVIEW_SECTIONS / 2)) ] && GAPS=$((GAPS + 1)); echo $GAPS
       ;;
     *)
       echo 0
@@ -336,6 +346,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - MSW parity risk count (missing + low-confidence)
 - Skill parity/tooling issues
 - Compliance documentation gaps (missing triads + unnumbered files)
+- Review instruction gaps (missing sections + Gemini drift)
 
 Quality gate for the selected category:
 
@@ -379,6 +390,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] MSW/API parity and request-assertion wiring
 - [ ] Skill tooling validation
 - [ ] Compliance documentation gaps and parity
+- [ ] Review instruction completeness and sync
 
 ## Quality Delta
 - [x] Baseline metric captured for selected category
