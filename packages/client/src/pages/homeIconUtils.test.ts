@@ -1,3 +1,4 @@
+import { describe, expect, it, vi } from 'vitest';
 import { navItems } from '@/components/sidebar/navItems';
 import {
   boxIntersectsIcon,
@@ -27,13 +28,13 @@ describe('homeIconUtils', () => {
       iconFgClass: 'text-foreground'
     });
 
-    expect(getIconStyleClasses('debossed', 'solid')).toEqual({
+    expect(getIconStyleClasses('debossed', 'colored')).toEqual({
       iconBgClasses:
         'bg-primary-foreground from-primary-foreground/80 to-primary-foreground',
       iconFgClass: 'text-primary'
     });
 
-    expect(getIconStyleClasses('embossed', 'solid')).toEqual({
+    expect(getIconStyleClasses('embossed', 'colored')).toEqual({
       iconBgClasses: 'bg-primary from-primary/80 to-primary',
       iconFgClass: 'text-primary-foreground'
     });
@@ -199,7 +200,7 @@ describe('homeIconUtils', () => {
     const excludedPath = '/not-included';
 
     const included = document.createElement('button');
-    included.dataset.iconPath = includedPath;
+    included.dataset['iconPath'] = includedPath;
     Object.defineProperty(included, 'offsetWidth', {
       configurable: true,
       value: 0
@@ -214,7 +215,7 @@ describe('homeIconUtils', () => {
     });
 
     const excluded = document.createElement('button');
-    excluded.dataset.iconPath = excludedPath;
+    excluded.dataset['iconPath'] = excludedPath;
     Object.defineProperty(excluded, 'offsetWidth', {
       configurable: true,
       value: 200
@@ -239,7 +240,7 @@ describe('homeIconUtils', () => {
   it('returns null measurement for empty or zero-sized button sets', () => {
     const container = document.createElement('div');
     const button = document.createElement('button');
-    button.dataset.iconPath = navItems[0]?.path ?? '/camera';
+    button.dataset['iconPath'] = navItems[0]?.path ?? '/camera';
     Object.defineProperty(button, 'offsetWidth', {
       configurable: true,
       value: 0
