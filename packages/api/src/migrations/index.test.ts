@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 22 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 23 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(22);
+      expect(result.currentVersion).toBe(23);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -141,15 +141,15 @@ describe('migrations', () => {
       vi.mocked(pool.query).mockImplementation((sql: string) => {
         pool.queries.push(sql);
 
-        if (sql.includes('MAX(version)')) {
-          versionCallCount++;
-          if (versionCallCount === 1) {
-            return Promise.resolve({
-              rows: [{ version: 1 }],
-              rowCount: 1
-            });
-          }
-          return Promise.resolve({ rows: [{ version: 22 }], rowCount: 1 });
+          if (sql.includes('MAX(version)')) {
+            versionCallCount++;
+            if (versionCallCount === 1) {
+              return Promise.resolve({
+                rows: [{ version: 1 }],
+                rowCount: 1
+              });
+            }
+          return Promise.resolve({ rows: [{ version: 23 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -159,9 +159,9 @@ describe('migrations', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22
+        22, 23
       ]);
-      expect(result.currentVersion).toBe(22);
+      expect(result.currentVersion).toBe(23);
     });
   });
 
@@ -522,6 +522,53 @@ describe('migrations', () => {
       }
 
       await expect(v022.up(pool)).rejects.toThrow('forced migration failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v023 migration', () => {
+    it('adds CRDT last write ids column and merge helper function', async () => {
+      const pool = createMockPool(new Map());
+
+      const v023 = migrations.find((m: Migration) => m.version === 23);
+      if (!v023) {
+        throw new Error('v023 migration not found');
+      }
+
+      await v023.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('ALTER TABLE "vfs_sync_client_state"');
+      expect(queries).toContain('ADD COLUMN IF NOT EXISTS "last_reconciled_write_ids"');
+      expect(queries).toContain(
+        'CREATE OR REPLACE FUNCTION "vfs_merge_reconciled_write_ids"'
+      );
+      expect(queries).toContain('jsonb_object_agg');
+      expect(queries).toContain('GREATEST');
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (sql.includes('CREATE OR REPLACE FUNCTION')) {
+            throw new Error('forced v023 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v023 = migrations.find((m: Migration) => m.version === 23);
+      if (!v023) {
+        throw new Error('v023 migration not found');
+      }
+
+      await expect(v023.up(pool)).rejects.toThrow('forced v023 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');
