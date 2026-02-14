@@ -349,15 +349,23 @@ export const vehicles = sqliteTable(
 
 /**
  * Health exercises table for workout exercise selection.
+ * Supports hierarchical exercise categories via parentId.
  */
 export const healthExercises = sqliteTable(
   'health_exercises',
   {
     id: text('id').primaryKey(),
     name: text('name').notNull(),
+    parentId: text('parent_id').references(
+      (): AnySQLiteColumn => healthExercises.id,
+      { onDelete: 'restrict' }
+    ),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
   },
-  (table) => [index('health_exercises_name_idx').on(table.name)]
+  (table) => [
+    index('health_exercises_name_idx').on(table.name),
+    index('health_exercises_parent_idx').on(table.parentId)
+  ]
 );
 
 /**

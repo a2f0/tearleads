@@ -32,16 +32,34 @@ vi.mock('@/components/health/blood-pressure', () => ({
   )
 }));
 
+vi.mock('@/components/health/exercises', () => ({
+  ExerciseDetail: ({ refreshToken }: { refreshToken?: number }) => (
+    <div data-testid="exercise-detail-mock" data-refresh-token={refreshToken}>
+      Exercise Detail Mock
+    </div>
+  )
+}));
+
+import type { HealthDrilldownRoute } from './Health';
+
 function renderHealth({
   showBackLink,
-  initialEntries
+  initialEntries,
+  activeRoute,
+  onRouteChange
 }: {
   showBackLink?: boolean;
   initialEntries?: string[];
+  activeRoute?: HealthDrilldownRoute;
+  onRouteChange?: (route: HealthDrilldownRoute | undefined) => void;
 } = {}) {
   return render(
     <MemoryRouter initialEntries={initialEntries ?? ['/health']}>
-      <Health {...(showBackLink !== undefined ? { showBackLink } : {})} />
+      <Health
+        {...(showBackLink !== undefined ? { showBackLink } : {})}
+        {...(activeRoute !== undefined ? { activeRoute } : {})}
+        {...(onRouteChange !== undefined ? { onRouteChange } : {})}
+      />
     </MemoryRouter>
   );
 }
@@ -54,7 +72,7 @@ describe('Health', () => {
     expect(screen.getByText('Open Height Tracking')).toBeTruthy();
     expect(screen.getByText('Open Weight Tracking')).toBeTruthy();
     expect(screen.getByText('Open Blood Pressure')).toBeTruthy();
-    expect(screen.getByText('Exercises')).toBeTruthy();
+    expect(screen.getByText('Open Exercises')).toBeTruthy();
     expect(screen.getByText('Open Workouts')).toBeTruthy();
   });
 
@@ -86,7 +104,9 @@ describe('Health', () => {
         'columns: id, recordedAt, systolic, diastolic, pulse, note, createdAt'
       )
     ).toBeTruthy();
-    expect(screen.getByText('columns: id, name, createdAt')).toBeTruthy();
+    expect(
+      screen.getByText('columns: id, name, parentId, createdAt')
+    ).toBeTruthy();
     expect(
       screen.getByText(
         'columns: id, performedAt, exerciseId, reps, weightCenti, weightUnit, note, createdAt'
@@ -113,40 +133,37 @@ describe('Health', () => {
     expect(screen.getByText('Open Height Tracking')).toBeTruthy();
   });
 
-  it('supports drilldown navigation in floating window mode', async () => {
-    renderHealth({ showBackLink: false });
-    const user = userEvent.setup();
-
-    await user.click(screen.getByTestId('health-card-link-height'));
+  it('renders activeRoute when provided in window mode', () => {
+    renderHealth({ showBackLink: false, activeRoute: 'height' });
     expect(screen.getByTestId('health-detail-height')).toBeTruthy();
-
-    await user.click(screen.getByTestId('health-nav-overview'));
-    expect(screen.getByText('Open Height Tracking')).toBeTruthy();
   });
 
-  it('navigates to all routes via window mode buttons', async () => {
-    renderHealth({ showBackLink: false });
+  it('calls onRouteChange when card link is clicked in window mode', async () => {
+    const onRouteChange = vi.fn();
+    renderHealth({ showBackLink: false, onRouteChange });
     const user = userEvent.setup();
 
-    // Navigate to height via card then back to overview
     await user.click(screen.getByTestId('health-card-link-height'));
-    expect(screen.getByTestId('health-detail-height')).toBeTruthy();
+    expect(onRouteChange).toHaveBeenCalledWith('height');
+  });
 
-    // Navigate to weight via nav button
-    await user.click(screen.getByTestId('health-nav-weight'));
-    expect(screen.getByTestId('health-detail-weight')).toBeTruthy();
+  it('renders all drilldown routes when activeRoute is set', () => {
+    const routes: HealthDrilldownRoute[] = [
+      'height',
+      'weight',
+      'workouts',
+      'blood-pressure',
+      'exercises'
+    ];
 
-    // Navigate to workouts via nav button
-    await user.click(screen.getByTestId('health-nav-workouts'));
-    expect(screen.getByTestId('health-detail-workouts')).toBeTruthy();
-
-    // Navigate to blood-pressure via nav button
-    await user.click(screen.getByTestId('health-nav-blood-pressure'));
-    expect(screen.getByTestId('health-detail-blood-pressure')).toBeTruthy();
-
-    // Navigate back to overview
-    await user.click(screen.getByTestId('health-nav-overview'));
-    expect(screen.getByText('Open Height Tracking')).toBeTruthy();
+    routes.forEach((route) => {
+      const { unmount } = renderHealth({
+        showBackLink: false,
+        activeRoute: route
+      });
+      expect(screen.getByTestId(`health-detail-${route}`)).toBeTruthy();
+      unmount();
+    });
   });
 
   it('renders workout route detail directly', () => {

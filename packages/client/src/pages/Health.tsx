@@ -7,10 +7,10 @@ import {
   Ruler,
   Scale
 } from 'lucide-react';
-import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
   BloodPressureDetail,
+  ExerciseDetail,
   HeightDetail,
   WeightDetail,
   WorkoutDetail
@@ -23,9 +23,18 @@ import {
   healthWorkoutEntries
 } from '@/db/schema';
 
+export type HealthDrilldownRoute =
+  | 'height'
+  | 'weight'
+  | 'workouts'
+  | 'blood-pressure'
+  | 'exercises';
+
 interface HealthProps {
   showBackLink?: boolean;
   refreshToken?: number;
+  activeRoute?: HealthDrilldownRoute | undefined;
+  onRouteChange?: (route: HealthDrilldownRoute | undefined) => void;
 }
 
 interface HealthSchemaCard {
@@ -37,8 +46,6 @@ interface HealthSchemaCard {
   route?: HealthDrilldownRoute;
   relation?: string;
 }
-
-type HealthDrilldownRoute = 'height' | 'weight' | 'workouts' | 'blood-pressure';
 
 const HEALTH_OVERVIEW_ROUTE = '/health';
 const HEALTH_ROUTE_PREFIX = '/health/';
@@ -81,6 +88,7 @@ const HEALTH_SCHEMA_CARDS: HealthSchemaCard[] = [
     description: 'Maintain a reusable exercise catalog for workouts.',
     icon: Dumbbell,
     tableName: 'health_exercises',
+    route: 'exercises',
     columns: Object.keys(getTableColumns(healthExercises))
   },
   {
@@ -98,7 +106,8 @@ const DRILLDOWN_ROUTES: readonly HealthDrilldownRoute[] = [
   'height',
   'weight',
   'workouts',
-  'blood-pressure'
+  'blood-pressure',
+  'exercises'
 ];
 
 const isDrilldownRoute = (
@@ -124,48 +133,44 @@ const isDrilldownCard = (
 ): card is HealthSchemaCard & { route: HealthDrilldownRoute } =>
   card.route !== undefined;
 
-const HEALTH_DRILLDOWN_CARDS = HEALTH_SCHEMA_CARDS.filter(isDrilldownCard);
+export const HEALTH_DRILLDOWN_CARDS =
+  HEALTH_SCHEMA_CARDS.filter(isDrilldownCard);
 
-export function Health({ showBackLink = true, refreshToken = 0 }: HealthProps) {
+export function Health({
+  showBackLink = true,
+  refreshToken = 0,
+  activeRoute: controlledRoute,
+  onRouteChange
+}: HealthProps) {
   const location = useLocation();
   const routeFromPath = getActiveHealthRoute(location.pathname);
-  const [windowRoute, setWindowRoute] = useState<
-    HealthDrilldownRoute | undefined
-  >(routeFromPath);
-  const activeRoute = showBackLink ? routeFromPath : windowRoute;
+
+  // Use controlled route when in window mode (showBackLink=false), path-based when in page mode
+  const activeRoute = showBackLink ? routeFromPath : controlledRoute;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-      <div className="flex flex-col gap-2 pb-4">
-        {showBackLink ? (
+      {showBackLink && (
+        <div className="flex flex-col gap-2 pb-4">
           <BackLink defaultTo="/" defaultLabel="Back to Home" />
-        ) : null}
-        <h1 className="font-bold text-xl tracking-tight sm:text-2xl">Health</h1>
-        <p className="text-muted-foreground text-sm">
-          Health is now available as a desktop launcher and Start menu item.
-        </p>
-      </div>
+          <h1 className="font-bold text-xl tracking-tight sm:text-2xl">
+            Health
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            Health is now available as a desktop launcher and Start menu item.
+          </p>
+        </div>
+      )}
 
-      <div className="mb-3 flex flex-wrap gap-2">
-        {showBackLink ? (
+      {showBackLink && (
+        <div className="mb-3 flex flex-wrap gap-2">
           <Link
             className="rounded-md border px-2 py-1 text-xs"
             to={HEALTH_OVERVIEW_ROUTE}
           >
             Overview
           </Link>
-        ) : (
-          <button
-            type="button"
-            className="rounded-md border px-2 py-1 text-xs"
-            onClick={() => setWindowRoute(undefined)}
-            data-testid="health-nav-overview"
-          >
-            Overview
-          </button>
-        )}
-        {HEALTH_DRILLDOWN_CARDS.map((card) =>
-          showBackLink ? (
+          {HEALTH_DRILLDOWN_CARDS.map((card) => (
             <Link
               key={card.route}
               className="rounded-md border px-2 py-1 text-xs"
@@ -174,19 +179,9 @@ export function Health({ showBackLink = true, refreshToken = 0 }: HealthProps) {
             >
               {card.title}
             </Link>
-          ) : (
-            <button
-              key={card.route}
-              type="button"
-              className="rounded-md border px-2 py-1 text-xs"
-              data-testid={`health-nav-${card.route}`}
-              onClick={() => setWindowRoute(card.route)}
-            >
-              {card.title}
-            </button>
-          )
-        )}
-      </div>
+          ))}
+        </div>
+      )}
 
       {activeRoute ? (
         <div
@@ -202,6 +197,9 @@ export function Health({ showBackLink = true, refreshToken = 0 }: HealthProps) {
           )}
           {activeRoute === 'blood-pressure' && (
             <BloodPressureDetail refreshToken={refreshToken} />
+          )}
+          {activeRoute === 'exercises' && (
+            <ExerciseDetail refreshToken={refreshToken} />
           )}
         </div>
       ) : (
@@ -240,7 +238,7 @@ export function Health({ showBackLink = true, refreshToken = 0 }: HealthProps) {
                       type="button"
                       className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
                       data-testid={`health-card-link-${card.route}`}
-                      onClick={() => setWindowRoute(card.route)}
+                      onClick={() => onRouteChange?.(card.route)}
                     >
                       Open {card.title}
                     </button>

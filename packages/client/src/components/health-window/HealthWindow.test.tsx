@@ -44,7 +44,14 @@ vi.mock('@/pages/Health', () => ({
     >
       Health Page
     </div>
-  )
+  ),
+  HEALTH_DRILLDOWN_CARDS: [
+    { title: 'Height Tracking', route: 'height', icon: () => null },
+    { title: 'Weight Tracking', route: 'weight', icon: () => null },
+    { title: 'Blood Pressure', route: 'blood-pressure', icon: () => null },
+    { title: 'Exercises', route: 'exercises', icon: () => null },
+    { title: 'Workouts', route: 'workouts', icon: () => null }
+  ]
 }));
 
 describe('HealthWindow', () => {

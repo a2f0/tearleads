@@ -44,11 +44,14 @@ export interface CreateBloodPressureReadingInput {
 export interface Exercise {
   id: string;
   name: string;
+  parentId?: string;
+  parentName?: string;
 }
 
 export interface CreateExerciseInput {
   id?: string;
   name: string;
+  parentId?: string;
 }
 
 export interface WorkoutEntry {
@@ -73,6 +76,9 @@ export interface CreateWorkoutEntryInput {
 
 export interface HealthTracker {
   listExercises: () => Promise<Exercise[]>;
+  listParentExercises: () => Promise<Exercise[]>;
+  listChildExercises: (parentId: string) => Promise<Exercise[]>;
+  getExerciseHierarchy: () => Promise<Map<string, Exercise[]>>;
   addExercise: (input: CreateExerciseInput) => Promise<Exercise>;
   listWeightReadings: () => Promise<WeightReading[]>;
   addWeightReading: (input: CreateWeightReadingInput) => Promise<WeightReading>;
@@ -89,13 +95,50 @@ export interface CreateHealthTrackerOptions {
   now?: () => Date;
 }
 
-export const DEFAULT_EXERCISES: readonly Exercise[] = [
+interface DefaultExercise {
+  id: string;
+  name: string;
+  parentId?: string;
+}
+
+export const DEFAULT_EXERCISES: readonly DefaultExercise[] = [
   { id: 'back-squat', name: 'Back Squat' },
   { id: 'bench-press', name: 'Bench Press' },
   { id: 'deadlift', name: 'Deadlift' },
   { id: 'overhead-press', name: 'Overhead Press' },
   { id: 'barbell-row', name: 'Barbell Row' },
-  { id: 'pull-up', name: 'Pull-Up' }
+  { id: 'pull-up', name: 'Pull-Up' },
+  { id: 'pull-up-strict', name: 'Strict Pull-Up', parentId: 'pull-up' },
+  { id: 'pull-up-chin-up', name: 'Chin-Up', parentId: 'pull-up' },
+  { id: 'pull-up-wide-grip', name: 'Wide Grip Pull-Up', parentId: 'pull-up' },
+  {
+    id: 'pull-up-neutral-grip',
+    name: 'Neutral Grip Pull-Up',
+    parentId: 'pull-up'
+  },
+  { id: 'pull-up-weighted', name: 'Weighted Pull-Up', parentId: 'pull-up' },
+  { id: 'pull-up-l-sit', name: 'L-Sit Pull-Up', parentId: 'pull-up' },
+  { id: 'pull-up-archer', name: 'Archer Pull-Up', parentId: 'pull-up' },
+  { id: 'pull-up-commando', name: 'Commando Pull-Up', parentId: 'pull-up' },
+  { id: 'pull-up-kipping', name: 'Kipping Pull-Up', parentId: 'pull-up' },
+  { id: 'pull-up-towel', name: 'Towel Pull-Up', parentId: 'pull-up' },
+  { id: 'pull-up-mixed-grip', name: 'Mixed Grip Pull-Up', parentId: 'pull-up' },
+  { id: 'pull-up-eccentric', name: 'Eccentric Pull-Up', parentId: 'pull-up' },
+  {
+    id: 'pull-up-around-the-world',
+    name: 'Around-the-World Pull-Up',
+    parentId: 'pull-up'
+  },
+  {
+    id: 'pull-up-chest-to-bar',
+    name: 'Chest-to-Bar Pull-Up',
+    parentId: 'pull-up'
+  },
+  {
+    id: 'pull-up-one-arm-assisted',
+    name: 'One-Arm Pull-Up (Assisted)',
+    parentId: 'pull-up'
+  }
 ];
 
 const NON_ALPHANUMERIC_REGEX = /[^a-z0-9]+/g;
@@ -207,11 +250,6 @@ const toCentiWeightAllowZero = (value: number, fieldName: string): number =>
 
 const fromCentiWeight = (value: number): number => value / WEIGHT_SCALE;
 
-const mapExercise = (row: { id: string; name: string }): Exercise => ({
-  id: row.id,
-  name: row.name
-});
-
 export const createHealthTracker = (
   db: Database,
   options: CreateHealthTrackerOptions = {}
@@ -232,35 +270,105 @@ export const createHealthTracker = (
     }
 
     const createdAtBase = now();
+    const parentExercises = DEFAULT_EXERCISES.filter((e) => !e.parentId);
+    const childExercises = DEFAULT_EXERCISES.filter((e) => e.parentId);
+
     await db
       .insert(healthExercises)
       .values(
-        DEFAULT_EXERCISES.map((exercise, index) => ({
+        parentExercises.map((exercise, index) => ({
           id: exercise.id,
           name: exercise.name,
+          parentId: null,
           createdAt: new Date(createdAtBase.getTime() + index)
         }))
       )
       .onConflictDoNothing();
+
+    await db
+      .insert(healthExercises)
+      .values(
+        childExercises.map((exercise, index) => ({
+          id: exercise.id,
+          name: exercise.name,
+          parentId: exercise.parentId ?? null,
+          createdAt: new Date(
+            createdAtBase.getTime() + parentExercises.length + index
+          )
+        }))
+      )
+      .onConflictDoNothing();
+
     defaultsSeeded = true;
+  };
+
+  const fetchExercisesWithParentNames = async (): Promise<Exercise[]> => {
+    const rows = await db
+      .select({
+        id: healthExercises.id,
+        name: healthExercises.name,
+        parentId: healthExercises.parentId
+      })
+      .from(healthExercises)
+      .orderBy(asc(healthExercises.createdAt), asc(healthExercises.name));
+
+    const exerciseMap = new Map<string, string>();
+    for (const row of rows) {
+      exerciseMap.set(row.id, row.name);
+    }
+
+    return rows.map((row) => {
+      const exercise: Exercise = {
+        id: row.id,
+        name: row.name
+      };
+      if (row.parentId !== null) {
+        exercise.parentId = row.parentId;
+        const parentName = exerciseMap.get(row.parentId);
+        if (parentName !== undefined) {
+          exercise.parentName = parentName;
+        }
+      }
+      return exercise;
+    });
   };
 
   return {
     listExercises: async () => {
       await ensureDefaultExercises();
+      return fetchExercisesWithParentNames();
+    },
+    listParentExercises: async () => {
+      await ensureDefaultExercises();
+      const allExercises = await fetchExercisesWithParentNames();
+      return allExercises.filter((e) => e.parentId === undefined);
+    },
+    listChildExercises: async (parentId: string) => {
+      await ensureDefaultExercises();
+      const normalizedParentId = normalizeRequiredText(parentId, 'parentId');
+      const allExercises = await fetchExercisesWithParentNames();
+      return allExercises.filter((e) => e.parentId === normalizedParentId);
+    },
+    getExerciseHierarchy: async () => {
+      await ensureDefaultExercises();
+      const allExercises = await fetchExercisesWithParentNames();
 
-      const rows = await db
-        .select({ id: healthExercises.id, name: healthExercises.name })
-        .from(healthExercises)
-        .orderBy(asc(healthExercises.createdAt), asc(healthExercises.name));
+      const hierarchy = new Map<string, Exercise[]>();
+      const parents = allExercises.filter((e) => e.parentId === undefined);
 
-      return rows.map(mapExercise);
+      for (const parent of parents) {
+        const children = allExercises.filter((e) => e.parentId === parent.id);
+        hierarchy.set(parent.id, children);
+      }
+
+      return hierarchy;
     },
     addExercise: async (input) => {
       await ensureDefaultExercises();
 
       const name = normalizeRequiredText(input.name, 'name');
       const providedId = normalizeOptionalText(input.id);
+      const parentId = normalizeOptionalText(input.parentId);
       const generatedId = createSlug(name);
       const exerciseId =
         providedId ??
@@ -275,14 +383,36 @@ export const createHealthTracker = (
         throw new Error(`Exercise with id "${exerciseId}" already exists`);
       }
 
+      let parentName: string | undefined;
+      if (parentId !== undefined) {
+        const parentRows = await db
+          .select({ id: healthExercises.id, name: healthExercises.name })
+          .from(healthExercises)
+          .where(eq(healthExercises.id, parentId))
+          .limit(1);
+        const parent = parentRows[0];
+        if (parent === undefined) {
+          throw new Error(`Parent exercise with id "${parentId}" not found`);
+        }
+        parentName = parent.name;
+      }
+
       const createdAt = now();
       await db.insert(healthExercises).values({
         id: exerciseId,
         name,
+        parentId: parentId ?? null,
         createdAt
       });
 
-      return { id: exerciseId, name };
+      const exercise: Exercise = { id: exerciseId, name };
+      if (parentId !== undefined) {
+        exercise.parentId = parentId;
+      }
+      if (parentName !== undefined) {
+        exercise.parentName = parentName;
+      }
+      return exercise;
     },
     listWeightReadings: async () => {
       const rows = await db

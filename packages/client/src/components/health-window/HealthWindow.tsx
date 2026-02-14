@@ -2,7 +2,7 @@ import { WindowControlBar } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
-import { Health } from '@/pages/Health';
+import { Health, type HealthDrilldownRoute } from '@/pages/Health';
 import { HealthWindowMenuBar } from './HealthWindowMenuBar';
 
 const HEALTH_WINDOW_DEFAULT_WIDTH = 760;
@@ -32,10 +32,20 @@ export function HealthWindow({
   initialDimensions
 }: HealthWindowProps) {
   const [refreshToken, setRefreshToken] = useState(0);
+  const [activeRoute, setActiveRoute] = useState<
+    HealthDrilldownRoute | undefined
+  >(undefined);
 
   const handleRefresh = useCallback(() => {
     setRefreshToken((value) => value + 1);
   }, []);
+
+  const handleRouteChange = useCallback(
+    (route: HealthDrilldownRoute | undefined) => {
+      setActiveRoute(route);
+    },
+    []
+  );
 
   return (
     <FloatingWindow
@@ -55,10 +65,20 @@ export function HealthWindow({
     >
       <div className="flex h-full min-h-0 flex-col">
         <WindowControlBar>
-          <HealthWindowMenuBar onRefresh={handleRefresh} onClose={onClose} />
+          <HealthWindowMenuBar
+            activeRoute={activeRoute}
+            onRouteChange={handleRouteChange}
+            onRefresh={handleRefresh}
+            onClose={onClose}
+          />
         </WindowControlBar>
         <div className="min-h-0 flex-1 overflow-auto p-3">
-          <Health showBackLink={false} refreshToken={refreshToken} />
+          <Health
+            showBackLink={false}
+            refreshToken={refreshToken}
+            activeRoute={activeRoute}
+            onRouteChange={handleRouteChange}
+          />
         </div>
       </div>
     </FloatingWindow>
