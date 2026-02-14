@@ -4,7 +4,7 @@ This document describes the CI architecture and how agents should interact with 
 
 ## Architecture Overview
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Pull Request                              │
 ├──────────────┬──────────────┬───────────────────────────────────┤
@@ -118,7 +118,7 @@ GitHub Actions force-pushes don't trigger `pull_request.synchronize` events (ant
 
 ### Commit Message Format
 
-```
+```text
 chore(release): bump versions
 
 source-sha: <original-commit-sha>
@@ -145,7 +145,7 @@ gh workflow run main-version-bump.yml --ref main
 
 The `ci-gate.yml` workflow is a required status check that waits for all impacted workflows to complete.
 
-### How It Works
+### How CI Gate Works
 
 1. **Detect required workflows** using `requiredWorkflows.ts`
 2. **Poll workflow runs** every 20 seconds (max 85 minutes)
