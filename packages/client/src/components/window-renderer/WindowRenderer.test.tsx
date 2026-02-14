@@ -10,6 +10,7 @@ interface WindowDimensions {
   y: number;
   width: number;
   height: number;
+  isMaximized?: boolean;
 }
 
 vi.mock('@/components/notes-window', () => ({
@@ -56,6 +57,21 @@ vi.mock('@/components/notes-window', () => ({
         data-testid={`resize-${id}`}
       >
         Resize
+      </button>
+      <button
+        type="button"
+        onClick={() =>
+          onDimensionsChange?.({
+            x: 10,
+            y: 20,
+            width: 500,
+            height: 400,
+            isMaximized: true
+          })
+        }
+        data-testid={`resize-maximized-${id}`}
+      >
+        ResizeMaximized
       </button>
     </div>
   )
@@ -1422,6 +1438,27 @@ describe('WindowRenderer', () => {
     });
   });
 
+  it('includes isMaximized when dimensions change provides it', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    await user.click(screen.getByTestId('resize-maximized-notes-1'));
+    expect(mockUpdateWindowDimensions).toHaveBeenCalledWith('notes-1', {
+      x: 10,
+      y: 20,
+      width: 500,
+      height: 400,
+      isMaximized: true
+    });
+    expect(mockSaveWindowDimensionsForType).toHaveBeenCalledWith('notes', {
+      x: 10,
+      y: 20,
+      width: 500,
+      height: 400
+    });
+  });
+
   it('passes correct zIndex to windows', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
@@ -1917,6 +1954,17 @@ describe('WindowRenderer', () => {
     renderSingleWindow('contacts', 'contacts-1');
 
     await user.click(screen.getByTestId('contacts-window-contacts-1'));
+
+    expect(mockFocusWindow).not.toHaveBeenCalled();
+  });
+
+  it('does not call focusWindow when the clicked window no longer exists', async () => {
+    const user = userEvent.setup();
+    mockWindows = [{ id: 'notes-1', type: 'notes', zIndex: 100 }];
+    render(<WindowRenderer />, { wrapper });
+
+    mockWindows.length = 0;
+    await user.click(screen.getByTestId('notes-window-notes-1'));
 
     expect(mockFocusWindow).not.toHaveBeenCalled();
   });

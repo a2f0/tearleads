@@ -283,6 +283,83 @@ describe('WindowManagerContext', () => {
       expect(second?.x ?? 0).toBeGreaterThan(first?.x ?? 0);
       expect(second?.y ?? 0).toBeGreaterThan(first?.y ?? 0);
     });
+
+    it('cascades from the highest z-index window when opening additional windows', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'notes-1');
+      });
+      act(() => {
+        result.current.openWindow('files', 'files-1');
+      });
+      const second = result.current.getWindow('files-1')?.dimensions;
+
+      act(() => {
+        result.current.openWindow('health', 'health-1');
+      });
+      const third = result.current.getWindow('health-1')?.dimensions;
+
+      expect(second).toBeDefined();
+      expect(third).toBeDefined();
+      expect(third?.x).toBe((second?.x ?? 0) + 36);
+      expect(third?.y).toBe((second?.y ?? 0) + 28);
+    });
+
+    it('uses default placement when the top window has no dimensions', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      Object.defineProperty(window, 'innerWidth', {
+        value: MOBILE_BREAKPOINT - 1,
+        configurable: true
+      });
+      act(() => {
+        result.current.openWindow('notes', 'mobile-no-dimensions');
+      });
+
+      Object.defineProperty(window, 'innerWidth', {
+        value: 1440,
+        configurable: true
+      });
+      Object.defineProperty(window, 'innerHeight', {
+        value: 900,
+        configurable: true
+      });
+      act(() => {
+        result.current.openWindow('files', 'desktop-window');
+      });
+
+      expect(
+        result.current.getWindow('mobile-no-dimensions')?.dimensions
+      ).toBeUndefined();
+      expect(result.current.getWindow('desktop-window')?.dimensions).toEqual({
+        width: 734,
+        height: 459,
+        x: 353,
+        y: 221
+      });
+    });
+
+    it('reuses an existing typed window without mutating other windows', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'notes-1');
+      });
+      act(() => {
+        result.current.openWindow('files', 'files-1');
+      });
+
+      const filesBefore = result.current.getWindow('files-1');
+      let reopenedId = '';
+      act(() => {
+        reopenedId = result.current.openWindow('notes');
+      });
+      const filesAfter = result.current.getWindow('files-1');
+
+      expect(reopenedId).toBe('notes-1');
+      expect(filesBefore).toEqual(filesAfter);
+    });
   });
 
   describe('requestWindowOpen', () => {
@@ -537,6 +614,25 @@ describe('WindowManagerContext', () => {
         y: 100
       });
     });
+
+    it('keeps dimensions undefined when minimizing a window without dimensions', () => {
+      Object.defineProperty(window, 'innerWidth', {
+        value: MOBILE_BREAKPOINT - 1,
+        configurable: true
+      });
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'mobile-window');
+      });
+      act(() => {
+        result.current.minimizeWindow('mobile-window');
+      });
+
+      const mobileWindow = result.current.getWindow('mobile-window');
+      expect(mobileWindow?.isMinimized).toBe(true);
+      expect(mobileWindow?.dimensions).toBeUndefined();
+    });
   });
 
   describe('restoreWindow', () => {
@@ -611,6 +707,30 @@ describe('WindowManagerContext', () => {
         y: 150
       });
     });
+
+    it('leaves non-target windows unchanged', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'to-update');
+      });
+      act(() => {
+        result.current.openWindow('files', 'untouched');
+      });
+
+      const untouchedBefore = result.current.getWindow('untouched');
+
+      act(() => {
+        result.current.updateWindowDimensions('to-update', {
+          width: 800,
+          height: 600,
+          x: 200,
+          y: 150
+        });
+      });
+
+      expect(result.current.getWindow('untouched')).toEqual(untouchedBefore);
+    });
   });
 
   describe('saveWindowDimensionsForType', () => {
@@ -681,6 +801,24 @@ describe('WindowManagerContext', () => {
       });
 
       expect(result.current.windows).toEqual(beforeRename);
+    });
+
+    it('clears title when renamed with an empty string', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'empty-title-window');
+      });
+      act(() => {
+        result.current.renameWindow('empty-title-window', 'temp title');
+      });
+      act(() => {
+        result.current.renameWindow('empty-title-window', '');
+      });
+
+      expect(
+        result.current.getWindow('empty-title-window')?.title
+      ).toBeUndefined();
     });
   });
 
