@@ -67,6 +67,8 @@ support rollback-aware drop planning.
 `vfs_folders` to remain absent on Postgres.
 `v035` adds non-destructive share-retirement checkpoints with fail-closed ACL
 parity + source-trace guardrails for `vfs_shares` and `org_shares`.
+`v036` enforces share-retirement preconditions (checkpoint presence + parity
+revalidation) before any future share-table drop candidate can run.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
