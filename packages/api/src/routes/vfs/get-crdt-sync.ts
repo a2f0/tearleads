@@ -1,3 +1,4 @@
+import type { VfsCrdtSyncResponse } from '@tearleads/shared';
 import {
   buildVfsCrdtSyncQuery,
   mapVfsCrdtSyncRows,
@@ -75,7 +76,11 @@ export const getCrdtSyncHandler = async (req: Request, res: Response) => {
     });
 
     const result = await pool.query<VfsCrdtSyncDbRow>(query.text, query.values);
-    res.json(mapVfsCrdtSyncRows(result.rows, parsedQuery.value.limit));
+    const response: VfsCrdtSyncResponse = mapVfsCrdtSyncRows(
+      result.rows,
+      parsedQuery.value.limit
+    );
+    res.json(response);
   } catch (error) {
     console.error('Failed to sync VFS CRDT operations:', error);
     res.status(500).json({ error: 'Failed to sync VFS CRDT operations' });

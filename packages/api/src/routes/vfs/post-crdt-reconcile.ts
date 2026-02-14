@@ -1,4 +1,4 @@
-import type { VfsSyncReconcileResponse } from '@tearleads/shared';
+import type { VfsCrdtReconcileResponse } from '@tearleads/shared';
 import {
   encodeVfsSyncCursor,
   parseVfsSyncReconcilePayload
@@ -128,7 +128,7 @@ export const postCrdtReconcileHandler = async (req: Request, res: Response) => {
       return;
     }
 
-    const response: VfsSyncReconcileResponse = {
+    const response: VfsCrdtReconcileResponse = {
       clientId: parsedPayload.value.clientId,
       cursor: encodeVfsSyncCursor({
         changedAt: reconciledAt,
