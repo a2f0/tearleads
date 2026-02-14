@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 19 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 20 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(19);
+      expect(result.currentVersion).toBe(20);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 19 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 20 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -158,9 +158,9 @@ describe('migrations', () => {
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([
-        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19
+        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20
       ]);
-      expect(result.currentVersion).toBe(19);
+      expect(result.currentVersion).toBe(20);
     });
   });
 
@@ -377,6 +377,28 @@ describe('migrations', () => {
       );
       expect(queries).toContain("'org:' || o.id");
       expect(queries).toContain('INSERT INTO organization_billing_accounts');
+    });
+  });
+
+  describe('v020 migration', () => {
+    it('adds org scope and membership guardrails for MLS data', async () => {
+      const pool = createMockPool(new Map());
+
+      const v020 = migrations.find((m: Migration) => m.version === 20);
+      if (!v020) {
+        throw new Error('v020 migration not found');
+      }
+
+      await v020.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('ALTER TABLE "mls_groups"');
+      expect(queries).toContain('"organization_id" TEXT');
+      expect(queries).toContain('"mls_groups_organization_id_fkey"');
+      expect(queries).toContain('"mls_groups_org_idx"');
+      expect(queries).toContain('"mls_key_packages_consumed_by_group_id_fkey"');
+      expect(queries).toContain('enforce_mls_group_member_org_boundary');
+      expect(queries).toContain('mls_group_members_org_boundary_trigger');
     });
   });
 });

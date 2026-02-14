@@ -5,6 +5,7 @@ import type {
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { getActiveMlsGroupMembership } from './shared.js';
 
 /**
  * @openapi
@@ -51,20 +52,33 @@ export const getGroupsGroupidMessagesHandler = async (
   }
   const groupId = groupIdParam;
 
-  const cursor = req.query['cursor'] as string | undefined;
-  const limit = Math.min(parseInt(req.query['limit'] as string, 10) || 50, 100);
+  const cursorParam = req.query['cursor'];
+  let cursor: number | null = null;
+  if (typeof cursorParam === 'string' && cursorParam.trim() !== '') {
+    const parsedCursor = Number.parseInt(cursorParam, 10);
+    if (!Number.isInteger(parsedCursor) || parsedCursor <= 0) {
+      res.status(400).json({ error: 'cursor must be a positive integer' });
+      return;
+    }
+    cursor = parsedCursor;
+  }
+
+  const limitParam = req.query['limit'];
+  let limit = 50;
+  if (typeof limitParam === 'string' && limitParam.trim() !== '') {
+    const parsedLimit = Number.parseInt(limitParam, 10);
+    if (!Number.isInteger(parsedLimit) || parsedLimit <= 0) {
+      res.status(400).json({ error: 'limit must be a positive integer' });
+      return;
+    }
+    limit = Math.min(parsedLimit, 100);
+  }
 
   try {
     const pool = await getPostgresPool();
 
-    // Check membership
-    const memberCheck = await pool.query(
-      `SELECT 1 FROM mls_group_members
-         WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-      [groupId, claims.sub]
-    );
-
-    if (memberCheck.rows.length === 0) {
+    const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
+    if (!membership) {
       res.status(403).json({ error: 'Not a member of this group' });
       return;
     }
@@ -78,9 +92,9 @@ export const getGroupsGroupidMessagesHandler = async (
                    WHERE m.group_id = $1`;
     const params: unknown[] = [groupId];
 
-    if (cursor) {
+    if (cursor !== null) {
       query += ` AND m.sequence_number < $2`;
-      params.push(parseInt(cursor, 10));
+      params.push(cursor);
     }
 
     query += ` ORDER BY m.sequence_number DESC LIMIT $${params.length + 1}`;

@@ -3,7 +3,10 @@ import type { AddMlsMemberResponse, MlsGroupMember } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { broadcast } from '../../lib/broadcast.js';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseAddMemberPayload } from './shared.js';
+import {
+  getActiveMlsGroupMembership,
+  parseAddMemberPayload
+} from './shared.js';
 
 /**
  * @openapi
@@ -50,21 +53,28 @@ export const postGroupsGroupidMembersHandler = async (
   try {
     const pool = await getPostgresPool();
 
-    // Check admin membership
-    const memberCheck = await pool.query<{ role: string }>(
-      `SELECT role FROM mls_group_members
-       WHERE group_id = $1 AND user_id = $2 AND removed_at IS NULL`,
-      [groupId, claims.sub]
-    );
-
-    if (memberCheck.rows.length === 0) {
+    const membership = await getActiveMlsGroupMembership(groupId, claims.sub);
+    if (!membership) {
       res.status(403).json({ error: 'Not a member of this group' });
       return;
     }
 
-    const role = memberCheck.rows[0]?.role;
-    if (role !== 'admin') {
+    if (membership.role !== 'admin') {
       res.status(403).json({ error: 'Only admins can add members' });
+      return;
+    }
+
+    const targetOrganizationMembership = await pool.query(
+      `SELECT 1
+         FROM user_organizations
+        WHERE user_id = $1
+          AND organization_id = $2
+        LIMIT 1`,
+      [payload.userId, membership.organizationId]
+    );
+
+    if (targetOrganizationMembership.rows.length === 0) {
+      res.status(404).json({ error: 'User not found' });
       return;
     }
 
@@ -83,19 +93,40 @@ export const postGroupsGroupidMembersHandler = async (
       );
       leafIndex = parseInt(countResult.rows[0]?.count ?? '0', 10);
 
+      // Reserve target user's key package for this group.
+      const keyPackageResult = await client.query<{ id: string }>(
+        `UPDATE mls_key_packages
+            SET consumed_at = NOW(), consumed_by_group_id = $1
+          WHERE key_package_ref = $2
+            AND user_id = $3
+            AND consumed_at IS NULL
+            AND EXISTS (
+              SELECT 1
+                FROM user_organizations
+               WHERE user_id = $3
+                 AND organization_id = $4
+            )
+        RETURNING id`,
+        [
+          groupId,
+          payload.keyPackageRef,
+          payload.userId,
+          membership.organizationId
+        ]
+      );
+
+      if (keyPackageResult.rowCount === 0) {
+        await client.query('ROLLBACK');
+        res.status(409).json({ error: 'Key package not available' });
+        return;
+      }
+
       // Add member
       await client.query(
         `INSERT INTO mls_group_members (
           group_id, user_id, leaf_index, role, joined_at, joined_at_epoch
         ) VALUES ($1, $2, $3, 'member', $4, $5)`,
         [groupId, payload.userId, leafIndex, now, payload.newEpoch]
-      );
-
-      // Mark key package as consumed
-      await client.query(
-        `UPDATE mls_key_packages SET consumed_at = NOW(), consumed_by_group_id = $1
-         WHERE key_package_ref = $2`,
-        [groupId, payload.keyPackageRef]
       );
 
       // Store welcome message

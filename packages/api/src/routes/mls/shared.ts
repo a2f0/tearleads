@@ -11,16 +11,73 @@ import type {
   UploadMlsStateRequest
 } from '@tearleads/shared';
 import { isRecord, MLS_CIPHERSUITES } from '@tearleads/shared';
+import { getPostgresPool } from '../../lib/postgres.js';
 
 const VALID_CIPHER_SUITES = Object.values(MLS_CIPHERSUITES).filter(
   (value): value is MlsCipherSuite => typeof value === 'number'
 );
+const MAX_KEY_PACKAGES_PER_UPLOAD = 100;
+
+export interface ActiveMlsGroupMembership {
+  role: 'admin' | 'member';
+  organizationId: string;
+}
 
 function isValidCipherSuite(value: unknown): value is MlsCipherSuite {
   return (
     typeof value === 'number' &&
     VALID_CIPHER_SUITES.some((cipherSuite) => cipherSuite === value)
   );
+}
+
+function isNonNegativeInteger(value: unknown): value is number {
+  return (
+    typeof value === 'number' &&
+    Number.isFinite(value) &&
+    Number.isInteger(value) &&
+    value >= 0
+  );
+}
+
+export async function getActiveMlsGroupMembership(
+  groupId: string,
+  userId: string
+): Promise<ActiveMlsGroupMembership | null> {
+  const pool = await getPostgresPool();
+  const result = await pool.query<{
+    role: string;
+    organization_id: string;
+  }>(
+    `SELECT m.role, g.organization_id
+       FROM mls_group_members m
+       INNER JOIN mls_groups g ON g.id = m.group_id
+       INNER JOIN user_organizations uo
+               ON uo.organization_id = g.organization_id
+              AND uo.user_id = $2
+      WHERE m.group_id = $1
+        AND m.user_id = $2
+        AND m.removed_at IS NULL
+      LIMIT 1`,
+    [groupId, userId]
+  );
+
+  const row = result.rows[0];
+  if (!row) {
+    return null;
+  }
+
+  if (
+    (row.role !== 'admin' && row.role !== 'member') ||
+    typeof row.organization_id !== 'string' ||
+    !row.organization_id
+  ) {
+    return null;
+  }
+
+  return {
+    role: row.role,
+    organizationId: row.organization_id
+  };
 }
 
 export function toSafeCipherSuite(value: unknown): MlsCipherSuite {
@@ -42,6 +99,8 @@ export function parseUploadKeyPackagesPayload(
   if (!isRecord(body)) return null;
   const keyPackages = body['keyPackages'];
   if (!Array.isArray(keyPackages)) return null;
+  if (keyPackages.length === 0) return null;
+  if (keyPackages.length > MAX_KEY_PACKAGES_PER_UPLOAD) return null;
 
   const parsed: UploadMlsKeyPackagesRequest['keyPackages'] = [];
   for (const kp of keyPackages) {
@@ -67,7 +126,6 @@ export function parseUploadKeyPackagesPayload(
     });
   }
 
-  if (parsed.length === 0) return null;
   return { keyPackages: parsed };
 }
 
@@ -131,7 +189,7 @@ export function parseAddMemberPayload(
     typeof commit !== 'string' ||
     typeof welcome !== 'string' ||
     typeof keyPackageRef !== 'string' ||
-    typeof newEpoch !== 'number'
+    !isNonNegativeInteger(newEpoch)
   ) {
     return null;
   }
@@ -161,7 +219,7 @@ export function parseRemoveMemberPayload(
   const commit = body['commit'];
   const newEpoch = body['newEpoch'];
 
-  if (typeof commit !== 'string' || typeof newEpoch !== 'number') {
+  if (typeof commit !== 'string' || !isNonNegativeInteger(newEpoch)) {
     return null;
   }
 
@@ -184,7 +242,7 @@ export function parseSendMessagePayload(
 
   if (
     typeof ciphertext !== 'string' ||
-    typeof epoch !== 'number' ||
+    !isNonNegativeInteger(epoch) ||
     !isValidMessageType(messageType)
   ) {
     return null;
@@ -212,7 +270,7 @@ export function parseUploadStatePayload(
   const stateHash = body['stateHash'];
 
   if (
-    typeof epoch !== 'number' ||
+    !isNonNegativeInteger(epoch) ||
     typeof encryptedState !== 'string' ||
     typeof stateHash !== 'string'
   ) {

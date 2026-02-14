@@ -34,6 +34,20 @@ export const postGroupsHandler = async (req: Request, res: Response) => {
     const pool = await getPostgresPool();
     const id = randomUUID();
     const now = new Date();
+    const organizationResult = await pool.query<{
+      personal_organization_id: string;
+    }>(
+      `SELECT personal_organization_id
+         FROM users
+        WHERE id = $1
+        LIMIT 1`,
+      [claims.sub]
+    );
+    const organizationId = organizationResult.rows[0]?.personal_organization_id;
+    if (!organizationId) {
+      res.status(403).json({ error: 'No organization found for user' });
+      return;
+    }
 
     const client = await pool.connect();
     try {
@@ -42,11 +56,12 @@ export const postGroupsHandler = async (req: Request, res: Response) => {
       // Create group
       await client.query(
         `INSERT INTO mls_groups (
-          id, group_id_mls, name, description, creator_user_id,
+          id, organization_id, group_id_mls, name, description, creator_user_id,
           current_epoch, cipher_suite, created_at, updated_at
-        ) VALUES ($1, $2, $3, $4, $5, 0, $6, $7, $7)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, $8)`,
         [
           id,
+          organizationId,
           payload.groupIdMls,
           payload.name,
           payload.description ?? null,

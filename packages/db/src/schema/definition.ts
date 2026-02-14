@@ -2141,7 +2141,12 @@ export const mlsKeyPackagesTable: TableDefinition = {
     },
     consumedByGroupId: {
       type: 'text',
-      sqlName: 'consumed_by_group_id'
+      sqlName: 'consumed_by_group_id',
+      references: {
+        table: 'mls_groups',
+        column: 'id',
+        onDelete: 'set null'
+      }
     }
   },
   indexes: [
@@ -2183,6 +2188,16 @@ export const mlsGroupsTable: TableDefinition = {
       type: 'text',
       sqlName: 'description'
     },
+    organizationId: {
+      type: 'text',
+      sqlName: 'organization_id',
+      notNull: true,
+      references: {
+        table: 'organizations',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
     creatorUserId: {
       type: 'text',
       sqlName: 'creator_user_id',
@@ -2221,6 +2236,7 @@ export const mlsGroupsTable: TableDefinition = {
       columns: ['groupIdMls'],
       unique: true
     },
+    { name: 'mls_groups_org_idx', columns: ['organizationId'] },
     { name: 'mls_groups_creator_idx', columns: ['creatorUserId'] }
   ]
 };

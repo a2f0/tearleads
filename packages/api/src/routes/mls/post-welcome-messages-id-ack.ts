@@ -48,8 +48,19 @@ export const postWelcomeMessagesIdAckHandler = async (
     const pool = await getPostgresPool();
     const result = await pool.query(
       `UPDATE mls_welcome_messages SET consumed_at = NOW()
-       WHERE id = $1 AND recipient_user_id = $2 AND consumed_at IS NULL`,
-      [id, claims.sub]
+       WHERE id = $1
+         AND recipient_user_id = $2
+         AND group_id = $3
+         AND EXISTS (
+           SELECT 1
+             FROM mls_groups g
+             INNER JOIN user_organizations uo
+                     ON uo.organization_id = g.organization_id
+                    AND uo.user_id = $2
+            WHERE g.id = $3
+         )
+         AND consumed_at IS NULL`,
+      [id, claims.sub, payload.groupId]
     );
 
     if (result.rowCount === 0) {
