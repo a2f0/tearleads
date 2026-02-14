@@ -104,6 +104,7 @@ describe('mapVfsCrdtSyncRows', () => {
 
     expect(result.items).toHaveLength(1);
     expect(result.hasMore).toBe(true);
+    expect(result.lastReconciledWriteIds).toEqual({});
     expect(result.nextCursor).not.toBeNull();
     if (!result.nextCursor) {
       throw new Error('Expected nextCursor');
@@ -112,6 +113,35 @@ describe('mapVfsCrdtSyncRows', () => {
     expect(decodeVfsSyncCursor(result.nextCursor)).toEqual({
       changedAt: '2026-02-14T00:00:00.000Z',
       changeId: 'op-1'
+    });
+  });
+
+  it('includes provided replica write ids in response payload', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-1',
+        item_id: 'item-1',
+        op_type: 'acl_add',
+        principal_type: 'user',
+        principal_id: 'user-2',
+        access_level: 'write',
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_shares',
+        source_id: 'share-1',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z')
+      }
+    ];
+
+    const result = mapVfsCrdtSyncRows(rows, 10, {
+      desktop: 4,
+      mobile: 2
+    });
+
+    expect(result.lastReconciledWriteIds).toEqual({
+      desktop: 4,
+      mobile: 2
     });
   });
 

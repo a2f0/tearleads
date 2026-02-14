@@ -8,6 +8,67 @@ import {
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
+const CRDT_CLIENT_PUSH_SOURCE_TABLE = 'vfs_crdt_client_push';
+
+interface VfsCrdtReplicaWriteIdRow {
+  replica_id: string | null;
+  max_write_id: string | number | null;
+}
+
+function normalizeReplicaId(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
+}
+
+function parseWriteId(value: unknown): number | null {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value) || !Number.isInteger(value) || value < 1) {
+      return null;
+    }
+
+    return value;
+  }
+
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed) || !Number.isInteger(parsed) || parsed < 1) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function toLastReconciledWriteIds(
+  rows: VfsCrdtReplicaWriteIdRow[]
+): Record<string, number> {
+  const sortedEntries: Array<[string, number]> = [];
+  for (const row of rows) {
+    const replicaId = normalizeReplicaId(row.replica_id);
+    const writeId = parseWriteId(row.max_write_id);
+    if (!replicaId || writeId === null) {
+      continue;
+    }
+
+    sortedEntries.push([replicaId, writeId]);
+  }
+
+  sortedEntries.sort((left, right) => left[0].localeCompare(right[0]));
+
+  const result: Record<string, number> = {};
+  for (const [replicaId, writeId] of sortedEntries) {
+    result[replicaId] = writeId;
+  }
+
+  return result;
+}
+
 /**
  * @openapi
  * /vfs/crdt/sync:
@@ -76,9 +137,30 @@ export const getCrdtSyncHandler = async (req: Request, res: Response) => {
     });
 
     const result = await pool.query<VfsCrdtSyncDbRow>(query.text, query.values);
+    const replicaWriteIdsResult = await pool.query<VfsCrdtReplicaWriteIdRow>(
+      `
+      SELECT
+        split_part(source_id, ':', 2) AS replica_id,
+        MAX(
+          CASE
+            WHEN split_part(source_id, ':', 3) ~ '^[0-9]+$'
+              THEN split_part(source_id, ':', 3)::bigint
+            ELSE NULL
+          END
+        ) AS max_write_id
+      FROM vfs_crdt_ops
+      WHERE source_table = $1
+        AND actor_id = $2
+        AND position($3 in source_id) = 1
+      GROUP BY split_part(source_id, ':', 2)
+      `,
+      [CRDT_CLIENT_PUSH_SOURCE_TABLE, claims.sub, `${claims.sub}:`]
+    );
+
     const response: VfsCrdtSyncResponse = mapVfsCrdtSyncRows(
       result.rows,
-      parsedQuery.value.limit
+      parsedQuery.value.limit,
+      toLastReconciledWriteIds(replicaWriteIdsResult.rows)
     );
     res.json(response);
   } catch (error) {

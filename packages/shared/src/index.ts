@@ -158,6 +158,7 @@ export interface VfsCrdtSyncResponse {
   items: VfsCrdtSyncItem[];
   nextCursor: string | null;
   hasMore: boolean;
+  lastReconciledWriteIds: Record<string, number>;
 }
 
 export interface VfsCrdtReconcileRequest {
