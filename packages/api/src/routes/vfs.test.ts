@@ -592,6 +592,46 @@ describe('VFS routes', () => {
       });
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
+
+    it('rolls back and returns 500 when attach fails mid-transaction', async () => {
+      const restoreConsole = mockConsoleError();
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: '2099-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              blob_id: 'blob-1',
+              attached_at: '2026-02-14T10:10:00.000Z',
+              attached_item_id: 'item-1'
+            }
+          ]
+        }) // UPDATE
+        .mockRejectedValueOnce(new Error('insert ref failed')) // INSERT ref
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1', relationKind: 'file' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to attach staged blob' });
+      expect(mockQuery.mock.calls[4]?.[0]).toBe('ROLLBACK');
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+      restoreConsole();
+    });
   });
 
   describe('POST /vfs/blobs/stage/:stagingId/abandon', () => {
@@ -669,6 +709,29 @@ describe('VFS routes', () => {
         error: 'Blob staging is no longer abandonable'
       });
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('rolls back and returns 500 when abandon fails mid-transaction', async () => {
+      const restoreConsole = mockConsoleError();
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'stage-1', staged_by: 'user-1', status: 'staged' }]
+        }) // SELECT
+        .mockRejectedValueOnce(new Error('update failed')) // UPDATE
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/abandon')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to abandon staged blob' });
+      expect(mockQuery.mock.calls[3]?.[0]).toBe('ROLLBACK');
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+      restoreConsole();
     });
   });
 });

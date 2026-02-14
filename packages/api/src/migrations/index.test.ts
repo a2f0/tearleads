@@ -436,8 +436,12 @@ describe('migrations', () => {
       await v022.up(pool);
 
       const queries = pool.queries.join('\n');
-      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_blob_objects"');
-      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_blob_staging"');
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "vfs_blob_objects"'
+      );
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "vfs_blob_staging"'
+      );
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_blob_refs"');
       expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_crdt_ops"');
       expect(queries).toContain(
@@ -455,6 +459,47 @@ describe('migrations', () => {
       expect(queries).toContain(
         'CREATE TRIGGER "vfs_links_emit_sync_crdt_trigger"'
       );
+    });
+
+    it('uses transactional and idempotent trigger guardrails', async () => {
+      const pool = createMockPool(new Map());
+
+      const v022 = migrations.find((m: Migration) => m.version === 22);
+      if (!v022) {
+        throw new Error('v022 migration not found');
+      }
+
+      await v022.up(pool);
+
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries.at(-1)).toBe('COMMIT');
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'DROP TRIGGER IF EXISTS "vfs_registry_emit_sync_trigger"'
+      );
+      expect(queries).toContain(
+        'DROP TRIGGER IF EXISTS "vfs_shares_emit_sync_crdt_trigger"'
+      );
+      expect(queries).toContain(
+        'DROP TRIGGER IF EXISTS "org_shares_emit_sync_crdt_trigger"'
+      );
+      expect(queries).toContain(
+        'DROP TRIGGER IF EXISTS "vfs_links_emit_sync_crdt_trigger"'
+      );
+      expect(queries).toContain(
+        `AFTER INSERT OR UPDATE OR DELETE ON "vfs_shares"`
+      );
+      expect(queries).toContain(
+        `AFTER INSERT OR UPDATE OR DELETE ON "org_shares"`
+      );
+      expect(queries).toContain(`AFTER INSERT OR DELETE ON "vfs_links"`);
+      expect(queries).toContain(`'acl_add'`);
+      expect(queries).toContain(`'acl_remove'`);
+      expect(queries).toContain(`'link_add'`);
+      expect(queries).toContain(`'link_remove'`);
+      expect(queries).toContain('PERFORM "vfs_emit_sync_change"');
+      expect(queries).toContain('INSERT INTO "vfs_crdt_ops"');
     });
   });
 });
