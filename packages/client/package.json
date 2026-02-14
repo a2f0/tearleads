@@ -74,6 +74,7 @@
     "@tearleads/notes": "workspace:*",
     "@tearleads/notifications": "workspace:*",
     "@tearleads/search": "workspace:*",
+    "@tearleads/settings": "workspace:*",
     "@tearleads/shared": "workspace:*",
     "@tearleads/sync": "workspace:*",
     "@tearleads/terminal": "workspace:*",

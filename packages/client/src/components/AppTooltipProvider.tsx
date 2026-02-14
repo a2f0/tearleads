@@ -1,6 +1,6 @@
+import { useSettings } from '@tearleads/settings';
 import { TooltipProvider } from '@tearleads/ui';
 import type { ReactNode } from 'react';
-import { useSettings } from '@/db/SettingsProvider';
 
 interface AppTooltipProviderProps {
   children: ReactNode;

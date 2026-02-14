@@ -1,6 +1,5 @@
+import { type DesktopPatternValue, useSettings } from '@tearleads/settings';
 import type { ReactNode } from 'react';
-import { useSettings } from '@/db/SettingsProvider';
-import type { DesktopPatternValue } from '@/db/user-settings';
 
 function HoneycombSvg() {
   return (

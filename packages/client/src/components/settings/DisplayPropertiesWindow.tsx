@@ -1,15 +1,17 @@
 import {
+  BorderRadiusToggle,
+  FontSelector,
+  IconBackgroundToggle,
+  IconDepthToggle,
+  PatternSelector,
+  ThemeSelector
+} from '@tearleads/settings';
+import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar
 } from '@tearleads/window-manager';
 import { ScreensaverButton } from '@/components/screensaver';
-import { BorderRadiusToggle } from './BorderRadiusToggle';
 import { DisplayPropertiesWindowMenuBar } from './DisplayPropertiesWindowMenuBar';
-import { FontSelector } from './FontSelector';
-import { IconBackgroundToggle } from './IconBackgroundToggle';
-import { IconDepthToggle } from './IconDepthToggle';
-import { PatternSelector } from './PatternSelector';
-import { ThemeSelector } from './ThemeSelector';
 
 interface DisplayPropertiesWindowProps {
   open: boolean;

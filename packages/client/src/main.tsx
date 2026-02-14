@@ -22,7 +22,7 @@ import {
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
-import { DatabaseProvider, SettingsProvider } from './db/hooks';
+import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
 import { i18n } from './i18n';
 import { installConsoleErrorCapture } from './lib/console-error-capture';
 import { SearchProvider } from './search';
@@ -269,7 +269,7 @@ if (rootElement) {
             <ScreensaverProvider>
               <Toaster richColors closeButton position="top-center" />
               <DatabaseProvider>
-                <SettingsProvider>
+                <ClientSettingsProvider>
                   <GlobalSettingsEffects />
                   <SearchProvider>
                     <AppTooltipProvider>
@@ -619,7 +619,7 @@ if (rootElement) {
                       </AudioProvider>
                     </AppTooltipProvider>
                   </SearchProvider>
-                </SettingsProvider>
+                </ClientSettingsProvider>
               </DatabaseProvider>
               <LaserScreensaver />
             </ScreensaverProvider>

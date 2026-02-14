@@ -37,7 +37,7 @@ vi.mock('react-router-dom', async () => {
   };
 });
 
-vi.mock('@/db/SettingsProvider', () => ({
+vi.mock('@tearleads/settings', () => ({
   useSettings: () => ({
     getSetting: (key: string) => {
       switch (key) {

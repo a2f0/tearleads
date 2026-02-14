@@ -12,6 +12,8 @@
     { "path": "./packages/ui/tsconfig.test.json" },
     { "path": "./packages/window-manager" },
     { "path": "./packages/window-manager/tsconfig.test.json" },
+    { "path": "./packages/settings" },
+    { "path": "./packages/settings/tsconfig.test.json" },
     { "path": "./packages/audio" },
     { "path": "./packages/audio/tsconfig.test.json" },
     { "path": "./packages/camera" },

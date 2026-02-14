@@ -1,3 +1,4 @@
+import { useSettings } from '@tearleads/settings';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,
@@ -24,7 +25,6 @@ import {
   useWindowManagerActions,
   type WindowType
 } from '@/contexts/WindowManagerContext';
-import { useSettings } from '@/db/SettingsProvider';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';

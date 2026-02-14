@@ -1,18 +1,25 @@
-export { BorderRadiusToggle } from './BorderRadiusToggle';
-export { DisplayPropertiesWindow } from './DisplayPropertiesWindow';
-export { FeatureFlags } from './FeatureFlags';
-export { FontSelector } from './FontSelector';
-export { IconBackgroundToggle } from './IconBackgroundToggle';
-export { IconDepthToggle } from './IconDepthToggle';
+// Re-export settings components from @tearleads/settings
 export {
+  BorderRadiusToggle,
+  FontSelector,
+  IconBackgroundToggle,
+  IconDepthToggle,
+  type LanguageConfig,
+  LanguageSelector,
+  type LanguageSelectorProps,
   PATTERN_LABELS,
   PatternPreview,
-  type PatternPreviewProps
-} from './PatternPreview';
-export { PatternSelector } from './PatternSelector';
-export { SettingsSection } from './SettingsSection';
+  type PatternPreviewProps,
+  PatternSelector,
+  SettingsSection,
+  ThemePreview,
+  type ThemePreviewProps,
+  ThemeSelector,
+  TooltipsToggle,
+  WindowOpacityToggle
+} from '@tearleads/settings';
+
+// Client-specific components (not in @tearleads/settings)
+export { DisplayPropertiesWindow } from './DisplayPropertiesWindow';
+export { FeatureFlags } from './FeatureFlags';
 export { SettingsSheet } from './SettingsSheet';
-export { ThemePreview, type ThemePreviewProps } from './ThemePreview';
-export { ThemeSelector } from './ThemeSelector';
-export { TooltipsToggle } from './TooltipsToggle';
-export { WindowOpacityToggle } from './WindowOpacityToggle';
