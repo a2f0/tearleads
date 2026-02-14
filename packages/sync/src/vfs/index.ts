@@ -8,6 +8,12 @@ export {
   InMemoryVfsAccessHarness
 } from './sync-access-harness.js';
 export {
+  type AttachVfsBlobWithIsolationInput,
+  InMemoryVfsBlobIsolationStore,
+  type VfsBlobIsolationAttachResult,
+  type VfsBlobIsolationAttachStatus
+} from './sync-blob-isolation.js';
+export {
   type AbandonVfsBlobInput,
   type AttachVfsBlobInput,
   InMemoryVfsBlobCommitStore,
