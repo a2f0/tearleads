@@ -10,53 +10,95 @@ Proactively audit internationalization (i18n) for missing translations, hardcode
 
 Run this skill when maintaining translation coverage or during slack time. It searches for i18n gaps across the entire codebase.
 
-## Discovery Phase
+## Tooling
 
-Search for i18n issues across packages:
+This skill uses `scripts/preen/checkI18nCoverage.ts` for automated detection:
 
 ```bash
-# Count supported languages and translation files
-echo "=== Translation Files ==="
-find packages -path '*/i18n/translations/*.ts' -not -name 'types.ts' -not -name 'index.ts' | head -20
+# Text summary (default)
+./scripts/preen/checkI18nCoverage.ts
 
-# Find hardcoded user-facing strings in components (potential missing translations)
-echo "=== Potential Hardcoded Strings ==="
-rg -n --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages | rg -v 'test\.' | head -20
+# JSON output for programmatic use
+./scripts/preen/checkI18nCoverage.ts --json
 
-# Find translation function usage
-echo "=== Translation Usage ==="
+# Strict mode (exit 1 if issues found) - used in CI
+./scripts/preen/checkI18nCoverage.ts --strict
+```
+
+The tool detects:
+
+1. **JSX text content** - `<span>Hello</span>` should be `<span>{t('key')}</span>`
+2. **User-facing attributes** - `title="Hello"`, `label="Submit"`, `trigger="File"`, etc.
+3. **Array literals with labels** - `{ id: 'x', label: 'Text' }` patterns
+4. **Missing translation keys** across languages
+5. **Orphan keys** in non-English files
+
+### User-Facing Attributes Detected
+
+The tool checks these attributes for hardcoded strings:
+
+- `title`, `label`, `placeholder`, `alt`
+- `aria-label`, `aria-description`
+- `trigger`, `appName`, `closeLabel`
+- `description`, `helperText`, `errorMessage`, `successMessage`
+- `emptyMessage`, `loadingText`, `buttonText`
+- `submitLabel`, `cancelLabel`, `confirmLabel`
+- `header`, `subheader`, `tooltip`
+
+## Discovery Phase
+
+Run the automated tool first:
+
+```bash
+# Quick summary
+./scripts/preen/checkI18nCoverage.ts
+
+# Get metrics for quality delta
+BASELINE=$(./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedStringCount')
+echo "Baseline hardcoded strings: $BASELINE"
+```
+
+For deeper exploration:
+
+```bash
+# Find hardcoded strings in a specific package
+./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedStrings[] | select(.file | contains("notifications"))'
+
+# Count by file (highest first)
+./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedByFile[:10]'
+
+# Find translation function usage patterns
 rg -n --glob '*.{ts,tsx}' "useTranslation\(|t\('" packages | wc -l
 
-# Compare key counts across language files
-echo "=== Key Count by Language ==="
-for lang in en es ua pt; do
-  count=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ')
-  echo "${lang}: ${count} keys"
-done
-
-# Find keys in non-English files missing from English (source of truth violations)
-echo "=== Potential Orphan Keys ==="
-for lang in es ua pt; do
-  diff <(rg -o "^\s+(\w+):" packages/client/src/i18n/translations/en.ts | sort) \
-       <(rg -o "^\s+(\w+):" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | sort) \
-       2>/dev/null | rg '^>' | head -5
-done
-
-# Find missing namespace registrations
-echo "=== Namespace Registration ==="
-rg "ns:\s*\[" packages/client/src/i18n/i18n.ts | head -5
+# Check namespace registrations
+rg "ns:\s*\[" packages/client/src/i18n/i18n.ts
 ```
 
 ## Prioritization
 
 Fix issues in this order (highest impact first):
 
-1. **Type interface mismatches** - Keys in code but not in `types.ts`
-2. **Missing English keys** - Keys used but not in `en.ts` (source of truth)
-3. **Cross-language gaps** - Keys in `en.ts` missing from other languages
-4. **Hardcoded strings** - User-facing text not using `t()` function
+1. **Hardcoded strings in high-traffic components** - Menu bars, tabs, headers, dialogs
+2. **Type interface mismatches** - Keys in code but not in `types.ts`
+3. **Missing English keys** - Keys used but not in `en.ts` (source of truth)
+4. **Cross-language gaps** - Keys in `en.ts` missing from other languages
 5. **Orphan keys** - Keys in non-English files not in `en.ts`
 6. **Namespace registration** - Namespaces not registered in i18n config
+
+### Identifying High-Impact Files
+
+Focus on files with the most hardcoded strings first:
+
+```bash
+./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedByFile[:15]'
+```
+
+Common high-impact patterns:
+- **Menu bars** - `trigger="File"`, `trigger="Help"`, etc.
+- **Tab labels** - `{ id: 'x', label: 'Tab Name' }`
+- **Window titles** - `title="Window Name"`
+- **Dialog buttons** - `confirmLabel`, `cancelLabel`, `closeLabel`
+- **Empty states** - "No items", "Loading...", etc.
 
 ## Replacement Strategies
 
@@ -136,15 +178,110 @@ export const es = {
 
 ## Workflow
 
-1. **Discovery**: Run discovery commands to identify i18n gaps.
-2. **Selection**: Choose the highest-impact category of issues.
-3. **Create branch**: `git checkout -b refactor/i18n-<area>`
-4. **Fix types**: Update `types.ts` interfaces if needed.
-5. **Update English**: Add missing keys to `en.ts` first.
-6. **Sync languages**: Propagate keys to other language files.
-7. **Fix components**: Replace hardcoded strings with `t()` calls.
-8. **Validate**: Run `pnpm typecheck` and tests.
-9. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`.
+### 1. Capture Baseline
+
+```bash
+BASELINE=$(./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedStringCount')
+echo "Baseline: $BASELINE hardcoded strings"
+```
+
+### 2. Discovery and Selection
+
+```bash
+# Identify high-impact files
+./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedByFile[:10]'
+
+# Focus on a specific component/package
+./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedStrings[] | select(.file | contains("<target>"))'
+```
+
+Choose the highest-impact area (e.g., notification center, settings, menu bars).
+
+### 3. Create Branch
+
+```bash
+git checkout -b refactor/i18n-<area>
+```
+
+### 4. Add Translation Infrastructure
+
+If the component doesn't use translations yet:
+
+```typescript
+import { useTranslation } from 'react-i18next';
+
+export function MyComponent() {
+  const { t } = useTranslation('common'); // or appropriate namespace
+  // ...
+}
+```
+
+### 5. Fix Types First
+
+Add keys to `types.ts` interface:
+
+```typescript
+// packages/client/src/i18n/translations/types.ts
+export interface CommonTranslations {
+  // ... existing
+  newKey: string;
+}
+```
+
+### 6. Update English (Source of Truth)
+
+Add keys to `en.ts`:
+
+```typescript
+// packages/client/src/i18n/translations/en.ts
+export const en = {
+  common: {
+    // ... existing
+    newKey: 'English text here'
+  }
+} as const satisfies I18NextTranslations;
+```
+
+### 7. Sync Other Languages
+
+Add keys to `es.ts`, `ua.ts`, `pt.ts`:
+
+```typescript
+// Use empty string for untranslated (makes gap visible)
+newKey: ''  // TODO: translate - English: "English text here"
+```
+
+### 8. Replace Hardcoded Strings
+
+```typescript
+// Before
+<DropdownMenu trigger="File">
+  <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+</DropdownMenu>
+
+// After
+<DropdownMenu trigger={t('menu.file')}>
+  <DropdownMenuItem onClick={onClose}>{t('common.close')}</DropdownMenuItem>
+</DropdownMenu>
+```
+
+### 9. Validate Quality Delta
+
+```bash
+pnpm typecheck >/dev/null
+pnpm lint >/dev/null
+pnpm test >/dev/null
+
+AFTER=$(./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedStringCount')
+echo "Before: $BASELINE → After: $AFTER (reduced by $((BASELINE - AFTER)))"
+```
+
+### 10. Commit and Merge
+
+```bash
+/commit-and-push
+/enter-merge-queue
+```
 
 If no high-value fixes were found during discovery, do not create a branch or run commit/merge workflows.
 
@@ -165,6 +302,18 @@ If no high-value fixes were found during discovery, do not create a branch or ru
 - No orphan keys in non-English files
 - All existing tests pass
 - Lint and typecheck pass
+- Hardcoded string count reduced (measurable quality delta)
+
+## CI Integration
+
+The `checkI18nCoverage.ts` script runs in CI with `--strict` mode to block PRs that introduce new hardcoded strings.
+
+```bash
+# This runs in CI and fails if hardcoded strings are found
+./scripts/preen/checkI18nCoverage.ts --strict
+```
+
+**Note**: The strict mode is being gradually adopted. Initially it may report many existing issues. As we fix them through preen passes, the baseline will decrease.
 
 ## PR Strategy
 
@@ -184,12 +333,14 @@ In each PR description, include:
 
 ## Token Efficiency
 
-Discovery commands can return many lines. Always limit output:
+Use JSON output with jq filtering for precise data:
 
 ```bash
-# Count first, then list limited results
-find packages -path '*/i18n/translations/*.ts' | wc -l
-rg -l ... | head -20
+# Get only the metrics you need
+./scripts/preen/checkI18nCoverage.ts --json | jq '{count: .hardcodedStringCount, topFiles: .hardcodedByFile[:5]}'
+
+# Filter to specific package
+./scripts/preen/checkI18nCoverage.ts --json | jq '.hardcodedStrings[] | select(.file | contains("notifications")) | {file, line, value}'
 
 # Suppress verbose validation output
 pnpm typecheck >/dev/null
