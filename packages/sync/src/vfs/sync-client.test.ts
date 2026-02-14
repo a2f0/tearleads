@@ -134,6 +134,46 @@ describe('VfsBackgroundSyncClient', () => {
     expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
       serverSnapshot.lastReconciledWriteIds
     );
+
+    expect(desktopSnapshot.containerClocks).toEqual([
+      {
+        containerId: 'item-1',
+        changedAt: '2026-02-14T12:00:01.000Z',
+        changeId: 'mobile-1'
+      },
+      {
+        containerId: 'root',
+        changedAt: '2026-02-14T12:00:04.000Z',
+        changeId: 'mobile-3'
+      }
+    ]);
+
+    const firstContainerPage = desktop.listChangedContainers(null, 1);
+    expect(firstContainerPage.items).toEqual([
+      {
+        containerId: 'item-1',
+        changedAt: '2026-02-14T12:00:01.000Z',
+        changeId: 'mobile-1'
+      }
+    ]);
+    expect(firstContainerPage.hasMore).toBe(true);
+    expect(firstContainerPage.nextCursor).toEqual({
+      changedAt: '2026-02-14T12:00:01.000Z',
+      changeId: 'mobile-1'
+    });
+
+    const secondContainerPage = desktop.listChangedContainers(
+      firstContainerPage.nextCursor,
+      1
+    );
+    expect(secondContainerPage.items).toEqual([
+      {
+        containerId: 'root',
+        changedAt: '2026-02-14T12:00:04.000Z',
+        changeId: 'mobile-3'
+      }
+    ]);
+    expect(secondContainerPage.hasMore).toBe(false);
   });
 
   it('coalesces concurrent flush calls and keeps queue on push failure', async () => {

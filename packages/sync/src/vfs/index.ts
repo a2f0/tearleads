@@ -66,6 +66,11 @@ export {
   type InMemoryVfsCrdtSyncServerSnapshot
 } from './sync-client-harness.js';
 export {
+  InMemoryVfsContainerClockStore,
+  type ListVfsContainerClockChangesResult,
+  type VfsContainerClockEntry
+} from './sync-container-clocks.js';
+export {
   delayVfsCrdtSyncTransport,
   type InMemoryVfsCrdtSyncTransportDelayConfig,
   type QueueVfsCrdtLocalOperationInput,
