@@ -43,7 +43,6 @@ export {
   userSettings,
   users,
   vehicles,
-  vfsAccess,
   vfsFolders,
   vfsLinks,
   vfsRegistry,
