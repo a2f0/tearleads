@@ -209,9 +209,9 @@ run_discovery() {
       echo '=== Potential Hardcoded Strings ==='; rg -n --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages | rg -v 'test\.' | head -20
       ;;
     preen-window-consistency)
-      echo '=== Manual Refresh Patterns (should use useSidebarRefetch) ==='; rg -n --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages | rg -v 'window-manager' | head -20
-      echo '=== Manual Drag-Over Patterns (should use useSidebarDragOver) ==='; rg -n --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages | rg -v 'window-manager|useSidebarDragOver' | head -20
-      echo '=== Sidebar Components Not Using WindowSidebarItem ==='; rg -n --glob '*.tsx' 'className=.*sidebar.*item.*rounded|flex.*items-center.*gap.*px-2.*py-1' packages | rg -v 'WindowSidebarItem|window-manager|test\.' | head -20
+      rg -n --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages | rg -v 'window-manager' | head -20
+      rg -n --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages | rg -v 'window-manager' | head -20
+      rg -n --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages | rg -v 'window-manager' | head -20
       ;;
   esac
 }
@@ -258,7 +258,7 @@ metric_count() {
       EN_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/en.ts 2>/dev/null | wc -l | tr -d ' '); GAPS=0; for lang in es ua pt; do LANG_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' '); [ "$LANG_KEYS" -lt "$EN_KEYS" ] && GAPS=$((GAPS + EN_KEYS - LANG_KEYS)); done; HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}'); echo $((GAPS + HARDCODED))
       ;;
     preen-window-consistency)
-      MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}'); MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}'); echo $((MANUAL_REFRESH + MANUAL_DRAG))
+      MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}'); MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}'); MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}'); echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))
       ;;
     *)
       echo 0
@@ -367,7 +367,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - Compliance documentation gaps (missing triads + unnumbered files)
 - Review instruction gaps (missing sections + Gemini drift)
 - i18n gaps (missing translation keys + hardcoded strings)
-- Window consistency gaps (manual refresh patterns + manual drag patterns)
+- Non-standardized window patterns (manual refresh, drag, resize)
 
 Quality gate for the selected category:
 
@@ -413,7 +413,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] Compliance documentation gaps and parity
 - [ ] Review instruction completeness and sync
 - [ ] i18n translation coverage and consistency
-- [ ] Window component consistency and standardization
+- [ ] Window component consistency and refresh patterns
 
 ## Quality Delta
 - [x] Baseline metric captured for selected category
