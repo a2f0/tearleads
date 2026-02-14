@@ -1,8 +1,8 @@
 import {
-  MessageType,
   type ExtensionMessage,
   type InjectContentScriptResponse,
   isValidMessageType,
+  MessageType,
   type TabInfoResponse
 } from '../messages';
 

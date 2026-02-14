@@ -1,7 +1,7 @@
 import {
-  MessageType,
-  type InjectContentScriptResponse,
   type InjectContentScriptRequest,
+  type InjectContentScriptResponse,
+  MessageType,
   type PingRequest,
   type PingResponse,
   type TabInfoRequest,
@@ -75,15 +75,19 @@ function sendTabMessage<TResponse>(
   message: PingRequest
 ): Promise<TResponse | undefined> {
   return new Promise((resolve, reject) => {
-    chrome.tabs.sendMessage(tabId, message, (response: TResponse | undefined) => {
-      const runtimeErrorMessage = chrome.runtime.lastError?.message;
-      if (runtimeErrorMessage) {
-        reject(new Error(runtimeErrorMessage));
-        return;
-      }
+    chrome.tabs.sendMessage(
+      tabId,
+      message,
+      (response: TResponse | undefined) => {
+        const runtimeErrorMessage = chrome.runtime.lastError?.message;
+        if (runtimeErrorMessage) {
+          reject(new Error(runtimeErrorMessage));
+          return;
+        }
 
-      resolve(response);
-    });
+        resolve(response);
+      }
+    );
   });
 }
 
@@ -92,7 +96,9 @@ async function fetchCurrentTabInfo(): Promise<TabInfoResponse | undefined> {
   return sendRuntimeMessage<TabInfoResponse>(request);
 }
 
-async function pingContentScript(tabId: number): Promise<PingResponse | undefined> {
+async function pingContentScript(
+  tabId: number
+): Promise<PingResponse | undefined> {
   const request: PingRequest = { type: MessageType.PING };
   return sendTabMessage<PingResponse>(tabId, request);
 }
@@ -131,7 +137,8 @@ async function ensureContentScriptActive(tabId: number): Promise<boolean> {
     }
   } catch (error) {
     showStatus(
-      toErrorMessage(error) ?? 'Content script did not respond after injection.',
+      toErrorMessage(error) ??
+        'Content script did not respond after injection.',
       'error'
     );
     return false;
@@ -175,7 +182,10 @@ function onDomContentLoaded() {
         showStatus('Content script is active on this tab.', 'success');
       }
     } catch (error) {
-      showStatus(toErrorMessage(error) ?? 'Unable to query active tab.', 'error');
+      showStatus(
+        toErrorMessage(error) ?? 'Unable to query active tab.',
+        'error'
+      );
     } finally {
       actionBtn.disabled = false;
     }

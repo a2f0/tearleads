@@ -33,7 +33,10 @@ const mockChrome = {
 
 vi.stubGlobal('chrome', mockChrome);
 
-function withRuntimeLastError(message: string | undefined, callback: () => void) {
+function withRuntimeLastError(
+  message: string | undefined,
+  callback: () => void
+) {
   runtimeLastErrorMessage = message;
   callback();
   runtimeLastErrorMessage = undefined;
@@ -201,10 +204,7 @@ describe('background script', () => {
       callback([{ id: 456 }]);
     });
     mockScriptingExecuteScript.mockImplementation((_details, callback) => {
-      withRuntimeLastError(
-        'Cannot access contents of this page.',
-        callback
-      );
+      withRuntimeLastError('Cannot access contents of this page.', callback);
     });
 
     await import('./index');
@@ -255,7 +255,11 @@ describe('background script', () => {
     }
 
     const onMessageCallback = firstCall[0];
-    const result = onMessageCallback({ type: MessageType.PING }, {}, mockSendResponse);
+    const result = onMessageCallback(
+      { type: MessageType.PING },
+      {},
+      mockSendResponse
+    );
 
     expect(result).toBe(false);
     expect(mockSendResponse).not.toHaveBeenCalled();
