@@ -3,7 +3,7 @@
  * Supports multi-instance with instance switching.
  */
 
-import { notificationStore } from '@tearleads/notifications';
+import { notificationStore } from '@tearleads/notifications/stores';
 import type { ReactNode } from 'react';
 import {
   createContext,
