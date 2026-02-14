@@ -2,7 +2,10 @@ import { randomUUID } from 'node:crypto';
 import type { VfsOrgShare, VfsPermissionLevel } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseCreateOrgSharePayload } from './shared.js';
+import {
+  mapSharePermissionLevelToAclAccessLevel,
+  parseCreateOrgSharePayload
+} from './shared.js';
 
 /**
  * @openapi
@@ -153,6 +156,46 @@ export const postItemsItemidOrgSharesHandler = async (
       res.status(500).json({ error: 'Failed to create org share' });
       return;
     }
+
+    /**
+     * Guardrail: org-share writes must keep canonical ACL state in lockstep to
+     * avoid migration-time parity failures when retiring legacy share tables.
+     */
+    await pool.query(
+      `INSERT INTO vfs_acl_entries (
+          id,
+          item_id,
+          principal_type,
+          principal_id,
+          access_level,
+          wrapped_session_key,
+          wrapped_hierarchical_key,
+          granted_by,
+          created_at,
+          updated_at,
+          expires_at,
+          revoked_at
+        )
+        VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $8, $9, NULL)
+        ON CONFLICT (item_id, principal_type, principal_id)
+        DO UPDATE SET
+          access_level = EXCLUDED.access_level,
+          granted_by = EXCLUDED.granted_by,
+          updated_at = EXCLUDED.updated_at,
+          expires_at = EXCLUDED.expires_at,
+          revoked_at = NULL`,
+      [
+        `org-share:${row.id}`,
+        row.item_id,
+        'organization',
+        row.target_org_id,
+        mapSharePermissionLevelToAclAccessLevel(row.permission_level),
+        claims.sub,
+        row.created_at,
+        now,
+        row.expires_at
+      ]
+    );
 
     const creatorResult = await pool.query<{ email: string }>(
       'SELECT email FROM users WHERE id = $1',

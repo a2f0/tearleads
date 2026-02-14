@@ -1,5 +1,7 @@
+import type { VfsPermissionLevel } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { mapSharePermissionLevelToAclAccessLevel } from './shared.js';
 
 /**
  * @openapi
@@ -39,8 +41,17 @@ export const deleteOrgSharesShareidHandler = async (
     const { shareId } = req.params;
     const pool = await getPostgresPool();
 
-    const authCheckResult = await pool.query<{ owner_id: string | null }>(
-      `SELECT r.owner_id
+    const authCheckResult = await pool.query<{
+      owner_id: string | null;
+      item_id: string;
+      target_org_id: string;
+      permission_level: VfsPermissionLevel;
+    }>(
+      `SELECT
+          r.owner_id,
+          os.item_id,
+          os.target_org_id,
+          os.permission_level
          FROM org_shares os
          JOIN vfs_registry r ON r.id = os.item_id
          WHERE os.id = $1`,
@@ -60,6 +71,45 @@ export const deleteOrgSharesShareidHandler = async (
     const result = await pool.query('DELETE FROM org_shares WHERE id = $1', [
       shareId
     ]);
+
+    /**
+     * Guardrail: deleting org shares must revoke canonical org ACL visibility.
+     * Upsert keeps behavior deterministic for pre-dual-write historical rows.
+     */
+    const revokedAt = new Date();
+    const authCheckRow = authCheckResult.rows[0];
+    await pool.query(
+      `INSERT INTO vfs_acl_entries (
+          id,
+          item_id,
+          principal_type,
+          principal_id,
+          access_level,
+          wrapped_session_key,
+          wrapped_hierarchical_key,
+          granted_by,
+          created_at,
+          updated_at,
+          expires_at,
+          revoked_at
+        )
+        VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $7, NULL, $7)
+        ON CONFLICT (item_id, principal_type, principal_id)
+        DO UPDATE SET
+          access_level = EXCLUDED.access_level,
+          granted_by = EXCLUDED.granted_by,
+          updated_at = EXCLUDED.updated_at,
+          revoked_at = EXCLUDED.revoked_at`,
+      [
+        `org-share:${shareId}`,
+        authCheckRow.item_id,
+        'organization',
+        authCheckRow.target_org_id,
+        mapSharePermissionLevelToAclAccessLevel(authCheckRow.permission_level),
+        claims.sub,
+        revokedAt
+      ]
+    );
 
     res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });
   } catch (error) {

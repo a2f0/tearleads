@@ -775,6 +775,14 @@ describe('VFS Shares routes', () => {
       expect(mockQuery.mock.calls[1]?.[0]).toContain(
         'INNER JOIN user_organizations uo'
       );
+      const aclInsertCall = mockQuery.mock.calls.find(
+        (call) =>
+          typeof call[0] === 'string' &&
+          call[0].includes('INSERT INTO vfs_acl_entries')
+      );
+      expect(aclInsertCall).toBeDefined();
+      expect(aclInsertCall?.[1]?.[2]).toBe('organization');
+      expect(aclInsertCall?.[1]?.[4]).toBe('read');
     });
 
     it('uses Unknown when org share creator email is missing', async () => {
@@ -1360,6 +1368,13 @@ describe('VFS Shares routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ deleted: true });
+      const aclRevokeCall = mockQuery.mock.calls.find(
+        (call) =>
+          typeof call[0] === 'string' &&
+          call[0].includes('INSERT INTO vfs_acl_entries')
+      );
+      expect(aclRevokeCall).toBeDefined();
+      expect(aclRevokeCall?.[0]).toContain('revoked_at');
     });
 
     it('returns 500 on database error', async () => {
