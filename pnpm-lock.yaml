@@ -611,6 +611,9 @@ importers:
       '@tearleads/email':
         specifier: workspace:*
         version: link:../email
+      '@tearleads/health':
+        specifier: workspace:*
+        version: link:../health
       '@tearleads/help':
         specifier: workspace:*
         version: link:../help

@@ -320,6 +320,22 @@ if (rootElement) {
                                           element={<Health />}
                                         />
                                         <Route
+                                          path="health/height"
+                                          element={<Health />}
+                                        />
+                                        <Route
+                                          path="health/weight"
+                                          element={<Health />}
+                                        />
+                                        <Route
+                                          path="health/workouts"
+                                          element={<Health />}
+                                        />
+                                        <Route
+                                          path="health/blood-pressure"
+                                          element={<Health />}
+                                        />
+                                        <Route
                                           path="contacts/new"
                                           element={<ContactNew />}
                                         />
