@@ -4,11 +4,17 @@ import type { VideoWithThumbnail } from '@/pages/Video';
 import { VideoListView } from './VideoListView';
 
 vi.mock('@tanstack/react-virtual', () => ({
-  useVirtualizer: () => ({
-    getVirtualItems: () => [{ index: 0, start: 0, size: 56, key: 'video-1' }],
-    getTotalSize: () => 56,
+  useVirtualizer: vi.fn((config) => ({
+    getVirtualItems: () =>
+      Array.from({ length: config.count }, (_, i) => ({
+        index: i,
+        start: i * 56,
+        size: 56,
+        key: `video-${i}`
+      })),
+    getTotalSize: () => config.count * 56,
     measureElement: vi.fn()
-  })
+  }))
 }));
 
 vi.mock('@/i18n', () => ({
@@ -43,6 +49,17 @@ const mockVideo: VideoWithThumbnail = {
   thumbnailUrl: null
 };
 
+const mockVideoWithThumbnail: VideoWithThumbnail = {
+  id: 'video-2',
+  name: 'video-with-thumb.mp4',
+  size: 2048000,
+  mimeType: 'video/webm',
+  uploadDate: new Date('2024-01-16'),
+  storagePath: '/videos/video-with-thumb.mp4',
+  thumbnailPath: '/thumbnails/thumb.jpg',
+  thumbnailUrl: 'blob:http://localhost/thumb123'
+};
+
 describe('VideoListView', () => {
   const mockOnNavigateToDetail = vi.fn();
   const mockOnPlay = vi.fn();
@@ -70,6 +87,18 @@ describe('VideoListView', () => {
     expect(screen.getByText('test-video.mp4')).toBeInTheDocument();
   });
 
+  it('renders video with thumbnail', () => {
+    render(
+      <VideoListView {...defaultProps} videos={[mockVideoWithThumbnail]} />
+    );
+    expect(screen.getByText('video-with-thumb.mp4')).toBeInTheDocument();
+  });
+
+  it('renders video without thumbnail', () => {
+    render(<VideoListView {...defaultProps} />);
+    expect(screen.getByText('test-video.mp4')).toBeInTheDocument();
+  });
+
   it('shows context menu on right click', () => {
     render(<VideoListView {...defaultProps} />);
     const videoItem = screen.getByTestId('video-item-video-1');
@@ -90,6 +119,13 @@ describe('VideoListView', () => {
     render(<VideoListView {...defaultProps} isDesktopPlatform={false} />);
     const videoButton = screen.getByTestId('video-open-video-1');
     fireEvent.click(videoButton);
+    expect(mockOnNavigateToDetail).toHaveBeenCalledWith('video-1');
+  });
+
+  it('navigates to detail via chevron button', () => {
+    render(<VideoListView {...defaultProps} />);
+    const chevronButton = screen.getByRole('button', { name: 'View details' });
+    fireEvent.click(chevronButton);
     expect(mockOnNavigateToDetail).toHaveBeenCalledWith('video-1');
   });
 
@@ -115,5 +151,59 @@ describe('VideoListView', () => {
     fireEvent.contextMenu(videoItem);
     fireEvent.click(screen.getByText('Delete'));
     expect(mockOnDelete).toHaveBeenCalledWith(mockVideo);
+  });
+
+  it('shows upload context menu when right-clicking blank space', () => {
+    const { container } = render(<VideoListView {...defaultProps} />);
+    const listContainer = container.querySelector('.overflow-auto');
+    if (listContainer) {
+      fireEvent.contextMenu(listContainer, { target: listContainer });
+    }
+    expect(screen.getByText('Upload')).toBeInTheDocument();
+  });
+
+  it('does not show upload menu when onUpload is not provided', () => {
+    const { container } = render(
+      <VideoListView {...defaultProps} onUpload={undefined} />
+    );
+    const listContainer = container.querySelector('.overflow-auto');
+    if (listContainer) {
+      fireEvent.contextMenu(listContainer, { target: listContainer });
+    }
+    expect(screen.queryByText('Upload')).not.toBeInTheDocument();
+  });
+
+  it('calls onUpload when Upload menu item is clicked', () => {
+    const { container } = render(<VideoListView {...defaultProps} />);
+    const listContainer = container.querySelector('.overflow-auto');
+    if (listContainer) {
+      fireEvent.contextMenu(listContainer, { target: listContainer });
+    }
+    fireEvent.click(screen.getByText('Upload'));
+    expect(mockOnUpload).toHaveBeenCalled();
+  });
+
+  it('does not show upload menu when right-clicking on a video item', () => {
+    render(<VideoListView {...defaultProps} />);
+    const videoItem = screen.getByTestId('video-item-video-1');
+    fireEvent.contextMenu(videoItem);
+    expect(screen.queryByText('Upload')).not.toBeInTheDocument();
+    expect(screen.getByText('Play')).toBeInTheDocument();
+  });
+
+  it('renders multiple videos', () => {
+    render(
+      <VideoListView
+        {...defaultProps}
+        videos={[mockVideo, mockVideoWithThumbnail]}
+      />
+    );
+    expect(screen.getByText('test-video.mp4')).toBeInTheDocument();
+    expect(screen.getByText('video-with-thumb.mp4')).toBeInTheDocument();
+  });
+
+  it('renders empty list with no videos', () => {
+    render(<VideoListView {...defaultProps} videos={[]} />);
+    expect(screen.queryByText('test-video.mp4')).not.toBeInTheDocument();
   });
 });
