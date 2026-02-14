@@ -22,13 +22,11 @@ vi.mock('../useHealthTracker', () => ({
 }));
 
 function createExercise(id: string, name: string, parentId?: string): Exercise {
-  return {
-    id,
-    name,
-    parentId,
-    createdAt: new Date('2026-01-01T00:00:00.000Z'),
-    updatedAt: new Date('2026-01-01T00:00:00.000Z')
-  };
+  const exercise: Exercise = { id, name };
+  if (parentId !== undefined) {
+    exercise.parentId = parentId;
+  }
+  return exercise;
 }
 
 describe('useExerciseData', () => {
