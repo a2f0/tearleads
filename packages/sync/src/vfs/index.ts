@@ -78,6 +78,7 @@ export {
   VfsCrdtSyncPushRejectedError,
   type VfsBackgroundSyncClientFlushResult,
   type VfsBackgroundSyncClientOptions,
+  type VfsBackgroundSyncClientPersistedState,
   type VfsBackgroundSyncClientSnapshot,
   type VfsBackgroundSyncClientSyncResult,
   type VfsCrdtSyncPushResponse,
