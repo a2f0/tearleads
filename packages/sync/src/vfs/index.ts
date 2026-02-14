@@ -4,6 +4,16 @@ export {
   type VfsAclSnapshotEntry
 } from './acl-key-view.js';
 export {
+  type AbandonVfsBlobInput,
+  type AttachVfsBlobInput,
+  InMemoryVfsBlobCommitStore,
+  type StageVfsBlobInput,
+  type VfsBlobCommitResult,
+  type VfsBlobCommitStatus,
+  type VfsBlobStageRecord,
+  type VfsBlobStageStatus
+} from './sync-blob-commit.js';
+export {
   InMemoryVfsCrdtStateStore,
   reconcileVfsCrdtOperations,
   type VfsCrdtAclEntry,
