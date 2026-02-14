@@ -219,12 +219,15 @@ export function WalletItemDetail({
     [handleFieldChange, pickerSide]
   );
 
-  const loadingState = WalletItemLoadingStates({
-    isLoading,
-    isUnlocked,
-    loadingDetail
-  });
-  if (loadingState) return loadingState;
+  if (isLoading || !isUnlocked || loadingDetail) {
+    return (
+      <WalletItemLoadingStates
+        isLoading={isLoading}
+        isUnlocked={isUnlocked}
+        loadingDetail={loadingDetail}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">

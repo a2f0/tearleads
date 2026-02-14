@@ -3,6 +3,7 @@ import {
   getWalletItemTypeLabel,
   toDateInputValue,
   type WalletItemDetailRecord,
+  type WalletItemType,
   type WalletMediaSide
 } from '../../lib/walletData';
 import {
@@ -11,7 +12,7 @@ import {
 } from '../../lib/walletSubtypes';
 
 export interface WalletItemFormState {
-  itemType: import('../../lib/walletData').WalletItemType;
+  itemType: WalletItemType;
   itemSubtype: string;
   subtypeFields: Record<string, string>;
   displayName: string;
@@ -152,7 +153,7 @@ export function buildAutomaticDisplayName(
 }
 
 export function retainSubtypeValues(
-  itemType: WalletItemFormState['itemType'],
+  itemType: WalletItemType,
   itemSubtype: string,
   values: Record<string, string>
 ): Record<string, string> {
