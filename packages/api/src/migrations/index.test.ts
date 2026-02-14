@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 25 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 26 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(25);
+      expect(result.currentVersion).toBe(26);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 25 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 26 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -159,9 +159,9 @@ describe('migrations', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23, 24, 25
+        22, 23, 24, 25, 26
       ]);
-      expect(result.currentVersion).toBe(25);
+      expect(result.currentVersion).toBe(26);
     });
   });
 
@@ -666,6 +666,50 @@ describe('migrations', () => {
       }
 
       await expect(v025.up(pool)).rejects.toThrow('forced v025 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v026 migration', () => {
+    it('verifies canonical blob parity before dropping legacy blob table', async () => {
+      const pool = createMockPool(new Map());
+
+      const v026 = migrations.find((m: Migration) => m.version === 26);
+      if (!v026) {
+        throw new Error('v026 migration not found');
+      }
+
+      await v026.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'legacy blob objects missing canonical blob representation'
+      );
+      expect(queries).toContain('DROP TABLE IF EXISTS "vfs_blob_objects"');
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (sql.includes('DROP TABLE IF EXISTS "vfs_blob_objects"')) {
+            throw new Error('forced v026 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v026 = migrations.find((m: Migration) => m.version === 26);
+      if (!v026) {
+        throw new Error('v026 migration not found');
+      }
+
+      await expect(v026.up(pool)).rejects.toThrow('forced v026 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');

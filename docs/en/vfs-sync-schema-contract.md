@@ -48,11 +48,8 @@ the flattening inventory currently reports these candidate VFS tables as outside
 the sync-critical contract:
 
 1. `vfs_access`
-2. `vfs_blob_objects`
-3. `vfs_blob_refs`
-4. `vfs_blob_staging`
-5. `vfs_folders`
-6. `vfs_shares`
+2. `vfs_folders`
+3. `vfs_shares`
 
 These are not removed yet; they are tracked as migration/cutover work.
 

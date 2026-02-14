@@ -3365,7 +3365,6 @@ export const allTables: TableDefinition[] = [
   vfsAclEntriesTable,
   vfsSyncChangesTable,
   vfsSyncClientStateTable,
-  vfsBlobObjectsTable,
   vfsCrdtOpsTable,
   // MLS tables
   mlsKeyPackagesTable,

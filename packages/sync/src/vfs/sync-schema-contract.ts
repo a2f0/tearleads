@@ -105,7 +105,6 @@ export const VFS_SYNC_FLATTENED_TARGET_TABLES = Array.from(
 
 export const VFS_TRANSITIONAL_TABLE_CANDIDATES = [
   'vfs_access',
-  'vfs_blob_objects',
   'vfs_folders',
   'vfs_shares'
 ];
