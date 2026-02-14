@@ -421,6 +421,10 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
   },
 };
 
+// Actions used directly by preen/merge automation skills. The remaining actions
+// are intentionally kept for manual operator workflows.
+const SKILL_INVOKED_ACTIONS: readonly ActionName[] = ['ciImpact', 'runImpactedQuality', 'runImpactedTests'];
+
 // ============================================================================
 // Validation
 // ============================================================================
@@ -1109,6 +1113,18 @@ function generateReadme(): string {
     }
     lines.push('');
   }
+
+  // Skill coverage section
+  const manualOnlyActions = (Object.keys(ACTION_CONFIG) as ActionName[]).filter(
+    (actionName) => !SKILL_INVOKED_ACTIONS.includes(actionName)
+  );
+  lines.push('## Skill Coverage');
+  lines.push('');
+  lines.push('Automation skills currently invoke a focused subset of wrappers:');
+  lines.push('');
+  lines.push(`- Skill-invoked: ${SKILL_INVOKED_ACTIONS.map((action) => `\`${action}\``).join(', ')}`);
+  lines.push(`- Manual-only: ${manualOnlyActions.map((action) => `\`${action}\``).join(', ')}`);
+  lines.push('');
 
   // Common options section
   lines.push('## Common Options');

@@ -104,6 +104,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     isInline: false,
     scriptPath: (_repo, agents) => path.join(agents, 'refresh.sh'),
   },
+  // Manual-only wrapper used for explicit toolchain maintenance runs.
   syncToolchainVersions: {
     safetyClass: 'safe_write_local',
     retrySafe: true,
@@ -134,6 +135,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     isInline: false,
     scriptPath: (_repo, agents) => path.join(agents, 'addLabel.sh'),
   },
+  // Manual-only wrapper used when checks are intentionally skipped by CI routing.
   approveSkippedChecks: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
