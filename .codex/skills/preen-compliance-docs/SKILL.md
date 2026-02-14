@@ -15,6 +15,7 @@ Run this skill when maintaining compliance documentation quality or during slack
 
 ```text
 compliance/
+  infrastructure-controls.md    # Cross-framework doc (allowed at root)
   HIPAA/
     POLICY_INDEX.md
     policies/
@@ -31,6 +32,14 @@ compliance/
   SOC2/
     (same structure)
 ```
+
+### Root-Level Cross-Framework Documents
+
+Some documents intentionally live at `compliance/` root because they map controls across ALL frameworks (HIPAA, NIST, SOC2) rather than belonging to a single framework:
+
+- `infrastructure-controls.md` - Maps infrastructure sentinels to all three frameworks
+
+These files are **allowed exceptions** to the per-framework structure. Do NOT flag them as naming violations or attempt to split them into per-framework copies.
 
 ## Discovery Phase
 
@@ -49,7 +58,21 @@ for fw in HIPAA NIST.SP.800-53 SOC2; do
 done
 
 # Find unnumbered files (naming inconsistencies)
-find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -20
+# Excludes known root-level cross-framework docs
+find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' -not -name 'infrastructure-controls.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -20
+
+# Find legacy redirect files (unnumbered duplicates of numbered files)
+# These should be DELETED, not renamed
+for fw in HIPAA NIST.SP.800-53 SOC2; do
+  for type in policies procedures technical-controls; do
+    for f in $(ls compliance/$fw/$type/*.md 2>/dev/null | xargs -I{} basename {} | grep -v '^[0-9][0-9]-'); do
+      # Check if a numbered version exists
+      topic=$(echo "$f" | sed 's/-\(policy\|procedure\|control-map\)\.md//')
+      numbered=$(ls compliance/$fw/$type/[0-9][0-9]-${topic}-*.md 2>/dev/null | head -1)
+      [ -n "$numbered" ] && echo "LEGACY REDIRECT: compliance/$fw/$type/$f -> $(basename $numbered)"
+    done
+  done
+done
 
 # Check for missing document triads (policy without procedure or control map)
 for fw in HIPAA NIST.SP.800-53 SOC2; do
@@ -83,13 +106,33 @@ done
 
 Fix issues in this order (highest impact first):
 
-1. **Missing document triads**: Policy exists but procedure or control map is missing
-2. **Cross-framework gaps**: Topic covered in one framework but not others
-3. **Broken POLICY_INDEX references**: Index lists files that don't exist
-4. **Unnumbered files**: Files not following `NN-topic-*.md` naming convention
-5. **Missing POLICY_INDEX entries**: Files exist but not listed in index
+1. **Legacy redirect files**: Unnumbered files that duplicate numbered versions - DELETE these immediately
+2. **Missing document triads**: Policy exists but procedure or control map is missing
+3. **Cross-framework gaps**: Topic covered in one framework but not others
+4. **Broken POLICY_INDEX references**: Index lists files that don't exist
+5. **Unnumbered files**: Files not following `NN-topic-*.md` naming convention (and no numbered version exists)
+6. **Missing POLICY_INDEX entries**: Files exist but not listed in index
 
 ## Gap Categories
+
+### 0. Legacy Redirect Files (DELETE immediately)
+
+Legacy redirect files are unnumbered files that exist alongside properly numbered versions. They typically contain only a redirect notice pointing to the canonical numbered file. Per project policy on backwards-compatibility hacks, these should be **deleted**, not kept.
+
+```bash
+# Find legacy redirect files
+for fw in HIPAA NIST.SP.800-53 SOC2; do
+  for type in policies procedures technical-controls; do
+    for f in $(ls compliance/$fw/$type/*.md 2>/dev/null | xargs -I{} basename {} | grep -v '^[0-9][0-9]-'); do
+      topic=$(echo "$f" | sed 's/-\(policy\|procedure\|control-map\)\.md//')
+      numbered=$(ls compliance/$fw/$type/[0-9][0-9]-${topic}-*.md 2>/dev/null | head -1)
+      [ -n "$numbered" ] && echo "DELETE: compliance/$fw/$type/$f (duplicate of $(basename $numbered))"
+    done
+  done
+done
+```
+
+**Action**: Delete the unnumbered file. Do NOT update POLICY_INDEX (it should already reference the numbered version).
 
 ### 1. Document Triad Completeness
 
@@ -141,11 +184,13 @@ done
 
 ### 3. Naming Consistency
 
-All document files should follow numbered naming: `NN-topic-{policy|procedure|control-map}.md`
+All document files within framework directories should follow numbered naming: `NN-topic-{policy|procedure|control-map}.md`
+
+Root-level cross-framework docs (like `infrastructure-controls.md`) are excluded from this check.
 
 ```bash
-# Find files not matching pattern
-find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | while read f; do
+# Find files not matching pattern (excludes root-level cross-framework docs)
+find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' -not -path 'compliance/*.md' | while read f; do
   base=$(basename "$f")
   echo "$base" | grep -qE '^[0-9]{2}-[a-z-]+-(policy|procedure|control-map)\.md$' || echo "NAMING: $f"
 done
@@ -254,6 +299,17 @@ find compliance -name '*.md' | wc -l
 compliance_gap_count() {
   gaps=0
 
+  # Count legacy redirect files (unnumbered duplicates - highest priority)
+  for fw in HIPAA NIST.SP.800-53 SOC2; do
+    for type in policies procedures technical-controls; do
+      for f in $(ls compliance/$fw/$type/*.md 2>/dev/null | xargs -I{} basename {} | grep -v '^[0-9][0-9]-'); do
+        topic=$(echo "$f" | sed 's/-\(policy\|procedure\|control-map\)\.md//')
+        numbered=$(ls compliance/$fw/$type/[0-9][0-9]-${topic}-*.md 2>/dev/null | head -1)
+        [ -n "$numbered" ] && gaps=$((gaps + 1))
+      done
+    done
+  done
+
   # Count missing triads
   for fw in HIPAA NIST.SP.800-53 SOC2; do
     for policy in $(ls compliance/$fw/policies/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/-policy\.md//'); do
@@ -262,8 +318,8 @@ compliance_gap_count() {
     done
   done
 
-  # Count unnumbered files
-  unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l)
+  # Count unnumbered files in framework dirs (excludes root-level cross-framework docs)
+  unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' -not -path 'compliance/*.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l)
   gaps=$((gaps + unnumbered))
 
   echo $gaps
