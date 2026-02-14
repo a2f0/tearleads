@@ -22,11 +22,16 @@ resource "azurerm_linux_virtual_machine" "confidential_vm" {
     secure_vm_disk_encryption_set_id = null
   }
 
-  source_image_reference {
-    publisher = "Canonical"
-    offer     = "0001-com-ubuntu-confidential-vm-jammy"
-    sku       = "22_04-lts-cvm"
-    version   = "latest"
+  source_image_id = var.source_image_id
+
+  dynamic "source_image_reference" {
+    for_each = var.source_image_id == null ? [1] : []
+    content {
+      publisher = "Canonical"
+      offer     = "0001-com-ubuntu-confidential-vm-jammy"
+      sku       = "22_04-lts-cvm"
+      version   = "latest"
+    }
   }
 
   vtpm_enabled        = true
