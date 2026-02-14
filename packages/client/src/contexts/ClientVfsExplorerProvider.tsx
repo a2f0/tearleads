@@ -10,7 +10,7 @@ import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,
-  ContextMenuSeparator,
+  DesktopContextMenuSeparator as ContextMenuSeparator,
   DesktopFloatingWindow as FloatingWindow
 } from '@tearleads/window-manager';
 import { type ReactNode, useMemo } from 'react';
