@@ -36,16 +36,29 @@ vi.mock('@/lib/classicPersistence', () => ({
 
 vi.mock('@tearleads/classic', () => ({
   ClassicApp: ({
+    tagSortOrder,
+    entrySortOrder,
+    showSortControls,
     onStateChange,
     onDeleteTag,
     onRestoreTag
   }: {
+    tagSortOrder?: string;
+    entrySortOrder?: string;
+    showSortControls?: boolean;
     onStateChange?: ((state: unknown) => void) | undefined;
     onDeleteTag?: ((tagId: string) => Promise<void>) | undefined;
     onRestoreTag?: ((tagId: string) => Promise<void>) | undefined;
   }) => (
     <div>
       <div data-testid="classic-app">Classic App</div>
+      <div data-testid="classic-app-tag-sort">{tagSortOrder ?? 'unset'}</div>
+      <div data-testid="classic-app-entry-sort">
+        {entrySortOrder ?? 'unset'}
+      </div>
+      <div data-testid="classic-app-show-sort-controls">
+        {showSortControls === undefined ? 'unset' : String(showSortControls)}
+      </div>
       <button
         type="button"
         onClick={() =>
@@ -131,6 +144,51 @@ describe('ClassicWorkspace', () => {
     });
 
     expect(await screen.findByTestId('classic-app')).toBeInTheDocument();
+  });
+
+  it('keeps ClassicApp internal sort controls when no external sort props are passed', async () => {
+    render(<ClassicWorkspace />);
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.getByTestId('classic-app-tag-sort')).toHaveTextContent(
+      'unset'
+    );
+    expect(screen.getByTestId('classic-app-entry-sort')).toHaveTextContent(
+      'unset'
+    );
+    expect(
+      screen.getByTestId('classic-app-show-sort-controls')
+    ).toHaveTextContent('unset');
+  });
+
+  it('hides ClassicApp internal sort controls when externally controlled', async () => {
+    const onTagSortOrderChange = vi.fn();
+    const onEntrySortOrderChange = vi.fn();
+    render(
+      <ClassicWorkspace
+        tagSortOrder="user-defined"
+        entrySortOrder="user-defined"
+        onTagSortOrderChange={onTagSortOrderChange}
+        onEntrySortOrderChange={onEntrySortOrderChange}
+      />
+    );
+
+    await waitFor(() => {
+      expect(mockLoadClassicStateFromDatabase).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.getByTestId('classic-app-tag-sort')).toHaveTextContent(
+      'user-defined'
+    );
+    expect(screen.getByTestId('classic-app-entry-sort')).toHaveTextContent(
+      'user-defined'
+    );
+    expect(
+      screen.getByTestId('classic-app-show-sort-controls')
+    ).toHaveTextContent('false');
   });
 
   it('persists state changes from classic app', async () => {

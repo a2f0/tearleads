@@ -1,6 +1,8 @@
 import {
   ClassicApp,
   type ClassicState,
+  type EntrySortOrder,
+  type TagSortOrder,
   type VfsLinkLikeRow
 } from '@tearleads/classic';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -19,7 +21,21 @@ import {
   updateClassicNote
 } from '@/lib/classicPersistence';
 
-export function ClassicWorkspace() {
+interface ClassicWorkspaceProps {
+  tagSortOrder?: TagSortOrder | undefined;
+  entrySortOrder?: EntrySortOrder | undefined;
+  onTagSortOrderChange?: ((nextSortOrder: TagSortOrder) => void) | undefined;
+  onEntrySortOrderChange?:
+    | ((nextSortOrder: EntrySortOrder) => void)
+    | undefined;
+}
+
+export function ClassicWorkspace({
+  tagSortOrder,
+  entrySortOrder,
+  onTagSortOrderChange,
+  onEntrySortOrderChange
+}: ClassicWorkspaceProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseContext();
   const [initialState, setInitialState] =
     useState<ClassicState>(CLASSIC_EMPTY_STATE);
@@ -29,6 +45,11 @@ export function ClassicWorkspace() {
   const fetchedForInstanceRef = useRef<string | null>(null);
   const linkRowsRef = useRef<VfsLinkLikeRow[]>([]);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const isSortControlledExternally =
+    tagSortOrder !== undefined &&
+    entrySortOrder !== undefined &&
+    onTagSortOrderChange !== undefined &&
+    onEntrySortOrderChange !== undefined;
 
   const fetchClassicState = useCallback(async () => {
     if (!isUnlocked) {
@@ -120,6 +141,13 @@ export function ClassicWorkspace() {
           key={`${currentInstanceId ?? 'default'}-${stateRevision}`}
           initialState={initialState}
           autoFocusSearch
+          {...(isSortControlledExternally && {
+            tagSortOrder,
+            entrySortOrder,
+            onTagSortOrderChange,
+            onEntrySortOrderChange,
+            showSortControls: false
+          })}
           onStateChange={handleStateChange}
           onCreateTag={async (tagId, name) => {
             await createClassicTag(name, tagId);
