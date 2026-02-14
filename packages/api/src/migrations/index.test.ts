@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 35 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 36 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(35);
+      expect(result.currentVersion).toBe(36);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 35 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 36 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -159,9 +159,9 @@ describe('migrations', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35
+        22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36
       ]);
-      expect(result.currentVersion).toBe(35);
+      expect(result.currentVersion).toBe(36);
     });
   });
 
@@ -1196,6 +1196,75 @@ describe('migrations', () => {
       }
 
       await expect(v035.up(pool)).rejects.toThrow('forced v035 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v036 migration', () => {
+    it('verifies share retirement preconditions after checkpoint scaffolding', async () => {
+      const pool = createMockPool(new Map());
+
+      const v036 = migrations.find((m: Migration) => m.version === 36);
+      if (!v036) {
+        throw new Error('v036 migration not found');
+      }
+
+      await v036.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'vfs_acl_entries missing before share retirement preconditions'
+      );
+      expect(queries).toContain(
+        'vfs_shares missing before share retirement preconditions'
+      );
+      expect(queries).toContain(
+        'org_shares missing before share retirement preconditions'
+      );
+      expect(queries).toContain(
+        'share retirement checkpoints missing before precondition verification'
+      );
+      expect(queries).toContain(
+        'no share retirement checkpoint rows recorded before precondition verification'
+      );
+      expect(queries).toContain(
+        'vfs_shares rows missing canonical active ACL parity'
+      );
+      expect(queries).toContain(
+        'org_shares rows missing canonical active ACL parity'
+      );
+      expect(queries).toContain(
+        'share-sourced ACL rows orphaned from vfs_shares'
+      );
+      expect(queries).toContain(
+        'org-share-sourced ACL rows orphaned from org_shares'
+      );
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (
+            sql.includes('vfs_shares rows missing canonical active ACL parity')
+          ) {
+            throw new Error('forced v036 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v036 = migrations.find((m: Migration) => m.version === 36);
+      if (!v036) {
+        throw new Error('v036 migration not found');
+      }
+
+      await expect(v036.up(pool)).rejects.toThrow('forced v036 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');
