@@ -4,7 +4,9 @@ import { describe, expect, it } from 'vitest';
 import { buildVfsCrdtSyncQuery } from './sync-crdt-feed.js';
 import { buildVfsSyncQuery } from './sync-engine.js';
 import {
+  deriveVfsFlatteningInventory,
   extractSqlTableReferences,
+  extractPostgresTableNamesFromDrizzleSchema,
   isSqlReferenceSubsetOfFlattenedContract,
   VFS_SYNC_FLATTENED_TARGET_TABLES
 } from './sync-schema-contract.js';
@@ -110,5 +112,29 @@ describe('sync schema contract', () => {
       'legacy_vfs_shadow_table'
     ]);
     expect(isSqlReferenceSubsetOfFlattenedContract(unexpectedSql)).toBe(false);
+  });
+
+  it('remains compatible with generated Postgres schema and reports transitional VFS tables', () => {
+    const syncPackageRoot = process.cwd();
+    const generatedSchemaSource = readFileSync(
+      resolve(syncPackageRoot, '../db/src/generated/postgresql/schema.ts'),
+      'utf8'
+    );
+    const generatedTables = extractPostgresTableNamesFromDrizzleSchema(
+      generatedSchemaSource
+    );
+    const inventory = deriveVfsFlatteningInventory(generatedTables);
+
+    expect(inventory.missingContractTables).toEqual([]);
+    expect(inventory.transitionalVfsTables).toEqual(
+      expect.arrayContaining([
+        'vfs_access',
+        'vfs_blob_objects',
+        'vfs_blob_refs',
+        'vfs_blob_staging',
+        'vfs_folders',
+        'vfs_shares'
+      ])
+    );
   });
 });

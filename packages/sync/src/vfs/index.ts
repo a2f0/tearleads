@@ -12,10 +12,13 @@ export {
   type VfsMemberPrincipalView
 } from './sync-access-harness.js';
 export {
+  deriveVfsFlatteningInventory,
   extractSqlTableReferences,
+  extractPostgresTableNamesFromDrizzleSchema,
   isSqlReferenceSubsetOfFlattenedContract,
   VFS_SYNC_FLATTENED_TARGET_TABLES,
   VFS_SYNC_SCHEMA_DEPENDENCIES,
+  type VfsFlatteningInventory,
   type VfsSyncSchemaDependency,
   type VfsSyncSchemaDomain
 } from './sync-schema-contract.js';
