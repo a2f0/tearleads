@@ -13,13 +13,25 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
     DesktopFloatingWindow: ({
       children,
       title,
-      onClose
+      onClose,
+      initialDimensions
     }: {
       children: ReactNode;
       title: string;
       onClose: () => void;
+      initialDimensions?: {
+        width: number;
+        height: number;
+        x: number;
+        y: number;
+      };
     }) => (
-      <div data-testid="floating-window">
+      <div
+        data-testid="floating-window"
+        data-initial-dimensions={
+          initialDimensions ? JSON.stringify(initialDimensions) : undefined
+        }
+      >
         <div data-testid="window-title">{title}</div>
         <button type="button" data-testid="close-window" onClick={onClose}>
           Close
@@ -144,6 +156,24 @@ describe('ClassicWindow', () => {
 
     expect(screen.getByTestId('workspace-entry-sort')).toHaveTextContent(
       'date-tagged-desc'
+    );
+  });
+
+  it('passes initialDimensions to FloatingWindow when provided', () => {
+    const initialDimensions = {
+      width: 980,
+      height: 700,
+      x: 10,
+      y: 20
+    };
+
+    render(
+      <ClassicWindow {...defaultProps} initialDimensions={initialDimensions} />
+    );
+
+    expect(screen.getByTestId('floating-window')).toHaveAttribute(
+      'data-initial-dimensions',
+      JSON.stringify(initialDimensions)
     );
   });
 });

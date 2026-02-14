@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
-import { ModelsWindow } from './ModelsWindow';
+import { BusinessesWindow } from './BusinessesWindow';
 
 vi.mock('@tearleads/window-manager', async (importOriginal) => {
   const actual =
@@ -41,75 +41,57 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
   };
 });
 
-vi.mock('@/pages/models/ModelsContent', () => ({
-  ModelsContent: ({
-    showBackLink,
-    viewMode
-  }: {
-    showBackLink?: boolean;
-    viewMode?: string;
-  }) => (
-    <div
-      data-testid="models-content"
-      data-show-back-link={showBackLink ? 'true' : 'false'}
-      data-view-mode={viewMode}
-    >
-      Models Content
-    </div>
-  )
+vi.mock('@/components/businesses', () => ({
+  BusinessesManager: () => <div data-testid="businesses-manager" />
 }));
 
-describe('ModelsWindow', () => {
+describe('BusinessesWindow', () => {
   const defaultProps = {
-    id: 'models-window',
+    id: 'businesses-window',
     onClose: vi.fn(),
     onMinimize: vi.fn(),
     onFocus: vi.fn(),
     zIndex: 100
   };
 
-  it('renders in FloatingWindow', () => {
-    render(<ModelsWindow {...defaultProps} />);
+  it('renders the floating window and businesses manager', () => {
+    render(<BusinessesWindow {...defaultProps} />);
+
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
-  });
-
-  it('shows the window title', () => {
-    render(<ModelsWindow {...defaultProps} />);
-    expect(screen.getByTestId('window-title')).toHaveTextContent('Models');
-  });
-
-  it('renders models content without a back link', () => {
-    render(<ModelsWindow {...defaultProps} />);
-    expect(screen.getByTestId('models-content')).toHaveAttribute(
-      'data-show-back-link',
-      'false'
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Businesses');
+    expect(screen.getByTestId('businesses-manager')).toBeInTheDocument();
+    expect(screen.getByTestId('floating-window')).not.toHaveAttribute(
+      'data-initial-dimensions'
     );
-  });
-
-  it('calls onClose when close button is clicked', async () => {
-    const user = userEvent.setup();
-    const onClose = vi.fn();
-    render(<ModelsWindow {...defaultProps} onClose={onClose} />);
-
-    await user.click(screen.getByTestId('close-window'));
-    expect(onClose).toHaveBeenCalled();
   });
 
   it('passes initialDimensions to FloatingWindow when provided', () => {
     const initialDimensions = {
-      width: 720,
-      height: 600,
-      x: 100,
-      y: 200
+      width: 900,
+      height: 650,
+      x: 120,
+      y: 80
     };
 
     render(
-      <ModelsWindow {...defaultProps} initialDimensions={initialDimensions} />
+      <BusinessesWindow
+        {...defaultProps}
+        initialDimensions={initialDimensions}
+      />
     );
 
     expect(screen.getByTestId('floating-window')).toHaveAttribute(
       'data-initial-dimensions',
       JSON.stringify(initialDimensions)
     );
+  });
+
+  it('calls onClose when close button is clicked', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<BusinessesWindow {...defaultProps} onClose={onClose} />);
+
+    await user.click(screen.getByTestId('close-window'));
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
