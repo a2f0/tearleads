@@ -146,6 +146,54 @@ describe('VFS CRDT sync route', () => {
     ]);
   });
 
+  it('normalizes unexpected CRDT enum values instead of crashing', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          op_id: 'op-9',
+          item_id: 'item-9',
+          op_type: 'unknown-op',
+          principal_type: 'unknown-principal',
+          principal_id: 'user-9',
+          access_level: 'unknown-access',
+          parent_id: null,
+          child_id: null,
+          actor_id: 'user-1',
+          source_table: 'vfs_shares',
+          source_id: 'share-9',
+          occurred_at: new Date('2026-02-14T00:00:00.000Z')
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync?limit=10')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      items: [
+        {
+          opId: 'op-9',
+          itemId: 'item-9',
+          opType: 'acl_add',
+          principalType: null,
+          principalId: 'user-9',
+          accessLevel: null,
+          parentId: null,
+          childId: null,
+          actorId: 'user-1',
+          sourceTable: 'vfs_shares',
+          sourceId: 'share-9',
+          occurredAt: '2026-02-14T00:00:00.000Z'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
+  });
+
   it('returns 500 when CRDT rows violate ordering guardrails', async () => {
     const restoreConsole = mockConsoleError();
     const authHeader = await createAuthHeader();
@@ -184,6 +232,53 @@ describe('VFS CRDT sync route', () => {
 
     const response = await request(app)
       .get('/v1/vfs/crdt/sync?limit=10')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: 'Failed to sync VFS CRDT operations'
+    });
+    restoreConsole();
+  });
+
+  it('returns 500 when CRDT rows contain duplicate op ids', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          op_id: 'op-1',
+          item_id: 'item-1',
+          op_type: 'acl_add',
+          principal_type: 'user',
+          principal_id: 'user-2',
+          access_level: 'write',
+          parent_id: null,
+          child_id: null,
+          actor_id: 'user-1',
+          source_table: 'vfs_shares',
+          source_id: 'share-1',
+          occurred_at: new Date('2026-02-14T00:00:00.000Z')
+        },
+        {
+          op_id: 'op-1',
+          item_id: 'item-2',
+          op_type: 'acl_remove',
+          principal_type: 'user',
+          principal_id: 'user-3',
+          access_level: null,
+          parent_id: null,
+          child_id: null,
+          actor_id: 'user-1',
+          source_table: 'vfs_shares',
+          source_id: 'share-2',
+          occurred_at: new Date('2026-02-14T00:00:01.000Z')
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync')
       .set('Authorization', authHeader);
 
     expect(response.status).toBe(500);
