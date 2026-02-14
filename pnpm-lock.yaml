@@ -537,8 +537,8 @@ importers:
         specifier: 8.1.0
         version: 8.1.0
       '@capacitor/filesystem':
-        specifier: 8.1.1
-        version: 8.1.1(@capacitor/core@8.1.0)
+        specifier: 8.1.2
+        version: 8.1.2(@capacitor/core@8.1.0)
       '@capacitor/keyboard':
         specifier: 8.0.0
         version: 8.0.0(@capacitor/core@8.1.0)
@@ -713,10 +713,10 @@ importers:
         version: 8.1.0(@capacitor/core@8.1.0)
       '@electron-toolkit/preload':
         specifier: 3.0.2
-        version: 3.0.2(electron@40.4.0)
+        version: 3.0.2(electron@40.4.1)
       '@electron-toolkit/utils':
         specifier: 4.0.0
-        version: 4.0.0(electron@40.4.0)
+        version: 4.0.0(electron@40.4.1)
       '@electron/rebuild':
         specifier: 4.0.3
         version: 4.0.3
@@ -775,8 +775,8 @@ importers:
         specifier: 0.31.9
         version: 0.31.9
       electron:
-        specifier: 40.4.0
-        version: 40.4.0
+        specifier: 40.4.1
+        version: 40.4.1
       electron-builder:
         specifier: 26.7.0
         version: 26.7.0(electron-builder-squirrel-windows@26.0.12)
@@ -2106,8 +2106,8 @@ packages:
   '@asamuzakjp/css-color@4.1.2':
     resolution: {integrity: sha512-NfBUvBaYgKIuq6E/RBLY1m0IohzNHAYyaJGuTK79Z23uNwmz2jl1mPsC5ZxCCxylinKhT1Amn5oNTlx1wN8cQg==}
 
-  '@asamuzakjp/dom-selector@6.7.8':
-    resolution: {integrity: sha512-stisC1nULNc9oH5lakAj8MH88ZxeGxzyWNDfbdCxvJSJIvDsHNZqYvscGTgy/ysgXWLJPt6K/4t0/GjvtKcFJQ==}
+  '@asamuzakjp/dom-selector@6.8.0':
+    resolution: {integrity: sha512-tJHMAFJ9ooEm8iSiguVqodoEQLBvvcnImz43u0R58m03SMUQENIvXWrN1slb/aiZrC9+X/bXbNWzsrZen9lrgA==}
 
   '@asamuzakjp/nwsapi@2.3.9':
     resolution: {integrity: sha512-n8GuYSrI9bF7FFZ/SjhwevlHc8xaVlb/7HmHelnc/PZXBD2ZR49NnN9sMMuDdEGPeeRQ5d0hqlSlEpgCX3Wl0Q==}
@@ -2778,8 +2778,8 @@ packages:
   '@capacitor/core@8.1.0':
     resolution: {integrity: sha512-UfMBMWc1v7J+14AhH03QmeNwV3HZx3qnOWhpwnHfzALEwAwlV/itQOQqcasMQYhOHWL0tiymc5ByaLTn7KKQxw==}
 
-  '@capacitor/filesystem@8.1.1':
-    resolution: {integrity: sha512-g8szun+Nj9O/CIWNJ1c4cTsGchJE3B7080X+eh3hQXKf9UdRDllwVJy6reoI5EngwWh9xUgkI7fwkxg5BONrKw==}
+  '@capacitor/filesystem@8.1.2':
+    resolution: {integrity: sha512-doaaMfGoFR2hWU6aV6u83I+5ZsGyJVq+Gz4r9lMpJzUKMm1eMu0hLnFdV1aXZlU9FlK/RndFrVD8oRZfNOqWgQ==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
 
@@ -3609,8 +3609,8 @@ packages:
   '@mermaid-js/parser@0.6.3':
     resolution: {integrity: sha512-lnjOhe7zyHjc+If7yT4zoedx2vo4sHaTmtkl1+or8BRTnCtDmcTpAjpzDSfCZrshM5bCoz0GyidzadJAH1xobA==}
 
-  '@mswjs/interceptors@0.41.2':
-    resolution: {integrity: sha512-7G0Uf0yK3f2bjElBLGHIQzgRgMESczOMyYVasq1XK8P5HaXtlW4eQhz9MBL+TQILZLaruq+ClGId+hH0w4jvWw==}
+  '@mswjs/interceptors@0.41.3':
+    resolution: {integrity: sha512-cXu86tF4VQVfwz8W1SPbhoRyHJkti6mjH/XJIxp40jhO4j2k1m4KYrEykxqWPkFF3vrK4rgQppBh//AwyGSXPA==}
     engines: {node: '>=18'}
 
   '@napi-rs/canvas-android-arm64@0.1.92':
@@ -6322,8 +6322,8 @@ packages:
     resolution: {integrity: sha512-bO3y10YikuUwUuDUQRM4KfwNkKhnpVO7IPdbsrejwN9/AABJzzTQ4GeHwyzNSrVO+tEH3/Np255a3sVZpZDjvg==}
     engines: {node: '>=8.0.0'}
 
-  electron@40.4.0:
-    resolution: {integrity: sha512-31l4V7Ys4oUuXyaN/cCNnyBdDXN9RwOVOG+JhiHCf4zx5tZkHd43PKGY6KLEWpeYCxaphsuGSEjagJLfPqKj8g==}
+  electron@40.4.1:
+    resolution: {integrity: sha512-N1ZXybQZL8kYemO8vAeh9nrk4mSvqlAO8xs0QCHkXIvRnuB/7VGwEehjvQbsU5/f4bmTKpG+2GQERe/zmKpudQ==}
     engines: {node: '>= 12.20.55'}
     hasBin: true
 
@@ -9595,8 +9595,8 @@ packages:
   undici-types@7.16.0:
     resolution: {integrity: sha512-Zz+aZWSj8LE6zoxD+xrjh4VfkIG8Ya6LvYkZqtUQGJPZjYl53ypCaUwWqo7eI0x66KBGeRo+mlBEkMSeSZ38Nw==}
 
-  undici@7.21.0:
-    resolution: {integrity: sha512-Hn2tCQpoDt1wv23a68Ctc8Cr/BHpUSfaPYrkajTXOS9IKpxVRx/X5m1K2YkbK2ipgZgxXSgsUinl3x+2YdSSfg==}
+  undici@7.22.0:
+    resolution: {integrity: sha512-RqslV2Us5BrllB+JeiZnK4peryVTndy9Dnqq62S3yYRRTj0tFQCwEniUy2167skdGOy3vqRzEvl1Dm4sV2ReDg==}
     engines: {node: '>=20.18.1'}
 
   unicode-canonical-property-names-ecmascript@2.0.1:
@@ -9622,8 +9622,8 @@ packages:
   unified@11.0.5:
     resolution: {integrity: sha512-xKvGhPWw3k84Qjh8bI3ZeJjqnyadK+GEFtazSfZv/rKeTkTjOJho6mFqh2SM96iIcZokxiOpg78GazTSg8+KHA==}
 
-  unifont@0.7.3:
-    resolution: {integrity: sha512-b0GtQzKCyuSHGsfj5vyN8st7muZ6VCI4XD4vFlr7Uy1rlWVYxC3npnfk8MyreHxJYrz1ooLDqDzFe9XqQTlAhA==}
+  unifont@0.7.4:
+    resolution: {integrity: sha512-oHeis4/xl42HUIeHuNZRGEvxj5AaIKR+bHPNegRq5LV1gdc3jundpONbjglKpihmJf+dswygdMJn3eftGIMemg==}
 
   unique-filename@2.0.1:
     resolution: {integrity: sha512-ODWHtkkdx3IAR+veKxFV+VBkUMcN+FaqzUUd7IZzt+0zhDZFPFxhlqwPF3YQvMHx1TD0tdgYl+kuPnJ8E6ql7A==}
@@ -10345,7 +10345,7 @@ snapshots:
       '@csstools/css-tokenizer': 4.0.0
       lru-cache: 11.2.6
 
-  '@asamuzakjp/dom-selector@6.7.8':
+  '@asamuzakjp/dom-selector@6.8.0':
     dependencies:
       '@asamuzakjp/nwsapi': 2.3.9
       bidi-js: 1.0.3
@@ -11239,7 +11239,7 @@ snapshots:
     dependencies:
       tslib: 2.8.1
 
-  '@capacitor/filesystem@8.1.1(@capacitor/core@8.1.0)':
+  '@capacitor/filesystem@8.1.2(@capacitor/core@8.1.0)':
     dependencies:
       '@capacitor/core': 8.1.0
       '@capacitor/synapse': 1.0.4
@@ -11357,13 +11357,13 @@ snapshots:
 
   '@drizzle-team/brocli@0.10.2': {}
 
-  '@electron-toolkit/preload@3.0.2(electron@40.4.0)':
+  '@electron-toolkit/preload@3.0.2(electron@40.4.1)':
     dependencies:
-      electron: 40.4.0
+      electron: 40.4.1
 
-  '@electron-toolkit/utils@4.0.0(electron@40.4.0)':
+  '@electron-toolkit/utils@4.0.0(electron@40.4.1)':
     dependencies:
-      electron: 40.4.0
+      electron: 40.4.1
 
   '@electron/asar@3.2.18':
     dependencies:
@@ -11550,7 +11550,7 @@ snapshots:
 
   '@esbuild-kit/core-utils@3.3.2':
     dependencies:
-      esbuild: 0.27.3
+      esbuild: 0.25.12
       source-map-support: 0.5.21
 
   '@esbuild-kit/esm-loader@2.6.5':
@@ -12020,7 +12020,7 @@ snapshots:
     dependencies:
       langium: 3.3.1
 
-  '@mswjs/interceptors@0.41.2':
+  '@mswjs/interceptors@0.41.3':
     dependencies:
       '@open-draft/deferred-promise': 2.2.0
       '@open-draft/logger': 0.3.0
@@ -13791,7 +13791,7 @@ snapshots:
       tinyglobby: 0.2.15
       tsconfck: 3.1.6(typescript@5.9.3)
       ultrahtml: 1.6.0
-      unifont: 0.7.3
+      unifont: 0.7.4
       unist-util-visit: 5.1.0
       unstorage: 1.17.4(@capacitor/preferences@8.0.1(@capacitor/core@8.1.0))
       vfile: 6.0.3
@@ -14937,7 +14937,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  electron@40.4.0:
+  electron@40.4.1:
     dependencies:
       '@electron/get': 2.0.3
       '@types/node': 24.10.13
@@ -16145,7 +16145,7 @@ snapshots:
   jsdom@28.0.0(@noble/hashes@2.0.1):
     dependencies:
       '@acemir/cssom': 0.9.31
-      '@asamuzakjp/dom-selector': 6.7.8
+      '@asamuzakjp/dom-selector': 6.8.0
       '@exodus/bytes': 1.14.1(@noble/hashes@2.0.1)
       cssstyle: 5.3.7
       data-urls: 7.0.0(@noble/hashes@2.0.1)
@@ -16158,7 +16158,7 @@ snapshots:
       saxes: 6.0.0
       symbol-tree: 3.2.4
       tough-cookie: 6.0.0
-      undici: 7.21.0
+      undici: 7.22.0
       w3c-xmlserializer: 5.0.0
       webidl-conversions: 8.0.1
       whatwg-mimetype: 5.0.0
@@ -17086,7 +17086,7 @@ snapshots:
   msw@2.12.10(@types/node@25.2.3)(typescript@5.9.3):
     dependencies:
       '@inquirer/confirm': 5.1.21(@types/node@25.2.3)
-      '@mswjs/interceptors': 0.41.2
+      '@mswjs/interceptors': 0.41.3
       '@open-draft/deferred-promise': 2.2.0
       '@types/statuses': 2.0.6
       cookie: 1.1.1
@@ -19012,7 +19012,7 @@ snapshots:
 
   undici-types@7.16.0: {}
 
-  undici@7.21.0: {}
+  undici@7.22.0: {}
 
   unicode-canonical-property-names-ecmascript@2.0.1: {}
 
@@ -19037,7 +19037,7 @@ snapshots:
       trough: 2.2.0
       vfile: 6.0.3
 
-  unifont@0.7.3:
+  unifont@0.7.4:
     dependencies:
       css-tree: 3.1.0
       ofetch: 1.5.1

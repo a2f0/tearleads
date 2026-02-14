@@ -266,6 +266,25 @@ Skills are version-controlled like any other file. Create, edit, or delete files
 
 - Use camelCase for npm script names (e.g., `buildOpenapi` not `build:openapi`)
 
+## Running Tests (CRITICAL: Use Headless Mode)
+
+**ALWAYS run Maestro tests in headless mode** to prevent the simulator/emulator UI from interfering with agent workflows:
+
+```bash
+# iOS - headless mode
+./scripts/runMaestroIosTests.sh --headless
+
+# Android - headless mode
+./scripts/runMaestroAndroidTests.sh --headless
+```
+
+The `--headless` flag:
+
+- **iOS**: Boots the simulator via `simctl` without opening Simulator.app
+- **Android**: Runs the emulator with `-no-window -no-audio -no-boot-anim`
+
+**Never run Maestro tests without `--headless`** when running as an agent. The simulator/emulator window can steal focus, cause keyboard input issues, or hang waiting for user interaction.
+
 ## UI Guidelines
 
 ### Input Fields

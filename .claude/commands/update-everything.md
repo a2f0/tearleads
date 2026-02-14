@@ -18,7 +18,7 @@ Update all of the dependencies in the `packages` folder and:
 - Update Ruby dependencies in `packages/client` (Gemfile and Gemfile.lock), including fastlane.
 - Automatically sync Node/Electron and Android SDK levels before dependency updates (see Toolchain Sync section below).
 - Update the Gradle wrapper if a new version is available (see Gradle Version Update section below).
-- Make sure Maestro tests pass (both iOS and Android).
+- Make sure Maestro tests pass (both iOS and Android) - **always run in headless mode**.
 - Commit and push changes using `/commit-and-push`.
 - Prepare the PR for merging using `/enter-merge-queue`.
 
@@ -152,6 +152,29 @@ This script:
 - A new Android API level is released
 
 **Note**: This is a one-time setup per machine. The AVD persists across reboots.
+
+## Running Maestro Tests (CRITICAL: Use Headless Mode)
+
+**ALWAYS run Maestro tests in headless mode** to prevent the simulator/emulator UI from interfering with the agent workflow:
+
+```bash
+# iOS - headless mode
+./scripts/runMaestroIosTests.sh --headless
+
+# Android - headless mode
+./scripts/runMaestroAndroidTests.sh --headless
+```
+
+The `--headless` flag:
+
+- **iOS**: Boots the simulator via `simctl` without opening Simulator.app
+- **Android**: Runs the emulator with `-no-window -no-audio -no-boot-anim`
+
+**Never run Maestro tests without `--headless`** when running as an agent. The simulator/emulator window can:
+
+- Steal focus from the terminal
+- Cause unexpected keyboard input issues
+- Hang waiting for user interaction
 
 ## Gradle Version Update
 
