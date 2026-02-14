@@ -5,7 +5,7 @@ import {
 import { Activity, Bell, CheckCheck, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
-import { notificationStore } from '@/stores/notificationStore';
+import { notificationStore } from '../stores/notificationStore';
 import { NotificationBadge } from './NotificationBadge';
 
 export function NotificationCenterTrigger() {

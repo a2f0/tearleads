@@ -5,7 +5,7 @@ import {
   type Notification,
   type NotificationLevel,
   notificationStore
-} from '@/stores/notificationStore';
+} from '../stores/notificationStore';
 
 const LEVEL_BORDER_COLORS: Record<NotificationLevel, string> = {
   error: 'border-l-destructive',

@@ -3,6 +3,7 @@
  * Supports multi-instance with instance switching.
  */
 
+import { notificationStore } from '@tearleads/notifications';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -22,7 +23,6 @@ import { emitInstanceChange } from '@/hooks/useInstanceChange';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import { logStore } from '@/stores/logStore';
-import { notificationStore } from '@/stores/notificationStore';
 import { validateAndPruneOrphanedInstances } from '../crypto/key-manager';
 import type { Database } from '../index';
 import {

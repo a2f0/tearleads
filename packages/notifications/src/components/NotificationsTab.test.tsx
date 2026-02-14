@@ -4,7 +4,7 @@
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { notificationStore } from '@/stores/notificationStore';
+import { notificationStore } from '../stores/notificationStore';
 import { NotificationsTab } from './NotificationsTab';
 
 describe('NotificationsTab', () => {

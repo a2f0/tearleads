@@ -77,7 +77,7 @@ vi.mock('./components/language-picker', () => ({
   RuntimeLanguagePicker: () => <div data-testid="runtime-language-picker" />
 }));
 
-vi.mock('./components/notification-center', () => ({
+vi.mock('@tearleads/notifications', () => ({
   NotificationCenterTrigger: () => (
     <div data-testid="notification-center-trigger" />
   )
