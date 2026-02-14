@@ -412,4 +412,100 @@ describe('VfsBackgroundSyncClient', () => {
     await expect(client.flush()).rejects.toThrowError(/mismatched push response/);
     expect(client.snapshot().pendingOperations).toBe(1);
   });
+
+  it('fails closed when pull pages regress last reconciled write ids', async () => {
+    let pullCount = 0;
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => {
+        pullCount += 1;
+        if (pullCount === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'desktop-1',
+                occurredAt: '2026-02-14T12:13:00.000Z'
+              })
+            ],
+            hasMore: true,
+            nextCursor: {
+              changedAt: '2026-02-14T12:13:00.000Z',
+              changeId: 'desktop-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 2
+            }
+          };
+        }
+
+        return {
+          items: [
+            buildAclAddSyncItem({
+              opId: 'desktop-2',
+              occurredAt: '2026-02-14T12:13:01.000Z'
+            })
+          ],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-14T12:13:01.000Z',
+            changeId: 'desktop-2'
+          },
+          lastReconciledWriteIds: {
+            desktop: 1
+          }
+        };
+      }
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    await expect(client.sync()).rejects.toThrowError(/regressed/);
+  });
+
+  it('fails closed when transport regresses cursor with no items', async () => {
+    let pullCount = 0;
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => {
+        pullCount += 1;
+        if (pullCount === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'desktop-1',
+                occurredAt: '2026-02-14T12:14:00.000Z'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:14:00.000Z',
+              changeId: 'desktop-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 1
+            }
+          };
+        }
+
+        return {
+          items: [],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-14T12:13:59.000Z',
+            changeId: 'desktop-0'
+          },
+          lastReconciledWriteIds: {
+            desktop: 1
+          }
+        };
+      }
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    await client.sync();
+    await expect(client.sync()).rejects.toThrowError(/regressing sync cursor/);
+  });
 });
