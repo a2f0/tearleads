@@ -59,6 +59,8 @@ and `v030` backfills folder metadata into canonical `vfs_registry` columns.
 Read paths now prefer `vfs_registry` folder metadata and fail over to
 `vfs_folders`; write paths remain transitional until dual-write retirement work
 is complete.
+`v031` adds non-destructive pre-drop guardrails to verify canonical/legacy
+folder parity before any future `vfs_folders` drop.
 
 ## Domain Mapping
 
