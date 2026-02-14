@@ -17,6 +17,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback, useEffect, useState } from 'react';
+import { InlineLogin } from '@/components/auth/InlineLogin';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
@@ -190,9 +191,7 @@ export function MlsChatWindow({
 
         {!isDatabaseLoading && isUnlocked && !userId && (
           <div className="flex flex-1 items-center justify-center p-4">
-            <p className="text-muted-foreground">
-              Please log in to use MLS Chat
-            </p>
+            <InlineLogin description="MLS Chat" />
           </div>
         )}
 

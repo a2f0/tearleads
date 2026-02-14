@@ -198,6 +198,12 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
   InlineUnlock: () => <div data-testid="inline-unlock" />
 }));
 
+vi.mock('@/components/auth/InlineLogin', () => ({
+  InlineLogin: ({ description }: { description: string }) => (
+    <div data-testid="inline-login">Login for {description}</div>
+  )
+}));
+
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => ({
     isUnlocked: mockState.isUnlocked,
@@ -278,12 +284,11 @@ describe('MlsChatWindow', () => {
     expect(screen.getByTestId('inline-unlock')).toBeInTheDocument();
   });
 
-  it('shows login prompt when user is not logged in', () => {
+  it('shows InlineLogin when user is not logged in', () => {
     mockState.userId = '';
     render(<MlsChatWindow {...defaultProps} />);
-    expect(
-      screen.getByText('Please log in to use MLS Chat')
-    ).toBeInTheDocument();
+    expect(screen.getByTestId('inline-login')).toBeInTheDocument();
+    expect(screen.getByText('Login for MLS Chat')).toBeInTheDocument();
   });
 
   it('shows setup screen when MLS client is not initialized', () => {
