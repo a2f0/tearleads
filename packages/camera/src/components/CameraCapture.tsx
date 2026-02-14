@@ -147,23 +147,20 @@ export function CameraCapture({
     setReviewingCapture(null);
   }, []);
 
-  const handleAccept = useCallback(
-    (dataUrl: string) => {
-      if (reviewingCapture) {
-        // Add to captures list
-        setCaptures((previous) =>
-          [{ id: reviewingCapture.id, dataUrl }, ...previous].slice(
-            0,
-            maxCaptures
-          )
-        );
-        // Notify parent if callback provided
-        onPhotoAccepted?.(dataUrl);
-      }
-      setReviewingCapture(null);
-    },
-    [reviewingCapture, maxCaptures, onPhotoAccepted]
-  );
+  const handleAccept = useCallback(() => {
+    if (reviewingCapture) {
+      // Add to captures list
+      setCaptures((previous) =>
+        [
+          { id: reviewingCapture.id, dataUrl: reviewingCapture.dataUrl },
+          ...previous
+        ].slice(0, maxCaptures)
+      );
+      // Notify parent if callback provided
+      onPhotoAccepted?.(reviewingCapture.dataUrl);
+    }
+    setReviewingCapture(null);
+  }, [reviewingCapture, maxCaptures, onPhotoAccepted]);
 
   const handleClearCaptures = useCallback(() => {
     setCaptures([]);

@@ -3,7 +3,7 @@ import { Check, RotateCcw } from 'lucide-react';
 export interface CameraReviewProps {
   capture: { id: string; dataUrl: string };
   onRetake: () => void;
-  onAccept: (dataUrl: string) => void;
+  onAccept: () => void;
 }
 
 export function CameraReview({
@@ -37,7 +37,7 @@ export function CameraReview({
         </button>
         <button
           type="button"
-          onClick={() => onAccept(capture.dataUrl)}
+          onClick={onAccept}
           className="inline-flex items-center gap-2 rounded border border-primary bg-primary px-4 py-2 text-primary-foreground text-sm hover:bg-primary/90"
           data-testid="camera-review-accept"
         >
