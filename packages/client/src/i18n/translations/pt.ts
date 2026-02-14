@@ -1,0 +1,137 @@
+import type { I18NextTranslations } from './types';
+
+export const pt = {
+  common: {
+    language: 'Idioma',
+    languageName: 'Português',
+    selectLanguage: 'Selecionar idioma',
+    settings: 'Configurações',
+    theme: 'Tema',
+    themeDescription: 'Escolha seu tema de cores preferido',
+    create: 'Criar',
+    restore: 'Restaurar',
+    stored: 'Salvos'
+  },
+  menu: {
+    home: 'Início',
+    search: 'Buscar',
+    calendar: 'Calendário',
+    files: 'Arquivos',
+    businesses: 'Empresas',
+    health: 'Saúde',
+    contacts: 'Contatos',
+    photos: 'Fotos',
+    camera: 'Câmera',
+    documents: 'Documentos',
+    help: 'Ajuda',
+    notes: 'Notas',
+    audio: 'Áudio',
+    videos: 'Vídeos',
+    tables: 'Tabelas',
+    analytics: 'Análises',
+    sqlite: 'SQLite',
+    console: 'Console',
+    debug: 'Depuração',
+    opfs: 'OPFS',
+    cacheStorage: 'Cache',
+    localStorage: 'Armazenamento Local',
+    keychain: 'Chaveiro',
+    wallet: 'Carteira',
+    chat: 'AI',
+    mlsChat: 'MLS Chat',
+    models: 'Modelos',
+    admin: 'Admin',
+    redis: 'Redis',
+    postgres: 'Postgres',
+    postgresAdmin: 'Admin de Postgres',
+    groups: 'Grupos',
+    organizations: 'Organizações',
+    adminUsers: 'Admin de usuários',
+    settings: 'Configurações',
+    email: 'E-mail',
+    sync: 'Sincronizar',
+    vfs: 'Explorador VFS',
+    classic: 'Clássico',
+    backups: 'Backups'
+  },
+  audio: {
+    play: 'Reproduzir',
+    pause: 'Pausar',
+    previousTrack: 'Faixa anterior',
+    nextTrack: 'Próxima faixa',
+    restart: 'Reiniciar faixa',
+    rewind: 'Retroceder',
+    close: 'Fechar player',
+    repeatOff: 'Repetir: Desativado',
+    repeatAll: 'Repetir: Todas as faixas',
+    repeatOne: 'Repetir: Faixa atual',
+    hideVisualizer: 'Ocultar visualizador',
+    showVisualizer: 'Mostrar visualizador',
+    mute: 'Silenciar',
+    unmute: 'Ativar som',
+    volume: 'Volume',
+    seek: 'Buscar',
+    getInfo: 'Obter informações',
+    delete: 'Excluir',
+    restore: 'Restaurar',
+    download: 'Baixar',
+    share: 'Compartilhar'
+  },
+  tooltips: {
+    sseConnected: 'SSE: Conectado',
+    sseConnecting: 'SSE: Conectando',
+    sseDisconnected: 'SSE: Desconectado',
+    keychainSalt:
+      'Valor aleatório usado com sua senha para derivar a chave de criptografia',
+    keychainKeyCheckValue:
+      'Hash usado para verificar se sua senha está correta sem armazená-la',
+    keychainSessionWrappingKey:
+      'Chave temporária que criptografa os dados da sua sessão na memória',
+    keychainSessionWrappedKey:
+      'Sua chave de criptografia protegida pela chave de encapsulamento da sessão'
+  },
+  contextMenu: {
+    play: 'Reproduzir',
+    pause: 'Pausar',
+    getInfo: 'Obter informações',
+    viewDetails: 'Ver detalhes',
+    download: 'Baixar',
+    share: 'Compartilhar',
+    edit: 'Editar',
+    delete: 'Excluir',
+    restore: 'Restaurar',
+    exportVCard: 'Exportar vCard',
+    newNote: 'Nova Nota'
+  },
+  settings: {
+    font: 'Fonte',
+    fontDescription: 'Escolha seu estilo de fonte preferido',
+    fontSystem: 'Sistema',
+    fontMonospace: 'Monoespaçada',
+    iconDepth: 'Profundidade dos ícones',
+    iconDepthDescription:
+      'Escolha se os ícones parecem em relevo ou rebaixados',
+    iconDepthEmbossed: 'Em relevo',
+    iconDepthDebossed: 'Rebaixados',
+    iconBackground: 'Fundos de ícone',
+    iconBackgroundDescription:
+      'Escolha se os ícones têm fundo colorido ou transparente',
+    iconBackgroundColored: 'Colorido',
+    iconBackgroundTransparent: 'Transparente',
+    tooltips: 'Dicas',
+    tooltipsDescription:
+      'Mostrar dicas úteis ao passar o cursor sobre os elementos',
+    tooltipsEnabled: 'Ativado',
+    tooltipsDisabled: 'Desativado',
+    windowOpacity: 'Opacidade das janelas',
+    windowOpacityDescription:
+      'Escolha se as janelas flutuantes são translúcidas ou totalmente opacas',
+    windowOpacityTranslucent: 'Translúcido',
+    windowOpacityOpaque: 'Opaco',
+    borderRadius: 'Raio da borda',
+    borderRadiusDescription:
+      'Escolha se a interface e as janelas usam cantos arredondados ou retos',
+    borderRadiusRounded: 'Arredondado',
+    borderRadiusSquare: 'Reto'
+  }
+} as const satisfies I18NextTranslations;

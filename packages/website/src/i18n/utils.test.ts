@@ -11,6 +11,7 @@ describe('i18n utils', () => {
     it('adds language prefix for non-default languages', () => {
       expect(getLocalizedPath('/docs/api', 'es')).toBe('/es/docs/api');
       expect(getLocalizedPath('/docs/api', 'ua')).toBe('/ua/docs/api');
+      expect(getLocalizedPath('/docs/api', 'pt')).toBe('/pt/docs/api');
       expect(getLocalizedPath('/en/docs/api', 'es')).toBe('/es/docs/api');
     });
 
@@ -32,6 +33,7 @@ describe('i18n utils', () => {
       expect(getLangFromPath('/en/docs/api')).toBe('en');
       expect(getLangFromPath('/es/docs/api')).toBe('es');
       expect(getLangFromPath('/ua/products/cli')).toBe('ua');
+      expect(getLangFromPath('/pt/products/cli')).toBe('pt');
     });
 
     it('returns default language for paths without language prefix', () => {
@@ -51,7 +53,8 @@ describe('i18n utils', () => {
       const paths = getStaticPathsForLocales();
       expect(paths).toEqual([
         { params: { lang: 'es' } },
-        { params: { lang: 'ua' } }
+        { params: { lang: 'ua' } },
+        { params: { lang: 'pt' } }
       ]);
     });
   });
@@ -65,6 +68,7 @@ describe('i18n utils', () => {
     it('returns path with prefix for non-default languages', () => {
       expect(getHref('/docs/api', 'es')).toBe('/es/docs/api');
       expect(getHref('/docs/api', 'ua')).toBe('/ua/docs/api');
+      expect(getHref('/docs/api', 'pt')).toBe('/pt/docs/api');
       expect(getHref('/', 'es')).toBe('/es/');
     });
   });

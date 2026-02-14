@@ -100,6 +100,7 @@ describe('user-settings', () => {
         expect(isLanguageValue('en')).toBe(true);
         expect(isLanguageValue('es')).toBe(true);
         expect(isLanguageValue('ua')).toBe(true);
+        expect(isLanguageValue('pt')).toBe(true);
       });
 
       it('returns false for invalid language values', () => {

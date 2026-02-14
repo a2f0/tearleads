@@ -12,14 +12,15 @@ import {
 
 describe('i18n', () => {
   describe('supportedLanguages', () => {
-    it('includes en, es, and ua', () => {
+    it('includes en, es, ua, and pt', () => {
       expect(supportedLanguages).toContain('en');
       expect(supportedLanguages).toContain('es');
       expect(supportedLanguages).toContain('ua');
+      expect(supportedLanguages).toContain('pt');
     });
 
-    it('has exactly 3 languages', () => {
-      expect(supportedLanguages).toHaveLength(3);
+    it('has exactly 4 languages', () => {
+      expect(supportedLanguages).toHaveLength(4);
     });
   });
 
@@ -28,6 +29,7 @@ describe('i18n', () => {
       expect(isSupportedLanguage('en')).toBe(true);
       expect(isSupportedLanguage('es')).toBe(true);
       expect(isSupportedLanguage('ua')).toBe(true);
+      expect(isSupportedLanguage('pt')).toBe(true);
     });
 
     it('returns false for unsupported languages', () => {

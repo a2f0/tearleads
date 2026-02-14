@@ -30,7 +30,7 @@ export const THEME_VALUES: readonly [
   'system'
 ] = ['light', 'dark', 'tokyo-night', 'monochrome', 'system'];
 export type ThemeValue = (typeof THEME_VALUES)[number];
-export type LanguageValue = 'en' | 'es' | 'ua';
+export type LanguageValue = 'en' | 'es' | 'ua' | 'pt';
 export type TooltipsValue = 'enabled' | 'disabled';
 export type FontValue = 'system' | 'monospace';
 export type DesktopPatternValue =
@@ -97,7 +97,7 @@ export function isThemeValue(value: string): value is ThemeValue {
 }
 
 export function isLanguageValue(value: string): value is LanguageValue {
-  return ['en', 'es', 'ua'].includes(value);
+  return ['en', 'es', 'ua', 'pt'].includes(value);
 }
 
 export function isTooltipsValue(value: string): value is TooltipsValue {

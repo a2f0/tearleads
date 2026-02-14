@@ -30,6 +30,11 @@ import chromeExtensionDocumentationEs from '../../../../../docs/es/chrome-extens
 import cliReferenceDocumentationEs from '../../../../../docs/es/cli-reference.md?raw';
 import cliDocumentationEs from '../../../../../docs/es/getting-started.md?raw';
 import tuxedoDocumentationEs from '../../../../../docs/es/tuxedo.md?raw';
+import backupRestoreDocumentationPt from '../../../../../docs/pt/backup-restore.md?raw';
+import chromeExtensionDocumentationPt from '../../../../../docs/pt/chrome-extension.md?raw';
+import cliReferenceDocumentationPt from '../../../../../docs/pt/cli-reference.md?raw';
+import cliDocumentationPt from '../../../../../docs/pt/getting-started.md?raw';
+import tuxedoDocumentationPt from '../../../../../docs/pt/tuxedo.md?raw';
 import backupRestoreDocumentationUa from '../../../../../docs/ua/backup-restore.md?raw';
 import chromeExtensionDocumentationUa from '../../../../../docs/ua/chrome-extension.md?raw';
 import cliReferenceDocumentationUa from '../../../../../docs/ua/cli-reference.md?raw';
@@ -43,52 +48,62 @@ const HELP_DOC_MARKDOWN: Record<
   cli: {
     en: cliDocumentationEn,
     es: cliDocumentationEs,
-    ua: cliDocumentationUa
+    ua: cliDocumentationUa,
+    pt: cliDocumentationPt
   },
   cliReference: {
     en: cliReferenceDocumentationEn,
     es: cliReferenceDocumentationEs,
-    ua: cliReferenceDocumentationUa
+    ua: cliReferenceDocumentationUa,
+    pt: cliReferenceDocumentationPt
   },
   consoleReference: {
     en: consoleReferenceDocumentationEn,
     es: consoleReferenceDocumentationEn,
-    ua: consoleReferenceDocumentationEn
+    ua: consoleReferenceDocumentationEn,
+    pt: consoleReferenceDocumentationEn
   },
   ci: {
     en: ciDocumentationEn,
     es: ciDocumentationEn,
-    ua: ciDocumentationEn
+    ua: ciDocumentationEn,
+    pt: ciDocumentationEn
   },
   chromeExtension: {
     en: chromeExtensionDocumentationEn,
     es: chromeExtensionDocumentationEs,
-    ua: chromeExtensionDocumentationUa
+    ua: chromeExtensionDocumentationUa,
+    pt: chromeExtensionDocumentationPt
   },
   backupRestore: {
     en: backupRestoreDocumentationEn,
     es: backupRestoreDocumentationEs,
-    ua: backupRestoreDocumentationUa
+    ua: backupRestoreDocumentationUa,
+    pt: backupRestoreDocumentationPt
   },
   tuxedo: {
     en: tuxedoDocumentationEn,
     es: tuxedoDocumentationEs,
-    ua: tuxedoDocumentationUa
+    ua: tuxedoDocumentationUa,
+    pt: tuxedoDocumentationPt
   },
   privacyPolicy: {
     en: privacyPolicyEn,
     es: privacyPolicyEn,
-    ua: privacyPolicyEn
+    ua: privacyPolicyEn,
+    pt: privacyPolicyEn
   },
   termsOfService: {
     en: termsOfServiceEn,
     es: termsOfServiceEn,
-    ua: termsOfServiceEn
+    ua: termsOfServiceEn,
+    pt: termsOfServiceEn
   },
   vfs: {
     en: vfsDocumentationEn,
     es: vfsDocumentationEn,
-    ua: vfsDocumentationEn
+    ua: vfsDocumentationEn,
+    pt: vfsDocumentationEn
   }
 };
 
@@ -124,6 +139,7 @@ const HELP_DOC_ICONS: Record<HelpDocId, LucideIcon> = {
 function resolveLanguage(language: string | undefined): SupportedLanguage {
   if (language === 'es') return 'es';
   if (language === 'ua') return 'ua';
+  if (language === 'pt') return 'pt';
   return 'en';
 }
 
