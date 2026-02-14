@@ -1,3 +1,5 @@
+export { InlineLogin } from './InlineLogin';
+export { InlineRequiresLoginAndUnlock } from './InlineRequiresLoginAndUnlock';
 export { LoginForm } from './LoginForm';
 export { RegisterForm } from './RegisterForm';
 export { RequireAuth } from './RequireAuth';

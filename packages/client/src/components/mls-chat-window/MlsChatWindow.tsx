@@ -17,12 +17,11 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback, useEffect, useState } from 'react';
-import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
+import { InlineRequiresLoginAndUnlock } from '@/components/auth';
 import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { useAuth } from '@/contexts/AuthContext';
-import { useDatabaseContext } from '@/db/hooks';
 import { useTypedTranslation } from '@/i18n';
 import { API_BASE_URL } from '@/lib/api';
 import { MlsChatContent } from './MlsChatContent';
@@ -148,7 +147,6 @@ export function MlsChatWindow({
   initialDimensions
 }: MlsChatWindowProps) {
   const { t } = useTypedTranslation('menu');
-  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { token, user } = useAuth();
 
   const apiBaseUrl = API_BASE_URL ?? 'http://localhost:5001/v1';
@@ -176,27 +174,10 @@ export function MlsChatWindow({
       minHeight={400}
     >
       <div className="flex h-full flex-col overflow-hidden">
-        {isDatabaseLoading && (
-          <div className="flex flex-1 items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
-            Loading database...
-          </div>
-        )}
-
-        {!isDatabaseLoading && !isUnlocked && (
-          <div className="flex flex-1 items-center justify-center p-4">
-            <InlineUnlock description="MLS chat" />
-          </div>
-        )}
-
-        {!isDatabaseLoading && isUnlocked && !userId && (
-          <div className="flex flex-1 items-center justify-center p-4">
-            <p className="text-muted-foreground">
-              Please log in to use MLS Chat
-            </p>
-          </div>
-        )}
-
-        {isUnlocked && userId && (
+        <InlineRequiresLoginAndUnlock
+          description="MLS Chat"
+          unlockDescription="MLS chat"
+        >
           <MlsChatProvider
             apiBaseUrl={apiBaseUrl}
             getAuthHeader={getAuthHeader}
@@ -206,7 +187,7 @@ export function MlsChatWindow({
           >
             <MlsChatWindowInner onClose={onClose} />
           </MlsChatProvider>
-        )}
+        </InlineRequiresLoginAndUnlock>
       </div>
     </FloatingWindow>
   );

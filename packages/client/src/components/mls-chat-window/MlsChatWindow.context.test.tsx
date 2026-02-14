@@ -51,6 +51,11 @@ vi.mock('@/i18n', () => ({
   })
 }));
 
+vi.mock('@/components/auth', () => ({
+  InlineRequiresLoginAndUnlock: ({ children }: { children: React.ReactNode }) =>
+    children
+}));
+
 vi.mock('@tearleads/mls-chat', () => ({
   AddMemberDialog: () => null,
   MlsChatProvider: ({ children }: { children: React.ReactNode }) => children,
