@@ -201,18 +201,20 @@ jobs:
                 "Latest source run: $SOURCE_RUN_ID" \
                 "This branch is rebuilt from origin/main and replays pending source-sha bumps.")
 
-              PR_NUMBER=$(gh pr list -R "$REPO" --state open --base main --head "$BUMP_BRANCH" --json number --jq '.[0].number')
-              if [ -z "$PR_NUMBER" ]; then
-                PR_URL=$(gh pr create -R "$REPO" \
-                  --base main \
-                  --head "$BUMP_BRANCH" \
-                  --title "chore(release): bump versions" \
-                  --body "$PR_BODY")
-                PR_NUMBER=$(echo "$PR_URL" | awk -F/ '{print $NF}')
-              else
-                gh pr edit -R "$REPO" "$PR_NUMBER" --body "$PR_BODY"
-                PR_URL="https://github.com/$REPO/pull/$PR_NUMBER"
+              # Close existing PR to ensure fresh CI triggers on new PR
+              # Force-pushes from Actions don't trigger pull_request.synchronize
+              EXISTING_PR=$(gh pr list -R "$REPO" --state open --base main --head "$BUMP_BRANCH" --json number --jq '.[0].number')
+              if [ -n "$EXISTING_PR" ]; then
+                gh pr close -R "$REPO" "$EXISTING_PR" --comment "Recreating PR to trigger CI after branch update." || true
               fi
+
+              # Create fresh PR (triggers pull_request.opened event)
+              PR_URL=$(gh pr create -R "$REPO" \
+                --base main \
+                --head "$BUMP_BRANCH" \
+                --title "chore(release): bump versions" \
+                --body "$PR_BODY")
+              PR_NUMBER=$(echo "$PR_URL" | awk -F/ '{print $NF}')
 
               gh pr merge -R "$REPO" "$PR_NUMBER" --merge --auto || true
 
