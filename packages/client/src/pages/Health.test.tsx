@@ -22,6 +22,35 @@ describe('Health', () => {
     expect(screen.getByText('Workouts')).toBeTruthy();
   });
 
+  it('exposes health table schema details', () => {
+    renderHealth();
+
+    expect(screen.getByText('table: health_weight_readings')).toBeTruthy();
+    expect(screen.getByText('table: health_blood_pressure_readings')).toBeTruthy();
+    expect(screen.getByText('table: health_exercises')).toBeTruthy();
+    expect(screen.getByText('table: health_workout_entries')).toBeTruthy();
+
+    expect(
+      screen.getByText(
+        'columns: id, recordedAt, valueCenti, unit, note, createdAt'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        'columns: id, recordedAt, systolic, diastolic, pulse, note, createdAt'
+      )
+    ).toBeTruthy();
+    expect(screen.getByText('columns: id, name, createdAt')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'columns: id, performedAt, exerciseId, reps, weightCenti, weightUnit, note, createdAt'
+      )
+    ).toBeTruthy();
+    expect(
+      screen.getByText('relation: exerciseId -> health_exercises.id')
+    ).toBeTruthy();
+  });
+
   it('shows the back link by default', () => {
     renderHealth();
     expect(screen.getByText('Back to Home')).toBeTruthy();
