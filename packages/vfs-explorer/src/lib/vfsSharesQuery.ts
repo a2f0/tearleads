@@ -70,7 +70,10 @@ function isMissingSqliteTableError(
  * Mirrors the implementation in vfsQuery.ts.
  */
 function nameCoalesce(): SQL<string> {
+  // Guardrail: canonical folder metadata in vfs_registry must take precedence
+  // while vfs_folders remains as a compatibility fallback during cutover.
   return sql<string>`COALESCE(
+    NULLIF(${vfsRegistry.encryptedName}, ''),
     NULLIF(${vfsFolders.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'folder' THEN 'Unnamed Folder' END,
     NULLIF(${files.name}, ''),

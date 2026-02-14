@@ -29,7 +29,10 @@ import type { VfsSortState } from './vfsTypes';
  * table's column will be non-NULL for a given registry row.
  */
 function nameCoalesce(): SQL<string> {
+  // Guardrail: during folder flattening rollout, canonical metadata in
+  // vfs_registry must win over legacy vfs_folders values.
   return sql<string>`COALESCE(
+    NULLIF(${vfsRegistry.encryptedName}, ''),
     NULLIF(${vfsFolders.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'folder' THEN 'Unnamed Folder' END,
     NULLIF(${files.name}, ''),

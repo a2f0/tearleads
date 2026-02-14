@@ -1,12 +1,58 @@
 import { seedVfsItem, withRealDatabase } from '@tearleads/db-test-utils';
 import { describe, expect, it } from 'vitest';
 import { trashTestMigrations } from '../test/trashTestMigrations';
-import { queryDeletedItems } from './vfsQuery';
+import { queryAllItems, queryDeletedItems } from './vfsQuery';
 import type { VfsSortState } from './vfsTypes';
 
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
 
 describe('vfsQuery integration (real database)', () => {
+  it('queryAllItems prefers canonical folder names with legacy fallback', async () => {
+    await withRealDatabase(
+      async ({ db, adapter }) => {
+        const canonicalFolderId = crypto.randomUUID();
+        const fallbackFolderId = crypto.randomUUID();
+        const unnamedFolderId = crypto.randomUUID();
+        const now = Date.now();
+
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [canonicalFolderId, 'folder', null, 'Canonical Folder Name', now]
+        );
+        await adapter.execute(
+          `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
+          [canonicalFolderId, 'Legacy Folder Name']
+        );
+
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [fallbackFolderId, 'folder', null, null, now + 1]
+        );
+        await adapter.execute(
+          `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
+          [fallbackFolderId, 'Legacy Fallback Name']
+        );
+
+        await adapter.execute(
+          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
+          [unnamedFolderId, 'folder', null, '', now + 2]
+        );
+
+        const allItems = await queryAllItems(db, DEFAULT_SORT);
+        const canonicalRow = allItems.find(
+          (row) => row.id === canonicalFolderId
+        );
+        const fallbackRow = allItems.find((row) => row.id === fallbackFolderId);
+        const unnamedRow = allItems.find((row) => row.id === unnamedFolderId);
+
+        expect(canonicalRow?.name).toBe('Canonical Folder Name');
+        expect(fallbackRow?.name).toBe('Legacy Fallback Name');
+        expect(unnamedRow?.name).toBe('Unnamed Folder');
+      },
+      { migrations: trashTestMigrations }
+    );
+  });
+
   it('queryDeletedItems returns files/contacts/notes marked deleted', async () => {
     await withRealDatabase(
       async ({ db, adapter }) => {

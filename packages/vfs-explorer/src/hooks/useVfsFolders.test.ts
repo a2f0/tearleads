@@ -89,6 +89,33 @@ describe('useVfsFolders', () => {
     expect(result.current.folders[0]?.children?.[0]?.name).toBe('Child');
   });
 
+  it('falls back to Unnamed Folder when metadata is missing', async () => {
+    const mockFolderRows = [
+      { id: 'folder-1', name: '', createdAt: Date.now() }
+    ];
+    const mockLinkRows: { childId: string; parentId: string }[] = [];
+    const mockChildCountRows: { parentId: string }[] = [];
+
+    mockDb.where
+      .mockResolvedValueOnce(mockFolderRows)
+      .mockResolvedValueOnce(mockLinkRows)
+      .mockResolvedValueOnce(mockChildCountRows);
+
+    const wrapper = createWrapper({
+      databaseState: createMockDatabaseState(),
+      database: mockDb
+    });
+
+    const { result } = renderHook(() => useVfsFolders(), { wrapper });
+
+    await waitFor(() => {
+      expect(result.current.hasFetched).toBe(true);
+    });
+
+    expect(result.current.folders).toHaveLength(1);
+    expect(result.current.folders[0]?.name).toBe('Unnamed Folder');
+  });
+
   it('handles fetch errors', async () => {
     mockDb.where.mockRejectedValueOnce(new Error('Database error'));
 

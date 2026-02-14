@@ -14,9 +14,10 @@ import {
   notes,
   playlists,
   tags,
-  vfsFolders
+  vfsFolders,
+  vfsRegistry
 } from '@tearleads/db/sqlite';
-import { inArray } from 'drizzle-orm';
+import { and, eq, inArray, sql } from 'drizzle-orm';
 import type { VfsRegistryRow } from './vfsTypes';
 
 /**
@@ -50,9 +51,28 @@ export async function fetchItemNames(
   if (byType['folder']?.length) {
     nameLookups.push(
       db
-        .select({ id: vfsFolders.id, name: vfsFolders.encryptedName })
-        .from(vfsFolders)
-        .where(inArray(vfsFolders.id, byType['folder']))
+        .select({
+          id: vfsRegistry.id,
+          name: sql<string>`COALESCE(
+            NULLIF(${vfsRegistry.encryptedName}, ''),
+            NULLIF(${vfsFolders.encryptedName}, ''),
+            'Unnamed Folder'
+          ) as "name"`
+        })
+        .from(vfsRegistry)
+        .leftJoin(
+          vfsFolders,
+          and(
+            eq(vfsRegistry.id, vfsFolders.id),
+            eq(vfsRegistry.objectType, 'folder')
+          )
+        )
+        .where(
+          and(
+            eq(vfsRegistry.objectType, 'folder'),
+            inArray(vfsRegistry.id, byType['folder'])
+          )
+        )
         .then((rows) => {
           for (const row of rows) {
             nameMap.set(row.id, row.name || 'Unnamed Folder');
