@@ -3,6 +3,10 @@ import {
   albumsTable,
   allTables,
   analyticsEventsTable,
+  vfsBlobObjectsTable,
+  vfsBlobRefsTable,
+  vfsBlobStagingTable,
+  vfsCrdtOpsTable,
   contactEmailsTable,
   contactGroupsTable,
   contactPhonesTable,
@@ -561,9 +565,48 @@ describe('vfsSyncClientStateTable', () => {
   });
 });
 
+describe('vfsBlobObjectsTable', () => {
+  it('tracks immutable blob metadata', () => {
+    expect(vfsBlobObjectsTable.columns['id']).toBeDefined();
+    expect(vfsBlobObjectsTable.columns['sha256']).toBeDefined();
+    expect(vfsBlobObjectsTable.columns['sizeBytes']).toBeDefined();
+    expect(vfsBlobObjectsTable.columns['storageKey']).toBeDefined();
+    expect(vfsBlobObjectsTable.columns['createdBy']).toBeDefined();
+  });
+});
+
+describe('vfsBlobStagingTable', () => {
+  it('supports staged-to-attached lifecycle', () => {
+    expect(vfsBlobStagingTable.columns['blobId']).toBeDefined();
+    expect(vfsBlobStagingTable.columns['status']).toBeDefined();
+    expect(vfsBlobStagingTable.columns['expiresAt']).toBeDefined();
+    expect(vfsBlobStagingTable.columns['attachedItemId']).toBeDefined();
+  });
+});
+
+describe('vfsBlobRefsTable', () => {
+  it('links blobs to vfs items', () => {
+    expect(vfsBlobRefsTable.columns['blobId']).toBeDefined();
+    expect(vfsBlobRefsTable.columns['itemId']).toBeDefined();
+    expect(vfsBlobRefsTable.columns['relationKind']).toBeDefined();
+    expect(vfsBlobRefsTable.columns['attachedBy']).toBeDefined();
+  });
+});
+
+describe('vfsCrdtOpsTable', () => {
+  it('stores acl and link operation logs', () => {
+    expect(vfsCrdtOpsTable.columns['itemId']).toBeDefined();
+    expect(vfsCrdtOpsTable.columns['opType']).toBeDefined();
+    expect(vfsCrdtOpsTable.columns['principalType']).toBeDefined();
+    expect(vfsCrdtOpsTable.columns['parentId']).toBeDefined();
+    expect(vfsCrdtOpsTable.columns['childId']).toBeDefined();
+    expect(vfsCrdtOpsTable.columns['occurredAt']).toBeDefined();
+  });
+});
+
 describe('allTables', () => {
-  it('contains all 51 tables', () => {
-    expect(allTables).toHaveLength(51);
+  it('contains all 55 tables', () => {
+    expect(allTables).toHaveLength(55);
   });
 
   it('contains all table definitions', () => {
@@ -606,6 +649,10 @@ describe('allTables', () => {
     expect(allTables).toContain(vfsAclEntriesTable);
     expect(allTables).toContain(vfsSyncChangesTable);
     expect(allTables).toContain(vfsSyncClientStateTable);
+    expect(allTables).toContain(vfsBlobObjectsTable);
+    expect(allTables).toContain(vfsBlobStagingTable);
+    expect(allTables).toContain(vfsBlobRefsTable);
+    expect(allTables).toContain(vfsCrdtOpsTable);
     expect(allTables).toContain(mlsKeyPackagesTable);
     expect(allTables).toContain(mlsGroupsTable);
     expect(allTables).toContain(mlsGroupMembersTable);

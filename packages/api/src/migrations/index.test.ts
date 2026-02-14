@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 21 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 22 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(21);
+      expect(result.currentVersion).toBe(22);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 21 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 22 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -158,9 +158,10 @@ describe('migrations', () => {
       const result = await runMigrations(pool);
 
       expect(result.applied).toEqual([
-        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21
+        2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+        22
       ]);
-      expect(result.currentVersion).toBe(21);
+      expect(result.currentVersion).toBe(22);
     });
   });
 
@@ -419,6 +420,40 @@ describe('migrations', () => {
       );
       expect(queries).toContain(
         'CREATE INDEX IF NOT EXISTS "vfs_sync_client_state_user_idx"'
+      );
+    });
+  });
+
+  describe('v022 migration', () => {
+    it('creates blob tables and CRDT sync triggers', async () => {
+      const pool = createMockPool(new Map());
+
+      const v022 = migrations.find((m: Migration) => m.version === 22);
+      if (!v022) {
+        throw new Error('v022 migration not found');
+      }
+
+      await v022.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_blob_objects"');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_blob_staging"');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_blob_refs"');
+      expect(queries).toContain('CREATE TABLE IF NOT EXISTS "vfs_crdt_ops"');
+      expect(queries).toContain(
+        'CREATE OR REPLACE FUNCTION "vfs_emit_sync_change"'
+      );
+      expect(queries).toContain(
+        'CREATE OR REPLACE FUNCTION "vfs_links_emit_sync_crdt_trigger"'
+      );
+      expect(queries).toContain(
+        'CREATE TRIGGER "vfs_shares_emit_sync_crdt_trigger"'
+      );
+      expect(queries).toContain(
+        'CREATE TRIGGER "org_shares_emit_sync_crdt_trigger"'
+      );
+      expect(queries).toContain(
+        'CREATE TRIGGER "vfs_links_emit_sync_crdt_trigger"'
       );
     });
   });
