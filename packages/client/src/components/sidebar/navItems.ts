@@ -7,6 +7,7 @@ import {
   Building2,
   CalendarDays,
   Camera,
+  CarFront,
   CircleHelp,
   CreditCard,
   Database,
@@ -71,6 +72,13 @@ export const navItems: NavItem[] = [
     labelKey: 'businesses',
     inMobileMenu: true,
     testId: 'businesses-link'
+  },
+  {
+    path: '/vehicles',
+    icon: CarFront,
+    labelKey: 'vehicles',
+    inMobileMenu: true,
+    testId: 'vehicles-link'
   },
   {
     path: '/health',

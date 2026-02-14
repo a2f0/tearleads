@@ -774,6 +774,41 @@ vi.mock('@/components/businesses-window', () => ({
   )
 }));
 
+vi.mock('@/components/vehicles-window', () => ({
+  VehiclesWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`vehicles-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 900, height: 620 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
 vi.mock('@/components/health-window', () => ({
   HealthWindow: ({
     id,
@@ -1852,6 +1887,18 @@ describe('WindowRenderer', () => {
       }
     },
     {
+      label: 'vehicles',
+      type: 'vehicles',
+      id: 'vehicles-1',
+      windowTestId: 'vehicles-window-vehicles-1',
+      closeTestId: 'close-vehicles-1',
+      focusTestId: 'vehicles-window-vehicles-1',
+      minimize: {
+        testId: 'minimize-vehicles-1',
+        dimensions: { x: 0, y: 0, width: 900, height: 620 }
+      }
+    },
+    {
       label: 'health',
       type: 'health',
       id: 'health-1',
@@ -1988,7 +2035,7 @@ describe('WindowRenderer', () => {
     expect(mockMinimizeWindow).toHaveBeenCalledWith(id, dimensions);
   });
 
-  it('renders all twenty-six window types together', () => {
+  it('renders all twenty-seven window types together', () => {
     mockWindows = [
       { id: 'notes-1', type: 'notes', zIndex: 100 },
       { id: 'console-1', type: 'console', zIndex: 101 },
@@ -2015,7 +2062,8 @@ describe('WindowRenderer', () => {
       { id: 'opfs-1', type: 'opfs', zIndex: 122 },
       { id: 'calendar-1', type: 'calendar', zIndex: 123 },
       { id: 'businesses-1', type: 'businesses', zIndex: 124 },
-      { id: 'health-1', type: 'health', zIndex: 125 }
+      { id: 'vehicles-1', type: 'vehicles', zIndex: 125 },
+      { id: 'health-1', type: 'health', zIndex: 126 }
     ];
     render(<WindowRenderer />, { wrapper });
     expect(screen.getByTestId('notes-window-notes-1')).toBeInTheDocument();
@@ -2043,6 +2091,9 @@ describe('WindowRenderer', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByTestId('businesses-window-businesses-1')
+    ).toBeInTheDocument();
+    expect(
+      screen.getByTestId('vehicles-window-vehicles-1')
     ).toBeInTheDocument();
     expect(screen.getByTestId('health-window-health-1')).toBeInTheDocument();
     expect(

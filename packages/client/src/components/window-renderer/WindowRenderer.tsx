@@ -39,6 +39,7 @@ import { SearchWindow } from '@/components/search-window';
 import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
 import { TablesWindow } from '@/components/tables-window';
+import { VehiclesWindow } from '@/components/vehicles-window';
 import { VfsWindow } from '@/components/vfs-window';
 import { VideoWindow } from '@/components/video-window';
 import { WalletWindow } from '@/components/wallet-window';
@@ -176,6 +177,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   search: { Component: SearchWindow },
   calendar: { Component: CalendarWindow },
   businesses: { Component: BusinessesWindow },
+  vehicles: { Component: VehiclesWindow },
   health: { Component: HealthWindow },
   'notification-center': { Component: NotificationCenter }
 };

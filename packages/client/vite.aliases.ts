@@ -18,6 +18,8 @@ export const createViteAliases = (dirname: string): AliasMap => ({
   '@tearleads/ui/theme.css': path.resolve(dirname, '../ui/src/styles/theme.css'),
   '@tearleads/ui/logo.svg': path.resolve(dirname, '../ui/src/images/logo.svg'),
   '@tearleads/ui': path.resolve(dirname, '../ui/src/index.ts'),
+  '@tearleads/vehicles/package.json': path.resolve(dirname, '../vehicles/package.json'),
+  '@tearleads/vehicles': path.resolve(dirname, '../vehicles/src/index.ts'),
   // API openapi spec
   '@tearleads/api/dist/openapi.json': path.resolve(dirname, '../api/dist/openapi.json'),
   // Workspace packages aliased to source for HMR

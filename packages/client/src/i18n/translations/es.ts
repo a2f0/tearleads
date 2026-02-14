@@ -18,6 +18,7 @@ export const es = {
     calendar: 'Calendario',
     files: 'Archivos',
     businesses: 'Empresas',
+    vehicles: 'Vehículos',
     health: 'Salud',
     contacts: 'Contactos',
     photos: 'Fotos',

@@ -76,6 +76,7 @@
     "@tearleads/sync": "workspace:*",
     "@tearleads/terminal": "workspace:*",
     "@tearleads/ui": "workspace:*",
+    "@tearleads/vehicles": "workspace:*",
     "@tearleads/vfs-explorer": "workspace:*",
     "@tearleads/wallet": "workspace:*",
     "@tearleads/window-manager": "workspace:*",

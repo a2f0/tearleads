@@ -325,6 +325,29 @@ export const notes = sqliteTable(
 );
 
 /**
+ * Vehicles table for storing vehicle inventory metadata.
+ */
+export const vehicles = sqliteTable(
+  'vehicles',
+  {
+    id: text('id').primaryKey(),
+    make: text('make').notNull(),
+    model: text('model').notNull(),
+    year: integer('year'),
+    color: text('color'),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull(),
+    deleted: integer('deleted', { mode: 'boolean' }).notNull().default(false)
+  },
+  (table) => [
+    index('vehicles_updated_at_idx').on(table.updatedAt),
+    index('vehicles_make_model_idx').on(table.make, table.model),
+    index('vehicles_year_idx').on(table.year),
+    index('vehicles_deleted_idx').on(table.deleted)
+  ]
+);
+
+/**
  * Health exercises table for workout exercise selection.
  */
 export const healthExercises = sqliteTable(
@@ -1152,6 +1175,7 @@ export const schema = {
   contactEmails,
   analyticsEvents,
   notes,
+  vehicles,
   healthExercises,
   healthWeightReadings,
   healthBloodPressureReadings,

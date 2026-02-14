@@ -32,6 +32,8 @@
     { "path": "./packages/health/tsconfig.test.json" },
     { "path": "./packages/businesses" },
     { "path": "./packages/businesses/tsconfig.test.json" },
+    { "path": "./packages/vehicles" },
+    { "path": "./packages/vehicles/tsconfig.test.json" },
     { "path": "./packages/contacts" },
     { "path": "./packages/contacts/tsconfig.test.json" },
     { "path": "./packages/api" },

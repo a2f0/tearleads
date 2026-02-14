@@ -63,6 +63,7 @@ const WINDOW_TYPES = [
   'search',
   'calendar',
   'businesses',
+  'vehicles',
   'health',
   'notification-center'
 ] as const;

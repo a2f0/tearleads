@@ -106,6 +106,9 @@ const CameraPage = lazy(() =>
 const Businesses = lazy(() =>
   import('./pages/Businesses').then((m) => ({ default: m.Businesses }))
 );
+const Vehicles = lazy(() =>
+  import('./pages/Vehicles').then((m) => ({ default: m.Vehicles }))
+);
 const Chat = lazy(() =>
   import('./pages/chat').then((m) => ({ default: m.Chat }))
 );
@@ -307,6 +310,10 @@ if (rootElement) {
                                         <Route
                                           path="businesses"
                                           element={<Businesses />}
+                                        />
+                                        <Route
+                                          path="vehicles"
+                                          element={<Vehicles />}
                                         />
                                         <Route
                                           path="health"
