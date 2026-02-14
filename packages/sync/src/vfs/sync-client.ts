@@ -10,6 +10,11 @@ import {
   parseVfsCrdtLastReconciledWriteIds,
   type VfsCrdtLastReconciledWriteIds
 } from './sync-crdt-reconcile.js';
+import {
+  InMemoryVfsContainerClockStore,
+  type ListVfsContainerClockChangesResult,
+  type VfsContainerClockEntry
+} from './sync-container-clocks.js';
 import type { VfsSyncCursor } from './sync-cursor.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
@@ -201,6 +206,7 @@ export interface VfsBackgroundSyncClientSnapshot {
   }>;
   cursor: VfsSyncCursor | null;
   lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
+  containerClocks: VfsContainerClockEntry[];
   pendingOperations: number;
   nextLocalWriteId: number;
 }
@@ -219,6 +225,7 @@ export class VfsBackgroundSyncClient {
 
   private readonly replayStore = new InMemoryVfsCrdtFeedReplayStore();
   private readonly reconcileStateStore = new InMemoryVfsCrdtClientStateStore();
+  private readonly containerClockStore = new InMemoryVfsContainerClockStore();
 
   private flushPromise: Promise<VfsBackgroundSyncClientFlushResult> | null = null;
   private backgroundFlushTimer: ReturnType<typeof setInterval> | null = null;
@@ -337,9 +344,17 @@ export class VfsBackgroundSyncClient {
       links: replaySnapshot.links,
       cursor: reconcileState?.cursor ?? replaySnapshot.cursor,
       lastReconciledWriteIds: reconcileState?.lastReconciledWriteIds ?? {},
+      containerClocks: this.containerClockStore.snapshot(),
       pendingOperations: this.pendingOperations.length,
       nextLocalWriteId: this.nextLocalWriteId
     };
+  }
+
+  listChangedContainers(
+    cursor: VfsSyncCursor | null,
+    limit?: number
+  ): ListVfsContainerClockChangesResult {
+    return this.containerClockStore.listChangedSince(cursor, limit);
   }
 
   async sync(): Promise<VfsBackgroundSyncClientSyncResult> {
@@ -474,6 +489,7 @@ export class VfsBackgroundSyncClient {
       let pageCursor: VfsSyncCursor | null = null;
       if (response.items.length > 0) {
         this.replayStore.applyPage(response.items);
+        this.containerClockStore.applyFeedItems(response.items);
         pulledOperations += response.items.length;
 
         pageCursor = lastItemCursor(response.items);
