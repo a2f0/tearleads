@@ -1232,6 +1232,34 @@ describe('VFS routes', () => {
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
 
+    it('returns 500 when staged blob metadata is missing expiresAt', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: null
+            }
+          ]
+        }) // SELECT
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1' });
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to attach staged blob' });
+      expect(mockQuery.mock.calls[2]?.[0]).toBe('ROLLBACK');
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
     it('returns 409 when update guardrail detects attach race', async () => {
       const authHeader = await createAuthHeader();
       mockQuery
