@@ -202,6 +202,10 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/db-test-utils build
 
+      - name: Build health
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+        run: pnpm --filter @tearleads/health build
+
       - name: Build web assets
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/client build
