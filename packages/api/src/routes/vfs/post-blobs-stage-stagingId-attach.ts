@@ -1,4 +1,12 @@
 import { randomUUID } from 'node:crypto';
+import { isRecord } from '@tearleads/shared';
+import {
+  compareVfsSyncCursorOrder,
+  decodeVfsSyncCursor,
+  parseVfsCrdtLastReconciledWriteIds,
+  type VfsCrdtLastReconciledWriteIds,
+  type VfsSyncCursor
+} from '@tearleads/sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
 import type { PoolClient } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
@@ -14,6 +22,125 @@ interface BlobStagingRow {
   staged_by: string;
   status: string;
   expires_at: Date | string;
+}
+
+interface CrdtReconcileStateRow {
+  last_reconciled_at: Date | string;
+  last_reconciled_change_id: string;
+  last_reconciled_write_ids: unknown;
+}
+
+interface ParsedBlobAttachConsistency {
+  clientId: string;
+  requiredCursor: VfsSyncCursor;
+  requiredLastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
+}
+
+type ParseBlobAttachConsistencyResult =
+  | {
+      ok: true;
+      value: ParsedBlobAttachConsistency | null;
+    }
+  | {
+      ok: false;
+      error: string;
+    };
+
+const CRDT_CLIENT_NAMESPACE = 'crdt';
+
+function toScopedCrdtClientId(clientId: string): string {
+  return `${CRDT_CLIENT_NAMESPACE}:${clientId}`;
+}
+
+function dominatesLastWriteIds(
+  current: VfsCrdtLastReconciledWriteIds,
+  required: VfsCrdtLastReconciledWriteIds
+): boolean {
+  for (const [replicaId, requiredWriteId] of Object.entries(required)) {
+    const currentWriteId = current[replicaId] ?? 0;
+    if (currentWriteId < requiredWriteId) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function parseBlobAttachConsistency(
+  body: unknown
+): ParseBlobAttachConsistencyResult {
+  if (!isRecord(body)) {
+    return {
+      ok: true,
+      value: null
+    };
+  }
+
+  const rawClientId = body['clientId'];
+  const rawRequiredCursor = body['requiredCursor'];
+  const rawRequiredLastWriteIds = body['requiredLastReconciledWriteIds'];
+
+  if (
+    rawClientId === undefined &&
+    rawRequiredCursor === undefined &&
+    rawRequiredLastWriteIds === undefined
+  ) {
+    return {
+      ok: true,
+      value: null
+    };
+  }
+
+  const clientId = normalizeRequiredString(rawClientId);
+  if (!clientId) {
+    return {
+      ok: false,
+      error: 'clientId is required when reconcile guardrails are provided'
+    };
+  }
+
+  if (clientId.includes(':')) {
+    return {
+      ok: false,
+      error: 'clientId must not contain ":"'
+    };
+  }
+
+  const requiredCursorRaw = normalizeRequiredString(rawRequiredCursor);
+  if (!requiredCursorRaw) {
+    return {
+      ok: false,
+      error:
+        'requiredCursor is required when reconcile guardrails are provided'
+    };
+  }
+
+  const requiredCursor = decodeVfsSyncCursor(requiredCursorRaw);
+  if (!requiredCursor) {
+    return {
+      ok: false,
+      error: 'Invalid requiredCursor'
+    };
+  }
+
+  const parsedLastWriteIds = parseVfsCrdtLastReconciledWriteIds(
+    rawRequiredLastWriteIds
+  );
+  if (!parsedLastWriteIds.ok) {
+    return {
+      ok: false,
+      error: parsedLastWriteIds.error
+    };
+  }
+
+  return {
+    ok: true,
+    value: {
+      clientId,
+      requiredCursor,
+      requiredLastReconciledWriteIds: parsedLastWriteIds.value
+    }
+  };
 }
 
 export const postBlobsStageStagingIdAttachHandler = async (
@@ -35,6 +162,12 @@ export const postBlobsStageStagingIdAttachHandler = async (
   const parsedBody = parseBlobAttachBody(req.body);
   if (!parsedBody) {
     res.status(400).json({ error: 'itemId is required' });
+    return;
+  }
+
+  const parsedConsistency = parseBlobAttachConsistency(req.body);
+  if (!parsedConsistency.ok) {
+    res.status(400).json({ error: parsedConsistency.error });
     return;
   }
 
@@ -84,6 +217,65 @@ export const postBlobsStageStagingIdAttachHandler = async (
       inTransaction = false;
       res.status(409).json({ error: 'Blob staging has expired' });
       return;
+    }
+
+    if (parsedConsistency.value) {
+      const reconcileState = await client.query<CrdtReconcileStateRow>(
+        `
+        SELECT
+          last_reconciled_at,
+          last_reconciled_change_id,
+          last_reconciled_write_ids
+        FROM vfs_sync_client_state
+        WHERE user_id = $1::text
+          AND client_id = $2::text
+        FOR UPDATE
+        `,
+        [claims.sub, toScopedCrdtClientId(parsedConsistency.value.clientId)]
+      );
+
+      const reconcileStateRow = reconcileState.rows[0];
+      if (!reconcileStateRow) {
+        await client.query('ROLLBACK');
+        inTransaction = false;
+        res
+          .status(409)
+          .json({ error: 'Client reconcile state is behind required visibility' });
+        return;
+      }
+
+      const currentCursor: VfsSyncCursor = {
+        changedAt: toIsoFromDateOrString(reconcileStateRow.last_reconciled_at),
+        changeId: reconcileStateRow.last_reconciled_change_id
+      };
+
+      const parsedCurrentLastWriteIds = parseVfsCrdtLastReconciledWriteIds(
+        reconcileStateRow.last_reconciled_write_ids
+      );
+      if (!parsedCurrentLastWriteIds.ok) {
+        await client.query('ROLLBACK');
+        inTransaction = false;
+        res.status(500).json({ error: 'Failed to attach staged blob' });
+        return;
+      }
+
+      if (
+        compareVfsSyncCursorOrder(
+          currentCursor,
+          parsedConsistency.value.requiredCursor
+        ) < 0 ||
+        !dominatesLastWriteIds(
+          parsedCurrentLastWriteIds.value,
+          parsedConsistency.value.requiredLastReconciledWriteIds
+        )
+      ) {
+        await client.query('ROLLBACK');
+        inTransaction = false;
+        res
+          .status(409)
+          .json({ error: 'Client reconcile state is behind required visibility' });
+        return;
+      }
     }
 
     const updatedResult = await client.query<{
