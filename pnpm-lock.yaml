@@ -274,6 +274,9 @@ importers:
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
+      '@tearleads/sync':
+        specifier: workspace:*
+        version: link:../sync
       commander:
         specifier: 14.0.3
         version: 14.0.3
@@ -2135,6 +2138,9 @@ importers:
 
   packages/sync:
     dependencies:
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       lucide-react:
         specifier: 0.564.0
         version: 0.564.0(react@19.2.4)

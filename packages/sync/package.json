@@ -10,6 +10,10 @@
       "types": "./src/index.ts",
       "import": "./src/index.ts"
     },
+    "./vfs": {
+      "types": "./src/vfs/index.ts",
+      "import": "./src/vfs/index.ts"
+    },
     "./package.json": "./package.json"
   },
   "files": [
@@ -29,6 +33,7 @@
     "react-router-dom": "7.13.0"
   },
   "dependencies": {
+    "@tearleads/shared": "workspace:*",
     "lucide-react": "0.564.0"
   },
   "devDependencies": {

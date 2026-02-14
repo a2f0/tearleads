@@ -39,10 +39,12 @@ import {
   usersTable,
   vehiclesTable,
   vfsAccessTable,
+  vfsAclEntriesTable,
   vfsFoldersTable,
   vfsLinksTable,
   vfsRegistryTable,
-  vfsSharesTable
+  vfsSharesTable,
+  vfsSyncChangesTable
 } from './definition.js';
 import { isTableDefinition } from './types.js';
 
@@ -529,9 +531,27 @@ describe('tagsTable', () => {
   });
 });
 
+describe('vfsAclEntriesTable', () => {
+  it('uses flattened principal ACL columns', () => {
+    expect(vfsAclEntriesTable.columns['principalType']).toBeDefined();
+    expect(vfsAclEntriesTable.columns['principalId']).toBeDefined();
+    expect(vfsAclEntriesTable.columns['accessLevel']).toBeDefined();
+    expect(vfsAclEntriesTable.columns['revokedAt']).toBeDefined();
+  });
+});
+
+describe('vfsSyncChangesTable', () => {
+  it('has change feed cursor columns', () => {
+    expect(vfsSyncChangesTable.columns['itemId']).toBeDefined();
+    expect(vfsSyncChangesTable.columns['changeType']).toBeDefined();
+    expect(vfsSyncChangesTable.columns['changedAt']).toBeDefined();
+    expect(vfsSyncChangesTable.columns['rootId']).toBeDefined();
+  });
+});
+
 describe('allTables', () => {
-  it('contains all 49 tables', () => {
-    expect(allTables).toHaveLength(49);
+  it('contains all 50 tables', () => {
+    expect(allTables).toHaveLength(50);
   });
 
   it('contains all table definitions', () => {
@@ -571,6 +591,8 @@ describe('allTables', () => {
     expect(allTables).toContain(vfsSharesTable);
     expect(allTables).toContain(orgSharesTable);
     expect(allTables).toContain(vfsAccessTable);
+    expect(allTables).toContain(vfsAclEntriesTable);
+    expect(allTables).toContain(vfsSyncChangesTable);
     expect(allTables).toContain(mlsKeyPackagesTable);
     expect(allTables).toContain(mlsGroupsTable);
     expect(allTables).toContain(mlsGroupMembersTable);
