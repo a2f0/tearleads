@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { AccountSwitcher } from './components/AccountSwitcher';
 import { MiniPlayer } from './components/audio/MiniPlayer';
+import { RuntimeLanguagePicker } from './components/language-picker';
 import { MobileMenu } from './components/MobileMenu';
 import { NotificationCenterTrigger } from './components/notification-center';
 import { SettingsButton } from './components/SettingsButton';
@@ -303,6 +304,7 @@ function App() {
         }}
       >
         <div className="flex items-center gap-2">
+          <RuntimeLanguagePicker />
           {sse && (
             <WindowConnectionIndicator
               state={sse.connectionState}
