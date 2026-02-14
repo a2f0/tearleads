@@ -3,11 +3,19 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { WorkoutForm } from './WorkoutForm';
 
-const mockExercises = [
+// Parent exercises (no parentId)
+const mockParentExercises = [
   { id: 'back-squat', name: 'Back Squat' },
-  { id: 'bench-press', name: 'Bench Press' },
-  { id: 'deadlift', name: 'Deadlift' }
+  { id: 'pull-up', name: 'Pull-Up' }
 ];
+
+// Child exercises (have parentId)
+const mockChildExercises = [
+  { id: 'wide-grip', name: 'Wide Grip Pull-Up', parentId: 'pull-up' },
+  { id: 'chin-up', name: 'Chin-Up', parentId: 'pull-up' }
+];
+
+const mockExercises = [...mockParentExercises, ...mockChildExercises];
 
 describe('WorkoutForm', () => {
   const mockOnSubmit = vi.fn();
@@ -20,6 +28,7 @@ describe('WorkoutForm', () => {
   it('renders all form fields', () => {
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
+    expect(screen.getByLabelText('Category')).toBeInTheDocument();
     expect(screen.getByLabelText('Exercise')).toBeInTheDocument();
     expect(screen.getByLabelText('Reps')).toBeInTheDocument();
     expect(screen.getByLabelText('Weight')).toBeInTheDocument();
@@ -39,16 +48,26 @@ describe('WorkoutForm', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows exercise options', () => {
+  it('shows category options in first dropdown', () => {
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    const select = screen.getByLabelText('Exercise');
-    expect(select).toContainHTML('Back Squat');
-    expect(select).toContainHTML('Bench Press');
-    expect(select).toContainHTML('Deadlift');
+    const categorySelect = screen.getByLabelText('Category');
+    expect(categorySelect).toContainHTML('Back Squat');
+    expect(categorySelect).toContainHTML('Pull-Up');
   });
 
-  it('shows validation error when exercise is not selected', async () => {
+  it('shows child exercises after selecting category', async () => {
+    const user = userEvent.setup();
+    render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
+
+    await user.selectOptions(screen.getByLabelText('Category'), 'pull-up');
+
+    const exerciseSelect = screen.getByLabelText('Exercise');
+    expect(exerciseSelect).toContainHTML('Wide Grip Pull-Up');
+    expect(exerciseSelect).toContainHTML('Chin-Up');
+  });
+
+  it('shows validation error when no category is selected', async () => {
     const user = userEvent.setup();
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
@@ -64,7 +83,8 @@ describe('WorkoutForm', () => {
     const user = userEvent.setup();
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    // Select category without children (auto-selects as exercise)
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Weight'), '225');
     await user.click(screen.getByRole('button', { name: 'Add Entry' }));
 
@@ -80,7 +100,7 @@ describe('WorkoutForm', () => {
     const user = userEvent.setup();
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.click(screen.getByRole('button', { name: 'Add Entry' }));
 
@@ -92,7 +112,7 @@ describe('WorkoutForm', () => {
     const user = userEvent.setup();
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '10');
     await user.type(screen.getByLabelText('Weight'), '0');
     await user.click(screen.getByRole('button', { name: 'Add Entry' }));
@@ -105,11 +125,12 @@ describe('WorkoutForm', () => {
     expect(call.weight).toBe(0);
   });
 
-  it('submits form with valid data', async () => {
+  it('submits form with category that has no children', async () => {
     const user = userEvent.setup();
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    // back-squat has no children, so selecting it as category uses it as exercise
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
     await user.click(screen.getByRole('button', { name: 'Add Entry' }));
@@ -126,11 +147,31 @@ describe('WorkoutForm', () => {
     expect(call.performedAt).toBeInstanceOf(Date);
   });
 
+  it('submits form with child exercise selected', async () => {
+    const user = userEvent.setup();
+    render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
+
+    // First select category, then child exercise
+    await user.selectOptions(screen.getByLabelText('Category'), 'pull-up');
+    await user.selectOptions(screen.getByLabelText('Exercise'), 'wide-grip');
+    await user.type(screen.getByLabelText('Reps'), '10');
+    await user.type(screen.getByLabelText('Weight'), '0');
+    await user.click(screen.getByRole('button', { name: 'Add Entry' }));
+
+    await waitFor(() => {
+      expect(mockOnSubmit).toHaveBeenCalledTimes(1);
+    });
+
+    const call = mockOnSubmit.mock.calls[0]?.[0];
+    expect(call.exerciseId).toBe('wide-grip');
+    expect(call.reps).toBe(10);
+  });
+
   it('allows selecting kg unit', async () => {
     const user = userEvent.setup();
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '100');
     await user.selectOptions(screen.getByLabelText('Unit'), 'kg');
@@ -148,7 +189,7 @@ describe('WorkoutForm', () => {
     const user = userEvent.setup();
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
     await user.type(screen.getByLabelText('Note'), 'PR attempt');
@@ -162,7 +203,7 @@ describe('WorkoutForm', () => {
     expect(call.note).toBe('PR attempt');
   });
 
-  it('clears form after successful submit (except exercise)', async () => {
+  it('clears form after successful submit', async () => {
     const user = userEvent.setup();
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
@@ -170,7 +211,7 @@ describe('WorkoutForm', () => {
     const weightInput = screen.getByLabelText('Weight');
     const noteInput = screen.getByLabelText('Note');
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(repsInput, '5');
     await user.type(weightInput, '225');
     await user.type(noteInput, 'Test note');
@@ -195,7 +236,7 @@ describe('WorkoutForm', () => {
 
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
     await user.click(screen.getByRole('button', { name: 'Add Entry' }));
@@ -217,7 +258,7 @@ describe('WorkoutForm', () => {
 
     render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
     await user.click(screen.getByRole('button', { name: 'Add Entry' }));
@@ -225,5 +266,21 @@ describe('WorkoutForm', () => {
     await waitFor(() => {
       expect(screen.getByText('Database error')).toBeInTheDocument();
     });
+  });
+
+  it('resets exercise selection when category changes', async () => {
+    const user = userEvent.setup();
+    render(<WorkoutForm exercises={mockExercises} onSubmit={mockOnSubmit} />);
+
+    // Select pull-up category and an exercise
+    await user.selectOptions(screen.getByLabelText('Category'), 'pull-up');
+    await user.selectOptions(screen.getByLabelText('Exercise'), 'wide-grip');
+
+    // Change category to back-squat (no children)
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
+
+    // The exercise dropdown should show "No variations"
+    const exerciseSelect = screen.getByLabelText('Exercise');
+    expect(exerciseSelect).toContainHTML('No variations');
   });
 });

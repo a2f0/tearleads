@@ -47,13 +47,89 @@ describe('createHealthTracker', () => {
         });
 
         const firstList = await tracker.listExercises();
-        expect(firstList).toEqual(DEFAULT_EXERCISES);
+        expect(firstList.length).toBe(DEFAULT_EXERCISES.length);
+        expect(firstList[0]).toEqual({ id: 'back-squat', name: 'Back Squat' });
 
         const firstExercise = requireValue(firstList[0]);
         firstExercise.name = 'Mutated Locally';
 
         const secondList = await tracker.listExercises();
         expect(requireValue(secondList[0]).name).toBe('Back Squat');
+      },
+      { migrations: healthTestMigrations }
+    );
+  });
+
+  it('lists parent exercises without children', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const tracker = createHealthTracker(db, {
+          createId: createDeterministicId(),
+          now: () => new Date('2026-02-13T10:00:00.000Z')
+        });
+
+        const parents = await tracker.listParentExercises();
+        expect(parents).toHaveLength(6);
+        expect(parents.map((e) => e.id)).toEqual([
+          'back-squat',
+          'bench-press',
+          'deadlift',
+          'overhead-press',
+          'barbell-row',
+          'pull-up'
+        ]);
+        expect(parents.every((e) => e.parentId === undefined)).toBe(true);
+      },
+      { migrations: healthTestMigrations }
+    );
+  });
+
+  it('lists child exercises for a parent', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const tracker = createHealthTracker(db, {
+          createId: createDeterministicId(),
+          now: () => new Date('2026-02-13T10:00:00.000Z')
+        });
+
+        const pullUpChildren = await tracker.listChildExercises('pull-up');
+        expect(pullUpChildren.length).toBeGreaterThan(10);
+        expect(pullUpChildren[0]).toEqual({
+          id: 'pull-up-strict',
+          name: 'Strict Pull-Up',
+          parentId: 'pull-up',
+          parentName: 'Pull-Up'
+        });
+        expect(pullUpChildren.every((e) => e.parentId === 'pull-up')).toBe(
+          true
+        );
+
+        const noChildren = await tracker.listChildExercises('back-squat');
+        expect(noChildren).toHaveLength(0);
+      },
+      { migrations: healthTestMigrations }
+    );
+  });
+
+  it('gets exercise hierarchy as a map', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const tracker = createHealthTracker(db, {
+          createId: createDeterministicId(),
+          now: () => new Date('2026-02-13T10:00:00.000Z')
+        });
+
+        const hierarchy = await tracker.getExerciseHierarchy();
+        expect(hierarchy.size).toBe(6);
+        expect(hierarchy.has('pull-up')).toBe(true);
+        expect(hierarchy.has('back-squat')).toBe(true);
+
+        const pullUpChildren = requireValue(hierarchy.get('pull-up'));
+        expect(pullUpChildren.length).toBeGreaterThan(10);
+        expect(pullUpChildren[0]?.name).toBe('Strict Pull-Up');
+
+        const squatChildren = requireValue(hierarchy.get('back-squat'));
+        expect(squatChildren).toHaveLength(0);
       },
       { migrations: healthTestMigrations }
     );
@@ -96,6 +172,73 @@ describe('createHealthTracker', () => {
         await expect(tracker.addExercise({ name: '   ' })).rejects.toThrow(
           'name must not be empty'
         );
+      },
+      { migrations: healthTestMigrations }
+    );
+  });
+
+  it('adds child exercises with parentId', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const tracker = createHealthTracker(db, {
+          createId: createDeterministicId()
+        });
+
+        const frontSquat = await tracker.addExercise({
+          name: 'Front Squat',
+          parentId: 'back-squat'
+        });
+        expect(frontSquat).toEqual({
+          id: 'front-squat',
+          name: 'Front Squat',
+          parentId: 'back-squat',
+          parentName: 'Back Squat'
+        });
+
+        const gobletSquat = await tracker.addExercise({
+          id: 'goblet-squat',
+          name: 'Goblet Squat',
+          parentId: 'back-squat'
+        });
+        expect(gobletSquat).toEqual({
+          id: 'goblet-squat',
+          name: 'Goblet Squat',
+          parentId: 'back-squat',
+          parentName: 'Back Squat'
+        });
+
+        const squatChildren = await tracker.listChildExercises('back-squat');
+        expect(squatChildren).toHaveLength(2);
+        expect(squatChildren.map((e) => e.id)).toEqual([
+          'front-squat',
+          'goblet-squat'
+        ]);
+      },
+      { migrations: healthTestMigrations }
+    );
+  });
+
+  it('validates parentId references existing exercise', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        const tracker = createHealthTracker(db, {
+          createId: createDeterministicId()
+        });
+
+        await expect(
+          tracker.addExercise({
+            name: 'Orphan Exercise',
+            parentId: 'nonexistent-parent'
+          })
+        ).rejects.toThrow(
+          'Parent exercise with id "nonexistent-parent" not found'
+        );
+
+        const blankParent = await tracker.addExercise({
+          name: 'Blank Parent',
+          parentId: '   '
+        });
+        expect(blankParent.parentId).toBeUndefined();
       },
       { migrations: healthTestMigrations }
     );

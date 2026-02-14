@@ -30,7 +30,9 @@ const wrapper = ({ children }: { children: ReactNode }) => (
 
 const mockExercises = [
   { id: 'back-squat', name: 'Back Squat' },
-  { id: 'bench-press', name: 'Bench Press' }
+  { id: 'bench-press', name: 'Bench Press' },
+  { id: 'pull-up', name: 'Pull-Up' },
+  { id: 'wide-grip', name: 'Wide Grip Pull-Up', parentId: 'pull-up' }
 ];
 
 const mockEntries = [
@@ -147,7 +149,8 @@ describe('WorkoutDetail', () => {
 
     render(<WorkoutDetail />, { wrapper });
 
-    await user.selectOptions(screen.getByLabelText('Exercise'), 'back-squat');
+    // Use two-step selection: first Category, then fill form
+    await user.selectOptions(screen.getByLabelText('Category'), 'back-squat');
     await user.type(screen.getByLabelText('Reps'), '5');
     await user.type(screen.getByLabelText('Weight'), '225');
     await user.click(screen.getByRole('button', { name: 'Add Entry' }));

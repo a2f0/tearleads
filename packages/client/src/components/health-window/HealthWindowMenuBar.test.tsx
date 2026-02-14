@@ -13,6 +13,8 @@ vi.mock('@/hooks/usePreserveWindowState', () => ({
 
 describe('HealthWindowMenuBar', () => {
   const defaultProps = {
+    activeRoute: undefined,
+    onRouteChange: vi.fn(),
     onRefresh: vi.fn(),
     onClose: vi.fn()
   } satisfies ComponentProps<typeof HealthWindowMenuBar>;
@@ -20,6 +22,11 @@ describe('HealthWindowMenuBar', () => {
   it('renders File menu trigger', () => {
     render(<HealthWindowMenuBar {...defaultProps} />);
     expect(screen.getByRole('button', { name: 'File' })).toBeInTheDocument();
+  });
+
+  it('renders Go menu trigger', () => {
+    render(<HealthWindowMenuBar {...defaultProps} />);
+    expect(screen.getByRole('button', { name: 'Go' })).toBeInTheDocument();
   });
 
   it('renders View menu trigger', () => {
@@ -37,6 +44,45 @@ describe('HealthWindowMenuBar', () => {
       screen.getByRole('menuitem', { name: 'Refresh' })
     ).toBeInTheDocument();
     expect(screen.getByRole('menuitem', { name: 'Close' })).toBeInTheDocument();
+  });
+
+  it('shows navigation options in Go menu', async () => {
+    const user = userEvent.setup();
+    render(<HealthWindowMenuBar {...defaultProps} />);
+
+    await user.click(screen.getByRole('button', { name: 'Go' }));
+
+    expect(
+      screen.getByRole('menuitem', { name: 'Overview' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Height Tracking' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Weight Tracking' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Blood Pressure' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Exercises' })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: 'Workouts' })
+    ).toBeInTheDocument();
+  });
+
+  it('calls onRouteChange when navigation item is clicked', async () => {
+    const user = userEvent.setup();
+    const onRouteChange = vi.fn();
+    render(
+      <HealthWindowMenuBar {...defaultProps} onRouteChange={onRouteChange} />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Go' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Workouts' }));
+
+    expect(onRouteChange).toHaveBeenCalledWith('workouts');
   });
 
   it('shows Options in View menu', async () => {

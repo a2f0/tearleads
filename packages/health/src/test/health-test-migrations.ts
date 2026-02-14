@@ -50,5 +50,19 @@ export const healthTestMigrations: Migration[] = [
 
       await adapter.execute('PRAGMA foreign_keys = ON');
     }
+  },
+  {
+    version: 2,
+    up: async (adapter) => {
+      await adapter.execute(`
+        ALTER TABLE health_exercises
+        ADD COLUMN parent_id TEXT REFERENCES health_exercises(id) ON DELETE RESTRICT
+      `);
+
+      await adapter.execute(`
+        CREATE INDEX IF NOT EXISTS health_exercises_parent_idx
+        ON health_exercises(parent_id)
+      `);
+    }
   }
 ];

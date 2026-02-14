@@ -846,11 +846,13 @@ export const vehiclesTable: TableDefinition = {
 
 /**
  * Health exercises table for workout exercise selection.
+ * Supports hierarchical exercise categories via parentId (e.g., Pull-Up -> Wide Grip Pull-Up).
  */
 export const healthExercisesTable: TableDefinition = {
   name: 'health_exercises',
   propertyName: 'healthExercises',
-  comment: 'Health exercises table for workout exercise selection.',
+  comment:
+    'Health exercises table for workout exercise selection.\nSupports hierarchical exercise categories via parentId.',
   columns: {
     id: {
       type: 'text',
@@ -862,13 +864,25 @@ export const healthExercisesTable: TableDefinition = {
       sqlName: 'name',
       notNull: true
     },
+    parentId: {
+      type: 'text',
+      sqlName: 'parent_id',
+      references: {
+        table: 'health_exercises',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
     createdAt: {
       type: 'timestamp',
       sqlName: 'created_at',
       notNull: true
     }
   },
-  indexes: [{ name: 'health_exercises_name_idx', columns: ['name'] }]
+  indexes: [
+    { name: 'health_exercises_name_idx', columns: ['name'] },
+    { name: 'health_exercises_parent_idx', columns: ['parentId'] }
+  ]
 };
 
 /**

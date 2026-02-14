@@ -4,7 +4,7 @@ import type {
   WeightUnit
 } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
@@ -28,6 +28,7 @@ function getLocalDateTimeString(): string {
 }
 
 export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
+  const [categoryId, setCategoryId] = useState('');
   const [exerciseId, setExerciseId] = useState('');
   const [reps, setReps] = useState('');
   const [weight, setWeight] = useState('');
@@ -38,13 +39,39 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const parentExercises = useMemo(
+    () => exercises.filter((e) => !e.parentId),
+    [exercises]
+  );
+
+  const childExercises = useMemo(
+    () => exercises.filter((e) => e.parentId === categoryId),
+    [exercises, categoryId]
+  );
+
+  const handleCategoryChange = useCallback((newCategoryId: string) => {
+    setCategoryId(newCategoryId);
+    setExerciseId('');
+  }, []);
+
+  const getSelectedExerciseId = useCallback(() => {
+    if (exerciseId) {
+      return exerciseId;
+    }
+    if (categoryId && childExercises.length === 0) {
+      return categoryId;
+    }
+    return '';
+  }, [exerciseId, categoryId, childExercises.length]);
+
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
 
       const nextErrors: FormErrors = {};
 
-      if (!exerciseId) {
+      const selectedExerciseId = getSelectedExerciseId();
+      if (!selectedExerciseId) {
         nextErrors.exerciseId = 'Exercise is required';
       }
 
@@ -80,7 +107,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
       try {
         const trimmedNote = note.trim();
         const input: CreateWorkoutEntryInput = {
-          exerciseId,
+          exerciseId: selectedExerciseId,
           reps: parsedReps,
           weight: parsedWeight,
           weightUnit,
@@ -101,7 +128,15 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
         setIsSubmitting(false);
       }
     },
-    [exerciseId, reps, weight, weightUnit, performedAt, note, onSubmit]
+    [
+      getSelectedExerciseId,
+      reps,
+      weight,
+      weightUnit,
+      performedAt,
+      note,
+      onSubmit
+    ]
   );
 
   return (
@@ -110,7 +145,31 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
       onSubmit={handleSubmit}
       aria-label="Add workout entry form"
     >
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-3 lg:grid-cols-6">
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-4 lg:grid-cols-7">
+        <div className="space-y-1">
+          <label
+            htmlFor="workout-category"
+            className="font-medium text-muted-foreground text-sm"
+          >
+            Category
+          </label>
+          <select
+            id="workout-category"
+            value={categoryId}
+            onChange={(e) => handleCategoryChange(e.target.value)}
+            className="w-full rounded-md border bg-background px-3 py-2 text-base"
+            disabled={isSubmitting}
+            aria-invalid={Boolean(errors.exerciseId) && !categoryId}
+          >
+            <option value="">Select category</option>
+            {parentExercises.map((exercise) => (
+              <option key={exercise.id} value={exercise.id}>
+                {exercise.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="space-y-1">
           <label
             htmlFor="workout-exercise"
@@ -123,15 +182,25 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
             value={exerciseId}
             onChange={(e) => setExerciseId(e.target.value)}
             className="w-full rounded-md border bg-background px-3 py-2 text-base"
-            disabled={isSubmitting}
-            aria-invalid={Boolean(errors.exerciseId)}
+            disabled={
+              isSubmitting || !categoryId || childExercises.length === 0
+            }
+            aria-invalid={Boolean(errors.exerciseId) && !!categoryId}
           >
-            <option value="">Select exercise</option>
-            {exercises.map((exercise) => (
-              <option key={exercise.id} value={exercise.id}>
-                {exercise.name}
+            {childExercises.length === 0 ? (
+              <option value="">
+                {categoryId ? 'No variations' : 'Select category first'}
               </option>
-            ))}
+            ) : (
+              <>
+                <option value="">Select variation</option>
+                {childExercises.map((exercise) => (
+                  <option key={exercise.id} value={exercise.id}>
+                    {exercise.name}
+                  </option>
+                ))}
+              </>
+            )}
           </select>
           {errors.exerciseId && (
             <p className="text-destructive text-sm">{errors.exerciseId}</p>
