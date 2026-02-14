@@ -48,6 +48,12 @@ function parseWriteId(value: unknown): number | null {
 function toLastReconciledWriteIds(
   rows: VfsCrdtReplicaWriteIdRow[]
 ): Record<string, number> {
+  /**
+   * Guardrail: return a deterministic, sanitized replica clock map.
+   * - drop malformed rows (blank replica, non-numeric write ids)
+   * - keep only positive integers
+   * - sort keys to keep payload stable for downstream snapshot comparisons
+   */
   const sortedEntries: Array<[string, number]> = [];
   for (const row of rows) {
     const replicaId = normalizeReplicaId(row.replica_id);
@@ -137,6 +143,11 @@ export const getCrdtSyncHandler = async (req: Request, res: Response) => {
     });
 
     const result = await pool.query<VfsCrdtSyncDbRow>(query.text, query.values);
+    /**
+     * Guardrail: include per-replica max write IDs in every pull response.
+     * This allows clients to enforce monotonic stale-write recovery even when
+     * the current pull page is empty (cursor-only checkpoint advancement).
+     */
     const replicaWriteIdsResult = await pool.query<VfsCrdtReplicaWriteIdRow>(
       `
       SELECT

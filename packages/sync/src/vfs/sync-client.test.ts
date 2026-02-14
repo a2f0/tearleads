@@ -32,6 +32,112 @@ async function waitFor(
   throw new Error('Timed out waiting for condition');
 }
 
+function createDeterministicRandom(seed: number): () => number {
+  let state = seed >>> 0;
+  return () => {
+    state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+    return state / 0x100000000;
+  };
+}
+
+function nextInt(
+  random: () => number,
+  minInclusive: number,
+  maxInclusive: number
+): number {
+  const span = maxInclusive - minInclusive + 1;
+  return minInclusive + Math.floor(random() * span);
+}
+
+function pickOne<T>(values: readonly T[], random: () => number): T {
+  const index = nextInt(random, 0, values.length - 1);
+  const value = values[index];
+  if (value === undefined) {
+    throw new Error('cannot pick from an empty list');
+  }
+
+  return value;
+}
+
+function pickDifferent<T>(
+  values: readonly T[],
+  excluded: T,
+  random: () => number
+): T {
+  if (values.length < 2) {
+    throw new Error('need at least two values to pick a different entry');
+  }
+
+  let candidate = pickOne(values, random);
+  while (candidate === excluded) {
+    candidate = pickOne(values, random);
+  }
+
+  return candidate;
+}
+
+function createDeterministicJitterTransport(input: {
+  server: InMemoryVfsCrdtSyncServer;
+  random: () => number;
+  maxDelayMs: number;
+  canonicalClock: {
+    currentMs: number;
+  };
+}): VfsCrdtSyncTransport {
+  const nextDelayMs = (): number =>
+    nextInt(input.random, 0, Math.max(0, input.maxDelayMs));
+
+  return {
+    pushOperations: async (pushInput) => {
+      /**
+       * Guardrail harness behavior: cursor pagination requires feed order to be
+       * append-only relative to observed cursors. Normalize pushed timestamps so
+       * canonical feed ordering tracks server apply order under random delays.
+       */
+      const normalizedOperations = pushInput.operations.map((operation) => {
+        const parsedOccurredAtMs = Date.parse(operation.occurredAt);
+        const baseOccurredAtMs = Number.isFinite(parsedOccurredAtMs)
+          ? parsedOccurredAtMs
+          : input.canonicalClock.currentMs;
+        input.canonicalClock.currentMs = Math.max(
+          input.canonicalClock.currentMs + 1,
+          baseOccurredAtMs
+        );
+        return {
+          ...operation,
+          occurredAt: new Date(input.canonicalClock.currentMs).toISOString()
+        };
+      });
+
+      await wait(nextDelayMs());
+      return input.server.pushOperations({
+        operations: normalizedOperations
+      });
+    },
+    pullOperations: async (pullInput) => {
+      await wait(nextDelayMs());
+      return input.server.pullOperations({
+        cursor: pullInput.cursor,
+        limit: pullInput.limit
+      });
+    },
+    reconcileState: async (reconcileInput) => {
+      /**
+       * Guardrail harness behavior: reconcile acknowledgements are modeled as an
+       * authoritative replica-clock merge from server state while preserving the
+       * client's cursor. This exercises the client reconcile lifecycle in tests
+       * without requiring a separate server-side cursor table in-memory.
+       */
+      await wait(nextDelayMs());
+      const snapshot = input.server.snapshot();
+      return {
+        cursor: reconcileInput.cursor,
+        lastReconciledWriteIds: snapshot.lastReconciledWriteIds
+      };
+    }
+  };
+}
+
 function buildAclAddSyncItem(params: {
   opId: string;
   occurredAt: string;
@@ -353,6 +459,70 @@ describe('VfsBackgroundSyncClient', () => {
     expect(clientSnapshot.nextLocalWriteId).toBe(3);
   });
 
+  it('rebases pending occurredAt ahead of cursor before push', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'server-mobile-1',
+          opType: 'acl_add',
+          itemId: 'item-1',
+          replicaId: 'mobile',
+          writeId: 1,
+          occurredAt: '2026-02-14T12:30:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(server)
+    );
+    const observer = new VfsBackgroundSyncClient(
+      'user-1',
+      'observer',
+      new InMemoryVfsCrdtSyncTransport(server)
+    );
+
+    await desktop.sync();
+    const cursorBeforeQueue = desktop.snapshot().cursor;
+    expect(cursorBeforeQueue?.changedAt).toBe('2026-02-14T12:30:00.000Z');
+
+    const queued = desktop.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-2',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T12:20:00.000Z'
+    });
+    await desktop.flush();
+    await observer.sync();
+
+    const pushedFeedItem = server
+      .snapshot()
+      .feed.find((item) => item.opId === queued.opId);
+    expect(pushedFeedItem).toBeDefined();
+    if (!pushedFeedItem) {
+      throw new Error(`missing pushed feed item ${queued.opId}`);
+    }
+
+    /**
+     * Guardrail assertion: normalized timestamps must stay strictly ahead of the
+     * previously reconciled cursor to prevent canonical-feed backfill gaps.
+     */
+    const pushedOccurredAtMs = Date.parse(pushedFeedItem.occurredAt);
+    const cursorMs = Date.parse(cursorBeforeQueue?.changedAt ?? '');
+    expect(Number.isFinite(pushedOccurredAtMs)).toBe(true);
+    expect(Number.isFinite(cursorMs)).toBe(true);
+    expect(pushedOccurredAtMs).toBeGreaterThan(cursorMs);
+    expect(observer.snapshot().acl).toEqual(server.snapshot().acl);
+  });
+
   it('fails closed when stale write ids cannot be recovered', async () => {
     let pushAttempts = 0;
     let pullAttempts = 0;
@@ -468,6 +638,135 @@ describe('VfsBackgroundSyncClient', () => {
       desktop: 2,
       mobile: 1
     });
+  });
+
+  it('converges deterministic randomized concurrent io across three clients', async () => {
+    /**
+     * Guardrail: this seeded stress scenario is intentionally non-trivial so we
+     * exercise interleavings of queue/flush/sync across multiple clients, but
+     * deterministic so any regression is reproducible by seed.
+     */
+    const random = createDeterministicRandom(1220);
+    const server = new InMemoryVfsCrdtSyncServer();
+    const canonicalClock = {
+      currentMs: Date.parse('2026-02-14T00:00:00.000Z')
+    };
+    const clientIds = ['desktop', 'mobile', 'tablet'] as const;
+    const clients = clientIds.map(
+      (clientId) =>
+        new VfsBackgroundSyncClient(
+          'user-1',
+          clientId,
+          createDeterministicJitterTransport({
+            server,
+            random,
+            maxDelayMs: 4,
+            canonicalClock
+          }),
+          {
+            pullLimit: nextInt(random, 1, 3)
+          }
+        )
+    );
+
+    const itemIds = ['item-1', 'item-2', 'item-3', 'item-4'] as const;
+    const parentIds = ['root', 'folder-1', 'folder-2'] as const;
+    const principalTypes = ['group', 'organization', 'user'] as const;
+    const principalIds = ['group-1', 'org-1', 'user-2'] as const;
+    const accessLevels = ['read', 'write', 'admin'] as const;
+    let occurredAtMs = Date.parse('2026-02-14T13:00:00.000Z');
+    const nextOccurredAt = (): string => {
+      const value = new Date(occurredAtMs).toISOString();
+      occurredAtMs += 1000;
+      return value;
+    };
+
+    for (let round = 0; round < 60; round++) {
+      const actor = pickOne(clients, random);
+      const peer = pickDifferent(clients, actor, random);
+      const itemId = pickOne(itemIds, random);
+      const operationVariant = nextInt(random, 0, 3);
+      if (operationVariant === 0) {
+        actor.queueLocalOperation({
+          opType: 'acl_add',
+          itemId,
+          principalType: pickOne(principalTypes, random),
+          principalId: pickOne(principalIds, random),
+          accessLevel: pickOne(accessLevels, random),
+          occurredAt: nextOccurredAt()
+        });
+      } else if (operationVariant === 1) {
+        actor.queueLocalOperation({
+          opType: 'acl_remove',
+          itemId,
+          principalType: pickOne(principalTypes, random),
+          principalId: pickOne(principalIds, random),
+          occurredAt: nextOccurredAt()
+        });
+      } else if (operationVariant === 2) {
+        actor.queueLocalOperation({
+          opType: 'link_add',
+          itemId,
+          parentId: pickOne(parentIds, random),
+          childId: itemId,
+          occurredAt: nextOccurredAt()
+        });
+      } else {
+        actor.queueLocalOperation({
+          opType: 'link_remove',
+          itemId,
+          parentId: pickOne(parentIds, random),
+          childId: itemId,
+          occurredAt: nextOccurredAt()
+        });
+      }
+
+      const actionVariant = nextInt(random, 0, 5);
+      if (actionVariant === 0) {
+        await Promise.all([actor.flush(), peer.sync()]);
+      } else if (actionVariant === 1) {
+        await Promise.all([actor.sync(), peer.flush()]);
+      } else if (actionVariant === 2) {
+        await Promise.all([actor.flush(), peer.flush()]);
+      } else if (actionVariant === 3) {
+        await Promise.all([actor.sync(), peer.sync()]);
+      } else if (actionVariant === 4) {
+        await actor.flush();
+      } else {
+        await actor.sync();
+      }
+    }
+    await Promise.all(clients.map((client) => client.flush()));
+    for (let index = 0; index < 3; index++) {
+      await Promise.all(clients.map((client) => client.sync()));
+    }
+
+    const serverSnapshot = server.snapshot();
+    const baseClientSnapshot = clients[0].snapshot();
+
+    for (const client of clients) {
+      const snapshot = client.snapshot();
+      expect(snapshot.pendingOperations).toBe(0);
+      expect(snapshot.acl).toEqual(serverSnapshot.acl);
+      expect(snapshot.links).toEqual(serverSnapshot.links);
+      expect(snapshot.lastReconciledWriteIds).toEqual(
+        serverSnapshot.lastReconciledWriteIds
+      );
+      expect(snapshot.containerClocks).toEqual(baseClientSnapshot.containerClocks);
+    }
+
+    for (let index = 0; index < clientIds.length; index++) {
+      const clientId = clientIds[index];
+      const client = clients[index];
+      if (!client) {
+        throw new Error(`missing client for replica ${clientId}`);
+      }
+
+      const replicaWriteId = serverSnapshot.lastReconciledWriteIds[clientId] ?? 0;
+      expect(client.snapshot().nextLocalWriteId).toBeGreaterThanOrEqual(
+        replicaWriteId + 1
+      );
+    }
   });
 
   it('drains queue after idempotent retry when first push fails post-commit', async () => {
@@ -589,6 +888,126 @@ describe('VfsBackgroundSyncClient', () => {
 
     const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
     await expect(client.sync()).rejects.toThrowError(/regressed/);
+  });
+
+  it('applies transport reconcile acknowledgements when supported', async () => {
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => ({
+        items: [
+          buildAclAddSyncItem({
+            opId: 'desktop-1',
+            occurredAt: '2026-02-14T12:20:00.000Z'
+          })
+        ],
+        hasMore: false,
+        nextCursor: {
+          changedAt: '2026-02-14T12:20:00.000Z',
+          changeId: 'desktop-1'
+        },
+        lastReconciledWriteIds: {
+          desktop: 1
+        }
+      }),
+      reconcileState: async () => ({
+        cursor: {
+          changedAt: '2026-02-14T12:20:01.000Z',
+          changeId: 'desktop-2'
+        },
+        lastReconciledWriteIds: {
+          desktop: 2,
+          mobile: 4
+        }
+      })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    await client.sync();
+
+    const snapshot = client.snapshot();
+    expect(snapshot.cursor).toEqual({
+      changedAt: '2026-02-14T12:20:01.000Z',
+      changeId: 'desktop-2'
+    });
+    expect(snapshot.lastReconciledWriteIds).toEqual({
+      desktop: 2,
+      mobile: 4
+    });
+    expect(snapshot.nextLocalWriteId).toBe(3);
+  });
+
+  it('fails closed when reconcile acknowledgement regresses cursor', async () => {
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => ({
+        items: [
+          buildAclAddSyncItem({
+            opId: 'desktop-2',
+            occurredAt: '2026-02-14T12:21:00.000Z'
+          })
+        ],
+        hasMore: false,
+        nextCursor: {
+          changedAt: '2026-02-14T12:21:00.000Z',
+          changeId: 'desktop-2'
+        },
+        lastReconciledWriteIds: {
+          desktop: 2
+        }
+      }),
+      reconcileState: async () => ({
+        cursor: {
+          changedAt: '2026-02-14T12:20:59.000Z',
+          changeId: 'desktop-1'
+        },
+        lastReconciledWriteIds: {
+          desktop: 2
+        }
+      })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    await expect(client.sync()).rejects.toThrowError(/reconcile regressed sync cursor/);
+  });
+
+  it('fails closed when reconcile acknowledgement regresses last write ids', async () => {
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => ({
+        items: [
+          buildAclAddSyncItem({
+            opId: 'desktop-2',
+            occurredAt: '2026-02-14T12:22:00.000Z'
+          })
+        ],
+        hasMore: false,
+        nextCursor: {
+          changedAt: '2026-02-14T12:22:00.000Z',
+          changeId: 'desktop-2'
+        },
+        lastReconciledWriteIds: {
+          desktop: 2
+        }
+      }),
+      reconcileState: async () => ({
+        cursor: {
+          changedAt: '2026-02-14T12:22:00.000Z',
+          changeId: 'desktop-2'
+        },
+        lastReconciledWriteIds: {
+          desktop: 1
+        }
+      })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    await expect(client.sync()).rejects.toThrowError(/regressed lastReconciledWriteIds/);
   });
 
   it('fails closed when transport regresses cursor with no items', async () => {
