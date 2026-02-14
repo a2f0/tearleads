@@ -2369,6 +2369,285 @@ export const vfsSyncClientStateTable: TableDefinition = {
   indexes: [{ name: 'vfs_sync_client_state_user_idx', columns: ['userId'] }]
 };
 
+/**
+ * Blob object registry for VFS-backed binary payloads.
+ * Tracks immutable blob metadata independent of attachment lifecycle.
+ */
+export const vfsBlobObjectsTable: TableDefinition = {
+  name: 'vfs_blob_objects',
+  propertyName: 'vfsBlobObjects',
+  comment:
+    'Blob object registry for VFS-backed binary payloads.\nTracks immutable blob metadata independent of attachment lifecycle.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    sha256: {
+      type: 'text',
+      sqlName: 'sha256',
+      notNull: true
+    },
+    sizeBytes: {
+      type: 'integer',
+      sqlName: 'size_bytes',
+      notNull: true
+    },
+    storageKey: {
+      type: 'text',
+      sqlName: 'storage_key',
+      notNull: true
+    },
+    createdBy: {
+      type: 'text',
+      sqlName: 'created_by',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    {
+      name: 'vfs_blob_objects_storage_key_idx',
+      columns: ['storageKey'],
+      unique: true
+    },
+    { name: 'vfs_blob_objects_sha_idx', columns: ['sha256'] }
+  ]
+};
+
+/**
+ * Blob staging table for commit-isolated attachment flow.
+ * Blobs are staged first, then atomically attached to VFS items.
+ */
+export const vfsBlobStagingTable: TableDefinition = {
+  name: 'vfs_blob_staging',
+  propertyName: 'vfsBlobStaging',
+  comment:
+    'Blob staging table for commit-isolated attachment flow.\nBlobs are staged first, then atomically attached to VFS items.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    blobId: {
+      type: 'text',
+      sqlName: 'blob_id',
+      notNull: true,
+      references: {
+        table: 'vfs_blob_objects',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    stagedBy: {
+      type: 'text',
+      sqlName: 'staged_by',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    status: {
+      type: 'text',
+      sqlName: 'status',
+      notNull: true,
+      enumValues: ['staged', 'attached', 'abandoned'] as const
+    },
+    stagedAt: {
+      type: 'timestamp',
+      sqlName: 'staged_at',
+      notNull: true
+    },
+    attachedAt: {
+      type: 'timestamp',
+      sqlName: 'attached_at'
+    },
+    expiresAt: {
+      type: 'timestamp',
+      sqlName: 'expires_at',
+      notNull: true
+    },
+    attachedItemId: {
+      type: 'text',
+      sqlName: 'attached_item_id',
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'set null'
+      }
+    }
+  },
+  indexes: [
+    { name: 'vfs_blob_staging_status_idx', columns: ['status'] },
+    { name: 'vfs_blob_staging_expires_idx', columns: ['expiresAt'] },
+    { name: 'vfs_blob_staging_staged_by_idx', columns: ['stagedBy'] }
+  ]
+};
+
+/**
+ * Blob attachment references linking blobs to VFS items.
+ */
+export const vfsBlobRefsTable: TableDefinition = {
+  name: 'vfs_blob_refs',
+  propertyName: 'vfsBlobRefs',
+  comment: 'Blob attachment references linking blobs to VFS items.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    blobId: {
+      type: 'text',
+      sqlName: 'blob_id',
+      notNull: true,
+      references: {
+        table: 'vfs_blob_objects',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    itemId: {
+      type: 'text',
+      sqlName: 'item_id',
+      notNull: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    relationKind: {
+      type: 'text',
+      sqlName: 'relation_kind',
+      notNull: true,
+      enumValues: ['file', 'emailAttachment', 'photo', 'other'] as const
+    },
+    attachedBy: {
+      type: 'text',
+      sqlName: 'attached_by',
+      notNull: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'restrict'
+      }
+    },
+    attachedAt: {
+      type: 'timestamp',
+      sqlName: 'attached_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    { name: 'vfs_blob_refs_item_idx', columns: ['itemId'] },
+    { name: 'vfs_blob_refs_blob_idx', columns: ['blobId'] },
+    {
+      name: 'vfs_blob_refs_unique_idx',
+      columns: ['blobId', 'itemId', 'relationKind'],
+      unique: true
+    }
+  ]
+};
+
+/**
+ * CRDT-style operation log for ACL and link mutations.
+ * Ensures deterministic convergence for concurrent multi-client updates.
+ */
+export const vfsCrdtOpsTable: TableDefinition = {
+  name: 'vfs_crdt_ops',
+  propertyName: 'vfsCrdtOps',
+  comment:
+    'CRDT-style operation log for ACL and link mutations.\nEnsures deterministic convergence for concurrent multi-client updates.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    itemId: {
+      type: 'text',
+      sqlName: 'item_id',
+      notNull: true,
+      references: {
+        table: 'vfs_registry',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    opType: {
+      type: 'text',
+      sqlName: 'op_type',
+      notNull: true,
+      enumValues: ['acl_add', 'acl_remove', 'link_add', 'link_remove'] as const
+    },
+    principalType: {
+      type: 'text',
+      sqlName: 'principal_type',
+      enumValues: ['user', 'group', 'organization'] as const
+    },
+    principalId: {
+      type: 'text',
+      sqlName: 'principal_id'
+    },
+    accessLevel: {
+      type: 'text',
+      sqlName: 'access_level',
+      enumValues: ['read', 'write', 'admin'] as const
+    },
+    parentId: {
+      type: 'text',
+      sqlName: 'parent_id'
+    },
+    childId: {
+      type: 'text',
+      sqlName: 'child_id'
+    },
+    actorId: {
+      type: 'text',
+      sqlName: 'actor_id',
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'set null'
+      }
+    },
+    sourceTable: {
+      type: 'text',
+      sqlName: 'source_table',
+      notNull: true
+    },
+    sourceId: {
+      type: 'text',
+      sqlName: 'source_id',
+      notNull: true
+    },
+    occurredAt: {
+      type: 'timestamp',
+      sqlName: 'occurred_at',
+      notNull: true
+    }
+  },
+  indexes: [
+    { name: 'vfs_crdt_ops_item_idx', columns: ['itemId'] },
+    { name: 'vfs_crdt_ops_occurred_idx', columns: ['occurredAt'] },
+    { name: 'vfs_crdt_ops_source_idx', columns: ['sourceTable', 'sourceId'] }
+  ]
+};
+
 // =============================================================================
 // MLS (RFC 9420) Encrypted Chat Tables
 // =============================================================================
@@ -3086,6 +3365,10 @@ export const allTables: TableDefinition[] = [
   vfsAclEntriesTable,
   vfsSyncChangesTable,
   vfsSyncClientStateTable,
+  vfsBlobObjectsTable,
+  vfsBlobStagingTable,
+  vfsBlobRefsTable,
+  vfsCrdtOpsTable,
   // MLS tables
   mlsKeyPackagesTable,
   mlsGroupsTable,

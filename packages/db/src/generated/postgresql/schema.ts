@@ -992,6 +992,128 @@ export const vfsSyncClientState = pgTable(
 );
 
 /**
+ * Blob object registry for VFS-backed binary payloads.
+ * Tracks immutable blob metadata independent of attachment lifecycle.
+ */
+export const vfsBlobObjects = pgTable(
+  'vfs_blob_objects',
+  {
+    id: text('id').primaryKey(),
+    sha256: text('sha256').notNull(),
+    sizeBytes: integer('size_bytes').notNull(),
+    storageKey: text('storage_key').notNull(),
+    createdBy: text('created_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    uniqueIndex('vfs_blob_objects_storage_key_idx').on(table.storageKey),
+    index('vfs_blob_objects_sha_idx').on(table.sha256)
+  ]
+);
+
+/**
+ * Blob staging table for commit-isolated attachment flow.
+ * Blobs are staged first, then atomically attached to VFS items.
+ */
+export const vfsBlobStaging = pgTable(
+  'vfs_blob_staging',
+  {
+    id: text('id').primaryKey(),
+    blobId: text('blob_id')
+      .notNull()
+      .references(() => vfsBlobObjects.id, { onDelete: 'cascade' }),
+    stagedBy: text('staged_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    status: text('status', {
+      enum: ['staged', 'attached', 'abandoned']
+    }).notNull(),
+    stagedAt: timestamp('staged_at', { withTimezone: true }).notNull(),
+    attachedAt: timestamp('attached_at', { withTimezone: true }),
+    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
+    attachedItemId: text('attached_item_id').references(() => vfsRegistry.id, {
+      onDelete: 'set null'
+    })
+  },
+  (table) => [
+    index('vfs_blob_staging_status_idx').on(table.status),
+    index('vfs_blob_staging_expires_idx').on(table.expiresAt),
+    index('vfs_blob_staging_staged_by_idx').on(table.stagedBy)
+  ]
+);
+
+/**
+ * Blob attachment references linking blobs to VFS items.
+ */
+export const vfsBlobRefs = pgTable(
+  'vfs_blob_refs',
+  {
+    id: text('id').primaryKey(),
+    blobId: text('blob_id')
+      .notNull()
+      .references(() => vfsBlobObjects.id, { onDelete: 'cascade' }),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    relationKind: text('relation_kind', {
+      enum: ['file', 'emailAttachment', 'photo', 'other']
+    }).notNull(),
+    attachedBy: text('attached_by')
+      .notNull()
+      .references(() => users.id, { onDelete: 'restrict' }),
+    attachedAt: timestamp('attached_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('vfs_blob_refs_item_idx').on(table.itemId),
+    index('vfs_blob_refs_blob_idx').on(table.blobId),
+    uniqueIndex('vfs_blob_refs_unique_idx').on(
+      table.blobId,
+      table.itemId,
+      table.relationKind
+    )
+  ]
+);
+
+/**
+ * CRDT-style operation log for ACL and link mutations.
+ * Ensures deterministic convergence for concurrent multi-client updates.
+ */
+export const vfsCrdtOps = pgTable(
+  'vfs_crdt_ops',
+  {
+    id: text('id').primaryKey(),
+    itemId: text('item_id')
+      .notNull()
+      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
+    opType: text('op_type', {
+      enum: ['acl_add', 'acl_remove', 'link_add', 'link_remove']
+    }).notNull(),
+    principalType: text('principal_type', {
+      enum: ['user', 'group', 'organization']
+    }),
+    principalId: text('principal_id'),
+    accessLevel: text('access_level', {
+      enum: ['read', 'write', 'admin']
+    }),
+    parentId: text('parent_id'),
+    childId: text('child_id'),
+    actorId: text('actor_id').references(() => users.id, {
+      onDelete: 'set null'
+    }),
+    sourceTable: text('source_table').notNull(),
+    sourceId: text('source_id').notNull(),
+    occurredAt: timestamp('occurred_at', { withTimezone: true }).notNull()
+  },
+  (table) => [
+    index('vfs_crdt_ops_item_idx').on(table.itemId),
+    index('vfs_crdt_ops_occurred_idx').on(table.occurredAt),
+    index('vfs_crdt_ops_source_idx').on(table.sourceTable, table.sourceId)
+  ]
+);
+
+/**
  * MLS key packages for user identity.
  * Each package is consumed once when used to add user to a group.
  */
