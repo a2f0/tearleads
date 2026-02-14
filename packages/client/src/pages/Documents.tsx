@@ -1,88 +1,42 @@
-import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  WINDOW_TABLE_TYPOGRAPHY,
-  WindowTableRow
-} from '@tearleads/window-manager';
 import { and, desc, eq, like, or } from 'drizzle-orm';
 import {
-  ChevronDown,
-  ChevronUp,
-  Download,
   FileText,
   Info,
   Loader2,
   RotateCcw,
-  Share2,
   Trash2,
   Upload
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
-import { Button } from '@/components/ui/button';
 import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
-import { ListRow } from '@/components/ui/list-row';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { UploadProgress } from '@/components/ui/upload-progress';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
-import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { objectUrlToDataUrl } from '@/lib/chat-attachments';
 import { retrieveFileData } from '@/lib/data-retrieval';
 import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
 import { setAttachedImage } from '@/lib/llm-runtime';
 import { useNavigateWithFrom } from '@/lib/navigation';
-import { formatFileSize } from '@/lib/utils';
 import {
   getFileStorage,
   initializeFileStorage,
   isFileStorageInitialized
 } from '@/storage/opfs';
+import { DocumentsListView } from './documents/DocumentsListView';
+import { DocumentsTableView } from './documents/DocumentsTableView';
+import type { DocumentInfo, DocumentWithUrl } from './documents/documentTypes';
 
 const PDF_MIME_TYPE = 'application/pdf';
 
-const DOCUMENT_TYPE_MAP: Record<string, string> = {
-  'application/pdf': 'PDF',
-  'text/plain': 'Text',
-  'text/markdown': 'Markdown',
-  'text/csv': 'CSV',
-  'application/json': 'JSON'
-};
-
-function getDocumentTypeLabel(mimeType: string): string {
-  if (DOCUMENT_TYPE_MAP[mimeType]) {
-    return DOCUMENT_TYPE_MAP[mimeType];
-  }
-  const [, subtype] = mimeType.split('/');
-  return subtype ? subtype.toUpperCase() : 'Document';
-}
-
-interface DocumentInfo {
-  id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  uploadDate: Date;
-  storagePath: string;
-  thumbnailPath: string | null;
-  deleted: boolean;
-}
-
-interface DocumentWithUrl extends DocumentInfo {
-  thumbnailUrl: string | null;
-}
-
-const ROW_HEIGHT_ESTIMATE = 56;
-
 type ViewMode = 'list' | 'table';
-type SortColumn = 'name' | 'size' | 'mimeType' | 'uploadDate';
-type SortDirection = 'asc' | 'desc';
 
 interface DocumentsProps {
   showBackLink?: boolean;
@@ -124,22 +78,10 @@ export function Documents({
   } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [sortColumn, setSortColumn] = useState<SortColumn>('uploadDate');
-  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
   const { uploadFile } = useFileUpload();
-  const parentRef = useRef<HTMLDivElement>(null);
+  const fetchedForInstanceRef = useRef<string | null>(null);
 
   const isTableView = viewMode === 'table';
-
-  const virtualizer = useVirtualizer({
-    count: documents.length,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT_ESTIMATE,
-    overscan: 5
-  });
-
-  const virtualItems = virtualizer.getVirtualItems();
-  const { firstVisible, lastVisible } = useVirtualVisibleRange(virtualItems);
 
   useEffect(() => {
     setCanShare(canShareFiles());
@@ -324,10 +266,6 @@ export function Documents({
     }
   }, [isUnlocked, currentInstanceId, showDeleted]);
 
-  // Track the instance ID for which we've fetched documents
-  // Using a ref avoids React's state batching issues
-  const fetchedForInstanceRef = useRef<string | null>(null);
-
   // biome-ignore lint/correctness/useExhaustiveDependencies: documents and hasFetched intentionally excluded to prevent re-fetch loops
   useEffect(() => {
     // Check if we need to fetch for this instance
@@ -466,37 +404,6 @@ export function Documents({
     setContextMenu(null);
   }, []);
 
-  const handleSortChange = useCallback(
-    (column: SortColumn) => {
-      if (column === sortColumn) {
-        setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-        return;
-      }
-      setSortColumn(column);
-      setSortDirection('asc');
-    },
-    [sortColumn]
-  );
-
-  const sortedDocuments = useMemo(() => {
-    const sorted = [...documents].sort((a, b) => {
-      switch (sortColumn) {
-        case 'name':
-          return a.name.localeCompare(b.name);
-        case 'size':
-          return a.size - b.size;
-        case 'mimeType':
-          return a.mimeType.localeCompare(b.mimeType);
-        case 'uploadDate':
-          return a.uploadDate.getTime() - b.uploadDate.getTime();
-        default:
-          return 0;
-      }
-    });
-
-    return sortDirection === 'asc' ? sorted : sorted.reverse();
-  }, [documents, sortColumn, sortDirection]);
-
   const openAIChat = useCallback(() => {
     if (onOpenAIChat) {
       onOpenAIChat();
@@ -588,277 +495,28 @@ export function Documents({
             </div>
           )
         ) : isTableView ? (
-          <div className="flex min-h-0 flex-1 flex-col">
-            {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
-            <div
-              className="flex-1 overflow-auto rounded-lg border"
-              onContextMenu={handleBlankSpaceContextMenu}
-            >
-              <table
-                className={WINDOW_TABLE_TYPOGRAPHY.table}
-                data-testid="documents-table"
-              >
-                <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
-                  <tr>
-                    <th
-                      scope="col"
-                      className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
-                    >
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 text-left font-medium hover:text-foreground"
-                        onClick={() => handleSortChange('name')}
-                      >
-                        Name
-                        {sortColumn === 'name' && (
-                          <span className="shrink-0">
-                            {sortDirection === 'asc' ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            )}
-                          </span>
-                        )}
-                      </button>
-                    </th>
-                    <th
-                      scope="col"
-                      className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
-                    >
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 text-left font-medium hover:text-foreground"
-                        onClick={() => handleSortChange('size')}
-                      >
-                        Size
-                        {sortColumn === 'size' && (
-                          <span className="shrink-0">
-                            {sortDirection === 'asc' ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            )}
-                          </span>
-                        )}
-                      </button>
-                    </th>
-                    <th
-                      scope="col"
-                      className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
-                    >
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 text-left font-medium hover:text-foreground"
-                        onClick={() => handleSortChange('mimeType')}
-                      >
-                        Type
-                        {sortColumn === 'mimeType' && (
-                          <span className="shrink-0">
-                            {sortDirection === 'asc' ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            )}
-                          </span>
-                        )}
-                      </button>
-                    </th>
-                    <th
-                      scope="col"
-                      className={WINDOW_TABLE_TYPOGRAPHY.headerCell}
-                    >
-                      <button
-                        type="button"
-                        className="flex items-center gap-1 text-left font-medium hover:text-foreground"
-                        onClick={() => handleSortChange('uploadDate')}
-                      >
-                        Date
-                        {sortColumn === 'uploadDate' && (
-                          <span className="shrink-0">
-                            {sortDirection === 'asc' ? (
-                              <ChevronUp className="h-3 w-3" />
-                            ) : (
-                              <ChevronDown className="h-3 w-3" />
-                            )}
-                          </span>
-                        )}
-                      </button>
-                    </th>
-                    <th
-                      scope="col"
-                      className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
-                    >
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sortedDocuments.map((document) => (
-                    <WindowTableRow
-                      key={document.id}
-                      onClick={() => handleDocumentClick(document)}
-                      onContextMenu={(event) =>
-                        handleContextMenu(event, document)
-                      }
-                    >
-                      <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
-                        <div className="flex min-w-0 items-center gap-2">
-                          {document.thumbnailUrl ? (
-                            <img
-                              src={document.thumbnailUrl}
-                              alt={`Thumbnail for ${document.name}`}
-                              className="h-7 w-7 shrink-0 rounded border object-cover"
-                            />
-                          ) : (
-                            <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
-                          )}
-                          <span className="truncate">{document.name}</span>
-                        </div>
-                      </td>
-                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                        {formatFileSize(document.size)}
-                      </td>
-                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                        {getDocumentTypeLabel(document.mimeType)}
-                      </td>
-                      <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                        {document.uploadDate.toLocaleDateString()}
-                      </td>
-                      <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
-                        <div className="flex justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={(e) => handleDownload(document, e)}
-                            title="Download"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                          {canShare && (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => handleShare(document, e)}
-                              title="Share"
-                            >
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </WindowTableRow>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
+          <DocumentsTableView
+            documents={documents}
+            canShare={canShare}
+            onDocumentClick={handleDocumentClick}
+            onContextMenu={handleContextMenu}
+            onBlankSpaceContextMenu={handleBlankSpaceContextMenu}
+            onDownload={handleDownload}
+            onShare={handleShare}
+          />
         ) : (
-          <div
-            className="flex min-h-0 flex-1 flex-col space-y-2"
-            data-testid="documents-list"
-          >
-            <VirtualListStatus
-              firstVisible={firstVisible}
-              lastVisible={lastVisible}
-              loadedCount={documents.length}
-              itemLabel="document"
-            />
-            <div className="flex-1 rounded-lg border">
-              {/* biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty space */}
-              <div
-                ref={parentRef}
-                className="h-full overflow-auto"
-                onContextMenu={handleBlankSpaceContextMenu}
-              >
-                <div
-                  className="relative w-full"
-                  style={{ height: `${virtualizer.getTotalSize()}px` }}
-                >
-                  {virtualItems.map((virtualItem) => {
-                    const document = documents[virtualItem.index];
-                    if (!document) return null;
-
-                    return (
-                      <div
-                        key={document.id}
-                        data-index={virtualItem.index}
-                        ref={virtualizer.measureElement}
-                        className="absolute top-0 left-0 w-full px-1 py-0.5"
-                        style={{
-                          transform: `translateY(${virtualItem.start}px)`
-                        }}
-                      >
-                        <ListRow
-                          onContextMenu={(e) => handleContextMenu(e, document)}
-                        >
-                          <button
-                            type="button"
-                            className="flex min-w-0 flex-1 cursor-pointer items-center gap-3 overflow-hidden text-left"
-                            onClick={() => handleDocumentClick(document)}
-                          >
-                            {document.thumbnailUrl ? (
-                              <img
-                                src={document.thumbnailUrl}
-                                alt={`Thumbnail for ${document.name}`}
-                                className="h-10 w-10 shrink-0 rounded border object-cover"
-                              />
-                            ) : (
-                              <FileText className="h-5 w-5 shrink-0 text-muted-foreground" />
-                            )}
-                            <div className="min-w-0 flex-1">
-                              <p className="truncate font-medium text-sm">
-                                {document.name}
-                              </p>
-                              <p className="text-muted-foreground text-xs">
-                                {formatFileSize(document.size)} ·{' '}
-                                {document.uploadDate.toLocaleDateString()}
-                              </p>
-                            </div>
-                          </button>
-                          <div className="flex shrink-0 gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={(e) => handleDownload(document, e)}
-                              title="Download"
-                            >
-                              <Download className="h-4 w-4" />
-                            </Button>
-                            {canShare && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={(e) => handleShare(document, e)}
-                                title="Share"
-                              >
-                                <Share2 className="h-4 w-4" />
-                              </Button>
-                            )}
-                          </div>
-                        </ListRow>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-            {showDropzone && (
-              <Dropzone
-                onFilesSelected={handleFilesSelected}
-                accept="application/pdf,text/*"
-                multiple={true}
-                disabled={uploading}
-                label="PDF or text documents"
-                source="files"
-                compact
-                variant="row"
-              />
-            )}
-          </div>
+          <DocumentsListView
+            documents={documents}
+            canShare={canShare}
+            showDropzone={showDropzone}
+            uploading={uploading}
+            onDocumentClick={handleDocumentClick}
+            onContextMenu={handleContextMenu}
+            onBlankSpaceContextMenu={handleBlankSpaceContextMenu}
+            onDownload={handleDownload}
+            onShare={handleShare}
+            onFilesSelected={handleFilesSelected}
+          />
         ))}
 
       {contextMenu && (
