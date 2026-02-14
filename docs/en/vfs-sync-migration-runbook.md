@@ -158,6 +158,9 @@ WHERE r.encrypted_name IS DISTINCT FROM f.encrypted_name
    - `POST /v1/vfs/blobs/stage/:id/abandon`
    - `GET /v1/vfs/crdt/sync`
    - `POST /v1/vfs/crdt/reconcile`
+1. Confirm client builds include local migration `v019` so `vfs_registry`
+   contains canonical folder metadata columns (`encrypted_name`, `icon`,
+   `view_mode`, `default_sort`, `sort_direction`) before read-path cutover.
 1. Confirm no SQL errors referencing dropped tables (`vfs_blob_staging`, `vfs_blob_refs`, `vfs_blob_objects`, `vfs_access`).
 1. Confirm guardrail violations are not emitted for cursor/write-id regression in the same rollout window.
 

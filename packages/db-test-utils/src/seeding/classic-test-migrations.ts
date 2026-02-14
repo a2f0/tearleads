@@ -18,6 +18,11 @@ export const classicTestMigrations = [
           encrypted_session_key TEXT,
           public_hierarchical_key TEXT,
           encrypted_private_hierarchical_key TEXT,
+          encrypted_name TEXT,
+          icon TEXT,
+          view_mode TEXT,
+          default_sort TEXT,
+          sort_direction TEXT,
           created_at INTEGER NOT NULL
         )
       `);

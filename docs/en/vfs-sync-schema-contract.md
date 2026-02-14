@@ -56,7 +56,9 @@ reintroduced.
 
 `vfs_shares`/`org_shares` ACL parity scaffolding is staged in `v028`/`v029`,
 and `v030` backfills folder metadata into canonical `vfs_registry` columns.
-`vfs_folders` remains active until read/write paths are fully cut over.
+Read paths now prefer `vfs_registry` folder metadata and fail over to
+`vfs_folders`; write paths remain transitional until dual-write retirement work
+is complete.
 
 ## Domain Mapping
 
