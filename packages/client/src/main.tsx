@@ -100,6 +100,9 @@ const CacheStorage = lazy(() =>
 const Calendar = lazy(() =>
   import('./pages/Calendar').then((m) => ({ default: m.Calendar }))
 );
+const CameraPage = lazy(() =>
+  import('./pages/Camera').then((m) => ({ default: m.Camera }))
+);
 const Businesses = lazy(() =>
   import('./pages/Businesses').then((m) => ({ default: m.Businesses }))
 );
@@ -324,6 +327,10 @@ if (rootElement) {
                                         <Route
                                           path="photos"
                                           element={<Photos />}
+                                        />
+                                        <Route
+                                          path="camera"
+                                          element={<CameraPage />}
                                         />
                                         <Route
                                           path="photos/albums/:albumId"

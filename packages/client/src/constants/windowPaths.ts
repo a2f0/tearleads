@@ -9,6 +9,7 @@ export const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/email': 'email',
   '/contacts': 'contacts',
   '/photos': 'photos',
+  '/camera': 'camera',
   '/documents': 'documents',
   '/videos': 'videos',
   '/keychain': 'keychain',

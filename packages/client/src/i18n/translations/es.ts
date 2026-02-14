@@ -20,6 +20,7 @@ export const es = {
     businesses: 'Empresas',
     contacts: 'Contactos',
     photos: 'Fotos',
+    camera: 'Cámara',
     documents: 'Documentos',
     help: 'Ayuda',
     notes: 'Notas',

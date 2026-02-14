@@ -25,6 +25,12 @@ const SEARCHABLE_APPS: SearchableAppDefinition[] = [
   { windowType: 'email', path: '/email', title: 'Email' },
   { windowType: 'contacts', path: '/contacts', title: 'Contacts' },
   { windowType: 'photos', path: '/photos', title: 'Photos' },
+  {
+    windowType: 'camera',
+    path: '/camera',
+    title: 'Camera',
+    keywords: ['capture', 'webcam', 'scan']
+  },
   { windowType: 'videos', path: '/videos', title: 'Videos' },
   { windowType: 'keychain', path: '/keychain', title: 'Keychain' },
   {

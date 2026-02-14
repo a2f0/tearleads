@@ -18,6 +18,7 @@ export interface MenuTranslations {
   businesses: string;
   contacts: string;
   photos: string;
+  camera: string;
   documents: string;
   help: string;
   notes: string;

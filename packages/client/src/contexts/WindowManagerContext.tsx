@@ -32,6 +32,7 @@ export type WindowType =
   | 'email'
   | 'contacts'
   | 'photos'
+  | 'camera'
   | 'videos'
   | 'keychain'
   | 'wallet'

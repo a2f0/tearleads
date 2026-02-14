@@ -61,6 +61,7 @@
     "@tearleads/audio": "workspace:*",
     "@tearleads/businesses": "workspace:*",
     "@tearleads/calendar": "workspace:*",
+    "@tearleads/camera": "workspace:*",
     "@tearleads/classic": "workspace:*",
     "@tearleads/compliance": "workspace:*",
     "@tearleads/contacts": "workspace:*",
