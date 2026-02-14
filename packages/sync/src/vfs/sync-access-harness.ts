@@ -8,6 +8,8 @@ import {
   InMemoryVfsCrdtFeedReplayStore,
   type VfsCrdtFeedReplaySnapshot
 } from './sync-crdt-feed-replay.js';
+import type { VfsSyncCursor } from './sync-cursor.js';
+import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
 export interface EffectiveVfsAclKeyViewEntry {
   itemId: string;
@@ -33,6 +35,11 @@ export interface EffectiveVfsMemberItemAccessEntry {
   wrappedSessionKey: string | null;
   wrappedHierarchicalKey: string | null;
   updatedAt: string;
+}
+
+export interface VfsAuthoritativeMembershipSnapshot {
+  cursor: VfsSyncCursor;
+  members: VfsMemberPrincipalView[];
 }
 
 const ACCESS_RANK: Record<VfsAclAccessLevel, number> = {
@@ -81,6 +88,64 @@ function normalizePrincipalIdSet(values: string[]): Set<string> {
   }
 
   return normalized;
+}
+
+function cloneCursor(cursor: VfsSyncCursor): VfsSyncCursor {
+  return {
+    changedAt: cursor.changedAt,
+    changeId: cursor.changeId
+  };
+}
+
+function normalizeRequiredString(value: unknown, fieldName: string): string {
+  if (typeof value !== 'string') {
+    throw new Error(`${fieldName} must be a string`);
+  }
+
+  const trimmed = value.trim();
+  if (trimmed.length === 0) {
+    throw new Error(`${fieldName} is required`);
+  }
+
+  return trimmed;
+}
+
+function normalizeMembershipSnapshotCursor(cursor: VfsSyncCursor): VfsSyncCursor {
+  const changedAt = normalizeRequiredString(
+    cursor.changedAt,
+    'membership snapshot cursor.changedAt'
+  );
+  const changeId = normalizeRequiredString(
+    cursor.changeId,
+    'membership snapshot cursor.changeId'
+  );
+
+  const changedAtMs = Date.parse(changedAt);
+  if (!Number.isFinite(changedAtMs)) {
+    throw new Error('membership snapshot cursor.changedAt is invalid');
+  }
+
+  return {
+    changedAt: new Date(changedAtMs).toISOString(),
+    changeId
+  };
+}
+
+function normalizeMemberPrincipalView(
+  principalView: VfsMemberPrincipalView
+): VfsMemberPrincipalView {
+  const normalizedUserId = principalView.userId.trim();
+  if (normalizedUserId.length === 0) {
+    throw new Error('principalView.userId is required');
+  }
+
+  return {
+    userId: normalizedUserId,
+    groupIds: Array.from(normalizePrincipalIdSet(principalView.groupIds)),
+    organizationIds: Array.from(
+      normalizePrincipalIdSet(principalView.organizationIds)
+    )
+  };
 }
 
 function isMemberPrincipalMatch(
@@ -148,6 +213,8 @@ function toSortedMemberAccessView(
 export class InMemoryVfsAccessHarness {
   private readonly crdtReplayStore = new InMemoryVfsCrdtFeedReplayStore();
   private aclSnapshotEntries: VfsAclSnapshotEntry[] = [];
+  private membershipSnapshotCursor: VfsSyncCursor | null = null;
+  private membershipPrincipalViewsByUserId = new Map<string, VfsMemberPrincipalView>();
 
   setAclSnapshotEntries(entries: VfsAclSnapshotEntry[]): void {
     this.aclSnapshotEntries = entries.slice();
@@ -159,6 +226,67 @@ export class InMemoryVfsAccessHarness {
 
   getCrdtSnapshot(): VfsCrdtFeedReplaySnapshot {
     return this.crdtReplayStore.snapshot();
+  }
+
+  replaceMembershipSnapshot(
+    snapshot: VfsAuthoritativeMembershipSnapshot
+  ): void {
+    const normalizedCursor = normalizeMembershipSnapshotCursor(snapshot.cursor);
+    if (
+      this.membershipSnapshotCursor &&
+      compareVfsSyncCursorOrder(
+        normalizedCursor,
+        this.membershipSnapshotCursor
+      ) < 0
+    ) {
+      /**
+       * Guardrail: service-provided membership snapshots are authoritative for
+       * group/org grants. Regressing the snapshot cursor would allow stale cache
+       * state to resurrect removed memberships and leak access.
+       */
+      throw new Error('membership snapshot cursor regressed');
+    }
+
+    const normalizedViewsByUserId = new Map<string, VfsMemberPrincipalView>();
+    for (const principalView of snapshot.members) {
+      const normalizedView = normalizeMemberPrincipalView(principalView);
+      if (normalizedViewsByUserId.has(normalizedView.userId)) {
+        throw new Error('membership snapshot contains duplicate user entry');
+      }
+      normalizedViewsByUserId.set(normalizedView.userId, normalizedView);
+    }
+
+    this.membershipSnapshotCursor = normalizedCursor;
+    this.membershipPrincipalViewsByUserId = normalizedViewsByUserId;
+  }
+
+  getMembershipSnapshotCursor(): VfsSyncCursor | null {
+    return this.membershipSnapshotCursor
+      ? cloneCursor(this.membershipSnapshotCursor)
+      : null;
+  }
+
+  buildEffectiveAccessForUser(
+    userId: string,
+    now: Date = new Date()
+  ): EffectiveVfsMemberItemAccessEntry[] {
+    const normalizedUserId = normalizeRequiredString(
+      userId,
+      'userId'
+    );
+    const principalView =
+      this.membershipPrincipalViewsByUserId.get(normalizedUserId) ?? {
+        userId: normalizedUserId,
+        groupIds: [],
+        organizationIds: []
+      };
+
+    /**
+     * Guardrail: only memberships from the latest authoritative service-layer
+     * snapshot are eligible for group/org grants. Missing users fail closed to
+     * direct user ACLs only.
+     */
+    return this.buildEffectiveAccessForMember(principalView, now);
   }
 
   buildEffectiveAclKeyView(
@@ -198,18 +326,7 @@ export class InMemoryVfsAccessHarness {
     principalView: VfsMemberPrincipalView,
     now: Date = new Date()
   ): EffectiveVfsMemberItemAccessEntry[] {
-    const normalizedUserId = principalView.userId.trim();
-    if (normalizedUserId.length === 0) {
-      throw new Error('principalView.userId is required');
-    }
-
-    const normalizedPrincipalView: VfsMemberPrincipalView = {
-      userId: normalizedUserId,
-      groupIds: Array.from(normalizePrincipalIdSet(principalView.groupIds)),
-      organizationIds: Array.from(
-        normalizePrincipalIdSet(principalView.organizationIds)
-      )
-    };
+    const normalizedPrincipalView = normalizeMemberPrincipalView(principalView);
 
     /**
      * Guardrail: resolve per-item effective access deterministically so user,
