@@ -70,9 +70,10 @@ src/features/billing/index.ts
 6. **Minimize props**: Pass minimal props; avoid prop drilling by extracting at the nearest sensible boundary.
 7. **Preserve DOM**: Keep class names and DOM structure stable unless there is a clear bug fix.
 8. **Rename**: Use domain-oriented names for extracted components.
-9. **Tests**: Update colocated tests or add focused tests for extracted logic.
-10. **Validate**: Run lint, type-check, and relevant tests to ensure no regressions.
-11. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
+9. **Tests (CRITICAL)**: When extracting code into new files, you MUST create or update tests to maintain coverage thresholds. Splitting code without tests causes CI failures.
+10. **Coverage check**: Run `pnpm --filter @tearleads/<package> test:coverage` for the affected package. DO NOT proceed if coverage thresholds fail.
+11. **Validate**: Run lint, type-check, and relevant tests to ensure no regressions.
+12. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
 
 If no high-value split was found during discovery, do not create a branch or run commit/merge workflows.
 
