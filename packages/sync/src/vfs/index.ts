@@ -4,6 +4,17 @@ export {
   type VfsAclSnapshotEntry
 } from './acl-key-view.js';
 export {
+  InMemoryVfsCrdtStateStore,
+  reconcileVfsCrdtOperations,
+  type VfsCrdtAclEntry,
+  type VfsCrdtApplyResult,
+  type VfsCrdtApplyStatus,
+  type VfsCrdtLinkEntry,
+  type VfsCrdtOperation,
+  type VfsCrdtOpType,
+  type VfsCrdtSnapshot
+} from './sync-crdt.js';
+export {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor
