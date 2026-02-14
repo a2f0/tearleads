@@ -8,22 +8,13 @@ The **Tearleads Backup Utility** (.tbu) format is a cross-platform backup format
 
 ### File Structure
 
-```text
-┌─────────────────────────────────────────┐
-│              HEADER (36 bytes)          │
-├─────────────────────────────────────────┤
-│   Magic Bytes: "TEARLEADSBAK" (12 bytes)    │
-│    Format Version (2 bytes, LE)         │
-│    Flags (2 bytes, LE)                  │
-│    Salt (16 bytes)                      │
-│    Reserved (4 bytes)                   │
-├─────────────────────────────────────────┤
-│           ENCRYPTED CHUNKS              │
-├─────────────────────────────────────────┤
-│    Chunk 0: Manifest                    │
-│    Chunk 1: Database                    │
-│    Chunk 2..N: Blobs (files)            │
-└─────────────────────────────────────────┘
+```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
+flowchart TB
+    HEADER["HEADER (36 bytes, plaintext)<br/>Magic Bytes: TEARLEADSBAK (12 bytes)<br/>Format Version (2 bytes, LE)<br/>Flags (2 bytes, LE)<br/>Salt (16 bytes)<br/>Reserved (4 bytes)"]
+    CHUNKS["ENCRYPTED CHUNKS<br/>Chunk 0: Manifest<br/>Chunk 1: Database<br/>Chunk 2..N: Blobs (files)"]
+
+    HEADER --> CHUNKS
 ```
 
 ### Header Format (36 bytes, plaintext)
