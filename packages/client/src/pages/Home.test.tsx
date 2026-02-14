@@ -1186,7 +1186,7 @@ describe('Home', () => {
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
   });
 
-  it('shows Open in Window option for Debug icon', async () => {
+  it('shows Open in Window option for Debug icon from context menu', async () => {
     const user = userEvent.setup();
     renderHome();
 
@@ -1211,7 +1211,7 @@ describe('Home', () => {
     expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
   });
 
-  it('opens debug in floating window when Open in Window is clicked', async () => {
+  it('opens debug in floating window from context menu action', async () => {
     const user = userEvent.setup();
     renderHome();
 
@@ -1302,7 +1302,7 @@ describe('Home', () => {
     expect(screen.queryByText('Open in Window')).not.toBeInTheDocument();
   });
 
-  it('shows Open in Window option for Debug icon', async () => {
+  it('shows Open in Window option for Debug icon in later coverage block', async () => {
     const user = userEvent.setup();
     renderHome();
 
@@ -1312,7 +1312,7 @@ describe('Home', () => {
     expect(screen.getByText('Open in Window')).toBeInTheDocument();
   });
 
-  it('opens debug in floating window when Open in Window is clicked', async () => {
+  it('opens debug in floating window in later coverage block', async () => {
     const user = userEvent.setup();
     renderHome();
 
