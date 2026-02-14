@@ -1,5 +1,11 @@
 import { getTableColumns } from 'drizzle-orm';
-import { Activity, Dumbbell, HeartPulse, Scale } from 'lucide-react';
+import {
+  Activity,
+  Dumbbell,
+  HeartPulse,
+  type LucideIcon,
+  Scale
+} from 'lucide-react';
 import { BackLink } from '@/components/ui/back-link';
 import {
   healthBloodPressureReadings,
@@ -12,7 +18,16 @@ interface HealthProps {
   showBackLink?: boolean;
 }
 
-const HEALTH_SCHEMA_CARDS = [
+interface HealthSchemaCard {
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  tableName: string;
+  columns: string[];
+  relation?: string;
+}
+
+const HEALTH_SCHEMA_CARDS: HealthSchemaCard[] = [
   {
     title: 'Weight Tracking',
     description: 'Record and review weight history.',
@@ -42,7 +57,7 @@ const HEALTH_SCHEMA_CARDS = [
     columns: Object.keys(getTableColumns(healthWorkoutEntries)),
     relation: 'exerciseId -> health_exercises.id'
   }
-] as const;
+];
 
 export function Health({ showBackLink = true }: HealthProps) {
   return (
