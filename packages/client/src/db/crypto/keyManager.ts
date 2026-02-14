@@ -139,10 +139,28 @@ class WebKeyStorage implements KeyStorageAdapter {
       const tx = db.transaction(this.storeName, 'readwrite');
       const store = tx.objectStore(this.storeName);
       const request = store.put(value, key);
-
-      request.onerror = () => reject(request.error);
-      tx.oncomplete = () => {
+      let settled = false;
+      const rejectOnce = (error: unknown) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
         db.close();
+        reject(error);
+      };
+
+      request.onerror = () => rejectOnce(request.error);
+      tx.onabort = () => rejectOnce(tx.error ?? request.error);
+      tx.oncomplete = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        db.close();
+        if (request.error) {
+          reject(request.error);
+          return;
+        }
         resolve();
       };
     });
@@ -154,10 +172,28 @@ class WebKeyStorage implements KeyStorageAdapter {
       const tx = db.transaction(this.storeName, 'readwrite');
       const store = tx.objectStore(this.storeName);
       const request = store.delete(key);
-
-      request.onerror = () => reject(request.error);
-      tx.oncomplete = () => {
+      let settled = false;
+      const rejectOnce = (error: unknown) => {
+        if (settled) {
+          return;
+        }
+        settled = true;
         db.close();
+        reject(error);
+      };
+
+      request.onerror = () => rejectOnce(request.error);
+      tx.onabort = () => rejectOnce(tx.error ?? request.error);
+      tx.oncomplete = () => {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        db.close();
+        if (request.error) {
+          reject(request.error);
+          return;
+        }
         resolve();
       };
     });
