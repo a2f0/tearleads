@@ -5,9 +5,9 @@ import { buildVfsCrdtSyncQuery } from './sync-crdt-feed.js';
 import { buildVfsSyncQuery } from './sync-engine.js';
 import {
   deriveVfsFlatteningInventory,
-  findTransitionalTableReferences,
-  extractSqlTableReferences,
   extractPostgresTableNamesFromDrizzleSchema,
+  extractSqlTableReferences,
+  findTransitionalTableReferences,
   isSqlReferenceSubsetOfFlattenedContract,
   VFS_SYNC_FLATTENED_TARGET_TABLES
 } from './sync-schema-contract.js';
@@ -18,10 +18,7 @@ function extractSqlLiteralsFromSource(source: string): string[] {
   let match: RegExpExecArray | null = templatePattern.exec(source);
   while (match) {
     const body = match[1];
-    if (
-      body &&
-      /\b(?:SELECT|INSERT|UPDATE|DELETE|WITH)\b/i.test(body)
-    ) {
+    if (body && /\b(?:SELECT|INSERT|UPDATE|DELETE|WITH)\b/i.test(body)) {
       sqlLiterals.push(body);
     }
 
@@ -89,9 +86,7 @@ describe('sync schema contract', () => {
       ...extractSqlLiteralsFromSource(postReconcileSource)
     ];
     const routeReferences = Array.from(
-      new Set([
-        ...routeSql.flatMap((sql) => extractSqlTableReferences(sql))
-      ])
+      new Set([...routeSql.flatMap((sql) => extractSqlTableReferences(sql))])
     ).sort((left, right) => left.localeCompare(right));
 
     expect(routeReferences).toEqual([
@@ -104,9 +99,9 @@ describe('sync schema contract', () => {
         VFS_SYNC_FLATTENED_TARGET_TABLES.includes(tableName)
       )
     ).toBe(true);
-    expect(routeSql.flatMap((sql) => findTransitionalTableReferences(sql))).toEqual(
-      []
-    );
+    expect(
+      routeSql.flatMap((sql) => findTransitionalTableReferences(sql))
+    ).toEqual([]);
   });
 
   it('keeps blob stage/attach routes off transitional blob tables', () => {
@@ -148,9 +143,9 @@ describe('sync schema contract', () => {
     );
     expect(routeReferences).not.toContain('vfs_blob_refs');
     expect(routeReferences).not.toContain('vfs_blob_staging');
-    expect(routeSql.flatMap((sql) => findTransitionalTableReferences(sql))).toEqual(
-      []
-    );
+    expect(
+      routeSql.flatMap((sql) => findTransitionalTableReferences(sql))
+    ).toEqual([]);
   });
 
   it('detects SQL references that fall outside the flattened contract', () => {

@@ -116,13 +116,10 @@ export class InMemoryVfsContainerClockStore {
       const existingEntry = this.clocksByContainerId.get(containerId);
       if (
         existingEntry &&
-        compareVfsSyncCursorOrder(
-          cursor,
-          {
-            changedAt: existingEntry.changedAt,
-            changeId: existingEntry.changeId
-          }
-        ) <= 0
+        compareVfsSyncCursorOrder(cursor, {
+          changedAt: existingEntry.changedAt,
+          changeId: existingEntry.changeId
+        }) <= 0
       ) {
         continue;
       }
@@ -146,7 +143,8 @@ export class InMemoryVfsContainerClockStore {
   }
 
   replaceSnapshot(entries: VfsContainerClockEntry[]): void {
-    const nextEntriesByContainerId: Map<string, VfsContainerClockEntry> = new Map();
+    const nextEntriesByContainerId: Map<string, VfsContainerClockEntry> =
+      new Map();
 
     /**
      * Guardrail: container clock hydration must preserve one deterministic latest
@@ -167,7 +165,9 @@ export class InMemoryVfsContainerClockStore {
       }
 
       if (nextEntriesByContainerId.has(containerId)) {
-        throw new Error('snapshot container clocks contain duplicate containerId');
+        throw new Error(
+          'snapshot container clocks contain duplicate containerId'
+        );
       }
 
       nextEntriesByContainerId.set(containerId, {

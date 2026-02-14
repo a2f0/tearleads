@@ -96,7 +96,9 @@ describe('blob-shared', () => {
     it('returns null for invalid payloads', () => {
       expect(parseBlobAttachBody(null)).toBeNull();
       expect(parseBlobAttachBody({})).toBeNull();
-      expect(parseBlobAttachBody({ itemId: 'item-1', relationKind: 42 })).toBeNull();
+      expect(
+        parseBlobAttachBody({ itemId: 'item-1', relationKind: 42 })
+      ).toBeNull();
       expect(
         parseBlobAttachBody({ itemId: 'item-1', relationKind: 'invalid' })
       ).toBeNull();
@@ -111,17 +113,20 @@ describe('blob-shared', () => {
 
     it('accepts valid relation kinds', () => {
       expect(
-        parseBlobAttachBody({ itemId: 'item-1', relationKind: 'emailAttachment' })
+        parseBlobAttachBody({
+          itemId: 'item-1',
+          relationKind: 'emailAttachment'
+        })
       ).toEqual({
         itemId: 'item-1',
         relationKind: 'emailAttachment'
       });
-      expect(parseBlobAttachBody({ itemId: 'item-1', relationKind: 'other' })).toEqual(
-        {
-          itemId: 'item-1',
-          relationKind: 'other'
-        }
-      );
+      expect(
+        parseBlobAttachBody({ itemId: 'item-1', relationKind: 'other' })
+      ).toEqual({
+        itemId: 'item-1',
+        relationKind: 'other'
+      });
     });
   });
 

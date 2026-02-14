@@ -2,25 +2,25 @@ import type {
   VfsAclAccessLevel,
   VfsAclPrincipalType,
   VfsCrdtOpType,
-  VfsCrdtReconcileResponse,
   VfsCrdtPushResponse,
   VfsCrdtPushStatus,
+  VfsCrdtReconcileResponse,
   VfsCrdtSyncItem,
   VfsCrdtSyncResponse
 } from '@tearleads/shared';
+import type {
+  VfsCrdtSyncPullResponse,
+  VfsCrdtSyncPushResponse,
+  VfsCrdtSyncReconcileResponse,
+  VfsCrdtSyncTransport
+} from './sync-client.js';
+import type { VfsCrdtOperation } from './sync-crdt.js';
+import { parseVfsCrdtLastReconciledWriteIds } from './sync-crdt-reconcile.js';
 import {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor
 } from './sync-cursor.js';
-import type { VfsCrdtOperation } from './sync-crdt.js';
-import { parseVfsCrdtLastReconciledWriteIds } from './sync-crdt-reconcile.js';
-import type {
-  VfsCrdtSyncPullResponse,
-  VfsCrdtSyncReconcileResponse,
-  VfsCrdtSyncPushResponse,
-  VfsCrdtSyncTransport
-} from './sync-client.js';
 
 const VALID_OP_TYPES: VfsCrdtOpType[] = [
   'acl_add',
@@ -61,10 +61,7 @@ function parseRequiredString(value: unknown, fieldName: string): string {
   return trimmed;
 }
 
-function parseNullableString(
-  value: unknown,
-  fieldName: string
-): string | null {
+function parseNullableString(value: unknown, fieldName: string): string | null {
   if (value === null) {
     return null;
   }
@@ -167,10 +164,15 @@ function parseApiPushResponse(body: unknown): VfsCrdtPushResponse {
   for (let index = 0; index < rawResults.length; index++) {
     const rawResult = rawResults[index];
     if (!isRecord(rawResult)) {
-      throw new Error(`transport returned invalid push result at index ${index}`);
+      throw new Error(
+        `transport returned invalid push result at index ${index}`
+      );
     }
 
-    const opId = parseRequiredString(rawResult['opId'], `results[${index}].opId`);
+    const opId = parseRequiredString(
+      rawResult['opId'],
+      `results[${index}].opId`
+    );
     const statusValue = rawResult['status'];
     if (!isPushStatus(statusValue)) {
       throw new Error(`transport returned invalid results[${index}].status`);
@@ -209,15 +211,24 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
       value['accessLevel'],
       `items[${index}].accessLevel`
     ),
-    parentId: parseNullableString(value['parentId'], `items[${index}].parentId`),
+    parentId: parseNullableString(
+      value['parentId'],
+      `items[${index}].parentId`
+    ),
     childId: parseNullableString(value['childId'], `items[${index}].childId`),
     actorId: parseNullableString(value['actorId'], `items[${index}].actorId`),
     sourceTable: parseRequiredString(
       value['sourceTable'],
       `items[${index}].sourceTable`
     ),
-    sourceId: parseRequiredString(value['sourceId'], `items[${index}].sourceId`),
-    occurredAt: parseIsoString(value['occurredAt'], `items[${index}].occurredAt`)
+    sourceId: parseRequiredString(
+      value['sourceId'],
+      `items[${index}].sourceId`
+    ),
+    occurredAt: parseIsoString(
+      value['occurredAt'],
+      `items[${index}].occurredAt`
+    )
   };
 }
 
@@ -424,7 +435,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
      * into this local state, which would corrupt monotonic ordering.
      */
     if (parsed.clientId !== input.clientId) {
-      throw new Error('transport returned reconcile response for mismatched clientId');
+      throw new Error(
+        'transport returned reconcile response for mismatched clientId'
+      );
     }
 
     const decodedCursor = decodeVfsSyncCursor(parsed.cursor);
@@ -480,7 +493,8 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
   private buildUrl(path: string, query: URLSearchParams | undefined): string {
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     const pathname = `${this.apiPrefix}${normalizedPath}`;
-    const base = this.baseUrl.length > 0 ? `${this.baseUrl}${pathname}` : pathname;
+    const base =
+      this.baseUrl.length > 0 ? `${this.baseUrl}${pathname}` : pathname;
     const queryString = query?.toString();
     if (!queryString) {
       return base;
@@ -489,7 +503,9 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
     return `${base}?${queryString}`;
   }
 
-  private async buildHeaders(includeJsonContentType: boolean): Promise<Headers> {
+  private async buildHeaders(
+    includeJsonContentType: boolean
+  ): Promise<Headers> {
     const headers = new Headers();
     headers.set('Accept', 'application/json');
     if (includeJsonContentType) {

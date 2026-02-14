@@ -339,8 +339,8 @@ describe('VFS sync end-to-end harness', () => {
     });
 
     expect(result.status).toBe('applied');
-    expect(blobIsolationStore.getBlobStage('stage-email-1')?.attachedItemId).toBe(
-      'email-1'
-    );
+    expect(
+      blobIsolationStore.getBlobStage('stage-email-1')?.attachedItemId
+    ).toBe('email-1');
   });
 });

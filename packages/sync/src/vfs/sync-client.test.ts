@@ -1,14 +1,14 @@
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 import {
+  VfsBackgroundSyncClient,
+  VfsCrdtSyncPushRejectedError,
+  type VfsCrdtSyncTransport
+} from './sync-client.js';
+import {
   InMemoryVfsCrdtSyncServer,
   InMemoryVfsCrdtSyncTransport
 } from './sync-client-harness.js';
-import {
-  VfsCrdtSyncPushRejectedError,
-  VfsBackgroundSyncClient,
-  type VfsCrdtSyncTransport
-} from './sync-client.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -179,9 +179,14 @@ describe('VfsBackgroundSyncClient', () => {
         pullLimit: 2
       }
     );
-    const mobile = new VfsBackgroundSyncClient('user-1', 'mobile', mobileTransport, {
-      pullLimit: 1
-    });
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport,
+      {
+        pullLimit: 1
+      }
+    );
 
     desktop.queueLocalOperation({
       opType: 'acl_add',
@@ -579,7 +584,8 @@ describe('VfsBackgroundSyncClient', () => {
     expect(guardrailViolations).toContainEqual({
       code: 'staleWriteRecoveryExhausted',
       stage: 'flush',
-      message: 'stale write-id recovery exceeded max retry attempts without forward progress'
+      message:
+        'stale write-id recovery exceeded max retry attempts without forward progress'
     });
   });
 
@@ -770,7 +776,9 @@ describe('VfsBackgroundSyncClient', () => {
       expect(snapshot.lastReconciledWriteIds).toEqual(
         serverSnapshot.lastReconciledWriteIds
       );
-      expect(snapshot.containerClocks).toEqual(baseClientSnapshot.containerClocks);
+      expect(snapshot.containerClocks).toEqual(
+        baseClientSnapshot.containerClocks
+      );
     }
 
     for (let index = 0; index < clientIds.length; index++) {
@@ -780,7 +788,8 @@ describe('VfsBackgroundSyncClient', () => {
         throw new Error(`missing client for replica ${clientId}`);
       }
 
-      const replicaWriteId = serverSnapshot.lastReconciledWriteIds[clientId] ?? 0;
+      const replicaWriteId =
+        serverSnapshot.lastReconciledWriteIds[clientId] ?? 0;
       expect(client.snapshot().nextLocalWriteId).toBeGreaterThanOrEqual(
         replicaWriteId + 1
       );
@@ -808,9 +817,14 @@ describe('VfsBackgroundSyncClient', () => {
       desktopTransport,
       { pullLimit: 2 }
     );
-    const mobile = new VfsBackgroundSyncClient('user-1', 'mobile', mobileTransport, {
-      pullLimit: 1
-    });
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport,
+      {
+        pullLimit: 1
+      }
+    );
     const observer = new VfsBackgroundSyncClient(
       'user-1',
       'observer',
@@ -1010,7 +1024,9 @@ describe('VfsBackgroundSyncClient', () => {
       occurredAt: '2026-02-14T12:12:00.000Z'
     });
 
-    await expect(client.flush()).rejects.toThrowError(/mismatched push response/);
+    await expect(client.flush()).rejects.toThrowError(
+      /mismatched push response/
+    );
     expect(client.snapshot().pendingOperations).toBe(1);
   });
 
@@ -1176,7 +1192,9 @@ describe('VfsBackgroundSyncClient', () => {
         });
       }
     });
-    await expect(client.sync()).rejects.toThrowError(/reconcile regressed sync cursor/);
+    await expect(client.sync()).rejects.toThrowError(
+      /reconcile regressed sync cursor/
+    );
     expect(guardrailViolations).toContainEqual({
       code: 'reconcileCursorRegression',
       stage: 'reconcile',
@@ -1230,7 +1248,9 @@ describe('VfsBackgroundSyncClient', () => {
         });
       }
     });
-    await expect(client.sync()).rejects.toThrowError(/regressed lastReconciledWriteIds/);
+    await expect(client.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds/
+    );
     expect(guardrailViolations).toContainEqual({
       code: 'lastWriteIdRegression',
       stage: 'reconcile',

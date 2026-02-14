@@ -68,19 +68,20 @@ function getJsonBody(init: unknown): unknown {
 
 describe('VfsHttpCrdtSyncTransport', () => {
   it('pushes operations to the CRDT push endpoint with auth headers', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          clientId: 'desktop',
-          results: [
-            {
-              opId: 'desktop-1',
-              status: 'applied'
-            }
-          ]
-        }),
-        { status: 200 }
-      )
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            clientId: 'desktop',
+            results: [
+              {
+                opId: 'desktop-1',
+                status: 'applied'
+              }
+            ]
+          }),
+          { status: 200 }
+        )
     );
 
     const transport = new VfsHttpCrdtSyncTransport({
@@ -123,7 +124,9 @@ describe('VfsHttpCrdtSyncTransport', () => {
 
     const requestInit = firstCall?.[1];
     expect(getHeaderValue(requestInit, 'Authorization')).toBe('Bearer token-1');
-    expect(getHeaderValue(requestInit, 'Content-Type')).toBe('application/json');
+    expect(getHeaderValue(requestInit, 'Content-Type')).toBe(
+      'application/json'
+    );
     expect(getJsonBody(requestInit)).toEqual({
       clientId: 'desktop',
       operations: [
@@ -152,34 +155,35 @@ describe('VfsHttpCrdtSyncTransport', () => {
       changeId: 'desktop-2'
     });
 
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          items: [
-            {
-              opId: 'desktop-2',
-              itemId: 'item-1',
-              opType: 'acl_add',
-              principalType: 'group',
-              principalId: 'group-1',
-              accessLevel: 'write',
-              parentId: null,
-              childId: null,
-              actorId: 'user-1',
-              sourceTable: 'vfs_crdt_client_push',
-              sourceId: 'user-1:desktop:2:desktop-2',
-              occurredAt: '2026-02-14T20:10:01.000Z'
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            items: [
+              {
+                opId: 'desktop-2',
+                itemId: 'item-1',
+                opType: 'acl_add',
+                principalType: 'group',
+                principalId: 'group-1',
+                accessLevel: 'write',
+                parentId: null,
+                childId: null,
+                actorId: 'user-1',
+                sourceTable: 'vfs_crdt_client_push',
+                sourceId: 'user-1:desktop:2:desktop-2',
+                occurredAt: '2026-02-14T20:10:01.000Z'
+              }
+            ],
+            nextCursor,
+            hasMore: true,
+            lastReconciledWriteIds: {
+              desktop: 2,
+              mobile: 5
             }
-          ],
-          nextCursor,
-          hasMore: true,
-          lastReconciledWriteIds: {
-            desktop: 2,
-            mobile: 5
-          }
-        }),
-        { status: 200 }
-      )
+          }),
+          { status: 200 }
+        )
     );
 
     const transport = new VfsHttpCrdtSyncTransport({
@@ -235,21 +239,22 @@ describe('VfsHttpCrdtSyncTransport', () => {
   });
 
   it('reconciles cursor/write ids through the CRDT reconcile endpoint', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          clientId: 'desktop',
-          cursor: encodeVfsSyncCursor({
-            changedAt: '2026-02-14T20:10:05.000Z',
-            changeId: 'desktop-5'
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            clientId: 'desktop',
+            cursor: encodeVfsSyncCursor({
+              changedAt: '2026-02-14T20:10:05.000Z',
+              changeId: 'desktop-5'
+            }),
+            lastReconciledWriteIds: {
+              desktop: 5,
+              mobile: 3
+            }
           }),
-          lastReconciledWriteIds: {
-            desktop: 5,
-            mobile: 3
-          }
-        }),
-        { status: 200 }
-      )
+          { status: 200 }
+        )
     );
 
     const transport = new VfsHttpCrdtSyncTransport({
@@ -282,7 +287,9 @@ describe('VfsHttpCrdtSyncTransport', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const firstCall = fetchMock.mock.calls[0];
-    expect(firstCall?.[0]).toBe('https://sync.example.com/v1/vfs/crdt/reconcile');
+    expect(firstCall?.[0]).toBe(
+      'https://sync.example.com/v1/vfs/crdt/reconcile'
+    );
     expect(getJsonBody(firstCall?.[1])).toEqual({
       clientId: 'desktop',
       cursor: encodeVfsSyncCursor({
@@ -296,8 +303,9 @@ describe('VfsHttpCrdtSyncTransport', () => {
   });
 
   it('throws with server-provided error details for non-2xx responses', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(JSON.stringify({ error: 'bad payload' }), { status: 400 })
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(JSON.stringify({ error: 'bad payload' }), { status: 400 })
     );
     const transport = new VfsHttpCrdtSyncTransport({
       fetchImpl: fetchMock
@@ -313,14 +321,15 @@ describe('VfsHttpCrdtSyncTransport', () => {
   });
 
   it('fails closed when push response shape is invalid', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          clientId: 'desktop',
-          results: [{ opId: 'desktop-1', status: 'unknown' }]
-        }),
-        { status: 200 }
-      )
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            clientId: 'desktop',
+            results: [{ opId: 'desktop-1', status: 'unknown' }]
+          }),
+          { status: 200 }
+        )
     );
     const transport = new VfsHttpCrdtSyncTransport({
       fetchImpl: fetchMock
@@ -336,20 +345,21 @@ describe('VfsHttpCrdtSyncTransport', () => {
   });
 
   it('fails closed when reconcile response references another client', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          clientId: 'mobile',
-          cursor: encodeVfsSyncCursor({
-            changedAt: '2026-02-14T20:10:05.000Z',
-            changeId: 'mobile-1'
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            clientId: 'mobile',
+            cursor: encodeVfsSyncCursor({
+              changedAt: '2026-02-14T20:10:05.000Z',
+              changeId: 'mobile-1'
+            }),
+            lastReconciledWriteIds: {
+              mobile: 1
+            }
           }),
-          lastReconciledWriteIds: {
-            mobile: 1
-          }
-        }),
-        { status: 200 }
-      )
+          { status: 200 }
+        )
     );
     const transport = new VfsHttpCrdtSyncTransport({
       fetchImpl: fetchMock
@@ -371,16 +381,17 @@ describe('VfsHttpCrdtSyncTransport', () => {
   });
 
   it('fails closed when pull response cursor is malformed', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          items: [],
-          nextCursor: 'not-a-valid-cursor',
-          hasMore: false,
-          lastReconciledWriteIds: {}
-        }),
-        { status: 200 }
-      )
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            items: [],
+            nextCursor: 'not-a-valid-cursor',
+            hasMore: false,
+            lastReconciledWriteIds: {}
+          }),
+          { status: 200 }
+        )
     );
     const transport = new VfsHttpCrdtSyncTransport({
       fetchImpl: fetchMock
@@ -397,18 +408,19 @@ describe('VfsHttpCrdtSyncTransport', () => {
   });
 
   it('fails closed when pull response has invalid replica write ids', async () => {
-    const fetchMock = vi.fn(async () =>
-      new Response(
-        JSON.stringify({
-          items: [],
-          nextCursor: null,
-          hasMore: false,
-          lastReconciledWriteIds: {
-            desktop: 0
-          }
-        }),
-        { status: 200 }
-      )
+    const fetchMock = vi.fn(
+      async () =>
+        new Response(
+          JSON.stringify({
+            items: [],
+            nextCursor: null,
+            hasMore: false,
+            lastReconciledWriteIds: {
+              desktop: 0
+            }
+          }),
+          { status: 200 }
+        )
     );
     const transport = new VfsHttpCrdtSyncTransport({
       fetchImpl: fetchMock

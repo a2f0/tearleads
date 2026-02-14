@@ -4,9 +4,9 @@ import {
   InMemoryVfsCrdtSyncServer,
   VfsBackgroundSyncClient
 } from './index.js';
-import { decodeVfsSyncCursor, encodeVfsSyncCursor } from './sync-cursor.js';
 import type { VfsCrdtOperation } from './sync-crdt.js';
 import { parseVfsCrdtLastReconciledWriteIds } from './sync-crdt-reconcile.js';
+import { decodeVfsSyncCursor, encodeVfsSyncCursor } from './sync-cursor.js';
 import { VfsHttpCrdtSyncTransport } from './sync-http-transport.js';
 
 function wait(ms: number): Promise<void> {
@@ -216,10 +216,16 @@ function createServerBackedFetch(
         });
       }
 
-      if (clientId === 'desktop' && typeof delays.desktopPushDelayMs === 'number') {
+      if (
+        clientId === 'desktop' &&
+        typeof delays.desktopPushDelayMs === 'number'
+      ) {
         await wait(delays.desktopPushDelayMs);
       }
-      if (clientId === 'mobile' && typeof delays.mobilePushDelayMs === 'number') {
+      if (
+        clientId === 'mobile' &&
+        typeof delays.mobilePushDelayMs === 'number'
+      ) {
         await wait(delays.mobilePushDelayMs);
       }
 
@@ -235,7 +241,10 @@ function createServerBackedFetch(
       );
     }
 
-    if (url.pathname === '/v1/vfs/crdt/sync' && (init?.method ?? 'GET') === 'GET') {
+    if (
+      url.pathname === '/v1/vfs/crdt/sync' &&
+      (init?.method ?? 'GET') === 'GET'
+    ) {
       if (typeof delays.pullDelayMs === 'number') {
         await wait(delays.pullDelayMs);
       }
@@ -272,9 +281,12 @@ function createServerBackedFetch(
       const body = parseJsonBody(init.body);
       const parsedBody = parseReconcileBody(body);
       if (!parsedBody) {
-        return new Response(JSON.stringify({ error: 'invalid reconcile body' }), {
-          status: 400
-        });
+        return new Response(
+          JSON.stringify({ error: 'invalid reconcile body' }),
+          {
+            status: 400
+          }
+        );
       }
 
       const reconcileResult = reconcileStateStore.reconcile(
@@ -293,7 +305,9 @@ function createServerBackedFetch(
       );
     }
 
-    return new Response(JSON.stringify({ error: 'not found' }), { status: 404 });
+    return new Response(JSON.stringify({ error: 'not found' }), {
+      status: 404
+    });
   };
 }
 

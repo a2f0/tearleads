@@ -1,15 +1,18 @@
 import type { VfsCrdtSyncItem } from '@tearleads/shared';
-import { InMemoryVfsCrdtStateStore, type VfsCrdtOperation } from './sync-crdt.js';
-import { InMemoryVfsCrdtFeedReplayStore } from './sync-crdt-feed-replay.js';
-import type { VfsSyncCursor } from './sync-cursor.js';
-import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 import {
   delayVfsCrdtSyncTransport,
   type InMemoryVfsCrdtSyncTransportDelayConfig,
-  type VfsCrdtSyncPushResponse,
   type VfsCrdtSyncPullResponse,
+  type VfsCrdtSyncPushResponse,
   type VfsCrdtSyncTransport
 } from './sync-client.js';
+import {
+  InMemoryVfsCrdtStateStore,
+  type VfsCrdtOperation
+} from './sync-crdt.js';
+import { InMemoryVfsCrdtFeedReplayStore } from './sync-crdt-feed-replay.js';
+import type { VfsSyncCursor } from './sync-cursor.js';
+import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
 function parseOccurredAtMs(value: string): number {
   const parsedMs = Date.parse(value);
@@ -20,7 +23,10 @@ function parseOccurredAtMs(value: string): number {
   return parsedMs;
 }
 
-function compareFeedItems(left: VfsCrdtSyncItem, right: VfsCrdtSyncItem): number {
+function compareFeedItems(
+  left: VfsCrdtSyncItem,
+  right: VfsCrdtSyncItem
+): number {
   const leftMs = parseOccurredAtMs(left.occurredAt);
   const rightMs = parseOccurredAtMs(right.occurredAt);
 

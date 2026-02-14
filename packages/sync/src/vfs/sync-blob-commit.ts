@@ -96,7 +96,9 @@ export class InMemoryVfsBlobCommitStore {
   private readonly records: Map<string, VfsBlobStageRecord> = new Map();
   private readonly objectStore: VfsBlobObjectStore;
 
-  constructor(objectStore: VfsBlobObjectStore = alwaysAvailableVfsBlobObjectStore) {
+  constructor(
+    objectStore: VfsBlobObjectStore = alwaysAvailableVfsBlobObjectStore
+  ) {
     this.objectStore = objectStore;
   }
 

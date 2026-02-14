@@ -76,7 +76,9 @@ function parseBlobLinkRelationKind(value: unknown): string | null {
   return null;
 }
 
-function parseBlobLinkRelationKindFromSessionKey(value: unknown): string | null {
+function parseBlobLinkRelationKindFromSessionKey(
+  value: unknown
+): string | null {
   const normalized = normalizeRequiredString(value);
   if (!normalized || !normalized.startsWith(BLOB_LINK_SESSION_KEY_PREFIX)) {
     return null;
@@ -477,7 +479,9 @@ export const postBlobsStageStagingIdAttachHandler = async (
 
       const existingRelationKind =
         parseBlobLinkRelationKind(existingRow.visible_children) ??
-        parseBlobLinkRelationKindFromSessionKey(existingRow.wrapped_session_key);
+        parseBlobLinkRelationKindFromSessionKey(
+          existingRow.wrapped_session_key
+        );
       /**
        * Guardrail: blob link identity is currently `(item_id, blob_id)` in
        * vfs_links. If a conflicting relation kind already exists for the same
