@@ -35,6 +35,9 @@ vi.mock('../lib/redis.js', () => ({
 describe('VFS Shares routes', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockQuery.mockReset();
+    mockQuery.mockResolvedValue({ rows: [], rowCount: 0 });
+    mockGetPostgresPool.mockReset();
     sessionStore.clear();
     vi.stubEnv('JWT_SECRET', 'test-secret');
     mockGetPostgresPool.mockResolvedValue({
@@ -345,6 +348,13 @@ describe('VFS Shares routes', () => {
       expect(mockQuery.mock.calls[1]?.[0]).toContain(
         'INNER JOIN user_organizations target_uo'
       );
+      const aclInsertCall = mockQuery.mock.calls.find(
+        (call) =>
+          typeof call[0] === 'string' &&
+          call[0].includes('INSERT INTO vfs_acl_entries')
+      );
+      expect(aclInsertCall).toBeDefined();
+      expect(aclInsertCall?.[1]?.[4]).toBe('read');
     });
 
     it('returns 500 on database error', async () => {
@@ -475,6 +485,13 @@ describe('VFS Shares routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.share.permissionLevel).toBe('edit');
+      const aclUpsertCall = mockQuery.mock.calls.find(
+        (call) =>
+          typeof call[0] === 'string' &&
+          call[0].includes('INSERT INTO vfs_acl_entries')
+      );
+      expect(aclUpsertCall).toBeDefined();
+      expect(aclUpsertCall?.[1]?.[4]).toBe('write');
     });
 
     it('returns 500 on database error', async () => {
@@ -546,6 +563,13 @@ describe('VFS Shares routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ deleted: true });
+      const aclRevokeCall = mockQuery.mock.calls.find(
+        (call) =>
+          typeof call[0] === 'string' &&
+          call[0].includes('INSERT INTO vfs_acl_entries')
+      );
+      expect(aclRevokeCall).toBeDefined();
+      expect(aclRevokeCall?.[0]).toContain('revoked_at');
     });
 
     it('returns 500 on database error', async () => {
@@ -834,6 +858,8 @@ describe('VFS Shares routes', () => {
           }
         ]
       });
+      // ACL parity upsert
+      mockQuery.mockResolvedValueOnce({ rows: [] });
       // Target name lookup (group name)
       mockQuery.mockResolvedValueOnce({
         rows: [{ name: 'Test Group' }]
@@ -873,6 +899,8 @@ describe('VFS Shares routes', () => {
           }
         ]
       });
+      // ACL parity upsert
+      mockQuery.mockResolvedValueOnce({ rows: [] });
       // Target name lookup (org name)
       mockQuery.mockResolvedValueOnce({
         rows: [{ name: 'Test Org' }]

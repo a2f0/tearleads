@@ -5,7 +5,10 @@ import type {
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseUpdateSharePayload } from './shared.js';
+import {
+  mapSharePermissionLevelToAclAccessLevel,
+  parseUpdateSharePayload
+} from './shared.js';
 
 /**
  * @openapi
@@ -130,6 +133,46 @@ export const patchSharesShareidHandler = async (
       res.status(404).json({ error: 'Share not found' });
       return;
     }
+
+    /**
+     * Guardrail: keep canonical ACL state aligned with mutable share state.
+     * Updates clear revocation so reopened shares become active immediately.
+     */
+    await pool.query(
+      `INSERT INTO vfs_acl_entries (
+          id,
+          item_id,
+          principal_type,
+          principal_id,
+          access_level,
+          wrapped_session_key,
+          wrapped_hierarchical_key,
+          granted_by,
+          created_at,
+          updated_at,
+          expires_at,
+          revoked_at
+        )
+        VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $8, $9, NULL)
+        ON CONFLICT (item_id, principal_type, principal_id)
+        DO UPDATE SET
+          access_level = EXCLUDED.access_level,
+          granted_by = EXCLUDED.granted_by,
+          updated_at = EXCLUDED.updated_at,
+          expires_at = EXCLUDED.expires_at,
+          revoked_at = NULL`,
+      [
+        `share:${row.id}`,
+        row.item_id,
+        row.share_type,
+        row.target_id,
+        mapSharePermissionLevelToAclAccessLevel(row.permission_level),
+        claims.sub,
+        row.created_at,
+        new Date(),
+        row.expires_at
+      ]
+    );
 
     let targetName = 'Unknown';
     if (row.share_type === 'user') {

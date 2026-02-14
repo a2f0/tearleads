@@ -14,6 +14,22 @@ const VALID_PERMISSION_LEVELS: VfsPermissionLevel[] = [
   'download'
 ];
 
+export type VfsAclAccessLevel = 'read' | 'write' | 'admin';
+
+export function mapSharePermissionLevelToAclAccessLevel(
+  permissionLevel: VfsPermissionLevel
+): VfsAclAccessLevel {
+  if (permissionLevel === 'edit') {
+    return 'write';
+  }
+
+  /**
+   * Guardrail: share-level `download` has no direct ACL equivalent.
+   * We fail closed by mapping it to `read` (never implicit write/admin).
+   */
+  return 'read';
+}
+
 export function isValidShareType(value: unknown): value is VfsShareType {
   return (
     typeof value === 'string' &&

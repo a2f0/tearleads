@@ -6,7 +6,10 @@ import type {
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { parseCreateSharePayload } from './shared.js';
+import {
+  mapSharePermissionLevelToAclAccessLevel,
+  parseCreateSharePayload
+} from './shared.js';
 
 /**
  * @openapi
@@ -191,6 +194,46 @@ export const postItemsItemidSharesHandler = async (
       res.status(500).json({ error: 'Failed to create share' });
       return;
     }
+
+    /**
+     * Guardrail: share rows and canonical ACL rows must move together.
+     * This is fail-closed, not best-effort, so parity cannot silently drift.
+     */
+    await pool.query(
+      `INSERT INTO vfs_acl_entries (
+          id,
+          item_id,
+          principal_type,
+          principal_id,
+          access_level,
+          wrapped_session_key,
+          wrapped_hierarchical_key,
+          granted_by,
+          created_at,
+          updated_at,
+          expires_at,
+          revoked_at
+        )
+        VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $8, $9, NULL)
+        ON CONFLICT (item_id, principal_type, principal_id)
+        DO UPDATE SET
+          access_level = EXCLUDED.access_level,
+          granted_by = EXCLUDED.granted_by,
+          updated_at = EXCLUDED.updated_at,
+          expires_at = EXCLUDED.expires_at,
+          revoked_at = NULL`,
+      [
+        `share:${row.id}`,
+        row.item_id,
+        row.share_type,
+        row.target_id,
+        mapSharePermissionLevelToAclAccessLevel(row.permission_level),
+        claims.sub,
+        row.created_at,
+        now,
+        row.expires_at
+      ]
+    );
 
     const creatorResult = await pool.query<{ email: string }>(
       'SELECT email FROM users WHERE id = $1',
