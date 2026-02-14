@@ -26,6 +26,29 @@ function crdtAclAdd(params: {
   };
 }
 
+function crdtLinkAdd(params: {
+  opId: string;
+  occurredAt: string;
+  itemId: string;
+  parentId: string;
+  childId: string;
+}): VfsCrdtSyncItem {
+  return {
+    opId: params.opId,
+    itemId: params.itemId,
+    opType: 'link_add',
+    principalType: null,
+    principalId: null,
+    accessLevel: null,
+    parentId: params.parentId,
+    childId: params.childId,
+    actorId: 'user-1',
+    sourceTable: 'vfs_links',
+    sourceId: params.opId,
+    occurredAt: params.occurredAt
+  };
+}
+
 describe('InMemoryVfsAccessHarness', () => {
   it('hydrates CRDT ACL entries with wrapped key material from snapshot rows', () => {
     const harness = new InMemoryVfsAccessHarness();
@@ -633,5 +656,199 @@ describe('InMemoryVfsAccessHarness', () => {
       changeId: 'membership-4'
     });
     expect(harness.buildEffectiveAccessForUser('user-3')).toEqual([]);
+  });
+
+  it('applies subtree boundary override semantics for inherited access', () => {
+    const harness = new InMemoryVfsAccessHarness();
+
+    harness.setAclSnapshotEntries([
+      {
+        itemId: 'root-item',
+        principalType: 'organization',
+        principalId: 'org-9',
+        accessLevel: 'admin',
+        wrappedSessionKey: 'session-org-9',
+        wrappedHierarchicalKey: 'hier-org-9',
+        updatedAt: '2026-02-14T09:30:00.000Z',
+        revokedAt: null,
+        expiresAt: null
+      },
+      {
+        itemId: 'child-item',
+        principalType: 'user',
+        principalId: 'user-9',
+        accessLevel: 'read',
+        wrappedSessionKey: 'session-user-9',
+        wrappedHierarchicalKey: 'hier-user-9',
+        updatedAt: '2026-02-14T09:30:01.000Z',
+        revokedAt: null,
+        expiresAt: null
+      }
+    ]);
+
+    harness.applyCrdtPage([
+      crdtAclAdd({
+        opId: 'op-400',
+        occurredAt: '2026-02-14T09:31:00.000Z',
+        itemId: 'root-item',
+        principalType: 'organization',
+        principalId: 'org-9',
+        accessLevel: 'admin'
+      }),
+      crdtAclAdd({
+        opId: 'op-401',
+        occurredAt: '2026-02-14T09:31:01.000Z',
+        itemId: 'child-item',
+        principalType: 'user',
+        principalId: 'user-9',
+        accessLevel: 'read'
+      }),
+      crdtLinkAdd({
+        opId: 'op-402',
+        occurredAt: '2026-02-14T09:31:02.000Z',
+        itemId: 'child-item',
+        parentId: 'root-item',
+        childId: 'child-item'
+      }),
+      crdtLinkAdd({
+        opId: 'op-403',
+        occurredAt: '2026-02-14T09:31:03.000Z',
+        itemId: 'leaf-item',
+        parentId: 'child-item',
+        childId: 'leaf-item'
+      })
+    ]);
+
+    harness.replaceMembershipSnapshot({
+      cursor: {
+        changedAt: '2026-02-14T09:40:00.000Z',
+        changeId: 'membership-inherit-1'
+      },
+      members: [
+        {
+          userId: 'user-9',
+          groupIds: [],
+          organizationIds: ['org-9']
+        }
+      ]
+    });
+
+    expect(harness.buildEffectiveAccessForUserWithInheritance('user-9')).toEqual([
+      {
+        itemId: 'child-item',
+        accessLevel: 'read',
+        principalType: 'user',
+        principalId: 'user-9',
+        wrappedSessionKey: 'session-user-9',
+        wrappedHierarchicalKey: 'hier-user-9',
+        updatedAt: '2026-02-14T09:30:01.000Z'
+      },
+      {
+        itemId: 'leaf-item',
+        accessLevel: 'read',
+        principalType: 'user',
+        principalId: 'user-9',
+        wrappedSessionKey: 'session-user-9',
+        wrappedHierarchicalKey: 'hier-user-9',
+        updatedAt: '2026-02-14T09:30:01.000Z'
+      },
+      {
+        itemId: 'root-item',
+        accessLevel: 'admin',
+        principalType: 'organization',
+        principalId: 'org-9',
+        wrappedSessionKey: 'session-org-9',
+        wrappedHierarchicalKey: 'hier-org-9',
+        updatedAt: '2026-02-14T09:30:00.000Z'
+      }
+    ]);
+  });
+
+  it('fails closed for multi-parent inheritance to avoid privilege escalation', () => {
+    const harness = new InMemoryVfsAccessHarness();
+
+    harness.setAclSnapshotEntries([
+      {
+        itemId: 'open-parent',
+        principalType: 'group',
+        principalId: 'group-7',
+        accessLevel: 'write',
+        wrappedSessionKey: 'session-group-7',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T10:00:00.000Z',
+        revokedAt: null,
+        expiresAt: null
+      },
+      {
+        itemId: 'restricted-parent',
+        principalType: 'organization',
+        principalId: 'org-restricted',
+        accessLevel: 'admin',
+        wrappedSessionKey: 'session-org-restricted',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T10:00:01.000Z',
+        revokedAt: null,
+        expiresAt: null
+      }
+    ]);
+
+    harness.applyCrdtPage([
+      crdtAclAdd({
+        opId: 'op-500',
+        occurredAt: '2026-02-14T10:01:00.000Z',
+        itemId: 'open-parent',
+        principalType: 'group',
+        principalId: 'group-7',
+        accessLevel: 'write'
+      }),
+      crdtAclAdd({
+        opId: 'op-501',
+        occurredAt: '2026-02-14T10:01:01.000Z',
+        itemId: 'restricted-parent',
+        principalType: 'organization',
+        principalId: 'org-restricted',
+        accessLevel: 'admin'
+      }),
+      crdtLinkAdd({
+        opId: 'op-502',
+        occurredAt: '2026-02-14T10:01:02.000Z',
+        itemId: 'shared-child',
+        parentId: 'open-parent',
+        childId: 'shared-child'
+      }),
+      crdtLinkAdd({
+        opId: 'op-503',
+        occurredAt: '2026-02-14T10:01:03.000Z',
+        itemId: 'shared-child',
+        parentId: 'restricted-parent',
+        childId: 'shared-child'
+      })
+    ]);
+
+    harness.replaceMembershipSnapshot({
+      cursor: {
+        changedAt: '2026-02-14T10:10:00.000Z',
+        changeId: 'membership-inherit-2'
+      },
+      members: [
+        {
+          userId: 'user-7',
+          groupIds: ['group-7'],
+          organizationIds: []
+        }
+      ]
+    });
+
+    expect(harness.buildEffectiveAccessForUserWithInheritance('user-7')).toEqual([
+      {
+        itemId: 'open-parent',
+        accessLevel: 'write',
+        principalType: 'group',
+        principalId: 'group-7',
+        wrappedSessionKey: 'session-group-7',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T10:00:00.000Z'
+      }
+    ]);
   });
 });

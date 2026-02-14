@@ -270,16 +270,7 @@ export class InMemoryVfsAccessHarness {
     userId: string,
     now: Date = new Date()
   ): EffectiveVfsMemberItemAccessEntry[] {
-    const normalizedUserId = normalizeRequiredString(
-      userId,
-      'userId'
-    );
-    const principalView =
-      this.membershipPrincipalViewsByUserId.get(normalizedUserId) ?? {
-        userId: normalizedUserId,
-        groupIds: [],
-        organizationIds: []
-      };
+    const principalView = this.resolvePrincipalViewForUser(userId);
 
     /**
      * Guardrail: only memberships from the latest authoritative service-layer
@@ -287,6 +278,14 @@ export class InMemoryVfsAccessHarness {
      * direct user ACLs only.
      */
     return this.buildEffectiveAccessForMember(principalView, now);
+  }
+
+  buildEffectiveAccessForUserWithInheritance(
+    userId: string,
+    now: Date = new Date()
+  ): EffectiveVfsMemberItemAccessEntry[] {
+    const principalView = this.resolvePrincipalViewForUser(userId);
+    return this.buildEffectiveAccessForMemberWithInheritance(principalView, now);
   }
 
   buildEffectiveAclKeyView(
@@ -366,5 +365,132 @@ export class InMemoryVfsAccessHarness {
     }
 
     return toSortedMemberAccessView(Array.from(winningAccessByItemId.values()));
+  }
+
+  buildEffectiveAccessForMemberWithInheritance(
+    principalView: VfsMemberPrincipalView,
+    now: Date = new Date()
+  ): EffectiveVfsMemberItemAccessEntry[] {
+    const directAccessEntries = this.buildEffectiveAccessForMember(principalView, now);
+    const directAccessByItemId = new Map<string, EffectiveVfsMemberItemAccessEntry>();
+    for (const directEntry of directAccessEntries) {
+      directAccessByItemId.set(directEntry.itemId, directEntry);
+    }
+
+    const crdtSnapshot = this.crdtReplayStore.snapshot();
+    const parentsByChildId = new Map<string, Set<string>>();
+    const allItemIds = new Set<string>(directAccessByItemId.keys());
+    for (const link of crdtSnapshot.links) {
+      allItemIds.add(link.parentId);
+      allItemIds.add(link.childId);
+      const parentIds = parentsByChildId.get(link.childId) ?? new Set<string>();
+      parentIds.add(link.parentId);
+      parentsByChildId.set(link.childId, parentIds);
+    }
+
+    const resolvedByItemId = new Map<string, EffectiveVfsMemberItemAccessEntry | null>();
+    const resolvingItems = new Set<string>();
+    const resolveItemAccess = (
+      itemId: string
+    ): EffectiveVfsMemberItemAccessEntry | null => {
+      if (resolvedByItemId.has(itemId)) {
+        return resolvedByItemId.get(itemId) ?? null;
+      }
+
+      const directAccess = directAccessByItemId.get(itemId);
+      if (directAccess) {
+        /**
+         * Guardrail: direct ACLs form a subtree boundary. If an item has a
+         * direct grant, that decision overrides inherited parent-path access.
+         */
+        resolvedByItemId.set(itemId, directAccess);
+        return directAccess;
+      }
+
+      if (resolvingItems.has(itemId)) {
+        /**
+         * Guardrail: cycles in the link graph are treated as inaccessible for
+         * inherited ACLs to avoid non-deterministic privilege decisions.
+         */
+        resolvedByItemId.set(itemId, null);
+        return null;
+      }
+
+      const parentIds = parentsByChildId.get(itemId);
+      if (!parentIds || parentIds.size === 0) {
+        resolvedByItemId.set(itemId, null);
+        return null;
+      }
+
+      resolvingItems.add(itemId);
+      try {
+        let inheritedCandidate: EffectiveVfsMemberItemAccessEntry | null = null;
+        const sortedParentIds = Array.from(parentIds).sort((left, right) =>
+          left.localeCompare(right)
+        );
+        for (const parentId of sortedParentIds) {
+          const parentAccess = resolveItemAccess(parentId);
+          if (!parentAccess) {
+            /**
+             * Guardrail: multi-parent inheritance is fail-closed. Every parent
+             * path must remain visible, otherwise the child does not inherit
+             * access. This blocks privilege escalation via permissive aliases.
+             */
+            resolvedByItemId.set(itemId, null);
+            return null;
+          }
+
+          if (
+            !inheritedCandidate ||
+            compareMemberAccessPriority(parentAccess, inheritedCandidate) < 0
+          ) {
+            inheritedCandidate = parentAccess;
+          }
+        }
+
+        const inheritedAccess = inheritedCandidate
+          ? {
+              itemId,
+              accessLevel: inheritedCandidate.accessLevel,
+              principalType: inheritedCandidate.principalType,
+              principalId: inheritedCandidate.principalId,
+              wrappedSessionKey: inheritedCandidate.wrappedSessionKey,
+              wrappedHierarchicalKey: inheritedCandidate.wrappedHierarchicalKey,
+              updatedAt: inheritedCandidate.updatedAt
+            }
+          : null;
+        resolvedByItemId.set(itemId, inheritedAccess);
+        return inheritedAccess;
+      } finally {
+        resolvingItems.delete(itemId);
+      }
+    };
+
+    for (const itemId of allItemIds) {
+      resolveItemAccess(itemId);
+    }
+
+    const effectiveEntries: EffectiveVfsMemberItemAccessEntry[] = [];
+    for (const resolvedEntry of resolvedByItemId.values()) {
+      if (resolvedEntry) {
+        effectiveEntries.push(resolvedEntry);
+      }
+    }
+
+    return toSortedMemberAccessView(effectiveEntries);
+  }
+
+  private resolvePrincipalViewForUser(userId: string): VfsMemberPrincipalView {
+    const normalizedUserId = normalizeRequiredString(
+      userId,
+      'userId'
+    );
+    return (
+      this.membershipPrincipalViewsByUserId.get(normalizedUserId) ?? {
+        userId: normalizedUserId,
+        groupIds: [],
+        organizationIds: []
+      }
+    );
   }
 }
