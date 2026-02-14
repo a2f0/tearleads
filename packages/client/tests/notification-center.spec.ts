@@ -206,7 +206,10 @@ test.describe('Notification Center Floating Window', () => {
   });
 
   test('should close when X button is clicked', async ({ page }) => {
-    await page.getByRole('button', { name: 'Close Notification Center' }).click();
+    // Use force:true to click through resize handle that may overlap
+    await page
+      .getByRole('button', { name: 'Close Notification Center' })
+      .click({ force: true });
     await expect(
       page.getByRole('dialog', { name: 'Notification Center' })
     ).toBeHidden();
