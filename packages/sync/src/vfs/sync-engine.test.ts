@@ -170,7 +170,7 @@ describe('mapVfsSyncRows', () => {
     });
   });
 
-  it('drops rows with invalid changed_at values', () => {
+  it('throws when changed_at is invalid', () => {
     const rows: VfsSyncDbRow[] = [
       {
         change_id: 'change-1',
@@ -184,10 +184,64 @@ describe('mapVfsSyncRows', () => {
       }
     ];
 
-    const result = mapVfsSyncRows(rows, 10);
+    expect(() => mapVfsSyncRows(rows, 10)).toThrowError(
+      /has invalid changed_at/
+    );
+  });
 
-    expect(result.items).toEqual([]);
-    expect(result.nextCursor).toBeNull();
-    expect(result.hasMore).toBe(false);
+  it('throws when rows arrive out of order', () => {
+    const rows: VfsSyncDbRow[] = [
+      {
+        change_id: 'change-2',
+        item_id: 'item-2',
+        change_type: 'upsert',
+        changed_at: new Date('2025-01-01T00:00:01.000Z'),
+        object_type: 'folder',
+        owner_id: 'user-1',
+        created_at: new Date('2024-01-01T00:00:00.000Z'),
+        access_level: 'admin'
+      },
+      {
+        change_id: 'change-1',
+        item_id: 'item-1',
+        change_type: 'upsert',
+        changed_at: new Date('2025-01-01T00:00:00.000Z'),
+        object_type: 'folder',
+        owner_id: 'user-1',
+        created_at: new Date('2024-01-01T00:00:00.000Z'),
+        access_level: 'admin'
+      }
+    ];
+
+    expect(() => mapVfsSyncRows(rows, 10)).toThrowError(
+      /violates required ordering/
+    );
+  });
+
+  it('throws when duplicate change ids are present', () => {
+    const rows: VfsSyncDbRow[] = [
+      {
+        change_id: 'change-1',
+        item_id: 'item-1',
+        change_type: 'upsert',
+        changed_at: new Date('2025-01-01T00:00:00.000Z'),
+        object_type: 'folder',
+        owner_id: 'user-1',
+        created_at: new Date('2024-01-01T00:00:00.000Z'),
+        access_level: 'admin'
+      },
+      {
+        change_id: 'change-1',
+        item_id: 'item-1',
+        change_type: 'upsert',
+        changed_at: new Date('2025-01-01T00:00:01.000Z'),
+        object_type: 'folder',
+        owner_id: 'user-1',
+        created_at: new Date('2024-01-01T00:00:00.000Z'),
+        access_level: 'admin'
+      }
+    ];
+
+    expect(() => mapVfsSyncRows(rows, 10)).toThrowError(/repeats change_id/);
   });
 });
