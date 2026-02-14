@@ -81,3 +81,6 @@ These are not removed yet; they are tracked as migration/cutover work.
 
 If a new query references a table outside the target set, tests fail until the
 schema contract is intentionally updated.
+
+For staged rollout and rollback procedures across `v024`/`v025`/`v026`, see
+`docs/en/vfs-sync-migration-runbook.md`.
