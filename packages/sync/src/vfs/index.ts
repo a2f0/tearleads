@@ -45,6 +45,12 @@ export {
   type VfsCrdtSyncResponse
 } from './sync-crdt-feed.js';
 export {
+  InMemoryVfsCrdtFeedReplayStore,
+  VfsCrdtFeedReplayError,
+  type VfsCrdtFeedReplaySnapshot,
+  type VfsCrdtFeedReplayViolationCode
+} from './sync-crdt-feed-replay.js';
+export {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor
