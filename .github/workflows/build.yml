@@ -37,9 +37,14 @@ jobs:
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
           else
-            git fetch --no-tags --prune --depth=2 origin "${{ github.ref_name }}" || true
-            BASE_SHA=$(git rev-parse HEAD^ 2>/dev/null || echo "${{ github.sha }}")
             HEAD_SHA="${{ github.sha }}"
+            git fetch --no-tags --prune --depth=2 origin "$HEAD_SHA" || true
+            BASE_SHA=$(git rev-list --parents -n 1 "$HEAD_SHA" | awk '{print $2}')
+            if [ -n "$BASE_SHA" ]; then
+              git fetch --no-tags --prune --depth=1 origin "$BASE_SHA" || true
+            else
+              BASE_SHA="$HEAD_SHA"
+            fi
           fi
 
           tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
