@@ -141,14 +141,14 @@ describe('migrations', () => {
       vi.mocked(pool.query).mockImplementation((sql: string) => {
         pool.queries.push(sql);
 
-          if (sql.includes('MAX(version)')) {
-            versionCallCount++;
-            if (versionCallCount === 1) {
-              return Promise.resolve({
-                rows: [{ version: 1 }],
-                rowCount: 1
-              });
-            }
+        if (sql.includes('MAX(version)')) {
+          versionCallCount++;
+          if (versionCallCount === 1) {
+            return Promise.resolve({
+              rows: [{ version: 1 }],
+              rowCount: 1
+            });
+          }
           return Promise.resolve({ rows: [{ version: 23 }], rowCount: 1 });
         }
 
@@ -541,7 +541,9 @@ describe('migrations', () => {
 
       const queries = pool.queries.join('\n');
       expect(queries).toContain('ALTER TABLE "vfs_sync_client_state"');
-      expect(queries).toContain('ADD COLUMN IF NOT EXISTS "last_reconciled_write_ids"');
+      expect(queries).toContain(
+        'ADD COLUMN IF NOT EXISTS "last_reconciled_write_ids"'
+      );
       expect(queries).toContain(
         'CREATE OR REPLACE FUNCTION "vfs_merge_reconciled_write_ids"'
       );

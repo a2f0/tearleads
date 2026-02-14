@@ -273,7 +273,9 @@ export function reconcileVfsCrdtClientState(
     incomingCursor
   );
   const nextCursor =
-    cursorComparison < 0 ? cloneCursor(incomingCursor) : cloneCursor(currentState.cursor);
+    cursorComparison < 0
+      ? cloneCursor(incomingCursor)
+      : cloneCursor(currentState.cursor);
   const mergedLastWriteIds = mergeVfsCrdtLastReconciledWriteIds(
     currentState.lastReconciledWriteIds,
     incomingLastWriteIds

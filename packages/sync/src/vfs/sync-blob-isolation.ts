@@ -116,7 +116,9 @@ export class InMemoryVfsBlobIsolationStore {
       };
     }
 
-    if (compareVfsSyncCursorOrder(reconcileState.cursor, input.requiredCursor) < 0) {
+    if (
+      compareVfsSyncCursorOrder(reconcileState.cursor, input.requiredCursor) < 0
+    ) {
       return {
         stagingId,
         status: 'reconcileBehind',

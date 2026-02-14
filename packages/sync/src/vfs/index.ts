@@ -8,12 +8,6 @@ export {
   InMemoryVfsAccessHarness
 } from './sync-access-harness.js';
 export {
-  type AttachVfsBlobWithIsolationInput,
-  InMemoryVfsBlobIsolationStore,
-  type VfsBlobIsolationAttachResult,
-  type VfsBlobIsolationAttachStatus
-} from './sync-blob-isolation.js';
-export {
   type AbandonVfsBlobInput,
   type AttachVfsBlobInput,
   InMemoryVfsBlobCommitStore,
@@ -23,6 +17,12 @@ export {
   type VfsBlobStageRecord,
   type VfsBlobStageStatus
 } from './sync-blob-commit.js';
+export {
+  type AttachVfsBlobWithIsolationInput,
+  InMemoryVfsBlobIsolationStore,
+  type VfsBlobIsolationAttachResult,
+  type VfsBlobIsolationAttachStatus
+} from './sync-blob-isolation.js';
 export {
   assertCanonicalVfsCrdtOperationOrder,
   InMemoryVfsCrdtStateStore,
@@ -63,11 +63,11 @@ export {
 export {
   InMemoryVfsCrdtClientStateStore,
   mergeVfsCrdtLastReconciledWriteIds,
+  type ParsedVfsCrdtReconcilePayload,
   type ParseVfsCrdtLastReconciledWriteIdsResult,
   type ParseVfsCrdtReconcilePayloadResult,
   parseVfsCrdtLastReconciledWriteIds,
   parseVfsCrdtReconcilePayload,
-  type ParsedVfsCrdtReconcilePayload,
   type ReconcileVfsCrdtClientStateResult,
   reconcileVfsCrdtClientState,
   type VfsCrdtClientReconcileState,
