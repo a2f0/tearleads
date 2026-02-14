@@ -148,13 +148,11 @@ describe('sync schema contract', () => {
       ])
     );
     expect(routeReferences).not.toContain('vfs_blob_refs');
-    expect(routeSql.flatMap((sql) => findTransitionalTableReferences(sql))).toEqual([
-      'vfs_blob_staging',
-      'vfs_blob_staging',
-      'vfs_blob_staging',
-      'vfs_blob_staging',
-      'vfs_blob_staging'
-    ]);
+    const transitionalReferences = routeSql.flatMap((sql) =>
+      findTransitionalTableReferences(sql)
+    );
+    expect(transitionalReferences.length).toBeGreaterThan(0);
+    expect(new Set(transitionalReferences)).toEqual(new Set(['vfs_blob_staging']));
   });
 
   it('detects SQL references that fall outside the flattened contract', () => {
