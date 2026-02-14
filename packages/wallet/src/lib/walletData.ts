@@ -7,35 +7,22 @@ import {
 } from '@client/db/schema';
 import { readStoredAuth } from '@client/lib/auth-storage';
 import { and, desc, eq, like, or } from 'drizzle-orm';
+import { normalizeWalletCountryCode } from './walletCountryLookup';
+import { buildWalletMetadata, parseWalletMetadata } from './walletMetadata';
+import {
+  getWalletItemTypeLabel,
+  WALLET_ITEM_TYPES,
+  type WalletItemType
+} from './walletTypes';
 
-export const WALLET_ITEM_TYPES = [
-  'passport',
-  'driverLicense',
-  'birthCertificate',
-  'creditCard',
-  'debitCard',
-  'identityCard',
-  'insuranceCard',
-  'other'
-] as const;
+export { getWalletItemTypeLabel, WALLET_ITEM_TYPES, type WalletItemType };
 
-export type WalletItemType = (typeof WALLET_ITEM_TYPES)[number];
 export type WalletMediaSide = 'front' | 'back';
-
-const WALLET_ITEM_TYPE_LABELS: Record<WalletItemType, string> = {
-  passport: 'Passport',
-  driverLicense: 'Driver License',
-  birthCertificate: 'Birth Certificate',
-  creditCard: 'Credit Card',
-  debitCard: 'Debit Card',
-  identityCard: 'Identity Card',
-  insuranceCard: 'Insurance Card',
-  other: 'Other'
-};
 
 export interface WalletItemSummary {
   id: string;
   itemType: WalletItemType;
+  itemSubtype: string | null;
   displayName: string;
   documentNumberLast4: string | null;
   expiresOn: Date | null;
@@ -46,6 +33,9 @@ export interface WalletMediaFileOption {
   id: string;
   name: string;
   mimeType: string;
+  storagePath: string;
+  thumbnailPath: string | null;
+  uploadDate: Date;
 }
 
 export interface WalletItemDetailRecord extends WalletItemSummary {
@@ -58,11 +48,14 @@ export interface WalletItemDetailRecord extends WalletItemSummary {
   frontFileName: string | null;
   backFileId: string | null;
   backFileName: string | null;
+  subtypeFields: Record<string, string>;
 }
 
 export interface SaveWalletItemInput {
   id?: string;
   itemType: WalletItemType;
+  itemSubtype: string;
+  subtypeFields: Record<string, string>;
   displayName: string;
   issuingAuthority: string;
   countryCode: string;
@@ -107,25 +100,34 @@ export function toDateInputValue(value: Date | null): string {
   return value.toISOString().slice(0, 10);
 }
 
-export function getWalletItemTypeLabel(itemType: WalletItemType): string {
-  return WALLET_ITEM_TYPE_LABELS[itemType];
-}
-
 export async function listWalletItems(): Promise<WalletItemSummary[]> {
   const db = getDatabase();
-
-  return db
+  const rows = await db
     .select({
       id: walletItems.id,
       itemType: walletItems.itemType,
       displayName: walletItems.displayName,
       documentNumberLast4: walletItems.documentNumberLast4,
       expiresOn: walletItems.expiresOn,
-      updatedAt: walletItems.updatedAt
+      updatedAt: walletItems.updatedAt,
+      metadata: walletItems.metadata
     })
     .from(walletItems)
     .where(eq(walletItems.deleted, false))
     .orderBy(desc(walletItems.updatedAt));
+
+  return rows.map((row) => {
+    const metadata = parseWalletMetadata(row.itemType, row.metadata);
+    return {
+      id: row.id,
+      itemType: row.itemType,
+      itemSubtype: metadata.itemSubtype,
+      displayName: row.displayName,
+      documentNumberLast4: row.documentNumberLast4,
+      expiresOn: row.expiresOn,
+      updatedAt: row.updatedAt
+    };
+  });
 }
 
 export async function listWalletMediaFiles(): Promise<WalletMediaFileOption[]> {
@@ -135,7 +137,10 @@ export async function listWalletMediaFiles(): Promise<WalletMediaFileOption[]> {
     .select({
       id: files.id,
       name: files.name,
-      mimeType: files.mimeType
+      mimeType: files.mimeType,
+      storagePath: files.storagePath,
+      thumbnailPath: files.thumbnailPath,
+      uploadDate: files.uploadDate
     })
     .from(files)
     .where(
@@ -167,7 +172,8 @@ export async function getWalletItemDetail(
       expiresOn: walletItems.expiresOn,
       notes: walletItems.notes,
       createdAt: walletItems.createdAt,
-      updatedAt: walletItems.updatedAt
+      updatedAt: walletItems.updatedAt,
+      metadata: walletItems.metadata
     })
     .from(walletItems)
     .where(and(eq(walletItems.id, itemId), eq(walletItems.deleted, false)))
@@ -205,12 +211,26 @@ export async function getWalletItemDetail(
     }
   }
 
+  const metadata = parseWalletMetadata(row.itemType, row.metadata);
+
   return {
-    ...row,
+    id: row.id,
+    itemType: row.itemType,
+    itemSubtype: metadata.itemSubtype,
+    displayName: row.displayName,
+    issuingAuthority: row.issuingAuthority,
+    countryCode: row.countryCode,
+    documentNumberLast4: row.documentNumberLast4,
+    issuedOn: row.issuedOn,
+    expiresOn: row.expiresOn,
+    notes: row.notes,
+    createdAt: row.createdAt,
+    updatedAt: row.updatedAt,
     frontFileId,
     frontFileName,
     backFileId,
-    backFileName
+    backFileName,
+    subtypeFields: metadata.subtypeFields
   };
 }
 
@@ -285,6 +305,17 @@ export async function saveWalletItem(
     throw new Error('Display name is required.');
   }
 
+  const normalizedCountryCode = normalizeWalletCountryCode(input.countryCode);
+  if (input.countryCode.trim().length > 0 && !normalizedCountryCode) {
+    throw new Error('Please select a valid country code.');
+  }
+
+  const metadata = buildWalletMetadata(
+    input.itemType,
+    input.itemSubtype,
+    input.subtypeFields
+  );
+
   const adapter = getDatabaseAdapter();
   const db = getDatabase();
   const now = new Date();
@@ -296,11 +327,12 @@ export async function saveWalletItem(
     itemType: input.itemType,
     displayName,
     issuingAuthority: toNullableText(input.issuingAuthority),
-    countryCode: toNullableText(input.countryCode),
+    countryCode: normalizedCountryCode,
     documentNumberLast4: normalizeLast4(input.documentNumberLast4),
     issuedOn: parseDateInput(input.issuedOn),
     expiresOn: parseDateInput(input.expiresOn),
     notes: toNullableText(input.notes),
+    metadata,
     updatedAt: now,
     deleted: false
   };
@@ -319,8 +351,7 @@ export async function saveWalletItem(
       await db.insert(walletItems).values({
         id: itemId,
         ...baseValues,
-        createdAt: now,
-        metadata: null
+        createdAt: now
       });
     } else {
       await db

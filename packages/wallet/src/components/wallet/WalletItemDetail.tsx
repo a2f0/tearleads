@@ -1,9 +1,15 @@
 import { InlineUnlock } from '@client/components/sqlite/InlineUnlock';
 import { Button } from '@client/components/ui/button';
 import { Input } from '@client/components/ui/input';
+import { Textarea } from '@client/components/ui/textarea';
 import { useDatabaseContext } from '@client/db/hooks';
-import { Loader2, Plus, Save, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { Loader2, Plus, Save, Search, Trash2 } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  getWalletCountryOptionByCode,
+  listWalletCountryOptions,
+  normalizeWalletCountryCode
+} from '../../lib/walletCountryLookup';
 import {
   getWalletItemDetail,
   getWalletItemTypeLabel,
@@ -15,8 +21,15 @@ import {
   WALLET_ITEM_TYPES,
   type WalletItemDetailRecord,
   type WalletItemType,
-  type WalletMediaFileOption
+  type WalletMediaFileOption,
+  type WalletMediaSide
 } from '../../lib/walletData';
+import {
+  getWalletSubtypeDefinition,
+  getWalletSubtypeOptions
+} from '../../lib/walletSubtypes';
+import { isWalletItemType } from '../../lib/walletTypes';
+import { WalletMediaPickerModal } from './WalletMediaPickerModal';
 
 interface WalletItemDetailProps {
   itemId: string;
@@ -27,6 +40,8 @@ interface WalletItemDetailProps {
 
 interface WalletItemFormState {
   itemType: WalletItemType;
+  itemSubtype: string;
+  subtypeFields: Record<string, string>;
   displayName: string;
   issuingAuthority: string;
   countryCode: string;
@@ -40,6 +55,8 @@ interface WalletItemFormState {
 
 const EMPTY_FORM_STATE: WalletItemFormState = {
   itemType: 'passport',
+  itemSubtype: '',
+  subtypeFields: {},
   displayName: '',
   issuingAuthority: '',
   countryCode: '',
@@ -51,9 +68,13 @@ const EMPTY_FORM_STATE: WalletItemFormState = {
   backFileId: ''
 };
 
+const COUNTRY_OPTIONS = listWalletCountryOptions();
+
 function detailToForm(detail: WalletItemDetailRecord): WalletItemFormState {
   return {
     itemType: detail.itemType,
+    itemSubtype: detail.itemSubtype ?? '',
+    subtypeFields: detail.subtypeFields,
     displayName: detail.displayName,
     issuingAuthority: detail.issuingAuthority ?? '',
     countryCode: detail.countryCode ?? '',
@@ -64,6 +85,34 @@ function detailToForm(detail: WalletItemDetailRecord): WalletItemFormState {
     frontFileId: detail.frontFileId ?? '',
     backFileId: detail.backFileId ?? ''
   };
+}
+
+function getPickerTitle(side: WalletMediaSide | null): string {
+  if (side === 'front') {
+    return 'Select Front Image';
+  }
+  return 'Select Back Image';
+}
+
+function retainSubtypeValues(
+  itemType: WalletItemType,
+  itemSubtype: string,
+  values: Record<string, string>
+): Record<string, string> {
+  const definition = getWalletSubtypeDefinition(itemType, itemSubtype);
+  if (!definition) {
+    return {};
+  }
+
+  const retained: Record<string, string> = {};
+  for (const field of definition.fields) {
+    const rawValue = values[field.key];
+    if (typeof rawValue === 'string') {
+      retained[field.key] = rawValue;
+    }
+  }
+
+  return retained;
 }
 
 export function WalletItemDetail({
@@ -80,8 +129,30 @@ export function WalletItemDetail({
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [form, setForm] = useState<WalletItemFormState>(EMPTY_FORM_STATE);
   const [mediaFiles, setMediaFiles] = useState<WalletMediaFileOption[]>([]);
+  const [pickerSide, setPickerSide] = useState<WalletMediaSide | null>(null);
 
   const isNewItem = itemId === 'new';
+
+  const activeSubtypeDefinition = useMemo(
+    () => getWalletSubtypeDefinition(form.itemType, form.itemSubtype),
+    [form.itemType, form.itemSubtype]
+  );
+  const subtypeOptions = useMemo(
+    () => getWalletSubtypeOptions(form.itemType),
+    [form.itemType]
+  );
+  const countrySelection = useMemo(
+    () => getWalletCountryOptionByCode(form.countryCode),
+    [form.countryCode]
+  );
+  const frontMedia = useMemo(
+    () => mediaFiles.find((file) => file.id === form.frontFileId) ?? null,
+    [mediaFiles, form.frontFileId]
+  );
+  const backMedia = useMemo(
+    () => mediaFiles.find((file) => file.id === form.backFileId) ?? null,
+    [mediaFiles, form.backFileId]
+  );
 
   const loadDetail = useCallback(async () => {
     setLoadingDetail(true);
@@ -128,7 +199,53 @@ export function WalletItemDetail({
 
   const handleFieldChange = useCallback(
     (field: keyof WalletItemFormState, value: string) => {
-      setForm((prev) => ({ ...prev, [field]: value }));
+      setForm((previous) => ({ ...previous, [field]: value }));
+    },
+    []
+  );
+
+  const handleItemTypeChange = useCallback((nextItemType: WalletItemType) => {
+    setForm((previous) => {
+      const subtypeStillValid = getWalletSubtypeDefinition(
+        nextItemType,
+        previous.itemSubtype
+      );
+      const nextSubtype = subtypeStillValid ? previous.itemSubtype : '';
+
+      return {
+        ...previous,
+        itemType: nextItemType,
+        itemSubtype: nextSubtype,
+        subtypeFields: retainSubtypeValues(
+          nextItemType,
+          nextSubtype,
+          previous.subtypeFields
+        )
+      };
+    });
+  }, []);
+
+  const handleSubtypeChange = useCallback((nextSubtype: string) => {
+    setForm((previous) => ({
+      ...previous,
+      itemSubtype: nextSubtype,
+      subtypeFields: retainSubtypeValues(
+        previous.itemType,
+        nextSubtype,
+        previous.subtypeFields
+      )
+    }));
+  }, []);
+
+  const handleSubtypeFieldChange = useCallback(
+    (field: string, value: string) => {
+      setForm((previous) => ({
+        ...previous,
+        subtypeFields: {
+          ...previous.subtypeFields,
+          [field]: value
+        }
+      }));
     },
     []
   );
@@ -142,6 +259,8 @@ export function WalletItemDetail({
       const result = await saveWalletItem({
         ...(isNewItem ? {} : { id: itemId }),
         itemType: form.itemType,
+        itemSubtype: form.itemSubtype,
+        subtypeFields: form.subtypeFields,
         displayName: form.displayName,
         issuingAuthority: form.issuingAuthority,
         countryCode: form.countryCode,
@@ -184,6 +303,36 @@ export function WalletItemDetail({
       setDeleting(false);
     }
   }, [isNewItem, itemId, onDeleted]);
+
+  const openPickerForSide = useCallback((side: WalletMediaSide) => {
+    setPickerSide(side);
+  }, []);
+
+  const clearMediaSide = useCallback(
+    (side: WalletMediaSide) => {
+      if (side === 'front') {
+        handleFieldChange('frontFileId', '');
+        return;
+      }
+      handleFieldChange('backFileId', '');
+    },
+    [handleFieldChange]
+  );
+
+  const handleSelectMedia = useCallback(
+    (fileId: string) => {
+      if (!pickerSide) {
+        return;
+      }
+      if (pickerSide === 'front') {
+        handleFieldChange('frontFileId', fileId);
+      } else {
+        handleFieldChange('backFileId', fileId);
+      }
+      setPickerSide(null);
+    },
+    [handleFieldChange, pickerSide]
+  );
 
   if (isLoading) {
     return (
@@ -263,9 +412,12 @@ export function WalletItemDetail({
           <select
             id="wallet-item-type"
             value={form.itemType}
-            onChange={(event) =>
-              handleFieldChange('itemType', event.target.value)
-            }
+            onChange={(event) => {
+              const value = event.target.value;
+              if (isWalletItemType(value)) {
+                handleItemTypeChange(value);
+              }
+            }}
             className="h-10 w-full rounded-md border border-input bg-background px-3 text-base shadow-sm"
           >
             {WALLET_ITEM_TYPES.map((itemType) => (
@@ -274,6 +426,30 @@ export function WalletItemDetail({
               </option>
             ))}
           </select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="font-medium text-sm" htmlFor="wallet-item-subtype">
+            Subtype
+          </label>
+          <select
+            id="wallet-item-subtype"
+            value={form.itemSubtype}
+            onChange={(event) => handleSubtypeChange(event.target.value)}
+            className="h-10 w-full rounded-md border border-input bg-background px-3 text-base shadow-sm"
+          >
+            <option value="">No subtype</option>
+            {subtypeOptions.map((subtype) => (
+              <option key={subtype.id} value={subtype.id}>
+                {subtype.label}
+              </option>
+            ))}
+          </select>
+          {activeSubtypeDefinition && (
+            <p className="text-muted-foreground text-xs">
+              {activeSubtypeDefinition.description}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -317,8 +493,27 @@ export function WalletItemDetail({
             onChange={(event) =>
               handleFieldChange('countryCode', event.target.value)
             }
-            placeholder="US"
+            onBlur={(event) => {
+              const normalized = normalizeWalletCountryCode(event.target.value);
+              if (normalized) {
+                handleFieldChange('countryCode', normalized);
+              }
+            }}
+            list="wallet-country-code-options"
+            placeholder="Type country (e.g., United States or US)"
           />
+          <datalist id="wallet-country-code-options">
+            {COUNTRY_OPTIONS.map((country) => (
+              <option key={country.code} value={country.label} />
+            ))}
+          </datalist>
+          {form.countryCode.trim().length > 0 && (
+            <p className="text-muted-foreground text-xs">
+              {countrySelection
+                ? `${countrySelection.name} (${countrySelection.code})`
+                : 'Country code not recognized. Use a valid ISO country value.'}
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -363,15 +558,35 @@ export function WalletItemDetail({
           />
         </div>
 
+        {activeSubtypeDefinition?.fields.map((field) => (
+          <div key={field.key} className="space-y-2">
+            <label
+              className="font-medium text-sm"
+              htmlFor={`wallet-subtype-${field.key}`}
+            >
+              {field.label}
+            </label>
+            <Input
+              id={`wallet-subtype-${field.key}`}
+              value={form.subtypeFields[field.key] ?? ''}
+              onChange={(event) =>
+                handleSubtypeFieldChange(field.key, event.target.value)
+              }
+              placeholder={field.placeholder}
+            />
+          </div>
+        ))}
+
         <div className="space-y-2 md:col-span-2">
           <label className="font-medium text-sm" htmlFor="wallet-notes">
             Notes
           </label>
-          <Input
+          <Textarea
             id="wallet-notes"
             value={form.notes}
             onChange={(event) => handleFieldChange('notes', event.target.value)}
             placeholder="Optional notes"
+            className="min-h-[100px]"
           />
         </div>
       </div>
@@ -379,53 +594,86 @@ export function WalletItemDetail({
       <div className="rounded-lg border p-4">
         <h3 className="font-medium">Card Images</h3>
         <p className="mt-1 text-muted-foreground text-sm">
-          Upload files from the Files or Photos app first, then link them here.
+          Search and attach front/back images visually from thumbnails.
         </p>
 
         <div className="mt-4 grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="font-medium text-sm" htmlFor="wallet-front-file">
-              Front Image
-            </label>
-            <select
-              id="wallet-front-file"
-              value={form.frontFileId}
-              onChange={(event) =>
-                handleFieldChange('frontFileId', event.target.value)
-              }
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-base shadow-sm"
-            >
-              <option value="">No file linked</option>
-              {mediaFiles.map((file) => (
-                <option key={file.id} value={file.id}>
-                  {file.name}
-                </option>
-              ))}
-            </select>
+          <div className="rounded-lg border p-3">
+            <p className="font-medium text-sm">Front Image</p>
+            <p className="mt-1 truncate text-muted-foreground text-xs">
+              {frontMedia ? frontMedia.name : 'No image linked'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => openPickerForSide('front')}
+              >
+                <Search className="mr-1 h-3 w-3" />
+                Browse Images
+              </Button>
+              {form.frontFileId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => clearMediaSide('front')}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="font-medium text-sm" htmlFor="wallet-back-file">
-              Back Image
-            </label>
-            <select
-              id="wallet-back-file"
-              value={form.backFileId}
-              onChange={(event) =>
-                handleFieldChange('backFileId', event.target.value)
-              }
-              className="h-10 w-full rounded-md border border-input bg-background px-3 text-base shadow-sm"
-            >
-              <option value="">No file linked</option>
-              {mediaFiles.map((file) => (
-                <option key={file.id} value={file.id}>
-                  {file.name}
-                </option>
-              ))}
-            </select>
+          <div className="rounded-lg border p-3">
+            <p className="font-medium text-sm">Back Image</p>
+            <p className="mt-1 truncate text-muted-foreground text-xs">
+              {backMedia ? backMedia.name : 'No image linked'}
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => openPickerForSide('back')}
+              >
+                <Search className="mr-1 h-3 w-3" />
+                Browse Images
+              </Button>
+              {form.backFileId && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => clearMediaSide('back')}
+                >
+                  Clear
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      <WalletMediaPickerModal
+        open={pickerSide !== null}
+        title={getPickerTitle(pickerSide)}
+        files={mediaFiles}
+        selectedFileId={
+          pickerSide === 'front'
+            ? form.frontFileId
+            : pickerSide === 'back'
+              ? form.backFileId
+              : ''
+        }
+        onOpenChange={(open) => {
+          if (!open) {
+            setPickerSide(null);
+          }
+        }}
+        onSelectFile={handleSelectMedia}
+      />
     </div>
   );
 }

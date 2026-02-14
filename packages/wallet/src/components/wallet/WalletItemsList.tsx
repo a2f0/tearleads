@@ -9,6 +9,7 @@ import {
   listWalletItems,
   type WalletItemSummary
 } from '../../lib/walletData';
+import { getWalletSubtypeLabel } from '../../lib/walletSubtypes';
 
 interface WalletItemsListProps {
   onOpenItem: (itemId: string) => void;
@@ -126,6 +127,9 @@ export function WalletItemsList({
                     <p className="truncate font-medium">{item.displayName}</p>
                     <p className="text-muted-foreground text-xs">
                       {getWalletItemTypeLabel(item.itemType)}
+                      {item.itemSubtype
+                        ? ` • ${getWalletSubtypeLabel(item.itemType, item.itemSubtype) ?? item.itemSubtype}`
+                        : ''}
                       {item.documentNumberLast4
                         ? ` • •••• ${item.documentNumberLast4}`
                         : ''}
