@@ -7,6 +7,7 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { selectClassName } from '../selectClassName';
 
 interface WorkoutFormProps {
   exercises: Exercise[];
@@ -157,7 +158,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
             id="workout-category"
             value={categoryId}
             onChange={(e) => handleCategoryChange(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-base"
+            className={selectClassName}
             disabled={isSubmitting}
             aria-invalid={Boolean(errors.exerciseId) && !categoryId}
           >
@@ -181,7 +182,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
             id="workout-exercise"
             value={exerciseId}
             onChange={(e) => setExerciseId(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-base"
+            className={selectClassName}
             disabled={
               isSubmitting || !categoryId || childExercises.length === 0
             }
@@ -264,7 +265,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
             id="workout-unit"
             value={weightUnit}
             onChange={(e) => setWeightUnit(e.target.value as WeightUnit)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-base"
+            className={selectClassName}
             disabled={isSubmitting}
           >
             <option value="lb">lb</option>

@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { selectClassName } from '../selectClassName';
 
 interface ExerciseFormProps {
   parentExercises: Exercise[];
@@ -98,7 +99,7 @@ export function ExerciseForm({ parentExercises, onSubmit }: ExerciseFormProps) {
             id="exercise-parent"
             value={parentId}
             onChange={(e) => setParentId(e.target.value)}
-            className="w-full rounded-md border bg-background px-3 py-2 text-base"
+            className={selectClassName}
             disabled={isSubmitting}
           >
             <option value="">None (Top-level exercise)</option>

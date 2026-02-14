@@ -43,11 +43,23 @@ export function useExerciseData({
     setError(null);
 
     try {
-      const [allExercises, parents, exerciseHierarchy] = await Promise.all([
-        tracker.listExercises(),
-        tracker.listParentExercises(),
-        tracker.getExerciseHierarchy()
-      ]);
+      // Single database call - derive parents and hierarchy client-side
+      const allExercises = await tracker.listExercises();
+      const parents = allExercises.filter((e) => !e.parentId);
+
+      const exerciseHierarchy = new Map<string, Exercise[]>();
+      for (const parent of parents) {
+        exerciseHierarchy.set(parent.id, []);
+      }
+      for (const exercise of allExercises) {
+        if (exercise.parentId) {
+          const children = exerciseHierarchy.get(exercise.parentId);
+          if (children) {
+            children.push(exercise);
+          }
+        }
+      }
+
       setExercises(allExercises);
       setParentExercises(parents);
       setHierarchy(exerciseHierarchy);
