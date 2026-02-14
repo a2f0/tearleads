@@ -22,6 +22,7 @@ export {
   createTeeSecureEnvelope,
   parseTeeSecureEnvelope,
   type TeeAttestationEvidence,
+  type TeeAttestationPolicy,
   type TeeProofAlgorithm,
   type TeeProofPayload,
   type TeeProofVersion,
@@ -33,3 +34,7 @@ export {
   type VerifyTeeSecureEnvelopeInput,
   verifyTeeSecureEnvelope
 } from './secureEnvelope.js';
+export {
+  selectActiveSigningKey,
+  type TeeSigningKeyConfig
+} from './server.js';

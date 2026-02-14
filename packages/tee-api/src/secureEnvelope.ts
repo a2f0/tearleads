@@ -71,7 +71,16 @@ export type TeeVerificationFailureCode =
   | 'missing_trusted_key'
   | 'transport_mismatch'
   | 'invalid_timestamps'
-  | 'stale_or_future_proof';
+  | 'stale_or_future_proof'
+  | 'missing_required_attestation'
+  | 'untrusted_attestation_provider'
+  | 'attestation_quote_mismatch';
+
+export interface TeeAttestationPolicy {
+  trustedProviders?: string[];
+  expectedQuoteSha256s?: Record<string, string>;
+  requireAttestation?: boolean;
+}
 
 export interface VerifyTeeSecureEnvelopeInput<TData extends JsonValue> {
   envelope: TeeSecureEnvelope<TData>;
@@ -84,6 +93,7 @@ export interface VerifyTeeSecureEnvelopeInput<TData extends JsonValue> {
   expectedTransport?: TeeTransport;
   now?: Date;
   maxClockSkewSeconds?: number;
+  attestationPolicy?: TeeAttestationPolicy;
 }
 
 export interface TeeVerificationResult {
@@ -92,6 +102,7 @@ export interface TeeVerificationResult {
   responseDigestMatches: boolean;
   freshnessValid: boolean;
   transportMatches: boolean;
+  attestationValid: boolean;
   failureCodes: TeeVerificationFailureCode[];
   isValid: boolean;
 }
@@ -333,12 +344,45 @@ export function verifyTeeSecureEnvelope<TData extends JsonValue>(
     addFailure(failureCodes, 'transport_mismatch');
   }
 
+  let attestationValid = true;
+  const policy = input.attestationPolicy;
+  const attestation = proof.attestation;
+
+  if (policy !== undefined) {
+    if (policy.requireAttestation === true && attestation === undefined) {
+      attestationValid = false;
+      addFailure(failureCodes, 'missing_required_attestation');
+    }
+
+    if (attestation !== undefined) {
+      if (
+        policy.trustedProviders !== undefined &&
+        !policy.trustedProviders.includes(attestation.provider)
+      ) {
+        attestationValid = false;
+        addFailure(failureCodes, 'untrusted_attestation_provider');
+      }
+
+      if (policy.expectedQuoteSha256s !== undefined) {
+        const expectedQuote = policy.expectedQuoteSha256s[attestation.provider];
+        if (
+          expectedQuote !== undefined &&
+          expectedQuote !== attestation.quoteSha256
+        ) {
+          attestationValid = false;
+          addFailure(failureCodes, 'attestation_quote_mismatch');
+        }
+      }
+    }
+  }
+
   return {
     signatureValid,
     requestDigestMatches,
     responseDigestMatches,
     freshnessValid,
     transportMatches,
+    attestationValid,
     failureCodes,
     isValid: failureCodes.length === 0
   };
