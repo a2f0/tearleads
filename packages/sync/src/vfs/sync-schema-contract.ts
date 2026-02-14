@@ -10,6 +10,14 @@ export interface VfsSyncSchemaDependency {
   purpose: string;
 }
 
+export interface VfsFlatteningInventory {
+  allGeneratedTables: string[];
+  vfsGeneratedTables: string[];
+  syncCriticalTablesPresent: string[];
+  missingContractTables: string[];
+  transitionalVfsTables: string[];
+}
+
 /**
  * Authoritative inventory of sync-critical table dependencies while we migrate
  * toward a flattened schema. Query-layer tests assert that SQL references stay
@@ -149,4 +157,53 @@ export function isSqlReferenceSubsetOfFlattenedContract(sql: string): boolean {
   }
 
   return true;
+}
+
+export function extractPostgresTableNamesFromDrizzleSchema(
+  source: string
+): string[] {
+  const tableNames = new Set<string>();
+  const pattern = /pgTable\(\s*'([a-z0-9_]+)'/gim;
+  let match: RegExpExecArray | null = pattern.exec(source);
+  while (match) {
+    const tableName = match[1];
+    if (tableName) {
+      tableNames.add(tableName.toLowerCase());
+    }
+
+    match = pattern.exec(source);
+  }
+
+  return Array.from(tableNames).sort((left, right) => left.localeCompare(right));
+}
+
+export function deriveVfsFlatteningInventory(
+  generatedTableNames: string[]
+): VfsFlatteningInventory {
+  const generatedTableSet = new Set(
+    generatedTableNames.map((tableName) => tableName.toLowerCase())
+  );
+  const allGeneratedTables = Array.from(generatedTableSet).sort((left, right) =>
+    left.localeCompare(right)
+  );
+  const vfsGeneratedTables = allGeneratedTables.filter((tableName) =>
+    tableName.startsWith('vfs_')
+  );
+  const syncCriticalTablesPresent = VFS_SYNC_FLATTENED_TARGET_TABLES.filter(
+    (tableName) => generatedTableSet.has(tableName)
+  );
+  const missingContractTables = VFS_SYNC_FLATTENED_TARGET_TABLES.filter(
+    (tableName) => !generatedTableSet.has(tableName)
+  );
+  const transitionalVfsTables = vfsGeneratedTables.filter(
+    (tableName) => !VFS_SYNC_FLATTENED_TARGET_TABLES.includes(tableName)
+  );
+
+  return {
+    allGeneratedTables,
+    vfsGeneratedTables,
+    syncCriticalTablesPresent,
+    missingContractTables,
+    transitionalVfsTables
+  };
 }

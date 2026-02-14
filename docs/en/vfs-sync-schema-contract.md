@@ -17,6 +17,8 @@ The authoritative dependency inventory and SQL reference extraction utilities
 are defined in:
 - `packages/sync/src/vfs/sync-schema-contract.ts`
 - `packages/sync/src/vfs/sync-schema-contract.test.ts`
+- `extractPostgresTableNamesFromDrizzleSchema(...)`
+- `deriveVfsFlatteningInventory(...)`
 
 ## Flattened Target Tables
 
@@ -33,6 +35,21 @@ The current flattened target contract is:
 
 Any SQL references outside this set are treated as out-of-contract and should
 fail the schema-contract guardrail tests.
+
+## Transitional VFS Table Candidates
+
+From the generated Postgres schema (`packages/db/src/generated/postgresql/schema.ts`),
+the flattening inventory currently reports these candidate VFS tables as outside
+the sync-critical contract:
+
+1. `vfs_access`
+2. `vfs_blob_objects`
+3. `vfs_blob_refs`
+4. `vfs_blob_staging`
+5. `vfs_folders`
+6. `vfs_shares`
+
+These are not removed yet; they are tracked as migration/cutover work.
 
 ## Domain Mapping
 
@@ -62,4 +79,3 @@ fail the schema-contract guardrail tests.
 
 If a new query references a table outside the target set, tests fail until the
 schema contract is intentionally updated.
-
