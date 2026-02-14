@@ -10,25 +10,31 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
 }));
 
 // Mock FloatingWindow
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
-    children,
-    title,
-    onClose
-  }: {
-    children: React.ReactNode;
-    title: string;
-    onClose: () => void;
-  }) => (
-    <div data-testid="floating-window">
-      <div data-testid="window-title">{title}</div>
-      <button type="button" onClick={onClose} data-testid="close-window">
-        Close
-      </button>
-      {children}
-    </div>
-  )
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({
+      children,
+      title,
+      onClose
+    }: {
+      children: React.ReactNode;
+      title: string;
+      onClose: () => void;
+    }) => (
+      <div data-testid="floating-window">
+        <div data-testid="window-title">{title}</div>
+        <button type="button" onClick={onClose} data-testid="close-window">
+          Close
+        </button>
+        {children}
+      </div>
+    )
+  };
+});
 
 // Mock FilesWindowMenuBar
 vi.mock('./FilesWindowMenuBar', () => ({

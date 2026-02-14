@@ -1,7 +1,9 @@
-import { WindowControlBar } from '@tearleads/window-manager';
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { cn } from '@/lib/utils';

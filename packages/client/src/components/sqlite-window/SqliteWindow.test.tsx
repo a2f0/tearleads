@@ -5,32 +5,43 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SqliteWindow } from './SqliteWindow';
 
 // Mock FloatingWindow
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
-    children,
-    title,
-    onClose,
-    initialDimensions
-  }: {
-    children: React.ReactNode;
-    title: string;
-    onClose: () => void;
-    initialDimensions?: { width: number; height: number; x: number; y: number };
-  }) => (
-    <div
-      data-testid="floating-window"
-      data-initial-dimensions={
-        initialDimensions ? JSON.stringify(initialDimensions) : undefined
-      }
-    >
-      <div data-testid="window-title">{title}</div>
-      <button type="button" onClick={onClose} data-testid="close-window">
-        Close
-      </button>
-      {children}
-    </div>
-  )
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({
+      children,
+      title,
+      onClose,
+      initialDimensions
+    }: {
+      children: React.ReactNode;
+      title: string;
+      onClose: () => void;
+      initialDimensions?: {
+        width: number;
+        height: number;
+        x: number;
+        y: number;
+      };
+    }) => (
+      <div
+        data-testid="floating-window"
+        data-initial-dimensions={
+          initialDimensions ? JSON.stringify(initialDimensions) : undefined
+        }
+      >
+        <div data-testid="window-title">{title}</div>
+        <button type="button" onClick={onClose} data-testid="close-window">
+          Close
+        </button>
+        {children}
+      </div>
+    )
+  };
+});
 
 // Mock DatabaseTest component with mount tracking
 const databaseTestMount = vi.fn();

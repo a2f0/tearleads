@@ -9,6 +9,7 @@ import {
 import { ConsoleWindow } from '@tearleads/console';
 import { KeychainWindow } from '@tearleads/keychain';
 import { SyncWindow } from '@tearleads/sync';
+import type { WindowDimensions } from '@tearleads/window-manager';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import { AnalyticsWindow } from '@/components/analytics-window';
@@ -25,7 +26,6 @@ import { DebugWindow } from '@/components/debug-window';
 import { DocumentsWindow } from '@/components/documents-window';
 import { EmailWindow } from '@/components/email-window';
 import { FilesWindow } from '@/components/files-window';
-import type { WindowDimensions } from '@/components/floating-window';
 import { HealthWindow } from '@/components/health-window';
 import { HelpWindow } from '@/components/help-window';
 import { LocalStorageWindow } from '@/components/local-storage-window';

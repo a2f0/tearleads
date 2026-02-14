@@ -5,13 +5,16 @@ import {
   CalendarContent,
   type CalendarEventItem
 } from '@tearleads/calendar';
-import { WindowControlBar } from '@tearleads/window-manager';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem,
+  DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { CalendarPlus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import {
   createCalendarEvent,
   getCalendarEvents,

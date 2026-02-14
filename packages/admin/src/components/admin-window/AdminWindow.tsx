@@ -10,11 +10,13 @@ import { OrganizationsAdmin } from '@admin/pages/admin/OrganizationsAdmin';
 import { PostgresAdmin } from '@admin/pages/admin/PostgresAdmin';
 import { UsersAdmin } from '@admin/pages/admin/UsersAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 import { AdminWindowMenuBar } from './AdminWindowMenuBar';
 
 type AdminView =

@@ -1,5 +1,4 @@
-import { WindowContextMenu } from '@tearleads/window-manager';
-import { zIndex } from '@/constants/zIndex';
+import { DesktopContextMenu } from '@tearleads/window-manager';
 
 interface ContextMenuProps {
   x: number;
@@ -10,15 +9,8 @@ interface ContextMenuProps {
 
 export function ContextMenu({ x, y, onClose, children }: ContextMenuProps) {
   return (
-    <WindowContextMenu
-      x={x}
-      y={y}
-      onClose={onClose}
-      overlayZIndex={zIndex.contextMenuOverlay}
-      menuZIndex={zIndex.contextMenu}
-      menuClassName="min-w-40 bg-background py-1 shadow-lg"
-    >
+    <DesktopContextMenu x={x} y={y} onClose={onClose}>
       {children}
-    </WindowContextMenu>
+    </DesktopContextMenu>
   );
 }

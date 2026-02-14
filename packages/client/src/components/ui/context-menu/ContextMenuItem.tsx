@@ -1,4 +1,4 @@
-import { WindowContextMenuItem } from '@tearleads/window-manager';
+import { DesktopContextMenuItem } from '@tearleads/window-manager';
 
 interface ContextMenuItemProps {
   icon?: React.ReactNode;
@@ -14,13 +14,8 @@ export function ContextMenuItem({
   'data-testid': testId
 }: ContextMenuItemProps) {
   return (
-    <WindowContextMenuItem
-      icon={icon}
-      onClick={onClick}
-      className="rounded-none px-3 text-left"
-      data-testid={testId}
-    >
+    <DesktopContextMenuItem icon={icon} onClick={onClick} data-testid={testId}>
       {children}
-    </WindowContextMenuItem>
+    </DesktopContextMenuItem>
   );
 }

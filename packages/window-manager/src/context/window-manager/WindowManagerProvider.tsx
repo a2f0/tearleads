@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import type { WindowDimensions } from '../../components/FloatingWindow.js';
 import type { WindowInstance, WindowManagerProviderProps } from './types.js';
 import { WindowManagerContext } from './WindowManagerContext.js';
@@ -9,9 +9,13 @@ export function WindowManagerProvider({
   children,
   loadDimensions,
   saveDimensions,
-  shouldPreserveState
+  shouldPreserveState,
+  createWindowId,
+  resolveInitialDimensions
 }: WindowManagerProviderProps) {
   const [windows, setWindows] = useState<WindowInstance[]>([]);
+  const windowsRef = useRef<WindowInstance[]>(windows);
+  windowsRef.current = windows;
 
   const getNextZIndex = useCallback((currentWindows: WindowInstance[]) => {
     if (currentWindows.length === 0) {
@@ -42,7 +46,11 @@ export function WindowManagerProvider({
 
   const openWindow = useCallback(
     (type: string, customId?: string): string => {
-      let resolvedId = customId ?? type;
+      const defaultId = customId ?? createWindowId?.(type) ?? type;
+      const existingWindow = customId
+        ? windowsRef.current.find((window) => window.id === defaultId)
+        : windowsRef.current.find((window) => window.type === type);
+      let resolvedId = existingWindow?.id ?? defaultId;
 
       const preserveState = shouldPreserveState?.() ?? true;
       const savedDimensions =
@@ -62,11 +70,19 @@ export function WindowManagerProvider({
           }
         }
 
-        const existing = prev.find((w) => w.id === resolvedId);
+        const existing = prev.find((w) => w.id === defaultId);
         if (existing) {
           resolvedId = existing.id;
           return prev;
         }
+
+        const initialDimensions = resolveInitialDimensions
+          ? resolveInitialDimensions({
+              type,
+              savedDimensions,
+              currentWindows: prev
+            })
+          : (savedDimensions ?? undefined);
 
         const nextZIndex = getNextZIndex(prev);
         return [
@@ -76,14 +92,20 @@ export function WindowManagerProvider({
             type,
             zIndex: nextZIndex,
             isMinimized: false,
-            ...(savedDimensions && { dimensions: savedDimensions })
+            ...(initialDimensions && { dimensions: initialDimensions })
           }
         ];
       });
 
       return resolvedId;
     },
-    [getNextZIndex, loadDimensions, shouldPreserveState]
+    [
+      createWindowId,
+      getNextZIndex,
+      loadDimensions,
+      resolveInitialDimensions,
+      shouldPreserveState
+    ]
   );
 
   const minimizeWindow = useCallback(
@@ -131,6 +153,12 @@ export function WindowManagerProvider({
     [saveDimensions, shouldPreserveState]
   );
 
+  const renameWindow = useCallback((id: string, title: string) => {
+    setWindows((prev) =>
+      prev.map((w) => (w.id === id ? { ...w, title: title || undefined } : w))
+    );
+  }, []);
+
   const isWindowOpen = useCallback(
     (type: string, id?: string): boolean => {
       if (id) {
@@ -158,6 +186,7 @@ export function WindowManagerProvider({
       restoreWindow,
       updateWindowDimensions,
       saveWindowDimensionsForType,
+      renameWindow,
       isWindowOpen,
       getWindow
     }),
@@ -170,6 +199,7 @@ export function WindowManagerProvider({
       restoreWindow,
       updateWindowDimensions,
       saveWindowDimensionsForType,
+      renameWindow,
       isWindowOpen,
       getWindow
     ]

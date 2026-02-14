@@ -65,6 +65,71 @@ describe('WindowManagerContext', () => {
       expect(result.current.windows[0]?.zIndex).toBe(100);
     });
 
+    it('uses createWindowId when opening a window without custom id', () => {
+      function generatedIdWrapper({ children }: { children: ReactNode }) {
+        return (
+          <WindowManagerProvider
+            loadDimensions={loadWindowDimensions}
+            saveDimensions={saveWindowDimensions}
+            shouldPreserveState={getPreserveWindowState}
+            createWindowId={(type) => `generated-${type}`}
+          >
+            {children}
+          </WindowManagerProvider>
+        );
+      }
+
+      const { result } = renderHook(() => useWindowManager(), {
+        wrapper: generatedIdWrapper
+      });
+
+      let windowId = '';
+      act(() => {
+        windowId = result.current.openWindow('notes');
+      });
+
+      expect(windowId).toBe('generated-notes');
+      expect(result.current.windows[0]?.id).toBe('generated-notes');
+    });
+
+    it('uses resolveInitialDimensions when provided', () => {
+      const resolvedDimensions = {
+        width: 720,
+        height: 540,
+        x: 80,
+        y: 40
+      };
+
+      function resolvedDimensionsWrapper({
+        children
+      }: {
+        children: ReactNode;
+      }) {
+        return (
+          <WindowManagerProvider
+            loadDimensions={loadWindowDimensions}
+            saveDimensions={saveWindowDimensions}
+            shouldPreserveState={getPreserveWindowState}
+            resolveInitialDimensions={() => resolvedDimensions}
+          >
+            {children}
+          </WindowManagerProvider>
+        );
+      }
+
+      const { result } = renderHook(() => useWindowManager(), {
+        wrapper: resolvedDimensionsWrapper
+      });
+
+      act(() => {
+        result.current.openWindow('notes', 'notes-1');
+      });
+
+      expect(result.current.getWindow('notes-1')?.dimensions).toEqual(
+        resolvedDimensions
+      );
+    });
+
     it('opens a window with custom id', () => {
       const { result } = renderHook(() => useWindowManager(), { wrapper });
 
@@ -513,6 +578,42 @@ describe('WindowManagerContext', () => {
 
       const saved = localStorage.getItem('window-dimensions:notes');
       expect(saved).toBeNull();
+    });
+  });
+
+  describe('renameWindow', () => {
+    it('updates window title', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'to-rename');
+      });
+
+      expect(result.current.getWindow('to-rename')?.title).toBeUndefined();
+
+      act(() => {
+        result.current.renameWindow('to-rename', 'My Custom Title');
+      });
+
+      expect(result.current.getWindow('to-rename')?.title).toBe(
+        'My Custom Title'
+      );
+    });
+
+    it('does nothing when renaming non-existent window', () => {
+      const { result } = renderHook(() => useWindowManager(), { wrapper });
+
+      act(() => {
+        result.current.openWindow('notes', 'existing');
+      });
+
+      const beforeRename = [...result.current.windows];
+
+      act(() => {
+        result.current.renameWindow('non-existent', 'New Title');
+      });
+
+      expect(result.current.windows).toEqual(beforeRename);
     });
   });
 });

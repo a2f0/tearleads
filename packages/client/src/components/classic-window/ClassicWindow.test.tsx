@@ -4,25 +4,43 @@ import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ClassicWindow } from './index';
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
-    children,
-    title,
-    onClose
-  }: {
-    children: ReactNode;
-    title: string;
-    onClose: () => void;
-  }) => (
-    <div data-testid="floating-window">
-      <div data-testid="window-title">{title}</div>
-      <button type="button" data-testid="close-window" onClick={onClose}>
-        Close
-      </button>
-      {children}
-    </div>
-  )
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({
+      children,
+      title,
+      onClose,
+      initialDimensions
+    }: {
+      children: ReactNode;
+      title: string;
+      onClose: () => void;
+      initialDimensions?: {
+        width: number;
+        height: number;
+        x: number;
+        y: number;
+      };
+    }) => (
+      <div
+        data-testid="floating-window"
+        data-initial-dimensions={
+          initialDimensions ? JSON.stringify(initialDimensions) : undefined
+        }
+      >
+        <div data-testid="window-title">{title}</div>
+        <button type="button" data-testid="close-window" onClick={onClose}>
+          Close
+        </button>
+        {children}
+      </div>
+    )
+  };
+});
 
 vi.mock('@/components/classic-workspace/ClassicWorkspace', () => ({
   ClassicWorkspace: ({
@@ -138,6 +156,24 @@ describe('ClassicWindow', () => {
 
     expect(screen.getByTestId('workspace-entry-sort')).toHaveTextContent(
       'date-tagged-desc'
+    );
+  });
+
+  it('passes initialDimensions to FloatingWindow when provided', () => {
+    const initialDimensions = {
+      width: 980,
+      height: 700,
+      x: 10,
+      y: 20
+    };
+
+    render(
+      <ClassicWindow {...defaultProps} initialDimensions={initialDimensions} />
+    );
+
+    expect(screen.getByTestId('floating-window')).toHaveAttribute(
+      'data-initial-dimensions',
+      JSON.stringify(initialDimensions)
     );
   });
 });

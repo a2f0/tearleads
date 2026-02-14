@@ -37,11 +37,17 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
 }));
 
 // Mock FloatingWindow component
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({ children }: { children: ReactNode }) => (
-    <div data-testid="floating-window">{children}</div>
-  )
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({ children }: { children: ReactNode }) => (
+      <div data-testid="floating-window">{children}</div>
+    )
+  };
+});
 
 let latestProps: {
   onItemOpen?: (item: VfsOpenItem) => void;

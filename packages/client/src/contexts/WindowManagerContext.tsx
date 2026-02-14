@@ -1,3 +1,14 @@
+import {
+  type WindowInstance as BaseWindowInstance,
+  WindowManagerProvider as BaseWindowManagerProvider,
+  generateUniqueId,
+  getDefaultDesktopWindowDimensions,
+  getPreserveWindowState,
+  loadWindowDimensions,
+  saveWindowDimensions,
+  useWindowManager as useBaseWindowManager,
+  type WindowDimensions
+} from '@tearleads/window-manager';
 import type { ReactNode } from 'react';
 import {
   createContext,
@@ -8,58 +19,61 @@ import {
   useState
 } from 'react';
 import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
-import { generateUniqueId } from '@/lib/utils';
-import {
-  loadWindowDimensions,
-  saveWindowDimensions
-} from '@/lib/windowDimensionsStorage';
-import { getPreserveWindowState } from '@/lib/windowStatePreference';
 
 // AGENT GUARDRAIL: When adding a new WindowType, ensure parity across:
 // - WindowRenderer.tsx (add entry in the window component map)
 // - Home.tsx PATH_TO_WINDOW_TYPE (enable opening from desktop icons)
 // - constants/windowPaths.ts WINDOW_PATHS (enable opening from sidebar double-click)
 // - Create corresponding window component in components/<type>-window/
-export type WindowType =
-  | 'notes'
-  | 'console'
-  | 'settings'
-  | 'files'
-  | 'tables'
-  | 'debug'
-  | 'help'
-  | 'documents'
-  | 'email'
-  | 'contacts'
-  | 'photos'
-  | 'camera'
-  | 'videos'
-  | 'keychain'
-  | 'wallet'
-  | 'sqlite'
-  | 'opfs'
-  | 'chat'
-  | 'analytics'
-  | 'audio'
-  | 'models'
-  | 'admin'
-  | 'admin-redis'
-  | 'admin-postgres'
-  | 'admin-groups'
-  | 'admin-users'
-  | 'admin-organizations'
-  | 'cache-storage'
-  | 'local-storage'
-  | 'sync'
-  | 'vfs'
-  | 'classic'
-  | 'backup'
-  | 'mls-chat'
-  | 'search'
-  | 'calendar'
-  | 'businesses'
-  | 'health'
-  | 'notification-center';
+const WINDOW_TYPES = [
+  'notes',
+  'console',
+  'settings',
+  'files',
+  'tables',
+  'debug',
+  'help',
+  'documents',
+  'email',
+  'contacts',
+  'photos',
+  'camera',
+  'videos',
+  'keychain',
+  'wallet',
+  'sqlite',
+  'opfs',
+  'chat',
+  'analytics',
+  'audio',
+  'models',
+  'admin',
+  'admin-redis',
+  'admin-postgres',
+  'admin-groups',
+  'admin-users',
+  'admin-organizations',
+  'cache-storage',
+  'local-storage',
+  'sync',
+  'vfs',
+  'classic',
+  'backup',
+  'mls-chat',
+  'search',
+  'calendar',
+  'businesses',
+  'health',
+  'notification-center'
+] as const;
+
+const WINDOW_TYPE_SET = new Set<string>(WINDOW_TYPES);
+
+function isWindowType(type: string): type is WindowType {
+  return WINDOW_TYPE_SET.has(type);
+}
+
+export type WindowType = (typeof WINDOW_TYPES)[number];
 
 export interface WindowOpenRequestPayloads {
   contacts: { contactId?: string; groupId?: string };
@@ -84,27 +98,8 @@ export type WindowOpenRequests = {
   };
 };
 
-export interface WindowDimensions {
-  width: number;
-  height: number;
-  x: number;
-  y: number;
-  isMaximized?: boolean;
-  preMaximizeDimensions?: {
-    width: number;
-    height: number;
-    x: number;
-    y: number;
-  };
-}
-
-export interface WindowInstance {
-  id: string;
+export interface WindowInstance extends Omit<BaseWindowInstance, 'type'> {
   type: WindowType;
-  zIndex: number;
-  isMinimized: boolean;
-  dimensions?: WindowDimensions;
-  title?: string | undefined;
 }
 
 interface WindowManagerContextValue {
@@ -134,7 +129,7 @@ type WindowManagerActions = Omit<
   'windows' | 'windowOpenRequests' | 'isWindowOpen' | 'getWindow'
 >;
 
-export type { WindowManagerActions };
+export type { WindowDimensions, WindowManagerActions };
 
 const WindowManagerContext = createContext<WindowManagerContextValue | null>(
   null
@@ -158,192 +153,30 @@ const NOOP_WINDOW_MANAGER_ACTIONS: WindowManagerActions = {
   renameWindow: () => {}
 };
 
-const BASE_Z_INDEX = 100;
-const DEFAULT_WINDOW_WIDTH_RATIO = 0.51;
-const DEFAULT_WINDOW_ASPECT_RATIO = 16 / 10;
-const DEFAULT_WINDOW_MIN_WIDTH = 480;
-const DEFAULT_WINDOW_MIN_HEIGHT = 320;
-const DEFAULT_WINDOW_HORIZONTAL_MARGIN = 120;
-const DEFAULT_WINDOW_VERTICAL_MARGIN = 160;
-const DEFAULT_WINDOW_CASCADE_OFFSET_X = 36;
-const DEFAULT_WINDOW_CASCADE_OFFSET_Y = 28;
-
 interface WindowManagerProviderProps {
   children: ReactNode;
 }
 
-function getDefaultLandscapeWindowDimensions(): WindowDimensions | undefined {
-  if (
-    typeof window === 'undefined' ||
-    window.innerWidth < MOBILE_BREAKPOINT ||
-    window.innerHeight <= 0
-  ) {
-    return undefined;
-  }
-
-  const viewportWidth = window.innerWidth;
-  const viewportHeight = window.innerHeight;
-  const maxWidth = Math.max(
-    DEFAULT_WINDOW_MIN_WIDTH,
-    viewportWidth - DEFAULT_WINDOW_HORIZONTAL_MARGIN
-  );
-  const maxHeight = Math.max(
-    DEFAULT_WINDOW_MIN_HEIGHT,
-    viewportHeight - DEFAULT_WINDOW_VERTICAL_MARGIN
-  );
-
-  let width = Math.max(
-    DEFAULT_WINDOW_MIN_WIDTH,
-    Math.min(maxWidth, Math.round(viewportWidth * DEFAULT_WINDOW_WIDTH_RATIO))
-  );
-  const height = Math.max(
-    DEFAULT_WINDOW_MIN_HEIGHT,
-    Math.min(maxHeight, Math.round(width / DEFAULT_WINDOW_ASPECT_RATIO))
-  );
-
-  if (height === maxHeight) {
-    width = Math.max(
-      DEFAULT_WINDOW_MIN_WIDTH,
-      Math.min(maxWidth, Math.round(height * DEFAULT_WINDOW_ASPECT_RATIO))
-    );
-  }
-
-  const x = Math.max(0, Math.round((viewportWidth - width) / 2));
-  const y = Math.max(0, Math.round((viewportHeight - height) / 2));
-
-  return { width, height, x, y };
-}
-
-function getCascadedWindowDimensions(
-  dimensions: WindowDimensions,
-  currentWindows: WindowInstance[]
-): WindowDimensions {
-  if (
-    typeof window === 'undefined' ||
-    window.innerWidth < MOBILE_BREAKPOINT ||
-    currentWindows.length === 0
-  ) {
-    return dimensions;
-  }
-
-  const topWindow = currentWindows.reduce((highest, candidate) =>
-    candidate.zIndex > highest.zIndex ? candidate : highest
-  );
-  const anchor = topWindow.dimensions;
-  if (!anchor) {
-    return dimensions;
-  }
-
-  const maxX = Math.max(0, window.innerWidth - dimensions.width);
-  const maxY = Math.max(0, window.innerHeight - dimensions.height);
-  const x = Math.max(
-    0,
-    Math.min(maxX, anchor.x + DEFAULT_WINDOW_CASCADE_OFFSET_X)
-  );
-  const y = Math.max(
-    0,
-    Math.min(maxY, anchor.y + DEFAULT_WINDOW_CASCADE_OFFSET_Y)
-  );
-
-  return {
-    ...dimensions,
-    x,
-    y
-  };
-}
-
-export function WindowManagerProvider({
-  children
-}: WindowManagerProviderProps) {
-  const [windows, setWindows] = useState<WindowInstance[]>([]);
+function WindowManagerAdapterProvider({ children }: { children: ReactNode }) {
+  const baseWindowManager = useBaseWindowManager();
   const [windowOpenRequests, setWindowOpenRequests] =
     useState<WindowOpenRequests>({});
   const requestCounterRef = useRef(0);
-  const windowsRef = useRef<WindowInstance[]>(windows);
-  windowsRef.current = windows;
 
-  const getNextZIndex = useCallback((currentWindows: WindowInstance[]) => {
-    if (currentWindows.length === 0) {
-      return BASE_Z_INDEX;
-    }
-    return Math.max(...currentWindows.map((w) => w.zIndex)) + 1;
-  }, []);
-
-  const closeWindow = useCallback((id: string) => {
-    setWindows((prev) => prev.filter((w) => w.id !== id));
-  }, []);
-
-  const focusWindow = useCallback((id: string) => {
-    setWindows((prev) => {
-      const windowToFocus = prev.find((w) => w.id === id);
-      if (!windowToFocus) return prev;
-
-      const maxZIndex = Math.max(...prev.map((w) => w.zIndex));
-      if (windowToFocus.zIndex === maxZIndex && !windowToFocus.isMinimized) {
-        return prev;
-      }
-
-      return prev.map((w) =>
-        w.id === id ? { ...w, zIndex: maxZIndex + 1, isMinimized: false } : w
-      );
-    });
-  }, []);
+  const windows = useMemo<WindowInstance[]>(
+    () =>
+      baseWindowManager.windows.flatMap((window) => {
+        if (!isWindowType(window.type)) {
+          return [];
+        }
+        return [{ ...window, type: window.type }];
+      }),
+    [baseWindowManager.windows]
+  );
 
   const openWindow = useCallback(
-    (type: WindowType, customId?: string): string => {
-      const id = customId ?? generateUniqueId(type);
-      const existingWindow = customId
-        ? undefined
-        : windowsRef.current.find((window) => window.type === type);
-      let resolvedId = existingWindow?.id ?? id;
-
-      // Load saved dimensions for this window type if preservation is enabled
-      const savedDimensions = getPreserveWindowState()
-        ? loadWindowDimensions(type)
-        : null;
-      const defaultDimensions = getDefaultLandscapeWindowDimensions();
-
-      setWindows((prev) => {
-        if (!customId) {
-          const existingByType = prev.find((w) => w.type === type);
-          if (existingByType) {
-            resolvedId = existingByType.id;
-            const nextZIndex = getNextZIndex(prev);
-            return prev.map((w) =>
-              w.id === existingByType.id
-                ? { ...w, isMinimized: false, zIndex: nextZIndex }
-                : w
-            );
-          }
-        }
-
-        const existing = prev.find((w) => w.id === id);
-        if (existing) {
-          resolvedId = existing.id;
-          return prev;
-        }
-
-        const initialDimensions =
-          savedDimensions ??
-          (defaultDimensions
-            ? getCascadedWindowDimensions(defaultDimensions, prev)
-            : undefined);
-        const nextZIndex = getNextZIndex(prev);
-        return [
-          ...prev,
-          {
-            id,
-            type,
-            zIndex: nextZIndex,
-            isMinimized: false,
-            ...(initialDimensions && { dimensions: initialDimensions })
-          }
-        ];
-      });
-
-      return resolvedId;
-    },
-    [getNextZIndex]
+    (type: WindowType, id?: string) => baseWindowManager.openWindow(type, id),
+    [baseWindowManager]
   );
 
   const requestWindowOpen = useCallback(
@@ -361,74 +194,61 @@ export function WindowManagerProvider({
     []
   );
 
-  const minimizeWindow = useCallback(
-    (id: string, dimensions?: WindowDimensions) => {
-      setWindows((prev) =>
-        prev.map((w) => {
-          if (w.id !== id) return w;
-          const newDimensions = dimensions ?? w.dimensions;
-          return newDimensions
-            ? { ...w, isMinimized: true, dimensions: newDimensions }
-            : { ...w, isMinimized: true };
-        })
-      );
-    },
-    []
+  const closeWindow = useCallback(
+    (id: string) => baseWindowManager.closeWindow(id),
+    [baseWindowManager]
   );
 
-  const restoreWindow = useCallback((id: string) => {
-    setWindows((prev) => {
-      const maxZIndex = Math.max(...prev.map((w) => w.zIndex));
-      return prev.map((w) =>
-        w.id === id ? { ...w, isMinimized: false, zIndex: maxZIndex + 1 } : w
-      );
-    });
-  }, []);
+  const focusWindow = useCallback(
+    (id: string) => baseWindowManager.focusWindow(id),
+    [baseWindowManager]
+  );
+
+  const minimizeWindow = useCallback(
+    (id: string, dimensions?: WindowDimensions) =>
+      baseWindowManager.minimizeWindow(id, dimensions),
+    [baseWindowManager]
+  );
+
+  const restoreWindow = useCallback(
+    (id: string) => baseWindowManager.restoreWindow(id),
+    [baseWindowManager]
+  );
 
   const updateWindowDimensions = useCallback(
-    (id: string, dimensions: WindowDimensions) => {
-      setWindows((prev) =>
-        prev.map((w) => (w.id === id ? { ...w, dimensions } : w))
-      );
-    },
-    []
+    (id: string, dimensions: WindowDimensions) =>
+      baseWindowManager.updateWindowDimensions(id, dimensions),
+    [baseWindowManager]
   );
 
-  const renameWindow = useCallback((id: string, title: string) => {
-    setWindows((prev) =>
-      prev.map((w) => (w.id === id ? { ...w, title: title || undefined } : w))
-    );
-  }, []);
-
   const saveWindowDimensionsForType = useCallback(
-    (type: WindowType, dimensions: WindowDimensions) => {
-      const { width, height, x, y } = dimensions;
-      if (!getPreserveWindowState()) {
-        return;
-      }
-      saveWindowDimensions(type, { width, height, x, y });
-    },
-    []
+    (type: WindowType, dimensions: WindowDimensions) =>
+      baseWindowManager.saveWindowDimensionsForType(type, dimensions),
+    [baseWindowManager]
+  );
+
+  const renameWindow = useCallback(
+    (id: string, title: string) => baseWindowManager.renameWindow(id, title),
+    [baseWindowManager]
   );
 
   const isWindowOpen = useCallback(
-    (type: WindowType, id?: string): boolean => {
-      if (id) {
-        return windows.some((w) => w.id === id);
-      }
-      return windows.some((w) => w.type === type);
-    },
-    [windows]
+    (type: WindowType, id?: string) => baseWindowManager.isWindowOpen(type, id),
+    [baseWindowManager]
   );
 
   const getWindow = useCallback(
     (id: string): WindowInstance | undefined => {
-      return windows.find((w) => w.id === id);
+      const window = baseWindowManager.getWindow(id);
+      if (!window || !isWindowType(window.type)) {
+        return undefined;
+      }
+      return { ...window, type: window.type };
     },
-    [windows]
+    [baseWindowManager]
   );
 
-  const value = useMemo(
+  const value = useMemo<WindowManagerContextValue>(
     () => ({
       windows,
       openWindow,
@@ -494,6 +314,58 @@ export function WindowManagerProvider({
         </WindowManagerContext.Provider>
       </WindowOpenRequestsContext.Provider>
     </WindowManagerActionsContext.Provider>
+  );
+}
+
+export function WindowManagerProvider({
+  children
+}: WindowManagerProviderProps) {
+  const loadDimensionsForType = useCallback((type: string) => {
+    if (!isWindowType(type)) {
+      return null;
+    }
+    return loadWindowDimensions(type);
+  }, []);
+
+  const saveDimensionsForType = useCallback(
+    (type: string, dimensions: WindowDimensions) => {
+      if (!isWindowType(type)) {
+        return;
+      }
+      saveWindowDimensions(type, dimensions);
+    },
+    []
+  );
+
+  const resolveInitialDimensions = useCallback(
+    ({
+      savedDimensions,
+      currentWindows
+    }: {
+      savedDimensions: WindowDimensions | null;
+      currentWindows: BaseWindowInstance[];
+    }): WindowDimensions | undefined => {
+      if (savedDimensions) {
+        return savedDimensions;
+      }
+      return getDefaultDesktopWindowDimensions({
+        mobileBreakpoint: MOBILE_BREAKPOINT,
+        currentWindows
+      });
+    },
+    []
+  );
+
+  return (
+    <BaseWindowManagerProvider
+      loadDimensions={loadDimensionsForType}
+      saveDimensions={saveDimensionsForType}
+      shouldPreserveState={getPreserveWindowState}
+      createWindowId={generateUniqueId}
+      resolveInitialDimensions={resolveInitialDimensions}
+    >
+      <WindowManagerAdapterProvider>{children}</WindowManagerAdapterProvider>
+    </BaseWindowManagerProvider>
   );
 }
 

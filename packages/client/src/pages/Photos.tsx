@@ -1,5 +1,9 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { assertPlainArrayBuffer } from '@tearleads/shared';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import {
   Download,
@@ -17,7 +21,6 @@ import {
 } from '@/components/photos-window/PhotosAlbumsSidebar';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { UploadProgress } from '@/components/ui/upload-progress';

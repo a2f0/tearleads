@@ -1,10 +1,13 @@
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { Copy, Music, Pause, Play, SkipBack, Square, X } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import { useAudioContext } from '@/audio';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { FOOTER_HEIGHT } from '@/constants/layout';
 import { useWindowManager } from '@/contexts/WindowManagerContext';
 import { useDraggable } from '@/hooks/useDraggable';

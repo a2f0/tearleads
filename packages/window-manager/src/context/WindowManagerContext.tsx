@@ -1,3 +1,7 @@
+export {
+  type DefaultDesktopWindowDimensionsOptions,
+  getDefaultDesktopWindowDimensions
+} from './window-manager/defaultDesktopWindowDimensions.js';
 export type {
   WindowInstance,
   WindowManagerContextValue,

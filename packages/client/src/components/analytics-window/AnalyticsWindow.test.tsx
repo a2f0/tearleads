@@ -24,27 +24,33 @@ vi.mock('@/db/analytics', () => ({
   getEventDisplayName: (name: string) => name
 }));
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
-    children,
-    title,
-    onClose,
-    ...rest
-  }: {
-    children: React.ReactNode;
-    title: string;
-    onClose: () => void;
-    [key: string]: unknown;
-  }) => (
-    <div data-testid="floating-window" data-props={JSON.stringify(rest)}>
-      <div data-testid="window-title">{title}</div>
-      <button type="button" onClick={onClose} data-testid="close-window">
-        Close
-      </button>
-      {children}
-    </div>
-  )
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({
+      children,
+      title,
+      onClose,
+      ...rest
+    }: {
+      children: React.ReactNode;
+      title: string;
+      onClose: () => void;
+      [key: string]: unknown;
+    }) => (
+      <div data-testid="floating-window" data-props={JSON.stringify(rest)}>
+        <div data-testid="window-title">{title}</div>
+        <button type="button" onClick={onClose} data-testid="close-window">
+          Close
+        </button>
+        {children}
+      </div>
+    )
+  };
+});
 
 let analyticsExportState: {
   handler: (() => Promise<void>) | null;

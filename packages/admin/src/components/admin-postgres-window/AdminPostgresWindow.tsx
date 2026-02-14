@@ -2,13 +2,13 @@ import { PostgresTableRowsView } from '@admin/components/admin-postgres/Postgres
 import { AdminWindowMenuBar } from '@admin/components/admin-window/AdminWindowMenuBar';
 import { PostgresAdmin } from '@admin/pages/admin/PostgresAdmin';
 import {
+  DesktopFloatingWindow as FloatingWindow,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 
 type PostgresWindowView =
   | { type: 'index' }

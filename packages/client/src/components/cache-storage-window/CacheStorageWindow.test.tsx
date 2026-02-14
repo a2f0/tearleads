@@ -4,31 +4,37 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CacheStorageWindow } from './CacheStorageWindow';
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
-    children,
-    title,
-    onClose,
-    ...rest
-  }: {
-    children: React.ReactNode;
-    title: string;
-    onClose: () => void;
-    [key: string]: unknown;
-  }) => (
-    <div
-      data-testid="floating-window"
-      data-props={JSON.stringify(rest)}
-      data-props-keys={JSON.stringify(Object.keys(rest))}
-    >
-      <div data-testid="window-title">{title}</div>
-      <button type="button" onClick={onClose} data-testid="close-window">
-        Close
-      </button>
-      {children}
-    </div>
-  )
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({
+      children,
+      title,
+      onClose,
+      ...rest
+    }: {
+      children: React.ReactNode;
+      title: string;
+      onClose: () => void;
+      [key: string]: unknown;
+    }) => (
+      <div
+        data-testid="floating-window"
+        data-props={JSON.stringify(rest)}
+        data-props-keys={JSON.stringify(Object.keys(rest))}
+      >
+        <div data-testid="window-title">{title}</div>
+        <button type="button" onClick={onClose} data-testid="close-window">
+          Close
+        </button>
+        {children}
+      </div>
+    )
+  };
+});
 
 vi.mock('@/pages/cache-storage', () => ({
   CacheStorage: ({ showBackLink }: { showBackLink?: boolean }) => (

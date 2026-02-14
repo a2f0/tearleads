@@ -8,11 +8,14 @@ import {
   type NotesUIComponents
 } from '@tearleads/notes';
 import notesPackageJson from '@tearleads/notes/package.json';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import {
   DropdownMenu,
   DropdownMenuItem,

@@ -1,4 +1,6 @@
 import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem,
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
@@ -22,7 +24,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';

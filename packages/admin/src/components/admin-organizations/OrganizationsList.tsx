@@ -1,5 +1,7 @@
 import type { Organization } from '@tearleads/shared';
 import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem,
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
@@ -8,7 +10,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { api } from '@/lib/api';
 
 interface OrganizationsListProps {

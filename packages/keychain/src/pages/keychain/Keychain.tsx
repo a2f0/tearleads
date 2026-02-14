@@ -1,8 +1,4 @@
 import { BackLink } from '@client/components/ui/back-link';
-import {
-  ContextMenu,
-  ContextMenuItem
-} from '@client/components/ui/context-menu';
 import { RefreshButton } from '@client/components/ui/refresh-button';
 import {
   deleteSessionKeysForInstance,
@@ -11,7 +7,11 @@ import {
 import { getInstances } from '@client/db/instance-registry';
 import { useTypedTranslation } from '@client/i18n';
 import { useNavigateWithFrom } from '@client/lib/navigation';
-import { WindowStatusBar } from '@tearleads/window-manager';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem,
+  WindowStatusBar
+} from '@tearleads/window-manager';
 import { Info, Key, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { DeleteSessionKeysDialog } from './DeleteSessionKeysDialog';

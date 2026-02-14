@@ -1,11 +1,11 @@
 import type { VfsOpenItem } from '@tearleads/vfs-explorer';
 import { VfsWindow as VfsWindowBase } from '@tearleads/vfs-explorer';
 import {
+  DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback } from 'react';
-import { FloatingWindow } from '@/components/floating-window';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { ClientVfsExplorerProvider } from '@/contexts/ClientVfsExplorerProvider';
 import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext';

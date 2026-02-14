@@ -1,5 +1,9 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { ALL_CONTACTS_ID, ContactsGroupsSidebar } from '@tearleads/contacts';
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { and, asc, eq, like, or, type SQL } from 'drizzle-orm';
 import {
   Download,
@@ -19,7 +23,6 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ColumnMapper } from '@/components/contacts/column-mapper';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
-import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import { Dropzone } from '@/components/ui/dropzone';
 import { Input } from '@/components/ui/input';
 import { RefreshButton } from '@/components/ui/refresh-button';

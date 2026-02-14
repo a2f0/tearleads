@@ -37,20 +37,25 @@ vi.mock('@tearleads/ui', () => ({
   )
 }));
 
-vi.mock('@/components/floating-window', () => ({
-  FloatingWindow: ({
-    children,
-    title
-  }: {
-    children: React.ReactNode;
-    title: string;
-  }) => (
-    <div data-testid="floating-window">
-      <div data-testid="window-title">{title}</div>
-      {children}
-    </div>
-  )
-}));
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+  return {
+    ...actual,
+    DesktopFloatingWindow: ({
+      children,
+      title
+    }: {
+      children: React.ReactNode;
+      title: string;
+    }) => (
+      <div data-testid="floating-window">
+        <div data-testid="window-title">{title}</div>
+        {children}
+      </div>
+    )
+  };
+});
 
 vi.mock('../help-links/HelpDocumentation', () => ({
   HelpDocumentation: ({ docId }: { docId: string }) => (

@@ -1,14 +1,14 @@
 import openapiSpec from '@tearleads/api/dist/openapi.json';
 import { ApiDocs } from '@tearleads/ui';
 import {
+  DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,
   WindowControlButton,
-  WindowControlGroup
+  WindowControlGroup,
+  type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import type { WindowDimensions } from '@/components/floating-window';
-import { FloatingWindow } from '@/components/floating-window';
 import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
 import {
   DOCS_WINDOW_MAX_HEIGHT_PERCENT,
