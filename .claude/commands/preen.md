@@ -127,7 +127,145 @@ esac
 printf 'mode=%s active=%s max_fixes=%s\n' "$MODE" "${ACTIVE_CATEGORIES[*]}" "$MAX_FIXES"
 ```
 
+## Historical Analysis (Self-Improvement)
+
+Before running discovery, analyze past runs to inform category selection and surface improvement opportunities:
+
+```bash
+analyze_history() {
+  [ ! -f "$RUNS_FILE" ] && return
+  [ "$(wc -l < "$RUNS_FILE" 2>/dev/null)" -lt 5 ] && return
+
+  # Categories with zero improvements in last 10 runs (stale)
+  STALE_CATEGORIES=$(jq -s '
+    [.[-10:][].selected_category] | group_by(.) |
+    map({cat: .[0], runs: length}) |
+    map(select(.runs > 2)) |
+    [.[].cat] - [
+      [.[-10:][] | select(.outcome == "changed") | .selected_category] | unique | .[]
+    ]' "$RUNS_FILE" 2>/dev/null | jq -r '.[]' | tr '\n' ' ')
+
+  # Categories never selected (under-served)
+  SELECTED_EVER=$(jq -s '[.[].selected_category] | unique' "$RUNS_FILE" 2>/dev/null)
+  UNDER_SERVED=""
+  for cat in "${CATEGORIES[@]}"; do
+    if ! echo "$SELECTED_EVER" | grep -q "\"$cat\""; then
+      UNDER_SERVED="$UNDER_SERVED $cat"
+    fi
+  done
+
+  # Success rate by category (effectiveness ranking)
+  EFFECTIVENESS=$(jq -s '
+    group_by(.selected_category) |
+    map({
+      cat: .[0].selected_category,
+      total: length,
+      success: ([.[] | select(.outcome == "changed")] | length),
+      rate: (([.[] | select(.outcome == "changed")] | length) / length * 100 | floor)
+    }) |
+    sort_by(-.rate)' "$RUNS_FILE" 2>/dev/null)
+
+  # Average improvement delta by category
+  AVG_DELTA=$(jq -s '
+    [.[] | select(.outcome == "changed")] |
+    group_by(.selected_category) |
+    map({
+      cat: .[0].selected_category,
+      avg_delta: ([.[].delta | tonumber] | add / length | floor)
+    }) |
+    sort_by(.avg_delta)' "$RUNS_FILE" 2>/dev/null)
+}
+
+analyze_history
+```
+
+### Adaptive Category Selection
+
+Use historical insights to adjust category priority:
+
+```bash
+compute_category_boost() {
+  local cat="$1"
+  local boost=0
+
+  # Boost under-served categories (+2)
+  if echo "$UNDER_SERVED" | grep -q "$cat"; then
+    boost=$((boost + 2))
+  fi
+
+  # Boost categories not run in last 5 iterations (+1)
+  RECENT=$(jq -s --arg c "$cat" '[.[-5:][].selected_category] | map(select(. == $c)) | length' "$RUNS_FILE" 2>/dev/null || echo 0)
+  if [ "$RECENT" -eq 0 ]; then
+    boost=$((boost + 1))
+  fi
+
+  # Penalize stale categories (-1)
+  if echo "$STALE_CATEGORIES" | grep -q "$cat"; then
+    boost=$((boost - 1))
+  fi
+
+  echo "$boost"
+}
+```
+
+Integrate boost into candidate scoring:
+
+```text
+adjusted_score = base_score + category_boost
+base_score = (severity * 3) + (blast_radius * 2) + (confidence * 2) - effort
+```
+
 ## Workflow
+
+### 0. Health Report (Self-Improvement)
+
+Output a health report when sufficient history exists to guide focus areas:
+
+```bash
+if [ -f "$RUNS_FILE" ] && [ "$(wc -l < "$RUNS_FILE" 2>/dev/null)" -gt 5 ]; then
+  echo "=== Preen Health Report ==="
+
+  # Last run timestamp per category
+  echo "Category Coverage (last run):"
+  for cat in "${CATEGORIES[@]}"; do
+    LAST=$(jq -s --arg c "$cat" \
+      '[.[] | select(.selected_category == $c)] | last | .timestamp // "never"' \
+      "$RUNS_FILE" 2>/dev/null | tr -d '"')
+    printf "  %-30s %s\n" "$cat:" "$LAST"
+  done
+
+  # Success rate per category (last 20 runs)
+  echo ""
+  echo "Success Rates (last 20 runs):"
+  jq -s '
+    .[-20:] | group_by(.selected_category) |
+    map(select(.[0].selected_category != null and .[0].selected_category != "")) |
+    map({
+      cat: .[0].selected_category,
+      rate: (([.[] | select(.outcome == "changed")] | length) / length * 100 | floor)
+    }) |
+    sort_by(-.rate) |
+    .[] | "  \(.cat): \(.rate)%"' "$RUNS_FILE" 2>/dev/null || true
+
+  # Recommendations based on analysis
+  echo ""
+  echo "Recommendations:"
+  [ -n "$STALE_CATEGORIES" ] && echo "  - Review stale categories (0 changes in 10 runs): $STALE_CATEGORIES"
+  [ -n "$UNDER_SERVED" ] && echo "  - Prioritize under-served categories: $UNDER_SERVED"
+
+  # Check for consistently empty discovery
+  echo ""
+  echo "Discovery Health:"
+  for cat in "${ACTIVE_CATEGORIES[@]}"; do
+    METRIC=$(metric_count "$cat" 2>/dev/null || echo "error")
+    if [ "$METRIC" = "0" ]; then
+      echo "  - WARNING: $cat discovery returns 0 findings - consider updating patterns"
+    fi
+  done
+
+  echo "==========================="
+fi
+```
 
 ### 1. Setup (Hardened)
 
@@ -453,6 +591,106 @@ If no high-value candidate is found, or `audit` mode is used:
 ## Default-Mode Philosophy
 
 Default `full` mode enables broad, category-by-category sweeps. Use `single` when you want smaller, lower-risk incremental changes that rotate over time.
+
+## Self-Improvement Protocol
+
+The preen skill improves itself over time by analyzing run history and surfacing actionable recommendations.
+
+### Self-Modification Triggers
+
+| Trigger | Condition | Action |
+|---------|-----------|--------|
+| Stale category | 0 changes in last 10 runs | Suggest removal or discovery refinement |
+| Discovery drift | `metric_count` returns 0 | Suggest updating discovery patterns |
+| New anti-pattern | Manual fixes recur in uncovered area | Suggest new category proposal |
+| High false-positive | Many audits, few changes (< 20% rate) | Suggest tightening discovery criteria |
+| Under-served category | Never selected in recorded history | Boost priority or investigate blockers |
+
+### Periodic Evaluation (Every 10 Runs)
+
+After every 10 preen runs, evaluate:
+
+1. **Stale Categories**: If a category has 0 changes in 10 consecutive runs:
+   - Run discovery manually to verify patterns still exist in codebase
+   - If patterns exist but aren't being selected, adjust scoring weights
+   - If no patterns exist, consider removing category or updating discovery commands
+
+2. **Under-Served Categories**: If coverage is uneven across categories:
+   - Check if some categories have expensive/slow discovery commands
+   - Consider splitting large categories into focused sub-categories
+   - Verify category isn't blocked by environmental issues
+
+3. **Registry Updates**: When discovery patterns need adjustment:
+   - Update `scripts/preen/registry.json` with new discovery commands
+   - Run `./scripts/preen/generatePreenDocs.sh` to regenerate skill docs
+   - Test updated discovery with `PREEN_MODE=audit` before full run
+
+4. **New Category Proposals**: When deferred-fixes reveal recurring patterns:
+
+   ```bash
+   # Find patterns in closed deferred-fix issues
+   gh issue list --label deferred-fix --state closed --limit 50 --json title,body |
+     jq -r '.[].title' | sort | uniq -c | sort -rn | head -10
+   ```
+
+   - If 3+ fixes cluster in same area, propose new preen category
+   - Draft discovery commands and metric count for the pattern
+   - Add to registry and regenerate docs
+
+### Run History Analysis
+
+Query the run log to understand preen effectiveness:
+
+```bash
+# Overall success rate
+jq -s '
+  {
+    total: length,
+    changed: ([.[] | select(.outcome == "changed")] | length),
+    no_change: ([.[] | select(.outcome == "no-change")] | length),
+    audit: ([.[] | select(.outcome == "audit")] | length)
+  } |
+  . + {success_rate: (.changed / .total * 100 | floor)}
+' .git/preen/runs.jsonl
+
+# Category leaderboard by impact
+jq -s '
+  [.[] | select(.outcome == "changed")] |
+  group_by(.selected_category) |
+  map({
+    category: .[0].selected_category,
+    runs: length,
+    total_delta: ([.[].delta | tonumber] | add),
+    avg_delta: ([.[].delta | tonumber] | add / length | floor)
+  }) |
+  sort_by(.total_delta)
+' .git/preen/runs.jsonl
+
+# Time since last successful change per category
+jq -s --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+  [.[] | select(.outcome == "changed")] |
+  group_by(.selected_category) |
+  map({category: .[0].selected_category, last_change: (last | .timestamp)}) |
+  sort_by(.last_change)
+' .git/preen/runs.jsonl
+```
+
+### When to Update This Skill
+
+Update `.claude/commands/preen.md` when:
+
+1. **Adding a new category**: Add to `CATEGORIES` array, `run_discovery` cases, `metric_count` cases
+2. **Retiring a stale category**: Remove from arrays after confirming no value
+3. **Adjusting scoring**: Modify `compute_category_boost` or base scoring formula
+4. **Improving discovery**: Update discovery commands for better signal-to-noise
+5. **Adding security categories**: Also add to `SECURITY_CATEGORIES` array
+
+Always regenerate from registry after structural changes:
+
+```bash
+./scripts/preen/generatePreenDocs.sh
+./scripts/checkPreenEcosystem.sh --strict
+```
 
 ## Guardrails
 
