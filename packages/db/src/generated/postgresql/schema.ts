@@ -1014,69 +1014,6 @@ export const vfsBlobObjects = pgTable(
 );
 
 /**
- * Blob staging table for commit-isolated attachment flow.
- * Blobs are staged first, then atomically attached to VFS items.
- */
-export const vfsBlobStaging = pgTable(
-  'vfs_blob_staging',
-  {
-    id: text('id').primaryKey(),
-    blobId: text('blob_id')
-      .notNull()
-      .references(() => vfsBlobObjects.id, { onDelete: 'cascade' }),
-    stagedBy: text('staged_by')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    status: text('status', {
-      enum: ['staged', 'attached', 'abandoned']
-    }).notNull(),
-    stagedAt: timestamp('staged_at', { withTimezone: true }).notNull(),
-    attachedAt: timestamp('attached_at', { withTimezone: true }),
-    expiresAt: timestamp('expires_at', { withTimezone: true }).notNull(),
-    attachedItemId: text('attached_item_id').references(() => vfsRegistry.id, {
-      onDelete: 'set null'
-    })
-  },
-  (table) => [
-    index('vfs_blob_staging_status_idx').on(table.status),
-    index('vfs_blob_staging_expires_idx').on(table.expiresAt),
-    index('vfs_blob_staging_staged_by_idx').on(table.stagedBy)
-  ]
-);
-
-/**
- * Blob attachment references linking blobs to VFS items.
- */
-export const vfsBlobRefs = pgTable(
-  'vfs_blob_refs',
-  {
-    id: text('id').primaryKey(),
-    blobId: text('blob_id')
-      .notNull()
-      .references(() => vfsBlobObjects.id, { onDelete: 'cascade' }),
-    itemId: text('item_id')
-      .notNull()
-      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-    relationKind: text('relation_kind', {
-      enum: ['file', 'emailAttachment', 'photo', 'other']
-    }).notNull(),
-    attachedBy: text('attached_by')
-      .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
-    attachedAt: timestamp('attached_at', { withTimezone: true }).notNull()
-  },
-  (table) => [
-    index('vfs_blob_refs_item_idx').on(table.itemId),
-    index('vfs_blob_refs_blob_idx').on(table.blobId),
-    uniqueIndex('vfs_blob_refs_unique_idx').on(
-      table.blobId,
-      table.itemId,
-      table.relationKind
-    )
-  ]
-);
-
-/**
  * CRDT-style operation log for ACL and link mutations.
  * Ensures deterministic convergence for concurrent multi-client updates.
  */

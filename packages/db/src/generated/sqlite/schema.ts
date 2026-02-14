@@ -1022,69 +1022,6 @@ export const vfsBlobObjects = sqliteTable(
 );
 
 /**
- * Blob staging table for commit-isolated attachment flow.
- * Blobs are staged first, then atomically attached to VFS items.
- */
-export const vfsBlobStaging = sqliteTable(
-  'vfs_blob_staging',
-  {
-    id: text('id').primaryKey(),
-    blobId: text('blob_id')
-      .notNull()
-      .references(() => vfsBlobObjects.id, { onDelete: 'cascade' }),
-    stagedBy: text('staged_by')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    status: text('status', {
-      enum: ['staged', 'attached', 'abandoned']
-    }).notNull(),
-    stagedAt: integer('staged_at', { mode: 'timestamp_ms' }).notNull(),
-    attachedAt: integer('attached_at', { mode: 'timestamp_ms' }),
-    expiresAt: integer('expires_at', { mode: 'timestamp_ms' }).notNull(),
-    attachedItemId: text('attached_item_id').references(() => vfsRegistry.id, {
-      onDelete: 'set null'
-    })
-  },
-  (table) => [
-    index('vfs_blob_staging_status_idx').on(table.status),
-    index('vfs_blob_staging_expires_idx').on(table.expiresAt),
-    index('vfs_blob_staging_staged_by_idx').on(table.stagedBy)
-  ]
-);
-
-/**
- * Blob attachment references linking blobs to VFS items.
- */
-export const vfsBlobRefs = sqliteTable(
-  'vfs_blob_refs',
-  {
-    id: text('id').primaryKey(),
-    blobId: text('blob_id')
-      .notNull()
-      .references(() => vfsBlobObjects.id, { onDelete: 'cascade' }),
-    itemId: text('item_id')
-      .notNull()
-      .references(() => vfsRegistry.id, { onDelete: 'cascade' }),
-    relationKind: text('relation_kind', {
-      enum: ['file', 'emailAttachment', 'photo', 'other']
-    }).notNull(),
-    attachedBy: text('attached_by')
-      .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
-    attachedAt: integer('attached_at', { mode: 'timestamp_ms' }).notNull()
-  },
-  (table) => [
-    index('vfs_blob_refs_item_idx').on(table.itemId),
-    index('vfs_blob_refs_blob_idx').on(table.blobId),
-    uniqueIndex('vfs_blob_refs_unique_idx').on(
-      table.blobId,
-      table.itemId,
-      table.relationKind
-    )
-  ]
-);
-
-/**
  * CRDT-style operation log for ACL and link mutations.
  * Ensures deterministic convergence for concurrent multi-client updates.
  */
@@ -1439,8 +1376,6 @@ export const schema = {
   vfsSyncChanges,
   vfsSyncClientState,
   vfsBlobObjects,
-  vfsBlobStaging,
-  vfsBlobRefs,
   vfsCrdtOps,
   mlsKeyPackages,
   mlsGroups,
