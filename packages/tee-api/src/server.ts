@@ -5,13 +5,12 @@ import {
   type Server,
   type ServerResponse
 } from 'node:http';
+import { isTeeEchoRequest, TEE_ECHO_PATH } from './contracts.js';
 import {
   createTeeSecureEnvelope,
-  isTeeEchoRequest,
-  TEE_ECHO_PATH,
   type TeeAttestationEvidence,
   type TeeTransport
-} from './index.js';
+} from './secureEnvelope.js';
 
 export interface TeeSigningKeyConfig {
   keyId: string;
