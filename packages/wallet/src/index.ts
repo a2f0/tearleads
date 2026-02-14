@@ -1,2 +1,2 @@
 export { WalletWindow } from './components/wallet-window';
-export { Wallet, WalletDetail } from './pages/wallet';
+export { Wallet, WalletDetail, WalletNewItem } from './pages/wallet';

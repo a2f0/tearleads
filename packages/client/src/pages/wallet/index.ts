@@ -1,1 +1,1 @@
-export { Wallet, WalletDetail } from '@tearleads/wallet';
+export { Wallet, WalletDetail, WalletNewItem } from '@tearleads/wallet';
