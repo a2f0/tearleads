@@ -32,6 +32,7 @@ export const pt = {
     sqlite: 'SQLite',
     console: 'Console',
     debug: 'Depuração',
+    systemInfo: 'Informações do sistema',
     opfs: 'OPFS',
     cacheStorage: 'Cache',
     localStorage: 'Armazenamento Local',
