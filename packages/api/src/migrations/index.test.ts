@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 28 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 29 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(28);
+      expect(result.currentVersion).toBe(29);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 28 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 29 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -159,9 +159,9 @@ describe('migrations', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23, 24, 25, 26, 27, 28
+        22, 23, 24, 25, 26, 27, 28, 29
       ]);
-      expect(result.currentVersion).toBe(28);
+      expect(result.currentVersion).toBe(29);
     });
   });
 
@@ -808,6 +808,55 @@ describe('migrations', () => {
       }
 
       await expect(v028.up(pool)).rejects.toThrow('forced v028 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v029 migration', () => {
+    it('backfills and verifies canonical ACL parity for org_shares', async () => {
+      const pool = createMockPool(new Map());
+
+      const v029 = migrations.find((m: Migration) => m.version === 29);
+      if (!v029) {
+        throw new Error('v029 migration not found');
+      }
+
+      await v029.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'vfs_acl_entries missing while org_shares still exists'
+      );
+      expect(queries).toContain('INSERT INTO "vfs_acl_entries"');
+      expect(queries).toContain("'org-share:' || os.id");
+      expect(queries).toContain("WHEN 'edit' THEN 'write'");
+      expect(queries).toContain(
+        'org_shares rows missing canonical active ACL parity'
+      );
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (sql.includes('INSERT INTO "vfs_acl_entries"')) {
+            throw new Error('forced v029 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v029 = migrations.find((m: Migration) => m.version === 29);
+      if (!v029) {
+        throw new Error('v029 migration not found');
+      }
+
+      await expect(v029.up(pool)).rejects.toThrow('forced v029 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');
