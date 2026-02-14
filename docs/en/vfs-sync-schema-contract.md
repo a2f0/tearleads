@@ -69,6 +69,8 @@ support rollback-aware drop planning.
 parity + source-trace guardrails for `vfs_shares` and `org_shares`.
 `v036` enforces share-retirement preconditions (checkpoint presence + parity
 revalidation) before any future share-table drop candidate can run.
+`v037` records explicit share drop-planning checkpoints after `v036` passes to
+keep destructive sequencing auditable and rollback-aware.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
