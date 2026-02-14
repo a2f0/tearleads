@@ -204,6 +204,28 @@ vi.mock('@/components/auth/InlineLogin', () => ({
   )
 }));
 
+vi.mock('@/components/auth', () => ({
+  InlineRequiresLoginAndUnlock: ({
+    children,
+    description
+  }: {
+    children: React.ReactNode;
+    description: string;
+  }) => {
+    // Use mockState to determine what to render
+    if (mockState.isDatabaseLoading) {
+      return <div className="text-muted-foreground">Loading database...</div>;
+    }
+    if (!mockState.isUnlocked) {
+      return <div data-testid="inline-unlock" />;
+    }
+    if (!mockState.userId) {
+      return <div data-testid="inline-login">Login for {description}</div>;
+    }
+    return <>{children}</>;
+  }
+}));
+
 vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => ({
     isUnlocked: mockState.isUnlocked,
