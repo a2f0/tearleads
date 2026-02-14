@@ -30,8 +30,18 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/pages/Health', () => ({
-  Health: ({ showBackLink }: { showBackLink?: boolean }) => (
-    <div data-testid="health-page" data-show-back-link={showBackLink}>
+  Health: ({
+    showBackLink,
+    refreshToken
+  }: {
+    showBackLink?: boolean;
+    refreshToken?: number;
+  }) => (
+    <div
+      data-testid="health-page"
+      data-show-back-link={showBackLink}
+      data-refresh-token={refreshToken}
+    >
       Health Page
     </div>
   )
@@ -85,5 +95,18 @@ describe('HealthWindow', () => {
     const window = screen.getByTestId('floating-window');
     const props = JSON.parse(window.dataset['props'] || '{}');
     expect(props.initialDimensions).toEqual(initialDimensions);
+  });
+
+  it('increments refreshToken when refresh is clicked', async () => {
+    const user = userEvent.setup();
+    render(<HealthWindow {...defaultProps} />);
+
+    const healthPage = screen.getByTestId('health-page');
+    expect(healthPage.dataset['refreshToken']).toBe('0');
+
+    await user.click(screen.getByText('File'));
+    await user.click(screen.getByText('Refresh'));
+
+    expect(healthPage.dataset['refreshToken']).toBe('1');
   });
 });

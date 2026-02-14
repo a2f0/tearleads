@@ -1,8 +1,36 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Health } from './Health';
+
+// Mock detail components that require DatabaseProvider
+vi.mock('@/components/health/weight', () => ({
+  WeightDetail: ({ refreshToken }: { refreshToken?: number }) => (
+    <div data-testid="weight-detail-mock" data-refresh-token={refreshToken}>
+      Weight Detail Mock
+    </div>
+  )
+}));
+
+vi.mock('@/components/health/workouts', () => ({
+  WorkoutDetail: ({ refreshToken }: { refreshToken?: number }) => (
+    <div data-testid="workout-detail-mock" data-refresh-token={refreshToken}>
+      Workout Detail Mock
+    </div>
+  )
+}));
+
+vi.mock('@/components/health/blood-pressure', () => ({
+  BloodPressureDetail: ({ refreshToken }: { refreshToken?: number }) => (
+    <div
+      data-testid="blood-pressure-detail-mock"
+      data-refresh-token={refreshToken}
+    >
+      Blood Pressure Detail Mock
+    </div>
+  )
+}));
 
 function renderHealth({
   showBackLink,
@@ -92,6 +120,31 @@ describe('Health', () => {
     await user.click(screen.getByTestId('health-card-link-height'));
     expect(screen.getByTestId('health-detail-height')).toBeTruthy();
 
+    await user.click(screen.getByTestId('health-nav-overview'));
+    expect(screen.getByText('Open Height Tracking')).toBeTruthy();
+  });
+
+  it('navigates to all routes via window mode buttons', async () => {
+    renderHealth({ showBackLink: false });
+    const user = userEvent.setup();
+
+    // Navigate to height via card then back to overview
+    await user.click(screen.getByTestId('health-card-link-height'));
+    expect(screen.getByTestId('health-detail-height')).toBeTruthy();
+
+    // Navigate to weight via nav button
+    await user.click(screen.getByTestId('health-nav-weight'));
+    expect(screen.getByTestId('health-detail-weight')).toBeTruthy();
+
+    // Navigate to workouts via nav button
+    await user.click(screen.getByTestId('health-nav-workouts'));
+    expect(screen.getByTestId('health-detail-workouts')).toBeTruthy();
+
+    // Navigate to blood-pressure via nav button
+    await user.click(screen.getByTestId('health-nav-blood-pressure'));
+    expect(screen.getByTestId('health-detail-blood-pressure')).toBeTruthy();
+
+    // Navigate back to overview
     await user.click(screen.getByTestId('health-nav-overview'));
     expect(screen.getByText('Open Height Tracking')).toBeTruthy();
   });
