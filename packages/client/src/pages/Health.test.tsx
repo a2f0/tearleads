@@ -25,7 +25,7 @@ describe('Health', () => {
     expect(screen.getByRole('heading', { name: 'Health' })).toBeTruthy();
     expect(screen.getByText('Open Height Tracking')).toBeTruthy();
     expect(screen.getByText('Open Weight Tracking')).toBeTruthy();
-    expect(screen.getByText('Blood Pressure')).toBeTruthy();
+    expect(screen.getByText('Open Blood Pressure')).toBeTruthy();
     expect(screen.getByText('Exercises')).toBeTruthy();
     expect(screen.getByText('Open Workouts')).toBeTruthy();
   });
@@ -75,12 +75,13 @@ describe('Health', () => {
 
     await user.click(screen.getByTestId('health-card-link-height'));
     expect(screen.getByTestId('health-detail-height')).toBeTruthy();
-    expect(screen.getByText('route: /health/height')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'Coming soon — Track height measurements over time for each child.'
+      )
+    ).toBeTruthy();
 
-    await user.click(screen.getByTestId('health-nav-weight'));
-    expect(screen.getByTestId('health-detail-weight')).toBeTruthy();
-
-    await user.click(screen.getByTestId('health-overview-link'));
+    await user.click(screen.getByRole('link', { name: 'Overview' }));
     expect(screen.getByText('Open Height Tracking')).toBeTruthy();
   });
 
@@ -91,17 +92,14 @@ describe('Health', () => {
     await user.click(screen.getByTestId('health-card-link-height'));
     expect(screen.getByTestId('health-detail-height')).toBeTruthy();
 
-    await user.click(screen.getByTestId('health-nav-workouts'));
-    expect(screen.getByTestId('health-detail-workouts')).toBeTruthy();
-
-    await user.click(screen.getByTestId('health-overview-link'));
+    await user.click(screen.getByTestId('health-nav-overview'));
     expect(screen.getByText('Open Height Tracking')).toBeTruthy();
   });
 
   it('renders workout route detail directly', () => {
-    renderHealth({ initialEntries: ['/health/workouts'] });
-    expect(screen.getByTestId('health-detail-workouts')).toBeTruthy();
-    expect(screen.getByText('route: /health/workouts')).toBeTruthy();
+    renderHealth({ initialEntries: ['/health/height'] });
+    expect(screen.getByTestId('health-detail-height')).toBeTruthy();
+    expect(screen.getByTestId('height-detail-placeholder')).toBeTruthy();
   });
 
   it('shows the back link by default', () => {
