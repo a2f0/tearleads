@@ -297,16 +297,18 @@ describe('VideoPage', () => {
       ).toBeInTheDocument();
     });
 
-    it('renders table rows without absolute positioning', async () => {
+    it('renders virtualized table rows with proper positioning', async () => {
       await renderVideo({ viewMode: 'table' });
 
       const row = screen.getByText('test-video.mp4').closest('tr');
       expect(row).toBeInTheDocument();
-      expect(row).not.toHaveAttribute('style');
+      expect(row).toHaveAttribute('style');
+      expect(row).toHaveStyle({ position: 'absolute' });
 
       const tbody = row?.closest('tbody');
       expect(tbody).toBeInTheDocument();
-      expect(tbody).not.toHaveAttribute('style');
+      expect(tbody).toHaveAttribute('style');
+      expect(tbody).toHaveStyle({ position: 'relative' });
     });
   });
 
