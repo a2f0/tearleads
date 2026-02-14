@@ -85,6 +85,17 @@ test.describe('Analytics page', () => {
   });
 
   test('should navigate to analytics page', async ({ page }) => {
+    // Capture console errors
+    const consoleMessages: string[] = [];
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') {
+        consoleMessages.push(`[${msg.type()}] ${msg.text()}`);
+      }
+    });
+    page.on('pageerror', (error) => {
+      consoleMessages.push(`[pageerror] ${error.message}`);
+    });
+
     await navigateTo(page, 'Analytics');
     // Wait for network to be idle
     await page.waitForLoadState('networkidle');
@@ -98,6 +109,7 @@ test.describe('Analytics page', () => {
       const bodyHtml = await page.evaluate(
         () => document.body?.innerHTML?.slice(0, 2000) || 'NO BODY'
       );
+      console.log('Console errors:', consoleMessages.join('\n'));
       console.log('Page body (first 2000 chars):', bodyHtml);
       console.log('Page URL:', page.url());
       // Now fail with the original error
