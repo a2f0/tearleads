@@ -7,6 +7,8 @@ interface SidebarAdminFlyoutMenuProps {
   buttonRect: DOMRect | null;
   activePathname: string;
   items: AdminFlyoutItem[];
+  ariaLabel: string;
+  testIdPrefix: string;
   onItemClick: (path: string) => void;
   onItemContextMenu: (event: React.MouseEvent, path: string) => void;
   onOpenChange: (open: boolean) => void;
@@ -18,6 +20,8 @@ export function SidebarAdminFlyoutMenu({
   buttonRect,
   activePathname,
   items,
+  ariaLabel,
+  testIdPrefix,
   onItemClick,
   onItemContextMenu,
   onOpenChange,
@@ -35,8 +39,8 @@ export function SidebarAdminFlyoutMenu({
         top: buttonRect.top
       }}
       role="menu"
-      aria-label="Admin submenu"
-      data-testid="admin-flyout-menu"
+      aria-label={ariaLabel}
+      data-testid={`${testIdPrefix}-flyout-menu`}
       onMouseEnter={() => onOpenChange(true)}
       onMouseLeave={() => onOpenChange(false)}
     >
@@ -48,7 +52,7 @@ export function SidebarAdminFlyoutMenu({
             <button
               key={item.path}
               type="button"
-              data-testid={`admin-flyout-${item.labelKey}`}
+              data-testid={`${testIdPrefix}-flyout-${item.labelKey}`}
               onClick={() => onItemClick(item.path)}
               onContextMenu={(event) => onItemContextMenu(event, item.path)}
               className={cn(

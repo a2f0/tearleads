@@ -30,6 +30,7 @@ export interface MenuTranslations {
   sqlite: string;
   console: string;
   debug: string;
+  systemInfo: string;
   opfs: string;
   cacheStorage: string;
   localStorage: string;

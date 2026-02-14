@@ -32,6 +32,7 @@ export const en = {
     sqlite: 'SQLite',
     console: 'Console',
     debug: 'Debug',
+    systemInfo: 'System Info',
     opfs: 'OPFS',
     cacheStorage: 'Cache Storage',
     localStorage: 'Local Storage',

@@ -16,7 +16,7 @@ import {
 import App from './App';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { Contacts } from './pages/contacts';
-import { Debug } from './pages/debug';
+import { Debug, DebugBrowserLauncher, DebugLauncher } from './pages/debug';
 import { Files } from './pages/Files';
 import { Home } from './pages/Home';
 import { Settings } from './pages/Settings';
@@ -159,7 +159,9 @@ function renderAppWithRoutes(
               <Route path="files" element={<Files />} />
               <Route path="contacts" element={<Contacts />} />
               <Route path="sqlite" element={<Sqlite />} />
-              <Route path="debug" element={<Debug />} />
+              <Route path="debug" element={<DebugLauncher />} />
+              <Route path="debug/system-info" element={<Debug />} />
+              <Route path="debug/browser" element={<DebugBrowserLauncher />} />
               <Route path="settings" element={<Settings />} />
             </Route>
           </Routes>

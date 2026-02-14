@@ -22,6 +22,7 @@ import {
   Lock,
   Mail,
   MessageSquare,
+  Monitor,
   Music,
   RefreshCw,
   Save,
@@ -163,27 +164,6 @@ export const navItems: NavItem[] = [
     testId: 'debug-link'
   },
   {
-    path: '/opfs',
-    icon: HardDrive,
-    labelKey: 'opfs',
-    inMobileMenu: true,
-    testId: 'opfs-link'
-  },
-  {
-    path: '/cache-storage',
-    icon: Archive,
-    labelKey: 'cacheStorage',
-    inMobileMenu: true,
-    testId: 'cache-storage-link'
-  },
-  {
-    path: '/local-storage',
-    icon: Database,
-    labelKey: 'localStorage',
-    inMobileMenu: true,
-    testId: 'local-storage-link'
-  },
-  {
     path: '/keychain',
     icon: Key,
     labelKey: 'keychain',
@@ -289,4 +269,19 @@ export const adminFlyoutItems: AdminFlyoutItem[] = [
   { path: '/admin/groups', labelKey: 'groups', icon: UsersIcon },
   { path: '/admin/organizations', labelKey: 'organizations', icon: Building2 },
   { path: '/admin/users', labelKey: 'adminUsers', icon: User }
+];
+
+export const debugFlyoutItems: AdminFlyoutItem[] = [
+  { path: '/debug/system-info', labelKey: 'systemInfo', icon: Monitor },
+  {
+    path: '/debug/browser/local-storage',
+    labelKey: 'localStorage',
+    icon: Database
+  },
+  { path: '/debug/browser/opfs', labelKey: 'opfs', icon: HardDrive },
+  {
+    path: '/debug/browser/cache-storage',
+    labelKey: 'cacheStorage',
+    icon: Archive
+  }
 ];

@@ -59,9 +59,15 @@ async function getCacheInfo(cache: Cache, name: string): Promise<CacheInfo> {
 
 interface CacheStorageProps {
   showBackLink?: boolean;
+  backTo?: string;
+  backLabel?: string;
 }
 
-export function CacheStorage({ showBackLink = true }: CacheStorageProps) {
+export function CacheStorage({
+  showBackLink = true,
+  backTo = '/',
+  backLabel = 'Back to Home'
+}: CacheStorageProps) {
   const [caches, setCaches] = useState<CacheInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -222,7 +228,7 @@ export function CacheStorage({ showBackLink = true }: CacheStorageProps) {
       <div className="space-y-6">
         <div className="space-y-2">
           {showBackLink && (
-            <BackLink defaultTo="/" defaultLabel="Back to Home" />
+            <BackLink defaultTo={backTo} defaultLabel={backLabel} />
           )}
           <h1 className="font-bold text-2xl tracking-tight">
             Cache Storage Browser
@@ -241,7 +247,9 @@ export function CacheStorage({ showBackLink = true }: CacheStorageProps) {
   return (
     <div className="space-y-6">
       <div className="space-y-2">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
+        {showBackLink && (
+          <BackLink defaultTo={backTo} defaultLabel={backLabel} />
+        )}
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-bold text-2xl tracking-tight">

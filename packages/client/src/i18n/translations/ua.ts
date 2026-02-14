@@ -32,6 +32,7 @@ export const ua = {
     sqlite: 'SQLite',
     console: 'Консоль',
     debug: 'Налагодження',
+    systemInfo: 'Системна інформація',
     opfs: 'OPFS',
     cacheStorage: 'Кеш',
     localStorage: 'Локальне сховище',

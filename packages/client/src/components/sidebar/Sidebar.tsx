@@ -12,7 +12,7 @@ import { WINDOW_PATHS } from '@/constants/windowPaths';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useTypedTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
-import { adminFlyoutItems, navItems } from './navItems';
+import { adminFlyoutItems, debugFlyoutItems, navItems } from './navItems';
 import { SidebarAdminFlyoutMenu } from './SidebarAdminFlyoutMenu';
 import { SidebarNavList } from './SidebarNavList';
 import { SidebarRouteContextMenu } from './SidebarRouteContextMenu';
@@ -32,8 +32,11 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
   const [contextMenu, setContextMenu] =
     useState<SidebarContextMenuState | null>(null);
   const [adminFlyoutOpen, setAdminFlyoutOpen] = useState(false);
+  const [debugFlyoutOpen, setDebugFlyoutOpen] = useState(false);
   const [adminButtonRect, setAdminButtonRect] = useState<DOMRect | null>(null);
+  const [debugButtonRect, setDebugButtonRect] = useState<DOMRect | null>(null);
   const adminButtonRef = useRef<HTMLButtonElement>(null);
+  const debugButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     // Corresponds to Tailwind's `lg` breakpoint (min-width: 1024px).
@@ -145,9 +148,13 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
           isDesktop={isDesktop}
           activePathname={location.pathname}
           adminFlyoutItems={adminFlyoutItems}
+          debugFlyoutItems={debugFlyoutItems}
           adminButtonRef={adminButtonRef}
+          debugButtonRef={debugButtonRef}
           onAdminFlyoutOpenChange={setAdminFlyoutOpen}
+          onDebugFlyoutOpenChange={setDebugFlyoutOpen}
           onAdminButtonRectChange={setAdminButtonRect}
+          onDebugButtonRectChange={setDebugButtonRect}
           onItemClick={handleClick}
           onItemContextMenu={handleContextMenu}
           t={t}
@@ -159,9 +166,23 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
         buttonRect={adminButtonRect}
         activePathname={location.pathname}
         items={adminFlyoutItems}
+        ariaLabel="Admin submenu"
+        testIdPrefix="admin"
         onItemClick={handleClick}
         onItemContextMenu={handleContextMenu}
         onOpenChange={setAdminFlyoutOpen}
+        t={t}
+      />
+      <SidebarAdminFlyoutMenu
+        isOpen={debugFlyoutOpen}
+        buttonRect={debugButtonRect}
+        activePathname={location.pathname}
+        items={debugFlyoutItems}
+        ariaLabel="Debug submenu"
+        testIdPrefix="debug"
+        onItemClick={handleClick}
+        onItemContextMenu={handleContextMenu}
+        onOpenChange={setDebugFlyoutOpen}
         t={t}
       />
 
