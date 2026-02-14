@@ -28,6 +28,8 @@ resource "azurerm_subnet" "public" {
   address_prefixes     = [var.subnet_address_prefix]
 }
 
+# COMPLIANCE_SENTINEL: TL-NET-001 | control=network-security-group
+# Network isolation via NSG - default deny with explicit allow rules
 resource "azurerm_network_security_group" "confidential_vm" {
   name                = "${local.name_prefix}-nsg"
   location            = azurerm_resource_group.tee.location
@@ -35,6 +37,8 @@ resource "azurerm_network_security_group" "confidential_vm" {
   tags                = local.tags
 }
 
+# COMPLIANCE_SENTINEL: TL-NET-002 | control=ssh-access-restriction
+# SSH restricted to allowed CIDR only (var.allowed_ssh_cidr)
 resource "azurerm_network_security_rule" "ssh" {
   name                        = "SSH"
   priority                    = 1001
