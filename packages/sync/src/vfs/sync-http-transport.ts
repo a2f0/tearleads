@@ -463,11 +463,15 @@ export class VfsHttpCrdtSyncTransport implements VfsCrdtSyncTransport {
      */
     const requestUrl = this.buildUrl(path, query);
     const headers = await this.buildHeaders(body !== undefined);
-    const response = await this.fetchImpl(requestUrl, {
+    const requestInit: RequestInit = {
       method: body === undefined ? 'GET' : 'POST',
-      headers,
-      body: body === undefined ? undefined : JSON.stringify(body)
-    });
+      headers
+    };
+    if (body !== undefined) {
+      requestInit.body = JSON.stringify(body);
+    }
+
+    const response = await this.fetchImpl(requestUrl, requestInit);
 
     const rawBody = await response.text();
     const parsedBody = this.parseBody(rawBody);
