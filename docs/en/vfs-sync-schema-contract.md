@@ -36,6 +36,9 @@ The current flattened target contract is:
 Any SQL references outside this set are treated as out-of-contract and should
 fail the schema-contract guardrail tests.
 
+In addition, sync-critical SQL is asserted to avoid explicit references to
+transitional candidates via `findTransitionalTableReferences(...)`.
+
 ## Transitional VFS Table Candidates
 
 From the generated Postgres schema (`packages/db/src/generated/postgresql/schema.ts`),

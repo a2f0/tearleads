@@ -5,6 +5,7 @@ import { buildVfsCrdtSyncQuery } from './sync-crdt-feed.js';
 import { buildVfsSyncQuery } from './sync-engine.js';
 import {
   deriveVfsFlatteningInventory,
+  findTransitionalTableReferences,
   extractSqlTableReferences,
   extractPostgresTableNamesFromDrizzleSchema,
   isSqlReferenceSubsetOfFlattenedContract,
@@ -63,6 +64,8 @@ describe('sync schema contract', () => {
 
     expect(isSqlReferenceSubsetOfFlattenedContract(syncQuery.text)).toBe(true);
     expect(isSqlReferenceSubsetOfFlattenedContract(crdtQuery.text)).toBe(true);
+    expect(findTransitionalTableReferences(syncQuery.text)).toEqual([]);
+    expect(findTransitionalTableReferences(crdtQuery.text)).toEqual([]);
   });
 
   it('covers API CRDT route SQL references used for push/pull/reconcile', () => {
@@ -101,6 +104,9 @@ describe('sync schema contract', () => {
         VFS_SYNC_FLATTENED_TARGET_TABLES.includes(tableName)
       )
     ).toBe(true);
+    expect(routeSql.flatMap((sql) => findTransitionalTableReferences(sql))).toEqual(
+      []
+    );
   });
 
   it('detects SQL references that fall outside the flattened contract', () => {

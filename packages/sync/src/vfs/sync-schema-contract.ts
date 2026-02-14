@@ -100,6 +100,15 @@ export const VFS_SYNC_FLATTENED_TARGET_TABLES = Array.from(
   new Set(VFS_SYNC_SCHEMA_DEPENDENCIES.map((dependency) => dependency.tableName))
 ).sort((left, right) => left.localeCompare(right));
 
+export const VFS_TRANSITIONAL_TABLE_CANDIDATES = [
+  'vfs_access',
+  'vfs_blob_objects',
+  'vfs_blob_refs',
+  'vfs_blob_staging',
+  'vfs_folders',
+  'vfs_shares'
+];
+
 function extractCteNames(sql: string): Set<string> {
   const cteNames = new Set<string>();
   const pattern = /(?:\bWITH|,)\s*([a-z_][a-z0-9_]*)\s+AS\s*\(/gim;
@@ -206,4 +215,11 @@ export function deriveVfsFlatteningInventory(
     missingContractTables,
     transitionalVfsTables
   };
+}
+
+export function findTransitionalTableReferences(sql: string): string[] {
+  const references = extractSqlTableReferences(sql);
+  return references.filter((tableName) =>
+    VFS_TRANSITIONAL_TABLE_CANDIDATES.includes(tableName)
+  );
 }
