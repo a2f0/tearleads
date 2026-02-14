@@ -82,9 +82,19 @@ describe('BloodPressureForm', () => {
     expect(mockOnSubmit).not.toHaveBeenCalled();
   });
 
-  // Note: Testing "invalid pulse" (e.g., 0) is challenging because HTML number input
-  // with min="1" prevents typing values below 1. The validation logic is implicitly
-  // covered by other tests that verify the form accepts valid values.
+  it('shows validation error when date is cleared', async () => {
+    const user = userEvent.setup();
+    render(<BloodPressureForm onSubmit={mockOnSubmit} />);
+
+    const dateInput = screen.getByLabelText('Date & Time');
+    await user.clear(dateInput);
+    await user.type(screen.getByLabelText('Systolic'), '120');
+    await user.type(screen.getByLabelText('Diastolic'), '80');
+    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+
+    expect(screen.getByText('Date is required')).toBeInTheDocument();
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+  });
 
   it('submits form with valid data', async () => {
     const user = userEvent.setup();

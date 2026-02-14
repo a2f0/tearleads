@@ -83,6 +83,25 @@ describe('useWorkoutData', () => {
     expect(result.current.hasFetched).toBe(false);
   });
 
+  it('throws error when adding entry while locked', async () => {
+    mockIsUnlocked = false;
+    mockTracker = null;
+
+    const { result } = renderHook(() => useWorkoutData());
+
+    const input = {
+      performedAt: '2024-01-16T10:00:00.000Z',
+      exerciseId: 'back-squat',
+      reps: 5,
+      weight: 225,
+      weightUnit: 'lb' as const
+    };
+
+    await expect(result.current.addEntry(input)).rejects.toThrow(
+      'Database is locked'
+    );
+  });
+
   it('adds an entry and refreshes', async () => {
     const newEntry = {
       id: 'workout_3',

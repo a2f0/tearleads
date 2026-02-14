@@ -68,6 +68,23 @@ describe('useBloodPressureData', () => {
     expect(result.current.hasFetched).toBe(false);
   });
 
+  it('throws error when adding reading while locked', async () => {
+    mockIsUnlocked = false;
+    mockTracker = null;
+
+    const { result } = renderHook(() => useBloodPressureData());
+
+    const input = {
+      recordedAt: '2024-01-16T10:00:00.000Z',
+      systolic: 120,
+      diastolic: 80
+    };
+
+    await expect(result.current.addReading(input)).rejects.toThrow(
+      'Database is locked'
+    );
+  });
+
   it('adds a reading and refreshes', async () => {
     const newReading = {
       id: 'bp_3',
