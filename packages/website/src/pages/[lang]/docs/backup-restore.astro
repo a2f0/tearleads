@@ -15,6 +15,7 @@ const docs: Record<SupportedLanguage, () => Promise<{ Content: any }>> = {
   en: () => import('../../../../../../docs/en/backup-restore.md'),
   es: () => import('../../../../../../docs/es/backup-restore.md'),
   ua: () => import('../../../../../../docs/ua/backup-restore.md'),
+  pt: () => import('../../../../../../docs/pt/backup-restore.md'),
 };
 
 const { Content } = await docs[currentLang]();

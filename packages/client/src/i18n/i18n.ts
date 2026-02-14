@@ -5,7 +5,7 @@ import { initReactI18next } from 'react-i18next';
 import type { SettingsSyncedDetail } from '../db/user-settings';
 import { en } from './translations/en';
 
-export const supportedLanguages = ['en', 'es', 'ua'] as const;
+export const supportedLanguages = ['en', 'es', 'ua', 'pt'] as const;
 export type SupportedLanguage = (typeof supportedLanguages)[number];
 
 export function isSupportedLanguage(lang: string): lang is SupportedLanguage {

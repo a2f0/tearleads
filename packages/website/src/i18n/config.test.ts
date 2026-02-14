@@ -9,7 +9,7 @@ import {
 
 describe('i18n config', () => {
   it('exports supportedLanguages array', () => {
-    expect(supportedLanguages).toEqual(['en', 'es', 'ua']);
+    expect(supportedLanguages).toEqual(['en', 'es', 'ua', 'pt']);
   });
 
   it('exports defaultLanguage as en', () => {
@@ -20,12 +20,14 @@ describe('i18n config', () => {
     expect(LANGUAGE_NAMES.en).toBe('English');
     expect(LANGUAGE_NAMES.es).toBe('Español');
     expect(LANGUAGE_NAMES.ua).toBe('Українська');
+    expect(LANGUAGE_NAMES.pt).toBe('Português');
   });
 
   it('exports LANGUAGE_FLAGS for all supported languages', () => {
     expect(LANGUAGE_FLAGS.en).toBe('🇺🇸');
     expect(LANGUAGE_FLAGS.es).toBe('🇪🇸');
     expect(LANGUAGE_FLAGS.ua).toBe('🇺🇦');
+    expect(LANGUAGE_FLAGS.pt).toBe('🇵🇹');
   });
 
   describe('isSupportedLanguage', () => {
@@ -33,6 +35,7 @@ describe('i18n config', () => {
       expect(isSupportedLanguage('en')).toBe(true);
       expect(isSupportedLanguage('es')).toBe(true);
       expect(isSupportedLanguage('ua')).toBe(true);
+      expect(isSupportedLanguage('pt')).toBe(true);
     });
 
     it('returns false for unsupported languages', () => {

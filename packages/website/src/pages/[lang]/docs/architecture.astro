@@ -15,6 +15,7 @@ const docs: Record<SupportedLanguage, () => Promise<{ Content: any }>> = {
   en: () => import('../../../../../../docs/en/encryption-architecture.md'),
   es: () => import('../../../../../../docs/es/encryption-architecture.md'),
   ua: () => import('../../../../../../docs/ua/encryption-architecture.md'),
+  pt: () => import('../../../../../../docs/pt/encryption-architecture.md'),
 };
 
 const { Content } = await docs[currentLang]();

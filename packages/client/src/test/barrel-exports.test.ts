@@ -206,6 +206,9 @@ describe('barrel exports', () => {
     expect(
       translations.translations.ua.common.languageName.length
     ).toBeGreaterThan(0);
+    expect(
+      translations.translations.pt.common.languageName.length
+    ).toBeGreaterThan(0);
 
     expect(schema.contacts).toBeDefined();
     expect(schema.userSettings).toBeDefined();

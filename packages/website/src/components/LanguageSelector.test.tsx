@@ -36,6 +36,7 @@ describe('LanguageSelector', () => {
     expect(screen.getByTestId('language-option-en')).toBeInTheDocument();
     expect(screen.getByTestId('language-option-es')).toBeInTheDocument();
     expect(screen.getByTestId('language-option-ua')).toBeInTheDocument();
+    expect(screen.getByTestId('language-option-pt')).toBeInTheDocument();
   });
 
   it('displays language names and flags', () => {
@@ -44,9 +45,11 @@ describe('LanguageSelector', () => {
     expect(screen.getByText('English')).toBeInTheDocument();
     expect(screen.getByText('Español')).toBeInTheDocument();
     expect(screen.getByText('Українська')).toBeInTheDocument();
+    expect(screen.getByText('Português')).toBeInTheDocument();
     expect(screen.getByText('🇺🇸')).toBeInTheDocument();
     expect(screen.getByText('🇪🇸')).toBeInTheDocument();
     expect(screen.getByText('🇺🇦')).toBeInTheDocument();
+    expect(screen.getByText('🇵🇹')).toBeInTheDocument();
   });
 
   it('marks current language as selected', () => {

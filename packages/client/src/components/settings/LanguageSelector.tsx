@@ -5,13 +5,15 @@ import { loadLanguage, supportedLanguages, useTypedTranslation } from '@/i18n';
 const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
   en: 'English',
   es: 'Español',
-  ua: 'Українська'
+  ua: 'Українська',
+  pt: 'Português'
 };
 
 const LANGUAGE_FLAGS: Record<SupportedLanguage, string> = {
   en: '🇺🇸',
   es: '🇪🇸',
-  ua: '🇺🇦'
+  ua: '🇺🇦',
+  pt: '🇵🇹'
 };
 
 export function LanguageSelector() {
