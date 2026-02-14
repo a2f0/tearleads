@@ -1,5 +1,7 @@
 data "azurerm_client_config" "current" {}
 
+# COMPLIANCE_SENTINEL: TL-CRYPTO-001 | control=key-vault-rbac
+# Key Vault with RBAC authorization for secrets and keys
 resource "azurerm_key_vault" "tee" {
   name                       = "${var.project_name}${var.environment}kv"
   location                   = azurerm_resource_group.tee.location
@@ -18,6 +20,8 @@ resource "azurerm_role_assignment" "kv_admin" {
   principal_id         = data.azurerm_client_config.current.object_id
 }
 
+# COMPLIANCE_SENTINEL: TL-CRYPTO-002 | control=vm-secrets-access
+# Least-privilege secrets access for confidential VM identity
 resource "azurerm_role_assignment" "vm_kv_secrets" {
   scope                = azurerm_key_vault.tee.id
   role_definition_name = "Key Vault Secrets User"
@@ -30,6 +34,8 @@ resource "azurerm_role_assignment" "vm_kv_crypto" {
   principal_id         = azurerm_user_assigned_identity.confidential_vm.principal_id
 }
 
+# COMPLIANCE_SENTINEL: TL-CRYPTO-003 | control=attestation-key
+# RSA 2048-bit key for TEE attestation and sealed-key workflows
 resource "azurerm_key_vault_key" "tee" {
   name         = "${local.name_prefix}-key"
   key_vault_id = azurerm_key_vault.tee.id

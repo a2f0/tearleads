@@ -1,3 +1,6 @@
+# COMPLIANCE_SENTINEL: TL-CRYPTO-004 | control=confidential-vm
+# Azure Confidential VM with vTPM and Secure Boot (AMD SEV-SNP)
+# Hardware-based memory encryption and attestation support
 resource "azurerm_linux_virtual_machine" "confidential_vm" {
   name                = "${local.name_prefix}-vm"
   resource_group_name = azurerm_resource_group.tee.name

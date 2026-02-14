@@ -2,6 +2,61 @@
 
 This folder tracks policy, procedure, and technical control mappings for compliance frameworks.
 
+## Infrastructure Configuration Locations
+
+Infrastructure-as-code files that implement compliance controls are located in:
+
+### `ansible/` - Configuration Management
+
+Server configuration playbooks for production and CI environments:
+
+- `ansible/playbooks/main.yml` - Production server setup (nginx, PostgreSQL, Redis, API services)
+- `ansible/playbooks/ci-nginx.yml` - CI nginx configuration
+- `ansible/playbooks/ci-postgres.yml` - CI PostgreSQL configuration
+- `ansible/playbooks/tuxedo.yml` - Tuxedo agent configuration
+- `ansible/inventories/` - Host inventories
+
+Key compliance-relevant configurations:
+
+- SSH hardening (root login disabled, key-only auth)
+- Audit logging (journald, nginx logs, 90-day retention, 6-year archive)
+- Database backups (daily, 7-day retention)
+- Automatic patching (daily)
+- TLS certificates (certbot/Let's Encrypt)
+
+### `terraform/` - Hetzner Cloud Infrastructure
+
+Primary cloud infrastructure provisioning:
+
+- `terraform/main.tf` - Compute instances (cloud-init hardening)
+- `terraform/dns.tf` - DNS records
+- `terraform/variables.tf` - Input variables
+- `terraform/outputs.tf` - Resource outputs
+
+Key compliance-relevant configurations:
+
+- SSH-only access (password auth disabled)
+- Non-root server user
+- Resource tagging
+
+### `tee/` - Azure Confidential VM (Trusted Execution Environment)
+
+Confidential computing infrastructure for sensitive workloads:
+
+- `tee/compute.tf` - Azure Confidential VM provisioning
+- `tee/network.tf` - Network security groups and isolation
+- `tee/kms.tf` - Azure Key Vault for sealed keys and attestation
+- `tee/iam.tf` - Identity and access management
+- `tee/ansible/` - TEE API image provisioning
+- `tee/scripts/` - Terraform and image build automation
+
+Key compliance-relevant configurations:
+
+- Hardware-based attestation (AMD SEV-SNP)
+- Key Vault with RBAC authorization
+- Network isolation (NSG rules)
+- Managed identity for VM-to-KeyVault access
+
 ## Sentinel Standard
 
 - Sentinel IDs are stable and policy-scoped: `TL-<policy>-<3 digits>` (example: `TL-ACCT-001`).
@@ -16,6 +71,39 @@ This folder tracks policy, procedure, and technical control mappings for complia
 - YAML/Shell/Python (`.yml`, `.yaml`, `.sh`, `.py`): `# COMPLIANCE_SENTINEL: TL-ACCT-001 | ...`
 - SQL (`.sql`): `-- COMPLIANCE_SENTINEL: TL-ACCT-001 | ...`
 - Jinja templates (`.j2`): `{# COMPLIANCE_SENTINEL: TL-ACCT-001 | ... #}`
+- Terraform (`.tf`): `# COMPLIANCE_SENTINEL: TL-ACCT-001 | ...`
+
+## Infrastructure Sentinel Conventions
+
+When adding sentinels to infrastructure-as-code, place them at the resource or block level that implements the control:
+
+### Terraform Resources
+
+```hcl
+# COMPLIANCE_SENTINEL: TL-INFRA-001 | policy=compliance/SOC2/policies/XX.md | procedure=compliance/SOC2/procedures/XX.md | control=ssh-hardening
+resource "hcloud_server" "main" {
+  # ...
+}
+```
+
+### Ansible Tasks
+
+```yaml
+# COMPLIANCE_SENTINEL: TL-INFRA-001 | policy=compliance/SOC2/policies/XX.md | procedure=compliance/SOC2/procedures/XX.md | control=ssh-hardening
+- name: Disable root SSH login
+  ansible.builtin.lineinfile:
+    # ...
+```
+
+### Sentinel Prefixes by Domain
+
+- `TL-ACCT-XXX` - Account management controls
+- `TL-AUDT-XXX` - SOC2 audit logging controls
+- `TL-NAUDT-XXX` - NIST audit logging controls
+- `TL-HAUDT-XXX` - HIPAA audit logging controls
+- `TL-INFRA-XXX` - Infrastructure hardening controls
+- `TL-CRYPTO-XXX` - Cryptographic controls
+- `TL-NET-XXX` - Network security controls
 
 ## Required Wiring Steps
 

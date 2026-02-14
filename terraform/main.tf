@@ -1,7 +1,11 @@
+# COMPLIANCE_SENTINEL: TL-INFRA-001 | control=ssh-key-auth
+# SSH key-only authentication - password auth disabled via cloud-init
 data "hcloud_ssh_key" "main" {
   name = var.ssh_key_name
 }
 
+# COMPLIANCE_SENTINEL: TL-INFRA-002 | control=server-hardening
+# Server hardening: root disabled, non-root user with sudo, SSH key-only
 resource "hcloud_server" "main" {
   name        = var.domain
   image       = "ubuntu-24.04"
