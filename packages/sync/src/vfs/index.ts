@@ -12,6 +12,14 @@ export {
   type VfsMemberPrincipalView
 } from './sync-access-harness.js';
 export {
+  extractSqlTableReferences,
+  isSqlReferenceSubsetOfFlattenedContract,
+  VFS_SYNC_FLATTENED_TARGET_TABLES,
+  VFS_SYNC_SCHEMA_DEPENDENCIES,
+  type VfsSyncSchemaDependency,
+  type VfsSyncSchemaDomain
+} from './sync-schema-contract.js';
+export {
   alwaysAvailableVfsBlobObjectStore,
   InMemoryVfsBlobObjectStore,
   type VfsBlobObjectStore
