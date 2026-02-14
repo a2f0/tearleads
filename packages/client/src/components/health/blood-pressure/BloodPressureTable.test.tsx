@@ -117,4 +117,43 @@ describe('BloodPressureTable', () => {
       screen.getByRole('table', { name: 'Blood pressure readings table' })
     ).toBeInTheDocument();
   });
+
+  it('sorts by note when column clicked', async () => {
+    const user = userEvent.setup();
+    render(<BloodPressureTable readings={mockReadings} />);
+
+    const noteButton = screen.getByRole('button', { name: /note/i });
+    await user.click(noteButton);
+
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('After workout');
+    expect(rows[1]).toHaveTextContent('Morning reading');
+  });
+
+  it('uses date as tiebreaker when sorted values are equal', async () => {
+    const readingsWithSameSystolic = [
+      {
+        id: 'bp_a',
+        recordedAt: '2024-01-15T10:00:00.000Z',
+        systolic: 120,
+        diastolic: 80
+      },
+      {
+        id: 'bp_b',
+        recordedAt: '2024-01-14T10:00:00.000Z',
+        systolic: 120,
+        diastolic: 82
+      }
+    ];
+    const user = userEvent.setup();
+    render(<BloodPressureTable readings={readingsWithSameSystolic} />);
+
+    const bpButton = screen.getByRole('button', { name: /bp/i });
+    await user.click(bpButton);
+
+    // When systolic values are equal, tiebreaker is date descending (newest first)
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('120/80'); // Jan 15 (newer)
+    expect(rows[1]).toHaveTextContent('120/82'); // Jan 14 (older)
+  });
 });
