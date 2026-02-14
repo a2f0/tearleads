@@ -318,6 +318,40 @@ describe('ClassicApp', () => {
     expect(getEntryTitles()).toEqual(['Alpha', 'Zulu']);
   });
 
+  it('uses external sort callbacks when sort orders are controlled', () => {
+    const onTagSortOrderChange = vi.fn();
+    const onEntrySortOrderChange = vi.fn();
+
+    render(
+      <ClassicApp
+        initialState={createState()}
+        tagSortOrder="user-defined"
+        entrySortOrder="user-defined"
+        onTagSortOrderChange={onTagSortOrderChange}
+        onEntrySortOrderChange={onEntrySortOrderChange}
+      />
+    );
+
+    fireEvent.change(screen.getByLabelText('Sort tags'), {
+      target: { value: 'name-asc' }
+    });
+    fireEvent.change(screen.getByLabelText('Sort entries'), {
+      target: { value: 'subject-asc' }
+    });
+
+    expect(onTagSortOrderChange).toHaveBeenCalledWith('name-asc');
+    expect(onEntrySortOrderChange).toHaveBeenCalledWith('subject-asc');
+  });
+
+  it('hides internal sort controls when showSortControls is false', () => {
+    render(
+      <ClassicApp initialState={createState()} showSortControls={false} />
+    );
+
+    expect(screen.queryByLabelText('Sort tags')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Sort entries')).not.toBeInTheDocument();
+  });
+
   it('shows all items when search is cleared', () => {
     render(<ClassicApp initialState={createState()} />);
 

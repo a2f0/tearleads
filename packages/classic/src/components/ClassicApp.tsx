@@ -38,6 +38,15 @@ function generateId(): string {
 export interface ClassicAppProps {
   initialState: ClassicState;
   autoFocusSearch?: boolean;
+  tagSortOrder?: TagSortOrder | undefined;
+  entrySortOrder?: EntrySortOrder | undefined;
+  onTagSortOrderChange?:
+    | ((nextSortOrder: TagSortOrder) => void)
+    | undefined;
+  onEntrySortOrderChange?:
+    | ((nextSortOrder: EntrySortOrder) => void)
+    | undefined;
+  showSortControls?: boolean | undefined;
   onStateChange?: ((state: ClassicState) => void) | undefined;
   onCreateTag?:
     | ((tagId: string, name: string) => void | Promise<void>)
@@ -64,6 +73,11 @@ export interface ClassicAppProps {
 export function ClassicApp({
   initialState,
   autoFocusSearch,
+  tagSortOrder,
+  entrySortOrder,
+  onTagSortOrderChange,
+  onEntrySortOrderChange,
+  showSortControls = true,
   onStateChange,
   onCreateTag,
   onDeleteTag,
@@ -78,12 +92,18 @@ export function ClassicApp({
   const [entrySearch, setEntrySearch] = useState('');
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
-  const [tagSortOrder, setTagSortOrder] =
+  const [internalTagSortOrder, setInternalTagSortOrder] =
     useState<TagSortOrder>('user-defined');
-  const [entrySortOrder, setEntrySortOrder] =
+  const [internalEntrySortOrder, setInternalEntrySortOrder] =
     useState<EntrySortOrder>('user-defined');
   const tagSearchInputRef = useRef<HTMLInputElement>(null);
   const entrySearchInputRef = useRef<HTMLInputElement>(null);
+  const resolvedTagSortOrder = tagSortOrder ?? internalTagSortOrder;
+  const resolvedEntrySortOrder = entrySortOrder ?? internalEntrySortOrder;
+  const handleTagSortOrderChange =
+    onTagSortOrderChange ?? setInternalTagSortOrder;
+  const handleEntrySortOrderChange =
+    onEntrySortOrderChange ?? setInternalEntrySortOrder;
 
   const restoreFocusToTagSearch = useCallback(() => {
     setTimeout(() => {
@@ -114,10 +134,10 @@ export function ClassicApp({
       sortTags({
         state,
         tags: state.tags,
-        sortOrder: tagSortOrder,
+        sortOrder: resolvedTagSortOrder,
         noteCountByTagId
       }),
-    [noteCountByTagId, state, tagSortOrder]
+    [noteCountByTagId, resolvedTagSortOrder, state]
   );
 
   const filteredTags = useMemo(() => {
@@ -158,9 +178,9 @@ export function ClassicApp({
         state,
         noteIds: baseNoteIds,
         activeTagId: state.activeTagId,
-        sortOrder: entrySortOrder
+        sortOrder: resolvedEntrySortOrder
       }),
-    [baseNoteIds, entrySortOrder, state]
+    [baseNoteIds, resolvedEntrySortOrder, state]
   );
 
   const filteredNoteIds = useMemo(() => {
@@ -449,12 +469,14 @@ export function ClassicApp({
 
   return (
     <div className="flex h-full min-h-[420px] w-full flex-col overflow-hidden bg-white">
-      <ClassicMenuBar
-        tagSortOrder={tagSortOrder}
-        entrySortOrder={entrySortOrder}
-        onTagSortOrderChange={setTagSortOrder}
-        onEntrySortOrderChange={setEntrySortOrder}
-      />
+      {showSortControls && (
+        <ClassicMenuBar
+          tagSortOrder={resolvedTagSortOrder}
+          entrySortOrder={resolvedEntrySortOrder}
+          onTagSortOrderChange={handleTagSortOrderChange}
+          onEntrySortOrderChange={handleEntrySortOrderChange}
+        />
+      )}
       <div className="flex min-h-0 flex-1">
         <TagSidebar
           tags={filteredTags}

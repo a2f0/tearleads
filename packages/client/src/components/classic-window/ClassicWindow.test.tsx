@@ -25,8 +25,18 @@ vi.mock('@/components/floating-window', () => ({
 }));
 
 vi.mock('@/components/classic-workspace/ClassicWorkspace', () => ({
-  ClassicWorkspace: () => (
-    <div data-testid="classic-workspace">Classic Workspace</div>
+  ClassicWorkspace: ({
+    tagSortOrder,
+    entrySortOrder
+  }: {
+    tagSortOrder?: string;
+    entrySortOrder?: string;
+  }) => (
+    <div data-testid="classic-workspace">
+      <span data-testid="workspace-tag-sort">{tagSortOrder}</span>
+      <span data-testid="workspace-entry-sort">{entrySortOrder}</span>
+      Classic Workspace
+    </div>
   )
 }));
 
@@ -109,5 +119,25 @@ describe('ClassicWindow', () => {
     await user.click(screen.getByTestId('close-window'));
 
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it('updates workspace entry sort from Entries menu selection', async () => {
+    const user = userEvent.setup();
+    render(<ClassicWindow {...defaultProps} />);
+
+    expect(screen.getByTestId('workspace-entry-sort')).toHaveTextContent(
+      'user-defined'
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Entries' }));
+    await user.click(
+      screen.getByRole('menuitem', {
+        name: 'Sort by Date Tagged (Newest First)'
+      })
+    );
+
+    expect(screen.getByTestId('workspace-entry-sort')).toHaveTextContent(
+      'date-tagged-desc'
+    );
   });
 });

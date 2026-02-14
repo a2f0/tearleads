@@ -35,6 +35,8 @@ export {
   buildClassicStateFromVfs,
   serializeOrderState
 } from './lib/vfsClassicAdapter';
+export type { EntrySortOrder, SortOption, TagSortOrder } from './lib/sorting';
+export { ENTRY_SORT_OPTIONS, TAG_SORT_OPTIONS } from './lib/sorting';
 export type { VfsLinkPositionUpdate } from './lib/vfsPositionUpdates';
 export {
   buildClassicPositionUpdates,
