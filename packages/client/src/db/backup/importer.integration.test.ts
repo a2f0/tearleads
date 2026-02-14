@@ -61,9 +61,7 @@ describe('backup importer integration (real database)', () => {
           durationMs: 150
         };
 
-        const inserted = await db
-          .select({ id: contacts.id })
-          .from(contacts);
+        const inserted = await db.select({ id: contacts.id }).from(contacts);
 
         expect(inserted).toHaveLength(CONTACT_ROW_COUNT);
         expect(stats.queryCount).toBeLessThanOrEqual(baseline.queryCount);
