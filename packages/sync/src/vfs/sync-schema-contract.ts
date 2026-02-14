@@ -107,7 +107,8 @@ export const VFS_TRANSITIONAL_TABLE_CANDIDATES = [
   // Keep retired legacy names here to fail closed if SQL references regress.
   'vfs_access',
   'vfs_folders',
-  'vfs_shares'
+  'vfs_shares',
+  'org_shares'
 ];
 
 function extractCteNames(sql: string): Set<string> {

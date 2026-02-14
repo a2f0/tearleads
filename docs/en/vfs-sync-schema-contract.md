@@ -71,6 +71,9 @@ parity + source-trace guardrails for `vfs_shares` and `org_shares`.
 revalidation) before any future share-table drop candidate can run.
 `v037` records explicit share drop-planning checkpoints after `v036` passes to
 keep destructive sequencing auditable and rollback-aware.
+`v038` records explicit dry-run drop candidates (without dropping tables) once
+`v037` sequencing checkpoints are present and parity/source-trace guardrails are
+still satisfied.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
@@ -99,6 +102,7 @@ staged client cutover completes.
 
 1. Query-builder contract checks (sync + CRDT feed SQL text)
 2. API route source checks (push/pull/reconcile SQL references)
+3. Legacy share-read surface inventory checks for cutover sequencing
 
 If a new query references a table outside the target set, tests fail until the
 schema contract is intentionally updated.

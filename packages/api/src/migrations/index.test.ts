@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 37 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 38 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(37);
+      expect(result.currentVersion).toBe(38);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 37 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 38 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -159,9 +159,9 @@ describe('migrations', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37
+        22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38
       ]);
-      expect(result.currentVersion).toBe(37);
+      expect(result.currentVersion).toBe(38);
     });
   });
 
@@ -1342,6 +1342,95 @@ describe('migrations', () => {
       }
 
       await expect(v037.up(pool)).rejects.toThrow('forced v037 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v038 migration', () => {
+    it('records share drop-candidate dry-run checkpoint after v037 planning', async () => {
+      const pool = createMockPool(new Map());
+
+      const v038 = migrations.find((m: Migration) => m.version === 38);
+      if (!v038) {
+        throw new Error('v038 migration not found');
+      }
+
+      await v038.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'v037 must be recorded before share drop-candidate dry-run'
+      );
+      expect(queries).toContain(
+        'vfs_acl_entries missing before share drop-candidate dry-run'
+      );
+      expect(queries).toContain(
+        'vfs_shares missing before share drop-candidate dry-run'
+      );
+      expect(queries).toContain(
+        'org_shares missing before share drop-candidate dry-run'
+      );
+      expect(queries).toContain(
+        'share retirement checkpoints missing before share drop-candidate dry-run'
+      );
+      expect(queries).toContain(
+        'no share retirement checkpoint rows recorded before share drop-candidate dry-run'
+      );
+      expect(queries).toContain(
+        'share drop-planning checkpoints missing before share drop-candidate dry-run'
+      );
+      expect(queries).toContain(
+        'no share drop-planning rows recorded before share drop-candidate dry-run'
+      );
+      expect(queries).toContain(
+        'expected share drop order checkpoint missing before dry-run'
+      );
+      expect(queries).toContain(
+        'vfs_shares rows missing canonical active ACL parity'
+      );
+      expect(queries).toContain(
+        'org_shares rows missing canonical active ACL parity'
+      );
+      expect(queries).toContain(
+        'share-sourced ACL rows orphaned from vfs_shares'
+      );
+      expect(queries).toContain(
+        'org-share-sourced ACL rows orphaned from org_shares'
+      );
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "vfs_share_retirement_drop_candidates"'
+      );
+      expect(queries).toContain(
+        'INSERT INTO "vfs_share_retirement_drop_candidates"'
+      );
+      expect(queries).toContain('DROP TABLE "vfs_shares";');
+      expect(queries).toContain('DROP TABLE "org_shares";');
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (
+            sql.includes('INSERT INTO "vfs_share_retirement_drop_candidates"')
+          ) {
+            throw new Error('forced v038 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v038 = migrations.find((m: Migration) => m.version === 38);
+      if (!v038) {
+        throw new Error('v038 migration not found');
+      }
+
+      await expect(v038.up(pool)).rejects.toThrow('forced v038 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');
