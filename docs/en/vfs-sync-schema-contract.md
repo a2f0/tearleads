@@ -74,6 +74,9 @@ keep destructive sequencing auditable and rollback-aware.
 `v038` records explicit dry-run drop candidates (without dropping tables) once
 `v037` sequencing checkpoints are present and parity/source-trace guardrails are
 still satisfied.
+`v039` records pre-drop execution readiness checkpoints, including the required
+read-surface deactivation marker and canonical ACL-first read-contract metadata
+that future destructive share-table retirement must enforce.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
