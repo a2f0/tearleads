@@ -193,13 +193,14 @@ describe('App', () => {
     );
   });
 
-  it('renders NotificationCenterTrigger outside the header', () => {
+  it('renders NotificationCenterTrigger outside the header', async () => {
     mockUseSSEContext.mockReturnValue(null);
 
     renderApp();
 
     const header = screen.getByRole('banner');
-    const notificationCenterTrigger = screen.getByTestId(
+    // NotificationCenterTrigger is lazy-loaded, so we need to wait for it
+    const notificationCenterTrigger = await screen.findByTestId(
       'notification-center-trigger'
     );
     expect(notificationCenterTrigger).toBeInTheDocument();

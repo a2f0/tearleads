@@ -85,28 +85,9 @@ test.describe('Analytics page', () => {
   });
 
   test('should navigate to analytics page', async ({ page }) => {
-    // Capture console errors
-    const consoleMessages: string[] = [];
-    page.on('pageerror', (error) => {
-      consoleMessages.push(`[pageerror] ${error.message}`);
-    });
-
     await navigateTo(page, 'Analytics');
-    await page.waitForLoadState('networkidle');
-
     const heading = page.getByRole('heading', { name: 'Analytics' });
-    try {
-      await expect(heading).toBeVisible({ timeout: 5000 });
-    } catch {
-      const bodyHtml = await page.evaluate(
-        () => document.body?.innerHTML?.slice(0, 1000) || 'NO BODY'
-      );
-      console.log('Errors:', consoleMessages.join(', ') || 'None');
-      console.log('Body:', bodyHtml);
-      throw new Error(
-        `Page did not load. Errors: ${consoleMessages.join(', ') || 'None'}`
-      );
-    }
+    await expect(heading).toBeVisible();
   });
 
   test('should show inline unlock when database is not unlocked', async ({
