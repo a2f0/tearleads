@@ -8,9 +8,9 @@ PODS:
     - SQLCipher
     - ZIPFoundation
   - CapacitorCordova (8.1.0)
-  - CapacitorFilesystem (8.1.1):
+  - CapacitorFilesystem (8.1.2):
     - Capacitor
-    - IONFilesystemLib (~> 1.1.0)
+    - IONFilesystemLib (~> 1.1.1)
   - CapacitorKeyboard (8.0.0):
     - Capacitor
   - CapacitorPreferences (8.0.1):
@@ -34,7 +34,7 @@ DEPENDENCIES:
   - "CapacitorApp (from `../../../../node_modules/.pnpm/@capacitor+app@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/app`)"
   - "CapacitorCommunitySqlite (from `../../../../node_modules/.pnpm/@capacitor-community+sqlite@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor-community/sqlite`)"
   - "CapacitorCordova (from `../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios`)"
-  - "CapacitorFilesystem (from `../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.1_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem`)"
+  - "CapacitorFilesystem (from `../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.2_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem`)"
   - "CapacitorKeyboard (from `../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard`)"
   - "CapacitorPreferences (from `../../../../node_modules/.pnpm/@capacitor+preferences@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/preferences`)"
   - "CapacitorShare (from `../../../../node_modules/.pnpm/@capacitor+share@8.0.1_@capacitor+core@8.1.0/node_modules/@capacitor/share`)"
@@ -57,7 +57,7 @@ EXTERNAL SOURCES:
   CapacitorCordova:
     :path: "../../../../node_modules/.pnpm/@capacitor+ios@8.1.0_@capacitor+core@8.1.0/node_modules/@capacitor/ios"
   CapacitorFilesystem:
-    :path: "../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.1_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem"
+    :path: "../../../../node_modules/.pnpm/@capacitor+filesystem@8.1.2_@capacitor+core@8.1.0/node_modules/@capacitor/filesystem"
   CapacitorKeyboard:
     :path: "../../../../node_modules/.pnpm/@capacitor+keyboard@8.0.0_@capacitor+core@8.1.0/node_modules/@capacitor/keyboard"
   CapacitorPreferences:
@@ -74,7 +74,7 @@ SPEC CHECKSUMS:
   CapacitorApp: 942306cd1acf7774a00e89a3986af3a67c8cad7a
   CapacitorCommunitySqlite: 8a61c1d599927d4321c13b28f132de8ca94b6d95
   CapacitorCordova: e8b76fd95fc1e157775abc484c59cc0de464095d
-  CapacitorFilesystem: f2b2caa158383b3f568383b33e47296f7c48c470
+  CapacitorFilesystem: 2db285a1ac6e475cc27cae2e1bea999000f9e2be
   CapacitorKeyboard: d7868c079a4d5277a3deca27a10a488fcbbb8b69
   CapacitorPreferences: cca2021f386efb75947c850334447d9ff22b14f1
   CapacitorShare: 0c58305114538568059bfc07111f22dcb9cb2a82
@@ -84,6 +84,6 @@ SPEC CHECKSUMS:
   SQLCipher: eb79c64049cb002b4e9fcb30edb7979bf4706dfc
   ZIPFoundation: dfd3d681c4053ff7e2f7350bc4e53b5dba3f5351
 
-PODFILE CHECKSUM: f7dc30e3b6e4b8bcbb9780c1ffa4d2775955b8da
+PODFILE CHECKSUM: 68d86b32d25c5b64f301675b8e709fa15a29d5a3
 
 COCOAPODS: 1.16.2
