@@ -49,6 +49,8 @@
       "@tearleads/terminal": ["../terminal/src/index.ts"],
       "@tearleads/ui/package.json": ["../ui/package.json"],
       "@tearleads/ui": ["../ui/src/index.ts"],
+      "@tearleads/vehicles/package.json": ["../vehicles/package.json"],
+      "@tearleads/vehicles": ["../vehicles/src/index.ts"],
       "@tearleads/vfs-explorer/package.json": ["../vfs-explorer/package.json"],
       "@tearleads/vfs-explorer": ["../vfs-explorer/src/index.ts"],
       "@tearleads/mls-chat/package.json": ["../mls-chat/package.json"],

@@ -789,6 +789,62 @@ export const notesTable: TableDefinition = {
 };
 
 /**
+ * Vehicles table for storing vehicle inventory metadata.
+ */
+export const vehiclesTable: TableDefinition = {
+  name: 'vehicles',
+  propertyName: 'vehicles',
+  comment: 'Vehicles table for storing vehicle inventory metadata.',
+  columns: {
+    id: {
+      type: 'text',
+      sqlName: 'id',
+      primaryKey: true
+    },
+    make: {
+      type: 'text',
+      sqlName: 'make',
+      notNull: true
+    },
+    model: {
+      type: 'text',
+      sqlName: 'model',
+      notNull: true
+    },
+    year: {
+      type: 'integer',
+      sqlName: 'year'
+    },
+    color: {
+      type: 'text',
+      sqlName: 'color'
+    },
+    createdAt: {
+      type: 'timestamp',
+      sqlName: 'created_at',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    },
+    deleted: {
+      type: 'boolean',
+      sqlName: 'deleted',
+      notNull: true,
+      defaultValue: false
+    }
+  },
+  indexes: [
+    { name: 'vehicles_updated_at_idx', columns: ['updatedAt'] },
+    { name: 'vehicles_make_model_idx', columns: ['make', 'model'] },
+    { name: 'vehicles_year_idx', columns: ['year'] },
+    { name: 'vehicles_deleted_idx', columns: ['deleted'] }
+  ]
+};
+
+/**
  * Health exercises table for workout exercise selection.
  */
 export const healthExercisesTable: TableDefinition = {
@@ -2771,6 +2827,7 @@ export const allTables: TableDefinition[] = [
   contactEmailsTable,
   analyticsEventsTable,
   notesTable,
+  vehiclesTable,
   healthExercisesTable,
   healthWeightReadingsTable,
   healthBloodPressureReadingsTable,

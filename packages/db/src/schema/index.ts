@@ -20,6 +20,7 @@ export {
   secretsTable,
   syncMetadataTable,
   userSettingsTable,
+  vehiclesTable,
   walletItemMediaTable,
   walletItemsTable
 } from './definition.js';

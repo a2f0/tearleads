@@ -37,6 +37,7 @@ import {
   userOrganizationsTable,
   userSettingsTable,
   usersTable,
+  vehiclesTable,
   vfsAccessTable,
   vfsFoldersTable,
   vfsLinksTable,
@@ -410,6 +411,36 @@ describe('notesTable', () => {
   });
 });
 
+describe('vehiclesTable', () => {
+  it('is a valid table definition', () => {
+    expect(isTableDefinition(vehiclesTable)).toBe(true);
+  });
+
+  it('has correct table name and property name', () => {
+    expect(vehiclesTable.name).toBe('vehicles');
+    expect(vehiclesTable.propertyName).toBe('vehicles');
+  });
+
+  it('has required columns', () => {
+    expect(vehiclesTable.columns['id']).toBeDefined();
+    expect(vehiclesTable.columns['make']).toBeDefined();
+    expect(vehiclesTable.columns['model']).toBeDefined();
+    expect(vehiclesTable.columns['year']).toBeDefined();
+    expect(vehiclesTable.columns['color']).toBeDefined();
+    expect(vehiclesTable.columns['createdAt']).toBeDefined();
+    expect(vehiclesTable.columns['updatedAt']).toBeDefined();
+    expect(vehiclesTable.columns['deleted']).toBeDefined();
+  });
+
+  it('has indexes', () => {
+    expect(vehiclesTable.indexes).toHaveLength(4);
+    expect(vehiclesTable.indexes?.[0]?.name).toBe('vehicles_updated_at_idx');
+    expect(vehiclesTable.indexes?.[1]?.name).toBe('vehicles_make_model_idx');
+    expect(vehiclesTable.indexes?.[2]?.name).toBe('vehicles_year_idx');
+    expect(vehiclesTable.indexes?.[3]?.name).toBe('vehicles_deleted_idx');
+  });
+});
+
 describe('healthExercisesTable', () => {
   it('is a valid table definition', () => {
     expect(isTableDefinition(healthExercisesTable)).toBe(true);
@@ -499,8 +530,8 @@ describe('tagsTable', () => {
 });
 
 describe('allTables', () => {
-  it('contains all 48 tables', () => {
-    expect(allTables).toHaveLength(48);
+  it('contains all 49 tables', () => {
+    expect(allTables).toHaveLength(49);
   });
 
   it('contains all table definitions', () => {
@@ -520,6 +551,7 @@ describe('allTables', () => {
     expect(allTables).toContain(contactEmailsTable);
     expect(allTables).toContain(analyticsEventsTable);
     expect(allTables).toContain(notesTable);
+    expect(allTables).toContain(vehiclesTable);
     expect(allTables).toContain(healthExercisesTable);
     expect(allTables).toContain(healthWeightReadingsTable);
     expect(allTables).toContain(healthBloodPressureReadingsTable);

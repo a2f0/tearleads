@@ -32,6 +32,7 @@ export {
   secretsTable,
   syncMetadataTable,
   userSettingsTable,
+  vehiclesTable,
   walletItemMediaTable,
   walletItemsTable
 } from './schema/index.js';
