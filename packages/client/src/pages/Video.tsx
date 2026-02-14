@@ -41,7 +41,7 @@ const VIDEO_MIME_TYPES = [
   'video/3gpp2'
 ];
 
-interface VideoInfo {
+export interface VideoInfo {
   id: string;
   name: string;
   size: number;
@@ -51,13 +51,13 @@ interface VideoInfo {
   thumbnailPath: string | null;
 }
 
-interface VideoWithThumbnail extends VideoInfo {
+export interface VideoWithThumbnail extends VideoInfo {
   thumbnailUrl: string | null;
 }
 
 type ViewMode = 'list' | 'table';
 
-interface VideoOpenOptions {
+export interface VideoOpenOptions {
   autoPlay?: boolean | undefined;
 }
 

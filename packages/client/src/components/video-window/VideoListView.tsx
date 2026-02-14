@@ -13,21 +13,7 @@ import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatFileSize } from '@/lib/utils';
-
-interface VideoWithThumbnail {
-  id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  uploadDate: Date;
-  storagePath: string;
-  thumbnailPath: string | null;
-  thumbnailUrl: string | null;
-}
-
-interface VideoOpenOptions {
-  autoPlay?: boolean | undefined;
-}
+import type { VideoOpenOptions, VideoWithThumbnail } from '@/pages/Video';
 
 const ROW_HEIGHT_ESTIMATE = 56;
 

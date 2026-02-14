@@ -18,33 +18,10 @@ import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';
 import { setMediaDragData } from '@/lib/mediaDragData';
-import { formatDate, formatFileSize } from '@/lib/utils';
-
-interface VideoWithThumbnail {
-  id: string;
-  name: string;
-  size: number;
-  mimeType: string;
-  uploadDate: Date;
-  storagePath: string;
-  thumbnailPath: string | null;
-  thumbnailUrl: string | null;
-}
-
-interface VideoOpenOptions {
-  autoPlay?: boolean | undefined;
-}
+import { formatDate, formatFileSize, getVideoTypeDisplay } from '@/lib/utils';
+import type { VideoOpenOptions, VideoWithThumbnail } from '@/pages/Video';
 
 const TABLE_ROW_HEIGHT_ESTIMATE = 44;
-
-function getVideoTypeDisplay(mimeType: string): string {
-  if (!mimeType) return 'Video';
-  const [, subtype] = mimeType.split('/');
-  if (subtype) {
-    return subtype.toUpperCase();
-  }
-  return 'Video';
-}
 
 interface VideoTableViewProps {
   videos: VideoWithThumbnail[];
@@ -208,7 +185,7 @@ export function VideoTableView({
       >
         <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
           <thead
-            className={`sticky top-0 bg-muted/60 text-muted-foreground ${WINDOW_TABLE_TYPOGRAPHY.header}`}
+            className={`sticky top-0 z-10 bg-muted/60 text-muted-foreground ${WINDOW_TABLE_TYPOGRAPHY.header}`}
           >
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id}>
@@ -228,13 +205,29 @@ export function VideoTableView({
               </tr>
             ))}
           </thead>
-          <tbody>
-            {table.getRowModel().rows.map((row) => {
+          <tbody
+            style={{
+              height: `${tableVirtualizer.getTotalSize()}px`,
+              position: 'relative'
+            }}
+          >
+            {tableVirtualItems.map((virtualRow) => {
+              const row = table.getRowModel().rows[virtualRow.index];
+              if (!row) return null;
               const video = row.original;
 
               return (
                 <WindowTableRow
                   key={row.id}
+                  ref={tableVirtualizer.measureElement}
+                  data-index={virtualRow.index}
+                  style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '100%',
+                    transform: `translateY(${virtualRow.start}px)`
+                  }}
                   onContextMenu={(e) => handleContextMenu(e, video)}
                   onClick={
                     isDesktopPlatform

@@ -99,6 +99,15 @@ export function formatNumber(value: number): string {
   return new Intl.NumberFormat().format(value);
 }
 
+export function getVideoTypeDisplay(mimeType: string): string {
+  if (!mimeType) return 'Video';
+  const [, subtype] = mimeType.split('/');
+  if (subtype) {
+    return subtype.toUpperCase();
+  }
+  return 'Video';
+}
+
 export interface WebGPUErrorInfo {
   title: string;
   message: string;
