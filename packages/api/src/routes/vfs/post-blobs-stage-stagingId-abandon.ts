@@ -65,14 +65,22 @@ export const postBlobsStageStagingIdAbandonHandler = async (
       return;
     }
 
-    await client.query(
+    const updatedResult = await client.query(
       `
       UPDATE vfs_blob_staging
       SET status = 'abandoned'
       WHERE id = $1::text
+        AND status = 'staged'
       `,
       [stagingId]
     );
+
+    if ((updatedResult.rowCount ?? 0) < 1) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      res.status(409).json({ error: 'Blob staging is no longer abandonable' });
+      return;
+    }
 
     await client.query('COMMIT');
     inTransaction = false;
