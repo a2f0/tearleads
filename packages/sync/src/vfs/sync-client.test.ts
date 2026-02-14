@@ -5,6 +5,7 @@ import {
   InMemoryVfsCrdtSyncTransport
 } from './sync-client-harness.js';
 import {
+  VfsCrdtSyncPushRejectedError,
   VfsBackgroundSyncClient,
   type VfsCrdtSyncTransport
 } from './sync-client.js';
@@ -179,11 +180,18 @@ describe('VfsBackgroundSyncClient', () => {
   it('coalesces concurrent flush calls and keeps queue on push failure', async () => {
     let pushAttempts = 0;
     const transport: VfsCrdtSyncTransport = {
-      pushOperations: async () => {
+      pushOperations: async (input) => {
         pushAttempts += 1;
         if (pushAttempts === 1) {
           throw new Error('transient push failure');
         }
+
+        return {
+          results: input.operations.map((operation) => ({
+            opId: operation.opId,
+            status: 'applied'
+          }))
+        };
       },
       pullOperations: async () => ({
         items: [],
@@ -234,7 +242,7 @@ describe('VfsBackgroundSyncClient', () => {
           throw new Error('temporary network issue');
         }
 
-        await server.pushOperations({
+        return server.pushOperations({
           operations: input.operations
         });
       },
@@ -271,7 +279,9 @@ describe('VfsBackgroundSyncClient', () => {
 
   it('fails closed when transport cursor metadata disagrees with page tail', async () => {
     const transport: VfsCrdtSyncTransport = {
-      pushOperations: async () => {},
+      pushOperations: async () => ({
+        results: []
+      }),
       pullOperations: async () => ({
         items: [
           buildAclAddSyncItem({
@@ -292,5 +302,114 @@ describe('VfsBackgroundSyncClient', () => {
     await expect(client.sync()).rejects.toThrowError(
       /nextCursor that does not match pull page tail/
     );
+  });
+
+  it('keeps queued writes when server rejects push due to stale write ids', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'server-desktop-1',
+          opType: 'acl_add',
+          itemId: 'item-1',
+          replicaId: 'desktop',
+          writeId: 1,
+          occurredAt: '2026-02-14T12:10:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(server)
+    );
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T12:10:01.000Z'
+    });
+
+    await expect(client.flush()).rejects.toBeInstanceOf(
+      VfsCrdtSyncPushRejectedError
+    );
+    expect(client.snapshot().pendingOperations).toBe(1);
+  });
+
+  it('drains queue after idempotent retry when first push fails post-commit', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    let firstAttempt = true;
+
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        if (firstAttempt) {
+          firstAttempt = false;
+          await server.pushOperations({
+            operations: input.operations
+          });
+          throw new Error('connection dropped after commit');
+        }
+
+        return server.pushOperations({
+          operations: input.operations
+        });
+      },
+      pullOperations: async (input) =>
+        server.pullOperations({
+          cursor: input.cursor,
+          limit: input.limit
+        })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:11:00.000Z'
+    });
+
+    await expect(client.flush()).rejects.toThrowError(/connection dropped/);
+    expect(client.snapshot().pendingOperations).toBe(1);
+
+    const retry = await client.flush();
+    expect(retry.pushedOperations).toBe(1);
+    expect(client.snapshot().pendingOperations).toBe(0);
+    expect(client.snapshot().acl).toEqual(server.snapshot().acl);
+  });
+
+  it('fails closed when transport push response is malformed', async () => {
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => ({
+        items: [],
+        hasMore: false,
+        nextCursor: null,
+        lastReconciledWriteIds: {}
+      })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:12:00.000Z'
+    });
+
+    await expect(client.flush()).rejects.toThrowError(/mismatched push response/);
+    expect(client.snapshot().pendingOperations).toBe(1);
   });
 });

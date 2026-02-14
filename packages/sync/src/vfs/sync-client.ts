@@ -143,6 +143,16 @@ function lastItemCursor(items: VfsCrdtSyncItem[]): VfsSyncCursor | null {
   return toCursorFromItem(lastItem);
 }
 
+function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
+  return (
+    value === 'applied' ||
+    value === 'alreadyApplied' ||
+    value === 'staleWriteId' ||
+    value === 'outdatedOp' ||
+    value === 'invalidOp'
+  );
+}
+
 export interface VfsCrdtSyncPullResponse {
   items: VfsCrdtSyncItem[];
   hasMore: boolean;
@@ -150,18 +160,84 @@ export interface VfsCrdtSyncPullResponse {
   lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
 }
 
+export type VfsCrdtSyncPushStatus =
+  | 'applied'
+  | 'alreadyApplied'
+  | 'staleWriteId'
+  | 'outdatedOp'
+  | 'invalidOp';
+
+export interface VfsCrdtSyncPushResult {
+  opId: string;
+  status: VfsCrdtSyncPushStatus;
+}
+
+export interface VfsCrdtSyncPushResponse {
+  results: VfsCrdtSyncPushResult[];
+}
+
 export interface VfsCrdtSyncTransport {
   pushOperations(input: {
     userId: string;
     clientId: string;
     operations: VfsCrdtOperation[];
-  }): Promise<void>;
+  }): Promise<VfsCrdtSyncPushResponse>;
   pullOperations(input: {
     userId: string;
     clientId: string;
     cursor: VfsSyncCursor | null;
     limit: number;
   }): Promise<VfsCrdtSyncPullResponse>;
+}
+
+export class VfsCrdtSyncPushRejectedError extends Error {
+  readonly rejectedResults: VfsCrdtSyncPushResult[];
+
+  constructor(results: VfsCrdtSyncPushResult[]) {
+    super('push rejected one or more operations');
+    this.name = 'VfsCrdtSyncPushRejectedError';
+    this.rejectedResults = results;
+  }
+}
+
+function validatePushResponse(
+  operations: VfsCrdtOperation[],
+  response: VfsCrdtSyncPushResponse
+): VfsCrdtSyncPushResult[] {
+  if (!Array.isArray(response.results)) {
+    throw new Error('transport returned invalid push response');
+  }
+
+  if (response.results.length !== operations.length) {
+    throw new Error('transport returned mismatched push response size');
+  }
+
+  const byOpId = new Map<string, VfsCrdtSyncPushResult>();
+  for (const result of response.results) {
+    if (
+      !result ||
+      typeof result.opId !== 'string' ||
+      !isPushStatus(result.status)
+    ) {
+      throw new Error('transport returned invalid push result');
+    }
+
+    byOpId.set(result.opId, result);
+  }
+
+  const orderedResults: VfsCrdtSyncPushResult[] = [];
+  for (const operation of operations) {
+    const result = byOpId.get(operation.opId);
+    if (!result) {
+      throw new Error(
+        `transport push response missing result for opId ${operation.opId}`
+      );
+    }
+
+    orderedResults.push(result);
+  }
+
+  return orderedResults;
 }
 
 export interface QueueVfsCrdtLocalOperationInput {
@@ -412,11 +488,20 @@ export class VfsBackgroundSyncClient {
 
     while (this.pendingOperations.length > 0) {
       const currentBatch = this.pendingOperations.slice();
-      await this.transport.pushOperations({
+      const pushResponse = await this.transport.pushOperations({
         userId: this.userId,
         clientId: this.clientId,
         operations: currentBatch
       });
+
+      const pushResults = validatePushResponse(currentBatch, pushResponse);
+      const rejectedResults = pushResults.filter(
+        (result) =>
+          result.status === 'staleWriteId' || result.status === 'invalidOp'
+      );
+      if (rejectedResults.length > 0) {
+        throw new VfsCrdtSyncPushRejectedError(rejectedResults);
+      }
 
       this.pendingOperations.splice(0, currentBatch.length);
       for (const operation of currentBatch) {

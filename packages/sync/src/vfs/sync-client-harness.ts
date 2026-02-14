@@ -5,6 +5,7 @@ import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 import {
   delayVfsCrdtSyncTransport,
   type InMemoryVfsCrdtSyncTransportDelayConfig,
+  type VfsCrdtSyncPushResponse,
   type VfsCrdtSyncPullResponse,
   type VfsCrdtSyncTransport
 } from './sync-client.js';
@@ -74,18 +75,36 @@ export interface InMemoryVfsCrdtSyncServerSnapshot {
 export class InMemoryVfsCrdtSyncServer {
   private readonly stateStore = new InMemoryVfsCrdtStateStore();
   private readonly feed: VfsCrdtSyncItem[] = [];
+  private readonly appliedOpIds: Set<string> = new Set();
 
   async pushOperations(input: {
     operations: VfsCrdtOperation[];
-  }): Promise<void> {
+  }): Promise<VfsCrdtSyncPushResponse> {
+    const results: VfsCrdtSyncPushResponse['results'] = [];
+
     for (const operation of input.operations) {
+      if (this.appliedOpIds.has(operation.opId)) {
+        results.push({
+          opId: operation.opId,
+          status: 'alreadyApplied'
+        });
+        continue;
+      }
+
       const result = this.stateStore.apply(operation);
       if (result.status === 'applied') {
         this.feed.push(toSyncItem(operation));
+        this.appliedOpIds.add(operation.opId);
       }
+
+      results.push({
+        opId: result.opId,
+        status: result.status
+      });
     }
 
     this.feed.sort(compareFeedItems);
+    return { results };
   }
 
   async pullOperations(input: {
@@ -154,9 +173,9 @@ export class InMemoryVfsCrdtSyncTransport implements VfsCrdtSyncTransport {
     userId: string;
     clientId: string;
     operations: VfsCrdtOperation[];
-  }): Promise<void> {
+  }): Promise<VfsCrdtSyncPushResponse> {
     await delayVfsCrdtSyncTransport(this.delays, 'push');
-    await this.server.pushOperations({
+    return this.server.pushOperations({
       operations: input.operations
     });
   }
