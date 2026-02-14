@@ -9,6 +9,12 @@ import {
 } from 'lucide-react';
 import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import {
+  BloodPressureDetail,
+  HeightDetail,
+  WeightDetail,
+  WorkoutDetail
+} from '@/components/health';
 import { BackLink } from '@/components/ui/back-link';
 import {
   healthBloodPressureReadings,
@@ -19,6 +25,7 @@ import {
 
 interface HealthProps {
   showBackLink?: boolean;
+  refreshToken?: number;
 }
 
 interface HealthSchemaCard {
@@ -31,7 +38,7 @@ interface HealthSchemaCard {
   relation?: string;
 }
 
-type HealthDrilldownRoute = 'height' | 'weight' | 'workouts';
+type HealthDrilldownRoute = 'height' | 'weight' | 'workouts' | 'blood-pressure';
 
 const HEALTH_OVERVIEW_ROUTE = '/health';
 const HEALTH_ROUTE_PREFIX = '/health/';
@@ -66,6 +73,7 @@ const HEALTH_SCHEMA_CARDS: HealthSchemaCard[] = [
     description: 'Capture systolic/diastolic readings over time.',
     icon: HeartPulse,
     tableName: 'health_blood_pressure_readings',
+    route: 'blood-pressure',
     columns: Object.keys(getTableColumns(healthBloodPressureReadings))
   },
   {
@@ -89,7 +97,8 @@ const HEALTH_SCHEMA_CARDS: HealthSchemaCard[] = [
 const DRILLDOWN_ROUTES: readonly HealthDrilldownRoute[] = [
   'height',
   'weight',
-  'workouts'
+  'workouts',
+  'blood-pressure'
 ];
 
 const isDrilldownRoute = (
@@ -117,16 +126,13 @@ const isDrilldownCard = (
 
 const HEALTH_DRILLDOWN_CARDS = HEALTH_SCHEMA_CARDS.filter(isDrilldownCard);
 
-export function Health({ showBackLink = true }: HealthProps) {
+export function Health({ showBackLink = true, refreshToken = 0 }: HealthProps) {
   const location = useLocation();
   const routeFromPath = getActiveHealthRoute(location.pathname);
   const [windowRoute, setWindowRoute] = useState<
     HealthDrilldownRoute | undefined
   >(routeFromPath);
   const activeRoute = showBackLink ? routeFromPath : windowRoute;
-  const activeCard =
-    HEALTH_DRILLDOWN_CARDS.find((card) => card.route === activeRoute) ??
-    undefined;
 
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
@@ -182,48 +188,20 @@ export function Health({ showBackLink = true }: HealthProps) {
         )}
       </div>
 
-      {activeCard ? (
+      {activeRoute ? (
         <div
-          className="rounded-lg border p-4"
-          data-testid={`health-detail-${activeCard.route}`}
+          className="min-h-0 flex-1 overflow-hidden"
+          data-testid={`health-detail-${activeRoute}`}
         >
-          <div className="flex items-center gap-2 text-muted-foreground text-sm">
-            <activeCard.icon className="h-4 w-4" />
-            {activeCard.title}
-          </div>
-          <p className="mt-2 text-sm">{activeCard.description}</p>
-          <p className="mt-2 font-mono text-muted-foreground text-xs">
-            route: {HEALTH_ROUTE_PREFIX}
-            {activeCard.route}
-          </p>
-          <p className="mt-1 font-mono text-muted-foreground text-xs">
-            table: {activeCard.tableName}
-          </p>
-          <p className="mt-1 font-mono text-muted-foreground text-xs">
-            columns: {activeCard.columns.join(', ')}
-          </p>
-          {activeCard.relation ? (
-            <p className="mt-1 font-mono text-muted-foreground text-xs">
-              relation: {activeCard.relation}
-            </p>
-          ) : null}
-          {showBackLink ? (
-            <Link
-              className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
-              data-testid="health-overview-link"
-              to={HEALTH_OVERVIEW_ROUTE}
-            >
-              Back to Overview
-            </Link>
-          ) : (
-            <button
-              type="button"
-              className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
-              data-testid="health-overview-link"
-              onClick={() => setWindowRoute(undefined)}
-            >
-              Back to Overview
-            </button>
+          {activeRoute === 'height' && <HeightDetail />}
+          {activeRoute === 'weight' && (
+            <WeightDetail refreshToken={refreshToken} />
+          )}
+          {activeRoute === 'workouts' && (
+            <WorkoutDetail refreshToken={refreshToken} />
+          )}
+          {activeRoute === 'blood-pressure' && (
+            <BloodPressureDetail refreshToken={refreshToken} />
           )}
         </div>
       ) : (
