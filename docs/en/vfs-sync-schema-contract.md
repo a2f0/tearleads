@@ -7,6 +7,7 @@ explicit and testable while avoiding accidental coupling to transitional tables.
 ## Scope
 
 Included runtime paths:
+
 - Sync feed query (`packages/sync/src/vfs/sync-engine.ts`)
 - CRDT feed query (`packages/sync/src/vfs/sync-crdt-feed.ts`)
 - CRDT push API route (`packages/api/src/routes/vfs/post-crdt-push.ts`)
@@ -15,6 +16,7 @@ Included runtime paths:
 
 The authoritative dependency inventory and SQL reference extraction utilities
 are defined in:
+
 - `packages/sync/src/vfs/sync-schema-contract.ts`
 - `packages/sync/src/vfs/sync-schema-contract.test.ts`
 - `extractPostgresTableNamesFromDrizzleSchema(...)`
