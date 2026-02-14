@@ -145,14 +145,11 @@ analyze_history() {
       [.[-10:][] | select(.outcome == "changed") | .selected_category] | unique | .[]
     ]' "$RUNS_FILE" 2>/dev/null | jq -r '.[]' | tr '\n' ' ')
 
-  # Categories never selected (under-served)
-  SELECTED_EVER=$(jq -s '[.[].selected_category] | unique' "$RUNS_FILE" 2>/dev/null)
-  UNDER_SERVED=""
-  for cat in "${CATEGORIES[@]}"; do
-    if ! echo "$SELECTED_EVER" | grep -q "\"$cat\""; then
-      UNDER_SERVED="$UNDER_SERVED $cat"
-    fi
-  done
+  # Categories never selected (under-served) - computed efficiently with jq
+  ALL_CATEGORIES_JSON=$(printf '%s\n' "${CATEGORIES[@]}" | jq -R . | jq -s .)
+  UNDER_SERVED=$(jq -s --argjson all_cats "$ALL_CATEGORIES_JSON" \
+    '($all_cats - ([.[].selected_category] | unique)) | .[]' \
+    "$RUNS_FILE" 2>/dev/null | tr -d '"' | tr '\n' ' ')
 
   # Success rate by category (effectiveness ranking)
   EFFECTIVENESS=$(jq -s '
@@ -189,7 +186,7 @@ compute_category_boost() {
   local boost=0
 
   # Boost under-served categories (+2)
-  if echo "$UNDER_SERVED" | grep -q "$cat"; then
+  if echo "$UNDER_SERVED" | grep -q -w "$cat"; then
     boost=$((boost + 2))
   fi
 
@@ -200,7 +197,7 @@ compute_category_boost() {
   fi
 
   # Penalize stale categories (-1)
-  if echo "$STALE_CATEGORIES" | grep -q "$cat"; then
+  if echo "$STALE_CATEGORIES" | grep -q -w "$cat"; then
     boost=$((boost - 1))
   fi
 
@@ -225,12 +222,11 @@ Output a health report when sufficient history exists to guide focus areas:
 if [ -f "$RUNS_FILE" ] && [ "$(wc -l < "$RUNS_FILE" 2>/dev/null)" -gt 5 ]; then
   echo "=== Preen Health Report ==="
 
-  # Last run timestamp per category
+  # Last run timestamp per category (read file once for efficiency)
   echo "Category Coverage (last run):"
+  LAST_RUNS_JSON=$(jq -s 'group_by(.selected_category) | map({(.[0].selected_category): (last.timestamp)}) | add // {}' "$RUNS_FILE" 2>/dev/null)
   for cat in "${CATEGORIES[@]}"; do
-    LAST=$(jq -s --arg c "$cat" \
-      '[.[] | select(.selected_category == $c)] | last | .timestamp // "never"' \
-      "$RUNS_FILE" 2>/dev/null | tr -d '"')
+    LAST=$(echo "$LAST_RUNS_JSON" | jq -r --arg c "$cat" '.[$c] // "never"')
     printf "  %-30s %s\n" "$cat:" "$LAST"
   done
 
@@ -667,7 +663,7 @@ jq -s '
 ' .git/preen/runs.jsonl
 
 # Time since last successful change per category
-jq -s --arg now "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '
+jq -s '
   [.[] | select(.outcome == "changed")] |
   group_by(.selected_category) |
   map({category: .[0].selected_category, last_change: (last | .timestamp)}) |
