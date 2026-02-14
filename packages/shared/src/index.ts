@@ -172,6 +172,42 @@ export interface VfsCrdtReconcileResponse {
   lastReconciledWriteIds: Record<string, number>;
 }
 
+export interface VfsCrdtPushOperation {
+  opId: string;
+  opType: VfsCrdtOpType;
+  itemId: string;
+  replicaId: string;
+  writeId: number;
+  occurredAt: string;
+  principalType?: VfsAclPrincipalType;
+  principalId?: string;
+  accessLevel?: VfsAclAccessLevel;
+  parentId?: string;
+  childId?: string;
+}
+
+export interface VfsCrdtPushRequest {
+  clientId: string;
+  operations: VfsCrdtPushOperation[];
+}
+
+export type VfsCrdtPushStatus =
+  | 'applied'
+  | 'alreadyApplied'
+  | 'staleWriteId'
+  | 'outdatedOp'
+  | 'invalidOp';
+
+export interface VfsCrdtPushResult {
+  opId: string;
+  status: VfsCrdtPushStatus;
+}
+
+export interface VfsCrdtPushResponse {
+  clientId: string;
+  results: VfsCrdtPushResult[];
+}
+
 // VFS Sharing types
 export type VfsShareType = 'user' | 'group' | 'organization';
 export type VfsPermissionLevel = 'view' | 'edit' | 'download';

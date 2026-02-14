@@ -304,7 +304,7 @@ describe('VfsBackgroundSyncClient', () => {
     );
   });
 
-  it('keeps queued writes when server rejects push due to stale write ids', async () => {
+  it('reconciles stale write ids by rebasing local pending writes', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     await server.pushOperations({
       operations: [
@@ -336,10 +336,138 @@ describe('VfsBackgroundSyncClient', () => {
       occurredAt: '2026-02-14T12:10:01.000Z'
     });
 
+    const flushResult = await client.flush();
+    expect(flushResult.pushedOperations).toBe(1);
+    expect(flushResult.pullPages).toBe(1);
+
+    const clientSnapshot = client.snapshot();
+    const serverSnapshot = server.snapshot();
+    expect(clientSnapshot.pendingOperations).toBe(0);
+    expect(clientSnapshot.acl).toEqual(serverSnapshot.acl);
+    expect(clientSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+    expect(clientSnapshot.lastReconciledWriteIds).toEqual({
+      desktop: 2
+    });
+    expect(clientSnapshot.nextLocalWriteId).toBe(3);
+  });
+
+  it('fails closed when stale write ids cannot be recovered', async () => {
+    let pushAttempts = 0;
+    let pullAttempts = 0;
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        pushAttempts += 1;
+        return {
+          results: input.operations.map((operation) => ({
+            opId: operation.opId,
+            status: 'staleWriteId'
+          }))
+        };
+      },
+      pullOperations: async () => {
+        pullAttempts += 1;
+        return {
+          items: [],
+          hasMore: false,
+          nextCursor: null,
+          lastReconciledWriteIds: {}
+        };
+      }
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:10:01.000Z'
+    });
+
     await expect(client.flush()).rejects.toBeInstanceOf(
       VfsCrdtSyncPushRejectedError
     );
     expect(client.snapshot().pendingOperations).toBe(1);
+    expect(pushAttempts).toBe(3);
+    expect(pullAttempts).toBe(2);
+  });
+
+  it('converges concurrent clients when one client requires stale-write recovery', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'server-desktop-1',
+          opType: 'acl_add',
+          itemId: 'item-1',
+          replicaId: 'desktop',
+          writeId: 1,
+          occurredAt: '2026-02-14T12:15:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(server, {
+        pushDelayMs: 10,
+        pullDelayMs: 2
+      })
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      new InMemoryVfsCrdtSyncTransport(server, {
+        pushDelayMs: 1,
+        pullDelayMs: 8
+      })
+    );
+
+    desktop.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T12:15:01.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-1',
+      parentId: 'root',
+      childId: 'item-1',
+      occurredAt: '2026-02-14T12:15:02.000Z'
+    });
+
+    await Promise.all([desktop.flush(), mobile.flush()]);
+    await Promise.all([desktop.sync(), mobile.sync()]);
+
+    const serverSnapshot = server.snapshot();
+    const desktopSnapshot = desktop.snapshot();
+    const mobileSnapshot = mobile.snapshot();
+    expect(desktopSnapshot.pendingOperations).toBe(0);
+    expect(mobileSnapshot.pendingOperations).toBe(0);
+    expect(desktopSnapshot.acl).toEqual(serverSnapshot.acl);
+    expect(mobileSnapshot.acl).toEqual(serverSnapshot.acl);
+    expect(desktopSnapshot.links).toEqual(serverSnapshot.links);
+    expect(mobileSnapshot.links).toEqual(serverSnapshot.links);
+    expect(desktopSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+    expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+    expect(serverSnapshot.lastReconciledWriteIds).toEqual({
+      desktop: 2,
+      mobile: 1
+    });
   });
 
   it('drains queue after idempotent retry when first push fails post-commit', async () => {

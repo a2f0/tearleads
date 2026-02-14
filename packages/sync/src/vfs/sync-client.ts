@@ -21,6 +21,7 @@ import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 const DEFAULT_PULL_LIMIT = 100;
 const MAX_PULL_LIMIT = 500;
 const MAX_CLIENT_ID_LENGTH = 128;
+const MAX_STALE_PUSH_RECOVERY_ATTEMPTS = 2;
 
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
 const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
@@ -394,14 +395,15 @@ export class VfsBackgroundSyncClient {
         );
       }
 
-      if (input.opType === 'acl_add' && !isAccessLevel(input.accessLevel)) {
-        throw new Error('accessLevel is required for acl_add');
-      }
-
       operation.principalType = principalType;
       operation.principalId = principalId;
       if (input.opType === 'acl_add') {
-        operation.accessLevel = input.accessLevel;
+        const accessLevel = input.accessLevel;
+        if (!isAccessLevel(accessLevel)) {
+          throw new Error('accessLevel is required for acl_add');
+        }
+
+        operation.accessLevel = accessLevel;
       }
     }
 
@@ -503,6 +505,7 @@ export class VfsBackgroundSyncClient {
 
   private async runFlush(): Promise<VfsBackgroundSyncClientFlushResult> {
     let pushedOperations = 0;
+    let staleRecoveryAttempts = 0;
 
     while (this.pendingOperations.length > 0) {
       const currentBatch = this.pendingOperations.slice();
@@ -517,15 +520,41 @@ export class VfsBackgroundSyncClient {
         (result) =>
           result.status === 'staleWriteId' || result.status === 'invalidOp'
       );
-      if (rejectedResults.length > 0) {
-        throw new VfsCrdtSyncPushRejectedError(rejectedResults);
+
+      for (const result of pushResults) {
+        if (
+          result.status === 'applied' ||
+          result.status === 'alreadyApplied' ||
+          result.status === 'outdatedOp'
+        ) {
+          if (this.removePendingOperationById(result.opId)) {
+            pushedOperations += 1;
+          }
+        }
       }
 
-      this.pendingOperations.splice(0, currentBatch.length);
-      for (const operation of currentBatch) {
-        this.pendingOpIds.delete(operation.opId);
+      const invalidResults = rejectedResults.filter(
+        (result) => result.status === 'invalidOp'
+      );
+      if (invalidResults.length > 0) {
+        throw new VfsCrdtSyncPushRejectedError(invalidResults);
       }
-      pushedOperations += currentBatch.length;
+
+      const staleResults = rejectedResults.filter(
+        (result) => result.status === 'staleWriteId'
+      );
+      if (staleResults.length > 0) {
+        staleRecoveryAttempts += 1;
+        if (staleRecoveryAttempts > MAX_STALE_PUSH_RECOVERY_ATTEMPTS) {
+          throw new VfsCrdtSyncPushRejectedError(staleResults);
+        }
+
+        await this.pullUntilSettled();
+        this.rebasePendingOperations(this.nextWriteIdFromReconcileState());
+        continue;
+      }
+
+      staleRecoveryAttempts = 0;
     }
 
     const syncResult = await this.pullUntilSettled();
@@ -560,6 +589,67 @@ export class VfsBackgroundSyncClient {
     if (replicatedWriteId + 1 > this.nextLocalWriteId) {
       this.nextLocalWriteId = replicatedWriteId + 1;
     }
+  }
+
+  private nextWriteIdFromReconcileState(): number {
+    const reconcileState = this.reconcileStateStore.get(this.userId, this.clientId);
+    if (!reconcileState) {
+      return this.nextLocalWriteId;
+    }
+
+    const replicatedWriteId = reconcileState.lastReconciledWriteIds[this.clientId];
+    if (
+      typeof replicatedWriteId !== 'number' ||
+      !Number.isFinite(replicatedWriteId) ||
+      !Number.isInteger(replicatedWriteId) ||
+      replicatedWriteId < 0
+    ) {
+      return this.nextLocalWriteId;
+    }
+
+    return Math.max(this.nextLocalWriteId, replicatedWriteId + 1);
+  }
+
+  private rebasePendingOperations(nextWriteId: number): void {
+    let writeId = Math.max(1, nextWriteId);
+    const cursor = this.currentCursor();
+    const cursorMs = cursor ? Date.parse(cursor.changedAt) : Number.NaN;
+    let minOccurredAtMs = Number.isFinite(cursorMs) ? cursorMs : Number.NEGATIVE_INFINITY;
+
+    for (const operation of this.pendingOperations) {
+      operation.writeId = writeId;
+      writeId += 1;
+
+      const parsedOccurredAtMs = Date.parse(operation.occurredAt);
+      let rebasedOccurredAtMs = Number.isFinite(parsedOccurredAtMs)
+        ? parsedOccurredAtMs
+        : minOccurredAtMs;
+      if (!Number.isFinite(rebasedOccurredAtMs) || rebasedOccurredAtMs <= minOccurredAtMs) {
+        rebasedOccurredAtMs = Number.isFinite(minOccurredAtMs)
+          ? minOccurredAtMs + 1
+          : Date.now();
+      }
+
+      operation.occurredAt = new Date(rebasedOccurredAtMs).toISOString();
+      minOccurredAtMs = rebasedOccurredAtMs;
+    }
+
+    if (writeId > this.nextLocalWriteId) {
+      this.nextLocalWriteId = writeId;
+    }
+  }
+
+  private removePendingOperationById(opId: string): boolean {
+    const index = this.pendingOperations.findIndex(
+      (operation) => operation.opId === opId
+    );
+    if (index < 0) {
+      return false;
+    }
+
+    this.pendingOperations.splice(index, 1);
+    this.pendingOpIds.delete(opId);
+    return true;
   }
 
   private async pullUntilSettled(): Promise<VfsBackgroundSyncClientSyncResult> {
