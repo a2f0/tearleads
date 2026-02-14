@@ -13,6 +13,34 @@ const loadApi = async () => {
   return module.api;
 };
 
+type RecordedApiRequest = ReturnType<typeof getRecordedApiRequests>[number];
+
+const getRequestsFor = (
+  method: string,
+  pathname: string
+): RecordedApiRequest[] =>
+  getRecordedApiRequests().filter(
+    (request) =>
+      request.method === method.toUpperCase() && request.pathname === pathname
+  );
+
+const getRequestQuery = (request: RecordedApiRequest): Record<string, string> =>
+  Object.fromEntries(new URL(request.url).searchParams.entries());
+
+const expectSingleRequestQuery = (
+  method: string,
+  pathname: string,
+  expectedQuery: Record<string, string>
+): void => {
+  const requests = getRequestsFor(method, pathname);
+  expect(requests).toHaveLength(1);
+  const [request] = requests;
+  if (!request) {
+    throw new Error(`Missing recorded request: ${method} ${pathname}`);
+  }
+  expect(getRequestQuery(request)).toEqual(expectedQuery);
+};
+
 describe('api with msw', () => {
   beforeEach(() => {
     vi.resetModules();
@@ -322,25 +350,20 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('GET', '/admin/users/user-2')).toBe(true);
     expect(wasApiRequestMade('PATCH', '/admin/users/user-2')).toBe(true);
 
-    const recordedRequests = getRecordedApiRequests();
-    expect(
-      recordedRequests.some(
-        (request) =>
-          request.pathname === '/admin/redis/keys' &&
-          request.url.includes('cursor=5') &&
-          request.url.includes('limit=2')
-      )
-    ).toBe(true);
-    expect(
-      recordedRequests.some(
-        (request) =>
-          request.pathname === '/admin/postgres/tables/public/users/rows' &&
-          request.url.includes('limit=10') &&
-          request.url.includes('offset=20') &&
-          request.url.includes('sortColumn=id') &&
-          request.url.includes('sortDirection=desc')
-      )
-    ).toBe(true);
+    expectSingleRequestQuery('GET', '/admin/redis/keys', {
+      cursor: '5',
+      limit: '2'
+    });
+    expectSingleRequestQuery(
+      'GET',
+      '/admin/postgres/tables/public/users/rows',
+      {
+        limit: '10',
+        offset: '20',
+        sortColumn: 'id',
+        sortDirection: 'desc'
+      }
+    );
   });
 
   it('routes vfs and ai requests through msw', async () => {
@@ -443,83 +466,215 @@ describe('api with msw', () => {
     expect(wasApiRequestMade('GET', '/ai/usage')).toBe(true);
     expect(wasApiRequestMade('GET', '/ai/usage/summary')).toBe(true);
 
-    const recordedRequests = getRecordedApiRequests();
-    expect(
-      recordedRequests.some(
-        (request) =>
-          request.pathname === '/vfs/share-targets/search' &&
-          request.url.includes('q=test+query') &&
-          request.url.includes('type=user')
-      )
-    ).toBe(true);
-    expect(
-      recordedRequests.some(
-        (request) =>
-          request.pathname === '/ai/usage' &&
-          request.url.includes('startDate=2024-01-01') &&
-          request.url.includes('endDate=2024-01-31') &&
-          request.url.includes('cursor=cursor-1') &&
-          request.url.includes('limit=10')
-      )
-    ).toBe(true);
+    expectSingleRequestQuery('GET', '/vfs/share-targets/search', {
+      q: 'test query',
+      type: 'user'
+    });
+    expectSingleRequestQuery('GET', '/ai/usage', {
+      startDate: '2024-01-01',
+      endDate: '2024-01-31',
+      cursor: 'cursor-1',
+      limit: '10'
+    });
+  });
+
+  it('builds query-string variants through msw request metadata', async () => {
+    const api = await loadApi();
+
+    await api.admin.postgres.getRows('public', 'users', {
+      limit: 10,
+      offset: 20,
+      sortColumn: 'email',
+      sortDirection: 'desc'
+    });
+    await api.admin.postgres.getRows('public', 'users');
+
+    await api.ai.listConversations({ cursor: 'cursor-1', limit: 5 });
+    await api.ai.listConversations();
+    await api.ai.getUsage({
+      startDate: '2024-01-01',
+      endDate: '2024-01-31',
+      cursor: 'cursor-2',
+      limit: 25
+    });
+    await api.ai.getUsage();
+    await api.ai.getUsageSummary({
+      startDate: '2024-01-01',
+      endDate: '2024-01-31'
+    });
+    await api.ai.getUsageSummary();
+
+    const postgresRowsRequests = getRequestsFor(
+      'GET',
+      '/admin/postgres/tables/public/users/rows'
+    );
+    expect(postgresRowsRequests).toHaveLength(2);
+    expect(postgresRowsRequests.map(getRequestQuery)).toEqual(
+      expect.arrayContaining([
+        {
+          limit: '10',
+          offset: '20',
+          sortColumn: 'email',
+          sortDirection: 'desc'
+        },
+        {}
+      ])
+    );
+
+    const aiConversationRequests = getRequestsFor('GET', '/ai/conversations');
+    expect(aiConversationRequests).toHaveLength(2);
+    expect(aiConversationRequests.map(getRequestQuery)).toEqual(
+      expect.arrayContaining([{ cursor: 'cursor-1', limit: '5' }, {}])
+    );
+
+    const aiUsageRequests = getRequestsFor('GET', '/ai/usage');
+    expect(aiUsageRequests).toHaveLength(2);
+    expect(aiUsageRequests.map(getRequestQuery)).toEqual(
+      expect.arrayContaining([
+        {
+          startDate: '2024-01-01',
+          endDate: '2024-01-31',
+          cursor: 'cursor-2',
+          limit: '25'
+        },
+        {}
+      ])
+    );
+
+    const aiUsageSummaryRequests = getRequestsFor('GET', '/ai/usage/summary');
+    expect(aiUsageSummaryRequests).toHaveLength(2);
+    expect(aiUsageSummaryRequests.map(getRequestQuery)).toEqual(
+      expect.arrayContaining([
+        {
+          startDate: '2024-01-01',
+          endDate: '2024-01-31'
+        },
+        {}
+      ])
+    );
   });
 
   it('covers non-wrapper API parity endpoints', async () => {
-    const billing = await fetch('http://localhost/billing/organizations/org-1');
-    const emails = await fetch('http://localhost/emails');
-    const emailDrafts = await fetch('http://localhost/emails/drafts');
-    const sendEmail = await fetch('http://localhost/emails/send', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ to: 'user@example.com' })
-    });
-    const deleteEmail = await fetch('http://localhost/emails/email-1', {
-      method: 'DELETE'
-    });
-    const mlsGet = await fetch('http://localhost/mls/groups');
-    const mlsPost = await fetch('http://localhost/mls/groups', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'group' })
-    });
-    const mlsPatch = await fetch('http://localhost/mls/groups/group-1', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'updated' })
-    });
-    const mlsDelete = await fetch('http://localhost/mls/groups/group-1', {
-      method: 'DELETE'
-    });
-    const revenuecat = await fetch('http://localhost/revenuecat/webhooks', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'purchase' })
-    });
-    const sse = await fetch('http://localhost/sse');
+    const requests: Array<{
+      method: string;
+      pathname: string;
+      init?: RequestInit;
+    }> = [
+      { method: 'GET', pathname: '/billing/organizations/org-1' },
+      { method: 'GET', pathname: '/emails' },
+      { method: 'GET', pathname: '/emails/email-1' },
+      { method: 'GET', pathname: '/emails/drafts' },
+      { method: 'GET', pathname: '/emails/drafts/draft-1' },
+      {
+        method: 'POST',
+        pathname: '/emails/drafts',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ subject: 'test draft' })
+        }
+      },
+      { method: 'DELETE', pathname: '/emails/drafts/draft-1' },
+      {
+        method: 'POST',
+        pathname: '/emails/send',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ to: 'user@example.com' })
+        }
+      },
+      { method: 'DELETE', pathname: '/emails/email-1' },
+      { method: 'GET', pathname: '/mls/groups' },
+      { method: 'GET', pathname: '/mls/groups/group-1' },
+      { method: 'GET', pathname: '/mls/groups/group-1/members' },
+      { method: 'GET', pathname: '/mls/groups/group-1/messages' },
+      { method: 'GET', pathname: '/mls/groups/group-1/state' },
+      { method: 'GET', pathname: '/mls/key-packages/me' },
+      { method: 'GET', pathname: '/mls/key-packages/user-1' },
+      { method: 'GET', pathname: '/mls/welcome-messages' },
+      {
+        method: 'POST',
+        pathname: '/mls/groups',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'group' })
+        }
+      },
+      {
+        method: 'POST',
+        pathname: '/mls/groups/group-1/members',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: 'user-2' })
+        }
+      },
+      {
+        method: 'POST',
+        pathname: '/mls/groups/group-1/messages',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ encryptedMessage: 'message' })
+        }
+      },
+      {
+        method: 'POST',
+        pathname: '/mls/groups/group-1/state',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ encryptedState: 'state' })
+        }
+      },
+      {
+        method: 'POST',
+        pathname: '/mls/key-packages',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ keyPackage: 'key-package' })
+        }
+      },
+      {
+        method: 'POST',
+        pathname: '/mls/welcome-messages/message-1/ack',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({})
+        }
+      },
+      {
+        method: 'PATCH',
+        pathname: '/mls/groups/group-1',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'updated' })
+        }
+      },
+      { method: 'DELETE', pathname: '/mls/groups/group-1/members/user-1' },
+      { method: 'DELETE', pathname: '/mls/groups/group-1' },
+      { method: 'DELETE', pathname: '/mls/key-packages/key-1' },
+      {
+        method: 'POST',
+        pathname: '/revenuecat/webhooks',
+        init: {
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ event: 'purchase' })
+        }
+      }
+    ];
 
-    expect(billing.ok).toBe(true);
-    expect(emails.ok).toBe(true);
-    expect(emailDrafts.ok).toBe(true);
-    expect(sendEmail.ok).toBe(true);
-    expect(deleteEmail.ok).toBe(true);
-    expect(mlsGet.ok).toBe(true);
-    expect(mlsPost.ok).toBe(true);
-    expect(mlsPatch.ok).toBe(true);
-    expect(mlsDelete.ok).toBe(true);
-    expect(revenuecat.ok).toBe(true);
+    for (const request of requests) {
+      const response = await fetch(`http://localhost${request.pathname}`, {
+        method: request.method,
+        ...request.init
+      });
+      expect(response.ok).toBe(true);
+    }
+
+    const sse = await fetch('http://localhost/sse');
     expect(sse.ok).toBe(true);
     expect(sse.headers.get('content-type')).toContain('text/event-stream');
 
-    expect(wasApiRequestMade('GET', '/billing/organizations/org-1')).toBe(true);
-    expect(wasApiRequestMade('GET', '/emails')).toBe(true);
-    expect(wasApiRequestMade('GET', '/emails/drafts')).toBe(true);
-    expect(wasApiRequestMade('POST', '/emails/send')).toBe(true);
-    expect(wasApiRequestMade('DELETE', '/emails/email-1')).toBe(true);
-    expect(wasApiRequestMade('GET', '/mls/groups')).toBe(true);
-    expect(wasApiRequestMade('POST', '/mls/groups')).toBe(true);
-    expect(wasApiRequestMade('PATCH', '/mls/groups/group-1')).toBe(true);
-    expect(wasApiRequestMade('DELETE', '/mls/groups/group-1')).toBe(true);
-    expect(wasApiRequestMade('POST', '/revenuecat/webhooks')).toBe(true);
+    for (const request of requests) {
+      expect(wasApiRequestMade(request.method, request.pathname)).toBe(true);
+    }
     expect(wasApiRequestMade('GET', '/sse')).toBe(true);
   });
 });
