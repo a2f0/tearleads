@@ -263,4 +263,84 @@ describe('VFS sync end-to-end harness', () => {
       'item-2-late'
     );
   });
+
+  it('attaches blobs to email items through the same generic isolation path', () => {
+    const serverStore = new InMemoryVfsCrdtStateStore();
+    const clientReplayStore = new InMemoryVfsCrdtFeedReplayStore();
+    const blobIsolationStore = new InMemoryVfsBlobIsolationStore();
+
+    const operations: VfsCrdtOperation[] = [
+      {
+        opId: 'desktop-email-1',
+        opType: 'acl_add',
+        itemId: 'email-1',
+        replicaId: 'desktop',
+        writeId: 1,
+        occurredAt: '2026-02-14T12:00:01.000Z',
+        principalType: 'user',
+        principalId: 'user-2',
+        accessLevel: 'write'
+      },
+      {
+        opId: 'desktop-email-2',
+        opType: 'link_add',
+        itemId: 'email-1',
+        replicaId: 'desktop',
+        writeId: 2,
+        occurredAt: '2026-02-14T12:00:02.000Z',
+        parentId: 'mailbox-inbox',
+        childId: 'email-1'
+      }
+    ];
+
+    const serverResults = serverStore.applyMany(operations);
+    expect(serverResults.map((result) => result.status)).toEqual([
+      'applied',
+      'applied'
+    ]);
+
+    const feed = operations.map(toSyncItem).sort(compareFeedItems);
+    clientReplayStore.applyPage(feed);
+    const cursor = clientReplayStore.snapshot().cursor;
+    if (!cursor) {
+      throw new Error('expected cursor after replaying email feed');
+    }
+
+    const serverSnapshot = serverStore.snapshot();
+    blobIsolationStore.reconcileClient(
+      'user-1',
+      'desktop',
+      cursor,
+      serverSnapshot.lastReconciledWriteIds
+    );
+
+    blobIsolationStore.stage({
+      stagingId: 'stage-email-1',
+      blobId: 'blob-email-attachment-1',
+      stagedBy: 'user-1',
+      stagedAt: '2026-02-14T12:05:00.000Z',
+      expiresAt: '2026-02-14T12:35:00.000Z'
+    });
+
+    const result = blobIsolationStore.attachWithIsolation({
+      stagingId: 'stage-email-1',
+      attachedBy: 'user-1',
+      itemId: 'email-1',
+      attachedAt: '2026-02-14T12:05:01.000Z',
+      userId: 'user-1',
+      clientId: 'desktop',
+      requiredCursor: {
+        changedAt: '2026-02-14T12:00:02.000Z',
+        changeId: 'desktop-email-2'
+      },
+      requiredLastWriteIds: {
+        desktop: 2
+      }
+    });
+
+    expect(result.status).toBe('applied');
+    expect(blobIsolationStore.getBlobStage('stage-email-1')?.attachedItemId).toBe(
+      'email-1'
+    );
+  });
 });
