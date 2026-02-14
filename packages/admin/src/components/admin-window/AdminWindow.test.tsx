@@ -1,7 +1,16 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminWindow } from './AdminWindow';
+
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate
+  };
+});
 
 vi.mock('@/components/floating-window', () => ({
   FloatingWindow: ({
@@ -219,6 +228,10 @@ describe('AdminWindow', () => {
     zIndex: 100
   };
 
+  beforeEach(() => {
+    mockNavigate.mockClear();
+  });
+
   it('renders in FloatingWindow', () => {
     render(<AdminWindow {...defaultProps} />);
     expect(screen.getByTestId('floating-window')).toBeInTheDocument();
@@ -237,6 +250,18 @@ describe('AdminWindow', () => {
     expect(screen.getByText('Groups')).toBeInTheDocument();
     expect(screen.getByText('Organizations')).toBeInTheDocument();
     expect(screen.getByText('Users')).toBeInTheDocument();
+    expect(screen.getByText('Compliance')).toBeInTheDocument();
+  });
+
+  it('navigates to /compliance and closes the window when Compliance is clicked', async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    render(<AdminWindow {...defaultProps} onClose={onClose} />);
+
+    await user.click(screen.getByText('Compliance'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/compliance');
+    expect(onClose).toHaveBeenCalled();
   });
 
   it('navigates to Redis view when Redis is clicked', async () => {

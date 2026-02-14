@@ -25,6 +25,8 @@
       "@tearleads/console": ["../console/src/index.ts"],
       "@tearleads/classic/package.json": ["../classic/package.json"],
       "@tearleads/classic": ["../classic/src/index.ts"],
+      "@tearleads/compliance/package.json": ["../compliance/package.json"],
+      "@tearleads/compliance": ["../compliance/src/index.ts"],
       "@tearleads/contacts/package.json": ["../contacts/package.json"],
       "@tearleads/contacts": ["../contacts/src/index.ts"],
       "@tearleads/email/package.json": ["../email/package.json"],

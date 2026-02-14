@@ -18,7 +18,7 @@ describe('AdminLauncher', () => {
     mockNavigate.mockClear();
   });
 
-  it('renders admin launcher with Redis, Postgres, and Organizations options', () => {
+  it('renders admin launcher with Redis, Postgres, Organizations, and Compliance options', () => {
     render(
       <MemoryRouter>
         <AdminLauncher />
@@ -29,6 +29,7 @@ describe('AdminLauncher', () => {
     expect(screen.getByText('Redis')).toBeInTheDocument();
     expect(screen.getByText('Postgres')).toBeInTheDocument();
     expect(screen.getByText('Organizations')).toBeInTheDocument();
+    expect(screen.getByText('Compliance')).toBeInTheDocument();
   });
 
   it('navigates to /admin/redis when Redis is clicked', async () => {
@@ -68,5 +69,18 @@ describe('AdminLauncher', () => {
     await user.click(screen.getByText('Organizations'));
 
     expect(mockNavigate).toHaveBeenCalledWith('/admin/organizations');
+  });
+
+  it('navigates to /compliance when Compliance is clicked', async () => {
+    const user = userEvent.setup();
+    render(
+      <MemoryRouter>
+        <AdminLauncher />
+      </MemoryRouter>
+    );
+
+    await user.click(screen.getByText('Compliance'));
+
+    expect(mockNavigate).toHaveBeenCalledWith('/compliance');
   });
 });

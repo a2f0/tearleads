@@ -12,18 +12,21 @@ import { UsersAdmin } from '@admin/pages/admin/UsersAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
 import { AdminWindowMenuBar } from './AdminWindowMenuBar';
 
 type AdminView =
   | 'index'
-  | AdminOptionId
+  | Exclude<AdminOptionId, 'compliance'>
   | { type: 'group-detail'; groupId: string }
   | { type: 'organization-detail'; organizationId: string }
   | { type: 'user-detail'; userId: string }
   | { type: 'ai-requests'; userId: string | null; from: 'users' | 'user' }
   | { type: 'postgres-table'; schema: string; tableName: string };
+
+type AdminWindowInitialView = Exclude<AdminOptionId, 'compliance'>;
 
 interface AdminWindowProps {
   id: string;
@@ -34,7 +37,7 @@ interface AdminWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions;
-  initialView?: AdminOptionId;
+  initialView?: AdminWindowInitialView;
 }
 
 function getViewTitle(view: AdminView): string {
@@ -67,6 +70,7 @@ export function AdminWindow({
   initialDimensions,
   initialView
 }: AdminWindowProps) {
+  const navigate = useNavigate();
   const [view, setView] = useState<AdminView>(initialView ?? 'index');
 
   const handleGroupSelect = (groupId: string) => {
@@ -93,7 +97,17 @@ export function AdminWindow({
             <Shield className="h-8 w-8 text-muted-foreground" />
             <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
           </div>
-          <AdminOptionsGrid onSelect={setView} />
+          <AdminOptionsGrid
+            onSelect={(selectedView) => {
+              if (selectedView === 'compliance') {
+                navigate('/compliance');
+                onClose();
+                return;
+              }
+
+              setView(selectedView);
+            }}
+          />
         </div>
       );
     }

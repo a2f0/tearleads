@@ -1,6 +1,7 @@
 import { useResizableSidebar } from '@tearleads/window-manager';
 import MDEditor from '@uiw/react-md-editor';
 import {
+  type AnchorHTMLAttributes,
   type HTMLAttributes,
   isValidElement,
   type ReactNode,
@@ -16,6 +17,7 @@ interface TocHeading {
 interface MarkdownWithTocProps {
   markdownColorMode: 'light' | 'dark';
   source: string;
+  linkComponent?: (props: AnchorHTMLAttributes<HTMLAnchorElement>) => ReactNode;
 }
 
 const DEFAULT_TOC_WIDTH = 220;
@@ -150,7 +152,8 @@ type HeadingProps = HTMLAttributes<HTMLHeadingElement> & {
 
 export function MarkdownWithToc({
   source,
-  markdownColorMode
+  markdownColorMode,
+  linkComponent
 }: MarkdownWithTocProps) {
   const [tocWidth, setTocWidth] = useState(DEFAULT_TOC_WIDTH);
   const headings = extractHeadings(source);
@@ -185,7 +188,16 @@ export function MarkdownWithToc({
     h3: createHeading(3),
     h4: createHeading(4),
     h5: createHeading(5),
-    h6: createHeading(6)
+    h6: createHeading(6),
+    ...(linkComponent
+      ? {
+          a: ({
+            children,
+            ...props
+          }: AnchorHTMLAttributes<HTMLAnchorElement>) =>
+            linkComponent({ children, ...props })
+        }
+      : {})
   };
 
   return (

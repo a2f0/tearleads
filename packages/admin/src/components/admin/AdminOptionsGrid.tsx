@@ -6,7 +6,8 @@ const ADMIN_OPTIONS = [
   { id: 'postgres', label: 'Postgres' },
   { id: 'groups', label: 'Groups' },
   { id: 'organizations', label: 'Organizations' },
-  { id: 'users', label: 'Users' }
+  { id: 'users', label: 'Users' },
+  { id: 'compliance', label: 'Compliance' }
 ] as const;
 
 export type AdminOptionId = (typeof ADMIN_OPTIONS)[number]['id'];
