@@ -3361,7 +3361,6 @@ export const allTables: TableDefinition[] = [
   emailAttachmentsTable,
   vfsSharesTable,
   orgSharesTable,
-  vfsAccessTable,
   vfsAclEntriesTable,
   vfsSyncChangesTable,
   vfsSyncClientStateTable,

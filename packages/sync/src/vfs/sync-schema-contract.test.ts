@@ -202,8 +202,9 @@ describe('sync schema contract', () => {
 
     expect(inventory.missingContractTables).toEqual([]);
     expect(inventory.transitionalVfsTables).toEqual(
-      expect.arrayContaining(['vfs_access', 'vfs_folders', 'vfs_shares'])
+      expect.arrayContaining(['vfs_folders', 'vfs_shares'])
     );
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_access');
     expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_objects');
     expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_refs');
     expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_staging');

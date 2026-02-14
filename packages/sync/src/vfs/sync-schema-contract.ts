@@ -104,6 +104,7 @@ export const VFS_SYNC_FLATTENED_TARGET_TABLES = Array.from(
 ).sort((left, right) => left.localeCompare(right));
 
 export const VFS_TRANSITIONAL_TABLE_CANDIDATES = [
+  // Keep retired legacy names here to fail closed if SQL references regress.
   'vfs_access',
   'vfs_folders',
   'vfs_shares'
