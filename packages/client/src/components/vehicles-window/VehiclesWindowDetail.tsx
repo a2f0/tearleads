@@ -21,13 +21,11 @@ interface VehicleFormErrors {
 
 interface VehiclesWindowDetailProps {
   vehicleId: string;
-  onBack: () => void;
   onDeleted: () => void;
 }
 
 export function VehiclesWindowDetail({
   vehicleId,
-  onBack: _onBack,
   onDeleted
 }: VehiclesWindowDetailProps) {
   const { isUnlocked, isLoading } = useDatabaseContext();
@@ -376,21 +374,43 @@ export function VehiclesWindowDetail({
       )}
 
       {deleteDialogOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-          <div className="mx-4 w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg">
-            <h3 className="font-semibold text-sm">Delete Vehicle</h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/50"
+            onClick={handleDeleteCancel}
+            aria-hidden="true"
+          />
+          <div
+            className="relative z-10 mx-4 w-full max-w-sm rounded-lg border bg-background p-4 shadow-lg"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-vehicle-dialog-title"
+            data-testid="delete-vehicle-dialog"
+          >
+            <h3
+              id="delete-vehicle-dialog-title"
+              className="font-semibold text-sm"
+            >
+              Delete Vehicle
+            </h3>
             <p className="mt-2 text-muted-foreground text-sm">
               Are you sure you want to delete this vehicle? This action cannot
               be undone.
             </p>
             <div className="mt-4 flex justify-end gap-2">
-              <Button variant="outline" size="sm" onClick={handleDeleteCancel}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDeleteCancel}
+                data-testid="cancel-delete-vehicle-button"
+              >
                 Cancel
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={handleDeleteConfirmed}
+                data-testid="confirm-delete-vehicle-button"
               >
                 Delete
               </Button>

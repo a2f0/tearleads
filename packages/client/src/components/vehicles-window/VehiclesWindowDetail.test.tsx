@@ -37,7 +37,6 @@ describe('VehiclesWindowDetail', () => {
 
   const defaultProps = {
     vehicleId: 'vehicle-1',
-    onBack: vi.fn(),
     onDeleted: vi.fn()
   };
 

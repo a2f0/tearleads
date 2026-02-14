@@ -144,7 +144,6 @@ export function VehiclesWindow({
           {currentView === 'detail' && selectedVehicleId ? (
             <VehiclesWindowDetail
               vehicleId={selectedVehicleId}
-              onBack={handleBack}
               onDeleted={handleVehicleDeleted}
             />
           ) : currentView === 'create' ? (
