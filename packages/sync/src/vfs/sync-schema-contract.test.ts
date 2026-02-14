@@ -109,7 +109,7 @@ describe('sync schema contract', () => {
     );
   });
 
-  it('keeps blob attach routes off transitional blob ref tables', () => {
+  it('keeps blob stage/attach routes off transitional blob tables', () => {
     const syncPackageRoot = process.cwd();
     const postBlobStageSource = readFileSync(
       resolve(syncPackageRoot, '../api/src/routes/vfs/post-blobs-stage.ts'),
@@ -141,18 +141,16 @@ describe('sync schema contract', () => {
 
     expect(routeReferences).toEqual(
       expect.arrayContaining([
-        'vfs_blob_staging',
         'vfs_links',
         'vfs_registry',
         'vfs_sync_client_state'
       ])
     );
     expect(routeReferences).not.toContain('vfs_blob_refs');
-    const transitionalReferences = routeSql.flatMap((sql) =>
-      findTransitionalTableReferences(sql)
+    expect(routeReferences).not.toContain('vfs_blob_staging');
+    expect(routeSql.flatMap((sql) => findTransitionalTableReferences(sql))).toEqual(
+      []
     );
-    expect(transitionalReferences.length).toBeGreaterThan(0);
-    expect(new Set(transitionalReferences)).toEqual(new Set(['vfs_blob_staging']));
   });
 
   it('detects SQL references that fall outside the flattened contract', () => {

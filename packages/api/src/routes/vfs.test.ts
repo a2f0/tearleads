@@ -368,17 +368,24 @@ describe('VFS routes', () => {
       const authHeader = await createAuthHeader();
       const stagedAt = new Date('2026-02-14T10:00:00.000Z');
       const expiresAt = new Date('2026-02-14T11:00:00.000Z');
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'stage-1',
-            blob_id: 'blob-1',
-            status: 'staged',
-            staged_at: stagedAt,
-            expires_at: expiresAt
-          }
-        ]
-      });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({}) // INSERT staging registry row
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              status: 'staged',
+              staged_at: stagedAt,
+              expires_at: expiresAt
+            }
+          ]
+        }) // INSERT staging link row
+        .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
         .post('/v1/vfs/blobs/stage')
@@ -401,17 +408,24 @@ describe('VFS routes', () => {
 
     it('normalizes string timestamps returned from database', async () => {
       const authHeader = await createAuthHeader();
-      mockQuery.mockResolvedValueOnce({
-        rows: [
-          {
-            id: 'stage-2',
-            blob_id: 'blob-2',
-            status: 'staged',
-            staged_at: '2026-02-14T10:00:00.000Z',
-            expires_at: '2026-02-14T11:00:00.000Z'
-          }
-        ]
-      });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({}) // INSERT staging registry row
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-2',
+              blob_id: 'blob-2',
+              status: 'staged',
+              staged_at: '2026-02-14T10:00:00.000Z',
+              expires_at: '2026-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // INSERT staging link row
+        .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
         .post('/v1/vfs/blobs/stage')
@@ -435,7 +449,14 @@ describe('VFS routes', () => {
     it('returns 500 when insert returns no row', async () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
-      mockQuery.mockResolvedValueOnce({ rows: [] });
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({}) // INSERT staging registry row
+        .mockResolvedValueOnce({ rows: [] }) // INSERT staging link row
+        .mockResolvedValueOnce({}); // ROLLBACK
 
       const response = await request(app)
         .post('/v1/vfs/blobs/stage')
@@ -452,8 +473,10 @@ describe('VFS routes', () => {
 
     it('returns 404 when blob object does not exist', async () => {
       const authHeader = await createAuthHeader();
-      const fkError = Object.assign(new Error('fk'), { code: '23503' });
-      mockQuery.mockRejectedValueOnce(fkError);
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({ rows: [] }) // SELECT blob registry row
+        .mockResolvedValueOnce({}); // ROLLBACK
 
       const response = await request(app)
         .post('/v1/vfs/blobs/stage')
@@ -472,7 +495,13 @@ describe('VFS routes', () => {
       const conflictError = Object.assign(new Error('duplicate'), {
         code: '23505'
       });
-      mockQuery.mockRejectedValueOnce(conflictError);
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockRejectedValueOnce(conflictError) // INSERT stage registry
+        .mockResolvedValueOnce({}); // ROLLBACK
 
       const response = await request(app)
         .post('/v1/vfs/blobs/stage')
@@ -490,7 +519,13 @@ describe('VFS routes', () => {
     it('returns 500 on unexpected stage error', async () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
-      mockQuery.mockRejectedValueOnce(new Error('db unavailable'));
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockRejectedValueOnce(new Error('db unavailable')) // INSERT stage registry
+        .mockResolvedValueOnce({}); // ROLLBACK
 
       const response = await request(app)
         .post('/v1/vfs/blobs/stage')
@@ -503,6 +538,29 @@ describe('VFS routes', () => {
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to stage blob' });
       restoreConsole();
+    });
+
+    it('returns 409 when blob id resolves to a non-blob object', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'note' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage')
+        .set('Authorization', authHeader)
+        .send({
+          blobId: 'blob-1',
+          expiresAt: '2099-02-14T11:00:00.000Z'
+        });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Blob object id conflicts with existing VFS object'
+      });
     });
   });
 
@@ -599,7 +657,9 @@ describe('VFS routes', () => {
       });
       expect(mockQuery.mock.calls[0]?.[0]).toBe('BEGIN');
       expect(mockQuery.mock.calls[1]?.[0]).toContain('FOR UPDATE');
-      expect(mockQuery.mock.calls[2]?.[0]).toContain("AND status = 'staged'");
+      expect(mockQuery.mock.calls[2]?.[0]).toContain(
+        "wrapped_session_key = 'blob-stage:staged'"
+      );
       expect(mockQuery.mock.calls[5]?.[0]).toContain('INSERT INTO vfs_links');
       expect(mockQuery.mock.calls[6]?.[0]).toBe('COMMIT');
       expect(mockPoolConnect).toHaveBeenCalledTimes(1);
@@ -1311,7 +1371,9 @@ describe('VFS routes', () => {
         status: 'abandoned'
       });
       expect(mockQuery.mock.calls[1]?.[0]).toContain('FOR UPDATE');
-      expect(mockQuery.mock.calls[2]?.[0]).toContain("AND status = 'staged'");
+      expect(mockQuery.mock.calls[2]?.[0]).toContain(
+        "wrapped_session_key = 'blob-stage:staged'"
+      );
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
 

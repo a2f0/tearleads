@@ -19,9 +19,9 @@ import {
 interface BlobStagingRow {
   id: string;
   blob_id: string;
-  staged_by: string;
+  staged_by: string | null;
   status: string;
-  expires_at: Date | string;
+  expires_at: Date | string | null;
 }
 
 interface CrdtReconcileStateRow {
@@ -214,10 +214,24 @@ export const postBlobsStageStagingIdAttachHandler = async (
 
     const stagedResult = await client.query<BlobStagingRow>(
       `
-      SELECT id, blob_id, staged_by, status, expires_at
-      FROM vfs_blob_staging
-      WHERE id = $1::text
-      FOR UPDATE
+      SELECT
+        stage_registry.id AS id,
+        stage_link.child_id AS blob_id,
+        stage_registry.owner_id AS staged_by,
+        CASE stage_link.wrapped_session_key
+          WHEN 'blob-stage:staged' THEN 'staged'
+          WHEN 'blob-stage:attached' THEN 'attached'
+          WHEN 'blob-stage:abandoned' THEN 'abandoned'
+          ELSE 'invalid'
+        END AS status,
+        (stage_link.visible_children ->> 'expiresAt')::timestamptz AS expires_at
+      FROM vfs_registry AS stage_registry
+      INNER JOIN vfs_links AS stage_link
+        ON stage_link.id = stage_registry.id
+       AND stage_link.parent_id = stage_registry.id
+      WHERE stage_registry.id = $1::text
+        AND stage_registry.object_type = 'blobStage'
+      FOR UPDATE OF stage_registry, stage_link
       `,
       [stagingId]
     );
@@ -241,6 +255,13 @@ export const postBlobsStageStagingIdAttachHandler = async (
       await client.query('ROLLBACK');
       inTransaction = false;
       res.status(409).json({ error: 'Blob staging is no longer attachable' });
+      return;
+    }
+
+    if (!stagedRow.expires_at) {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      res.status(500).json({ error: 'Failed to attach staged blob' });
       return;
     }
 
@@ -311,21 +332,43 @@ export const postBlobsStageStagingIdAttachHandler = async (
       }
     }
 
+    const attachedAtIso = new Date().toISOString();
+    /**
+     * Guardrail: status transition is conditional on the row still being in the
+     * staged state. This prevents double-commit on attach races.
+     */
     const updatedResult = await client.query<{
       blob_id: string;
       attached_at: Date | string;
       attached_item_id: string;
     }>(
       `
-      UPDATE vfs_blob_staging
-      SET status = 'attached',
-          attached_at = NOW(),
-          attached_item_id = $2::text
+      UPDATE vfs_links
+      SET wrapped_session_key = 'blob-stage:attached',
+          visible_children = jsonb_set(
+            jsonb_set(
+              jsonb_set(
+                COALESCE(vfs_links.visible_children::jsonb, '{}'::jsonb),
+                '{status}',
+                to_jsonb('attached'::text),
+                true
+              ),
+              '{attachedAt}',
+              to_jsonb($2::text),
+              true
+            ),
+            '{attachedItemId}',
+            to_jsonb($3::text),
+            true
+          )::json
       WHERE id = $1::text
-        AND status = 'staged'
-      RETURNING blob_id, attached_at, attached_item_id
+        AND wrapped_session_key = 'blob-stage:staged'
+      RETURNING
+        child_id AS blob_id,
+        $2::timestamptz AS attached_at,
+        $3::text AS attached_item_id
       `,
-      [stagingId, parsedBody.itemId]
+      [stagingId, attachedAtIso, parsedBody.itemId]
     );
 
     const updatedRow = updatedResult.rows[0];
