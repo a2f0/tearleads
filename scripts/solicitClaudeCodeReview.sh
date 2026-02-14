@@ -48,15 +48,31 @@ if [ -z "$DIFF" ]; then
   exit 1
 fi
 
-# Build the review prompt
-PROMPT="Review this PR diff for code quality, bugs, security issues, and style. Be concise and actionable. Output your review to stdout.
+# Load review instructions if available
+REVIEW_INSTRUCTIONS=""
+if [ -f "$ROOT_DIR/REVIEW.md" ]; then
+  REVIEW_INSTRUCTIONS=$(cat "$ROOT_DIR/REVIEW.md")
+fi
 
+# Build the review prompt
+PROMPT="Review this PR diff using the project's review guidelines. Be concise and actionable.
+
+## Review Guidelines
+$REVIEW_INSTRUCTIONS
+
+## PR Context
 Branch: $BRANCH
 PR: #$PR_NUMBER
 Base: $BASE_REF
 
-Diff:
-$DIFF"
+## Diff
+$DIFF
+
+## Instructions
+- Flag security issues, type safety violations, and missing tests as high priority
+- Use severity levels: Blocker, Major, Minor, Suggestion
+- Be concise: one line per issue with file:line reference
+- Output your review to stdout"
 
 # Run Claude Code in print mode (non-interactive, outputs to stdout)
 exec claude --print "$PROMPT"
