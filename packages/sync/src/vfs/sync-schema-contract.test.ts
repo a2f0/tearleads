@@ -148,6 +148,36 @@ describe('sync schema contract', () => {
     ).toEqual([]);
   });
 
+  it('keeps share routes off legacy vfs_access and vfs_folders tables', () => {
+    const syncPackageRoot = process.cwd();
+    const shareRouteSources = [
+      '../api/src/routes/vfs-shares/get-items-itemId-shares.ts',
+      '../api/src/routes/vfs-shares/post-items-itemId-shares.ts',
+      '../api/src/routes/vfs-shares/patch-shares-shareId.ts',
+      '../api/src/routes/vfs-shares/delete-shares-shareId.ts',
+      '../api/src/routes/vfs-shares/post-items-itemId-org-shares.ts',
+      '../api/src/routes/vfs-shares/delete-org-shares-shareId.ts',
+      '../api/src/routes/vfs-shares/get-share-targets-search.ts'
+    ].map((relativePath) =>
+      readFileSync(resolve(syncPackageRoot, relativePath), 'utf8')
+    );
+
+    const routeSql = shareRouteSources.flatMap((source) =>
+      extractSqlLiteralsFromSource(source)
+    );
+    const routeReferences = Array.from(
+      new Set(routeSql.flatMap((sql) => extractSqlTableReferences(sql)))
+    ).sort((left, right) => left.localeCompare(right));
+
+    /**
+     * Guardrail: while `vfs_shares` is still active, we must not reintroduce
+     * direct coupling to pre-flattened sharing/folder tables.
+     */
+    expect(routeReferences).toEqual(expect.arrayContaining(['vfs_shares']));
+    expect(routeReferences).not.toContain('vfs_access');
+    expect(routeReferences).not.toContain('vfs_folders');
+  });
+
   it('detects SQL references that fall outside the flattened contract', () => {
     const unexpectedSql = `
       SELECT * FROM legacy_vfs_shadow_table;
