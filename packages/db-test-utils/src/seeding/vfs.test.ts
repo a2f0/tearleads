@@ -29,6 +29,7 @@ describe('ensureVfsRoot', () => {
           .where(eq(vfsRegistry.id, VFS_ROOT_ID));
         expect(registry.length).toBe(1);
         expect(registry[0]?.objectType).toBe('folder');
+        expect(registry[0]?.encryptedName).toBe('VFS Root');
 
         const folder = await db
           .select()
@@ -109,6 +110,12 @@ describe('seedFolder', () => {
           .from(vfsFolders)
           .where(eq(vfsFolders.id, folderId));
         expect(folder[0]?.encryptedName).toBe('My Custom Folder');
+
+        const registry = await db
+          .select()
+          .from(vfsRegistry)
+          .where(eq(vfsRegistry.id, folderId));
+        expect(registry[0]?.encryptedName).toBe('My Custom Folder');
       },
       { migrations: vfsTestMigrations }
     );
@@ -143,6 +150,12 @@ describe('seedFolder', () => {
           .from(vfsFolders)
           .where(eq(vfsFolders.id, folderId));
         expect(folder[0]?.icon).toBe('star');
+
+        const registry = await db
+          .select()
+          .from(vfsRegistry)
+          .where(eq(vfsRegistry.id, folderId));
+        expect(registry[0]?.icon).toBe('star');
       },
       { migrations: vfsTestMigrations }
     );
@@ -158,6 +171,12 @@ describe('seedFolder', () => {
           .from(vfsFolders)
           .where(eq(vfsFolders.id, folderId));
         expect(folder[0]?.viewMode).toBe('grid');
+
+        const registry = await db
+          .select()
+          .from(vfsRegistry)
+          .where(eq(vfsRegistry.id, folderId));
+        expect(registry[0]?.viewMode).toBe('grid');
       },
       { migrations: vfsTestMigrations }
     );

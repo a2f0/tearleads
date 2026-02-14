@@ -101,6 +101,7 @@ describe('VFS Folder Integration: Create and Fetch', () => {
 
         expect(registryRows).toHaveLength(1);
         expect(registryRows[0]?.objectType).toBe('folder');
+        expect(registryRows[0]?.encryptedName).toBe(folderName);
 
         const folderRows = await db
           .select()

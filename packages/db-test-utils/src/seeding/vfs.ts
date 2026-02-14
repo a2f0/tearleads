@@ -63,6 +63,7 @@ export async function ensureVfsRoot(db: Database): Promise<void> {
       id: VFS_ROOT_ID,
       objectType: 'folder',
       ownerId: null,
+      encryptedName: 'VFS Root',
       createdAt: now
     })
     .onConflictDoNothing();
@@ -112,6 +113,9 @@ export async function seedFolder(
     id,
     objectType: 'folder',
     ownerId,
+    encryptedName: name,
+    icon,
+    viewMode,
     createdAt: now
   });
 

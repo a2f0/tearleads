@@ -200,10 +200,14 @@ describe('useCreateVfsFolder', () => {
   it('inserts VFS root with onConflictDoNothing when creating folder without parent', async () => {
     let insertCount = 0;
     const insertedIds: string[] = [];
+    const insertedValues: Array<Record<string, unknown>> = [];
     const localMockInsert = vi.fn(() => ({
       values: vi.fn((val) => {
         insertCount++;
         if (val.id) insertedIds.push(val.id);
+        if (typeof val === 'object' && val !== null) {
+          insertedValues.push(val as Record<string, unknown>);
+        }
         return {
           onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
         };
@@ -235,19 +239,25 @@ describe('useCreateVfsFolder', () => {
     // First two inserts should be for VFS root (with onConflictDoNothing)
     expect(insertedIds[0]).toBe(VFS_ROOT_ID);
     expect(insertedIds[1]).toBe(VFS_ROOT_ID);
+    expect(insertedValues[0]?.['encryptedName']).toBe('VFS Root');
 
     // Third and fourth should be for the new folder
     expect(insertedIds[2]).toBe('test-uuid-1234');
     expect(insertedIds[3]).toBe('test-uuid-1234');
+    expect(insertedValues[2]?.['encryptedName']).toBe('New Folder');
   });
 
   it('does not insert VFS root when creating folder with explicit parent', async () => {
     let insertCount = 0;
     const insertedIds: string[] = [];
+    const insertedValues: Array<Record<string, unknown>> = [];
     const localMockInsert = vi.fn(() => ({
       values: vi.fn((val) => {
         insertCount++;
         if (val.id) insertedIds.push(val.id);
+        if (typeof val === 'object' && val !== null) {
+          insertedValues.push(val as Record<string, unknown>);
+        }
         return {
           onConflictDoNothing: vi.fn().mockResolvedValue(undefined)
         };
@@ -277,5 +287,6 @@ describe('useCreateVfsFolder', () => {
 
     // First insert should be the new folder, not the VFS root
     expect(insertedIds[0]).toBe('test-uuid-1234');
+    expect(insertedValues[0]?.['encryptedName']).toBe('New Folder');
   });
 });
