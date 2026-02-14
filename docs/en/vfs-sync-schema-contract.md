@@ -47,8 +47,7 @@ From the generated Postgres schema (`packages/db/src/generated/postgresql/schema
 the flattening inventory currently reports these candidate VFS tables as outside
 the sync-critical contract:
 
-1. `vfs_folders`
-2. `vfs_shares`
+1. `vfs_shares`
 
 `vfs_access` is retired from canonical runtime schema as of `v027`, but remains
 on the SQL guardrail block-list to fail closed if legacy references are
@@ -64,8 +63,10 @@ folder parity before any future `vfs_folders` drop.
 `v032` records explicit retirement checkpoint snapshots after parity checks to
 support rollback-aware drop planning.
 `v033` drops `vfs_folders` in API/Postgres migrations after guardrails pass.
-Local-client compatibility paths may still retain `vfs_folders` while staged
-client cutover completes.
+`v034` finalizes retirement by removing checkpoint scaffolding and requiring
+`vfs_folders` to remain absent on Postgres.
+Local-client compatibility paths still retain `vfs_folders` in SQLite while
+staged client cutover completes.
 
 ## Domain Mapping
 

@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { allTables } from '../src/schema/definition.js';
+import { sqliteRuntimeTables } from '../src/schema/definition.js';
 import { generateSqliteSchema } from '../src/generators/sqlite.js';
 
 const outputPath = path.resolve(
@@ -9,7 +9,7 @@ const outputPath = path.resolve(
   '../src/generated/sqlite/schema.ts'
 );
 
-const schemaCode = generateSqliteSchema(allTables);
+const schemaCode = generateSqliteSchema(sqliteRuntimeTables);
 
 fs.mkdirSync(path.dirname(outputPath), { recursive: true });
 fs.writeFileSync(outputPath, schemaCode);
