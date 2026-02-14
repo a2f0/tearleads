@@ -55,6 +55,19 @@ describe('WeightForm', () => {
     expect(mockOnSubmit).not.toHaveBeenCalled();
   });
 
+  it('shows validation error when date is cleared', async () => {
+    const user = userEvent.setup();
+    render(<WeightForm onSubmit={mockOnSubmit} />);
+
+    const dateInput = screen.getByLabelText('Date & Time');
+    await user.clear(dateInput);
+    await user.type(screen.getByLabelText('Weight'), '185');
+    await user.click(screen.getByRole('button', { name: 'Add Reading' }));
+
+    expect(screen.getByText('Date is required')).toBeInTheDocument();
+    expect(mockOnSubmit).not.toHaveBeenCalled();
+  });
+
   it('submits form with valid data', async () => {
     const user = userEvent.setup();
     render(<WeightForm onSubmit={mockOnSubmit} />);

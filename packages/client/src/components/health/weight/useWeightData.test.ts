@@ -67,6 +67,23 @@ describe('useWeightData', () => {
     expect(result.current.hasFetched).toBe(false);
   });
 
+  it('throws error when adding reading while locked', async () => {
+    mockIsUnlocked = false;
+    mockTracker = null;
+
+    const { result } = renderHook(() => useWeightData());
+
+    const input = {
+      recordedAt: '2024-01-16T10:00:00.000Z',
+      value: 184.0,
+      unit: 'lb' as const
+    };
+
+    await expect(result.current.addReading(input)).rejects.toThrow(
+      'Database is locked'
+    );
+  });
+
   it('adds a reading and refreshes', async () => {
     const newReading = {
       id: 'weight_3',

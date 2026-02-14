@@ -155,6 +155,12 @@ describe('Health', () => {
     expect(screen.getByTestId('height-detail-placeholder')).toBeTruthy();
   });
 
+  it('shows overview for invalid route segment', () => {
+    renderHealth({ initialEntries: ['/health/invalid-route'] });
+    expect(screen.getByText('Open Height Tracking')).toBeTruthy();
+    expect(screen.queryByTestId('health-detail-height')).toBeNull();
+  });
+
   it('shows the back link by default', () => {
     renderHealth();
     expect(screen.getByText('Back to Home')).toBeTruthy();
