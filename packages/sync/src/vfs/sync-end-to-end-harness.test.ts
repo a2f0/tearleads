@@ -30,7 +30,10 @@ function toSyncItem(operation: VfsCrdtOperation): VfsCrdtSyncItem {
   };
 }
 
-function compareFeedItems(left: VfsCrdtSyncItem, right: VfsCrdtSyncItem): number {
+function compareFeedItems(
+  left: VfsCrdtSyncItem,
+  right: VfsCrdtSyncItem
+): number {
   const leftMs = Date.parse(left.occurredAt);
   const rightMs = Date.parse(right.occurredAt);
 

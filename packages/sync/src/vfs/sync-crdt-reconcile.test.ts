@@ -1,5 +1,4 @@
 import { describe, expect, it } from 'vitest';
-import { encodeVfsSyncCursor } from './sync-cursor.js';
 import {
   InMemoryVfsCrdtClientStateStore,
   mergeVfsCrdtLastReconciledWriteIds,
@@ -7,6 +6,7 @@ import {
   parseVfsCrdtReconcilePayload,
   reconcileVfsCrdtClientState
 } from './sync-crdt-reconcile.js';
+import { encodeVfsSyncCursor } from './sync-cursor.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {

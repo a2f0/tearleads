@@ -110,8 +110,7 @@ function parseBlobAttachConsistency(
   if (!requiredCursorRaw) {
     return {
       ok: false,
-      error:
-        'requiredCursor is required when reconcile guardrails are provided'
+      error: 'requiredCursor is required when reconcile guardrails are provided'
     };
   }
 
@@ -240,7 +239,9 @@ export const postBlobsStageStagingIdAttachHandler = async (
         inTransaction = false;
         res
           .status(409)
-          .json({ error: 'Client reconcile state is behind required visibility' });
+          .json({
+            error: 'Client reconcile state is behind required visibility'
+          });
         return;
       }
 
@@ -273,7 +274,9 @@ export const postBlobsStageStagingIdAttachHandler = async (
         inTransaction = false;
         res
           .status(409)
-          .json({ error: 'Client reconcile state is behind required visibility' });
+          .json({
+            error: 'Client reconcile state is behind required visibility'
+          });
         return;
       }
     }
