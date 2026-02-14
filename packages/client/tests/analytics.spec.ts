@@ -86,10 +86,23 @@ test.describe('Analytics page', () => {
 
   test('should navigate to analytics page', async ({ page }) => {
     await navigateTo(page, 'Analytics');
-    // Wait for the page to be ready (increased timeout for CI environments)
-    await expect(
-      page.getByRole('heading', { name: 'Analytics' })
-    ).toBeVisible({ timeout: 15000 });
+    // Wait for network to be idle
+    await page.waitForLoadState('networkidle');
+    // Log what's on the page if heading not found
+    const heading = page.getByRole('heading', { name: 'Analytics' });
+    try {
+      await expect(heading).toBeVisible({ timeout: 5000 });
+    } catch {
+      // Take screenshot and log body HTML for debugging
+      await page.screenshot({ path: 'test-results/analytics-debug.png' });
+      const bodyHtml = await page.evaluate(
+        () => document.body?.innerHTML?.slice(0, 2000) || 'NO BODY'
+      );
+      console.log('Page body (first 2000 chars):', bodyHtml);
+      console.log('Page URL:', page.url());
+      // Now fail with the original error
+      await expect(heading).toBeVisible({ timeout: 1000 });
+    }
   });
 
   test('should show inline unlock when database is not unlocked', async ({
