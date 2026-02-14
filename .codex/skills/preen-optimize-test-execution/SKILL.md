@@ -8,6 +8,8 @@ description: Tune CI impact analysis by keeping workflow filters aligned with pa
 
 Dependency-aware impact analysis system that decides which CI jobs and local checks should run based on changed files.
 
+> **See also**: [`.github/AGENTS.md`](../../.github/AGENTS.md) for full CI architecture documentation including workflow relationships, version bump automation, and agent interaction guidelines.
+
 ## System Overview
 
 The impact system operates at two levels:
