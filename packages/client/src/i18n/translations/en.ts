@@ -5,6 +5,8 @@ export const en = {
     language: 'Language',
     languageName: 'English',
     selectLanguage: 'Select language',
+    showFlag: 'Show flag',
+    showAbbreviation: 'Show abbreviation',
     settings: 'Settings',
     theme: 'Theme',
     themeDescription: 'Choose your preferred color theme',

@@ -5,6 +5,8 @@ export const ua = {
     language: 'Мова',
     languageName: 'Українська',
     selectLanguage: 'Вибрати мову',
+    showFlag: 'Показати прапор',
+    showAbbreviation: 'Показати абревіатуру',
     settings: 'Налаштування',
     theme: 'Тема',
     themeDescription: 'Виберіть бажану колірну тему',

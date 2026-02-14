@@ -322,6 +322,7 @@ function App() {
             <WindowConnectionIndicator
               state={sse.connectionState}
               tooltip={t(sseTooltipKeys[sse.connectionState])}
+              onClick={handleShowConnectionDetails}
               onContextMenu={handleSseContextMenu}
             />
           )}

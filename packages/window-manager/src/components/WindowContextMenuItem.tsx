@@ -31,7 +31,7 @@ export function WindowContextMenuItem({
     <button
       type="button"
       className={cn(
-        'flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm disabled:pointer-events-none disabled:opacity-50',
+        'flex w-full items-center gap-2 whitespace-nowrap rounded-sm px-2 py-1.5 text-sm disabled:pointer-events-none disabled:opacity-50',
         VARIANT_CLASSNAMES[variant],
         className
       )}

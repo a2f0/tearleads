@@ -2,6 +2,8 @@ export interface CommonTranslations {
   language: string;
   languageName: string;
   selectLanguage: string;
+  showFlag: string;
+  showAbbreviation: string;
   settings: string;
   theme: string;
   themeDescription: string;
