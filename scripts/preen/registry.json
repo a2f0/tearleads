@@ -114,6 +114,18 @@
         "./scripts/checkPreenEcosystem.sh --summary"
       ],
       "metricCountCommand": "./scripts/checkPreenEcosystem.sh --count-issues"
+    },
+    {
+      "id": "preen-compliance-docs",
+      "purpose": "Audit compliance documentation for gaps and cross-framework parity",
+      "checklistLabel": "Compliance documentation gaps and parity",
+      "qualityMetric": "Compliance documentation gaps (missing triads + unnumbered files)",
+      "security": false,
+      "discoveryCommands": [
+        "for fw in HIPAA NIST.SP.800-53 SOC2; do echo \"=== $fw ===\"; echo \"Policies: $(ls compliance/$fw/policies/*.md 2>/dev/null | wc -l | tr -d ' ')\"; echo \"Procedures: $(ls compliance/$fw/procedures/*.md 2>/dev/null | wc -l | tr -d ' ')\"; echo \"Controls: $(ls compliance/$fw/technical-controls/*.md 2>/dev/null | wc -l | tr -d ' ')\"; done",
+        "find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -10"
+      ],
+      "metricCountCommand": "gaps=0; for fw in HIPAA NIST.SP.800-53 SOC2; do for policy in $(ls compliance/$fw/policies/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/-policy\\.md//'); do [ ! -f \"compliance/$fw/procedures/${policy}-procedure.md\" ] && gaps=$((gaps + 1)); [ ! -f \"compliance/$fw/technical-controls/${policy}-control-map.md\" ] && gaps=$((gaps + 1)); done; done; unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l); echo $((gaps + unnumbered))"
     }
   ]
 }
