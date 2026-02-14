@@ -126,7 +126,9 @@ describe('VFS CRDT push route', () => {
       .send('invalid-payload');
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({ error: 'clientId and operations are required' });
+    expect(response.body).toEqual({
+      error: 'clientId and operations are required'
+    });
   });
 
   it('returns 400 when operations is not an array', async () => {
@@ -352,9 +354,7 @@ describe('VFS CRDT push route', () => {
       clientId: 'desktop',
       results: [{ opId: 'desktop-1', status: 'applied' }]
     });
-    expect(mockQuery.mock.calls[3]?.[0]).toContain(
-      'WHERE source_table = $1'
-    );
+    expect(mockQuery.mock.calls[3]?.[0]).toContain('WHERE source_table = $1');
     expect(mockQuery.mock.calls[4]?.[0]).toContain('MAX(occurred_at)');
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
   });

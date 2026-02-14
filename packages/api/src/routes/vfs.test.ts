@@ -360,7 +360,9 @@ describe('VFS routes', () => {
         });
 
       expect(response.status).toBe(400);
-      expect(response.body).toEqual({ error: 'expiresAt must be in the future' });
+      expect(response.body).toEqual({
+        error: 'expiresAt must be in the future'
+      });
       expect(mockQuery).not.toHaveBeenCalled();
     });
 
