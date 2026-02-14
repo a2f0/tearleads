@@ -5,7 +5,7 @@ import { normalizeRequiredString } from './blob-shared.js';
 
 interface BlobStagingStateRow {
   id: string;
-  staged_by: string;
+  staged_by: string | null;
   status: string;
 }
 
@@ -35,10 +35,22 @@ export const postBlobsStageStagingIdAbandonHandler = async (
 
     const stagedResult = await client.query<BlobStagingStateRow>(
       `
-      SELECT id, staged_by, status
-      FROM vfs_blob_staging
-      WHERE id = $1::text
-      FOR UPDATE
+      SELECT
+        stage_registry.id AS id,
+        stage_registry.owner_id AS staged_by,
+        CASE stage_link.wrapped_session_key
+          WHEN 'blob-stage:staged' THEN 'staged'
+          WHEN 'blob-stage:attached' THEN 'attached'
+          WHEN 'blob-stage:abandoned' THEN 'abandoned'
+          ELSE 'invalid'
+        END AS status
+      FROM vfs_registry AS stage_registry
+      INNER JOIN vfs_links AS stage_link
+        ON stage_link.id = stage_registry.id
+       AND stage_link.parent_id = stage_registry.id
+      WHERE stage_registry.id = $1::text
+        AND stage_registry.object_type = 'blobStage'
+      FOR UPDATE OF stage_registry, stage_link
       `,
       [stagingId]
     );
@@ -65,14 +77,30 @@ export const postBlobsStageStagingIdAbandonHandler = async (
       return;
     }
 
+    const abandonedAtIso = new Date().toISOString();
+    /**
+     * Guardrail: abandon is only valid for staged rows. Conditional update keeps
+     * attach/abandon races deterministic.
+     */
     const updatedResult = await client.query(
       `
-      UPDATE vfs_blob_staging
-      SET status = 'abandoned'
+      UPDATE vfs_links
+      SET wrapped_session_key = 'blob-stage:abandoned',
+          visible_children = jsonb_set(
+            jsonb_set(
+              COALESCE(vfs_links.visible_children::jsonb, '{}'::jsonb),
+              '{status}',
+              to_jsonb('abandoned'::text),
+              true
+            ),
+            '{abandonedAt}',
+            to_jsonb($2::text),
+            true
+          )::json
       WHERE id = $1::text
-        AND status = 'staged'
+        AND wrapped_session_key = 'blob-stage:staged'
       `,
-      [stagingId]
+      [stagingId, abandonedAtIso]
     );
 
     if ((updatedResult.rowCount ?? 0) < 1) {
