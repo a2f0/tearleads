@@ -9,12 +9,17 @@ describe('MessageType', () => {
   it('should have PING constant', () => {
     expect(MessageType.PING).toBe('PING');
   });
+
+  it('should have INJECT_CONTENT_SCRIPT constant', () => {
+    expect(MessageType.INJECT_CONTENT_SCRIPT).toBe('INJECT_CONTENT_SCRIPT');
+  });
 });
 
 describe('isValidMessageType', () => {
   it('should return true for valid message types', () => {
     expect(isValidMessageType('GET_TAB_INFO')).toBe(true);
     expect(isValidMessageType('PING')).toBe(true);
+    expect(isValidMessageType('INJECT_CONTENT_SCRIPT')).toBe(true);
   });
 
   it('should return false for invalid message types', () => {
