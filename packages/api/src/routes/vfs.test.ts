@@ -474,6 +474,7 @@ describe('VFS routes', () => {
       });
       expect(mockQuery.mock.calls[0]?.[0]).toBe('BEGIN');
       expect(mockQuery.mock.calls[1]?.[0]).toContain('FOR UPDATE');
+      expect(mockQuery.mock.calls[2]?.[0]).toContain("AND status = 'staged'");
       expect(mockQuery.mock.calls[4]?.[0]).toBe('COMMIT');
       expect(mockPoolConnect).toHaveBeenCalledTimes(1);
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
@@ -507,6 +508,90 @@ describe('VFS routes', () => {
       });
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
+
+    it('returns 403 when staged blob belongs to a different user', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-2',
+              status: 'staged',
+              expires_at: '2099-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1' });
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({ error: 'Forbidden' });
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 409 when staged blob has expired', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: '2000-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1' });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({ error: 'Blob staging has expired' });
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 409 when update guardrail detects attach race', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: '2099-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT
+        .mockResolvedValueOnce({ rows: [] }) // guarded UPDATE
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1' });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Blob staging is no longer attachable'
+      });
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('POST /vfs/blobs/stage/:stagingId/abandon', () => {
@@ -526,7 +611,7 @@ describe('VFS routes', () => {
         .mockResolvedValueOnce({
           rows: [{ id: 'stage-1', staged_by: 'user-1', status: 'staged' }]
         }) // SELECT FOR UPDATE
-        .mockResolvedValueOnce({}) // UPDATE
+        .mockResolvedValueOnce({ rowCount: 1 }) // UPDATE
         .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
@@ -541,6 +626,48 @@ describe('VFS routes', () => {
         status: 'abandoned'
       });
       expect(mockQuery.mock.calls[1]?.[0]).toContain('FOR UPDATE');
+      expect(mockQuery.mock.calls[2]?.[0]).toContain("AND status = 'staged'");
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 403 when staged blob belongs to a different user', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'stage-1', staged_by: 'user-2', status: 'staged' }]
+        }) // SELECT
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/abandon')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(403);
+      expect(response.body).toEqual({ error: 'Forbidden' });
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 409 when update guardrail detects abandon race', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [{ id: 'stage-1', staged_by: 'user-1', status: 'staged' }]
+        }) // SELECT
+        .mockResolvedValueOnce({ rowCount: 0 }) // guarded UPDATE
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/abandon')
+        .set('Authorization', authHeader)
+        .send({});
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Blob staging is no longer abandonable'
+      });
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
   });

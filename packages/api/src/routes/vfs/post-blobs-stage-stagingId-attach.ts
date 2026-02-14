@@ -97,6 +97,7 @@ export const postBlobsStageStagingIdAttachHandler = async (
           attached_at = NOW(),
           attached_item_id = $2::text
       WHERE id = $1::text
+        AND status = 'staged'
       RETURNING blob_id, attached_at, attached_item_id
       `,
       [stagingId, parsedBody.itemId]
@@ -104,7 +105,10 @@ export const postBlobsStageStagingIdAttachHandler = async (
 
     const updatedRow = updatedResult.rows[0];
     if (!updatedRow) {
-      throw new Error('Failed to update blob staging attach state');
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      res.status(409).json({ error: 'Blob staging is no longer attachable' });
+      return;
     }
 
     const insertedRef = await client.query<{
