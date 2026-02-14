@@ -14,7 +14,9 @@ export {
   type VfsBlobStageStatus
 } from './sync-blob-commit.js';
 export {
+  assertCanonicalVfsCrdtOperationOrder,
   InMemoryVfsCrdtStateStore,
+  reconcileCanonicalVfsCrdtOperations,
   reconcileVfsCrdtOperations,
   type VfsCrdtAclEntry,
   type VfsCrdtApplyResult,
@@ -22,6 +24,8 @@ export {
   type VfsCrdtLinkEntry,
   type VfsCrdtOperation,
   type VfsCrdtOpType,
+  type VfsCrdtOrderViolationCode,
+  VfsCrdtOrderViolationError,
   type VfsCrdtSnapshot
 } from './sync-crdt.js';
 export {
@@ -30,6 +34,7 @@ export {
   type VfsSyncCursor
 } from './sync-cursor.js';
 export {
+  assertStronglyConsistentVfsSyncRows,
   type BuildVfsSyncQueryInput,
   buildVfsSyncQuery,
   mapVfsSyncRows,
@@ -38,7 +43,9 @@ export {
   type ParseVfsSyncQueryResult,
   parseVfsSyncQuery,
   type VfsSyncDbQuery,
-  type VfsSyncDbRow
+  type VfsSyncDbRow,
+  type VfsSyncOrderViolationCode,
+  VfsSyncOrderViolationError
 } from './sync-engine.js';
 export {
   compareVfsSyncCursorOrder,

@@ -49,6 +49,28 @@ export interface VfsCrdtSnapshot {
   lastReconciledWriteIds: Record<string, number>;
 }
 
+export type VfsCrdtOrderViolationCode =
+  | 'invalidOperation'
+  | 'duplicateOpId'
+  | 'outOfOrderFeed'
+  | 'nonMonotonicReplicaWriteId';
+
+export class VfsCrdtOrderViolationError extends Error {
+  readonly code: VfsCrdtOrderViolationCode;
+  readonly operationIndex: number;
+
+  constructor(
+    code: VfsCrdtOrderViolationCode,
+    operationIndex: number,
+    message: string
+  ) {
+    super(message);
+    this.name = 'VfsCrdtOrderViolationError';
+    this.code = code;
+    this.operationIndex = operationIndex;
+  }
+}
+
 interface ParsedStamp {
   replicaId: string;
   writeId: number;
@@ -212,6 +234,26 @@ function compareParsedStamps(left: ParsedStamp, right: ParsedStamp): number {
   return 0;
 }
 
+function compareFeedOrder(left: ParsedStamp, right: ParsedStamp): number {
+  if (left.occurredAtMs < right.occurredAtMs) {
+    return -1;
+  }
+
+  if (left.occurredAtMs > right.occurredAtMs) {
+    return 1;
+  }
+
+  if (left.opId < right.opId) {
+    return -1;
+  }
+
+  if (left.opId > right.opId) {
+    return 1;
+  }
+
+  return 0;
+}
+
 function toAclKey(
   itemId: string,
   principalType: VfsAclPrincipalType,
@@ -304,6 +346,66 @@ function toSortedLastWriteIds(
   return result;
 }
 
+/**
+ * Guardrail: canonical CRDT feeds must be strictly ordered by
+ * (occurredAt ASC, opId ASC) and each replica's writeId must increase.
+ */
+export function assertCanonicalVfsCrdtOperationOrder(
+  operations: VfsCrdtOperation[]
+): void {
+  const seenOpIds = new Set<string>();
+  const lastReplicaWriteId = new Map<string, number>();
+  let previousStamp: ParsedStamp | null = null;
+
+  for (let index = 0; index < operations.length; index++) {
+    const operation = operations[index];
+    if (!operation) {
+      continue;
+    }
+
+    const stamp = parseStamp(operation);
+    if (!stamp) {
+      throw new VfsCrdtOrderViolationError(
+        'invalidOperation',
+        index,
+        `CRDT operation ${index} is invalid`
+      );
+    }
+
+    if (seenOpIds.has(stamp.opId)) {
+      throw new VfsCrdtOrderViolationError(
+        'duplicateOpId',
+        index,
+        `CRDT operation ${index} repeats opId ${stamp.opId}`
+      );
+    }
+    seenOpIds.add(stamp.opId);
+
+    const previousReplicaWriteId = lastReplicaWriteId.get(stamp.replicaId);
+    if (
+      previousReplicaWriteId !== undefined &&
+      stamp.writeId <= previousReplicaWriteId
+    ) {
+      throw new VfsCrdtOrderViolationError(
+        'nonMonotonicReplicaWriteId',
+        index,
+        `CRDT operation ${index} has non-monotonic writeId for replica ${stamp.replicaId}`
+      );
+    }
+    lastReplicaWriteId.set(stamp.replicaId, stamp.writeId);
+
+    if (previousStamp && compareFeedOrder(previousStamp, stamp) >= 0) {
+      throw new VfsCrdtOrderViolationError(
+        'outOfOrderFeed',
+        index,
+        `CRDT operation ${index} violates feed ordering`
+      );
+    }
+
+    previousStamp = stamp;
+  }
+}
+
 export class InMemoryVfsCrdtStateStore {
   private readonly lastReconciledWriteByReplica: Map<string, number> =
     new Map();
@@ -392,6 +494,13 @@ export class InMemoryVfsCrdtStateStore {
     return operations.map((operation) => this.apply(operation));
   }
 
+  applyManyInCanonicalOrder(
+    operations: VfsCrdtOperation[]
+  ): VfsCrdtApplyResult[] {
+    assertCanonicalVfsCrdtOperationOrder(operations);
+    return this.applyMany(operations);
+  }
+
   snapshot(): VfsCrdtSnapshot {
     const acl: VfsCrdtAclEntry[] = [];
     for (const register of this.aclRegisters.values()) {
@@ -451,5 +560,13 @@ export function reconcileVfsCrdtOperations(
 ): VfsCrdtSnapshot {
   const store = new InMemoryVfsCrdtStateStore();
   store.applyMany(operations);
+  return store.snapshot();
+}
+
+export function reconcileCanonicalVfsCrdtOperations(
+  operations: VfsCrdtOperation[]
+): VfsCrdtSnapshot {
+  const store = new InMemoryVfsCrdtStateStore();
+  store.applyManyInCanonicalOrder(operations);
   return store.snapshot();
 }

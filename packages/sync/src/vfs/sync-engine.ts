@@ -78,6 +78,28 @@ export interface VfsSyncDbRow {
   access_level: string;
 }
 
+export type VfsSyncOrderViolationCode =
+  | 'invalidChangedAt'
+  | 'missingChangeId'
+  | 'duplicateChangeId'
+  | 'outOfOrderRow';
+
+export class VfsSyncOrderViolationError extends Error {
+  readonly code: VfsSyncOrderViolationCode;
+  readonly rowIndex: number;
+
+  constructor(
+    code: VfsSyncOrderViolationCode,
+    rowIndex: number,
+    message: string
+  ) {
+    super(message);
+    this.name = 'VfsSyncOrderViolationError';
+    this.code = code;
+    this.rowIndex = rowIndex;
+  }
+}
+
 function isValidObjectType(value: unknown): value is VfsObjectType {
   return (
     typeof value === 'string' &&
@@ -124,6 +146,87 @@ function toIsoString(value: Date | string): string | null {
   }
 
   return new Date(parsed).toISOString();
+}
+
+function parseChangedAtMs(value: Date | string): number | null {
+  if (value instanceof Date) {
+    const asMs = value.getTime();
+    return Number.isFinite(asMs) ? asMs : null;
+  }
+
+  const parsed = Date.parse(value);
+  if (!Number.isFinite(parsed)) {
+    return null;
+  }
+
+  return parsed;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * Guardrail: page rows must already be globally ordered by
+ * (changed_at ASC, change_id ASC) and change_id must be unique.
+ * Without this invariant, cursor pagination can skip or replay rows.
+ */
+export function assertStronglyConsistentVfsSyncRows(
+  rows: VfsSyncDbRow[]
+): void {
+  const seenChangeIds = new Set<string>();
+  let previous: { changedAtMs: number; changeId: string } | null = null;
+
+  for (let index = 0; index < rows.length; index++) {
+    const row = rows[index];
+    if (!row) {
+      continue;
+    }
+
+    if (!isNonEmptyString(row.change_id)) {
+      throw new VfsSyncOrderViolationError(
+        'missingChangeId',
+        index,
+        `Sync row ${index} is missing change_id`
+      );
+    }
+
+    if (seenChangeIds.has(row.change_id)) {
+      throw new VfsSyncOrderViolationError(
+        'duplicateChangeId',
+        index,
+        `Sync row ${index} repeats change_id ${row.change_id}`
+      );
+    }
+    seenChangeIds.add(row.change_id);
+
+    const changedAtMs = parseChangedAtMs(row.changed_at);
+    if (changedAtMs === null) {
+      throw new VfsSyncOrderViolationError(
+        'invalidChangedAt',
+        index,
+        `Sync row ${index} has invalid changed_at`
+      );
+    }
+
+    if (
+      previous &&
+      (changedAtMs < previous.changedAtMs ||
+        (changedAtMs === previous.changedAtMs &&
+          row.change_id <= previous.changeId))
+    ) {
+      throw new VfsSyncOrderViolationError(
+        'outOfOrderRow',
+        index,
+        `Sync row ${index} violates required ordering`
+      );
+    }
+
+    previous = {
+      changedAtMs,
+      changeId: row.change_id
+    };
+  }
 }
 
 type ParseStringResult =
@@ -334,14 +437,25 @@ export function mapVfsSyncRows(
   rows: VfsSyncDbRow[],
   limit: number
 ): VfsSyncResponse {
+  assertStronglyConsistentVfsSyncRows(rows);
+
   const hasMore = rows.length > limit;
   const pageRows = hasMore ? rows.slice(0, limit) : rows;
 
   const items: VfsSyncItem[] = [];
-  for (const row of pageRows) {
+  for (let index = 0; index < pageRows.length; index++) {
+    const row = pageRows[index];
+    if (!row) {
+      continue;
+    }
+
     const changedAt = toIsoString(row.changed_at);
     if (!changedAt) {
-      continue;
+      throw new VfsSyncOrderViolationError(
+        'invalidChangedAt',
+        index,
+        `Sync row ${index} has invalid changed_at`
+      );
     }
 
     const createdAt =

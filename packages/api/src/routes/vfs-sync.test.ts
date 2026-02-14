@@ -134,6 +134,43 @@ describe('VFS sync route', () => {
     ]);
   });
 
+  it('returns 500 when sync rows violate ordering guardrails', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          change_id: 'change-2',
+          item_id: 'item-2',
+          change_type: 'upsert',
+          changed_at: new Date('2025-01-01T00:00:01.000Z'),
+          object_type: 'folder',
+          owner_id: 'user-1',
+          created_at: new Date('2024-12-01T00:00:00.000Z'),
+          access_level: 'admin'
+        },
+        {
+          change_id: 'change-1',
+          item_id: 'item-1',
+          change_type: 'upsert',
+          changed_at: new Date('2025-01-01T00:00:00.000Z'),
+          object_type: 'folder',
+          owner_id: 'user-1',
+          created_at: new Date('2024-12-01T00:00:00.000Z'),
+          access_level: 'admin'
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .get('/v1/vfs/sync?limit=10')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({ error: 'Failed to sync VFS changes' });
+    restoreConsole();
+  });
+
   it('returns 500 when database query fails', async () => {
     const restoreConsole = mockConsoleError();
     const authHeader = await createAuthHeader();
