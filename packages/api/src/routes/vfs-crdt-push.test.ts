@@ -355,8 +355,42 @@ describe('VFS CRDT push route', () => {
     expect(mockQuery.mock.calls[3]?.[0]).toContain(
       'WHERE source_table = $1'
     );
-    expect(mockQuery.mock.calls[4]?.[0]).toContain('MAX(NULLIF(split_part');
+    expect(mockQuery.mock.calls[4]?.[0]).toContain('MAX(occurred_at)');
     expect(mockClientRelease).toHaveBeenCalledTimes(1);
+  });
+
+  it('canonicalizes occurredAt when another replica already advanced actor feed time', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery
+      .mockResolvedValueOnce({}) // BEGIN
+      .mockResolvedValueOnce({
+        rows: [{ id: 'item-1', owner_id: 'user-1' }]
+      }) // owner lookup
+      .mockResolvedValueOnce({}) // advisory lock
+      .mockResolvedValueOnce({ rows: [] }) // existing source
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            max_write_id: 0,
+            max_occurred_at: new Date('2026-02-14T20:00:05.000Z')
+          }
+        ]
+      }) // max write + max occurred_at
+      .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
+      .mockResolvedValueOnce({}); // COMMIT
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/push')
+      .set('Authorization', authHeader)
+      .send(buildValidPushPayload());
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      clientId: 'desktop',
+      results: [{ opId: 'desktop-1', status: 'applied' }]
+    });
+    expect(mockQuery.mock.calls[2]?.[1]?.[0]).toBe('vfs_crdt_feed:user-1');
+    expect(mockQuery.mock.calls[5]?.[1]?.[10]).toBe('2026-02-14T20:00:05.001Z');
   });
 
   it('returns alreadyApplied when source id already exists', async () => {

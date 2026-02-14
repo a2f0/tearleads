@@ -54,6 +54,7 @@ interface ExistingSourceRow {
 
 interface MaxWriteIdRow {
   max_write_id: number | string | null;
+  max_occurred_at: Date | string | null;
 }
 
 function normalizeRequiredString(value: unknown): string | null {
@@ -283,6 +284,44 @@ function parseMaxWriteId(row: MaxWriteIdRow | undefined): number {
   return 0;
 }
 
+function parseOccurredAtMs(value: Date | string | null | undefined): number | null {
+  if (!value) {
+    return null;
+  }
+
+  if (value instanceof Date) {
+    const parsedMs = value.getTime();
+    return Number.isFinite(parsedMs) ? parsedMs : null;
+  }
+
+  const parsedMs = Date.parse(value);
+  return Number.isFinite(parsedMs) ? parsedMs : null;
+}
+
+function normalizeCanonicalOccurredAt(
+  inputOccurredAt: string,
+  maxOccurredAt: Date | string | null
+): string {
+  const inputOccurredAtMs = Date.parse(inputOccurredAt);
+  if (!Number.isFinite(inputOccurredAtMs)) {
+    throw new Error('operation occurredAt is invalid');
+  }
+
+  const maxOccurredAtMs = parseOccurredAtMs(maxOccurredAt);
+  if (maxOccurredAtMs === null) {
+    return new Date(inputOccurredAtMs).toISOString();
+  }
+
+  /**
+   * Guardrail: canonical feed pagination keys off `occurred_at`. To prevent
+   * cross-replica backfill (late commit with older client timestamp), enforce a
+   * strictly increasing per-user feed clock at write time.
+   */
+  const canonicalOccurredAtMs =
+    inputOccurredAtMs <= maxOccurredAtMs ? maxOccurredAtMs + 1 : inputOccurredAtMs;
+  return new Date(canonicalOccurredAtMs).toISOString();
+}
+
 async function rollbackQuietly(client: PoolClient): Promise<void> {
   try {
     await client.query('ROLLBACK');
@@ -394,11 +433,11 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
         continue;
       }
 
-      // Guardrail: serialize writes per (user, replica) so stale-write checks
-      // and inserts are strongly ordered under concurrent pushes.
+      // Guardrail: serialize writes per user feed so canonical `occurred_at`
+      // never regresses across replicas, preserving cursor safety.
       await client.query(
         'SELECT pg_advisory_xact_lock(hashtext($1::text))',
-        [`${claims.sub}:${operation.replicaId}`]
+        [`vfs_crdt_feed:${claims.sub}`]
       );
 
       const sourceId = toPushSourceId(claims.sub, operation);
@@ -422,14 +461,22 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
 
       const maxWriteResult = await client.query<MaxWriteIdRow>(
         `
-        SELECT COALESCE(
-          MAX(NULLIF(split_part(source_id, ':', 3), '')::bigint),
-          0
-        ) AS max_write_id
+        SELECT
+          COALESCE(
+            MAX(
+              CASE
+                WHEN position($3 in source_id) = 1
+                  AND NULLIF(split_part(source_id, ':', 3), '') ~ '^[0-9]+$'
+                  THEN split_part(source_id, ':', 3)::bigint
+                ELSE NULL
+              END
+            ),
+            0
+          ) AS max_write_id,
+          MAX(occurred_at) AS max_occurred_at
         FROM vfs_crdt_ops
         WHERE source_table = $1
           AND actor_id = $2
-          AND position($3 in source_id) = 1
         `,
         [
           CRDT_CLIENT_PUSH_SOURCE_TABLE,
@@ -438,7 +485,8 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
         ]
       );
 
-      const maxWriteId = parseMaxWriteId(maxWriteResult.rows[0]);
+      const maxWriteRow = maxWriteResult.rows[0];
+      const maxWriteId = parseMaxWriteId(maxWriteRow);
       if (operation.writeId <= maxWriteId) {
         results.push({
           opId: operation.opId,
@@ -446,6 +494,11 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
         });
         continue;
       }
+
+      const canonicalOccurredAt = normalizeCanonicalOccurredAt(
+        operation.occurredAt,
+        maxWriteRow?.max_occurred_at ?? null
+      );
 
       const insertResult = await client.query(
         `
@@ -488,7 +541,7 @@ export const postCrdtPushHandler = async (req: Request, res: Response) => {
           claims.sub,
           CRDT_CLIENT_PUSH_SOURCE_TABLE,
           sourceId,
-          operation.occurredAt
+          canonicalOccurredAt
         ]
       );
 
