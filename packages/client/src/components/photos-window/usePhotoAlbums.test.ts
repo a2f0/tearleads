@@ -38,7 +38,11 @@ describe('usePhotoAlbums', () => {
     mockSelect.mockReturnValue({ from: mockFrom });
     mockFrom.mockReturnValue({ innerJoin: mockInnerJoin, where: mockWhere });
     mockInnerJoin.mockReturnValue({ where: mockWhere });
-    mockWhere.mockResolvedValue([]);
+    // First call is for system album initialization check - return existing album
+    // Subsequent calls return empty by default
+    mockWhere
+      .mockResolvedValueOnce([{ id: 'photoroll-id' }]) // System album check
+      .mockResolvedValue([]); // Default for subsequent calls
 
     // Setup mock chain for insert
     mockInsert.mockReturnValue({ values: mockValues });
@@ -52,16 +56,21 @@ describe('usePhotoAlbums', () => {
     mockDelete.mockReturnValue({ where: mockWhere });
   });
 
-  it('returns initial state', () => {
+  it('returns initial state', async () => {
     const { result } = renderHook(() => usePhotoAlbums());
 
+    // Initial synchronous state
     expect(result.current.albums).toEqual([]);
-    expect(result.current.loading).toBe(false);
     expect(result.current.error).toBeNull();
     expect(result.current.hasFetched).toBe(false);
+
+    // Wait for async initialization to complete
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
   });
 
-  it('exposes album operations', () => {
+  it('exposes album operations', async () => {
     const { result } = renderHook(() => usePhotoAlbums());
 
     expect(typeof result.current.createAlbum).toBe('function');
@@ -70,7 +79,13 @@ describe('usePhotoAlbums', () => {
     expect(typeof result.current.addPhotoToAlbum).toBe('function');
     expect(typeof result.current.removePhotoFromAlbum).toBe('function');
     expect(typeof result.current.getPhotoIdsInAlbum).toBe('function');
+    expect(typeof result.current.getPhotoRollAlbum).toBe('function');
     expect(typeof result.current.refetch).toBe('function');
+
+    // Wait for async initialization to complete
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+    });
   });
 
   it('fetches albums on mount when unlocked', async () => {
@@ -163,17 +178,35 @@ describe('usePhotoAlbums', () => {
   });
 
   it('fetches and processes albums with photo counts', async () => {
-    // First call returns albums
-    mockWhere.mockResolvedValueOnce([
-      { id: 'album-1', name: 'Zebra Album', coverPhotoId: null },
-      { id: 'album-2', name: 'Alpha Album', coverPhotoId: 'photo-1' }
-    ]);
-    // Second call returns photo links (for counting)
-    mockWhere.mockResolvedValueOnce([
+    const albumData = [
+      {
+        id: 'album-1',
+        name: 'Zebra Album',
+        coverPhotoId: null,
+        albumType: 'custom'
+      },
+      {
+        id: 'album-2',
+        name: 'Alpha Album',
+        coverPhotoId: 'photo-1',
+        albumType: 'custom'
+      }
+    ];
+    const photoLinks = [
       { parentId: 'album-1' },
       { parentId: 'album-1' },
       { parentId: 'album-2' }
-    ]);
+    ];
+    // Reset mock to clear beforeEach setup and set up fresh sequence
+    mockWhere.mockReset();
+    // Set up mocks to always return the album data (multiple fetches may occur)
+    mockWhere
+      .mockResolvedValueOnce([{ id: 'photoroll-id' }]) // System album check
+      .mockResolvedValueOnce(albumData) // First fetch - albums
+      .mockResolvedValueOnce(photoLinks) // First fetch - counts
+      .mockResolvedValueOnce(albumData) // Second fetch - albums (from needsFetch effect)
+      .mockResolvedValueOnce(photoLinks) // Second fetch - counts
+      .mockResolvedValue([]); // Default for any additional calls
 
     const { result } = renderHook(() => usePhotoAlbums());
 
@@ -181,7 +214,7 @@ describe('usePhotoAlbums', () => {
       expect(result.current.hasFetched).toBe(true);
     });
 
-    // Albums should be sorted alphabetically
+    // Albums should be sorted alphabetically (custom albums only)
     expect(result.current.albums.length).toBe(2);
     const firstAlbum = result.current.albums[0];
     const secondAlbum = result.current.albums[1];
@@ -195,10 +228,18 @@ describe('usePhotoAlbums', () => {
   });
 
   it('handles albums with no name', async () => {
-    mockWhere.mockResolvedValueOnce([
-      { id: 'album-1', name: null, coverPhotoId: null }
-    ]);
-    mockWhere.mockResolvedValueOnce([]);
+    const albumData = [
+      { id: 'album-1', name: null, coverPhotoId: null, albumType: 'custom' }
+    ];
+    // Reset mock and set up fresh sequence
+    mockWhere.mockReset();
+    mockWhere
+      .mockResolvedValueOnce([{ id: 'photoroll-id' }]) // System album check
+      .mockResolvedValueOnce(albumData) // First fetch - albums
+      .mockResolvedValueOnce([]) // First fetch - counts
+      .mockResolvedValueOnce(albumData) // Second fetch - albums
+      .mockResolvedValueOnce([]) // Second fetch - counts
+      .mockResolvedValue([]); // Default for any additional calls
 
     const { result } = renderHook(() => usePhotoAlbums());
 
@@ -212,15 +253,24 @@ describe('usePhotoAlbums', () => {
   });
 
   it('excludes deleted files from photo counts', async () => {
-    // First call returns albums
-    mockWhere.mockResolvedValueOnce([
-      { id: 'album-1', name: 'My Album', coverPhotoId: null }
-    ]);
-    // Second call returns photo links (count query joins files to exclude deleted)
-    mockWhere.mockResolvedValueOnce([
-      { parentId: 'album-1' },
-      { parentId: 'album-1' }
-    ]);
+    const albumData = [
+      {
+        id: 'album-1',
+        name: 'My Album',
+        coverPhotoId: null,
+        albumType: 'custom'
+      }
+    ];
+    const photoLinks = [{ parentId: 'album-1' }, { parentId: 'album-1' }];
+    // Reset mock and set up fresh sequence
+    mockWhere.mockReset();
+    mockWhere
+      .mockResolvedValueOnce([{ id: 'photoroll-id' }]) // System album check
+      .mockResolvedValueOnce(albumData) // First fetch - albums
+      .mockResolvedValueOnce(photoLinks) // First fetch - counts
+      .mockResolvedValueOnce(albumData) // Second fetch - albums
+      .mockResolvedValueOnce(photoLinks) // Second fetch - counts
+      .mockResolvedValue([]); // Default for any additional calls
 
     const { result } = renderHook(() => usePhotoAlbums());
 
@@ -238,7 +288,12 @@ describe('usePhotoAlbums', () => {
 
   it('handles fetch error', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockWhere.mockRejectedValueOnce(new Error('Database error'));
+    // Reset mock and set up fresh sequence
+    mockWhere.mockReset();
+    // System album check succeeds, then all album fetches fail
+    mockWhere
+      .mockResolvedValueOnce([{ id: 'photoroll-id' }]) // System album check succeeds
+      .mockRejectedValue(new Error('Database error')); // All subsequent queries fail
 
     const { result } = renderHook(() => usePhotoAlbums());
 
@@ -251,7 +306,11 @@ describe('usePhotoAlbums', () => {
 
   it('ignores transient database-not-initialized errors', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockWhere.mockRejectedValueOnce(new Error('Database not initialized'));
+    // Reset and set up: first for system album check, second for fetch (which fails transiently)
+    mockWhere
+      .mockResolvedValueOnce([{ id: 'photoroll-id' }]) // System album check succeeds
+      .mockResolvedValueOnce([]) // Allow first fetch query
+      .mockRejectedValue(new Error('Database not initialized')); // Transient error
 
     const { result } = renderHook(() => usePhotoAlbums());
 
@@ -267,7 +326,12 @@ describe('usePhotoAlbums', () => {
 
   it('handles non-Error objects in catch', async () => {
     const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
-    mockWhere.mockRejectedValueOnce('String error');
+    // Reset mock and set up fresh sequence
+    mockWhere.mockReset();
+    // System album check succeeds, then all album fetches fail with string
+    mockWhere
+      .mockResolvedValueOnce([{ id: 'photoroll-id' }]) // System album check succeeds
+      .mockRejectedValue('String error'); // All subsequent queries fail with string
 
     const { result } = renderHook(() => usePhotoAlbums());
 

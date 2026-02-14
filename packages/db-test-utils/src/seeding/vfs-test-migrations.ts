@@ -80,7 +80,10 @@ export const vfsTestMigrations = [
       await adapter.execute(`
         CREATE TABLE IF NOT EXISTS albums (
           id TEXT PRIMARY KEY,
-          encrypted_name TEXT
+          encrypted_name TEXT,
+          encrypted_description TEXT,
+          cover_photo_id TEXT,
+          album_type TEXT NOT NULL DEFAULT 'custom'
         )
       `);
       await adapter.execute(`

@@ -1,5 +1,6 @@
 import { Camera, CameraOff, RotateCcw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { CameraReview } from './CameraReview';
 
 type CameraStatus = 'idle' | 'starting' | 'ready' | 'blocked' | 'error';
 
@@ -7,6 +8,7 @@ const PERMISSION_DENIED_ERROR = 'NotAllowedError';
 
 export interface CameraCaptureProps {
   maxCaptures?: number | undefined;
+  onPhotoAccepted?: ((dataUrl: string) => void) | undefined;
 }
 
 function getErrorMessage(error: unknown): string {
@@ -17,7 +19,10 @@ function getErrorMessage(error: unknown): string {
   return 'Unable to access the camera. Check device permissions and availability.';
 }
 
-export function CameraCapture({ maxCaptures = 20 }: CameraCaptureProps) {
+export function CameraCapture({
+  maxCaptures = 20,
+  onPhotoAccepted
+}: CameraCaptureProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -27,6 +32,10 @@ export function CameraCapture({ maxCaptures = 20 }: CameraCaptureProps) {
   const [captures, setCaptures] = useState<
     Array<{ id: string; dataUrl: string }>
   >([]);
+  const [reviewingCapture, setReviewingCapture] = useState<{
+    id: string;
+    dataUrl: string;
+  } | null>(null);
   const [facingMode, setFacingMode] = useState<'user' | 'environment'>(
     'environment'
   );
@@ -70,8 +79,22 @@ export function CameraCapture({ maxCaptures = 20 }: CameraCaptureProps) {
       streamRef.current = stream;
 
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        const video = videoRef.current;
+        video.srcObject = stream;
+
+        await new Promise<void>((resolve) => {
+          const handleLoaded = () => {
+            video.removeEventListener('loadedmetadata', handleLoaded);
+            resolve();
+          };
+          if (video.readyState >= HTMLMediaElement.HAVE_METADATA) {
+            resolve();
+          } else {
+            video.addEventListener('loadedmetadata', handleLoaded);
+          }
+        });
+
+        await video.play();
       }
 
       setStatus('ready');
@@ -114,14 +137,33 @@ export function CameraCapture({ maxCaptures = 20 }: CameraCaptureProps) {
 
     const captureId = `capture-${Date.now()}-${captureIdRef.current}`;
     captureIdRef.current += 1;
-    setCaptures((previous) =>
-      [{ id: captureId, dataUrl: captureData }, ...previous].slice(
-        0,
-        maxCaptures
-      )
-    );
+
+    // Show review screen instead of adding directly to captures
+    setReviewingCapture({ id: captureId, dataUrl: captureData });
     setErrorMessage(null);
-  }, [maxCaptures]);
+  }, []);
+
+  const handleRetake = useCallback(() => {
+    setReviewingCapture(null);
+  }, []);
+
+  const handleAccept = useCallback(
+    (dataUrl: string) => {
+      if (reviewingCapture) {
+        // Add to captures list
+        setCaptures((previous) =>
+          [{ id: reviewingCapture.id, dataUrl }, ...previous].slice(
+            0,
+            maxCaptures
+          )
+        );
+        // Notify parent if callback provided
+        onPhotoAccepted?.(dataUrl);
+      }
+      setReviewingCapture(null);
+    },
+    [reviewingCapture, maxCaptures, onPhotoAccepted]
+  );
 
   const handleClearCaptures = useCallback(() => {
     setCaptures([]);
@@ -135,6 +177,17 @@ export function CameraCapture({ maxCaptures = 20 }: CameraCaptureProps) {
 
   const canCapture = status === 'ready';
   const hasCaptures = captures.length > 0;
+
+  // Show review screen when a capture is being reviewed
+  if (reviewingCapture) {
+    return (
+      <CameraReview
+        capture={reviewingCapture}
+        onRetake={handleRetake}
+        onAccept={handleAccept}
+      />
+    );
+  }
 
   return (
     <section

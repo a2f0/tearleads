@@ -7,6 +7,19 @@ vi.mock('@tearleads/camera', () => ({
   )
 }));
 
+vi.mock('../photos-window/usePhotoAlbums', () => ({
+  usePhotoAlbums: () => ({
+    getPhotoRollAlbum: () => ({ id: 'photo-roll-id' }),
+    addPhotoToAlbum: vi.fn()
+  })
+}));
+
+vi.mock('@/hooks/useFileUpload', () => ({
+  useFileUpload: () => ({
+    uploadFile: vi.fn().mockResolvedValue({ id: 'file-id' })
+  })
+}));
+
 import { CameraWindow } from './index';
 
 describe('CameraWindow', () => {

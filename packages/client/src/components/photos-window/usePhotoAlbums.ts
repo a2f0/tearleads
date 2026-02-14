@@ -3,13 +3,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { albums, files, vfsLinks, vfsRegistry } from '@/db/schema';
+import {
+  type AlbumType,
+  type PhotoAlbum,
+  SYSTEM_ALBUM_NAMES,
+  SYSTEM_ALBUM_TYPES
+} from './albumTypes';
 
-export interface PhotoAlbum {
-  id: string;
-  name: string;
-  photoCount: number;
-  coverPhotoId: string | null;
-}
+export type { PhotoAlbum };
 
 export interface UsePhotoAlbumsResult {
   albums: PhotoAlbum[];
@@ -23,6 +24,7 @@ export interface UsePhotoAlbumsResult {
   addPhotoToAlbum: (albumId: string, photoId: string) => Promise<void>;
   removePhotoFromAlbum: (albumId: string, photoId: string) => Promise<void>;
   getPhotoIdsInAlbum: (albumId: string) => Promise<string[]>;
+  getPhotoRollAlbum: () => PhotoAlbum | undefined;
 }
 
 function isDatabaseNotInitializedError(error: unknown): boolean {
@@ -52,12 +54,13 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
     try {
       const db = getDatabase();
 
-      // Get all albums with their names
+      // Get all albums with their names and types
       const albumRows = await db
         .select({
           id: vfsRegistry.id,
           name: albums.encryptedName,
-          coverPhotoId: albums.coverPhotoId
+          coverPhotoId: albums.coverPhotoId,
+          albumType: albums.albumType
         })
         .from(vfsRegistry)
         .innerJoin(albums, eq(albums.id, vfsRegistry.id))
@@ -94,11 +97,19 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
         id: album.id,
         name: album.name || 'Unnamed Album',
         photoCount: photoCountMap.get(album.id) || 0,
-        coverPhotoId: album.coverPhotoId
+        coverPhotoId: album.coverPhotoId,
+        albumType: (album.albumType || 'custom') as AlbumType
       }));
 
-      // Sort alphabetically
-      result.sort((a, b) => a.name.localeCompare(b.name));
+      // Sort: system albums first, then alphabetically
+      result.sort((a, b) => {
+        const systemTypes = SYSTEM_ALBUM_TYPES as readonly string[];
+        const aIsSystem = systemTypes.includes(a.albumType);
+        const bIsSystem = systemTypes.includes(b.albumType);
+        if (aIsSystem && !bIsSystem) return -1;
+        if (!aIsSystem && bIsSystem) return 1;
+        return a.name.localeCompare(b.name);
+      });
 
       setAlbumList(result);
       setHasFetched(true);
@@ -114,6 +125,68 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
       setLoading(false);
     }
   }, [isUnlocked]);
+
+  const initializeSystemAlbums = useCallback(async () => {
+    if (!isUnlocked) return;
+
+    try {
+      const db = getDatabase();
+
+      for (const albumType of SYSTEM_ALBUM_TYPES) {
+        // Check if system album already exists
+        const existing = await db
+          .select({ id: albums.id })
+          .from(albums)
+          .where(eq(albums.albumType, albumType));
+
+        if (existing.length === 0) {
+          const albumId = crypto.randomUUID();
+          const now = new Date();
+          const albumName = SYSTEM_ALBUM_NAMES[albumType];
+
+          // Create registry entry
+          await db.insert(vfsRegistry).values({
+            id: albumId,
+            objectType: 'album',
+            ownerId: null,
+            createdAt: now
+          });
+
+          // Create album metadata with system type
+          await db.insert(albums).values({
+            id: albumId,
+            encryptedName: albumName,
+            encryptedDescription: null,
+            coverPhotoId: null,
+            albumType
+          });
+        }
+      }
+    } catch (err) {
+      // Silently ignore initialization errors - they'll be retried on next mount
+      // or when the user manually interacts with albums
+      if (!isDatabaseNotInitializedError(err)) {
+        console.warn('Failed to initialize system albums:', err);
+      }
+    }
+  }, [isUnlocked]);
+
+  const systemAlbumsInitializedRef = useRef(false);
+
+  useEffect(() => {
+    if (isUnlocked && !systemAlbumsInitializedRef.current) {
+      systemAlbumsInitializedRef.current = true;
+      initializeSystemAlbums()
+        .then(() => {
+          fetchAlbums();
+        })
+        .catch(() => {
+          // Error already handled in initializeSystemAlbums
+          // Still attempt to fetch existing albums
+          fetchAlbums();
+        });
+    }
+  }, [isUnlocked, initializeSystemAlbums, fetchAlbums]);
 
   useEffect(() => {
     const needsFetch =
@@ -260,6 +333,10 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
     []
   );
 
+  const getPhotoRollAlbum = useCallback((): PhotoAlbum | undefined => {
+    return albumList.find((album) => album.albumType === 'photoroll');
+  }, [albumList]);
+
   return {
     albums: albumList,
     loading,
@@ -271,6 +348,7 @@ export function usePhotoAlbums(): UsePhotoAlbumsResult {
     deleteAlbum,
     addPhotoToAlbum,
     removePhotoFromAlbum,
-    getPhotoIdsInAlbum
+    getPhotoIdsInAlbum,
+    getPhotoRollAlbum
   };
 }

@@ -19,6 +19,7 @@ export interface CameraWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
+  onPhotoAccepted?: ((dataUrl: string) => void) | undefined;
 }
 
 export function CameraWindow({
@@ -29,7 +30,8 @@ export function CameraWindow({
   onRename,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  onPhotoAccepted
 }: CameraWindowProps) {
   return (
     <FloatingWindow
@@ -50,7 +52,7 @@ export function CameraWindow({
       <div className="flex h-full min-h-0 flex-col">
         <WindowControlBar>{null}</WindowControlBar>
         <div className="min-h-0 flex-1 p-3">
-          <CameraCapture />
+          <CameraCapture onPhotoAccepted={onPhotoAccepted} />
         </div>
       </div>
     </FloatingWindow>
