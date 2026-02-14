@@ -4,6 +4,21 @@ _Actualizado para reflejar la versión en inglés del 11 de febrero de 2026._
 
 Tearleads proporciona funcionalidad de respaldo y restauración para proteger sus datos. Debido a restricciones específicas de la plataforma con bases de datos SQLite cifradas, el formato de respaldo y el proceso varían según la plataforma.
 
+## Especificación del Formato de Archivo TBU
+
+El formato **Tearleads Backup Utility** (`.tbu`) está diseñado para respaldos seguros y portátiles entre plataformas.
+
+### Estructura del Archivo
+
+```mermaid
+%%{init: {'theme': 'neutral', 'flowchart': {'curve': 'linear'}}}%%
+flowchart TB
+    HEADER["CABECERA (36 bytes, texto plano)<br/>Bytes mágicos: TEARLEADSBAK (12 bytes)<br/>Versión de formato (2 bytes, LE)<br/>Flags (2 bytes, LE)<br/>Salt (16 bytes)<br/>Reservado (4 bytes)"]
+    CHUNKS["CHUNKS CIFRADOS<br/>Chunk 0: Manifest<br/>Chunk 1: Database<br/>Chunk 2..N: Blobs (archivos)"]
+
+    HEADER --> CHUNKS
+```
+
 ## Resumen
 
 ```mermaid
