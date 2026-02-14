@@ -336,31 +336,29 @@ export function FloatingWindow({
           createCornerHandlers={createCornerHandlers}
         />
       )}
-      <div className="relative z-20 flex min-h-0 flex-1 flex-col">
-        <FloatingWindowBody
-          titleBarProps={{
-            id,
-            title: windowTitle,
-            isDesktop,
-            isMaximized,
-            width,
-            height,
-            x,
-            y,
-            onMinimize,
-            onClose,
-            onToggleMaximize: handleMaximize,
-            dragHandlers,
-            titleBarRef,
-            preMaximizeDimensions: preMaximizeStateRef.current,
-            onRenameTitle: handleRenameTitle
-          }}
-          contentRef={contentRef}
-          contentClassName={contentClassName}
-        >
-          {children}
-        </FloatingWindowBody>
-      </div>
+      <FloatingWindowBody
+        titleBarProps={{
+          id,
+          title: windowTitle,
+          isDesktop,
+          isMaximized,
+          width,
+          height,
+          x,
+          y,
+          onMinimize,
+          onClose,
+          onToggleMaximize: handleMaximize,
+          dragHandlers,
+          titleBarRef,
+          preMaximizeDimensions: preMaximizeStateRef.current,
+          onRenameTitle: handleRenameTitle
+        }}
+        contentRef={contentRef}
+        contentClassName={contentClassName}
+      >
+        {children}
+      </FloatingWindowBody>
     </FloatingWindowSurface>
   );
 }

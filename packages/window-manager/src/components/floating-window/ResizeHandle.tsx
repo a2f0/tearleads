@@ -20,7 +20,7 @@ export function ResizeHandle({
     // biome-ignore lint/a11y/noStaticElementInteractions: Resize handle for mouse/touch drag only
     <div
       className={cn(
-        'absolute z-10 h-4 w-4 touch-none border-transparent transition-colors hover:border-primary',
+        'absolute h-3 w-3 touch-none border-transparent transition-colors hover:border-primary',
         POSITION_CLASSES[corner],
         BORDER_CLASSES[corner]
       )}
