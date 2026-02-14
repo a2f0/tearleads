@@ -992,28 +992,6 @@ export const vfsSyncClientState = pgTable(
 );
 
 /**
- * Blob object registry for VFS-backed binary payloads.
- * Tracks immutable blob metadata independent of attachment lifecycle.
- */
-export const vfsBlobObjects = pgTable(
-  'vfs_blob_objects',
-  {
-    id: text('id').primaryKey(),
-    sha256: text('sha256').notNull(),
-    sizeBytes: integer('size_bytes').notNull(),
-    storageKey: text('storage_key').notNull(),
-    createdBy: text('created_by')
-      .notNull()
-      .references(() => users.id, { onDelete: 'restrict' }),
-    createdAt: timestamp('created_at', { withTimezone: true }).notNull()
-  },
-  (table) => [
-    uniqueIndex('vfs_blob_objects_storage_key_idx').on(table.storageKey),
-    index('vfs_blob_objects_sha_idx').on(table.sha256)
-  ]
-);
-
-/**
  * CRDT-style operation log for ACL and link mutations.
  * Ensures deterministic convergence for concurrent multi-client updates.
  */
