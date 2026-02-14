@@ -81,6 +81,12 @@ export const postCrdtReconcileHandler = async (req: Request, res: Response) => {
     return;
   }
 
+  // Guardrail: ':' is reserved for feed namespacing in cursor state keys.
+  if (parsedPayload.value.clientId.includes(':')) {
+    res.status(400).json({ error: 'clientId must not contain ":"' });
+    return;
+  }
+
   try {
     const pool = await getPostgresPool();
     const result = await pool.query<ReconcileRow>(

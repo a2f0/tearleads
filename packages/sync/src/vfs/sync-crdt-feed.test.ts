@@ -151,4 +151,76 @@ describe('mapVfsCrdtSyncRows', () => {
       /violates required ordering/
     );
   });
+
+  it('throws when duplicate op ids are present', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-1',
+        item_id: 'item-1',
+        op_type: 'acl_add',
+        principal_type: 'user',
+        principal_id: 'user-2',
+        access_level: 'write',
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_shares',
+        source_id: 'share-1',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z')
+      },
+      {
+        op_id: 'op-1',
+        item_id: 'item-2',
+        op_type: 'acl_remove',
+        principal_type: 'user',
+        principal_id: 'user-3',
+        access_level: null,
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_shares',
+        source_id: 'share-2',
+        occurred_at: new Date('2026-02-14T00:00:01.000Z')
+      }
+    ];
+
+    expect(() => mapVfsCrdtSyncRows(rows, 10)).toThrowError(/repeats op_id/);
+  });
+
+  it('normalizes unexpected enum values', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-9',
+        item_id: 'item-9',
+        op_type: 'unknown-op',
+        principal_type: 'unknown-principal',
+        principal_id: 'user-2',
+        access_level: 'unknown-level',
+        parent_id: null,
+        child_id: null,
+        actor_id: 'user-1',
+        source_table: 'vfs_shares',
+        source_id: 'share-9',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z')
+      }
+    ];
+
+    const result = mapVfsCrdtSyncRows(rows, 10);
+    expect(result.items).toEqual([
+      {
+        opId: 'op-9',
+        itemId: 'item-9',
+        opType: 'acl_add',
+        principalType: null,
+        principalId: 'user-2',
+        accessLevel: null,
+        parentId: null,
+        childId: null,
+        actorId: 'user-1',
+        sourceTable: 'vfs_shares',
+        sourceId: 'share-9',
+        occurredAt: '2026-02-14T00:00:00.000Z'
+      }
+    ]);
+  });
 });

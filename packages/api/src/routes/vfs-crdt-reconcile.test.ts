@@ -82,6 +82,27 @@ describe('VFS CRDT reconcile route', () => {
     expect(response.body).toEqual({ error: 'Invalid cursor' });
   });
 
+  it('returns 400 when clientId uses reserved namespace delimiter', async () => {
+    const authHeader = await createAuthHeader();
+    const cursor = encodeVfsSyncCursor({
+      changedAt: '2026-02-14T00:00:00.000Z',
+      changeId: 'op-10'
+    });
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/reconcile')
+      .set('Authorization', authHeader)
+      .send({
+        clientId: 'desktop:crdt',
+        cursor
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({
+      error: 'clientId must not contain ":"'
+    });
+  });
+
   it('stores cursor under CRDT-scoped client key and returns reconciled cursor', async () => {
     const authHeader = await createAuthHeader();
     const incomingCursor = encodeVfsSyncCursor({
