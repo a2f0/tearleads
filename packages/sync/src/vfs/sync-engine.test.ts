@@ -170,6 +170,40 @@ describe('mapVfsSyncRows', () => {
     });
   });
 
+  it('treats email as a standard VFS object type in the generic feed', () => {
+    const rows: VfsSyncDbRow[] = [
+      {
+        change_id: 'change-email-1',
+        item_id: 'email-1',
+        change_type: 'upsert',
+        changed_at: new Date('2026-02-14T11:30:00.000Z'),
+        object_type: 'email',
+        owner_id: 'user-1',
+        created_at: new Date('2026-02-14T11:00:00.000Z'),
+        access_level: 'write'
+      }
+    ];
+
+    const result = mapVfsSyncRows(rows, 10);
+
+    expect(result).toEqual({
+      items: [
+        {
+          changeId: 'change-email-1',
+          itemId: 'email-1',
+          changeType: 'upsert',
+          changedAt: '2026-02-14T11:30:00.000Z',
+          objectType: 'email',
+          ownerId: 'user-1',
+          createdAt: '2026-02-14T11:00:00.000Z',
+          accessLevel: 'write'
+        }
+      ],
+      nextCursor: null,
+      hasMore: false
+    });
+  });
+
   it('throws when changed_at is invalid', () => {
     const rows: VfsSyncDbRow[] = [
       {

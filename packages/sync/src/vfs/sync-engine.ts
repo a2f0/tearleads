@@ -29,6 +29,11 @@ const VALID_OBJECT_TYPES: VfsObjectType[] = [
   'emailFolder',
   'tag'
 ];
+/**
+ * Guardrail: `email` stays a first-class VFS object type in the generic sync
+ * feed. We do not branch into an email-specific sync protocol domain; email
+ * metadata/attachments are modeled through the same object + link mechanics.
+ */
 
 const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
 const VALID_CHANGE_TYPES: VfsSyncChangeType[] = ['upsert', 'delete', 'acl'];
