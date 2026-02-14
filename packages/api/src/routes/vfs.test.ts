@@ -386,7 +386,7 @@ describe('VFS routes', () => {
         .send({
           stagingId: 'stage-1',
           blobId: 'blob-1',
-          expiresAt: '2026-02-14T11:00:00.000Z'
+          expiresAt: '2099-02-14T11:00:00.000Z'
         });
 
       expect(response.status).toBe(201);
@@ -419,7 +419,7 @@ describe('VFS routes', () => {
         .send({
           stagingId: 'stage-2',
           blobId: 'blob-2',
-          expiresAt: '2026-02-14T11:00:00.000Z'
+          expiresAt: '2099-02-14T11:00:00.000Z'
         });
 
       expect(response.status).toBe(201);
@@ -460,7 +460,7 @@ describe('VFS routes', () => {
         .set('Authorization', authHeader)
         .send({
           blobId: 'blob-missing',
-          expiresAt: '2026-02-14T11:00:00.000Z'
+          expiresAt: '2099-02-14T11:00:00.000Z'
         });
 
       expect(response.status).toBe(404);
@@ -572,8 +572,14 @@ describe('VFS routes', () => {
           ]
         }) // UPDATE
         .mockResolvedValueOnce({
-          rows: [{ id: 'ref-1', attached_at: '2026-02-14T10:10:00.000Z' }]
-        }) // INSERT ref
+          rowCount: 1
+        }) // UPSERT blob into vfs_registry
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({
+          rows: [{ id: 'ref-1', created_at: '2026-02-14T10:10:00.000Z' }]
+        }) // INSERT blob link
         .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
@@ -594,12 +600,13 @@ describe('VFS routes', () => {
       expect(mockQuery.mock.calls[0]?.[0]).toBe('BEGIN');
       expect(mockQuery.mock.calls[1]?.[0]).toContain('FOR UPDATE');
       expect(mockQuery.mock.calls[2]?.[0]).toContain("AND status = 'staged'");
-      expect(mockQuery.mock.calls[4]?.[0]).toBe('COMMIT');
+      expect(mockQuery.mock.calls[5]?.[0]).toContain('INSERT INTO vfs_links');
+      expect(mockQuery.mock.calls[6]?.[0]).toBe('COMMIT');
       expect(mockPoolConnect).toHaveBeenCalledTimes(1);
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
 
-    it('falls back to existing blob ref when insert conflicts', async () => {
+    it('falls back to existing blob link when insert conflicts', async () => {
       const authHeader = await createAuthHeader();
       mockQuery
         .mockResolvedValueOnce({}) // BEGIN
@@ -623,10 +630,24 @@ describe('VFS routes', () => {
             }
           ]
         }) // UPDATE
+        .mockResolvedValueOnce({
+          rowCount: 1
+        }) // UPSERT blob into vfs_registry
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
         .mockResolvedValueOnce({ rows: [] }) // INSERT ref conflict
         .mockResolvedValueOnce({
           rows: [
-            { id: 'existing-ref-1', attached_at: '2026-02-14T10:10:01.000Z' }
+            {
+              id: 'existing-ref-1',
+              created_at: '2026-02-14T10:10:01.000Z',
+              wrapped_session_key: 'blob-link:file',
+              visible_children: {
+                relationKind: 'file',
+                attachedBy: 'user-1'
+              }
+            }
           ]
         }) // SELECT existing ref
         .mockResolvedValueOnce({}); // COMMIT
@@ -691,8 +712,14 @@ describe('VFS routes', () => {
           ]
         }) // UPDATE
         .mockResolvedValueOnce({
-          rows: [{ id: 'ref-1', attached_at: '2026-02-14T10:10:00.000Z' }]
-        }) // INSERT ref
+          rowCount: 1
+        }) // UPSERT blob into vfs_registry
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({
+          rows: [{ id: 'ref-1', created_at: '2026-02-14T10:10:00.000Z' }]
+        }) // INSERT blob link
         .mockResolvedValueOnce({}); // COMMIT
 
       const response = await request(app)
@@ -936,6 +963,12 @@ describe('VFS routes', () => {
             }
           ]
         }) // UPDATE
+        .mockResolvedValueOnce({
+          rowCount: 1
+        }) // UPSERT blob into vfs_registry
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
         .mockResolvedValueOnce({ rows: [] }) // INSERT ref conflict
         .mockResolvedValueOnce({ rows: [] }) // SELECT existing ref missing
         .mockResolvedValueOnce({}); // ROLLBACK
@@ -947,9 +980,113 @@ describe('VFS routes', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to attach staged blob' });
-      expect(mockQuery.mock.calls[5]?.[0]).toBe('ROLLBACK');
+      expect(mockQuery.mock.calls[7]?.[0]).toBe('ROLLBACK');
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
       restoreConsole();
+    });
+
+    it('returns 409 when existing blob link has a different relation kind', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: '2099-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT staging
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              blob_id: 'blob-1',
+              attached_at: '2026-02-14T10:10:00.000Z',
+              attached_item_id: 'item-1'
+            }
+          ]
+        }) // UPDATE
+        .mockResolvedValueOnce({
+          rowCount: 1
+        }) // UPSERT blob into vfs_registry
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({ rows: [] }) // INSERT blob link conflict
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'existing-ref-1',
+              created_at: '2026-02-14T10:10:01.000Z',
+              wrapped_session_key: 'blob-link:photo',
+              visible_children: {
+                relationKind: 'photo',
+                attachedBy: 'user-1'
+              }
+            }
+          ]
+        }) // SELECT existing link
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1', relationKind: 'file' });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Blob is already attached with a different relation kind'
+      });
+      expect(mockQuery.mock.calls[7]?.[0]).toBe('ROLLBACK');
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns 409 when blob id resolves to non-blob VFS object type', async () => {
+      const authHeader = await createAuthHeader();
+      mockQuery
+        .mockResolvedValueOnce({}) // BEGIN
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              id: 'stage-1',
+              blob_id: 'blob-1',
+              staged_by: 'user-1',
+              status: 'staged',
+              expires_at: '2099-02-14T11:00:00.000Z'
+            }
+          ]
+        }) // SELECT staging
+        .mockResolvedValueOnce({
+          rows: [
+            {
+              blob_id: 'blob-1',
+              attached_at: '2026-02-14T10:10:00.000Z',
+              attached_item_id: 'item-1'
+            }
+          ]
+        }) // UPDATE
+        .mockResolvedValueOnce({
+          rowCount: 0
+        }) // UPSERT blob into vfs_registry
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'note' }]
+        }) // SELECT blob registry row
+        .mockResolvedValueOnce({}); // ROLLBACK
+
+      const response = await request(app)
+        .post('/v1/vfs/blobs/stage/stage-1/attach')
+        .set('Authorization', authHeader)
+        .send({ itemId: 'item-1', relationKind: 'file' });
+
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({
+        error: 'Blob object id conflicts with existing VFS object'
+      });
+      expect(mockQuery.mock.calls[5]?.[0]).toBe('ROLLBACK');
+      expect(mockClientRelease).toHaveBeenCalledTimes(1);
     });
 
     it('returns 409 when staged blob is already attached', async () => {
@@ -1090,7 +1227,13 @@ describe('VFS routes', () => {
             }
           ]
         }) // UPDATE
-        .mockRejectedValueOnce(new Error('insert ref failed')) // INSERT ref
+        .mockResolvedValueOnce({
+          rowCount: 1
+        }) // UPSERT blob into vfs_registry
+        .mockResolvedValueOnce({
+          rows: [{ object_type: 'blob' }]
+        }) // SELECT blob registry row
+        .mockRejectedValueOnce(new Error('insert ref failed')) // INSERT blob link
         .mockResolvedValueOnce({}); // ROLLBACK
 
       const response = await request(app)
@@ -1100,7 +1243,7 @@ describe('VFS routes', () => {
 
       expect(response.status).toBe(500);
       expect(response.body).toEqual({ error: 'Failed to attach staged blob' });
-      expect(mockQuery.mock.calls[4]?.[0]).toBe('ROLLBACK');
+      expect(mockQuery.mock.calls[6]?.[0]).toBe('ROLLBACK');
       expect(mockClientRelease).toHaveBeenCalledTimes(1);
       restoreConsole();
     });

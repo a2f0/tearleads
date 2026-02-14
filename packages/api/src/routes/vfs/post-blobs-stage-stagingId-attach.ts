@@ -30,6 +30,17 @@ interface CrdtReconcileStateRow {
   last_reconciled_write_ids: unknown;
 }
 
+interface BlobRegistryRow {
+  object_type: string;
+}
+
+interface BlobLinkRow {
+  id: string;
+  created_at: Date | string;
+  wrapped_session_key: string | null;
+  visible_children: unknown;
+}
+
 interface ParsedBlobAttachConsistency {
   clientId: string;
   requiredCursor: VfsSyncCursor;
@@ -47,9 +58,32 @@ type ParseBlobAttachConsistencyResult =
     };
 
 const CRDT_CLIENT_NAMESPACE = 'crdt';
+const BLOB_LINK_SESSION_KEY_PREFIX = 'blob-link:';
 
 function toScopedCrdtClientId(clientId: string): string {
   return `${CRDT_CLIENT_NAMESPACE}:${clientId}`;
+}
+
+function toBlobLinkSessionKey(relationKind: string): string {
+  return `${BLOB_LINK_SESSION_KEY_PREFIX}${relationKind}`;
+}
+
+function parseBlobLinkRelationKind(value: unknown): string | null {
+  if (isRecord(value)) {
+    return normalizeRequiredString(value['relationKind']);
+  }
+
+  return null;
+}
+
+function parseBlobLinkRelationKindFromSessionKey(value: unknown): string | null {
+  const normalized = normalizeRequiredString(value);
+  if (!normalized || !normalized.startsWith(BLOB_LINK_SESSION_KEY_PREFIX)) {
+    return null;
+  }
+
+  const relationKind = normalized.slice(BLOB_LINK_SESSION_KEY_PREFIX.length);
+  return relationKind.length > 0 ? relationKind : null;
 }
 
 function dominatesLastWriteIds(
@@ -302,35 +336,75 @@ export const postBlobsStageStagingIdAttachHandler = async (
       return;
     }
 
+    await client.query(
+      `
+      INSERT INTO vfs_registry (
+        id,
+        object_type,
+        owner_id,
+        created_at
+      ) VALUES (
+        $1::text,
+        'blob',
+        $2::text,
+        NOW()
+      )
+      ON CONFLICT (id) DO NOTHING
+      `,
+      [updatedRow.blob_id, claims.sub]
+    );
+
+    const blobRegistryResult = await client.query<BlobRegistryRow>(
+      `
+      SELECT object_type
+      FROM vfs_registry
+      WHERE id = $1::text
+      LIMIT 1
+      `,
+      [updatedRow.blob_id]
+    );
+    const blobRegistryRow = blobRegistryResult.rows[0];
+    if (!blobRegistryRow || blobRegistryRow.object_type !== 'blob') {
+      await client.query('ROLLBACK');
+      inTransaction = false;
+      res
+        .status(409)
+        .json({ error: 'Blob object id conflicts with existing VFS object' });
+      return;
+    }
+
     const insertedRef = await client.query<{
       id: string;
-      attached_at: Date | string;
+      created_at: Date | string;
     }>(
       `
-      INSERT INTO vfs_blob_refs (
+      INSERT INTO vfs_links (
         id,
-        blob_id,
-        item_id,
-        relation_kind,
-        attached_by,
-        attached_at
+        parent_id,
+        child_id,
+        wrapped_session_key,
+        visible_children,
+        created_at
       ) VALUES (
         $1::text,
         $2::text,
         $3::text,
         $4::text,
-        $5::text,
+        $5::json,
         NOW()
       )
-      ON CONFLICT (blob_id, item_id, relation_kind) DO NOTHING
-      RETURNING id, attached_at
+      ON CONFLICT (parent_id, child_id) DO NOTHING
+      RETURNING id, created_at
       `,
       [
         randomUUID(),
-        updatedRow.blob_id,
         parsedBody.itemId,
-        parsedBody.relationKind,
-        claims.sub
+        updatedRow.blob_id,
+        toBlobLinkSessionKey(parsedBody.relationKind),
+        JSON.stringify({
+          relationKind: parsedBody.relationKind,
+          attachedBy: claims.sub
+        })
       ]
     );
 
@@ -340,21 +414,17 @@ export const postBlobsStageStagingIdAttachHandler = async (
     const insertedRow = insertedRef.rows[0];
     if (insertedRow) {
       refId = insertedRow.id;
-      attachedAt = insertedRow.attached_at;
+      attachedAt = insertedRow.created_at;
     } else {
-      const existingRef = await client.query<{
-        id: string;
-        attached_at: Date | string;
-      }>(
+      const existingRef = await client.query<BlobLinkRow>(
         `
-        SELECT id, attached_at
-        FROM vfs_blob_refs
-        WHERE blob_id = $1::text
-          AND item_id = $2::text
-          AND relation_kind = $3::text
+        SELECT id, created_at, wrapped_session_key, visible_children
+        FROM vfs_links
+        WHERE parent_id = $1::text
+          AND child_id = $2::text
         LIMIT 1
         `,
-        [updatedRow.blob_id, parsedBody.itemId, parsedBody.relationKind]
+        [parsedBody.itemId, updatedRow.blob_id]
       );
 
       const existingRow = existingRef.rows[0];
@@ -362,8 +432,28 @@ export const postBlobsStageStagingIdAttachHandler = async (
         throw new Error('Failed to persist blob attachment reference');
       }
 
+      const existingRelationKind =
+        parseBlobLinkRelationKind(existingRow.visible_children) ??
+        parseBlobLinkRelationKindFromSessionKey(existingRow.wrapped_session_key);
+      /**
+       * Guardrail: blob link identity is currently `(item_id, blob_id)` in
+       * vfs_links. If a conflicting relation kind already exists for the same
+       * pair, fail closed so sync projections stay deterministic.
+       */
+      if (
+        existingRelationKind &&
+        existingRelationKind !== parsedBody.relationKind
+      ) {
+        await client.query('ROLLBACK');
+        inTransaction = false;
+        res.status(409).json({
+          error: 'Blob is already attached with a different relation kind'
+        });
+        return;
+      }
+
       refId = existingRow.id;
-      attachedAt = existingRow.attached_at;
+      attachedAt = existingRow.created_at;
     }
 
     await client.query('COMMIT');
