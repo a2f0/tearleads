@@ -26,6 +26,7 @@ import {
 } from '../../lib/walletData';
 import {
   getWalletSubtypeDefinition,
+  getWalletSubtypeLabel,
   getWalletSubtypeOptions
 } from '../../lib/walletSubtypes';
 import { isWalletItemType } from '../../lib/walletTypes';
@@ -33,6 +34,7 @@ import { WalletMediaPickerModal } from './WalletMediaPickerModal';
 
 interface WalletItemDetailProps {
   itemId: string;
+  initialItemType?: WalletItemType;
   onSaved?: (result: SaveWalletItemResult) => void;
   onDeleted?: (itemId: string) => void;
   onCreateItem?: () => void;
@@ -94,6 +96,91 @@ function getPickerTitle(side: WalletMediaSide | null): string {
   return 'Select Back Image';
 }
 
+function joinDisplayNameParts(parts: Array<string | null | undefined>): string {
+  return parts
+    .map((part) => (part ? part.trim() : ''))
+    .filter((part) => part.length > 0)
+    .join(' ');
+}
+
+function resolveCountryDisplayText(
+  countryCodeInput: string,
+  countryName: string | null
+): string | null {
+  const trimmedName = countryName?.trim();
+  if (trimmedName && trimmedName.length > 0) {
+    return trimmedName;
+  }
+
+  const normalizedCode = normalizeWalletCountryCode(countryCodeInput);
+  return normalizedCode;
+}
+
+function getCardLast4Label(last4Input: string): string | null {
+  const compact = last4Input.trim().replace(/\s+/g, '');
+  if (compact.length === 0) {
+    return null;
+  }
+  return `•••• ${compact.slice(-4)}`;
+}
+
+function buildAutomaticDisplayName(
+  form: WalletItemFormState,
+  countryName: string | null
+): string {
+  const subtypeLabel = getWalletSubtypeLabel(form.itemType, form.itemSubtype);
+  const countryText = resolveCountryDisplayText(form.countryCode, countryName);
+  const authorityText = form.issuingAuthority.trim();
+  const providerName = form.subtypeFields['providerName']?.trim() ?? '';
+  const last4Label = getCardLast4Label(form.documentNumberLast4);
+
+  switch (form.itemType) {
+    case 'passport':
+      return joinDisplayNameParts([countryText, subtypeLabel, 'Passport']);
+    case 'driverLicense':
+      return joinDisplayNameParts([
+        authorityText || countryText,
+        subtypeLabel,
+        'Driver License'
+      ]);
+    case 'birthCertificate':
+      return joinDisplayNameParts([
+        countryText,
+        subtypeLabel,
+        'Birth Certificate'
+      ]);
+    case 'creditCard':
+      return joinDisplayNameParts([
+        authorityText,
+        subtypeLabel,
+        'Credit Card',
+        last4Label
+      ]);
+    case 'debitCard':
+      return joinDisplayNameParts([
+        authorityText,
+        subtypeLabel,
+        'Debit Card',
+        last4Label
+      ]);
+    case 'identityCard':
+      return joinDisplayNameParts([
+        authorityText || countryText,
+        subtypeLabel,
+        'Identity Card'
+      ]);
+    case 'insuranceCard':
+      return joinDisplayNameParts([
+        providerName,
+        subtypeLabel ?? 'Insurance Card'
+      ]);
+    case 'other':
+      return '';
+    default:
+      return '';
+  }
+}
+
 function retainSubtypeValues(
   itemType: WalletItemType,
   itemSubtype: string,
@@ -117,6 +204,7 @@ function retainSubtypeValues(
 
 export function WalletItemDetail({
   itemId,
+  initialItemType,
   onSaved,
   onDeleted,
   onCreateItem
@@ -130,6 +218,8 @@ export function WalletItemDetail({
   const [form, setForm] = useState<WalletItemFormState>(EMPTY_FORM_STATE);
   const [mediaFiles, setMediaFiles] = useState<WalletMediaFileOption[]>([]);
   const [pickerSide, setPickerSide] = useState<WalletMediaSide | null>(null);
+  const [customDisplayNameEnabled, setCustomDisplayNameEnabled] =
+    useState(false);
 
   const isNewItem = itemId === 'new';
 
@@ -145,6 +235,30 @@ export function WalletItemDetail({
     () => getWalletCountryOptionByCode(form.countryCode),
     [form.countryCode]
   );
+  const automaticDisplayName = useMemo(
+    () => buildAutomaticDisplayName(form, countrySelection?.name ?? null),
+    [countrySelection?.name, form]
+  );
+  const isOtherType = form.itemType === 'other';
+  const shouldUseCustomDisplayName = isOtherType || customDisplayNameEnabled;
+  const resolvedDisplayName = useMemo(() => {
+    const customName = form.displayName.trim();
+    if (shouldUseCustomDisplayName) {
+      return customName;
+    }
+
+    const generatedName = automaticDisplayName.trim();
+    if (generatedName.length > 0) {
+      return generatedName;
+    }
+
+    return getWalletItemTypeLabel(form.itemType);
+  }, [
+    automaticDisplayName,
+    form.displayName,
+    form.itemType,
+    shouldUseCustomDisplayName
+  ]);
   const frontMedia = useMemo(
     () => mediaFiles.find((file) => file.id === form.frontFileId) ?? null,
     [mediaFiles, form.frontFileId]
@@ -164,7 +278,11 @@ export function WalletItemDetail({
       if (isNewItem) {
         const files = await mediaFilesPromise;
         setMediaFiles(files);
-        setForm(EMPTY_FORM_STATE);
+        setForm({
+          ...EMPTY_FORM_STATE,
+          itemType: initialItemType ?? EMPTY_FORM_STATE.itemType
+        });
+        setCustomDisplayNameEnabled(false);
         return;
       }
 
@@ -180,13 +298,25 @@ export function WalletItemDetail({
         return;
       }
 
-      setForm(detailToForm(detail));
+      const detailForm = detailToForm(detail);
+      const detailAutomaticName = buildAutomaticDisplayName(
+        detailForm,
+        getWalletCountryOptionByCode(detailForm.countryCode)?.name ?? null
+      );
+      const detailCustomName = detailForm.displayName.trim();
+      const hasCustomDisplayName =
+        detailForm.itemType === 'other' ||
+        (detailCustomName.length > 0 &&
+          detailCustomName !== detailAutomaticName);
+
+      setForm(detailForm);
+      setCustomDisplayNameEnabled(hasCustomDisplayName);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
       setLoadingDetail(false);
     }
-  }, [isNewItem, itemId]);
+  }, [initialItemType, isNewItem, itemId]);
 
   useEffect(() => {
     if (!isUnlocked) {
@@ -205,6 +335,7 @@ export function WalletItemDetail({
   );
 
   const handleItemTypeChange = useCallback((nextItemType: WalletItemType) => {
+    setCustomDisplayNameEnabled(nextItemType === 'other');
     setForm((previous) => {
       const subtypeStillValid = getWalletSubtypeDefinition(
         nextItemType,
@@ -261,7 +392,7 @@ export function WalletItemDetail({
         itemType: form.itemType,
         itemSubtype: form.itemSubtype,
         subtypeFields: form.subtypeFields,
-        displayName: form.displayName,
+        displayName: resolvedDisplayName,
         issuingAuthority: form.issuingAuthority,
         countryCode: form.countryCode,
         documentNumberLast4: form.documentNumberLast4,
@@ -283,7 +414,7 @@ export function WalletItemDetail({
     } finally {
       setSaving(false);
     }
-  }, [form, isNewItem, itemId, onSaved]);
+  }, [form, isNewItem, itemId, onSaved, resolvedDisplayName]);
 
   const handleDelete = useCallback(async () => {
     if (isNewItem) {
@@ -360,7 +491,9 @@ export function WalletItemDetail({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="font-semibold text-xl">
-            {isNewItem ? 'New Wallet Item' : form.displayName || 'Wallet Item'}
+            {isNewItem
+              ? 'New Wallet Item'
+              : resolvedDisplayName || 'Wallet Item'}
           </h2>
           {!isNewItem && (
             <p className="text-muted-foreground text-sm">
@@ -452,19 +585,57 @@ export function WalletItemDetail({
           )}
         </div>
 
-        <div className="space-y-2">
-          <label className="font-medium text-sm" htmlFor="wallet-display-name">
-            Display Name
-          </label>
-          <Input
-            id="wallet-display-name"
-            value={form.displayName}
-            onChange={(event) =>
-              handleFieldChange('displayName', event.target.value)
-            }
-            placeholder="US Passport"
-          />
-        </div>
+        {isOtherType ? (
+          <div className="space-y-2">
+            <label
+              className="font-medium text-sm"
+              htmlFor="wallet-display-name"
+            >
+              Display Name
+            </label>
+            <Input
+              id="wallet-display-name"
+              value={form.displayName}
+              onChange={(event) =>
+                handleFieldChange('displayName', event.target.value)
+              }
+              placeholder="Custom Wallet Item"
+            />
+          </div>
+        ) : (
+          <div className="space-y-2 md:col-span-2">
+            <p className="font-medium text-sm">Display Name</p>
+            <div className="rounded-md border bg-muted/30 px-3 py-2 text-sm">
+              {automaticDisplayName || getWalletItemTypeLabel(form.itemType)}
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={customDisplayNameEnabled}
+                onChange={(event) => {
+                  const nextEnabled = event.target.checked;
+                  setCustomDisplayNameEnabled(nextEnabled);
+                  if (nextEnabled && form.displayName.trim().length === 0) {
+                    handleFieldChange('displayName', automaticDisplayName);
+                  }
+                }}
+              />
+              Use custom display name
+            </label>
+            {customDisplayNameEnabled && (
+              <Input
+                id="wallet-display-name"
+                value={form.displayName}
+                onChange={(event) =>
+                  handleFieldChange('displayName', event.target.value)
+                }
+                placeholder={
+                  automaticDisplayName || getWalletItemTypeLabel(form.itemType)
+                }
+              />
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <label
