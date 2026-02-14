@@ -9,7 +9,12 @@ import {
 import type { ReactNode } from 'react';
 import { useCallback, useMemo } from 'react';
 import { useDatabaseOptional } from '@/db/hooks';
-import { getSettingsFromDb, saveSettingToDb } from '@/db/user-settings';
+import {
+  getSettingsFromDb,
+  type SettingValueMap,
+  saveSettingToDb,
+  type UserSettingKey
+} from '@/db/user-settings';
 
 interface ClientSettingsProviderProps {
   children: ReactNode;
@@ -28,13 +33,9 @@ export function ClientSettingsProvider({
 
   // Wrap saveSettingToDb to close over the current db instance
   const saveSettingToDbFn = useCallback(
-    async <K extends string>(key: K, value: string) => {
+    async <K extends UserSettingKey>(key: K, value: SettingValueMap[K]) => {
       if (!db) return;
-      await saveSettingToDb(
-        db,
-        key as Parameters<typeof saveSettingToDb>[1],
-        value as Parameters<typeof saveSettingToDb>[2]
-      );
+      await saveSettingToDb(db, key, value);
     },
     [db]
   );

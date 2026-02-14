@@ -17,6 +17,8 @@
     "**/Pods",
     "**/fastlane/README.md",
     "**/playwright-report",
-    "**/test-results"
+    "**/test-results",
+    // Codex-managed system skills folder - auto-generated markdown that we don't control
+    ".claude/commands/skills/.system"
   ]
 }
