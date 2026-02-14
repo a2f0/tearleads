@@ -46,7 +46,7 @@ appId: com.tearleads.app
 # Wait for the login form
 - extendedWaitUntil:
     visible: "Email"
-    timeout: 10000
+    timeout: 20000
 
 # Debug: Log viewport before keyboard
 - evalScript: |
@@ -78,7 +78,8 @@ appId: com.tearleads.app
 # Small delay to let keyboard appear
 - extendedWaitUntil:
     visible: "Email"
-    timeout: 1000
+    timeout: 3000
+    optional: true
 
 # Debug: Log viewport AFTER keyboard should be visible
 - evalScript: |

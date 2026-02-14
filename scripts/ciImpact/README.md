@@ -106,12 +106,15 @@ and emits:
 ## Safety Rules
 
 - Prefer false positives over false negatives.
-- Workflow changes trigger the full integration matrix.
+- CI-critical workflow changes trigger the full integration matrix.
+- Deployment-only workflow changes run `build` but do not force full integration.
 - If diff base is unavailable, fallback diff is `HEAD~1...HEAD`.
 
 ## Maintenance
 
-When CI topology changes, update both:
+When CI topology changes, update together:
 
 - `scripts/ciImpact/job-groups.json`
 - workflow filters in `.github/workflows/build.yml`
+- `FULL_RUN_PREFIXES` in `scripts/ciImpact/runImpactedQuality.ts`
+- `FULL_RUN_PREFIXES` in `scripts/ciImpact/runImpactedTests.ts`

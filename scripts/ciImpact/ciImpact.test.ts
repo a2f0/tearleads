@@ -65,6 +65,19 @@ const scenarios: ReadonlyArray<Scenario> = [
     }
   },
   {
+    name: 'deploy workflow-only change does not trigger integration matrix',
+    files: ['.github/workflows/deploy-desktop.yml'],
+    expectedRuns: {
+      build: true,
+      'web-e2e': false,
+      'website-e2e': false,
+      'electron-e2e': false,
+      android: false,
+      'android-maestro-release': false,
+      'ios-maestro-release': false
+    }
+  },
+  {
     name: 'API-only change',
     files: ['packages/api/src/index.ts'],
     expectedRuns: {

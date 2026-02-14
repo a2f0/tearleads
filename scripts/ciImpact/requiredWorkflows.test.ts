@@ -116,6 +116,11 @@ const scenarios: ReadonlyArray<Scenario> = [
     ]
   },
   {
+    name: 'deploy workflow-only change only requires build',
+    files: ['.github/workflows/deploy-desktop.yml'],
+    expectedWorkflows: ['build']
+  },
+  {
     name: 'API-only change',
     files: ['packages/api/src/index.ts'],
     expectedWorkflows: ['build', 'Web E2E Tests (Release)', 'Website E2E Tests (Release)']

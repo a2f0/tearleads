@@ -12,8 +12,16 @@
     ".md"
   ],
   "workflowCriticalPrefixes": [
-    ".github/workflows/",
-    ".github/actions/"
+    ".github/actions/",
+    ".github/workflows/build.yml",
+    ".github/workflows/ci-gate.yml",
+    ".github/workflows/integration-deploy.yml",
+    ".github/workflows/web-e2e.yml",
+    ".github/workflows/website-e2e.yml",
+    ".github/workflows/electron-e2e.yml",
+    ".github/workflows/android.yml",
+    ".github/workflows/android-maestro-release.yml",
+    ".github/workflows/ios-maestro-release.yml"
   ],
   "clientRuntimePackages": [
     "@tearleads/client",
