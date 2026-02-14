@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DESKTOP_WINDOW_FOOTER_HEIGHT,
   DesktopFloatingWindow

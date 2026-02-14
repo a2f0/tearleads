@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   DESKTOP_CONTEXT_MENU_OVERLAY_Z_INDEX,
   DESKTOP_CONTEXT_MENU_Z_INDEX,
