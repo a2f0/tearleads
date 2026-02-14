@@ -31,8 +31,8 @@ interface ClassicWorkspaceProps {
 }
 
 export function ClassicWorkspace({
-  tagSortOrder = 'user-defined',
-  entrySortOrder = 'user-defined',
+  tagSortOrder,
+  entrySortOrder,
   onTagSortOrderChange,
   onEntrySortOrderChange
 }: ClassicWorkspaceProps) {
@@ -45,6 +45,11 @@ export function ClassicWorkspace({
   const fetchedForInstanceRef = useRef<string | null>(null);
   const linkRowsRef = useRef<VfsLinkLikeRow[]>([]);
   const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const isSortControlledExternally =
+    tagSortOrder !== undefined &&
+    entrySortOrder !== undefined &&
+    onTagSortOrderChange !== undefined &&
+    onEntrySortOrderChange !== undefined;
 
   const fetchClassicState = useCallback(async () => {
     if (!isUnlocked) {
@@ -136,11 +141,13 @@ export function ClassicWorkspace({
           key={`${currentInstanceId ?? 'default'}-${stateRevision}`}
           initialState={initialState}
           autoFocusSearch
-          tagSortOrder={tagSortOrder}
-          entrySortOrder={entrySortOrder}
-          onTagSortOrderChange={onTagSortOrderChange}
-          onEntrySortOrderChange={onEntrySortOrderChange}
-          showSortControls={false}
+          {...(isSortControlledExternally && {
+            tagSortOrder,
+            entrySortOrder,
+            onTagSortOrderChange,
+            onEntrySortOrderChange,
+            showSortControls: false
+          })}
           onStateChange={handleStateChange}
           onCreateTag={async (tagId, name) => {
             await createClassicTag(name, tagId);
