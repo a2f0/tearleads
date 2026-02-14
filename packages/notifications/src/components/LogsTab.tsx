@@ -1,5 +1,6 @@
 import { Copy, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import { type LogEntry, logStore } from '@/stores/logStore';
 
@@ -19,6 +20,7 @@ function formatTime(date: Date): string {
 }
 
 export function LogsTab() {
+  const { t } = useTranslation('common');
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -54,7 +56,7 @@ export function LogsTab() {
   if (logs.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-        No logs yet
+        {t('noLogsYet')}
       </div>
     );
   }
@@ -63,15 +65,17 @@ export function LogsTab() {
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="font-medium text-muted-foreground text-xs">
-          {logs.length} log{logs.length !== 1 ? 's' : ''}
+          {logs.length === 1
+            ? t('logCount', { count: logs.length })
+            : t('logCountPlural', { count: logs.length })}
         </span>
         <div className="flex items-center gap-1">
           <button
             type="button"
             onClick={handleCopy}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Copy logs"
-            title="Copy logs to clipboard"
+            aria-label={t('copyLogs')}
+            title={t('copyLogsToClipboard')}
           >
             <Copy className="h-3 w-3" />
           </button>
@@ -79,8 +83,8 @@ export function LogsTab() {
             type="button"
             onClick={handleClear}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Clear logs"
-            title="Clear logs"
+            aria-label={t('clearLogs')}
+            title={t('clearLogs')}
           >
             <Trash2 className="h-3 w-3" />
           </button>

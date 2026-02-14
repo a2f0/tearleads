@@ -10,6 +10,27 @@ export interface CommonTranslations {
   create: string;
   restore: string;
   stored: string;
+  close: string;
+  open: string;
+  refresh: string;
+  copyLogs: string;
+  copyLogsToClipboard: string;
+  clearLogs: string;
+  dismissNotification: string;
+  markAllAsRead: string;
+  dismissAll: string;
+  noLogsYet: string;
+  logCount: string;
+  logCountPlural: string;
+  noNotifications: string;
+  notificationCount: string;
+  notificationCountPlural: string;
+  unread: string;
+  databaseLocked: string;
+  loading: string;
+  noEventsInLastHour: string;
+  lastHour: string;
+  moreEventTypes: string;
 }
 
 export interface MenuTranslations {
@@ -17,6 +38,7 @@ export interface MenuTranslations {
   search: string;
   calendar: string;
   files: string;
+  file: string;
   businesses: string;
   vehicles: string;
   health: string;
@@ -55,6 +77,10 @@ export interface MenuTranslations {
   vfs: string;
   classic: string;
   backups: string;
+  logs: string;
+  notifications: string;
+  notificationCenter: string;
+  openNotificationCenter: string;
 }
 
 export interface AudioTranslations {

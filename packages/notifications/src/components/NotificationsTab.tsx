@@ -4,6 +4,7 @@ import {
 } from '@tearleads/window-manager';
 import { CheckCheck, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
 import {
   type Notification,
@@ -39,13 +40,15 @@ interface NotificationItemProps {
   onDismiss: (id: string) => void;
   onMarkAsRead: (id: string) => void;
   onContextMenu: (id: string, x: number, y: number) => void;
+  dismissLabel: string;
 }
 
 function NotificationItem({
   notification,
   onDismiss,
   onMarkAsRead,
-  onContextMenu
+  onContextMenu,
+  dismissLabel
 }: NotificationItemProps) {
   const handleClick = () => {
     if (!notification.read) {
@@ -95,7 +98,7 @@ function NotificationItem({
             onDismiss(notification.id);
           }}
           className="shrink-0 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
-          aria-label="Dismiss notification"
+          aria-label={dismissLabel}
         >
           <X className="h-3 w-3" />
         </button>
@@ -105,6 +108,7 @@ function NotificationItem({
 }
 
 export function NotificationsTab() {
+  const { t } = useTranslation('common');
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [contextMenu, setContextMenu] = useState<{
     id: string;
@@ -169,20 +173,27 @@ export function NotificationsTab() {
   if (notifications.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-        No notifications
+        {t('noNotifications')}
       </div>
     );
   }
 
   const unreadCount = notifications.filter((n) => !n.read).length;
 
+  const notificationCountText =
+    notifications.length === 1
+      ? t('notificationCount', { count: notifications.length })
+      : t('notificationCountPlural', { count: notifications.length });
+
+  const unreadText =
+    unreadCount > 0 ? ` (${t('unread', { count: unreadCount })})` : '';
+
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
         <span className="font-medium text-muted-foreground text-xs">
-          {notifications.length} notification
-          {notifications.length !== 1 ? 's' : ''}
-          {unreadCount > 0 && ` (${unreadCount} unread)`}
+          {notificationCountText}
+          {unreadText}
         </span>
         <div className="flex gap-1">
           {unreadCount > 0 && (
@@ -190,8 +201,8 @@ export function NotificationsTab() {
               type="button"
               onClick={handleMarkAllAsRead}
               className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Mark all as read"
-              title="Mark all as read"
+              aria-label={t('markAllAsRead')}
+              title={t('markAllAsRead')}
             >
               <CheckCheck className="h-3 w-3" />
             </button>
@@ -200,8 +211,8 @@ export function NotificationsTab() {
             type="button"
             onClick={handleDismissAll}
             className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-            aria-label="Dismiss all"
-            title="Dismiss all"
+            aria-label={t('dismissAll')}
+            title={t('dismissAll')}
           >
             <Trash2 className="h-3 w-3" />
           </button>
@@ -216,6 +227,7 @@ export function NotificationsTab() {
             onDismiss={handleDismiss}
             onMarkAsRead={handleMarkAsRead}
             onContextMenu={handleContextMenu}
+            dismissLabel={t('dismissNotification')}
           />
         ))}
       </div>
