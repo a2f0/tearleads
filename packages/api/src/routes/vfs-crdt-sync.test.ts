@@ -1,0 +1,211 @@
+import { decodeVfsSyncCursor } from '@tearleads/sync/vfs';
+import request from 'supertest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { app } from '../index.js';
+import { createAuthHeader } from '../test/auth.js';
+import { mockConsoleError } from '../test/console-mocks.js';
+
+const mockQuery = vi.fn();
+const mockGetPostgresPool = vi.fn();
+
+vi.mock('../lib/postgres.js', () => ({
+  getPostgresPool: () => mockGetPostgresPool()
+}));
+
+const sessionStore = new Map<string, string>();
+const mockRedisClient = {
+  get: vi.fn((key: string) => Promise.resolve(sessionStore.get(key) ?? null)),
+  set: vi.fn((key: string, value: string) => {
+    sessionStore.set(key, value);
+    return Promise.resolve('OK');
+  }),
+  del: vi.fn((key: string) => {
+    sessionStore.delete(key);
+    return Promise.resolve(1);
+  }),
+  sAdd: vi.fn(() => Promise.resolve(1)),
+  sRem: vi.fn(() => Promise.resolve(1)),
+  expire: vi.fn(() => Promise.resolve(1))
+};
+
+vi.mock('../lib/redis.js', () => ({
+  getRedisClient: () => Promise.resolve(mockRedisClient)
+}));
+
+describe('VFS CRDT sync route', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStore.clear();
+    vi.stubEnv('JWT_SECRET', 'test-secret');
+    mockGetPostgresPool.mockResolvedValue({
+      query: mockQuery
+    });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
+
+  it('returns 401 when not authenticated', async () => {
+    const response = await request(app).get('/v1/vfs/crdt/sync');
+
+    expect(response.status).toBe(401);
+    expect(response.body).toEqual({ error: 'Unauthorized' });
+  });
+
+  it('returns 400 when limit is invalid', async () => {
+    const authHeader = await createAuthHeader();
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync?limit=0')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body.error).toContain('limit must be an integer');
+  });
+
+  it('returns 400 when cursor is invalid', async () => {
+    const authHeader = await createAuthHeader();
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync?cursor=totally-invalid')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(400);
+    expect(response.body).toEqual({ error: 'Invalid cursor' });
+  });
+
+  it('returns a cursor-paginated CRDT operation page', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          op_id: 'op-1',
+          item_id: 'item-1',
+          op_type: 'acl_add',
+          principal_type: 'user',
+          principal_id: 'user-2',
+          access_level: 'write',
+          parent_id: null,
+          child_id: null,
+          actor_id: 'user-1',
+          source_table: 'vfs_shares',
+          source_id: 'share-1',
+          occurred_at: new Date('2026-02-14T00:00:00.000Z')
+        },
+        {
+          op_id: 'op-2',
+          item_id: 'item-1',
+          op_type: 'acl_remove',
+          principal_type: 'user',
+          principal_id: 'user-2',
+          access_level: null,
+          parent_id: null,
+          child_id: null,
+          actor_id: 'user-1',
+          source_table: 'vfs_shares',
+          source_id: 'share-1',
+          occurred_at: new Date('2026-02-14T00:00:01.000Z')
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync?limit=1&rootId=root-123')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(200);
+    expect(response.body.items).toHaveLength(1);
+    expect(response.body.items[0]).toEqual({
+      opId: 'op-1',
+      itemId: 'item-1',
+      opType: 'acl_add',
+      principalType: 'user',
+      principalId: 'user-2',
+      accessLevel: 'write',
+      parentId: null,
+      childId: null,
+      actorId: 'user-1',
+      sourceTable: 'vfs_shares',
+      sourceId: 'share-1',
+      occurredAt: '2026-02-14T00:00:00.000Z'
+    });
+    expect(response.body.hasMore).toBe(true);
+    expect(typeof response.body.nextCursor).toBe('string');
+    expect(decodeVfsSyncCursor(response.body.nextCursor)).toEqual({
+      changedAt: '2026-02-14T00:00:00.000Z',
+      changeId: 'op-1'
+    });
+    expect(mockQuery).toHaveBeenCalledTimes(1);
+    expect(mockQuery.mock.calls[0]?.[1]).toEqual([
+      'user-1',
+      null,
+      null,
+      2,
+      'root-123'
+    ]);
+  });
+
+  it('returns 500 when CRDT rows violate ordering guardrails', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    mockQuery.mockResolvedValueOnce({
+      rows: [
+        {
+          op_id: 'op-2',
+          item_id: 'item-1',
+          op_type: 'acl_add',
+          principal_type: 'user',
+          principal_id: 'user-2',
+          access_level: 'write',
+          parent_id: null,
+          child_id: null,
+          actor_id: 'user-1',
+          source_table: 'vfs_shares',
+          source_id: 'share-1',
+          occurred_at: new Date('2026-02-14T00:00:01.000Z')
+        },
+        {
+          op_id: 'op-1',
+          item_id: 'item-1',
+          op_type: 'acl_add',
+          principal_type: 'user',
+          principal_id: 'user-2',
+          access_level: 'write',
+          parent_id: null,
+          child_id: null,
+          actor_id: 'user-1',
+          source_table: 'vfs_shares',
+          source_id: 'share-1',
+          occurred_at: new Date('2026-02-14T00:00:00.000Z')
+        }
+      ]
+    });
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync?limit=10')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: 'Failed to sync VFS CRDT operations'
+    });
+    restoreConsole();
+  });
+
+  it('returns 500 when database query fails', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    mockQuery.mockRejectedValueOnce(new Error('Database failure'));
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: 'Failed to sync VFS CRDT operations'
+    });
+    restoreConsole();
+  });
+});
