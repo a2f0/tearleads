@@ -43,9 +43,13 @@ function resolveCurrentLanguage(
 }
 
 function getInitialDisplayMode(): DisplayMode {
-  const stored = localStorage.getItem(DISPLAY_MODE_KEY);
-  if (stored === 'flag' || stored === 'abbreviation') {
-    return stored;
+  try {
+    const stored = localStorage.getItem(DISPLAY_MODE_KEY);
+    if (stored === 'flag' || stored === 'abbreviation') {
+      return stored;
+    }
+  } catch {
+    // localStorage may not be available
   }
   return 'flag';
 }
@@ -119,7 +123,11 @@ export function RuntimeLanguagePicker() {
   const handleToggleDisplayMode = useCallback(() => {
     const newMode = displayMode === 'flag' ? 'abbreviation' : 'flag';
     setDisplayMode(newMode);
-    localStorage.setItem(DISPLAY_MODE_KEY, newMode);
+    try {
+      localStorage.setItem(DISPLAY_MODE_KEY, newMode);
+    } catch {
+      // localStorage may not be available
+    }
     setContextMenu(null);
   }, [displayMode]);
 
