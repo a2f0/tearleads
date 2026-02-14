@@ -168,7 +168,7 @@ jobs:
               fi
 
               git commit \
-                -m "chore(release): bump versions [skip ci]" \
+                -m "chore(release): bump versions" \
                 -m "source-sha: $pending_source_sha" \
                 -m "source-run-id: $COMMIT_SOURCE_RUN_ID"
               APPLIED_COMMITS=$((APPLIED_COMMITS + 1))
@@ -206,7 +206,7 @@ jobs:
                 PR_URL=$(gh pr create -R "$REPO" \
                   --base main \
                   --head "$BUMP_BRANCH" \
-                  --title "chore(release): bump versions [skip ci]" \
+                  --title "chore(release): bump versions" \
                   --body "$PR_BODY")
                 PR_NUMBER=$(echo "$PR_URL" | awk -F/ '{print $NF}')
               else
