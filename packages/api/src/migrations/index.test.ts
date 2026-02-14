@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 31 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 32 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(31);
+      expect(result.currentVersion).toBe(32);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 31 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 32 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -159,9 +159,9 @@ describe('migrations', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23, 24, 25, 26, 27, 28, 29, 30, 31
+        22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32
       ]);
-      expect(result.currentVersion).toBe(31);
+      expect(result.currentVersion).toBe(32);
     });
   });
 
@@ -969,6 +969,60 @@ describe('migrations', () => {
       }
 
       await expect(v031.up(pool)).rejects.toThrow('forced v031 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v032 migration', () => {
+    it('records folder retirement checkpoint only after parity checks pass', async () => {
+      const pool = createMockPool(new Map());
+
+      const v032 = migrations.find((m: Migration) => m.version === 32);
+      if (!v032) {
+        throw new Error('v032 migration not found');
+      }
+
+      await v032.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'vfs_registry missing before folder retirement checkpoint'
+      );
+      expect(queries).toContain(
+        'vfs_folders missing before folder retirement checkpoint'
+      );
+      expect(queries).toContain('folder retirement counts diverged');
+      expect(queries).toContain('folder retirement metadata mismatches remain');
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "vfs_folder_retirement_checkpoints"'
+      );
+      expect(queries).toContain(
+        'INSERT INTO "vfs_folder_retirement_checkpoints"'
+      );
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (sql.includes('INSERT INTO "vfs_folder_retirement_checkpoints"')) {
+            throw new Error('forced v032 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v032 = migrations.find((m: Migration) => m.version === 32);
+      if (!v032) {
+        throw new Error('v032 migration not found');
+      }
+
+      await expect(v032.up(pool)).rejects.toThrow('forced v032 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');
