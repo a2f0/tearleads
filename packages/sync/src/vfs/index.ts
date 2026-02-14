@@ -4,6 +4,10 @@ export {
   type VfsAclSnapshotEntry
 } from './acl-key-view.js';
 export {
+  type EffectiveVfsAclKeyViewEntry,
+  InMemoryVfsAccessHarness
+} from './sync-access-harness.js';
+export {
   type AbandonVfsBlobInput,
   type AttachVfsBlobInput,
   InMemoryVfsBlobCommitStore,
