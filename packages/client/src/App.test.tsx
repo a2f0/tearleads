@@ -73,6 +73,10 @@ vi.mock('./components/audio/MiniPlayer', () => ({
   MiniPlayer: () => <div data-testid="mini-player" />
 }));
 
+vi.mock('./components/language-picker', () => ({
+  RuntimeLanguagePicker: () => <div data-testid="runtime-language-picker" />
+}));
+
 vi.mock('./components/notification-center', () => ({
   NotificationCenterTrigger: () => (
     <div data-testid="notification-center-trigger" />
