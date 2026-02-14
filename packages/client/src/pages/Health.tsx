@@ -1,5 +1,5 @@
-import { Activity, Dumbbell, HeartPulse, Scale } from 'lucide-react';
 import { getTableColumns } from 'drizzle-orm';
+import { Activity, Dumbbell, HeartPulse, Scale } from 'lucide-react';
 import { BackLink } from '@/components/ui/back-link';
 import {
   healthBloodPressureReadings,

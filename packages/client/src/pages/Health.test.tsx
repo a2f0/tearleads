@@ -26,7 +26,9 @@ describe('Health', () => {
     renderHealth();
 
     expect(screen.getByText('table: health_weight_readings')).toBeTruthy();
-    expect(screen.getByText('table: health_blood_pressure_readings')).toBeTruthy();
+    expect(
+      screen.getByText('table: health_blood_pressure_readings')
+    ).toBeTruthy();
     expect(screen.getByText('table: health_exercises')).toBeTruthy();
     expect(screen.getByText('table: health_workout_entries')).toBeTruthy();
 
