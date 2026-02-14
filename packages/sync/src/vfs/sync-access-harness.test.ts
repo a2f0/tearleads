@@ -851,4 +851,144 @@ describe('InMemoryVfsAccessHarness', () => {
       }
     ]);
   });
+
+  it('filters deleted principals with authoritative catalog snapshots and rejects stale rollback', () => {
+    const harness = new InMemoryVfsAccessHarness();
+
+    harness.setAclSnapshotEntries([
+      {
+        itemId: 'group-item',
+        principalType: 'group',
+        principalId: 'group-deleted',
+        accessLevel: 'write',
+        wrappedSessionKey: 'session-group-deleted',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T11:00:00.000Z',
+        revokedAt: null,
+        expiresAt: null
+      },
+      {
+        itemId: 'org-item',
+        principalType: 'organization',
+        principalId: 'org-live',
+        accessLevel: 'admin',
+        wrappedSessionKey: 'session-org-live',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T11:00:01.000Z',
+        revokedAt: null,
+        expiresAt: null
+      }
+    ]);
+
+    harness.applyCrdtPage([
+      crdtAclAdd({
+        opId: 'op-600',
+        occurredAt: '2026-02-14T11:01:00.000Z',
+        itemId: 'group-item',
+        principalType: 'group',
+        principalId: 'group-deleted',
+        accessLevel: 'write'
+      }),
+      crdtAclAdd({
+        opId: 'op-601',
+        occurredAt: '2026-02-14T11:01:01.000Z',
+        itemId: 'org-item',
+        principalType: 'organization',
+        principalId: 'org-live',
+        accessLevel: 'admin'
+      })
+    ]);
+
+    harness.replaceMembershipSnapshot({
+      cursor: {
+        changedAt: '2026-02-14T11:05:00.000Z',
+        changeId: 'membership-catalog-1'
+      },
+      members: [
+        {
+          userId: 'user-33',
+          groupIds: ['group-deleted'],
+          organizationIds: ['org-live']
+        }
+      ]
+    });
+
+    harness.replacePrincipalCatalogSnapshot({
+      cursor: {
+        changedAt: '2026-02-14T11:05:01.000Z',
+        changeId: 'catalog-1'
+      },
+      groupIds: ['group-deleted'],
+      organizationIds: ['org-live']
+    });
+
+    expect(harness.buildEffectiveAccessForUser('user-33')).toEqual([
+      {
+        itemId: 'group-item',
+        accessLevel: 'write',
+        principalType: 'group',
+        principalId: 'group-deleted',
+        wrappedSessionKey: 'session-group-deleted',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T11:00:00.000Z'
+      },
+      {
+        itemId: 'org-item',
+        accessLevel: 'admin',
+        principalType: 'organization',
+        principalId: 'org-live',
+        wrappedSessionKey: 'session-org-live',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T11:00:01.000Z'
+      }
+    ]);
+
+    harness.replacePrincipalCatalogSnapshot({
+      cursor: {
+        changedAt: '2026-02-14T11:06:00.000Z',
+        changeId: 'catalog-2'
+      },
+      groupIds: [],
+      organizationIds: ['org-live']
+    });
+
+    expect(harness.buildEffectiveAccessForUser('user-33')).toEqual([
+      {
+        itemId: 'org-item',
+        accessLevel: 'admin',
+        principalType: 'organization',
+        principalId: 'org-live',
+        wrappedSessionKey: 'session-org-live',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T11:00:01.000Z'
+      }
+    ]);
+
+    expect(() =>
+      harness.replacePrincipalCatalogSnapshot({
+        cursor: {
+          changedAt: '2026-02-14T11:05:59.000Z',
+          changeId: 'catalog-stale'
+        },
+        groupIds: ['group-deleted'],
+        organizationIds: ['org-live']
+      })
+    ).toThrowError(/principal catalog snapshot cursor regressed/);
+
+    expect(harness.getPrincipalCatalogCursor()).toEqual({
+      changedAt: '2026-02-14T11:06:00.000Z',
+      changeId: 'catalog-2'
+    });
+    expect(harness.buildEffectiveAccessForUser('user-33')).toEqual([
+      {
+        itemId: 'org-item',
+        accessLevel: 'admin',
+        principalType: 'organization',
+        principalId: 'org-live',
+        wrappedSessionKey: 'session-org-live',
+        wrappedHierarchicalKey: null,
+        updatedAt: '2026-02-14T11:00:01.000Z'
+      }
+    ]);
+  });
 });

@@ -42,6 +42,12 @@ export interface VfsAuthoritativeMembershipSnapshot {
   members: VfsMemberPrincipalView[];
 }
 
+export interface VfsAuthoritativePrincipalCatalogSnapshot {
+  cursor: VfsSyncCursor;
+  groupIds: string[];
+  organizationIds: string[];
+}
+
 const ACCESS_RANK: Record<VfsAclAccessLevel, number> = {
   read: 1,
   write: 2,
@@ -110,19 +116,22 @@ function normalizeRequiredString(value: unknown, fieldName: string): string {
   return trimmed;
 }
 
-function normalizeMembershipSnapshotCursor(cursor: VfsSyncCursor): VfsSyncCursor {
+function normalizeAuthoritativeSnapshotCursor(
+  cursor: VfsSyncCursor,
+  snapshotName: string
+): VfsSyncCursor {
   const changedAt = normalizeRequiredString(
     cursor.changedAt,
-    'membership snapshot cursor.changedAt'
+    `${snapshotName} cursor.changedAt`
   );
   const changeId = normalizeRequiredString(
     cursor.changeId,
-    'membership snapshot cursor.changeId'
+    `${snapshotName} cursor.changeId`
   );
 
   const changedAtMs = Date.parse(changedAt);
   if (!Number.isFinite(changedAtMs)) {
-    throw new Error('membership snapshot cursor.changedAt is invalid');
+    throw new Error(`${snapshotName} cursor.changedAt is invalid`);
   }
 
   return {
@@ -215,6 +224,11 @@ export class InMemoryVfsAccessHarness {
   private aclSnapshotEntries: VfsAclSnapshotEntry[] = [];
   private membershipSnapshotCursor: VfsSyncCursor | null = null;
   private membershipPrincipalViewsByUserId = new Map<string, VfsMemberPrincipalView>();
+  private principalCatalogCursor: VfsSyncCursor | null = null;
+  private activePrincipalCatalog = {
+    groupIds: new Set<string>(),
+    organizationIds: new Set<string>()
+  };
 
   setAclSnapshotEntries(entries: VfsAclSnapshotEntry[]): void {
     this.aclSnapshotEntries = entries.slice();
@@ -231,7 +245,10 @@ export class InMemoryVfsAccessHarness {
   replaceMembershipSnapshot(
     snapshot: VfsAuthoritativeMembershipSnapshot
   ): void {
-    const normalizedCursor = normalizeMembershipSnapshotCursor(snapshot.cursor);
+    const normalizedCursor = normalizeAuthoritativeSnapshotCursor(
+      snapshot.cursor,
+      'membership snapshot'
+    );
     if (
       this.membershipSnapshotCursor &&
       compareVfsSyncCursorOrder(
@@ -263,6 +280,41 @@ export class InMemoryVfsAccessHarness {
   getMembershipSnapshotCursor(): VfsSyncCursor | null {
     return this.membershipSnapshotCursor
       ? cloneCursor(this.membershipSnapshotCursor)
+      : null;
+  }
+
+  replacePrincipalCatalogSnapshot(
+    snapshot: VfsAuthoritativePrincipalCatalogSnapshot
+  ): void {
+    const normalizedCursor = normalizeAuthoritativeSnapshotCursor(
+      snapshot.cursor,
+      'principal catalog snapshot'
+    );
+    if (
+      this.principalCatalogCursor &&
+      compareVfsSyncCursorOrder(
+        normalizedCursor,
+        this.principalCatalogCursor
+      ) < 0
+    ) {
+      /**
+       * Guardrail: principal catalog snapshots define which group/org IDs are
+       * still valid. Cursor rollback would allow deleted principals to be
+       * reintroduced by stale cache state.
+       */
+      throw new Error('principal catalog snapshot cursor regressed');
+    }
+
+    this.principalCatalogCursor = normalizedCursor;
+    this.activePrincipalCatalog = {
+      groupIds: normalizePrincipalIdSet(snapshot.groupIds),
+      organizationIds: normalizePrincipalIdSet(snapshot.organizationIds)
+    };
+  }
+
+  getPrincipalCatalogCursor(): VfsSyncCursor | null {
+    return this.principalCatalogCursor
+      ? cloneCursor(this.principalCatalogCursor)
       : null;
   }
 
@@ -485,12 +537,24 @@ export class InMemoryVfsAccessHarness {
       userId,
       'userId'
     );
-    return (
+    const principalView =
       this.membershipPrincipalViewsByUserId.get(normalizedUserId) ?? {
         userId: normalizedUserId,
         groupIds: [],
         organizationIds: []
-      }
-    );
+      };
+    if (!this.principalCatalogCursor) {
+      return principalView;
+    }
+
+    return {
+      userId: principalView.userId,
+      groupIds: principalView.groupIds.filter((groupId) =>
+        this.activePrincipalCatalog.groupIds.has(groupId)
+      ),
+      organizationIds: principalView.organizationIds.filter((organizationId) =>
+        this.activePrincipalCatalog.organizationIds.has(organizationId)
+      )
+    };
   }
 }
