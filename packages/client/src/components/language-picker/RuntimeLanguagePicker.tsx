@@ -23,6 +23,10 @@ function resolveCurrentLanguage(
   }
 
   const normalizedLanguage = language.toLowerCase();
+  if (normalizedLanguage === 'uk' || normalizedLanguage.startsWith('uk-')) {
+    return 'ua';
+  }
+
   const matchedLanguage = supportedLanguages.find(
     (supportedLanguage) =>
       normalizedLanguage === supportedLanguage ||
@@ -75,9 +79,13 @@ export function RuntimeLanguagePicker() {
 
   const handleLanguageChange = useCallback(
     async (languageCode: SupportedLanguage) => {
-      await loadLanguage(languageCode);
-      await i18n.changeLanguage(languageCode);
-      setIsOpen(false);
+      try {
+        await loadLanguage(languageCode);
+        await i18n.changeLanguage(languageCode);
+        setIsOpen(false);
+      } catch {
+        // Keep the menu open so the user can retry if loading fails.
+      }
     },
     [i18n]
   );

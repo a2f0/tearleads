@@ -25,6 +25,7 @@ describe('RuntimeLanguagePicker', () => {
     await act(async () => {
       await i18nModule.i18n.changeLanguage('en');
     });
+    vi.restoreAllMocks();
   });
 
   it('renders a compact trigger in the bottom-right actions area', () => {
