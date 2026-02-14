@@ -61,6 +61,8 @@ Read paths now prefer `vfs_registry` folder metadata and fail over to
 is complete.
 `v031` adds non-destructive pre-drop guardrails to verify canonical/legacy
 folder parity before any future `vfs_folders` drop.
+`v032` records explicit retirement checkpoint snapshots after parity checks to
+support rollback-aware drop planning.
 
 ## Domain Mapping
 
