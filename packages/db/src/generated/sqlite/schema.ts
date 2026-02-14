@@ -509,6 +509,11 @@ export const vfsRegistry = sqliteTable(
     encryptedSessionKey: text('encrypted_session_key'),
     publicHierarchicalKey: text('public_hierarchical_key'),
     encryptedPrivateHierarchicalKey: text('encrypted_private_hierarchical_key'),
+    encryptedName: text('encrypted_name'),
+    icon: text('icon'),
+    viewMode: text('view_mode'),
+    defaultSort: text('default_sort'),
+    sortDirection: text('sort_direction'),
     createdAt: integer('created_at', { mode: 'timestamp_ms' }).notNull()
   },
   (table) => [

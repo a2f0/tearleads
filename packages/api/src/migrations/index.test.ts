@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 29 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 30 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(29);
+      expect(result.currentVersion).toBe(30);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 29 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 30 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -159,9 +159,9 @@ describe('migrations', () => {
 
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
-        22, 23, 24, 25, 26, 27, 28, 29
+        22, 23, 24, 25, 26, 27, 28, 29, 30
       ]);
-      expect(result.currentVersion).toBe(29);
+      expect(result.currentVersion).toBe(30);
     });
   });
 
@@ -857,6 +857,62 @@ describe('migrations', () => {
       }
 
       await expect(v029.up(pool)).rejects.toThrow('forced v029 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v030 migration', () => {
+    it('backfills and verifies canonical folder metadata parity', async () => {
+      const pool = createMockPool(new Map());
+
+      const v030 = migrations.find((m: Migration) => m.version === 30);
+      if (!v030) {
+        throw new Error('v030 migration not found');
+      }
+
+      await v030.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'vfs_registry missing while vfs_folders still exists'
+      );
+      expect(queries).toContain('ALTER TABLE "vfs_registry"');
+      expect(queries).toContain('ADD COLUMN IF NOT EXISTS "encrypted_name"');
+      expect(queries).toContain('ADD COLUMN IF NOT EXISTS "sort_direction"');
+      expect(queries).toContain(
+        'vfs_folders rows missing canonical folder registry identities'
+      );
+      expect(queries).toContain('UPDATE "vfs_registry" r');
+      expect(queries).toContain(
+        'r.encrypted_name IS DISTINCT FROM f.encrypted_name'
+      );
+      expect(queries).toContain(
+        'vfs_folders rows missing canonical folder metadata parity'
+      );
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (sql.includes('UPDATE "vfs_registry" r')) {
+            throw new Error('forced v030 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v030 = migrations.find((m: Migration) => m.version === 30);
+      if (!v030) {
+        throw new Error('v030 migration not found');
+      }
+
+      await expect(v030.up(pool)).rejects.toThrow('forced v030 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');
