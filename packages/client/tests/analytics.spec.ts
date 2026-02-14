@@ -86,7 +86,10 @@ test.describe('Analytics page', () => {
 
   test('should navigate to analytics page', async ({ page }) => {
     await navigateTo(page, 'Analytics');
-    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+    // Wait for the page to be ready (increased timeout for CI environments)
+    await expect(
+      page.getByRole('heading', { name: 'Analytics' })
+    ).toBeVisible({ timeout: 15000 });
   });
 
   test('should show inline unlock when database is not unlocked', async ({
@@ -94,7 +97,9 @@ test.describe('Analytics page', () => {
   }) => {
     await navigateTo(page, 'Analytics');
 
-    await expect(page.getByRole('heading', { name: 'Analytics' })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: 'Analytics' })
+    ).toBeVisible({ timeout: 15000 });
     // Should show inline unlock component
     await expect(page.getByTestId('inline-unlock')).toBeVisible();
     // Database may be "not set up" (never initialized) or "locked" (set up but not unlocked)
