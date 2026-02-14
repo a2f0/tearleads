@@ -84,6 +84,20 @@ describe('Health', () => {
     expect(screen.getByText('Open Height Tracking')).toBeTruthy();
   });
 
+  it('supports drilldown navigation in floating window mode', async () => {
+    renderHealth({ showBackLink: false });
+    const user = userEvent.setup();
+
+    await user.click(screen.getByTestId('health-card-link-height'));
+    expect(screen.getByTestId('health-detail-height')).toBeTruthy();
+
+    await user.click(screen.getByTestId('health-nav-workouts'));
+    expect(screen.getByTestId('health-detail-workouts')).toBeTruthy();
+
+    await user.click(screen.getByTestId('health-overview-link'));
+    expect(screen.getByText('Open Height Tracking')).toBeTruthy();
+  });
+
   it('renders workout route detail directly', () => {
     renderHealth({ initialEntries: ['/health/workouts'] });
     expect(screen.getByTestId('health-detail-workouts')).toBeTruthy();

@@ -7,6 +7,7 @@ import {
   Ruler,
   Scale
 } from 'lucide-react';
+import { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 import {
@@ -118,7 +119,11 @@ const HEALTH_DRILLDOWN_CARDS = HEALTH_SCHEMA_CARDS.filter(isDrilldownCard);
 
 export function Health({ showBackLink = true }: HealthProps) {
   const location = useLocation();
-  const activeRoute = getActiveHealthRoute(location.pathname);
+  const routeFromPath = getActiveHealthRoute(location.pathname);
+  const [windowRoute, setWindowRoute] = useState<
+    HealthDrilldownRoute | undefined
+  >(routeFromPath);
+  const activeRoute = showBackLink ? routeFromPath : windowRoute;
   const activeCard =
     HEALTH_DRILLDOWN_CARDS.find((card) => card.route === activeRoute) ??
     undefined;
@@ -136,22 +141,45 @@ export function Health({ showBackLink = true }: HealthProps) {
       </div>
 
       <div className="mb-3 flex flex-wrap gap-2">
-        <Link
-          className="rounded-md border px-2 py-1 text-xs"
-          to={HEALTH_OVERVIEW_ROUTE}
-        >
-          Overview
-        </Link>
-        {HEALTH_DRILLDOWN_CARDS.map((card) => (
+        {showBackLink ? (
           <Link
-            key={card.route}
             className="rounded-md border px-2 py-1 text-xs"
-            data-testid={`health-nav-${card.route}`}
-            to={`${HEALTH_ROUTE_PREFIX}${card.route}`}
+            to={HEALTH_OVERVIEW_ROUTE}
           >
-            {card.title}
+            Overview
           </Link>
-        ))}
+        ) : (
+          <button
+            type="button"
+            className="rounded-md border px-2 py-1 text-xs"
+            onClick={() => setWindowRoute(undefined)}
+            data-testid="health-nav-overview"
+          >
+            Overview
+          </button>
+        )}
+        {HEALTH_DRILLDOWN_CARDS.map((card) =>
+          showBackLink ? (
+            <Link
+              key={card.route}
+              className="rounded-md border px-2 py-1 text-xs"
+              data-testid={`health-nav-${card.route}`}
+              to={`${HEALTH_ROUTE_PREFIX}${card.route}`}
+            >
+              {card.title}
+            </Link>
+          ) : (
+            <button
+              key={card.route}
+              type="button"
+              className="rounded-md border px-2 py-1 text-xs"
+              data-testid={`health-nav-${card.route}`}
+              onClick={() => setWindowRoute(card.route)}
+            >
+              {card.title}
+            </button>
+          )
+        )}
       </div>
 
       {activeCard ? (
@@ -179,13 +207,24 @@ export function Health({ showBackLink = true }: HealthProps) {
               relation: {activeCard.relation}
             </p>
           ) : null}
-          <Link
-            className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
-            data-testid="health-overview-link"
-            to={HEALTH_OVERVIEW_ROUTE}
-          >
-            Back to Overview
-          </Link>
+          {showBackLink ? (
+            <Link
+              className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
+              data-testid="health-overview-link"
+              to={HEALTH_OVERVIEW_ROUTE}
+            >
+              Back to Overview
+            </Link>
+          ) : (
+            <button
+              type="button"
+              className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
+              data-testid="health-overview-link"
+              onClick={() => setWindowRoute(undefined)}
+            >
+              Back to Overview
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
@@ -210,13 +249,24 @@ export function Health({ showBackLink = true }: HealthProps) {
                   </p>
                 ) : null}
                 {card.route ? (
-                  <Link
-                    className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
-                    data-testid={`health-card-link-${card.route}`}
-                    to={`${HEALTH_ROUTE_PREFIX}${card.route}`}
-                  >
-                    Open {card.title}
-                  </Link>
+                  showBackLink ? (
+                    <Link
+                      className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
+                      data-testid={`health-card-link-${card.route}`}
+                      to={`${HEALTH_ROUTE_PREFIX}${card.route}`}
+                    >
+                      Open {card.title}
+                    </Link>
+                  ) : (
+                    <button
+                      type="button"
+                      className="mt-3 inline-flex rounded-md border px-2 py-1 text-xs"
+                      data-testid={`health-card-link-${card.route}`}
+                      onClick={() => setWindowRoute(card.route)}
+                    >
+                      Open {card.title}
+                    </button>
+                  )
                 ) : (
                   <p className="mt-3 text-muted-foreground text-xs">
                     Sub-route coming soon
