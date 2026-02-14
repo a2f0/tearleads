@@ -9,11 +9,13 @@ import { registerGetKeysMeRoute } from './vfs/getKeysMe.js';
 import { registerGetSyncRoute } from './vfs/get-sync.js';
 import { registerPostKeysRoute } from './vfs/postKeys.js';
 import { registerPostRegisterRoute } from './vfs/postRegister.js';
+import { registerPostSyncReconcileRoute } from './vfs/post-sync-reconcile.js';
 
 const vfsRouter: RouterType = Router();
 registerGetKeysMeRoute(vfsRouter);
 registerGetSyncRoute(vfsRouter);
 registerPostKeysRoute(vfsRouter);
 registerPostRegisterRoute(vfsRouter);
+registerPostSyncReconcileRoute(vfsRouter);
 
 export { vfsRouter };

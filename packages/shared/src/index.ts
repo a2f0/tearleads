@@ -123,6 +123,16 @@ export interface VfsSyncResponse {
   hasMore: boolean;
 }
 
+export interface VfsSyncReconcileRequest {
+  clientId: string;
+  cursor: string;
+}
+
+export interface VfsSyncReconcileResponse {
+  clientId: string;
+  cursor: string;
+}
+
 // VFS Sharing types
 export type VfsShareType = 'user' | 'group' | 'organization';
 export type VfsPermissionLevel = 'view' | 'edit' | 'download';

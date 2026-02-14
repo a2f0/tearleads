@@ -2325,6 +2325,50 @@ export const vfsSyncChangesTable: TableDefinition = {
   ]
 };
 
+/**
+ * Per-user/per-client sync cursor reconciliation state.
+ * Tracks the latest cursor each client has fully applied.
+ */
+export const vfsSyncClientStateTable: TableDefinition = {
+  name: 'vfs_sync_client_state',
+  propertyName: 'vfsSyncClientState',
+  comment:
+    'Per-user/per-client sync cursor reconciliation state.\nTracks the latest cursor each client has fully applied.',
+  columns: {
+    userId: {
+      type: 'text',
+      sqlName: 'user_id',
+      primaryKey: true,
+      references: {
+        table: 'users',
+        column: 'id',
+        onDelete: 'cascade'
+      }
+    },
+    clientId: {
+      type: 'text',
+      sqlName: 'client_id',
+      primaryKey: true
+    },
+    lastReconciledAt: {
+      type: 'timestamp',
+      sqlName: 'last_reconciled_at',
+      notNull: true
+    },
+    lastReconciledChangeId: {
+      type: 'text',
+      sqlName: 'last_reconciled_change_id',
+      notNull: true
+    },
+    updatedAt: {
+      type: 'timestamp',
+      sqlName: 'updated_at',
+      notNull: true
+    }
+  },
+  indexes: [{ name: 'vfs_sync_client_state_user_idx', columns: ['userId'] }]
+};
+
 // =============================================================================
 // MLS (RFC 9420) Encrypted Chat Tables
 // =============================================================================
@@ -3041,6 +3085,7 @@ export const allTables: TableDefinition[] = [
   vfsAccessTable,
   vfsAclEntriesTable,
   vfsSyncChangesTable,
+  vfsSyncClientStateTable,
   // MLS tables
   mlsKeyPackagesTable,
   mlsGroupsTable,

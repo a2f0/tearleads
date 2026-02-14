@@ -977,6 +977,29 @@ export const vfsSyncChanges = sqliteTable(
 );
 
 /**
+ * Per-user/per-client sync cursor reconciliation state.
+ * Tracks the latest cursor each client has fully applied.
+ */
+export const vfsSyncClientState = sqliteTable(
+  'vfs_sync_client_state',
+  {
+    userId: text('user_id')
+      .notNull()
+      .references(() => users.id, { onDelete: 'cascade' }),
+    clientId: text('client_id').notNull(),
+    lastReconciledAt: integer('last_reconciled_at', {
+      mode: 'timestamp_ms'
+    }).notNull(),
+    lastReconciledChangeId: text('last_reconciled_change_id').notNull(),
+    updatedAt: integer('updated_at', { mode: 'timestamp_ms' }).notNull()
+  },
+  (table) => [
+    primaryKey({ columns: [table.userId, table.clientId] }),
+    index('vfs_sync_client_state_user_idx').on(table.userId)
+  ]
+);
+
+/**
  * MLS key packages for user identity.
  * Each package is consumed once when used to add user to a group.
  */
@@ -1292,6 +1315,7 @@ export const schema = {
   vfsAccess,
   vfsAclEntries,
   vfsSyncChanges,
+  vfsSyncClientState,
   mlsKeyPackages,
   mlsGroups,
   mlsGroupMembers,

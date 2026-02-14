@@ -1,4 +1,9 @@
 export {
+  buildVfsAclKeyView,
+  type VfsAclKeyViewEntry,
+  type VfsAclSnapshotEntry
+} from './acl-key-view.js';
+export {
   decodeVfsSyncCursor,
   encodeVfsSyncCursor,
   type VfsSyncCursor
@@ -14,3 +19,12 @@ export {
   type VfsSyncDbQuery,
   type VfsSyncDbRow
 } from './sync-engine.js';
+export {
+  compareVfsSyncCursorOrder,
+  InMemoryVfsSyncClientStateStore,
+  type ParsedVfsSyncReconcilePayload,
+  type ParseVfsSyncReconcilePayloadResult,
+  parseVfsSyncReconcilePayload,
+  type ReconcileVfsSyncCursorResult,
+  reconcileVfsSyncCursor
+} from './sync-reconcile.js';
