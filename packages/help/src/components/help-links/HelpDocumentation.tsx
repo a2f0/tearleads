@@ -30,16 +30,16 @@ import chromeExtensionDocumentationEs from '../../../../../docs/es/chrome-extens
 import cliReferenceDocumentationEs from '../../../../../docs/es/cli-reference.md?raw';
 import cliDocumentationEs from '../../../../../docs/es/getting-started.md?raw';
 import tuxedoDocumentationEs from '../../../../../docs/es/tuxedo.md?raw';
-import backupRestoreDocumentationUa from '../../../../../docs/ua/backup-restore.md?raw';
-import chromeExtensionDocumentationUa from '../../../../../docs/ua/chrome-extension.md?raw';
-import cliReferenceDocumentationUa from '../../../../../docs/ua/cli-reference.md?raw';
-import cliDocumentationUa from '../../../../../docs/ua/getting-started.md?raw';
-import tuxedoDocumentationUa from '../../../../../docs/ua/tuxedo.md?raw';
 import backupRestoreDocumentationPt from '../../../../../docs/pt/backup-restore.md?raw';
 import chromeExtensionDocumentationPt from '../../../../../docs/pt/chrome-extension.md?raw';
 import cliReferenceDocumentationPt from '../../../../../docs/pt/cli-reference.md?raw';
 import cliDocumentationPt from '../../../../../docs/pt/getting-started.md?raw';
 import tuxedoDocumentationPt from '../../../../../docs/pt/tuxedo.md?raw';
+import backupRestoreDocumentationUa from '../../../../../docs/ua/backup-restore.md?raw';
+import chromeExtensionDocumentationUa from '../../../../../docs/ua/chrome-extension.md?raw';
+import cliReferenceDocumentationUa from '../../../../../docs/ua/cli-reference.md?raw';
+import cliDocumentationUa from '../../../../../docs/ua/getting-started.md?raw';
+import tuxedoDocumentationUa from '../../../../../docs/ua/tuxedo.md?raw';
 
 const HELP_DOC_MARKDOWN: Record<
   HelpDocId,
