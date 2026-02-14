@@ -1,3 +1,8 @@
+import {
+  alwaysAvailableVfsBlobObjectStore,
+  type VfsBlobObjectStore
+} from './sync-blob-object-store.js';
+
 export type VfsBlobStageStatus = 'staged' | 'attached' | 'abandoned';
 
 export interface VfsBlobStageRecord {
@@ -89,6 +94,11 @@ function cloneRecord(record: VfsBlobStageRecord): VfsBlobStageRecord {
 
 export class InMemoryVfsBlobCommitStore {
   private readonly records: Map<string, VfsBlobStageRecord> = new Map();
+  private readonly objectStore: VfsBlobObjectStore;
+
+  constructor(objectStore: VfsBlobObjectStore = alwaysAvailableVfsBlobObjectStore) {
+    this.objectStore = objectStore;
+  }
 
   stage(input: StageVfsBlobInput): VfsBlobCommitResult {
     const stagingId = normalizeNonEmptyString(input.stagingId);
@@ -177,6 +187,19 @@ export class InMemoryVfsBlobCommitStore {
       return {
         stagingId,
         status: 'conflict',
+        record: cloneRecord(existingRecord)
+      };
+    }
+
+    /**
+     * Guardrail: attachment commits must fail closed when blob content is not
+     * visible in the backing object store. This boundary enables S3-compatible
+     * backends without weakening commit isolation semantics.
+     */
+    if (!this.objectStore.hasBlob(existingRecord.blobId)) {
+      return {
+        stagingId,
+        status: 'notFound',
         record: cloneRecord(existingRecord)
       };
     }
