@@ -1,9 +1,10 @@
 {
   "config": {
     "default": true,
-    "MD013": false,
-    "MD033": false,
-    "MD041": false
+    "MD013": false, // Line length - allow long lines for URLs, tables, code blocks
+    "MD033": false, // Inline HTML - allow HTML elements in markdown
+    "MD041": false, // First line heading - not all files need to start with h1
+    "MD060": false // Table column style - allow compact table formatting
   },
   "ignores": [
     "node_modules",
@@ -16,7 +17,6 @@
     "**/Pods",
     "**/fastlane/README.md",
     "**/playwright-report",
-    "**/test-results",
-    ".claude/commands/skills/.system"
+    "**/test-results"
   ]
 }
