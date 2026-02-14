@@ -1,20 +1,11 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { isRecord } from '@tearleads/shared';
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Braces,
-  Loader2,
-  Trash2
-} from 'lucide-react';
 import type {
   KeyboardEvent as ReactKeyboardEvent,
   MouseEvent as ReactMouseEvent,
   ReactNode
 } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ColumnSettingsDropdown } from '@/components/sqlite/ColumnSettingsDropdown';
 import {
   type ColumnInfo,
   exportTableAsCsv,
@@ -23,12 +14,10 @@ import {
   parseColumnInfo
 } from '@/components/sqlite/exportTableCsv';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { Button } from '@/components/ui/button';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import {
-  getVirtualListStatusText,
-  VirtualListStatus
-} from '@/components/ui/VirtualListStatus';
+import { TableRowsDocumentView } from '@/components/sqlite/table-rows-view/TableRowsDocumentView';
+import { TableRowsTableView } from '@/components/sqlite/table-rows-view/TableRowsTableView';
+import { TableRowsToolbar } from '@/components/sqlite/table-rows-view/TableRowsToolbar';
+import { getVirtualListStatusText } from '@/components/ui/VirtualListStatus';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { cn } from '@/lib/utils';
@@ -288,6 +277,11 @@ export function TableRowsView({
       }
       return { column: null, direction: null };
     });
+  }, []);
+
+  const handleToggleDocumentView = useCallback(() => {
+    userToggledViewRef.current = true;
+    setDocumentView((prev) => !prev);
   }, []);
 
   const handleTruncateClick = useCallback(async () => {
@@ -666,52 +660,21 @@ export function TableRowsView({
 
   return (
     <div className={cn(containerClassName)}>
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          {backLink}
-          <h1 className="font-bold font-mono text-2xl tracking-tight">
-            {tableName ?? 'Table'}
-          </h1>
-        </div>
-        {isUnlocked && tableName && (
-          <div className="flex flex-wrap items-center gap-2">
-            <ColumnSettingsDropdown
-              columns={columns}
-              hiddenColumns={hiddenColumns}
-              onToggleColumn={toggleColumnVisibility}
-            />
-            <Button
-              variant={documentView ? 'default' : 'outline'}
-              size="icon"
-              onClick={() => {
-                userToggledViewRef.current = true;
-                setDocumentView(!documentView);
-              }}
-              title="Toggle document view"
-            >
-              <Braces className="h-4 w-4" />
-            </Button>
-            <Button
-              variant={confirmTruncate ? 'destructive' : 'outline'}
-              size="sm"
-              onClick={handleTruncateClick}
-              disabled={truncating || loading}
-              title={
-                confirmTruncate ? 'Click again to confirm' : 'Truncate table'
-              }
-              data-testid="truncate-button"
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {truncating
-                ? 'Truncating...'
-                : confirmTruncate
-                  ? 'Confirm'
-                  : 'Truncate'}
-            </Button>
-            <RefreshButton onClick={fetchTableData} loading={loading} />
-          </div>
-        )}
-      </div>
+      <TableRowsToolbar
+        backLink={backLink}
+        tableName={tableName}
+        isUnlocked={isUnlocked}
+        columns={columns}
+        hiddenColumns={hiddenColumns}
+        onToggleColumn={toggleColumnVisibility}
+        documentView={documentView}
+        onToggleDocumentView={handleToggleDocumentView}
+        confirmTruncate={confirmTruncate}
+        onTruncateClick={handleTruncateClick}
+        truncating={truncating}
+        loading={loading}
+        onRefresh={fetchTableData}
+      />
 
       {!tableName && (
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
@@ -752,225 +715,46 @@ export function TableRowsView({
       {isUnlocked && tableName && !error && columns.length > 0 && (
         <div className="flex min-h-0 flex-1 flex-col">
           {documentView ? (
-            <div className="flex min-h-0 flex-1 flex-col rounded-lg border">
-              <div
-                ref={parentRef}
-                className="min-h-0 flex-1 overflow-auto p-2"
-                data-testid="scroll-container"
-              >
-                {showInlineStatus && (
-                  <div className="sticky top-0 z-10 bg-background pb-2">
-                    <VirtualListStatus
-                      firstVisible={firstVisible}
-                      lastVisible={lastVisible}
-                      loadedCount={rows.length}
-                      totalCount={totalCount}
-                      hasMore={hasMore}
-                      itemLabel="row"
-                    />
-                  </div>
-                )}
-                {rows.length === 0 && !loading ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    No rows in this table
-                  </div>
-                ) : (
-                  <div
-                    className="relative w-full"
-                    style={{ height: `${virtualizer.getTotalSize()}px` }}
-                  >
-                    {virtualItems.map((virtualItem) => {
-                      const isLoaderRow = virtualItem.index >= rows.length;
-
-                      if (isLoaderRow) {
-                        return (
-                          <div
-                            key="loader"
-                            className="absolute top-0 left-0 flex w-full items-center justify-center p-4 text-muted-foreground"
-                            style={{
-                              height: `${virtualItem.size}px`,
-                              transform: `translateY(${virtualItem.start}px)`
-                            }}
-                          >
-                            {loadingMore && (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Loading more...
-                              </>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      const row = rows[virtualItem.index];
-                      if (!row) return null;
-
-                      return (
-                        <div
-                          key={getRowKey(row, columns, virtualItem.index)}
-                          data-index={virtualItem.index}
-                          ref={virtualizer.measureElement}
-                          className="absolute top-0 left-0 w-full pb-2"
-                          style={{
-                            transform: `translateY(${virtualItem.start}px)`
-                          }}
-                        >
-                          <pre className="overflow-x-auto rounded-lg border bg-muted/30 p-4 font-mono text-sm">
-                            {JSON.stringify(row, null, 2)}
-                          </pre>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
+            <TableRowsDocumentView
+              parentRef={parentRef}
+              showInlineStatus={showInlineStatus}
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              rows={rows}
+              totalCount={totalCount}
+              hasMore={hasMore}
+              loading={loading}
+              totalSize={virtualizer.getTotalSize()}
+              virtualItems={virtualItems}
+              measureElement={(element) => virtualizer.measureElement(element)}
+              getRowKey={(row, index) => getRowKey(row, columns, index)}
+              loadingMore={loadingMore}
+            />
           ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border">
-              {/* Header row - sticky */}
-              <div
-                className="grid border-b bg-muted/50"
-                style={{
-                  gridTemplateColumns: visibleColumns
-                    .map((col) =>
-                      columnWidths[col.name]
-                        ? `${columnWidths[col.name]}px`
-                        : 'minmax(100px, 1fr)'
-                    )
-                    .join(' ')
-                }}
-              >
-                {visibleColumns.map((col) => (
-                  <div
-                    key={col.name}
-                    className="group relative px-4 py-3 text-left font-medium text-muted-foreground text-xs uppercase tracking-wider"
-                  >
-                    <button
-                      type="button"
-                      onClick={() => handleSort(col.name)}
-                      className="inline-flex items-center gap-1 hover:text-foreground"
-                      data-testid={`sort-${col.name}`}
-                    >
-                      {col.name}
-                      {col.pk > 0 && <span className="text-primary">PK</span>}
-                      {sort.column === col.name ? (
-                        sort.direction === 'asc' ? (
-                          <ArrowUp className="h-3 w-3" />
-                        ) : (
-                          <ArrowDown className="h-3 w-3" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="h-3 w-3 opacity-50" />
-                      )}
-                    </button>
-                    {/* Resize handle */}
-                    {/* biome-ignore lint/a11y/useSemanticElements: vertical separator for column resize, hr is not appropriate */}
-                    <div
-                      role="separator"
-                      aria-orientation="vertical"
-                      aria-valuenow={columnWidths[col.name] || 150}
-                      aria-label={`Resize ${col.name} column`}
-                      tabIndex={0}
-                      className={cn(
-                        'absolute top-0 right-0 h-full w-1 cursor-col-resize bg-border opacity-0 transition-opacity hover:opacity-100 focus:opacity-100 focus:outline-none focus:ring-2 focus:ring-primary group-hover:opacity-50',
-                        resizing?.column === col.name && 'opacity-100'
-                      )}
-                      onMouseDown={(e) => handleResizeStart(col.name, e)}
-                      onKeyDown={(e) => handleKeyboardResize(col.name, e)}
-                    />
-                  </div>
-                ))}
-              </div>
-
-              {/* Virtual scroll container */}
-              <div
-                ref={parentRef}
-                className="min-h-0 flex-1 overflow-auto"
-                data-testid="scroll-container"
-              >
-                {showInlineStatus && (
-                  <div className="sticky top-0 z-10 bg-background px-4 py-2">
-                    <VirtualListStatus
-                      firstVisible={firstVisible}
-                      lastVisible={lastVisible}
-                      loadedCount={rows.length}
-                      totalCount={totalCount}
-                      hasMore={hasMore}
-                      itemLabel="row"
-                    />
-                  </div>
-                )}
-                {rows.length === 0 && !loading ? (
-                  <div className="px-4 py-8 text-center text-muted-foreground">
-                    No rows in this table
-                  </div>
-                ) : (
-                  <div
-                    className="relative w-full"
-                    style={{ height: `${virtualizer.getTotalSize()}px` }}
-                  >
-                    {virtualItems.map((virtualItem) => {
-                      const isLoaderRow = virtualItem.index >= rows.length;
-
-                      if (isLoaderRow) {
-                        return (
-                          <div
-                            key="loader"
-                            className="absolute top-0 left-0 flex w-full items-center justify-center border-b p-4 text-muted-foreground"
-                            style={{
-                              height: `${virtualItem.size}px`,
-                              transform: `translateY(${virtualItem.start}px)`
-                            }}
-                          >
-                            {loadingMore && (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Loading more...
-                              </>
-                            )}
-                          </div>
-                        );
-                      }
-
-                      const row = rows[virtualItem.index];
-                      if (!row) return null;
-
-                      return (
-                        <div
-                          key={getRowKey(row, columns, virtualItem.index)}
-                          data-index={virtualItem.index}
-                          ref={virtualizer.measureElement}
-                          className="absolute top-0 left-0 grid w-full border-b hover:bg-muted/25"
-                          style={{
-                            gridTemplateColumns: visibleColumns
-                              .map((col) =>
-                                columnWidths[col.name]
-                                  ? `${columnWidths[col.name]}px`
-                                  : 'minmax(100px, 1fr)'
-                              )
-                              .join(' '),
-                            transform: `translateY(${virtualItem.start}px)`
-                          }}
-                        >
-                          {visibleColumns.map((col) => (
-                            <div
-                              key={col.name}
-                              className={cn(
-                                'truncate whitespace-nowrap px-4 py-2 font-mono text-sm',
-                                row[col.name] === null &&
-                                  'text-muted-foreground italic'
-                              )}
-                            >
-                              {formatCellValue(row[col.name])}
-                            </div>
-                          ))}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
+            <TableRowsTableView
+              parentRef={parentRef}
+              showInlineStatus={showInlineStatus}
+              firstVisible={firstVisible}
+              lastVisible={lastVisible}
+              rows={rows}
+              totalCount={totalCount}
+              hasMore={hasMore}
+              loading={loading}
+              totalSize={virtualizer.getTotalSize()}
+              virtualItems={virtualItems}
+              measureElement={(element) => virtualizer.measureElement(element)}
+              visibleColumns={visibleColumns}
+              columnWidths={columnWidths}
+              sortColumn={sort.column}
+              sortDirection={sort.direction}
+              onSort={handleSort}
+              resizingColumn={resizing?.column ?? null}
+              onResizeStart={handleResizeStart}
+              onKeyboardResize={handleKeyboardResize}
+              getRowKey={(row, index) => getRowKey(row, columns, index)}
+              formatCellValue={formatCellValue}
+              loadingMore={loadingMore}
+            />
           )}
         </div>
       )}
