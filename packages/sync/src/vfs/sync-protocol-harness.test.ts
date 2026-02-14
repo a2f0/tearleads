@@ -1,0 +1,305 @@
+import { describe, expect, it } from 'vitest';
+import {
+  InMemoryVfsCrdtFeedReplayStore,
+  InMemoryVfsCrdtStateStore,
+  type VfsCrdtOperation,
+  type VfsCrdtSnapshot,
+  type VfsCrdtSyncItem
+} from './index.js';
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function parseIsoMs(value: string): number {
+  return Date.parse(value);
+}
+
+function compareFeedItems(
+  left: VfsCrdtSyncItem,
+  right: VfsCrdtSyncItem
+): number {
+  const leftMs = parseIsoMs(left.occurredAt);
+  const rightMs = parseIsoMs(right.occurredAt);
+
+  if (leftMs < rightMs) {
+    return -1;
+  }
+
+  if (leftMs > rightMs) {
+    return 1;
+  }
+
+  return left.opId.localeCompare(right.opId);
+}
+
+function toSyncItem(operation: VfsCrdtOperation): VfsCrdtSyncItem {
+  return {
+    opId: operation.opId,
+    itemId: operation.itemId,
+    opType: operation.opType,
+    principalType: operation.principalType ?? null,
+    principalId: operation.principalId ?? null,
+    accessLevel: operation.accessLevel ?? null,
+    parentId: operation.parentId ?? null,
+    childId: operation.childId ?? null,
+    actorId: null,
+    sourceTable: 'test',
+    sourceId: operation.opId,
+    occurredAt: operation.occurredAt
+  };
+}
+
+class InMemoryCrdtServerHarness {
+  private readonly store = new InMemoryVfsCrdtStateStore();
+  private readonly feedLog: VfsCrdtSyncItem[] = [];
+
+  async applyConcurrent(
+    writes: Array<{ delayMs: number; operation: VfsCrdtOperation }>
+  ): Promise<void> {
+    await Promise.all(
+      writes.map(async ({ delayMs, operation }) => {
+        await wait(delayMs);
+
+        const result = this.store.apply(operation);
+        if (result.status === 'applied') {
+          this.feedLog.push(toSyncItem(operation));
+        }
+      })
+    );
+
+    this.feedLog.sort(compareFeedItems);
+  }
+
+  snapshot(): VfsCrdtSnapshot {
+    return this.store.snapshot();
+  }
+
+  feed(): VfsCrdtSyncItem[] {
+    return this.feedLog.slice();
+  }
+}
+
+class InMemoryReplicaHarness {
+  private readonly store = new InMemoryVfsCrdtFeedReplayStore();
+
+  async syncWithPageSize(
+    feedItems: VfsCrdtSyncItem[],
+    pageSize: number,
+    delayMs: number
+  ): Promise<void> {
+    for (let index = 0; index < feedItems.length; index += pageSize) {
+      const page = feedItems.slice(index, index + pageSize);
+      await wait(delayMs);
+      this.store.applyPage(page);
+    }
+  }
+
+  applyPage(page: VfsCrdtSyncItem[]): void {
+    this.store.applyPage(page);
+  }
+
+  snapshot() {
+    return this.store.snapshot();
+  }
+}
+
+describe('sync protocol harness', () => {
+  it('converges all replicas after concurrent server writes and paged sync', async () => {
+    const server = new InMemoryCrdtServerHarness();
+
+    await server.applyConcurrent([
+      {
+        delayMs: 20,
+        operation: {
+          opId: 'desktop-1',
+          opType: 'acl_add',
+          itemId: 'item-1',
+          replicaId: 'desktop',
+          writeId: 1,
+          occurredAt: '2026-02-14T03:00:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      },
+      {
+        delayMs: 5,
+        operation: {
+          opId: 'mobile-1',
+          opType: 'acl_add',
+          itemId: 'item-1',
+          replicaId: 'mobile',
+          writeId: 1,
+          occurredAt: '2026-02-14T03:00:01.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'write'
+        }
+      },
+      {
+        delayMs: 10,
+        operation: {
+          opId: 'desktop-2',
+          opType: 'link_add',
+          itemId: 'item-1',
+          replicaId: 'desktop',
+          writeId: 2,
+          occurredAt: '2026-02-14T03:00:02.000Z',
+          parentId: 'root',
+          childId: 'item-1'
+        }
+      },
+      {
+        delayMs: 15,
+        operation: {
+          opId: 'mobile-2',
+          opType: 'link_remove',
+          itemId: 'item-1',
+          replicaId: 'mobile',
+          writeId: 2,
+          occurredAt: '2026-02-14T03:00:03.000Z',
+          parentId: 'root',
+          childId: 'item-1'
+        }
+      },
+      {
+        delayMs: 25,
+        operation: {
+          opId: 'tablet-1',
+          opType: 'link_add',
+          itemId: 'item-1',
+          replicaId: 'tablet',
+          writeId: 1,
+          occurredAt: '2026-02-14T03:00:04.000Z',
+          parentId: 'root',
+          childId: 'item-1'
+        }
+      }
+    ]);
+
+    const serverSnapshot = server.snapshot();
+    const feedItems = server.feed();
+
+    const desktopReplica = new InMemoryReplicaHarness();
+    const mobileReplica = new InMemoryReplicaHarness();
+    const tabletReplica = new InMemoryReplicaHarness();
+
+    await Promise.all([
+      desktopReplica.syncWithPageSize(feedItems, 1, 5),
+      mobileReplica.syncWithPageSize(feedItems, 2, 10),
+      tabletReplica.syncWithPageSize(feedItems, 3, 15)
+    ]);
+
+    expect(serverSnapshot).toEqual({
+      acl: [
+        {
+          itemId: 'item-1',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'write'
+        }
+      ],
+      links: [
+        {
+          parentId: 'root',
+          childId: 'item-1'
+        }
+      ],
+      lastReconciledWriteIds: {
+        desktop: 2,
+        mobile: 2,
+        tablet: 1
+      }
+    });
+
+    const expectedCursor = {
+      changedAt: '2026-02-14T03:00:04.000Z',
+      changeId: 'tablet-1'
+    };
+
+    expect(desktopReplica.snapshot()).toEqual({
+      acl: serverSnapshot.acl,
+      links: serverSnapshot.links,
+      cursor: expectedCursor
+    });
+    expect(mobileReplica.snapshot()).toEqual({
+      acl: serverSnapshot.acl,
+      links: serverSnapshot.links,
+      cursor: expectedCursor
+    });
+    expect(tabletReplica.snapshot()).toEqual({
+      acl: serverSnapshot.acl,
+      links: serverSnapshot.links,
+      cursor: expectedCursor
+    });
+  });
+
+  it('fails closed when a stale page arrives and recovers with forward-only pages', () => {
+    const replica = new InMemoryReplicaHarness();
+
+    replica.applyPage([
+      {
+        opId: 'op-2',
+        itemId: 'item-9',
+        opType: 'acl_add',
+        principalType: 'user',
+        principalId: 'user-2',
+        accessLevel: 'read',
+        parentId: null,
+        childId: null,
+        actorId: null,
+        sourceTable: 'test',
+        sourceId: 'op-2',
+        occurredAt: '2026-02-14T03:00:01.000Z'
+      }
+    ]);
+
+    expect(() =>
+      replica.applyPage([
+        {
+          opId: 'op-1',
+          itemId: 'item-9',
+          opType: 'acl_add',
+          principalType: 'user',
+          principalId: 'user-2',
+          accessLevel: 'write',
+          parentId: null,
+          childId: null,
+          actorId: null,
+          sourceTable: 'test',
+          sourceId: 'op-1',
+          occurredAt: '2026-02-14T03:00:00.000Z'
+        }
+      ])
+    ).toThrowError(/not strictly newer than local cursor/);
+
+    replica.applyPage([
+      {
+        opId: 'op-3',
+        itemId: 'item-9',
+        opType: 'acl_remove',
+        principalType: 'user',
+        principalId: 'user-2',
+        accessLevel: null,
+        parentId: null,
+        childId: null,
+        actorId: null,
+        sourceTable: 'test',
+        sourceId: 'op-3',
+        occurredAt: '2026-02-14T03:00:02.000Z'
+      }
+    ]);
+
+    expect(replica.snapshot()).toEqual({
+      acl: [],
+      links: [],
+      cursor: {
+        changedAt: '2026-02-14T03:00:02.000Z',
+        changeId: 'op-3'
+      }
+    });
+  });
+});
