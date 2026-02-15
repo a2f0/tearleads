@@ -140,4 +140,118 @@ describe('WorkoutTable', () => {
       screen.getByRole('table', { name: 'Workout entries table' })
     ).toBeInTheDocument();
   });
+
+  it('sorts by note when column clicked', async () => {
+    const user = userEvent.setup();
+    render(<WorkoutTable entries={mockEntries} />);
+
+    const noteButton = screen.getByRole('button', { name: /note/i });
+    await user.click(noteButton);
+
+    const rows = screen.getAllByRole('row').slice(1);
+    // Empty notes sort last, 'Bodyweight' before 'PR attempt' alphabetically
+    expect(rows[0]).toHaveTextContent('Bodyweight');
+    expect(rows[1]).toHaveTextContent('PR attempt');
+    expect(rows[2]).toHaveTextContent('Bench Press'); // No note, sorted last
+  });
+
+  it('toggles note sort direction on second click', async () => {
+    const user = userEvent.setup();
+    render(<WorkoutTable entries={mockEntries} />);
+
+    const noteButton = screen.getByRole('button', { name: /note/i });
+    await user.click(noteButton);
+    await user.click(noteButton);
+
+    const rows = screen.getAllByRole('row').slice(1);
+    // Reversed: empty notes first when descending (empty > non-empty), then alphabetically reversed
+    expect(rows[0]).toHaveTextContent('Bench Press'); // No note
+    expect(rows[1]).toHaveTextContent('PR attempt');
+    expect(rows[2]).toHaveTextContent('Bodyweight');
+  });
+
+  it('uses secondary sort by date when values are equal', async () => {
+    const entriesWithSameReps = [
+      {
+        id: 'workout_a',
+        performedAt: '2024-01-15T10:00:00.000Z',
+        exerciseId: 'back-squat',
+        exerciseName: 'Back Squat',
+        reps: 5,
+        weight: 225,
+        weightUnit: 'lb' as const
+      },
+      {
+        id: 'workout_b',
+        performedAt: '2024-01-14T08:00:00.000Z',
+        exerciseId: 'bench-press',
+        exerciseName: 'Bench Press',
+        reps: 5,
+        weight: 185,
+        weightUnit: 'lb' as const
+      }
+    ];
+
+    const user = userEvent.setup();
+    render(<WorkoutTable entries={entriesWithSameReps} />);
+
+    const repsButton = screen.getByRole('button', { name: /reps/i });
+    await user.click(repsButton);
+
+    const rows = screen.getAllByRole('row').slice(1);
+    // Both have same reps, so secondary sort by date descending
+    expect(rows[0]).toHaveTextContent('Back Squat'); // Newer date first
+    expect(rows[1]).toHaveTextContent('Bench Press');
+  });
+
+  it('shows correct sort icon for current column', async () => {
+    const user = userEvent.setup();
+    render(<WorkoutTable entries={mockEntries} />);
+
+    // Default sort is by date descending - should show down chevron
+    const dateButton = screen.getByRole('button', { name: /date/i });
+    expect(dateButton.querySelector('svg')).toBeInTheDocument();
+
+    // Exercise button should not have an icon
+    const exerciseButton = screen.getByRole('button', { name: /exercise/i });
+    expect(exerciseButton.querySelector('svg')).not.toBeInTheDocument();
+
+    // Click date to toggle to ascending - should still show icon
+    await user.click(dateButton);
+    expect(dateButton.querySelector('svg')).toBeInTheDocument();
+  });
+
+  it('handles entries with both empty notes correctly', async () => {
+    const entriesWithEmptyNotes = [
+      {
+        id: 'workout_a',
+        performedAt: '2024-01-15T10:00:00.000Z',
+        exerciseId: 'back-squat',
+        exerciseName: 'Back Squat',
+        reps: 5,
+        weight: 225,
+        weightUnit: 'lb' as const
+      },
+      {
+        id: 'workout_b',
+        performedAt: '2024-01-14T08:00:00.000Z',
+        exerciseId: 'bench-press',
+        exerciseName: 'Bench Press',
+        reps: 5,
+        weight: 185,
+        weightUnit: 'lb' as const
+      }
+    ];
+
+    const user = userEvent.setup();
+    render(<WorkoutTable entries={entriesWithEmptyNotes} />);
+
+    const noteButton = screen.getByRole('button', { name: /note/i });
+    await user.click(noteButton);
+
+    // Both have empty notes, so secondary sort by date (descending)
+    const rows = screen.getAllByRole('row').slice(1);
+    expect(rows[0]).toHaveTextContent('Back Squat');
+    expect(rows[1]).toHaveTextContent('Bench Press');
+  });
 });
