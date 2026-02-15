@@ -23,7 +23,10 @@ resource "hcloud_server" "k8s" {
     disable_root: true
 
     runcmd:
-      - curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain}" sh -
+      - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
+      - chmod +x /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain}" /tmp/install-k3s.sh
+      - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
       - chown -R ${var.server_username}:${var.server_username} /home/${var.server_username}/.kube
