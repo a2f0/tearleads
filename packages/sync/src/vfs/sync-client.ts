@@ -216,6 +216,7 @@ export interface VfsCrdtSyncReconcileResponse {
 export type VfsSyncGuardrailViolationCode =
   | 'staleWriteRecoveryExhausted'
   | 'pullPageInvariantViolation'
+  | 'pullDuplicateOpReplay'
   | 'pullCursorRegression'
   | 'reconcileCursorRegression'
   | 'lastWriteIdRegression'
@@ -1379,6 +1380,7 @@ export class VfsBackgroundSyncClient {
     const observedLastWriteIds = new Map<string, number>(
       Object.entries(localReconcileState?.lastReconciledWriteIds ?? {})
     );
+    const observedPullOpIds = new Set<string>();
 
     while (true) {
       const cursorBeforePull = this.currentCursor();
@@ -1430,6 +1432,35 @@ export class VfsBackgroundSyncClient {
 
       let pageCursor: VfsSyncCursor | null = null;
       if (response.items.length > 0) {
+        /**
+         * Guardrail: a single pull cycle must never replay an opId across page
+         * boundaries. Replay indicates a broken cursor contract and can cause
+         * non-deterministic reapplication or stalled pagination.
+         */
+        for (const item of response.items) {
+          const opId = normalizeRequiredString(item.opId);
+          if (!opId) {
+            throw new Error('transport returned item with missing opId');
+          }
+
+          if (observedPullOpIds.has(opId)) {
+            this.emitGuardrailViolation({
+              code: 'pullDuplicateOpReplay',
+              stage: 'pull',
+              message:
+                'pull response replayed an opId within one pull-until-settled cycle',
+              details: {
+                opId
+              }
+            });
+            throw new Error(
+              `transport replayed opId ${opId} during pull pagination`
+            );
+          }
+
+          observedPullOpIds.add(opId);
+        }
+
         this.replayStore.applyPage(response.items);
         this.containerClockStore.applyFeedItems(response.items);
         pulledOperations += response.items.length;
