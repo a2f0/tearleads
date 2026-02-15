@@ -12,6 +12,7 @@ COPY packages/website/package.json packages/website/
 COPY packages/api/package.json packages/api/
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
+COPY packages/ui/package.json packages/ui/
 
 # Install dependencies (skip postinstall - source not copied yet)
 RUN pnpm install --frozen-lockfile --ignore-scripts
@@ -21,6 +22,7 @@ COPY packages/website packages/website
 COPY packages/api packages/api
 COPY packages/shared packages/shared
 COPY packages/db packages/db
+COPY packages/ui packages/ui
 
 # Copy docs directory (used by website docs pages)
 COPY docs docs
