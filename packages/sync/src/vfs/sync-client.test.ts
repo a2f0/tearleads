@@ -9554,6 +9554,171 @@ describe('VfsBackgroundSyncClient', () => {
     expect(guardrailViolations).toHaveLength(1);
   });
 
+  it('keeps corrected-checkpoint recovery signatures deterministic across seeds', async () => {
+    const runScenario = async (
+      seed: number
+    ): Promise<{
+      pushedOpIds: string[];
+      pushedWriteIds: number[];
+      pageSignatures: string[];
+      guardrailSignatures: string[];
+    }> => {
+      const random = createDeterministicRandom(seed);
+      const parentCandidates = ['root', 'archive', 'workspace'] as const;
+      const principalTypes = ['group', 'organization'] as const;
+      const accessLevels = ['read', 'write', 'admin'] as const;
+      const parentId = pickOne(parentCandidates, random);
+      const principalType = pickOne(principalTypes, random);
+      const accessLevel = pickOne(accessLevels, random);
+
+      const itemSeed = `item-seed-corrected-${seed}`;
+      const itemLocalAcl = `item-local-acl-corrected-${seed}`;
+      const itemLocalLink = `item-local-link-corrected-${seed}`;
+      const localAclOpId = `local-acl-corrected-${seed}`;
+      const localLinkOpId = `local-link-corrected-${seed}`;
+
+      const baseMs = Date.parse('2026-02-14T12:35:00.000Z') + seed * 10_000;
+      const at = (offsetSeconds: number): string =>
+        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+
+      const server = new InMemoryVfsCrdtSyncServer();
+      await server.pushOperations({
+        operations: [
+          {
+            opId: `remote-seed-corrected-${seed}`,
+            opType: 'acl_add',
+            itemId: itemSeed,
+            replicaId: 'remote',
+            writeId: 1,
+            occurredAt: at(0),
+            principalType: 'group',
+            principalId: 'group-seed',
+            accessLevel: 'read'
+          }
+        ]
+      });
+      const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+      const sourceClient = new VfsBackgroundSyncClient(
+        'user-1',
+        'desktop',
+        baseTransport
+      );
+      await sourceClient.sync();
+      sourceClient.queueLocalOperation({
+        opType: 'acl_add',
+        opId: localAclOpId,
+        itemId: itemLocalAcl,
+        principalType,
+        principalId: `${principalType}-corrected-${seed}`,
+        accessLevel,
+        occurredAt: at(1)
+      });
+      sourceClient.queueLocalOperation({
+        opType: 'link_add',
+        opId: localLinkOpId,
+        itemId: itemLocalLink,
+        parentId,
+        childId: itemLocalLink,
+        occurredAt: at(2)
+      });
+
+      const correctedState = sourceClient.exportState();
+      const malformedState = sourceClient.exportState();
+      const malformedPending = malformedState.pendingOperations[1];
+      if (!malformedPending) {
+        throw new Error(
+          'expected second pending operation for correction seed'
+        );
+      }
+      malformedPending.childId = `${itemLocalLink}-mismatch`;
+
+      const pushedOpIds: string[] = [];
+      const pushedWriteIds: number[] = [];
+      const guardrailViolations: Array<{
+        code: string;
+        stage: string;
+        message: string;
+      }> = [];
+      const transport: VfsCrdtSyncTransport = {
+        pushOperations: async (input) => {
+          pushedOpIds.push(
+            ...input.operations.map((operation) => operation.opId)
+          );
+          pushedWriteIds.push(
+            ...input.operations.map((operation) => operation.writeId)
+          );
+          return baseTransport.pushOperations(input);
+        },
+        pullOperations: (input) => baseTransport.pullOperations(input)
+      };
+      const targetClient = new VfsBackgroundSyncClient(
+        'user-1',
+        'desktop',
+        transport,
+        {
+          onGuardrailViolation: (violation) => {
+            guardrailViolations.push({
+              code: violation.code,
+              stage: violation.stage,
+              message: violation.message
+            });
+          }
+        }
+      );
+
+      expect(() => targetClient.hydrateState(malformedState)).toThrow(
+        'state.pendingOperations[1] has link childId that does not match itemId'
+      );
+      expect(() => targetClient.hydrateState(correctedState)).not.toThrow();
+
+      const seedPage = targetClient.listChangedContainers(null, 10);
+      const seedCursor = seedPage.nextCursor;
+      if (!seedCursor) {
+        throw new Error('expected seed cursor in corrected deterministic run');
+      }
+
+      await targetClient.flush();
+
+      const pageOne = targetClient.listChangedContainers(seedCursor, 1);
+      const pageOneCursor = pageOne.nextCursor;
+      if (!pageOneCursor) {
+        throw new Error('expected first corrected page cursor');
+      }
+      const pageTwo = targetClient.listChangedContainers(pageOneCursor, 1);
+      const pageSignatures = [
+        ...pageOne.items.map((item) => `${item.containerId}|${item.changeId}`),
+        ...pageTwo.items.map((item) => `${item.containerId}|${item.changeId}`)
+      ];
+      expect(pageSignatures).toEqual([
+        `${itemLocalAcl}|${localAclOpId}`,
+        `${parentId}|${localLinkOpId}`
+      ]);
+
+      expect(pushedOpIds).toEqual([localAclOpId, localLinkOpId]);
+      expect(pushedWriteIds).toEqual([1, 2]);
+      const guardrailSignatures = guardrailViolations.map(
+        (violation) => `${violation.stage}:${violation.code}`
+      );
+      expect(guardrailSignatures).toEqual([
+        'hydrate:hydrateGuardrailViolation'
+      ]);
+
+      return {
+        pushedOpIds,
+        pushedWriteIds,
+        pageSignatures,
+        guardrailSignatures
+      };
+    };
+
+    const seeds = [1551, 1552, 1553] as const;
+    for (const seed of seeds) {
+      const firstRun = await runScenario(seed);
+      const secondRun = await runScenario(seed);
+      expect(secondRun).toEqual(firstRun);
+    }
+  });
+
   it('fails closed when transport regresses cursor with no items', async () => {
     let pullCount = 0;
     const guardrailViolations: Array<{
