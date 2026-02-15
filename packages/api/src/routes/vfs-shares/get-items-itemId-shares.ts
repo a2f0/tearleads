@@ -7,7 +7,9 @@ import type {
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import {
+  extractOrgShareIdFromAclId,
   extractShareIdFromAclId,
+  extractSourceOrgIdFromOrgShareAclId,
   mapAclAccessLevelToSharePermissionLevel,
   type VfsAclAccessLevel
 } from './shared.js';
@@ -121,8 +123,7 @@ export const getItemsItemidSharesHandler = async (
     }));
 
     const orgSharesResult = await pool.query<{
-      share_id: string;
-      source_org_id: string | null;
+      acl_id: string;
       target_org_id: string;
       item_id: string;
       access_level: VfsAclAccessLevel;
@@ -134,14 +135,7 @@ export const getItemsItemidSharesHandler = async (
       created_by_email: string | null;
     }>(
       `SELECT
-          CASE
-            WHEN acl.id LIKE 'org-share:%:%' THEN split_part(acl.id, ':', 3)
-            ELSE SUBSTRING(acl.id FROM 11)
-          END AS share_id,
-          CASE
-            WHEN acl.id LIKE 'org-share:%:%' THEN split_part(acl.id, ':', 2)
-            ELSE NULL
-          END AS source_org_id,
+          acl.id AS acl_id,
           acl.principal_id AS target_org_id,
           acl.item_id,
           acl.access_level,
@@ -151,25 +145,22 @@ export const getItemsItemidSharesHandler = async (
           (
             SELECT name
             FROM organizations
-            WHERE id = CASE
-              WHEN acl.id LIKE 'org-share:%:%' THEN split_part(acl.id, ':', 2)
-              ELSE NULL
-            END
+            WHERE id = split_part(acl.id, ':', 2)
           ) AS source_org_name,
           (SELECT name FROM organizations WHERE id = acl.principal_id) AS target_org_name,
           (SELECT email FROM users WHERE id = acl.granted_by) AS created_by_email
         FROM vfs_acl_entries acl
         WHERE acl.item_id = $1
           AND acl.principal_type = 'organization'
-          AND acl.id LIKE 'org-share:%'
+          AND acl.id LIKE 'org-share:%:%'
           AND acl.revoked_at IS NULL
         ORDER BY acl.created_at DESC`,
       [itemId]
     );
 
     const orgShares: VfsOrgShare[] = orgSharesResult.rows.map((row) => ({
-      id: row.share_id,
-      sourceOrgId: row.source_org_id ?? 'unknown',
+      id: extractOrgShareIdFromAclId(row.acl_id),
+      sourceOrgId: extractSourceOrgIdFromOrgShareAclId(row.acl_id),
       sourceOrgName: row.source_org_name ?? 'Unknown',
       targetOrgId: row.target_org_id,
       targetOrgName: row.target_org_name ?? 'Unknown',
