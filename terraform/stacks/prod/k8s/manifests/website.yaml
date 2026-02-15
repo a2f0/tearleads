@@ -13,10 +13,12 @@ spec:
       labels:
         app: website
     spec:
+      imagePullSecrets:
+        - name: ecr-registry
       containers:
         - name: website
-          image: localhost/tearleads-website:latest
-          imagePullPolicy: Never
+          image: 956489103522.dkr.ecr.us-east-1.amazonaws.com/tearleads-prod/website:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 80
           resources:

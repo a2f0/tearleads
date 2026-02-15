@@ -18,6 +18,7 @@ module "ci_artifacts" {
   ecr_repositories = [
     "tearleads-prod/api",
     "tearleads-prod/client",
+    "tearleads-prod/website",
   ]
   ecr_lifecycle_max_images = 50 # Keep more images in prod
 

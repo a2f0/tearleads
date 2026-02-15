@@ -13,10 +13,12 @@ spec:
       labels:
         app: api
     spec:
+      imagePullSecrets:
+        - name: ecr-registry
       containers:
         - name: api
-          image: localhost/tearleads-api:latest
-          imagePullPolicy: Never
+          image: 956489103522.dkr.ecr.us-east-1.amazonaws.com/tearleads-staging/api:latest
+          imagePullPolicy: Always
           ports:
             - containerPort: 5001
           envFrom:
