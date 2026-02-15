@@ -38,6 +38,7 @@ import {
 import type { AdminFlyoutItem, NavItem } from './types';
 
 export const navItems: NavItem[] = [
+  // Core navigation (always visible)
   {
     path: '/',
     icon: Home,
@@ -59,54 +60,63 @@ export const navItems: NavItem[] = [
     inMobileMenu: true,
     testId: 'search-link'
   },
+
+  // Feature-gated navigation
   {
     path: '/calendar',
     icon: CalendarDays,
     labelKey: 'calendar',
     inMobileMenu: true,
-    testId: 'calendar-link'
+    testId: 'calendar-link',
+    requiredFeature: 'calendar'
   },
   {
     path: '/businesses',
     icon: Building2,
     labelKey: 'businesses',
     inMobileMenu: true,
-    testId: 'businesses-link'
+    testId: 'businesses-link',
+    requiredFeature: 'businesses'
   },
   {
     path: '/vehicles',
     icon: CarFront,
     labelKey: 'vehicles',
     inMobileMenu: true,
-    testId: 'vehicles-link'
+    testId: 'vehicles-link',
+    requiredFeature: 'vehicles'
   },
   {
     path: '/health',
     icon: HeartPulse,
     labelKey: 'health',
     inMobileMenu: true,
-    testId: 'health-link'
+    testId: 'health-link',
+    requiredFeature: 'health'
   },
   {
     path: '/contacts',
     icon: UsersIcon,
     labelKey: 'contacts',
     inMobileMenu: true,
-    testId: 'contacts-link'
+    testId: 'contacts-link',
+    requiredFeature: 'contacts'
   },
   {
     path: '/photos',
     icon: ImageIcon,
     labelKey: 'photos',
     inMobileMenu: true,
-    testId: 'photos-link'
+    testId: 'photos-link',
+    requiredFeature: 'camera'
   },
   {
     path: '/camera',
     icon: Camera,
     labelKey: 'camera',
     inMobileMenu: true,
-    testId: 'camera-link'
+    testId: 'camera-link',
+    requiredFeature: 'camera'
   },
   {
     path: '/documents',
@@ -115,6 +125,8 @@ export const navItems: NavItem[] = [
     inMobileMenu: true,
     testId: 'documents-link'
   },
+
+  // Core features (always visible)
   {
     path: '/help',
     icon: CircleHelp,
@@ -122,34 +134,42 @@ export const navItems: NavItem[] = [
     inMobileMenu: true,
     testId: 'help-link'
   },
+
+  // Feature-gated navigation (continued)
   {
     path: '/notes',
     icon: StickyNote,
     labelKey: 'notes',
     inMobileMenu: true,
-    testId: 'notes-link'
+    testId: 'notes-link',
+    requiredFeature: 'notes'
   },
   {
     path: '/audio',
     icon: Music,
     labelKey: 'audio',
     inMobileMenu: true,
-    testId: 'audio-link'
+    testId: 'audio-link',
+    requiredFeature: 'audio'
   },
   {
     path: '/videos',
     icon: Film,
     labelKey: 'videos',
     inMobileMenu: true,
-    testId: 'videos-link'
+    testId: 'videos-link',
+    requiredFeature: 'audio'
   },
   {
     path: '/analytics',
     icon: BarChart3,
     labelKey: 'analytics',
     inMobileMenu: true,
-    testId: 'analytics-link'
+    testId: 'analytics-link',
+    requiredFeature: 'analytics'
   },
+
+  // Core/debug features (always visible)
   {
     path: '/sqlite',
     icon: Database,
@@ -162,7 +182,8 @@ export const navItems: NavItem[] = [
     icon: Terminal,
     labelKey: 'console',
     inMobileMenu: true,
-    testId: 'console-link'
+    testId: 'console-link',
+    requiredFeature: 'terminal'
   },
   {
     path: '/debug',
@@ -178,12 +199,15 @@ export const navItems: NavItem[] = [
     inMobileMenu: true,
     testId: 'keychain-link'
   },
+
+  // Feature-gated navigation (continued)
   {
     path: '/wallet',
     icon: CreditCard,
     labelKey: 'wallet',
     inMobileMenu: true,
-    testId: 'wallet-link'
+    testId: 'wallet-link',
+    requiredFeature: 'wallet'
   },
   {
     path: '/ai',
@@ -197,14 +221,16 @@ export const navItems: NavItem[] = [
     icon: Lock,
     labelKey: 'mlsChat',
     inMobileMenu: true,
-    testId: 'mls-chat-link'
+    testId: 'mls-chat-link',
+    requiredFeature: 'mls-chat'
   },
   {
     path: '/email',
     icon: Mail,
     labelKey: 'email',
     inMobileMenu: true,
-    testId: 'email-link'
+    testId: 'email-link',
+    requiredFeature: 'email'
   },
   {
     path: '/models',
@@ -213,34 +239,44 @@ export const navItems: NavItem[] = [
     inMobileMenu: true,
     testId: 'models-link'
   },
+
+  // Admin features
   {
     path: '/admin',
     icon: Shield,
     labelKey: 'admin',
     inMobileMenu: true,
-    testId: 'admin-link'
+    testId: 'admin-link',
+    requiredFeature: 'admin'
   },
   {
     path: '/admin/users',
     icon: User,
     labelKey: 'adminUsers',
     inMobileMenu: true,
-    testId: 'admin-users-link'
+    testId: 'admin-users-link',
+    requiredFeature: 'admin'
   },
   {
     path: '/admin/organizations',
     icon: Building2,
     labelKey: 'organizations',
     inMobileMenu: true,
-    testId: 'admin-organizations-link'
+    testId: 'admin-organizations-link',
+    requiredFeature: 'admin'
   },
+
+  // Feature-gated navigation (continued)
   {
     path: '/sync',
     icon: RefreshCw,
     labelKey: 'sync',
     inMobileMenu: true,
-    testId: 'sync-link'
+    testId: 'sync-link',
+    requiredFeature: 'sync'
   },
+
+  // Core features (always visible)
   {
     path: '/vfs',
     icon: FolderTree,
@@ -253,7 +289,8 @@ export const navItems: NavItem[] = [
     icon: AppWindow,
     labelKey: 'classic',
     inMobileMenu: true,
-    testId: 'classic-link'
+    testId: 'classic-link',
+    requiredFeature: 'classic'
   },
   {
     path: '/backups',

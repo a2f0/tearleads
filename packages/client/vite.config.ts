@@ -6,8 +6,12 @@ import { visualizer } from 'rollup-plugin-visualizer';
 import packageJson from './package.json';
 import { pwaOptions } from './pwa.options';
 import { createViteAliases } from './vite.aliases';
+import { createAppConfigPlugin } from './vite-plugin-app-config';
 
 const analyzeBundle = process.env['ANALYZE_BUNDLE'] === 'true';
+
+// Initialize app config plugin - handles disabled packages via resolveId hook
+const { plugin: appConfigPlugin } = createAppConfigPlugin(__dirname);
 
 export default defineConfig(({ mode }) => ({
   define: {
@@ -18,6 +22,7 @@ export default defineConfig(({ mode }) => ({
     })
   },
   plugins: [
+    appConfigPlugin,
     react(),
     tailwindcss(),
     VitePWA(pwaOptions),
@@ -30,6 +35,7 @@ export default defineConfig(({ mode }) => ({
       }) as unknown as PluginOption)
   ],
   resolve: {
+    // Note: disabled packages are now handled by appConfigPlugin via resolveId
     alias: createViteAliases(__dirname)
   },
   clearScreen: false,
