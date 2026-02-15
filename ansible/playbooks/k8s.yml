@@ -262,6 +262,16 @@
       ansible.builtin.debug:
         var: cluster_status.stdout_lines
 
+    - name: Clean up temporary files
+      ansible.builtin.file:
+        path: "{{ item }}"
+        state: absent
+      loop:
+        - "/tmp/nginx-ingress-{{ nginx_ingress_version }}.yaml"
+        - "/tmp/cert-manager-{{ cert_manager_version }}.yaml"
+        - "/tmp/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
+        - "/tmp/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
+
   handlers:
     - name: Restart buildkit
       ansible.builtin.systemd:

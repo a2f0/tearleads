@@ -7,6 +7,7 @@ import { useMultiFileUpload } from '@tearleads/audio';
 import type { TranslationFunction } from '@tearleads/photos';
 import {
   type PhotoAlbum,
+  type PhotoInfo,
   type PhotosUIComponents,
   PhotosUIProvider,
   type PhotoWithUrl
@@ -181,6 +182,38 @@ export function ClientPhotosProvider({ children }: ClientPhotosProviderProps) {
     ]
   );
 
+  const loadPhotoWithUrl = useCallback(
+    async (photo: PhotoInfo): Promise<PhotoWithUrl | null> => {
+      const keyManager = getKeyManager();
+      const encryptionKey = keyManager.getCurrentKey();
+      if (!encryptionKey) throw new Error('Database not unlocked');
+      if (!databaseContext.currentInstanceId)
+        throw new Error('No active instance');
+
+      if (!isFileStorageInitialized(databaseContext.currentInstanceId)) {
+        await initializeFileStorage(
+          encryptionKey,
+          databaseContext.currentInstanceId
+        );
+      }
+
+      const storage = getFileStorage();
+      try {
+        const pathToLoad = photo.thumbnailPath ?? photo.storagePath;
+        const mimeType = photo.thumbnailPath ? 'image/jpeg' : photo.mimeType;
+        const data = await storage.retrieve(pathToLoad);
+        assertPlainArrayBuffer(data);
+        const blob = new Blob([data], { type: mimeType });
+        const objectUrl = URL.createObjectURL(blob);
+        return { ...photo, objectUrl };
+      } catch (err) {
+        logStore.error(`Failed to load photo ${photo.name}`, String(err));
+        return null;
+      }
+    },
+    [databaseContext.currentInstanceId]
+  );
+
   const fetchPhotos = useCallback(
     async (options: {
       albumId?: string | null;
@@ -229,7 +262,7 @@ export function ClientPhotosProvider({ children }: ClientPhotosProviderProps) {
         .where(whereClause)
         .orderBy(desc(files.uploadDate));
 
-      const photoList = result.map((row) => ({
+      const photoList: PhotoInfo[] = result.map((row) => ({
         id: row.id,
         name: row.name,
         size: row.size,
@@ -240,44 +273,13 @@ export function ClientPhotosProvider({ children }: ClientPhotosProviderProps) {
         deleted: row.deleted
       }));
 
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!databaseContext.currentInstanceId)
-        throw new Error('No active instance');
-
-      if (!isFileStorageInitialized(databaseContext.currentInstanceId)) {
-        await initializeFileStorage(
-          encryptionKey,
-          databaseContext.currentInstanceId
-        );
-      }
-
-      const storage = getFileStorage();
       const photosWithUrls = (
-        await Promise.all(
-          photoList.map(async (photo) => {
-            try {
-              const pathToLoad = photo.thumbnailPath ?? photo.storagePath;
-              const mimeType = photo.thumbnailPath
-                ? 'image/jpeg'
-                : photo.mimeType;
-              const data = await storage.retrieve(pathToLoad);
-              assertPlainArrayBuffer(data);
-              const blob = new Blob([data], { type: mimeType });
-              const objectUrl = URL.createObjectURL(blob);
-              return { ...photo, objectUrl };
-            } catch (err) {
-              logStore.error(`Failed to load photo ${photo.name}`, String(err));
-              return null;
-            }
-          })
-        )
+        await Promise.all(photoList.map(loadPhotoWithUrl))
       ).filter((photo): photo is PhotoWithUrl => photo !== null);
 
       return photosWithUrls;
     },
-    [databaseContext.currentInstanceId]
+    [loadPhotoWithUrl]
   );
 
   const fetchPhotoById = useCallback(
@@ -304,7 +306,7 @@ export function ClientPhotosProvider({ children }: ClientPhotosProviderProps) {
         return null;
       }
 
-      const photo = {
+      const photo: PhotoInfo = {
         id: row.id,
         name: row.name,
         size: row.size,
@@ -315,34 +317,9 @@ export function ClientPhotosProvider({ children }: ClientPhotosProviderProps) {
         deleted: row.deleted
       };
 
-      const keyManager = getKeyManager();
-      const encryptionKey = keyManager.getCurrentKey();
-      if (!encryptionKey) throw new Error('Database not unlocked');
-      if (!databaseContext.currentInstanceId)
-        throw new Error('No active instance');
-
-      if (!isFileStorageInitialized(databaseContext.currentInstanceId)) {
-        await initializeFileStorage(
-          encryptionKey,
-          databaseContext.currentInstanceId
-        );
-      }
-
-      const storage = getFileStorage();
-      try {
-        const pathToLoad = photo.thumbnailPath ?? photo.storagePath;
-        const mimeType = photo.thumbnailPath ? 'image/jpeg' : photo.mimeType;
-        const data = await storage.retrieve(pathToLoad);
-        assertPlainArrayBuffer(data);
-        const blob = new Blob([data], { type: mimeType });
-        const objectUrl = URL.createObjectURL(blob);
-        return { ...photo, objectUrl };
-      } catch (err) {
-        logStore.error(`Failed to load photo ${photo.name}`, String(err));
-        return null;
-      }
+      return loadPhotoWithUrl(photo);
     },
-    [databaseContext.currentInstanceId]
+    [loadPhotoWithUrl]
   );
 
   const softDeletePhoto = useCallback(
