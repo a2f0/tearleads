@@ -2757,6 +2757,106 @@ describe('VfsBackgroundSyncClient', () => {
     expect(resumedClient.snapshot().lastReconciledWriteIds.desktop).toBe(22);
   });
 
+  it('hydrates when reconcile write-id lags pending queue without rolling back local write-id progression', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-writeid-lag',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T14:25:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const sourceClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      baseTransport
+    );
+    await sourceClient.sync();
+
+    const persisted = sourceClient.exportState();
+    persisted.reconcileState = {
+      cursor: {
+        changedAt: '2026-02-14T14:25:02.000Z',
+        changeId: 'remote-2'
+      },
+      lastReconciledWriteIds: {
+        desktop: 5
+      }
+    };
+    persisted.pendingOperations = [
+      {
+        opId: 'desktop-10',
+        opType: 'acl_add',
+        itemId: 'item-writeid-lag',
+        replicaId: 'desktop',
+        writeId: 10,
+        occurredAt: '2026-02-14T14:24:59.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'write'
+      },
+      {
+        opId: 'desktop-11',
+        opType: 'link_add',
+        itemId: 'item-writeid-lag',
+        replicaId: 'desktop',
+        writeId: 11,
+        occurredAt: '2026-02-14T14:24:58.000Z',
+        parentId: 'root',
+        childId: 'item-writeid-lag'
+      }
+    ];
+    persisted.nextLocalWriteId = 2;
+
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const pushedWriteIds: number[] = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        pushedWriteIds.push(
+          ...input.operations.map((operation) => operation.writeId)
+        );
+        return baseTransport.pushOperations(input);
+      },
+      pullOperations: (input) => baseTransport.pullOperations(input)
+    };
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    expect(() => resumedClient.hydrateState(persisted)).not.toThrow();
+    expect(resumedClient.snapshot().nextLocalWriteId).toBe(12);
+    await resumedClient.flush();
+
+    expect(guardrailViolations).toEqual([]);
+    expect(pushedWriteIds).toEqual([10, 11]);
+    expect(resumedClient.snapshot().nextLocalWriteId).toBe(12);
+    expect(resumedClient.snapshot().lastReconciledWriteIds.desktop).toBe(11);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;
