@@ -3242,6 +3242,179 @@ describe('VfsBackgroundSyncClient', () => {
     expect(guardrailViolations).toEqual([]);
   });
 
+  it('normalizes repeated reconcile write-id lag under replay-aligned restart cycles without guardrail noise', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-lag-cycle-seed',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T14:29:00.000Z',
+          principalType: 'group',
+          principalId: 'group-seed',
+          accessLevel: 'read'
+        }
+      ]
+    });
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      baseTransport
+    );
+    await seedClient.sync();
+
+    const random = createDeterministicRandom(1223);
+    const parentIds = ['root', 'archive'] as const;
+    const principalTypes = ['group', 'organization'] as const;
+    const accessLevels = ['read', 'write', 'admin'] as const;
+    const cycleWriteIdStarts = [12, 20, 29] as const;
+    const cyclePushWriteIds: number[][] = [];
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+
+    let activeClient = seedClient;
+    let previousCycleCursor = seedClient.snapshot().cursor;
+
+    for (const [index, cycleStartWriteId] of cycleWriteIdStarts.entries()) {
+      const persisted = activeClient.exportState();
+      const replayCursor = persisted.replaySnapshot.cursor;
+      if (!replayCursor) {
+        throw new Error(`expected replay cursor before cycle ${index + 1}`);
+      }
+
+      persisted.reconcileState = {
+        cursor: replayCursor,
+        lastReconciledWriteIds: {
+          desktop: Math.max(0, cycleStartWriteId - 7)
+        }
+      };
+
+      const itemId = `item-lag-cycle-${index + 1}`;
+      const principalType = pickOne(principalTypes, random);
+      const principalId = `${principalType}-lag-${index + 1}`;
+      const accessLevel = pickOne(accessLevels, random);
+      const parentId = pickOne(parentIds, random);
+      const firstOccurredAt = new Date(
+        Date.parse('2026-02-14T14:28:40.000Z') - index * 1_000
+      ).toISOString();
+      const secondOccurredAt = new Date(
+        Date.parse('2026-02-14T14:28:39.000Z') - index * 1_000
+      ).toISOString();
+      persisted.pendingOperations = [
+        {
+          opId: `desktop-${cycleStartWriteId}`,
+          opType: 'acl_add',
+          itemId,
+          replicaId: 'desktop',
+          writeId: cycleStartWriteId,
+          occurredAt: firstOccurredAt,
+          principalType,
+          principalId,
+          accessLevel
+        },
+        {
+          opId: `desktop-${cycleStartWriteId + 1}`,
+          opType: 'link_add',
+          itemId,
+          replicaId: 'desktop',
+          writeId: cycleStartWriteId + 1,
+          occurredAt: secondOccurredAt,
+          parentId,
+          childId: itemId
+        }
+      ];
+      persisted.nextLocalWriteId = 1;
+
+      const pushedWriteIds: number[] = [];
+      const pushedOccurredAtMs: number[] = [];
+      const transport: VfsCrdtSyncTransport = {
+        pushOperations: async (input) => {
+          for (const operation of input.operations) {
+            pushedWriteIds.push(operation.writeId);
+            pushedOccurredAtMs.push(Date.parse(operation.occurredAt));
+          }
+          return baseTransport.pushOperations(input);
+        },
+        pullOperations: (input) => baseTransport.pullOperations(input)
+      };
+      const resumedClient = new VfsBackgroundSyncClient(
+        'user-1',
+        'desktop',
+        transport,
+        {
+          onGuardrailViolation: (violation) => {
+            guardrailViolations.push({
+              code: violation.code,
+              stage: violation.stage,
+              message: violation.message
+            });
+          }
+        }
+      );
+
+      expect(() => resumedClient.hydrateState(persisted)).not.toThrow();
+      await resumedClient.flush();
+      cyclePushWriteIds.push(pushedWriteIds);
+
+      expect(pushedWriteIds).toEqual([
+        cycleStartWriteId,
+        cycleStartWriteId + 1
+      ]);
+      expect(resumedClient.snapshot().nextLocalWriteId).toBe(
+        cycleStartWriteId + 2
+      );
+      expect(resumedClient.snapshot().lastReconciledWriteIds.desktop).toBe(
+        cycleStartWriteId + 1
+      );
+
+      const firstPushedOccurredAtMs = pushedOccurredAtMs[0];
+      const secondPushedOccurredAtMs = pushedOccurredAtMs[1];
+      if (
+        firstPushedOccurredAtMs === undefined ||
+        secondPushedOccurredAtMs === undefined
+      ) {
+        throw new Error(`expected pushed timestamps for cycle ${index + 1}`);
+      }
+
+      const replayCursorMs = Date.parse(replayCursor.changedAt);
+      expect(firstPushedOccurredAtMs).toBeGreaterThan(replayCursorMs);
+      expect(secondPushedOccurredAtMs).toBeGreaterThan(firstPushedOccurredAtMs);
+
+      const resumedState = resumedClient.exportState();
+      expect(resumedState.replaySnapshot.cursor).not.toBeNull();
+      expect(resumedState.reconcileState?.cursor).toEqual(
+        resumedState.replaySnapshot.cursor
+      );
+
+      const cycleCursor = resumedClient.snapshot().cursor;
+      if (!cycleCursor) {
+        throw new Error(`expected cycle cursor for cycle ${index + 1}`);
+      }
+      if (previousCycleCursor) {
+        expect(
+          compareVfsSyncCursorOrder(cycleCursor, previousCycleCursor)
+        ).toBeGreaterThan(0);
+      }
+
+      previousCycleCursor = cycleCursor;
+      activeClient = resumedClient;
+    }
+
+    expect(cyclePushWriteIds).toEqual([
+      [12, 13],
+      [20, 21],
+      [29, 30]
+    ]);
+    expect(guardrailViolations).toEqual([]);
+  });
+
   it('fails closed on regressing reconcile lineage after a prior restart cycle and preserves pristine state', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     await server.pushOperations({
