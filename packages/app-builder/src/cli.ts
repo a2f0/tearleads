@@ -5,8 +5,12 @@ import { fileURLToPath } from 'node:url';
 import { program } from 'commander';
 import { getDisabledPackages, getEnabledPackages } from './feature-map.js';
 import {
+  generateAppfile,
   generateAppMetadataJson,
-  generateCapacitorConfig
+  generateCapacitorConfig,
+  generateEnvScript,
+  generateMatchfile,
+  generateXcconfig
 } from './generators/index.js';
 import { listApps, loadAppConfig } from './loader.js';
 
@@ -201,15 +205,37 @@ program
 
         const filesToWrite: Array<{ path: string; content: string }> = [];
 
-        // Generate capacitor.config.ts
-        if (
-          options.platform === 'all' ||
-          options.platform === 'ios' ||
-          options.platform === 'android'
-        ) {
+        const shouldGenerateIos =
+          options.platform === 'all' || options.platform === 'ios';
+        const shouldGenerateAndroid =
+          options.platform === 'all' || options.platform === 'android';
+
+        // Generate capacitor.config.ts (shared by iOS and Android)
+        if (shouldGenerateIos || shouldGenerateAndroid) {
           filesToWrite.push({
             path: join(outputDir, 'capacitor.config.ts'),
             content: generateCapacitorConfig(config)
+          });
+        }
+
+        // Generate iOS-specific files
+        if (shouldGenerateIos) {
+          // Fastlane Appfile
+          filesToWrite.push({
+            path: join(outputDir, 'fastlane', 'Appfile'),
+            content: generateAppfile(config)
+          });
+
+          // Fastlane Matchfile
+          filesToWrite.push({
+            path: join(outputDir, 'fastlane', 'Matchfile'),
+            content: generateMatchfile(config)
+          });
+
+          // xcconfig for build settings
+          filesToWrite.push({
+            path: join(outputDir, 'ios', 'App', 'App.xcconfig'),
+            content: generateXcconfig(config)
           });
         }
 
@@ -218,6 +244,12 @@ program
         filesToWrite.push({
           path: join(generatedDir, 'app-config.json'),
           content: generateAppMetadataJson(config)
+        });
+
+        // Generate environment script for CI
+        filesToWrite.push({
+          path: join(generatedDir, 'env.sh'),
+          content: generateEnvScript(config)
         });
 
         // Write files
