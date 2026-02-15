@@ -3030,6 +3030,218 @@ describe('VfsBackgroundSyncClient', () => {
     expect(cycleTwoClient.snapshot().lastReconciledWriteIds.desktop).toBe(17);
   });
 
+  it('keeps cursor and write-id monotonicity across three deterministic restart cycles with alternating reconcile lineage', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-three-cycle-seed',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T14:27:00.000Z',
+          principalType: 'group',
+          principalId: 'group-seed',
+          accessLevel: 'read'
+        }
+      ]
+    });
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      baseTransport
+    );
+    await seedClient.sync();
+
+    const random = createDeterministicRandom(1222);
+    const parentIds = ['root', 'archive'] as const;
+    const aclPrincipalTypes = ['group', 'organization'] as const;
+    const aclAccessLevels = ['read', 'write', 'admin'] as const;
+    const cycleWriteIdStarts = [10, 16, 23] as const;
+    const reconcileModes = ['ahead', 'equal', 'ahead'] as const;
+    const cyclePushWriteIds: number[][] = [];
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+
+    let activeClient = seedClient;
+    let previousCursor = seedClient.snapshot().cursor;
+
+    for (const [index, cycleStartWriteId] of cycleWriteIdStarts.entries()) {
+      const persisted = activeClient.exportState();
+      const replayCursor = persisted.replaySnapshot.cursor;
+      if (!replayCursor) {
+        throw new Error(`expected replay cursor before cycle ${index + 1}`);
+      }
+
+      const reconcileMode = reconcileModes[index];
+      if (reconcileMode === 'ahead') {
+        const replayCursorMs = Date.parse(replayCursor.changedAt);
+        const aheadCursorMs = Number.isFinite(replayCursorMs)
+          ? replayCursorMs + 2_000
+          : Date.parse('2026-02-14T14:27:10.000Z') + index;
+        persisted.reconcileState = {
+          cursor: {
+            changedAt: new Date(aheadCursorMs).toISOString(),
+            changeId: `remote-cycle-${index + 2}`
+          },
+          lastReconciledWriteIds: {
+            desktop: Math.max(0, cycleStartWriteId - 3)
+          }
+        };
+      } else {
+        persisted.reconcileState = {
+          cursor: replayCursor,
+          lastReconciledWriteIds: {
+            desktop: Math.max(0, cycleStartWriteId - 3)
+          }
+        };
+      }
+
+      const opVariant = nextInt(random, 0, 1);
+      const itemId = `item-three-cycle-${index + 1}`;
+      const firstOccurredAt = new Date(
+        Date.parse('2026-02-14T14:26:40.000Z') - index * 1_000
+      ).toISOString();
+      const secondOccurredAt = new Date(
+        Date.parse('2026-02-14T14:26:39.000Z') - index * 1_000
+      ).toISOString();
+      const aclPrincipalType = pickOne(aclPrincipalTypes, random);
+      const aclPrincipalId = `${aclPrincipalType}-${index + 1}`;
+      const aclAccessLevel = pickOne(aclAccessLevels, random);
+      const parentId = pickOne(parentIds, random);
+
+      persisted.pendingOperations =
+        opVariant === 0
+          ? [
+              {
+                opId: `desktop-${cycleStartWriteId}`,
+                opType: 'acl_add',
+                itemId,
+                replicaId: 'desktop',
+                writeId: cycleStartWriteId,
+                occurredAt: firstOccurredAt,
+                principalType: aclPrincipalType,
+                principalId: aclPrincipalId,
+                accessLevel: aclAccessLevel
+              },
+              {
+                opId: `desktop-${cycleStartWriteId + 1}`,
+                opType: 'link_add',
+                itemId,
+                replicaId: 'desktop',
+                writeId: cycleStartWriteId + 1,
+                occurredAt: secondOccurredAt,
+                parentId,
+                childId: itemId
+              }
+            ]
+          : [
+              {
+                opId: `desktop-${cycleStartWriteId}`,
+                opType: 'link_remove',
+                itemId,
+                replicaId: 'desktop',
+                writeId: cycleStartWriteId,
+                occurredAt: firstOccurredAt,
+                parentId,
+                childId: itemId
+              },
+              {
+                opId: `desktop-${cycleStartWriteId + 1}`,
+                opType: 'acl_remove',
+                itemId,
+                replicaId: 'desktop',
+                writeId: cycleStartWriteId + 1,
+                occurredAt: secondOccurredAt,
+                principalType: aclPrincipalType,
+                principalId: aclPrincipalId
+              }
+            ];
+      persisted.nextLocalWriteId = 1;
+
+      const pushedWriteIds: number[] = [];
+      const pushedOccurredAtMs: number[] = [];
+      const transport: VfsCrdtSyncTransport = {
+        pushOperations: async (input) => {
+          for (const operation of input.operations) {
+            pushedWriteIds.push(operation.writeId);
+            pushedOccurredAtMs.push(Date.parse(operation.occurredAt));
+          }
+          return baseTransport.pushOperations(input);
+        },
+        pullOperations: (input) => baseTransport.pullOperations(input)
+      };
+      const resumedClient = new VfsBackgroundSyncClient(
+        'user-1',
+        'desktop',
+        transport,
+        {
+          onGuardrailViolation: (violation) => {
+            guardrailViolations.push({
+              code: violation.code,
+              stage: violation.stage,
+              message: violation.message
+            });
+          }
+        }
+      );
+
+      resumedClient.hydrateState(persisted);
+      await resumedClient.flush();
+      cyclePushWriteIds.push(pushedWriteIds);
+
+      expect(pushedWriteIds).toEqual([
+        cycleStartWriteId,
+        cycleStartWriteId + 1
+      ]);
+      expect(resumedClient.snapshot().nextLocalWriteId).toBe(
+        cycleStartWriteId + 2
+      );
+
+      const persistedCursor = persisted.reconcileState?.cursor ?? replayCursor;
+      const persistedCursorMs = Date.parse(persistedCursor.changedAt);
+      const firstPushedOccurredAtMs = pushedOccurredAtMs[0];
+      const secondPushedOccurredAtMs = pushedOccurredAtMs[1];
+      if (
+        firstPushedOccurredAtMs === undefined ||
+        secondPushedOccurredAtMs === undefined
+      ) {
+        throw new Error(`expected pushed timestamps for cycle ${index + 1}`);
+      }
+      expect(firstPushedOccurredAtMs).toBeGreaterThan(persistedCursorMs);
+      expect(secondPushedOccurredAtMs).toBeGreaterThan(firstPushedOccurredAtMs);
+
+      const cycleCursor = resumedClient.snapshot().cursor;
+      if (!cycleCursor) {
+        throw new Error(`expected cycle cursor for cycle ${index + 1}`);
+      }
+      if (previousCursor) {
+        expect(
+          compareVfsSyncCursorOrder(cycleCursor, previousCursor)
+        ).toBeGreaterThan(0);
+      }
+
+      expect(resumedClient.snapshot().lastReconciledWriteIds.desktop).toBe(
+        cycleStartWriteId + 1
+      );
+
+      previousCursor = cycleCursor;
+      activeClient = resumedClient;
+    }
+
+    expect(cyclePushWriteIds).toEqual([
+      [10, 11],
+      [16, 17],
+      [23, 24]
+    ]);
+    expect(guardrailViolations).toEqual([]);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;
