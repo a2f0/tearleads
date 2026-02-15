@@ -1,4 +1,9 @@
 export {
+  generateAppConfigGradle,
+  generateGradleProperties,
+  generateStringsXml
+} from './android.js';
+export {
   generateAppMetadataJson,
   generateCapacitorConfig
 } from './capacitor.js';

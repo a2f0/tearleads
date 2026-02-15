@@ -5,11 +5,13 @@ import { fileURLToPath } from 'node:url';
 import { program } from 'commander';
 import { getDisabledPackages, getEnabledPackages } from './feature-map.js';
 import {
+  generateAppConfigGradle,
   generateAppfile,
   generateAppMetadataJson,
   generateCapacitorConfig,
   generateEnvScript,
   generateMatchfile,
+  generateStringsXml,
   generateXcconfig
 } from './generators/index.js';
 import { listApps, loadAppConfig } from './loader.js';
@@ -236,6 +238,30 @@ program
           filesToWrite.push({
             path: join(outputDir, 'ios', 'App', 'App.xcconfig'),
             content: generateXcconfig(config)
+          });
+        }
+
+        // Generate Android-specific files
+        if (shouldGenerateAndroid) {
+          // strings.xml with app name
+          filesToWrite.push({
+            path: join(
+              outputDir,
+              'android',
+              'app',
+              'src',
+              'main',
+              'res',
+              'values',
+              'strings.xml'
+            ),
+            content: generateStringsXml(config)
+          });
+
+          // Gradle config fragment
+          filesToWrite.push({
+            path: join(outputDir, 'android', 'app-config.gradle'),
+            content: generateAppConfigGradle(config)
           });
         }
 
