@@ -42,6 +42,8 @@
     { "path": "./packages/api/tsconfig.test.json" },
     { "path": "./packages/ai" },
     { "path": "./packages/ai/tsconfig.test.json" },
+    { "path": "./packages/photos" },
+    { "path": "./packages/photos/tsconfig.test.json" },
     { "path": "./packages/cli" },
     { "path": "./packages/db" },
     { "path": "./packages/db/tsconfig.test.json" },

@@ -153,6 +153,12 @@ jobs:
       - name: Build db-test-utils
         run: pnpm --filter @tearleads/db-test-utils build
 
+      - name: Build calendar
+        run: pnpm --filter @tearleads/calendar build
+
+      - name: Build photos
+        run: pnpm --filter @tearleads/photos build
+
       - name: Build web assets
         run: pnpm --filter @tearleads/client build
         env:

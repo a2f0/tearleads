@@ -100,6 +100,12 @@ jobs:
       - name: Build db-test-utils
         run: pnpm --filter @tearleads/db-test-utils build
 
+      - name: Build calendar
+        run: pnpm --filter @tearleads/calendar build
+
+      - name: Build photos
+        run: pnpm --filter @tearleads/photos build
+
       - name: Setup App Store Connect API Key (macOS)
         if: runner.os == 'macOS'
         run: |

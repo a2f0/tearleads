@@ -14,6 +14,7 @@ import {
   CALENDAR_CREATE_ITEM_EVENT,
   CALENDAR_CREATE_SUBMIT_EVENT
 } from '../events';
+import type { CalendarEventItem, CreateCalendarEventInput } from '../types';
 import { NewCalendarEventModal } from './NewCalendarEventModal';
 
 const defaultCalendarName = 'Personal';
@@ -53,20 +54,10 @@ interface CalendarContentProps {
     | undefined;
 }
 
-export interface CalendarEventItem {
-  id: string;
-  calendarName: string;
-  title: string;
-  startAt: Date;
-  endAt?: Date | null | undefined;
-}
-
-export interface CreateCalendarEventInput {
-  calendarName: string;
-  title: string;
-  startAt: Date;
-  endAt?: Date | null | undefined;
-}
+export type {
+  CalendarEventItem,
+  CreateCalendarEventInput
+} from '../types';
 
 export function CalendarContent({
   events = [],

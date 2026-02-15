@@ -1,14 +1,4 @@
 export type {
-  CalendarEventItem,
-  CreateCalendarEventInput
-} from './components';
-export {
-  CalendarContent,
-  CalendarWindow,
-  CalendarWindowMenuBar,
-  NewCalendarDialog
-} from './components';
-export type {
   AboutMenuItemProps,
   ButtonProps,
   CalendarTranslationKey,
@@ -25,16 +15,10 @@ export type {
   InputProps,
   TranslationFunction,
   WindowOptionsMenuItemProps
-} from './context';
+} from './CalendarUIContext';
 export {
   CalendarUIProvider,
   useCalendarDatabaseState,
   useCalendarUI,
   useCalendarUIContext
-} from './context';
-export {
-  CALENDAR_CREATE_EVENT,
-  CALENDAR_CREATE_ITEM_EVENT,
-  CALENDAR_CREATE_SUBMIT_EVENT
-} from './events';
-export { Calendar } from './pages';
+} from './CalendarUIContext';
