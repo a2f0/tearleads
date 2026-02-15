@@ -77,6 +77,7 @@ export function AnalyticsTab() {
 
     return () => {
       isCancelled = true;
+      fetchingRef.current = false;
     };
   }, [isUnlocked, refreshTrigger]);
 
