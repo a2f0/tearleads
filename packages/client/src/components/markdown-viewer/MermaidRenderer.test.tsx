@@ -45,7 +45,7 @@ describe('MermaidRenderer', () => {
     expect(screen.getByText('Invalid syntax')).toBeInTheDocument();
   });
 
-  it('passes correct theme to mermaid initialize', async () => {
+  it('passes correct theme to mermaid render', async () => {
     const mermaid = await import('mermaid');
 
     await act(async () => {
@@ -53,8 +53,9 @@ describe('MermaidRenderer', () => {
     });
 
     await waitFor(() => {
-      expect(mermaid.default.initialize).toHaveBeenCalledWith(
-        expect.objectContaining({ theme: 'dark' })
+      expect(mermaid.default.render).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining('"theme": "dark"')
       );
     });
   });
@@ -67,8 +68,9 @@ describe('MermaidRenderer', () => {
     });
 
     await waitFor(() => {
-      expect(mermaid.default.initialize).toHaveBeenCalledWith(
-        expect.objectContaining({ theme: 'neutral' })
+      expect(mermaid.default.render).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.stringContaining('"theme": "neutral"')
       );
     });
   });

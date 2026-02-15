@@ -17,15 +17,11 @@ export function MermaidRenderer({ code, theme }: MermaidRendererProps) {
 
     async function render() {
       try {
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: theme === 'dark' ? 'dark' : 'neutral',
-          securityLevel: 'strict',
-          fontFamily: 'inherit'
-        });
-
-        const uniqueId = `mermaid-${id.replace(/:/g, '-')}-${Date.now()}`;
-        const { svg: renderedSvg } = await mermaid.render(uniqueId, code);
+        // Use %%init%% directive for per-diagram theme configuration
+        const themeValue = theme === 'dark' ? 'dark' : 'neutral';
+        const themedCode = `%%{init: { "theme": "${themeValue}", "fontFamily": "inherit", "securityLevel": "strict" } }%%\n${code}`;
+        const uniqueId = `mermaid-graph-${id.replace(/:/g, '-')}`;
+        const { svg: renderedSvg } = await mermaid.render(uniqueId, themedCode);
 
         if (!cancelled) {
           setSvg(renderedSvg);
