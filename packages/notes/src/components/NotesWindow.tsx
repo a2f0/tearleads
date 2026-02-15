@@ -4,7 +4,8 @@ import {
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
-  type WindowDimensions
+  type WindowDimensions,
+  WindowPaneState
 } from '@tearleads/window-manager';
 import { eq } from 'drizzle-orm';
 import { ArrowLeft, Plus, RefreshCw, Trash2 } from 'lucide-react';
@@ -50,6 +51,7 @@ export function NotesWindow({
   const [showDeleted, setShowDeleted] = useState(false);
   const [refreshToken, setRefreshToken] = useState(0);
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const handleSelectNote = useCallback((noteId: string) => {
     setSelectedNoteId(noteId);
@@ -71,6 +73,7 @@ export function NotesWindow({
     if (!selectedNoteId || !isUnlocked) return;
 
     setDeleting(true);
+    setDeleteError(null);
     try {
       const db = getDatabase();
       await db
@@ -81,6 +84,9 @@ export function NotesWindow({
       setSelectedNoteId(null);
     } catch (err) {
       console.error('Failed to delete note:', err);
+      setDeleteError(
+        err instanceof Error ? err.message : 'Failed to delete note'
+      );
     } finally {
       setDeleting(false);
     }
@@ -232,6 +238,14 @@ export function NotesWindow({
             )}
           </WindowControlGroup>
         </WindowControlBar>
+        {deleteError && (
+          <WindowPaneState
+            layout="inline"
+            tone="error"
+            title={deleteError}
+            className="m-3"
+          />
+        )}
         <div className="min-h-0 flex-1 overflow-y-auto">
           {selectedNoteId ? (
             <NotesWindowDetail
