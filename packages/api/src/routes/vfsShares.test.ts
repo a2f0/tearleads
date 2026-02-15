@@ -1397,6 +1397,22 @@ describe('VFS Shares routes', () => {
       expect(response.status).toBe(400);
     });
 
+    it('returns 400 when sourceOrgId contains acl id separators', async () => {
+      const authHeader = await createAuthHeader();
+
+      const response = await request(app)
+        .post('/v1/vfs/items/item-123/org-shares')
+        .set('Authorization', authHeader)
+        .send({
+          sourceOrgId: 'org:source',
+          targetOrgId: 'org-target',
+          permissionLevel: 'view'
+        });
+
+      expect(response.status).toBe(400);
+      expect(mockQuery).not.toHaveBeenCalled();
+    });
+
     it('returns 400 when targetOrgId is only whitespace', async () => {
       const authHeader = await createAuthHeader();
 

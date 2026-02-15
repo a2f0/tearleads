@@ -1,12 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  buildLegacyOrgShareAclId,
+  buildOrgShareAclId,
+  buildShareAclId,
   extractOrgShareIdFromAclId,
   extractShareIdFromAclId,
   extractSourceOrgIdFromOrgShareAclId,
   loadOrgShareAuthorizationContext,
   loadShareAuthorizationContext,
   mapAclAccessLevelToSharePermissionLevel,
-  mapSharePermissionLevelToAclAccessLevel
+  mapSharePermissionLevelToAclAccessLevel,
+  parseCreateOrgSharePayload
 } from './shared.js';
 
 describe('vfs share acl mapping', () => {
@@ -36,6 +40,16 @@ describe('vfs share acl mapping', () => {
 });
 
 describe('share id helpers', () => {
+  it('builds canonical acl ids from normalized id parts', () => {
+    expect(buildShareAclId('  share-1  ')).toBe('share:share-1');
+    expect(buildLegacyOrgShareAclId(' org-share-1 ')).toBe(
+      'org-share:org-share-1'
+    );
+    expect(buildOrgShareAclId(' source-org ', ' org-share-1 ')).toBe(
+      'org-share:source-org:org-share-1'
+    );
+  });
+
   it('extracts share id from share acl id', () => {
     expect(extractShareIdFromAclId('share:abc')).toBe('abc');
   });
@@ -50,6 +64,33 @@ describe('share id helpers', () => {
     expect(extractSourceOrgIdFromOrgShareAclId('org-share:org-1:abc')).toBe(
       'org-1'
     );
+  });
+
+  it('throws on malformed acl id parts', () => {
+    expect(() => buildShareAclId('')).toThrow('Unsupported share id');
+    expect(() => buildShareAclId('share:1')).toThrow('Unsupported share id');
+    expect(() => buildOrgShareAclId('source:org', 'share-1')).toThrow(
+      'Unsupported org-share source org id'
+    );
+    expect(() => extractShareIdFromAclId('share:')).toThrow(
+      'Unsupported share id'
+    );
+    expect(() =>
+      extractOrgShareIdFromAclId('org-share:source:share:extra')
+    ).toThrow('Unsupported ACL id');
+  });
+});
+
+describe('org-share payload parsing', () => {
+  it('rejects source org ids that cannot be encoded into canonical acl ids', () => {
+    expect(
+      parseCreateOrgSharePayload({
+        itemId: 'item-1',
+        sourceOrgId: 'source:org',
+        targetOrgId: 'target-org',
+        permissionLevel: 'view'
+      })
+    ).toBeNull();
   });
 });
 
@@ -86,6 +127,15 @@ describe('canonical share authorization context', () => {
     await expect(
       loadShareAuthorizationContext({ query }, 'share-1')
     ).resolves.toBeNull();
+  });
+
+  it('returns null for malformed route share ids', async () => {
+    const query = vi.fn();
+
+    await expect(
+      loadShareAuthorizationContext({ query }, 'share:malformed')
+    ).resolves.toBeNull();
+    expect(query).not.toHaveBeenCalled();
   });
 
   it('throws on unsupported canonical ACL principal types', async () => {
@@ -186,6 +236,40 @@ describe('canonical org-share authorization context', () => {
     ).resolves.toBeNull();
   });
 
+  it('returns null for malformed route share ids', async () => {
+    const query = vi.fn();
+
+    await expect(
+      loadOrgShareAuthorizationContext({ query }, 'org:share-1')
+    ).resolves.toBeNull();
+    expect(query).not.toHaveBeenCalled();
+  });
+
+  it('throws when multiple active ACL rows resolve the same org-share route id', async () => {
+    const query = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          owner_id: 'owner-1',
+          acl_id: 'org-share:source-org-a:org-share-1',
+          item_id: 'item-1',
+          principal_id: 'org-2',
+          access_level: 'read'
+        },
+        {
+          owner_id: 'owner-1',
+          acl_id: 'org-share:source-org-b:org-share-1',
+          item_id: 'item-1',
+          principal_id: 'org-2',
+          access_level: 'read'
+        }
+      ]
+    });
+
+    await expect(
+      loadOrgShareAuthorizationContext({ query }, 'org-share-1')
+    ).rejects.toThrow('Ambiguous org-share ACL authorization context');
+  });
+
   it('throws on malformed canonical org-share ACL ids', async () => {
     const query = vi.fn().mockResolvedValueOnce({
       rows: [
@@ -201,6 +285,6 @@ describe('canonical org-share authorization context', () => {
 
     await expect(
       loadOrgShareAuthorizationContext({ query }, 'org-share-1')
-    ).rejects.toThrow('Unsupported ACL id');
+    ).rejects.toThrow('Unsupported org-share id');
   });
 });
