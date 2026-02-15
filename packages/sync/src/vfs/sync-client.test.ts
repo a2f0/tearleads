@@ -2477,6 +2477,160 @@ describe('VfsBackgroundSyncClient', () => {
     }
   });
 
+  it('keeps replay cursor strict-forward across restart with concurrent multi-replica writes', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const desktopTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 3,
+      pullDelayMs: 3
+    });
+    const mobileTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 2,
+      pullDelayMs: 4
+    });
+    const tabletTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 1,
+      pullDelayMs: 5
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      { pullLimit: 1 }
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport,
+      { pullLimit: 1 }
+    );
+    const tablet = new VfsBackgroundSyncClient(
+      'user-1',
+      'tablet',
+      tabletTransport,
+      { pullLimit: 1 }
+    );
+
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-replay-concurrent-a',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T14:32:00.000Z'
+    });
+    tablet.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-replay-concurrent-b',
+      parentId: 'root',
+      childId: 'item-replay-concurrent-b',
+      occurredAt: '2026-02-14T14:32:01.000Z'
+    });
+    await Promise.all([mobile.flush(), tablet.flush()]);
+    await desktop.sync();
+
+    const persistedDesktopState = desktop.exportState();
+    const seedReplayCursor = persistedDesktopState.replaySnapshot.cursor;
+    if (!seedReplayCursor) {
+      throw new Error('expected multi-replica pre-restart replay seed cursor');
+    }
+
+    const observedPulls: Array<{
+      requestCursor: { changedAt: string; changeId: string } | null;
+      items: VfsCrdtSyncItem[];
+    }> = [];
+    const baseDesktopTransport: VfsCrdtSyncTransport = desktopTransport;
+    const observingDesktopTransport: VfsCrdtSyncTransport = {
+      pushOperations: (input) => baseDesktopTransport.pushOperations(input),
+      pullOperations: async (input) => {
+        const response = await baseDesktopTransport.pullOperations(input);
+        observedPulls.push({
+          requestCursor: input.cursor ? { ...input.cursor } : null,
+          items: response.items.map((item) => ({ ...item }))
+        });
+        return response;
+      },
+      reconcileState: baseDesktopTransport.reconcileState
+        ? (input) => baseDesktopTransport.reconcileState(input)
+        : undefined
+    };
+
+    const resumedDesktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      observingDesktopTransport,
+      { pullLimit: 1 }
+    );
+    resumedDesktop.hydrateState(persistedDesktopState);
+
+    /**
+     * Guardrail invariant: reused replay cursor must remain idempotent across
+     * restart before new canonical-feed writes are appended.
+     */
+    await resumedDesktop.sync();
+    expect(observedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
+    expect(observedPulls[0]?.items).toEqual([]);
+
+    const pullsBeforeNewWrites = observedPulls.length;
+
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-replay-concurrent-c',
+      principalType: 'organization',
+      principalId: 'org-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T14:32:02.000Z'
+    });
+    tablet.queueLocalOperation({
+      opType: 'link_remove',
+      itemId: 'item-replay-concurrent-b',
+      parentId: 'root',
+      childId: 'item-replay-concurrent-b',
+      occurredAt: '2026-02-14T14:32:03.000Z'
+    });
+    await Promise.all([mobile.flush(), tablet.flush()]);
+    await resumedDesktop.sync();
+
+    const forwardPulls = observedPulls.slice(pullsBeforeNewWrites);
+    expect(forwardPulls.length).toBeGreaterThan(0);
+    expect(forwardPulls[0]?.requestCursor).toEqual(seedReplayCursor);
+
+    /**
+     * Guardrail invariant: once concurrent replica writes land, all returned
+     * page items must be strictly newer than the reused boundary cursor.
+     */
+    const forwardItems = forwardPulls.flatMap((page) => page.items);
+    expect(forwardItems).toContainEqual(
+      expect.objectContaining({
+        opId: 'mobile-2',
+        opType: 'acl_add',
+        itemId: 'item-replay-concurrent-c'
+      })
+    );
+    expect(forwardItems).toContainEqual(
+      expect.objectContaining({
+        opId: 'tablet-2',
+        opType: 'link_remove',
+        itemId: 'item-replay-concurrent-b'
+      })
+    );
+    expect(forwardItems.map((item) => item.opId)).not.toContain(
+      seedReplayCursor.changeId
+    );
+
+    for (const item of forwardItems) {
+      expect(
+        compareVfsSyncCursorOrder(
+          {
+            changedAt: item.occurredAt,
+            changeId: item.opId
+          },
+          seedReplayCursor
+        )
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
