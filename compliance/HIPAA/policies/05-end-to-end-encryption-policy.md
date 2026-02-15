@@ -96,9 +96,11 @@ All MLS implementations must use ciphersuite `MLS_128_DHKEMX25519_CHACHA20POLY13
 
 ## Control Baselines
 
-1. Implemented baseline control: MLS group encryption via `@tearleads/mls-chat` package (`TL-HE2E-001`).
-2. Implemented baseline control: Ed25519 credential generation and key package signing (`TL-HE2E-002`).
-3. Implemented baseline control: Epoch-based key evolution for forward secrecy (`TL-HE2E-003`).
+> **Implementation Note**: The `@tearleads/mls-chat` package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance is planned via ts-mls library integration.
+
+1. Planned baseline control: MLS group encryption via `@tearleads/mls-chat` package (`TL-HE2E-001`).
+2. Planned baseline control: Ed25519 credential generation and key package signing (`TL-HE2E-002`).
+3. Planned baseline control: Epoch-based key evolution for forward secrecy (`TL-HE2E-003`).
 4. Implemented baseline control: IndexedDB storage for credentials and group states (`TL-HE2E-004`).
 5. Program baseline expansion target: Post-quantum ciphersuite upgrade (X-Wing hybrid KEM).
 

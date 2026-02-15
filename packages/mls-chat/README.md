@@ -2,9 +2,11 @@
 
 End-to-end encrypted group chat for Tearleads using the Messaging Layer Security (MLS) protocol ([RFC 9420](https://datatracker.ietf.org/doc/rfc9420/)).
 
+> **Implementation Status**: This package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance with production-grade cryptography is planned for a future release via ts-mls library integration.
+
 ## Overview
 
-MLS provides forward secrecy and post-compromise security for group messaging. This package implements the client-side MLS protocol with:
+MLS provides forward secrecy and post-compromise security for group messaging. This package provides the client-side MLS protocol interface with:
 
 - **Group key management** - Create, join, and leave encrypted groups
 - **Message encryption** - Encrypt/decrypt messages with group keys

@@ -2,14 +2,16 @@
 
 This map ties end-to-end encryption policy controls to concrete implementation and test evidence, aligned with SOC2 Trust Services Criteria.
 
+> **Implementation Status**: The `@tearleads/mls-chat` package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance with production-grade cryptography is planned via ts-mls library integration. Controls marked "Planned" are not yet cryptographically compliant.
+
 ## Sentinel Controls
 
-| Sentinel | SOC2 TSC | Description | Implementation Evidence | Test Evidence |
-| --- | --- | --- | --- | --- |
-| `TL-E2E-001` | CC6.1, CC6.7, C1.1, PI1.1 | MLS group encryption with ChaCha20-Poly1305 | `packages/mls-chat/src/lib/mls.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
-| `TL-E2E-002` | CC6.1 | Ed25519 credential and key package management | `packages/mls-chat/src/lib/mls.ts` (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
-| `TL-E2E-003` | CC6.7 | Epoch-based key evolution for forward secrecy | `packages/mls-chat/src/lib/mls.ts` (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
-| `TL-E2E-004` | CC6.1, C1.1 | IndexedDB local storage for private keys | `packages/mls-chat/src/lib/storage.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
+| Sentinel | SOC2 TSC | Status | Description | Implementation Evidence | Test Evidence |
+| --- | --- | --- | --- | --- | --- |
+| `TL-E2E-001` | CC6.1, CC6.7, C1.1, PI1.1 | Planned | MLS group encryption with ChaCha20-Poly1305 | `packages/mls-chat/src/lib/mls.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
+| `TL-E2E-002` | CC6.1 | Planned | Ed25519 credential and key package management | `packages/mls-chat/src/lib/mls.ts` (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
+| `TL-E2E-003` | CC6.7 | Planned | Epoch-based key evolution for forward secrecy | `packages/mls-chat/src/lib/mls.ts` (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
+| `TL-E2E-004` | CC6.1, C1.1 | Implemented | IndexedDB local storage for private keys | `packages/mls-chat/src/lib/storage.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
 
 ## SOC2 Trust Services Criteria Mapping
 

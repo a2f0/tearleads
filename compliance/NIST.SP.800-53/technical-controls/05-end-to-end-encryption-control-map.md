@@ -2,14 +2,16 @@
 
 This map ties end-to-end encryption policy controls to concrete implementation and test evidence, aligned with NIST SP 800-53 Revision 5 requirements.
 
+> **Implementation Status**: The `@tearleads/mls-chat` package currently provides a placeholder implementation with the MLS protocol interface. Full RFC 9420 compliance with production-grade cryptography is planned via ts-mls library integration. Controls marked "Planned" are not yet cryptographically compliant.
+
 ## Sentinel Controls
 
-| Sentinel | NIST Control | Description | Implementation Evidence | Test Evidence |
-| --- | --- | --- | --- | --- |
-| `TL-NE2E-001` | SC-8, SC-13, SI-7 | MLS group encryption with ChaCha20-Poly1305 | `packages/mls-chat/src/lib/mls.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
-| `TL-NE2E-002` | SC-12, IA-5 | Ed25519 credential and key package management | `packages/mls-chat/src/lib/mls.ts` (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
-| `TL-NE2E-003` | SC-8(1) | Epoch-based key evolution for forward secrecy | `packages/mls-chat/src/lib/mls.ts` (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
-| `TL-NE2E-004` | SC-28, SC-12 | IndexedDB local storage for private keys | `packages/mls-chat/src/lib/storage.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
+| Sentinel | NIST Control | Status | Description | Implementation Evidence | Test Evidence |
+| --- | --- | --- | --- | --- | --- |
+| `TL-NE2E-001` | SC-8, SC-13, SI-7 | Planned | MLS group encryption with ChaCha20-Poly1305 | `packages/mls-chat/src/lib/mls.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "encrypt"` |
+| `TL-NE2E-002` | SC-12, IA-5 | Planned | Ed25519 credential and key package management | `packages/mls-chat/src/lib/mls.ts` (generateCredential, generateKeyPackage) | `pnpm --filter @tearleads/mls-chat test -- --grep "credential"` |
+| `TL-NE2E-003` | SC-8(1) | Planned | Epoch-based key evolution for forward secrecy | `packages/mls-chat/src/lib/mls.ts` (processCommit, epoch tracking) | `pnpm --filter @tearleads/mls-chat test -- --grep "epoch"` |
+| `TL-NE2E-004` | SC-28, SC-12 | Implemented | IndexedDB local storage for private keys | `packages/mls-chat/src/lib/storage.ts` | `pnpm --filter @tearleads/mls-chat test -- --grep "storage"` |
 
 ## NIST SP 800-53 Rev 5 Control Mapping
 
