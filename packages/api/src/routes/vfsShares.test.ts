@@ -90,7 +90,11 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // First query: check item exists (owner_id matches test user)
       mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-1' }] });
-      // Second query: get shares
+      // Second query: item-level vfs_shares parity guardrail
+      mockQuery.mockResolvedValueOnce({ rows: [{ missing_count: 0 }] });
+      // Third query: item-level org_shares parity guardrail
+      mockQuery.mockResolvedValueOnce({ rows: [{ missing_count: 0 }] });
+      // Fourth query: get shares
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
@@ -107,7 +111,7 @@ describe('VFS Shares routes', () => {
           }
         ]
       });
-      // Third query: get org shares
+      // Fifth query: get org shares
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
@@ -118,6 +122,21 @@ describe('VFS Shares routes', () => {
       expect(response.body.shares).toHaveLength(1);
       expect(response.body.shares[0].id).toBe('share-1');
       expect(response.body.orgShares).toHaveLength(0);
+    });
+
+    it('returns 500 when share read parity guardrail fails', async () => {
+      const restoreConsole = mockConsoleError();
+      const authHeader = await createAuthHeader();
+      mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-1' }] });
+      mockQuery.mockResolvedValueOnce({ rows: [{ missing_count: 1 }] });
+
+      const response = await request(app)
+        .get('/v1/vfs/items/item-123/shares')
+        .set('Authorization', authHeader);
+
+      expect(response.status).toBe(500);
+      expect(response.body).toEqual({ error: 'Failed to get shares' });
+      restoreConsole();
     });
 
     it('returns 500 on database error', async () => {
