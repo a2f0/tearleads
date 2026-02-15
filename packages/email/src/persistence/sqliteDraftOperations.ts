@@ -124,7 +124,7 @@ export async function saveEmailDraftToDb(
           wrappedSessionKey: '',
           createdAt: now
         })
-        .onConflictDoNothing();
+        .onConflictDoNothing({ target: [vfsLinks.parentId, vfsLinks.childId] });
     }
 
     await tx
