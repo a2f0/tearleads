@@ -9,7 +9,12 @@ This package is part of the Tearleads monorepo and is not published independentl
 ## Usage
 
 ```typescript
-import { ... } from '@tearleads/vfs-explorer';
+import {
+  VfsExplorer,
+  VfsExplorerProvider,
+  useVfsFolders,
+  type VfsItem
+} from '@tearleads/vfs-explorer';
 ```
 
 ## Development

@@ -9,7 +9,11 @@ This package is part of the Tearleads monorepo and is not published independentl
 ## Usage
 
 ```typescript
-import { ... } from '@tearleads/vehicles';
+import {
+  formatVehicleDisplayName,
+  normalizeVehicleProfile,
+  type VehicleProfile
+} from '@tearleads/vehicles';
 ```
 
 ## Development
