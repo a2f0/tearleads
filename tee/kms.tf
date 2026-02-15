@@ -2,16 +2,27 @@ data "azurerm_client_config" "current" {}
 
 # COMPLIANCE_SENTINEL: TL-CRYPTO-001 | control=key-vault-rbac
 # Key Vault with RBAC authorization for secrets and keys
+# Framework mappings:
+# - SOC2: CC6.1, CC6.7 (Logical Access Security)
+# - NIST SP 800-53: SC-12, SC-13 (Cryptographic Key Management)
+# - HIPAA: 164.312(a)(2)(iv) (Encryption and Decryption)
 resource "azurerm_key_vault" "tee" {
   name                       = "${var.project_name}${var.environment}kv"
   location                   = azurerm_resource_group.tee.location
   resource_group_name        = azurerm_resource_group.tee.name
   tenant_id                  = data.azurerm_client_config.current.tenant_id
-  sku_name                   = "standard"
-  purge_protection_enabled   = false
-  soft_delete_retention_days = 7
+  sku_name                   = "premium"
+  purge_protection_enabled   = true
+  soft_delete_retention_days = 90
   rbac_authorization_enabled = true
   tags                       = local.tags
+
+  # Network rules - restrict to VNet and Azure services
+  network_acls {
+    bypass                     = "AzureServices"
+    default_action             = "Deny"
+    virtual_network_subnet_ids = [azurerm_subnet.tee.id]
+  }
 }
 
 resource "azurerm_role_assignment" "kv_admin" {

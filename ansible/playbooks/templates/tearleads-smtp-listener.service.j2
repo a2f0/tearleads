@@ -26,12 +26,42 @@ EnvironmentFile=-/opt/tearleads-smtp-listener/.env
 AmbientCapabilities=CAP_NET_BIND_SERVICE
 CapabilityBoundingSet=CAP_NET_BIND_SERVICE
 
-# Security hardening
+# COMPLIANCE_SENTINEL: TL-SVC-002 | control=service-sandboxing
+# Security hardening - systemd sandbox
+# Framework mappings:
+# - SOC2: CC6.1 (Logical Access Security)
+# - NIST SP 800-53: SC-7, AC-6 (Boundary Protection, Least Privilege)
+# - HIPAA: 164.312(a)(1) (Access Control)
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
 ReadWritePaths=/opt/tearleads-smtp-listener
 PrivateTmp=true
+
+# Additional security hardening
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+ProtectClock=true
+ProtectHostname=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RemoveIPC=true
+
+# Restrict network address families (IPv4/IPv6 only)
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+
+# Limit system call exposure (more permissive for network binding)
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources @mount @swap @reboot @raw-io
+
+# UMask for file creation
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target

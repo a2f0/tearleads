@@ -342,18 +342,21 @@ Manages supply chain security risks.
 1. [P-01 Account Management Policy](./policies/01-account-management-policy.md)
 2. [P-02 Audit Logging Policy](./policies/02-audit-logging-policy.md)
 3. [P-03 Payment Infrastructure Policy](./policies/03-payment-infrastructure-policy.md)
+4. [P-04 Infrastructure Security Policy](./policies/04-infrastructure-security-policy.md)
 
 ### Procedures
 
 1. [PR-01 Account Management Procedure](./procedures/01-account-management-procedure.md)
 2. [PR-02 Audit Logging Procedure](./procedures/02-audit-logging-procedure.md)
 3. [PR-03 Payment Infrastructure Procedure](./procedures/03-payment-infrastructure-procedure.md)
+4. [PR-04 Infrastructure Security Procedure](./procedures/04-infrastructure-security-procedure.md)
 
 ### Technical Control Maps
 
 1. [TC-01 Account Management Technical Control Map](./technical-controls/01-account-management-control-map.md)
 2. [TC-02 Audit Logging Technical Control Map](./technical-controls/02-audit-logging-control-map.md)
 3. [TC-03 Payment Infrastructure Technical Control Map](./technical-controls/03-payment-infrastructure-control-map.md)
+4. [TC-04 Infrastructure Security Technical Control Map](./technical-controls/04-infrastructure-security-control-map.md)
 
 ---
 
@@ -373,6 +376,7 @@ Manages supply chain security risks.
 - **Privacy**: PT
 - **Vulnerability Management**: RA-5, SI-2
 - **Payment Infrastructure**: SC-8, SC-13, SC-23, SI-7, SI-10, AU-2, AU-3, AU-10, AU-11, AU-12, AC-2, AC-3, AC-6
+- **Infrastructure Security**: AC-6, AC-7, AC-17, IA-2, IA-5, SC-5, SC-7, SC-12, SI-16 (SSH hardening, firewalls, kernel hardening, service isolation)
 
 ---
 

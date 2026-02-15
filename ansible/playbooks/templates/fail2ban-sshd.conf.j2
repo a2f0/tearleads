@@ -1,0 +1,32 @@
+# COMPLIANCE_SENTINEL: TL-AUTH-001 | control=brute-force-protection
+# Fail2ban SSH Jail Configuration
+# Framework mappings:
+# - SOC2: CC6.1 (Logical Access Security)
+# - NIST SP 800-53: AC-7 (Unsuccessful Logon Attempts)
+# - HIPAA: 164.312(d) (Person or Entity Authentication)
+
+[sshd]
+enabled = true
+mode = aggressive
+port = ssh
+filter = sshd
+logpath = %(sshd_log)s
+backend = %(sshd_backend)s
+
+# Ban after 3 failed attempts (matching SSH MaxAuthTries)
+maxretry = 3
+
+# Look for failures within 10 minutes
+findtime = 10m
+
+# Ban for 1 hour on first offense
+bantime = 1h
+
+# Progressive ban time (doubles each subsequent ban)
+bantime.increment = true
+bantime.factor = 2
+bantime.maxtime = 1w
+bantime.overalljails = true
+
+# Use UFW for banning (matches our firewall)
+banaction = ufw
