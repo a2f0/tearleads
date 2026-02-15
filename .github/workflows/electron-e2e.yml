@@ -234,6 +234,14 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/health build
 
+      - name: Build calendar
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+        run: pnpm --filter @tearleads/calendar build
+
+      - name: Build photos
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+        run: pnpm --filter @tearleads/photos build
+
       - name: Build Electron app
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/client electron:build
