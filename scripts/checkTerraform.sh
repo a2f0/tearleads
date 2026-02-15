@@ -29,7 +29,7 @@ run_terraform_fmt() {
   echo "Checking terraform fmt in $dir..."
   if ! terraform -chdir="$abs_dir" fmt -check -recursive -diff; then
     echo "Error: terraform fmt check failed in $dir" >&2
-    echo "Run 'terraform -chdir=$dir fmt -recursive' to fix formatting" >&2
+    echo "Run 'terraform -chdir=\"$dir\" fmt -recursive' to fix formatting" >&2
     return 1
   fi
   return 0
@@ -39,7 +39,7 @@ run_tflint() {
   local dir="$1"
   local abs_dir="$REPO_ROOT/$dir"
   echo "Running tflint in $dir..."
-  if ! tflint --chdir="$abs_dir" --config="$abs_dir/.tflint.hcl"; then
+  if ! tflint --chdir="$abs_dir"; then
     echo "Error: tflint failed in $dir" >&2
     return 1
   fi
@@ -47,18 +47,17 @@ run_tflint() {
 }
 
 # Check for required tools
-has_terraform=true
-has_tflint=true
-
-if ! check_command "terraform"; then
-  has_terraform=false
+has_terraform=false
+if check_command "terraform"; then
+  has_terraform=true
 fi
 
-if ! check_command "tflint"; then
-  has_tflint=false
+has_tflint=false
+if check_command "tflint"; then
+  has_tflint=true
 fi
 
-if [ "$has_terraform" = false ] && [ "$has_tflint" = false ]; then
+if ! $has_terraform && ! $has_tflint; then
   echo "Error: neither terraform nor tflint is installed" >&2
   exit 1
 fi
@@ -70,13 +69,13 @@ for dir in "${TERRAFORM_DIRS[@]}"; do
     continue
   fi
 
-  if [ "$has_terraform" = true ]; then
+  if $has_terraform; then
     if ! run_terraform_fmt "$dir"; then
       errors=$((errors + 1))
     fi
   fi
 
-  if [ "$has_tflint" = true ]; then
+  if $has_tflint; then
     if ! run_tflint "$dir"; then
       errors=$((errors + 1))
     fi

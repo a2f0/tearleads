@@ -157,9 +157,7 @@ jobs:
 
       - name: Init TFLint plugins
         if: matrix.lint-type == 'terraform'
-        run: |
-          tflint --chdir=terraform --init
-          tflint --chdir=tuxedo/terraform --init
+        run: tflint --init
 
       - name: Lint Terraform
         if: matrix.lint-type == 'terraform'
