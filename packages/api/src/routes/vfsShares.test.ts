@@ -90,20 +90,16 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // First query: check item exists (owner_id matches test user)
       mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-1' }] });
-      // Second query: item-level vfs_shares parity guardrail
-      mockQuery.mockResolvedValueOnce({ rows: [{ missing_count: 0 }] });
-      // Third query: item-level org_shares parity guardrail
-      mockQuery.mockResolvedValueOnce({ rows: [{ missing_count: 0 }] });
-      // Fourth query: get shares
+      // Second query: get shares
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-1',
+            acl_id: 'share:share-1',
             item_id: 'item-123',
             share_type: 'user',
             target_id: 'user-456',
             target_name: 'Test User',
-            permission_level: 'view',
+            access_level: 'read',
             created_by: 'user-001',
             created_by_email: 'creator@test.com',
             created_at: new Date('2024-01-01'),
@@ -111,7 +107,7 @@ describe('VFS Shares routes', () => {
           }
         ]
       });
-      // Fifth query: get org shares
+      // Third query: get org shares
       mockQuery.mockResolvedValueOnce({ rows: [] });
 
       const response = await request(app)
@@ -124,11 +120,26 @@ describe('VFS Shares routes', () => {
       expect(response.body.orgShares).toHaveLength(0);
     });
 
-    it('returns 500 when share read parity guardrail fails', async () => {
+    it('returns 500 when share rows contain malformed ACL ids', async () => {
       const restoreConsole = mockConsoleError();
       const authHeader = await createAuthHeader();
       mockQuery.mockResolvedValueOnce({ rows: [{ owner_id: 'user-1' }] });
-      mockQuery.mockResolvedValueOnce({ rows: [{ missing_count: 1 }] });
+      mockQuery.mockResolvedValueOnce({
+        rows: [
+          {
+            acl_id: 'invalid-share-id',
+            item_id: 'item-123',
+            share_type: 'user',
+            target_id: 'user-456',
+            target_name: 'Test User',
+            access_level: 'read',
+            created_by: 'user-1',
+            created_by_email: 'user-1@test.com',
+            created_at: new Date('2024-01-01'),
+            expires_at: null
+          }
+        ]
+      });
 
       const response = await request(app)
         .get('/v1/vfs/items/item-123/shares')
@@ -340,11 +351,11 @@ describe('VFS Shares routes', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-new',
+            acl_id: 'share:share-new',
             item_id: 'item-123',
             share_type: 'user',
             target_id: 'user-456',
-            permission_level: 'view',
+            access_level: 'read',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
@@ -456,10 +467,11 @@ describe('VFS Shares routes', () => {
         rows: [
           {
             owner_id: 'different-user',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
-            share_type: 'user',
-            target_id: 'user-456',
-            permission_level: 'view'
+            principal_type: 'user',
+            principal_id: 'user-456',
+            access_level: 'read'
           }
         ]
       });
@@ -479,17 +491,26 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-123',
+            item_id: 'item-123',
+            principal_type: 'user',
+            principal_id: 'user-456',
+            access_level: 'read'
+          }
+        ]
       });
       // UPDATE query
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-123',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
             share_type: 'user',
             target_id: 'user-456',
-            permission_level: 'edit',
+            access_level: 'write',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
@@ -512,13 +533,12 @@ describe('VFS Shares routes', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.share.permissionLevel).toBe('edit');
-      const aclUpsertCall = mockQuery.mock.calls.find(
+      const aclUpdateCall = mockQuery.mock.calls.find(
         (call) =>
           typeof call[0] === 'string' &&
-          call[0].includes('INSERT INTO vfs_acl_entries')
+          call[0].includes('UPDATE vfs_acl_entries')
       );
-      expect(aclUpsertCall).toBeDefined();
-      expect(aclUpsertCall?.[1]?.[4]).toBe('write');
+      expect(aclUpdateCall).toBeDefined();
     });
 
     it('returns 500 on database error', async () => {
@@ -565,10 +585,11 @@ describe('VFS Shares routes', () => {
         rows: [
           {
             owner_id: 'different-user',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
-            share_type: 'user',
-            target_id: 'user-456',
-            permission_level: 'view'
+            principal_type: 'user',
+            principal_id: 'user-456',
+            access_level: 'read'
           }
         ]
       });
@@ -590,10 +611,11 @@ describe('VFS Shares routes', () => {
         rows: [
           {
             owner_id: 'user-1',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
-            share_type: 'user',
-            target_id: 'user-456',
-            permission_level: 'view'
+            principal_type: 'user',
+            principal_id: 'user-456',
+            access_level: 'read'
           }
         ]
       });
@@ -609,7 +631,7 @@ describe('VFS Shares routes', () => {
       const aclRevokeCall = mockQuery.mock.calls.find(
         (call) =>
           typeof call[0] === 'string' &&
-          call[0].includes('INSERT INTO vfs_acl_entries')
+          call[0].includes('UPDATE vfs_acl_entries')
       );
       expect(aclRevokeCall).toBeDefined();
       expect(aclRevokeCall?.[0]).toContain('revoked_at');
@@ -790,11 +812,10 @@ describe('VFS Shares routes', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'orgshare-new',
-            source_org_id: 'org-source',
+            acl_id: 'org-share:org-source:orgshare-new',
             target_org_id: 'org-target',
             item_id: 'item-123',
-            permission_level: 'view',
+            access_level: 'read',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
@@ -846,11 +867,10 @@ describe('VFS Shares routes', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'orgshare-new',
-            source_org_id: 'org-source',
+            acl_id: 'org-share:org-source:orgshare-new',
             target_org_id: 'org-target',
             item_id: 'item-123',
-            permission_level: 'view',
+            access_level: 'read',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
@@ -892,25 +912,32 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-123',
+            item_id: 'item-123',
+            principal_type: 'group',
+            principal_id: 'group-456',
+            access_level: 'write'
+          }
+        ]
       });
       // UPDATE query with group type
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-123',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
             share_type: 'group',
             target_id: 'group-456',
-            permission_level: 'edit',
+            access_level: 'write',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
           }
         ]
       });
-      // ACL parity upsert
-      mockQuery.mockResolvedValueOnce({ rows: [] });
       // Target name lookup (group name)
       mockQuery.mockResolvedValueOnce({
         rows: [{ name: 'Test Group' }]
@@ -933,25 +960,32 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-123',
+            item_id: 'item-123',
+            principal_type: 'organization',
+            principal_id: 'org-456',
+            access_level: 'read'
+          }
+        ]
       });
       // UPDATE query with org type
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-123',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
             share_type: 'organization',
             target_id: 'org-456',
-            permission_level: 'download',
+            access_level: 'read',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
           }
         ]
       });
-      // ACL parity upsert
-      mockQuery.mockResolvedValueOnce({ rows: [] });
       // Target name lookup (org name)
       mockQuery.mockResolvedValueOnce({
         rows: [{ name: 'Test Org' }]
@@ -974,17 +1008,26 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-123',
+            item_id: 'item-123',
+            principal_type: 'user',
+            principal_id: 'user-456',
+            access_level: 'read'
+          }
+        ]
       });
       // UPDATE query
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-123',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
             share_type: 'user',
             target_id: 'user-456',
-            permission_level: 'view',
+            access_level: 'read',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: new Date('2025-12-31')
@@ -1013,17 +1056,26 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-123',
+            item_id: 'item-123',
+            principal_type: 'user',
+            principal_id: 'user-456',
+            access_level: 'read'
+          }
+        ]
       });
       // UPDATE query
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-123',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
             share_type: 'user',
             target_id: 'user-456',
-            permission_level: 'view',
+            access_level: 'read',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
@@ -1052,17 +1104,26 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            acl_id: 'share:share-123',
+            item_id: 'item-123',
+            principal_type: 'user',
+            principal_id: 'deleted-user',
+            access_level: 'read'
+          }
+        ]
       });
       // UPDATE query
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-123',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
             share_type: 'user',
             target_id: 'deleted-user',
-            permission_level: 'view',
+            access_level: 'read',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
@@ -1131,11 +1192,11 @@ describe('VFS Shares routes', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-new',
+            acl_id: 'share:share-new',
             item_id: 'item-123',
             share_type: 'group',
             target_id: 'group-456',
-            permission_level: 'edit',
+            access_level: 'write',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
@@ -1175,11 +1236,11 @@ describe('VFS Shares routes', () => {
       mockQuery.mockResolvedValueOnce({
         rows: [
           {
-            id: 'share-new',
+            acl_id: 'share:share-new',
             item_id: 'item-123',
             share_type: 'organization',
             target_id: 'org-456',
-            permission_level: 'download',
+            access_level: 'read',
             created_by: 'user-001',
             created_at: new Date('2024-01-01'),
             expires_at: null
@@ -1205,8 +1266,7 @@ describe('VFS Shares routes', () => {
       expect(response.body.share.shareType).toBe('organization');
     });
 
-    it('returns 500 when insert returns empty', async () => {
-      const restoreConsole = mockConsoleError();
+    it('returns 409 when insert returns empty', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
       mockQuery.mockResolvedValueOnce({
@@ -1229,9 +1289,8 @@ describe('VFS Shares routes', () => {
           permissionLevel: 'view'
         });
 
-      expect(response.status).toBe(500);
-      expect(response.body).toEqual({ error: 'Failed to create share' });
-      restoreConsole();
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({ error: 'Share already exists' });
     });
 
     it('returns 400 when targetId is only whitespace', async () => {
@@ -1296,8 +1355,7 @@ describe('VFS Shares routes', () => {
       restoreConsole();
     });
 
-    it('returns 500 when insert returns empty', async () => {
-      const restoreConsole = mockConsoleError();
+    it('returns 409 when insert returns empty', async () => {
       const authHeader = await createAuthHeader();
       // Item exists
       mockQuery.mockResolvedValueOnce({
@@ -1320,9 +1378,8 @@ describe('VFS Shares routes', () => {
           permissionLevel: 'view'
         });
 
-      expect(response.status).toBe(500);
-      expect(response.body).toEqual({ error: 'Failed to create org share' });
-      restoreConsole();
+      expect(response.status).toBe(409);
+      expect(response.body).toEqual({ error: 'Org share already exists' });
     });
 
     it('returns 400 when sourceOrgId is only whitespace', async () => {
@@ -1386,9 +1443,10 @@ describe('VFS Shares routes', () => {
         rows: [
           {
             owner_id: 'different-user',
+            acl_id: 'org-share:org-source:orgshare-123',
             item_id: 'item-123',
-            target_org_id: 'org-target',
-            permission_level: 'view'
+            principal_id: 'org-target',
+            access_level: 'read'
           }
         ]
       });
@@ -1410,9 +1468,10 @@ describe('VFS Shares routes', () => {
         rows: [
           {
             owner_id: 'user-1',
+            acl_id: 'org-share:org-source:orgshare-123',
             item_id: 'item-123',
-            target_org_id: 'org-target',
-            permission_level: 'view'
+            principal_id: 'org-target',
+            access_level: 'read'
           }
         ]
       });
@@ -1428,7 +1487,7 @@ describe('VFS Shares routes', () => {
       const aclRevokeCall = mockQuery.mock.calls.find(
         (call) =>
           typeof call[0] === 'string' &&
-          call[0].includes('INSERT INTO vfs_acl_entries')
+          call[0].includes('UPDATE vfs_acl_entries')
       );
       expect(aclRevokeCall).toBeDefined();
       expect(aclRevokeCall?.[0]).toContain('revoked_at');
@@ -1457,10 +1516,11 @@ describe('VFS Shares routes', () => {
         rows: [
           {
             owner_id: 'user-1',
+            acl_id: 'share:share-123',
             item_id: 'item-123',
-            share_type: 'user',
-            target_id: 'user-456',
-            permission_level: 'view'
+            principal_type: 'user',
+            principal_id: 'user-456',
+            access_level: 'read'
           }
         ]
       });
@@ -1484,9 +1544,10 @@ describe('VFS Shares routes', () => {
         rows: [
           {
             owner_id: 'user-1',
+            acl_id: 'org-share:org-source:orgshare-123',
             item_id: 'item-123',
-            target_org_id: 'org-target',
-            permission_level: 'view'
+            principal_id: 'org-target',
+            access_level: 'read'
           }
         ]
       });

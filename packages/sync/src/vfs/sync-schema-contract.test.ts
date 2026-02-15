@@ -162,7 +162,7 @@ describe('sync schema contract', () => {
     ).toEqual([]);
   });
 
-  it('keeps share routes off legacy vfs_access and vfs_folders tables', () => {
+  it('keeps share routes off retired legacy share/access/folder tables', () => {
     const syncPackageRoot = process.cwd();
     const shareRouteSources = [
       '../api/src/routes/vfs-shares/get-items-itemId-shares.ts',
@@ -184,33 +184,36 @@ describe('sync schema contract', () => {
     ).sort((left, right) => left.localeCompare(right));
 
     /**
-     * Guardrail: while `vfs_shares` is still active, we must not reintroduce
-     * direct coupling to pre-flattened sharing/folder tables.
+     * Guardrail: share routes must remain canonical-ACL-only after retirement.
      */
-    expect(routeReferences).toEqual(expect.arrayContaining(['vfs_shares']));
+    expect(routeReferences).toEqual(
+      expect.arrayContaining(['vfs_acl_entries'])
+    );
+    expect(routeReferences).not.toContain('vfs_shares');
+    expect(routeReferences).not.toContain('org_shares');
     expect(routeReferences).not.toContain('vfs_access');
     expect(routeReferences).not.toContain('vfs_folders');
   });
 
-  it('inventories legacy share-table read surfaces for cutover sequencing', () => {
+  it('keeps legacy share-table read-surface inventory empty after cutover', () => {
     const syncPackageRoot = process.cwd();
     const shareReadRouteFiles = [
       {
         relativePath: '../api/src/routes/vfs-shares/get-items-itemId-shares.ts',
-        expectedLegacyReadTables: ['org_shares', 'vfs_shares']
+        expectedLegacyReadTables: []
       },
       {
         relativePath: '../api/src/routes/vfs-shares/patch-shares-shareId.ts',
-        expectedLegacyReadTables: ['vfs_shares']
+        expectedLegacyReadTables: []
       },
       {
         relativePath: '../api/src/routes/vfs-shares/delete-shares-shareId.ts',
-        expectedLegacyReadTables: ['vfs_shares']
+        expectedLegacyReadTables: []
       },
       {
         relativePath:
           '../api/src/routes/vfs-shares/delete-org-shares-shareId.ts',
-        expectedLegacyReadTables: ['org_shares']
+        expectedLegacyReadTables: []
       },
       {
         relativePath:
