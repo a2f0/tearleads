@@ -15,7 +15,6 @@ import {
   playlists,
   tags,
   users,
-  vfsFolders,
   vfsRegistry,
   vfsShares
 } from '@tearleads/db/sqlite';
@@ -68,13 +67,13 @@ function isMissingSqliteTableError(
 /**
  * COALESCE expression that resolves display names from type-specific tables.
  * Mirrors the implementation in vfsQuery.ts.
+ *
+ * Guardrail: shared folder names are canonicalized to `vfs_registry` and must
+ * not read from `vfs_folders`.
  */
 function nameCoalesce(): SQL<string> {
-  // Guardrail: canonical folder metadata in vfs_registry must take precedence
-  // while vfs_folders remains as a compatibility fallback during cutover.
   return sql<string>`COALESCE(
     NULLIF(${vfsRegistry.encryptedName}, ''),
-    NULLIF(${vfsFolders.encryptedName}, ''),
     CASE WHEN ${vfsRegistry.objectType} = 'folder' THEN 'Unnamed Folder' END,
     NULLIF(${files.name}, ''),
     CASE WHEN ${contacts.id} IS NOT NULL THEN
@@ -154,13 +153,6 @@ export async function querySharedByMe(
       })
       .from(vfsShares)
       .innerJoin(vfsRegistry, eq(vfsShares.itemId, vfsRegistry.id))
-      .leftJoin(
-        vfsFolders,
-        and(
-          eq(vfsRegistry.id, vfsFolders.id),
-          eq(vfsRegistry.objectType, 'folder')
-        )
-      )
       .leftJoin(
         files,
         and(
@@ -263,13 +255,6 @@ export async function querySharedWithMe(
       .from(vfsShares)
       .innerJoin(vfsRegistry, eq(vfsShares.itemId, vfsRegistry.id))
       .innerJoin(users, eq(vfsShares.createdBy, users.id))
-      .leftJoin(
-        vfsFolders,
-        and(
-          eq(vfsRegistry.id, vfsFolders.id),
-          eq(vfsRegistry.objectType, 'folder')
-        )
-      )
       .leftJoin(
         files,
         and(

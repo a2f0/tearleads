@@ -59,13 +59,13 @@ describe('vfsSharesQuery integration (real database)', () => {
     consoleErrorSpy.mockRestore();
   });
 
-  it('prefers canonical folder names with legacy fallback when reading shares', async () => {
+  it('uses canonical folder names without legacy fallback when reading shares', async () => {
     await withRealDatabase(
       async ({ db, adapter }) => {
         const ownerId = 'owner-user';
         const now = Date.now();
         const canonicalFolderId = crypto.randomUUID();
-        const fallbackFolderId = crypto.randomUUID();
+        const legacyOnlyFolderId = crypto.randomUUID();
 
         await adapter.execute(`INSERT INTO users (id, email) VALUES (?, ?)`, [
           ownerId,
@@ -82,11 +82,11 @@ describe('vfsSharesQuery integration (real database)', () => {
         );
         await adapter.execute(
           `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
-          [fallbackFolderId, 'folder', null, null, now + 1]
+          [legacyOnlyFolderId, 'folder', null, null, now + 1]
         );
         await adapter.execute(
           `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-          [fallbackFolderId, 'Legacy Shared Fallback']
+          [legacyOnlyFolderId, 'Legacy Shared Fallback']
         );
 
         await adapter.execute(
@@ -105,7 +105,7 @@ describe('vfsSharesQuery integration (real database)', () => {
           `INSERT INTO vfs_shares (id, item_id, share_type, target_id, permission_level, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             crypto.randomUUID(),
-            fallbackFolderId,
+            legacyOnlyFolderId,
             'user',
             'target-user-2',
             'view',
@@ -120,10 +120,10 @@ describe('vfsSharesQuery integration (real database)', () => {
         });
 
         const canonicalRow = rows.find((row) => row.id === canonicalFolderId);
-        const fallbackRow = rows.find((row) => row.id === fallbackFolderId);
+        const legacyOnlyRow = rows.find((row) => row.id === legacyOnlyFolderId);
 
         expect(canonicalRow?.name).toBe('Canonical Shared Name');
-        expect(fallbackRow?.name).toBe('Legacy Shared Fallback');
+        expect(legacyOnlyRow?.name).toBe('Unnamed Folder');
       },
       { migrations: vfsSharesEnabledMigrations }
     );
