@@ -5,6 +5,10 @@ import {VitePWA} from 'vite-plugin-pwa';
 import packageJson from './package.json';
 import {pwaOptions} from './pwa.options';
 import {createViteAliases} from './vite.aliases';
+import {createAppConfigPlugin} from './vite-plugin-app-config';
+
+// Initialize app config plugin for virtual module and disabled package support
+const {plugin: appConfigPlugin, disabledPackages} = createAppConfigPlugin(__dirname);
 
 export default defineConfig({
   main: {
@@ -48,8 +52,8 @@ export default defineConfig({
       format: 'es',
     },
     resolve: {
-      alias: createViteAliases(__dirname),
+      alias: createViteAliases(__dirname, {disabledPackages}),
     },
-    plugins: [react(), tailwindcss(), VitePWA(pwaOptions)],
+    plugins: [appConfigPlugin, react(), tailwindcss(), VitePWA(pwaOptions)],
   },
 });
