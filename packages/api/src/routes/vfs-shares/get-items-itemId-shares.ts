@@ -7,6 +7,7 @@ import type {
 } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
+import { assertItemShareReadParity } from './shared.js';
 
 /**
  * @openapi
@@ -65,6 +66,8 @@ export const getItemsItemidSharesHandler = async (
         .json({ error: 'Not authorized to view shares for this item' });
       return;
     }
+
+    await assertItemShareReadParity(pool, itemId);
 
     const sharesResult = await pool.query<{
       id: string;
