@@ -77,6 +77,10 @@ still satisfied.
 `v039` records pre-drop execution readiness checkpoints, including the required
 read-surface deactivation marker and canonical ACL-first read-contract metadata
 that future destructive share-table retirement must enforce.
+`v040` records explicit drop-authorization checkpoints and marks
+`is_drop_authorized = FALSE` unless
+`read_surface_deactivation_confirmed = TRUE` and execution readiness is marked
+ready.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
