@@ -252,4 +252,69 @@ describe('HelpWindow', () => {
       await user.click(screen.getByTestId('help-window-control-back'));
     }
   });
+
+  it('navigates to specific doc when openHelpDocId is provided', () => {
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+        openHelpDocId="cli"
+        openRequestId={1}
+      />
+    );
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('CLI');
+    expect(screen.getByTestId('help-documentation')).toHaveTextContent('cli');
+    expect(screen.getByTestId('help-window-control-back')).toBeInTheDocument();
+  });
+
+  it('does not navigate when openHelpDocId is provided but openRequestId is missing', () => {
+    render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+        openHelpDocId="cli"
+      />
+    );
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Help');
+    expect(screen.queryByTestId('help-documentation')).not.toBeInTheDocument();
+  });
+
+  it('navigates when openRequestId changes with same openHelpDocId', () => {
+    const { rerender } = render(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+        openHelpDocId="cli"
+        openRequestId={1}
+      />
+    );
+
+    expect(screen.getByTestId('help-documentation')).toHaveTextContent('cli');
+
+    rerender(
+      <HelpWindow
+        id="help-1"
+        onClose={vi.fn()}
+        onMinimize={vi.fn()}
+        onFocus={vi.fn()}
+        zIndex={1}
+        openHelpDocId="vfs"
+        openRequestId={2}
+      />
+    );
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('VFS');
+    expect(screen.getByTestId('help-documentation')).toHaveTextContent('vfs');
+  });
 });

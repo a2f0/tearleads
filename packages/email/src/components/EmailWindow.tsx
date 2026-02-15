@@ -39,6 +39,8 @@ interface EmailWindowProps {
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
   openComposeRequest?: ComposeOpenRequest;
+  openEmailId?: string | null | undefined;
+  openRequestId?: number | undefined;
   isUnlocked?: boolean;
   isDatabaseLoading?: boolean;
   lockedFallback?: ReactNode;
@@ -54,6 +56,8 @@ export function EmailWindow({
   zIndex,
   initialDimensions,
   openComposeRequest,
+  openEmailId,
+  openRequestId,
   isUnlocked = true,
   isDatabaseLoading = false,
   lockedFallback
@@ -129,6 +133,15 @@ export function EmailWindow({
     setIsComposeTabOpen(true);
     setActiveTab('compose');
   }, [openComposeRequest]);
+
+  useEffect(() => {
+    if (!openRequestId || !openEmailId) {
+      return;
+    }
+    setSelectedEmailId(openEmailId);
+    setIsComposeTabOpen(false);
+    setActiveTab('inbox');
+  }, [openEmailId, openRequestId]);
 
   const selectedEmail = emails.find((e) => e.id === selectedEmailId);
   const selectedFolderName = selectedFolder?.name ?? 'All Mail';

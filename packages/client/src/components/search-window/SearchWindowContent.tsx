@@ -19,13 +19,17 @@ import type { FormEvent, KeyboardEvent, MouseEvent } from 'react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
+import type { HelpDocId } from '@/constants/help';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfs-open';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import { getSearchableAppById } from '@/search/appCatalog';
-import { getSearchableHelpDocById } from '@/search/helpCatalog';
+import {
+  getSearchableHelpDocById,
+  HELP_DOC_ID_PREFIX
+} from '@/search/helpCatalog';
 import type { SearchViewMode } from './SearchWindowMenuBar';
 
 const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {
@@ -291,8 +295,19 @@ export function SearchWindowContent({
       }
 
       if (result.entityType === 'help_doc') {
-        const helpDoc = getSearchableHelpDocById(result.id);
-        navigate(helpDoc?.path ?? '/help');
+        if (isMobile) {
+          const helpDoc = getSearchableHelpDocById(result.id);
+          navigate(helpDoc?.path ?? '/help');
+          return;
+        }
+
+        // Extract HelpDocId from search result id (e.g., 'help-doc:cli' -> 'cli')
+        const helpDocId = result.id.replace(
+          HELP_DOC_ID_PREFIX,
+          ''
+        ) as HelpDocId;
+        openWindow('help');
+        requestWindowOpen('help', { helpDocId });
         return;
       }
 
@@ -312,17 +327,20 @@ export function SearchWindowContent({
           requestWindowOpen('notes', { noteId: result.id });
           return;
         case 'email':
-          navigate(route);
+          openWindow('email');
+          requestWindowOpen('email', { emailId: result.id });
           return;
         case 'playlist':
           openWindow('audio');
           requestWindowOpen('audio', { playlistId: result.id });
           return;
         case 'album':
-          navigate(route);
+          openWindow('audio');
+          requestWindowOpen('audio', { albumId: result.id });
           return;
         case 'ai_conversation':
-          navigate(route);
+          openWindow('chat');
+          requestWindowOpen('chat', { conversationId: result.id });
           return;
         default:
           navigate(route);

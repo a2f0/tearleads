@@ -8,7 +8,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, CircleHelp } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { getHelpDocLabel, type HelpDocId } from '@/constants/help';
 import {
   DOCS_WINDOW_MAX_HEIGHT_PERCENT,
@@ -42,11 +42,13 @@ interface HelpWindowProps {
   id: string;
   onClose: () => void;
   onMinimize: (dimensions: WindowDimensions) => void;
-  onDimensionsChange?: (dimensions: WindowDimensions) => void;
+  onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
   onRename?: ((title: string) => void) | undefined;
   onFocus: () => void;
   zIndex: number;
-  initialDimensions?: WindowDimensions;
+  initialDimensions?: WindowDimensions | undefined;
+  openHelpDocId?: HelpDocId | null | undefined;
+  openRequestId?: number | undefined;
 }
 
 export function HelpWindow({
@@ -57,9 +59,17 @@ export function HelpWindow({
   onRename,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  openHelpDocId,
+  openRequestId
 }: HelpWindowProps) {
   const [view, setView] = useState<HelpView>('index');
+
+  // Navigate to a specific help doc when requested from another window
+  useEffect(() => {
+    if (!openRequestId || !openHelpDocId) return;
+    setView(openHelpDocId);
+  }, [openHelpDocId, openRequestId]);
 
   const { defaultWidth, defaultHeight } = useMemo(() => {
     if (typeof window === 'undefined') {

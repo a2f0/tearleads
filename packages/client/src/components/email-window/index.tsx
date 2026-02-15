@@ -61,6 +61,8 @@ export function EmailWindow({
         isUnlocked={isFullyUnlocked}
         isDatabaseLoading={isLoading}
         lockedFallback={lockedFallback}
+        openEmailId={openRequest?.emailId}
+        openRequestId={openRequest?.requestId}
         {...(openRequest && { openComposeRequest: openRequest })}
       />
     </ClientEmailProvider>

@@ -14,6 +14,7 @@ Run this skill when maintaining window components or during slack time. It searc
 - Legacy implementations that should adopt existing window-manager hooks/components
 - Components in individual windows that could be promoted to window-manager
 - Inconsistent refresh/refetch patterns that should use standardized hooks
+- Cross-window navigation that bypasses the `WindowOpenRequestPayloads` pattern
 
 ## Discovery Phase
 
@@ -47,6 +48,14 @@ rg -n --glob '*.tsx' 'dragOverId|dragCounter|setDragOver' packages | rg -v 'useS
 # Find resize handle patterns not using useResizableSidebar
 rg -n --glob '*.tsx' 'cursor-col-resize|onWidthChange.*width|resizeHandle' packages | rg -v 'useResizableSidebar|window-manager' | head -20
 
+# Find cross-window navigation patterns using navigate() instead of openWindow/requestWindowOpen
+# These are windows that should open in floating mode but currently route-navigate
+rg -n --glob '*.tsx' 'navigate\(.*/(help|notes|contacts|photos|audio|videos|documents|files)' packages | rg -v 'isMobile|test\.tsx' | head -20
+
+# Check WindowOpenRequestPayloads vs actual window types that need open requests
+echo "=== Window types supporting open requests ==="
+rg -A5 'interface WindowOpenRequestPayloads' packages/client/src/contexts/WindowManagerContext.tsx | head -20
+
 # Check window-manager exports vs actual usage
 echo "=== Window Manager Exports ==="
 rg '^export' packages/window-manager/src/index.ts | head -30
@@ -76,6 +85,7 @@ Prioritize opportunities that meet at least two signals:
 - Component uses combined refresh tokens instead of `useCombinedRefresh`
 - Component has custom drag-over tracking instead of `useSidebarDragOver`
 - Component has custom resize handling instead of `useResizableSidebar`
+- Cross-window navigation uses `navigate()` instead of `openWindow()`/`requestWindowOpen()`
 
 ### Consolidate duplicated code
 
@@ -221,6 +231,43 @@ packages/client/src/components/admin-users-window/
 └── AdminUsersWindow.test.tsx
 ```
 
+### Cross-Window Opening Pattern
+
+When one window needs to open content in another window (e.g., search opening a help doc), use the `WindowOpenRequestPayloads` pattern instead of `navigate()`:
+
+1. **Add payload type** to `WindowOpenRequestPayloads` in `WindowManagerContext.tsx`:
+
+   ```typescript
+   export interface WindowOpenRequestPayloads {
+     // ... existing payloads
+     help: { helpDocId?: HelpDocId };
+   }
+   ```
+
+2. **Consume in target window** using `useWindowOpenRequest`:
+
+   ```typescript
+   const openRequest = useWindowOpenRequest('help');
+
+   useEffect(() => {
+     if (!openRequest?.requestId || !openRequest?.helpDocId) return;
+     setView(openRequest.helpDocId);
+   }, [openRequest?.helpDocId, openRequest?.requestId]);
+   ```
+
+3. **Open from source window** using `openWindow` + `requestWindowOpen`:
+
+   ```typescript
+   if (isMobile) {
+     navigate('/help/docs/...');
+     return;
+   }
+   openWindow('help');
+   requestWindowOpen('help', { helpDocId });
+   ```
+
+This ensures that when clicking items in a floating window (e.g., search results), the target content opens in another floating window rather than route-navigating away.
+
 ## Guardrails
 
 - Do not introduce breaking changes to window-manager public API
@@ -254,7 +301,8 @@ Count of non-standardized patterns:
 MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}')
 MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}')
 MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}')
-echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))
+CROSS_WINDOW_NAV=$(rg -c --glob '*.tsx' 'navigate\(.*/help.*\)|navigate\(.*/notes.*\)|navigate\(.*/contacts.*\)' packages 2>/dev/null | rg -v 'isMobile|test\.tsx' | awk -F: '{sum+=$2} END {print sum+0}')
+echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE + CROSS_WINDOW_NAV))
 ```
 
 ## Token Efficiency

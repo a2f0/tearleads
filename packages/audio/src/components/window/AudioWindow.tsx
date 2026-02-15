@@ -20,6 +20,7 @@ interface AudioWindowProps {
   initialDimensions?: WindowDimensions | undefined;
   openAudioId?: string | null | undefined;
   openPlaylistId?: string | null | undefined;
+  openAlbumId?: string | null | undefined;
   openRequestId?: number | undefined;
 }
 
@@ -34,6 +35,7 @@ export function AudioWindow({
   initialDimensions,
   openAudioId,
   openPlaylistId,
+  openAlbumId: _openAlbumId,
   openRequestId
 }: AudioWindowProps) {
   const { uploadFile, addTrackToPlaylist, databaseState } = useAudioUIContext();
@@ -159,6 +161,8 @@ export function AudioWindow({
     if (openPlaylistId) {
       setSelectedPlaylistId(openPlaylistId);
     }
+    // TODO: Add album filtering when album view is implemented.
+    // openAlbumId is received via props but not yet handled here.
   }, [openAudioId, openPlaylistId, openRequestId]);
 
   return (

@@ -41,6 +41,7 @@ export function AudioWindow({
         initialDimensions={initialDimensions}
         openAudioId={openRequest?.audioId}
         openPlaylistId={openRequest?.playlistId}
+        openAlbumId={openRequest?.albumId}
         openRequestId={openRequest?.requestId}
       />
     </ClientAudioProvider>

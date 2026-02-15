@@ -941,7 +941,7 @@ describe('SearchWindowContent', () => {
       expect(mockOpenWindow).toHaveBeenCalledWith('notes');
     });
 
-    it('navigates to AI conversation on desktop to preserve context', async () => {
+    it('opens AI conversation in floating window on desktop', async () => {
       const user = userEvent.setup();
       mockUseIsMobile.mockReturnValue(false);
       mockSearch.mockResolvedValue({
@@ -963,8 +963,11 @@ describe('SearchWindowContent', () => {
       });
 
       await user.click(screen.getByText('Chat about code'));
-      expect(mockNavigate).toHaveBeenCalledWith('/ai?conversation=ai-404');
-      expect(mockOpenWindow).not.toHaveBeenCalledWith('chat');
+      expect(mockOpenWindow).toHaveBeenCalledWith('chat');
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith('chat', {
+        conversationId: 'ai-404'
+      });
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -1100,8 +1103,9 @@ describe('SearchWindowContent', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/notes/note-456');
     });
 
-    it('navigates to email when clicking email result', async () => {
+    it('navigates to email when clicking email result on mobile', async () => {
       const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(true);
       mockSearch.mockResolvedValue({
         hits: [
           {
@@ -1122,6 +1126,35 @@ describe('SearchWindowContent', () => {
 
       await user.click(screen.getByText('Re: Project Update'));
       expect(mockNavigate).toHaveBeenCalledWith('/emails/email-789');
+    });
+
+    it('opens email in floating window on desktop', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'email-789',
+            entityType: 'email',
+            document: { title: 'Re: Project Update' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'project');
+
+      await waitFor(() => {
+        expect(screen.getByText('Re: Project Update')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Re: Project Update'));
+      expect(mockOpenWindow).toHaveBeenCalledWith('email');
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith('email', {
+        emailId: 'email-789'
+      });
+      expect(mockNavigate).not.toHaveBeenCalled();
     });
 
     it.each([
@@ -1203,8 +1236,9 @@ describe('SearchWindowContent', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/audio?playlist=playlist-202');
     });
 
-    it('navigates to album when clicking album result', async () => {
+    it('navigates to album when clicking album result on mobile', async () => {
       const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(true);
       mockSearch.mockResolvedValue({
         hits: [
           {
@@ -1227,8 +1261,38 @@ describe('SearchWindowContent', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/audio?album=album-303');
     });
 
-    it('navigates to AI conversation when clicking AI chat result', async () => {
+    it('opens album in audio floating window on desktop', async () => {
       const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'album-303',
+            entityType: 'album',
+            document: { title: 'Best Album' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'album');
+
+      await waitFor(() => {
+        expect(screen.getByText('Best Album')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('Best Album'));
+      expect(mockOpenWindow).toHaveBeenCalledWith('audio');
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith('audio', {
+        albumId: 'album-303'
+      });
+      expect(mockNavigate).not.toHaveBeenCalled();
+    });
+
+    it('navigates to AI conversation when clicking AI chat result on mobile', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(true);
       mockSearch.mockResolvedValue({
         hits: [
           {
@@ -1251,8 +1315,9 @@ describe('SearchWindowContent', () => {
       expect(mockNavigate).toHaveBeenCalledWith('/ai?conversation=ai-404');
     });
 
-    it('navigates to help doc when clicking help-doc result', async () => {
+    it('navigates to help doc on mobile when clicking help-doc result', async () => {
       const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(true);
       mockSearch.mockResolvedValue({
         hits: [
           {
@@ -1273,6 +1338,34 @@ describe('SearchWindowContent', () => {
 
       await user.click(screen.getByText('CLI'));
       expect(mockNavigate).toHaveBeenCalledWith('/help/docs/cli');
+    });
+
+    it('opens help window on desktop when clicking help-doc result', async () => {
+      const user = userEvent.setup();
+      mockUseIsMobile.mockReturnValue(false);
+      mockSearch.mockResolvedValue({
+        hits: [
+          {
+            id: 'help-doc:cli',
+            entityType: 'help_doc',
+            document: { title: 'CLI' }
+          }
+        ],
+        count: 1
+      });
+      renderContent();
+
+      await searchFor(user, 'cli');
+
+      await waitFor(() => {
+        expect(screen.getByText('CLI')).toBeInTheDocument();
+      });
+
+      await user.click(screen.getByText('CLI'));
+      expect(mockOpenWindow).toHaveBeenCalledWith('help');
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith('help', {
+        helpDocId: 'cli'
+      });
     });
 
     it('opens app window on desktop when clicking app result', async () => {

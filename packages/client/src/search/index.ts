@@ -11,7 +11,8 @@ export {
 } from './appCatalog';
 export {
   createSearchableHelpDocuments,
-  getSearchableHelpDocById
+  getSearchableHelpDocById,
+  HELP_DOC_ID_PREFIX
 } from './helpCatalog';
 export { SearchProvider, useSearchContext } from './SearchProvider';
 export { useSearch, useSearchState } from './useSearch';
