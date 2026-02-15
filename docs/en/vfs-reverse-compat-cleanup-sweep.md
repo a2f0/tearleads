@@ -64,7 +64,8 @@ compatibility branches that are no longer needed before production.
 - [x] Remove non-migration client runtime/test references to `vfsFolders`
       (`packages/client/src/db/schema/index.ts`,
       `packages/client/src/db/adapters/utils.test.ts`).
-- [ ] Collapse migration notes that only existed to support fallback read paths.
+- [x] Collapse migration notes/guardrail wording that only existed to support
+      fallback read-path framing.
 
 ### Slice D: Contract + Docs
 

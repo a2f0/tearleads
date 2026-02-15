@@ -58,7 +58,7 @@ export const v031: Migration = {
               )
           ) THEN
             RAISE EXCEPTION
-              'v031 abort: canonical folder rows missing legacy vfs_folders fallback rows';
+              'v031 abort: canonical folder rows missing legacy vfs_folders rows';
           END IF;
         END;
         $$;
