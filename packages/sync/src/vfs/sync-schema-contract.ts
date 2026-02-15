@@ -191,6 +191,26 @@ export function extractPostgresTableNamesFromDrizzleSchema(
   );
 }
 
+export function extractSqliteTableNamesFromDrizzleSchema(
+  source: string
+): string[] {
+  const tableNames = new Set<string>();
+  const pattern = /sqliteTable\(\s*'([a-z0-9_]+)'/gim;
+  let match: RegExpExecArray | null = pattern.exec(source);
+  while (match) {
+    const tableName = match[1];
+    if (tableName) {
+      tableNames.add(tableName.toLowerCase());
+    }
+
+    match = pattern.exec(source);
+  }
+
+  return Array.from(tableNames).sort((left, right) =>
+    left.localeCompare(right)
+  );
+}
+
 export function deriveVfsFlatteningInventory(
   generatedTableNames: string[]
 ): VfsFlatteningInventory {

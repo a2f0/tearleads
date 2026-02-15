@@ -20,6 +20,7 @@ are defined in:
 - `packages/sync/src/vfs/sync-schema-contract.ts`
 - `packages/sync/src/vfs/sync-schema-contract.test.ts`
 - `extractPostgresTableNamesFromDrizzleSchema(...)`
+- `extractSqliteTableNamesFromDrizzleSchema(...)`
 - `deriveVfsFlatteningInventory(...)`
 
 ## Flattened Target Tables

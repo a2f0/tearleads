@@ -110,6 +110,8 @@ compatibility branches that are no longer needed before production.
       tables are no longer exported in generated runtime schema modules.
 - [x] Update DB/runtime schema contract tests and documentation to assert zero
       transitional runtime VFS tables in generated schema inventories.
+- [x] Extend schema-contract inventory checks to cover both generated Postgres
+      and generated SQLite schema outputs.
 
 ## Verification Standard per Slice
 
