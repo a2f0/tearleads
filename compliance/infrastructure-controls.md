@@ -131,17 +131,23 @@ ssh user@host 'cat /etc/systemd/journald.conf.d/compliance.conf'
 
 ### Container Registry Evidence
 
-ECR container registry compliance can be verified via AWS CLI and Terraform:
+ECR container registry compliance can be verified via AWS CLI and Terraform.
+Replace `<env>` with `staging` or `prod` as appropriate:
 
 ```bash
 # Verify ECR repositories exist with encryption (TL-CR-001)
+# For staging:
 aws ecr describe-repositories --repository-names tearleads-staging/api tearleads-staging/client tearleads-staging/website
+# For prod:
+aws ecr describe-repositories --repository-names tearleads-prod/api tearleads-prod/client tearleads-prod/website
 
-# Verify scan-on-push is enabled (TL-CR-002)
+# Verify scan-on-push is enabled for all repos (TL-CR-002)
 aws ecr describe-repositories --query 'repositories[*].{name:repositoryName,scanOnPush:imageScanningConfiguration.scanOnPush}'
 
-# Verify lifecycle policies exist (TL-CR-004)
-aws ecr get-lifecycle-policy --repository-name tearleads-staging/api
+# Verify lifecycle policies exist for all repos (TL-CR-004)
+for repo in api client website; do
+  aws ecr get-lifecycle-policy --repository-name "tearleads-<env>/$repo" 2>/dev/null && echo "OK: $repo" || echo "MISSING: $repo"
+done
 
 # Verify K8s ECR secret exists (TL-CR-003)
 kubectl get secret ecr-registry -n tearleads -o jsonpath='{.type}'

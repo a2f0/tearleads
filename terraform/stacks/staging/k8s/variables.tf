@@ -36,3 +36,9 @@ variable "allowed_ssh_ips" {
   type        = list(string)
   default     = ["0.0.0.0/0", "::/0"]
 }
+
+variable "allowed_k8s_api_ips" {
+  description = "List of IP addresses/CIDRs allowed to access k8s API (port 6443)"
+  type        = list(string)
+  default     = ["0.0.0.0/0", "::/0"] # More permissive for staging dev access
+}

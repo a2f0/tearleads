@@ -97,12 +97,14 @@ spec:
               command:
                 - /bin/sh
                 - -c
+                # Replace <AWS_ACCOUNT_ID> with your account ID
+                # Get your account ID: aws sts get-caller-identity --query Account --output text
                 - |
                   TOKEN=$(aws ecr get-login-password --region us-east-1)
                   kubectl delete secret ecr-registry -n tearleads || true
                   kubectl create secret docker-registry ecr-registry \
                     --namespace=tearleads \
-                    --docker-server=956489103522.dkr.ecr.us-east-1.amazonaws.com \
+                    --docker-server=<AWS_ACCOUNT_ID>.dkr.ecr.us-east-1.amazonaws.com \
                     --docker-username=AWS \
                     --docker-password=$TOKEN
           restartPolicy: OnFailure

@@ -38,7 +38,11 @@ variable "allowed_ssh_ips" {
 }
 
 variable "allowed_vault_ips" {
-  description = "List of IP addresses/CIDRs allowed to access Vault API"
+  description = "List of IP addresses/CIDRs allowed to access Vault API (required - no insecure default)"
   type        = list(string)
-  default     = ["0.0.0.0/0", "::/0"]
+
+  validation {
+    condition     = length(var.allowed_vault_ips) > 0
+    error_message = "allowed_vault_ips must be explicitly set to trusted IP addresses"
+  }
 }

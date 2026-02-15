@@ -17,10 +17,9 @@ module "rds" {
   vpc_id     = data.aws_vpc.default.id
   subnet_ids = data.aws_subnets.default.ids
 
-  # Allow connections from anywhere (k8s cluster will connect via public IP)
-  # In production, restrict to k8s cluster IP
+  # RDS must be accessible from k8s cluster - require explicit CIDR
   allowed_cidr_blocks = var.allowed_cidr_blocks
-  publicly_accessible = true
+  publicly_accessible = true # Required for k8s cluster outside VPC
 
   # Database config
   database_name   = "tearleads"

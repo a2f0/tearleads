@@ -53,7 +53,7 @@ module "server" {
       direction  = "in"
       protocol   = "tcp"
       port       = "6443"
-      source_ips = ["0.0.0.0/0", "::/0"]
+      source_ips = var.allowed_k8s_api_ips
     },
     {
       direction  = "in"

@@ -37,6 +37,16 @@ variable "allowed_ssh_ips" {
   default     = ["0.0.0.0/0", "::/0"]
 }
 
+variable "allowed_k8s_api_ips" {
+  description = "List of IP addresses/CIDRs allowed to access k8s API (port 6443)"
+  type        = list(string)
+
+  validation {
+    condition     = length(var.allowed_k8s_api_ips) > 0
+    error_message = "allowed_k8s_api_ips must be explicitly set to trusted IP addresses"
+  }
+}
+
 variable "cloudflare_api_token" {
   description = "Cloudflare API token"
   type        = string

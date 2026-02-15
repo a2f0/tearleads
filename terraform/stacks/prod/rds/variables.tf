@@ -5,7 +5,11 @@ variable "postgres_password" {
 }
 
 variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to connect to RDS"
+  description = "CIDR blocks allowed to connect to RDS (required - no insecure default)"
   type        = list(string)
-  default     = ["0.0.0.0/0"] # Restrict in production to k8s cluster IP
+
+  validation {
+    condition     = length(var.allowed_cidr_blocks) > 0
+    error_message = "allowed_cidr_blocks must be explicitly set to k8s cluster IP(s)"
+  }
 }
