@@ -49,6 +49,12 @@ kubectl apply -f "${MANIFESTS_DIR}/client.yaml"
 echo "Deploying website..."
 kubectl apply -f "${MANIFESTS_DIR}/website.yaml"
 
+echo "Applying cert-manager issuer..."
+ISSUER_TEMP=$(mktemp)
+sed "s/REPLACE_WITH_YOUR_EMAIL/${CERT_EMAIL:-admin@${DOMAIN}}/g" "${MANIFESTS_DIR}/cert-manager-issuer.yaml" > "$ISSUER_TEMP"
+kubectl apply -f "$ISSUER_TEMP"
+rm -f "$ISSUER_TEMP"
+
 echo "Applying ingress..."
 kubectl apply -f "$INGRESS_TEMP"
 rm -f "$INGRESS_TEMP"

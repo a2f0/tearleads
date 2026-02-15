@@ -48,12 +48,19 @@ Edit `manifests/secrets.yaml` and replace placeholder values:
 openssl rand -hex 32
 ```
 
-### 4. Install Ingress Controller
+### 4. Install Ingress Controller and Cert-Manager
 
-k3s is deployed with traefik disabled. Install nginx-ingress:
+k3s is deployed with traefik disabled. Install nginx-ingress and cert-manager:
 
 ```bash
+# nginx-ingress
 kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+
+# cert-manager (for Let's Encrypt TLS)
+kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml
+
+# Wait for cert-manager to be ready
+kubectl -n cert-manager wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager --timeout=120s
 ```
 
 ### 5. Build and Deploy App
@@ -111,7 +118,8 @@ Override server type with `-var server_type=cx32` for more resources.
 | `api.yaml` | API Deployment + Service |
 | `client.yaml` | Client Deployment + Service |
 | `website.yaml` | Website Deployment + Service |
-| `ingress.yaml` | Ingress routing rules |
+| `ingress.yaml` | Ingress routing rules with TLS |
+| `cert-manager-issuer.yaml` | Let's Encrypt ClusterIssuer |
 
 ## Tear Down
 
