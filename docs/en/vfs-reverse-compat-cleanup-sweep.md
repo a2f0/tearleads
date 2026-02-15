@@ -19,6 +19,7 @@ compatibility branches that are no longer needed before production.
 1. Write-path cleanup (remove dual-write compatibility scaffolding)
 1. Client local schema cleanup (remove compatibility migration assumptions)
 1. Contract/doc cleanup (retire outdated transitional wording/checks)
+1. Explorer share-query cleanup (`vfs_acl_entries` canonical source only)
 
 ## Canonical Invariants
 
@@ -78,6 +79,17 @@ compatibility branches that are no longer needed before production.
       `vfs_folders` rows purely for fallback behavior checks.
 - [x] Add explicit client runtime source guardrail test to block reintroduction
       of `vfs_folders`/`vfsFolders` outside migration paths.
+
+### Slice E: Explorer Share Query Canonicalization
+
+- [x] Replace explorer shared-by/shared-with query source from `vfs_shares` to
+      canonical `vfs_acl_entries` (`id LIKE 'share:%'`, `revoked_at IS NULL`).
+- [x] Remove missing-table compatibility fallback handling from share-query
+      runtime paths (fail fast on missing canonical schema).
+- [x] Add canonical ACL integration assertions for share-id extraction and ACL
+      access-level to share-permission mapping.
+- [x] Add explicit guardrail checks that runtime share query paths do not
+      reintroduce `vfs_shares`/`vfsShares`.
 
 ## Verification Standard per Slice
 

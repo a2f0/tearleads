@@ -10,6 +10,7 @@ const CANONICAL_FOLDER_RUNTIME_PATHS = [
   '../hooks/useEnsureVfsRoot.ts',
   '../hooks/useRenameVfsFolder.ts'
 ] as const;
+const CANONICAL_SHARE_RUNTIME_PATHS = ['../lib/vfsSharesQuery.ts'] as const;
 
 function loadSource(relativePath: string): string {
   return readFileSync(new URL(relativePath, import.meta.url), 'utf8');
@@ -27,6 +28,22 @@ describe('VFS canonical folder metadata guardrails', () => {
     for (const relativePath of CANONICAL_FOLDER_RUNTIME_PATHS) {
       const source = loadSource(relativePath);
       expect(source).not.toMatch(/import\s*\{[^}]*\bvfsFolders\b[^}]*\}/u);
+    }
+  });
+});
+
+describe('VFS canonical share-query guardrails', () => {
+  it('runtime share paths do not reference legacy vfsShares symbol', () => {
+    for (const relativePath of CANONICAL_SHARE_RUNTIME_PATHS) {
+      const source = loadSource(relativePath);
+      expect(source).not.toMatch(/\bvfsShares\b/u);
+    }
+  });
+
+  it('runtime share paths do not reference retired vfs_shares table', () => {
+    for (const relativePath of CANONICAL_SHARE_RUNTIME_PATHS) {
+      const source = loadSource(relativePath);
+      expect(source).not.toMatch(/\bvfs_shares\b/u);
     }
   });
 });
