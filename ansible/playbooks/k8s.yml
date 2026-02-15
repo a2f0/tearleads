@@ -69,7 +69,7 @@
       ansible.builtin.git:
         repo: "{{ tearleads_repo_url }}"
         dest: "{{ tearleads_dir }}"
-        version: main
+        version: feat/k8s
       become: true
       become_user: "{{ ansible_user }}"
 
