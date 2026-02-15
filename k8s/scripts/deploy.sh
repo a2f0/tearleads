@@ -55,10 +55,15 @@ echo "Deploying website..."
 kubectl apply -f "${MANIFESTS_DIR}/website.yaml"
 
 echo "Applying cert-manager issuer..."
-ISSUER_TEMP=$(mktemp)
-sed "s/REPLACE_WITH_YOUR_EMAIL/${CERT_EMAIL:-admin@${DOMAIN}}/g" "${MANIFESTS_DIR}/cert-manager-issuer.yaml" > "$ISSUER_TEMP"
-kubectl apply -f "$ISSUER_TEMP"
-rm -f "$ISSUER_TEMP"
+if kubectl get crd clusterissuers.cert-manager.io >/dev/null 2>&1; then
+  ISSUER_TEMP=$(mktemp)
+  sed "s/REPLACE_WITH_YOUR_EMAIL/${CERT_EMAIL:-admin@${DOMAIN}}/g" "${MANIFESTS_DIR}/cert-manager-issuer.yaml" > "$ISSUER_TEMP"
+  kubectl apply -f "$ISSUER_TEMP"
+  rm -f "$ISSUER_TEMP"
+else
+  echo "  Skipping - cert-manager not installed. Run:"
+  echo "  kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml"
+fi
 
 echo "Applying ingress..."
 kubectl apply -f "$INGRESS_TEMP"
