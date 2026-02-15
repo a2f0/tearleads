@@ -57,6 +57,10 @@ compatibility branches that are no longer needed before production.
 - [x] Remove legacy-adapter/classic-test assumptions tied to `vfs_folders`
       (`packages/classic/src/lib/vfsClassicAdapter.integration.test.ts` now
       seeds canonical folder metadata via `vfs_registry` only).
+- [x] Remove `vfs_folders` table creation from general-purpose SQLite test
+      migration harnesses where runtime-path tests no longer need it
+      (`vfs-test-migrations`, `classic-test-migrations`,
+      `contacts-test-migrations`, `trashTestMigrations`).
 - [ ] Collapse migration notes that only existed to support fallback read paths.
 
 ### Slice D: Contract + Docs
