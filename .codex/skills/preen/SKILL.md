@@ -299,32 +299,62 @@ Run discovery only for selected categories:
 run_discovery() {
   case "$1" in
     preen-typescript)
-      rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' . | head -20
+      rg -n --glob '*.{ts,tsx}'
+        ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' .
+        | head -20
       ;;
     preen-split-react-components)
-      find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | sort -rn | head -20
+      find . -name '*.tsx'
+        -not -path '*/node_modules/*'
+        -not -path '*/.next/*'
+        -not -path '*/dist/*'
+        -exec wc -l {} \; 2>/dev/null
+        | awk '$1 > 300'
+        | sort -rn
+        | head -20
       ;;
     preen-deferred-fixes)
-      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R "$REPO" --label 'deferred' --state open --limit 20 2>/dev/null || true
+      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null);
+      gh issue list -R "$REPO"
+        --label 'deferred'
+        --state open
+        --limit 20 2>/dev/null || true
       ;;
     preen-optimize-test-execution)
-      pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD | head -40
+      pnpm exec tsx scripts/ciImpact/ciImpact.ts
+        --base origin/main
+        --head HEAD
+        | head -40
       ;;
     preen-database-performance)
-      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | head -40 || true
-      rg -n --glob '*.{ts,tsx}' '\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\(' packages | head -40 || true
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'withRealDatabase\(|createTestDatabase\(' packages | head -40 || true
+      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}'
+        'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)'
+        packages | head -40 || true
+      rg -n --glob '*.{ts,tsx}'
+        '\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\('
+        packages | head -40 || true
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}'
+        'withRealDatabase\(|createTestDatabase\('
+        packages | head -40 || true
       ;;
     preen-api-security)
-      rg -n --glob '*.ts' 'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query' packages/api/src/routes | head -40
+      rg -n --glob '*.ts'
+        'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query'
+        packages/api/src/routes | head -40
       ;;
     preen-dependency-security)
       pnpm audit --prod --audit-level high --json 2>/dev/null | head -40 || true
-      rg -n --glob 'package.json' 'latest|next|canary|beta' packages scripts . | head -20 || true
+      rg -n --glob 'package.json'
+        'latest|next|canary|beta'
+        packages scripts . | head -20 || true
       ;;
     preen-test-flakiness)
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(' packages . | head -30 || true
-      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'retry|retries|flaky|TODO.*flaky' packages . | head -30 || true
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}'
+        'setTimeout\(|waitForTimeout\(|sleep\('
+        packages . | head -30 || true
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}'
+        'retry|retries|flaky|TODO.*flaky'
+        packages . | head -30 || true
       ;;
     preen-msw-parity)
       ./scripts/preen/checkMswParity.ts
@@ -334,31 +364,77 @@ run_discovery() {
       ./scripts/checkPreenEcosystem.sh --summary
       ;;
     preen-compliance-docs)
-      for fw in HIPAA NIST.SP.800-53 SOC2; do echo "=== $fw ==="; echo "Policies: $(ls compliance/$fw/policies/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Procedures: $(ls compliance/$fw/procedures/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Controls: $(ls compliance/$fw/technical-controls/*.md 2>/dev/null | wc -l | tr -d ' ')"; done
-      find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -10
+      for fw in HIPAA NIST.SP.800-53 SOC2; do
+        echo "=== $fw ==="
+        echo "Policies: $(ls compliance/$fw/policies/*.md 2>/dev/null | wc -l | tr -d ' ')"
+        echo "Procedures: $(ls compliance/$fw/procedures/*.md 2>/dev/null | wc -l | tr -d ' ')"
+        echo "Controls: $(ls compliance/$fw/technical-controls/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      done
+      find compliance -name '*.md'
+        -not -name 'POLICY_INDEX.md'
+        -not -name 'AGENTS.md'
+        | xargs -I{} basename {}
+        | grep -v '^[0-9][0-9]-'
+        | head -10
       ;;
     preen-package-docs)
-      echo '=== Packages missing README ==='; for pkg in packages/*/; do [ ! -f "${pkg}README.md" ] && basename "$pkg"; done
-      echo '=== Summary ==='; total=$(ls -d packages/*/ | wc -l | tr -d ' '); with_readme=$(ls packages/*/README.md 2>/dev/null | wc -l | tr -d ' '); echo "$with_readme/$total packages have READMEs"
+      echo '=== Packages missing README ==='
+      for pkg in packages/*/; do
+        [ ! -f "${pkg}README.md" ] && basename "$pkg"
+      done
+      echo '=== Summary ==='
+      total=$(ls -d packages/*/ | wc -l | tr -d ' ')
+      with_readme=$(ls packages/*/README.md 2>/dev/null | wc -l | tr -d ' ')
+      echo "$with_readme/$total packages have READMEs"
       ;;
     preen-review-instructions)
-      echo '=== REVIEW.md sections ==='; rg '^##' REVIEW.md | head -20
-      echo '=== Gemini sections ==='; rg '^##' .gemini/INSTRUCTIONS.md | head -20
-      echo '=== Section comparison ==='; echo "REVIEW.md: $(rg '^## ' REVIEW.md | wc -l | tr -d ' ')"; echo "Gemini: $(rg '^## ' .gemini/INSTRUCTIONS.md | wc -l | tr -d ' ')"
+      echo '=== REVIEW.md sections ==='
+      rg '^##' REVIEW.md | head -20
+      echo '=== Gemini sections ==='
+      rg '^##' .gemini/INSTRUCTIONS.md | head -20
+      echo '=== Section comparison ==='
+      echo "REVIEW.md: $(rg '^## ' REVIEW.md | wc -l | tr -d ' ')"
+      echo "Gemini: $(rg '^## ' .gemini/INSTRUCTIONS.md | wc -l | tr -d ' ')"
       ;;
     preen-i18n)
-      echo '=== Translation Files ==='; find packages -path '*/i18n/translations/*.ts' -not -name 'types.ts' -not -name 'index.ts' | head -20
-      echo '=== Key Count by Language ==='; for lang in en es ua pt; do count=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' '); echo "${lang}: ${count} keys"; done
-      echo '=== Potential Hardcoded Strings ==='; rg -n --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages | rg -v 'test\.' | head -20
+      echo '=== Translation Files ==='
+      find packages -path '*/i18n/translations/*.ts'
+        -not -name 'types.ts'
+        -not -name 'index.ts' | head -20
+      echo '=== Key Count by Language ==='
+      for lang in en es ua pt; do
+        count=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ')
+        echo "${lang}: ${count} keys"
+      done
+      echo '=== Potential Hardcoded Strings ==='
+      rg -n --glob '*.tsx'
+        '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<'
+        packages | rg -v 'test\.' | head -20
       ;;
     preen-docs-internationalization)
-      echo '=== Translation Coverage ==='; echo "English (source): $(ls docs/en/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Spanish: $(ls docs/es/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Ukrainian: $(ls docs/ua/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Portuguese: $(ls docs/pt/*.md 2>/dev/null | wc -l | tr -d ' ')"
-      echo '=== Missing Translations ==='; for lang in es ua pt; do for file in docs/en/*.md; do target="docs/$lang/$(basename "$file")"; [ -f "$target" ] || echo "Missing: $target"; done; done
+      echo '=== Translation Coverage ==='
+      echo "English (source): $(ls docs/en/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo "Spanish: $(ls docs/es/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo "Ukrainian: $(ls docs/ua/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo "Portuguese: $(ls docs/pt/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo '=== Missing Translations ==='
+      for lang in es ua pt; do
+        for file in docs/en/*.md; do
+          target="docs/$lang/$(basename "$file")"
+          [ -f "$target" ] || echo "Missing: $target"
+        done
+      done
       ;;
     preen-window-consistency)
-      rg -n --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages | rg -v 'window-manager' | head -20
-      rg -n --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages | rg -v 'window-manager' | head -20
-      rg -n --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages | rg -v 'window-manager' | head -20
+      rg -n --glob '*.tsx'
+        'lastRefreshTokenRef|lastRefreshToken'
+        packages | rg -v 'window-manager' | head -20
+      rg -n --glob '*.tsx'
+        'dragOverId.*useState|setDragOver.*Id'
+        packages | rg -v 'window-manager' | head -20
+      rg -n --glob '*.tsx'
+        'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent'
+        packages | rg -v 'window-manager' | head -20
       ;;
   esac
 }
