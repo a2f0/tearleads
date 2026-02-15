@@ -7118,6 +7118,343 @@ describe('VfsBackgroundSyncClient', () => {
     });
   });
 
+  it('converges after scripted alternating pull and reconcile failures with bounded guardrail telemetry', async () => {
+    let pullCallCount = 0;
+    let reconcileCallCount = 0;
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+      details?: Record<string, string | number | boolean | null>;
+    }> = [];
+    const observedPullRequests: Array<{
+      cursor: { changedAt: string; changeId: string } | null;
+      limit: number;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async (input) => {
+        pullCallCount += 1;
+        observedPullRequests.push({
+          cursor: input.cursor ? { ...input.cursor } : null,
+          limit: input.limit
+        });
+
+        if (pullCallCount === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'seed-1',
+                occurredAt: '2026-02-14T12:26:00.000Z',
+                itemId: 'item-seed'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:26:00.000Z',
+              changeId: 'seed-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 2) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'pull-fail-a',
+                occurredAt: '2026-02-14T12:26:01.000Z',
+                itemId: 'item-pull-fail-a'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:26:01.000Z',
+              changeId: 'pull-fail-a'
+            },
+            lastReconciledWriteIds: {
+              desktop: 4,
+              mobile: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 3) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'cycle-b-1',
+                occurredAt: '2026-02-14T12:26:02.000Z',
+                itemId: 'item-cycle-b'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:26:02.000Z',
+              changeId: 'cycle-b-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 6,
+              mobile: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 4) {
+          return {
+            items: [],
+            hasMore: false,
+            nextCursor: null,
+            lastReconciledWriteIds: {
+              desktop: 6,
+              mobile: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 5) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'pull-fail-d',
+                occurredAt: '2026-02-14T12:26:03.000Z',
+                itemId: 'item-pull-fail-d'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:26:03.000Z',
+              changeId: 'pull-fail-d'
+            },
+            lastReconciledWriteIds: {
+              desktop: 5,
+              mobile: 6
+            }
+          };
+        }
+
+        if (pullCallCount === 6) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'cycle-e-1',
+                occurredAt: '2026-02-14T12:26:04.000Z',
+                itemId: 'item-cycle-e'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:26:04.000Z',
+              changeId: 'cycle-e-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 7,
+              mobile: 6
+            }
+          };
+        }
+
+        return {
+          items: [],
+          hasMore: false,
+          nextCursor: null,
+          lastReconciledWriteIds: {
+            desktop: 8,
+            mobile: 8
+          }
+        };
+      },
+      reconcileState: async (input) => {
+        reconcileCallCount += 1;
+        if (reconcileCallCount === 1) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 5
+            }
+          };
+        }
+
+        if (reconcileCallCount === 2) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 4
+            }
+          };
+        }
+
+        if (reconcileCallCount === 3) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 6
+            }
+          };
+        }
+
+        return {
+          cursor: { ...input.cursor },
+          lastReconciledWriteIds: {
+            ...input.lastReconciledWriteIds,
+            desktop: 8,
+            mobile: 8
+          }
+        };
+      }
+    };
+
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    await seedClient.sync();
+    expect(seedClient.snapshot().lastReconciledWriteIds).toEqual({
+      desktop: 5,
+      mobile: 5
+    });
+
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    resumedClient.hydrateState(seedClient.exportState());
+
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica desktop/
+    );
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica mobile/
+    );
+    const cycleC = await resumedClient.sync();
+    expect(cycleC).toEqual({
+      pulledOperations: 0,
+      pullPages: 1
+    });
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica desktop/
+    );
+    const cycleE = await resumedClient.sync();
+    expect(cycleE).toEqual({
+      pulledOperations: 1,
+      pullPages: 1
+    });
+
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'pull',
+      message: 'pull response regressed replica write-id state',
+      details: {
+        replicaId: 'desktop',
+        previousWriteId: 5,
+        incomingWriteId: 4
+      }
+    });
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'reconcile',
+      message: 'reconcile acknowledgement regressed replica write-id state',
+      details: {
+        replicaId: 'mobile',
+        previousWriteId: 5,
+        incomingWriteId: 4
+      }
+    });
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'pull',
+      message: 'pull response regressed replica write-id state',
+      details: {
+        replicaId: 'desktop',
+        previousWriteId: 6,
+        incomingWriteId: 5
+      }
+    });
+    expect(guardrailViolations).toHaveLength(3);
+
+    expect(resumedClient.snapshot().lastReconciledWriteIds).toEqual({
+      desktop: 8,
+      mobile: 8
+    });
+    expect(resumedClient.snapshot().cursor).toEqual({
+      changedAt: '2026-02-14T12:26:04.000Z',
+      changeId: 'cycle-e-1'
+    });
+    expect(resumedClient.snapshot().acl).toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-cycle-b'
+      })
+    );
+    expect(resumedClient.snapshot().acl).toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-cycle-e'
+      })
+    );
+    expect(resumedClient.snapshot().acl).not.toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-pull-fail-a'
+      })
+    );
+    expect(resumedClient.snapshot().acl).not.toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-pull-fail-d'
+      })
+    );
+
+    expect(observedPullRequests[0]?.cursor).toBeNull();
+    expect(observedPullRequests[1]?.cursor).toEqual({
+      changedAt: '2026-02-14T12:26:00.000Z',
+      changeId: 'seed-1'
+    });
+    expect(observedPullRequests[2]?.cursor).toEqual({
+      changedAt: '2026-02-14T12:26:00.000Z',
+      changeId: 'seed-1'
+    });
+    expect(observedPullRequests[3]?.cursor).toEqual({
+      changedAt: '2026-02-14T12:26:02.000Z',
+      changeId: 'cycle-b-1'
+    });
+    expect(observedPullRequests[4]?.cursor).toEqual({
+      changedAt: '2026-02-14T12:26:02.000Z',
+      changeId: 'cycle-b-1'
+    });
+    expect(observedPullRequests[5]?.cursor).toEqual({
+      changedAt: '2026-02-14T12:26:02.000Z',
+      changeId: 'cycle-b-1'
+    });
+  });
+
   it('fails closed when transport regresses cursor with no items', async () => {
     let pullCount = 0;
     const guardrailViolations: Array<{
