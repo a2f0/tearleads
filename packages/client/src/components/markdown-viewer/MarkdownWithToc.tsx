@@ -7,6 +7,7 @@ import {
   type ReactNode,
   useState
 } from 'react';
+import { MermaidRenderer } from './MermaidRenderer';
 
 interface TocHeading {
   id: string;
@@ -189,6 +190,19 @@ export function MarkdownWithToc({
     h4: createHeading(4),
     h5: createHeading(5),
     h6: createHeading(6),
+    code: ({
+      children,
+      className
+    }: HTMLAttributes<HTMLElement> & { children?: ReactNode }) => {
+      const match = /language-(\w+)/.exec(className ?? '');
+      const language = match?.[1];
+
+      if (language === 'mermaid' && typeof children === 'string') {
+        return <MermaidRenderer code={children} theme={markdownColorMode} />;
+      }
+
+      return <code className={className}>{children}</code>;
+    },
     ...(linkComponent
       ? {
           a: ({
