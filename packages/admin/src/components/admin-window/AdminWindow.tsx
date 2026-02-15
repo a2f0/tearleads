@@ -128,7 +128,7 @@ export function AdminWindow({
   const renderContent = () => {
     if (view === 'index') {
       return (
-        <div className="space-y-6">
+        <div className="flex-1 space-y-6 overflow-auto">
           <div className="flex items-center gap-3">
             <Shield className="h-8 w-8 text-muted-foreground" />
             <h1 className="font-bold text-2xl tracking-tight">{t('admin')}</h1>
@@ -308,8 +308,9 @@ export function AdminWindow({
       defaultHeight={600}
       minWidth={500}
       minHeight={400}
+      contentClassName="overflow-hidden"
     >
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col overflow-hidden">
         <AdminWindowMenuBar onClose={onClose} />
         <WindowControlBar>
           <WindowControlGroup>
@@ -324,7 +325,9 @@ export function AdminWindow({
             )}
           </WindowControlGroup>
         </WindowControlBar>
-        <div className="flex-1 overflow-auto p-3">{renderContent()}</div>
+        <div className="flex min-h-0 flex-1 flex-col p-3">
+          {renderContent()}
+        </div>
       </div>
     </FloatingWindow>
   );
