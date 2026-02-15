@@ -8,10 +8,7 @@ import { withRealDatabase } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { healthTestMigrations } from '../test/healthTestMigrations.js';
-import {
-  DEFAULT_EXERCISE_IDS,
-  DEFAULT_EXERCISES
-} from './defaultExercises.js';
+import { DEFAULT_EXERCISE_IDS, DEFAULT_EXERCISES } from './defaultExercises.js';
 import { createHealthTracker } from './healthTracker.js';
 
 const createDeterministicId = (): ((prefix: string) => string) => {

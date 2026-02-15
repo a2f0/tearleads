@@ -19,10 +19,7 @@ import {
   useRef,
   useState
 } from 'react';
-import type {
-  SettingValueMap,
-  UserSettingKey
-} from '../types/userSettings.js';
+import type { SettingValueMap, UserSettingKey } from '../types/userSettings.js';
 import {
   dispatchSettingsSyncedEvent,
   getSettingFromStorage,
