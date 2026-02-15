@@ -141,10 +141,10 @@
         content: |
           [Unit]
           Description=BuildKit
-          After=network.target
+          After=network.target k3s.service
 
           [Service]
-          ExecStart=/usr/local/bin/buildkitd --addr unix:///run/buildkit/buildkitd.sock
+          ExecStart=/usr/local/bin/buildkitd --addr unix:///run/buildkit/buildkitd.sock --containerd-worker-addr /run/k3s/containerd/containerd.sock
           Restart=always
           RestartSec=5
 
@@ -153,7 +153,7 @@
         owner: root
         group: root
         mode: "0644"
-      notify: Start buildkit
+      notify: Restart buildkit
 
     - name: Create buildkit socket directory
       ansible.builtin.file:
@@ -195,8 +195,8 @@
         var: cluster_status.stdout_lines
 
   handlers:
-    - name: Start buildkit
+    - name: Restart buildkit
       ansible.builtin.systemd:
         name: buildkit
-        state: started
+        state: restarted
         daemon_reload: true
