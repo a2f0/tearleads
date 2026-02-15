@@ -195,7 +195,7 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
     throw new Error(`transport returned invalid items[${index}]`);
   }
 
-  return {
+  const parsedItem: VfsCrdtSyncItem = {
     opId: parseRequiredString(value['opId'], `items[${index}].opId`),
     itemId: parseRequiredString(value['itemId'], `items[${index}].itemId`),
     opType: parseOpType(value['opType'], `items[${index}].opType`),
@@ -230,6 +230,26 @@ function parseSyncItem(value: unknown, index: number): VfsCrdtSyncItem {
       `items[${index}].occurredAt`
     )
   };
+
+  if (parsedItem.opType === 'link_add' || parsedItem.opType === 'link_remove') {
+    /**
+     * Guardrail: link graph mutations must preserve the same child scope as
+     * the CRDT operation identity and must never self-link. Rejecting malformed
+     * remote payloads here prevents corrupted feed rows from entering replay.
+     */
+    if (
+      parsedItem.parentId === null ||
+      parsedItem.childId === null ||
+      parsedItem.childId !== parsedItem.itemId ||
+      parsedItem.parentId === parsedItem.childId
+    ) {
+      throw new Error(
+        `transport returned invalid link payload at items[${index}]`
+      );
+    }
+  }
+
+  return parsedItem;
 }
 
 function parseApiPullResponse(body: unknown): VfsCrdtSyncResponse {
