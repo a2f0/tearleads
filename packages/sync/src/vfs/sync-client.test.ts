@@ -1654,7 +1654,7 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(pristineState);
   });
 
-  it('hydrates when persisted replay and reconcile cursors are equal', async () => {
+  it('hydrates when replay, reconcile, and container clock cursors share an equal boundary', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     await server.pushOperations({
       operations: [
@@ -1684,6 +1684,23 @@ describe('VfsBackgroundSyncClient', () => {
     if (!replayCursor) {
       throw new Error('expected replay cursor for equal-boundary hydrate test');
     }
+    const boundaryClock = persisted.containerClocks.find(
+      (entry) => entry.containerId === 'item-hydrate-equal'
+    );
+    if (!boundaryClock) {
+      throw new Error(
+        'expected container clock for equal-boundary hydrate test'
+      );
+    }
+    expect(
+      compareVfsSyncCursorOrder(
+        {
+          changedAt: boundaryClock.changedAt,
+          changeId: boundaryClock.changeId
+        },
+        replayCursor
+      )
+    ).toBe(0);
 
     persisted.reconcileState = {
       cursor: {
