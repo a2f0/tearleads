@@ -1839,6 +1839,51 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(pristineState);
   });
 
+  it('fails closed when hydrated container clocks are present without a persisted cursor and keeps state pristine', () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer()),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    const pristineState = client.exportState();
+    const persisted = client.exportState();
+    persisted.containerClocks = [
+      {
+        containerId: 'item-orphan-clock',
+        changedAt: '2026-02-14T14:15:00.000Z',
+        changeId: 'desktop-1'
+      }
+    ];
+    persisted.replaySnapshot.cursor = null;
+    persisted.reconcileState = null;
+
+    expect(() => client.hydrateState(persisted)).toThrowError(
+      /state.containerClocks requires persisted replay or reconcile cursor/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message:
+        'state.containerClocks requires persisted replay or reconcile cursor'
+    });
+    expect(client.exportState()).toEqual(pristineState);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;

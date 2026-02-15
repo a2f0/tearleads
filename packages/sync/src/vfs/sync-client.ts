@@ -631,6 +631,11 @@ export class VfsBackgroundSyncClient {
 
       const effectivePersistedCursor =
         normalizedReconcileState?.cursor ?? normalizedReplaySnapshot.cursor;
+      if (normalizedContainerClocks.length > 0 && !effectivePersistedCursor) {
+        throw new Error(
+          'state.containerClocks requires persisted replay or reconcile cursor'
+        );
+      }
       if (effectivePersistedCursor) {
         /**
          * Guardrail invariant: per-container clocks are a projection of replayed
