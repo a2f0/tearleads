@@ -191,6 +191,13 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/photos build
 
+      - name: Generate app configs
+        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+        run: |
+          npm install -g tsx
+          cd packages/app-builder
+          tsx src/cli.ts generate --app tearleads
+
       - name: Build web assets
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/client build

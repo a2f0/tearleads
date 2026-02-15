@@ -93,6 +93,12 @@ jobs:
       - name: Install Playwright for website build
         run: pnpm --filter @tearleads/website exec playwright install chromium
 
+      - name: Generate app configs
+        run: |
+          npm install -g tsx
+          cd packages/app-builder
+          tsx src/cli.ts generate --app tearleads
+
       - name: Build all packages
         run: pnpm build
         env:

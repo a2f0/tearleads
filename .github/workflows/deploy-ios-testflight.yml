@@ -153,6 +153,12 @@ jobs:
       - name: Build photos
         run: pnpm --filter @tearleads/photos build
 
+      - name: Generate app configs
+        run: |
+          npm install -g tsx
+          cd packages/app-builder
+          tsx src/cli.ts generate --app tearleads
+
       - name: Build web assets
         run: pnpm --filter @tearleads/client build
         env:

@@ -226,6 +226,12 @@ jobs:
       - name: Type check
         run: pnpm exec tsc -b
 
+      - name: Generate app configs
+        run: |
+          npm install -g tsx
+          cd packages/app-builder
+          tsx src/cli.ts generate --app tearleads
+
       - name: Build
         run: pnpm build
 
