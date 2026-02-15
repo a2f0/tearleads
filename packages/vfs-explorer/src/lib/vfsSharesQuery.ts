@@ -15,48 +15,32 @@ import {
   playlists,
   tags,
   users,
-  vfsRegistry,
-  vfsShares
+  vfsAclEntries,
+  vfsRegistry
 } from '@tearleads/db/sqlite';
 import type { SQL } from 'drizzle-orm';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNull, sql } from 'drizzle-orm';
 import type { VfsSortState } from './vfsTypes';
 
-function isMissingSqliteTableError(
-  error: unknown,
-  tableName: 'vfs_shares' | 'users'
-): boolean {
-  const noSuchTableText = `no such table: ${tableName}`;
-  const visited = new Set<unknown>();
-  let current: unknown = error;
+const SHARE_ACL_ID_PREFIX = 'share:';
+const SHARE_ACL_ID_LIKE = `${SHARE_ACL_ID_PREFIX}%`;
+const SHARE_ACL_ID_SQLITE_SUBSTR_START = SHARE_ACL_ID_PREFIX.length + 1;
 
-  while (current !== null && current !== undefined && !visited.has(current)) {
-    visited.add(current);
+function shareIdExpr(): SQL<string> {
+  // SQLite substr() uses 1-based indexing.
+  return sql<string>`substr(${vfsAclEntries.id}, ${SHARE_ACL_ID_SQLITE_SUBSTR_START})`;
+}
 
-    const message = (
-      current instanceof Error ? current.message : String(current)
-    ).toLowerCase();
-    if (
-      message.includes(noSuchTableText) ||
-      (message.includes('no such table') && message.includes(tableName))
-    ) {
-      return true;
-    }
-
-    if (
-      typeof current === 'object' &&
-      current !== null &&
-      'cause' in current &&
-      current.cause !== undefined
-    ) {
-      current = current.cause;
-      continue;
-    }
-
-    break;
-  }
-
-  return false;
+function sharePermissionLevelExpr(): SQL<string> {
+  /**
+   * Guardrail: ACL access levels are richer than explorer share permission
+   * labels. We intentionally collapse {write, admin} => "edit" and keep
+   * read-only as "view".
+   */
+  return sql<string>`CASE
+    WHEN ${vfsAclEntries.accessLevel} = 'read' THEN 'view'
+    ELSE 'edit'
+  END`;
 }
 
 /**
@@ -157,92 +141,89 @@ export async function querySharedByMe(
 ): Promise<VfsSharedByMeQueryRow[]> {
   const nameExpr = nameCoalesce();
   const orderExprs = buildOrderBy(sort, nameExpr);
+  const canonicalShareIdExpr = shareIdExpr();
+  const permissionLevelExpr = sharePermissionLevelExpr();
 
-  try {
-    // For now, targetName is just the targetId (resolving to actual name would
-    // require additional lookups depending on shareType - user/group/org).
-    // This can be enhanced later.
-    const rows = await db
-      .select({
-        id: vfsRegistry.id,
-        objectType: vfsRegistry.objectType,
-        name: sql<string>`${nameExpr} as "name"`,
-        createdAt: vfsRegistry.createdAt,
-        shareId: sql<string>`${vfsShares.id} as "shareId"`,
-        targetId: vfsShares.targetId,
-        targetName: sql<string>`${vfsShares.targetId} as "targetName"`,
-        shareType: vfsShares.shareType,
-        permissionLevel: vfsShares.permissionLevel,
-        sharedAt: sql<Date>`${vfsShares.createdAt} as "sharedAt"`,
-        expiresAt: vfsShares.expiresAt
-      })
-      .from(vfsShares)
-      .innerJoin(vfsRegistry, eq(vfsShares.itemId, vfsRegistry.id))
-      .leftJoin(
-        files,
-        and(
-          eq(vfsRegistry.id, files.id),
-          inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
-        )
+  // For now, targetName is just the targetId (resolving to actual name would
+  // require additional lookups depending on shareType - user/group/org).
+  // This can be enhanced later.
+  const rows = await db
+    .select({
+      id: vfsRegistry.id,
+      objectType: vfsRegistry.objectType,
+      name: sql<string>`${nameExpr} as "name"`,
+      createdAt: vfsRegistry.createdAt,
+      shareId: sql<string>`${canonicalShareIdExpr} as "shareId"`,
+      targetId: vfsAclEntries.principalId,
+      targetName: sql<string>`${vfsAclEntries.principalId} as "targetName"`,
+      shareType: vfsAclEntries.principalType,
+      permissionLevel: sql<string>`${permissionLevelExpr} as "permissionLevel"`,
+      sharedAt: sql<Date>`${vfsAclEntries.createdAt} as "sharedAt"`,
+      expiresAt: vfsAclEntries.expiresAt
+    })
+    .from(vfsAclEntries)
+    .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
+    .leftJoin(
+      files,
+      and(
+        eq(vfsRegistry.id, files.id),
+        inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
       )
-      .leftJoin(
-        contacts,
-        and(
-          eq(vfsRegistry.id, contacts.id),
-          eq(vfsRegistry.objectType, 'contact')
-        )
+    )
+    .leftJoin(
+      contacts,
+      and(
+        eq(vfsRegistry.id, contacts.id),
+        eq(vfsRegistry.objectType, 'contact')
       )
-      .leftJoin(
-        notes,
-        and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
+    )
+    .leftJoin(
+      notes,
+      and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
+    )
+    .leftJoin(
+      playlists,
+      and(
+        eq(vfsRegistry.id, playlists.id),
+        eq(vfsRegistry.objectType, 'playlist')
       )
-      .leftJoin(
-        playlists,
-        and(
-          eq(vfsRegistry.id, playlists.id),
-          eq(vfsRegistry.objectType, 'playlist')
-        )
+    )
+    .leftJoin(
+      albums,
+      and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
+    )
+    .leftJoin(
+      contactGroups,
+      and(
+        eq(vfsRegistry.id, contactGroups.id),
+        eq(vfsRegistry.objectType, 'contactGroup')
       )
-      .leftJoin(
-        albums,
-        and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
+    )
+    .leftJoin(
+      emailFolders,
+      and(
+        eq(vfsRegistry.id, emailFolders.id),
+        eq(vfsRegistry.objectType, 'emailFolder')
       )
-      .leftJoin(
-        contactGroups,
-        and(
-          eq(vfsRegistry.id, contactGroups.id),
-          eq(vfsRegistry.objectType, 'contactGroup')
-        )
+    )
+    .leftJoin(
+      tags,
+      and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
+    )
+    .leftJoin(
+      emails,
+      and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
+    )
+    .where(
+      and(
+        eq(vfsAclEntries.grantedBy, currentUserId),
+        isNull(vfsAclEntries.revokedAt),
+        sql`${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}`
       )
-      .leftJoin(
-        emailFolders,
-        and(
-          eq(vfsRegistry.id, emailFolders.id),
-          eq(vfsRegistry.objectType, 'emailFolder')
-        )
-      )
-      .leftJoin(
-        tags,
-        and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
-      )
-      .leftJoin(
-        emails,
-        and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
-      )
-      .where(eq(vfsShares.createdBy, currentUserId))
-      .orderBy(...orderExprs);
+    )
+    .orderBy(...orderExprs);
 
-    return rows as VfsSharedByMeQueryRow[];
-  } catch (error) {
-    if (isMissingSqliteTableError(error, 'vfs_shares')) {
-      console.error(
-        'VFS share query skipped: missing required table "vfs_shares". Run latest client migrations.',
-        error
-      );
-      return [];
-    }
-    throw error;
-  }
+  return rows as VfsSharedByMeQueryRow[];
 }
 
 /**
@@ -257,96 +238,86 @@ export async function querySharedWithMe(
 ): Promise<VfsSharedWithMeQueryRow[]> {
   const nameExpr = nameCoalesce();
   const orderExprs = buildOrderBy(sort, nameExpr);
+  const canonicalShareIdExpr = shareIdExpr();
+  const permissionLevelExpr = sharePermissionLevelExpr();
 
-  try {
-    const rows = await db
-      .select({
-        id: vfsRegistry.id,
-        objectType: vfsRegistry.objectType,
-        name: sql<string>`${nameExpr} as "name"`,
-        createdAt: vfsRegistry.createdAt,
-        shareId: sql<string>`${vfsShares.id} as "shareId"`,
-        sharedById: vfsShares.createdBy,
-        sharedByEmail: sql<string>`${users.email} as "sharedByEmail"`,
-        shareType: vfsShares.shareType,
-        permissionLevel: vfsShares.permissionLevel,
-        sharedAt: sql<Date>`${vfsShares.createdAt} as "sharedAt"`,
-        expiresAt: vfsShares.expiresAt
-      })
-      .from(vfsShares)
-      .innerJoin(vfsRegistry, eq(vfsShares.itemId, vfsRegistry.id))
-      .innerJoin(users, eq(vfsShares.createdBy, users.id))
-      .leftJoin(
-        files,
-        and(
-          eq(vfsRegistry.id, files.id),
-          inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
-        )
+  const rows = await db
+    .select({
+      id: vfsRegistry.id,
+      objectType: vfsRegistry.objectType,
+      name: sql<string>`${nameExpr} as "name"`,
+      createdAt: vfsRegistry.createdAt,
+      shareId: sql<string>`${canonicalShareIdExpr} as "shareId"`,
+      sharedById: sql<string>`COALESCE(${vfsAclEntries.grantedBy}, 'unknown') as "sharedById"`,
+      sharedByEmail: sql<string>`COALESCE(${users.email}, ${vfsAclEntries.grantedBy}, 'Unknown') as "sharedByEmail"`,
+      shareType: vfsAclEntries.principalType,
+      permissionLevel: sql<string>`${permissionLevelExpr} as "permissionLevel"`,
+      sharedAt: sql<Date>`${vfsAclEntries.createdAt} as "sharedAt"`,
+      expiresAt: vfsAclEntries.expiresAt
+    })
+    .from(vfsAclEntries)
+    .innerJoin(vfsRegistry, eq(vfsAclEntries.itemId, vfsRegistry.id))
+    .leftJoin(users, eq(vfsAclEntries.grantedBy, users.id))
+    .leftJoin(
+      files,
+      and(
+        eq(vfsRegistry.id, files.id),
+        inArray(vfsRegistry.objectType, ['file', 'photo', 'audio', 'video'])
       )
-      .leftJoin(
-        contacts,
-        and(
-          eq(vfsRegistry.id, contacts.id),
-          eq(vfsRegistry.objectType, 'contact')
-        )
+    )
+    .leftJoin(
+      contacts,
+      and(
+        eq(vfsRegistry.id, contacts.id),
+        eq(vfsRegistry.objectType, 'contact')
       )
-      .leftJoin(
-        notes,
-        and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
+    )
+    .leftJoin(
+      notes,
+      and(eq(vfsRegistry.id, notes.id), eq(vfsRegistry.objectType, 'note'))
+    )
+    .leftJoin(
+      playlists,
+      and(
+        eq(vfsRegistry.id, playlists.id),
+        eq(vfsRegistry.objectType, 'playlist')
       )
-      .leftJoin(
-        playlists,
-        and(
-          eq(vfsRegistry.id, playlists.id),
-          eq(vfsRegistry.objectType, 'playlist')
-        )
+    )
+    .leftJoin(
+      albums,
+      and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
+    )
+    .leftJoin(
+      contactGroups,
+      and(
+        eq(vfsRegistry.id, contactGroups.id),
+        eq(vfsRegistry.objectType, 'contactGroup')
       )
-      .leftJoin(
-        albums,
-        and(eq(vfsRegistry.id, albums.id), eq(vfsRegistry.objectType, 'album'))
+    )
+    .leftJoin(
+      emailFolders,
+      and(
+        eq(vfsRegistry.id, emailFolders.id),
+        eq(vfsRegistry.objectType, 'emailFolder')
       )
-      .leftJoin(
-        contactGroups,
-        and(
-          eq(vfsRegistry.id, contactGroups.id),
-          eq(vfsRegistry.objectType, 'contactGroup')
-        )
+    )
+    .leftJoin(
+      tags,
+      and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
+    )
+    .leftJoin(
+      emails,
+      and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
+    )
+    .where(
+      and(
+        eq(vfsAclEntries.principalId, currentUserId),
+        eq(vfsAclEntries.principalType, 'user'),
+        isNull(vfsAclEntries.revokedAt),
+        sql`${vfsAclEntries.id} LIKE ${SHARE_ACL_ID_LIKE}`
       )
-      .leftJoin(
-        emailFolders,
-        and(
-          eq(vfsRegistry.id, emailFolders.id),
-          eq(vfsRegistry.objectType, 'emailFolder')
-        )
-      )
-      .leftJoin(
-        tags,
-        and(eq(vfsRegistry.id, tags.id), eq(vfsRegistry.objectType, 'tag'))
-      )
-      .leftJoin(
-        emails,
-        and(eq(vfsRegistry.id, emails.id), eq(vfsRegistry.objectType, 'email'))
-      )
-      .where(
-        and(
-          eq(vfsShares.targetId, currentUserId),
-          eq(vfsShares.shareType, 'user')
-        )
-      )
-      .orderBy(...orderExprs);
+    )
+    .orderBy(...orderExprs);
 
-    return rows as VfsSharedWithMeQueryRow[];
-  } catch (error) {
-    if (
-      isMissingSqliteTableError(error, 'vfs_shares') ||
-      isMissingSqliteTableError(error, 'users')
-    ) {
-      console.error(
-        'VFS share query skipped: missing required table ("vfs_shares" or "users"). Run latest client migrations.',
-        error
-      );
-      return [];
-    }
-    throw error;
-  }
+  return rows as VfsSharedWithMeQueryRow[];
 }
