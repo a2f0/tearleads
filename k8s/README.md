@@ -47,13 +47,19 @@ export JWT_SECRET=$(openssl rand -hex 32)
 export POSTGRES_PASSWORD=$(openssl rand -hex 16)
 ```
 
-### 4. Install Ingress Controller and Cert-Manager
+### 4. Bootstrap Cluster (Ingress + Cert-Manager)
 
-k3s is deployed with traefik disabled. Install nginx-ingress and cert-manager:
+Run ansible to install nginx-ingress, cert-manager, and nerdctl/buildkit:
+
+```bash
+./ansible/scripts/run-k8s.sh
+```
+
+Or manually:
 
 ```bash
 # nginx-ingress
-kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.10.0/deploy/static/provider/cloud/deploy.yaml
 
 # cert-manager (for Let's Encrypt TLS)
 kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.14.4/cert-manager.yaml

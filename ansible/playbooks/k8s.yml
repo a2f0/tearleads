@@ -1,0 +1,140 @@
+---
+- name: Bootstrap k8s cluster with ingress and cert-manager
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    cert_manager_version: "v1.14.4"
+    nginx_ingress_version: "v1.10.0"
+
+  tasks:
+    - name: Wait for k3s to be ready
+      ansible.builtin.command:
+        cmd: k3s kubectl get nodes
+      register: k3s_nodes
+      until: k3s_nodes.rc == 0
+      retries: 30
+      delay: 10
+      changed_when: false
+
+    - name: Install nginx-ingress controller
+      ansible.builtin.shell:
+        cmd: |
+          k3s kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-{{ nginx_ingress_version }}/deploy/static/provider/cloud/deploy.yaml
+      register: nginx_ingress_result
+      changed_when: "'created' in nginx_ingress_result.stdout or 'configured' in nginx_ingress_result.stdout"
+
+    - name: Wait for nginx-ingress to be ready
+      ansible.builtin.shell:
+        cmd: |
+          k3s kubectl -n ingress-nginx wait --for=condition=ready pod -l app.kubernetes.io/component=controller --timeout=300s
+      register: nginx_wait
+      until: nginx_wait.rc == 0
+      retries: 5
+      delay: 30
+      changed_when: false
+
+    - name: Install cert-manager
+      ansible.builtin.shell:
+        cmd: |
+          k3s kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml
+      register: cert_manager_result
+      changed_when: "'created' in cert_manager_result.stdout or 'configured' in cert_manager_result.stdout"
+
+    - name: Wait for cert-manager to be ready
+      ansible.builtin.shell:
+        cmd: |
+          k3s kubectl -n cert-manager wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager --timeout=300s
+      register: cert_manager_wait
+      until: cert_manager_wait.rc == 0
+      retries: 5
+      delay: 30
+      changed_when: false
+
+    - name: Install nerdctl for building container images
+      ansible.builtin.shell:
+        cmd: |
+          if ! command -v nerdctl >/dev/null 2>&1; then
+            curl -sSL https://github.com/containerd/nerdctl/releases/download/v1.7.6/nerdctl-1.7.6-linux-amd64.tar.gz | tar -xz -C /usr/local/bin
+          fi
+      args:
+        creates: /usr/local/bin/nerdctl
+
+    - name: Install buildkit for nerdctl
+      ansible.builtin.shell:
+        cmd: |
+          if [ ! -d /opt/buildkit ]; then
+            mkdir -p /opt/buildkit
+            curl -sSL https://github.com/moby/buildkit/releases/download/v0.13.2/buildkit-v0.13.2.linux-amd64.tar.gz | tar -xz -C /opt/buildkit --strip-components=1
+            ln -sf /opt/buildkit/buildkitd /usr/local/bin/buildkitd
+            ln -sf /opt/buildkit/buildctl /usr/local/bin/buildctl
+          fi
+      args:
+        creates: /opt/buildkit/buildkitd
+
+    - name: Create buildkit systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/buildkit.service
+        content: |
+          [Unit]
+          Description=BuildKit
+          After=network.target
+
+          [Service]
+          ExecStart=/usr/local/bin/buildkitd --addr unix:///run/buildkit/buildkitd.sock
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Start buildkit
+
+    - name: Create buildkit socket directory
+      ansible.builtin.file:
+        path: /run/buildkit
+        state: directory
+        mode: "0755"
+
+    - name: Enable and start buildkit
+      ansible.builtin.systemd:
+        name: buildkit
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Create tearleads source directory
+      ansible.builtin.file:
+        path: /opt/tearleads
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Display cluster status
+      ansible.builtin.shell:
+        cmd: |
+          echo "=== Nodes ==="
+          k3s kubectl get nodes
+          echo ""
+          echo "=== Ingress Controller ==="
+          k3s kubectl -n ingress-nginx get pods
+          echo ""
+          echo "=== Cert Manager ==="
+          k3s kubectl -n cert-manager get pods
+      register: cluster_status
+      changed_when: false
+
+    - name: Show cluster status
+      ansible.builtin.debug:
+        var: cluster_status.stdout_lines
+
+  handlers:
+    - name: Start buildkit
+      ansible.builtin.systemd:
+        name: buildkit
+        state: started
+        daemon_reload: true
