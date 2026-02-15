@@ -2126,6 +2126,104 @@ describe('VfsBackgroundSyncClient', () => {
     }
   });
 
+  it('transitions link-driven parent container cursor from stable-empty to strict-forward after restart', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const desktopTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 3,
+      pullDelayMs: 3
+    });
+    const mobileTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 2,
+      pullDelayMs: 4
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      { pullLimit: 2 }
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport,
+      { pullLimit: 1 }
+    );
+
+    mobile.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-link-a',
+      parentId: 'root',
+      childId: 'item-link-a',
+      occurredAt: '2026-02-14T14:29:00.000Z'
+    });
+    await mobile.flush();
+    await desktop.sync();
+
+    const rootSeedPage = desktop.listChangedContainers(null, 10);
+    const rootSeedEntry = rootSeedPage.items.find(
+      (entry) => entry.containerId === 'root'
+    );
+    if (!rootSeedEntry) {
+      throw new Error('expected root container clock seed entry');
+    }
+    const rootSeedCursor = {
+      changedAt: rootSeedEntry.changedAt,
+      changeId: rootSeedEntry.changeId
+    };
+
+    const resumedDesktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      { pullLimit: 2 }
+    );
+    resumedDesktop.hydrateState(desktop.exportState());
+
+    const emptyRootPage = resumedDesktop.listChangedContainers(
+      rootSeedCursor,
+      10
+    );
+    expect(emptyRootPage).toEqual({
+      items: [],
+      hasMore: false,
+      nextCursor: null
+    });
+
+    mobile.queueLocalOperation({
+      opType: 'link_remove',
+      itemId: 'item-link-a',
+      parentId: 'root',
+      childId: 'item-link-a',
+      occurredAt: '2026-02-14T14:29:01.000Z'
+    });
+    await mobile.flush();
+    await resumedDesktop.sync();
+
+    const forwardRootPage = resumedDesktop.listChangedContainers(
+      rootSeedCursor,
+      10
+    );
+    expect(forwardRootPage.items.length).toBeGreaterThan(0);
+    expect(forwardRootPage.items).toContainEqual({
+      containerId: 'root',
+      changedAt: '2026-02-14T14:29:01.000Z',
+      changeId: 'mobile-2'
+    });
+
+    for (const item of forwardRootPage.items) {
+      expect(
+        compareVfsSyncCursorOrder(
+          {
+            changedAt: item.changedAt,
+            changeId: item.changeId
+          },
+          rootSeedCursor
+        )
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
