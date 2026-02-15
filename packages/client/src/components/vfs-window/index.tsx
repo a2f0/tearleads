@@ -1,5 +1,5 @@
-import type { VfsOpenItem } from '@tearleads/vfsExplorer';
-import { VfsWindow as VfsWindowBase } from '@tearleads/vfsExplorer';
+import type { VfsOpenItem } from '@tearleads/vfs-explorer';
+import { VfsWindow as VfsWindowBase } from '@tearleads/vfs-explorer';
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,

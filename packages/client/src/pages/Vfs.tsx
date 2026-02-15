@@ -1,5 +1,5 @@
-import type { VfsOpenItem } from '@tearleads/vfsExplorer';
-import { VfsExplorer } from '@tearleads/vfsExplorer';
+import type { VfsOpenItem } from '@tearleads/vfs-explorer';
+import { VfsExplorer } from '@tearleads/vfs-explorer';
 import { useCallback } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';

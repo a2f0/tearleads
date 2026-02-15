@@ -1,4 +1,4 @@
-import type { VfsOpenItem } from '@tearleads/vfsExplorer';
+import type { VfsOpenItem } from '@tearleads/vfs-explorer';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -34,7 +34,7 @@ let latestVfsExplorerProps: {
   onItemOpen?: (item: VfsOpenItem) => void;
 } | null = null;
 
-vi.mock('@tearleads/vfsExplorer', () => ({
+vi.mock('@tearleads/vfs-explorer', () => ({
   VfsExplorer: ({
     className,
     onItemOpen

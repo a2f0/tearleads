@@ -3,11 +3,11 @@
  * to the @tearleads/vfs-explorer package components.
  */
 
-import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
-} from '@tearleads/vfsExplorer';
+} from '@tearleads/vfs-explorer';
+import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,
