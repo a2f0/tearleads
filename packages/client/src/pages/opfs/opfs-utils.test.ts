@@ -103,5 +103,12 @@ describe('opfs-utils', () => {
         '/parent/child'
       ]);
     });
+
+    it('handles directory without children property', () => {
+      const entries: FileSystemEntry[] = [
+        { name: 'emptyFolder', kind: 'directory' }
+      ];
+      expect(collectAllPaths(entries, '')).toEqual(['/emptyFolder']);
+    });
   });
 });
