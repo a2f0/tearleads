@@ -25,7 +25,6 @@ import {
   notesTable,
   organizationBillingAccountsTable,
   organizationsTable,
-  orgSharesTable,
   playlistsTable,
   postgresRuntimeTables,
   retiredRuntimeVfsTableNames,
@@ -41,16 +40,13 @@ import {
   userSettingsTable,
   usersTable,
   vehiclesTable,
-  vfsAccessTable,
   vfsAclEntriesTable,
   vfsBlobObjectsTable,
   vfsBlobRefsTable,
   vfsBlobStagingTable,
   vfsCrdtOpsTable,
-  vfsFoldersTable,
   vfsLinksTable,
   vfsRegistryTable,
-  vfsSharesTable,
   vfsSyncChangesTable,
   vfsSyncClientStateTable
 } from './definition.js';
@@ -619,7 +615,7 @@ describe('vfsRegistryTable', () => {
 
 describe('allTables', () => {
   it('contains all canonical tables', () => {
-    expect(allTables).toHaveLength(52);
+    expect(allTables).toHaveLength(49);
   });
 
   it('contains all table definitions', () => {
@@ -648,7 +644,6 @@ describe('allTables', () => {
     expect(allTables).toContain(userGroupsTable);
     expect(allTables).toContain(userKeysTable);
     expect(allTables).toContain(vfsRegistryTable);
-    expect(allTables).toContain(vfsFoldersTable);
     expect(allTables).toContain(vfsLinksTable);
     expect(allTables).toContain(playlistsTable);
     expect(allTables).toContain(albumsTable);
@@ -656,9 +651,6 @@ describe('allTables', () => {
     expect(allTables).toContain(emailFoldersTable);
     expect(allTables).toContain(tagsTable);
     expect(allTables).toContain(emailsTable);
-    expect(allTables).toContain(vfsSharesTable);
-    expect(allTables).toContain(orgSharesTable);
-    expect(allTables).not.toContain(vfsAccessTable);
     expect(allTables).toContain(vfsAclEntriesTable);
     expect(allTables).toContain(vfsSyncChangesTable);
     expect(allTables).toContain(vfsSyncClientStateTable);

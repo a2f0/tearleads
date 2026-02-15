@@ -100,10 +100,9 @@ compatibility branches that are no longer needed before production.
 
 ### Slice G: Runtime Schema Generation Canonicalization
 
-- [x] Keep legacy VFS table definitions available for migration-history context
-      in `allTables`, but filter retired share/folder/access tables out of
-      runtime schema inventories (`postgresRuntimeTables`,
-      `sqliteRuntimeTables`).
+- [x] Remove retired share/folder/access table definitions from canonical
+      runtime `allTables` inventory and enforce deny-list filtering in runtime
+      schema inventories (`postgresRuntimeTables`, `sqliteRuntimeTables`).
 - [x] Regenerate canonical SQLite/Postgres schema outputs so retired runtime
       tables are no longer exported in generated runtime schema modules.
 - [x] Update DB/runtime schema contract tests and documentation to assert zero
