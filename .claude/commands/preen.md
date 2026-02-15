@@ -392,7 +392,10 @@ metric_count() {
       EN_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/en.ts 2>/dev/null | wc -l | tr -d ' '); GAPS=0; for lang in es ua pt; do LANG_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' '); [ "$LANG_KEYS" -lt "$EN_KEYS" ] && GAPS=$((GAPS + EN_KEYS - LANG_KEYS)); done; HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}'); echo $((GAPS + HARDCODED))
       ;;
     preen-window-consistency)
-      MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}'); MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}'); MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}'); echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))
+      MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
+      MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
+      MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
+      echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))
       ;;
     *)
       echo 0

@@ -63,7 +63,7 @@ render_metric_case() {
   jq -r '
     .categories[]
     | "    \(.id))",
-      "      " + .metricCountCommand,
+      ((.metricCountCommands // [.metricCountCommand])[] | "      " + .),
       "      ;;"
   ' "$REGISTRY_FILE"
 }
