@@ -317,6 +317,13 @@ function prepareOperation(
     if (!parentId || !childId) {
       return null;
     }
+    if (childId !== itemId) {
+      /**
+       * Guardrail: link operations are item-scoped and must not carry a
+       * mismatched childId payload for a different item.
+       */
+      return null;
+    }
     if (parentId === childId) {
       /**
        * Guardrail: self-referential links create immediate cycles and are
