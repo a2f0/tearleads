@@ -5728,6 +5728,127 @@ describe('VfsBackgroundSyncClient', () => {
     });
   });
 
+  it('fails closed with replica-specific details when one replica regresses during pull', async () => {
+    let pullCount = 0;
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+      details?: Record<string, string | number | boolean | null>;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => {
+        pullCount += 1;
+
+        if (pullCount === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'desktop-1',
+                occurredAt: '2026-02-14T12:16:00.000Z',
+                itemId: 'item-multi-replica-a'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:16:00.000Z',
+              changeId: 'desktop-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 8,
+              mobile: 7
+            }
+          };
+        }
+
+        return {
+          items: [
+            buildAclAddSyncItem({
+              opId: 'desktop-2',
+              occurredAt: '2026-02-14T12:16:01.000Z',
+              itemId: 'item-should-not-apply-mobile-regression'
+            })
+          ],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-14T12:16:01.000Z',
+            changeId: 'desktop-2'
+          },
+          lastReconciledWriteIds: {
+            desktop: 9,
+            mobile: 6
+          }
+        };
+      }
+    };
+
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    await seedClient.sync();
+    expect(seedClient.snapshot().lastReconciledWriteIds).toEqual({
+      desktop: 8,
+      mobile: 7
+    });
+
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    resumedClient.hydrateState(seedClient.exportState());
+    const preFailureState = resumedClient.exportState();
+
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica mobile/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'pull',
+      message: 'pull response regressed replica write-id state',
+      details: {
+        replicaId: 'mobile',
+        previousWriteId: 7,
+        incomingWriteId: 6
+      }
+    });
+    expect(resumedClient.exportState()).toEqual(preFailureState);
+    expect(resumedClient.snapshot().lastReconciledWriteIds).toEqual({
+      desktop: 8,
+      mobile: 7
+    });
+    expect(resumedClient.snapshot().acl).not.toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-should-not-apply-mobile-regression'
+      })
+    );
+  });
+
   it('applies transport reconcile acknowledgements when supported', async () => {
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
