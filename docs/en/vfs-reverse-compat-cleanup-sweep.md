@@ -51,8 +51,11 @@ compatibility branches that are no longer needed before production.
       `ensureVfsRoot`/`seedFolder` now write canonical `vfs_registry` only).
 - [x] Remove outdated local migration compatibility wording in
       `packages/client/src/db/migrations/v019.ts`.
-- [ ] Remove remaining local/integration write/read assumptions tied to
-      `vfs_folders` (client DB integration tests and legacy adapter surfaces).
+- [x] Remove client DB integration write/read assumptions tied to `vfs_folders`
+      (`packages/client/src/db/vfs-folder.integration.test.ts` now uses
+      canonical `vfs_registry` only).
+- [ ] Remove remaining legacy-adapter/classic-test assumptions tied to
+      `vfs_folders`.
 - [ ] Collapse migration notes that only existed to support fallback read paths.
 
 ### Slice D: Contract + Docs
