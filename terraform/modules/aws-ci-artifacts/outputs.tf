@@ -38,3 +38,13 @@ output "ci_secret_access_key" {
   value       = aws_iam_access_key.ci.secret
   sensitive   = true
 }
+
+output "ecr_repository_urls" {
+  description = "Map of ECR repository names to URLs"
+  value       = { for name, repo in aws_ecr_repository.repos : name => repo.repository_url }
+}
+
+output "ecr_repository_arns" {
+  description = "Map of ECR repository names to ARNs"
+  value       = { for name, repo in aws_ecr_repository.repos : name => repo.arn }
+}

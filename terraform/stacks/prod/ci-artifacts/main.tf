@@ -14,6 +14,13 @@ module "ci_artifacts" {
     "https://download.${var.production_domain}"
   ]
 
+  # Container registries
+  ecr_repositories = [
+    "tearleads-prod/api",
+    "tearleads-prod/client",
+  ]
+  ecr_lifecycle_max_images = 50 # Keep more images in prod
+
   tags = {
     Project = "tearleads"
     Stack   = "ci-artifacts"

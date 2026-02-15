@@ -14,6 +14,13 @@ module "ci_artifacts" {
     "https://download.${var.staging_domain}"
   ]
 
+  # Container registries
+  ecr_repositories = [
+    "tearleads-staging/api",
+    "tearleads-staging/client",
+  ]
+  ecr_lifecycle_max_images = 20
+
   tags = {
     Project = "tearleads"
     Stack   = "ci-artifacts"

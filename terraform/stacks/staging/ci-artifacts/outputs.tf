@@ -23,3 +23,8 @@ output "ci_secret_access_key" {
   value       = module.ci_artifacts.ci_secret_access_key
   sensitive   = true
 }
+
+output "ecr_repository_urls" {
+  description = "ECR repository URLs for container images"
+  value       = module.ci_artifacts.ecr_repository_urls
+}

@@ -42,3 +42,27 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "ecr_repositories" {
+  description = "List of ECR repository names to create"
+  type        = list(string)
+  default     = []
+}
+
+variable "ecr_image_tag_mutability" {
+  description = "Image tag mutability setting (MUTABLE or IMMUTABLE)"
+  type        = string
+  default     = "MUTABLE"
+}
+
+variable "ecr_scan_on_push" {
+  description = "Enable image scanning on push"
+  type        = bool
+  default     = true
+}
+
+variable "ecr_lifecycle_max_images" {
+  description = "Maximum number of images to keep per repository (0 to disable)"
+  type        = number
+  default     = 30
+}

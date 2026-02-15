@@ -137,3 +137,85 @@ resource "aws_iam_user_policy" "ci_artifacts" {
 resource "aws_iam_access_key" "ci" {
   user = aws_iam_user.ci.name
 }
+
+# ECR repositories
+resource "aws_ecr_repository" "repos" {
+  for_each = toset(var.ecr_repositories)
+
+  name                 = each.value
+  image_tag_mutability = var.ecr_image_tag_mutability
+
+  image_scanning_configuration {
+    scan_on_push = var.ecr_scan_on_push
+  }
+
+  encryption_configuration {
+    encryption_type = "AES256"
+  }
+
+  tags = merge(var.tags, {
+    Environment = var.environment
+    Purpose     = "container-registry"
+  })
+}
+
+# ECR lifecycle policy to limit stored images
+resource "aws_ecr_lifecycle_policy" "repos" {
+  for_each   = var.ecr_lifecycle_max_images > 0 ? toset(var.ecr_repositories) : toset([])
+  repository = aws_ecr_repository.repos[each.key].name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Keep only last ${var.ecr_lifecycle_max_images} images"
+        selection = {
+          tagStatus   = "any"
+          countType   = "imageCountMoreThan"
+          countNumber = var.ecr_lifecycle_max_images
+        }
+        action = {
+          type = "expire"
+        }
+      }
+    ]
+  })
+}
+
+# IAM policy for ECR access
+resource "aws_iam_user_policy" "ci_ecr" {
+  count = length(var.ecr_repositories) > 0 ? 1 : 0
+  name  = "${var.ci_user_name}-ecr-policy"
+  user  = aws_iam_user.ci.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ECRGetAuthToken"
+        Effect = "Allow"
+        Action = [
+          "ecr:GetAuthorizationToken"
+        ]
+        Resource = "*"
+      },
+      {
+        Sid    = "ECRRepositoryAccess"
+        Effect = "Allow"
+        Action = [
+          "ecr:BatchCheckLayerAvailability",
+          "ecr:BatchGetImage",
+          "ecr:CompleteLayerUpload",
+          "ecr:DescribeImages",
+          "ecr:DescribeRepositories",
+          "ecr:GetDownloadUrlForLayer",
+          "ecr:InitiateLayerUpload",
+          "ecr:ListImages",
+          "ecr:PutImage",
+          "ecr:UploadLayerPart"
+        ]
+        Resource = [for repo in var.ecr_repositories : aws_ecr_repository.repos[repo].arn]
+      }
+    ]
+  })
+}
