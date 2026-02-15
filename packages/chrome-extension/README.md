@@ -4,7 +4,7 @@ Chrome extension for Tearleads.
 
 ## Installation
 
-This package is part of the Tearleads monorepo and is not published independently.
+Install from the [Chrome Web Store](https://chrome.google.com/webstore).
 
 ## Development
 

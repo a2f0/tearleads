@@ -4,7 +4,9 @@ Tearleads CLI for database management.
 
 ## Installation
 
-This package is part of the Tearleads monorepo and is not published independently.
+```bash
+npm install -g @tearleads/cli
+```
 
 ## Usage
 
