@@ -52,6 +52,16 @@ function toSyncItem(operation: VfsCrdtOperation): VfsCrdtSyncItem {
   };
 }
 
+function activeParentsForChild(
+  snapshot: VfsCrdtSnapshot,
+  childId: string
+): string[] {
+  return snapshot.links
+    .filter((entry) => entry.childId === childId)
+    .map((entry) => entry.parentId)
+    .sort((left, right) => left.localeCompare(right));
+}
+
 class InMemoryCrdtServerHarness {
   private readonly store = new InMemoryVfsCrdtStateStore();
   private readonly feedLog: VfsCrdtSyncItem[] = [];
@@ -232,6 +242,119 @@ describe('sync protocol harness', () => {
     });
     expect(tabletReplica.snapshot()).toEqual({
       acl: serverSnapshot.acl,
+      links: serverSnapshot.links,
+      cursor: expectedCursor
+    });
+  });
+
+  it('converges concurrent reparent races without leaving orphan or multi-parent end state', async () => {
+    const server = new InMemoryCrdtServerHarness();
+
+    await server.applyConcurrent([
+      {
+        delayMs: 5,
+        operation: {
+          opId: 'desktop-1',
+          opType: 'link_add',
+          itemId: 'item-7',
+          replicaId: 'desktop',
+          writeId: 1,
+          occurredAt: '2026-02-14T03:10:00.000Z',
+          parentId: 'root',
+          childId: 'item-7'
+        }
+      },
+      {
+        delayMs: 8,
+        operation: {
+          opId: 'mobile-1',
+          opType: 'link_remove',
+          itemId: 'item-7',
+          replicaId: 'mobile',
+          writeId: 1,
+          occurredAt: '2026-02-14T03:10:01.000Z',
+          parentId: 'root',
+          childId: 'item-7'
+        }
+      },
+      {
+        delayMs: 12,
+        operation: {
+          opId: 'mobile-2',
+          opType: 'link_add',
+          itemId: 'item-7',
+          replicaId: 'mobile',
+          writeId: 2,
+          occurredAt: '2026-02-14T03:10:02.000Z',
+          parentId: 'folder-mobile',
+          childId: 'item-7'
+        }
+      },
+      {
+        delayMs: 16,
+        operation: {
+          opId: 'desktop-2',
+          opType: 'link_remove',
+          itemId: 'item-7',
+          replicaId: 'desktop',
+          writeId: 2,
+          occurredAt: '2026-02-14T03:10:03.000Z',
+          parentId: 'folder-mobile',
+          childId: 'item-7'
+        }
+      },
+      {
+        delayMs: 20,
+        operation: {
+          opId: 'desktop-3',
+          opType: 'link_add',
+          itemId: 'item-7',
+          replicaId: 'desktop',
+          writeId: 3,
+          occurredAt: '2026-02-14T03:10:04.000Z',
+          parentId: 'folder-desktop',
+          childId: 'item-7'
+        }
+      }
+    ]);
+
+    const serverSnapshot = server.snapshot();
+    const feedItems = server.feed();
+
+    const desktopReplica = new InMemoryReplicaHarness();
+    const mobileReplica = new InMemoryReplicaHarness();
+    const tabletReplica = new InMemoryReplicaHarness();
+
+    await Promise.all([
+      desktopReplica.syncWithPageSize(feedItems, 1, 5),
+      mobileReplica.syncWithPageSize(feedItems, 2, 10),
+      tabletReplica.syncWithPageSize(feedItems, 3, 15)
+    ]);
+
+    expect(serverSnapshot.lastReconciledWriteIds).toEqual({
+      desktop: 3,
+      mobile: 2
+    });
+    expect(activeParentsForChild(serverSnapshot, 'item-7')).toEqual([
+      'folder-desktop'
+    ]);
+
+    const expectedCursor = {
+      changedAt: '2026-02-14T03:10:04.000Z',
+      changeId: 'desktop-3'
+    };
+    expect(desktopReplica.snapshot()).toEqual({
+      acl: [],
+      links: serverSnapshot.links,
+      cursor: expectedCursor
+    });
+    expect(mobileReplica.snapshot()).toEqual({
+      acl: [],
+      links: serverSnapshot.links,
+      cursor: expectedCursor
+    });
+    expect(tabletReplica.snapshot()).toEqual({
+      acl: [],
       links: serverSnapshot.links,
       cursor: expectedCursor
     });
