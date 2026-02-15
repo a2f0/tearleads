@@ -216,6 +216,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 4. [TC-04 Infrastructure Security Technical Control Map](./technical-controls/04-infrastructure-security-control-map.md)
 5. [TC-05 End-to-End Encryption Technical Control Map](./technical-controls/05-end-to-end-encryption-control-map.md)
 6. [TC-06 Vendor Management Technical Control Map](./technical-controls/06-vendor-management-control-map.md)
+7. [TC-07 Disaster Recovery Technical Control Map](./technical-controls/07-disaster-recovery-control-map.md)
 
 ---
 
@@ -229,6 +230,8 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 - **Training/Awareness**: CC1.4, CC2.2
 - **Vendor Management**: CC9.2, P6.4, P6.5
 - **Data Backup/Recovery**: A1.2, A1.3, CC9.1
+- **Container Registry**: CC6.1, CC6.2, CC6.5, CC7.1 (ECR, scan-on-push, lifecycle, authentication)
+- **Disaster Recovery**: CC9.1, A1.2, A1.3 (state isolation, locking, recovery procedures)
 - **Data Protection**: CC6.5, CC6.7, C1.1, C1.2
 - **Malware Protection**: CC6.8
 - **Physical Security**: CC6.4
