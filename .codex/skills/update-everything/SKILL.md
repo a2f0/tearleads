@@ -49,6 +49,9 @@ Script exits early on dependency hygiene checks—fix then rerun:
 2. **Android SDK levels**: reads latest stable platform API from `https://dl.google.com/android/repository/repository2-1.xml`, then bumps:
    - `packages/client/android/variables.gradle` `compileSdkVersion`
    - `packages/client/android/variables.gradle` `targetSdkVersion`
+3. **Ansible playbooks**: uses the Node major version from step 1 (or falls back to `.nvmrc`) to align:
+   - `ansible/playbooks/main.yml` `nodejs_major_version`
+   - `ansible/playbooks/tuxedo.yml` `nodejs_major_version`
 
 Guardrails:
 

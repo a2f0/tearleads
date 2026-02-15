@@ -8,7 +8,7 @@
     domain: "{{ lookup('env', 'TF_VAR_domain') | mandatory('TF_VAR_domain environment variable is required') }}"
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | mandatory('CERTBOT_EMAIL environment variable is required') }}"
     deploy_public_key: "{{ lookup('pipe', 'ssh-keygen -y -f ' ~ playbook_dir ~ '/../../.secrets/deploy.key') }}"
-    nodejs_major_version: 22
+    nodejs_major_version: 24
     sites:
       - www
       - app

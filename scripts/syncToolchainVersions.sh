@@ -84,6 +84,7 @@ REPO_ROOT=$(cd -- "$SCRIPT_DIR/.." && pwd -P)
 
 CHANGED=0
 NODE_RUNTIME_MISMATCH=0
+NODE_MAJOR_FOR_ANSIBLE=""
 
 log() {
   printf '%s\n' "$*" >&2
@@ -152,6 +153,9 @@ sync_node() {
   else
     log "Toolchain sync (node): would set .nvmrc=$DESIRED_NVM and engines.node=$DESIRED_ENGINE_RANGE (electron=$ELECTRON_VERSION)."
   fi
+
+  # Export node major version for ansible sync
+  NODE_MAJOR_FOR_ANSIBLE="$NODE_MAJOR"
 
   if command -v node >/dev/null 2>&1; then
     RUNTIME_NODE=$(node -p 'process.version' 2>/dev/null | tr -d '\r\n' || true)
@@ -233,6 +237,62 @@ sync_android() {
   fi
 }
 
+sync_ansible() {
+  MAIN_YML="$REPO_ROOT/ansible/playbooks/main.yml"
+  TUXEDO_YML="$REPO_ROOT/ansible/playbooks/tuxedo.yml"
+
+  if [ -z "$NODE_MAJOR_FOR_ANSIBLE" ]; then
+    # Fall back to reading from .nvmrc if sync_node was skipped
+    NVMRC="$REPO_ROOT/.nvmrc"
+    if [ -f "$NVMRC" ]; then
+      NVMRC_VERSION=$(tr -d ' \t\r\n' < "$NVMRC" | sed 's/^v//')
+      NODE_MAJOR_FOR_ANSIBLE=${NVMRC_VERSION%%.*}
+    fi
+  fi
+
+  if [ -z "$NODE_MAJOR_FOR_ANSIBLE" ]; then
+    log "Toolchain sync (ansible): skipped; no Node major version available."
+    return
+  fi
+
+  ANSIBLE_FILES_UPDATED=0
+
+  for YML_FILE in "$MAIN_YML" "$TUXEDO_YML"; do
+    if [ ! -f "$YML_FILE" ]; then
+      log "Toolchain sync (ansible): skipped $YML_FILE (file not found)."
+      continue
+    fi
+
+    CURRENT_ANSIBLE_NODE=$(awk '/nodejs_major_version:/{gsub(/[^0-9]/, "", $2); print $2; exit}' "$YML_FILE")
+    if [ -z "$CURRENT_ANSIBLE_NODE" ]; then
+      log "Toolchain sync (ansible): skipped $YML_FILE (nodejs_major_version not found)."
+      continue
+    fi
+
+    if [ "$CURRENT_ANSIBLE_NODE" = "$NODE_MAJOR_FOR_ANSIBLE" ]; then
+      log "Toolchain sync (ansible): $(basename "$YML_FILE") already aligned (nodejs_major_version=$CURRENT_ANSIBLE_NODE)."
+      continue
+    fi
+
+    if [ "$APPLY" -eq 1 ]; then
+      TMP_FILE=$(mktemp "${TMPDIR:-/tmp}/tearleads-ansible-yml.XXXXXX")
+      awk -v major="$NODE_MAJOR_FOR_ANSIBLE" '
+        /nodejs_major_version:/ { sub(/[0-9]+/, major) }
+        { print }
+      ' "$YML_FILE" > "$TMP_FILE"
+      mv "$TMP_FILE" "$YML_FILE"
+      ANSIBLE_FILES_UPDATED=1
+      log "Toolchain sync (ansible): updated $(basename "$YML_FILE") nodejs_major_version=$NODE_MAJOR_FOR_ANSIBLE."
+    else
+      log "Toolchain sync (ansible): would set $(basename "$YML_FILE") nodejs_major_version=$NODE_MAJOR_FOR_ANSIBLE."
+    fi
+  done
+
+  if [ "$ANSIBLE_FILES_UPDATED" -eq 1 ]; then
+    CHANGED=1
+  fi
+}
+
 if [ "$SKIP_NODE" -ne 1 ]; then
   sync_node
 else
@@ -244,6 +304,9 @@ if [ "$SKIP_ANDROID" -ne 1 ]; then
 else
   log "Toolchain sync (android): skipped (--skip-android)."
 fi
+
+# Always sync ansible when node sync ran (uses NODE_MAJOR_FOR_ANSIBLE from sync_node)
+sync_ansible
 
 if [ "$APPLY" -eq 1 ] && [ "$CHANGED" -eq 1 ]; then
   log "Toolchain sync: applied updates."
