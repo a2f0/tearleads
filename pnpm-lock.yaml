@@ -49,6 +49,9 @@ importers:
 
   packages/admin:
     dependencies:
+      '@tearleads/compliance':
+        specifier: workspace:*
+        version: link:../compliance
       '@tearleads/shared':
         specifier: workspace:*
         version: link:../shared
