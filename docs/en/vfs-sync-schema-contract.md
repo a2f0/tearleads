@@ -83,6 +83,9 @@ that future destructive share-table retirement must enforce.
 ready.
 `v041` records drop execution candidates (`DROP TABLE` statements) and marks
 `is_executable = FALSE` when authorization guardrails are not yet satisfied.
+`v042` executes destructive step-1 retirement for `vfs_shares` only when the
+latest `vfs_share_retirement_drop_execution_candidates` step-1 row is
+explicitly executable.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
