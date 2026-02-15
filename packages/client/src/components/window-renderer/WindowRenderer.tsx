@@ -3,7 +3,6 @@ import {
   AdminOrganizationsWindow,
   AdminPostgresWindow,
   AdminRedisWindow,
-  AdminUsersWindow,
   AdminWindow
 } from '@tearleads/admin';
 import { ConsoleWindow } from '@tearleads/console';
@@ -13,6 +12,7 @@ import { SyncWindow } from '@tearleads/sync';
 import type { WindowDimensions } from '@tearleads/window-manager';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
+import { AdminUsersWindow } from '@/components/admin-users-window';
 import { AnalyticsWindow } from '@/components/analytics-window';
 import { AudioWindow } from '@/components/audio-window';
 import { BackupWindow } from '@/components/backup-window';

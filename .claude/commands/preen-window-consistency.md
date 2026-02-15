@@ -137,6 +137,90 @@ Reference these existing exports when looking for adoption opportunities:
 | `WindowContextMenuItem` | Context menu item |
 | `FloatingWindow` | Base floating window component |
 
+## Auth Requirement Patterns
+
+Windows may require authentication at different levels. Use consistent patterns:
+
+### Auth Levels
+
+| Level | Component | Use Case |
+|-------|-----------|----------|
+| **Database unlock only** | `InlineUnlock` | Local-only features (notes, files, photos) |
+| **Login only** | `InlineLogin` | API-only features with no local storage |
+| **Database + Login** | `InlineRequiresLoginAndUnlock` | Features needing both local DB and API auth |
+
+### Standard Patterns
+
+**Database unlock only** (most local-data windows):
+
+```tsx
+// Inside window content area
+{!isLoading && !isUnlocked && <InlineUnlock description="notes" />}
+```
+
+**Database + Login** (preferred composite approach):
+
+```tsx
+// Wrap content with composite - handles all states internally
+<InlineRequiresLoginAndUnlock
+  description="MLS Chat"
+  unlockDescription="MLS chat"
+>
+  {/* Content only rendered when both conditions met */}
+</InlineRequiresLoginAndUnlock>
+```
+
+**Database + Login** (props approach - legacy, for packages without client access):
+
+```tsx
+// In external package (e.g., @tearleads/email)
+interface WindowProps {
+  isUnlocked?: boolean;
+  isDatabaseLoading?: boolean;
+  lockedFallback?: ReactNode;
+}
+
+// In client wrapper
+const isFullyUnlocked = isDatabaseUnlocked && isAuthenticated;
+const lockedFallback = useMemo(() => {
+  if (!isDatabaseUnlocked) return <InlineUnlock description="email" />;
+  if (!isAuthenticated) return <InlineLogin description="email" />;
+  return null;
+}, [isDatabaseUnlocked, isAuthenticated]);
+```
+
+### Auth Discovery Commands
+
+```bash
+# Find windows using InlineUnlock (database unlock only)
+rg -n --glob '*Window*.tsx' 'InlineUnlock' packages | rg -v 'InlineRequiresLoginAndUnlock|test|mock' | head -20
+
+# Find windows using InlineRequiresLoginAndUnlock (both)
+rg -n --glob '*Window*.tsx' 'InlineRequiresLoginAndUnlock' packages | rg -v 'test|mock' | head -10
+
+# Find windows using props-based auth (email pattern)
+rg -n --glob '*Window*.tsx' 'isUnlocked.*isDatabaseLoading.*lockedFallback' packages | head -10
+
+# Find admin windows that may need auth but don't have it
+rg -l --glob '*Window*.tsx' 'Admin.*Window' packages | xargs -I {} sh -c 'rg -q "InlineUnlock|InlineLogin|isUnlocked" {} || echo "NO AUTH: {}"'
+```
+
+### Admin Window Auth Requirements
+
+Admin windows (`admin-*`) should use `InlineRequiresLoginAndUnlock` because:
+
+1. They require API authentication to access admin endpoints
+2. They may cache/display data that needs local database access
+3. Consistent pattern across all protected features
+
+For admin windows in external packages (e.g., `@tearleads/admin`), create client wrappers:
+
+```text
+packages/client/src/components/admin-users-window/
+├── index.tsx           # Wrapper with InlineRequiresLoginAndUnlock
+└── AdminUsersWindow.test.tsx
+```
+
 ## Guardrails
 
 - Do not introduce breaking changes to window-manager public API

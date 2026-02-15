@@ -1078,38 +1078,6 @@ vi.mock('@tearleads/admin', () => ({
       </button>
     </div>
   ),
-  AdminUsersWindow: ({
-    id,
-    onClose,
-    onMinimize,
-    onFocus,
-    zIndex
-  }: {
-    id: string;
-    onClose: () => void;
-    onMinimize: (dimensions: WindowDimensions) => void;
-    onFocus: () => void;
-    zIndex: number;
-  }) => (
-    <div
-      role="dialog"
-      data-testid={`admin-users-window-${id}`}
-      data-zindex={zIndex}
-      onClick={onFocus}
-      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
-    >
-      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
-        Close
-      </button>
-      <button
-        type="button"
-        onClick={() => onMinimize({ x: 0, y: 0, width: 840, height: 620 })}
-        data-testid={`minimize-${id}`}
-      >
-        Minimize
-      </button>
-    </div>
-  ),
   AdminOrganizationsWindow: ({
     id,
     onClose,
@@ -1126,6 +1094,41 @@ vi.mock('@tearleads/admin', () => ({
     <div
       role="dialog"
       data-testid={`admin-organizations-window-${id}`}
+      data-zindex={zIndex}
+      onClick={onFocus}
+      onKeyDown={(e) => e.key === 'Enter' && onFocus()}
+    >
+      <button type="button" onClick={onClose} data-testid={`close-${id}`}>
+        Close
+      </button>
+      <button
+        type="button"
+        onClick={() => onMinimize({ x: 0, y: 0, width: 840, height: 620 })}
+        data-testid={`minimize-${id}`}
+      >
+        Minimize
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('@/components/admin-users-window', () => ({
+  AdminUsersWindow: ({
+    id,
+    onClose,
+    onMinimize,
+    onFocus,
+    zIndex
+  }: {
+    id: string;
+    onClose: () => void;
+    onMinimize: (dimensions: WindowDimensions) => void;
+    onFocus: () => void;
+    zIndex: number;
+  }) => (
+    <div
+      role="dialog"
+      data-testid={`admin-users-window-${id}`}
       data-zindex={zIndex}
       onClick={onFocus}
       onKeyDown={(e) => e.key === 'Enter' && onFocus()}

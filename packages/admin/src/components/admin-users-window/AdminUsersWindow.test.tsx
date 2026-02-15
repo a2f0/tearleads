@@ -243,4 +243,55 @@ describe('AdminUsersWindow', () => {
 
     expect(onClose).toHaveBeenCalled();
   });
+
+  describe('auth state handling', () => {
+    it('shows loading state when isAuthLoading is true', () => {
+      render(<AdminUsersWindow {...defaultProps} isAuthLoading />);
+      expect(
+        screen.getByTestId('admin-users-window-loading')
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('users-admin-list')).not.toBeInTheDocument();
+    });
+
+    it('shows lockedFallback when isUnlocked is false', () => {
+      render(
+        <AdminUsersWindow
+          {...defaultProps}
+          isUnlocked={false}
+          lockedFallback={<div data-testid="mock-fallback">Please log in</div>}
+        />
+      );
+      expect(
+        screen.getByTestId('admin-users-window-locked')
+      ).toBeInTheDocument();
+      expect(screen.getByTestId('mock-fallback')).toBeInTheDocument();
+      expect(screen.queryByTestId('users-admin-list')).not.toBeInTheDocument();
+    });
+
+    it('shows content when isUnlocked is true (default)', () => {
+      render(<AdminUsersWindow {...defaultProps} />);
+      expect(screen.getByTestId('users-admin-list')).toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-users-window-loading')
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByTestId('admin-users-window-locked')
+      ).not.toBeInTheDocument();
+    });
+
+    it('prioritizes loading state over locked state', () => {
+      render(
+        <AdminUsersWindow
+          {...defaultProps}
+          isAuthLoading
+          isUnlocked={false}
+          lockedFallback={<div data-testid="mock-fallback">Please log in</div>}
+        />
+      );
+      expect(
+        screen.getByTestId('admin-users-window-loading')
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId('mock-fallback')).not.toBeInTheDocument();
+    });
+  });
 });
