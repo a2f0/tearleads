@@ -97,6 +97,9 @@ compatibility branches that are no longer needed before production.
       access-level to share-permission mapping.
 - [x] Add explicit guardrail checks that runtime share query paths do not
       reintroduce `vfs_shares`/`vfsShares`.
+- [x] Extend share-query guardrails to block `org_shares`/`vfs_access` table
+      names and `orgShares`/`vfsAccess` symbols, while requiring canonical
+      `vfsAclEntries` usage.
 
 ### Slice G: Runtime Schema Generation Canonicalization
 
