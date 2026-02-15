@@ -83,6 +83,7 @@
       changed_when: false
 
     - name: Install nginx-ingress controller
+      # noqa: command-instead-of-shell
       ansible.builtin.shell:
         # yamllint disable-line rule:line-length
         cmd: k3s kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-{{ nginx_ingress_version }}/deploy/static/provider/cloud/deploy.yaml
@@ -127,6 +128,7 @@
       args:
         creates: /usr/local/bin/nerdctl
 
+    # yamllint disable rule:line-length
     - name: Install buildkit for nerdctl
       ansible.builtin.shell:
         cmd: |
@@ -140,6 +142,7 @@
         executable: /bin/bash
       args:
         creates: /opt/buildkit/buildkitd
+    # yamllint enable rule:line-length
 
     - name: Remove existing containerd directory
       ansible.builtin.file:
