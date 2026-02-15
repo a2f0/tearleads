@@ -2251,6 +2251,126 @@ describe('VfsBackgroundSyncClient', () => {
     expect(resumedClient.snapshot().nextLocalWriteId).toBe(8);
   });
 
+  it('deterministically rebases equal-timestamp hydrated pending ops with descending opIds during flush', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-deterministic-rebase',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T14:20:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const sourceClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      baseTransport
+    );
+    await sourceClient.sync();
+
+    const persisted = sourceClient.exportState();
+    persisted.reconcileState = {
+      cursor: {
+        changedAt: '2026-02-14T14:20:00.000Z',
+        changeId: 'remote-1'
+      },
+      lastReconciledWriteIds: {
+        desktop: 5
+      }
+    };
+    persisted.pendingOperations = [
+      {
+        opId: 'desktop-c',
+        opType: 'acl_add',
+        itemId: 'item-deterministic-rebase',
+        replicaId: 'desktop',
+        writeId: 6,
+        occurredAt: '2026-02-14T14:19:59.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'write'
+      },
+      {
+        opId: 'desktop-b',
+        opType: 'acl_add',
+        itemId: 'item-deterministic-rebase',
+        replicaId: 'desktop',
+        writeId: 7,
+        occurredAt: '2026-02-14T14:19:59.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'admin'
+      },
+      {
+        opId: 'desktop-a',
+        opType: 'acl_add',
+        itemId: 'item-deterministic-rebase',
+        replicaId: 'desktop',
+        writeId: 8,
+        occurredAt: '2026-02-14T14:19:59.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'read'
+      }
+    ];
+    persisted.nextLocalWriteId = 1;
+
+    const pushedOperations: Array<{
+      opId: string;
+      writeId: number;
+      occurredAt: string;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        for (const operation of input.operations) {
+          pushedOperations.push({
+            opId: operation.opId,
+            writeId: operation.writeId,
+            occurredAt: operation.occurredAt
+          });
+        }
+        return baseTransport.pushOperations(input);
+      },
+      pullOperations: (input) => baseTransport.pullOperations(input)
+    };
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport
+    );
+    resumedClient.hydrateState(persisted);
+
+    await resumedClient.flush();
+
+    expect(pushedOperations.map((operation) => operation.opId)).toEqual([
+      'desktop-c',
+      'desktop-b',
+      'desktop-a'
+    ]);
+    expect(pushedOperations.map((operation) => operation.writeId)).toEqual([
+      6, 7, 8
+    ]);
+
+    const cursorMs = Date.parse('2026-02-14T14:20:00.000Z');
+    const firstOccurredAtMs = Date.parse(pushedOperations[0]?.occurredAt ?? '');
+    const secondOccurredAtMs = Date.parse(
+      pushedOperations[1]?.occurredAt ?? ''
+    );
+    const thirdOccurredAtMs = Date.parse(pushedOperations[2]?.occurredAt ?? '');
+    expect(firstOccurredAtMs).toBe(cursorMs + 1);
+    expect(secondOccurredAtMs).toBe(firstOccurredAtMs + 1);
+    expect(thirdOccurredAtMs).toBe(secondOccurredAtMs + 1);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;
