@@ -9434,6 +9434,126 @@ describe('VfsBackgroundSyncClient', () => {
     expect(pushedOperationCount).toBe(0);
   });
 
+  it('recovers with corrected checkpoint payload after malformed pending rejection and preserves push ordering', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-seed-recovery-1',
+          opType: 'acl_add',
+          itemId: 'item-seed-recovery-pending',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T12:34:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const sourceClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      baseTransport
+    );
+    await sourceClient.sync();
+    sourceClient.queueLocalOperation({
+      opType: 'acl_add',
+      opId: 'local-acl-recovery',
+      itemId: 'item-local-acl-recovery',
+      principalType: 'group',
+      principalId: 'group-local-recovery',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T12:34:01.000Z'
+    });
+    sourceClient.queueLocalOperation({
+      opType: 'link_add',
+      opId: 'local-link-recovery',
+      itemId: 'item-local-link-recovery',
+      parentId: 'root',
+      childId: 'item-local-link-recovery',
+      occurredAt: '2026-02-14T12:34:02.000Z'
+    });
+
+    const correctedState = sourceClient.exportState();
+    const malformedState = sourceClient.exportState();
+    const malformedPending = malformedState.pendingOperations[1];
+    if (!malformedPending) {
+      throw new Error(
+        'expected second pending operation to corrupt for recovery'
+      );
+    }
+    malformedPending.childId = 'item-local-link-recovery-mismatch';
+
+    const pushedOpIds: string[] = [];
+    const pushedWriteIds: number[] = [];
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        pushedOpIds.push(
+          ...input.operations.map((operation) => operation.opId)
+        );
+        pushedWriteIds.push(
+          ...input.operations.map((operation) => operation.writeId)
+        );
+        return baseTransport.pushOperations(input);
+      },
+      pullOperations: (input) => baseTransport.pullOperations(input)
+    };
+    const targetClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    expect(() => targetClient.hydrateState(malformedState)).toThrow(
+      'state.pendingOperations[1] has link childId that does not match itemId'
+    );
+    expect(guardrailViolations).toEqual([
+      {
+        code: 'hydrateGuardrailViolation',
+        stage: 'hydrate',
+        message:
+          'state.pendingOperations[1] has link childId that does not match itemId'
+      }
+    ]);
+
+    expect(() => targetClient.hydrateState(correctedState)).not.toThrow();
+    const seedPage = targetClient.listChangedContainers(null, 10);
+    const seedCursor = seedPage.nextCursor;
+    if (!seedCursor) {
+      throw new Error('expected seed cursor before corrected recovery flush');
+    }
+
+    await targetClient.flush();
+
+    expect(pushedOpIds).toEqual(['local-acl-recovery', 'local-link-recovery']);
+    expect(pushedWriteIds).toEqual([1, 2]);
+    expect(targetClient.snapshot().pendingOperations).toBe(0);
+
+    const forwardPage = targetClient.listChangedContainers(seedCursor, 10);
+    const forwardContainerIds = forwardPage.items.map(
+      (item) => item.containerId
+    );
+    expect(forwardContainerIds).toContain('item-local-acl-recovery');
+    expect(forwardContainerIds).toContain('root');
+    expect(guardrailViolations).toHaveLength(1);
+  });
+
   it('fails closed when transport regresses cursor with no items', async () => {
     let pullCount = 0;
     const guardrailViolations: Array<{
