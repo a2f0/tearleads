@@ -129,6 +129,9 @@ importers:
         specifier: 0.564.0
         version: 0.564.0(react@19.2.4)
     devDependencies:
+      '@tearleads/ui':
+        specifier: workspace:*
+        version: link:../ui
       '@tearleads/window-manager':
         specifier: workspace:*
         version: link:../window-manager
@@ -168,6 +171,9 @@ importers:
       react-dom:
         specifier: 19.2.4
         version: 19.2.4(react@19.2.4)
+      react-router-dom:
+        specifier: 7.13.0
+        version: 7.13.0(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       typescript:
         specifier: 5.9.3
         version: 5.9.3

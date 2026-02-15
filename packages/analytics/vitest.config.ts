@@ -25,10 +25,10 @@ export default defineConfig({
         'src/**/index.ts'
       ],
       thresholds: {
-        statements: 0,
-        branches: 0,
-        functions: 0,
-        lines: 0
+        statements: 85,
+        branches: 76,
+        functions: 85,
+        lines: 89
       }
     }
   },
@@ -37,6 +37,7 @@ export default defineConfig({
       '@': fileURLToPath(new URL('../client/src', import.meta.url)),
       '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
       '@analytics': fileURLToPath(new URL('./src', import.meta.url)),
+      '@tearleads/ui': fileURLToPath(new URL('../ui/src/index.ts', import.meta.url)),
       '@tearleads/api/dist/openapi.json': fileURLToPath(
         new URL('../api/dist/openapi.json', import.meta.url)
       )
