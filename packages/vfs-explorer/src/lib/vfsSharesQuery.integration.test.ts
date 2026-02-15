@@ -77,16 +77,8 @@ describe('vfsSharesQuery integration (real database)', () => {
           [canonicalFolderId, 'folder', null, 'Canonical Shared Name', now]
         );
         await adapter.execute(
-          `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-          [canonicalFolderId, 'Legacy Shared Name']
-        );
-        await adapter.execute(
           `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
           [legacyOnlyFolderId, 'folder', null, null, now + 1]
-        );
-        await adapter.execute(
-          `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-          [legacyOnlyFolderId, 'Legacy Shared Fallback']
         );
 
         await adapter.execute(
