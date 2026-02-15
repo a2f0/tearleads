@@ -36,19 +36,8 @@ module "server" {
   create_firewall = true
   allowed_ssh_ips = var.allowed_ssh_ips
 
+  # Ports 80/443 closed - traffic routes through Cloudflare Tunnel
   firewall_rules = [
-    {
-      direction  = "in"
-      protocol   = "tcp"
-      port       = "80"
-      source_ips = ["0.0.0.0/0", "::/0"]
-    },
-    {
-      direction  = "in"
-      protocol   = "tcp"
-      port       = "443"
-      source_ips = ["0.0.0.0/0", "::/0"]
-    },
     {
       direction  = "in"
       protocol   = "tcp"
