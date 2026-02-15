@@ -12,8 +12,8 @@ COPY packages/api/package.json packages/api/
 COPY packages/shared/package.json packages/shared/
 COPY packages/db/package.json packages/db/
 
-# Install dependencies
-RUN pnpm install --frozen-lockfile
+# Install dependencies (skip postinstall - source not copied yet)
+RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy source code
 COPY packages/api packages/api
