@@ -267,10 +267,6 @@ const findHardcodedStrings = async (
   const relativePath = path.relative(ROOT_DIR, filePath);
   const results: HardcodedString[] = [];
 
-  // Skip files that already use translations extensively
-  const usesTranslation =
-    content.includes('useTranslation') || content.includes("from 'react-i18next'");
-
   // Pattern 1: JSX text content - text between > and <
   // Match: >Some Text< but not >{expression}<
   const jsxTextRegex = />([^<>{}\n]+)</g;
