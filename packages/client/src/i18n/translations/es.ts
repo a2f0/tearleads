@@ -681,5 +681,41 @@ export const es = {
       'Error al cargar algunas membresías de grupo',
     organizationIdCopied: 'ID de organización copiado.',
     failedToCopyOrganizationId: 'Error al copiar ID de organización.'
+  },
+  health: {
+    exercises: 'Ejercicios',
+    workouts: 'Entrenamientos',
+    weight: 'Peso',
+    bloodPressure: 'Presión Arterial',
+    noExercisesFound: 'No se encontraron ejercicios',
+    variation_one: '{{count}} variación',
+    variation_other: '{{count}} variaciones',
+    exerciseName: 'Nombre del Ejercicio',
+    category: 'Categoría (Opcional)',
+    addExercise: 'Agregar Ejercicio',
+    exerciseNames: {
+      'ex_a1b2c3d4-1001-4000-8000-000000000001': 'Sentadilla con Barra',
+      'ex_a1b2c3d4-1002-4000-8000-000000000002': 'Press de Banca',
+      'ex_a1b2c3d4-1003-4000-8000-000000000003': 'Peso Muerto',
+      'ex_a1b2c3d4-1004-4000-8000-000000000004': 'Press Militar',
+      'ex_a1b2c3d4-1005-4000-8000-000000000005': 'Remo con Barra',
+      'ex_a1b2c3d4-1006-4000-8000-000000000006': 'Dominada',
+      'ex_a1b2c3d4-1007-4000-8000-000000000007': 'Dominada Estricta',
+      'ex_a1b2c3d4-1008-4000-8000-000000000008': 'Dominada Supina',
+      'ex_a1b2c3d4-1009-4000-8000-000000000009': 'Dominada Agarre Ancho',
+      'ex_a1b2c3d4-1010-4000-8000-000000000010': 'Dominada Agarre Neutro',
+      'ex_a1b2c3d4-1011-4000-8000-000000000011': 'Dominada con Peso',
+      'ex_a1b2c3d4-1012-4000-8000-000000000012': 'Dominada en L',
+      'ex_a1b2c3d4-1013-4000-8000-000000000013': 'Dominada Arquero',
+      'ex_a1b2c3d4-1014-4000-8000-000000000014': 'Dominada Comando',
+      'ex_a1b2c3d4-1015-4000-8000-000000000015': 'Dominada Kipping',
+      'ex_a1b2c3d4-1016-4000-8000-000000000016': 'Dominada con Toalla',
+      'ex_a1b2c3d4-1017-4000-8000-000000000017': 'Dominada Agarre Mixto',
+      'ex_a1b2c3d4-1018-4000-8000-000000000018': 'Dominada Excéntrica',
+      'ex_a1b2c3d4-1019-4000-8000-000000000019': 'Dominada Alrededor del Mundo',
+      'ex_a1b2c3d4-1020-4000-8000-000000000020': 'Dominada Pecho a Barra',
+      'ex_a1b2c3d4-1021-4000-8000-000000000021':
+        'Dominada a Un Brazo (Asistida)'
+    }
   }
 } as const satisfies I18NextTranslations;

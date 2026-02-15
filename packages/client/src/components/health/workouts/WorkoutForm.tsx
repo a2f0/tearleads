@@ -5,8 +5,10 @@ import type {
 } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useExerciseTranslation } from '../exercises/useExerciseTranslation';
 import { selectClassName } from '../selectClassName';
 
 interface WorkoutFormProps {
@@ -39,6 +41,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { getExerciseName } = useExerciseTranslation();
 
   const parentExercises = useMemo(
     () => exercises.filter((e) => !e.parentId),
@@ -165,7 +168,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
             <option value="">Select category</option>
             {parentExercises.map((exercise) => (
               <option key={exercise.id} value={exercise.id}>
-                {exercise.name}
+                {getExerciseName(exercise.id, exercise.name)}
               </option>
             ))}
           </select>
@@ -197,7 +200,7 @@ export function WorkoutForm({ exercises, onSubmit }: WorkoutFormProps) {
                 <option value="">Select variation</option>
                 {childExercises.map((exercise) => (
                   <option key={exercise.id} value={exercise.id}>
-                    {exercise.name}
+                    {getExerciseName(exercise.id, exercise.name)}
                   </option>
                 ))}
               </>

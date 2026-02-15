@@ -6,6 +6,8 @@ import {
 import { Activity, ChevronDown, ChevronUp } from 'lucide-react';
 import { useCallback, useMemo, useState } from 'react';
 
+import { useExerciseTranslation } from '../exercises/useExerciseTranslation';
+
 interface WorkoutTableProps {
   entries: WorkoutEntry[];
 }
@@ -60,6 +62,7 @@ function compareOptionalStrings(left?: string, right?: string): number {
 export function WorkoutTable({ entries }: WorkoutTableProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn>('performedAt');
   const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
+  const { getExerciseName } = useExerciseTranslation();
 
   const handleSortChange = useCallback((column: SortColumn) => {
     setSortColumn((currentColumn) => {
@@ -200,7 +203,7 @@ export function WorkoutTable({ entries }: WorkoutTableProps) {
                 {formatDate(entry.performedAt)}
               </td>
               <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
-                {entry.exerciseName}
+                {getExerciseName(entry.exerciseId, entry.exerciseName)}
               </td>
               <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>{entry.reps}</td>
               <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>

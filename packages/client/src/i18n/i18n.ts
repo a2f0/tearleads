@@ -20,6 +20,7 @@ export async function loadLanguage(lang: SupportedLanguage): Promise<void> {
   const translations = await import(`./translations/${lang}.ts`);
   i18n.addResourceBundle(lang, 'common', translations[lang].common, true, true);
   i18n.addResourceBundle(lang, 'menu', translations[lang].menu, true, true);
+  i18n.addResourceBundle(lang, 'health', translations[lang].health, true, true);
   loadedLanguages.add(lang);
 }
 
@@ -42,7 +43,7 @@ i18n
 
     supportedLngs: supportedLanguages,
 
-    ns: ['common', 'menu'],
+    ns: ['common', 'menu', 'health'],
     defaultNS: 'common',
 
     detection: {
