@@ -1782,6 +1782,84 @@ describe('VfsBackgroundSyncClient', () => {
     }
   });
 
+  it('preserves container-clock pagination boundaries across export and hydrate restart', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const desktopTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 4,
+      pullDelayMs: 3
+    });
+    const mobileTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 2,
+      pullDelayMs: 5
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      { pullLimit: 2 }
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport,
+      {
+        pullLimit: 1
+      }
+    );
+
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-rt-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T14:25:00.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-rt-2',
+      parentId: 'root',
+      childId: 'item-rt-2',
+      occurredAt: '2026-02-14T14:25:01.000Z'
+    });
+    await mobile.flush();
+    await desktop.sync();
+
+    const firstPageBefore = desktop.listChangedContainers(null, 1);
+    const secondPageBefore = desktop.listChangedContainers(
+      firstPageBefore.nextCursor,
+      1
+    );
+    const thirdPageBefore = desktop.listChangedContainers(
+      secondPageBefore.nextCursor,
+      10
+    );
+
+    const persistedState = desktop.exportState();
+    const resumedDesktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      { pullLimit: 2 }
+    );
+    resumedDesktop.hydrateState(persistedState);
+
+    const firstPageAfter = resumedDesktop.listChangedContainers(null, 1);
+    const secondPageAfter = resumedDesktop.listChangedContainers(
+      firstPageAfter.nextCursor,
+      1
+    );
+    const thirdPageAfter = resumedDesktop.listChangedContainers(
+      secondPageAfter.nextCursor,
+      10
+    );
+
+    expect(firstPageAfter).toEqual(firstPageBefore);
+    expect(secondPageAfter).toEqual(secondPageBefore);
+    expect(thirdPageAfter).toEqual(thirdPageBefore);
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
