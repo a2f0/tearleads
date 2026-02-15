@@ -295,19 +295,22 @@ export function SearchWindowContent({
       }
 
       if (result.entityType === 'help_doc') {
+        const helpDoc = getSearchableHelpDocById(result.id);
         if (isMobile) {
-          const helpDoc = getSearchableHelpDocById(result.id);
           navigate(helpDoc?.path ?? '/help');
           return;
         }
 
-        // Extract HelpDocId from search result id (e.g., 'help-doc:cli' -> 'cli')
-        const helpDocId = result.id.replace(
-          HELP_DOC_ID_PREFIX,
-          ''
-        ) as HelpDocId;
-        openWindow('help');
-        requestWindowOpen('help', { helpDocId });
+        if (helpDoc) {
+          const helpDocId = result.id.replace(
+            HELP_DOC_ID_PREFIX,
+            ''
+          ) as HelpDocId;
+          openWindow('help');
+          requestWindowOpen('help', { helpDocId });
+        } else {
+          navigate('/help');
+        }
         return;
       }
 

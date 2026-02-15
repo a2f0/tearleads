@@ -51,7 +51,7 @@ rg -n --glob '*.tsx' 'cursor-col-resize|onWidthChange.*width|resizeHandle' packa
 
 # Find cross-window navigation patterns using navigate() instead of openWindow/requestWindowOpen
 # These are windows that should open in floating mode but currently route-navigate
-rg -n --glob '*.tsx' 'navigate\(.*/(help|notes|contacts|photos|audio|videos|documents|files)' packages | rg -v 'isMobile|test\.tsx' | head -20
+rg -n --glob '*.tsx' 'navigate\(.*/(help|notes|contacts|photos|audio|videos|documents|files|email|chat|ai)\b' packages | rg -v 'isMobile|test\.tsx' | head -20
 
 # Check WindowOpenRequestPayloads vs actual window types that need open requests
 echo "=== Window types supporting open requests ==="
@@ -302,7 +302,7 @@ Count of non-standardized patterns:
 MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}')
 MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}')
 MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$2} END {print sum+0}')
-CROSS_WINDOW_NAV=$(rg -c --glob '*.tsx' 'navigate\(.*/help.*\)|navigate\(.*/notes.*\)|navigate\(.*/contacts.*\)' packages 2>/dev/null | rg -v 'isMobile|test\.tsx' | awk -F: '{sum+=$2} END {print sum+0}')
+CROSS_WINDOW_NAV=$(rg -c --glob '*.tsx' 'navigate\(.*/(help|notes|contacts|email|chat|ai|audio|photos|videos|documents|files).*\)' packages 2>/dev/null | rg -v 'isMobile|test\.tsx' | awk -F: '{sum+=$2} END {print sum+0}')
 echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE + CROSS_WINDOW_NAV))
 ```
 
