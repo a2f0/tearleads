@@ -83,13 +83,15 @@
         groups: systemd-journal
         append: true
 
-    # COMPLIANCE_SENTINEL: TL-INFRA-004 | control=ssh-root-disabled
-    # SSH hardening: root login disabled
-    - name: Disable root SSH login
-      ansible.builtin.lineinfile:
-        path: /etc/ssh/sshd_config
-        regexp: '^#?PermitRootLogin'
-        line: 'PermitRootLogin no'
+    # COMPLIANCE_SENTINEL: TL-INFRA-004 | control=ssh-hardening
+    # SSH hardening: comprehensive security configuration
+    - name: Deploy hardened SSH configuration
+      ansible.builtin.template:
+        src: sshd_config.j2
+        dest: /etc/ssh/sshd_config
+        owner: root
+        group: root
+        mode: "0600"
         validate: 'sshd -t -f %s'
       notify: Restart sshd
 
@@ -112,7 +114,76 @@
           - postgresql-contrib
           - python3-psycopg2
           - ncurses-bin
+          - ufw
+          - fail2ban
         state: present
+
+    # COMPLIANCE_SENTINEL: TL-NET-003 | control=host-firewall
+    # UFW firewall configuration with default deny
+    # Framework mappings:
+    # - SOC2: CC6.6 (External Threat Protection)
+    # - NIST SP 800-53: SC-7 (Boundary Protection)
+    # - HIPAA: 164.312(e)(1) (Transmission Security)
+    - name: Set UFW default incoming policy to deny
+      community.general.ufw:
+        default: deny
+        direction: incoming
+
+    - name: Set UFW default outgoing policy to allow
+      community.general.ufw:
+        default: allow
+        direction: outgoing
+
+    - name: Allow required traffic through UFW
+      community.general.ufw:
+        rule: allow
+        port: "{{ item.port }}"
+        proto: tcp
+        comment: "{{ item.comment }}"
+      loop:
+        - { port: "22", comment: "SSH access" }
+        - { port: "80", comment: "HTTP for certbot and redirects" }
+        - { port: "443", comment: "HTTPS web traffic" }
+        - { port: "25", comment: "SMTP mail reception" }
+
+    - name: Enable UFW
+      community.general.ufw:
+        state: enabled
+
+    # COMPLIANCE_SENTINEL: TL-KERN-001 | control=kernel-hardening
+    # Sysctl kernel security hardening
+    # Framework mappings:
+    # - SOC2: CC6.1 (Logical Access Security)
+    # - NIST SP 800-53: SC-5, SI-16 (DoS Protection, Memory Protection)
+    - name: Deploy kernel hardening sysctl configuration
+      ansible.builtin.template:
+        src: 99-security-hardening.conf.j2
+        dest: /etc/sysctl.d/99-security-hardening.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Reload sysctl
+
+    # COMPLIANCE_SENTINEL: TL-AUTH-001 | control=brute-force-protection
+    # Fail2ban for SSH brute-force protection
+    # Framework mappings:
+    # - SOC2: CC6.1 (Logical Access Security)
+    # - NIST SP 800-53: AC-7 (Unsuccessful Logon Attempts)
+    # - HIPAA: 164.312(d) (Person or Entity Authentication)
+    - name: Deploy fail2ban SSH jail configuration
+      ansible.builtin.template:
+        src: fail2ban-sshd.conf.j2
+        dest: /etc/fail2ban/jail.d/sshd.conf
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart fail2ban
+
+    - name: Enable and start fail2ban
+      ansible.builtin.systemd:
+        name: fail2ban
+        state: started
+        enabled: true
 
     # Ghostty terminal support
     - name: Copy Ghostty terminfo
@@ -605,6 +676,16 @@
     - name: Restart systemd-journald
       ansible.builtin.systemd:
         name: systemd-journald
+        state: restarted
+
+    - name: Reload sysctl
+      ansible.builtin.command:
+        cmd: sysctl --system
+      changed_when: true
+
+    - name: Restart fail2ban
+      ansible.builtin.systemd:
+        name: fail2ban
         state: restarted
 
     - name: Restart tearleads-api
