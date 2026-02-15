@@ -89,7 +89,7 @@ describe('VFS CRDT sync route', () => {
           parent_id: null,
           child_id: null,
           actor_id: 'user-1',
-          source_table: 'vfs_shares',
+          source_table: 'vfs_crdt_client_push',
           source_id: 'share-1',
           occurred_at: new Date('2026-02-14T00:00:00.000Z')
         },
@@ -103,7 +103,7 @@ describe('VFS CRDT sync route', () => {
           parent_id: null,
           child_id: null,
           actor_id: 'user-1',
-          source_table: 'vfs_shares',
+          source_table: 'vfs_crdt_client_push',
           source_id: 'share-1',
           occurred_at: new Date('2026-02-14T00:00:01.000Z')
         }
@@ -138,7 +138,7 @@ describe('VFS CRDT sync route', () => {
       parentId: null,
       childId: null,
       actorId: 'user-1',
-      sourceTable: 'vfs_shares',
+      sourceTable: 'vfs_crdt_client_push',
       sourceId: 'share-1',
       occurredAt: '2026-02-14T00:00:00.000Z'
     });
@@ -181,7 +181,7 @@ describe('VFS CRDT sync route', () => {
           parent_id: null,
           child_id: null,
           actor_id: 'user-1',
-          source_table: 'vfs_shares',
+          source_table: 'vfs_crdt_client_push',
           source_id: 'share-9',
           occurred_at: new Date('2026-02-14T00:00:00.000Z')
         }
@@ -221,7 +221,7 @@ describe('VFS CRDT sync route', () => {
           parentId: null,
           childId: null,
           actorId: 'user-1',
-          sourceTable: 'vfs_shares',
+          sourceTable: 'vfs_crdt_client_push',
           sourceId: 'share-9',
           occurredAt: '2026-02-14T00:00:00.000Z'
         }
@@ -249,7 +249,7 @@ describe('VFS CRDT sync route', () => {
           parent_id: null,
           child_id: null,
           actor_id: 'user-1',
-          source_table: 'vfs_shares',
+          source_table: 'vfs_crdt_client_push',
           source_id: 'share-1',
           occurred_at: new Date('2026-02-14T00:00:01.000Z')
         },
@@ -263,7 +263,7 @@ describe('VFS CRDT sync route', () => {
           parent_id: null,
           child_id: null,
           actor_id: 'user-1',
-          source_table: 'vfs_shares',
+          source_table: 'vfs_crdt_client_push',
           source_id: 'share-1',
           occurred_at: new Date('2026-02-14T00:00:00.000Z')
         }
@@ -296,7 +296,7 @@ describe('VFS CRDT sync route', () => {
           parent_id: null,
           child_id: null,
           actor_id: 'user-1',
-          source_table: 'vfs_shares',
+          source_table: 'vfs_crdt_client_push',
           source_id: 'share-1',
           occurred_at: new Date('2026-02-14T00:00:00.000Z')
         },
@@ -310,7 +310,7 @@ describe('VFS CRDT sync route', () => {
           parent_id: null,
           child_id: null,
           actor_id: 'user-1',
-          source_table: 'vfs_shares',
+          source_table: 'vfs_crdt_client_push',
           source_id: 'share-2',
           occurred_at: new Date('2026-02-14T00:00:01.000Z')
         }
