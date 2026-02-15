@@ -49,6 +49,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-msw-parity` | Audit MSW handlers against API routes and improve test coverage assertions |
 | `preen-skill-tooling` | Validate skills are wired into agentTool.ts and scriptTool.ts |
 | `preen-compliance-docs` | Audit compliance documentation for gaps and cross-framework parity |
+| `preen-package-docs` | Audit and generate missing package README.md files |
 | `preen-review-instructions` | Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md) |
 | `preen-i18n` | Audit i18n translation coverage, missing keys, and hardcoded strings |
 | `preen-docs-internationalization` | Translate and sync documentation across all supported languages |
@@ -87,6 +88,7 @@ CATEGORIES=(
   "preen-msw-parity"
   "preen-skill-tooling"
   "preen-compliance-docs"
+  "preen-package-docs"
   "preen-review-instructions"
   "preen-i18n"
   "preen-docs-internationalization"
@@ -335,6 +337,10 @@ run_discovery() {
       for fw in HIPAA NIST.SP.800-53 SOC2; do echo "=== $fw ==="; echo "Policies: $(ls compliance/$fw/policies/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Procedures: $(ls compliance/$fw/procedures/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Controls: $(ls compliance/$fw/technical-controls/*.md 2>/dev/null | wc -l | tr -d ' ')"; done
       find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | head -10
       ;;
+    preen-package-docs)
+      echo '=== Packages missing README ==='; for pkg in packages/*/; do [ ! -f "${pkg}README.md" ] && basename "$pkg"; done
+      echo '=== Summary ==='; total=$(ls -d packages/*/ | wc -l | tr -d ' '); with_readme=$(ls packages/*/README.md 2>/dev/null | wc -l | tr -d ' '); echo "$with_readme/$total packages have READMEs"
+      ;;
     preen-review-instructions)
       echo '=== REVIEW.md sections ==='; rg '^##' REVIEW.md | head -20
       echo '=== Gemini sections ==='; rg '^##' .gemini/INSTRUCTIONS.md | head -20
@@ -400,6 +406,9 @@ metric_count() {
       done
       unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l)
       echo $((gaps + unnumbered))
+      ;;
+    preen-package-docs)
+      count=0; for pkg in packages/*/; do [ ! -f "${pkg}README.md" ] && count=$((count + 1)); done; echo $count
       ;;
     preen-review-instructions)
       GAPS=0
@@ -554,6 +563,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - MSW parity risk count (missing + low-confidence)
 - Skill parity/tooling issues
 - Compliance documentation gaps (missing triads + unnumbered files)
+- Packages missing README.md
 - Review instruction gaps (missing sections + Gemini drift)
 - i18n gaps (missing translation keys + hardcoded strings)
 - Missing or orphaned doc translations
@@ -601,6 +611,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] MSW/API parity and request-assertion wiring
 - [ ] Skill tooling validation
 - [ ] Compliance documentation gaps and parity
+- [ ] Package documentation (README.md files)
 - [ ] Review instruction completeness and sync
 - [ ] i18n translation coverage and consistency
 - [ ] Documentation internationalization coverage
