@@ -1,3 +1,4 @@
+import type { VfsCrdtSyncItem } from '@tearleads/shared';
 import { describe, expect, it } from 'vitest';
 import {
   InMemoryVfsCrdtClientStateStore,
@@ -197,10 +198,26 @@ interface HttpHarnessDelayConfig {
   pullDelayMs?: number;
 }
 
+interface HttpHarnessPullPayload {
+  items: VfsCrdtSyncItem[];
+  hasMore: boolean;
+  nextCursor: string | null;
+  lastReconciledWriteIds: Record<string, number>;
+}
+
+interface HttpHarnessOptions {
+  delays: HttpHarnessDelayConfig;
+  mutatePullPayload?: (
+    payload: HttpHarnessPullPayload,
+    context: { url: URL }
+  ) => HttpHarnessPullPayload;
+}
+
 function createServerBackedFetch(
   server: InMemoryVfsCrdtSyncServer,
-  delays: HttpHarnessDelayConfig
+  options: HttpHarnessOptions
 ): typeof fetch {
+  const { delays, mutatePullPayload } = options;
   const reconcileStateStore = new InMemoryVfsCrdtClientStateStore();
 
   return async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -261,17 +278,19 @@ function createServerBackedFetch(
         cursor: decodedCursor,
         limit: parsePullLimit(url.searchParams)
       });
-      return new Response(
-        JSON.stringify({
-          items: pullResult.items,
-          hasMore: pullResult.hasMore,
-          nextCursor: pullResult.nextCursor
-            ? encodeVfsSyncCursor(pullResult.nextCursor)
-            : null,
-          lastReconciledWriteIds: pullResult.lastReconciledWriteIds
-        }),
-        { status: 200 }
-      );
+      const payload: HttpHarnessPullPayload = {
+        items: pullResult.items,
+        hasMore: pullResult.hasMore,
+        nextCursor: pullResult.nextCursor
+          ? encodeVfsSyncCursor(pullResult.nextCursor)
+          : null,
+        lastReconciledWriteIds: pullResult.lastReconciledWriteIds
+      };
+      const finalPayload = mutatePullPayload
+        ? mutatePullPayload(payload, { url })
+        : payload;
+
+      return new Response(JSON.stringify(finalPayload), { status: 200 });
     }
 
     if (
@@ -315,9 +334,11 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
   it('converges concurrent clients through HTTP transport', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     const fetchImpl = createServerBackedFetch(server, {
-      desktopPushDelayMs: 20,
-      mobilePushDelayMs: 5,
-      pullDelayMs: 10
+      delays: {
+        desktopPushDelayMs: 20,
+        mobilePushDelayMs: 5,
+        pullDelayMs: 10
+      }
     });
 
     const desktop = new VfsBackgroundSyncClient(
@@ -397,5 +418,58 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
     expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
       serverSnapshot.lastReconciledWriteIds
     );
+  });
+
+  it('fails closed when sync replay payload drifts to malformed link rows', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'link_add',
+          itemId: 'item-9',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T22:10:00.000Z',
+          parentId: 'root',
+          childId: 'item-9'
+        }
+      ]
+    });
+
+    const fetchImpl = createServerBackedFetch(server, {
+      delays: {},
+      mutatePullPayload: (payload) => ({
+        ...payload,
+        items: payload.items.map((item) =>
+          item.opType === 'link_add' || item.opType === 'link_remove'
+            ? {
+                ...item,
+                childId: 'item-mismatch'
+              }
+            : item
+        )
+      })
+    });
+
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'https://sync.local',
+        fetchImpl
+      })
+    );
+
+    await expect(client.sync()).rejects.toThrowError(/invalid link payload/);
+    expect(client.snapshot()).toEqual({
+      acl: [],
+      links: [],
+      pendingOperations: 0,
+      cursor: null,
+      lastReconciledWriteIds: {},
+      containerClocks: [],
+      nextLocalWriteId: 1
+    });
   });
 });
