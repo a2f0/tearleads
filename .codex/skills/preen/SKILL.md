@@ -475,6 +475,19 @@ pnpm lint >/dev/null
 pnpm test >/dev/null
 ```
 
+**CRITICAL: Verify coverage thresholds before proceeding.**
+
+Concurrent PR merges can cause cumulative coverage drops even when individual changes pass. Always verify coverage thresholds are maintained:
+
+```bash
+# Run coverage for packages with thresholds that may be affected
+# Check which packages are impacted and run their coverage
+# Note: Keep stdout visible here to see which packages are targeted
+pnpm exec tsx scripts/ciImpact/runImpactedTests.ts
+```
+
+If coverage thresholds fail, **DO NOT proceed**. Add tests to bring coverage back above thresholds before continuing.
+
 ### 7. Quality Delta Gate
 
 Before opening a PR, record measurable improvement. Example metrics:
