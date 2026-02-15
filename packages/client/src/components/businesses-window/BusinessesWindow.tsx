@@ -4,6 +4,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { BusinessesManager } from '@/components/businesses';
+import { BusinessesWindowMenuBar } from './BusinessesWindowMenuBar';
 
 const BUSINESSES_WINDOW_DEFAULT_WIDTH = 860;
 const BUSINESSES_WINDOW_DEFAULT_HEIGHT = 560;
@@ -48,6 +49,7 @@ export function BusinessesWindow({
       minHeight={BUSINESSES_WINDOW_MIN_HEIGHT}
     >
       <div className="flex h-full min-h-0 flex-col">
+        <BusinessesWindowMenuBar onClose={onClose} />
         <WindowControlBar>{null}</WindowControlBar>
         <div className="min-h-0 flex-1 p-3">
           <BusinessesManager />

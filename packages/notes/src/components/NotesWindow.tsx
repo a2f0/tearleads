@@ -6,7 +6,8 @@ import {
   WindowControlGroup,
   type WindowDimensions
 } from '@tearleads/window-manager';
-import { ArrowLeft, Plus } from 'lucide-react';
+import { eq } from 'drizzle-orm';
+import { ArrowLeft, Plus, RefreshCw, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNotesContext } from '../context/NotesContext';
 import { NotesWindowDetail } from './NotesWindowDetail';
@@ -47,6 +48,8 @@ export function NotesWindow({
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [showMarkdownToolbar, setShowMarkdownToolbar] = useState(false);
   const [showDeleted, setShowDeleted] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [deleting, setDeleting] = useState(false);
 
   const handleSelectNote = useCallback((noteId: string) => {
     setSelectedNoteId(noteId);
@@ -56,13 +59,32 @@ export function NotesWindow({
     setSelectedNoteId(null);
   }, []);
 
-  const handleDeleted = useCallback(() => {
-    setSelectedNoteId(null);
-  }, []);
-
   const handleToggleMarkdownToolbar = useCallback(() => {
     setShowMarkdownToolbar((prev) => !prev);
   }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshToken((prev) => prev + 1);
+  }, []);
+
+  const handleDeleteNote = useCallback(async () => {
+    if (!selectedNoteId || !isUnlocked) return;
+
+    setDeleting(true);
+    try {
+      const db = getDatabase();
+      await db
+        .update(notes)
+        .set({ deleted: true })
+        .where(eq(notes.id, selectedNoteId));
+
+      setSelectedNoteId(null);
+    } catch (err) {
+      console.error('Failed to delete note:', err);
+    } finally {
+      setDeleting(false);
+    }
+  }, [selectedNoteId, isUnlocked, getDatabase]);
 
   const handleNewNote = useCallback(async () => {
     if (!isUnlocked) return;
@@ -164,7 +186,7 @@ export function NotesWindow({
         />
         <WindowControlBar>
           <WindowControlGroup>
-            {selectedNoteId ? (
+            {selectedNoteId && (
               <WindowControlButton
                 icon={<ArrowLeft className="h-3 w-3" />}
                 onClick={handleBack}
@@ -172,17 +194,41 @@ export function NotesWindow({
               >
                 Back
               </WindowControlButton>
-            ) : (
+            )}
+          </WindowControlGroup>
+          <WindowControlGroup align="right">
+            {selectedNoteId ? (
               <WindowControlButton
-                icon={<Plus className="h-3 w-3" />}
+                icon={<Trash2 className="h-3 w-3" />}
                 onClick={() => {
-                  void handleNewNote();
+                  void handleDeleteNote();
                 }}
-                disabled={!isUnlocked}
-                data-testid="notes-window-control-new"
+                disabled={deleting}
+                data-testid="notes-window-control-delete"
               >
-                New
+                Delete
               </WindowControlButton>
+            ) : (
+              <>
+                <WindowControlButton
+                  icon={<Plus className="h-3 w-3" />}
+                  onClick={() => {
+                    void handleNewNote();
+                  }}
+                  disabled={!isUnlocked}
+                  data-testid="notes-window-control-new"
+                >
+                  New
+                </WindowControlButton>
+                <WindowControlButton
+                  icon={<RefreshCw className="h-3 w-3" />}
+                  onClick={handleRefresh}
+                  disabled={!isUnlocked}
+                  data-testid="notes-window-control-refresh"
+                >
+                  Refresh
+                </WindowControlButton>
+              </>
             )}
           </WindowControlGroup>
         </WindowControlBar>
@@ -190,19 +236,19 @@ export function NotesWindow({
           {selectedNoteId ? (
             <NotesWindowDetail
               noteId={selectedNoteId}
-              onBack={handleBack}
-              onDeleted={handleDeleted}
               showToolbar={showMarkdownToolbar}
             />
           ) : viewMode === 'table' ? (
             <NotesWindowTableView
               onSelectNote={handleSelectNote}
               showDeleted={showDeleted}
+              refreshToken={refreshToken}
             />
           ) : (
             <NotesWindowList
               onSelectNote={handleSelectNote}
               showDeleted={showDeleted}
+              refreshToken={refreshToken}
             />
           )}
         </div>

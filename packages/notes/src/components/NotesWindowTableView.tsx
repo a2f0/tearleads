@@ -20,17 +20,18 @@ type MenuPosition = { x: number; y: number };
 interface NotesWindowTableViewProps {
   onSelectNote: (noteId: string) => void;
   showDeleted: boolean;
+  refreshToken: number;
 }
 
 export function NotesWindowTableView({
   onSelectNote,
-  showDeleted
+  showDeleted,
+  refreshToken
 }: NotesWindowTableViewProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseState();
   const { getDatabase, t, vfsKeys, auth, featureFlags, vfsApi } =
     useNotesContext();
-  const { Button, ContextMenu, ContextMenuItem, RefreshButton, InlineUnlock } =
-    useNotesUI();
+  const { Button, ContextMenu, ContextMenuItem, InlineUnlock } = useNotesUI();
   const [notesList, setNotesList] = useState<NoteInfo[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,6 +98,7 @@ export function NotesWindowTableView({
 
   const fetchedForInstanceRef = useRef<string | null>(null);
   const lastShowDeletedRef = useRef(showDeleted);
+  const lastRefreshTokenRef = useRef(refreshToken);
 
   useEffect(() => {
     const showDeletedChanged = lastShowDeletedRef.current !== showDeleted;
@@ -104,12 +106,18 @@ export function NotesWindowTableView({
       lastShowDeletedRef.current = showDeleted;
     }
 
+    const refreshTokenChanged = lastRefreshTokenRef.current !== refreshToken;
+    if (refreshTokenChanged) {
+      lastRefreshTokenRef.current = refreshToken;
+    }
+
     const needsFetch =
       isUnlocked &&
       !loading &&
       (!hasFetched ||
         fetchedForInstanceRef.current !== currentInstanceId ||
-        showDeletedChanged);
+        showDeletedChanged ||
+        refreshTokenChanged);
 
     if (needsFetch) {
       if (
@@ -135,7 +143,8 @@ export function NotesWindowTableView({
     hasFetched,
     currentInstanceId,
     fetchNotes,
-    showDeleted
+    showDeleted,
+    refreshToken
   ]);
 
   const handleSortChange = useCallback((column: SortColumn) => {
@@ -208,15 +217,7 @@ export function NotesWindowTableView({
 
   return (
     <div className="flex h-full flex-col space-y-2 p-3">
-      <NotesViewHeader
-        isUnlocked={isUnlocked}
-        loading={loading}
-        createButtonTestId="table-create-note-button"
-        onCreateNote={handleCreateNote}
-        onRefresh={fetchNotes}
-        Button={Button}
-        RefreshButton={RefreshButton}
-      />
+      <NotesViewHeader />
 
       {isLoading && (
         <WindowPaneState

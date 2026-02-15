@@ -3,7 +3,7 @@ import { useTheme } from '@tearleads/ui';
 import MDEditor from '@uiw/react-md-editor';
 
 import { and, eq } from 'drizzle-orm';
-import { ArrowLeft, Calendar, Loader2, Trash2 } from 'lucide-react';
+import { Calendar, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   useDatabaseState,
@@ -23,27 +23,22 @@ interface NoteInfo {
 
 interface NotesWindowDetailProps {
   noteId: string;
-  onBack: () => void;
-  onDeleted: () => void;
   showToolbar?: boolean;
 }
 
 export function NotesWindowDetail({
   noteId,
-  onBack,
-  onDeleted,
   showToolbar = true
 }: NotesWindowDetailProps) {
   const { isUnlocked, isLoading } = useDatabaseState();
   const { getDatabase, tooltipZIndex } = useNotesContext();
-  const { Button, InlineUnlock, EditableTitle } = useNotesUI();
+  const { InlineUnlock, EditableTitle } = useNotesUI();
   const { resolvedTheme } = useTheme();
   const editorColorMode = resolvedTheme === 'light' ? 'light' : 'dark';
   const [note, setNote] = useState<NoteInfo | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [content, setContent] = useState<string>('');
-  const [deleting, setDeleting] = useState(false);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastSavedContentRef = useRef<string>('');
   const contentRef = useRef<string>('');
@@ -165,25 +160,6 @@ export function NotesWindowDetail({
     };
   }, [noteId, getDatabase]);
 
-  const handleDelete = useCallback(async () => {
-    if (!note) return;
-
-    setDeleting(true);
-    try {
-      const db = getDatabase();
-      await db
-        .update(notes)
-        .set({ deleted: true })
-        .where(eq(notes.id, note.id));
-
-      onDeleted();
-    } catch (err) {
-      console.error('Failed to delete note:', err);
-      setError(err instanceof Error ? err.message : String(err));
-      setDeleting(false);
-    }
-  }, [note, onDeleted, getDatabase]);
-
   const handleUpdateTitle = useCallback(
     async (newTitle: string) => {
       if (!noteId) return;
@@ -203,30 +179,6 @@ export function NotesWindowDetail({
 
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onBack}
-          className="h-7 px-2"
-          data-testid="window-note-back"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        {note && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            disabled={deleting}
-            className="ml-auto h-7 px-2 text-destructive hover:text-destructive"
-            data-testid="window-note-delete"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
-        )}
-      </div>
-
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
           Loading database...

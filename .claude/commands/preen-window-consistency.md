@@ -65,6 +65,14 @@ for comp in WindowSidebarItem WindowSidebarHeader WindowSidebarLoading WindowSid
   count=$(rg -l "$comp" packages --glob '*.tsx' | rg -v 'window-manager' | wc -l | tr -d ' ')
   echo "$comp: $count usages"
 done
+
+# Find windows missing File menu
+echo "=== Windows Without File Menu ==="
+rg -l 'FloatingWindow|DesktopFloatingWindow' packages --glob '*Window.tsx' | xargs -I {} sh -c 'rg -q "DropdownMenu trigger=\"File\"" {} || echo {}'
+
+# Find potential duplicate back buttons or misplaced actions in content area
+echo "=== Potential Misplaced Actions ==="
+rg -n --glob '*Window*.tsx' '<Button.*onClick.*(ArrowLeft|Plus|RefreshCw|Trash2)' packages | rg -v 'WindowControl|test\.tsx' | head -20
 ```
 
 ## Candidate Signals
@@ -99,6 +107,129 @@ Prioritize opportunities that meet at least two signals:
 - Patterns that are intentionally different for good reasons
 - Code that would require breaking API changes to standardize
 - Test files or storybook files
+
+## Window Structure Patterns
+
+Every window should follow a consistent structure with these required elements:
+
+### Menu Bar Pattern
+
+All windows **must** have a menu bar with at minimum a File menu containing Close:
+
+```tsx
+<FloatingWindow ...>
+  <div className="flex h-full flex-col">
+    <WindowMenuBar onClose={onClose} />
+    <WindowControlBar>...</WindowControlBar>
+    {/* Content */}
+  </div>
+</FloatingWindow>
+```
+
+Standard menu bar structure:
+
+```tsx
+<div className="flex shrink-0 border-b bg-muted/30 px-1">
+  <DropdownMenu trigger="File">
+    {/* Optional: New, Open, Save actions */}
+    <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+  </DropdownMenu>
+  <DropdownMenu trigger="View">
+    {/* Optional: View mode toggles, show/hide options */}
+    <WindowOptionsMenuItem />
+  </DropdownMenu>
+  <DropdownMenu trigger="Help">
+    <AboutMenuItem appName="AppName" version={packageJson.version} />
+  </DropdownMenu>
+</div>
+```
+
+Discovery command for missing menu bars:
+
+```bash
+# Find windows without menu bars
+rg -l 'FloatingWindow|DesktopFloatingWindow' packages --glob '*Window.tsx' | xargs -I {} sh -c 'rg -q "DropdownMenu trigger=\"File\"" {} || echo "NO MENU: {}"'
+```
+
+### Control Bar Pattern
+
+**All window actions belong in the WindowControlBar**, not in the content area.
+
+Good pattern:
+
+```tsx
+<WindowControlBar>
+  <WindowControlGroup>
+    {showBackButton && (
+      <WindowControlButton icon={<ArrowLeft />} onClick={onBack}>
+        Back
+      </WindowControlButton>
+    )}
+  </WindowControlGroup>
+  <WindowControlGroup align="right">
+    <WindowControlButton icon={<Plus />} onClick={onCreate}>
+      New
+    </WindowControlButton>
+    <WindowControlButton icon={<RefreshCw />} onClick={onRefresh}>
+      Refresh
+    </WindowControlButton>
+  </WindowControlGroup>
+</WindowControlBar>
+```
+
+Bad patterns to fix:
+
+- Duplicate back buttons (one in control bar, one in content)
+- Action buttons (new, refresh, delete) inside content area
+- Navigation controls scattered throughout the component
+
+Discovery command for misplaced actions:
+
+```bash
+# Find potential misplaced actions in content (buttons with action icons not in control bar)
+rg -n --glob '*Window*.tsx' '<Button.*onClick.*(ArrowLeft|Plus|RefreshCw|Trash2)' packages | rg -v 'WindowControl|test\.tsx' | head -20
+```
+
+### Detail View Pattern
+
+When a window has list/detail views, the control bar should change based on the selected state:
+
+```tsx
+<WindowControlBar>
+  <WindowControlGroup>
+    {selectedItemId && (
+      <WindowControlButton icon={<ArrowLeft />} onClick={handleBack}>
+        Back
+      </WindowControlButton>
+    )}
+  </WindowControlGroup>
+  <WindowControlGroup align="right">
+    {selectedItemId ? (
+      // Detail view actions (right-aligned)
+      <WindowControlButton icon={<Trash2 />} onClick={handleDelete}>
+        Delete
+      </WindowControlButton>
+    ) : (
+      // List view actions (right-aligned)
+      <>
+        <WindowControlButton icon={<Plus />} onClick={handleCreate}>
+          New
+        </WindowControlButton>
+        <WindowControlButton icon={<RefreshCw />} onClick={handleRefresh}>
+          Refresh
+        </WindowControlButton>
+      </>
+    )}
+  </WindowControlGroup>
+</WindowControlBar>
+```
+
+Key principles:
+
+1. **Single back button** - Only in control bar, never duplicated in content
+2. **Actions right-aligned** - New, Refresh, Delete go in `WindowControlGroup align="right"`
+3. **Context-aware actions** - Control bar shows relevant actions for current view state
+4. **Content area is for content** - Headers in content area show only title/icon, not action buttons
 
 ## Workflow
 

@@ -22,11 +22,13 @@ const ROW_HEIGHT_ESTIMATE = 56;
 interface NotesWindowListProps {
   onSelectNote: (noteId: string) => void;
   showDeleted: boolean;
+  refreshToken: number;
 }
 
 export function NotesWindowList({
   onSelectNote,
-  showDeleted
+  showDeleted,
+  refreshToken
 }: NotesWindowListProps) {
   const { isUnlocked, isLoading, currentInstanceId } = useDatabaseState();
   const { getDatabase, t, vfsKeys, auth, featureFlags, vfsApi } =
@@ -37,7 +39,6 @@ export function NotesWindowList({
     ContextMenu,
     ContextMenuItem,
     ListRow,
-    RefreshButton,
     VirtualListStatus,
     InlineUnlock
   } = useNotesUI();
@@ -118,6 +119,7 @@ export function NotesWindowList({
 
   const fetchedForInstanceRef = useRef<string | null>(null);
   const lastShowDeletedRef = useRef(showDeleted);
+  const lastRefreshTokenRef = useRef(refreshToken);
 
   useEffect(() => {
     const showDeletedChanged = lastShowDeletedRef.current !== showDeleted;
@@ -125,12 +127,18 @@ export function NotesWindowList({
       lastShowDeletedRef.current = showDeleted;
     }
 
+    const refreshTokenChanged = lastRefreshTokenRef.current !== refreshToken;
+    if (refreshTokenChanged) {
+      lastRefreshTokenRef.current = refreshToken;
+    }
+
     const needsFetch =
       isUnlocked &&
       !loading &&
       (!hasFetched ||
         fetchedForInstanceRef.current !== currentInstanceId ||
-        showDeletedChanged);
+        showDeletedChanged ||
+        refreshTokenChanged);
 
     if (needsFetch) {
       if (
@@ -156,7 +164,8 @@ export function NotesWindowList({
     hasFetched,
     currentInstanceId,
     fetchNotes,
-    showDeleted
+    showDeleted,
+    refreshToken
   ]);
 
   const handleNoteClick = useCallback(
@@ -229,15 +238,7 @@ export function NotesWindowList({
 
   return (
     <div className="flex h-full flex-col space-y-3 p-3">
-      <NotesViewHeader
-        isUnlocked={isUnlocked}
-        loading={loading}
-        createButtonTestId="window-create-note-button"
-        onCreateNote={handleCreateNote}
-        onRefresh={fetchNotes}
-        Button={Button}
-        RefreshButton={RefreshButton}
-      />
+      <NotesViewHeader />
 
       {isLoading && (
         <WindowPaneState
