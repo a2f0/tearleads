@@ -69,7 +69,6 @@ export function AnalyticsTab() {
         }
       } finally {
         setLoading(false);
-        fetchingRef.current = false;
       }
     };
 
@@ -77,6 +76,7 @@ export function AnalyticsTab() {
 
     return () => {
       isCancelled = true;
+      fetchingRef.current = false;
     };
   }, [isUnlocked, refreshTrigger]);
 
