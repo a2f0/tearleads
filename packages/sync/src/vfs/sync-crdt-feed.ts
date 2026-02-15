@@ -67,7 +67,8 @@ export type VfsCrdtFeedOrderViolationCode =
   | 'invalidOccurredAt'
   | 'missingOpId'
   | 'duplicateOpId'
-  | 'outOfOrderRow';
+  | 'outOfOrderRow'
+  | 'invalidLinkPayload';
 
 export class VfsCrdtFeedOrderViolationError extends Error {
   readonly code: VfsCrdtFeedOrderViolationCode;
@@ -175,6 +176,15 @@ function parseOccurredAtMs(value: Date | string): number | null {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function normalizeNonEmptyString(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
 function toIsoString(value: Date | string): string | null {
@@ -433,15 +443,39 @@ export function mapVfsCrdtSyncRows(
       );
     }
 
+    const opType = normalizeOpType(row.op_type);
+    const parentId = normalizeNonEmptyString(row.parent_id);
+    const childId = normalizeNonEmptyString(row.child_id);
+
+    if (opType === 'link_add' || opType === 'link_remove') {
+      /**
+       * Guardrail: link operations are child-scoped and must preserve canonical
+       * hierarchy invariants. Malformed link rows are rejected fail-closed so
+       * bad persisted feed state cannot escape API boundaries.
+       */
+      if (
+        !parentId ||
+        !childId ||
+        childId !== row.item_id ||
+        parentId === childId
+      ) {
+        throw new VfsCrdtFeedOrderViolationError(
+          'invalidLinkPayload',
+          index,
+          `CRDT row ${index} has invalid link payload`
+        );
+      }
+    }
+
     items.push({
       opId: row.op_id,
       itemId: row.item_id,
-      opType: normalizeOpType(row.op_type),
+      opType,
       principalType: normalizePrincipalType(row.principal_type),
       principalId: row.principal_id,
       accessLevel: normalizeAccessLevel(row.access_level),
-      parentId: row.parent_id,
-      childId: row.child_id,
+      parentId,
+      childId,
       actorId: row.actor_id,
       sourceTable: row.source_table,
       sourceId: row.source_id,
