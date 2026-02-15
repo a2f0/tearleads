@@ -9,6 +9,7 @@ import {
   InMemoryVfsCrdtSyncServer,
   InMemoryVfsCrdtSyncTransport
 } from './sync-client-harness.js';
+import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
@@ -157,6 +158,45 @@ function buildAclAddSyncItem(params: {
     sourceId: params.opId,
     occurredAt: params.occurredAt
   };
+}
+
+interface ContainerClockCursor {
+  containerId: string;
+  changedAt: string;
+  changeId: string;
+}
+
+function toContainerClockCursorMap(
+  clocks: ContainerClockCursor[]
+): Map<string, { changedAt: string; changeId: string }> {
+  const result = new Map<string, { changedAt: string; changeId: string }>();
+  for (const clock of clocks) {
+    result.set(clock.containerId, {
+      changedAt: clock.changedAt,
+      changeId: clock.changeId
+    });
+  }
+  return result;
+}
+
+function expectContainerClocksMonotonic(
+  before: ContainerClockCursor[],
+  after: ContainerClockCursor[]
+): void {
+  const beforeMap = toContainerClockCursorMap(before);
+  const afterMap = toContainerClockCursorMap(after);
+
+  for (const [containerId, beforeCursor] of beforeMap.entries()) {
+    const afterCursor = afterMap.get(containerId);
+    expect(afterCursor).toBeDefined();
+    if (!afterCursor) {
+      continue;
+    }
+
+    expect(
+      compareVfsSyncCursorOrder(afterCursor, beforeCursor)
+    ).toBeGreaterThanOrEqual(0);
+  }
 }
 
 describe('VfsBackgroundSyncClient', () => {
@@ -1548,6 +1588,7 @@ describe('VfsBackgroundSyncClient', () => {
     });
     await mobile.flush();
     await mobile.sync();
+    const mobileSnapshotBeforeDesktopResume = mobile.snapshot();
 
     const desktopStateBeforeHydrate = desktop.exportState();
     const desktopPersisted = desktop.exportState();
@@ -1585,6 +1626,14 @@ describe('VfsBackgroundSyncClient', () => {
     );
     expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
       serverSnapshot.lastReconciledWriteIds
+    );
+    expectContainerClocksMonotonic(
+      desktopStateBeforeHydrate.containerClocks,
+      desktopSnapshot.containerClocks
+    );
+    expectContainerClocksMonotonic(
+      mobileSnapshotBeforeDesktopResume.containerClocks,
+      mobileSnapshot.containerClocks
     );
   });
 
