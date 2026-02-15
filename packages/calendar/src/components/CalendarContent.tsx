@@ -15,14 +15,15 @@ import {
   CALENDAR_CREATE_SUBMIT_EVENT
 } from '../events';
 import {
-  isSlotInSelection,
   selectionToTimeRange,
   useTimeRangeSelection
 } from '../hooks/useTimeRangeSelection';
 import type { CalendarEventItem } from '../types';
 import { getPositionedEventsForDay } from '../utils/eventPositioning';
-import { DayViewEventBlock } from './DayViewEventBlock';
-import { DayViewHourSlot } from './DayViewHourSlot';
+import { CalendarDayView } from './CalendarDayView';
+import { CalendarMonthView } from './CalendarMonthView';
+import { CalendarWeekView } from './CalendarWeekView';
+import { CalendarYearView } from './CalendarYearView';
 import {
   type CreateCalendarEventInput,
   NewCalendarEventModal
@@ -33,10 +34,6 @@ const defaultCalendars = [defaultCalendarName];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
 type CalendarViewMode = (typeof viewModes)[number];
 const calendarLocale = 'en-US';
-const weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const dayViewHours = Array.from({ length: 24 }, (_, hour) => hour);
-const workHourStart = 9;
-const workHourEnd = 17;
 const yearMonthNames = [
   'January',
   'February',
@@ -442,277 +439,67 @@ export function CalendarContent({
     setCalendarContextMenu(null);
   }, [calendarContextMenu, renameCalendar]);
 
-  const renderDayView = () => {
-    const getQuarterSelections = (
-      hour: number
-    ): [boolean, boolean, boolean, boolean] => [
-      isSlotInSelection({ hour, quarter: 0 }, timeSelection),
-      isSlotInSelection({ hour, quarter: 1 }, timeSelection),
-      isSlotInSelection({ hour, quarter: 2 }, timeSelection),
-      isSlotInSelection({ hour, quarter: 3 }, timeSelection)
-    ];
+  const handleDateSelect = useCallback(
+    (date: Date, viewModeTarget: CalendarViewMode) => {
+      setSelectedDate(date);
+      setViewMode(viewModeTarget);
+    },
+    []
+  );
 
-    return (
-      // biome-ignore lint/a11y/noStaticElementInteractions: container with child interactive elements
-      // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard navigation handled by child hour slots
-      <div
-        className="h-full overflow-auto rounded-xl border bg-card p-4"
-        data-testid="calendar-day-view"
-        onContextMenu={(event) => {
-          if (timeSelection) {
-            handleSelectionContextMenu(event);
-          } else {
-            handleViewContextMenuRequest(event, selectedDate);
-          }
-        }}
-        onClick={(event) => {
-          if (
-            !(event.target as HTMLElement).closest('[data-interactive-slot]')
-          ) {
-            clearTimeSelection();
-          }
-        }}
-      >
-        <p className="font-medium text-sm uppercase tracking-wide">
-          {dayLabel}
-        </p>
-        <div className="relative mt-4">
-          <div>
-            {dayViewHours.map((hour) => {
-              const isWorkHour = hour >= workHourStart && hour < workHourEnd;
-              return (
-                <DayViewHourSlot
-                  key={hour}
-                  hour={hour}
-                  isWorkHour={isWorkHour}
-                  quarterSelections={getQuarterSelections(hour)}
-                  isSelecting={isSelecting}
-                  onMouseDown={handleSlotMouseDown}
-                  onMouseEnter={handleSlotMouseEnter}
-                  onClick={handleSlotClick}
-                />
-              );
-            })}
-          </div>
-          <div className="pointer-events-none absolute inset-0 ml-14">
-            {positionedDayEvents.map((positioned) => (
-              <DayViewEventBlock
-                key={positioned.event.id}
-                event={positioned.event}
-                top={positioned.top}
-                height={positioned.height}
-                left={positioned.left}
-                width={positioned.width}
-              />
-            ))}
-          </div>
-        </div>
-      </div>
-    );
+  const renderActiveView = () => {
+    switch (viewMode) {
+      case 'Day':
+        return (
+          <CalendarDayView
+            dayLabel={dayLabel}
+            selectedDate={selectedDate}
+            positionedDayEvents={positionedDayEvents}
+            timeSelection={timeSelection}
+            isSelecting={isSelecting}
+            onSlotMouseDown={handleSlotMouseDown}
+            onSlotMouseEnter={handleSlotMouseEnter}
+            onSlotClick={handleSlotClick}
+            onSelectionContextMenu={handleSelectionContextMenu}
+            onViewContextMenuRequest={handleViewContextMenuRequest}
+            onClearSelection={clearTimeSelection}
+          />
+        );
+      case 'Week':
+        return (
+          <CalendarWeekView
+            weekDates={weekDates}
+            selectedDate={selectedDate}
+            eventCountByDay={eventCountByDay}
+            getDateKey={getDateKey}
+            isSameDay={isSameDay}
+            onContextMenuRequest={handleViewContextMenuRequest}
+          />
+        );
+      case 'Month':
+        return (
+          <CalendarMonthView
+            monthLabel={monthLabel}
+            monthCells={monthCells}
+            selectedDate={selectedDate}
+            eventCountByDay={eventCountByDay}
+            getDateKey={getDateKey}
+            isSameDay={isSameDay}
+            onDateSelect={handleDateSelect}
+            onContextMenuRequest={handleViewContextMenuRequest}
+          />
+        );
+      case 'Year':
+        return (
+          <CalendarYearView
+            currentYear={currentYear}
+            yearData={yearData}
+            onDateSelect={handleDateSelect}
+            onContextMenuRequest={handleViewContextMenuRequest}
+          />
+        );
+    }
   };
-
-  const renderWeekView = () => (
-    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
-    <div
-      className="h-full overflow-auto rounded-xl border bg-card p-4"
-      data-testid="calendar-week-view"
-      onContextMenu={(event) =>
-        handleViewContextMenuRequest(event, selectedDate)
-      }
-    >
-      <p className="font-medium text-sm uppercase tracking-wide">
-        Week of {weekDates[0]?.toLocaleDateString(calendarLocale)}
-      </p>
-      <div className="mt-4 grid grid-cols-7 gap-2">
-        {weekDates.map((date) => (
-          // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu per day card
-          <div
-            key={date.toISOString()}
-            className={clsx(
-              'rounded-md border p-2 text-center',
-              isSameDay(date, selectedDate) && 'border-primary bg-primary/10'
-            )}
-            onContextMenu={(event) => {
-              event.stopPropagation();
-              handleViewContextMenuRequest(event, date);
-            }}
-          >
-            <p className="text-[11px] text-muted-foreground uppercase">
-              {date.toLocaleDateString(calendarLocale, { weekday: 'short' })}
-            </p>
-            <p className="mt-1 font-medium text-sm">{date.getDate()}</p>
-            <p className="mt-1 text-[10px] text-muted-foreground">
-              {eventCountByDay.get(getDateKey(date)) ?? 0} events
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderMonthView = () => (
-    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
-    <div
-      className="h-full overflow-auto rounded-xl border bg-card p-4"
-      data-testid="calendar-month-view"
-      onContextMenu={(event) =>
-        handleViewContextMenuRequest(event, selectedDate)
-      }
-    >
-      <p className="font-medium text-sm uppercase tracking-wide">
-        {monthLabel}
-      </p>
-      <div className="mt-4 grid grid-cols-7 gap-2">
-        {weekDayHeaders.map((day) => (
-          <p
-            key={day}
-            className="text-center font-medium text-[11px] text-muted-foreground uppercase"
-          >
-            {day}
-          </p>
-        ))}
-        {monthCells.map(({ date, inMonth }) => {
-          const eventCount = eventCountByDay.get(getDateKey(date));
-
-          return (
-            <button
-              type="button"
-              key={date.toISOString()}
-              onDoubleClick={() => {
-                setSelectedDate(date);
-                setViewMode('Day');
-              }}
-              onContextMenu={(event) => {
-                event.stopPropagation();
-                handleViewContextMenuRequest(event, date);
-              }}
-              aria-label={`Open day view for ${date.toLocaleDateString(
-                calendarLocale,
-                {
-                  weekday: 'long',
-                  month: 'long',
-                  day: 'numeric',
-                  year: 'numeric'
-                }
-              )}`}
-              className={clsx(
-                'flex aspect-square items-start justify-end rounded-md border px-1 py-1 text-sm',
-                inMonth
-                  ? 'border-border bg-background'
-                  : 'border-border/60 bg-muted/20 text-muted-foreground',
-                'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-              )}
-            >
-              <span
-                className={clsx(isSameDay(date, selectedDate) && 'font-bold')}
-              >
-                {date.getDate()}
-              </span>
-              {eventCount ? (
-                <span className="ml-1 rounded-full bg-primary/15 px-1.5 py-0.5 text-[10px] text-primary">
-                  {eventCount}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-
-  const renderYearView = () => (
-    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
-    <div
-      className="h-full overflow-auto rounded-xl border bg-card p-4"
-      data-testid="calendar-year-view"
-      onContextMenu={(event) =>
-        handleViewContextMenuRequest(event, selectedDate)
-      }
-    >
-      <p className="font-medium text-sm uppercase tracking-wide">
-        {currentYear}
-      </p>
-      <div className="mt-4 grid grid-cols-1 gap-3 lg:grid-cols-2 xl:grid-cols-3">
-        {yearData.map(({ monthName, cells }, monthIndex) => (
-          <div key={monthName} className="rounded-md border bg-background p-2">
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedDate(new Date(currentYear, monthIndex, 1));
-                setViewMode('Month');
-              }}
-              aria-label={`Open month view for ${monthName} ${currentYear}`}
-              className="mb-1 font-medium text-sm hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              {monthName}
-            </button>
-            <div className="grid grid-cols-7 gap-1">
-              {weekDayHeaders.map((day) => (
-                <span
-                  key={`${monthName}-${day}`}
-                  className="text-center text-[10px] text-muted-foreground"
-                >
-                  {day[0]}
-                </span>
-              ))}
-              {cells.map((cell) => {
-                if (!cell.inMonth || cell.day === 0) {
-                  return (
-                    <span
-                      key={`${monthName}-${cell.key}`}
-                      className="text-center text-[10px] text-muted-foreground"
-                    >
-                      {cell.day || ''}
-                    </span>
-                  );
-                }
-
-                const monthDate = new Date(currentYear, monthIndex, cell.day);
-                return (
-                  <button
-                    type="button"
-                    key={`${monthName}-${cell.key}`}
-                    onClick={() => {
-                      setSelectedDate(monthDate);
-                      setViewMode('Day');
-                    }}
-                    aria-label={`Open day view for ${monthDate.toLocaleDateString(
-                      calendarLocale,
-                      {
-                        weekday: 'long',
-                        month: 'long',
-                        day: 'numeric',
-                        year: 'numeric'
-                      }
-                    )}`}
-                    onContextMenu={(event) => {
-                      event.stopPropagation();
-                      handleViewContextMenuRequest(event, monthDate);
-                    }}
-                    className={clsx(
-                      'rounded text-center text-[10px] text-foreground hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary'
-                    )}
-                  >
-                    {cell.day}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-
-  const renderActiveView = () =>
-    (
-      ({
-        Day: renderDayView,
-        Week: renderWeekView,
-        Month: renderMonthView,
-        Year: renderYearView
-      }) as const
-    )[viewMode]();
 
   const handlePeriodNavigation = useCallback(
     (direction: -1 | 1) => {
