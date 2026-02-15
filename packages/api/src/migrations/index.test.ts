@@ -1494,6 +1494,9 @@ describe('migrations', () => {
         'acl-first-share-read-path-with-transition-parity'
       );
       expect(queries).toContain(
+        'GET /v1/vfs/items/:itemId/shares; loadShareAuthorizationContext; loadOrgShareAuthorizationContext'
+      );
+      expect(queries).toContain(
         'Legacy share-read surfaces must be deactivated and parity-validated before destructive share-table retirement.'
       );
     });
@@ -1569,6 +1572,15 @@ describe('migrations', () => {
       );
       expect(queries).toContain(
         'canonical read contract mismatch before drop authorization guardrails'
+      );
+      expect(queries).toContain(
+        'legacy read-surface inventory mismatch before drop authorization guardrails'
+      );
+      expect(queries).toContain(
+        'latest execution-readiness marker must match canonical read contract before drop authorization guardrails'
+      );
+      expect(queries).toContain(
+        'latest execution-readiness marker must match legacy read-surface inventory before drop authorization guardrails'
       );
       expect(queries).toContain(
         'vfs_shares rows missing canonical active ACL parity'

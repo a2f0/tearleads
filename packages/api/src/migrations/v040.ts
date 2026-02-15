@@ -89,6 +89,44 @@ export const v040: Migration = {
             RAISE EXCEPTION
               'v040 abort: canonical read contract mismatch before drop authorization guardrails';
           END IF;
+
+          IF NOT EXISTS (
+            SELECT 1
+            FROM "vfs_share_retirement_execution_readiness"
+            WHERE "required_marker" = 'legacy_share_read_surfaces_deactivated'
+              AND "legacy_read_surface_inventory" = 'GET /v1/vfs/items/:itemId/shares; loadShareAuthorizationContext; loadOrgShareAuthorizationContext'
+          ) THEN
+            RAISE EXCEPTION
+              'v040 abort: legacy read-surface inventory mismatch before drop authorization guardrails';
+          END IF;
+
+          IF COALESCE(
+            (
+              SELECT "canonical_read_contract"
+              FROM "vfs_share_retirement_execution_readiness"
+              WHERE "required_marker" = 'legacy_share_read_surfaces_deactivated'
+              ORDER BY "captured_at" DESC, "id" DESC
+              LIMIT 1
+            ),
+            ''
+          ) <> 'acl-first-share-read-path-with-transition-parity' THEN
+            RAISE EXCEPTION
+              'v040 abort: latest execution-readiness marker must match canonical read contract before drop authorization guardrails';
+          END IF;
+
+          IF COALESCE(
+            (
+              SELECT "legacy_read_surface_inventory"
+              FROM "vfs_share_retirement_execution_readiness"
+              WHERE "required_marker" = 'legacy_share_read_surfaces_deactivated'
+              ORDER BY "captured_at" DESC, "id" DESC
+              LIMIT 1
+            ),
+            ''
+          ) <> 'GET /v1/vfs/items/:itemId/shares; loadShareAuthorizationContext; loadOrgShareAuthorizationContext' THEN
+            RAISE EXCEPTION
+              'v040 abort: latest execution-readiness marker must match legacy read-surface inventory before drop authorization guardrails';
+          END IF;
         END;
         $$;
       `);
