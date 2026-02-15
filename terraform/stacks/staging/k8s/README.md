@@ -12,10 +12,9 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 
 ## Prerequisites
 
-- Hetzner Cloud API token (`TF_VAR_hcloud_token`)
-- Hetzner DNS API token (`TF_VAR_hdns_token`)
-- SSH key registered in Hetzner (`TF_VAR_ssh_key_name`)
-- Staging domain configured (`TF_VAR_staging_domain`)
+- Hetzner Cloud API token (`TF_VAR_HCLOUD_TOKEN`)
+- SSH key registered in Hetzner (`TF_VAR_SSH_KEY_NAME`)
+- Staging domain configured (`TF_VAR_STAGING_DOMAIN`)
 
 ## Scripts
 
@@ -71,7 +70,7 @@ kubectl apply -f manifests/secrets.yaml
 
 ## Architecture
 
-```
+```text
                     ┌─────────────────────────────────────────┐
                     │         Hetzner Cloud Server            │
                     │                                         │

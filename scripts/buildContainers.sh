@@ -127,9 +127,9 @@ if [[ "$BUILD_CLIENT" == "true" ]]; then
   # Determine API URL based on environment
   if [[ -z "${VITE_API_URL:-}" ]]; then
     if [[ "$ENV" == "staging" ]]; then
-      VITE_API_URL="https://api.${TF_VAR_staging_domain:-tearleads.dev}"
+      VITE_API_URL="https://api.${TF_VAR_STAGING_DOMAIN:-tearleads.dev}"
     else
-      VITE_API_URL="https://api.${TF_VAR_production_domain:-tearleads.com}"
+      VITE_API_URL="https://api.${TF_VAR_PRODUCTION_DOMAIN:-tearleads.com}"
     fi
     echo "Note: VITE_API_URL not set, using default: $VITE_API_URL"
   fi
