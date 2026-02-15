@@ -611,6 +611,24 @@ export class VfsBackgroundSyncClient {
         state.containerClocks
       );
 
+      /**
+       * Guardrail invariant: reconcile cursor cannot trail the replay cursor for
+       * the same persisted snapshot. Allowing this would regress effective pull
+       * boundaries after restart and can replay or skip canonical feed entries.
+       */
+      if (
+        normalizedReplaySnapshot.cursor &&
+        normalizedReconcileState &&
+        compareVfsSyncCursorOrder(
+          normalizedReconcileState.cursor,
+          normalizedReplaySnapshot.cursor
+        ) < 0
+      ) {
+        throw new Error(
+          'persisted reconcile cursor regressed persisted replay cursor'
+        );
+      }
+
       const normalizedPendingOperations: VfsCrdtOperation[] = [];
       const observedPendingOpIds: Set<string> = new Set();
       let maxPendingWriteId = 0;
