@@ -332,6 +332,8 @@ export interface PhotosUIContextValue {
     albumId?: string | null;
     includeDeleted?: boolean;
   }) => Promise<PhotoWithUrl[]>;
+  /** Fetch a single photo by ID */
+  fetchPhotoById: (photoId: string) => Promise<PhotoWithUrl | null>;
   /** Soft delete a photo */
   softDeletePhoto: (photoId: string) => Promise<void>;
   /** Restore a soft-deleted photo */
@@ -441,6 +443,7 @@ export function PhotosUIProvider({
       value.t,
       value.tooltipZIndex,
       value.fetchPhotos,
+      value.fetchPhotoById,
       value.softDeletePhoto,
       value.restorePhoto,
       value.downloadPhotoData,

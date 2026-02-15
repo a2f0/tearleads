@@ -1,0 +1,7 @@
+# Ansible-lint configuration
+# See: https://ansible.readthedocs.io/projects/lint/configuring/
+---
+# Exclude vendored Kubernetes manifests (not Ansible files)
+exclude_paths:
+  - ansible/vendor/
+  - tee/ansible/vendor/
