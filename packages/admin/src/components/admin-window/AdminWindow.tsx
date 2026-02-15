@@ -10,23 +10,30 @@ import { OrganizationsAdmin } from '@admin/pages/admin/OrganizationsAdmin';
 import { PostgresAdmin } from '@admin/pages/admin/PostgresAdmin';
 import { UsersAdmin } from '@admin/pages/admin/UsersAdmin';
 import { UsersAdminDetail } from '@admin/pages/admin/UsersAdminDetail';
+import { getFrameworkLabel } from '@tearleads/compliance';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup,
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { AdminWindowMenuBar } from './AdminWindowMenuBar';
+import { ComplianceDocView } from './ComplianceDocView';
+import { ComplianceIndex } from './ComplianceIndex';
 
 type AdminView =
   | 'index'
   | Exclude<AdminOptionId, 'compliance'>
+  | 'compliance'
   | { type: 'group-detail'; groupId: string }
   | { type: 'organization-detail'; organizationId: string }
   | { type: 'user-detail'; userId: string }
   | { type: 'ai-requests'; userId: string | null; from: 'users' | 'user' }
-  | { type: 'postgres-table'; schema: string; tableName: string };
+  | { type: 'postgres-table'; schema: string; tableName: string }
+  | { type: 'compliance-doc'; frameworkId: string; docPath: string | null };
 
 type AdminWindowInitialView = Exclude<AdminOptionId, 'compliance'>;
 
@@ -49,6 +56,7 @@ function getViewTitle(view: AdminView): string {
   if (view === 'groups') return 'Groups';
   if (view === 'organizations') return 'Organizations';
   if (view === 'users') return 'Users';
+  if (view === 'compliance') return 'Compliance';
   if (typeof view === 'object' && view.type === 'group-detail')
     return 'Group Detail';
   if (typeof view === 'object' && view.type === 'organization-detail')
@@ -58,7 +66,31 @@ function getViewTitle(view: AdminView): string {
     return 'AI Requests';
   if (typeof view === 'object' && view.type === 'postgres-table')
     return `${view.schema}.${view.tableName}`;
+  if (typeof view === 'object' && view.type === 'compliance-doc')
+    return getFrameworkLabel(view.frameworkId);
   return 'Admin';
+}
+
+function getBackTarget(view: AdminView): AdminView | null {
+  if (view === 'index') return null;
+  if (typeof view === 'string') return 'index';
+
+  switch (view.type) {
+    case 'group-detail':
+      return 'groups';
+    case 'organization-detail':
+      return 'organizations';
+    case 'user-detail':
+      return 'users';
+    case 'ai-requests':
+      return view.from === 'user' && view.userId
+        ? { type: 'user-detail', userId: view.userId }
+        : 'users';
+    case 'postgres-table':
+      return 'postgres';
+    case 'compliance-doc':
+      return 'compliance';
+  }
 }
 
 export function AdminWindow({
@@ -72,8 +104,8 @@ export function AdminWindow({
   initialDimensions,
   initialView
 }: AdminWindowProps) {
-  const navigate = useNavigate();
   const [view, setView] = useState<AdminView>(initialView ?? 'index');
+  const backTarget = getBackTarget(view);
 
   const handleGroupSelect = (groupId: string) => {
     setView({ type: 'group-detail', groupId });
@@ -99,17 +131,7 @@ export function AdminWindow({
             <Shield className="h-8 w-8 text-muted-foreground" />
             <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
           </div>
-          <AdminOptionsGrid
-            onSelect={(selectedView) => {
-              if (selectedView === 'compliance') {
-                navigate('/compliance');
-                onClose();
-                return;
-              }
-
-              setView(selectedView);
-            }}
-          />
+          <AdminOptionsGrid onSelect={setView} />
         </div>
       );
     }
@@ -211,6 +233,22 @@ export function AdminWindow({
       );
     }
 
+    if (typeof view === 'object' && view.type === 'compliance-doc') {
+      return (
+        <ComplianceDocView
+          frameworkId={view.frameworkId}
+          docPath={view.docPath}
+          onDocSelect={(docPath) =>
+            setView({
+              type: 'compliance-doc',
+              frameworkId: view.frameworkId,
+              docPath
+            })
+          }
+        />
+      );
+    }
+
     // List views get a back button wrapper
     let content: React.ReactNode;
     if (view === 'redis') {
@@ -240,21 +278,17 @@ export function AdminWindow({
           }
         />
       );
+    } else if (view === 'compliance') {
+      content = (
+        <ComplianceIndex
+          onFrameworkSelect={(frameworkId) =>
+            setView({ type: 'compliance-doc', frameworkId, docPath: null })
+          }
+        />
+      );
     }
 
-    return (
-      <div className="space-y-4">
-        <button
-          type="button"
-          onClick={() => setView('index')}
-          className="inline-flex items-center text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Admin
-        </button>
-        {content}
-      </div>
-    );
+    return content;
   };
 
   return (
@@ -275,6 +309,19 @@ export function AdminWindow({
     >
       <div className="flex h-full flex-col">
         <AdminWindowMenuBar onClose={onClose} />
+        <WindowControlBar>
+          <WindowControlGroup>
+            {backTarget !== null && (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={() => setView(backTarget)}
+                data-testid="admin-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            )}
+          </WindowControlGroup>
+        </WindowControlBar>
         <div className="flex-1 overflow-auto p-3">{renderContent()}</div>
       </div>
     </FloatingWindow>

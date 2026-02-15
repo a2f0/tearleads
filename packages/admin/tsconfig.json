@@ -14,7 +14,9 @@
     "paths": {
       "@/*": ["../client/src/*"],
       "@client/*": ["../client/src/*"],
-      "@admin/*": ["./src/*"]
+      "@admin/*": ["./src/*"],
+      "@tearleads/compliance": ["../compliance/src/index.ts"],
+      "@tearleads/compliance/package.json": ["../compliance/package.json"]
     },
     "tsBuildInfoFile": "./dist/.tsbuildinfo"
   },

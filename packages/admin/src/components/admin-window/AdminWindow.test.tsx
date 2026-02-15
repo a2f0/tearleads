@@ -1,16 +1,7 @@
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { AdminWindow } from './AdminWindow';
-
-const mockNavigate = vi.fn();
-vi.mock('react-router-dom', async () => {
-  const actual = await vi.importActual('react-router-dom');
-  return {
-    ...actual,
-    useNavigate: () => mockNavigate
-  };
-});
 
 vi.mock('@tearleads/window-manager', async (importOriginal) => {
   const actual =
@@ -229,6 +220,40 @@ vi.mock('@admin/pages/admin/UsersAdminDetail', () => ({
   )
 }));
 
+vi.mock('./ComplianceIndex', () => ({
+  ComplianceIndex: ({
+    onFrameworkSelect
+  }: {
+    onFrameworkSelect: (frameworkId: string) => void;
+  }) => (
+    <div data-testid="compliance-index-content">
+      <button type="button" onClick={() => onFrameworkSelect('SOC2')}>
+        Select SOC2
+      </button>
+    </div>
+  )
+}));
+
+vi.mock('./ComplianceDocView', () => ({
+  ComplianceDocView: ({
+    frameworkId,
+    docPath,
+    onDocSelect
+  }: {
+    frameworkId: string;
+    docPath: string | null;
+    onDocSelect: (docPath: string) => void;
+  }) => (
+    <div data-testid="compliance-doc-content">
+      <span data-testid="compliance-framework-id">{frameworkId}</span>
+      <span data-testid="compliance-doc-path">{docPath ?? 'null'}</span>
+      <button type="button" onClick={() => onDocSelect('POLICY_INDEX.md')}>
+        Select Policy Index
+      </button>
+    </div>
+  )
+}));
+
 describe('AdminWindow', () => {
   const defaultProps = {
     id: 'test-window',
@@ -237,10 +262,6 @@ describe('AdminWindow', () => {
     onFocus: vi.fn(),
     zIndex: 100
   };
-
-  beforeEach(() => {
-    mockNavigate.mockClear();
-  });
 
   it('renders in FloatingWindow', () => {
     render(<AdminWindow {...defaultProps} />);
@@ -263,15 +284,42 @@ describe('AdminWindow', () => {
     expect(screen.getByText('Compliance')).toBeInTheDocument();
   });
 
-  it('navigates to /compliance and closes the window when Compliance is clicked', async () => {
+  it('navigates to Compliance view when Compliance is clicked', async () => {
     const user = userEvent.setup();
-    const onClose = vi.fn();
-    render(<AdminWindow {...defaultProps} onClose={onClose} />);
+    render(<AdminWindow {...defaultProps} />);
 
     await user.click(screen.getByText('Compliance'));
 
-    expect(mockNavigate).toHaveBeenCalledWith('/compliance');
-    expect(onClose).toHaveBeenCalled();
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Compliance');
+    expect(screen.getByTestId('compliance-index-content')).toBeInTheDocument();
+  });
+
+  it('navigates to compliance doc view when framework is selected', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Compliance'));
+    await user.click(screen.getByText('Select SOC2'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('SOC 2');
+    expect(screen.getByTestId('compliance-doc-content')).toBeInTheDocument();
+    expect(screen.getByTestId('compliance-framework-id')).toHaveTextContent(
+      'SOC2'
+    );
+  });
+
+  it('returns to compliance index from compliance doc view via control bar', async () => {
+    const user = userEvent.setup();
+    render(<AdminWindow {...defaultProps} />);
+
+    await user.click(screen.getByText('Compliance'));
+    await user.click(screen.getByText('Select SOC2'));
+    expect(screen.getByTestId('compliance-doc-content')).toBeInTheDocument();
+
+    await user.click(screen.getByTestId('admin-window-control-back'));
+
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Compliance');
+    expect(screen.getByTestId('compliance-index-content')).toBeInTheDocument();
   });
 
   it('navigates to Redis view when Redis is clicked', async () => {
@@ -283,7 +331,7 @@ describe('AdminWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Redis');
     expect(screen.getByTestId('admin-redis-content')).toBeInTheDocument();
     expect(screen.getByTestId('admin-backlink')).toHaveTextContent('false');
-    expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-control-back')).toBeInTheDocument();
   });
 
   it('navigates to Postgres view when Postgres is clicked', async () => {
@@ -295,7 +343,7 @@ describe('AdminWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Postgres');
     expect(screen.getByTestId('admin-postgres-content')).toBeInTheDocument();
     expect(screen.getByTestId('postgres-backlink')).toHaveTextContent('false');
-    expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-control-back')).toBeInTheDocument();
   });
 
   it('navigates to Groups view when Groups is clicked', async () => {
@@ -307,7 +355,7 @@ describe('AdminWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Groups');
     expect(screen.getByTestId('admin-groups-content')).toBeInTheDocument();
     expect(screen.getByTestId('groups-backlink')).toHaveTextContent('false');
-    expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-control-back')).toBeInTheDocument();
   });
 
   it('navigates to Users view when Users is clicked', async () => {
@@ -319,7 +367,7 @@ describe('AdminWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('Users');
     expect(screen.getByTestId('admin-users-content')).toBeInTheDocument();
     expect(screen.getByTestId('users-backlink')).toHaveTextContent('false');
-    expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-control-back')).toBeInTheDocument();
   });
 
   it('navigates to Organizations view when Organizations is clicked', async () => {
@@ -337,7 +385,7 @@ describe('AdminWindow', () => {
     expect(screen.getByTestId('organizations-backlink')).toHaveTextContent(
       'false'
     );
-    expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+    expect(screen.getByTestId('admin-window-control-back')).toBeInTheDocument();
   });
 
   it('navigates to Organization Detail view when an organization is selected', async () => {
@@ -509,14 +557,14 @@ describe('AdminWindow', () => {
     expect(screen.getByTestId('admin-groups-content')).toBeInTheDocument();
   });
 
-  it('returns to index view when Back to Admin is clicked', async () => {
+  it('returns to index view when control bar back is clicked', async () => {
     const user = userEvent.setup();
     render(<AdminWindow {...defaultProps} />);
 
     await user.click(screen.getByText('Redis'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('Redis');
 
-    await user.click(screen.getByText('Back to Admin'));
+    await user.click(screen.getByTestId('admin-window-control-back'));
     expect(screen.getByTestId('window-title')).toHaveTextContent('Admin');
     expect(screen.getByText('Redis')).toBeInTheDocument();
     expect(screen.getByText('Postgres')).toBeInTheDocument();
@@ -572,7 +620,9 @@ describe('AdminWindow', () => {
 
       expect(screen.getByTestId('window-title')).toHaveTextContent('Redis');
       expect(screen.getByTestId('admin-redis-content')).toBeInTheDocument();
-      expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('admin-window-control-back')
+      ).toBeInTheDocument();
     });
 
     it('starts at Postgres view when initialView is postgres', () => {
@@ -580,7 +630,9 @@ describe('AdminWindow', () => {
 
       expect(screen.getByTestId('window-title')).toHaveTextContent('Postgres');
       expect(screen.getByTestId('admin-postgres-content')).toBeInTheDocument();
-      expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('admin-window-control-back')
+      ).toBeInTheDocument();
     });
 
     it('starts at Groups view when initialView is groups', () => {
@@ -588,7 +640,9 @@ describe('AdminWindow', () => {
 
       expect(screen.getByTestId('window-title')).toHaveTextContent('Groups');
       expect(screen.getByTestId('admin-groups-content')).toBeInTheDocument();
-      expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('admin-window-control-back')
+      ).toBeInTheDocument();
     });
 
     it('starts at Users view when initialView is users', () => {
@@ -596,7 +650,9 @@ describe('AdminWindow', () => {
 
       expect(screen.getByTestId('window-title')).toHaveTextContent('Users');
       expect(screen.getByTestId('admin-users-content')).toBeInTheDocument();
-      expect(screen.getByText('Back to Admin')).toBeInTheDocument();
+      expect(
+        screen.getByTestId('admin-window-control-back')
+      ).toBeInTheDocument();
     });
   });
 
