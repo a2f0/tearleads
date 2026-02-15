@@ -67,6 +67,36 @@ Flag:
 - Missing error case coverage
 - Decreased coverage thresholds
 
+## Security and Compliance
+
+### Security Checks
+
+Flag these security issues:
+
+- Missing auth checks on routes (`getAuthClaims()`)
+- Missing ownership verification for resource access
+- String interpolation in SQL queries (SQL injection risk)
+- Unvalidated request bodies
+- Exposed sensitive data in responses (passwords, keys)
+- IDOR vulnerabilities (accessing other users' data)
+
+### Compliance Documentation
+
+Security controls are documented in `compliance/` with sentinels like `TL-INFRA-001`.
+
+Flag if PRs adding security controls don't update:
+
+- `compliance/infrastructure-controls.md` (new sentinels)
+- Framework triads (HIPAA, NIST, SOC2 policies/procedures/control-maps)
+
+### Quick Security Checklist
+
+- [ ] Auth check present on new routes
+- [ ] Ownership verification for resource access
+- [ ] Parameterized queries (no string interpolation)
+- [ ] Input validation before database operations
+- [ ] Compliance docs updated for new security controls
+
 ## Commit Standards
 
 - Conventional commits: `type(scope): description`
