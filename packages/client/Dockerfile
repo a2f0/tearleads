@@ -10,6 +10,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 
 # Copy all workspace package.json files that client depends on
+COPY packages/api/package.json packages/api/
 COPY packages/admin/package.json packages/admin/
 COPY packages/audio/package.json packages/audio/
 COPY packages/businesses/package.json packages/businesses/
@@ -45,6 +46,7 @@ COPY packages/window-manager/package.json packages/window-manager/
 RUN pnpm install --frozen-lockfile --ignore-scripts
 
 # Copy source code for all workspace packages
+COPY packages/api packages/api
 COPY packages/admin packages/admin
 COPY packages/audio packages/audio
 COPY packages/businesses packages/businesses
@@ -84,7 +86,8 @@ RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/db build && \
     pnpm --filter @tearleads/ui build && \
     pnpm --filter @tearleads/notifications build && \
-    pnpm --filter @tearleads/search build
+    pnpm --filter @tearleads/search build && \
+    pnpm --filter @tearleads/api build
 
 # Build client (VITE_API_URL must be set at build time)
 # Use tsconfig.docker.json to exclude test files from type checking
