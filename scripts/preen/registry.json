@@ -139,6 +139,18 @@
       ]
     },
     {
+      "id": "preen-package-docs",
+      "purpose": "Audit and generate missing package README.md files",
+      "checklistLabel": "Package documentation (README.md files)",
+      "qualityMetric": "Packages missing README.md",
+      "security": false,
+      "discoveryCommands": [
+        "echo '=== Packages missing README ==='; for pkg in packages/*/; do [ ! -f \"${pkg}README.md\" ] && basename \"$pkg\"; done",
+        "echo '=== Summary ==='; total=$(ls -d packages/*/ | wc -l | tr -d ' '); with_readme=$(ls packages/*/README.md 2>/dev/null | wc -l | tr -d ' '); echo \"$with_readme/$total packages have READMEs\""
+      ],
+      "metricCountCommand": "count=0; for pkg in packages/*/; do [ ! -f \"${pkg}README.md\" ] && count=$((count + 1)); done; echo $count"
+    },
+    {
       "id": "preen-review-instructions",
       "purpose": "Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md)",
       "checklistLabel": "Review instruction completeness and sync",
