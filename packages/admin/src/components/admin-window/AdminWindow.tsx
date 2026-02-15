@@ -105,11 +105,7 @@ export function AdminWindow({
   initialDimensions,
   initialView
 }: AdminWindowProps) {
-<<<<<<< HEAD
-=======
   const { t } = useTypedTranslation('admin');
-  const navigate = useNavigate();
->>>>>>> 3e7e6ace5 (feat(i18n): add i18n translations to admin, audio, contacts, sync packages)
   const [view, setView] = useState<AdminView>(initialView ?? 'index');
   const backTarget = getBackTarget(view);
 

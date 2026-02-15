@@ -234,9 +234,9 @@ describe('AudioWindowList', () => {
     }
 
     await waitFor(() => {
-      expect(screen.getByText('play')).toBeInTheDocument();
-      expect(screen.getByText('getInfo')).toBeInTheDocument();
-      expect(screen.getByText('delete')).toBeInTheDocument();
+      expect(screen.getByText('Play')).toBeInTheDocument();
+      expect(screen.getByText('Get info')).toBeInTheDocument();
+      expect(screen.getByText('Delete')).toBeInTheDocument();
     });
   });
 
@@ -318,10 +318,10 @@ describe('AudioWindowList', () => {
     }
 
     await waitFor(() => {
-      expect(screen.getByText('delete')).toBeInTheDocument();
+      expect(screen.getByText('Delete')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText('delete'));
+    await user.click(screen.getByText('Delete'));
 
     await waitFor(() => {
       expect(softDeleteAudio).toHaveBeenCalledWith('track-1');
@@ -362,10 +362,10 @@ describe('AudioWindowList', () => {
     }
 
     await waitFor(() => {
-      expect(screen.getByText('restore')).toBeInTheDocument();
+      expect(screen.getByText('Restore')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText('restore'));
+    await user.click(screen.getByText('Restore'));
 
     await waitFor(() => {
       expect(restoreAudio).toHaveBeenCalledWith('track-1');
@@ -404,10 +404,10 @@ describe('AudioWindowList', () => {
     }
 
     await waitFor(() => {
-      expect(screen.getByText('getInfo')).toBeInTheDocument();
+      expect(screen.getByText('Get info')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByText('getInfo'));
+    await user.click(screen.getByText('Get info'));
 
     expect(onSelectTrack).toHaveBeenCalledWith('track-1');
   });
