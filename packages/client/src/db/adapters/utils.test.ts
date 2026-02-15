@@ -72,13 +72,13 @@ describe('extractSelectColumns', () => {
   describe('complex expressions with aliases', () => {
     it('extracts alias from COALESCE with AS alias', () => {
       const sql =
-        'select "vfs_registry"."id", COALESCE(NULLIF("vfs_folders"."encrypted_name", \'\'), \'Unknown\') as "name", "vfs_registry"."created_at" from "vfs_registry"';
+        'select "vfs_registry"."id", COALESCE(NULLIF("vfs_registry"."encrypted_name", \'\'), \'Unknown\') as "name", "vfs_registry"."created_at" from "vfs_registry"';
       expect(extractSelectColumns(sql)).toEqual(['id', 'name', 'created_at']);
     });
 
     it('extracts alias from multiline COALESCE with AS alias', () => {
       const sql = `select "vfs_registry"."id", COALESCE(
-    NULLIF("vfs_folders"."encrypted_name", ''),
+    NULLIF("vfs_registry"."encrypted_name", ''),
     CASE WHEN "vfs_registry"."object_type" = 'folder' THEN 'Unnamed Folder' END,
     NULLIF("files"."name", ''),
     'Unknown'
