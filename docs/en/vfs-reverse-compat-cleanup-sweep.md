@@ -65,6 +65,9 @@ compatibility branches that are no longer needed before production.
 - [x] Remove non-migration client runtime/test references to `vfsFolders`
       (`packages/client/src/db/schema/index.ts`,
       `packages/client/src/db/adapters/utils.test.ts`).
+- [x] Remove legacy share-table schema exports from client runtime DB surface
+      (`packages/client/src/db/schema/index.ts` no longer re-exports
+      `vfsShares`/`orgShares`).
 - [x] Collapse migration notes/guardrail wording that only existed to support
       fallback read-path framing.
 
@@ -79,6 +82,9 @@ compatibility branches that are no longer needed before production.
       `vfs_folders` rows purely for fallback behavior checks.
 - [x] Add explicit client runtime source guardrail test to block reintroduction
       of `vfs_folders`/`vfsFolders` outside migration paths.
+- [x] Extend client runtime guardrail to also block retired share/access table
+      references (`vfs_shares`, `org_shares`, `vfs_access`) and schema symbols
+      (`vfsShares`, `orgShares`, `vfsAccess`) outside migration paths.
 
 ### Slice E: Explorer Share Query Canonicalization
 

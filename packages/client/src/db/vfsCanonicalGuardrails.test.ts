@@ -38,7 +38,7 @@ function collectRuntimeSourceFiles(dir: string): string[] {
 }
 
 describe('client VFS canonical guardrails', () => {
-  it('runtime source excludes legacy vfs_folders references', () => {
+  it('runtime source excludes legacy VFS table references', () => {
     const runtimeSourceFiles = collectRuntimeSourceFiles(CLIENT_SRC_ROOT);
 
     expect(runtimeSourceFiles.length).toBeGreaterThan(0);
@@ -46,7 +46,13 @@ describe('client VFS canonical guardrails', () => {
     for (const sourceFile of runtimeSourceFiles) {
       const source = readFileSync(sourceFile, 'utf8');
       expect(source).not.toMatch(/\bvfsFolders\b/u);
+      expect(source).not.toMatch(/\bvfsShares\b/u);
+      expect(source).not.toMatch(/\borgShares\b/u);
+      expect(source).not.toMatch(/\bvfsAccess\b/u);
       expect(source).not.toContain('vfs_folders');
+      expect(source).not.toMatch(/\bvfs_shares\b/u);
+      expect(source).not.toMatch(/\borg_shares\b/u);
+      expect(source).not.toMatch(/\bvfs_access\b/u);
     }
   });
 });
