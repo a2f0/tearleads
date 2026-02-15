@@ -1,0 +1,259 @@
+name: Deploy Android Apps to Play Store (Matrix)
+
+on:
+  workflow_call:
+    inputs:
+      apps:
+        description: 'JSON array of app IDs to build (e.g., ["tearleads"])'
+        required: false
+        default: '["tearleads"]'
+        type: string
+  workflow_dispatch:
+    inputs:
+      apps:
+        description: 'Comma-separated app IDs (leave empty for default: tearleads)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  determine-apps:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+
+      - name: Determine apps to build
+        id: set-matrix
+        run: |
+          if [ -n "${{ inputs.apps }}" ]; then
+            # Check if input is already JSON array (from workflow_call)
+            if echo "${{ inputs.apps }}" | jq -e 'type == "array"' > /dev/null 2>&1; then
+              APPS='${{ inputs.apps }}'
+            else
+              # Convert comma-separated to JSON array (from workflow_dispatch)
+              APPS=$(echo "${{ inputs.apps }}" | jq -R 'split(",") | map(gsub("\\s+"; "")) | map(select(. != ""))')
+            fi
+          else
+            # Default to tearleads
+            APPS='["tearleads"]'
+          fi
+          echo "Building apps: $APPS"
+          echo "matrix={\"app\":$APPS}" >> $GITHUB_OUTPUT
+
+  deploy:
+    name: Deploy ${{ matrix.app }} to Play Store
+    needs: determine-apps
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      matrix: ${{ fromJson(needs.determine-apps.outputs.matrix) }}
+      fail-fast: false
+
+    env:
+      APP_ID: ${{ matrix.app }}
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - name: Load app config
+        id: config
+        run: |
+          npm install -g tsx
+          cd packages/app-builder
+          CONFIG=$(tsx src/cli.ts dump --app $APP_ID --format json)
+          echo "bundle_id=$(echo $CONFIG | jq -r '.bundleIds.android')" >> $GITHUB_OUTPUT
+          echo "display_name=$(echo $CONFIG | jq -r '.displayName')" >> $GITHUB_OUTPUT
+          echo "App: $(echo $CONFIG | jq -r '.displayName') ($APP_ID)"
+          echo "Bundle ID: $(echo $CONFIG | jq -r '.bundleIds.android')"
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: '.nvmrc'
+          cache: 'pnpm'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version-file: '.java-version'
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3.0'
+          bundler-cache: true
+          working-directory: packages/client
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Generate app configs
+        run: |
+          cd packages/app-builder
+          tsx src/cli.ts generate --app $APP_ID
+          echo "Generated config files for $APP_ID"
+
+      - name: Download SQLite WASM
+        run: ./scripts/downloadSqliteWasm.sh
+
+      - name: Install ImageMagick
+        run: |
+          sudo sed -i 's|http://azure.archive.ubuntu.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+          sudo apt-get install -y --no-install-recommends imagemagick librsvg2-bin
+
+      - name: Build API (for OpenAPI spec)
+        run: pnpm --filter @tearleads/api build
+
+      - name: Build window-manager
+        run: pnpm --filter @tearleads/window-manager build
+
+      - name: Build UI
+        run: pnpm --filter @tearleads/ui build
+
+      - name: Build notes
+        run: pnpm --filter @tearleads/notes build
+
+      - name: Build email
+        run: pnpm --filter @tearleads/email build
+
+      - name: Build vfs-explorer
+        run: pnpm --filter @tearleads/vfs-explorer build
+
+      - name: Build audio
+        run: pnpm --filter @tearleads/audio build
+
+      - name: Build contacts
+        run: pnpm --filter @tearleads/contacts build
+
+      - name: Build db-test-utils
+        run: pnpm --filter @tearleads/db-test-utils build
+
+      - name: Build web assets
+        run: pnpm --filter @tearleads/client build
+        env:
+          VITE_API_URL: ${{ secrets.VITE_API_URL }}
+
+      - name: Generate Android images
+        run: ./packages/client/scripts/buildAndroidImageAssets.sh
+
+      - name: Sync Capacitor
+        run: pnpm --filter @tearleads/client run cap:sync
+
+      - name: Download Gradle wrapper
+        run: ./packages/client/scripts/downloadGradleWrapper.sh
+
+      - name: Apply CI version from source commit
+        id: ci_version
+        run: |
+          ./scripts/applyCiVersionFromSha.sh \
+            --source-sha "${{ github.sha }}" \
+            --apply \
+            --github-output "$GITHUB_OUTPUT"
+
+      # Use per-app secrets with fallback to default secrets
+      # Secret naming: {APP_ID_UPPER}_SECRET_NAME or SECRET_NAME
+      - name: Setup Android keystore
+        run: |
+          mkdir -p .secrets
+          echo "${{ secrets[format('{0}_ANDROID_KEYSTORE_BASE64', env.APP_ID)] || secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > .secrets/release.keystore
+
+      - name: Create keystore.properties
+        run: |
+          KEY_ALIAS="${{ secrets[format('{0}_ANDROID_KEY_ALIAS', env.APP_ID)] || env.APP_ID }}"
+          cat > packages/client/android/keystore.properties << EOF
+          storeFile=${{ github.workspace }}/.secrets/release.keystore
+          storePassword=${{ secrets[format('{0}_ANDROID_KEYSTORE_STORE_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_STORE_PASS }}
+          keyAlias=${KEY_ALIAS}
+          keyPassword=${{ secrets[format('{0}_ANDROID_KEYSTORE_KEY_PASS', env.APP_ID)] || secrets.ANDROID_KEYSTORE_KEY_PASS }}
+          EOF
+
+      - name: Setup Google Play credentials
+        run: |
+          echo "${{ secrets[format('{0}_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON', env.APP_ID)] || secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}" | base64 -d > .secrets/google-play-service-account.json
+
+      - name: Get local and Play Store version codes
+        id: version_check
+        run: |
+          # Get local versionCode from build.gradle
+          LOCAL_VERSION=$(grep -E 'versionCode [0-9]+' android/app/build.gradle | head -1 | sed 's/.*versionCode \([0-9]*\).*/\1/')
+          echo "local_version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
+          echo "Local versionCode: $LOCAL_VERSION"
+
+          # Get latest Play Store versionCode via fastlane
+          PLAY_STORE_VERSION=$(bundle exec fastlane android get_play_store_version_code 2>&1 | grep -oE 'Latest Play Store versionCode: [0-9]+' | grep -oE '[0-9]+' || echo "0")
+          echo "play_store_version=$PLAY_STORE_VERSION" >> $GITHUB_OUTPUT
+          echo "Play Store versionCode: $PLAY_STORE_VERSION"
+        working-directory: packages/client
+        env:
+          CI: true
+          GOOGLE_PLAY_JSON_KEY_FILE: ${{ github.workspace }}/.secrets/google-play-service-account.json
+
+      - name: Validate version is newer than Play Store
+        id: check_build
+        run: |
+          LOCAL=${{ steps.version_check.outputs.local_version }}
+          PLAY_STORE=${{ steps.version_check.outputs.play_store_version }}
+
+          echo "Comparing: local=$LOCAL vs Play Store=$PLAY_STORE"
+
+          if [ "$LOCAL" -lt "$PLAY_STORE" ]; then
+            echo "ERROR: Local version ($LOCAL) is OLDER than Play Store ($PLAY_STORE)."
+            exit 1
+          elif [ "$LOCAL" -eq "$PLAY_STORE" ]; then
+            echo "Local version ($LOCAL) already exists in Play Store. Skipping."
+            echo "skip=true" >> $GITHUB_OUTPUT
+          else
+            echo "Local version ($LOCAL) is newer than Play Store ($PLAY_STORE). Proceeding."
+            echo "skip=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Build release AAB
+        if: steps.check_build.outputs.skip != 'true'
+        run: bundle exec fastlane android build_aab
+        working-directory: packages/client
+        env:
+          CI: true
+
+      - name: Upload to Play Store (internal track)
+        if: steps.check_build.outputs.skip != 'true'
+        run: bundle exec fastlane android upload_internal
+        working-directory: packages/client
+        env:
+          CI: true
+          GOOGLE_PLAY_JSON_KEY_FILE: ${{ github.workspace }}/.secrets/google-play-service-account.json
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### Android Deploy Summary: ${{ steps.config.outputs.display_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- App ID: $APP_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- Bundle ID: ${{ steps.config.outputs.bundle_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ steps.version_check.outputs.local_version }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_build.outputs.skip }}" = "true" ]; then
+            echo "- Status: Skipped (already in Play Store)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Status: Deployed" >> $GITHUB_STEP_SUMMARY
+          fi
