@@ -134,4 +134,76 @@ describe('RuntimeLanguagePicker', () => {
     expect(trigger).toHaveTextContent('🇺🇸');
     expect(localStorage.getItem(DISPLAY_MODE_KEY)).toBe('flag');
   });
+
+  it('closes menu when Escape is pressed', async () => {
+    const user = userEvent.setup();
+    renderRuntimeLanguagePicker();
+
+    await user.click(screen.getByTestId('runtime-language-picker-trigger'));
+    expect(
+      screen.getByTestId('runtime-language-picker-menu')
+    ).toBeInTheDocument();
+
+    await user.keyboard('{Escape}');
+    expect(
+      screen.queryByTestId('runtime-language-picker-menu')
+    ).not.toBeInTheDocument();
+  });
+
+  it('keeps menu open when language loading fails', async () => {
+    const user = userEvent.setup();
+    vi.spyOn(i18nModule, 'loadLanguage').mockRejectedValue(
+      new Error('Load failed')
+    );
+
+    renderRuntimeLanguagePicker();
+
+    await user.click(screen.getByTestId('runtime-language-picker-trigger'));
+    await user.click(screen.getByTestId('runtime-language-option-es'));
+
+    expect(
+      screen.getByTestId('runtime-language-picker-menu')
+    ).toBeInTheDocument();
+  });
+
+  it('defaults to flag when localStorage has invalid value', () => {
+    localStorage.setItem(DISPLAY_MODE_KEY, 'invalid-value');
+    renderRuntimeLanguagePicker();
+
+    const trigger = screen.getByTestId('runtime-language-picker-trigger');
+    expect(trigger).toHaveTextContent('🇺🇸');
+  });
+
+  it('handles localStorage errors gracefully on read', () => {
+    const getItemSpy = vi
+      .spyOn(Storage.prototype, 'getItem')
+      .mockImplementation(() => {
+        throw new Error('localStorage error');
+      });
+
+    renderRuntimeLanguagePicker();
+
+    const trigger = screen.getByTestId('runtime-language-picker-trigger');
+    expect(trigger).toHaveTextContent('🇺🇸');
+
+    getItemSpy.mockRestore();
+  });
+
+  it('handles localStorage errors gracefully on write', async () => {
+    const setItemSpy = vi
+      .spyOn(Storage.prototype, 'setItem')
+      .mockImplementation(() => {
+        throw new Error('localStorage error');
+      });
+    const user = userEvent.setup();
+    renderRuntimeLanguagePicker();
+
+    const trigger = screen.getByTestId('runtime-language-picker-trigger');
+    await user.pointer({ keys: '[MouseRight]', target: trigger });
+    await user.click(screen.getByTestId('toggle-display-mode'));
+
+    expect(trigger).toHaveTextContent('EN');
+
+    setItemSpy.mockRestore();
+  });
 });
