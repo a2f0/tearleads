@@ -223,14 +223,14 @@ jobs:
       - name: Install Playwright for mermaid rendering
         run: pnpm --filter @tearleads/website exec playwright install chromium
 
-      - name: Type check
-        run: pnpm exec tsc -b
-
       - name: Generate app configs
         run: |
           npm install -g tsx
           cd packages/app-builder
           tsx src/cli.ts generate --app tearleads
+
+      - name: Type check
+        run: pnpm exec tsc -b
 
       - name: Build
         run: pnpm build
