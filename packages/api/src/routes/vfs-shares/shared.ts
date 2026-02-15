@@ -108,21 +108,25 @@ function parseOrgShareAclId(aclId: string): {
     throw new Error('Unsupported ACL id in org-share authorization context');
   }
 
-  const parts = suffix.split(':');
-  if (parts.length === 1) {
+  const [firstPart, secondPart, ...remainingParts] = suffix.split(':');
+  if (!firstPart) {
+    throw new Error('Unsupported ACL id in org-share authorization context');
+  }
+
+  if (secondPart === undefined) {
     return {
-      shareId: requireAclIdPart(parts[0], 'org-share id'),
+      shareId: requireAclIdPart(firstPart, 'org-share id'),
       sourceOrgId: null
     };
   }
 
-  if (parts.length !== 2) {
+  if (remainingParts.length > 0) {
     throw new Error('Unsupported ACL id in org-share authorization context');
   }
 
   return {
-    sourceOrgId: requireAclIdPart(parts[0], 'org-share source org id'),
-    shareId: requireAclIdPart(parts[1], 'org-share id')
+    sourceOrgId: requireAclIdPart(firstPart, 'org-share source org id'),
+    shareId: requireAclIdPart(secondPart, 'org-share id')
   };
 }
 
