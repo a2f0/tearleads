@@ -28,7 +28,7 @@ COPY packages/ui packages/ui
 COPY docs docs
 
 # Install Playwright browsers for Mermaid rendering
-RUN npx playwright install chromium --with-deps
+RUN npm install -g playwright && playwright install chromium --with-deps
 
 # Build dependencies and generate OpenAPI spec for /docs page
 RUN pnpm --filter @tearleads/shared build && \
