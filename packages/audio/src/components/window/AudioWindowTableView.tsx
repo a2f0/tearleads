@@ -30,6 +30,10 @@ interface AudioWindowTableViewProps {
   onSelectTrack?: (trackId: string) => void;
   refreshToken?: number;
   selectedPlaylistId?: string | null;
+  /** Currently selected album ID for filtering */
+  selectedAlbumId?: string | null;
+  /** Callback when album selection changes */
+  onAlbumSelect?: (albumId: string | null) => void;
   showDeleted?: boolean;
 }
 
@@ -94,8 +98,13 @@ export function AudioWindowTableView({
   onSelectTrack,
   refreshToken = 0,
   selectedPlaylistId,
+  selectedAlbumId: _selectedAlbumId,
+  onAlbumSelect: _onAlbumSelect,
   showDeleted = false
 }: AudioWindowTableViewProps) {
+  // TODO: Album filtering requires extracting metadata from track binary data.
+  // For now, selectedAlbumId is accepted but filtering is not implemented.
+  // See issue #1800 for implementation notes.
   const {
     databaseState,
     ui,

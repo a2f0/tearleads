@@ -114,6 +114,8 @@ export interface AudioTranslations {
   audioTracks: string;
   audioFiles: string;
   playlistName: string;
+  unknownAlbum: string;
+  clearAlbumFilter: string;
   uploadProgress: string;
   uploading: string;
   // Detail view labels
