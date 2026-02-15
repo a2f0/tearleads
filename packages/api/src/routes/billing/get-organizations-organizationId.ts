@@ -5,6 +5,8 @@ import type {
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 
+// COMPLIANCE_SENTINEL: TL-PAY-005 | control=billing-data-authorization
+
 type MembershipRow = {
   organization_id: string;
 };

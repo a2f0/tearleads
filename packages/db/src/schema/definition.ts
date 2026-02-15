@@ -261,6 +261,8 @@ export const userOrganizationsTable: TableDefinition = {
  * Organization billing accounts for RevenueCat integration.
  * Stores one billing account record per organization.
  */
+// COMPLIANCE_SENTINEL: TL-PAY-005 | control=billing-data-authorization
+// COMPLIANCE_SENTINEL: TL-PAY-006 | control=entitlement-state-integrity
 export const organizationBillingAccountsTable: TableDefinition = {
   name: 'organization_billing_accounts',
   propertyName: 'organizationBillingAccounts',
@@ -347,6 +349,8 @@ export const organizationBillingAccountsTable: TableDefinition = {
  * RevenueCat webhook event archive and processing state.
  * Supports idempotent processing by unique event ID.
  */
+// COMPLIANCE_SENTINEL: TL-PAY-003 | control=idempotent-event-processing
+// COMPLIANCE_SENTINEL: TL-PAY-004 | control=billing-event-audit-trail
 export const revenuecatWebhookEventsTable: TableDefinition = {
   name: 'revenuecat_webhook_events',
   propertyName: 'revenuecatWebhookEvents',

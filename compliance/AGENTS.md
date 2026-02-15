@@ -109,6 +109,7 @@ resource "hcloud_server" "main" {
 - `TL-INFRA-XXX` - Infrastructure hardening controls
 - `TL-CRYPTO-XXX` - Cryptographic controls
 - `TL-NET-XXX` - Network security controls
+- `TL-PAY-XXX` - Payment infrastructure controls (RevenueCat)
 
 ## Required Wiring Steps
 
