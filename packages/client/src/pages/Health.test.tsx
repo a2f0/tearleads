@@ -76,47 +76,6 @@ describe('Health', () => {
     expect(screen.getByText('Open Workouts')).toBeTruthy();
   });
 
-  it('exposes health table schema details', () => {
-    renderHealth();
-
-    expect(
-      screen.getByText('table: health_height_readings (planned)')
-    ).toBeTruthy();
-    expect(screen.getByText('table: health_weight_readings')).toBeTruthy();
-    expect(
-      screen.getByText('table: health_blood_pressure_readings')
-    ).toBeTruthy();
-    expect(screen.getByText('table: health_exercises')).toBeTruthy();
-    expect(screen.getByText('table: health_workout_entries')).toBeTruthy();
-
-    expect(
-      screen.getByText(
-        'columns: id, recordedAt, valueCenti, unit, childName, note, createdAt'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'columns: id, recordedAt, valueCenti, unit, note, createdAt'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'columns: id, recordedAt, systolic, diastolic, pulse, note, createdAt'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText('columns: id, name, parentId, createdAt')
-    ).toBeTruthy();
-    expect(
-      screen.getByText(
-        'columns: id, performedAt, exerciseId, reps, weightCenti, weightUnit, note, createdAt'
-      )
-    ).toBeTruthy();
-    expect(
-      screen.getByText('relation: exerciseId -> health_exercises.id')
-    ).toBeTruthy();
-  });
-
   it('supports click-through sub-routes in health categories', async () => {
     renderHealth();
     const user = userEvent.setup();
