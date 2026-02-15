@@ -373,6 +373,31 @@ describe('InMemoryVfsCrdtStateStore', () => {
       lastReconciledWriteIds: {}
     });
   });
+
+  it('rejects link operations whose childId does not match itemId', () => {
+    const store = new InMemoryVfsCrdtStateStore();
+
+    const result = store.apply({
+      opId: 'link-child-mismatch-1',
+      opType: 'link_add',
+      itemId: 'item-1',
+      replicaId: 'desktop',
+      writeId: 1,
+      occurredAt: '2026-02-14T03:00:01.000Z',
+      parentId: 'folder-root',
+      childId: 'item-2'
+    });
+
+    expect(result).toEqual({
+      opId: 'link-child-mismatch-1',
+      status: 'invalidOp'
+    });
+    expect(store.snapshot()).toEqual({
+      acl: [],
+      links: [],
+      lastReconciledWriteIds: {}
+    });
+  });
 });
 
 describe('canonical CRDT ordering guardrails', () => {
@@ -494,6 +519,25 @@ describe('canonical CRDT ordering guardrails', () => {
         occurredAt: '2026-02-14T02:00:01.000Z',
         parentId: 'item-a',
         childId: 'item-a'
+      }
+    ];
+
+    expect(() => assertCanonicalVfsCrdtOperationOrder(operations)).toThrowError(
+      /is invalid/
+    );
+  });
+
+  it('throws when canonical feed contains childId/itemId mismatch link operations', () => {
+    const operations: VfsCrdtOperation[] = [
+      {
+        opId: 'op-child-mismatch',
+        opType: 'link_add',
+        itemId: 'item-a',
+        replicaId: 'desktop',
+        writeId: 1,
+        occurredAt: '2026-02-14T02:00:02.000Z',
+        parentId: 'folder-root',
+        childId: 'item-b'
       }
     ];
 
