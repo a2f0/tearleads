@@ -384,13 +384,37 @@ metric_count() {
       ./scripts/checkPreenEcosystem.sh --count-issues
       ;;
     preen-compliance-docs)
-      gaps=0; for fw in HIPAA NIST.SP.800-53 SOC2; do for policy in $(ls compliance/$fw/policies/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/-policy\.md//'); do [ ! -f "compliance/$fw/procedures/${policy}-procedure.md" ] && gaps=$((gaps + 1)); [ ! -f "compliance/$fw/technical-controls/${policy}-control-map.md" ] && gaps=$((gaps + 1)); done; done; unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l); echo $((gaps + unnumbered))
+      gaps=0
+      for fw in HIPAA NIST.SP.800-53 SOC2; do
+        for policy in $(ls compliance/$fw/policies/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/-policy\.md//'); do
+          [ ! -f "compliance/$fw/procedures/${policy}-procedure.md" ] && gaps=$((gaps + 1))
+          [ ! -f "compliance/$fw/technical-controls/${policy}-control-map.md" ] && gaps=$((gaps + 1))
+        done
+      done
+      unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l)
+      echo $((gaps + unnumbered))
       ;;
     preen-review-instructions)
-      GAPS=0; [ -z "$(rg 'TypeScript Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'API Security' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'React Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'Database Performance' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); [ -z "$(rg 'Testing Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1)); REVIEW_SECTIONS=$(rg '^## ' REVIEW.md 2>/dev/null | wc -l | tr -d ' '); GEMINI_SECTIONS=$(rg '^## ' .gemini/INSTRUCTIONS.md 2>/dev/null | wc -l | tr -d ' '); [ "$GEMINI_SECTIONS" -lt $((REVIEW_SECTIONS / 2)) ] && GAPS=$((GAPS + 1)); echo $GAPS
+      GAPS=0
+      [ -z "$(rg 'TypeScript Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
+      [ -z "$(rg 'API Security' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
+      [ -z "$(rg 'React Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
+      [ -z "$(rg 'Database Performance' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
+      [ -z "$(rg 'Testing Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
+      REVIEW_SECTIONS=$(rg '^## ' REVIEW.md 2>/dev/null | wc -l | tr -d ' ')
+      GEMINI_SECTIONS=$(rg '^## ' .gemini/INSTRUCTIONS.md 2>/dev/null | wc -l | tr -d ' ')
+      [ "$GEMINI_SECTIONS" -lt $((REVIEW_SECTIONS / 2)) ] && GAPS=$((GAPS + 1))
+      echo $GAPS
       ;;
     preen-i18n)
-      EN_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/en.ts 2>/dev/null | wc -l | tr -d ' '); GAPS=0; for lang in es ua pt; do LANG_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' '); [ "$LANG_KEYS" -lt "$EN_KEYS" ] && GAPS=$((GAPS + EN_KEYS - LANG_KEYS)); done; HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}'); echo $((GAPS + HARDCODED))
+      EN_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/en.ts 2>/dev/null | wc -l | tr -d ' ')
+      GAPS=0
+      for lang in es ua pt; do
+        LANG_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ')
+        [ "$LANG_KEYS" -lt "$EN_KEYS" ] && GAPS=$((GAPS + EN_KEYS - LANG_KEYS))
+      done
+      HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}')
+      echo $((GAPS + HARDCODED))
       ;;
     preen-window-consistency)
       MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
