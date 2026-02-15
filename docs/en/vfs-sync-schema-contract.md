@@ -86,6 +86,8 @@ ready.
 `v042` executes destructive step-1 retirement for `vfs_shares` only when the
 latest `vfs_share_retirement_drop_execution_candidates` step-1 row is
 explicitly executable.
+`v043` executes destructive step-2 retirement for `org_shares` only after
+step-1 audit success and executable step-2 authorization/candidate refresh.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
