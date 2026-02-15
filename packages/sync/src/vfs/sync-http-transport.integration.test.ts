@@ -195,6 +195,7 @@ function parseReconcileBody(body: unknown): ParsedReconcileBody | null {
 interface HttpHarnessDelayConfig {
   desktopPushDelayMs?: number;
   mobilePushDelayMs?: number;
+  tabletPushDelayMs?: number;
   pullDelayMs?: number;
 }
 
@@ -244,6 +245,12 @@ function createServerBackedFetch(
         typeof delays.mobilePushDelayMs === 'number'
       ) {
         await wait(delays.mobilePushDelayMs);
+      }
+      if (
+        clientId === 'tablet' &&
+        typeof delays.tabletPushDelayMs === 'number'
+      ) {
+        await wait(delays.tabletPushDelayMs);
       }
 
       const pushResult = await server.pushOperations({
@@ -416,6 +423,150 @@ describe('VfsHttpCrdtSyncTransport integration', () => {
       serverSnapshot.lastReconciledWriteIds
     );
     expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+  });
+
+  it('preserves branch-delete races across paged sync and reconcile acknowledgements', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const fetchImpl = createServerBackedFetch(server, {
+      delays: {
+        desktopPushDelayMs: 20,
+        mobilePushDelayMs: 10,
+        tabletPushDelayMs: 5,
+        pullDelayMs: 8
+      }
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'https://sync.local',
+        fetchImpl
+      }),
+      { pullLimit: 2 }
+    );
+
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'https://sync.local',
+        fetchImpl
+      }),
+      { pullLimit: 1 }
+    );
+
+    const tablet = new VfsBackgroundSyncClient(
+      'user-1',
+      'tablet',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'https://sync.local',
+        fetchImpl
+      }),
+      { pullLimit: 3 }
+    );
+
+    desktop.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'folder-22',
+      parentId: 'root',
+      childId: 'folder-22',
+      occurredAt: '2026-02-14T23:00:00.000Z'
+    });
+    desktop.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-old',
+      parentId: 'folder-22',
+      childId: 'item-old',
+      occurredAt: '2026-02-14T23:00:01.000Z'
+    });
+
+    mobile.queueLocalOperation({
+      opType: 'link_remove',
+      itemId: 'folder-22',
+      parentId: 'root',
+      childId: 'folder-22',
+      occurredAt: '2026-02-14T23:00:02.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'link_remove',
+      itemId: 'item-old',
+      parentId: 'folder-22',
+      childId: 'item-old',
+      occurredAt: '2026-02-14T23:00:04.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'link_remove',
+      itemId: 'item-new',
+      parentId: 'folder-22',
+      childId: 'item-new',
+      occurredAt: '2026-02-14T23:00:05.000Z'
+    });
+
+    tablet.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-new',
+      parentId: 'folder-22',
+      childId: 'item-new',
+      occurredAt: '2026-02-14T23:00:03.000Z'
+    });
+
+    await Promise.all([desktop.flush(), mobile.flush(), tablet.flush()]);
+    await Promise.all([desktop.sync(), mobile.sync(), tablet.sync()]);
+
+    const observer = new VfsBackgroundSyncClient(
+      'user-1',
+      'observer',
+      new VfsHttpCrdtSyncTransport({
+        baseUrl: 'https://sync.local',
+        fetchImpl
+      }),
+      { pullLimit: 1 }
+    );
+
+    await observer.sync();
+    const observerAfterFirstSync = observer.snapshot();
+
+    /**
+     * Guardrail: once the observer stores reconcile cursor + replica write IDs,
+     * a second sync with no new writes must be a no-op and must not resurrect
+     * edges from detached intermediate branch states.
+     */
+    await observer.sync();
+    const observerAfterSecondSync = observer.snapshot();
+
+    const serverSnapshot = server.snapshot();
+    const desktopSnapshot = desktop.snapshot();
+    const mobileSnapshot = mobile.snapshot();
+    const tabletSnapshot = tablet.snapshot();
+
+    expect(serverSnapshot.acl).toEqual([]);
+    expect(serverSnapshot.links).toEqual([]);
+    expect(serverSnapshot.lastReconciledWriteIds).toEqual({
+      desktop: 2,
+      mobile: 3,
+      tablet: 1
+    });
+    expect(desktopSnapshot.pendingOperations).toBe(0);
+    expect(mobileSnapshot.pendingOperations).toBe(0);
+    expect(tabletSnapshot.pendingOperations).toBe(0);
+    expect(desktopSnapshot.links).toEqual(serverSnapshot.links);
+    expect(mobileSnapshot.links).toEqual(serverSnapshot.links);
+    expect(tabletSnapshot.links).toEqual(serverSnapshot.links);
+    expect(desktopSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+    expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+    expect(tabletSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+    expect(observerAfterFirstSync).toEqual(observerAfterSecondSync);
+    expect(observerAfterSecondSync.links).toEqual(serverSnapshot.links);
+    expect(observerAfterSecondSync.lastReconciledWriteIds).toEqual(
       serverSnapshot.lastReconciledWriteIds
     );
   });
