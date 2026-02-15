@@ -69,7 +69,7 @@ module "server" {
 }
 
 module "dns" {
-  source = "../../../modules/hetzner-dns"
+  source = "../../../modules/aws-route53-dns"
 
   domain       = var.domain
   ipv4_address = module.server.ipv4_address
