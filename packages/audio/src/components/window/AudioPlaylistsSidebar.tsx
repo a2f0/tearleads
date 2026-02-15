@@ -8,10 +8,11 @@ import {
   WindowSidebarItem,
   WindowSidebarLoading
 } from '@tearleads/window-manager';
-import { List, Music, Plus } from 'lucide-react';
+import { Disc, List, Music, Plus, X } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
+import { parseAlbumId } from '../../lib/albumUtils';
 import { filterFilesByAccept } from '../../lib/file-filter';
 import { getMediaDragIds } from '../../lib/mediaDragData';
 import { AudioPlaylistsContextMenu } from './AudioPlaylistsContextMenu';
@@ -28,6 +29,10 @@ interface AudioPlaylistsSidebarProps {
   onWidthChange: (width: number) => void;
   selectedPlaylistId: string | null;
   onPlaylistSelect: (playlistId: string | null) => void;
+  /** Currently selected album ID for filtering */
+  selectedAlbumId?: string | null;
+  /** Callback when album selection changes */
+  onAlbumSelect?: (albumId: string | null) => void;
   refreshToken?: number;
   onPlaylistChanged?: () => void;
   /** Callback when files are dropped onto a playlist */
@@ -43,6 +48,8 @@ export function AudioPlaylistsSidebar({
   onWidthChange,
   selectedPlaylistId,
   onPlaylistSelect,
+  selectedAlbumId,
+  onAlbumSelect,
   refreshToken,
   onPlaylistChanged,
   onDropToPlaylist
@@ -258,11 +265,34 @@ export function AudioPlaylistsSidebar({
           label={t('allTracks')}
           icon={<Music className="h-4 w-4 shrink-0 text-primary" />}
           selected={
-            selectedPlaylistId === ALL_AUDIO_ID || selectedPlaylistId === null
+            (selectedPlaylistId === ALL_AUDIO_ID ||
+              selectedPlaylistId === null) &&
+            !selectedAlbumId
           }
-          onClick={() => onPlaylistSelect(ALL_AUDIO_ID)}
+          onClick={() => {
+            onPlaylistSelect(ALL_AUDIO_ID);
+            onAlbumSelect?.(null);
+          }}
           leadingSpacer
         />
+
+        {selectedAlbumId && (
+          <div className="mx-1 mb-1 flex items-center gap-1 rounded-md bg-primary/10 px-2 py-1.5 text-xs">
+            <Disc className="h-3.5 w-3.5 shrink-0 text-primary" />
+            <span className="flex-1 truncate font-medium">
+              {parseAlbumId(selectedAlbumId)?.name ?? t('unknownAlbum')}
+            </span>
+            <button
+              type="button"
+              onClick={() => onAlbumSelect?.(null)}
+              className="rounded p-0.5 hover:bg-primary/20"
+              aria-label={t('clearAlbumFilter')}
+              data-testid="clear-album-filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </div>
+        )}
 
         {loading && <WindowSidebarLoading />}
         {error && <WindowSidebarError message={error} />}

@@ -114,6 +114,8 @@ export const ua = {
     audioTracks: 'аудіо треків',
     audioFiles: 'аудіофайлів',
     playlistName: 'Назва плейлиста',
+    unknownAlbum: 'Невідомий альбом',
+    clearAlbumFilter: 'Очистити фільтр альбому',
     uploadProgress: 'Прогрес завантаження',
     uploading: 'Завантаження...',
     audioDetails: 'Деталі Аудіо',

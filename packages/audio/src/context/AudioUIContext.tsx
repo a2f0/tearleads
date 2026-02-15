@@ -242,6 +242,9 @@ export type AudioTranslationKey =
   | 'playlistName'
   | 'uploadProgress'
   | 'uploading'
+  // Album filtering
+  | 'unknownAlbum'
+  | 'clearAlbumFilter'
   // Detail view labels
   | 'audioDetails'
   | 'metadata'

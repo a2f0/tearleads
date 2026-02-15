@@ -36,7 +36,7 @@ export function AudioWindow({
   initialDimensions,
   openAudioId,
   openPlaylistId,
-  openAlbumId: _openAlbumId,
+  openAlbumId,
   openRequestId
 }: AudioWindowProps) {
   const { t } = useTranslation('audio');
@@ -52,6 +52,7 @@ export function AudioWindow({
   const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(
     ALL_AUDIO_ID
   );
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadMany, uploading, uploadProgress } = useMultiFileUpload({
     uploadFile
@@ -155,6 +156,24 @@ export function AudioWindow({
     setRefreshToken((value) => value + 1);
   }, []);
 
+  // Handler for playlist selection - clears album filter
+  const handlePlaylistSelect = useCallback((playlistId: string | null) => {
+    setSelectedPlaylistId(playlistId);
+    // Clear album filter when selecting a playlist
+    if (playlistId && playlistId !== ALL_AUDIO_ID) {
+      setSelectedAlbumId(null);
+    }
+  }, []);
+
+  // Handler for album selection - resets playlist to show all
+  const handleAlbumSelect = useCallback((albumId: string | null) => {
+    setSelectedAlbumId(albumId);
+    // Reset playlist to "All Audio" when filtering by album
+    if (albumId) {
+      setSelectedPlaylistId(ALL_AUDIO_ID);
+    }
+  }, []);
+
   useEffect(() => {
     if (!openRequestId) return;
     if (openAudioId) {
@@ -162,10 +181,13 @@ export function AudioWindow({
     }
     if (openPlaylistId) {
       setSelectedPlaylistId(openPlaylistId);
+      setSelectedAlbumId(null);
     }
-    // TODO: Add album filtering when album view is implemented.
-    // openAlbumId is received via props but not yet handled here.
-  }, [openAudioId, openPlaylistId, openRequestId]);
+    if (openAlbumId) {
+      setSelectedAlbumId(openAlbumId);
+      setSelectedPlaylistId(ALL_AUDIO_ID);
+    }
+  }, [openAudioId, openPlaylistId, openAlbumId, openRequestId]);
 
   return (
     <FloatingWindow
@@ -197,7 +219,9 @@ export function AudioWindow({
         sidebarWidth={sidebarWidth}
         onSidebarWidthChange={setSidebarWidth}
         selectedPlaylistId={selectedPlaylistId}
-        onPlaylistSelect={setSelectedPlaylistId}
+        onPlaylistSelect={handlePlaylistSelect}
+        selectedAlbumId={selectedAlbumId}
+        onAlbumSelect={handleAlbumSelect}
         refreshToken={refreshToken}
         onPlaylistChanged={handlePlaylistChanged}
         onDropToPlaylist={handleDropToPlaylist}

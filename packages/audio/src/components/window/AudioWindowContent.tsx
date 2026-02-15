@@ -28,6 +28,8 @@ interface AudioWindowContentProps {
   onSidebarWidthChange: (width: number) => void;
   selectedPlaylistId: string | null;
   onPlaylistSelect: (playlistId: string | null) => void;
+  selectedAlbumId: string | null;
+  onAlbumSelect: (albumId: string | null) => void;
   refreshToken: number;
   onPlaylistChanged: () => void;
   onDropToPlaylist: (
@@ -61,6 +63,8 @@ export function AudioWindowContent({
   onSidebarWidthChange,
   selectedPlaylistId,
   onPlaylistSelect,
+  selectedAlbumId,
+  onAlbumSelect,
   refreshToken,
   onPlaylistChanged,
   onDropToPlaylist,
@@ -126,6 +130,8 @@ export function AudioWindowContent({
             onWidthChange={onSidebarWidthChange}
             selectedPlaylistId={selectedPlaylistId}
             onPlaylistSelect={onPlaylistSelect}
+            selectedAlbumId={selectedAlbumId}
+            onAlbumSelect={onAlbumSelect}
             refreshToken={refreshToken}
             onPlaylistChanged={onPlaylistChanged}
             onDropToPlaylist={onDropToPlaylist}
@@ -148,6 +154,8 @@ export function AudioWindowContent({
               showDropzone={showDropzone}
               onUploadFiles={onUploadFiles}
               selectedPlaylistId={selectedPlaylistId}
+              selectedAlbumId={selectedAlbumId}
+              onAlbumSelect={onAlbumSelect}
               uploading={uploading}
               uploadProgress={uploadProgress}
               onUpload={onUpload}
@@ -158,6 +166,8 @@ export function AudioWindowContent({
               onSelectTrack={onSelectTrack}
               refreshToken={refreshToken}
               selectedPlaylistId={selectedPlaylistId}
+              selectedAlbumId={selectedAlbumId}
+              onAlbumSelect={onAlbumSelect}
               showDeleted={showDeleted}
             />
           )}

@@ -114,6 +114,8 @@ export const es = {
     audioTracks: 'pistas de audio',
     audioFiles: 'archivos de audio',
     playlistName: 'Nombre de la lista',
+    unknownAlbum: 'Álbum desconocido',
+    clearAlbumFilter: 'Borrar filtro de álbum',
     uploadProgress: 'Progreso de subida',
     uploading: 'Subiendo...',
     audioDetails: 'Detalles del Audio',

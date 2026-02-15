@@ -321,6 +321,8 @@ const audioTranslations: Record<string, string> = {
   audioTracks: 'audio tracks',
   audioFiles: 'audio files',
   playlistName: 'Playlist name',
+  unknownAlbum: 'Unknown Album',
+  clearAlbumFilter: 'Clear album filter',
   uploadProgress: 'Upload progress',
   uploading: 'Uploading...',
   audioDetails: 'Audio Details',
