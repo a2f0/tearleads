@@ -165,7 +165,7 @@ export const v039: Migration = {
         )
         VALUES (
           'legacy_share_read_surfaces_deactivated',
-          'GET /v1/vfs/items/:itemId/shares; PATCH /v1/vfs/shares/:shareId; DELETE /v1/vfs/shares/:shareId; DELETE /v1/vfs/org-shares/:shareId',
+          'GET /v1/vfs/items/:itemId/shares; loadShareAuthorizationContext; loadOrgShareAuthorizationContext',
           'acl-first-share-read-path-with-transition-parity',
           FALSE,
           FALSE,
