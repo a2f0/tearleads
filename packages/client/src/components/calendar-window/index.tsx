@@ -136,6 +136,7 @@ export function CalendarWindow({
       title: string;
       startAt: Date;
       endAt?: Date | null | undefined;
+      recurrence?: { rrule: string } | null | undefined;
     }) => {
       await createCalendarEvent(input);
       await refreshEvents();

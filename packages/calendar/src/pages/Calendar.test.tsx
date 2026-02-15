@@ -98,15 +98,15 @@ describe('Calendar', () => {
 
     fireEvent.click(screen.getByRole('tab', { name: 'Day' }));
 
-    const preWorkHourSlot = screen.getByText('08:00').nextElementSibling;
-    const workHourSlot = screen.getByText('09:00').nextElementSibling;
-    const lastWorkHourSlot = screen.getByText('16:00').nextElementSibling;
-    const postWorkHourSlot = screen.getByText('17:00').nextElementSibling;
+    const preWorkHourQuarter = screen.getByTestId('hour-slot-8-q0');
+    const workHourQuarter = screen.getByTestId('hour-slot-9-q0');
+    const lastWorkHourQuarter = screen.getByTestId('hour-slot-16-q0');
+    const postWorkHourQuarter = screen.getByTestId('hour-slot-17-q0');
 
-    expect(preWorkHourSlot).toHaveClass('bg-muted/40');
-    expect(workHourSlot).toHaveClass('bg-accent/35');
-    expect(lastWorkHourSlot).toHaveClass('bg-accent/35');
-    expect(postWorkHourSlot).toHaveClass('bg-muted/40');
+    expect(preWorkHourQuarter).toHaveClass('bg-muted/40');
+    expect(workHourQuarter).toHaveClass('bg-accent/35');
+    expect(lastWorkHourQuarter).toHaveClass('bg-accent/35');
+    expect(postWorkHourQuarter).toHaveClass('bg-muted/40');
   });
 
   it(
@@ -319,8 +319,8 @@ describe('Calendar', () => {
     await user.type(screen.getByLabelText('Event title'), 'Dentist');
     await user.clear(screen.getByLabelText('Event start time'));
     await user.type(screen.getByLabelText('Event start time'), '14:30');
-    await user.clear(screen.getByLabelText('Event duration in minutes'));
-    await user.type(screen.getByLabelText('Event duration in minutes'), '45');
+    await user.clear(screen.getByLabelText('Event end time'));
+    await user.type(screen.getByLabelText('Event end time'), '15:15');
 
     await user.click(screen.getByRole('button', { name: 'Add Event' }));
 

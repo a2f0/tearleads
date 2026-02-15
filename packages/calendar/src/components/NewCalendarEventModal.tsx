@@ -1,35 +1,58 @@
+import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
+import { RecurrenceEditor } from './RecurrenceEditor';
+import { TimeRangePicker } from './TimeRangePicker';
+
+export interface CreateCalendarEventInput {
+  calendarName: string;
+  title: string;
+  startAt: Date;
+  endAt?: Date | null | undefined;
+  recurrence?: { rrule: string } | null | undefined;
+}
 
 interface NewCalendarEventModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   calendarName: string;
   selectedDate: Date;
+  initialStartTime?: string | undefined;
+  initialEndTime?: string | undefined;
   onCreateEvent?:
-    | ((input: {
-        calendarName: string;
-        title: string;
-        startAt: Date;
-        endAt?: Date | null | undefined;
-      }) => Promise<void> | void)
+    | ((input: CreateCalendarEventInput) => Promise<void> | void)
     | undefined;
 }
 
-const DEFAULT_EVENT_TIME = '09:00';
-const DEFAULT_EVENT_DURATION_MINUTES = '60';
+const DEFAULT_EVENT_START_TIME = '09:00';
+const DEFAULT_EVENT_END_TIME = '10:00';
+
+function addHourToTime(time: string): string {
+  const [hoursPart, minutesPart] = time.split(':');
+  const hours = Number(hoursPart);
+  const minutes = Number(minutesPart);
+
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return DEFAULT_EVENT_END_TIME;
+  }
+
+  const newHours = (hours + 1) % 24;
+  return `${newHours.toString().padStart(2, '0')}:${minutesPart}`;
+}
 
 export function NewCalendarEventModal({
   open,
   onOpenChange,
   calendarName,
   selectedDate,
+  initialStartTime,
+  initialEndTime,
   onCreateEvent
 }: NewCalendarEventModalProps) {
   const [title, setTitle] = useState('');
-  const [eventTime, setEventTime] = useState(DEFAULT_EVENT_TIME);
-  const [durationMinutes, setDurationMinutes] = useState(
-    DEFAULT_EVENT_DURATION_MINUTES
-  );
+  const [startTime, setStartTime] = useState(DEFAULT_EVENT_START_TIME);
+  const [endTime, setEndTime] = useState(DEFAULT_EVENT_END_TIME);
+  const [repeatEnabled, setRepeatEnabled] = useState(false);
+  const [recurrenceRule, setRecurrenceRule] = useState<string | null>(null);
   const [creatingEvent, setCreatingEvent] = useState(false);
 
   useEffect(() => {
@@ -38,9 +61,14 @@ export function NewCalendarEventModal({
     }
 
     setTitle('');
-    setEventTime(DEFAULT_EVENT_TIME);
-    setDurationMinutes(DEFAULT_EVENT_DURATION_MINUTES);
-  }, [open]);
+    setStartTime(initialStartTime ?? DEFAULT_EVENT_START_TIME);
+    setEndTime(
+      initialEndTime ??
+        addHourToTime(initialStartTime ?? DEFAULT_EVENT_START_TIME)
+    );
+    setRepeatEnabled(false);
+    setRecurrenceRule(null);
+  }, [open, initialStartTime, initialEndTime]);
 
   const handleCreate = async () => {
     const trimmedTitle = title.trim();
@@ -48,23 +76,32 @@ export function NewCalendarEventModal({
       return;
     }
 
-    const [hoursPart, minutesPart] = eventTime.split(':');
-    const hours = Number(hoursPart);
-    const minutes = Number(minutesPart);
-    const parsedDurationMinutes = Number(durationMinutes);
+    const [startHoursPart, startMinutesPart] = startTime.split(':');
+    const startHours = Number(startHoursPart);
+    const startMinutes = Number(startMinutesPart);
 
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
-      return;
-    }
-    if (!Number.isFinite(parsedDurationMinutes) || parsedDurationMinutes <= 0) {
+    const [endHoursPart, endMinutesPart] = endTime.split(':');
+    const endHours = Number(endHoursPart);
+    const endMinutes = Number(endMinutesPart);
+
+    if (
+      !Number.isFinite(startHours) ||
+      !Number.isFinite(startMinutes) ||
+      !Number.isFinite(endHours) ||
+      !Number.isFinite(endMinutes)
+    ) {
       return;
     }
 
     const startAt = new Date(selectedDate);
-    startAt.setHours(hours, minutes, 0, 0);
+    startAt.setHours(startHours, startMinutes, 0, 0);
 
-    const endAt = new Date(startAt);
-    endAt.setMinutes(endAt.getMinutes() + parsedDurationMinutes);
+    const endAt = new Date(selectedDate);
+    endAt.setHours(endHours, endMinutes, 0, 0);
+
+    if (endAt <= startAt) {
+      endAt.setDate(endAt.getDate() + 1);
+    }
 
     try {
       setCreatingEvent(true);
@@ -72,7 +109,8 @@ export function NewCalendarEventModal({
         calendarName,
         title: trimmedTitle,
         startAt,
-        endAt
+        endAt,
+        recurrence: repeatEnabled && recurrenceRule ? { rrule: recurrenceRule } : null
       });
       onOpenChange(false);
     } finally {
@@ -96,14 +134,14 @@ export function NewCalendarEventModal({
         role="dialog"
         aria-modal="true"
         aria-labelledby="new-calendar-event-title"
-        className="relative z-10 w-full max-w-md rounded-lg border bg-card p-4 shadow-xl"
+        className="relative z-10 max-h-[90vh] w-full max-w-md overflow-y-auto rounded-lg border bg-card p-4 shadow-xl"
       >
         <h2 id="new-calendar-event-title" className="font-semibold text-base">
           New Calendar Item
         </h2>
         <p className="mt-1 text-muted-foreground text-sm">{calendarName}</p>
         <form
-          className="mt-4 space-y-3"
+          className="mt-4 space-y-4"
           onSubmit={(event) => {
             event.preventDefault();
             void handleCreate();
@@ -117,24 +155,36 @@ export function NewCalendarEventModal({
             className="w-full rounded-md border bg-background px-3 py-2 text-base"
             aria-label="Event title"
           />
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <input
-              type="time"
-              value={eventTime}
-              onChange={(event) => setEventTime(event.target.value)}
-              className="rounded-md border bg-background px-3 py-2 text-base"
-              aria-label="Event start time"
-            />
-            <input
-              type="number"
-              min={1}
-              step={1}
-              value={durationMinutes}
-              onChange={(event) => setDurationMinutes(event.target.value)}
-              className="rounded-md border bg-background px-3 py-2 text-base"
-              aria-label="Event duration in minutes"
-            />
+
+          <TimeRangePicker
+            startTime={startTime}
+            endTime={endTime}
+            onStartTimeChange={setStartTime}
+            onEndTimeChange={setEndTime}
+          />
+
+          <div className="space-y-3">
+            <label className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={repeatEnabled}
+                onChange={(e) => setRepeatEnabled(e.target.checked)}
+                className="h-4 w-4 accent-primary"
+              />
+              <span className="font-medium text-sm">Repeat</span>
+            </label>
+
+            {repeatEnabled && (
+              <div className="rounded-md border bg-muted/20 p-3">
+                <RecurrenceEditor
+                  value={recurrenceRule}
+                  onChange={setRecurrenceRule}
+                  startDate={selectedDate}
+                />
+              </div>
+            )}
           </div>
+
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
@@ -146,7 +196,10 @@ export function NewCalendarEventModal({
             <button
               type="submit"
               disabled={!title.trim() || creatingEvent || !onCreateEvent}
-              className="rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground text-sm disabled:cursor-not-allowed disabled:opacity-60"
+              className={clsx(
+                'rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground text-sm',
+                'disabled:cursor-not-allowed disabled:opacity-60'
+              )}
             >
               Add Event
             </button>

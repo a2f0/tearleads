@@ -1,5 +1,11 @@
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
+import { RRule, RRuleSet, rrulestr } from 'rrule';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
+
+export interface RecurrenceRule {
+  rrule: string;
+  exdates?: string[];
+}
 
 export interface CalendarEvent {
   id: string;
@@ -9,6 +15,9 @@ export interface CalendarEvent {
   endAt: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  recurrence?: RecurrenceRule | null;
+  recurringEventId?: string | null;
+  originalStartAt?: Date | null;
 }
 
 export interface CreateCalendarEventInput {
@@ -16,6 +25,18 @@ export interface CreateCalendarEventInput {
   title: string;
   startAt: Date;
   endAt?: Date | null | undefined;
+  recurrence?: { rrule: string } | null | undefined;
+}
+
+export interface CalendarEventOccurrence {
+  id: string;
+  parentEventId?: string;
+  calendarName: string;
+  title: string;
+  startAt: Date;
+  endAt: Date | null;
+  isRecurring: boolean;
+  isException: boolean;
 }
 
 export interface ContactBirthdayEvent {
@@ -34,6 +55,10 @@ interface RawCalendarEventRow {
   endAt: number | null;
   createdAt: number;
   updatedAt: number;
+  rrule: string | null;
+  recurringEventId: string | null;
+  originalStartAt: number | null;
+  exdates: string | null;
 }
 
 interface RawContactBirthdayRow {
@@ -83,6 +108,36 @@ function normalizeCalendarEventRow(value: unknown): RawCalendarEventRow | null {
     return null;
   }
 
+  const rruleRaw = value['rrule'];
+  const rrule =
+    rruleRaw === null || typeof rruleRaw === 'undefined'
+      ? null
+      : typeof rruleRaw === 'string'
+        ? rruleRaw
+        : null;
+
+  const recurringEventIdRaw = value['recurringEventId'];
+  const recurringEventId =
+    recurringEventIdRaw === null || typeof recurringEventIdRaw === 'undefined'
+      ? null
+      : typeof recurringEventIdRaw === 'string'
+        ? recurringEventIdRaw
+        : null;
+
+  const originalStartAtRaw = value['originalStartAt'];
+  const originalStartAt =
+    originalStartAtRaw === null || typeof originalStartAtRaw === 'undefined'
+      ? null
+      : toFiniteNumber(originalStartAtRaw);
+
+  const exdatesRaw = value['exdates'];
+  const exdates =
+    exdatesRaw === null || typeof exdatesRaw === 'undefined'
+      ? null
+      : typeof exdatesRaw === 'string'
+        ? exdatesRaw
+        : null;
+
   return {
     id: value['id'],
     calendarName: value['calendarName'],
@@ -90,7 +145,11 @@ function normalizeCalendarEventRow(value: unknown): RawCalendarEventRow | null {
     startAt,
     endAt,
     createdAt,
-    updatedAt
+    updatedAt,
+    rrule,
+    recurringEventId,
+    originalStartAt,
+    exdates
   };
 }
 
@@ -167,7 +226,22 @@ function toBirthdayEventTitle(
   return `${fullName}'s Birthday`;
 }
 
+function parseExdates(exdatesJson: string | null): string[] | undefined {
+  if (!exdatesJson) return undefined;
+  try {
+    const parsed = JSON.parse(exdatesJson);
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item): item is string => typeof item === 'string');
+    }
+  } catch {
+    return undefined;
+  }
+  return undefined;
+}
+
 function toCalendarEvent(row: RawCalendarEventRow): CalendarEvent {
+  const exdates = parseExdates(row.exdates);
+
   return {
     id: row.id,
     calendarName: row.calendarName,
@@ -175,7 +249,13 @@ function toCalendarEvent(row: RawCalendarEventRow): CalendarEvent {
     startAt: new Date(row.startAt),
     endAt: row.endAt === null ? null : new Date(row.endAt),
     createdAt: new Date(row.createdAt),
-    updatedAt: new Date(row.updatedAt)
+    updatedAt: new Date(row.updatedAt),
+    recurrence: row.rrule
+      ? { rrule: row.rrule, ...(exdates && { exdates }) }
+      : null,
+    recurringEventId: row.recurringEventId,
+    originalStartAt:
+      row.originalStartAt === null ? null : new Date(row.originalStartAt)
   };
 }
 
@@ -193,7 +273,11 @@ export async function getCalendarEvents(): Promise<CalendarEvent[]> {
       start_at as startAt,
       end_at as endAt,
       created_at as createdAt,
-      updated_at as updatedAt
+      updated_at as updatedAt,
+      rrule,
+      recurring_event_id as recurringEventId,
+      original_start_at as originalStartAt,
+      exdates
     FROM calendar_events
     ORDER BY start_at ASC`,
     []
@@ -226,6 +310,7 @@ export async function createCalendarEvent(
   const id = crypto.randomUUID();
   const startAt = input.startAt.getTime();
   const endAt = input.endAt ? input.endAt.getTime() : null;
+  const rrule = input.recurrence?.rrule ?? null;
 
   await adapter.execute(
     `INSERT INTO calendar_events (
@@ -234,10 +319,11 @@ export async function createCalendarEvent(
       title,
       start_at,
       end_at,
+      rrule,
       created_at,
       updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    [id, calendarName, title, startAt, endAt, now, now]
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [id, calendarName, title, startAt, endAt, rrule, now, now]
   );
 
   return {
@@ -247,7 +333,10 @@ export async function createCalendarEvent(
     startAt: new Date(startAt),
     endAt: endAt === null ? null : new Date(endAt),
     createdAt: new Date(now),
-    updatedAt: new Date(now)
+    updatedAt: new Date(now),
+    recurrence: rrule ? { rrule } : null,
+    recurringEventId: null,
+    originalStartAt: null
   };
 }
 
@@ -306,4 +395,69 @@ export async function getContactBirthdayEvents(
   }
 
   return events.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
+}
+
+export function expandRecurringEvents(
+  events: CalendarEvent[],
+  rangeStart: Date,
+  rangeEnd: Date
+): CalendarEventOccurrence[] {
+  const occurrences: CalendarEventOccurrence[] = [];
+
+  for (const event of events) {
+    if (!event.recurrence?.rrule) {
+      occurrences.push({
+        id: event.id,
+        calendarName: event.calendarName,
+        title: event.title,
+        startAt: event.startAt,
+        endAt: event.endAt,
+        isRecurring: false,
+        isException: !!event.recurringEventId
+      });
+      continue;
+    }
+
+    try {
+      const rruleSet = new RRuleSet();
+      const rule = rrulestr(event.recurrence.rrule, {
+        dtstart: event.startAt
+      });
+      rruleSet.rrule(rule as RRule);
+
+      for (const exdate of event.recurrence.exdates ?? []) {
+        rruleSet.exdate(new Date(exdate));
+      }
+
+      const instances = rruleSet.between(rangeStart, rangeEnd, true);
+      const duration = event.endAt
+        ? event.endAt.getTime() - event.startAt.getTime()
+        : 0;
+
+      for (const instanceStart of instances) {
+        occurrences.push({
+          id: `${event.id}:${instanceStart.toISOString()}`,
+          parentEventId: event.id,
+          calendarName: event.calendarName,
+          title: event.title,
+          startAt: instanceStart,
+          endAt: duration ? new Date(instanceStart.getTime() + duration) : null,
+          isRecurring: true,
+          isException: false
+        });
+      }
+    } catch {
+      occurrences.push({
+        id: event.id,
+        calendarName: event.calendarName,
+        title: event.title,
+        startAt: event.startAt,
+        endAt: event.endAt,
+        isRecurring: false,
+        isException: false
+      });
+    }
+  }
+
+  return occurrences.sort((a, b) => a.startAt.getTime() - b.startAt.getTime());
 }
