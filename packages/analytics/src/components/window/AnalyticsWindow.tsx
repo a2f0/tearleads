@@ -4,7 +4,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
-import { Analytics } from '@/pages/analytics';
+import { Analytics } from '../page/Analytics';
 import { AnalyticsWindowMenuBar } from './AnalyticsWindowMenuBar';
 
 interface AnalyticsWindowProps {

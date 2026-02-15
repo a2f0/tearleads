@@ -15,9 +15,9 @@ import {
   type StatsSortColumn
 } from '@/db/analytics';
 import { useDatabaseContext } from '@/db/hooks';
-import { AnalyticsEventsPanel } from './components/AnalyticsEventsPanel';
-import { AnalyticsFiltersSummaryPanel } from './components/AnalyticsFiltersSummaryPanel';
-import { AnalyticsPageHeader } from './components/AnalyticsPageHeader';
+import { AnalyticsEventsPanel } from './AnalyticsEventsPanel';
+import { AnalyticsFiltersSummaryPanel } from './AnalyticsFiltersSummaryPanel';
+import { AnalyticsPageHeader } from './AnalyticsPageHeader';
 import type { SortState } from './SortIcon';
 import type { SummarySortState, TimeFilter } from './types';
 
@@ -337,6 +337,10 @@ export function Analytics({
     if (isUnlocked) {
       void fetchData(true);
     }
+
+    return () => {
+      fetchingRef.current = false;
+    };
   }, [isUnlocked, fetchData]);
 
   // Detect scroll to enable pagination (once: true auto-removes after first scroll)

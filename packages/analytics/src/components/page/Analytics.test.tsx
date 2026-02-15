@@ -1,3 +1,7 @@
+import {
+  mockConsoleError,
+  mockConsoleWarn
+} from '@analytics/test/console-mocks';
 import { ThemeProvider } from '@tearleads/ui';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -6,7 +10,6 @@ import { MemoryRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { exportTableAsCsv } from '@/components/sqlite/exportTableCsv';
 import type { AnalyticsEvent } from '@/db/analytics';
-import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
 import { Analytics } from './Analytics';
 
 declare global {

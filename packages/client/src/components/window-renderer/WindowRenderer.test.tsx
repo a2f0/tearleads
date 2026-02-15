@@ -844,7 +844,7 @@ vi.mock('@/components/health-window', () => ({
   )
 }));
 
-vi.mock('@/components/analytics-window', () => ({
+vi.mock('@tearleads/analytics', () => ({
   AnalyticsWindow: ({
     id,
     onClose,

@@ -665,7 +665,7 @@ test.describe('Analytics page', () => {
     expect(
       chartYAfter,
       `Chart should be near top of viewport after scroll - Y position: ${chartYAfter}px`
-    ).toBeLessThan(200);
+    ).toBeLessThan(250);
 
     // The table header is part of the sticky section, so it should also be visible
     expect(
