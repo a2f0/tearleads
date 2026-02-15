@@ -1,5 +1,4 @@
 import { ThemeProvider } from '@tearleads/ui';
-import mermaid from 'mermaid';
 import React, { lazy, Suspense } from 'react';
 import ReactDOM from 'react-dom/client';
 import { I18nextProvider } from 'react-i18next';
@@ -30,9 +29,6 @@ import { SearchProvider } from './search';
 import { SSEProvider } from './sse';
 import { VideoProvider } from './video';
 import './index.css';
-
-// Initialize mermaid once at app startup (disable auto-rendering)
-mermaid.initialize({ startOnLoad: false });
 
 // Check for service worker updates when tab gains focus
 if ('serviceWorker' in navigator) {

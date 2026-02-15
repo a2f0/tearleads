@@ -67,7 +67,9 @@ export default defineConfig(({ mode }) => ({
           // Charts (lazy-loaded in analytics)
           'vendor-charts': ['recharts'],
           // Markdown editor (lazy-loaded in notes)
-          'vendor-markdown': ['@uiw/react-md-editor']
+          'vendor-markdown': ['@uiw/react-md-editor'],
+          // Mermaid diagrams (lazy-loaded when viewing markdown with diagrams)
+          'vendor-mermaid': ['mermaid']
         }
       }
     }

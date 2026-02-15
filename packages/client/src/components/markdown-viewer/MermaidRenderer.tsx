@@ -1,4 +1,3 @@
-import mermaid from 'mermaid';
 import { useEffect, useId, useRef, useState } from 'react';
 
 interface MermaidRendererProps {
@@ -17,11 +16,18 @@ export function MermaidRenderer({ code, theme }: MermaidRendererProps) {
 
     async function render() {
       try {
+        // Dynamic import to enable code splitting for mermaid (~1.6MB)
+        const mermaid = await import('mermaid');
+        mermaid.default.initialize({ startOnLoad: false });
+
         // Use %%init%% directive for per-diagram theme configuration
         const themeValue = theme === 'dark' ? 'dark' : 'neutral';
         const themedCode = `%%{init: { "theme": "${themeValue}", "fontFamily": "inherit", "securityLevel": "strict" } }%%\n${code}`;
         const uniqueId = `mermaid-graph-${id.replace(/:/g, '-')}`;
-        const { svg: renderedSvg } = await mermaid.render(uniqueId, themedCode);
+        const { svg: renderedSvg } = await mermaid.default.render(
+          uniqueId,
+          themedCode
+        );
 
         if (!cancelled) {
           setSvg(renderedSvg);
