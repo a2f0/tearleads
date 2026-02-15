@@ -20,7 +20,7 @@ function crdtAclAdd(params: {
     parentId: null,
     childId: null,
     actorId: 'user-1',
-    sourceTable: 'vfs_shares',
+    sourceTable: 'vfs_crdt_client_push',
     sourceId: params.opId,
     occurredAt: params.occurredAt
   };

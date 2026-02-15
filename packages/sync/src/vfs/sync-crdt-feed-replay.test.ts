@@ -41,7 +41,7 @@ describe('InMemoryVfsCrdtFeedReplayStore', () => {
         parentId: null,
         childId: null,
         actorId: 'user-1',
-        sourceTable: 'vfs_shares',
+        sourceTable: 'vfs_crdt_client_push',
         sourceId: 'share-1',
         occurredAt: '2026-02-14T00:00:00.000Z'
       },
@@ -72,7 +72,7 @@ describe('InMemoryVfsCrdtFeedReplayStore', () => {
         parentId: null,
         childId: null,
         actorId: 'user-1',
-        sourceTable: 'vfs_shares',
+        sourceTable: 'vfs_crdt_client_push',
         sourceId: 'share-1',
         occurredAt: '2026-02-14T00:00:02.000Z'
       },
@@ -131,7 +131,7 @@ describe('InMemoryVfsCrdtFeedReplayStore', () => {
         parentId: null,
         childId: null,
         actorId: 'user-1',
-        sourceTable: 'vfs_shares',
+        sourceTable: 'vfs_crdt_client_push',
         sourceId: 'share-1',
         occurredAt: '2026-02-14T00:00:01.000Z'
       }
@@ -149,7 +149,7 @@ describe('InMemoryVfsCrdtFeedReplayStore', () => {
           parentId: null,
           childId: null,
           actorId: 'user-1',
-          sourceTable: 'vfs_shares',
+          sourceTable: 'vfs_crdt_client_push',
           sourceId: 'share-1',
           occurredAt: '2026-02-14T00:00:00.000Z'
         }
@@ -172,7 +172,7 @@ describe('InMemoryVfsCrdtFeedReplayStore', () => {
           parentId: null,
           childId: null,
           actorId: 'user-1',
-          sourceTable: 'vfs_shares',
+          sourceTable: 'vfs_crdt_client_push',
           sourceId: 'share-1',
           occurredAt: '2026-02-14T00:00:00.000Z'
         }
@@ -211,7 +211,7 @@ describe('InMemoryVfsCrdtFeedReplayStore', () => {
         parentId: null,
         childId: null,
         actorId: 'user-1',
-        sourceTable: 'vfs_shares',
+        sourceTable: 'vfs_crdt_client_push',
         sourceId: 'share-9',
         occurredAt: '2026-02-14T00:00:00.000Z'
       }
@@ -228,7 +228,7 @@ describe('InMemoryVfsCrdtFeedReplayStore', () => {
         parentId: null,
         childId: null,
         actorId: 'user-1',
-        sourceTable: 'vfs_shares',
+        sourceTable: 'vfs_crdt_client_push',
         sourceId: 'share-9',
         occurredAt: '2026-02-14T00:00:01.000Z'
       },
