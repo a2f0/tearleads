@@ -15,18 +15,10 @@ describe('vfsNameLookup integration (real database)', () => {
           `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
           [canonicalFolderId, 'folder', null, 'Canonical Folder Name', now]
         );
-        await adapter.execute(
-          `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-          [canonicalFolderId, 'Legacy Folder Name']
-        );
 
         await adapter.execute(
           `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
           [legacyOnlyFolderId, 'folder', null, null, now + 1]
-        );
-        await adapter.execute(
-          `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-          [legacyOnlyFolderId, 'Legacy Fallback Name']
         );
 
         await adapter.execute(

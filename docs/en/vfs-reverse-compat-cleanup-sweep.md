@@ -66,6 +66,8 @@ compatibility branches that are no longer needed before production.
       scaffolding snapshots as live requirements.
 - [ ] Add explicit canonical-only guardrail tests for share/explorer SQL
       surfaces.
+- [x] Remove residual explorer integration-test setup assumptions that inserted
+      `vfs_folders` rows purely for fallback behavior checks.
 
 ## Verification Standard per Slice
 
