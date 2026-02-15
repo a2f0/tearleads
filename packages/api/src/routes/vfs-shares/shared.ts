@@ -21,6 +21,24 @@ type QueryExecutor = Pick<Pool, 'query'>;
 const SHARE_ID_PREFIX = 'share:';
 const ORG_SHARE_ID_PREFIX = 'org-share:';
 
+function normalizeAclIdPart(value: string): string {
+  return value.trim();
+}
+
+function isValidAclIdPart(value: string): boolean {
+  const normalized = normalizeAclIdPart(value);
+  return normalized.length > 0 && !normalized.includes(':');
+}
+
+function requireAclIdPart(value: string, partName: string): string {
+  const normalized = normalizeAclIdPart(value);
+  if (!isValidAclIdPart(normalized)) {
+    throw new Error(`Unsupported ${partName} in share ACL identifier`);
+  }
+
+  return normalized;
+}
+
 export interface ShareAuthorizationContext {
   ownerId: string | null;
   itemId: string;
@@ -86,39 +104,44 @@ function parseOrgShareAclId(aclId: string): {
   }
 
   const suffix = aclId.slice(ORG_SHARE_ID_PREFIX.length);
-  const separatorIndex = suffix.indexOf(':');
-  if (separatorIndex === -1) {
+  if (!suffix) {
+    throw new Error('Unsupported ACL id in org-share authorization context');
+  }
+
+  const parts = suffix.split(':');
+  if (parts.length === 1) {
     return {
-      shareId: suffix,
+      shareId: requireAclIdPart(parts[0], 'org-share id'),
       sourceOrgId: null
     };
   }
 
-  const sourceOrgId = suffix.slice(0, separatorIndex);
-  const shareId = suffix.slice(separatorIndex + 1);
-  if (!shareId) {
+  if (parts.length !== 2) {
     throw new Error('Unsupported ACL id in org-share authorization context');
   }
 
   return {
-    shareId,
-    sourceOrgId: sourceOrgId || null
+    sourceOrgId: requireAclIdPart(parts[0], 'org-share source org id'),
+    shareId: requireAclIdPart(parts[1], 'org-share id')
   };
 }
 
 export function buildShareAclId(shareId: string): string {
-  return `${SHARE_ID_PREFIX}${shareId}`;
+  return `${SHARE_ID_PREFIX}${requireAclIdPart(shareId, 'share id')}`;
 }
 
 export function buildLegacyOrgShareAclId(shareId: string): string {
-  return `${ORG_SHARE_ID_PREFIX}${shareId}`;
+  return `${ORG_SHARE_ID_PREFIX}${requireAclIdPart(shareId, 'org-share id')}`;
 }
 
 export function buildOrgShareAclId(
   sourceOrgId: string,
   shareId: string
 ): string {
-  return `${ORG_SHARE_ID_PREFIX}${sourceOrgId}:${shareId}`;
+  return `${ORG_SHARE_ID_PREFIX}${requireAclIdPart(
+    sourceOrgId,
+    'org-share source org id'
+  )}:${requireAclIdPart(shareId, 'org-share id')}`;
 }
 
 export function extractShareIdFromAclId(aclId: string): string {
@@ -126,7 +149,7 @@ export function extractShareIdFromAclId(aclId: string): string {
     throw new Error('Unsupported ACL id in share response mapping');
   }
 
-  return aclId.slice(SHARE_ID_PREFIX.length);
+  return requireAclIdPart(aclId.slice(SHARE_ID_PREFIX.length), 'share id');
 }
 
 export function extractOrgShareIdFromAclId(aclId: string): string {
@@ -143,6 +166,10 @@ export async function loadShareAuthorizationContext(
   queryExecutor: QueryExecutor,
   shareId: string
 ): Promise<ShareAuthorizationContext | null> {
+  if (!isValidAclIdPart(shareId)) {
+    return null;
+  }
+
   const canonicalResult = await queryExecutor.query<{
     owner_id: string | null;
     acl_id: string;
@@ -191,6 +218,10 @@ export async function loadOrgShareAuthorizationContext(
   queryExecutor: QueryExecutor,
   shareId: string
 ): Promise<OrgShareAuthorizationContext | null> {
+  if (!isValidAclIdPart(shareId)) {
+    return null;
+  }
+
   const legacyAclId = buildLegacyOrgShareAclId(shareId);
   const canonicalResult = await queryExecutor.query<{
     owner_id: string | null;
@@ -210,11 +241,24 @@ export async function loadOrgShareAuthorizationContext(
          ON r.id = acl.item_id
       WHERE acl.principal_type = 'organization'
         AND acl.revoked_at IS NULL
-        AND (acl.id = $1 OR acl.id LIKE $2)
-      ORDER BY CASE WHEN acl.id = $1 THEN 0 ELSE 1 END
-      LIMIT 1`,
-    [legacyAclId, `${ORG_SHARE_ID_PREFIX}%:${shareId}`]
+        AND (
+          acl.id = $1
+          OR (acl.id LIKE 'org-share:%:%' AND split_part(acl.id, ':', 3) = $2)
+        )
+      ORDER BY CASE WHEN acl.id LIKE 'org-share:%:%' THEN 0 ELSE 1 END,
+               acl.created_at DESC
+      LIMIT 2`,
+    [legacyAclId, shareId]
   );
+
+  /**
+   * Guardrail: one org-share route id must resolve to at most one active ACL
+   * row. Multiple matches indicate malformed/duplicated ids and are rejected.
+   */
+  if (canonicalResult.rows.length > 1) {
+    throw new Error('Ambiguous org-share ACL authorization context');
+  }
+
   const canonicalRow = canonicalResult.rows[0];
   if (!canonicalRow || typeof canonicalRow.principal_id !== 'string') {
     return null;
@@ -295,6 +339,14 @@ export function parseCreateOrgSharePayload(
   }
 
   if (!itemId.trim() || !sourceOrgId.trim() || !targetOrgId.trim()) {
+    return null;
+  }
+
+  /**
+   * Guardrail: source-org is encoded into canonical ACL ids. We reject values
+   * that would produce ambiguous identifiers before touching persistence.
+   */
+  if (!isValidAclIdPart(sourceOrgId)) {
     return null;
   }
 
