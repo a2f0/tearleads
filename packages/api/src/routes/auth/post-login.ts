@@ -31,6 +31,9 @@ import {
  *                 format: email
  *               password:
  *                 type: string
+ *               app:
+ *                 type: string
+ *                 description: Optional app identifier for white-label apps
  *             required:
  *               - email
  *               - password
@@ -53,6 +56,12 @@ export const postLoginHandler = async (
     res.status(400).json({ error: 'email and password are required' });
     return;
   }
+
+  // Optional app identifier for white-label apps
+  const appId =
+    typeof req.body?.app === 'string' && req.body.app.length > 0
+      ? req.body.app
+      : undefined;
 
   const jwtSecret = process.env['JWT_SECRET'];
   if (!jwtSecret) {
@@ -107,7 +116,12 @@ export const postLoginHandler = async (
     );
 
     const accessToken = createJwt(
-      { sub: user.id, email: user.email, jti: sessionId },
+      {
+        sub: user.id,
+        email: user.email,
+        jti: sessionId,
+        ...(appId && { app: appId })
+      },
       jwtSecret,
       ACCESS_TOKEN_TTL_SECONDS
     );

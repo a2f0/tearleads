@@ -5,6 +5,8 @@ export type JwtClaims = {
   sub: string;
   email?: string;
   jti: string;
+  /** App identifier for white-label apps */
+  app?: string;
 };
 
 export type RefreshTokenClaims = {
@@ -46,6 +48,7 @@ export function verifyJwt(token: string, secret: string): JwtClaims | null {
     const sub = decoded['sub'];
     const email = decoded['email'];
     const jti = decoded['jti'];
+    const app = decoded['app'];
 
     if (typeof sub !== 'string' || typeof jti !== 'string') {
       return null;
@@ -55,9 +58,16 @@ export function verifyJwt(token: string, secret: string): JwtClaims | null {
       return null;
     }
 
+    if (app !== undefined && typeof app !== 'string') {
+      return null;
+    }
+
     const claims: JwtClaims = { sub, jti };
     if (typeof email === 'string') {
       claims.email = email;
+    }
+    if (typeof app === 'string') {
+      claims.app = app;
     }
     return claims;
   });
