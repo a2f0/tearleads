@@ -1,8 +1,4 @@
-export {
-  generateAppConfigGradle,
-  generateGradleProperties,
-  generateStringsXml
-} from './android.js';
+export { generateAppConfigGradle, generateStringsXml } from './android.js';
 export {
   generateAppMetadataJson,
   generateCapacitorConfig

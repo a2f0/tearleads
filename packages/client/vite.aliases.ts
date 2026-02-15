@@ -8,8 +8,11 @@ interface AppConfigJson {
 }
 
 /**
- * Package names that can be tree-shaken based on app features.
- * Maps feature name to package name.
+ * Feature-to-package mapping for tree-shaking.
+ *
+ * NOTE: This duplicates the mapping in packages/app-builder/src/feature-map.ts.
+ * We cannot import from app-builder because vite.aliases.ts is processed by
+ * tsconfig.node.json which has a different rootDir. Keep both in sync manually.
  */
 const FEATURE_TO_PACKAGE: Record<string, string> = {
   admin: '@tearleads/admin',
