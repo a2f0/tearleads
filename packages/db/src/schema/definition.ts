@@ -1453,6 +1453,13 @@ export const albumsTable: TableDefinition = {
         column: 'id',
         onDelete: 'set null'
       }
+    },
+    albumType: {
+      type: 'text',
+      sqlName: 'album_type',
+      enumValues: ['photoroll', 'custom'] as const,
+      notNull: true,
+      defaultValue: 'custom'
     }
   }
 };

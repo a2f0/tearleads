@@ -4,8 +4,20 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
 
 const mockAlbums = [
-  { id: 'album-1', name: 'Vacation', photoCount: 10, coverPhotoId: null },
-  { id: 'album-2', name: 'Family', photoCount: 5, coverPhotoId: null }
+  {
+    id: 'album-1',
+    name: 'Vacation',
+    photoCount: 10,
+    coverPhotoId: null,
+    albumType: 'custom' as const
+  },
+  {
+    id: 'album-2',
+    name: 'Family',
+    photoCount: 5,
+    coverPhotoId: null,
+    albumType: 'custom' as const
+  }
 ];
 
 const mockUsePhotoAlbums: {

@@ -586,7 +586,12 @@ export const albums = pgTable('albums', {
   encryptedDescription: text('encrypted_description'),
   coverPhotoId: text('cover_photo_id').references(() => vfsRegistry.id, {
     onDelete: 'set null'
+  }),
+  albumType: text('album_type', {
+    enum: ['photoroll', 'custom']
   })
+    .notNull()
+    .default('custom')
 });
 
 /**

@@ -8,7 +8,8 @@ describe('DeleteAlbumDialog', () => {
     id: 'album-123',
     name: 'Test Album',
     photoCount: 5,
-    coverPhotoId: null
+    coverPhotoId: null,
+    albumType: 'custom' as const
   };
 
   const defaultProps = {

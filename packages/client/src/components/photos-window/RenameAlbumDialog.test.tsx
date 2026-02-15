@@ -8,7 +8,8 @@ describe('RenameAlbumDialog', () => {
     id: 'album-123',
     name: 'Original Name',
     photoCount: 5,
-    coverPhotoId: null
+    coverPhotoId: null,
+    albumType: 'custom' as const
   };
 
   const defaultProps = {
