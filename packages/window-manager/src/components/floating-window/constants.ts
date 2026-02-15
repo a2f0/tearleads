@@ -5,10 +5,10 @@ export const MAX_FIT_CONTENT_ATTEMPTS = 5;
 export const NEAR_MAXIMIZED_INSET = 16;
 
 export const POSITION_CLASSES: Record<Corner, string> = {
-  'top-left': '-top-1 -left-1',
-  'top-right': '-top-1 -right-1',
-  'bottom-left': '-bottom-1 -left-1',
-  'bottom-right': '-bottom-1 -right-1'
+  'top-left': 'top-0 left-0',
+  'top-right': 'top-0 right-0',
+  'bottom-left': 'bottom-0 left-0',
+  'bottom-right': 'bottom-0 right-0'
 };
 
 export const BORDER_CLASSES: Record<Corner, string> = {

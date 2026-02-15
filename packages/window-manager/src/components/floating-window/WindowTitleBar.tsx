@@ -176,7 +176,7 @@ export function WindowTitleBar({
                 }
                 onMinimize(dimensions);
               }}
-              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="relative z-50 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label={`Minimize ${title}`}
             >
               <Minus className="h-3.5 w-3.5" />
@@ -189,7 +189,7 @@ export function WindowTitleBar({
                 e.stopPropagation();
                 onToggleMaximize();
               }}
-              className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              className="relative z-50 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
               aria-label={
                 isMaximized ? `Restore ${title}` : `Maximize ${title}`
               }
@@ -207,7 +207,7 @@ export function WindowTitleBar({
               e.stopPropagation();
               onClose();
             }}
-            className="rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+            className="relative z-50 rounded p-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
             aria-label={`Close ${title}`}
           >
             <X className="h-3.5 w-3.5" />
