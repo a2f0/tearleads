@@ -113,6 +113,14 @@ describe('canonical share authorization context', () => {
       targetId: 'user-2',
       accessLevel: 'write'
     });
+
+    const querySql = query.mock.calls[0]?.[0];
+    if (typeof querySql !== 'string') {
+      throw new Error('expected canonical share auth SQL');
+    }
+    expect(querySql).toMatch(/\bvfs_acl_entries\b/u);
+    expect(querySql).not.toMatch(/\bvfs_shares\b/u);
+    expect(querySql).not.toMatch(/\bvfs_access\b/u);
   });
 
   it('returns null when canonical share ACL row is missing', async () => {
@@ -195,6 +203,14 @@ describe('canonical org-share authorization context', () => {
       accessLevel: 'write',
       sourceOrgId: 'source-org'
     });
+
+    const querySql = query.mock.calls[0]?.[0];
+    if (typeof querySql !== 'string') {
+      throw new Error('expected canonical org-share auth SQL');
+    }
+    expect(querySql).toMatch(/\bvfs_acl_entries\b/u);
+    expect(querySql).not.toMatch(/\borg_shares\b/u);
+    expect(querySql).not.toMatch(/\bvfs_access\b/u);
   });
 
   it('returns null when canonical org-share ACL row is missing', async () => {
