@@ -3,7 +3,7 @@ import {extname, join, resolve} from 'node:path';
 import {electronApp, is, optimizer} from '@electron-toolkit/utils';
 import {app, BrowserWindow, ipcMain, nativeImage, protocol, shell} from 'electron';
 import {getElectronProtocolScheme} from './protocol';
-import {desktopAppId} from './desktop-app-id';
+import {desktopAppId} from './desktopAppId';
 import {cleanupSqlite, registerSqliteHandlers} from './sqlite/handler';
 
 declare const __APP_VERSION__: string;

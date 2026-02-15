@@ -37,7 +37,7 @@ vi.mock('@client/db/hooks', () => ({
 }));
 
 const mockSaveFile = vi.fn();
-vi.mock('@client/lib/file-utils', () => ({
+vi.mock('@client/lib/fileUtils', () => ({
   generateBackupFilename: vi.fn(() => 'tearleads-backup.db'),
   readFileAsUint8Array: vi.fn(() => Promise.resolve(new Uint8Array([1, 2, 3]))),
   saveFile: (...args: unknown[]) => mockSaveFile(...args)

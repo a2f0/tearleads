@@ -25,7 +25,7 @@ import {
   type VfsPublicKey,
   wrapKeyForRecipient
 } from '@tearleads/shared';
-import { getKeyManager } from '@/db/crypto/key-manager';
+import { getKeyManager } from '@/db/crypto/keyManager';
 import { api } from '@/lib/api';
 
 // In-memory cache for the decrypted VFS keypair

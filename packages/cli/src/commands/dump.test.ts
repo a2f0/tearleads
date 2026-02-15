@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { encode } from '../backup/index.js';
 import type { BackupDatabase, BackupManifest } from '../backup/types.js';
 import { setConfigRoot } from '../config/index.js';
-import { clearKey, reset } from '../crypto/key-manager.js';
+import { clearKey, reset } from '../crypto/keyManager.js';
 import { lockDatabase, setupDatabase } from '../db/index.js';
 import { runDump } from './dump.js';
 

@@ -1,10 +1,10 @@
 import { Router, type Router as RouterType } from 'express';
-import { registerDeleteSessionsSessionIdRoute } from './auth/delete-sessions-sessionId.js';
-import { registerGetSessionsRoute } from './auth/get-sessions.js';
-import { registerPostLoginRoute } from './auth/post-login.js';
-import { registerPostLogoutRoute } from './auth/post-logout.js';
-import { registerPostRefreshRoute } from './auth/post-refresh.js';
-import { registerPostRegisterRoute } from './auth/post-register.js';
+import { registerDeleteSessionsSessionIdRoute } from './auth/deleteSessionsSessionId.js';
+import { registerGetSessionsRoute } from './auth/getSessions.js';
+import { registerPostLoginRoute } from './auth/postLogin.js';
+import { registerPostLogoutRoute } from './auth/postLogout.js';
+import { registerPostRefreshRoute } from './auth/postRefresh.js';
+import { registerPostRegisterRoute } from './auth/postRegister.js';
 
 const authRouter: RouterType = Router();
 registerPostLoginRoute(authRouter);

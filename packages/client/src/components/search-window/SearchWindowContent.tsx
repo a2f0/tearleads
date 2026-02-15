@@ -23,7 +23,7 @@ import { Input } from '@/components/ui/input';
 import type { HelpDocId } from '@/constants/help';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfs-open';
+import { type FileOpenTarget, resolveFileOpenTarget } from '@/lib/vfsOpen';
 import type { SearchableEntityType, SearchResult } from '@/search';
 import { useSearch } from '@/search';
 import { getSearchableAppById } from '@/search/appCatalog';

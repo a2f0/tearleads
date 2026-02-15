@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '@/test/consoleMocks';
 import { FilesWindowTableView } from './FilesWindowTableView';
 
 const mockDatabaseState = {
@@ -70,11 +70,11 @@ vi.mock('@/storage/opfs', () => ({
   createRetrieveLogger: () => ({})
 }));
 
-vi.mock('@/lib/data-retrieval', () => ({
+vi.mock('@/lib/dataRetrieval', () => ({
   retrieveFileData: vi.fn().mockResolvedValue(new ArrayBuffer(0))
 }));
 
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   downloadFile: vi.fn()
 }));
 
@@ -743,7 +743,7 @@ describe('FilesWindowTableView', () => {
   });
 
   it('handles download error gracefully', async () => {
-    const { retrieveFileData } = await import('@/lib/data-retrieval');
+    const { retrieveFileData } = await import('@/lib/dataRetrieval');
     vi.mocked(retrieveFileData).mockRejectedValueOnce(
       new Error('Download failed')
     );
@@ -1218,7 +1218,7 @@ describe('FilesWindowTableView', () => {
   });
 
   it('handles audio play error gracefully', async () => {
-    const { retrieveFileData } = await import('@/lib/data-retrieval');
+    const { retrieveFileData } = await import('@/lib/dataRetrieval');
     vi.mocked(retrieveFileData).mockRejectedValueOnce(
       new Error('Audio load failed')
     );

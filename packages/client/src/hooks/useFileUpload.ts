@@ -10,10 +10,10 @@ import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
 import { files, vfsRegistry } from '@/db/schema';
 import { api } from '@/lib/api';
-import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
+import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
 import { UnsupportedFileTypeError } from '@/lib/errors';
-import { getFeatureFlagValue } from '@/lib/feature-flags';
-import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
+import { getFeatureFlagValue } from '@/lib/featureFlags';
+import { computeContentHash, readFileAsUint8Array } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import {
   createStoreLogger,

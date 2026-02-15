@@ -4,7 +4,7 @@ import {
   ElectronApplication,
   Page
 } from '@playwright/test';
-import {closeElectronApp, launchElectronApp} from './electron-test-helper';
+import {closeElectronApp, launchElectronApp} from './electronTestHelper';
 
 const TEST_PASSWORD = 'testpassword123';
 const NEW_PASSWORD = 'newpassword456';

@@ -1,4 +1,4 @@
-import { isRecord } from './type-guards.js';
+import { isRecord } from './typeGuards.js';
 
 export type ChatRole = 'assistant' | 'system' | 'tool' | 'user';
 

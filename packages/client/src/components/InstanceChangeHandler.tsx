@@ -7,7 +7,7 @@
 import { useCallback } from 'react';
 import { useOnInstanceChange } from '@/hooks/useInstanceChange';
 import { resetLLMUIState } from '@/hooks/useLLM';
-import { clearAttachedImage } from '@/lib/llm-runtime';
+import { clearAttachedImage } from '@/lib/llmRuntime';
 
 export function InstanceChangeHandler() {
   const handleInstanceChange = useCallback(

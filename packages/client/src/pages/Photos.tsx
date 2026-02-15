@@ -22,8 +22,8 @@ import {
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Dropzone } from '@/components/ui/dropzone';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import { UploadProgress } from '@/components/ui/upload-progress';
+import { RefreshButton } from '@/components/ui/RefreshButton';
+import { UploadProgress } from '@/components/ui/UploadProgress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
@@ -31,9 +31,9 @@ import { useDatabaseContext } from '@/db/hooks';
 import { files, vfsLinks } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
-import { uint8ArrayToDataUrl } from '@/lib/chat-attachments';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { setAttachedImage } from '@/lib/llm-runtime';
+import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
+import { setAttachedImage } from '@/lib/llmRuntime';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {

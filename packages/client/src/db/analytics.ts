@@ -8,7 +8,7 @@ import type {
   AnalyticsEventDetail,
   AnalyticsEventSlug,
   EventDetailMap
-} from './analytics-events';
+} from './analyticsEvents';
 import { analyticsEvents } from './schema';
 import { getDatabaseAdapter, isDatabaseInitialized } from './state';
 
@@ -520,4 +520,4 @@ export {
   EVENT_DISPLAY_NAMES,
   type EventDetailMap,
   getEventDisplayName
-} from './analytics-events';
+} from './analyticsEvents';

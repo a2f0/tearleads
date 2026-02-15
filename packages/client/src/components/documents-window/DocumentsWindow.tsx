@@ -10,7 +10,7 @@ import {
 import { ArrowLeft, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
-import { UploadProgress } from '@/components/ui/upload-progress';
+import { UploadProgress } from '@/components/ui/UploadProgress';
 import {
   useWindowManagerActions,
   useWindowOpenRequest

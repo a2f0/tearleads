@@ -15,7 +15,7 @@ import {
   createInstance,
   type InstanceMetadata,
   updateInstance
-} from '../instance-registry';
+} from '../instanceRegistry';
 import { type DecodeResult, decode, validateBackup } from './decoder';
 import type {
   BackupManifest,

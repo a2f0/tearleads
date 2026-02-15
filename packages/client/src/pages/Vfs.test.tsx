@@ -1,4 +1,4 @@
-import type { VfsOpenItem } from '@tearleads/vfs-explorer';
+import type { VfsOpenItem } from '@tearleads/vfsExplorer';
 import { render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
@@ -34,7 +34,7 @@ let latestVfsExplorerProps: {
   onItemOpen?: (item: VfsOpenItem) => void;
 } | null = null;
 
-vi.mock('@tearleads/vfs-explorer', () => ({
+vi.mock('@tearleads/vfsExplorer', () => ({
   VfsExplorer: ({
     className,
     onItemOpen
@@ -65,7 +65,7 @@ vi.mock('@/lib/navigation', () => ({
   useNavigateWithFrom: () => mockNavigateWithFrom
 }));
 
-vi.mock('@/lib/vfs-open', () => ({
+vi.mock('@/lib/vfsOpen', () => ({
   resolveFileOpenTarget: (...args: unknown[]) =>
     mockResolveFileOpenTarget(...args),
   resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)

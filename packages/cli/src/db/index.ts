@@ -15,7 +15,7 @@ import {
   restoreSession,
   setupNewKey,
   unlockWithPassword
-} from '../crypto/key-manager.js';
+} from '../crypto/keyManager.js';
 import { NativeSqliteAdapter } from './adapter.js';
 
 let adapter: NativeSqliteAdapter | null = null;

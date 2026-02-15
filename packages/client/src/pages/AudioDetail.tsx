@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
+import { ActionToolbar, type ActionType } from '@/components/ui/ActionToolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { EditableTitle } from '@/components/ui/editable-title';
@@ -23,8 +23,8 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useAudioErrorHandler } from '@/hooks/useAudioErrorHandler';
-import { type AudioMetadata, extractAudioMetadata } from '@/lib/audio-metadata';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { type AudioMetadata, extractAudioMetadata } from '@/lib/audioMetadata';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
   createRetrieveLogger,

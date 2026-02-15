@@ -15,18 +15,18 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Dropzone } from '@/components/ui/dropzone';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import { UploadProgress } from '@/components/ui/upload-progress';
+import { RefreshButton } from '@/components/ui/RefreshButton';
+import { UploadProgress } from '@/components/ui/UploadProgress';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
-import { objectUrlToDataUrl } from '@/lib/chat-attachments';
-import { retrieveFileData } from '@/lib/data-retrieval';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { setAttachedImage } from '@/lib/llm-runtime';
+import { objectUrlToDataUrl } from '@/lib/chatAttachments';
+import { retrieveFileData } from '@/lib/dataRetrieval';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
+import { setAttachedImage } from '@/lib/llmRuntime';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import {
   getFileStorage,

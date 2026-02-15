@@ -6,7 +6,7 @@ import {
   executeSearchTool,
   type SearchToolArgs,
   searchToolDefinition
-} from './search-tool';
+} from './searchTool';
 import type { ToolCall, ToolDefinition, ToolResult } from './types';
 
 /**

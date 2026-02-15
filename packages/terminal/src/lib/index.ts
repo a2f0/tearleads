@@ -1,4 +1,4 @@
-export * from './command-executor';
-export * from './command-parser';
+export * from './commandExecutor';
+export * from './commandParser';
 export * from './types';
 export * from './utils';

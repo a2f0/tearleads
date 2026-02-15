@@ -5,7 +5,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { navItems } from '@/components/Sidebar';
 import { i18n } from '@/i18n';
-import { setupScreensaverMock } from '@/test/screensaver-mock';
+import { setupScreensaverMock } from '@/test/screensaverMock';
 import { Home, PATH_TO_WINDOW_TYPE } from './Home';
 
 const mockOpenWindow = vi.fn();

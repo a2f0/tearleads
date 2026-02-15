@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TestContactsProvider } from '../test/test-utils';
+import { TestContactsProvider } from '../test/testUtils';
 import { ContactsWindowList } from './ContactsWindowList';
 
 const mockUseContacts = vi.fn();

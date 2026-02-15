@@ -1,6 +1,6 @@
 import type { ConsoleMessage, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { clearOriginStorage } from './test-utils';
+import { clearOriginStorage } from './testUtils';
 
 // Use dbTest for tests that require database setup
 const dbTest = test;

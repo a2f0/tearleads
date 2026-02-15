@@ -25,7 +25,7 @@ import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
 import { type ClassificationResult, useLLM } from '@/hooks/useLLM';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
 import { CLASSIFICATION_MODEL, DOCUMENT_LABELS } from '@/lib/models';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {

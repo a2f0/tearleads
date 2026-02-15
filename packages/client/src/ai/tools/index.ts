@@ -16,7 +16,7 @@ export {
   type SearchToolResult,
   type SearchToolResultItem,
   searchToolDefinition
-} from './search-tool';
+} from './searchTool';
 export type {
   ToolCall,
   ToolDefinition,

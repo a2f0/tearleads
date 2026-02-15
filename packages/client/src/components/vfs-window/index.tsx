@@ -1,5 +1,5 @@
-import type { VfsOpenItem } from '@tearleads/vfs-explorer';
-import { VfsWindow as VfsWindowBase } from '@tearleads/vfs-explorer';
+import type { VfsOpenItem } from '@tearleads/vfsExplorer';
+import { VfsWindow as VfsWindowBase } from '@tearleads/vfsExplorer';
 import {
   DesktopFloatingWindow as FloatingWindow,
   WindowControlBar,
@@ -12,7 +12,7 @@ import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext'
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { useVfsUploader } from '@/hooks/useVfsUploader';
-import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfs-open';
+import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfsOpen';
 
 interface VfsWindowProps {
   id: string;

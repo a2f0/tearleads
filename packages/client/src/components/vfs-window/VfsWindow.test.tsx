@@ -1,4 +1,4 @@
-import type { VfsOpenItem } from '@tearleads/vfs-explorer';
+import type { VfsOpenItem } from '@tearleads/vfsExplorer';
 import { render } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -54,7 +54,7 @@ let latestProps: {
   onUpload?: (folderId: string) => void;
 } | null = null;
 
-vi.mock('@tearleads/vfs-explorer', () => ({
+vi.mock('@tearleads/vfsExplorer', () => ({
   VfsWindow: (props: {
     onItemOpen?: (item: VfsOpenItem) => void;
     onUpload?: (folderId: string) => void;
@@ -83,7 +83,7 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
   })
 }));
 
-vi.mock('@/lib/vfs-open', () => ({
+vi.mock('@/lib/vfsOpen', () => ({
   resolveFileOpenTarget: (...args: unknown[]) =>
     mockResolveFileOpenTarget(...args),
   resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)

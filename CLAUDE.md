@@ -268,6 +268,27 @@ Skills are version-controlled like any other file. Create, edit, or delete files
 
 - Use camelCase for npm script names (e.g., `buildOpenapi` not `build:openapi`)
 
+## TypeScript File Naming Conventions
+
+### File Naming Rules
+
+- **React components (.tsx)**: PascalCase (e.g., `ErrorBoundary.tsx`, `ContextMenu.tsx`)
+- **TypeScript utilities (.ts)**: camelCase (e.g., `keyManager.ts`, `webCrypto.ts`)
+- **Test files**: Match source file + `.test` (e.g., `keyManager.test.ts`, `ErrorBoundary.test.tsx`)
+- **Type definitions (.d.ts)**: camelCase (e.g., `capacitorSqlite.d.ts`)
+- **API routes**: camelCase (e.g., `postLogin.ts`, `getSessions.ts`)
+- **Index/barrel files**: Keep as `index.ts`
+- **Skills** (`.claude/commands/`, `.codex/skills/`): Keep kebab-case (e.g., `commit-and-push.md`)
+
+### Do NOT Use
+
+- kebab-case for TypeScript source files (e.g., `key-manager.ts`)
+- snake_case for TypeScript source files (e.g., `key_manager.ts`)
+
+### Enforcement
+
+File naming conventions are enforced via `scripts/checkFileNames.sh` which runs in pre-push hooks and CI.
+
 ## Running Tests (CRITICAL: Use Headless Mode)
 
 **ALWAYS run Maestro tests in headless mode** to prevent the simulator/emulator UI from interfering with agent workflows:

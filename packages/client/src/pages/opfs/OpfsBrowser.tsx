@@ -8,14 +8,14 @@ import {
   useState
 } from 'react';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { formatFileSize } from '@/lib/utils';
 import {
   calculateTotalSize,
   collectAllPaths,
   countFiles,
   readDirectory
-} from './opfs-utils';
+} from './opfsUtils';
 import { TreeNode } from './TreeNode';
 import type { FileSystemEntry, StorageEstimate } from './types';
 

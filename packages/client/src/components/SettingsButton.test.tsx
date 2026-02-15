@@ -4,9 +4,9 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { setupThemeMocks } from '@/test/theme-test-utils';
+import { setupThemeMocks } from '@/test/themeTestUtils';
 import { SettingsButton } from './SettingsButton';
-import { ANIMATION_DURATION_MS } from './ui/bottom-sheet';
+import { ANIMATION_DURATION_MS } from './ui/bottomSheet';
 
 vi.mock('@/contexts/WindowManagerContext', () => ({
   useWindowManagerActions: vi.fn()

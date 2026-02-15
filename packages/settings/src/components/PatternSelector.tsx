@@ -1,6 +1,6 @@
 import { GridSquare } from '@tearleads/ui';
 import { useSettings } from '../context/SettingsProvider.js';
-import type { DesktopPatternValue } from '../types/user-settings.js';
+import type { DesktopPatternValue } from '../types/userSettings.js';
 import { PatternPreview } from './PatternPreview.js';
 
 const PATTERNS: DesktopPatternValue[] = [

@@ -12,7 +12,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   mockActivateScreensaver,
   setupScreensaverMock
-} from '@/test/screensaver-mock';
+} from '@/test/screensaverMock';
 import App from './App';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { Contacts } from './pages/contacts';

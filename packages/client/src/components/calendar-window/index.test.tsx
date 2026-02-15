@@ -10,7 +10,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   getCalendarEvents,
   getContactBirthdayEvents
-} from '@/db/calendar-events';
+} from '@/db/calendarEvents';
 import { CalendarWindow } from './index';
 
 interface MockCalendarContentProps {
@@ -138,7 +138,7 @@ vi.mock('@/components/sqlite/InlineUnlock', () => ({
   )
 }));
 
-vi.mock('@/db/calendar-events', () => ({
+vi.mock('@/db/calendarEvents', () => ({
   getCalendarEvents: vi.fn(async () => []),
   getContactBirthdayEvents: vi.fn(async () => []),
   createCalendarEvent: vi.fn(async () => null)

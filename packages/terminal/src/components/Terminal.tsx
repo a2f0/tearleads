@@ -10,9 +10,9 @@ import { useTerminal } from '../hooks/useTerminal';
 import type {
   DatabaseOperations,
   TerminalUtilities
-} from '../lib/command-executor';
-import { continueCommand, executeCommand } from '../lib/command-executor';
-import { parseCommand } from '../lib/command-parser';
+} from '../lib/commandExecutor';
+import { continueCommand, executeCommand } from '../lib/commandExecutor';
+import { parseCommand } from '../lib/commandParser';
 import { cn } from '../lib/utils';
 import { TerminalInput } from './TerminalInput';
 import { TerminalOutput } from './TerminalOutput';

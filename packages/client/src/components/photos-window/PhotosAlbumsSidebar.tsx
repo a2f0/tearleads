@@ -11,7 +11,7 @@ import {
 } from '@tearleads/window-manager';
 import { ImagePlus, Images, Plus } from 'lucide-react';
 import { useCallback, useState } from 'react';
-import { filterFilesByAccept } from '@/lib/file-filter';
+import { filterFilesByAccept } from '@/lib/fileFilter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
 import { canDeleteAlbum, canRenameAlbum } from './albumTypes';
 import { DeleteAlbumDialog } from './DeleteAlbumDialog';

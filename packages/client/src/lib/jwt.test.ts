@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createTestJwt } from '@/test/jwt-test-utils';
+import { createTestJwt } from '@/test/jwtTestUtils';
 import {
   decodeJwt,
   getJwtExpiration,

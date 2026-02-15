@@ -13,8 +13,8 @@ import {
   estimateBackupSize as estimateSize
 } from '@/db/backup';
 import { getKeyManager } from '@/db/crypto';
-import { getActiveInstance } from '@/db/instance-registry';
-import { saveFile } from '@/lib/file-utils';
+import { getActiveInstance } from '@/db/instanceRegistry';
+import { saveFile } from '@/lib/fileUtils';
 import {
   deleteBackupFromStorage,
   getBackupStorageUsed,
@@ -22,7 +22,7 @@ import {
   listStoredBackups,
   readBackupFromStorage,
   saveBackupToStorage
-} from '@/storage/backup-storage';
+} from '@/storage/backupStorage';
 import {
   type FileStorage,
   getFileStorageForInstance,

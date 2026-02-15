@@ -11,7 +11,7 @@ export type {
   TooltipsValue,
   UserSettingKey,
   WindowOpacityValue
-} from './user-settings.js';
+} from './userSettings.js';
 
 export {
   BORDER_RADIUS_VALUES,
@@ -33,4 +33,4 @@ export {
   setSettingInStorage,
   THEME_VALUES,
   WINDOW_OPACITY_VALUES
-} from './user-settings.js';
+} from './userSettings.js';

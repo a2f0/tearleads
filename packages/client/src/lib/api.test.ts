@@ -221,7 +221,7 @@ describe('api edge cases requiring direct fetch mocking', () => {
 
       try {
         const { api } = await import('./api');
-        const { getAuthError } = await import('./auth-storage');
+        const { getAuthError } = await import('./authStorage');
 
         // Request fails because we can't store the new token
         await expect(api.ping.get()).rejects.toThrow('API error: 401');

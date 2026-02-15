@@ -1,7 +1,7 @@
 import { Router, type Router as RouterType } from 'express';
-import { registerGetIdRoute } from './users/get-id.js';
-import { registerGetRootRoute } from './users/get-root.js';
-import { registerPatchIdRoute } from './users/patch-id.js';
+import { registerGetIdRoute } from './users/getId.js';
+import { registerGetRootRoute } from './users/getRoot.js';
+import { registerPatchIdRoute } from './users/patchId.js';
 
 const usersRouter: RouterType = Router();
 registerGetRootRoute(usersRouter);

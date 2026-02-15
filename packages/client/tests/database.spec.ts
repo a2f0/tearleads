@@ -1,6 +1,6 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { clearOriginStorage } from './test-utils';
+import { clearOriginStorage } from './testUtils';
 
 const TEST_PASSWORD = 'testpassword123';
 const NEW_PASSWORD = 'newpassword456';

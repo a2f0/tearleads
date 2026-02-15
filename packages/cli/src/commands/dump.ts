@@ -7,7 +7,7 @@ import path from 'node:path';
 import { Command } from 'commander';
 import { decode } from '../backup/index.js';
 import type { BackupDatabase } from '../backup/types.js';
-import { hasPersistedSession } from '../crypto/key-manager.js';
+import { hasPersistedSession } from '../crypto/keyManager.js';
 import {
   exportBackupDatabase,
   isDatabaseSetUp,

@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { getDatabaseAdapter } from '@/db';
 import type { DatabaseAdapter } from '@/db/adapters/types';
-import { downloadFile } from '@/lib/file-utils';
+import { downloadFile } from '@/lib/fileUtils';
 import {
   exportTableAsCsv,
   getNumberField,
@@ -13,7 +13,7 @@ vi.mock('@/db', () => ({
   getDatabaseAdapter: vi.fn()
 }));
 
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   downloadFile: vi.fn()
 }));
 

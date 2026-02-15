@@ -14,7 +14,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { getDatabase } from '@/db';
 import { userSettings } from '@/db/schema';
-import { renderWithDatabase } from '../test/render-with-database';
+import { renderWithDatabase } from '../test/renderWithDatabase';
 import { Tables } from './Tables';
 
 describe('Tables Page Integration Tests', () => {

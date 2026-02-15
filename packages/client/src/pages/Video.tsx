@@ -6,8 +6,8 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Dropzone } from '@/components/ui/dropzone';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import { UploadProgress } from '@/components/ui/upload-progress';
+import { RefreshButton } from '@/components/ui/RefreshButton';
+import { UploadProgress } from '@/components/ui/UploadProgress';
 import { VideoListView } from '@/components/video-window/VideoListView';
 import {
   ALL_VIDEO_ID,

@@ -1,5 +1,5 @@
 export {
   createMarkdownToolbarFilter,
   markdownToolbarCommandsFilter
-} from './markdown-toolbar';
+} from './markdownToolbar';
 export { cn, formatDate } from './utils';

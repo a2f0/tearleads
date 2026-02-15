@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '@/test/consoleMocks';
 import { Documents } from './Documents';
 
 // Mock useVirtualizer to simplify testing
@@ -84,19 +84,19 @@ vi.mock('@/hooks/useFileUpload', () => ({
 const mockCanShareFiles = vi.fn(() => false);
 const mockDownloadFile = vi.fn();
 const mockShareFile = vi.fn();
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   canShareFiles: () => mockCanShareFiles(),
   downloadFile: (...args: unknown[]) => mockDownloadFile(...args),
   shareFile: (...args: unknown[]) => mockShareFile(...args)
 }));
 
 const mockSetAttachedImage = vi.fn();
-vi.mock('@/lib/llm-runtime', () => ({
+vi.mock('@/lib/llmRuntime', () => ({
   setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
 }));
 
 const mockObjectUrlToDataUrl = vi.fn();
-vi.mock('@/lib/chat-attachments', () => ({
+vi.mock('@/lib/chatAttachments', () => ({
   objectUrlToDataUrl: (objectUrl: string) => mockObjectUrlToDataUrl(objectUrl)
 }));
 

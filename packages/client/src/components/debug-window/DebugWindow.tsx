@@ -9,7 +9,7 @@ import { Archive, ArrowLeft, Bug, Database, HardDrive } from 'lucide-react';
 import { useState } from 'react';
 import { CacheStorage } from '@/pages/cache-storage';
 import { Debug } from '@/pages/debug';
-import { LocalStorage } from '@/pages/local-storage';
+import { LocalStorage } from '@/pages/localStorage';
 import { Opfs } from '@/pages/opfs';
 import { type DebugOptionId, DebugOptionsGrid } from './DebugOptionsGrid';
 import { DebugWindowMenuBar } from './DebugWindowMenuBar';

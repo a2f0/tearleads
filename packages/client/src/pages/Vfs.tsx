@@ -1,5 +1,5 @@
-import type { VfsOpenItem } from '@tearleads/vfs-explorer';
-import { VfsExplorer } from '@tearleads/vfs-explorer';
+import type { VfsOpenItem } from '@tearleads/vfsExplorer';
+import { VfsExplorer } from '@tearleads/vfsExplorer';
 import { useCallback } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -11,7 +11,7 @@ import {
   type FileOpenTarget,
   resolveFileOpenTarget,
   resolvePlaylistType
-} from '@/lib/vfs-open';
+} from '@/lib/vfsOpen';
 
 export function Vfs() {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();

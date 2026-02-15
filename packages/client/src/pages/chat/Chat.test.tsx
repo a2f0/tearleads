@@ -95,7 +95,7 @@ vi.mock('@/storage/opfs', () => ({
 // Mock llm-runtime
 const mockSetAttachedImage = vi.fn();
 const mockGetAttachedImage = vi.fn((): string | null => null);
-vi.mock('@/lib/llm-runtime', () => ({
+vi.mock('@/lib/llmRuntime', () => ({
   createLLMAdapter: vi.fn(() => ({})),
   getAttachedImage: () => mockGetAttachedImage(),
   setAttachedImage: (img: string | null) => mockSetAttachedImage(img)

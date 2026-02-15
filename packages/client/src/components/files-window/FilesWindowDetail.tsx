@@ -9,7 +9,7 @@ import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
 import {
   createRetrieveLogger,
   getFileStorage,

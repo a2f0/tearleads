@@ -11,7 +11,7 @@ export {
   FEATURE_TO_PACKAGES,
   getDisabledPackages,
   getEnabledPackages
-} from './feature-map.js';
+} from './featureMap.js';
 export { getAppsDir, listApps, loadAppConfig } from './loader.js';
 export {
   AppConfigSchema,

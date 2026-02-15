@@ -3,7 +3,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { app } from '../../index.js';
 import { createAuthHeader } from '../../test/auth.js';
-import { getRootHandler } from './organizations/get-root.js';
+import { getRootHandler } from './organizations/getRoot.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();

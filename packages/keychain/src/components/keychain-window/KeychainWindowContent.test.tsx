@@ -7,7 +7,7 @@ import {
 } from '@testing-library/react';
 import { createRef } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '../../test/console-mocks';
+import { mockConsoleError } from '../../test/consoleMocks';
 import type { KeychainWindowContentRef } from './KeychainWindowContent';
 import { KeychainWindowContent } from './KeychainWindowContent';
 
@@ -15,11 +15,11 @@ const mockGetInstances = vi.fn();
 const mockGetKeyStatusForInstance = vi.fn();
 const mockDeleteSessionKeysForInstance = vi.fn();
 
-vi.mock('@client/db/instance-registry', () => ({
+vi.mock('@client/db/instanceRegistry', () => ({
   getInstances: () => mockGetInstances()
 }));
 
-vi.mock('@client/db/crypto/key-manager', () => ({
+vi.mock('@client/db/crypto/keyManager', () => ({
   getKeyStatusForInstance: (id: string) => mockGetKeyStatusForInstance(id),
   deleteSessionKeysForInstance: (id: string) =>
     mockDeleteSessionKeysForInstance(id)

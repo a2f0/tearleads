@@ -14,7 +14,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { getDatabase } from '@/db';
 import { contactEmails, contactPhones, contacts } from '@/db/schema';
-import { renderWithDatabase } from '../../test/render-with-database';
+import { renderWithDatabase } from '../../test/renderWithDatabase';
 import { Contacts } from './Contacts';
 
 // Mock useVirtualizer to simplify testing

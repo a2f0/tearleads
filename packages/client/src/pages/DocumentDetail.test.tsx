@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '@/test/consoleMocks';
 import { DocumentDetail } from './DocumentDetail';
 
 const mockUseDatabaseContext = vi.fn();
@@ -43,7 +43,7 @@ vi.mock('@/storage/opfs', () => ({
 const mockDownloadFile = vi.fn();
 const mockShareFile = vi.fn();
 const mockCanShareFiles = vi.fn();
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   downloadFile: (data: Uint8Array, filename: string) =>
     mockDownloadFile(data, filename),
   shareFile: (data: Uint8Array, filename: string, mimeType: string) =>
@@ -58,7 +58,7 @@ vi.mock('@/components/pdf', () => ({
 }));
 
 const mockRetrieveFileData = vi.fn();
-vi.mock('@/lib/data-retrieval', () => ({
+vi.mock('@/lib/dataRetrieval', () => ({
   retrieveFileData: (storagePath: string, instanceId: string) =>
     mockRetrieveFileData(storagePath, instanceId)
 }));

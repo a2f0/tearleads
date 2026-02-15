@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { program } from 'commander';
-import { getDisabledPackages, getEnabledPackages } from './feature-map.js';
+import { getDisabledPackages, getEnabledPackages } from './featureMap.js';
 import {
   generateAppConfigGradle,
   generateAppfile,

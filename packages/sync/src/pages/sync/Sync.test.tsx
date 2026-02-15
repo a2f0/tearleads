@@ -1,5 +1,5 @@
 import { AuthProvider } from '@client/contexts/AuthContext';
-import { createTestJwtExpiresIn } from '@client/test/jwt-test-utils';
+import { createTestJwtExpiresIn } from '@client/test/jwtTestUtils';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';

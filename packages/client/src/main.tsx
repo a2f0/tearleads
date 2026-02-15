@@ -18,13 +18,13 @@ import {
 import {
   ErrorBoundary,
   errorBoundaryRef
-} from './components/ui/error-boundary';
+} from './components/ui/ErrorBoundary';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
 import { i18n } from './i18n';
-import { installConsoleErrorCapture } from './lib/console-error-capture';
+import { installConsoleErrorCapture } from './lib/consoleErrorCapture';
 import { SearchProvider } from './search';
 import { SSEProvider } from './sse';
 import { VideoProvider } from './video';
@@ -192,7 +192,7 @@ const Licenses = lazy(() =>
   import('./pages/Licenses').then((m) => ({ default: m.Licenses }))
 );
 const LocalStorage = lazy(() =>
-  import('./pages/local-storage').then((m) => ({ default: m.LocalStorage }))
+  import('./pages/localStorage').then((m) => ({ default: m.LocalStorage }))
 );
 const Models = lazy(() =>
   import('./pages/models').then((m) => ({ default: m.Models }))

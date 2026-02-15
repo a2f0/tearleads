@@ -19,7 +19,7 @@ import {
   createCalendarEvent,
   getCalendarEvents,
   getContactBirthdayEvents
-} from '@/db/calendar-events';
+} from '@/db/calendarEvents';
 import { useDatabaseContext } from '@/db/hooks';
 import { CalendarWindowMenuBar } from './CalendarWindowMenuBar';
 import { NewCalendarDialog } from './NewCalendarDialog';

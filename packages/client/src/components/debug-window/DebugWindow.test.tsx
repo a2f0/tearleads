@@ -78,7 +78,7 @@ vi.mock('@/pages/debug', () => ({
   )
 }));
 
-vi.mock('@/pages/local-storage', () => ({
+vi.mock('@/pages/localStorage', () => ({
   LocalStorage: ({ showBackLink }: { showBackLink?: boolean }) => (
     <div data-testid="local-storage-content" data-show-back-link={showBackLink}>
       Local Storage Content

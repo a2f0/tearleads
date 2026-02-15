@@ -3,7 +3,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '@/test/consoleMocks';
 import { AudioDetail } from './AudioDetail';
 
 const mockNavigate = vi.fn();
@@ -75,7 +75,7 @@ vi.mock('@/storage/opfs', () => ({
 const mockDownloadFile = vi.fn();
 const mockShareFile = vi.fn();
 const mockCanShareFiles = vi.fn();
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   downloadFile: (data: Uint8Array, filename: string) =>
     mockDownloadFile(data, filename),
   shareFile: (data: Uint8Array, filename: string, mimeType: string) =>
@@ -85,7 +85,7 @@ vi.mock('@/lib/file-utils', () => ({
 
 // Mock audio metadata extraction
 const mockExtractAudioMetadata = vi.fn();
-vi.mock('@/lib/audio-metadata', () => ({
+vi.mock('@/lib/audioMetadata', () => ({
   extractAudioMetadata: (data: Uint8Array, mimeType: string) =>
     mockExtractAudioMetadata(data, mimeType)
 }));

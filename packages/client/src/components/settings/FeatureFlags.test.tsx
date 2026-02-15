@@ -2,7 +2,7 @@ import { ThemeProvider } from '@tearleads/ui';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { FEATURE_FLAGS_STORAGE_KEY } from '@/lib/feature-flags';
+import { FEATURE_FLAGS_STORAGE_KEY } from '@/lib/featureFlags';
 import { FeatureFlags } from './FeatureFlags';
 
 function renderFeatureFlags() {

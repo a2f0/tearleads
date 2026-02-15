@@ -5,12 +5,12 @@ import {
   getKeyManagerForInstance,
   getKeyStatusForInstance,
   type KeyStatus
-} from '@client/db/crypto/key-manager';
+} from '@client/db/crypto/keyManager';
 import {
   deleteInstanceFromRegistry,
   getInstances,
   type InstanceMetadata
-} from '@client/db/instance-registry';
+} from '@client/db/instanceRegistry';
 import { Calendar, Key, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';

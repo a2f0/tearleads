@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '../test/console-mocks.js';
+import { mockConsoleError } from '../test/consoleMocks.js';
 import {
   getEmailTransporter,
   resetEmailTransporter,

@@ -50,15 +50,15 @@ vi.mock('@/db/crypto', () => ({
   })
 }));
 
-vi.mock('@/db/instance-registry', () => ({
+vi.mock('@/db/instanceRegistry', () => ({
   getActiveInstance: vi.fn().mockResolvedValue({ name: 'Test Instance' })
 }));
 
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   saveFile: mockSaveFile
 }));
 
-vi.mock('@/storage/backup-storage', () => ({
+vi.mock('@/storage/backupStorage', () => ({
   isBackupStorageSupported: () => true,
   listStoredBackups: mockListStoredBackups,
   getBackupStorageUsed: mockGetBackupStorageUsed,

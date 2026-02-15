@@ -1,10 +1,10 @@
-import type { KeyStatus } from '@client/db/crypto/key-manager';
-import type { InstanceMetadata } from '@client/db/instance-registry';
+import type { KeyStatus } from '@client/db/crypto/keyManager';
+import type { InstanceMetadata } from '@client/db/instanceRegistry';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '../../test/console-mocks';
+import { mockConsoleError } from '../../test/consoleMocks';
 import { KeychainDetail } from './KeychainDetail';
 
 const mockNavigate = vi.fn();
@@ -26,7 +26,7 @@ const mockGetKeyManagerForInstance = vi.fn((_instanceId: string) => ({
   reset: mockKeyManagerReset
 }));
 
-vi.mock('@client/db/crypto/key-manager', () => ({
+vi.mock('@client/db/crypto/keyManager', () => ({
   getKeyStatusForInstance: (instanceId: string) =>
     mockGetKeyStatusForInstance(instanceId),
   deleteSessionKeysForInstance: (instanceId: string) =>
@@ -39,7 +39,7 @@ const mockGetInstances = vi.fn<() => Promise<InstanceMetadata[]>>();
 const mockDeleteInstanceFromRegistry =
   vi.fn<(instanceId: string) => Promise<void>>();
 
-vi.mock('@client/db/instance-registry', () => ({
+vi.mock('@client/db/instanceRegistry', () => ({
   getInstances: () => mockGetInstances(),
   deleteInstanceFromRegistry: (instanceId: string) =>
     mockDeleteInstanceFromRegistry(instanceId)

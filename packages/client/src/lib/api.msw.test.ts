@@ -10,10 +10,10 @@ import {
   AUTH_REFRESH_TOKEN_KEY,
   AUTH_TOKEN_KEY,
   AUTH_USER_KEY
-} from '@/lib/auth-storage';
+} from '@/lib/authStorage';
 
 const loadAuthStorage = async () => {
-  const module = await import('@/lib/auth-storage');
+  const module = await import('@/lib/authStorage');
   return module;
 };
 

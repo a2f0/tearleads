@@ -3,7 +3,7 @@ import { ChevronRight, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink, LinkWithFrom } from '@/components/ui/back-link';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 

@@ -7,7 +7,7 @@ import { isRecord, toFiniteNumber } from '@tearleads/shared';
 import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { LinkWithFrom } from '@/components/ui/back-link/LinkWithFrom';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { getDatabaseAdapter } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 

@@ -5,7 +5,7 @@
 import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
-} from '@tearleads/vfs-explorer';
+} from '@tearleads/vfsExplorer';
 import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   DesktopContextMenu as ContextMenu,
@@ -27,8 +27,8 @@ import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { api } from '@/lib/api';
-import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
-import { getFeatureFlagValue } from '@/lib/feature-flags';
+import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
+import { getFeatureFlagValue } from '@/lib/featureFlags';
 
 export function VfsExplorerAboutMenuItem() {
   return (

@@ -1,7 +1,7 @@
 import {
   mockConsoleError,
   mockConsoleWarn
-} from '@analytics/test/console-mocks';
+} from '@analytics/test/consoleMocks';
 import { ThemeProvider } from '@tearleads/ui';
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';

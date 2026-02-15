@@ -1,5 +1,5 @@
 import { LanguageSelector, ThemeSelector } from '@tearleads/settings';
-import { BottomSheet } from '@/components/ui/bottom-sheet';
+import { BottomSheet } from '@/components/ui/bottomSheet';
 import { useTypedTranslation } from '@/i18n';
 
 interface SettingsSheetProps {

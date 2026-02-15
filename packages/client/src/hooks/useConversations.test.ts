@@ -33,7 +33,7 @@ vi.mock('@/lib/api', () => ({
 }));
 
 // Mock conversation crypto
-vi.mock('@/lib/conversation-crypto', () => ({
+vi.mock('@/lib/conversationCrypto', () => ({
   createConversationEncryption: vi.fn().mockResolvedValue({
     encryptedTitle: 'encrypted-title',
     encryptedSessionKey: 'encrypted-key',

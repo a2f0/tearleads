@@ -17,7 +17,7 @@ import { getCurrentInstanceId, getDatabase } from '@/db';
 import type { AnalyticsEventSlug } from '@/db/analytics';
 import { logEvent as logAnalyticsEvent } from '@/db/analytics';
 import { API_BASE_URL } from '@/lib/api';
-import { getAuthHeaderValue } from '@/lib/auth-storage';
+import { getAuthHeaderValue } from '@/lib/authStorage';
 import { getWebGPUErrorInfo } from '@/lib/utils';
 import {
   clearLastLoadedModel,

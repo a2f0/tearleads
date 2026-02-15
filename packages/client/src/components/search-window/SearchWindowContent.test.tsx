@@ -47,7 +47,7 @@ vi.mock('@/hooks/useIsMobile', () => ({
   useIsMobile: () => mockUseIsMobile()
 }));
 
-vi.mock('@/lib/vfs-open', () => ({
+vi.mock('@/lib/vfsOpen', () => ({
   resolveFileOpenTarget: (fileId: string) => mockResolveFileOpenTarget(fileId)
 }));
 

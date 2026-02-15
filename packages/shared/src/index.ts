@@ -2,11 +2,11 @@
  * Shared types and utilities
  */
 
-import { assertPlainArrayBuffer, isRecord } from './type-guards.js';
+import { assertPlainArrayBuffer, isRecord } from './typeGuards.js';
 
 export * from './crypto/asymmetric.js';
 // Crypto utilities
-export * from './crypto/web-crypto.js';
+export * from './crypto/webCrypto.js';
 
 // Note: Redis client is exported separately via '@tearleads/shared/redis'
 // to avoid bundling Node.js-only code into browser bundles
@@ -20,11 +20,11 @@ export interface LicenseInfo {
 }
 
 // AI conversations
-export * from './ai-conversations.js';
+export * from './aiConversations.js';
 // Chat validation helpers
 export * from './chat.js';
 // Media drag-and-drop helpers
-export * from './media-drag-data.js';
+export * from './mediaDragData.js';
 // OpenRouter model options
 export * from './openrouter.js';
 // Tree utilities

@@ -24,7 +24,7 @@ import { useDatabaseContext } from '@/db/hooks';
 import { useConversations } from '@/hooks/useConversations';
 import { useLLM } from '@/hooks/useLLM';
 import { useTranslation } from '@/i18n';
-import { getAttachedImage, setAttachedImage } from '@/lib/llm-runtime';
+import { getAttachedImage, setAttachedImage } from '@/lib/llmRuntime';
 import { PhotoPicker } from '@/pages/chat/PhotoPicker';
 import { logStore } from '@/stores/logStore';
 

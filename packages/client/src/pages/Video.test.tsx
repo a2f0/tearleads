@@ -2,7 +2,7 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
+import { mockConsoleError, mockConsoleWarn } from '@/test/consoleMocks';
 import { Video, VideoPage } from './Video';
 
 // Mock VideoPlaylistsSidebar

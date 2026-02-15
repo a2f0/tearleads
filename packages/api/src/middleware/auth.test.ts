@@ -4,7 +4,7 @@ import { app } from '../index.js';
 import { createJwt } from '../lib/jwt.js';
 import { createSession, deleteSession } from '../lib/sessions.js';
 import { createAuthHeader } from '../test/auth.js';
-import { mockConsoleError } from '../test/console-mocks.js';
+import { mockConsoleError } from '../test/consoleMocks.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 

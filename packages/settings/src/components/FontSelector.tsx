@@ -1,7 +1,7 @@
 import { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSettings } from '../context/SettingsProvider.js';
-import type { FontValue } from '../types/user-settings.js';
+import type { FontValue } from '../types/userSettings.js';
 import { Button } from './ui/button.js';
 
 export function FontSelector() {

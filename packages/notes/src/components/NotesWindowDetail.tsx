@@ -10,7 +10,7 @@ import {
   useNotesContext,
   useNotesUI
 } from '../context/NotesContext';
-import { createMarkdownToolbarFilter } from '../lib/markdown-toolbar';
+import { createMarkdownToolbarFilter } from '../lib/markdownToolbar';
 import { formatDate } from '../lib/utils';
 
 interface NoteInfo {

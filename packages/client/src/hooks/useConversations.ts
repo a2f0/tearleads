@@ -19,7 +19,7 @@ import {
   encryptTitle,
   generateTitleFromMessage,
   unwrapConversationSessionKey
-} from '@/lib/conversation-crypto';
+} from '@/lib/conversationCrypto';
 import { ensureVfsKeyPair } from './useVfsKeys';
 
 export interface ConversationWithKey {

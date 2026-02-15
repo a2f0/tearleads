@@ -25,8 +25,8 @@ import {
 } from '@/db/schema';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { api } from '@/lib/api';
-import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
-import { getFeatureFlagValue } from '@/lib/feature-flags';
+import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
+import { getFeatureFlagValue } from '@/lib/featureFlags';
 
 interface ContactFormData {
   firstName: string;

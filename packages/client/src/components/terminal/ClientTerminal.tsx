@@ -8,7 +8,7 @@ import {
   generateBackupFilename,
   readFileAsUint8Array,
   saveFile
-} from '@/lib/file-utils';
+} from '@/lib/fileUtils';
 
 interface ClientTerminalProps {
   className?: string;

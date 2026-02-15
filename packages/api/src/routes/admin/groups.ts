@@ -1,12 +1,12 @@
 import { Router, type Router as RouterType } from 'express';
-import { registerDeleteIdRoute } from './groups/delete-id.js';
-import { registerDeleteIdMembersUseridRoute } from './groups/delete-id-members-userId.js';
-import { registerGetIdRoute } from './groups/get-id.js';
-import { registerGetIdMembersRoute } from './groups/get-id-members.js';
-import { registerGetRootRoute } from './groups/get-root.js';
-import { registerPostIdMembersRoute } from './groups/post-id-members.js';
-import { registerPostRootRoute } from './groups/post-root.js';
-import { registerPutIdRoute } from './groups/put-id.js';
+import { registerDeleteIdRoute } from './groups/deleteId.js';
+import { registerDeleteIdMembersUseridRoute } from './groups/deleteIdMembersUserId.js';
+import { registerGetIdRoute } from './groups/getId.js';
+import { registerGetIdMembersRoute } from './groups/getIdMembers.js';
+import { registerGetRootRoute } from './groups/getRoot.js';
+import { registerPostIdMembersRoute } from './groups/postIdMembers.js';
+import { registerPostRootRoute } from './groups/postRoot.js';
+import { registerPutIdRoute } from './groups/putId.js';
 
 const groupsRouter: RouterType = Router();
 registerGetRootRoute(groupsRouter);

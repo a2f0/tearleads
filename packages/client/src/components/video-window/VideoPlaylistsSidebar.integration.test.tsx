@@ -8,7 +8,7 @@ import { ClientVideoProvider } from '@/contexts/ClientVideoProvider';
 import { getDatabase } from '@/db';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
 import { useVideoPlaylistContext } from '@/video/VideoPlaylistContext';
-import { renderWithDatabase } from '../../test/render-with-database';
+import { renderWithDatabase } from '../../test/renderWithDatabase';
 import { ALL_VIDEO_ID, VideoPlaylistsSidebar } from './VideoPlaylistsSidebar';
 
 function SidebarDropHarness() {
