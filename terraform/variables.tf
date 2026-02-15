@@ -25,3 +25,9 @@ variable "server_username" {
   description = "Non-root username for server access"
   type        = string
 }
+
+variable "allowed_ssh_ips" {
+  description = "List of IP addresses/CIDRs allowed to access SSH. Defaults to all for development, should be restricted in production."
+  type        = list(string)
+  default     = ["0.0.0.0/0", "::/0"]
+}

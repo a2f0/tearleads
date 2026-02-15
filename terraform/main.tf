@@ -13,12 +13,12 @@ data "hcloud_ssh_key" "main" {
 resource "hcloud_firewall" "main" {
   name = "${var.domain}-firewall"
 
-  # SSH - restricted to management
+  # SSH - restricted to management IPs (configurable via var.allowed_ssh_ips)
   rule {
     direction  = "in"
     protocol   = "tcp"
     port       = "22"
-    source_ips = ["0.0.0.0/0", "::/0"]
+    source_ips = var.allowed_ssh_ips
   }
 
   # HTTP - for certbot and redirects
