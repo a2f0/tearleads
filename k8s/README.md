@@ -39,13 +39,12 @@ export KUBECONFIG=~/.kube/config-k8s
 kubectl get nodes
 ```
 
-### 3. Configure Secrets
-
-Edit `manifests/secrets.yaml` and replace placeholder values:
+### 3. Set Secret Environment Variables
 
 ```bash
-# Generate JWT secret
-openssl rand -hex 32
+# Generate and export secrets
+export JWT_SECRET=$(openssl rand -hex 32)
+export POSTGRES_PASSWORD=$(openssl rand -hex 16)
 ```
 
 ### 4. Install Ingress Controller and Cert-Manager

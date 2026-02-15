@@ -4,6 +4,8 @@ export TF_WORKSPACE="${TF_WORKSPACE_K8S:?TF_WORKSPACE_K8S is not set}"
 
 cd "$(dirname "$0")/.."
 DOMAIN="${TF_VAR_domain:?TF_VAR_domain is not set}"
+: "${JWT_SECRET:?JWT_SECRET is not set}"
+: "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set}"
 MANIFESTS_DIR="$(pwd)/manifests"
 
 # Get kubeconfig if not already set
@@ -27,7 +29,10 @@ echo "Creating namespace..."
 kubectl apply -f "${MANIFESTS_DIR}/namespace.yaml"
 
 echo "Applying secrets and configmap..."
-kubectl apply -f "${MANIFESTS_DIR}/secrets.yaml"
+SECRETS_TEMP=$(mktemp)
+envsubst < "${MANIFESTS_DIR}/secrets.yaml" > "$SECRETS_TEMP"
+kubectl apply -f "$SECRETS_TEMP"
+rm -f "$SECRETS_TEMP"
 kubectl apply -f "${MANIFESTS_DIR}/configmap.yaml"
 
 echo "Deploying PostgreSQL..."
