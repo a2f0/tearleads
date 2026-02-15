@@ -32,7 +32,7 @@ cd k8s
 ## Retrieve Kubeconfig
 
 ```bash
-./scripts/kubeconfig.sh > ~/.kube/config-k8s
+./scripts/kubeconfig.sh
 export KUBECONFIG=~/.kube/config-k8s
 kubectl get nodes
 ```
@@ -61,7 +61,7 @@ Override server type with `-var server_type=cx22` for more resources.
 | `apply.sh` | Apply infrastructure |
 | `destroy.sh` | Tear down infrastructure |
 | `update.sh` | Upgrade provider versions |
-| `kubeconfig.sh` | Retrieve kubeconfig from server |
+| `kubeconfig.sh` | Fetch kubeconfig and write to ~/.kube/config-k8s |
 
 ## Tear Down
 

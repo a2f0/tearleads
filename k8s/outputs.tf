@@ -25,5 +25,5 @@ output "server_username" {
 
 output "kubeconfig_command" {
   description = "Command to retrieve kubeconfig"
-  value       = "./scripts/kubeconfig.sh > ~/.kube/config-k8s"
+  value       = "./scripts/kubeconfig.sh"
 }
