@@ -69,7 +69,6 @@ export function AnalyticsTab() {
         }
       } finally {
         setLoading(false);
-        fetchingRef.current = false;
       }
     };
 
