@@ -7977,6 +7977,337 @@ describe('VfsBackgroundSyncClient', () => {
     expect(guardrailViolations).toHaveLength(2);
   });
 
+  it('keeps paginated container windows deterministic after alternating recovery failures', async () => {
+    let pullCallCount = 0;
+    let reconcileCallCount = 0;
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+      details?: Record<string, string | number | boolean | null>;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => {
+        pullCallCount += 1;
+        if (pullCallCount === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'seed-paged-1',
+                occurredAt: '2026-02-14T12:29:00.000Z',
+                itemId: 'item-seed-paged'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:29:00.000Z',
+              changeId: 'seed-paged-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 2) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'pull-fail-paged-1',
+                occurredAt: '2026-02-14T12:29:01.000Z',
+                itemId: 'item-phantom-paged'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:29:01.000Z',
+              changeId: 'pull-fail-paged-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 4,
+              mobile: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 3) {
+          return {
+            items: [
+              {
+                opId: 'good-link-root-paged',
+                itemId: 'item-good-link-root-paged',
+                opType: 'link_add',
+                principalType: null,
+                principalId: null,
+                accessLevel: null,
+                parentId: 'root',
+                childId: 'item-good-link-root-paged',
+                actorId: null,
+                sourceTable: 'test',
+                sourceId: 'good-link-root-paged',
+                occurredAt: '2026-02-14T12:29:02.000Z'
+              }
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:29:02.000Z',
+              changeId: 'good-link-root-paged'
+            },
+            lastReconciledWriteIds: {
+              desktop: 6,
+              mobile: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 4) {
+          return {
+            items: [],
+            hasMore: false,
+            nextCursor: null,
+            lastReconciledWriteIds: {
+              desktop: 6,
+              mobile: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 5) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'good-acl-paged',
+                occurredAt: '2026-02-14T12:29:03.000Z',
+                itemId: 'item-good-acl-paged'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:29:03.000Z',
+              changeId: 'good-acl-paged'
+            },
+            lastReconciledWriteIds: {
+              desktop: 7,
+              mobile: 6
+            }
+          };
+        }
+
+        return {
+          items: [
+            {
+              opId: 'good-link-archive-paged',
+              itemId: 'item-good-link-archive-paged',
+              opType: 'link_add',
+              principalType: null,
+              principalId: null,
+              accessLevel: null,
+              parentId: 'archive',
+              childId: 'item-good-link-archive-paged',
+              actorId: null,
+              sourceTable: 'test',
+              sourceId: 'good-link-archive-paged',
+              occurredAt: '2026-02-14T12:29:04.000Z'
+            }
+          ],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-14T12:29:04.000Z',
+            changeId: 'good-link-archive-paged'
+          },
+          lastReconciledWriteIds: {
+            desktop: 8,
+            mobile: 7
+          }
+        };
+      },
+      reconcileState: async (input) => {
+        reconcileCallCount += 1;
+        if (reconcileCallCount === 1) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 5
+            }
+          };
+        }
+
+        if (reconcileCallCount === 2) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 4
+            }
+          };
+        }
+
+        if (reconcileCallCount === 3) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 6
+            }
+          };
+        }
+
+        if (reconcileCallCount === 4) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 7
+            }
+          };
+        }
+
+        return {
+          cursor: { ...input.cursor },
+          lastReconciledWriteIds: {
+            ...input.lastReconciledWriteIds,
+            mobile: 8
+          }
+        };
+      }
+    };
+
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    await seedClient.sync();
+
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    resumedClient.hydrateState(seedClient.exportState());
+
+    const seedPage = resumedClient.listChangedContainers(null, 10);
+    const seedCursor = seedPage.nextCursor;
+    if (!seedCursor) {
+      throw new Error('expected seed cursor for paginated window checks');
+    }
+
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica desktop/
+    );
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica mobile/
+    );
+    await resumedClient.sync();
+    await resumedClient.sync();
+    await resumedClient.sync();
+
+    const pageOne = resumedClient.listChangedContainers(seedCursor, 1);
+    const pageOneCursor = pageOne.nextCursor;
+    if (!pageOneCursor) {
+      throw new Error('expected first paginated forward cursor');
+    }
+    const pageTwo = resumedClient.listChangedContainers(pageOneCursor, 1);
+    const pageTwoCursor = pageTwo.nextCursor;
+    if (!pageTwoCursor) {
+      throw new Error('expected second paginated forward cursor');
+    }
+    const pageThree = resumedClient.listChangedContainers(pageTwoCursor, 1);
+
+    expect(pageOne.items).toHaveLength(1);
+    expect(pageTwo.items).toHaveLength(1);
+    expect(pageThree.items).toHaveLength(1);
+    expect(pageOne.hasMore).toBe(true);
+    expect(pageTwo.hasMore).toBe(true);
+    expect(pageThree.hasMore).toBe(false);
+
+    const pagedItems = [...pageOne.items, ...pageTwo.items, ...pageThree.items];
+    expect(pagedItems.map((item) => item.containerId)).toEqual([
+      'root',
+      'item-good-acl-paged',
+      'archive'
+    ]);
+    expect(pagedItems.map((item) => item.changeId)).toEqual([
+      'good-link-root-paged',
+      'good-acl-paged',
+      'good-link-archive-paged'
+    ]);
+    expect(pagedItems.map((item) => item.containerId)).not.toContain(
+      'item-phantom-paged'
+    );
+    expect(pagedItems.map((item) => item.changeId)).not.toContain(
+      seedCursor.changeId
+    );
+    for (const item of pagedItems) {
+      expect(
+        compareVfsSyncCursorOrder(
+          {
+            changedAt: item.changedAt,
+            changeId: item.changeId
+          },
+          seedCursor
+        )
+      ).toBeGreaterThan(0);
+    }
+    expect(
+      compareVfsSyncCursorOrder(pageTwoCursor, pageOneCursor)
+    ).toBeGreaterThan(0);
+    if (!pageThree.nextCursor) {
+      throw new Error('expected terminal paginated cursor');
+    }
+    expect(
+      compareVfsSyncCursorOrder(pageThree.nextCursor, pageTwoCursor)
+    ).toBeGreaterThan(0);
+
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'pull',
+      message: 'pull response regressed replica write-id state',
+      details: {
+        replicaId: 'desktop',
+        previousWriteId: 5,
+        incomingWriteId: 4
+      }
+    });
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'reconcile',
+      message: 'reconcile acknowledgement regressed replica write-id state',
+      details: {
+        replicaId: 'mobile',
+        previousWriteId: 5,
+        incomingWriteId: 4
+      }
+    });
+    expect(guardrailViolations).toHaveLength(2);
+  });
+
   it('fails closed when transport regresses cursor with no items', async () => {
     let pullCount = 0;
     const guardrailViolations: Array<{
