@@ -1884,6 +1884,69 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(pristineState);
   });
 
+  it('rebases hydrated nextLocalWriteId above pending and reconcile write-id floors', () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer()),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    const persisted = client.exportState();
+    persisted.pendingOperations = [
+      {
+        opId: 'desktop-7',
+        opType: 'acl_add',
+        itemId: 'item-write-floor',
+        replicaId: 'desktop',
+        writeId: 7,
+        occurredAt: '2026-02-14T14:16:00.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'read'
+      },
+      {
+        opId: 'desktop-8',
+        opType: 'acl_add',
+        itemId: 'item-write-floor',
+        replicaId: 'desktop',
+        writeId: 8,
+        occurredAt: '2026-02-14T14:16:01.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'write'
+      }
+    ];
+    persisted.reconcileState = {
+      cursor: {
+        changedAt: '2026-02-14T14:16:02.000Z',
+        changeId: 'desktop-9'
+      },
+      lastReconciledWriteIds: {
+        desktop: 20
+      }
+    };
+    persisted.nextLocalWriteId = 2;
+
+    expect(() => client.hydrateState(persisted)).not.toThrow();
+    expect(guardrailViolations).toEqual([]);
+    expect(client.snapshot().pendingOperations).toBe(2);
+    expect(client.snapshot().nextLocalWriteId).toBe(21);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;
