@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 44 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 45 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(44);
+      expect(result.currentVersion).toBe(45);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 44 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 45 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -160,9 +160,9 @@ describe('migrations', () => {
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
         22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-        40, 41, 42, 43, 44
+        40, 41, 42, 43, 44, 45
       ]);
-      expect(result.currentVersion).toBe(44);
+      expect(result.currentVersion).toBe(45);
     });
   });
 
@@ -1917,6 +1917,77 @@ describe('migrations', () => {
       }
 
       await expect(v044.up(pool)).rejects.toThrow('forced v044 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v045 migration', () => {
+    it('canonicalizes active legacy org-share ACL ids with fail-closed source inference', async () => {
+      const pool = createMockPool(new Map());
+
+      const v045 = migrations.find((m: Migration) => m.version === 45);
+      if (!v045) {
+        throw new Error('v045 migration not found');
+      }
+
+      await v045.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'v044 must be recorded before org-share ACL canonicalization'
+      );
+      expect(queries).toContain(
+        'vfs_acl_entries missing before org-share ACL canonicalization'
+      );
+      expect(queries).toContain(
+        'user_organizations missing before org-share ACL canonicalization'
+      );
+      expect(queries).toContain(
+        'CREATE TEMP TABLE "_v045_legacy_org_share_acl"'
+      );
+      expect(queries).toContain(
+        'CREATE TEMP TABLE "_v045_resolved_org_share_acl"'
+      );
+      expect(queries).toContain(
+        'active legacy org-share ACL rows are not uniquely source-resolvable'
+      );
+      expect(queries).toContain(
+        'canonicalized source org ids contain unsupported separators'
+      );
+      expect(queries).toContain(
+        'canonicalized share ids contain unsupported separators'
+      );
+      expect(queries).toContain(
+        'canonicalized org-share ACL ids would collide with existing ACL ids'
+      );
+      expect(queries).toContain('UPDATE "vfs_acl_entries" acl');
+      expect(queries).toContain(
+        'active legacy org-share ACL ids remain after canonicalization'
+      );
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (sql.includes('UPDATE "vfs_acl_entries" acl')) {
+            throw new Error('forced v045 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v045 = migrations.find((m: Migration) => m.version === 45);
+      if (!v045) {
+        throw new Error('v045 migration not found');
+      }
+
+      await expect(v045.up(pool)).rejects.toThrow('forced v045 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');

@@ -90,6 +90,9 @@ explicitly executable.
 step-1 audit success and executable step-2 authorization/candidate refresh.
 `v044` finalizes retirement by dropping transitional share-retirement
 scaffolding tables once both destructive drop audits are durably recorded.
+`v045` canonicalizes active legacy org-share ACL ids
+(`org-share:<shareId>`) into source-attributed ids
+(`org-share:<sourceOrgId>:<shareId>`) using fail-closed source inference.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
