@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useAudioUIContext } from '../../context/AudioUIContext';
 import { useDropZone } from '../../hooks/useDropZone';
 import { useMultiFileUpload } from '../../hooks/useMultiFileUpload';
+import { isValidAlbumId } from '../../lib/albumUtils';
 import { ALL_AUDIO_ID, AudioWindowContent } from './AudioWindowContent';
 import type { AudioViewMode } from './AudioWindowMenuBar';
 
@@ -179,13 +180,13 @@ export function AudioWindow({
     if (openAudioId) {
       setSelectedTrackId(openAudioId);
     }
-    if (openPlaylistId) {
-      setSelectedPlaylistId(openPlaylistId);
-      setSelectedAlbumId(null);
-    }
-    if (openAlbumId) {
+    // Album takes precedence over playlist; validate album ID before setting
+    if (openAlbumId && isValidAlbumId(openAlbumId)) {
       setSelectedAlbumId(openAlbumId);
       setSelectedPlaylistId(ALL_AUDIO_ID);
+    } else if (openPlaylistId) {
+      setSelectedPlaylistId(openPlaylistId);
+      setSelectedAlbumId(null);
     }
   }, [openAudioId, openPlaylistId, openAlbumId, openRequestId]);
 
