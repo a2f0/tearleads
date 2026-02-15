@@ -3,7 +3,7 @@ import {
   DesktopContextMenuItem as ContextMenuItem
 } from '@tearleads/window-manager';
 import { CheckCheck, Trash2, X } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   type Notification,
@@ -146,19 +146,25 @@ export function NotificationsTab() {
     setContextMenu(null);
   }, []);
 
+  const contextMenuNotification = useMemo(
+    () =>
+      contextMenu ? notifications.find((n) => n.id === contextMenu.id) : null,
+    [contextMenu, notifications]
+  );
+
   const handleContextMenuMarkAsRead = useCallback(() => {
-    if (contextMenu) {
-      notificationStore.markAsRead(contextMenu.id);
+    if (contextMenuNotification) {
+      notificationStore.markAsRead(contextMenuNotification.id);
       setContextMenu(null);
     }
-  }, [contextMenu]);
+  }, [contextMenuNotification]);
 
   const handleContextMenuDismiss = useCallback(() => {
-    if (contextMenu) {
-      notificationStore.dismiss(contextMenu.id);
+    if (contextMenuNotification) {
+      notificationStore.dismiss(contextMenuNotification.id);
       setContextMenu(null);
     }
-  }, [contextMenu]);
+  }, [contextMenuNotification]);
 
   if (notifications.length === 0) {
     return (
@@ -213,13 +219,13 @@ export function NotificationsTab() {
           />
         ))}
       </div>
-      {contextMenu && (
+      {contextMenuNotification && contextMenu && (
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
-          {notifications.find((n) => n.id === contextMenu.id && !n.read) && (
+          {!contextMenuNotification.read && (
             <ContextMenuItem
               icon={<CheckCheck className="h-4 w-4" />}
               onClick={handleContextMenuMarkAsRead}
