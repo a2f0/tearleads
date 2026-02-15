@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  buildLegacyOrgShareAclId,
   buildOrgShareAclId,
   buildShareAclId,
   extractOrgShareIdFromAclId,
@@ -42,9 +41,6 @@ describe('vfs share acl mapping', () => {
 describe('share id helpers', () => {
   it('builds canonical acl ids from normalized id parts', () => {
     expect(buildShareAclId('  share-1  ')).toBe('share:share-1');
-    expect(buildLegacyOrgShareAclId(' org-share-1 ')).toBe(
-      'org-share:org-share-1'
-    );
     expect(buildOrgShareAclId(' source-org ', ' org-share-1 ')).toBe(
       'org-share:source-org:org-share-1'
     );
@@ -52,11 +48,6 @@ describe('share id helpers', () => {
 
   it('extracts share id from share acl id', () => {
     expect(extractShareIdFromAclId('share:abc')).toBe('abc');
-  });
-
-  it('extracts org share id from legacy org-share acl id', () => {
-    expect(extractOrgShareIdFromAclId('org-share:abc')).toBe('abc');
-    expect(extractSourceOrgIdFromOrgShareAclId('org-share:abc')).toBeNull();
   });
 
   it('extracts org share id and source org from canonical org-share acl id', () => {
@@ -78,6 +69,9 @@ describe('share id helpers', () => {
     expect(() =>
       extractOrgShareIdFromAclId('org-share:source:share:extra')
     ).toThrow('Unsupported ACL id');
+    expect(() => extractOrgShareIdFromAclId('org-share:legacy-only')).toThrow(
+      'Unsupported ACL id'
+    );
   });
 });
 
@@ -178,31 +172,6 @@ describe('canonical share authorization context', () => {
 });
 
 describe('canonical org-share authorization context', () => {
-  it('returns canonical org-share authorization context for legacy id format', async () => {
-    const query = vi.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          owner_id: 'owner-1',
-          acl_id: 'org-share:org-share-1',
-          item_id: 'item-1',
-          principal_id: 'org-2',
-          access_level: 'read'
-        }
-      ]
-    });
-
-    await expect(
-      loadOrgShareAuthorizationContext({ query }, 'org-share-1')
-    ).resolves.toEqual({
-      ownerId: 'owner-1',
-      aclId: 'org-share:org-share-1',
-      itemId: 'item-1',
-      targetOrgId: 'org-2',
-      accessLevel: 'read',
-      sourceOrgId: null
-    });
-  });
-
   it('returns canonical org-share authorization context for encoded source-org format', async () => {
     const query = vi.fn().mockResolvedValueOnce({
       rows: [

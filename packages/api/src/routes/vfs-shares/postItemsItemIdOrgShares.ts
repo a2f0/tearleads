@@ -197,12 +197,9 @@ export const postItemsItemidOrgSharesHandler = async (
       [creatorId]
     );
 
-    const responseSourceOrgId =
-      extractSourceOrgIdFromOrgShareAclId(row.acl_id) ?? payload.sourceOrgId;
-
     const orgShare: VfsOrgShare = {
       id: extractOrgShareIdFromAclId(row.acl_id),
-      sourceOrgId: responseSourceOrgId,
+      sourceOrgId: extractSourceOrgIdFromOrgShareAclId(row.acl_id),
       sourceOrgName,
       targetOrgId: row.target_org_id,
       targetOrgName,

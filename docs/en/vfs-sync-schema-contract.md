@@ -128,3 +128,6 @@ schema contract is intentionally updated.
 
 For staged rollout and rollback procedures across `v024`/`v025`/`v026`, see
 `docs/en/vfs-sync-migration-runbook.md`.
+
+For the canonical-only reverse-compatibility cleanup plan, see
+`docs/en/vfs-reverse-compat-cleanup-sweep.md`.

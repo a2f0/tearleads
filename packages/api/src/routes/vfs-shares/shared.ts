@@ -54,7 +54,7 @@ export interface OrgShareAuthorizationContext {
   targetOrgId: string;
   accessLevel: VfsAclAccessLevel;
   aclId: string;
-  sourceOrgId: string | null;
+  sourceOrgId: string;
 }
 
 export function mapSharePermissionLevelToAclAccessLevel(
@@ -97,7 +97,7 @@ function parseAclAccessLevel(value: unknown): VfsAclAccessLevel {
 
 function parseOrgShareAclId(aclId: string): {
   shareId: string;
-  sourceOrgId: string | null;
+  sourceOrgId: string;
 } {
   if (!aclId.startsWith(ORG_SHARE_ID_PREFIX)) {
     throw new Error('Unsupported ACL id in org-share authorization context');
@@ -113,14 +113,7 @@ function parseOrgShareAclId(aclId: string): {
     throw new Error('Unsupported ACL id in org-share authorization context');
   }
 
-  if (secondPart === undefined) {
-    return {
-      shareId: requireAclIdPart(firstPart, 'org-share id'),
-      sourceOrgId: null
-    };
-  }
-
-  if (remainingParts.length > 0) {
+  if (secondPart === undefined || remainingParts.length > 0) {
     throw new Error('Unsupported ACL id in org-share authorization context');
   }
 
@@ -132,10 +125,6 @@ function parseOrgShareAclId(aclId: string): {
 
 export function buildShareAclId(shareId: string): string {
   return `${SHARE_ID_PREFIX}${requireAclIdPart(shareId, 'share id')}`;
-}
-
-export function buildLegacyOrgShareAclId(shareId: string): string {
-  return `${ORG_SHARE_ID_PREFIX}${requireAclIdPart(shareId, 'org-share id')}`;
 }
 
 export function buildOrgShareAclId(
@@ -160,9 +149,7 @@ export function extractOrgShareIdFromAclId(aclId: string): string {
   return parseOrgShareAclId(aclId).shareId;
 }
 
-export function extractSourceOrgIdFromOrgShareAclId(
-  aclId: string
-): string | null {
+export function extractSourceOrgIdFromOrgShareAclId(aclId: string): string {
   return parseOrgShareAclId(aclId).sourceOrgId;
 }
 
@@ -226,7 +213,6 @@ export async function loadOrgShareAuthorizationContext(
     return null;
   }
 
-  const legacyAclId = buildLegacyOrgShareAclId(shareId);
   const canonicalResult = await queryExecutor.query<{
     owner_id: string | null;
     acl_id: string;
@@ -245,14 +231,11 @@ export async function loadOrgShareAuthorizationContext(
          ON r.id = acl.item_id
       WHERE acl.principal_type = 'organization'
         AND acl.revoked_at IS NULL
-        AND (
-          acl.id = $1
-          OR (acl.id LIKE 'org-share:%:%' AND split_part(acl.id, ':', 3) = $2)
-        )
-      ORDER BY CASE WHEN acl.id LIKE 'org-share:%:%' THEN 0 ELSE 1 END,
-               acl.created_at DESC
+        AND acl.id LIKE 'org-share:%:%'
+        AND split_part(acl.id, ':', 3) = $1
+      ORDER BY acl.created_at DESC
       LIMIT 2`,
-    [legacyAclId, shareId]
+    [shareId]
   );
 
   /**
