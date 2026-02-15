@@ -86,9 +86,9 @@ Created automatically by Terraform:
 
 After deployment:
 
-- **Website**: https://k8s.yourdomain.com
-- **Client**: https://app.k8s.yourdomain.com
-- **API**: https://api.k8s.yourdomain.com
+- **Website**: `https://k8s.yourdomain.com`
+- **Client**: `https://app.k8s.yourdomain.com`
+- **API**: `https://api.k8s.yourdomain.com`
 
 ## Server Details
 
