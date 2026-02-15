@@ -7463,6 +7463,249 @@ describe('VfsBackgroundSyncClient', () => {
     });
   });
 
+  it('keeps listChangedContainers strictly forward after recovery cycles and excludes failed-cycle phantom containers', async () => {
+    let pullCallCount = 0;
+    let reconcileCallCount = 0;
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+      details?: Record<string, string | number | boolean | null>;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async () => {
+        pullCallCount += 1;
+        if (pullCallCount === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'seed-1',
+                occurredAt: '2026-02-14T12:27:00.000Z',
+                itemId: 'item-seed-forward'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:27:00.000Z',
+              changeId: 'seed-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 2) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'pull-fail-1',
+                occurredAt: '2026-02-14T12:27:01.000Z',
+                itemId: 'item-fail-phantom'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:27:01.000Z',
+              changeId: 'pull-fail-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 4,
+              mobile: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 3) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'good-1',
+                occurredAt: '2026-02-14T12:27:02.000Z',
+                itemId: 'item-good-1'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:27:02.000Z',
+              changeId: 'good-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 6,
+              mobile: 5
+            }
+          };
+        }
+
+        if (pullCallCount === 4) {
+          return {
+            items: [],
+            hasMore: false,
+            nextCursor: null,
+            lastReconciledWriteIds: {
+              desktop: 6,
+              mobile: 5
+            }
+          };
+        }
+
+        return {
+          items: [
+            buildAclAddSyncItem({
+              opId: 'good-2',
+              occurredAt: '2026-02-14T12:27:03.000Z',
+              itemId: 'item-good-2'
+            })
+          ],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-14T12:27:03.000Z',
+            changeId: 'good-2'
+          },
+          lastReconciledWriteIds: {
+            desktop: 7,
+            mobile: 6
+          }
+        };
+      },
+      reconcileState: async (input) => {
+        reconcileCallCount += 1;
+        if (reconcileCallCount === 1) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 5
+            }
+          };
+        }
+
+        if (reconcileCallCount === 2) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 4
+            }
+          };
+        }
+
+        if (reconcileCallCount === 3) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              mobile: 6
+            }
+          };
+        }
+
+        return {
+          cursor: { ...input.cursor },
+          lastReconciledWriteIds: {
+            ...input.lastReconciledWriteIds,
+            mobile: 7
+          }
+        };
+      }
+    };
+
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    await seedClient.sync();
+
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    resumedClient.hydrateState(seedClient.exportState());
+
+    const seedPage = resumedClient.listChangedContainers(null, 10);
+    const seedCursor = seedPage.nextCursor;
+    if (!seedCursor) {
+      throw new Error('expected seed cursor before forward-window assertions');
+    }
+
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica desktop/
+    );
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica mobile/
+    );
+    await resumedClient.sync();
+    await resumedClient.sync();
+
+    const forwardPage = resumedClient.listChangedContainers(seedCursor, 10);
+    const forwardContainerIds = forwardPage.items.map(
+      (item) => item.containerId
+    );
+    expect(forwardContainerIds).toContain('item-good-1');
+    expect(forwardContainerIds).toContain('item-good-2');
+    expect(forwardContainerIds).not.toContain('item-fail-phantom');
+    for (const item of forwardPage.items) {
+      expect(
+        compareVfsSyncCursorOrder(
+          {
+            changedAt: item.changedAt,
+            changeId: item.changeId
+          },
+          seedCursor
+        )
+      ).toBeGreaterThan(0);
+    }
+
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'pull',
+      message: 'pull response regressed replica write-id state',
+      details: {
+        replicaId: 'desktop',
+        previousWriteId: 5,
+        incomingWriteId: 4
+      }
+    });
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'reconcile',
+      message: 'reconcile acknowledgement regressed replica write-id state',
+      details: {
+        replicaId: 'mobile',
+        previousWriteId: 5,
+        incomingWriteId: 4
+      }
+    });
+    expect(guardrailViolations).toHaveLength(2);
+  });
+
   it('fails closed when transport regresses cursor with no items', async () => {
     let pullCount = 0;
     const guardrailViolations: Array<{
