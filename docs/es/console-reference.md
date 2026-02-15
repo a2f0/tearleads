@@ -5,13 +5,13 @@ Esta referencia documenta los comandos disponibles en la ventana de Consola.
 ## Resumen de Comandos
 
 - `setup` Inicializar una nueva base de datos cifrada.
-- `unlock` Desbloquear la base de datos (restaura la sesion cuando esta disponible).
+- `unlock` Desbloquear la base de datos (restaura la sesión cuando está disponible).
 - `lock` Bloquear la base de datos.
 - `backup <file>` Exportar un archivo de respaldo cifrado `.tbu`.
 - `restore <file>` Importar un archivo de respaldo cifrado `.tbu`.
 - `dump <folder>` Exportar archivos JSON sin cifrar.
-- `password` Cambiar la contrasena de la base de datos.
-- `list-instances` Mostrar el estado de instancia y sesion.
+- `password` Cambiar la contraseña de la base de datos.
+- `list-instances` Mostrar el estado de instancia y sesión.
 
 ## Uso Global
 
@@ -37,7 +37,7 @@ Solicitudes:
 
 ### `unlock`
 
-Desbloquear la base de datos. Si existe una sesion persistida, el CLI intenta restaurar la sesion primero.
+Desbloquear la base de datos. Si existe una sesión persistida, el CLI intenta restaurar la sesión primero.
 
 ```bash
 unlock
@@ -66,7 +66,7 @@ backup ./backup.tbu --password "backup-pass"
 
 Opciones:
 
-- `-p, --password <password>` Proporcionar contrasena de respaldo de forma no interactiva.
+- `-p, --password <password>` Proporcionar contraseña de respaldo de forma no interactiva.
 
 Si se omite `--password`, solicita:
 
@@ -85,10 +85,10 @@ restore ./backup.tbu --password "backup-pass"
 
 Opciones:
 
-- `-f, --force` Omitir confirmacion de sobrescritura.
-- `-p, --password <password>` Proporcionar contrasena de respaldo de forma no interactiva.
+- `-f, --force` Omitir confirmación de sobrescritura.
+- `-p, --password <password>` Proporcionar contraseña de respaldo de forma no interactiva.
 
-Solicitudes cuando `--force` no esta establecido:
+Solicitudes cuando `--force` no está establecido:
 
 - `This will overwrite existing data. Continue? (y/n):`
 
@@ -110,9 +110,9 @@ dump ./dump-output --input-file ./backup.tbu --password "backup-pass"
 Opciones:
 
 - `-f, --input-file <file>` Leer desde respaldo `.tbu` en lugar de la BD activa.
-- `-p, --password <password>` Contrasena de respaldo para `--input-file`.
+- `-p, --password <password>` Contraseña de respaldo para `--input-file`.
 - `--force` Sobrescribir carpeta de salida existente sin solicitud.
-- `--no-blobs` Omitir la creacion del directorio `files/`.
+- `--no-blobs` Omitir la creación del directorio `files/`.
 
 Nota:
 
@@ -127,7 +127,7 @@ Estructura de salida:
 
 ### `password`
 
-Cambiar la contrasena de cifrado para la base de datos local.
+Cambiar la contraseña de cifrado para la base de datos local.
 
 ```bash
 password
@@ -141,7 +141,7 @@ Solicitudes:
 
 ### `list-instances`
 
-Mostrar el estado basico de instancia/sesion.
+Mostrar el estado básico de instancia/sesión.
 
 ```bash
 list-instances
@@ -149,6 +149,6 @@ list-instances
 
 La salida actual incluye una sola instancia predeterminada con:
 
-- estado de configuracion
+- estado de configuración
 - estado de desbloqueo
-- estado de sesion persistida
+- estado de sesión persistida

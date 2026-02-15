@@ -79,25 +79,25 @@ For each document in `docs/en/`:
 
 - Use formal Spanish (usted form) for instructions
 - "Getting Started" -> "Primeros Pasos"
-- "Settings" -> "Configuracion"
-- "Privacy Policy" -> "Politica de Privacidad"
-- "Terms of Service" -> "Terminos de Servicio"
+- "Settings" -> "Configuración"
+- "Privacy Policy" -> "Política de Privacidad"
+- "Terms of Service" -> "Términos de Servicio"
 
 **Ukrainian (ua):**
 
 - Use formal Ukrainian for instructions
 - "Getting Started" -> "Початок Роботи"
 - "Settings" -> "Налаштування"
-- "Privacy Policy" -> "Полiтика Конфiденцiйностi"
+- "Privacy Policy" -> "Політика Конфіденційності"
 - "Terms of Service" -> "Умови Використання"
 
 **Portuguese (pt):**
 
 - Use formal Portuguese (Brazil) for instructions
 - "Getting Started" -> "Primeiros Passos"
-- "Settings" -> "Configuracoes"
-- "Privacy Policy" -> "Politica de Privacidade"
-- "Terms of Service" -> "Termos de Servico"
+- "Settings" -> "Configurações"
+- "Privacy Policy" -> "Política de Privacidade"
+- "Terms of Service" -> "Termos de Serviço"
 
 ### 4. Write translated files
 

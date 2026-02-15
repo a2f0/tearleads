@@ -1,15 +1,15 @@
-# Descripcion General de CI
+# Descripción General de CI
 
-Este repositorio utiliza seleccion de CI basada en impacto con una sola verificacion de puerta.
+Este repositorio utiliza selección de CI basada en impacto con una sola verificación de puerta.
 
 ## Flujo de alto nivel
 
 1. `scripts/ciImpact/ciImpact.ts` analiza los archivos modificados y calcula las decisiones de trabajos (`jobs.<job>.run`).
 2. Los flujos de trabajo de Release/E2E ejecutan `detect-impact` y omiten trabajos pesados cuando `should-run` es `false`.
-3. `.github/workflows/ci-gate.yml` calcula los nombres de flujos de trabajo requeridos desde la salida de ciImpact y espera solo a que esos flujos reporten exito.
-4. La proteccion de rama debe requerir `CI Gate` (no cada flujo de trabajo condicional individual).
+3. `.github/workflows/ci-gate.yml` calcula los nombres de flujos de trabajo requeridos desde la salida de ciImpact y espera solo a que esos flujos reporten éxito.
+4. La protección de rama debe requerir `CI Gate` (no cada flujo de trabajo condicional individual).
 
-Esto proporciona el comportamiento "requerido si aplica" en la practica.
+Esto proporciona el comportamiento "requerido si aplica" en la práctica.
 
 ## Comportamiento de CI Gate
 
@@ -21,18 +21,18 @@ Flujo de trabajo: `.github/workflows/ci-gate.yml`
   - Produce una lista JSON de nombres de flujos de trabajo requeridos (para este PR)
 - Paso 2 (`CI Gate`):
   - Consulta las ejecuciones de GitHub Actions para el SHA head del PR
-  - Espera hasta que todos los flujos de trabajo requeridos esten `completed/success`
-  - Falla si algun flujo de trabajo requerido falla
+  - Espera hasta que todos los flujos de trabajo requeridos estén `completed/success`
+  - Falla si algún flujo de trabajo requerido falla
   - Falla por timeout si los flujos de trabajo requeridos nunca reportan
 
-Debido a que `CI Gate` siempre esta presente, puede configurar esto como la verificacion requerida de proteccion de rama de forma segura, incluso cuando los flujos de trabajo individuales se omiten condicionalmente.
+Debido a que `CI Gate` siempre está presente, puede configurar esto como la verificación requerida de protección de rama de forma segura, incluso cuando los flujos de trabajo individuales se omiten condicionalmente.
 
 ## Scripts de ciImpact
 
 Analizador principal:
 
 - `scripts/ciImpact/ciImpact.ts`
-  - Entradas: diff base/head (o `--files` explicito)
+  - Entradas: diff base/head (o `--files` explícito)
   - Salidas:
     - `changedFiles`, `materialFiles`, `changedPackages`, `affectedPackages`
     - `jobs.<job>.run` y `jobs.<job>.reasons`
@@ -55,10 +55,10 @@ Selector de calidad local pre-push:
 Selector de cobertura local pre-push:
 
 - `scripts/ciImpact/runImpactedTests.ts`
-  - Ejecuta `test:coverage` selectivo por paquete segun impacto
+  - Ejecuta `test:coverage` selectivo por paquete según impacto
   - Recurre a objetivos de cobertura completos para cambios de alto riesgo
 
-## Como se aplica la seleccion de impacto
+## Cómo se aplica la selección de impacto
 
 En flujos de trabajo de CI:
 
@@ -70,7 +70,7 @@ Localmente (git hooks):
   - `scripts/ciImpact/runImpactedQuality.ts`
   - `scripts/ciImpact/runImpactedTests.ts`
 
-## Comandos utiles
+## Comandos útiles
 
 Inspeccionar decisiones de trabajos para una rama:
 
@@ -78,13 +78,13 @@ Inspeccionar decisiones de trabajos para una rama:
 pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD
 ```
 
-Inspeccionar flujos de trabajo requeridos para evaluacion de puerta:
+Inspeccionar flujos de trabajo requeridos para evaluación de puerta:
 
 ```bash
 pnpm exec tsx scripts/ciImpact/requiredWorkflows.ts --base origin/main --head HEAD
 ```
 
-Simular con archivos explicitos:
+Simular con archivos explícitos:
 
 ```bash
 pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "scripts/ciImpact/ciImpact.ts,.github/workflows/ci-gate.yml"
@@ -98,14 +98,14 @@ pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
 
 ## Notas
 
-- Si un commit cambia solo rutas ignoradas (por ejemplo, rutas de solo documentacion configuradas en disparadores de flujo de trabajo), algunos flujos de trabajo pueden no reportar.
+- Si un commit cambia solo rutas ignoradas (por ejemplo, rutas de solo documentación configuradas en disparadores de flujo de trabajo), algunos flujos de trabajo pueden no reportar.
 - `CI Gate` debe ser el requisito de merge para que los merges se bloqueen solo en resultados de flujos de trabajo relevantes para el PR.
 
 ## Manual de Operaciones
 
-Cuando un flujo de trabajo se omitio o ejecuto inesperadamente, use este flujo:
+Cuando un flujo de trabajo se omitió o ejecutó inesperadamente, use este flujo:
 
-1. Reproduzca la decision localmente con archivos explicitos:
+1. Reproduzca la decisión localmente con archivos explícitos:
 
    ```bash
    pnpm exec tsx scripts/ciImpact/ciImpact.ts --files "path/a.ts,path/b.ts"
@@ -124,12 +124,12 @@ Cuando un flujo de trabajo se omitio o ejecuto inesperadamente, use este flujo:
    pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
    ```
 
-5. Si el comportamiento aun parece incorrecto, revise la salida de validacion nocturna en los artefactos del flujo de trabajo `CI Impact Validation`.
+5. Si el comportamiento aún parece incorrecto, revise la salida de validación nocturna en los artefactos del flujo de trabajo `CI Impact Validation`.
 
-Guia de ajuste seguro:
+Guía de ajuste seguro:
 
 - Mantenga el comportamiento fail-open para archivos ambiguos (prefiera ejecuciones extra sobre ejecuciones perdidas).
-- Actualice `scripts/ciImpact/job-groups.json` y la logica en `scripts/ciImpact/ciImpact.ts` juntos.
+- Actualice `scripts/ciImpact/job-groups.json` y la lógica en `scripts/ciImpact/ciImpact.ts` juntos.
 - Agregue o actualice pruebas de escenario en:
   - `scripts/ciImpact/ciImpact.test.ts`
   - `scripts/ciImpact/requiredWorkflows.test.ts`
