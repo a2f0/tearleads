@@ -1,5 +1,5 @@
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
-import { type RRule, RRuleSet, rrulestr } from 'rrule';
+import { RRule, RRuleSet, rrulestr } from 'rrule';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 
 export interface RecurrenceRule {
@@ -423,7 +423,21 @@ export function expandRecurringEvents(
       const rule = rrulestr(event.recurrence.rrule, {
         dtstart: event.startAt
       });
-      rruleSet.rrule(rule as RRule);
+
+      if (!(rule instanceof RRule)) {
+        occurrences.push({
+          id: event.id,
+          calendarName: event.calendarName,
+          title: event.title,
+          startAt: event.startAt,
+          endAt: event.endAt,
+          isRecurring: false,
+          isException: false
+        });
+        continue;
+      }
+
+      rruleSet.rrule(rule);
 
       for (const exdate of event.recurrence.exdates ?? []) {
         rruleSet.exdate(new Date(exdate));

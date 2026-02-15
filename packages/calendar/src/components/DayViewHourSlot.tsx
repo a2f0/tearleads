@@ -64,6 +64,7 @@ export function DayViewHourSlot({
             <button
               key={quarter}
               type="button"
+              data-interactive-slot
               data-testid={`hour-slot-${hour}-q${quarter}`}
               aria-label={`${hour.toString().padStart(2, '0')}${quarterLabels[quarter]}`}
               className={clsx(

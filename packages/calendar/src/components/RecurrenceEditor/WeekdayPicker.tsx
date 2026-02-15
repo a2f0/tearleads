@@ -34,11 +34,11 @@ export function WeekdayPicker({
 
   return (
     <fieldset className="flex gap-1" aria-label="Select days of week">
-      {weekdayOptions.map((option, index) => {
+      {weekdayOptions.map((option) => {
         const isSelected = value.includes(option.value);
         return (
           <button
-            key={`${option.fullLabel}-${index}`}
+            key={option.fullLabel}
             type="button"
             onClick={() => toggleWeekday(option.value)}
             disabled={disabled}

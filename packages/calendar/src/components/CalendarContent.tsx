@@ -328,11 +328,19 @@ export function CalendarContent({
         selectedDate
       );
 
+      const timeFormatOptions: Intl.DateTimeFormatOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      };
       setSelectionContextMenu({
         x: event.clientX,
         y: event.clientY,
-        startTime: `${startTime.getHours().toString().padStart(2, '0')}:${startTime.getMinutes().toString().padStart(2, '0')}`,
-        endTime: `${endTime.getHours().toString().padStart(2, '0')}:${endTime.getMinutes().toString().padStart(2, '0')}`
+        startTime: startTime.toLocaleTimeString(
+          calendarLocale,
+          timeFormatOptions
+        ),
+        endTime: endTime.toLocaleTimeString(calendarLocale, timeFormatOptions)
       });
     },
     [timeSelection, selectedDate]
@@ -459,7 +467,7 @@ export function CalendarContent({
         }}
         onClick={(event) => {
           if (
-            !(event.target as HTMLElement).closest('[data-testid^="hour-slot"]')
+            !(event.target as HTMLElement).closest('[data-interactive-slot]')
           ) {
             clearTimeSelection();
           }
