@@ -1947,6 +1947,123 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.snapshot().nextLocalWriteId).toBe(21);
   });
 
+  it('normalizes hydrated pending occurredAt ordering above cursor on flush', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-pending-floor',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T14:17:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const sourceClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      baseTransport
+    );
+    await sourceClient.sync();
+
+    const persisted = sourceClient.exportState();
+    const replayCursor = persisted.replaySnapshot.cursor;
+    if (!replayCursor) {
+      throw new Error('expected replay cursor for pending occurredAt test');
+    }
+
+    persisted.pendingOperations = [
+      {
+        opId: 'desktop-2',
+        opType: 'acl_add',
+        itemId: 'item-pending-floor',
+        replicaId: 'desktop',
+        writeId: 2,
+        occurredAt: '2026-02-14T14:16:00.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'write'
+      },
+      {
+        opId: 'desktop-3',
+        opType: 'acl_add',
+        itemId: 'item-pending-floor',
+        replicaId: 'desktop',
+        writeId: 3,
+        occurredAt: '2026-02-14T14:15:59.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'admin'
+      }
+    ];
+    persisted.nextLocalWriteId = 4;
+
+    const pushedOperations: Array<{
+      opId: string;
+      writeId: number;
+      occurredAt: string;
+    }> = [];
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        for (const operation of input.operations) {
+          pushedOperations.push({
+            opId: operation.opId,
+            writeId: operation.writeId,
+            occurredAt: operation.occurredAt
+          });
+        }
+        return baseTransport.pushOperations(input);
+      },
+      pullOperations: (input) => baseTransport.pullOperations(input)
+    };
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+    resumedClient.hydrateState(persisted);
+
+    await resumedClient.flush();
+
+    expect(guardrailViolations).toEqual([]);
+    expect(pushedOperations.map((operation) => operation.opId)).toEqual([
+      'desktop-2',
+      'desktop-3'
+    ]);
+    expect(pushedOperations.map((operation) => operation.writeId)).toEqual([
+      2, 3
+    ]);
+
+    const cursorMs = Date.parse(replayCursor.changedAt);
+    const firstOccurredAtMs = Date.parse(pushedOperations[0]?.occurredAt ?? '');
+    const secondOccurredAtMs = Date.parse(
+      pushedOperations[1]?.occurredAt ?? ''
+    );
+    expect(firstOccurredAtMs).toBeGreaterThan(cursorMs);
+    expect(secondOccurredAtMs).toBeGreaterThan(firstOccurredAtMs);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;
