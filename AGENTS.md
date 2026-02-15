@@ -1,3 +1,5 @@
+<!-- COMPLIANCE_SENTINEL: TL-VENDOR-009 | control=openai-vendor -->
+
 # Agent Notes (Codex)
 
 This file is for Codex. Claude Code uses CLAUDE.md.

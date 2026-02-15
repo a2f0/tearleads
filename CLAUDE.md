@@ -1,3 +1,5 @@
+<!-- COMPLIANCE_SENTINEL: TL-VENDOR-008 | control=anthropic-vendor -->
+
 # Agent Notes (Claude Code)
 
 This file is for Claude Code. Codex uses AGENTS.md.

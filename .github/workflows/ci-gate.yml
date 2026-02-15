@@ -1,3 +1,4 @@
+# COMPLIANCE_SENTINEL: TL-VENDOR-005 | control=github-vendor
 name: CI Gate
 
 on:

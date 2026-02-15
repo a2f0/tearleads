@@ -429,6 +429,7 @@
     - name: Flush handlers to ensure nginx config is active
       ansible.builtin.meta: flush_handlers
 
+    # COMPLIANCE_SENTINEL: TL-VENDOR-004 | control=letsencrypt-vendor
     - name: Obtain SSL certificates with certbot
       ansible.builtin.command:
         cmd: >

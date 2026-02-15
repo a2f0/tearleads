@@ -1,3 +1,4 @@
+# COMPLIANCE_SENTINEL: TL-VENDOR-003 | control=azure-vendor
 # COMPLIANCE_SENTINEL: TL-CRYPTO-004 | control=confidential-vm
 # Azure Confidential VM with vTPM and Secure Boot (AMD SEV-SNP)
 # Hardware-based memory encryption and attestation support
