@@ -5393,6 +5393,191 @@ describe('VfsBackgroundSyncClient', () => {
     }
   });
 
+  it('avoids boundary replay across restart paginated pulls while write-id baselines stay monotonic', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-boundary-a',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T14:35:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        },
+        {
+          opId: 'remote-2',
+          opType: 'acl_add',
+          itemId: 'item-boundary-b',
+          replicaId: 'remote',
+          writeId: 2,
+          occurredAt: '2026-02-14T14:35:01.000Z',
+          principalType: 'group',
+          principalId: 'group-2',
+          accessLevel: 'write'
+        }
+      ]
+    });
+
+    const observedPulls: Array<{
+      phase: 'seed' | 'resumed';
+      requestCursor: { changedAt: string; changeId: string } | null;
+      items: VfsCrdtSyncItem[];
+      hasMore: boolean;
+      nextCursor: { changedAt: string; changeId: string } | null;
+      lastReconciledWriteIds: Record<string, number>;
+    }> = [];
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const makeObservedTransport = (
+      phase: 'seed' | 'resumed'
+    ): VfsCrdtSyncTransport => ({
+      pushOperations: (input) => baseTransport.pushOperations(input),
+      pullOperations: async (input) => {
+        const response = await baseTransport.pullOperations(input);
+        observedPulls.push({
+          phase,
+          requestCursor: input.cursor ? { ...input.cursor } : null,
+          items: response.items.map((item) => ({ ...item })),
+          hasMore: response.hasMore,
+          nextCursor: response.nextCursor ? { ...response.nextCursor } : null,
+          lastReconciledWriteIds: { ...response.lastReconciledWriteIds }
+        });
+        return response;
+      },
+      reconcileState: baseTransport.reconcileState
+        ? (input) => baseTransport.reconcileState(input)
+        : undefined
+    });
+
+    const seedGuardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      makeObservedTransport('seed'),
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          seedGuardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+    await seedClient.sync();
+    expect(seedGuardrailViolations).toEqual([]);
+    expect(seedClient.snapshot().lastReconciledWriteIds.remote).toBe(2);
+
+    const persistedSeedState = seedClient.exportState();
+    const seedReplayCursor = persistedSeedState.replaySnapshot.cursor;
+    if (!seedReplayCursor) {
+      throw new Error('expected replay seed cursor before restart');
+    }
+
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-3',
+          opType: 'link_add',
+          itemId: 'item-boundary-c',
+          replicaId: 'remote',
+          writeId: 3,
+          occurredAt: '2026-02-14T14:35:02.000Z',
+          parentId: 'root',
+          childId: 'item-boundary-c'
+        },
+        {
+          opId: 'remote-4',
+          opType: 'acl_add',
+          itemId: 'item-boundary-c',
+          replicaId: 'remote',
+          writeId: 4,
+          occurredAt: '2026-02-14T14:35:03.000Z',
+          principalType: 'organization',
+          principalId: 'org-1',
+          accessLevel: 'admin'
+        }
+      ]
+    });
+
+    const resumedGuardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      makeObservedTransport('resumed'),
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          resumedGuardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+    resumedClient.hydrateState(persistedSeedState);
+    await resumedClient.sync();
+
+    const resumedPulls = observedPulls.filter(
+      (pull) => pull.phase === 'resumed'
+    );
+    expect(resumedPulls.length).toBe(2);
+    expect(resumedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
+    expect(resumedPulls[0]?.items.map((item) => item.opId)).toEqual([
+      'remote-3'
+    ]);
+    expect(resumedPulls[0]?.lastReconciledWriteIds.remote).toBe(4);
+    expect(resumedPulls[1]?.requestCursor).toEqual({
+      changedAt: '2026-02-14T14:35:02.000Z',
+      changeId: 'remote-3'
+    });
+    expect(resumedPulls[1]?.items.map((item) => item.opId)).toEqual([
+      'remote-4'
+    ]);
+    expect(resumedPulls[1]?.hasMore).toBe(false);
+
+    const resumedPulledOpIds = resumedPulls.flatMap((pull) =>
+      pull.items.map((item) => item.opId)
+    );
+    expect(resumedPulledOpIds).not.toContain(seedReplayCursor.changeId);
+    for (const pull of resumedPulls) {
+      for (const item of pull.items) {
+        expect(
+          compareVfsSyncCursorOrder(
+            {
+              changedAt: item.occurredAt,
+              changeId: item.opId
+            },
+            seedReplayCursor
+          )
+        ).toBeGreaterThan(0);
+      }
+    }
+
+    expect(resumedGuardrailViolations).toEqual([]);
+    expect(resumedClient.snapshot().lastReconciledWriteIds.remote).toBe(4);
+    const resumedCursor = resumedClient.snapshot().cursor;
+    if (!resumedCursor) {
+      throw new Error('expected resumed cursor');
+    }
+    expect(
+      compareVfsSyncCursorOrder(resumedCursor, seedReplayCursor)
+    ).toBeGreaterThan(0);
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
