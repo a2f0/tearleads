@@ -1,7 +1,6 @@
-import type { VfsPermissionLevel } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { mapSharePermissionLevelToAclAccessLevel } from './shared.js';
+import { loadOrgShareAuthorizationContext } from './shared.js';
 
 /**
  * @openapi
@@ -41,33 +40,17 @@ export const deleteOrgSharesShareidHandler = async (
     const { shareId } = req.params;
     const pool = await getPostgresPool();
 
-    const authCheckResult = await pool.query<{
-      owner_id: string | null;
-      item_id: string;
-      target_org_id: string;
-      permission_level: VfsPermissionLevel;
-    }>(
-      `SELECT
-          r.owner_id,
-          os.item_id,
-          os.target_org_id,
-          os.permission_level
-         FROM org_shares os
-         JOIN vfs_registry r ON r.id = os.item_id
-         WHERE os.id = $1`,
-      [shareId]
-    );
-    if (!authCheckResult.rows[0]) {
+    const authContext = await loadOrgShareAuthorizationContext(pool, shareId);
+    if (!authContext) {
       res.status(404).json({ error: 'Org share not found' });
       return;
     }
-    if (authCheckResult.rows[0].owner_id !== claims.sub) {
+    if (authContext.ownerId !== claims.sub) {
       res
         .status(403)
         .json({ error: 'Not authorized to delete this org share' });
       return;
     }
-
     const result = await pool.query('DELETE FROM org_shares WHERE id = $1', [
       shareId
     ]);
@@ -77,7 +60,6 @@ export const deleteOrgSharesShareidHandler = async (
      * Upsert keeps behavior deterministic for pre-dual-write historical rows.
      */
     const revokedAt = new Date();
-    const authCheckRow = authCheckResult.rows[0];
     await pool.query(
       `INSERT INTO vfs_acl_entries (
           id,
@@ -102,10 +84,10 @@ export const deleteOrgSharesShareidHandler = async (
           revoked_at = EXCLUDED.revoked_at`,
       [
         `org-share:${shareId}`,
-        authCheckRow.item_id,
+        authContext.itemId,
         'organization',
-        authCheckRow.target_org_id,
-        mapSharePermissionLevelToAclAccessLevel(authCheckRow.permission_level),
+        authContext.targetOrgId,
+        authContext.accessLevel,
         claims.sub,
         revokedAt
       ]

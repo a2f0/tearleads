@@ -1,7 +1,6 @@
-import type { VfsPermissionLevel, VfsShareType } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
-import { mapSharePermissionLevelToAclAccessLevel } from './shared.js';
+import { loadShareAuthorizationContext } from './shared.js';
 
 /**
  * @openapi
@@ -41,33 +40,15 @@ export const deleteSharesShareidHandler = async (
     const { shareId } = req.params;
     const pool = await getPostgresPool();
 
-    const authCheckResult = await pool.query<{
-      owner_id: string | null;
-      item_id: string;
-      share_type: VfsShareType;
-      target_id: string;
-      permission_level: VfsPermissionLevel;
-    }>(
-      `SELECT
-          r.owner_id,
-          s.item_id,
-          s.share_type,
-          s.target_id,
-          s.permission_level
-         FROM vfs_shares s
-         JOIN vfs_registry r ON r.id = s.item_id
-         WHERE s.id = $1`,
-      [shareId]
-    );
-    if (!authCheckResult.rows[0]) {
+    const authContext = await loadShareAuthorizationContext(pool, shareId);
+    if (!authContext) {
       res.status(404).json({ error: 'Share not found' });
       return;
     }
-    if (authCheckResult.rows[0].owner_id !== claims.sub) {
+    if (authContext.ownerId !== claims.sub) {
       res.status(403).json({ error: 'Not authorized to delete this share' });
       return;
     }
-
     const result = await pool.query('DELETE FROM vfs_shares WHERE id = $1', [
       shareId
     ]);
@@ -78,7 +59,6 @@ export const deleteSharesShareidHandler = async (
      * that were created before ACL dual-write existed.
      */
     const revokedAt = new Date();
-    const authCheckRow = authCheckResult.rows[0];
     await pool.query(
       `INSERT INTO vfs_acl_entries (
           id,
@@ -103,10 +83,10 @@ export const deleteSharesShareidHandler = async (
           revoked_at = EXCLUDED.revoked_at`,
       [
         `share:${shareId}`,
-        authCheckRow.item_id,
-        authCheckRow.share_type,
-        authCheckRow.target_id,
-        mapSharePermissionLevelToAclAccessLevel(authCheckRow.permission_level),
+        authContext.itemId,
+        authContext.shareType,
+        authContext.targetId,
+        authContext.accessLevel,
         claims.sub,
         revokedAt
       ]
