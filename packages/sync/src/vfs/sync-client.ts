@@ -919,6 +919,7 @@ export class VfsBackgroundSyncClient {
   private normalizePersistedContainerClocks(
     clocks: VfsContainerClockEntry[]
   ): VfsContainerClockEntry[] {
+    const observedContainerIds: Set<string> = new Set();
     return clocks.map((clock, index) => {
       const containerId = normalizeRequiredString(clock.containerId);
       const changeId = normalizeRequiredString(clock.changeId);
@@ -926,6 +927,12 @@ export class VfsBackgroundSyncClient {
       if (!containerId || !changeId || !changedAt) {
         throw new Error(`state.containerClocks[${index}] is invalid`);
       }
+      if (observedContainerIds.has(containerId)) {
+        throw new Error(
+          `state.containerClocks has duplicate containerId ${containerId}`
+        );
+      }
+      observedContainerIds.add(containerId);
 
       return {
         containerId,

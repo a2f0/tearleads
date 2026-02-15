@@ -1792,6 +1792,53 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(pristineState);
   });
 
+  it('fails closed when hydrated container clocks contain duplicate container ids and keeps state pristine', () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer()),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    const pristineState = client.exportState();
+    const persisted = client.exportState();
+    persisted.containerClocks = [
+      {
+        containerId: 'item-dup',
+        changedAt: '2026-02-14T14:14:00.000Z',
+        changeId: 'desktop-1'
+      },
+      {
+        containerId: 'item-dup',
+        changedAt: '2026-02-14T14:14:01.000Z',
+        changeId: 'desktop-2'
+      }
+    ];
+
+    expect(() => client.hydrateState(persisted)).toThrowError(
+      /state.containerClocks has duplicate containerId item-dup/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message: 'state.containerClocks has duplicate containerId item-dup'
+    });
+    expect(client.exportState()).toEqual(pristineState);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;
