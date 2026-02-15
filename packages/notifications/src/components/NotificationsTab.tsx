@@ -1,5 +1,9 @@
+import {
+  DesktopContextMenu as ContextMenu,
+  DesktopContextMenuItem as ContextMenuItem
+} from '@tearleads/window-manager';
 import { CheckCheck, Trash2, X } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { cn } from '@/lib/utils';
 import {
   type Notification,
@@ -34,17 +38,24 @@ interface NotificationItemProps {
   notification: Notification;
   onDismiss: (id: string) => void;
   onMarkAsRead: (id: string) => void;
+  onContextMenu: (id: string, x: number, y: number) => void;
 }
 
 function NotificationItem({
   notification,
   onDismiss,
-  onMarkAsRead
+  onMarkAsRead,
+  onContextMenu
 }: NotificationItemProps) {
   const handleClick = () => {
     if (!notification.read) {
       onMarkAsRead(notification.id);
     }
+  };
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onContextMenu(notification.id, e.clientX, e.clientY);
   };
 
   return (
@@ -57,6 +68,7 @@ function NotificationItem({
         !notification.read && 'bg-muted/50'
       )}
       onClick={handleClick}
+      onContextMenu={handleContextMenu}
     >
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
@@ -94,6 +106,11 @@ function NotificationItem({
 
 export function NotificationsTab() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [contextMenu, setContextMenu] = useState<{
+    id: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   useEffect(() => {
     setNotifications(notificationStore.getNotifications());
@@ -120,6 +137,28 @@ export function NotificationsTab() {
   const handleDismissAll = () => {
     notificationStore.dismissAll();
   };
+
+  const handleContextMenu = useCallback((id: string, x: number, y: number) => {
+    setContextMenu({ id, x, y });
+  }, []);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(null);
+  }, []);
+
+  const handleContextMenuMarkAsRead = useCallback(() => {
+    if (contextMenu) {
+      notificationStore.markAsRead(contextMenu.id);
+      setContextMenu(null);
+    }
+  }, [contextMenu]);
+
+  const handleContextMenuDismiss = useCallback(() => {
+    if (contextMenu) {
+      notificationStore.dismiss(contextMenu.id);
+      setContextMenu(null);
+    }
+  }, [contextMenu]);
 
   if (notifications.length === 0) {
     return (
@@ -170,9 +209,32 @@ export function NotificationsTab() {
             notification={notification}
             onDismiss={handleDismiss}
             onMarkAsRead={handleMarkAsRead}
+            onContextMenu={handleContextMenu}
           />
         ))}
       </div>
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={handleCloseContextMenu}
+        >
+          {notifications.find((n) => n.id === contextMenu.id && !n.read) && (
+            <ContextMenuItem
+              icon={<CheckCheck className="h-4 w-4" />}
+              onClick={handleContextMenuMarkAsRead}
+            >
+              Mark as read
+            </ContextMenuItem>
+          )}
+          <ContextMenuItem
+            icon={<Trash2 className="h-4 w-4" />}
+            onClick={handleContextMenuDismiss}
+          >
+            Dismiss
+          </ContextMenuItem>
+        </ContextMenu>
+      )}
     </div>
   );
 }
