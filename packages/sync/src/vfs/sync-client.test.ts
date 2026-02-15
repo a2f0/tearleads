@@ -2382,6 +2382,8 @@ describe('VfsBackgroundSyncClient', () => {
     const observedPulls: Array<{
       requestCursor: { changedAt: string; changeId: string } | null;
       items: VfsCrdtSyncItem[];
+      hasMore: boolean;
+      nextCursor: { changedAt: string; changeId: string } | null;
     }> = [];
     const baseDesktopTransport: VfsCrdtSyncTransport = desktopTransport;
     const observingDesktopTransport: VfsCrdtSyncTransport = {
@@ -2390,7 +2392,9 @@ describe('VfsBackgroundSyncClient', () => {
         const response = await baseDesktopTransport.pullOperations(input);
         observedPulls.push({
           requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item }))
+          items: response.items.map((item) => ({ ...item })),
+          hasMore: response.hasMore,
+          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
         });
         return response;
       },
@@ -2538,6 +2542,8 @@ describe('VfsBackgroundSyncClient', () => {
     const observedPulls: Array<{
       requestCursor: { changedAt: string; changeId: string } | null;
       items: VfsCrdtSyncItem[];
+      hasMore: boolean;
+      nextCursor: { changedAt: string; changeId: string } | null;
     }> = [];
     const baseDesktopTransport: VfsCrdtSyncTransport = desktopTransport;
     const observingDesktopTransport: VfsCrdtSyncTransport = {
@@ -2546,7 +2552,9 @@ describe('VfsBackgroundSyncClient', () => {
         const response = await baseDesktopTransport.pullOperations(input);
         observedPulls.push({
           requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item }))
+          items: response.items.map((item) => ({ ...item })),
+          hasMore: response.hasMore,
+          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
         });
         return response;
       },
@@ -2592,7 +2600,7 @@ describe('VfsBackgroundSyncClient', () => {
     await resumedDesktop.sync();
 
     const forwardPulls = observedPulls.slice(pullsBeforeNewWrites);
-    expect(forwardPulls.length).toBeGreaterThan(0);
+    expect(forwardPulls.length).toBeGreaterThanOrEqual(2);
     expect(forwardPulls[0]?.requestCursor).toEqual(seedReplayCursor);
 
     /**
@@ -2600,6 +2608,26 @@ describe('VfsBackgroundSyncClient', () => {
      * page items must be strictly newer than the reused boundary cursor.
      */
     const forwardItems = forwardPulls.flatMap((page) => page.items);
+    expect(forwardPulls[forwardPulls.length - 1]?.hasMore).toBe(false);
+
+    for (let index = 0; index < forwardPulls.length; index++) {
+      const page = forwardPulls[index];
+      if (!page) {
+        continue;
+      }
+
+      if (page.requestCursor) {
+        expect(
+          compareVfsSyncCursorOrder(page.requestCursor, seedReplayCursor)
+        ).toBeGreaterThanOrEqual(0);
+      }
+
+      const previousPage = index > 0 ? forwardPulls[index - 1] : null;
+      if (previousPage?.nextCursor) {
+        expect(page.requestCursor).toEqual(previousPage.nextCursor);
+      }
+    }
+
     expect(forwardItems).toContainEqual(
       expect.objectContaining({
         opId: 'mobile-2',
