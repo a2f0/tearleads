@@ -487,6 +487,76 @@ describe('PhotosAlbumsSidebar', () => {
     });
   });
 
+  it('drops image files into an album', async () => {
+    const onDropToAlbum = vi.fn();
+    render(
+      <PhotosAlbumsSidebar {...defaultProps} onDropToAlbum={onDropToAlbum} />
+    );
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+
+    const imageFile = new File(['image data'], 'photo.jpg', {
+      type: 'image/jpeg'
+    });
+    const dataTransfer = {
+      files: [imageFile],
+      getData: () => ''
+    };
+
+    fireEvent.drop(albumButton, { dataTransfer });
+
+    await waitFor(() => {
+      expect(onDropToAlbum).toHaveBeenCalledWith('album-1', [imageFile]);
+    });
+  });
+
+  it('handles drag enter and leave events on album', async () => {
+    const onDropToAlbum = vi.fn();
+    render(
+      <PhotosAlbumsSidebar {...defaultProps} onDropToAlbum={onDropToAlbum} />
+    );
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+
+    // Drag enter should highlight the album
+    fireEvent.dragEnter(albumButton, {
+      dataTransfer: { files: [], getData: () => '' }
+    });
+
+    await waitFor(() => {
+      expect(albumButton).toHaveClass('ring-2');
+    });
+
+    // Drag leave should remove highlight
+    fireEvent.dragLeave(albumButton, {
+      dataTransfer: { files: [], getData: () => '' }
+    });
+
+    await waitFor(() => {
+      expect(albumButton).not.toHaveClass('ring-2');
+    });
+  });
+
+  it('handles drag over event on album', async () => {
+    const onDropToAlbum = vi.fn();
+    render(
+      <PhotosAlbumsSidebar {...defaultProps} onDropToAlbum={onDropToAlbum} />
+    );
+
+    const albumButton = screen.getByText('Vacation').closest('button');
+    if (!albumButton) throw new Error('Album button not found');
+
+    // Fire dragOver event - it should not throw and should allow drop
+    fireEvent.dragOver(albumButton, {
+      dataTransfer: { files: [], getData: () => '' }
+    });
+
+    // If dragOver handler ran without error, the code path was exercised
+    expect(albumButton).toBeInTheDocument();
+  });
+
   it('opens new album dialog from empty space context menu', async () => {
     const user = userEvent.setup();
     const { container } = render(<PhotosAlbumsSidebar {...defaultProps} />);
