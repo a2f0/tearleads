@@ -10,6 +10,7 @@ import {
   useMemo,
   useState
 } from 'react';
+import { calendarLocale } from '../constants';
 import {
   CALENDAR_CREATE_ITEM_EVENT,
   CALENDAR_CREATE_SUBMIT_EVENT
@@ -18,7 +19,6 @@ import {
   selectionToTimeRange,
   useTimeRangeSelection
 } from '../hooks/useTimeRangeSelection';
-import { calendarLocale } from '../constants';
 import type { CalendarEventItem } from '../types';
 import { getPositionedEventsForDay } from '../utils/eventPositioning';
 import { CalendarDayView } from './CalendarDayView';
