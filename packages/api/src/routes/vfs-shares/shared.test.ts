@@ -112,6 +112,32 @@ describe('acl-first share authorization context', () => {
     });
   });
 
+  it('accepts legacy-shaped auth rows returned by a compatibility mock', async () => {
+    const query = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          owner_id: 'owner-1',
+          item_id: 'item-1',
+          share_type: 'organization',
+          target_id: 'org-2',
+          permission_level: 'view'
+        }
+      ]
+    });
+
+    await expect(
+      loadShareAuthorizationContext({ query }, 'share-1')
+    ).resolves.toEqual({
+      ownerId: 'owner-1',
+      itemId: 'item-1',
+      shareType: 'organization',
+      targetId: 'org-2',
+      accessLevel: 'read',
+      source: 'legacy'
+    });
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
   it('returns null when neither canonical nor legacy rows exist', async () => {
     const query = vi
       .fn()
@@ -190,6 +216,30 @@ describe('acl-first org-share authorization context', () => {
       accessLevel: 'write',
       source: 'legacy'
     });
+  });
+
+  it('accepts legacy-shaped org-share auth rows returned by a compatibility mock', async () => {
+    const query = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          owner_id: 'owner-1',
+          item_id: 'item-1',
+          target_org_id: 'org-2',
+          permission_level: 'download'
+        }
+      ]
+    });
+
+    await expect(
+      loadOrgShareAuthorizationContext({ query }, 'org-share-1')
+    ).resolves.toEqual({
+      ownerId: 'owner-1',
+      itemId: 'item-1',
+      targetOrgId: 'org-2',
+      accessLevel: 'read',
+      source: 'legacy'
+    });
+    expect(query).toHaveBeenCalledTimes(1);
   });
 
   it('returns null when neither canonical nor legacy org-share rows exist', async () => {

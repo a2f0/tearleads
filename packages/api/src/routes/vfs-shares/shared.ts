@@ -70,6 +70,42 @@ function parseCount(value: unknown): number {
   return 0;
 }
 
+function isLegacyShareAuthorizationRow(value: unknown): value is {
+  owner_id: string | null;
+  item_id: string;
+  share_type: VfsShareType;
+  target_id: string;
+  permission_level: VfsPermissionLevel;
+} {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.item_id === 'string' &&
+    isValidShareType(value.share_type) &&
+    typeof value.target_id === 'string' &&
+    isValidPermissionLevel(value.permission_level)
+  );
+}
+
+function isLegacyOrgShareAuthorizationRow(value: unknown): value is {
+  owner_id: string | null;
+  item_id: string;
+  target_org_id: string;
+  permission_level: VfsPermissionLevel;
+} {
+  if (!isRecord(value)) {
+    return false;
+  }
+
+  return (
+    typeof value.item_id === 'string' &&
+    typeof value.target_org_id === 'string' &&
+    isValidPermissionLevel(value.permission_level)
+  );
+}
+
 /**
  * Guardrail: while legacy share-read routes remain active, they must never
  * serve rows that are missing canonical active ACL parity.
@@ -180,6 +216,19 @@ export async function loadShareAuthorizationContext(
     };
   }
 
+  if (isLegacyShareAuthorizationRow(canonicalRow)) {
+    return {
+      ownerId: canonicalRow.owner_id,
+      itemId: canonicalRow.item_id,
+      shareType: canonicalRow.share_type,
+      targetId: canonicalRow.target_id,
+      accessLevel: mapSharePermissionLevelToAclAccessLevel(
+        canonicalRow.permission_level
+      ),
+      source: 'legacy'
+    };
+  }
+
   const legacyResult = await queryExecutor.query<{
     owner_id: string | null;
     item_id: string;
@@ -246,13 +295,31 @@ export async function loadOrgShareAuthorizationContext(
     [`org-share:${shareId}`]
   );
   const canonicalRow = canonicalResult.rows[0];
-  if (canonicalRow) {
+  if (
+    canonicalRow &&
+    typeof canonicalRow.principal_id === 'string' &&
+    (canonicalRow.access_level === 'read' ||
+      canonicalRow.access_level === 'write' ||
+      canonicalRow.access_level === 'admin')
+  ) {
     return {
       ownerId: canonicalRow.owner_id,
       itemId: canonicalRow.item_id,
       targetOrgId: canonicalRow.principal_id,
-      accessLevel: parseAclAccessLevel(canonicalRow.access_level),
+      accessLevel: canonicalRow.access_level,
       source: 'canonical'
+    };
+  }
+
+  if (isLegacyOrgShareAuthorizationRow(canonicalRow)) {
+    return {
+      ownerId: canonicalRow.owner_id,
+      itemId: canonicalRow.item_id,
+      targetOrgId: canonicalRow.target_org_id,
+      accessLevel: mapSharePermissionLevelToAclAccessLevel(
+        canonicalRow.permission_level
+      ),
+      source: 'legacy'
     };
   }
 

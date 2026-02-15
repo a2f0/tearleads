@@ -453,7 +453,15 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query - different owner
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'different-user' }]
+        rows: [
+          {
+            owner_id: 'different-user',
+            item_id: 'item-123',
+            share_type: 'user',
+            target_id: 'user-456',
+            permission_level: 'view'
+          }
+        ]
       });
 
       const response = await request(app)
@@ -554,7 +562,15 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query - different owner
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'different-user' }]
+        rows: [
+          {
+            owner_id: 'different-user',
+            item_id: 'item-123',
+            share_type: 'user',
+            target_id: 'user-456',
+            permission_level: 'view'
+          }
+        ]
       });
 
       const response = await request(app)
@@ -571,7 +587,15 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            item_id: 'item-123',
+            share_type: 'user',
+            target_id: 'user-456',
+            permission_level: 'view'
+          }
+        ]
       });
       // DELETE query
       mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
@@ -1359,7 +1383,14 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query - different owner
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'different-user' }]
+        rows: [
+          {
+            owner_id: 'different-user',
+            item_id: 'item-123',
+            target_org_id: 'org-target',
+            permission_level: 'view'
+          }
+        ]
       });
 
       const response = await request(app)
@@ -1376,7 +1407,14 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            item_id: 'item-123',
+            target_org_id: 'org-target',
+            permission_level: 'view'
+          }
+        ]
       });
       // DELETE query
       mockQuery.mockResolvedValueOnce({ rows: [], rowCount: 1 });
@@ -1416,7 +1454,15 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            item_id: 'item-123',
+            share_type: 'user',
+            target_id: 'user-456',
+            permission_level: 'view'
+          }
+        ]
       });
       // DELETE query with null rowCount
       mockQuery.mockResolvedValueOnce({ rows: [], rowCount: null });
@@ -1435,7 +1481,14 @@ describe('VFS Shares routes', () => {
       const authHeader = await createAuthHeader();
       // Auth check query
       mockQuery.mockResolvedValueOnce({
-        rows: [{ owner_id: 'user-1' }]
+        rows: [
+          {
+            owner_id: 'user-1',
+            item_id: 'item-123',
+            target_org_id: 'org-target',
+            permission_level: 'view'
+          }
+        ]
       });
       // DELETE query with null rowCount
       mockQuery.mockResolvedValueOnce({ rows: [], rowCount: null });
