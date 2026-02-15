@@ -18,42 +18,20 @@ import path from 'node:path';
 import { createRequire } from 'node:module';
 import type { Plugin } from 'vite';
 import type { AppConfig } from '../app-builder/src/types.js';
+import { FEATURE_TO_PACKAGES } from '../app-builder/src/feature-map.js';
 
 const VIRTUAL_MODULE_ID = 'virtual:app-config';
 const RESOLVED_VIRTUAL_MODULE_ID = '\0' + VIRTUAL_MODULE_ID;
 
 /**
- * Feature-to-package mapping for tree-shaking.
- * Must stay in sync with packages/app-builder/src/feature-map.ts
- */
-const FEATURE_TO_PACKAGE: Record<string, string> = {
-  admin: '@tearleads/admin',
-  analytics: '@tearleads/analytics',
-  audio: '@tearleads/audio',
-  businesses: '@tearleads/businesses',
-  calendar: '@tearleads/calendar',
-  camera: '@tearleads/camera',
-  classic: '@tearleads/classic',
-  compliance: '@tearleads/compliance',
-  contacts: '@tearleads/contacts',
-  email: '@tearleads/email',
-  health: '@tearleads/health',
-  'mls-chat': '@tearleads/mls-chat',
-  notes: '@tearleads/notes',
-  sync: '@tearleads/sync',
-  terminal: '@tearleads/terminal',
-  vehicles: '@tearleads/vehicles',
-  wallet: '@tearleads/wallet'
-};
-
-/**
  * Get packages to disable based on enabled features.
+ * Uses FEATURE_TO_PACKAGES from app-builder as the single source of truth.
  */
 function getDisabledPackages(enabledFeatures: string[]): string[] {
   const enabledSet = new Set(enabledFeatures);
-  return Object.entries(FEATURE_TO_PACKAGE)
+  return Object.entries(FEATURE_TO_PACKAGES)
     .filter(([feature]) => !enabledSet.has(feature))
-    .map(([, pkg]) => pkg);
+    .flatMap(([, packages]) => packages);
 }
 
 /**

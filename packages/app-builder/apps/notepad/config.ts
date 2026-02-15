@@ -33,9 +33,8 @@ const config: AppConfig = {
 
   store: {
     androidKeyAlias: 'notepad'
-  },
-
-  keychainPrefix: 'com.tearleads.notepad'
+  }
+  // keychainPrefix defaults to bundleIds.ios when not specified
 };
 
 export default config;
