@@ -328,6 +328,43 @@ describe('VFS CRDT sync route', () => {
     restoreConsole();
   });
 
+  it('returns 500 when CRDT rows contain malformed link payloads', async () => {
+    const restoreConsole = mockConsoleError();
+    const authHeader = await createAuthHeader();
+    mockQuery
+      .mockResolvedValueOnce({
+        rows: [
+          {
+            op_id: 'op-link-1',
+            item_id: 'item-1',
+            op_type: 'link_add',
+            principal_type: null,
+            principal_id: null,
+            access_level: null,
+            parent_id: 'parent-1',
+            child_id: 'item-2',
+            actor_id: 'user-1',
+            source_table: 'vfs_crdt_client_push',
+            source_id: 'user-1:desktop:1:op-link-1',
+            occurred_at: new Date('2026-02-14T00:00:01.000Z')
+          }
+        ]
+      })
+      .mockResolvedValueOnce({
+        rows: []
+      });
+
+    const response = await request(app)
+      .get('/v1/vfs/crdt/sync?limit=10')
+      .set('Authorization', authHeader);
+
+    expect(response.status).toBe(500);
+    expect(response.body).toEqual({
+      error: 'Failed to sync VFS CRDT operations'
+    });
+    restoreConsole();
+  });
+
   it('returns 500 when database query fails', async () => {
     const restoreConsole = mockConsoleError();
     const authHeader = await createAuthHeader();

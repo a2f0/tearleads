@@ -217,6 +217,52 @@ describe('mapVfsCrdtSyncRows', () => {
     expect(() => mapVfsCrdtSyncRows(rows, 10)).toThrowError(/repeats op_id/);
   });
 
+  it('throws when link rows have mismatched child scope', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-link-1',
+        item_id: 'item-1',
+        op_type: 'link_add',
+        principal_type: null,
+        principal_id: null,
+        access_level: null,
+        parent_id: 'parent-1',
+        child_id: 'item-2',
+        actor_id: 'user-1',
+        source_table: 'vfs_crdt_client_push',
+        source_id: 'user-1:desktop:1:op-link-1',
+        occurred_at: new Date('2026-02-14T00:00:00.000Z')
+      }
+    ];
+
+    expect(() => mapVfsCrdtSyncRows(rows, 10)).toThrowError(
+      /invalid link payload/
+    );
+  });
+
+  it('throws when link rows are self-referential', () => {
+    const rows: VfsCrdtSyncDbRow[] = [
+      {
+        op_id: 'op-link-2',
+        item_id: 'item-1',
+        op_type: 'link_add',
+        principal_type: null,
+        principal_id: null,
+        access_level: null,
+        parent_id: 'item-1',
+        child_id: 'item-1',
+        actor_id: 'user-1',
+        source_table: 'vfs_crdt_client_push',
+        source_id: 'user-1:desktop:2:op-link-2',
+        occurred_at: new Date('2026-02-14T00:00:01.000Z')
+      }
+    ];
+
+    expect(() => mapVfsCrdtSyncRows(rows, 10)).toThrowError(
+      /invalid link payload/
+    );
+  });
+
   it('normalizes unexpected enum values', () => {
     const rows: VfsCrdtSyncDbRow[] = [
       {
