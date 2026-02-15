@@ -7362,6 +7362,7 @@ describe('VfsBackgroundSyncClient', () => {
       pulledOperations: 0,
       pullPages: 1
     });
+    const cycleCClocks = resumedClient.snapshot().containerClocks;
     await expect(resumedClient.sync()).rejects.toThrowError(
       /regressed lastReconciledWriteIds for replica desktop/
     );
@@ -7431,6 +7432,13 @@ describe('VfsBackgroundSyncClient', () => {
         itemId: 'item-pull-fail-d'
       })
     );
+    const finalClocks = resumedClient.snapshot().containerClocks;
+    expectContainerClocksMonotonic(cycleCClocks, finalClocks);
+    const finalClockMap = toContainerClockCursorMap(finalClocks);
+    expect(finalClockMap.get('item-cycle-b')?.changeId).toBe('cycle-b-1');
+    expect(finalClockMap.get('item-cycle-e')?.changeId).toBe('cycle-e-1');
+    expect(finalClockMap.get('item-pull-fail-a')).toBeUndefined();
+    expect(finalClockMap.get('item-pull-fail-d')).toBeUndefined();
 
     expect(observedPullRequests[0]?.cursor).toBeNull();
     expect(observedPullRequests[1]?.cursor).toEqual({
