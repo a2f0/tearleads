@@ -3,6 +3,18 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { DebugWindowMenuBar } from './DebugWindowMenuBar';
 
+vi.mock('@tearleads/window-manager', async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import('@tearleads/window-manager')>();
+
+  return {
+    ...actual,
+    WindowControlBar: ({ children }: { children: React.ReactNode }) => (
+      <div data-testid="window-control-bar">{children}</div>
+    )
+  };
+});
+
 describe('DebugWindowMenuBar', () => {
   const defaultProps = {
     onClose: vi.fn()
@@ -51,5 +63,20 @@ describe('DebugWindowMenuBar', () => {
     await user.click(screen.getByRole('menuitem', { name: 'Close' }));
 
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders the control bar', () => {
+    render(<DebugWindowMenuBar {...defaultProps} />);
+    expect(screen.getByTestId('window-control-bar')).toBeInTheDocument();
+  });
+
+  it('renders controls inside the control bar', () => {
+    render(
+      <DebugWindowMenuBar
+        {...defaultProps}
+        controls={<button type="button">Back</button>}
+      />
+    );
+    expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
 });
