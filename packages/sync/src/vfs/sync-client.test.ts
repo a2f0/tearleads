@@ -1180,9 +1180,14 @@ describe('VfsBackgroundSyncClient', () => {
       string,
       { changedAt: string; changeId: string }
     >();
+    const restartCursorFloorByClient = new Map<
+      string,
+      { changedAt: string; changeId: string }
+    >();
     const assertReplayCursorMonotonic = (clientId: string): void => {
       const cursor = getClient(clientId).exportState().replaySnapshot.cursor;
       const previousCursor = lastReplayCursorByClient.get(clientId);
+      const restartFloorCursor = restartCursorFloorByClient.get(clientId);
 
       if (previousCursor && !cursor) {
         throw new Error(`replay cursor regressed to null for ${clientId}`);
@@ -1191,6 +1196,12 @@ describe('VfsBackgroundSyncClient', () => {
       if (previousCursor && cursor) {
         expect(
           compareVfsSyncCursorOrder(cursor, previousCursor)
+        ).toBeGreaterThanOrEqual(0);
+      }
+
+      if (restartFloorCursor && cursor) {
+        expect(
+          compareVfsSyncCursorOrder(cursor, restartFloorCursor)
         ).toBeGreaterThanOrEqual(0);
       }
 
@@ -1225,6 +1236,20 @@ describe('VfsBackgroundSyncClient', () => {
          */
         if (restartClient.snapshot().pendingOperations === 0) {
           const persistedState = restartClient.exportState();
+          const persistedCursor = persistedState.replaySnapshot.cursor;
+          if (persistedCursor) {
+            const existingFloor =
+              restartCursorFloorByClient.get(restartClientId);
+            if (
+              !existingFloor ||
+              compareVfsSyncCursorOrder(persistedCursor, existingFloor) > 0
+            ) {
+              restartCursorFloorByClient.set(restartClientId, {
+                changedAt: persistedCursor.changedAt,
+                changeId: persistedCursor.changeId
+              });
+            }
+          }
           const restartedClient = createClient(restartClientId);
           restartedClient.hydrateState(persistedState);
           clientsByClient.set(restartClientId, restartedClient);
