@@ -6451,6 +6451,205 @@ describe('VfsBackgroundSyncClient', () => {
     });
   });
 
+  it('fails closed when post-restart reconcile acknowledgement regresses non-primary replica after paginated pulls', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-reconcile-regress-a',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T12:23:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        },
+        {
+          opId: 'remote-2',
+          opType: 'acl_add',
+          itemId: 'item-reconcile-regress-b',
+          replicaId: 'remote',
+          writeId: 2,
+          occurredAt: '2026-02-14T12:23:01.000Z',
+          principalType: 'group',
+          principalId: 'group-2',
+          accessLevel: 'write'
+        }
+      ]
+    });
+
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+      details?: Record<string, string | number | boolean | null>;
+    }> = [];
+    const observedPulls: Array<{
+      phase: 'seed' | 'resumed';
+      requestCursor: { changedAt: string; changeId: string } | null;
+      items: VfsCrdtSyncItem[];
+      hasMore: boolean;
+      nextCursor: { changedAt: string; changeId: string } | null;
+    }> = [];
+    let reconcileCallCount = 0;
+    const makeObservedTransport = (
+      phase: 'seed' | 'resumed'
+    ): VfsCrdtSyncTransport => ({
+      pushOperations: (input) => baseTransport.pushOperations(input),
+      pullOperations: async (input) => {
+        const response = await baseTransport.pullOperations(input);
+        observedPulls.push({
+          phase,
+          requestCursor: input.cursor ? { ...input.cursor } : null,
+          items: response.items.map((item) => ({ ...item })),
+          hasMore: response.hasMore,
+          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
+        });
+        return response;
+      },
+      reconcileState: async (input) => {
+        reconcileCallCount += 1;
+        if (reconcileCallCount === 1) {
+          return {
+            cursor: { ...input.cursor },
+            lastReconciledWriteIds: {
+              ...input.lastReconciledWriteIds,
+              desktop: 3,
+              mobile: 5
+            }
+          };
+        }
+
+        return {
+          cursor: { ...input.cursor },
+          lastReconciledWriteIds: {
+            ...input.lastReconciledWriteIds,
+            desktop: 4,
+            mobile: 4
+          }
+        };
+      }
+    });
+
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      makeObservedTransport('seed'),
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    await seedClient.sync();
+    expect(seedClient.snapshot().lastReconciledWriteIds).toEqual({
+      desktop: 3,
+      mobile: 5,
+      remote: 2
+    });
+    const persistedSeedState = seedClient.exportState();
+    const seedReplayCursor = persistedSeedState.replaySnapshot.cursor;
+    if (!seedReplayCursor) {
+      throw new Error(
+        'expected seed replay cursor before reconcile regression'
+      );
+    }
+
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-3',
+          opType: 'link_add',
+          itemId: 'item-reconcile-regress-c',
+          replicaId: 'remote',
+          writeId: 3,
+          occurredAt: '2026-02-14T12:23:02.000Z',
+          parentId: 'root',
+          childId: 'item-reconcile-regress-c'
+        },
+        {
+          opId: 'remote-4',
+          opType: 'acl_add',
+          itemId: 'item-reconcile-regress-c',
+          replicaId: 'remote',
+          writeId: 4,
+          occurredAt: '2026-02-14T12:23:03.000Z',
+          principalType: 'organization',
+          principalId: 'org-1',
+          accessLevel: 'admin'
+        }
+      ]
+    });
+
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      makeObservedTransport('resumed'),
+      {
+        pullLimit: 1,
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message,
+            details: violation.details
+          });
+        }
+      }
+    );
+    resumedClient.hydrateState(persistedSeedState);
+
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds for replica mobile/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'reconcile',
+      message: 'reconcile acknowledgement regressed replica write-id state',
+      details: {
+        replicaId: 'mobile',
+        previousWriteId: 5,
+        incomingWriteId: 4
+      }
+    });
+
+    const resumedPulls = observedPulls.filter(
+      (pull) => pull.phase === 'resumed'
+    );
+    expect(resumedPulls.length).toBe(2);
+    expect(resumedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
+    expect(resumedPulls[1]?.requestCursor).toEqual({
+      changedAt: '2026-02-14T12:23:02.000Z',
+      changeId: 'remote-3'
+    });
+
+    expect(resumedClient.snapshot().lastReconciledWriteIds).toEqual({
+      desktop: 3,
+      mobile: 5,
+      remote: 4
+    });
+    expect(resumedClient.snapshot().acl).toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-reconcile-regress-c',
+        principalId: 'org-1'
+      })
+    );
+    const resumedCursor = resumedClient.snapshot().cursor;
+    expect(resumedCursor).toEqual({
+      changedAt: '2026-02-14T12:23:03.000Z',
+      changeId: 'remote-4'
+    });
+  });
+
   it('fails closed when transport regresses cursor with no items', async () => {
     let pullCount = 0;
     const guardrailViolations: Array<{
