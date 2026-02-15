@@ -183,6 +183,26 @@
       ]
     },
     {
+      "id": "preen-docs-internationalization",
+      "purpose": "Translate and sync documentation across all supported languages",
+      "checklistLabel": "Documentation internationalization coverage",
+      "qualityMetric": "Missing or orphaned doc translations",
+      "security": false,
+      "discoveryCommands": [
+        "echo '=== Translation Coverage ==='; echo \"English (source): $(ls docs/en/*.md 2>/dev/null | wc -l | tr -d ' ')\"; echo \"Spanish: $(ls docs/es/*.md 2>/dev/null | wc -l | tr -d ' ')\"; echo \"Ukrainian: $(ls docs/ua/*.md 2>/dev/null | wc -l | tr -d ' ')\"; echo \"Portuguese: $(ls docs/pt/*.md 2>/dev/null | wc -l | tr -d ' ')\"",
+        "echo '=== Missing Translations ==='; for lang in es ua pt; do for file in docs/en/*.md; do target=\"docs/$lang/$(basename \"$file\")\"; [ -f \"$target\" ] || echo \"Missing: $target\"; done; done"
+      ],
+      "metricCountCommands": [
+        "EN_COUNT=$(ls docs/en/*.md 2>/dev/null | wc -l | tr -d ' ')",
+        "GAPS=0",
+        "for lang in es ua pt; do",
+        "  LANG_COUNT=$(ls docs/$lang/*.md 2>/dev/null | wc -l | tr -d ' ')",
+        "  [ \"$LANG_COUNT\" -lt \"$EN_COUNT\" ] && GAPS=$((GAPS + EN_COUNT - LANG_COUNT))",
+        "done",
+        "echo $GAPS"
+      ]
+    },
+    {
       "id": "preen-window-consistency",
       "purpose": "Normalize window components and standardize refresh patterns into window-manager",
       "checklistLabel": "Window component consistency and refresh patterns",

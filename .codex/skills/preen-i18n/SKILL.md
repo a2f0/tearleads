@@ -1,4 +1,5 @@
 ---
+name: preen-i18n
 description: Preen i18n translation coverage and consistency (project)
 ---
 
