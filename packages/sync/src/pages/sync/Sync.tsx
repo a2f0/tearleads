@@ -6,6 +6,7 @@ import { useAuth } from '@client/contexts/AuthContext';
 import { api } from '@client/lib/api';
 import { LogOut, Mail } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 type AuthMode = 'login' | 'register';
 
@@ -31,6 +32,7 @@ interface SyncProps {
 }
 
 export function Sync({ showBackLink = true }: SyncProps) {
+  const { t } = useTranslation('sync');
   const {
     isAuthenticated,
     user,
@@ -54,14 +56,14 @@ export function Sync({ showBackLink = true }: SyncProps) {
       if (remaining !== null && remaining > 0) {
         setTimeRemaining(formatTimeRemaining(remaining));
       } else {
-        setTimeRemaining('Expired');
+        setTimeRemaining(t('expired'));
       }
     };
 
     updateTimeRemaining();
     const interval = setInterval(updateTimeRemaining, 1000);
     return () => clearInterval(interval);
-  }, [isAuthenticated, getTokenTimeRemaining]);
+  }, [isAuthenticated, getTokenTimeRemaining, t]);
 
   // Fetch email domain on mount (for registration form hint)
   useEffect(() => {
@@ -86,9 +88,9 @@ export function Sync({ showBackLink = true }: SyncProps) {
           {showBackLink && (
             <BackLink defaultTo="/" defaultLabel="Back to Home" />
           )}
-          <h1 className="font-bold text-2xl tracking-tight">Sync</h1>
+          <h1 className="font-bold text-2xl tracking-tight">{t('sync')}</h1>
         </div>
-        <div className="text-muted-foreground">Loading...</div>
+        <div className="text-muted-foreground">{t('loading')}</div>
       </div>
     );
   }
@@ -100,19 +102,19 @@ export function Sync({ showBackLink = true }: SyncProps) {
           {showBackLink && (
             <BackLink defaultTo="/" defaultLabel="Back to Home" />
           )}
-          <h1 className="font-bold text-2xl tracking-tight">Sync</h1>
+          <h1 className="font-bold text-2xl tracking-tight">{t('sync')}</h1>
         </div>
 
         <div className="rounded-lg border p-4">
           <div className="space-y-4">
             <div>
-              <p className="font-medium">Logged in as</p>
+              <p className="font-medium">{t('loggedInAs')}</p>
               <p className="text-muted-foreground text-sm">{user.email}</p>
             </div>
 
             {emailDomain && (
               <div>
-                <p className="font-medium">Email address</p>
+                <p className="font-medium">{t('emailAddress')}</p>
                 <p className="flex items-center gap-1.5 text-muted-foreground text-sm">
                   <Mail className="h-3.5 w-3.5" />
                   {user.id}@{emailDomain}
@@ -121,13 +123,13 @@ export function Sync({ showBackLink = true }: SyncProps) {
             )}
 
             <div>
-              <p className="font-medium">Token expires</p>
+              <p className="font-medium">{t('tokenExpires')}</p>
               <p className="text-muted-foreground text-sm">
-                {timeRemaining === 'Expired' ? (
+                {timeRemaining === t('expired') ? (
                   <span className="text-destructive">{timeRemaining}</span>
                 ) : (
                   <>
-                    in {timeRemaining}
+                    {t('expiresIn', { time: timeRemaining })}
                     {tokenExpiresAt && (
                       <span className="ml-1">
                         ({tokenExpiresAt.toLocaleTimeString()})
@@ -140,7 +142,7 @@ export function Sync({ showBackLink = true }: SyncProps) {
 
             <Button onClick={handleLogout} variant="outline" className="w-full">
               <LogOut className="mr-2 h-4 w-4" />
-              Logout
+              {t('logout')}
             </Button>
           </div>
         </div>
@@ -148,9 +150,9 @@ export function Sync({ showBackLink = true }: SyncProps) {
         <div className="rounded-lg border p-4">
           <div className="space-y-4">
             <div>
-              <p className="font-medium">Active Sessions</p>
+              <p className="font-medium">{t('activeSessions')}</p>
               <p className="text-muted-foreground text-sm">
-                Manage your active sessions across devices
+                {t('manageSessionsDescription')}
               </p>
             </div>
 
@@ -165,18 +167,15 @@ export function Sync({ showBackLink = true }: SyncProps) {
     <div className="space-y-6">
       <div className="space-y-2">
         {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
-        <h1 className="font-bold text-2xl tracking-tight">Sync</h1>
+        <h1 className="font-bold text-2xl tracking-tight">{t('sync')}</h1>
       </div>
 
       {authMode === 'login' ? (
-        <LoginForm
-          title="Login"
-          description="Sign in to sync your data across devices"
-        />
+        <LoginForm title={t('login')} description={t('loginDescription')} />
       ) : (
         <RegisterForm
-          title="Create Account"
-          description="Register to sync your data across devices"
+          title={t('createAccount')}
+          description={t('createAccountDescription')}
           emailDomain={emailDomain ?? undefined}
         />
       )}
@@ -184,24 +183,24 @@ export function Sync({ showBackLink = true }: SyncProps) {
       <div className="text-center text-muted-foreground text-sm">
         {authMode === 'login' ? (
           <>
-            Don&apos;t have an account?{' '}
+            {t('noAccount')}{' '}
             <button
               type="button"
               onClick={() => setAuthMode('register')}
               className="font-medium text-primary hover:underline"
             >
-              Create one
+              {t('createOne')}
             </button>
           </>
         ) : (
           <>
-            Already have an account?{' '}
+            {t('hasAccount')}{' '}
             <button
               type="button"
               onClick={() => setAuthMode('login')}
               className="font-medium text-primary hover:underline"
             >
-              Sign in
+              {t('signIn')}
             </button>
           </>
         )}

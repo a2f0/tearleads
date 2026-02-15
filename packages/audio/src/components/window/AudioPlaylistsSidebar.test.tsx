@@ -233,7 +233,7 @@ describe('AudioPlaylistsSidebar', () => {
     const user = userEvent.setup();
     render(<AudioPlaylistsSidebar {...defaultProps} />);
 
-    await user.click(screen.getByTitle('New Playlist'));
+    await user.click(screen.getByTitle('Playlist name'));
     expect(screen.getByTestId('new-playlist-dialog')).toBeInTheDocument();
   });
 

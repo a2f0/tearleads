@@ -1,5 +1,6 @@
 import { RefreshCw } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LazyDurationChart } from '@/components/duration-chart';
 import { formatDuration } from '@/components/duration-chart/formatters';
 import { getDatabase } from '@/db';
@@ -17,6 +18,7 @@ import { logStore } from '@/stores/logStore';
 const ONE_HOUR_MS = 60 * 60 * 1000;
 
 export function AnalyticsTab() {
+  const { t } = useTranslation('common');
   const { isUnlocked } = useDatabaseContext();
   const [events, setEvents] = useState<AnalyticsEvent[]>([]);
   const [stats, setStats] = useState<EventStats[]>([]);
@@ -83,7 +85,7 @@ export function AnalyticsTab() {
   if (!isUnlocked) {
     return (
       <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-        Database locked
+        {t('databaseLocked')}
       </div>
     );
   }
@@ -91,7 +93,7 @@ export function AnalyticsTab() {
   if (loading && events.length === 0) {
     return (
       <div className="flex h-32 items-center justify-center text-muted-foreground text-sm">
-        Loading...
+        {t('loading')}
       </div>
     );
   }
@@ -100,14 +102,14 @@ export function AnalyticsTab() {
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <span className="font-medium text-muted-foreground text-xs">
-          Last Hour
+          {t('lastHour')}
         </span>
         <button
           type="button"
           onClick={handleRefresh}
           disabled={loading}
           className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50"
-          aria-label="Refresh"
+          aria-label={t('refresh')}
         >
           <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} />
         </button>
@@ -130,7 +132,7 @@ export function AnalyticsTab() {
           ))}
           {stats.length > 5 && (
             <div className="text-muted-foreground text-xs">
-              +{stats.length - 5} more event types
+              {t('moreEventTypes', { count: stats.length - 5 })}
             </div>
           )}
         </div>
@@ -146,7 +148,7 @@ export function AnalyticsTab() {
         </div>
       ) : (
         <div className="flex h-32 items-center justify-center rounded border text-muted-foreground text-xs">
-          No events in the last hour
+          {t('noEventsInLastHour')}
         </div>
       )}
     </div>

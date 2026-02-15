@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 interface OrganizationsListProps {
@@ -23,6 +24,7 @@ export function OrganizationsList({
   onOrganizationSelect,
   organizationId
 }: OrganizationsListProps) {
+  const { t } = useTypedTranslation('admin');
   const [organizations, setOrganizations] = useState<Organization[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -101,7 +103,7 @@ export function OrganizationsList({
           className="mt-2"
           onClick={() => void fetchOrganizations()}
         >
-          Retry
+          {t('retry')}
         </Button>
       </div>
     );
@@ -111,14 +113,14 @@ export function OrganizationsList({
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
         <Building2 className="h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 font-medium text-lg">No organizations yet</h3>
+        <h3 className="mt-4 font-medium text-lg">{t('noOrganizationsYet')}</h3>
         <p className="mt-1 text-muted-foreground text-sm">
-          Create an organization to manage access
+          {t('createOrganizationToManageAccess')}
         </p>
         {onCreateClick && (
           <Button className="mt-4" onClick={onCreateClick}>
             <Plus className="mr-2 h-4 w-4" />
-            Create Organization
+            {t('createOrganization')}
           </Button>
         )}
       </div>
@@ -132,9 +134,11 @@ export function OrganizationsList({
           <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
             <tr>
               <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>ID</th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Name</th>
               <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                Description
+                {t('name')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('description')}
               </th>
             </tr>
           </thead>
@@ -192,7 +196,7 @@ export function OrganizationsList({
             icon={<Copy className="h-4 w-4" />}
             onClick={() => handleCopyId(contextMenu.organization)}
           >
-            Copy ID
+            {t('copyId')}
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
@@ -201,7 +205,7 @@ export function OrganizationsList({
             }}
           >
             <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-            <span className="text-destructive">Delete</span>
+            <span className="text-destructive">{t('delete')}</span>
           </ContextMenuItem>
         </ContextMenu>
       )}
@@ -209,9 +213,11 @@ export function OrganizationsList({
       <ConfirmDialog
         open={deleteDialog !== null}
         onOpenChange={(open) => !open && setDeleteDialog(null)}
-        title="Delete Organization"
-        description={`Are you sure you want to delete "${deleteDialog?.name}"? This will remove all organization memberships.`}
-        confirmLabel="Delete"
+        title={t('deleteOrganization')}
+        description={t('deleteOrganizationConfirm', {
+          name: deleteDialog?.name
+        })}
+        confirmLabel={t('delete')}
         onConfirm={handleDelete}
         variant="destructive"
       />

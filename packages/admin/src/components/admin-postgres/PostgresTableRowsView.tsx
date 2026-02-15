@@ -18,6 +18,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { createCsv } from '@/lib/csv';
 
@@ -76,6 +77,7 @@ export function PostgresTableRowsView({
   backLink,
   containerClassName = DEFAULT_CONTAINER_CLASSNAME
 }: PostgresTableRowsViewProps) {
+  const { t } = useTypedTranslation('admin');
   const [columns, setColumns] = useState<PostgresColumnInfo[]>([]);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
@@ -380,7 +382,7 @@ export function PostgresTableRowsView({
     return (
       <div className={containerClassName}>
         {backLink}
-        <p className="text-muted-foreground">No table selected.</p>
+        <p className="text-muted-foreground">{t('noTableSelected')}</p>
       </div>
     );
   }
@@ -392,7 +394,7 @@ export function PostgresTableRowsView({
       <div className="flex items-center justify-between">
         <div>
           <h2 className="font-bold text-xl">{`${schema}.${tableName}`}</h2>
-          <p className="text-muted-foreground text-sm">Table browser</p>
+          <p className="text-muted-foreground text-sm">{t('tableBrowser')}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -400,7 +402,7 @@ export function PostgresTableRowsView({
             size="sm"
             onClick={handleExportCsv}
             disabled={exporting || loading || rows.length === 0}
-            title="Export as CSV"
+            title={t('exportAsCsv')}
           >
             {exporting ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -412,7 +414,7 @@ export function PostgresTableRowsView({
             variant={documentView ? 'secondary' : 'ghost'}
             size="sm"
             onClick={handleToggleView}
-            title={documentView ? 'Table view' : 'Document view'}
+            title={t('tableBrowser')}
           >
             <Braces className="h-4 w-4" />
           </Button>
@@ -421,13 +423,15 @@ export function PostgresTableRowsView({
               variant="ghost"
               size="sm"
               onClick={() => setShowColumnSettings(!showColumnSettings)}
-              title="Column settings"
+              title={t('columnSettings')}
             >
               <Settings className="h-4 w-4" />
             </Button>
             {showColumnSettings && (
               <div className="absolute right-0 z-10 mt-1 w-48 rounded-md border bg-popover p-2 shadow-lg">
-                <p className="mb-2 font-medium text-sm">Visible columns</p>
+                <p className="mb-2 font-medium text-sm">
+                  {t('visibleColumns')}
+                </p>
                 <div className="space-y-1">
                   {columns.map((col) => (
                     <label

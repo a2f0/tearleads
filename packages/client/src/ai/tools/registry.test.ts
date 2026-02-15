@@ -99,6 +99,24 @@ describe('executeTool', () => {
     const content = JSON.parse(result.content);
     expect(content.error).toContain('Tool execution failed:');
   });
+
+  it('should return error for invalid search arguments', async () => {
+    const result = await executeTool({
+      id: 'call-4',
+      type: 'function',
+      function: {
+        name: 'search_user_data',
+        arguments: JSON.stringify({ notQuery: 'missing query param' })
+      }
+    });
+
+    expect(result.tool_call_id).toBe('call-4');
+    expect(result.role).toBe('tool');
+    const content = JSON.parse(result.content);
+    expect(content.error).toBe(
+      'Invalid arguments: query is required and must be a string'
+    );
+  });
 });
 
 describe('executeTools', () => {

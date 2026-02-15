@@ -10,7 +10,7 @@ import {
   WindowTableRow
 } from '@tearleads/window-manager';
 import { useMemo, useState } from 'react';
-import { useContactsUI } from '../../context';
+import { useContactsContext, useContactsUI } from '../../context';
 import type { ColumnMapping, ParsedCSV } from '../../hooks/useContactsImport';
 import { ColumnChip } from './ColumnChip';
 import {
@@ -64,6 +64,7 @@ export function ColumnMapper({
   importing
 }: ColumnMapperProps) {
   const { Button } = useContactsUI();
+  const { t } = useContactsContext();
   const [mapping, setMapping] = useState<ColumnMapping>(() =>
     autoMapColumns(data.headers)
   );
@@ -132,9 +133,9 @@ export function ColumnMapper({
     <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="space-y-6">
         <div>
-          <h3 className="mb-2 font-medium">CSV Columns</h3>
+          <h3 className="mb-2 font-medium">{t('csvColumns')}</h3>
           <p className="mb-3 text-muted-foreground text-sm">
-            Drag columns to map them to contact fields
+            {t('dragColumnHint')}
           </p>
           <div className="flex flex-wrap gap-2">
             {headerItems.map((item) => (
@@ -149,7 +150,7 @@ export function ColumnMapper({
         </div>
 
         <div>
-          <h3 className="mb-3 font-medium">Contact Fields</h3>
+          <h3 className="mb-3 font-medium">{t('contactFields')}</h3>
           <div className="space-y-3">
             {BASIC_FIELDS.map((field) => (
               <DropZone
@@ -164,12 +165,16 @@ export function ColumnMapper({
         </div>
 
         <div>
-          <h3 className="mb-2 font-medium">Email</h3>
+          <h3 className="mb-2 font-medium">{t('email')}</h3>
           <div className="mb-2 flex items-center gap-3">
             <span className="w-20 shrink-0" />
             <div className="grid flex-1 grid-cols-2 gap-2">
-              <span className="text-muted-foreground text-xs">Label</span>
-              <span className="text-muted-foreground text-xs">Value</span>
+              <span className="text-muted-foreground text-xs">
+                {t('label')}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {t('value')}
+              </span>
             </div>
           </div>
           <div className="space-y-2">
@@ -186,12 +191,16 @@ export function ColumnMapper({
         </div>
 
         <div>
-          <h3 className="mb-2 font-medium">Phone</h3>
+          <h3 className="mb-2 font-medium">{t('phone')}</h3>
           <div className="mb-2 flex items-center gap-3">
             <span className="w-20 shrink-0" />
             <div className="grid flex-1 grid-cols-2 gap-2">
-              <span className="text-muted-foreground text-xs">Label</span>
-              <span className="text-muted-foreground text-xs">Value</span>
+              <span className="text-muted-foreground text-xs">
+                {t('label')}
+              </span>
+              <span className="text-muted-foreground text-xs">
+                {t('value')}
+              </span>
             </div>
           </div>
           <div className="space-y-2">
@@ -214,7 +223,7 @@ export function ColumnMapper({
             );
             return (
               <div>
-                <h3 className="mb-2 font-medium">Preview (first 3 rows)</h3>
+                <h3 className="mb-2 font-medium">{t('previewFirstRows')}</h3>
                 <div className="overflow-x-auto rounded-md border">
                   <table className={`${WINDOW_TABLE_TYPOGRAPHY.table} text-sm`}>
                     <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
@@ -254,7 +263,10 @@ export function ColumnMapper({
                   </table>
                 </div>
                 <p className="mt-2 text-muted-foreground text-sm">
-                  {data.rows.length} total rows
+                  {t('totalRows').replace(
+                    '{{count}}',
+                    String(data.rows.length)
+                  )}
                 </p>
               </div>
             );
@@ -262,10 +274,15 @@ export function ColumnMapper({
 
         <div className="flex justify-end gap-3">
           <Button variant="outline" onClick={onCancel} disabled={importing}>
-            Cancel
+            {t('cancel')}
           </Button>
           <Button onClick={handleImport} disabled={!canImport || importing}>
-            {importing ? 'Importing...' : `Import ${data.rows.length} Contacts`}
+            {importing
+              ? t('importing').replace('{{progress}}', '...')
+              : t('importContacts').replace(
+                  '{{count}}',
+                  String(data.rows.length)
+                )}
           </Button>
         </div>
       </div>

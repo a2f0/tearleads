@@ -290,6 +290,61 @@ export interface MockContextValue {
   navigateToAudio?: (audioId: string) => void;
 }
 
+// Translation map for test utils - matches audio namespace translations
+const audioTranslations: Record<string, string> = {
+  play: 'Play',
+  pause: 'Pause',
+  previousTrack: 'Previous track',
+  nextTrack: 'Next track',
+  restart: 'Restart track',
+  rewind: 'Rewind',
+  close: 'Close player',
+  repeatOff: 'Repeat: Off',
+  repeatAll: 'Repeat: All tracks',
+  repeatOne: 'Repeat: Current track',
+  hideVisualizer: 'Hide visualizer',
+  showVisualizer: 'Show visualizer',
+  mute: 'Mute',
+  unmute: 'Unmute',
+  volume: 'Volume',
+  seek: 'Seek',
+  getInfo: 'Get info',
+  delete: 'Delete',
+  restore: 'Restore',
+  download: 'Download',
+  share: 'Share',
+  audio: 'Audio',
+  allTracks: 'All Tracks',
+  playlists: 'Playlists',
+  searchTracks: 'Search tracks...',
+  noAudioFiles: 'No audio files',
+  audioTracks: 'audio tracks',
+  audioFiles: 'audio files',
+  playlistName: 'Playlist name',
+  uploadProgress: 'Upload progress',
+  uploading: 'Uploading...',
+  audioDetails: 'Audio Details',
+  metadata: 'Metadata',
+  noMetadataFound: 'No embedded metadata found.',
+  albumCover: 'Album cover',
+  back: 'Back',
+  loadingDatabase: 'Loading database...',
+  loadingAudio: 'Loading audio...',
+  thisAudioFile: 'this audio file',
+  title: 'Title',
+  artist: 'Artist',
+  album: 'Album',
+  albumArtist: 'Album Artist',
+  year: 'Year',
+  track: 'Track',
+  genre: 'Genre',
+  type: 'Type',
+  size: 'Size',
+  name: 'Name',
+  date: 'Date',
+  uploaded: 'Uploaded'
+};
+
 export function createMockContextValue(
   options: MockContextOptions = {}
 ): MockContextValue {
@@ -302,7 +357,7 @@ export function createMockContextValue(
       ...createMockUI(),
       ...options.ui
     } as AudioUIComponents,
-    t: (key: string) => key,
+    t: (key: string) => audioTranslations[key] ?? key,
     tooltipZIndex: 10000,
     fetchAudioFiles:
       options.fetchAudioFiles ?? vi.fn(async () => [] as AudioInfo[]),

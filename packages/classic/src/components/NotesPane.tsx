@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   CREATE_CLASSIC_NOTE_ARIA_LABEL,
   DEFAULT_CLASSIC_NOTE_TITLE,
@@ -61,6 +62,7 @@ export function NotesPane({
   searchInputRef,
   contextMenuComponents
 }: NotesPaneProps) {
+  const { t } = useTranslation('classic');
   const [contextMenu, setContextMenu] = useState<NotesContextMenuState | null>(
     null
   );
@@ -169,11 +171,11 @@ export function NotesPane({
   };
 
   return (
-    <section className="flex flex-1 flex-col" aria-label="Notes Pane">
+    <section className="flex flex-1 flex-col" aria-label={t('notesPane')}>
       {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
       <div
         role="button"
-        aria-label="Entry list, press Shift+F10 for context menu"
+        aria-label={t('entryListContextMenu')}
         tabIndex={0}
         className="flex-1 overflow-auto p-3 focus:outline-none"
         onContextMenu={(event) => {
@@ -227,7 +229,7 @@ export function NotesPane({
             </div>
           </div>
         ) : (
-          <ol className="space-y-2" aria-label="Note List">
+          <ol className="space-y-2" aria-label={t('noteList')}>
             {visibleNotes.map((note, index) => {
               const canMoveUp = index > 0;
               const canMoveDown = index < visibleNotes.length - 1;
@@ -327,23 +329,23 @@ export function NotesPane({
                     const actions: NotesContextMenuState['actions'] = [];
                     if (onStartEditNote) {
                       actions.push({
-                        label: 'Edit',
+                        label: t('edit'),
                         onClick: () => onStartEditNote(note.id),
-                        ariaLabel: `Edit note ${note.title}`
+                        ariaLabel: `${t('editNote')} ${note.title}`
                       });
                     }
                     if (canMoveUp) {
                       actions.push({
-                        label: 'Move Up',
+                        label: t('moveUp'),
                         onClick: () => onMoveNote(note.id, 'up'),
-                        ariaLabel: `Move note ${note.title} up`
+                        ariaLabel: `${t('moveUpNote')} ${note.title} up`
                       });
                     }
                     if (canMoveDown) {
                       actions.push({
-                        label: 'Move Down',
+                        label: t('moveDown'),
                         onClick: () => onMoveNote(note.id, 'down'),
-                        ariaLabel: `Move note ${note.title} down`
+                        ariaLabel: `${t('moveDownNote')} ${note.title} down`
                       });
                     }
                     setContextMenu({
@@ -364,7 +366,7 @@ export function NotesPane({
                       onMouseDown={() => setDragArmedNoteId(note.id)}
                       onMouseUp={() => setDragArmedNoteId(null)}
                       className="flex w-4 shrink-0 items-start justify-center pt-1"
-                      title="Drag entry"
+                      title={t('dragEntry')}
                     >
                       <span
                         className={
@@ -386,7 +388,7 @@ export function NotesPane({
                           onKeyDown={(e) => handleEditKeyDown(e, note.id)}
                           onBlur={() => handleEditBlur(note.id)}
                           className="w-full border border-zinc-300 px-1.5 py-0.5 text-base text-sm focus:border-zinc-500 focus:outline-none"
-                          aria-label="Edit entry title"
+                          aria-label={t('editEntryTitle')}
                         />
                         <textarea
                           value={editBody}
@@ -395,24 +397,24 @@ export function NotesPane({
                           onBlur={() => handleEditBlur(note.id)}
                           className="w-full border border-zinc-300 px-1.5 py-0.5 font-mono text-base text-xs focus:border-zinc-500 focus:outline-none"
                           rows={2}
-                          aria-label="Edit entry body"
+                          aria-label={t('editEntryBody')}
                         />
                         <div className="grid grid-cols-2 gap-0.5">
                           <button
                             type="button"
                             onClick={() => handleSave(note.id)}
                             className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
-                            aria-label="Save entry"
+                            aria-label={t('saveEntry')}
                           >
-                            Save
+                            {t('save')}
                           </button>
                           <button
                             type="button"
                             onClick={handleCancel}
                             className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
-                            aria-label="Cancel editing"
+                            aria-label={t('cancelEditing')}
                           >
-                            Cancel
+                            {t('cancel')}
                           </button>
                         </div>
                       </div>
@@ -441,7 +443,7 @@ export function NotesPane({
           onChange={(e) => onSearchChange(e.target.value)}
           onKeyDown={onSearchKeyDown}
           className="w-64 border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
-          aria-label="Search entries"
+          aria-label={t('searchEntries')}
         />
       </div>
       {contextMenu && (

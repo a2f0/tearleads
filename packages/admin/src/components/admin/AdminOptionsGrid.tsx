@@ -1,14 +1,19 @@
 import { cn, IconSquare } from '@tearleads/ui';
 import { Database } from 'lucide-react';
+import { useTypedTranslation } from '@/i18n';
+import type { AdminKeys } from '@/i18n/translations/types';
 
 const ADMIN_OPTIONS = [
-  { id: 'redis', label: 'Redis' },
-  { id: 'postgres', label: 'Postgres' },
-  { id: 'groups', label: 'Groups' },
-  { id: 'organizations', label: 'Organizations' },
-  { id: 'users', label: 'Users' },
-  { id: 'compliance', label: 'Compliance' }
-] as const;
+  { id: 'redis', labelKey: 'redis' },
+  { id: 'postgres', labelKey: 'postgres' },
+  { id: 'groups', labelKey: 'groups' },
+  { id: 'organizations', labelKey: 'organizations' },
+  { id: 'users', labelKey: 'users' },
+  { id: 'compliance', labelKey: 'compliance' }
+] as const satisfies ReadonlyArray<{
+  id: string;
+  labelKey: AdminKeys;
+}>;
 
 export type AdminOptionId = (typeof ADMIN_OPTIONS)[number]['id'];
 
@@ -21,6 +26,7 @@ export function AdminOptionsGrid({
   onSelect,
   gridClassName
 }: AdminOptionsGridProps) {
+  const { t } = useTypedTranslation('admin');
   return (
     <div
       className={cn(
@@ -32,7 +38,7 @@ export function AdminOptionsGrid({
         <IconSquare
           key={option.id}
           icon={Database}
-          label={option.label}
+          label={t(option.labelKey)}
           onClick={() => onSelect(option.id)}
         />
       ))}

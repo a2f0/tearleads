@@ -5,6 +5,7 @@ import type {
 } from 'react';
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
 
 export interface ClassicContextMenuAction {
   label: string;
@@ -43,6 +44,7 @@ export function ClassicContextMenu({
   actions,
   components
 }: ClassicContextMenuProps) {
+  const { t } = useTranslation('classic');
   const standardContextMenu = components?.ContextMenu;
   const standardContextMenuItem = components?.ContextMenuItem;
 
@@ -200,7 +202,7 @@ export function ClassicContextMenu({
         type="button"
         className="fixed inset-0 cursor-default"
         onClick={onClose}
-        aria-label="Close context menu"
+        aria-label={t('closeContextMenu')}
       />
       <div
         ref={menuRef}

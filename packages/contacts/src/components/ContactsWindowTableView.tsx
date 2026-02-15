@@ -174,7 +174,7 @@ export function ContactsWindowTableView({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <User className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-sm">Contacts</h2>
+          <h2 className="font-semibold text-sm">{t('contacts')}</h2>
         </div>
         {isUnlocked && (
           <div className="flex items-center gap-1">
@@ -198,11 +198,13 @@ export function ContactsWindowTableView({
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
-      {!isLoading && !isUnlocked && <InlineUnlock description="contacts" />}
+      {!isLoading && !isUnlocked && (
+        <InlineUnlock description={t('contacts')} />
+      )}
 
       {error && (
         <div className="whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
@@ -215,7 +217,7 @@ export function ContactsWindowTableView({
         (loading && !hasFetched ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading contacts...
+            {t('loadingContacts')}
           </div>
         ) : contactsList.length === 0 && hasFetched ? (
           // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
@@ -225,9 +227,9 @@ export function ContactsWindowTableView({
           >
             <User className="h-8 w-8 text-muted-foreground" />
             <div>
-              <p className="font-medium text-sm">No contacts yet</p>
+              <p className="font-medium text-sm">{t('noContactsYet')}</p>
               <p className="text-muted-foreground text-xs">
-                Create your first contact
+                {t('createFirstContact')}
               </p>
             </div>
             <Button
@@ -236,7 +238,7 @@ export function ContactsWindowTableView({
               data-testid="table-empty-create-contact"
             >
               <Plus className="mr-1 h-3 w-3" />
-              Create
+              {t('create')}
             </Button>
           </div>
         ) : (
@@ -252,7 +254,7 @@ export function ContactsWindowTableView({
                   <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                     <SortHeader
                       column="firstName"
-                      label="Name"
+                      label={t('name')}
                       currentColumn={sortColumn}
                       direction={sortDirection}
                       onClick={handleSortChange}
@@ -261,13 +263,15 @@ export function ContactsWindowTableView({
                   <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                     <SortHeader
                       column="primaryEmail"
-                      label="Email"
+                      label={t('email')}
                       currentColumn={sortColumn}
                       direction={sortDirection}
                       onClick={handleSortChange}
                     />
                   </th>
-                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Phone</th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    {t('phone')}
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -325,7 +329,7 @@ export function ContactsWindowTableView({
               icon={<Mail className="h-4 w-4" />}
               onClick={handleSendEmail}
             >
-              Send email
+              {t('sendEmail')}
             </ContextMenuItem>
           )}
           <ContextMenuItem
@@ -356,7 +360,7 @@ export function ContactsWindowTableView({
               setEmptySpaceContextMenu(null);
             }}
           >
-            New Contact
+            {t('newContact')}
           </ContextMenuItem>
         </ContextMenu>
       )}

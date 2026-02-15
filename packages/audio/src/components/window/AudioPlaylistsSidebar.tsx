@@ -10,6 +10,7 @@ import {
 } from '@tearleads/window-manager';
 import { List, Music, Plus } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
 import { filterFilesByAccept } from '../../lib/file-filter';
 import { getMediaDragIds } from '../../lib/mediaDragData';
@@ -46,6 +47,7 @@ export function AudioPlaylistsSidebar({
   onPlaylistChanged,
   onDropToPlaylist
 }: AudioPlaylistsSidebarProps) {
+  const { t } = useTranslation('audio');
   const {
     playlists,
     loading,
@@ -242,8 +244,8 @@ export function AudioPlaylistsSidebar({
       data-testid="audio-playlists-sidebar"
     >
       <WindowSidebarHeader
-        title="Playlists"
-        actionLabel="New Playlist"
+        title={t('playlists')}
+        actionLabel={t('playlistName')}
         onAction={() => setNewPlaylistDialogOpen(true)}
         actionIcon={<Plus className="h-4 w-4" />}
       />
@@ -253,7 +255,7 @@ export function AudioPlaylistsSidebar({
         onContextMenu={handleEmptySpaceContextMenu}
       >
         <WindowSidebarItem
-          label="All Tracks"
+          label={t('allTracks')}
           icon={<Music className="h-4 w-4 shrink-0 text-primary" />}
           selected={
             selectedPlaylistId === ALL_AUDIO_ID || selectedPlaylistId === null

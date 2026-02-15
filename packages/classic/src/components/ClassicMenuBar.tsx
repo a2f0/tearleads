@@ -1,3 +1,4 @@
+import { useTranslation } from 'react-i18next';
 import {
   ENTRY_SORT_OPTIONS,
   type EntrySortOrder,
@@ -20,10 +21,11 @@ export function ClassicMenuBar({
   onTagSortOrderChange,
   onEntrySortOrderChange
 }: ClassicMenuBarProps) {
+  const { t } = useTranslation('classic');
   return (
     <div className="flex items-center gap-3 border-zinc-200 border-b bg-zinc-50 px-3 py-2">
       <label className="flex items-center gap-2 text-xs text-zinc-600 uppercase tracking-wide">
-        Tags
+        {t('tags')}
         <select
           value={tagSortOrder}
           onChange={(event) => {
@@ -34,7 +36,7 @@ export function ClassicMenuBar({
             onTagSortOrderChange(nextSortOrder);
           }}
           className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900"
-          aria-label="Sort tags"
+          aria-label={t('sortTags')}
         >
           {TAG_SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>
@@ -44,7 +46,7 @@ export function ClassicMenuBar({
         </select>
       </label>
       <label className="flex items-center gap-2 text-xs text-zinc-600 uppercase tracking-wide">
-        Entries
+        {t('entries')}
         <select
           value={entrySortOrder}
           onChange={(event) => {
@@ -55,7 +57,7 @@ export function ClassicMenuBar({
             onEntrySortOrderChange(nextSortOrder);
           }}
           className="rounded border border-zinc-300 bg-white px-2 py-1 text-sm text-zinc-900"
-          aria-label="Sort entries"
+          aria-label={t('sortEntries')}
         >
           {ENTRY_SORT_OPTIONS.map((option) => (
             <option key={option.value} value={option.value}>

@@ -5,6 +5,7 @@ import {
   type TagSortOrder
 } from '@tearleads/classic';
 import classicPackageJson from '@tearleads/classic/package.json';
+import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -30,23 +31,24 @@ export function ClassicWindowMenuBar({
   onTagSortOrderChange,
   onEntrySortOrderChange
 }: ClassicWindowMenuBarProps) {
+  const { t } = useTranslation('classic');
   return (
     <div className="flex shrink-0 border-b bg-muted/30 px-1">
-      <DropdownMenu trigger="File">
-        <DropdownMenuItem onClick={NOOP}>New Entry</DropdownMenuItem>
+      <DropdownMenu trigger={t('file')}>
+        <DropdownMenuItem onClick={NOOP}>{t('newEntry')}</DropdownMenuItem>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+        <DropdownMenuItem onClick={onClose}>{t('close')}</DropdownMenuItem>
       </DropdownMenu>
-      <DropdownMenu trigger="Edit">
+      <DropdownMenu trigger={t('edit')}>
         <DropdownMenuItem onClick={NOOP} disabled>
-          Undo
+          {t('undo')}
         </DropdownMenuItem>
         <DropdownMenuItem onClick={NOOP} disabled>
-          Redo
+          {t('redo')}
         </DropdownMenuItem>
       </DropdownMenu>
-      <DropdownMenu trigger="Tags">
-        <DropdownMenuItem onClick={NOOP}>New Tag</DropdownMenuItem>
+      <DropdownMenu trigger={t('tags')}>
+        <DropdownMenuItem onClick={NOOP}>{t('newTag')}</DropdownMenuItem>
         <DropdownMenuSeparator />
         {TAG_SORT_OPTIONS.map((option) => (
           <DropdownMenuItem
@@ -54,12 +56,12 @@ export function ClassicWindowMenuBar({
             checked={tagSortOrder === option.value}
             onClick={() => onTagSortOrderChange(option.value)}
           >
-            Sort by {option.label}
+            {t('sortBy')} {option.label}
           </DropdownMenuItem>
         ))}
       </DropdownMenu>
-      <DropdownMenu trigger="Entries">
-        <DropdownMenuItem onClick={NOOP}>New Entry</DropdownMenuItem>
+      <DropdownMenu trigger={t('entries')}>
+        <DropdownMenuItem onClick={NOOP}>{t('newEntry')}</DropdownMenuItem>
         <DropdownMenuSeparator />
         {ENTRY_SORT_OPTIONS.map((option) => (
           <DropdownMenuItem
@@ -67,18 +69,18 @@ export function ClassicWindowMenuBar({
             checked={entrySortOrder === option.value}
             onClick={() => onEntrySortOrderChange(option.value)}
           >
-            Sort by {option.label}
+            {t('sortBy')} {option.label}
           </DropdownMenuItem>
         ))}
       </DropdownMenu>
-      <DropdownMenu trigger="View">
+      <DropdownMenu trigger={t('view')}>
         <WindowOptionsMenuItem />
       </DropdownMenu>
-      <DropdownMenu trigger="Help">
+      <DropdownMenu trigger={t('help')}>
         <AboutMenuItem
-          appName="Classic"
+          appName={t('classic')}
           version={classicPackageJson.version}
-          closeLabel="Close"
+          closeLabel={t('close')}
         />
       </DropdownMenu>
     </div>

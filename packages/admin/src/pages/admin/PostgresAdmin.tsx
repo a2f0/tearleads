@@ -2,6 +2,7 @@ import { PostgresConnectionPanel } from '@admin/components/admin-postgres/Postgr
 import { PostgresTableSizes } from '@admin/components/admin-postgres/PostgresTableSizes';
 import { MemoryRouter, useInRouterContext } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
+import { useTypedTranslation } from '@/i18n';
 
 interface PostgresAdminProps {
   showBackLink?: boolean;
@@ -12,15 +13,22 @@ export function PostgresAdmin({
   showBackLink = true,
   onTableSelect
 }: PostgresAdminProps) {
+  const { t } = useTypedTranslation('admin');
   const inRouterContext = useInRouterContext();
 
   const content = (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
+        {showBackLink && (
+          <BackLink defaultTo="/" defaultLabel={t('backToHome')} />
+        )}
         <div>
-          <h1 className="font-bold text-2xl tracking-tight">Postgres Admin</h1>
-          <p className="text-muted-foreground text-sm">Database manager</p>
+          <h1 className="font-bold text-2xl tracking-tight">
+            {t('postgresAdmin')}
+          </h1>
+          <p className="text-muted-foreground text-sm">
+            {t('databaseManager')}
+          </p>
         </div>
       </div>
       <PostgresConnectionPanel />

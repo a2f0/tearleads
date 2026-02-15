@@ -9,6 +9,7 @@ import {
   Play
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAudio } from '../../context/AudioContext';
 import {
   type AudioInfo,
@@ -45,6 +46,7 @@ export function AudioWindowDetail({
   onBack,
   onDeleted
 }: AudioWindowDetailProps) {
+  const { t } = useTranslation('audio');
   const {
     databaseState,
     ui,
@@ -256,17 +258,17 @@ export function AudioWindowDetail({
         : `${metadata.trackNumber}`
       : null;
   const metadataRows = [
-    { label: 'Title', value: metadata?.title ?? null },
-    { label: 'Artist', value: metadata?.artist ?? null },
-    { label: 'Album', value: metadata?.album ?? null },
-    { label: 'Album Artist', value: metadata?.albumArtist ?? null },
+    { label: t('title'), value: metadata?.title ?? null },
+    { label: t('artist'), value: metadata?.artist ?? null },
+    { label: t('album'), value: metadata?.album ?? null },
+    { label: t('albumArtist'), value: metadata?.albumArtist ?? null },
     {
-      label: 'Year',
+      label: t('year'),
       value: metadata?.year != null ? `${metadata.year}` : null
     },
-    { label: 'Track', value: trackText },
+    { label: t('track'), value: trackText },
     {
-      label: 'Genre',
+      label: t('genre'),
       value: metadata?.genre?.length ? metadata.genre.join(', ') : null
     }
   ].filter((row) => row.value !== null);
@@ -276,18 +278,18 @@ export function AudioWindowDetail({
       <div className="flex items-center gap-2">
         <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onBack}>
           <ArrowLeft className="h-4 w-4" />
-          Back
+          {t('back')}
         </Button>
       </div>
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
       {!isLoading && !isUnlocked && (
-        <InlineUnlock description="this audio file" />
+        <InlineUnlock description={t('thisAudioFile')} />
       )}
 
       {error && (
@@ -299,7 +301,7 @@ export function AudioWindowDetail({
       {isUnlocked && loading && (
         <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading audio...
+          {t('loadingAudio')}
         </div>
       )}
 
@@ -316,7 +318,7 @@ export function AudioWindowDetail({
               {thumbnailUrl ? (
                 <img
                   src={thumbnailUrl}
-                  alt="Album cover"
+                  alt={t('albumCover')}
                   className="h-32 w-32 rounded-lg object-cover"
                 />
               ) : (
@@ -326,19 +328,19 @@ export function AudioWindowDetail({
                 variant={isTrackPlaying ? 'default' : 'outline'}
                 size="sm"
                 onClick={handlePlayPause}
-                aria-label={isTrackPlaying ? 'Pause' : 'Play'}
+                aria-label={isTrackPlaying ? t('pause') : t('play')}
                 data-testid="play-pause-button"
                 className="gap-2"
               >
                 {isTrackPlaying ? (
                   <>
                     <Pause className="h-4 w-4" />
-                    Pause
+                    {t('pause')}
                   </>
                 ) : (
                   <>
                     <Play className="h-4 w-4" />
-                    Play
+                    {t('play')}
                   </>
                 )}
               </Button>
@@ -355,26 +357,32 @@ export function AudioWindowDetail({
 
           <div className="rounded-lg border">
             <div className="border-b px-3 py-2">
-              <h2 className="font-semibold text-sm">Audio Details</h2>
+              <h2 className="font-semibold text-sm">{t('audioDetails')}</h2>
             </div>
             <div className="divide-y">
               <div className="flex items-center gap-3 px-3 py-2">
                 <FileType className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-xs">Type</span>
+                <span className="text-muted-foreground text-xs">
+                  {t('type')}
+                </span>
                 <span className="ml-auto font-mono text-xs">
                   {audio.mimeType}
                 </span>
               </div>
               <div className="flex items-center gap-3 px-3 py-2">
                 <HardDrive className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-xs">Size</span>
+                <span className="text-muted-foreground text-xs">
+                  {t('size')}
+                </span>
                 <span className="ml-auto font-mono text-xs">
                   {formatFileSize(audio.size)}
                 </span>
               </div>
               <div className="flex items-center gap-3 px-3 py-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-xs">Uploaded</span>
+                <span className="text-muted-foreground text-xs">
+                  {t('uploaded')}
+                </span>
                 <span className="ml-auto text-xs">
                   {formatDate(audio.uploadDate)}
                 </span>
@@ -384,12 +392,12 @@ export function AudioWindowDetail({
 
           <div className="rounded-lg border">
             <div className="border-b px-3 py-2">
-              <h2 className="font-semibold text-sm">Metadata</h2>
+              <h2 className="font-semibold text-sm">{t('metadata')}</h2>
             </div>
             <div className="divide-y">
               {metadataRows.length === 0 ? (
                 <div className="px-3 py-2 text-muted-foreground text-xs">
-                  No embedded metadata found.
+                  {t('noMetadataFound')}
                 </div>
               ) : (
                 metadataRows.map((row) => (

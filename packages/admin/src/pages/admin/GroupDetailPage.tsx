@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 interface GroupDetailPageProps {
@@ -21,6 +22,7 @@ export function GroupDetailPage({
   backLink,
   onDelete
 }: GroupDetailPageProps) {
+  const { t } = useTypedTranslation('admin');
   const { id: paramId } = useParams<{ id: string }>();
   const id = propGroupId ?? paramId;
   const [group, setGroup] = useState<Group | null>(null);
@@ -142,11 +144,14 @@ export function GroupDetailPage({
       <div className="flex h-full flex-col space-y-4">
         <div className="flex items-center gap-2">
           {backLink ?? (
-            <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
+            <BackLink
+              defaultTo="/admin/groups"
+              defaultLabel={t('backToGroups')}
+            />
           )}
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-          <p className="text-destructive">Group not found</p>
+          <p className="text-destructive">{t('groupNotFound')}</p>
         </div>
       </div>
     );
@@ -156,7 +161,10 @@ export function GroupDetailPage({
     <div className="flex h-full flex-col space-y-4">
       <div className="flex items-center gap-2">
         {backLink ?? (
-          <BackLink defaultTo="/admin/groups" defaultLabel="Back to Groups" />
+          <BackLink
+            defaultTo="/admin/groups"
+            defaultLabel={t('backToGroups')}
+          />
         )}
         <Button
           variant="ghost"
@@ -168,7 +176,7 @@ export function GroupDetailPage({
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
-      <h1 className="font-bold text-lg">Edit Group</h1>
+      <h1 className="font-bold text-lg">{t('editGroup')}</h1>
 
       {error && (
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
@@ -177,7 +185,7 @@ export function GroupDetailPage({
       )}
 
       <div className="space-y-4 rounded-lg border bg-card p-4">
-        <h2 className="font-medium text-lg">Details</h2>
+        <h2 className="font-medium text-lg">{t('details')}</h2>
         <div className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="name" className="font-medium text-sm">
@@ -225,13 +233,15 @@ export function GroupDetailPage({
       </div>
 
       <div className="space-y-4 rounded-lg border bg-card p-4">
-        <h2 className="font-medium text-lg">Members ({members.length})</h2>
+        <h2 className="font-medium text-lg">
+          {t('members')} ({members.length})
+        </h2>
 
         <form onSubmit={(e) => void handleAddMember(e)} className="flex gap-2">
           <Input
             value={addUserId}
             onChange={(e) => setAddUserId(e.target.value)}
-            placeholder="Enter user ID"
+            placeholder={t('enterUserId')}
             disabled={addingMember}
             className="flex-1"
           />
@@ -241,13 +251,13 @@ export function GroupDetailPage({
             ) : (
               <UserPlus className="mr-2 h-4 w-4" />
             )}
-            Add
+            {t('add')}
           </Button>
         </form>
 
         {members.length === 0 ? (
           <p className="py-4 text-center text-muted-foreground text-sm">
-            No members yet
+            {t('noMembersYet')}
           </p>
         ) : (
           <div className="space-y-2">
@@ -280,9 +290,9 @@ export function GroupDetailPage({
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Group"
-        description={`Are you sure you want to delete "${group.name}"? This will remove all members from the group.`}
-        confirmLabel="Delete"
+        title={t('deleteGroup')}
+        description={t('deleteGroupConfirm', { name: group.name })}
+        confirmLabel={t('delete')}
         onConfirm={handleDelete}
         variant="destructive"
       />
@@ -290,9 +300,11 @@ export function GroupDetailPage({
       <ConfirmDialog
         open={removeMemberDialog !== null}
         onOpenChange={(open) => !open && setRemoveMemberDialog(null)}
-        title="Remove Member"
-        description={`Remove ${removeMemberDialog?.email} from this group?`}
-        confirmLabel="Remove"
+        title={t('removeMember')}
+        description={t('removeMemberConfirm', {
+          email: removeMemberDialog?.email
+        })}
+        confirmLabel={t('remove')}
         onConfirm={handleRemoveMember}
         variant="destructive"
       />

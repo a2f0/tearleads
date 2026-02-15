@@ -4,6 +4,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { cn } from '@/lib/utils';
@@ -23,12 +24,6 @@ export type { Corner } from '@tearleads/window-manager';
 export { MIN_HEIGHT, MIN_WIDTH } from './constants';
 
 type TabId = 'analytics' | 'logs' | 'notifications';
-
-const TABS: { id: TabId; label: string }[] = [
-  { id: 'analytics', label: 'Analytics' },
-  { id: 'logs', label: 'Logs' },
-  { id: 'notifications', label: 'Notifications' }
-];
 
 interface NotificationCenterProps {
   id: string;
@@ -50,11 +45,20 @@ export function NotificationCenter({
   initialDimensions
 }: NotificationCenterProps) {
   const [activeTab, setActiveTab] = useState<TabId>('logs');
+  const { t } = useTranslation();
+  const { t: tMenu } = useTranslation('menu');
+  const { t: tCommon } = useTranslation('common');
+
+  const tabs: { id: TabId; labelKey: string }[] = [
+    { id: 'analytics', labelKey: 'analytics' },
+    { id: 'logs', labelKey: 'logs' },
+    { id: 'notifications', labelKey: 'notifications' }
+  ];
 
   return (
     <FloatingWindow
       id={id}
-      title="Notification Center"
+      title={tMenu('notificationCenter')}
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}
@@ -71,18 +75,23 @@ export function NotificationCenter({
       <div className="flex h-full flex-col">
         {/* Menu bar */}
         <div className="flex shrink-0 border-b bg-muted/30 px-1">
-          <DropdownMenu trigger="File">
-            <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+          <DropdownMenu trigger={tMenu('file')}>
+            <DropdownMenuItem onClick={onClose}>
+              {tCommon('close')}
+            </DropdownMenuItem>
           </DropdownMenu>
-          <DropdownMenu trigger="Help">
-            <AboutMenuItem appName="Notification Center" closeLabel="Close" />
+          <DropdownMenu trigger={tMenu('help')}>
+            <AboutMenuItem
+              appName={tMenu('notificationCenter')}
+              closeLabel={tCommon('close')}
+            />
           </DropdownMenu>
         </div>
         <WindowControlBar>{null}</WindowControlBar>
 
         {/* Tab navigation */}
         <div className="flex items-center gap-1 border-b px-3 py-2">
-          {TABS.map((tab) => (
+          {tabs.map((tab) => (
             <button
               key={tab.id}
               type="button"
@@ -94,7 +103,7 @@ export function NotificationCenter({
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
               )}
             >
-              {tab.label}
+              {t(`menu:${tab.labelKey}`)}
             </button>
           ))}
         </div>

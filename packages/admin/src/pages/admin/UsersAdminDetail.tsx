@@ -11,6 +11,7 @@ import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { cn, formatNumber, formatTimestamp } from '@/lib/utils';
 
@@ -25,6 +26,7 @@ export function UsersAdminDetail({
   backLink,
   onViewAiRequests
 }: UsersAdminDetailProps) {
+  const { t } = useTypedTranslation('admin');
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const userId = userIdProp ?? params.id ?? null;
@@ -302,12 +304,15 @@ export function UsersAdminDetail({
       <div className="flex h-full flex-col space-y-4">
         <div className="flex items-center gap-2">
           {backLink ?? (
-            <BackLink defaultTo="/admin/users" defaultLabel="Back to Users" />
+            <BackLink
+              defaultTo="/admin/users"
+              defaultLabel={t('backToUsers')}
+            />
           )}
         </div>
         <div className="flex flex-1 items-center justify-center gap-2 text-muted-foreground text-sm">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading user...
+          {t('loadingUser')}
         </div>
       </div>
     );
@@ -318,11 +323,14 @@ export function UsersAdminDetail({
       <div className="flex h-full flex-col space-y-4">
         <div className="flex items-center gap-2">
           {backLink ?? (
-            <BackLink defaultTo="/admin/users" defaultLabel="Back to Users" />
+            <BackLink
+              defaultTo="/admin/users"
+              defaultLabel={t('backToUsers')}
+            />
           )}
         </div>
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive">
-          {error ?? 'User not found'}
+          {error ?? t('userNotFound')}
         </div>
       </div>
     );
@@ -332,18 +340,18 @@ export function UsersAdminDetail({
     <div className="flex h-full flex-col space-y-4">
       <div className="flex items-center gap-2">
         {backLink ?? (
-          <BackLink defaultTo="/admin/users" defaultLabel="Back to Users" />
+          <BackLink defaultTo="/admin/users" defaultLabel={t('backToUsers')} />
         )}
       </div>
       <div>
-        <h1 className="font-bold text-lg">Edit User</h1>
+        <h1 className="font-bold text-lg">{t('editUser')}</h1>
         <div className="flex items-center gap-2">
           <p className="font-mono text-muted-foreground text-sm">{user.id}</p>
           <Button
             variant="ghost"
             size="icon"
             onClick={copyUserId}
-            aria-label="Copy user id to clipboard"
+            aria-label={t('copyUserIdToClipboard')}
             data-testid="copy-user-id"
           >
             {isIdCopied ? (
@@ -378,7 +386,7 @@ export function UsersAdminDetail({
             className={cn(!emailIsValid && 'border-destructive')}
           />
           {!emailIsValid && (
-            <p className="text-destructive text-xs">Email is required</p>
+            <p className="text-destructive text-xs">{t('emailIsRequired')}</p>
           )}
         </div>
 
@@ -452,7 +460,7 @@ export function UsersAdminDetail({
 
       <div className="space-y-4 rounded-lg border bg-card p-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-medium text-lg">AI Usage</h2>
+          <h2 className="font-medium text-lg">{t('aiUsage')}</h2>
           <Button
             type="button"
             variant="outline"
@@ -508,7 +516,7 @@ export function UsersAdminDetail({
 
       <div className="space-y-4 rounded-lg border bg-card p-4">
         <div className="flex items-center justify-between">
-          <h2 className="font-medium text-lg">Groups</h2>
+          <h2 className="font-medium text-lg">{t('groups')}</h2>
           <Button
             variant="outline"
             size="sm"
@@ -610,9 +618,12 @@ export function UsersAdminDetail({
       <ConfirmDialog
         open={removeGroupDialog !== null}
         onOpenChange={(open) => !open && setRemoveGroupDialog(null)}
-        title="Remove From Group"
-        description={`Remove ${user.email} from ${removeGroupDialog?.name}?`}
-        confirmLabel="Remove"
+        title={t('removeFromGroup')}
+        description={t('removeFromGroupConfirm', {
+          email: user.email,
+          name: removeGroupDialog?.name
+        })}
+        confirmLabel={t('remove')}
         onConfirm={handleConfirmRemoveFromGroup}
         variant="destructive"
       />

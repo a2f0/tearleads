@@ -3,6 +3,7 @@ import {
   WindowControlBar,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { useTranslation } from 'react-i18next';
 import { Sync } from '../../pages/sync';
 import { SyncWindowMenuBar } from './SyncWindowMenuBar';
 
@@ -27,10 +28,11 @@ export function SyncWindow({
   zIndex,
   initialDimensions
 }: SyncWindowProps) {
+  const { t } = useTranslation('sync');
   return (
     <FloatingWindow
       id={id}
-      title="Sync"
+      title={t('sync')}
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}

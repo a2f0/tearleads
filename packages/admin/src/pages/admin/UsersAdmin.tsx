@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatNumber, formatTimestamp } from '@/lib/utils';
 
@@ -24,6 +25,7 @@ export function UsersAdmin({
   onUserSelect,
   onViewAiRequests
 }: UsersAdminProps) {
+  const { t } = useTypedTranslation('admin');
   const {
     context,
     selectedOrganizationId,
@@ -75,13 +77,17 @@ export function UsersAdmin({
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
+        {showBackLink && (
+          <BackLink defaultTo="/" defaultLabel={t('backToHome')} />
+        )}
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="font-bold text-2xl tracking-tight">Users Admin</h1>
+              <h1 className="font-bold text-2xl tracking-tight">
+                {t('usersAdmin')}
+              </h1>
               <p className="text-muted-foreground text-sm">
-                Manage user access and profiles
+                {t('manageUserAccessAndProfiles')}
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -91,7 +97,7 @@ export function UsersAdmin({
                   variant="outline"
                   onClick={onViewAiRequests}
                 >
-                  AI Requests
+                  {t('aiRequests')}
                 </Button>
               ) : null}
               <RefreshButton
@@ -123,17 +129,33 @@ export function UsersAdmin({
         <table className={`${WINDOW_TABLE_TYPOGRAPHY.table} min-w-[1120px]`}>
           <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
             <tr>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>User ID</th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Email</th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Created</th>
               <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                Last Active
+                {t('userId')}
               </th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Confirmed</th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Admin</th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Tokens</th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Requests</th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Last Usage</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('email')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('created')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('lastActive')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('confirmed')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('admin')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('tokens')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('requests')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('lastUsage')}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -142,7 +164,7 @@ export function UsersAdmin({
                 <td colSpan={9} className="px-4 py-10 text-center">
                   <div className="flex items-center justify-center gap-2 text-muted-foreground text-sm">
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    Loading users...
+                    {t('loadingUsers')}
                   </div>
                 </td>
               </tr>
@@ -152,7 +174,7 @@ export function UsersAdmin({
                   colSpan={9}
                   className="px-4 py-10 text-center text-muted-foreground text-sm"
                 >
-                  No users found.
+                  {t('noUsersFound')}
                 </td>
               </tr>
             ) : (
@@ -189,7 +211,7 @@ export function UsersAdmin({
                       ) : (
                         <X className="h-3 w-3 text-muted-foreground/50" />
                       )}
-                      {user.emailConfirmed ? 'Yes' : 'No'}
+                      {user.emailConfirmed ? t('yes') : t('no')}
                     </div>
                   </td>
                   <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
@@ -199,7 +221,7 @@ export function UsersAdmin({
                       ) : (
                         <X className="h-3 w-3 text-muted-foreground/50" />
                       )}
-                      {user.admin ? 'Yes' : 'No'}
+                      {user.admin ? t('yes') : t('no')}
                     </div>
                   </td>
                   <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>

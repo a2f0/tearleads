@@ -10,6 +10,27 @@ export interface CommonTranslations {
   create: string;
   restore: string;
   stored: string;
+  close: string;
+  open: string;
+  refresh: string;
+  copyLogs: string;
+  copyLogsToClipboard: string;
+  clearLogs: string;
+  dismissNotification: string;
+  markAllAsRead: string;
+  dismissAll: string;
+  noLogsYet: string;
+  logCount: string;
+  logCountPlural: string;
+  noNotifications: string;
+  notificationCount: string;
+  notificationCountPlural: string;
+  unread: string;
+  databaseLocked: string;
+  loading: string;
+  noEventsInLastHour: string;
+  lastHour: string;
+  moreEventTypes: string;
 }
 
 export interface MenuTranslations {
@@ -17,6 +38,7 @@ export interface MenuTranslations {
   search: string;
   calendar: string;
   files: string;
+  file: string;
   businesses: string;
   vehicles: string;
   health: string;
@@ -55,6 +77,10 @@ export interface MenuTranslations {
   vfs: string;
   classic: string;
   backups: string;
+  logs: string;
+  notifications: string;
+  notificationCenter: string;
+  openNotificationCenter: string;
 }
 
 export interface AudioTranslations {
@@ -79,6 +105,40 @@ export interface AudioTranslations {
   restore: string;
   download: string;
   share: string;
+  // Window and UI labels
+  audio: string;
+  allTracks: string;
+  playlists: string;
+  searchTracks: string;
+  noAudioFiles: string;
+  audioTracks: string;
+  audioFiles: string;
+  playlistName: string;
+  uploadProgress: string;
+  uploading: string;
+  // Detail view labels
+  audioDetails: string;
+  metadata: string;
+  noMetadataFound: string;
+  albumCover: string;
+  back: string;
+  loadingDatabase: string;
+  loadingAudio: string;
+  thisAudioFile: string;
+  // Metadata fields
+  title: string;
+  artist: string;
+  album: string;
+  albumArtist: string;
+  year: string;
+  track: string;
+  genre: string;
+  // File info
+  type: string;
+  size: string;
+  name: string;
+  date: string;
+  uploaded: string;
 }
 
 export interface TooltipsTranslations {
@@ -132,6 +192,482 @@ export interface SettingsTranslations {
   borderRadiusSquare: string;
 }
 
+export interface ClassicTranslations {
+  // TagSidebar
+  tagsSidebar: string;
+  tagListContextMenu: string;
+  virtualTags: string;
+  deletedTags: string;
+  tagList: string;
+  searchTags: string;
+  dragTag: string;
+  save: string;
+  cancel: string;
+  saveTagName: string;
+  cancelEditing: string;
+  restore: string;
+  restoreTag: string;
+  edit: string;
+  editTag: string;
+  moveUp: string;
+  moveUpTag: string;
+  moveDown: string;
+  moveDownTag: string;
+  delete: string;
+  deleteTag: string;
+  // NotesPane
+  notesPane: string;
+  entryListContextMenu: string;
+  noteList: string;
+  searchEntries: string;
+  dragEntry: string;
+  editEntryTitle: string;
+  editEntryBody: string;
+  saveEntry: string;
+  editNote: string;
+  moveUpNote: string;
+  moveDownNote: string;
+  // ClassicMenuBar
+  sortTags: string;
+  sortEntries: string;
+  tags: string;
+  entries: string;
+  // ClassicContextMenu
+  closeContextMenu: string;
+  // ClassicWindowMenuBar
+  file: string;
+  newEntry: string;
+  close: string;
+  undo: string;
+  redo: string;
+  newTag: string;
+  sortBy: string;
+  view: string;
+  help: string;
+  classic: string;
+}
+
+export interface ContactsTranslations {
+  // Window titles
+  contacts: string;
+  newContact: string;
+  // Form labels and placeholders
+  firstNameRequired: string;
+  lastName: string;
+  birthdayPlaceholder: string;
+  emailAddresses: string;
+  phoneNumbers: string;
+  email: string;
+  phone: string;
+  label: string;
+  add: string;
+  primary: string;
+  // Detail view
+  details: string;
+  created: string;
+  updated: string;
+  // Loading states
+  loadingDatabase: string;
+  loadingContact: string;
+  loadingContacts: string;
+  // Empty states
+  noContactsYet: string;
+  createFirstContact: string;
+  noContactInfo: string;
+  // Search
+  searchContacts: string;
+  // Groups sidebar
+  groups: string;
+  newGroup: string;
+  allContacts: string;
+  sendEmail: string;
+  rename: string;
+  // Group dialogs
+  groupName: string;
+  cancel: string;
+  create: string;
+  creating: string;
+  save: string;
+  saving: string;
+  deleteGroup: string;
+  deleteGroupConfirm: string;
+  deleting: string;
+  renameGroup: string;
+  // Import
+  importCsv: string;
+  done: string;
+  parsingCsv: string;
+  csvColumns: string;
+  dragColumnHint: string;
+  contactFields: string;
+  dragColumnHere: string;
+  previewFirstRows: string;
+  totalRows: string;
+  importing: string;
+  importContacts: string;
+  importedContacts: string;
+  skipped: string;
+  andMore: string;
+  chooseFileHint: string;
+  // Menu bar
+  file: string;
+  new: string;
+  close: string;
+  view: string;
+  list: string;
+  table: string;
+  help: string;
+  // Unlock descriptions
+  thisContact: string;
+  createContact: string;
+  // Table headers
+  name: string;
+  // Import column headers
+  value: string;
+  // Contact detail page
+  backToContacts: string;
+  contactNotFound: string;
+  firstNameIsRequired: string;
+  emailCannotBeEmpty: string;
+  phoneCannotBeEmpty: string;
+  export: string;
+  edit: string;
+  addEmail: string;
+  addPhone: string;
+  emailAddress: string;
+  phoneNumber: string;
+}
+
+export interface DebugTranslations {
+  // Page/window titles
+  debug: string;
+  debugMenu: string;
+  // System info
+  systemInfo: string;
+  copyDebugInfoToClipboard: string;
+  // Labels
+  version: string;
+  environment: string;
+  screen: string;
+  userAgent: string;
+  platform: string;
+  pixelRatio: string;
+  online: string;
+  language: string;
+  touchSupport: string;
+  standalone: string;
+  unknown: string;
+  yes: string;
+  no: string;
+  // API status
+  apiStatus: string;
+  apiUrl: string;
+  notSet: string;
+  failedToConnectToApi: string;
+  // Actions
+  actions: string;
+  throwError: string;
+  openDebugMenu: string;
+  closeDebugMenu: string;
+  closeDebugMenuButton: string;
+  backToHome: string;
+}
+
+export interface SearchTranslations {
+  // Search input
+  search: string;
+  searchPlaceholder: string;
+  // Filter options
+  all: string;
+  apps: string;
+  helpDocs: string;
+  contacts: string;
+  notes: string;
+  emails: string;
+  files: string;
+  playlists: string;
+  aiChats: string;
+  // Entity type labels
+  app: string;
+  helpDoc: string;
+  contact: string;
+  note: string;
+  email: string;
+  file: string;
+  playlist: string;
+  album: string;
+  aiConversation: string;
+  // Status messages
+  initializingSearch: string;
+  buildingSearchIndex: string;
+  searchIndexEmpty: string;
+  addSomeContent: string;
+  searching: string;
+  startTypingToSearch: string;
+  pressEnterToList: string;
+  noResultsFoundFor: string;
+  noResultsFound: string;
+  // Results
+  result: string;
+  results: string;
+  showingResults: string;
+  // Table headers
+  title: string;
+  type: string;
+  preview: string;
+  // Status bar
+  itemIndexed: string;
+  itemsIndexed: string;
+  searchTook: string;
+}
+
+export interface VehiclesTranslations {
+  // Form labels
+  make: string;
+  model: string;
+  year: string;
+  color: string;
+  vehicleForm: string;
+  // Buttons
+  newVehicle: string;
+  saveVehicle: string;
+  updateVehicle: string;
+  edit: string;
+  delete: string;
+  // Table
+  actions: string;
+  vehiclesTable: string;
+  // Empty state
+  loadingVehicles: string;
+  noVehiclesYet: string;
+  addFirstVehicle: string;
+  // Errors
+  unableToSaveVehicle: string;
+  // Placeholder values
+  notApplicable: string;
+}
+
+export interface SyncTranslations {
+  // Page title
+  sync: string;
+  // Loading state
+  loading: string;
+  // Logged in state
+  loggedInAs: string;
+  emailAddress: string;
+  tokenExpires: string;
+  expired: string;
+  expiresIn: string;
+  logout: string;
+  activeSessions: string;
+  manageSessionsDescription: string;
+  // Not logged in state
+  login: string;
+  loginDescription: string;
+  createAccount: string;
+  createAccountDescription: string;
+  noAccount: string;
+  createOne: string;
+  hasAccount: string;
+  signIn: string;
+  // Menu bar
+  file: string;
+  close: string;
+  view: string;
+}
+
+export interface AdminTranslations {
+  // Page titles and headers
+  admin: string;
+  redisAdmin: string;
+  redisBrowser: string;
+  postgresAdmin: string;
+  databaseManager: string;
+  usersAdmin: string;
+  aiRequestsAdmin: string;
+  groupsAdmin: string;
+  organizationsAdmin: string;
+  // Page descriptions
+  manageUserAccessAndProfiles: string;
+  requestIdsAndTokenUsage: string;
+  createGroupToOrganizeUsers: string;
+  createOrganizationToManageAccess: string;
+  // Common actions
+  backToAdmin: string;
+  backToUsers: string;
+  backToUsersAdmin: string;
+  backToGroups: string;
+  backToOrganizations: string;
+  backToOrganization: string;
+  backToHome: string;
+  retry: string;
+  save: string;
+  cancel: string;
+  create: string;
+  delete: string;
+  edit: string;
+  add: string;
+  remove: string;
+  reset: string;
+  refresh: string;
+  copyId: string;
+  loadMore: string;
+  // Loading states
+  loading: string;
+  loadingMore: string;
+  loadingUsers: string;
+  loadingUser: string;
+  loadingGroups: string;
+  loadingRedisKeys: string;
+  loadingTableData: string;
+  loadingAiRequestUsage: string;
+  loadingValue: string;
+  loadingConnectionInfo: string;
+  // Empty states
+  noKeysFound: string;
+  noUsersFound: string;
+  noGroupsYet: string;
+  noOrganizationsYet: string;
+  noMembersYet: string;
+  noGroupsAvailable: string;
+  noUsersInOrganization: string;
+  noGroupsInOrganization: string;
+  noRowsFound: string;
+  noTablesFound: string;
+  noAiUsageRequestsFound: string;
+  noTableSelected: string;
+  // Table headers
+  name: string;
+  description: string;
+  members: string;
+  userId: string;
+  email: string;
+  created: string;
+  updated: string;
+  lastActive: string;
+  confirmed: string;
+  tokens: string;
+  requests: string;
+  lastUsage: string;
+  usageId: string;
+  openRouterRequestId: string;
+  model: string;
+  prompt: string;
+  completion: string;
+  total: string;
+  table: string;
+  size: string;
+  rows: string;
+  field: string;
+  value: string;
+  key: string;
+  type: string;
+  ttl: string;
+  id: string;
+  host: string;
+  port: string;
+  database: string;
+  user: string;
+  // Form labels
+  filterByUserId: string;
+  organizationScope: string;
+  allOrganizations: string;
+  organizationId: string;
+  organizationIds: string;
+  organizationName: string;
+  descriptionOptional: string;
+  emailConfirmed: string;
+  separateOrganizationIds: string;
+  enterGroupName: string;
+  enterGroupDescription: string;
+  enterOrganizationName: string;
+  enterOrganizationDescription: string;
+  enterOrganizationId: string;
+  enterUserId: string;
+  selectOrganization: string;
+  emailIsRequired: string;
+  nameIsRequired: string;
+  organizationIdIsRequired: string;
+  // Dialogs
+  createGroup: string;
+  createGroupDescription: string;
+  createOrganization: string;
+  createOrganizationDescription: string;
+  editGroup: string;
+  editUser: string;
+  deleteGroup: string;
+  deleteGroupConfirm: string;
+  deleteOrganization: string;
+  deleteOrganizationConfirm: string;
+  deleteRedisKey: string;
+  deleteRedisKeyConfirm: string;
+  deleting: string;
+  removeMember: string;
+  removeMemberConfirm: string;
+  removeFromGroup: string;
+  removeFromGroupConfirm: string;
+  // Status
+  yes: string;
+  no: string;
+  member: string;
+  membersCount: string;
+  notAMember: string;
+  memberSince: string;
+  joined: string;
+  noExpiry: string;
+  keyNotFound: string;
+  connected: string;
+  unavailable: string;
+  // Sections
+  details: string;
+  aiUsage: string;
+  aiRequests: string;
+  viewRequests: string;
+  groups: string;
+  users: string;
+  // User detail
+  copyUserIdToClipboard: string;
+  copyOrganizationIdToClipboard: string;
+  totalTokens: string;
+  promptTokens: string;
+  completionTokens: string;
+  // Postgres
+  tableBrowser: string;
+  exportAsCsv: string;
+  columnSettings: string;
+  visibleColumns: string;
+  tableSummary: string;
+  totalDatabase: string;
+  connection: string;
+  // Redis
+  valueDisplayNotSupported: string;
+  // Menu bar
+  file: string;
+  close: string;
+  view: string;
+  // Admin options
+  redis: string;
+  postgres: string;
+  compliance: string;
+  organizations: string;
+  // Error messages
+  failedToFetchValue: string;
+  failedToExportCsv: string;
+  groupWithNameExists: string;
+  organizationWithNameExists: string;
+  userAlreadyMember: string;
+  userNotFound: string;
+  groupNotFound: string;
+  organizationNotFound: string;
+  groupOrUserNotFound: string;
+  failedToAddUserToGroup: string;
+  failedToRemoveUserFromGroup: string;
+  failedToLoadGroups: string;
+  failedToLoadSomeGroupMemberships: string;
+  organizationIdCopied: string;
+  failedToCopyOrganizationId: string;
+}
+
 export interface Translations {
   common: CommonTranslations;
   menu: MenuTranslations;
@@ -139,6 +675,13 @@ export interface Translations {
   tooltips: TooltipsTranslations;
   contextMenu: ContextMenuTranslations;
   settings: SettingsTranslations;
+  classic: ClassicTranslations;
+  contacts: ContactsTranslations;
+  sync: SyncTranslations;
+  debug: DebugTranslations;
+  search: SearchTranslations;
+  vehicles: VehiclesTranslations;
+  admin: AdminTranslations;
 }
 
 export type I18NextTranslations = {
@@ -148,6 +691,13 @@ export type I18NextTranslations = {
   tooltips: TooltipsTranslations;
   contextMenu: ContextMenuTranslations;
   settings: SettingsTranslations;
+  classic: ClassicTranslations;
+  contacts: ContactsTranslations;
+  sync: SyncTranslations;
+  debug: DebugTranslations;
+  search: SearchTranslations;
+  vehicles: VehiclesTranslations;
+  admin: AdminTranslations;
 } & Record<string, Record<string, string>>;
 
 export type CommonKeys = keyof CommonTranslations;
@@ -156,6 +706,13 @@ export type AudioKeys = keyof AudioTranslations;
 export type TooltipsKeys = keyof TooltipsTranslations;
 export type ContextMenuKeys = keyof ContextMenuTranslations;
 export type SettingsKeys = keyof SettingsTranslations;
+export type ClassicKeys = keyof ClassicTranslations;
+export type ContactsKeys = keyof ContactsTranslations;
+export type SyncKeys = keyof SyncTranslations;
+export type DebugKeys = keyof DebugTranslations;
+export type SearchKeys = keyof SearchTranslations;
+export type VehiclesKeys = keyof VehiclesTranslations;
+export type AdminKeys = keyof AdminTranslations;
 
 export type NamespaceKeys = keyof Translations;
 

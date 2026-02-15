@@ -76,7 +76,7 @@ export function ContactsWindowDetail({
   contactId,
   onDeleted
 }: ContactsWindowDetailProps) {
-  const { databaseState, getDatabase, formatDate } = useContactsContext();
+  const { databaseState, getDatabase, formatDate, t } = useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
   const { Button, Input, InlineUnlock } = useContactsUI();
   const { updateContact, saving } = useContactSave();
@@ -408,13 +408,13 @@ export function ContactsWindowDetail({
 
       {isLoading && (
         <div className="mt-3 rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
       {!isLoading && !isUnlocked && (
         <div className="mt-3">
-          <InlineUnlock description="this contact" />
+          <InlineUnlock description={t('thisContact')} />
         </div>
       )}
 
@@ -427,7 +427,7 @@ export function ContactsWindowDetail({
       {isUnlocked && loading && (
         <div className="mt-3 flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
           <Loader2 className="h-4 w-4 animate-spin" />
-          Loading contact...
+          {t('loadingContact')}
         </div>
       )}
 
@@ -447,7 +447,7 @@ export function ContactsWindowDetail({
                     onChange={(e) =>
                       handleFormChange('firstName', e.target.value)
                     }
-                    placeholder="First name *"
+                    placeholder={t('firstNameRequired')}
                     className="h-8 text-base"
                     data-testid="window-edit-first-name"
                   />
@@ -457,7 +457,7 @@ export function ContactsWindowDetail({
                     onChange={(e) =>
                       handleFormChange('lastName', e.target.value)
                     }
-                    placeholder="Last name"
+                    placeholder={t('lastName')}
                     className="h-8 text-base"
                     data-testid="window-edit-last-name"
                   />
@@ -469,7 +469,7 @@ export function ContactsWindowDetail({
                       onChange={(e) =>
                         handleFormChange('birthday', e.target.value)
                       }
-                      placeholder="Birthday (YYYY-MM-DD)"
+                      placeholder={t('birthdayPlaceholder')}
                       className="h-8 flex-1 text-base"
                       data-testid="window-edit-birthday"
                     />
@@ -493,7 +493,7 @@ export function ContactsWindowDetail({
           {isEditing ? (
             <div className="rounded-lg border text-xs">
               <div className="border-b px-3 py-2">
-                <h3 className="font-medium">Email Addresses</h3>
+                <h3 className="font-medium">{t('emailAddresses')}</h3>
               </div>
               <div className="divide-y">
                 {emailsForm
@@ -510,7 +510,7 @@ export function ContactsWindowDetail({
                         onChange={(e) =>
                           handleEmailChange(email.id, 'email', e.target.value)
                         }
-                        placeholder="Email"
+                        placeholder={t('email')}
                         className="h-7 min-w-0 flex-1 text-base"
                       />
                       <Input
@@ -519,7 +519,7 @@ export function ContactsWindowDetail({
                         onChange={(e) =>
                           handleEmailChange(email.id, 'label', e.target.value)
                         }
-                        placeholder="Label"
+                        placeholder={t('label')}
                         className="h-7 w-16 text-base"
                       />
                       <label className="flex shrink-0 items-center gap-1">
@@ -550,7 +550,7 @@ export function ContactsWindowDetail({
                   className="h-6 px-2 text-xs"
                 >
                   <Plus className="mr-1 h-3 w-3" />
-                  Add
+                  {t('add')}
                 </Button>
               </div>
             </div>
@@ -558,7 +558,7 @@ export function ContactsWindowDetail({
             emails.length > 0 && (
               <div className="rounded-lg border text-xs">
                 <div className="border-b px-3 py-2">
-                  <h3 className="font-medium">Email Addresses</h3>
+                  <h3 className="font-medium">{t('emailAddresses')}</h3>
                 </div>
                 <div className="divide-y">
                   {emails.map((email) => (
@@ -580,7 +580,7 @@ export function ContactsWindowDetail({
                       )}
                       {email.isPrimary && (
                         <span className="ml-auto rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                          Primary
+                          {t('primary')}
                         </span>
                       )}
                     </div>
@@ -594,7 +594,7 @@ export function ContactsWindowDetail({
           {isEditing ? (
             <div className="rounded-lg border text-xs">
               <div className="border-b px-3 py-2">
-                <h3 className="font-medium">Phone Numbers</h3>
+                <h3 className="font-medium">{t('phoneNumbers')}</h3>
               </div>
               <div className="divide-y">
                 {phonesForm
@@ -615,7 +615,7 @@ export function ContactsWindowDetail({
                             e.target.value
                           )
                         }
-                        placeholder="Phone"
+                        placeholder={t('phone')}
                         className="h-7 min-w-0 flex-1 text-base"
                       />
                       <Input
@@ -624,7 +624,7 @@ export function ContactsWindowDetail({
                         onChange={(e) =>
                           handlePhoneChange(phone.id, 'label', e.target.value)
                         }
-                        placeholder="Label"
+                        placeholder={t('label')}
                         className="h-7 w-16 text-base"
                       />
                       <label className="flex shrink-0 items-center gap-1">
@@ -655,7 +655,7 @@ export function ContactsWindowDetail({
                   className="h-6 px-2 text-xs"
                 >
                   <Plus className="mr-1 h-3 w-3" />
-                  Add
+                  {t('add')}
                 </Button>
               </div>
             </div>
@@ -663,7 +663,7 @@ export function ContactsWindowDetail({
             phones.length > 0 && (
               <div className="rounded-lg border text-xs">
                 <div className="border-b px-3 py-2">
-                  <h3 className="font-medium">Phone Numbers</h3>
+                  <h3 className="font-medium">{t('phoneNumbers')}</h3>
                 </div>
                 <div className="divide-y">
                   {phones.map((phone) => (
@@ -685,7 +685,7 @@ export function ContactsWindowDetail({
                       )}
                       {phone.isPrimary && (
                         <span className="ml-auto rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
-                          Primary
+                          {t('primary')}
                         </span>
                       )}
                     </div>
@@ -699,19 +699,19 @@ export function ContactsWindowDetail({
           {!isEditing && (
             <div className="rounded-lg border text-xs">
               <div className="border-b px-3 py-2">
-                <h3 className="font-medium">Details</h3>
+                <h3 className="font-medium">{t('details')}</h3>
               </div>
               <div className="divide-y">
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Calendar className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Created</span>
+                  <span className="text-muted-foreground">{t('created')}</span>
                   <span className="ml-auto">
                     {formatDate(contact.createdAt)}
                   </span>
                 </div>
                 <div className="flex items-center gap-2 px-3 py-2">
                   <Calendar className="h-3 w-3 text-muted-foreground" />
-                  <span className="text-muted-foreground">Updated</span>
+                  <span className="text-muted-foreground">{t('updated')}</span>
                   <span className="ml-auto">
                     {formatDate(contact.updatedAt)}
                   </span>

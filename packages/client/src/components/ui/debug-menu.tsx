@@ -1,11 +1,14 @@
 import type { PingData } from '@tearleads/shared';
 import { Bug, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/refresh-button';
 import { API_BASE_URL, api } from '@/lib/api';
 
 export function DebugMenu() {
+  const { t } = useTranslation('debug');
+  const { t: tCommon } = useTranslation('common');
   const [isOpen, setIsOpen] = useState(false);
   const [ping, setPing] = useState<PingData | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
@@ -23,11 +26,11 @@ export function DebugMenu() {
       const data = await api.ping.get();
       setPing(data);
     } catch (_err) {
-      setPingError('Failed to connect to API');
+      setPingError(t('failedToConnectToApi'));
     } finally {
       setPingLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (isOpen && !ping && !pingLoading) {
@@ -42,7 +45,7 @@ export function DebugMenu() {
         size="icon"
         className="fixed right-4 bottom-28 z-50 h-10 w-10 rounded-full shadow-lg"
         onClick={() => setIsOpen(true)}
-        aria-label="Open debug menu"
+        aria-label={t('openDebugMenu')}
         data-testid="debug-menu-button"
       >
         <Bug className="h-5 w-5" />
@@ -54,16 +57,16 @@ export function DebugMenu() {
             type="button"
             className="fixed inset-0 cursor-default bg-black/50"
             onClick={() => setIsOpen(false)}
-            aria-label="Close debug menu"
+            aria-label={t('closeDebugMenu')}
           />
           <div className="relative z-10 max-h-[80vh] w-80 overflow-y-auto rounded-lg border bg-background p-4 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="font-semibold text-lg">Debug Menu</h2>
+              <h2 className="font-semibold text-lg">{t('debugMenu')}</h2>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={() => setIsOpen(false)}
-                aria-label="Close debug menu button"
+                aria-label={t('closeDebugMenuButton')}
               >
                 <X className="h-4 w-4" />
               </Button>
@@ -72,21 +75,21 @@ export function DebugMenu() {
             <div className="space-y-4">
               <div className="space-y-2">
                 <div className="text-sm">
-                  <span className="font-medium">Environment: </span>
+                  <span className="font-medium">{t('environment')}: </span>
                   <span className="text-muted-foreground">
                     {import.meta.env.MODE}
                   </span>
                 </div>
 
                 <div className="text-sm">
-                  <span className="font-medium">Screen: </span>
+                  <span className="font-medium">{t('screen')}: </span>
                   <span className="text-muted-foreground">
                     {window.innerWidth} x {window.innerHeight}
                   </span>
                 </div>
 
                 <div className="text-sm">
-                  <span className="font-medium">User Agent: </span>
+                  <span className="font-medium">{t('userAgent')}: </span>
                   <span className="break-all text-muted-foreground text-xs">
                     {navigator.userAgent}
                   </span>
@@ -94,15 +97,17 @@ export function DebugMenu() {
               </div>
 
               <div className="border-t pt-4">
-                <h3 className="mb-2 font-semibold text-sm">API Status</h3>
+                <h3 className="mb-2 font-semibold text-sm">{t('apiStatus')}</h3>
                 <div className="mb-2 flex justify-between text-sm">
-                  <span className="text-muted-foreground">API URL</span>
+                  <span className="text-muted-foreground">{t('apiUrl')}</span>
                   <span className="max-w-45 break-all text-right text-xs">
-                    {API_BASE_URL || '(not set)'}
+                    {API_BASE_URL || t('notSet')}
                   </span>
                 </div>
                 {pingLoading && (
-                  <p className="text-muted-foreground text-sm">Loading...</p>
+                  <p className="text-muted-foreground text-sm">
+                    {tCommon('loading')}
+                  </p>
                 )}
                 {pingError && (
                   <p className="text-destructive text-sm">{pingError}</p>
@@ -110,7 +115,9 @@ export function DebugMenu() {
                 {!pingLoading && !pingError && ping && (
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">Version</span>
+                      <span className="text-muted-foreground">
+                        {t('version')}
+                      </span>
                       <span className="font-medium text-success">
                         {ping.version}
                       </span>
@@ -132,7 +139,7 @@ export function DebugMenu() {
                   onClick={() => setShouldThrow(true)}
                   data-testid="throw-error-button"
                 >
-                  Throw Error
+                  {t('throwError')}
                 </Button>
               </div>
             </div>

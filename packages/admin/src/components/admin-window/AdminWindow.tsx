@@ -20,6 +20,7 @@ import {
 } from '@tearleads/window-manager';
 import { ArrowLeft, Shield } from 'lucide-react';
 import { useState } from 'react';
+import { useTypedTranslation } from '@/i18n';
 import { AdminWindowMenuBar } from './AdminWindowMenuBar';
 import { ComplianceDocView } from './ComplianceDocView';
 import { ComplianceIndex } from './ComplianceIndex';
@@ -104,6 +105,7 @@ export function AdminWindow({
   initialDimensions,
   initialView
 }: AdminWindowProps) {
+  const { t } = useTypedTranslation('admin');
   const [view, setView] = useState<AdminView>(initialView ?? 'index');
   const backTarget = getBackTarget(view);
 
@@ -129,7 +131,7 @@ export function AdminWindow({
         <div className="space-y-6">
           <div className="flex items-center gap-3">
             <Shield className="h-8 w-8 text-muted-foreground" />
-            <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
+            <h1 className="font-bold text-2xl tracking-tight">{t('admin')}</h1>
           </div>
           <AdminOptionsGrid onSelect={setView} />
         </div>

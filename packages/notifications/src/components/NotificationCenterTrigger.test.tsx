@@ -55,9 +55,7 @@ describe('NotificationCenterTrigger', () => {
       target: screen.getByRole('button', { name: /open notification center/i }),
       keys: '[MouseRight]'
     });
-    await user.click(
-      screen.getByRole('button', { name: /clear all notifications/i })
-    );
+    await user.click(screen.getByRole('button', { name: /dismiss all/i }));
     expect(dismissAllSpy).toHaveBeenCalledTimes(1);
   });
 
