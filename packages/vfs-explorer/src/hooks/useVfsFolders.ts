@@ -1,5 +1,5 @@
-import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
-import { and, eq, inArray, sql } from 'drizzle-orm';
+import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { eq, inArray, sql } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVfsExplorerContext } from '../context';
 
@@ -38,12 +38,8 @@ export function useVfsFolders(): UseVfsFoldersResult {
       const db = getDatabase();
       const folderNameExpr = sql<string>`COALESCE(
         NULLIF(${vfsRegistry.encryptedName}, ''),
-        NULLIF(${vfsFolders.encryptedName}, ''),
         'Unnamed Folder'
       )`;
-
-      // Guardrail: canonical vfs_registry metadata must be preferred while
-      // legacy vfs_folders remains a compatibility fallback.
       const folderRows = await db
         .select({
           id: vfsRegistry.id,
@@ -51,13 +47,6 @@ export function useVfsFolders(): UseVfsFoldersResult {
           createdAt: vfsRegistry.createdAt
         })
         .from(vfsRegistry)
-        .leftJoin(
-          vfsFolders,
-          and(
-            eq(vfsFolders.id, vfsRegistry.id),
-            eq(vfsRegistry.objectType, 'folder')
-          )
-        )
         .where(eq(vfsRegistry.objectType, 'folder'));
 
       if (folderRows.length === 0) {

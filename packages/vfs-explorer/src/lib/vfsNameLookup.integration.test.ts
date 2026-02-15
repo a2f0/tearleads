@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { fetchItemNames } from './vfsNameLookup';
 
 describe('vfsNameLookup integration (real database)', () => {
-  it('prefers canonical folder names with legacy fallback', async () => {
+  it('uses canonical folder names without legacy fallback', async () => {
     await withRealDatabase(
       async ({ db, adapter }) => {
         const canonicalFolderId = crypto.randomUUID();
-        const fallbackFolderId = crypto.randomUUID();
+        const legacyOnlyFolderId = crypto.randomUUID();
         const unnamedFolderId = crypto.randomUUID();
         const now = Date.now();
 
@@ -22,11 +22,11 @@ describe('vfsNameLookup integration (real database)', () => {
 
         await adapter.execute(
           `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
-          [fallbackFolderId, 'folder', null, null, now + 1]
+          [legacyOnlyFolderId, 'folder', null, null, now + 1]
         );
         await adapter.execute(
           `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-          [fallbackFolderId, 'Legacy Fallback Name']
+          [legacyOnlyFolderId, 'Legacy Fallback Name']
         );
 
         await adapter.execute(
@@ -35,11 +35,11 @@ describe('vfsNameLookup integration (real database)', () => {
         );
 
         const names = await fetchItemNames(db, {
-          folder: [canonicalFolderId, fallbackFolderId, unnamedFolderId]
+          folder: [canonicalFolderId, legacyOnlyFolderId, unnamedFolderId]
         });
 
         expect(names.get(canonicalFolderId)).toBe('Canonical Folder Name');
-        expect(names.get(fallbackFolderId)).toBe('Legacy Fallback Name');
+        expect(names.get(legacyOnlyFolderId)).toBe('Unnamed Folder');
         expect(names.get(unnamedFolderId)).toBe('Unnamed Folder');
       },
       { migrations: vfsTestMigrations }

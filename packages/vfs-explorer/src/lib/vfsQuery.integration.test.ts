@@ -7,12 +7,11 @@ import type { VfsSortState } from './vfsTypes';
 const DEFAULT_SORT: VfsSortState = { column: null, direction: null };
 
 describe('vfsQuery integration (real database)', () => {
-  it('queryAllItems prefers canonical folder names with legacy fallback', async () => {
+  it('queryAllItems uses canonical folder names without legacy fallback', async () => {
     await withRealDatabase(
       async ({ db, adapter }) => {
         const canonicalFolderId = crypto.randomUUID();
-        const fallbackFolderId = crypto.randomUUID();
-        const unnamedFolderId = crypto.randomUUID();
+        const legacyOnlyFolderId = crypto.randomUUID();
         const now = Date.now();
 
         await adapter.execute(
@@ -26,28 +25,23 @@ describe('vfsQuery integration (real database)', () => {
 
         await adapter.execute(
           `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
-          [fallbackFolderId, 'folder', null, null, now + 1]
+          [legacyOnlyFolderId, 'folder', null, null, now + 1]
         );
         await adapter.execute(
           `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-          [fallbackFolderId, 'Legacy Fallback Name']
-        );
-
-        await adapter.execute(
-          `INSERT INTO vfs_registry (id, object_type, owner_id, encrypted_name, created_at) VALUES (?, ?, ?, ?, ?)`,
-          [unnamedFolderId, 'folder', null, '', now + 2]
+          [legacyOnlyFolderId, 'Legacy Fallback Name']
         );
 
         const allItems = await queryAllItems(db, DEFAULT_SORT);
         const canonicalRow = allItems.find(
           (row) => row.id === canonicalFolderId
         );
-        const fallbackRow = allItems.find((row) => row.id === fallbackFolderId);
-        const unnamedRow = allItems.find((row) => row.id === unnamedFolderId);
+        const legacyOnlyRow = allItems.find(
+          (row) => row.id === legacyOnlyFolderId
+        );
 
         expect(canonicalRow?.name).toBe('Canonical Folder Name');
-        expect(fallbackRow?.name).toBe('Legacy Fallback Name');
-        expect(unnamedRow?.name).toBe('Unnamed Folder');
+        expect(legacyOnlyRow?.name).toBe('Unnamed Folder');
       },
       { migrations: trashTestMigrations }
     );
