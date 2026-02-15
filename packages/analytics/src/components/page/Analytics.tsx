@@ -337,6 +337,10 @@ export function Analytics({
     if (isUnlocked) {
       void fetchData(true);
     }
+
+    return () => {
+      fetchingRef.current = false;
+    };
   }, [isUnlocked, fetchData]);
 
   // Detect scroll to enable pagination (once: true auto-removes after first scroll)
