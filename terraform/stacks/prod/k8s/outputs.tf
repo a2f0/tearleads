@@ -32,3 +32,14 @@ output "server_username" {
   description = "Username for SSH access"
   value       = var.server_username
 }
+
+output "tunnel_id" {
+  description = "Cloudflare tunnel ID"
+  value       = module.tunnel.tunnel_id
+}
+
+output "tunnel_token" {
+  description = "Cloudflare tunnel token (for cloudflared deployment)"
+  value       = module.tunnel.tunnel_token
+  sensitive   = true
+}

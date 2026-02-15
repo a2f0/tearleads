@@ -58,3 +58,17 @@ validate_aws_env() {
     return 1
   fi
 }
+
+# Validate required environment variables for Cloudflare stacks
+validate_cloudflare_env() {
+  local missing=()
+
+  [[ -z "${TF_VAR_cloudflare_api_token:-}" ]] && missing+=("TF_VAR_cloudflare_api_token")
+  [[ -z "${TF_VAR_cloudflare_account_id:-}" ]] && missing+=("TF_VAR_cloudflare_account_id")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: Missing required environment variables:" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}

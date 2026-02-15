@@ -68,15 +68,22 @@ module "server" {
   }
 }
 
-module "dns" {
-  source = "../../../modules/aws-route53-dns"
+# Cloudflare Tunnel - routes traffic through Cloudflare without exposing public IP
+module "tunnel" {
+  source = "../../../modules/cloudflare-tunnel"
 
-  domain       = var.domain
-  ipv4_address = module.server.ipv4_address
-  ipv6_address = module.server.ipv6_address
+  account_id  = var.cloudflare_account_id
+  zone_name   = var.domain
+  tunnel_name = "k8s-prod"
 
-  create_apex_records = false
-  subdomains          = toset(["k8s"])
-  wildcard_subdomain  = "k8s"
-  create_mx_records   = false
+  ingress_rules = [
+    {
+      hostname = "k8s.${var.domain}"
+      service  = "http://localhost:80"
+    },
+    {
+      hostname = "*.k8s.${var.domain}"
+      service  = "http://localhost:80"
+    }
+  ]
 }
