@@ -8,8 +8,9 @@ import type { Migration } from './types.js';
  * folder metadata columns on vfs_registry, backfills from legacy vfs_folders,
  * and fails closed if parity checks do not hold.
  *
- * No table drop occurs here. This prepares read-path cutover work so vfs_folders
- * can be retired in a later migration with explicit rollback checkpoints.
+ * No table drop occurs here. This prepares guarded retirement sequencing so
+ * vfs_folders can be retired in a later migration with explicit rollback
+ * checkpoints.
  */
 export const v030: Migration = {
   version: 30,

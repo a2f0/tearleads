@@ -939,7 +939,7 @@ describe('migrations', () => {
         'vfs_folders rows missing canonical folder registry identities'
       );
       expect(queries).toContain(
-        'canonical folder rows missing legacy vfs_folders fallback rows'
+        'canonical folder rows missing legacy vfs_folders rows'
       );
       expect(queries).toContain(
         'vfs_folders rows missing canonical folder metadata parity'
@@ -954,7 +954,7 @@ describe('migrations', () => {
 
           if (
             sql.includes(
-              'canonical folder rows missing legacy vfs_folders fallback rows'
+              'canonical folder rows missing legacy vfs_folders rows'
             )
           ) {
             throw new Error('forced v031 failure');
