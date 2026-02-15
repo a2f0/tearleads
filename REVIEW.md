@@ -390,7 +390,7 @@ When adding new security controls:
 | Broken Access Control | Missing ownership checks, IDOR vulnerabilities |
 | Security Misconfiguration | Verbose errors in production, default credentials |
 | XSS | Unescaped user content in HTML |
-| Insecure Deserialization | `eval()`, `JSON.parse` on untrusted data |
+| Insecure Deserialization | `eval()`, or unsafe use of objects from `JSON.parse` on untrusted data (e.g. prototype pollution) |
 | Known Vulnerabilities | Outdated dependencies with CVEs |
 | Insufficient Logging | No audit trail for security events |
 
