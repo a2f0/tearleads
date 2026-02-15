@@ -963,8 +963,8 @@ describe('SearchWindowContent', () => {
       });
 
       await user.click(screen.getByText('Chat about code'));
-      expect(mockOpenWindow).toHaveBeenCalledWith('chat');
-      expect(mockRequestWindowOpen).toHaveBeenCalledWith('chat', {
+      expect(mockOpenWindow).toHaveBeenCalledWith('ai');
+      expect(mockRequestWindowOpen).toHaveBeenCalledWith('ai', {
         conversationId: 'ai-404'
       });
       expect(mockNavigate).not.toHaveBeenCalled();

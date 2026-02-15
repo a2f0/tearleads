@@ -1,6 +1,6 @@
 import { ComposerPrimitive } from '@assistant-ui/react';
 import { ImageIcon, Send, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { useAIUI } from '../../context';
 
 interface ComposerProps {
   isVisionModel: boolean;
@@ -15,6 +15,8 @@ export function Composer({
   onAttachImage,
   onRemoveImage
 }: ComposerProps) {
+  const { Button } = useAIUI();
+
   return (
     <ComposerPrimitive.Root className="border-t bg-background p-4">
       {attachedImage && (

@@ -1,13 +1,11 @@
-import type { DecryptedAiConversation } from '@tearleads/shared';
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
+import { type DecryptedConversation, useAIUI } from '../../context';
+import { useDialogAccessibility } from '../../hooks';
 
 export interface RenameConversationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  conversation: DecryptedAiConversation | null;
+  conversation: DecryptedConversation | null;
   onRename: (conversationId: string, newTitle: string) => Promise<void>;
 }
 
@@ -17,6 +15,7 @@ export function RenameConversationDialog({
   conversation,
   onRename
 }: RenameConversationDialogProps) {
+  const { Button, Input } = useAIUI();
   const [newTitle, setNewTitle] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);

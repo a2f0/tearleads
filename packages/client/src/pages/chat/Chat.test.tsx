@@ -256,12 +256,11 @@ describe('Chat', () => {
       ).toBeInTheDocument();
     });
 
-    it('shows a link to the Models page', () => {
+    it('shows a button to navigate to the Models page', () => {
       renderChat();
 
-      const link = screen.getByRole('link', { name: /go to models/i });
-      expect(link).toBeInTheDocument();
-      expect(link).toHaveAttribute('href', '/models');
+      const button = screen.getByRole('button', { name: /go to models/i });
+      expect(button).toBeInTheDocument();
     });
   });
 
@@ -367,7 +366,7 @@ describe('Chat', () => {
       },
       {
         modelId: 'mistralai/mistral-7b-instruct',
-        expectedName: 'Mistral 7B Instruct'
+        expectedName: 'Mistral 7b'
       },
       {
         modelId: 'simple-model',
@@ -702,9 +701,9 @@ describe('Chat', () => {
     it('renders Bot icon in the card', () => {
       renderChat();
 
-      // The link contains a Bot icon
-      const link = screen.getByRole('link', { name: /go to models/i });
-      expect(link).toBeInTheDocument();
+      // The button contains a Bot icon
+      const button = screen.getByRole('button', { name: /go to models/i });
+      expect(button).toBeInTheDocument();
     });
   });
 

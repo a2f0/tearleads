@@ -44,7 +44,7 @@ const WINDOW_TYPES = [
   'wallet',
   'sqlite',
   'opfs',
-  'chat',
+  'ai',
   'analytics',
   'audio',
   'models',
@@ -93,7 +93,7 @@ export interface WindowOpenRequestPayloads {
     subject?: string;
     body?: string;
   };
-  chat: { conversationId?: string };
+  ai: { conversationId?: string };
   help: { helpDocId?: HelpDocId };
 }
 

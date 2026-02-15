@@ -1,14 +1,14 @@
-import type { DecryptedAiConversation } from '@tearleads/shared';
 import { WindowContextMenu } from '@tearleads/window-manager';
 import { Pencil, Trash2 } from 'lucide-react';
+import type { DecryptedConversation } from '../../context';
 
 interface ConversationsContextMenuProps {
   x: number;
   y: number;
-  conversation: DecryptedAiConversation;
+  conversation: DecryptedConversation;
   onClose: () => void;
-  onRename: (conversation: DecryptedAiConversation) => void;
-  onDelete: (conversation: DecryptedAiConversation) => void;
+  onRename: (conversation: DecryptedConversation) => void;
+  onDelete: (conversation: DecryptedConversation) => void;
 }
 
 export function ConversationsContextMenu({

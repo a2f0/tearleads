@@ -1,16 +1,18 @@
-import type { DecryptedAiConversation } from '@tearleads/shared';
 import { useResizableSidebar } from '@tearleads/window-manager';
 import { Loader2, MessageSquare, Plus } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import type { DecryptedConversation } from '../../context';
+import {
+  DeleteConversationDialog,
+  NewConversationDialog,
+  RenameConversationDialog
+} from '../dialogs';
 import { ConversationsContextMenu } from './ConversationsContextMenu';
-import { DeleteConversationDialog } from './DeleteConversationDialog';
-import { NewConversationDialog } from './NewConversationDialog';
-import { RenameConversationDialog } from './RenameConversationDialog';
 
 interface ConversationsSidebarProps {
   width: number;
   onWidthChange: (width: number) => void;
-  conversations: DecryptedAiConversation[];
+  conversations: DecryptedConversation[];
   selectedConversationId: string | null;
   onConversationSelect: (id: string | null) => void;
   onNewConversation: () => Promise<void>;
@@ -34,14 +36,14 @@ export function ConversationsSidebar({
 }: ConversationsSidebarProps) {
   const [newDialogOpen, setNewDialogOpen] = useState(false);
   const [renameDialogConversation, setRenameDialogConversation] =
-    useState<DecryptedAiConversation | null>(null);
+    useState<DecryptedConversation | null>(null);
   const [deleteDialogConversation, setDeleteDialogConversation] =
-    useState<DecryptedAiConversation | null>(null);
+    useState<DecryptedConversation | null>(null);
 
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    conversation: DecryptedAiConversation;
+    conversation: DecryptedConversation;
   } | null>(null);
 
   const { resizeHandleProps } = useResizableSidebar({
@@ -51,7 +53,7 @@ export function ConversationsSidebar({
   });
 
   const handleContextMenu = useCallback(
-    (e: React.MouseEvent, conversation: DecryptedAiConversation) => {
+    (e: React.MouseEvent, conversation: DecryptedConversation) => {
       e.preventDefault();
       e.stopPropagation();
       setContextMenu({ x: e.clientX, y: e.clientY, conversation });

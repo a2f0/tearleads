@@ -1,79 +1,37 @@
-import { OPENROUTER_CHAT_MODELS } from '@tearleads/shared';
+import {
+  ChatInterface,
+  ConversationsSidebar,
+  NoModelLoadedContent,
+  useAIConversations,
+  useAIDatabaseState,
+  useAILLM
+} from '@tearleads/ai';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { useDatabaseContext } from '@/db/hooks';
-import { useConversations } from '@/hooks/useConversations';
-import { useLLM } from '@/hooks/useLLM';
+import { ClientAIProvider } from '@/contexts/ClientAIProvider';
 import { ChatHeader } from './ChatHeader';
-import { ChatInterface } from './ChatInterface';
-import { ConversationsSidebar } from './ConversationsSidebar';
-import { NoModelLoadedContent } from './NoModelLoadedContent';
 
-/**
- * Derives a display name from an ONNX model ID.
- * Example: onnx-community/Phi-3.5-mini-instruct-onnx-web -> Phi 3.5 Mini
- */
-function getModelDisplayName(modelId: string): string {
-  const openRouterModel = OPENROUTER_CHAT_MODELS.find(
-    (model) => model.id === modelId
-  );
-  if (openRouterModel) {
-    return openRouterModel.name;
-  }
-
-  // Extract the model name part after the org/
-  const modelName = modelId.includes('/')
-    ? (modelId.split('/')[1] ?? modelId)
-    : modelId;
-
-  // Parse the name
-  return modelName
-    .replace(/-4k-instruct$/, '')
-    .replace(/-instruct$/, '')
-    .split('-')
-    .slice(0, 3)
-    .map((part) => {
-      // Capitalize first letter of each part
-      if (part.length > 0) {
-        return part.charAt(0).toUpperCase() + part.slice(1);
-      }
-      return part;
-    })
-    .join(' ')
-    .trim();
-}
-
-export function Chat() {
-  const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
-  const { loadedModel, modelType, generate } = useLLM();
-  const {
-    conversations,
-    loading: conversationsLoading,
-    error: conversationsError,
-    currentConversationId,
-    selectConversation,
-    createConversation,
-    renameConversation,
-    deleteConversation
-  } = useConversations();
+function ChatContent() {
+  const databaseState = useAIDatabaseState();
+  const llm = useAILLM();
+  const conversations = useAIConversations();
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
 
-  const modelDisplayName = loadedModel
-    ? getModelDisplayName(loadedModel)
+  const modelDisplayName = llm.loadedModel
+    ? getModelDisplayName(llm.loadedModel)
     : undefined;
 
-  const isVisionModel = modelType === 'vision' || modelType === 'paligemma';
-
   const handleNewConversation = async () => {
-    await createConversation();
+    await conversations.create();
   };
 
   const handleConversationSelect = async (id: string | null) => {
-    await selectConversation(id);
+    await conversations.select(id);
   };
 
-  if (isDatabaseLoading) {
+  if (databaseState.isLoading) {
     return (
       <div className="flex h-full items-center justify-center rounded-lg border p-8 text-center text-muted-foreground">
         Loading database...
@@ -81,7 +39,7 @@ export function Chat() {
     );
   }
 
-  if (!isUnlocked) {
+  if (!databaseState.isUnlocked) {
     return (
       <div className="flex h-full items-center justify-center p-4">
         <InlineUnlock description="AI" />
@@ -94,23 +52,61 @@ export function Chat() {
       <ConversationsSidebar
         width={sidebarWidth}
         onWidthChange={setSidebarWidth}
-        conversations={conversations}
-        selectedConversationId={currentConversationId}
+        conversations={conversations.list}
+        selectedConversationId={conversations.currentId}
         onConversationSelect={handleConversationSelect}
         onNewConversation={handleNewConversation}
-        onRenameConversation={renameConversation}
-        onDeleteConversation={deleteConversation}
-        loading={conversationsLoading}
-        error={conversationsError}
+        onRenameConversation={conversations.rename}
+        onDeleteConversation={conversations.delete}
+        loading={conversations.loading}
+        error={conversations.error}
       />
       <div className="flex flex-1 flex-col overflow-hidden">
         <ChatHeader modelDisplayName={modelDisplayName} />
-        {loadedModel ? (
-          <ChatInterface generate={generate} isVisionModel={isVisionModel} />
+        {llm.loadedModel ? (
+          <ChatInterface key={conversations.currentId ?? 'default'} />
         ) : (
           <NoModelLoadedContent />
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Derives a display name from an ONNX model ID.
+ * Example: onnx-community/Phi-3.5-mini-instruct-onnx-web -> Phi 3.5 Mini
+ */
+function getModelDisplayName(modelId: string): string {
+  const modelName = modelId.includes('/')
+    ? (modelId.split('/')[1] ?? modelId)
+    : modelId;
+
+  return modelName
+    .replace(/-4k-instruct$/, '')
+    .replace(/-instruct$/, '')
+    .split('-')
+    .slice(0, 3)
+    .map((part) => {
+      if (part.length > 0) {
+        return part.charAt(0).toUpperCase() + part.slice(1);
+      }
+      return part;
+    })
+    .join(' ')
+    .trim();
+}
+
+export function Chat() {
+  const navigate = useNavigate();
+
+  const handleNavigateToModels = () => {
+    navigate('/models');
+  };
+
+  return (
+    <ClientAIProvider navigateToModels={handleNavigateToModels}>
+      <ChatContent />
+    </ClientAIProvider>
   );
 }

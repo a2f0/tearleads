@@ -355,8 +355,8 @@ export function SearchWindowContent({
           requestWindowOpen('audio', { albumId: result.id });
           return;
         case 'ai_conversation':
-          openWindow('chat');
-          requestWindowOpen('chat', { conversationId: result.id });
+          openWindow('ai');
+          requestWindowOpen('ai', { conversationId: result.id });
           return;
         default:
           navigate(route);

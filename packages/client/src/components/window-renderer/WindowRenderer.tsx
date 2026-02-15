@@ -14,13 +14,13 @@ import type { WindowDimensions } from '@tearleads/window-manager';
 import type { ComponentType } from 'react';
 import { memo, useCallback, useMemo, useRef } from 'react';
 import { AdminUsersWindow } from '@/components/admin-users-window';
+import { AIWindow } from '@/components/ai-window';
 import { AudioWindow } from '@/components/audio-window';
 import { BackupWindow } from '@/components/backup-window';
 import { BusinessesWindow } from '@/components/businesses-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { CalendarWindow } from '@/components/calendar-window';
 import { CameraWindow } from '@/components/camera-window';
-import { ChatWindow } from '@/components/chat-window';
 import { ClassicWindow } from '@/components/classic-window';
 import { ContactsWindow } from '@/components/contacts-window';
 import { DebugWindow } from '@/components/debug-window';
@@ -154,7 +154,7 @@ const windowComponentMap: Record<WindowType, WindowComponentConfig> = {
   sqlite: { Component: SqliteWindow },
   opfs: { Component: OpfsWindow },
   'cache-storage': { Component: CacheStorageWindow },
-  chat: { Component: ChatWindow },
+  ai: { Component: AIWindow },
   analytics: { Component: AnalyticsWindow },
   audio: { Component: AudioWindow },
   models: { Component: ModelsWindow },

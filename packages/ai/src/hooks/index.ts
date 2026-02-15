@@ -1,0 +1,1 @@
+export { useDialogAccessibility } from './useDialogAccessibility';

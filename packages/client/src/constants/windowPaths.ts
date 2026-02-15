@@ -20,7 +20,7 @@ export const WINDOW_PATHS: Partial<Record<string, WindowType>> = {
   '/debug/browser/opfs': 'opfs',
   '/debug/browser/cache-storage': 'cache-storage',
   '/debug/browser/local-storage': 'local-storage',
-  '/ai': 'chat',
+  '/ai': 'ai',
   '/analytics': 'analytics',
   '/audio': 'audio',
   '/models': 'models',

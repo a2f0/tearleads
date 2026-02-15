@@ -116,7 +116,7 @@ export function DocumentsWindow({
   }, [openRequest]);
 
   const handleOpenAIChat = useCallback(() => {
-    openWindow('chat');
+    openWindow('ai');
   }, [openWindow]);
 
   const statusText = uploading
