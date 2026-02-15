@@ -81,6 +81,8 @@ that future destructive share-table retirement must enforce.
 `is_drop_authorized = FALSE` unless
 `read_surface_deactivation_confirmed = TRUE` and execution readiness is marked
 ready.
+`v041` records drop execution candidates (`DROP TABLE` statements) and marks
+`is_executable = FALSE` when authorization guardrails are not yet satisfied.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
