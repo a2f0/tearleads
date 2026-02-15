@@ -700,8 +700,8 @@ export interface HealthTranslations {
   weight: string;
   bloodPressure: string;
   noExercisesFound: string;
-  variation: string;
-  variations: string;
+  variation_one: string;
+  variation_other: string;
   exerciseName: string;
   category: string;
   addExercise: string;

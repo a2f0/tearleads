@@ -64,9 +64,7 @@ export function ExerciseList({
               {hasChildren && (
                 <>
                   <span className="text-muted-foreground text-xs">
-                    {children.length === 1
-                      ? t('variation', { count: children.length })
-                      : t('variations', { count: children.length })}
+                    {t('variation', { count: children.length })}
                   </span>
                   {isExpanded ? (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
