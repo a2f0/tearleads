@@ -5587,6 +5587,147 @@ describe('VfsBackgroundSyncClient', () => {
     });
   });
 
+  it('fails closed when post-restart pull cycle regresses write ids below local reconcile baseline', async () => {
+    let pullCount = 0;
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const pullRequests: Array<{
+      cursor: { changedAt: string; changeId: string } | null;
+      limit: number;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: async (input) => {
+        pullCount += 1;
+        pullRequests.push({
+          cursor: input.cursor ? { ...input.cursor } : null,
+          limit: input.limit
+        });
+
+        if (pullCount === 1) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'desktop-1',
+                occurredAt: '2026-02-14T12:15:00.000Z',
+                itemId: 'item-baseline-a'
+              })
+            ],
+            hasMore: true,
+            nextCursor: {
+              changedAt: '2026-02-14T12:15:00.000Z',
+              changeId: 'desktop-1'
+            },
+            lastReconciledWriteIds: {
+              desktop: 5
+            }
+          };
+        }
+
+        if (pullCount === 2) {
+          return {
+            items: [
+              buildAclAddSyncItem({
+                opId: 'desktop-2',
+                occurredAt: '2026-02-14T12:15:01.000Z',
+                itemId: 'item-baseline-b'
+              })
+            ],
+            hasMore: false,
+            nextCursor: {
+              changedAt: '2026-02-14T12:15:01.000Z',
+              changeId: 'desktop-2'
+            },
+            lastReconciledWriteIds: {
+              desktop: 6
+            }
+          };
+        }
+
+        return {
+          items: [
+            buildAclAddSyncItem({
+              opId: 'desktop-3',
+              occurredAt: '2026-02-14T12:15:02.000Z',
+              itemId: 'item-should-not-apply'
+            })
+          ],
+          hasMore: false,
+          nextCursor: {
+            changedAt: '2026-02-14T12:15:02.000Z',
+            changeId: 'desktop-3'
+          },
+          lastReconciledWriteIds: {
+            desktop: 5
+          }
+        };
+      }
+    };
+
+    const seedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+    await seedClient.sync();
+    expect(seedClient.snapshot().lastReconciledWriteIds.desktop).toBe(6);
+
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+    resumedClient.hydrateState(seedClient.exportState());
+    const preFailureState = resumedClient.exportState();
+
+    await expect(resumedClient.sync()).rejects.toThrowError(
+      /regressed lastReconciledWriteIds/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'lastWriteIdRegression',
+      stage: 'pull',
+      message: 'pull response regressed replica write-id state'
+    });
+    expect(resumedClient.exportState()).toEqual(preFailureState);
+    expect(resumedClient.snapshot().acl).not.toContainEqual(
+      expect.objectContaining({
+        itemId: 'item-should-not-apply'
+      })
+    );
+    expect(pullRequests[0]?.cursor).toBeNull();
+    expect(pullRequests[1]?.cursor).toEqual({
+      changedAt: '2026-02-14T12:15:00.000Z',
+      changeId: 'desktop-1'
+    });
+    expect(pullRequests[2]?.cursor).toEqual({
+      changedAt: '2026-02-14T12:15:01.000Z',
+      changeId: 'desktop-2'
+    });
+  });
+
   it('applies transport reconcile acknowledgements when supported', async () => {
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({

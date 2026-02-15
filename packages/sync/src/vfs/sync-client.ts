@@ -1367,7 +1367,18 @@ export class VfsBackgroundSyncClient {
   private async pullUntilSettled(): Promise<VfsBackgroundSyncClientSyncResult> {
     let pulledOperations = 0;
     let pullPages = 0;
-    const observedLastWriteIds = new Map<string, number>();
+    const localReconcileState = this.reconcileStateStore.get(
+      this.userId,
+      this.clientId
+    );
+    /**
+     * Guardrail: pull responses must remain monotonic not only within a single
+     * paginated sync loop but also relative to the durable local reconcile
+     * baseline established by prior successful cycles (including restarts).
+     */
+    const observedLastWriteIds = new Map<string, number>(
+      Object.entries(localReconcileState?.lastReconciledWriteIds ?? {})
+    );
 
     while (true) {
       const cursorBeforePull = this.currentCursor();
