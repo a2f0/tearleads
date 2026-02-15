@@ -1,2 +1,1 @@
-export { Analytics } from './Analytics';
-export { SortIcon, type SortState } from './SortIcon';
+export { Analytics, SortIcon, type SortState } from '@tearleads/analytics';

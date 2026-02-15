@@ -9,7 +9,7 @@ import {
   getEventDisplayName,
   type StatsSortColumn
 } from '@/db/analytics';
-import type { SummarySortState, TimeFilter } from '../types';
+import type { SummarySortState, TimeFilter } from './types';
 
 interface AnalyticsFiltersSummaryPanelProps {
   timeFilter: TimeFilter;

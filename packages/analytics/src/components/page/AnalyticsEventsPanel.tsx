@@ -8,8 +8,8 @@ import {
   getEventDisplayName,
   type SortColumn
 } from '@/db/analytics';
-import { SortIcon, type SortState } from '../SortIcon';
-import type { TimeFilter } from '../types';
+import { SortIcon, type SortState } from './SortIcon';
+import type { TimeFilter } from './types';
 
 interface AnalyticsEventsPanelProps {
   parentRef: RefObject<HTMLDivElement | null>;

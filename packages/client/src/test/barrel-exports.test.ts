@@ -66,8 +66,9 @@ vi.mock('@tearleads/admin', () => ({
   OrganizationsAdminPage: () => null,
   OrganizationDetailPageRoute: () => null
 }));
-vi.mock('@/pages/analytics/Analytics', () => ({
-  Analytics: () => null
+vi.mock('@tearleads/analytics', () => ({
+  Analytics: () => null,
+  SortIcon: () => null
 }));
 vi.mock('@/pages/cache-storage/CacheStorage', () => ({
   CacheStorage: () => null

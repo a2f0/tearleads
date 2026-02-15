@@ -57,7 +57,7 @@ let analyticsExportState: {
   exporting: boolean;
 };
 
-vi.mock('@/pages/analytics', () => ({
+vi.mock('../page/Analytics', () => ({
   Analytics: ({
     showBackLink,
     onExportCsvChange

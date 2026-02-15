@@ -1,1 +1,1 @@
-export { AnalyticsWindow } from './AnalyticsWindow';
+export { AnalyticsWindow } from '@tearleads/analytics';
