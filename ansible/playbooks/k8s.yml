@@ -1,0 +1,235 @@
+---
+- name: Bootstrap k8s cluster with ingress and cert-manager
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    cert_manager_version: "v1.14.4"
+    nginx_ingress_version: "v1.10.0"
+    tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
+    tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
+    tearleads_repo_url: "git@github.com-tuxedo:a2f0/tearleads.git"
+    tearleads_dir: "/opt/tearleads"
+    # yamllint disable rule:line-length
+    github_ssh_host_keys:
+      - "github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl"
+      - "github.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBEmKSENjQEezOmxkZMy7opKgwFB9nkt5YRrYMjNuG5N87uRgg6CLrbo5wAdT/y6v0mKV0U2w0WZ2YB/++Tpockg="
+      - "github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk="
+    # yamllint enable rule:line-length
+
+  tasks:
+    # GitHub deploy key setup
+    - name: Ensure SSH directory exists
+      ansible.builtin.file:
+        path: "/home/{{ ansible_user }}/.ssh"
+        state: directory
+        mode: "0700"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+
+    - name: Install GitHub deploy key
+      ansible.builtin.copy:
+        src: "{{ tuxedo_github_deploy_key_path }}"
+        dest: "/home/{{ ansible_user }}/.ssh/{{ tuxedo_github_deploy_key_name }}"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0600"
+
+    - name: Configure GitHub SSH host alias
+      ansible.builtin.blockinfile:
+        path: "/home/{{ ansible_user }}/.ssh/config"
+        create: true
+        mode: "0600"
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        block: |
+          Host github.com-tuxedo
+            HostName github.com
+            User git
+            IdentityFile /home/{{ ansible_user }}/.ssh/{{ tuxedo_github_deploy_key_name }}
+            IdentitiesOnly yes
+
+    - name: Add GitHub SSH host keys to known_hosts
+      ansible.builtin.known_hosts:
+        path: "/home/{{ ansible_user }}/.ssh/known_hosts"
+        name: github.com
+        key: "{{ item }}"
+      loop: "{{ github_ssh_host_keys }}"
+
+    - name: Create tearleads directory
+      ansible.builtin.file:
+        path: "{{ tearleads_dir }}"
+        state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+        mode: "0755"
+
+    - name: Clone or update tearleads repository
+      ansible.builtin.git:
+        repo: "{{ tearleads_repo_url }}"
+        dest: "{{ tearleads_dir }}"
+        version: feat/k8s
+        update: true
+        force: true
+      become: true
+      become_user: "{{ ansible_user }}"
+
+    - name: Wait for k3s to be ready
+      ansible.builtin.command:
+        cmd: k3s kubectl get nodes
+      register: k3s_nodes
+      until: k3s_nodes.rc == 0
+      retries: 30
+      delay: 10
+      changed_when: false
+
+    - name: Install nginx-ingress controller
+      # noqa: command-instead-of-shell
+      ansible.builtin.shell:
+        # yamllint disable-line rule:line-length
+        cmd: k3s kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-{{ nginx_ingress_version }}/deploy/static/provider/cloud/deploy.yaml
+      register: nginx_ingress_result
+      changed_when: "'created' in nginx_ingress_result.stdout or 'configured' in nginx_ingress_result.stdout"
+
+    - name: Wait for nginx-ingress to be ready
+      ansible.builtin.shell:
+        cmd: |
+          k3s kubectl -n ingress-nginx wait --for=condition=ready pod -l app.kubernetes.io/component=controller --timeout=300s
+      register: nginx_wait
+      until: nginx_wait.rc == 0
+      retries: 5
+      delay: 30
+      changed_when: false
+
+    - name: Install cert-manager
+      ansible.builtin.shell:
+        cmd: |
+          k3s kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml
+      register: cert_manager_result
+      changed_when: "'created' in cert_manager_result.stdout or 'configured' in cert_manager_result.stdout"
+
+    - name: Wait for cert-manager to be ready
+      ansible.builtin.shell:
+        cmd: |
+          k3s kubectl -n cert-manager wait --for=condition=ready pod -l app.kubernetes.io/instance=cert-manager --timeout=300s
+      register: cert_manager_wait
+      until: cert_manager_wait.rc == 0
+      retries: 5
+      delay: 30
+      changed_when: false
+
+    - name: Install nerdctl for building container images
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          if ! command -v nerdctl >/dev/null 2>&1; then
+            curl -sSL https://github.com/containerd/nerdctl/releases/download/v1.7.6/nerdctl-1.7.6-linux-amd64.tar.gz | tar -xz -C /usr/local/bin
+          fi
+        executable: /bin/bash
+      args:
+        creates: /usr/local/bin/nerdctl
+
+    # yamllint disable rule:line-length
+    - name: Install buildkit for nerdctl
+      ansible.builtin.shell:
+        cmd: |
+          set -o pipefail
+          if [ ! -d /opt/buildkit ]; then
+            mkdir -p /opt/buildkit
+            curl -sSL https://github.com/moby/buildkit/releases/download/v0.13.2/buildkit-v0.13.2.linux-amd64.tar.gz | tar -xz -C /opt/buildkit --strip-components=1
+            ln -sf /opt/buildkit/buildkitd /usr/local/bin/buildkitd
+            ln -sf /opt/buildkit/buildctl /usr/local/bin/buildctl
+          fi
+        executable: /bin/bash
+      args:
+        creates: /opt/buildkit/buildkitd
+    # yamllint enable rule:line-length
+
+    - name: Remove existing containerd directory
+      ansible.builtin.file:
+        path: /run/containerd
+        state: absent
+
+    - name: Create containerd socket symlink for nerdctl
+      ansible.builtin.file:
+        src: /run/k3s/containerd
+        dest: /run/containerd
+        state: link
+
+    - name: Create buildkit config directory
+      ansible.builtin.file:
+        path: /etc/buildkit
+        state: directory
+        mode: "0755"
+
+    - name: Create buildkit config for k3s containerd
+      ansible.builtin.copy:
+        dest: /etc/buildkit/buildkitd.toml
+        content: |
+          [worker.containerd]
+            address = "/run/k3s/containerd/containerd.sock"
+            enabled = true
+            namespace = "k8s.io"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart buildkit
+
+    - name: Create buildkit systemd service
+      ansible.builtin.copy:
+        dest: /etc/systemd/system/buildkit.service
+        content: |
+          [Unit]
+          Description=BuildKit
+          After=network.target k3s.service
+
+          [Service]
+          ExecStart=/usr/local/bin/buildkitd --config /etc/buildkit/buildkitd.toml --addr unix:///run/buildkit/buildkitd.sock
+          Restart=always
+          RestartSec=5
+
+          [Install]
+          WantedBy=multi-user.target
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart buildkit
+
+    - name: Create buildkit socket directory
+      ansible.builtin.file:
+        path: /run/buildkit
+        state: directory
+        mode: "0755"
+
+    - name: Enable and start buildkit
+      ansible.builtin.systemd:
+        name: buildkit
+        enabled: true
+        state: restarted
+        daemon_reload: true
+
+    - name: Display cluster status
+      ansible.builtin.shell:
+        cmd: |
+          echo "=== Nodes ==="
+          k3s kubectl get nodes
+          echo ""
+          echo "=== Ingress Controller ==="
+          k3s kubectl -n ingress-nginx get pods
+          echo ""
+          echo "=== Cert Manager ==="
+          k3s kubectl -n cert-manager get pods
+      register: cluster_status
+      changed_when: false
+
+    - name: Show cluster status
+      ansible.builtin.debug:
+        var: cluster_status.stdout_lines
+
+  handlers:
+    - name: Restart buildkit
+      ansible.builtin.systemd:
+        name: buildkit
+        state: restarted
+        daemon_reload: true
