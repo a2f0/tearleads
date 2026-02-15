@@ -2,8 +2,13 @@ import type { ReactNode } from 'react';
 
 export interface DialogTitleProps {
   children: ReactNode;
+  id?: string;
 }
 
-export function DialogTitle({ children }: DialogTitleProps) {
-  return <h2 className="font-semibold text-lg">{children}</h2>;
+export function DialogTitle({ children, id }: DialogTitleProps) {
+  return (
+    <h2 id={id} className="font-semibold text-lg">
+      {children}
+    </h2>
+  );
 }

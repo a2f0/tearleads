@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { type PhotoAlbum, usePhotosUIContext } from '../../context';
 
 export interface RenameAlbumDialogProps {
@@ -17,54 +17,26 @@ export function RenameAlbumDialog({
   onAlbumRenamed
 }: RenameAlbumDialogProps) {
   const { ui, logError } = usePhotosUIContext();
-  const { Button, Input } = ui;
+  const {
+    Button,
+    Input,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter
+  } = ui;
 
   const [albumName, setAlbumName] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (open && album) {
       setAlbumName(album.name);
-      previousActiveElement.current = document.activeElement as HTMLElement;
       setTimeout(() => inputRef.current?.focus(), 0);
-    } else {
-      previousActiveElement.current?.focus();
     }
   }, [open, album]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && !isRenaming) {
-        onOpenChange(false);
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    },
-    [isRenaming, onOpenChange]
-  );
 
   const handleRename = async () => {
     if (!album || !albumName.trim() || isRenaming) return;
@@ -88,41 +60,21 @@ export function RenameAlbumDialog({
     }
   };
 
-  const handleCancel = () => {
-    if (isRenaming) return;
-    onOpenChange(false);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     void handleRename();
   };
 
-  if (!open || !album) return null;
+  if (!album) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleCancel}
-        aria-hidden="true"
-        data-testid="rename-album-dialog-backdrop"
-      />
-      <div
-        ref={dialogRef}
-        className="relative z-10 w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="rename-album-dialog-title"
-        data-testid="rename-album-dialog"
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-      >
-        <h2 id="rename-album-dialog-title" className="font-semibold text-lg">
-          Rename Album
-        </h2>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-testid="rename-album-dialog">
+        <DialogHeader>
+          <DialogTitle id="rename-album-dialog-title">Rename Album</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="mt-4">
+          <div className="py-4">
             <Input
               ref={inputRef}
               type="text"
@@ -134,11 +86,11 @@ export function RenameAlbumDialog({
               autoComplete="off"
             />
           </div>
-          <div className="mt-6 flex justify-end gap-3">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={handleCancel}
+              onClick={() => onOpenChange(false)}
               disabled={isRenaming}
               data-testid="rename-album-dialog-cancel"
             >
@@ -151,9 +103,9 @@ export function RenameAlbumDialog({
             >
               {isRenaming ? 'Saving...' : 'Save'}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

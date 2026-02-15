@@ -1,6 +1,5 @@
 import {
   WINDOW_TABLE_TYPOGRAPHY,
-  WindowContextMenu,
   WindowTableRow
 } from '@tearleads/window-manager';
 import {
@@ -114,7 +113,7 @@ export function PhotosWindowTableView({
     logError
   } = usePhotosUIContext();
 
-  const { InlineUnlock } = ui;
+  const { InlineUnlock, ContextMenu, ContextMenuItem } = ui;
   const { isUnlocked, isLoading } = databaseState;
 
   const [photos, setPhotos] = useState<PhotoWithUrl[]>([]);
@@ -439,86 +438,70 @@ export function PhotosWindowTableView({
       )}
 
       {contextMenu && (
-        <WindowContextMenu
+        <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={handleCloseContextMenu}
         >
           {contextMenu.photo.deleted ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+            <ContextMenuItem
+              icon={<RotateCcw className="h-4 w-4" />}
               onClick={handleRestore}
             >
-              <RotateCcw className="h-4 w-4" />
               {t('restore')}
-            </button>
+            </ContextMenuItem>
           ) : (
             <>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+              <ContextMenuItem
+                icon={<Info className="h-4 w-4" />}
                 onClick={handleGetInfo}
               >
-                <Info className="h-4 w-4" />
                 {t('getInfo')}
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Download className="h-4 w-4" />}
                 onClick={() => handleDownload(contextMenu.photo)}
               >
-                <Download className="h-4 w-4" />
                 {t('download')}
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={handleAddToAIChat}
-              >
+              </ContextMenuItem>
+              <ContextMenuItem onClick={handleAddToAIChat}>
                 Add to AI chat
-              </button>
+              </ContextMenuItem>
               {canShare && (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                <ContextMenuItem
+                  icon={<Share2 className="h-4 w-4" />}
                   onClick={() => handleShare(contextMenu.photo)}
                 >
-                  <Share2 className="h-4 w-4" />
                   {t('share')}
-                </button>
+                </ContextMenuItem>
               )}
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+              <ContextMenuItem
+                icon={<Trash2 className="h-4 w-4" />}
                 onClick={handleDelete}
               >
-                <Trash2 className="h-4 w-4" />
                 {t('delete')}
-              </button>
+              </ContextMenuItem>
             </>
           )}
-        </WindowContextMenu>
+        </ContextMenu>
       )}
 
       {blankSpaceMenu && onUpload && (
-        <WindowContextMenu
+        <ContextMenu
           x={blankSpaceMenu.x}
           y={blankSpaceMenu.y}
           onClose={() => setBlankSpaceMenu(null)}
         >
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+          <ContextMenuItem
+            icon={<Upload className="h-4 w-4" />}
             onClick={() => {
               onUpload();
               setBlankSpaceMenu(null);
             }}
           >
-            <Upload className="h-4 w-4" />
             Upload
-          </button>
-        </WindowContextMenu>
+          </ContextMenuItem>
+        </ContextMenu>
       )}
     </div>
   );

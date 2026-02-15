@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import { type PhotoAlbum, usePhotosUIContext } from '../../context';
 
 export interface DeleteAlbumDialogProps {
@@ -17,52 +17,17 @@ export function DeleteAlbumDialog({
   onAlbumDeleted
 }: DeleteAlbumDialogProps) {
   const { ui, logError } = usePhotosUIContext();
-  const { Button } = ui;
+  const {
+    Button,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogDescription,
+    DialogFooter
+  } = ui;
 
   const [isDeleting, setIsDeleting] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
-  const cancelButtonRef = useRef<HTMLButtonElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      previousActiveElement.current = document.activeElement as HTMLElement;
-      setTimeout(() => cancelButtonRef.current?.focus(), 0);
-    } else {
-      previousActiveElement.current?.focus();
-    }
-  }, [open]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && !isDeleting) {
-        onOpenChange(false);
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    },
-    [isDeleting, onOpenChange]
-  );
 
   const handleDelete = async () => {
     if (!album || isDeleting) return;
@@ -82,44 +47,23 @@ export function DeleteAlbumDialog({
     }
   };
 
-  const handleCancel = () => {
-    if (isDeleting) return;
-    onOpenChange(false);
-  };
-
-  if (!open || !album) return null;
+  if (!album) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleCancel}
-        aria-hidden="true"
-        data-testid="delete-album-dialog-backdrop"
-      />
-      <div
-        ref={dialogRef}
-        className="relative z-10 w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="delete-album-dialog-title"
-        data-testid="delete-album-dialog"
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-      >
-        <h2 id="delete-album-dialog-title" className="font-semibold text-lg">
-          Delete Album
-        </h2>
-        <p className="mt-4 text-muted-foreground text-sm">
-          Are you sure you want to delete "{album.name}"? This will remove the
-          album but your photos will not be deleted.
-        </p>
-        <div className="mt-6 flex justify-end gap-3">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-testid="delete-album-dialog">
+        <DialogHeader>
+          <DialogTitle id="delete-album-dialog-title">Delete Album</DialogTitle>
+          <DialogDescription>
+            Are you sure you want to delete "{album.name}"? This will remove the
+            album but your photos will not be deleted.
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
           <Button
-            ref={cancelButtonRef}
             type="button"
             variant="outline"
-            onClick={handleCancel}
+            onClick={() => onOpenChange(false)}
             disabled={isDeleting}
             data-testid="delete-album-dialog-cancel"
           >
@@ -136,8 +80,8 @@ export function DeleteAlbumDialog({
           >
             {isDeleting ? 'Deleting...' : 'Delete'}
           </Button>
-        </div>
-      </div>
-    </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -3,7 +3,6 @@ import {
   useResizableSidebar,
   useSidebarDragOver,
   useSidebarRefetch,
-  WindowContextMenu,
   WindowSidebarError,
   WindowSidebarHeader,
   WindowSidebarItem,
@@ -65,8 +64,9 @@ export function PhotosAlbumsSidebar({
   filterFilesByAccept,
   getMediaDragIds
 }: PhotosAlbumsSidebarProps) {
-  const { fetchAlbums, renameAlbum, deleteAlbum, logError } =
+  const { ui, fetchAlbums, renameAlbum, deleteAlbum, logError } =
     usePhotosUIContext();
+  const { ContextMenu, ContextMenuItem } = ui;
 
   const [albums, setAlbums] = useState<PhotoAlbum[]>([]);
   const [loading, setLoading] = useState(true);
@@ -298,6 +298,8 @@ export function PhotosAlbumsSidebar({
           onClose={() => setContextMenu(null)}
           onRename={(album) => setRenameDialogAlbum(album)}
           onDelete={(album) => setDeleteDialogAlbum(album)}
+          ContextMenu={ContextMenu}
+          ContextMenuItem={ContextMenuItem}
         />
       )}
 
@@ -311,6 +313,8 @@ export function PhotosAlbumsSidebar({
             setNewAlbumDialogOpen(true);
             setEmptySpaceContextMenu(null);
           }}
+          ContextMenu={ContextMenu}
+          ContextMenuItem={ContextMenuItem}
         />
       )}
 
@@ -354,6 +358,17 @@ interface AlbumContextMenuProps {
   onClose: () => void;
   onRename: (album: PhotoAlbum) => void;
   onDelete: (album: PhotoAlbum) => void;
+  ContextMenu: React.ComponentType<{
+    x: number;
+    y: number;
+    onClose: () => void;
+    children: React.ReactNode;
+  }>;
+  ContextMenuItem: React.ComponentType<{
+    icon?: React.ReactNode;
+    onClick: () => void;
+    children: React.ReactNode;
+  }>;
 }
 
 function AlbumContextMenu({
@@ -362,7 +377,9 @@ function AlbumContextMenu({
   album,
   onClose,
   onRename,
-  onDelete
+  onDelete,
+  ContextMenu,
+  ContextMenuItem
 }: AlbumContextMenuProps) {
   const showRename = canRenameAlbum(album);
   const showDelete = canDeleteAlbum(album);
@@ -374,38 +391,28 @@ function AlbumContextMenu({
   }
 
   return (
-    <WindowContextMenu
-      x={x}
-      y={y}
-      onClose={onClose}
-      backdropTestId="album-context-menu-backdrop"
-      menuTestId="album-context-menu"
-    >
+    <ContextMenu x={x} y={y} onClose={onClose}>
       {showRename && (
-        <button
-          type="button"
-          className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+        <ContextMenuItem
           onClick={() => {
             onRename(album);
             onClose();
           }}
         >
           Rename
-        </button>
+        </ContextMenuItem>
       )}
       {showDelete && (
-        <button
-          type="button"
-          className="flex w-full items-center rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+        <ContextMenuItem
           onClick={() => {
             onDelete(album);
             onClose();
           }}
         >
           Delete
-        </button>
+        </ContextMenuItem>
       )}
-    </WindowContextMenu>
+    </ContextMenu>
   );
 }
 
@@ -415,30 +422,32 @@ interface EmptySpaceContextMenuProps {
   y: number;
   onClose: () => void;
   onNewAlbum: () => void;
+  ContextMenu: React.ComponentType<{
+    x: number;
+    y: number;
+    onClose: () => void;
+    children: React.ReactNode;
+  }>;
+  ContextMenuItem: React.ComponentType<{
+    icon?: React.ReactNode;
+    onClick: () => void;
+    children: React.ReactNode;
+  }>;
 }
 
 function EmptySpaceContextMenu({
   x,
   y,
   onClose,
-  onNewAlbum
+  onNewAlbum,
+  ContextMenu,
+  ContextMenuItem
 }: EmptySpaceContextMenuProps) {
   return (
-    <WindowContextMenu
-      x={x}
-      y={y}
-      onClose={onClose}
-      backdropTestId="empty-space-context-menu-backdrop"
-      menuTestId="empty-space-context-menu"
-    >
-      <button
-        type="button"
-        className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-        onClick={onNewAlbum}
-      >
-        <Plus className="h-4 w-4" />
+    <ContextMenu x={x} y={y} onClose={onClose}>
+      <ContextMenuItem icon={<Plus className="h-4 w-4" />} onClick={onNewAlbum}>
         New Album
-      </button>
-    </WindowContextMenu>
+      </ContextMenuItem>
+    </ContextMenu>
   );
 }

@@ -181,6 +181,7 @@ export interface DialogHeaderProps {
 
 export interface DialogTitleProps {
   children: React.ReactNode;
+  id?: string;
 }
 
 export interface DialogDescriptionProps {

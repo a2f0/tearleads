@@ -1,4 +1,3 @@
-import { WindowContextMenu } from '@tearleads/window-manager';
 import {
   Download,
   Info,
@@ -8,6 +7,7 @@ import {
   Upload
 } from 'lucide-react';
 import type { PhotoWithUrl } from '../../context';
+import { usePhotosUIContext } from '../../context';
 
 interface MenuPosition {
   x: number;
@@ -55,89 +55,76 @@ export function PhotosContentContextMenus({
   onUpload,
   labels
 }: PhotosContentContextMenusProps) {
+  const { ui } = usePhotosUIContext();
+  const { ContextMenu, ContextMenuItem } = ui;
+
   return (
     <>
       {contextMenu && (
-        <WindowContextMenu
+        <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
           onClose={onCloseContextMenu}
         >
           {contextMenu.photo.deleted ? (
-            <button
-              type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+            <ContextMenuItem
+              icon={<RotateCcw className="h-4 w-4" />}
               onClick={onRestore}
             >
-              <RotateCcw className="h-4 w-4" />
               {labels.restore}
-            </button>
+            </ContextMenuItem>
           ) : (
             <>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+              <ContextMenuItem
+                icon={<Info className="h-4 w-4" />}
                 onClick={onGetInfo}
               >
-                <Info className="h-4 w-4" />
                 {labels.getInfo}
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+              </ContextMenuItem>
+              <ContextMenuItem
+                icon={<Download className="h-4 w-4" />}
                 onClick={() => onDownload(contextMenu.photo)}
               >
-                <Download className="h-4 w-4" />
                 {labels.download}
-              </button>
-              <button
-                type="button"
-                className="flex w-full items-center rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
-                onClick={onAddToAIChat}
-              >
+              </ContextMenuItem>
+              <ContextMenuItem onClick={onAddToAIChat}>
                 Add to AI chat
-              </button>
+              </ContextMenuItem>
               {canShare && (
-                <button
-                  type="button"
-                  className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+                <ContextMenuItem
+                  icon={<Share2 className="h-4 w-4" />}
                   onClick={() => onShare(contextMenu.photo)}
                 >
-                  <Share2 className="h-4 w-4" />
                   {labels.share}
-                </button>
+                </ContextMenuItem>
               )}
-              <button
-                type="button"
-                className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-destructive text-sm hover:bg-destructive hover:text-destructive-foreground"
+              <ContextMenuItem
+                icon={<Trash2 className="h-4 w-4" />}
                 onClick={onDelete}
               >
-                <Trash2 className="h-4 w-4" />
                 {labels.delete}
-              </button>
+              </ContextMenuItem>
             </>
           )}
-        </WindowContextMenu>
+        </ContextMenu>
       )}
 
       {blankSpaceMenu && onUpload && (
-        <WindowContextMenu
+        <ContextMenu
           x={blankSpaceMenu.x}
           y={blankSpaceMenu.y}
           onClose={onCloseBlankSpaceMenu}
         >
-          <button
-            type="button"
-            className="flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-sm hover:bg-accent hover:text-accent-foreground"
+          <ContextMenuItem
+            icon={<Upload className="h-4 w-4" />}
             onClick={() => {
               onUpload();
               onCloseBlankSpaceMenu();
             }}
           >
-            <Upload className="h-4 w-4" />
             Upload
-          </button>
-        </WindowContextMenu>
+          </ContextMenuItem>
+        </ContextMenu>
       )}
     </>
   );

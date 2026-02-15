@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { usePhotosUIContext } from '../../context';
 
 export interface NewAlbumDialogProps {
@@ -13,54 +13,26 @@ export function NewAlbumDialog({
   onAlbumCreated
 }: NewAlbumDialogProps) {
   const { ui, createAlbum, logError } = usePhotosUIContext();
-  const { Button, Input } = ui;
+  const {
+    Button,
+    Input,
+    Dialog,
+    DialogContent,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter
+  } = ui;
 
   const [albumName, setAlbumName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
-  const dialogRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const previousActiveElement = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (open) {
       setAlbumName('');
-      previousActiveElement.current = document.activeElement as HTMLElement;
       setTimeout(() => inputRef.current?.focus(), 0);
-    } else {
-      previousActiveElement.current?.focus();
     }
   }, [open]);
-
-  const handleKeyDown = useCallback(
-    (e: React.KeyboardEvent) => {
-      if (e.key === 'Escape' && !isCreating) {
-        onOpenChange(false);
-        return;
-      }
-
-      if (e.key === 'Tab') {
-        const focusableElements =
-          dialogRef.current?.querySelectorAll<HTMLElement>(
-            'button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])'
-          );
-        if (!focusableElements || focusableElements.length === 0) return;
-
-        const firstElement = focusableElements[0];
-        const lastElement = focusableElements[focusableElements.length - 1];
-
-        if (!firstElement || !lastElement) return;
-
-        if (e.shiftKey && document.activeElement === firstElement) {
-          e.preventDefault();
-          lastElement.focus();
-        } else if (!e.shiftKey && document.activeElement === lastElement) {
-          e.preventDefault();
-          firstElement.focus();
-        }
-      }
-    },
-    [isCreating, onOpenChange]
-  );
 
   const handleCreate = async () => {
     if (!albumName.trim() || isCreating) return;
@@ -80,41 +52,19 @@ export function NewAlbumDialog({
     }
   };
 
-  const handleCancel = () => {
-    if (isCreating) return;
-    onOpenChange(false);
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     void handleCreate();
   };
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={handleCancel}
-        aria-hidden="true"
-        data-testid="new-album-dialog-backdrop"
-      />
-      <div
-        ref={dialogRef}
-        className="relative z-10 w-full max-w-md rounded-lg border bg-background p-6 shadow-lg"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="new-album-dialog-title"
-        data-testid="new-album-dialog"
-        tabIndex={-1}
-        onKeyDown={handleKeyDown}
-      >
-        <h2 id="new-album-dialog-title" className="font-semibold text-lg">
-          New Album
-        </h2>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent data-testid="new-album-dialog">
+        <DialogHeader>
+          <DialogTitle id="new-album-dialog-title">New Album</DialogTitle>
+        </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <div className="mt-4">
+          <div className="py-4">
             <Input
               ref={inputRef}
               type="text"
@@ -126,11 +76,11 @@ export function NewAlbumDialog({
               autoComplete="off"
             />
           </div>
-          <div className="mt-6 flex justify-end gap-3">
+          <DialogFooter>
             <Button
               type="button"
               variant="outline"
-              onClick={handleCancel}
+              onClick={() => onOpenChange(false)}
               disabled={isCreating}
               data-testid="new-album-dialog-cancel"
             >
@@ -143,9 +93,9 @@ export function NewAlbumDialog({
             >
               {isCreating ? 'Creating...' : 'Create'}
             </Button>
-          </div>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
