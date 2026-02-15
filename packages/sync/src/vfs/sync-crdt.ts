@@ -317,6 +317,13 @@ function prepareOperation(
     if (!parentId || !childId) {
       return null;
     }
+    if (parentId === childId) {
+      /**
+       * Guardrail: self-referential links create immediate cycles and are
+       * rejected at CRDT normalization so they cannot enter canonical state.
+       */
+      return null;
+    }
 
     return {
       kind: 'link',
@@ -363,14 +370,15 @@ export function assertCanonicalVfsCrdtOperationOrder(
       continue;
     }
 
-    const stamp = parseStamp(operation);
-    if (!stamp) {
+    const preparedOperation = prepareOperation(operation);
+    if (!preparedOperation) {
       throw new VfsCrdtOrderViolationError(
         'invalidOperation',
         index,
         `CRDT operation ${index} is invalid`
       );
     }
+    const stamp = preparedOperation.stamp;
 
     if (seenOpIds.has(stamp.opId)) {
       throw new VfsCrdtOrderViolationError(
