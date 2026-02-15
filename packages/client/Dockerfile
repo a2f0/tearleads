@@ -18,6 +18,7 @@ COPY packages/camera/package.json packages/camera/
 COPY packages/classic/package.json packages/classic/
 COPY packages/client/package.json packages/client/
 COPY packages/compliance/package.json packages/compliance/
+COPY packages/console/package.json packages/console/
 COPY packages/contacts/package.json packages/contacts/
 COPY packages/db/package.json packages/db/
 COPY packages/db-test-utils/package.json packages/db-test-utils/
@@ -52,6 +53,7 @@ COPY packages/camera packages/camera
 COPY packages/classic packages/classic
 COPY packages/client packages/client
 COPY packages/compliance packages/compliance
+COPY packages/console packages/console
 COPY packages/contacts packages/contacts
 COPY packages/db packages/db
 COPY packages/db-test-utils packages/db-test-utils
@@ -82,9 +84,10 @@ RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/search build
 
 # Build client (VITE_API_URL must be set at build time)
+# Use tsconfig.docker.json to exclude test files from type checking
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
-RUN pnpm --filter @tearleads/client build
+RUN cd packages/client && pnpm tsc -p tsconfig.docker.json && cross-env DOTENV_CONFIG_QUIET=true pnpm vite build
 
 # Production stage - nginx
 FROM nginx:alpine
