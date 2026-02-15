@@ -23,11 +23,12 @@ This runbook covers staged rollout verification for the flattening migration cha
 1. `v042` (drop `vfs_shares` after executable step-1 guardrails)
 1. `v043` (drop `org_shares` after step-1 audit + executable step-2 guards)
 1. `v044` (finalize share retirement by dropping transitional scaffolding)
+1. `v045` (canonicalize active legacy org-share ACL identifiers)
 
 ## Ordering Guardrails
 
 1. Deploy runtime code that writes flattened blob/ACL state before running destructive drops.
-1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030` -> `v031` -> `v032` -> `v033` -> `v034` -> `v035` -> `v036` -> `v037` -> `v038` -> `v039` -> `v040` -> `v041` -> `v042` -> `v043` -> `v044`).
+1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030` -> `v031` -> `v032` -> `v033` -> `v034` -> `v035` -> `v036` -> `v037` -> `v038` -> `v039` -> `v040` -> `v041` -> `v042` -> `v043` -> `v044` -> `v045`).
 1. Treat any migration guardrail exception as fail-closed and stop rollout.
 1. Do not continue to a destructive migration when parity checks return non-zero rows.
 
@@ -56,6 +57,7 @@ This runbook covers staged rollout verification for the flattening migration cha
    - `packages/api/src/migrations/v042.ts`
    - `packages/api/src/migrations/v043.ts`
    - `packages/api/src/migrations/v044.ts`
+   - `packages/api/src/migrations/v045.ts`
 1. Confirm branch includes the schema retirement commit for `vfs_blob_objects` in canonical schema generation.
 1. Record baseline counts:
 
@@ -86,13 +88,13 @@ SELECT COUNT(*) AS legacy_vfs_folders FROM vfs_folders;
 ## Migration Execution
 
 1. Run normal API migration entrypoint (same mechanism used in production deploy).
-1. Verify schema version reaches `44`.
+1. Verify schema version reaches `45`.
 
 ```sql
 SELECT MAX(version) AS schema_version FROM schema_migrations;
 ```
 
-1. If schema version is below `44`, stop and inspect migration logs.
+1. If schema version is below `45`, stop and inspect migration logs.
 
 ## Post-Migration Parity Checks
 
@@ -129,6 +131,13 @@ SELECT COUNT(*) AS active_org_share_source_acl_rows
 FROM vfs_acl_entries
 WHERE revoked_at IS NULL
   AND id LIKE 'org-share:%';
+
+SELECT COUNT(*) AS active_legacy_org_share_acl_ids
+FROM vfs_acl_entries
+WHERE principal_type = 'organization'
+  AND revoked_at IS NULL
+  AND id LIKE 'org-share:%'
+  AND id NOT LIKE 'org-share:%:%';
 ```
 
 1. Every flattened blob-stage row should have canonical `blobStage` type.

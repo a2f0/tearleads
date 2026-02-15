@@ -44,6 +44,7 @@ import { v041 } from './v041.js';
 import { v042 } from './v042.js';
 import { v043 } from './v043.js';
 import { v044 } from './v044.js';
+import { v045 } from './v045.js';
 
 export type { Migration, MigrationFn } from './types.js';
 
@@ -95,7 +96,8 @@ export const migrations: Migration[] = [
   v041,
   v042,
   v043,
-  v044
+  v044,
+  v045
 ];
 
 /**
