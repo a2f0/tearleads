@@ -118,6 +118,22 @@ describe('VFS Shares routes', () => {
       expect(response.body.shares).toHaveLength(1);
       expect(response.body.shares[0].id).toBe('share-1');
       expect(response.body.orgShares).toHaveLength(0);
+
+      const sharesQuerySql = mockQuery.mock.calls[1]?.[0];
+      if (typeof sharesQuerySql !== 'string') {
+        throw new Error('expected canonical shares query SQL');
+      }
+      expect(sharesQuerySql).toMatch(/\bvfs_acl_entries\b/u);
+      expect(sharesQuerySql).not.toMatch(/\bvfs_shares\b/u);
+      expect(sharesQuerySql).not.toMatch(/\bvfs_access\b/u);
+
+      const orgSharesQuerySql = mockQuery.mock.calls[2]?.[0];
+      if (typeof orgSharesQuerySql !== 'string') {
+        throw new Error('expected canonical org-shares query SQL');
+      }
+      expect(orgSharesQuerySql).toMatch(/\bvfs_acl_entries\b/u);
+      expect(orgSharesQuerySql).not.toMatch(/\borg_shares\b/u);
+      expect(orgSharesQuerySql).not.toMatch(/\bvfs_access\b/u);
     });
 
     it('returns 500 when share rows contain malformed ACL ids', async () => {
