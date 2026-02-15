@@ -1637,6 +1637,151 @@ describe('VfsBackgroundSyncClient', () => {
     );
   });
 
+  it('keeps listChangedContainers pagination forward-only after hydrate rejection race', async () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const server = new InMemoryVfsCrdtSyncServer();
+    let pushStarted = false;
+    let releaseDesktopPush: (() => void) | null = null;
+    const desktopPushGate = new Promise<void>((resolve) => {
+      releaseDesktopPush = resolve;
+    });
+
+    const desktopTransport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        pushStarted = true;
+        await desktopPushGate;
+        return server.pushOperations({
+          operations: input.operations
+        });
+      },
+      pullOperations: async (input) =>
+        server.pullOperations({
+          cursor: input.cursor,
+          limit: input.limit
+        })
+    };
+    const mobileTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 2,
+      pullDelayMs: 2
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport
+    );
+
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-seed',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T14:24:00.000Z'
+    });
+    await mobile.flush();
+    await desktop.sync();
+
+    const baselinePage = desktop.listChangedContainers(null, 1);
+    const baselineCursor = baselinePage.nextCursor;
+    if (!baselineCursor) {
+      throw new Error('expected baseline container cursor');
+    }
+
+    desktop.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-desktop',
+      principalType: 'organization',
+      principalId: 'org-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T14:24:02.000Z'
+    });
+    const desktopFlushPromise = desktop.flush();
+    await waitFor(() => pushStarted, 1000);
+
+    mobile.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-mobile',
+      parentId: 'root',
+      childId: 'item-mobile',
+      occurredAt: '2026-02-14T14:24:01.000Z'
+    });
+    await mobile.flush();
+    await mobile.sync();
+
+    expect(() => desktop.hydrateState(desktop.exportState())).toThrowError(
+      /flush is in progress/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message: 'cannot hydrate state while flush is in progress'
+    });
+
+    if (!releaseDesktopPush) {
+      throw new Error('missing desktop push release hook');
+    }
+    releaseDesktopPush();
+    await desktopFlushPromise;
+
+    for (let index = 0; index < 3; index++) {
+      await Promise.all([desktop.sync(), mobile.sync()]);
+    }
+
+    const firstPageAfterBaseline = desktop.listChangedContainers(
+      baselineCursor,
+      1
+    );
+    expect(firstPageAfterBaseline.items.length).toBe(1);
+    const firstCursor = firstPageAfterBaseline.nextCursor;
+    if (!firstCursor) {
+      throw new Error('expected pagination cursor after first forward page');
+    }
+    expect(
+      compareVfsSyncCursorOrder(
+        {
+          changedAt: firstPageAfterBaseline.items[0]?.changedAt ?? '',
+          changeId: firstPageAfterBaseline.items[0]?.changeId ?? ''
+        },
+        baselineCursor
+      )
+    ).toBeGreaterThan(0);
+
+    const secondPageAfterBaseline = desktop.listChangedContainers(
+      firstCursor,
+      10
+    );
+    for (const item of secondPageAfterBaseline.items) {
+      expect(
+        compareVfsSyncCursorOrder(
+          {
+            changedAt: item.changedAt,
+            changeId: item.changeId
+          },
+          firstCursor
+        )
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
