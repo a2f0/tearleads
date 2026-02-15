@@ -1,8 +1,11 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
-  assertItemShareReadParity,
+  extractOrgShareIdFromAclId,
+  extractShareIdFromAclId,
+  extractSourceOrgIdFromOrgShareAclId,
   loadOrgShareAuthorizationContext,
   loadShareAuthorizationContext,
+  mapAclAccessLevelToSharePermissionLevel,
   mapSharePermissionLevelToAclAccessLevel
 } from './shared.js';
 
@@ -18,52 +21,45 @@ describe('vfs share acl mapping', () => {
   it('maps download permission to read access (fail-closed)', () => {
     expect(mapSharePermissionLevelToAclAccessLevel('download')).toBe('read');
   });
+
+  it('maps read access to view permission', () => {
+    expect(mapAclAccessLevelToSharePermissionLevel('read')).toBe('view');
+  });
+
+  it('maps write access to edit permission', () => {
+    expect(mapAclAccessLevelToSharePermissionLevel('write')).toBe('edit');
+  });
+
+  it('maps admin access to edit permission (fail-closed)', () => {
+    expect(mapAclAccessLevelToSharePermissionLevel('admin')).toBe('edit');
+  });
 });
 
-describe('share read guardrails', () => {
-  it('passes when item-level legacy rows have canonical active ACL parity', async () => {
-    const query = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [{ missing_count: 0 }] })
-      .mockResolvedValueOnce({ rows: [{ missing_count: '0' }] });
-
-    await expect(
-      assertItemShareReadParity({ query }, 'item-1')
-    ).resolves.toBeUndefined();
+describe('share id helpers', () => {
+  it('extracts share id from share acl id', () => {
+    expect(extractShareIdFromAclId('share:abc')).toBe('abc');
   });
 
-  it('fails closed when vfs_shares rows are missing canonical parity', async () => {
-    const query = vi.fn().mockResolvedValueOnce({
-      rows: [{ missing_count: 2 }]
-    });
-
-    await expect(
-      assertItemShareReadParity({ query }, 'item-1')
-    ).rejects.toThrow(
-      'vfs_shares rows are missing canonical active ACL parity'
-    );
+  it('extracts org share id from legacy org-share acl id', () => {
+    expect(extractOrgShareIdFromAclId('org-share:abc')).toBe('abc');
+    expect(extractSourceOrgIdFromOrgShareAclId('org-share:abc')).toBeNull();
   });
 
-  it('fails closed when org_shares rows are missing canonical parity', async () => {
-    const query = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [{ missing_count: 0 }] })
-      .mockResolvedValueOnce({ rows: [{ missing_count: '3' }] });
-
-    await expect(
-      assertItemShareReadParity({ query }, 'item-1')
-    ).rejects.toThrow(
-      'org_shares rows are missing canonical active ACL parity'
+  it('extracts org share id and source org from canonical org-share acl id', () => {
+    expect(extractOrgShareIdFromAclId('org-share:org-1:abc')).toBe('abc');
+    expect(extractSourceOrgIdFromOrgShareAclId('org-share:org-1:abc')).toBe(
+      'org-1'
     );
   });
 });
 
-describe('acl-first share authorization context', () => {
+describe('canonical share authorization context', () => {
   it('returns canonical share authorization context when ACL row exists', async () => {
     const query = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           owner_id: 'owner-1',
+          acl_id: 'share:share-1',
           item_id: 'item-1',
           principal_type: 'user',
           principal_id: 'user-2',
@@ -76,97 +72,39 @@ describe('acl-first share authorization context', () => {
       loadShareAuthorizationContext({ query }, 'share-1')
     ).resolves.toEqual({
       ownerId: 'owner-1',
+      aclId: 'share:share-1',
       itemId: 'item-1',
       shareType: 'user',
       targetId: 'user-2',
-      accessLevel: 'write',
-      source: 'canonical'
+      accessLevel: 'write'
     });
   });
 
-  it('falls back to legacy share rows when canonical ACL row is missing', async () => {
-    const query = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            owner_id: 'owner-1',
-            item_id: 'item-1',
-            share_type: 'group',
-            target_id: 'group-2',
-            permission_level: 'download'
-          }
-        ]
-      });
-
-    await expect(
-      loadShareAuthorizationContext({ query }, 'share-1')
-    ).resolves.toEqual({
-      ownerId: 'owner-1',
-      itemId: 'item-1',
-      shareType: 'group',
-      targetId: 'group-2',
-      accessLevel: 'read',
-      source: 'legacy'
-    });
-  });
-
-  it('accepts legacy-shaped auth rows returned by a compatibility mock', async () => {
-    const query = vi.fn().mockResolvedValueOnce({
-      rows: [
-        {
-          owner_id: 'owner-1',
-          item_id: 'item-1',
-          share_type: 'organization',
-          target_id: 'org-2',
-          permission_level: 'view'
-        }
-      ]
-    });
-
-    await expect(
-      loadShareAuthorizationContext({ query }, 'share-1')
-    ).resolves.toEqual({
-      ownerId: 'owner-1',
-      itemId: 'item-1',
-      shareType: 'organization',
-      targetId: 'org-2',
-      accessLevel: 'read',
-      source: 'legacy'
-    });
-    expect(query).toHaveBeenCalledTimes(1);
-  });
-
-  it('returns null when neither canonical nor legacy rows exist', async () => {
-    const query = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
+  it('returns null when canonical share ACL row is missing', async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [] });
 
     await expect(
       loadShareAuthorizationContext({ query }, 'share-1')
     ).resolves.toBeNull();
   });
 
-  it('accepts owner-only compatibility rows when explicitly enabled', async () => {
+  it('throws on unsupported canonical ACL principal types', async () => {
     const query = vi.fn().mockResolvedValueOnce({
-      rows: [{ owner_id: 'owner-1' }]
+      rows: [
+        {
+          owner_id: 'owner-1',
+          acl_id: 'share:share-1',
+          item_id: 'item-1',
+          principal_type: 'invalid',
+          principal_id: 'user-2',
+          access_level: 'read'
+        }
+      ]
     });
 
     await expect(
-      loadShareAuthorizationContext({ query }, 'share-1', {
-        allowOwnerOnlyMockRow: true
-      })
-    ).resolves.toEqual({
-      ownerId: 'owner-1',
-      itemId: '',
-      shareType: 'user',
-      targetId: '',
-      accessLevel: 'read',
-      source: 'legacy'
-    });
-    expect(query).toHaveBeenCalledTimes(1);
+      loadShareAuthorizationContext({ query }, 'share-1')
+    ).rejects.toThrow('Unsupported ACL principal type');
   });
 
   it('throws on unsupported canonical ACL access levels', async () => {
@@ -174,6 +112,7 @@ describe('acl-first share authorization context', () => {
       rows: [
         {
           owner_id: 'owner-1',
+          acl_id: 'share:share-1',
           item_id: 'item-1',
           principal_type: 'user',
           principal_id: 'user-2',
@@ -188,12 +127,13 @@ describe('acl-first share authorization context', () => {
   });
 });
 
-describe('acl-first org-share authorization context', () => {
-  it('returns canonical org-share authorization context when ACL row exists', async () => {
+describe('canonical org-share authorization context', () => {
+  it('returns canonical org-share authorization context for legacy id format', async () => {
     const query = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           owner_id: 'owner-1',
+          acl_id: 'org-share:org-share-1',
           item_id: 'item-1',
           principal_id: 'org-2',
           access_level: 'read'
@@ -205,47 +145,23 @@ describe('acl-first org-share authorization context', () => {
       loadOrgShareAuthorizationContext({ query }, 'org-share-1')
     ).resolves.toEqual({
       ownerId: 'owner-1',
+      aclId: 'org-share:org-share-1',
       itemId: 'item-1',
       targetOrgId: 'org-2',
       accessLevel: 'read',
-      source: 'canonical'
+      sourceOrgId: null
     });
   });
 
-  it('falls back to legacy org-share rows when canonical ACL row is missing', async () => {
-    const query = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({
-        rows: [
-          {
-            owner_id: 'owner-1',
-            item_id: 'item-1',
-            target_org_id: 'org-2',
-            permission_level: 'edit'
-          }
-        ]
-      });
-
-    await expect(
-      loadOrgShareAuthorizationContext({ query }, 'org-share-1')
-    ).resolves.toEqual({
-      ownerId: 'owner-1',
-      itemId: 'item-1',
-      targetOrgId: 'org-2',
-      accessLevel: 'write',
-      source: 'legacy'
-    });
-  });
-
-  it('accepts legacy-shaped org-share auth rows returned by a compatibility mock', async () => {
+  it('returns canonical org-share authorization context for encoded source-org format', async () => {
     const query = vi.fn().mockResolvedValueOnce({
       rows: [
         {
           owner_id: 'owner-1',
+          acl_id: 'org-share:source-org:org-share-1',
           item_id: 'item-1',
-          target_org_id: 'org-2',
-          permission_level: 'download'
+          principal_id: 'org-2',
+          access_level: 'write'
         }
       ]
     });
@@ -254,22 +170,37 @@ describe('acl-first org-share authorization context', () => {
       loadOrgShareAuthorizationContext({ query }, 'org-share-1')
     ).resolves.toEqual({
       ownerId: 'owner-1',
+      aclId: 'org-share:source-org:org-share-1',
       itemId: 'item-1',
       targetOrgId: 'org-2',
-      accessLevel: 'read',
-      source: 'legacy'
+      accessLevel: 'write',
+      sourceOrgId: 'source-org'
     });
-    expect(query).toHaveBeenCalledTimes(1);
   });
 
-  it('returns null when neither canonical nor legacy org-share rows exist', async () => {
-    const query = vi
-      .fn()
-      .mockResolvedValueOnce({ rows: [] })
-      .mockResolvedValueOnce({ rows: [] });
+  it('returns null when canonical org-share ACL row is missing', async () => {
+    const query = vi.fn().mockResolvedValueOnce({ rows: [] });
 
     await expect(
       loadOrgShareAuthorizationContext({ query }, 'org-share-1')
     ).resolves.toBeNull();
+  });
+
+  it('throws on malformed canonical org-share ACL ids', async () => {
+    const query = vi.fn().mockResolvedValueOnce({
+      rows: [
+        {
+          owner_id: 'owner-1',
+          acl_id: 'org-share:source-org:',
+          item_id: 'item-1',
+          principal_id: 'org-2',
+          access_level: 'read'
+        }
+      ]
+    });
+
+    await expect(
+      loadOrgShareAuthorizationContext({ query }, 'org-share-1')
+    ).rejects.toThrow('Unsupported ACL id');
   });
 });

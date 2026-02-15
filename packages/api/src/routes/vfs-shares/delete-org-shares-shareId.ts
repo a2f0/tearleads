@@ -51,46 +51,15 @@ export const deleteOrgSharesShareidHandler = async (
         .json({ error: 'Not authorized to delete this org share' });
       return;
     }
-    const result = await pool.query('DELETE FROM org_shares WHERE id = $1', [
-      shareId
-    ]);
 
-    /**
-     * Guardrail: deleting org shares must revoke canonical org ACL visibility.
-     * Upsert keeps behavior deterministic for pre-dual-write historical rows.
-     */
     const revokedAt = new Date();
-    await pool.query(
-      `INSERT INTO vfs_acl_entries (
-          id,
-          item_id,
-          principal_type,
-          principal_id,
-          access_level,
-          wrapped_session_key,
-          wrapped_hierarchical_key,
-          granted_by,
-          created_at,
-          updated_at,
-          expires_at,
-          revoked_at
-        )
-        VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $7, NULL, $7)
-        ON CONFLICT (item_id, principal_type, principal_id)
-        DO UPDATE SET
-          access_level = EXCLUDED.access_level,
-          granted_by = EXCLUDED.granted_by,
-          updated_at = EXCLUDED.updated_at,
-          revoked_at = EXCLUDED.revoked_at`,
-      [
-        `org-share:${shareId}`,
-        authContext.itemId,
-        'organization',
-        authContext.targetOrgId,
-        authContext.accessLevel,
-        claims.sub,
-        revokedAt
-      ]
+    const result = await pool.query(
+      `UPDATE vfs_acl_entries
+         SET revoked_at = $2,
+             updated_at = $2
+         WHERE id = $1
+           AND revoked_at IS NULL`,
+      [authContext.aclId, revokedAt]
     );
 
     res.json({ deleted: result.rowCount !== null && result.rowCount > 0 });

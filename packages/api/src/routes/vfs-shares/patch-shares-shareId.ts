@@ -1,14 +1,13 @@
-import type {
-  VfsPermissionLevel,
-  VfsShare,
-  VfsShareType
-} from '@tearleads/shared';
+import type { VfsShare, VfsShareType } from '@tearleads/shared';
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import {
+  extractShareIdFromAclId,
   loadShareAuthorizationContext,
+  mapAclAccessLevelToSharePermissionLevel,
   mapSharePermissionLevelToAclAccessLevel,
-  parseUpdateSharePayload
+  parseUpdateSharePayload,
+  type VfsAclAccessLevel
 } from './shared.js';
 
 /**
@@ -80,9 +79,7 @@ export const patchSharesShareidHandler = async (
     const { shareId } = req.params;
     const pool = await getPostgresPool();
 
-    const authContext = await loadShareAuthorizationContext(pool, shareId, {
-      allowOwnerOnlyMockRow: true
-    });
+    const authContext = await loadShareAuthorizationContext(pool, shareId);
     if (!authContext) {
       res.status(404).json({ error: 'Share not found' });
       return;
@@ -97,8 +94,10 @@ export const patchSharesShareidHandler = async (
     let paramIndex = 1;
 
     if (payload.permissionLevel !== undefined) {
-      updates.push(`permission_level = $${paramIndex++}`);
-      values.push(payload.permissionLevel);
+      updates.push(`access_level = $${paramIndex++}`);
+      values.push(
+        mapSharePermissionLevelToAclAccessLevel(payload.permissionLevel)
+      );
     }
 
     if (payload.expiresAt !== undefined) {
@@ -106,22 +105,34 @@ export const patchSharesShareidHandler = async (
       values.push(payload.expiresAt ? new Date(payload.expiresAt) : null);
     }
 
-    values.push(shareId);
+    const now = new Date();
+    updates.push(`updated_at = $${paramIndex++}`);
+    values.push(now);
+    values.push(authContext.aclId);
 
     const result = await pool.query<{
-      id: string;
+      acl_id: string;
       item_id: string;
       share_type: VfsShareType;
       target_id: string;
-      permission_level: VfsPermissionLevel;
-      created_by: string;
+      access_level: VfsAclAccessLevel;
+      created_by: string | null;
       created_at: Date;
       expires_at: Date | null;
     }>(
-      `UPDATE vfs_shares
+      `UPDATE vfs_acl_entries
          SET ${updates.join(', ')}
          WHERE id = $${paramIndex}
-         RETURNING id, item_id, share_type, target_id, permission_level, created_by, created_at, expires_at`,
+           AND revoked_at IS NULL
+         RETURNING
+           id AS acl_id,
+           item_id,
+           principal_type AS share_type,
+           principal_id AS target_id,
+           access_level,
+           granted_by AS created_by,
+           created_at,
+           expires_at`,
       values
     );
 
@@ -130,46 +141,6 @@ export const patchSharesShareidHandler = async (
       res.status(404).json({ error: 'Share not found' });
       return;
     }
-
-    /**
-     * Guardrail: keep canonical ACL state aligned with mutable share state.
-     * Updates clear revocation so reopened shares become active immediately.
-     */
-    await pool.query(
-      `INSERT INTO vfs_acl_entries (
-          id,
-          item_id,
-          principal_type,
-          principal_id,
-          access_level,
-          wrapped_session_key,
-          wrapped_hierarchical_key,
-          granted_by,
-          created_at,
-          updated_at,
-          expires_at,
-          revoked_at
-        )
-        VALUES ($1, $2, $3, $4, $5, NULL, NULL, $6, $7, $8, $9, NULL)
-        ON CONFLICT (item_id, principal_type, principal_id)
-        DO UPDATE SET
-          access_level = EXCLUDED.access_level,
-          granted_by = EXCLUDED.granted_by,
-          updated_at = EXCLUDED.updated_at,
-          expires_at = EXCLUDED.expires_at,
-          revoked_at = NULL`,
-      [
-        `share:${row.id}`,
-        row.item_id,
-        row.share_type,
-        row.target_id,
-        mapSharePermissionLevelToAclAccessLevel(row.permission_level),
-        claims.sub,
-        row.created_at,
-        new Date(),
-        row.expires_at
-      ]
-    );
 
     let targetName = 'Unknown';
     if (row.share_type === 'user') {
@@ -192,20 +163,28 @@ export const patchSharesShareidHandler = async (
       targetName = r.rows[0]?.name ?? 'Unknown';
     }
 
-    const creatorResult = await pool.query<{ email: string }>(
-      'SELECT email FROM users WHERE id = $1',
-      [row.created_by]
-    );
+    const creatorId = row.created_by ?? 'unknown';
+    const creatorEmail =
+      row.created_by === null
+        ? 'Unknown'
+        : ((
+            await pool.query<{ email: string }>(
+              'SELECT email FROM users WHERE id = $1',
+              [row.created_by]
+            )
+          ).rows[0]?.email ?? 'Unknown');
 
     const share: VfsShare = {
-      id: row.id,
+      id: extractShareIdFromAclId(row.acl_id),
       itemId: row.item_id,
       shareType: row.share_type,
       targetId: row.target_id,
       targetName,
-      permissionLevel: row.permission_level,
-      createdBy: row.created_by,
-      createdByEmail: creatorResult.rows[0]?.email ?? 'Unknown',
+      permissionLevel: mapAclAccessLevelToSharePermissionLevel(
+        row.access_level
+      ),
+      createdBy: creatorId,
+      createdByEmail: creatorEmail,
       createdAt: row.created_at.toISOString(),
       expiresAt: row.expires_at ? row.expires_at.toISOString() : null
     };
