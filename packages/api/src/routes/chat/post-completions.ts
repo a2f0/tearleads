@@ -1,3 +1,4 @@
+// COMPLIANCE_SENTINEL: TL-VENDOR-007 | control=openrouter-vendor
 import { randomUUID } from 'node:crypto';
 import {
   type ChatMessage,

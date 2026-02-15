@@ -197,6 +197,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 3. [P-03 Payment Infrastructure Policy](./policies/03-payment-infrastructure-policy.md)
 4. [P-04 Infrastructure Security Policy](./policies/04-infrastructure-security-policy.md)
 5. [P-05 End-to-End Encryption Policy](./policies/05-end-to-end-encryption-policy.md)
+6. [P-06 Vendor Management Policy](./policies/06-vendor-management-policy.md)
 
 ### Procedures
 
@@ -205,6 +206,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 3. [PR-03 Payment Infrastructure Procedure](./procedures/03-payment-infrastructure-procedure.md)
 4. [PR-04 Infrastructure Security Procedure](./procedures/04-infrastructure-security-procedure.md)
 5. [PR-05 End-to-End Encryption Procedure](./procedures/05-end-to-end-encryption-procedure.md)
+6. [PR-06 Vendor Management Procedure](./procedures/06-vendor-management-procedure.md)
 
 ### Technical Control Maps
 
@@ -213,6 +215,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 3. [TC-03 Payment Infrastructure Technical Control Map](./technical-controls/03-payment-infrastructure-control-map.md)
 4. [TC-04 Infrastructure Security Technical Control Map](./technical-controls/04-infrastructure-security-control-map.md)
 5. [TC-05 End-to-End Encryption Technical Control Map](./technical-controls/05-end-to-end-encryption-control-map.md)
+6. [TC-06 Vendor Management Technical Control Map](./technical-controls/06-vendor-management-control-map.md)
 
 ---
 

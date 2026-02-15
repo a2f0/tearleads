@@ -1,5 +1,6 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+// COMPLIANCE_SENTINEL: TL-VENDOR-006 | control=revenuecat-vendor
 // COMPLIANCE_SENTINEL: TL-PAY-001 | control=webhook-signature-verification
 // COMPLIANCE_SENTINEL: TL-PAY-002 | control=replay-attack-prevention
 

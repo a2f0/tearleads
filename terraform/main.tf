@@ -1,3 +1,4 @@
+# COMPLIANCE_SENTINEL: TL-VENDOR-002 | control=hetzner-cloud-vendor
 # COMPLIANCE_SENTINEL: TL-INFRA-001 | control=ssh-key-auth
 # SSH key-only authentication - password auth disabled via cloud-init
 data "hcloud_ssh_key" "main" {

@@ -1,3 +1,5 @@
+<!-- COMPLIANCE_SENTINEL: TL-VENDOR-010 | control=google-gemini-vendor -->
+
 # Gemini Code Review Instructions
 
 When reviewing pull requests in this repository, follow these guidelines.
