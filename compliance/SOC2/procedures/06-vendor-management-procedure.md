@@ -57,9 +57,10 @@
 | --- | --- | --- |
 | Hetzner Cloud | SOC 2 Type II, ISO 27001 | Request from vendor |
 | Microsoft Azure | SOC 2, ISO 27001, HIPAA | Azure compliance portal |
+| Let's Encrypt | WebTrust for CAs | Public audit reports |
 | GitHub | SOC 2 Type II | GitHub security page |
 | RevenueCat | SOC 2 Type II | Request from vendor |
-| Anthropic | SOC 2 Type II | Anthropic security page |
+| OpenRouter | Privacy policy (SOC 2 pending) | Known gap - monitor vendor |
 
 ### 6. Infrastructure Vendor Configuration Audit
 

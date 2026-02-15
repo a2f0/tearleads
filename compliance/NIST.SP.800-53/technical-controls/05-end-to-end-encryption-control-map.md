@@ -149,7 +149,7 @@ This map ties end-to-end encryption policy controls to concrete implementation a
 
 ## Ciphersuite Reference
 
-**MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519 (0x0003)**
+### MLS_128_DHKEMX25519_CHACHA20POLY1305_SHA256_Ed25519 (0x0003)
 
 | Property | Value | Standard |
 | --- | --- | --- |

@@ -21,7 +21,7 @@ This document maintains a centralized inventory of all third-party vendors with 
 
 ## Vendor Inventory
 
-### Tier 1: Infrastructure Vendors (Critical)
+### Tier 1: Critical Vendors
 
 | Vendor | Service | Data Classification | Contract Type | Compliance |
 | --- | --- | --- | --- | --- |
@@ -35,7 +35,7 @@ This document maintains a centralized inventory of all third-party vendors with 
 | --- | --- | --- | --- | --- |
 | [GitHub](#github) | Version control, CI/CD | Source code, secrets | Enterprise/Team | SOC 2 Type II, ISO 27001 |
 | [RevenueCat](#revenuecat) | Subscription billing | Billing identifiers | SaaS | SOC 2 Type II |
-| [OpenRouter](#openrouter) | AI/LLM API gateway | User prompts, responses | API credits | Privacy policy |
+| [OpenRouter](#openrouter) | AI/LLM API gateway | User prompts, responses | API credits | Privacy policy (SOC 2 pending - known gap) |
 
 ### Tier 3: Development Tools
 

@@ -55,14 +55,15 @@
 1. Review Terraform and Ansible configurations for external services:
 
 ```bash
-# Hetzner Cloud infrastructure
-ls -la terraform/*.tf
+# Hetzner Cloud infrastructure (verify SSH key usage)
+grep -r "hcloud_ssh_key" terraform/
 
-# Azure TEE infrastructure
-ls -la tee/*.tf
+# Azure TEE infrastructure (verify confidential VM and RBAC)
+grep -r "confidential_vm" tee/compute.tf
+grep -r "rbac_authorization_enabled = true" tee/kms.tf
 
-# Ansible server configuration
-ls -la ansible/playbooks/*.yml
+# Ansible server configuration (verify security settings)
+grep -r "PermitRootLogin no" ansible/playbooks/main.yml
 ```
 
 1. Verify security controls are implemented per policy.

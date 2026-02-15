@@ -107,9 +107,13 @@ Based on current architecture, no vendors have direct PHI access. If PHI process
 | --- | --- | --- |
 | Hetzner Cloud | No | N/A |
 | Microsoft Azure | No | BAA available if needed |
-| GitHub | No | N/A |
+| Let's Encrypt | No | N/A (no data processing) |
+| GitHub | No | Enterprise BAA available |
 | RevenueCat | No | N/A |
 | OpenRouter | No | N/A |
+| Anthropic | No | N/A |
+| OpenAI | No | N/A |
+| Google | No | Cloud DPA available |
 
 ## Exceptions
 
