@@ -3,10 +3,7 @@ import {
   getPrimaryKeyColumns,
   hasCompositePrimaryKey
 } from '../utils/primaryKey.js';
-import {
-  formatDefaultValue,
-  getSqliteTypeInfo
-} from '../utils/typeMapping.js';
+import { formatDefaultValue, getSqliteTypeInfo } from '../utils/typeMapping.js';
 
 /**
  * Generate a SQLite column definition.

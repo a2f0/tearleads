@@ -15,10 +15,7 @@ import {
   LaserScreensaver,
   ScreensaverProvider
 } from './components/screensaver';
-import {
-  ErrorBoundary,
-  errorBoundaryRef
-} from './components/ui/ErrorBoundary';
+import { ErrorBoundary, errorBoundaryRef } from './components/ui/ErrorBoundary';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';

@@ -2,11 +2,12 @@
  * Client-side VfsExplorerProvider wrapper that supplies all dependencies
  * to the @tearleads/vfs-explorer package components.
  */
+
+import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
 } from '@tearleads/vfsExplorer';
-import vfsExplorerPackageJson from '@tearleads/vfs-explorer/package.json';
 import {
   DesktopContextMenu as ContextMenu,
   DesktopContextMenuItem as ContextMenuItem,
