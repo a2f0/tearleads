@@ -76,6 +76,8 @@ compatibility branches that are no longer needed before production.
       surfaces.
 - [x] Remove residual explorer integration-test setup assumptions that inserted
       `vfs_folders` rows purely for fallback behavior checks.
+- [x] Add explicit client runtime source guardrail test to block reintroduction
+      of `vfs_folders`/`vfsFolders` outside migration paths.
 
 ## Verification Standard per Slice
 
