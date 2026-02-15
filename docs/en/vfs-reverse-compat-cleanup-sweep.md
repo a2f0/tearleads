@@ -54,8 +54,9 @@ compatibility branches that are no longer needed before production.
 - [x] Remove client DB integration write/read assumptions tied to `vfs_folders`
       (`packages/client/src/db/vfs-folder.integration.test.ts` now uses
       canonical `vfs_registry` only).
-- [ ] Remove remaining legacy-adapter/classic-test assumptions tied to
-      `vfs_folders`.
+- [x] Remove legacy-adapter/classic-test assumptions tied to `vfs_folders`
+      (`packages/classic/src/lib/vfsClassicAdapter.integration.test.ts` now
+      seeds canonical folder metadata via `vfs_registry` only).
 - [ ] Collapse migration notes that only existed to support fallback read paths.
 
 ### Slice D: Contract + Docs

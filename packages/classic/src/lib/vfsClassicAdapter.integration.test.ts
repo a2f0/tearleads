@@ -1,10 +1,4 @@
-import {
-  notes,
-  tags,
-  vfsFolders,
-  vfsLinks,
-  vfsRegistry
-} from '@tearleads/db/sqlite';
+import { notes, tags, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import {
   classicTestMigrations,
   withRealDatabase
@@ -39,11 +33,8 @@ describe('Classic VFS Integration (real database)', () => {
           id: CLASSIC_ROOT_ID,
           objectType: 'folder',
           ownerId: null,
+          encryptedName: 'Classic',
           createdAt: now
-        });
-        await db.insert(vfsFolders).values({
-          id: CLASSIC_ROOT_ID,
-          encryptedName: 'Classic'
         });
 
         const data = await queryClassicData(db);
@@ -591,11 +582,8 @@ async function seedClassicRoot(db: TestDb, now: Date): Promise<void> {
     id: CLASSIC_ROOT_ID,
     objectType: 'folder',
     ownerId: null,
+    encryptedName: 'Classic',
     createdAt: now
-  });
-  await db.insert(vfsFolders).values({
-    id: CLASSIC_ROOT_ID,
-    encryptedName: 'Classic'
   });
 }
 
