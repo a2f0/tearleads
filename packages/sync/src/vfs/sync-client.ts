@@ -514,6 +514,9 @@ export class VfsBackgroundSyncClient {
           'parentId and childId are required for link operations'
         );
       }
+      if (childId !== normalizedItemId) {
+        throw new Error('link childId must match itemId');
+      }
 
       operation.parentId = parentId;
       operation.childId = childId;
@@ -955,6 +958,11 @@ export class VfsBackgroundSyncClient {
       if (!parentId || !childId) {
         throw new Error(
           `state.pendingOperations[${index}] is missing link fields`
+        );
+      }
+      if (childId !== itemId) {
+        throw new Error(
+          `state.pendingOperations[${index}] has link childId that does not match itemId`
         );
       }
       normalized.parentId = parentId;

@@ -288,6 +288,24 @@ describe('VfsBackgroundSyncClient', () => {
     expect(secondContainerPage.hasMore).toBe(false);
   });
 
+  it('rejects queued link operations whose childId does not match itemId', () => {
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer())
+    );
+
+    expect(() =>
+      client.queueLocalOperation({
+        opType: 'link_add',
+        itemId: 'item-1',
+        parentId: 'root',
+        childId: 'item-2',
+        occurredAt: '2026-02-14T12:00:05.000Z'
+      })
+    ).toThrowError(/childId must match itemId/);
+  });
+
   it('coalesces concurrent flush calls and keeps queue on push failure', async () => {
     let pushAttempts = 0;
     const transport: VfsCrdtSyncTransport = {
@@ -954,6 +972,53 @@ describe('VfsBackgroundSyncClient', () => {
       stage: 'hydrate',
       message:
         'state.pendingOperations[0] has replicaId that does not match clientId'
+    });
+  });
+
+  it('fails closed when hydrated link pending operation has mismatched childId', () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer()),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    const persisted = client.exportState();
+    persisted.pendingOperations = [
+      {
+        opId: 'desktop-link-1',
+        opType: 'link_add',
+        itemId: 'item-1',
+        replicaId: 'desktop',
+        writeId: 1,
+        occurredAt: '2026-02-14T14:11:00.000Z',
+        parentId: 'root',
+        childId: 'item-2'
+      }
+    ];
+    persisted.nextLocalWriteId = 2;
+
+    expect(() => client.hydrateState(persisted)).toThrowError(
+      /childId that does not match itemId/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message:
+        'state.pendingOperations[0] has link childId that does not match itemId'
     });
   });
 
