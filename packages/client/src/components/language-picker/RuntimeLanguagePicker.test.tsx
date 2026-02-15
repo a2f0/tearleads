@@ -206,4 +206,44 @@ describe('RuntimeLanguagePicker', () => {
 
     setItemSpy.mockRestore();
   });
+
+  it('maps uk locale to Ukrainian flag', () => {
+    // Mock i18n to return 'uk' as the resolved language
+    const resolvedLanguageSpy = vi
+      .spyOn(i18nModule.i18n, 'resolvedLanguage', 'get')
+      .mockReturnValue('uk');
+
+    renderRuntimeLanguagePicker();
+
+    const trigger = screen.getByTestId('runtime-language-picker-trigger');
+    expect(trigger).toHaveTextContent('🇺🇦');
+
+    resolvedLanguageSpy.mockRestore();
+  });
+
+  it('keeps menu open when clicking inside menu container', async () => {
+    const user = userEvent.setup();
+    renderRuntimeLanguagePicker();
+
+    await user.click(screen.getByTestId('runtime-language-picker-trigger'));
+    const menu = screen.getByTestId('runtime-language-picker-menu');
+    expect(menu).toBeInTheDocument();
+
+    // Click on the menu itself (container ref should contain it)
+    await user.click(menu);
+    expect(menu).toBeInTheDocument();
+  });
+
+  it('shows check mark next to current language', async () => {
+    const user = userEvent.setup();
+    renderRuntimeLanguagePicker();
+
+    await user.click(screen.getByTestId('runtime-language-picker-trigger'));
+
+    const enOption = screen.getByTestId('runtime-language-option-en');
+    expect(enOption.querySelector('svg')).toBeInTheDocument();
+
+    const esOption = screen.getByTestId('runtime-language-option-es');
+    expect(esOption.querySelector('svg')).not.toBeInTheDocument();
+  });
 });
