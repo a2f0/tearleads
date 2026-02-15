@@ -1,15 +1,10 @@
 import { clsx } from 'clsx';
 import { useEffect, useState } from 'react';
+import type { CreateCalendarEventInput } from '../types';
 import { RecurrenceEditor } from './RecurrenceEditor';
 import { TimeRangePicker } from './TimeRangePicker';
 
-export interface CreateCalendarEventInput {
-  calendarName: string;
-  title: string;
-  startAt: Date;
-  endAt?: Date | null | undefined;
-  recurrence?: { rrule: string } | null | undefined;
-}
+export type { CreateCalendarEventInput };
 
 interface NewCalendarEventModalProps {
   open: boolean;
