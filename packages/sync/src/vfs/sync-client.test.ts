@@ -1476,6 +1476,118 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.snapshot().pendingOperations).toBe(0);
   });
 
+  it('preserves cross-client convergence after hydrate rejection during in-flight flush', async () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const server = new InMemoryVfsCrdtSyncServer();
+    let pushStarted = false;
+    let releaseDesktopPush: (() => void) | null = null;
+    const desktopPushGate = new Promise<void>((resolve) => {
+      releaseDesktopPush = resolve;
+    });
+
+    const desktopTransport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        pushStarted = true;
+        await desktopPushGate;
+        return server.pushOperations({
+          operations: input.operations
+        });
+      },
+      pullOperations: async (input) =>
+        server.pullOperations({
+          cursor: input.cursor,
+          limit: input.limit
+        })
+    };
+    const mobileTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 2,
+      pullDelayMs: 2
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport
+    );
+
+    desktop.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-desktop',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T14:22:02.000Z'
+    });
+    const desktopFlushPromise = desktop.flush();
+    await waitFor(() => pushStarted, 1000);
+
+    mobile.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-mobile',
+      parentId: 'root',
+      childId: 'item-mobile',
+      occurredAt: '2026-02-14T14:22:01.000Z'
+    });
+    await mobile.flush();
+    await mobile.sync();
+
+    const desktopStateBeforeHydrate = desktop.exportState();
+    const desktopPersisted = desktop.exportState();
+    expect(() => desktop.hydrateState(desktopPersisted)).toThrowError(
+      /flush is in progress/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message: 'cannot hydrate state while flush is in progress'
+    });
+    expect(desktop.exportState()).toEqual(desktopStateBeforeHydrate);
+
+    if (!releaseDesktopPush) {
+      throw new Error('missing desktop push release hook');
+    }
+    releaseDesktopPush();
+    await desktopFlushPromise;
+    for (let index = 0; index < 3; index++) {
+      await Promise.all([desktop.sync(), mobile.sync()]);
+    }
+
+    const serverSnapshot = server.snapshot();
+    const desktopSnapshot = desktop.snapshot();
+    const mobileSnapshot = mobile.snapshot();
+
+    expect(desktopSnapshot.pendingOperations).toBe(0);
+    expect(mobileSnapshot.pendingOperations).toBe(0);
+    expect(desktopSnapshot.acl).toEqual(serverSnapshot.acl);
+    expect(mobileSnapshot.acl).toEqual(serverSnapshot.acl);
+    expect(desktopSnapshot.links).toEqual(serverSnapshot.links);
+    expect(mobileSnapshot.links).toEqual(serverSnapshot.links);
+    expect(desktopSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+    expect(mobileSnapshot.lastReconciledWriteIds).toEqual(
+      serverSnapshot.lastReconciledWriteIds
+    );
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
