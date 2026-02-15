@@ -74,17 +74,23 @@ function getViewTitle(view: AdminView): string {
 function getBackTarget(view: AdminView): AdminView | null {
   if (view === 'index') return null;
   if (typeof view === 'string') return 'index';
-  if (view.type === 'group-detail') return 'groups';
-  if (view.type === 'organization-detail') return 'organizations';
-  if (view.type === 'user-detail') return 'users';
-  if (view.type === 'ai-requests') {
-    return view.from === 'user' && view.userId
-      ? { type: 'user-detail', userId: view.userId }
-      : 'users';
+
+  switch (view.type) {
+    case 'group-detail':
+      return 'groups';
+    case 'organization-detail':
+      return 'organizations';
+    case 'user-detail':
+      return 'users';
+    case 'ai-requests':
+      return view.from === 'user' && view.userId
+        ? { type: 'user-detail', userId: view.userId }
+        : 'users';
+    case 'postgres-table':
+      return 'postgres';
+    case 'compliance-doc':
+      return 'compliance';
   }
-  if (view.type === 'postgres-table') return 'postgres';
-  if (view.type === 'compliance-doc') return 'compliance';
-  return 'index';
 }
 
 export function AdminWindow({

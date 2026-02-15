@@ -170,22 +170,11 @@ export function ComplianceDocView({
         </nav>
 
         <div className="min-h-0 min-w-0 flex-1">
-          {effectiveDocument ? (
-            <MarkdownWithToc
-              source={effectiveDocument.source}
-              markdownColorMode={markdownColorMode}
-              linkComponent={renderMarkdownLink}
-            />
-          ) : (
-            <div className="rounded-md border bg-card p-4">
-              <h2 className="font-semibold text-lg tracking-tight">
-                Document Not Found
-              </h2>
-              <p className="mt-2 text-muted-foreground text-sm">
-                This document does not exist in the selected framework.
-              </p>
-            </div>
-          )}
+          <MarkdownWithToc
+            source={effectiveDocument?.source ?? ''}
+            markdownColorMode={markdownColorMode}
+            linkComponent={renderMarkdownLink}
+          />
         </div>
       </div>
     </div>
