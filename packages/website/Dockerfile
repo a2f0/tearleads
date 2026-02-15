@@ -22,6 +22,9 @@ COPY packages/api packages/api
 COPY packages/shared packages/shared
 COPY packages/db packages/db
 
+# Copy docs directory (used by website docs pages)
+COPY docs docs
+
 # Build dependencies and generate OpenAPI spec for /docs page
 RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/db build && \
