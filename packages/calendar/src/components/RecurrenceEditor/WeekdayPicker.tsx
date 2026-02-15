@@ -33,7 +33,7 @@ export function WeekdayPicker({
   };
 
   return (
-    <div className="flex gap-1" role="group" aria-label="Select days of week">
+    <fieldset className="flex gap-1" aria-label="Select days of week">
       {weekdayOptions.map((option, index) => {
         const isSelected = value.includes(option.value);
         return (
@@ -46,7 +46,7 @@ export function WeekdayPicker({
             aria-label={option.fullLabel}
             data-testid={`weekday-${option.fullLabel.toLowerCase()}`}
             className={clsx(
-              'flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors',
+              'flex h-8 w-8 items-center justify-center rounded-full font-medium text-sm transition-colors',
               isSelected
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted/40 text-muted-foreground hover:bg-muted',
@@ -57,6 +57,6 @@ export function WeekdayPicker({
           </button>
         );
       })}
-    </div>
+    </fieldset>
   );
 }

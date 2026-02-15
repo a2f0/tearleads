@@ -1,5 +1,5 @@
 import { isRecord, toFiniteNumber } from '@tearleads/shared';
-import { RRule, RRuleSet, rrulestr } from 'rrule';
+import { type RRule, RRuleSet, rrulestr } from 'rrule';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 
 export interface RecurrenceRule {

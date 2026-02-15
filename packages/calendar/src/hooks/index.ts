@@ -1,7 +1,7 @@
 export {
   isSlotInSelection,
   selectionToTimeRange,
-  useTimeRangeSelection,
   type TimeRangeSelection,
-  type TimeSlot
+  type TimeSlot,
+  useTimeRangeSelection
 } from './useTimeRangeSelection';

@@ -445,7 +445,8 @@ export function CalendarContent({
     ];
 
     return (
-      // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
+      // biome-ignore lint/a11y/noStaticElementInteractions: container with child interactive elements
+      // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard navigation handled by child hour slots
       <div
         className="h-full overflow-auto rounded-xl border bg-card p-4"
         data-testid="calendar-day-view"
