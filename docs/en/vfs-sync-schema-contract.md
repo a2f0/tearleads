@@ -88,6 +88,8 @@ latest `vfs_share_retirement_drop_execution_candidates` step-1 row is
 explicitly executable.
 `v043` executes destructive step-2 retirement for `org_shares` only after
 step-1 audit success and executable step-2 authorization/candidate refresh.
+`v044` finalizes retirement by dropping transitional share-retirement
+scaffolding tables once both destructive drop audits are durably recorded.
 Local-client compatibility paths still retain `vfs_folders` in SQLite while
 staged client cutover completes.
 
