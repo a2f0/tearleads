@@ -331,6 +331,42 @@ describe('VFS CRDT push route', () => {
     });
   });
 
+  it('returns invalidOp for link payload with childId mismatch', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery
+      .mockResolvedValueOnce({}) // BEGIN
+      .mockResolvedValueOnce({}); // COMMIT
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/push')
+      .set('Authorization', authHeader)
+      .send(buildLinkPushPayload({ childId: 'item-2' }));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      clientId: 'desktop',
+      results: [{ opId: 'desktop-link-1', status: 'invalidOp' }]
+    });
+  });
+
+  it('returns invalidOp for self-referential link payloads', async () => {
+    const authHeader = await createAuthHeader();
+    mockQuery
+      .mockResolvedValueOnce({}) // BEGIN
+      .mockResolvedValueOnce({}); // COMMIT
+
+    const response = await request(app)
+      .post('/v1/vfs/crdt/push')
+      .set('Authorization', authHeader)
+      .send(buildLinkPushPayload({ parentId: 'item-1' }));
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      clientId: 'desktop',
+      results: [{ opId: 'desktop-link-1', status: 'invalidOp' }]
+    });
+  });
+
   it('returns applied when operation insert succeeds', async () => {
     const authHeader = await createAuthHeader();
     mockQuery

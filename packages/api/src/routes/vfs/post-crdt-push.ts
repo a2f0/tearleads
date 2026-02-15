@@ -208,6 +208,19 @@ function parsePushOperation(
       };
     }
 
+    /**
+     * Guardrail: link operations target a single child item id. Any payload
+     * that mismatches `itemId`/`childId` or self-links must be rejected at
+     * API ingress so malformed graph mutations never enter canonical feed
+     * ordering.
+     */
+    if (childId !== itemId || parentId === childId) {
+      return {
+        status: 'invalid',
+        opId
+      };
+    }
+
     operation.parentId = parentId;
     operation.childId = childId;
   }
