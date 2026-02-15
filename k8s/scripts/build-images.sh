@@ -11,14 +11,9 @@ VITE_API_URL="https://api.k8s.${DOMAIN}/v1"
 
 echo "Building images on ${SERVER_IP}..."
 
-# Sync repo to server
-echo "Syncing repository..."
-rsync -az --delete \
-  --exclude=node_modules \
-  --exclude=.git \
-  --exclude=dist \
-  --exclude=.turbo \
-  ../../ "${USERNAME}@${SERVER_IP}:/opt/tearleads/"
+# Pull latest code from GitHub
+echo "Pulling latest from GitHub..."
+ssh "${USERNAME}@${SERVER_IP}" "cd /opt/tearleads && git pull"
 
 # Build images using nerdctl (k3s containerd)
 echo "Building API image..."
