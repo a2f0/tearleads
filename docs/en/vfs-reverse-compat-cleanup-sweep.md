@@ -47,8 +47,12 @@ compatibility branches that are no longer needed before production.
 
 ### Slice C: Client/Local Compatibility
 
-- [ ] Remove local compatibility comments/assumptions tied to legacy
-      `vfs_folders`.
+- [x] Remove shared test-seeding dual-write assumptions (`db-test-utils`
+      `ensureVfsRoot`/`seedFolder` now write canonical `vfs_registry` only).
+- [x] Remove outdated local migration compatibility wording in
+      `packages/client/src/db/migrations/v019.ts`.
+- [ ] Remove remaining local/integration write/read assumptions tied to
+      `vfs_folders` (client DB integration tests and legacy adapter surfaces).
 - [ ] Collapse migration notes that only existed to support fallback read paths.
 
 ### Slice D: Contract + Docs
