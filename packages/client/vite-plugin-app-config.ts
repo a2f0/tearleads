@@ -17,17 +17,67 @@ import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
 import type { Plugin } from 'vite';
-import type { AppConfig } from '../app-builder/src/types.js';
-import { FEATURE_TO_PACKAGES } from '../app-builder/src/feature-map.js';
 
 const VIRTUAL_MODULE_ID = 'virtual:app-config';
 const RESOLVED_VIRTUAL_MODULE_ID = '\0' + VIRTUAL_MODULE_ID;
 
+// Inline jiti types to avoid adding a dev dependency
+interface Jiti {
+  (id: string): unknown;
+}
+interface JitiFactory {
+  (parentUrl: string, options?: { interopDefault?: boolean }): Jiti;
+}
+
+/**
+ * Minimal AppConfig type for the plugin.
+ * Full type is in @tearleads/app-builder but we avoid the import
+ * to prevent TypeScript cross-package reference issues.
+ */
+interface AppConfig {
+  id: string;
+  displayName: string;
+  features: string[];
+  platforms: string[];
+  theme: {
+    primaryColor: string;
+    backgroundColor: string;
+    accentColor: string;
+  };
+  api: {
+    productionUrl: string;
+    stagingUrl?: string;
+  };
+}
+
+/**
+ * Feature to packages mapping.
+ * Kept in sync with @tearleads/app-builder/src/feature-map.ts
+ */
+const FEATURE_TO_PACKAGES: Record<string, string[]> = {
+  admin: ['@tearleads/admin'],
+  analytics: ['@tearleads/analytics'],
+  audio: ['@tearleads/audio'],
+  businesses: ['@tearleads/businesses'],
+  calendar: ['@tearleads/calendar'],
+  camera: ['@tearleads/camera'],
+  classic: ['@tearleads/classic'],
+  compliance: ['@tearleads/compliance'],
+  contacts: ['@tearleads/contacts'],
+  email: ['@tearleads/email'],
+  health: ['@tearleads/health'],
+  'mls-chat': ['@tearleads/mls-chat'],
+  notes: ['@tearleads/notes'],
+  sync: ['@tearleads/sync'],
+  terminal: ['@tearleads/terminal'],
+  vehicles: ['@tearleads/vehicles'],
+  wallet: ['@tearleads/wallet']
+};
+
 /**
  * Get packages to disable based on enabled features.
- * Uses FEATURE_TO_PACKAGES from app-builder as the single source of truth.
  */
-function getDisabledPackages(enabledFeatures: string[]): string[] {
+function getDisabledPackagesFromFeatures(enabledFeatures: string[]): string[] {
   const enabledSet = new Set(enabledFeatures);
   return Object.entries(FEATURE_TO_PACKAGES)
     .filter(([feature]) => !enabledSet.has(feature))
@@ -50,7 +100,8 @@ function loadAppConfig(appId: string, dirname: string): AppConfig {
 
   // Use jiti for synchronous TypeScript loading (same as Vite uses internally)
   const require = createRequire(import.meta.url);
-  const { createJiti } = require('jiti') as typeof import('jiti');
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { createJiti } = require('jiti') as { createJiti: JitiFactory };
   const jiti = createJiti(import.meta.url, { interopDefault: true });
   const configModule = jiti(configPath) as { default: AppConfig };
   return configModule.default;
@@ -79,7 +130,7 @@ export function createAppConfigPlugin(
   const appId = process.env['APP'] || 'tearleads';
   const config = loadAppConfig(appId, dirname);
   const enableTreeShaking = options.enableTreeShaking ?? process.env['NODE_ENV'] === 'production';
-  const disabledPackages = enableTreeShaking ? getDisabledPackages(config.features) : [];
+  const disabledPackages = enableTreeShaking ? getDisabledPackagesFromFeatures(config.features) : [];
 
   // Runtime config to expose via virtual module
   const runtimeConfig = {
@@ -112,6 +163,7 @@ export function createAppConfigPlugin(
           syntheticNamedExports: true
         };
       }
+      return undefined;
     },
 
     load(id) {
@@ -138,6 +190,7 @@ export function createAppConfigPlugin(
           export default stubProxy;
         `;
       }
+      return undefined;
     },
 
     configResolved() {
