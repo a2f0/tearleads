@@ -28,6 +28,7 @@ import {
   orgSharesTable,
   playlistsTable,
   postgresRuntimeTables,
+  retiredRuntimeVfsTableNames,
   revenuecatWebhookEventsTable,
   secretsTable,
   sqliteRuntimeTables,
@@ -681,18 +682,34 @@ describe('allTables', () => {
 });
 
 describe('runtime table inventories', () => {
-  it('keeps sqlite runtime tables aligned with compatibility allTables', () => {
-    expect(sqliteRuntimeTables).toEqual(allTables);
-    expect(sqliteRuntimeTables).toContain(vfsFoldersTable);
+  it('keeps sqlite runtime tables free of retired legacy VFS tables', () => {
+    const sqliteTableNames = new Set(
+      sqliteRuntimeTables.map((table) => table.name)
+    );
+    for (const retiredTableName of retiredRuntimeVfsTableNames) {
+      expect(sqliteTableNames.has(retiredTableName)).toBe(false);
+    }
+
+    const removedRuntimeCount = allTables.filter((table) =>
+      retiredRuntimeVfsTableNames.includes(
+        table.name as (typeof retiredRuntimeVfsTableNames)[number]
+      )
+    ).length;
+    expect(sqliteRuntimeTables).toHaveLength(
+      allTables.length - removedRuntimeCount
+    );
   });
 
-  it('keeps postgres runtime tables free of retired vfs_folders', () => {
-    expect(postgresRuntimeTables).not.toContain(vfsFoldersTable);
-    expect(postgresRuntimeTables).toHaveLength(allTables.length - 1);
-
+  it('keeps postgres runtime tables free of retired legacy VFS tables', () => {
     const postgresTableNames = new Set(
       postgresRuntimeTables.map((table) => table.name)
     );
-    expect(postgresTableNames.has('vfs_folders')).toBe(false);
+    for (const retiredTableName of retiredRuntimeVfsTableNames) {
+      expect(postgresTableNames.has(retiredTableName)).toBe(false);
+    }
+  });
+
+  it('keeps sqlite and postgres runtime inventories aligned', () => {
+    expect(postgresRuntimeTables).toEqual(sqliteRuntimeTables);
   });
 });

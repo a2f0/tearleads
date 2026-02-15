@@ -43,11 +43,9 @@ transitional candidates via `findTransitionalTableReferences(...)`.
 
 ## Transitional VFS Table Candidates
 
-From the generated Postgres schema (`packages/db/src/generated/postgresql/schema.ts`),
-the flattening inventory currently reports these candidate VFS tables as outside
-the sync-critical contract:
-
-1. `vfs_shares`
+From the generated Postgres schema
+(`packages/db/src/generated/postgresql/schema.ts`), the flattening inventory now
+reports no transitional VFS runtime tables outside the sync-critical contract.
 
 `vfs_access` is retired from canonical runtime schema as of `v027`, but remains
 on the SQL guardrail block-list to fail closed if legacy references are
@@ -97,8 +95,8 @@ Explorer folder metadata paths are canonical-only:
 2. Folder writes target `vfs_registry` only.
 3. Runtime code must not read/write `vfs_folders`.
 
-`vfs_folders` remains only as historical migration/test scaffolding in SQLite
-harnesses and must not be a runtime dependency.
+`vfs_folders` remains only as historical migration/test scaffolding and must not
+be a runtime dependency.
 
 ## Domain Mapping
 

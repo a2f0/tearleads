@@ -3338,10 +3338,10 @@ export const aiUsageTable: TableDefinition = {
 };
 
 /**
- * All table definitions for compatibility schema generation.
+ * All table definitions, including migration-history legacy tables.
  *
- * `vfs_folders` is intentionally retained here while local SQLite clients
- * still run canonical+legacy dual-write during staged cutover.
+ * Guardrail: runtime schema generation must filter retired legacy VFS tables
+ * so non-migration code cannot accidentally couple to reverse-compat surfaces.
  */
 export const allTables: TableDefinition[] = [
   syncMetadataTable,
@@ -3401,20 +3401,32 @@ export const allTables: TableDefinition[] = [
   aiUsageTable
 ];
 
+export const retiredRuntimeVfsTableNames = [
+  'vfs_folders',
+  'vfs_shares',
+  'org_shares',
+  'vfs_access'
+] as const;
+
+const retiredRuntimeVfsTableNameSet = new Set<string>(
+  retiredRuntimeVfsTableNames
+);
+
 /**
  * PostgreSQL runtime tables.
  *
- * Guardrail: server-side `vfs_folders` retirement completed in migration v033,
- * so generated Postgres schema must not reintroduce this legacy table.
+ * Guardrail: generated runtime schema must exclude retired legacy VFS tables.
  */
 export const postgresRuntimeTables: TableDefinition[] = allTables.filter(
-  (table) => table.name !== 'vfs_folders'
+  (table) => !retiredRuntimeVfsTableNameSet.has(table.name)
 );
 
 /**
  * SQLite runtime tables.
  *
- * Local-client compatibility still requires legacy `vfs_folders` for staged
- * dual-write/read-fallback behavior, so this remains aligned with `allTables`.
+ * Guardrail: local runtime schema is canonical-only and excludes retired
+ * legacy VFS tables outside migration-history paths.
  */
-export const sqliteRuntimeTables: TableDefinition[] = allTables;
+export const sqliteRuntimeTables: TableDefinition[] = allTables.filter(
+  (table) => !retiredRuntimeVfsTableNameSet.has(table.name)
+);

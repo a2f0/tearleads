@@ -20,6 +20,7 @@ compatibility branches that are no longer needed before production.
 1. Client local schema cleanup (remove compatibility migration assumptions)
 1. Contract/doc cleanup (retire outdated transitional wording/checks)
 1. Explorer share-query cleanup (`vfs_acl_entries` canonical source only)
+1. Runtime schema-generation cleanup (exclude retired VFS tables from runtime outputs)
 
 ## Canonical Invariants
 
@@ -96,6 +97,17 @@ compatibility branches that are no longer needed before production.
       access-level to share-permission mapping.
 - [x] Add explicit guardrail checks that runtime share query paths do not
       reintroduce `vfs_shares`/`vfsShares`.
+
+### Slice G: Runtime Schema Generation Canonicalization
+
+- [x] Keep legacy VFS table definitions available for migration-history context
+      in `allTables`, but filter retired share/folder/access tables out of
+      runtime schema inventories (`postgresRuntimeTables`,
+      `sqliteRuntimeTables`).
+- [x] Regenerate canonical SQLite/Postgres schema outputs so retired runtime
+      tables are no longer exported in generated runtime schema modules.
+- [x] Update DB/runtime schema contract tests and documentation to assert zero
+      transitional runtime VFS tables in generated schema inventories.
 
 ## Verification Standard per Slice
 
