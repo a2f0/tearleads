@@ -36,7 +36,7 @@ import { NotesWindow } from '@/components/notes-window';
 import { OpfsWindow } from '@/components/opfs-window';
 import { PhotosWindow } from '@/components/photos-window';
 import { SearchWindow } from '@/components/search-window';
-import { SettingsWindow } from '@/components/settingsWindow';
+import { SettingsWindow } from '@/components/settings-window';
 import { SqliteWindow } from '@/components/sqlite-window';
 import { TablesWindow } from '@/components/tables-window';
 import { VehiclesWindow } from '@/components/vehicles-window';

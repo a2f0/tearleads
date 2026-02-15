@@ -153,7 +153,7 @@ vi.mock('@/components/email-window', () => ({
   )
 }));
 
-vi.mock('@/components/settingsWindow', () => ({
+vi.mock('@/components/settings-window', () => ({
   SettingsWindow: ({
     id,
     onClose,

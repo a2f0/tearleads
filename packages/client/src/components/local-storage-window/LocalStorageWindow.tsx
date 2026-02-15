@@ -4,7 +4,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback, useState } from 'react';
-import { LocalStorage } from '@/pages/localStorage';
+import { LocalStorage } from '@/pages/local-storage';
 import { LocalStorageWindowMenuBar } from './LocalStorageWindowMenuBar';
 
 interface LocalStorageWindowProps {

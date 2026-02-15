@@ -189,7 +189,7 @@ const Licenses = lazy(() =>
   import('./pages/Licenses').then((m) => ({ default: m.Licenses }))
 );
 const LocalStorage = lazy(() =>
-  import('./pages/localStorage').then((m) => ({ default: m.LocalStorage }))
+  import('./pages/local-storage').then((m) => ({ default: m.LocalStorage }))
 );
 const Models = lazy(() =>
   import('./pages/models').then((m) => ({ default: m.Models }))

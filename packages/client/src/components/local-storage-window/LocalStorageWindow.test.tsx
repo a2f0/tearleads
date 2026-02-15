@@ -45,7 +45,7 @@ vi.mock('@tearleads/window-manager', async (importOriginal) => {
   };
 });
 
-vi.mock('@/pages/localStorage', () => {
+vi.mock('@/pages/local-storage', () => {
   const { useEffect } = require('react');
   return {
     LocalStorage: ({ showBackLink }: { showBackLink?: boolean }) => {
