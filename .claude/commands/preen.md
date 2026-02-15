@@ -50,6 +50,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-compliance-docs` | Audit compliance documentation for gaps and cross-framework parity |
 | `preen-review-instructions` | Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md) |
 | `preen-i18n` | Audit i18n translation coverage, missing keys, and hardcoded strings |
+| `preen-docs-internationalization` | Translate and sync documentation across all supported languages |
 | `preen-window-consistency` | Normalize window components and standardize refresh patterns into window-manager |
 
 ## Run Modes
@@ -87,6 +88,7 @@ CATEGORIES=(
   "preen-compliance-docs"
   "preen-review-instructions"
   "preen-i18n"
+  "preen-docs-internationalization"
   "preen-window-consistency"
 )
 
@@ -342,6 +344,10 @@ run_discovery() {
       echo '=== Key Count by Language ==='; for lang in en es ua pt; do count=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' '); echo "${lang}: ${count} keys"; done
       echo '=== Potential Hardcoded Strings ==='; rg -n --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages | rg -v 'test\.' | head -20
       ;;
+    preen-docs-internationalization)
+      echo '=== Translation Coverage ==='; echo "English (source): $(ls docs/en/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Spanish: $(ls docs/es/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Ukrainian: $(ls docs/ua/*.md 2>/dev/null | wc -l | tr -d ' ')"; echo "Portuguese: $(ls docs/pt/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo '=== Missing Translations ==='; for lang in es ua pt; do for file in docs/en/*.md; do target="docs/$lang/$(basename "$file")"; [ -f "$target" ] || echo "Missing: $target"; done; done
+      ;;
     preen-window-consistency)
       rg -n --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages | rg -v 'window-manager' | head -20
       rg -n --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages | rg -v 'window-manager' | head -20
@@ -413,6 +419,15 @@ metric_count() {
       done
       HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}')
       echo $((GAPS + HARDCODED))
+      ;;
+    preen-docs-internationalization)
+      EN_COUNT=$(ls docs/en/*.md 2>/dev/null | wc -l | tr -d ' ')
+      GAPS=0
+      for lang in es ua pt; do
+        LANG_COUNT=$(ls docs/$lang/*.md 2>/dev/null | wc -l | tr -d ' ')
+        [ "$LANG_COUNT" -lt "$EN_COUNT" ] && GAPS=$((GAPS + EN_COUNT - LANG_COUNT))
+      done
+      echo $GAPS
       ;;
     preen-window-consistency)
       MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
@@ -540,6 +555,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - Compliance documentation gaps (missing triads + unnumbered files)
 - Review instruction gaps (missing sections + Gemini drift)
 - i18n gaps (missing translation keys + hardcoded strings)
+- Missing or orphaned doc translations
 - Non-standardized window patterns (manual refresh, drag, resize)
 
 Quality gate for the selected category:
@@ -586,6 +602,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] Compliance documentation gaps and parity
 - [ ] Review instruction completeness and sync
 - [ ] i18n translation coverage and consistency
+- [ ] Documentation internationalization coverage
 - [ ] Window component consistency and refresh patterns
 
 ## Quality Delta
