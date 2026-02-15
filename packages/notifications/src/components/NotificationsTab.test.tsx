@@ -3,6 +3,7 @@
  */
 
 import { act, fireEvent, render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { notificationStore } from '../stores/notificationStore';
 import { NotificationsTab } from './NotificationsTab';
@@ -208,5 +209,94 @@ describe('NotificationsTab', () => {
 
     // Component should update
     expect(screen.getByText('New Notification')).toBeInTheDocument();
+  });
+
+  describe('context menu', () => {
+    it('shows context menu with Mark as read option for unread notification', async () => {
+      const user = userEvent.setup();
+      act(() => {
+        notificationStore.add('info', 'Test', 'Message');
+      });
+
+      render(<NotificationsTab />);
+
+      const notification = screen.getByText('Test').closest('div.border-l-4');
+      await user.pointer({
+        target: notification as HTMLElement,
+        keys: '[MouseRight]'
+      });
+
+      expect(
+        screen.getByRole('button', { name: /mark as read/i })
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^dismiss$/i })
+      ).toBeInTheDocument();
+    });
+
+    it('hides Mark as read option for read notification', async () => {
+      const user = userEvent.setup();
+      act(() => {
+        notificationStore.add('info', 'Test', 'Message');
+        notificationStore.markAllAsRead();
+      });
+
+      render(<NotificationsTab />);
+
+      const notification = screen.getByText('Test').closest('div.border-l-4');
+      await user.pointer({
+        target: notification as HTMLElement,
+        keys: '[MouseRight]'
+      });
+
+      expect(
+        screen.queryByRole('button', { name: /mark as read/i })
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByRole('button', { name: /^dismiss$/i })
+      ).toBeInTheDocument();
+    });
+
+    it('marks notification as read via context menu', async () => {
+      const user = userEvent.setup();
+      act(() => {
+        notificationStore.add('info', 'Test', 'Message');
+      });
+
+      render(<NotificationsTab />);
+
+      expect(notificationStore.getUnreadCount()).toBe(1);
+
+      const notification = screen.getByText('Test').closest('div.border-l-4');
+      await user.pointer({
+        target: notification as HTMLElement,
+        keys: '[MouseRight]'
+      });
+
+      await user.click(screen.getByRole('button', { name: /mark as read/i }));
+
+      expect(notificationStore.getUnreadCount()).toBe(0);
+    });
+
+    it('dismisses notification via context menu', async () => {
+      const user = userEvent.setup();
+      act(() => {
+        notificationStore.add('info', 'Test', 'Message');
+      });
+
+      render(<NotificationsTab />);
+
+      expect(notificationStore.getNotifications()).toHaveLength(1);
+
+      const notification = screen.getByText('Test').closest('div.border-l-4');
+      await user.pointer({
+        target: notification as HTMLElement,
+        keys: '[MouseRight]'
+      });
+
+      await user.click(screen.getByRole('button', { name: /^dismiss$/i }));
+
+      expect(notificationStore.getNotifications()).toHaveLength(0);
+    });
   });
 });
