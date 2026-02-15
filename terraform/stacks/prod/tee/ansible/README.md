@@ -22,7 +22,7 @@ pnpm --filter @tearleads/tee-api buildBundle
 1. Install required collections:
 
 ```bash
-./tee/ansible/scripts/setup.sh
+./terraform/stacks/prod/tee/ansible/scripts/setup.sh
 ```
 
 ## Usage
@@ -31,7 +31,7 @@ Provision localhost (useful inside Packer/VM image builders):
 
 ```bash
 TEE_API_BUNDLE_SRC="$(pwd)/packages/tee-api/dist/server.cjs" \
-  ./tee/ansible/scripts/buildApiImage.sh
+  ./terraform/stacks/prod/tee/ansible/scripts/buildApiImage.sh
 ```
 
 Provision a remote builder host:
@@ -39,7 +39,7 @@ Provision a remote builder host:
 ```bash
 TEE_ANSIBLE_INVENTORY="builder-host," \
 TEE_API_BUNDLE_SRC="$(pwd)/packages/tee-api/dist/server.cjs" \
-  ./tee/ansible/scripts/buildApiImage.sh
+  ./terraform/stacks/prod/tee/ansible/scripts/buildApiImage.sh
 ```
 
 ## Secrets

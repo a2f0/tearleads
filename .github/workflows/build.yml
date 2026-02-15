@@ -117,13 +117,19 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.ansible/collections
-          key: ansible-collections-${{ hashFiles('ansible/requirements.yml', 'tee/ansible/requirements.yml') }}
+          key: ansible-collections-${{ hashFiles('ansible/requirements.yml', 'terraform/stacks/staging/tee/ansible/requirements.yml', 'terraform/stacks/prod/tee/ansible/requirements.yml') }}
 
       - name: Install Ansible collections
         if: matrix.lint-type == 'ansible'
         run: |
-          ansible-galaxy collection install -r ansible/requirements.yml
-          ansible-galaxy collection install -r tee/ansible/requirements.yml
+          for requirements_file in \
+            ansible/requirements.yml \
+            terraform/stacks/staging/tee/ansible/requirements.yml \
+            terraform/stacks/prod/tee/ansible/requirements.yml; do
+            if [ -f "$requirements_file" ]; then
+              ansible-galaxy collection install -r "$requirements_file"
+            fi
+          done
 
       - name: Lint (biome)
         if: matrix.lint-type == 'biome'
