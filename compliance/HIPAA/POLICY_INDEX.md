@@ -233,6 +233,7 @@ Requires notification following a breach of unsecured PHI.
 2. [P-02 Audit Logging Policy](./policies/02-audit-logging-policy.md)
 3. [P-03 Payment Infrastructure Policy](./policies/03-payment-infrastructure-policy.md)
 4. [P-04 Infrastructure Security Policy](./policies/04-infrastructure-security-policy.md)
+5. [P-05 End-to-End Encryption Policy](./policies/05-end-to-end-encryption-policy.md)
 
 ### Procedures
 
@@ -240,6 +241,7 @@ Requires notification following a breach of unsecured PHI.
 2. [PR-02 Audit Logging Procedure](./procedures/02-audit-logging-procedure.md)
 3. [PR-03 Payment Infrastructure Procedure](./procedures/03-payment-infrastructure-procedure.md)
 4. [PR-04 Infrastructure Security Procedure](./procedures/04-infrastructure-security-procedure.md)
+5. [PR-05 End-to-End Encryption Procedure](./procedures/05-end-to-end-encryption-procedure.md)
 
 ### Technical Control Maps
 
@@ -247,6 +249,7 @@ Requires notification following a breach of unsecured PHI.
 2. [TC-02 Audit Logging Technical Control Map](./technical-controls/02-audit-logging-control-map.md)
 3. [TC-03 Payment Infrastructure Technical Control Map](./technical-controls/03-payment-infrastructure-control-map.md)
 4. [TC-04 Infrastructure Security Technical Control Map](./technical-controls/04-infrastructure-security-control-map.md)
+5. [TC-05 End-to-End Encryption Technical Control Map](./technical-controls/05-end-to-end-encryption-control-map.md)
 
 ---
 
@@ -262,3 +265,4 @@ Requires notification following a breach of unsecured PHI.
 - **Data Backup**: 164.308(a)(7)(ii)(A), 164.310(d)(2)(iv)
 - **Payment Infrastructure**: 164.312(a), 164.312(b), 164.312(c), 164.312(d), 164.312(e)
 - **Infrastructure Security**: 164.312(a)(1), 164.312(d), 164.312(e)(1), 164.312(a)(2)(iii), 164.312(a)(2)(iv) (SSH hardening, firewalls, service isolation, encryption keys)
+- **End-to-End Encryption**: 164.312(a)(2)(iv), 164.312(c)(1), 164.312(d), 164.312(e)(1), 164.312(e)(2)(ii) (MLS RFC 9420, ChaCha20-Poly1305, Ed25519, forward secrecy)

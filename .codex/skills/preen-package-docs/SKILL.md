@@ -93,7 +93,7 @@ done
 Fix packages in this order (highest value first):
 
 1. **Core packages**: `db`, `shared`, `ui`, `window-manager` - widely used across the monorepo
-2. **Feature packages**: `audio`, `notes`, `contacts`, `calendar` - user-facing features
+2. **Feature packages**: `audio`, `notes`, `contacts`, `calendar`, `mls-chat` - user-facing features
 3. **Infrastructure packages**: `msw`, `db-test-utils`, `sync` - developer tooling
 4. **Application packages**: `client`, `admin`, `website` - deployment targets
 

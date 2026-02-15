@@ -196,6 +196,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 2. [P-02 Audit Logging Policy](./policies/02-audit-logging-policy.md)
 3. [P-03 Payment Infrastructure Policy](./policies/03-payment-infrastructure-policy.md)
 4. [P-04 Infrastructure Security Policy](./policies/04-infrastructure-security-policy.md)
+5. [P-05 End-to-End Encryption Policy](./policies/05-end-to-end-encryption-policy.md)
 
 ### Procedures
 
@@ -203,6 +204,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 2. [PR-02 Audit Logging Procedure](./procedures/02-audit-logging-procedure.md)
 3. [PR-03 Payment Infrastructure Procedure](./procedures/03-payment-infrastructure-procedure.md)
 4. [PR-04 Infrastructure Security Procedure](./procedures/04-infrastructure-security-procedure.md)
+5. [PR-05 End-to-End Encryption Procedure](./procedures/05-end-to-end-encryption-procedure.md)
 
 ### Technical Control Maps
 
@@ -210,6 +212,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 2. [TC-02 Audit Logging Technical Control Map](./technical-controls/02-audit-logging-control-map.md)
 3. [TC-03 Payment Infrastructure Technical Control Map](./technical-controls/03-payment-infrastructure-control-map.md)
 4. [TC-04 Infrastructure Security Technical Control Map](./technical-controls/04-infrastructure-security-control-map.md)
+5. [TC-05 End-to-End Encryption Technical Control Map](./technical-controls/05-end-to-end-encryption-control-map.md)
 
 ---
 
@@ -228,6 +231,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 - **Physical Security**: CC6.4
 - **Payment Infrastructure**: CC6.1, CC6.6, CC6.7, CC7.1, CC7.2, PI1.2, PI1.3, PI1.4
 - **Infrastructure Security**: CC6.1, CC6.6, CC6.7 (SSH hardening, firewalls, kernel hardening, service isolation)
+- **End-to-End Encryption**: CC6.1, CC6.7, C1.1, PI1.1 (MLS RFC 9420, ChaCha20-Poly1305, X25519, Ed25519, forward secrecy, zero-knowledge service)
 
 ---
 
