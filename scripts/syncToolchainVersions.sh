@@ -263,7 +263,7 @@ sync_ansible() {
       continue
     fi
 
-    CURRENT_ANSIBLE_NODE=$(awk '/nodejs_major_version:/{gsub(/[^0-9]/, "", $2); print $2; exit}' "$YML_FILE")
+    CURRENT_ANSIBLE_NODE=$(sed -n 's/^ *nodejs_major_version: *\([0-9]\+\).*/\1/p' "$YML_FILE")
     if [ -z "$CURRENT_ANSIBLE_NODE" ]; then
       log "Toolchain sync (ansible): skipped $YML_FILE (nodejs_major_version not found)."
       continue
@@ -276,10 +276,7 @@ sync_ansible() {
 
     if [ "$APPLY" -eq 1 ]; then
       TMP_FILE=$(mktemp "${TMPDIR:-/tmp}/tearleads-ansible-yml.XXXXXX")
-      awk -v major="$NODE_MAJOR_FOR_ANSIBLE" '
-        /nodejs_major_version:/ { sub(/[0-9]+/, major) }
-        { print }
-      ' "$YML_FILE" > "$TMP_FILE"
+      sed "s/^\( *nodejs_major_version: \)[0-9]\+/\1$NODE_MAJOR_FOR_ANSIBLE/" "$YML_FILE" > "$TMP_FILE"
       mv "$TMP_FILE" "$YML_FILE"
       ANSIBLE_FILES_UPDATED=1
       log "Toolchain sync (ansible): updated $(basename "$YML_FILE") nodejs_major_version=$NODE_MAJOR_FOR_ANSIBLE."
@@ -305,7 +302,7 @@ else
   log "Toolchain sync (android): skipped (--skip-android)."
 fi
 
-# Always sync ansible when node sync ran (uses NODE_MAJOR_FOR_ANSIBLE from sync_node)
+# Sync ansible node version. It uses the version from sync_node or falls back to .nvmrc.
 sync_ansible
 
 if [ "$APPLY" -eq 1 ] && [ "$CHANGED" -eq 1 ]; then
