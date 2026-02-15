@@ -40,6 +40,8 @@ interface ChatWindowProps {
   onFocus: () => void;
   zIndex: number;
   initialDimensions?: WindowDimensions | undefined;
+  openConversationId?: string | null | undefined;
+  openRequestId?: number | undefined;
 }
 
 export function ChatWindow({
@@ -50,7 +52,9 @@ export function ChatWindow({
   onRename,
   onFocus,
   zIndex,
-  initialDimensions
+  initialDimensions,
+  openConversationId,
+  openRequestId
 }: ChatWindowProps) {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();
   const { loadedModel, modelType, generate } = useLLM();
@@ -92,6 +96,14 @@ export function ChatWindow({
       setActiveView('chat');
     }
   }, [activeView, loadedModel]);
+
+  useEffect(() => {
+    if (!openRequestId || !openConversationId) {
+      return;
+    }
+    void selectConversation(openConversationId);
+    setActiveView('chat');
+  }, [openConversationId, openRequestId, selectConversation]);
 
   const modelDisplayName = loadedModel
     ? getModelDisplayName(loadedModel)

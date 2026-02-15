@@ -19,6 +19,7 @@ import {
   useState
 } from 'react';
 import { MOBILE_BREAKPOINT } from '@/constants/breakpoints';
+import type { HelpDocId } from '@/constants/help';
 
 // AGENT GUARDRAIL: When adding a new WindowType, ensure parity across:
 // - WindowRenderer.tsx (add entry in the window component map)
@@ -82,15 +83,18 @@ export interface WindowOpenRequestPayloads {
   documents: { documentId: string };
   photos: { photoId?: string; albumId?: string };
   files: { fileId: string };
-  audio: { audioId?: string; playlistId?: string };
+  audio: { audioId?: string; playlistId?: string; albumId?: string };
   videos: { videoId?: string; playlistId?: string };
   email: {
+    emailId?: string;
     to?: string[];
     cc?: string[];
     bcc?: string[];
     subject?: string;
     body?: string;
   };
+  chat: { conversationId?: string };
+  help: { helpDocId?: HelpDocId };
 }
 
 export type WindowOpenRequests = {

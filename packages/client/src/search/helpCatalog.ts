@@ -43,7 +43,7 @@ const SEARCHABLE_HELP_DOCS: SearchableHelpDocDefinition[] = [
   }
 ];
 
-const HELP_DOC_ID_PREFIX = 'help-doc:';
+export const HELP_DOC_ID_PREFIX = 'help-doc:';
 
 function toHelpDocSearchId(helpDocId: HelpDocId): string {
   return `${HELP_DOC_ID_PREFIX}${helpDocId}`;
