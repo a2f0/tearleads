@@ -59,6 +59,7 @@ coverage/
 
 # Ruby/Fastlane
 **/vendor/
+!ansible/vendor/
 .bundle/
 **/fastlane/report.xml
 **/fastlane/Preview.html

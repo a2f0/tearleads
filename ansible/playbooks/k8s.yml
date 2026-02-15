@@ -7,6 +7,12 @@
     ansible_python_interpreter: /usr/bin/python3
     cert_manager_version: "v1.14.4"
     nginx_ingress_version: "v1.10.0"
+    nginx_ingress_manifest: "{{ playbook_dir }}/../vendor/k8s/nginx-ingress-{{ nginx_ingress_version }}.yaml"
+    cert_manager_manifest: "{{ playbook_dir }}/../vendor/k8s/cert-manager-{{ cert_manager_version }}.yaml"
+    nerdctl_version: "1.7.6"
+    nerdctl_checksum: "sha256:0326d6a42dbec5c104ed9d7aa8cbc62727433dbe000cf21cc29d06b22507e0f0"
+    buildkit_version: "0.13.2"
+    buildkit_checksum: "sha256:9cd121931b015f05d7e4337f08272e36a83f69724c40141947eb11246ca0bb9d"
     tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
     tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
     tearleads_repo_url: "git@github.com-tuxedo:a2f0/tearleads.git"
@@ -84,11 +90,15 @@
       delay: 10
       changed_when: false
 
+    - name: Copy nginx-ingress manifest to target
+      ansible.builtin.copy:
+        src: "{{ nginx_ingress_manifest }}"
+        dest: "/tmp/nginx-ingress-{{ nginx_ingress_version }}.yaml"
+        mode: "0644"
+
     - name: Install nginx-ingress controller
-      # noqa: command-instead-of-shell
-      ansible.builtin.shell:
-        # yamllint disable-line rule:line-length
-        cmd: k3s kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-{{ nginx_ingress_version }}/deploy/static/provider/cloud/deploy.yaml
+      ansible.builtin.command:
+        cmd: k3s kubectl apply -f /tmp/nginx-ingress-{{ nginx_ingress_version }}.yaml
       register: nginx_ingress_result
       changed_when: "'created' in nginx_ingress_result.stdout or 'configured' in nginx_ingress_result.stdout"
 
@@ -102,10 +112,15 @@
       delay: 30
       changed_when: false
 
+    - name: Copy cert-manager manifest to target
+      ansible.builtin.copy:
+        src: "{{ cert_manager_manifest }}"
+        dest: "/tmp/cert-manager-{{ cert_manager_version }}.yaml"
+        mode: "0644"
+
     - name: Install cert-manager
-      ansible.builtin.shell:
-        cmd: |
-          k3s kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/{{ cert_manager_version }}/cert-manager.yaml
+      ansible.builtin.command:
+        cmd: k3s kubectl apply -f /tmp/cert-manager-{{ cert_manager_version }}.yaml
       register: cert_manager_result
       changed_when: "'created' in cert_manager_result.stdout or 'configured' in cert_manager_result.stdout"
 
@@ -119,32 +134,52 @@
       delay: 30
       changed_when: false
 
+    - name: Download nerdctl tarball
+      ansible.builtin.get_url:
+        # yamllint disable-line rule:line-length
+        url: "https://github.com/containerd/nerdctl/releases/download/v{{ nerdctl_version }}/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
+        dest: "/tmp/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
+        checksum: "{{ nerdctl_checksum }}"
+        mode: "0644"
+
     - name: Install nerdctl for building container images
-      ansible.builtin.shell:
-        cmd: |
-          set -o pipefail
-          if ! command -v nerdctl >/dev/null 2>&1; then
-            curl -sSL https://github.com/containerd/nerdctl/releases/download/v1.7.6/nerdctl-1.7.6-linux-amd64.tar.gz | tar -xz -C /usr/local/bin
-          fi
-        executable: /bin/bash
-      args:
+      ansible.builtin.unarchive:
+        src: "/tmp/nerdctl-{{ nerdctl_version }}-linux-amd64.tar.gz"
+        dest: /usr/local/bin
+        remote_src: true
         creates: /usr/local/bin/nerdctl
 
-    # yamllint disable rule:line-length
+    - name: Download buildkit tarball
+      ansible.builtin.get_url:
+        # yamllint disable-line rule:line-length
+        url: "https://github.com/moby/buildkit/releases/download/v{{ buildkit_version }}/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
+        checksum: "{{ buildkit_checksum }}"
+        mode: "0644"
+
+    - name: Create buildkit installation directory
+      ansible.builtin.file:
+        path: /opt/buildkit
+        state: directory
+        mode: "0755"
+
     - name: Install buildkit for nerdctl
-      ansible.builtin.shell:
-        cmd: |
-          set -o pipefail
-          if [ ! -d /opt/buildkit ]; then
-            mkdir -p /opt/buildkit
-            curl -sSL https://github.com/moby/buildkit/releases/download/v0.13.2/buildkit-v0.13.2.linux-amd64.tar.gz | tar -xz -C /opt/buildkit --strip-components=1
-            ln -sf /opt/buildkit/buildkitd /usr/local/bin/buildkitd
-            ln -sf /opt/buildkit/buildctl /usr/local/bin/buildctl
-          fi
-        executable: /bin/bash
-      args:
+      ansible.builtin.unarchive:
+        src: "/tmp/buildkit-v{{ buildkit_version }}.linux-amd64.tar.gz"
+        dest: /opt/buildkit
+        remote_src: true
+        extra_opts:
+          - --strip-components=1
         creates: /opt/buildkit/buildkitd
-    # yamllint enable rule:line-length
+
+    - name: Create buildkit symlinks
+      ansible.builtin.file:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        state: link
+      loop:
+        - { src: /opt/buildkit/buildkitd, dest: /usr/local/bin/buildkitd }
+        - { src: /opt/buildkit/buildctl, dest: /usr/local/bin/buildctl }
 
     - name: Remove existing containerd directory
       ansible.builtin.file:

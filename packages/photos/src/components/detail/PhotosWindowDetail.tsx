@@ -25,7 +25,7 @@ export function PhotosWindowDetail({
   const {
     ui,
     databaseState,
-    fetchPhotos,
+    fetchPhotoById,
     softDeletePhoto,
     downloadPhotoData,
     sharePhotoData,
@@ -127,9 +127,7 @@ export function PhotosWindowDetail({
     setError(null);
 
     try {
-      // Fetch all photos and find the one we need
-      const photos = await fetchPhotos({ includeDeleted: false });
-      const foundPhoto = photos.find((p) => p.id === photoId);
+      const foundPhoto = await fetchPhotoById(photoId);
 
       if (!foundPhoto) {
         setError('Photo not found');
@@ -149,7 +147,7 @@ export function PhotosWindowDetail({
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, photoId, fetchPhotos, logError]);
+  }, [isUnlocked, photoId, fetchPhotoById, logError]);
 
   useEffect(() => {
     if (isUnlocked && photoId) {
