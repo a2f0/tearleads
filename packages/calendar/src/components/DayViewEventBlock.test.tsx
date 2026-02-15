@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { CalendarEventItem } from './CalendarContent';
+import type { CalendarEventItem } from '../types';
 import { DayViewEventBlock } from './DayViewEventBlock';
 
 function createEvent(overrides: Partial<CalendarEventItem> = {}): CalendarEventItem {

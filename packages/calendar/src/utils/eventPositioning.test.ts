@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { CalendarEventItem } from '../components/CalendarContent';
+import type { CalendarEventItem } from '../types';
 import {
   calculateEventPosition,
   getPositionedEventsForDay,

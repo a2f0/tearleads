@@ -1,4 +1,4 @@
-import type { CalendarEventItem } from '../components/CalendarContent';
+import type { CalendarEventItem } from '../types';
 
 export interface PositionedEvent {
   event: CalendarEventItem;

@@ -1,5 +1,5 @@
 import { clsx } from 'clsx';
-import type { CalendarEventItem } from './CalendarContent';
+import type { CalendarEventItem } from '../types';
 
 interface DayViewEventBlockProps {
   event: CalendarEventItem;
