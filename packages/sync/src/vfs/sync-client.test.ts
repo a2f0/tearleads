@@ -1406,6 +1406,76 @@ describe('VfsBackgroundSyncClient', () => {
     await client.stopBackgroundFlush(false);
   });
 
+  it('fails closed when hydrating while flush is in progress', async () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const server = new InMemoryVfsCrdtSyncServer();
+    let pushStarted = false;
+    let releasePush: (() => void) | null = null;
+    const pushGate = new Promise<void>((resolve) => {
+      releasePush = resolve;
+    });
+
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        pushStarted = true;
+        await pushGate;
+        return server.pushOperations({
+          operations: input.operations
+        });
+      },
+      pullOperations: async (input) =>
+        server.pullOperations({
+          cursor: input.cursor,
+          limit: input.limit
+        })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
+      onGuardrailViolation: (violation) => {
+        guardrailViolations.push({
+          code: violation.code,
+          stage: violation.stage,
+          message: violation.message
+        });
+      }
+    });
+
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-hydrate-flush',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T14:21:00.000Z'
+    });
+
+    const flushPromise = client.flush();
+    await waitFor(() => pushStarted, 1000);
+
+    const stateBeforeHydrate = client.exportState();
+    const persisted = client.exportState();
+    expect(() => client.hydrateState(persisted)).toThrowError(
+      /flush is in progress/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message: 'cannot hydrate state while flush is in progress'
+    });
+    expect(client.exportState()).toEqual(stateBeforeHydrate);
+
+    if (!releasePush) {
+      throw new Error('missing push release hook');
+    }
+    releasePush();
+    await flushPromise;
+    expect(client.snapshot().pendingOperations).toBe(0);
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
