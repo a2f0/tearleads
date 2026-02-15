@@ -135,6 +135,13 @@
       args:
         creates: /opt/buildkit/buildkitd
 
+    - name: Create containerd socket symlink for nerdctl
+      ansible.builtin.file:
+        src: /run/k3s/containerd
+        dest: /run/containerd
+        state: link
+        force: true
+
     - name: Create buildkit config directory
       ansible.builtin.file:
         path: /etc/buildkit
