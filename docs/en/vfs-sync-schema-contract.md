@@ -55,9 +55,6 @@ reintroduced.
 
 `vfs_shares`/`org_shares` ACL parity scaffolding is staged in `v028`/`v029`,
 and `v030` backfills folder metadata into canonical `vfs_registry` columns.
-Read paths now prefer `vfs_registry` folder metadata and fail over to
-`vfs_folders`; write paths remain transitional until dual-write retirement work
-is complete.
 `v031` adds non-destructive pre-drop guardrails to verify canonical/legacy
 folder parity before any future `vfs_folders` drop.
 `v032` records explicit retirement checkpoint snapshots after parity checks to
@@ -93,8 +90,15 @@ scaffolding tables once both destructive drop audits are durably recorded.
 `v045` canonicalizes active legacy org-share ACL ids
 (`org-share:<shareId>`) into source-attributed ids
 (`org-share:<sourceOrgId>:<shareId>`) using fail-closed source inference.
-Local-client compatibility paths still retain `vfs_folders` in SQLite while
-staged client cutover completes.
+
+Explorer folder metadata paths are canonical-only:
+
+1. Folder reads resolve from `vfs_registry.encrypted_name` only.
+2. Folder writes target `vfs_registry` only.
+3. Runtime code must not read/write `vfs_folders`.
+
+`vfs_folders` remains only as historical migration/test scaffolding in SQLite
+harnesses and must not be a runtime dependency.
 
 ## Domain Mapping
 
@@ -121,7 +125,7 @@ staged client cutover completes.
 
 1. Query-builder contract checks (sync + CRDT feed SQL text)
 2. API route source checks (push/pull/reconcile SQL references)
-3. Legacy share-read surface inventory checks for cutover sequencing
+3. Legacy share-surface regression checks to prevent dependency reintroduction
 
 If a new query references a table outside the target set, tests fail until the
 schema contract is intentionally updated.
