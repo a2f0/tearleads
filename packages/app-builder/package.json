@@ -1,0 +1,35 @@
+{
+  "name": "@tearleads/app-builder",
+  "version": "1.0.0",
+  "private": true,
+  "description": "White-label app builder for multi-app builds",
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./src/index.ts",
+      "types": "./src/index.ts"
+    },
+    "./types": {
+      "import": "./src/types.ts",
+      "types": "./src/types.ts"
+    }
+  },
+  "bin": {
+    "app-builder": "./src/cli.ts"
+  },
+  "scripts": {
+    "generate": "tsx src/cli.ts generate",
+    "validate": "tsx src/cli.ts validate",
+    "list": "tsx src/cli.ts list",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.14.1",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3"
+  }
+}
