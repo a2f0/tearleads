@@ -82,10 +82,10 @@ function isLegacyShareAuthorizationRow(value: unknown): value is {
   }
 
   return (
-    typeof value.item_id === 'string' &&
-    isValidShareType(value.share_type) &&
-    typeof value.target_id === 'string' &&
-    isValidPermissionLevel(value.permission_level)
+    typeof value['item_id'] === 'string' &&
+    isValidShareType(value['share_type']) &&
+    typeof value['target_id'] === 'string' &&
+    isValidPermissionLevel(value['permission_level'])
   );
 }
 
@@ -100,9 +100,9 @@ function isLegacyOrgShareAuthorizationRow(value: unknown): value is {
   }
 
   return (
-    typeof value.item_id === 'string' &&
-    typeof value.target_org_id === 'string' &&
-    isValidPermissionLevel(value.permission_level)
+    typeof value['item_id'] === 'string' &&
+    typeof value['target_org_id'] === 'string' &&
+    isValidPermissionLevel(value['permission_level'])
   );
 }
 
