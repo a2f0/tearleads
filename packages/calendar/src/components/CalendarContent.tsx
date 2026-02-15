@@ -14,8 +14,19 @@ import {
   CALENDAR_CREATE_ITEM_EVENT,
   CALENDAR_CREATE_SUBMIT_EVENT
 } from '../events';
-import type { CalendarEventItem, CreateCalendarEventInput } from '../types';
-import { NewCalendarEventModal } from './NewCalendarEventModal';
+import {
+  isSlotInSelection,
+  selectionToTimeRange,
+  useTimeRangeSelection
+} from '../hooks/useTimeRangeSelection';
+import type { CalendarEventItem } from '../types';
+import { getPositionedEventsForDay } from '../utils/eventPositioning';
+import { DayViewEventBlock } from './DayViewEventBlock';
+import { DayViewHourSlot } from './DayViewHourSlot';
+import {
+  type CreateCalendarEventInput,
+  NewCalendarEventModal
+} from './NewCalendarEventModal';
 
 const defaultCalendarName = 'Personal';
 const defaultCalendars = [defaultCalendarName];
@@ -54,10 +65,8 @@ interface CalendarContentProps {
     | undefined;
 }
 
-export type {
-  CalendarEventItem,
-  CreateCalendarEventInput
-} from '../types';
+export type { CalendarEventItem } from '../types';
+export type { CreateCalendarEventInput };
 
 export function CalendarContent({
   events = [],
@@ -74,10 +83,21 @@ export function CalendarContent({
   const [createEventModalDate, setCreateEventModalDate] = useState(
     () => new Date()
   );
+  const [createEventInitialStartTime, setCreateEventInitialStartTime] =
+    useState<string | undefined>(undefined);
+  const [createEventInitialEndTime, setCreateEventInitialEndTime] = useState<
+    string | undefined
+  >(undefined);
   const [calendarContextMenu, setCalendarContextMenu] = useState<{
     x: number;
     y: number;
     name: string;
+  } | null>(null);
+  const [selectionContextMenu, setSelectionContextMenu] = useState<{
+    x: number;
+    y: number;
+    startTime: string;
+    endTime: string;
   } | null>(null);
 
   const normalizedNames = useMemo(
@@ -123,6 +143,8 @@ export function CalendarContent({
   const handleOpenCreateItemModal = useCallback((date: Date) => {
     setSelectedDate(date);
     setCreateEventModalDate(date);
+    setCreateEventInitialStartTime(undefined);
+    setCreateEventInitialEndTime(undefined);
     setCreateEventModalOpen(true);
   }, []);
 
@@ -280,13 +302,64 @@ export function CalendarContent({
     [activeCalendar, events]
   );
 
-  const dayEvents = useMemo(
-    () =>
-      calendarEvents
-        .filter((event) => isSameDay(event.startAt, selectedDate))
-        .sort((a, b) => a.startAt.getTime() - b.startAt.getTime()),
-    [calendarEvents, isSameDay, selectedDate]
+  const positionedDayEvents = useMemo(
+    () => getPositionedEventsForDay(calendarEvents, selectedDate),
+    [calendarEvents, selectedDate]
   );
+
+  const {
+    selection: timeSelection,
+    isSelecting,
+    handleSlotMouseDown,
+    handleSlotMouseEnter,
+    handleSlotClick,
+    clearSelection: clearTimeSelection
+  } = useTimeRangeSelection({
+    enabled: viewMode === 'Day'
+  });
+
+  const handleSelectionContextMenu = useCallback(
+    (event: ReactMouseEvent<HTMLElement>) => {
+      if (!timeSelection) return;
+
+      event.preventDefault();
+      const { startTime, endTime } = selectionToTimeRange(
+        timeSelection,
+        selectedDate
+      );
+
+      const timeFormatOptions: Intl.DateTimeFormatOptions = {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      };
+      setSelectionContextMenu({
+        x: event.clientX,
+        y: event.clientY,
+        startTime: startTime.toLocaleTimeString(
+          calendarLocale,
+          timeFormatOptions
+        ),
+        endTime: endTime.toLocaleTimeString(calendarLocale, timeFormatOptions)
+      });
+    },
+    [timeSelection, selectedDate]
+  );
+
+  const handleCloseSelectionContextMenu = useCallback(() => {
+    setSelectionContextMenu(null);
+  }, []);
+
+  const handleCreateEventFromSelection = useCallback(() => {
+    if (!selectionContextMenu) return;
+
+    setCreateEventModalDate(selectedDate);
+    setCreateEventInitialStartTime(selectionContextMenu.startTime);
+    setCreateEventInitialEndTime(selectionContextMenu.endTime);
+    setCreateEventModalOpen(true);
+    setSelectionContextMenu(null);
+    clearTimeSelection();
+  }, [selectionContextMenu, selectedDate, clearTimeSelection]);
 
   const eventCountByDay = useMemo(() => {
     const countMap = new Map<string, number>();
@@ -369,67 +442,74 @@ export function CalendarContent({
     setCalendarContextMenu(null);
   }, [calendarContextMenu, renameCalendar]);
 
-  const renderDayView = () => (
-    // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
-    <div
-      className="h-full overflow-auto rounded-xl border bg-card p-4"
-      data-testid="calendar-day-view"
-      onContextMenu={(event) =>
-        handleViewContextMenuRequest(event, selectedDate)
-      }
-    >
-      <p className="font-medium text-sm uppercase tracking-wide">{dayLabel}</p>
-      <div className="mt-3 space-y-2">
-        {dayEvents.length > 0 ? (
-          dayEvents.map((event) => (
-            <div
-              key={event.id}
-              className="rounded-md border border-primary/30 bg-primary/5 px-3 py-2"
-            >
-              <p className="font-medium text-sm">{event.title}</p>
-              <p className="text-muted-foreground text-xs">
-                {event.startAt.toLocaleTimeString(calendarLocale, {
-                  hour: '2-digit',
-                  minute: '2-digit'
-                })}
-                {event.endAt
-                  ? ` - ${event.endAt.toLocaleTimeString(calendarLocale, {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}`
-                  : ''}
-              </p>
-            </div>
-          ))
-        ) : (
-          <p className="text-muted-foreground text-xs">
-            No events for this day.
-          </p>
-        )}
-      </div>
-      <div className="mt-4 space-y-2">
-        {dayViewHours.map((hour) => {
-          const isWorkHour = hour >= workHourStart && hour < workHourEnd;
-          return (
-            <div
-              key={hour}
-              className="flex items-center gap-3 border-border/60 border-b pb-2 text-sm"
-            >
-              <span className="w-14 shrink-0 font-medium text-muted-foreground">
-                {hour.toString().padStart(2, '0')}:00
-              </span>
-              <div
-                className={clsx(
-                  'h-8 flex-1 rounded',
-                  isWorkHour ? 'bg-accent/35' : 'bg-muted/40'
-                )}
+  const renderDayView = () => {
+    const getQuarterSelections = (
+      hour: number
+    ): [boolean, boolean, boolean, boolean] => [
+      isSlotInSelection({ hour, quarter: 0 }, timeSelection),
+      isSlotInSelection({ hour, quarter: 1 }, timeSelection),
+      isSlotInSelection({ hour, quarter: 2 }, timeSelection),
+      isSlotInSelection({ hour, quarter: 3 }, timeSelection)
+    ];
+
+    return (
+      // biome-ignore lint/a11y/noStaticElementInteractions: container with child interactive elements
+      // biome-ignore lint/a11y/useKeyWithClickEvents: keyboard navigation handled by child hour slots
+      <div
+        className="h-full overflow-auto rounded-xl border bg-card p-4"
+        data-testid="calendar-day-view"
+        onContextMenu={(event) => {
+          if (timeSelection) {
+            handleSelectionContextMenu(event);
+          } else {
+            handleViewContextMenuRequest(event, selectedDate);
+          }
+        }}
+        onClick={(event) => {
+          if (
+            !(event.target as HTMLElement).closest('[data-interactive-slot]')
+          ) {
+            clearTimeSelection();
+          }
+        }}
+      >
+        <p className="font-medium text-sm uppercase tracking-wide">
+          {dayLabel}
+        </p>
+        <div className="relative mt-4">
+          <div>
+            {dayViewHours.map((hour) => {
+              const isWorkHour = hour >= workHourStart && hour < workHourEnd;
+              return (
+                <DayViewHourSlot
+                  key={hour}
+                  hour={hour}
+                  isWorkHour={isWorkHour}
+                  quarterSelections={getQuarterSelections(hour)}
+                  isSelecting={isSelecting}
+                  onMouseDown={handleSlotMouseDown}
+                  onMouseEnter={handleSlotMouseEnter}
+                  onClick={handleSlotClick}
+                />
+              );
+            })}
+          </div>
+          <div className="pointer-events-none absolute inset-0 ml-14">
+            {positionedDayEvents.map((positioned) => (
+              <DayViewEventBlock
+                key={positioned.event.id}
+                event={positioned.event}
+                top={positioned.top}
+                height={positioned.height}
+                left={positioned.left}
+                width={positioned.width}
               />
-            </div>
-          );
-        })}
+            ))}
+          </div>
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const renderWeekView = () => (
     // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu surface
@@ -760,6 +840,8 @@ export function CalendarContent({
         onOpenChange={setCreateEventModalOpen}
         calendarName={activeCalendar}
         selectedDate={createEventModalDate}
+        initialStartTime={createEventInitialStartTime}
+        initialEndTime={createEventInitialEndTime}
         onCreateEvent={onCreateEvent}
       />
       {calendarContextMenu ? (
@@ -775,6 +857,23 @@ export function CalendarContent({
             data-testid="calendar-sidebar-item-rename"
           >
             Rename Calendar
+          </WindowContextMenuItem>
+        </WindowContextMenu>
+      ) : null}
+      {selectionContextMenu ? (
+        <WindowContextMenu
+          x={selectionContextMenu.x}
+          y={selectionContextMenu.y}
+          onClose={handleCloseSelectionContextMenu}
+          menuTestId="calendar-selection-context-menu"
+          backdropTestId="calendar-selection-context-menu-backdrop"
+        >
+          <WindowContextMenuItem
+            onClick={handleCreateEventFromSelection}
+            data-testid="calendar-create-event-from-selection"
+          >
+            Create Event ({selectionContextMenu.startTime} -{' '}
+            {selectionContextMenu.endTime})
           </WindowContextMenuItem>
         </WindowContextMenu>
       ) : null}

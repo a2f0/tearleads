@@ -28,7 +28,8 @@
   },
   "dependencies": {
     "clsx": "2.1.1",
-    "lucide-react": "0.564.0"
+    "lucide-react": "0.564.0",
+    "rrule": "2.8.1"
   },
   "devDependencies": {
     "@tearleads/window-manager": "workspace:*",

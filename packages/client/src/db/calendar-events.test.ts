@@ -59,7 +59,10 @@ describe('calendar-events', () => {
         startAt: new Date(now),
         endAt: new Date(now + 60 * 60 * 1000),
         createdAt: new Date(now),
-        updatedAt: new Date(now)
+        updatedAt: new Date(now),
+        recurrence: null,
+        recurringEventId: null,
+        originalStartAt: null
       });
     });
   });
