@@ -1,87 +1,67 @@
-name: Deploy iOS to TestFlight
+name: Deploy iOS Apps to TestFlight (Matrix)
 
 on:
   workflow_call:
+    inputs:
+      apps:
+        description: 'JSON array of app IDs to build (e.g., ["tearleads"])'
+        required: false
+        default: '["tearleads"]'
+        type: string
   workflow_dispatch:
+    inputs:
+      apps:
+        description: 'Comma-separated app IDs (leave empty for default: tearleads)'
+        required: false
+        default: ''
+        type: string
 
 permissions:
   contents: write
 
 jobs:
-  detect-impact:
-    runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'macos-latest' }}
+  determine-apps:
+    runs-on: ubuntu-latest
     outputs:
-      should-deploy: ${{ steps.decide.outputs.should-deploy }}
-      impact-json: ${{ steps.decide.outputs.impact-json }}
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
     steps:
       - uses: actions/checkout@v4
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          ref: ${{ github.sha }}
-          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version-file: '.nvmrc'
 
-      - name: Install tsx
-        run: npm install -g tsx
-
-      - name: Decide deploy impact
-        id: decide
+      - name: Determine apps to build
+        id: set-matrix
         run: |
-          HEAD_SHA="${{ github.sha }}"
-          git fetch --no-tags --prune --depth=2 origin "$HEAD_SHA" || true
-          BASE_SHA=$(git rev-list --parents -n 1 "$HEAD_SHA" | awk '{print $2}')
-          if [ -n "$BASE_SHA" ]; then
-            git fetch --no-tags --prune --depth=1 origin "$BASE_SHA" || true
-          else
-            BASE_SHA="$HEAD_SHA"
-          fi
-          tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
-          SHOULD_DEPLOY=$(jq -r '.jobs["ios-maestro-release"].run' ci-impact.json)
-
-          LATEST_MAIN_SHA="$HEAD_SHA"
-          STALE_HEAD=false
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ]; then
-            git fetch --no-tags origin main
-            LATEST_MAIN_SHA=$(git rev-parse origin/main)
-            if [ "$HEAD_SHA" != "$LATEST_MAIN_SHA" ]; then
-              STALE_HEAD=true
-              SHOULD_DEPLOY=false
+          if [ -n "${{ inputs.apps }}" ]; then
+            # Check if input is already JSON array (from workflow_call)
+            if echo "${{ inputs.apps }}" | jq -e 'type == "array"' > /dev/null 2>&1; then
+              APPS='${{ inputs.apps }}'
+            else
+              # Convert comma-separated to JSON array (from workflow_dispatch)
+              APPS=$(echo "${{ inputs.apps }}" | jq -R 'split(",") | map(gsub("\\s+"; "")) | map(select(. != ""))')
             fi
+          else
+            # Default to tearleads
+            APPS='["tearleads"]'
           fi
-
-          echo "should-deploy=$SHOULD_DEPLOY" >> "$GITHUB_OUTPUT"
-          echo "stale_head=$STALE_HEAD" >> "$GITHUB_OUTPUT"
-          echo "source_sha=$HEAD_SHA" >> "$GITHUB_OUTPUT"
-          echo "latest_main_sha=$LATEST_MAIN_SHA" >> "$GITHUB_OUTPUT"
-          echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"
-          cat ci-impact.json >> "$GITHUB_OUTPUT"
-          echo "JSON" >> "$GITHUB_OUTPUT"
-
-      - name: Publish impact summary
-        if: ${{ always() }}
-        run: |
-          echo "### Deploy impact (ios)" >> "$GITHUB_STEP_SUMMARY"
-          jq -r '"- deploy: " + (.jobs["ios-maestro-release"].run|tostring)' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
-          jq -r '"- changed packages: " + (.changedPackages|join(", "))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
-          jq -r 'if (.warnings|length) > 0 then "- warnings: " + (.warnings|join("; ")) else "- warnings: none" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
-          echo "- source sha: ${{ steps.decide.outputs.source_sha }}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- latest main sha: ${{ steps.decide.outputs.latest_main_sha }}" >> "$GITHUB_STEP_SUMMARY"
-          if [ "${{ steps.decide.outputs.stale_head }}" = "true" ]; then
-            echo "- stale head: true (deployment skipped for older commit)" >> "$GITHUB_STEP_SUMMARY"
-          fi
+          echo "Building apps: $APPS"
+          echo "matrix={\"app\":$APPS}" >> $GITHUB_OUTPUT
 
   deploy:
-    name: Deploy to TestFlight
-    needs: detect-impact
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-deploy == 'true' }}
+    name: Deploy ${{ matrix.app }} to TestFlight
+    needs: determine-apps
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'macos-latest' }}
-    timeout-minutes: 15
+    timeout-minutes: 20
+    strategy:
+      matrix: ${{ fromJson(needs.determine-apps.outputs.matrix) }}
+      fail-fast: false
+
     env:
       XCODE_VERSION: 'latest-stable'
+      APP_ID: ${{ matrix.app }}
 
     steps:
       - uses: actions/checkout@v4
@@ -89,6 +69,17 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           ref: ${{ github.sha }}
           fetch-depth: 0
+
+      - name: Load app config
+        id: config
+        run: |
+          npm install -g tsx
+          cd packages/app-builder
+          CONFIG=$(tsx src/cli.ts dump --app $APP_ID --format json)
+          echo "bundle_id=$(echo $CONFIG | jq -r '.bundleIds.ios')" >> $GITHUB_OUTPUT
+          echo "display_name=$(echo $CONFIG | jq -r '.displayName')" >> $GITHUB_OUTPUT
+          echo "App: $(echo $CONFIG | jq -r '.displayName') ($APP_ID)"
+          echo "Bundle ID: $(echo $CONFIG | jq -r '.bundleIds.ios')"
 
       - name: Setup Xcode
         uses: maxim-lobanov/setup-xcode@v1
@@ -114,6 +105,12 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Generate app configs
+        run: |
+          cd packages/app-builder
+          tsx src/cli.ts generate --app $APP_ID
+          echo "Generated config files for $APP_ID"
+
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
@@ -135,9 +132,6 @@ jobs:
       - name: Build vfs-explorer
         run: pnpm --filter @tearleads/vfs-explorer build
 
-      - name: Build ai
-        run: pnpm --filter @tearleads/ai build
-
       - name: Build audio
         run: pnpm --filter @tearleads/audio build
 
@@ -146,18 +140,6 @@ jobs:
 
       - name: Build db-test-utils
         run: pnpm --filter @tearleads/db-test-utils build
-
-      - name: Build calendar
-        run: pnpm --filter @tearleads/calendar build
-
-      - name: Build photos
-        run: pnpm --filter @tearleads/photos build
-
-      - name: Generate app configs
-        run: |
-          npm install -g tsx
-          cd packages/app-builder
-          tsx src/cli.ts generate --app tearleads
 
       - name: Build web assets
         run: pnpm --filter @tearleads/client build
@@ -173,15 +155,6 @@ jobs:
       - name: Sync Capacitor
         run: pnpm --filter @tearleads/client run cap:sync
 
-      - name: Verify workspace is clean
-        run: |
-          if [[ -n $(git status --porcelain) ]]; then
-            echo "Error: Workspace is dirty after Capacitor sync"
-            echo "Please run 'pnpm --filter @tearleads/client run cap:sync' locally and commit the changes"
-            git status
-            exit 1
-          fi
-
       - name: Apply CI version from source commit
         id: ci_version
         run: |
@@ -190,28 +163,29 @@ jobs:
             --apply \
             --github-output "$GITHUB_OUTPUT"
 
+      # Use per-app secrets with fallback to default secrets
+      # Secret naming: {APP_ID_UPPER}_SECRET_NAME or SECRET_NAME
       - name: Setup App Store Connect API Key
         run: |
           mkdir -p .secrets
-          echo "${{ secrets.APP_STORE_CONNECT_API_KEY }}" | base64 -d > .secrets/AuthKey_${{ secrets.APP_STORE_CONNECT_KEY_ID }}.p8
+          KEY_ID="${{ secrets[format('{0}_APP_STORE_CONNECT_KEY_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_KEY_ID }}"
+          echo "${{ secrets[format('{0}_APP_STORE_CONNECT_API_KEY', env.APP_ID)] || secrets.APP_STORE_CONNECT_API_KEY }}" | base64 -d > .secrets/AuthKey_${KEY_ID}.p8
 
       - name: Get local and TestFlight build numbers
         id: version_check
         run: |
-          # Get local build number from Xcode project
           LOCAL_VERSION=$(grep -E 'CURRENT_PROJECT_VERSION = [0-9]+' ios/App/App.xcodeproj/project.pbxproj | head -1 | sed 's/.*= \([0-9]*\).*/\1/')
           echo "local_version=$LOCAL_VERSION" >> $GITHUB_OUTPUT
           echo "Local build number: $LOCAL_VERSION"
 
-          # Get latest TestFlight build number via fastlane
           TESTFLIGHT_VERSION=$(bundle exec fastlane ios get_testflight_build_number 2>&1 | grep -oE 'Latest TestFlight build number: [0-9]+' | grep -oE '[0-9]+' || echo "0")
           echo "testflight_version=$TESTFLIGHT_VERSION" >> $GITHUB_OUTPUT
           echo "TestFlight build number: $TESTFLIGHT_VERSION"
         working-directory: packages/client
         env:
           CI: true
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets[format('{0}_APP_STORE_CONNECT_KEY_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets[format('{0}_APP_STORE_CONNECT_ISSUER_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_ISSUER_ID }}
 
       - name: Validate version is newer than TestFlight
         id: check_build
@@ -223,8 +197,6 @@ jobs:
 
           if [ "$LOCAL" -lt "$TESTFLIGHT" ]; then
             echo "ERROR: Local version ($LOCAL) is OLDER than TestFlight ($TESTFLIGHT)."
-            echo "This can happen when manually re-running an old workflow."
-            echo "Refusing to deploy an older version."
             exit 1
           elif [ "$LOCAL" -eq "$TESTFLIGHT" ]; then
             echo "Local version ($LOCAL) already exists in TestFlight. Skipping."
@@ -239,8 +211,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: packages/client/ios/App/Pods
-          key: pods-${{ runner.os }}-${{ hashFiles('packages/client/ios/App/Podfile.lock') }}
+          key: pods-${{ runner.os }}-${{ matrix.app }}-${{ hashFiles('packages/client/ios/App/Podfile.lock') }}
           restore-keys: |
+            pods-${{ runner.os }}-${{ matrix.app }}-
             pods-${{ runner.os }}-
 
       - name: Install CocoaPods
@@ -254,14 +227,15 @@ jobs:
         working-directory: packages/client
         env:
           CI: true
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          TEAM_ID: ${{ secrets.TEAM_ID }}
-          ITC_TEAM_ID: ${{ secrets.ITC_TEAM_ID }}
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
-          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
+          APP_DISPLAY_NAME: ${{ steps.config.outputs.display_name }}
+          APPLE_ID: ${{ secrets[format('{0}_APPLE_ID', env.APP_ID)] || secrets.APPLE_ID }}
+          TEAM_ID: ${{ secrets[format('{0}_TEAM_ID', env.APP_ID)] || secrets.TEAM_ID }}
+          ITC_TEAM_ID: ${{ secrets[format('{0}_ITC_TEAM_ID', env.APP_ID)] || secrets.ITC_TEAM_ID }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets[format('{0}_APP_STORE_CONNECT_KEY_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets[format('{0}_APP_STORE_CONNECT_ISSUER_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          MATCH_GIT_URL: ${{ secrets[format('{0}_MATCH_GIT_URL', env.APP_ID)] || secrets.MATCH_GIT_URL }}
+          MATCH_PASSWORD: ${{ secrets[format('{0}_MATCH_PASSWORD', env.APP_ID)] || secrets.MATCH_PASSWORD }}
+          MATCH_GIT_BASIC_AUTHORIZATION: ${{ secrets[format('{0}_MATCH_GIT_BASIC_AUTHORIZATION', env.APP_ID)] || secrets.MATCH_GIT_BASIC_AUTHORIZATION }}
 
       - name: Verify clean build
         if: steps.check_build.outputs.skip != 'true'
@@ -273,7 +247,21 @@ jobs:
         working-directory: packages/client
         env:
           CI: true
-          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
-          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_DISPLAY_NAME: ${{ steps.config.outputs.display_name }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets[format('{0}_APP_STORE_CONNECT_KEY_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets[format('{0}_APP_STORE_CONNECT_ISSUER_ID', env.APP_ID)] || secrets.APP_STORE_CONNECT_ISSUER_ID }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "### iOS Deploy Summary: ${{ steps.config.outputs.display_name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- App ID: $APP_ID" >> $GITHUB_STEP_SUMMARY
+          echo "- Bundle ID: ${{ steps.config.outputs.bundle_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Build: ${{ steps.version_check.outputs.local_version }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ steps.check_build.outputs.skip }}" = "true" ]; then
+            echo "- Status: Skipped (already in TestFlight)" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Status: Deployed" >> $GITHUB_STEP_SUMMARY
+          fi

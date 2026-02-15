@@ -8,6 +8,9 @@ export interface FeatureFlagDefinition {
 
 export const FEATURE_FLAG_KEYS: FeatureFlagKey[] = ['vfsServerRegistration'];
 
+// Re-export app feature utilities for convenience
+export { getAppFeatures, isAppFeatureEnabled } from './app-config.js';
+
 export const FEATURE_FLAGS: Record<FeatureFlagKey, FeatureFlagDefinition> = {
   vfsServerRegistration: {
     label: 'VFS server registration',

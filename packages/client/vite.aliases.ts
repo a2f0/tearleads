@@ -1,6 +1,63 @@
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 type AliasMap = Record<string, string>;
+
+interface AppConfigJson {
+  features: string[];
+}
+
+/**
+ * Feature-to-package mapping for tree-shaking.
+ *
+ * NOTE: This duplicates the mapping in packages/app-builder/src/feature-map.ts.
+ * We cannot import from app-builder because vite.aliases.ts is processed by
+ * tsconfig.node.json which has a different rootDir. Keep both in sync manually.
+ */
+const FEATURE_TO_PACKAGE: Record<string, string> = {
+  admin: '@tearleads/admin',
+  analytics: '@tearleads/analytics',
+  audio: '@tearleads/audio',
+  businesses: '@tearleads/businesses',
+  calendar: '@tearleads/calendar',
+  camera: '@tearleads/camera',
+  classic: '@tearleads/classic',
+  compliance: '@tearleads/compliance',
+  contacts: '@tearleads/contacts',
+  email: '@tearleads/email',
+  health: '@tearleads/health',
+  'mls-chat': '@tearleads/mls-chat',
+  notes: '@tearleads/notes',
+  sync: '@tearleads/sync',
+  terminal: '@tearleads/terminal',
+  vehicles: '@tearleads/vehicles',
+  wallet: '@tearleads/wallet'
+};
+
+/**
+ * Reads the app config and returns disabled packages to be stubbed.
+ */
+function getDisabledPackages(dirname: string): string[] {
+  const configPath = path.resolve(dirname, 'generated/app-config.json');
+
+  if (!existsSync(configPath)) {
+    // No config = all features enabled (development default)
+    return [];
+  }
+
+  try {
+    const content = readFileSync(configPath, 'utf-8');
+    const config: AppConfigJson = JSON.parse(content);
+    const enabledFeatures = new Set(config.features);
+
+    // Return packages whose features are not enabled
+    return Object.entries(FEATURE_TO_PACKAGE)
+      .filter(([feature]) => !enabledFeatures.has(feature))
+      .map(([, pkg]) => pkg);
+  } catch {
+    return [];
+  }
+}
 
 /**
  * Creates the standard alias configuration for Vite configs.
@@ -8,8 +65,29 @@ type AliasMap = Record<string, string>;
  * and vitest.config.ts to reduce duplication.
  *
  * @param dirname - The __dirname of the calling config file
+ * @param options - Optional configuration
+ * @param options.enableTreeShaking - Enable tree-shaking of disabled packages (default: true in production)
  */
-export const createViteAliases = (dirname: string): AliasMap => ({
+export const createViteAliases = (
+  dirname: string,
+  options: { enableTreeShaking?: boolean } = {}
+): AliasMap => {
+  const enableTreeShaking =
+    options.enableTreeShaking ?? process.env['NODE_ENV'] === 'production';
+
+  const disabledPackages = enableTreeShaking ? getDisabledPackages(dirname) : [];
+  const stubPath = path.resolve(dirname, './src/lib/disabled-package-stub.ts');
+
+  // Create stub aliases for disabled packages
+  const stubAliases: AliasMap = {};
+  for (const pkg of disabledPackages) {
+    stubAliases[pkg] = stubPath;
+    // Also stub the package.json imports
+    stubAliases[`${pkg}/package.json`] = stubPath;
+  }
+
+  return {
+    ...stubAliases,
   '@': path.resolve(dirname, './src'),
   '@client': path.resolve(dirname, './src'),
   '@admin': path.resolve(dirname, '../admin/src'),
@@ -83,5 +161,6 @@ export const createViteAliases = (dirname: string): AliasMap => ({
     dirname,
     '../console/package.json'
   ),
-  '@tearleads/console': path.resolve(dirname, '../console/src/index.ts'),
-});
+  '@tearleads/console': path.resolve(dirname, '../console/src/index.ts')
+  };
+};

@@ -49,6 +49,34 @@ describe('jwt', () => {
 
       expect(result).toBeNull();
     });
+
+    it('returns null when app is defined but not a string', () => {
+      vi.spyOn(jwt, 'verify').mockReturnValue({
+        sub: 'user-id',
+        jti: 'token-id',
+        app: 12345
+      } as never);
+
+      const result = verifyJwt('some-token', 'secret');
+
+      expect(result).toBeNull();
+    });
+
+    it('returns claims with app when app is a valid string', () => {
+      vi.spyOn(jwt, 'verify').mockReturnValue({
+        sub: 'user-id',
+        jti: 'token-id',
+        app: 'tearleads'
+      } as never);
+
+      const result = verifyJwt('some-token', 'secret');
+
+      expect(result).toEqual({
+        sub: 'user-id',
+        jti: 'token-id',
+        app: 'tearleads'
+      });
+    });
   });
 
   describe('verifyRefreshJwt', () => {
