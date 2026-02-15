@@ -1,8 +1,6 @@
 import { clsx } from 'clsx';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-
-const calendarLocale = 'en-US';
-const weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+import { calendarLocale, weekDayHeaders } from '../constants';
 
 interface YearCell {
   day: number;
@@ -17,6 +15,7 @@ interface YearMonth {
 
 export interface CalendarYearViewProps {
   currentYear: number;
+  selectedDate: Date;
   yearData: YearMonth[];
   onDateSelect: (date: Date, viewMode: 'Day' | 'Month') => void;
   onContextMenuRequest: (
@@ -27,6 +26,7 @@ export interface CalendarYearViewProps {
 
 export function CalendarYearView({
   currentYear,
+  selectedDate,
   yearData,
   onDateSelect,
   onContextMenuRequest
@@ -36,7 +36,7 @@ export function CalendarYearView({
     <div
       className="h-full overflow-auto rounded-xl border bg-card p-4"
       data-testid="calendar-year-view"
-      onContextMenu={(event) => onContextMenuRequest(event, new Date())}
+      onContextMenu={(event) => onContextMenuRequest(event, selectedDate)}
     >
       <p className="font-medium text-sm uppercase tracking-wide">
         {currentYear}

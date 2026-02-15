@@ -1,8 +1,6 @@
 import { clsx } from 'clsx';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-
-const calendarLocale = 'en-US';
-const weekDayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+import { calendarLocale, weekDayHeaders } from '../constants';
 
 interface MonthCell {
   date: Date;

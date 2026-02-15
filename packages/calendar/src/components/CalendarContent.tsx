@@ -18,6 +18,7 @@ import {
   selectionToTimeRange,
   useTimeRangeSelection
 } from '../hooks/useTimeRangeSelection';
+import { calendarLocale } from '../constants';
 import type { CalendarEventItem } from '../types';
 import { getPositionedEventsForDay } from '../utils/eventPositioning';
 import { CalendarDayView } from './CalendarDayView';
@@ -33,7 +34,6 @@ const defaultCalendarName = 'Personal';
 const defaultCalendars = [defaultCalendarName];
 const viewModes = ['Day', 'Week', 'Month', 'Year'] as const;
 type CalendarViewMode = (typeof viewModes)[number];
-const calendarLocale = 'en-US';
 const yearMonthNames = [
   'January',
   'February',
@@ -493,6 +493,7 @@ export function CalendarContent({
         return (
           <CalendarYearView
             currentYear={currentYear}
+            selectedDate={selectedDate}
             yearData={yearData}
             onDateSelect={handleDateSelect}
             onContextMenuRequest={handleViewContextMenuRequest}

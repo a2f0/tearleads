@@ -1,7 +1,6 @@
 import { clsx } from 'clsx';
 import type { MouseEvent as ReactMouseEvent } from 'react';
-
-const calendarLocale = 'en-US';
+import { calendarLocale } from '../constants';
 
 export interface CalendarWeekViewProps {
   weekDates: Date[];

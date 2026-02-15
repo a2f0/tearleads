@@ -1,4 +1,5 @@
 import { clsx } from 'clsx';
+import { calendarLocale } from '../constants';
 import type { CalendarEventItem } from '../types';
 
 interface DayViewEventBlockProps {
@@ -10,8 +11,6 @@ interface DayViewEventBlockProps {
   isRecurring?: boolean;
   onClick?: () => void;
 }
-
-const calendarLocale = 'en-US';
 
 function formatTime(date: Date): string {
   return date.toLocaleTimeString(calendarLocale, {
