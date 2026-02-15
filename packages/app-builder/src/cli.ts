@@ -1,7 +1,22 @@
 #!/usr/bin/env tsx
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { program } from 'commander';
 import { getDisabledPackages, getEnabledPackages } from './feature-map.js';
+import {
+  generateAppMetadataJson,
+  generateCapacitorConfig
+} from './generators/index.js';
 import { listApps, loadAppConfig } from './loader.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+/** Get the default output directory (packages/client) */
+function getDefaultOutputDir(): string {
+  return resolve(__dirname, '..', '..', 'client');
+}
 
 program
   .name('app-builder')
@@ -150,7 +165,6 @@ program
 
 /**
  * Generate configuration files for an app.
- * (Placeholder - will be implemented in later phases)
  */
 program
   .command('generate')
@@ -165,19 +179,67 @@ program
     '-o, --output <dir>',
     'Output directory (defaults to packages/client)'
   )
+  .option('--dry-run', 'Show what would be generated without writing files')
   .action(
-    async (options: { app: string; platform: string; output?: string }) => {
+    async (options: {
+      app: string;
+      platform: string;
+      output?: string;
+      dryRun?: boolean;
+    }) => {
       try {
         const { config } = await loadAppConfig(options.app);
+        const outputDir = options.output || getDefaultOutputDir();
+
         console.log(
           `Generating configs for "${config.displayName}" (${options.app})...`
         );
         console.log(`  Bundle ID (iOS): ${config.bundleIds.ios}`);
-        console.log(`  Platform: ${options.platform}`);
-        console.log(`  Output: ${options.output || 'packages/client'}`);
+        console.log(`  Bundle ID (Android): ${config.bundleIds.android}`);
+        console.log(`  Output: ${outputDir}`);
+        console.log('');
 
-        // TODO: Implement generators in Phase 2+
-        console.log('\nGeneration not yet implemented. Coming in Phase 2.');
+        const filesToWrite: Array<{ path: string; content: string }> = [];
+
+        // Generate capacitor.config.ts
+        if (
+          options.platform === 'all' ||
+          options.platform === 'ios' ||
+          options.platform === 'android'
+        ) {
+          filesToWrite.push({
+            path: join(outputDir, 'capacitor.config.ts'),
+            content: generateCapacitorConfig(config)
+          });
+        }
+
+        // Generate app metadata JSON for build-time injection
+        const generatedDir = join(outputDir, 'generated');
+        filesToWrite.push({
+          path: join(generatedDir, 'app-config.json'),
+          content: generateAppMetadataJson(config)
+        });
+
+        // Write files
+        for (const file of filesToWrite) {
+          if (options.dryRun) {
+            console.log(`[dry-run] Would write: ${file.path}`);
+            console.log('---');
+            console.log(file.content);
+            console.log('---\n');
+          } else {
+            const dir = dirname(file.path);
+            if (!existsSync(dir)) {
+              mkdirSync(dir, { recursive: true });
+            }
+            writeFileSync(file.path, file.content, 'utf-8');
+            console.log(`  Written: ${file.path}`);
+          }
+        }
+
+        if (!options.dryRun) {
+          console.log(`\nGenerated ${filesToWrite.length} file(s).`);
+        }
       } catch (error) {
         console.error(`Error: ${(error as Error).message}`);
         process.exit(1);
