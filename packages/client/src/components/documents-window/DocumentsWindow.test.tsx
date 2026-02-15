@@ -447,6 +447,6 @@ describe('DocumentsWindow', () => {
     }
 
     onOpenAIChat();
-    expect(mockOpenWindow).toHaveBeenCalledWith('chat');
+    expect(mockOpenWindow).toHaveBeenCalledWith('ai');
   });
 });

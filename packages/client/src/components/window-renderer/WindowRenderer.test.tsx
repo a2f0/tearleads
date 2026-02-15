@@ -1147,8 +1147,8 @@ vi.mock('@/components/admin-users-window', () => ({
   )
 }));
 
-vi.mock('@/components/chat-window', () => ({
-  ChatWindow: ({
+vi.mock('@/components/ai-window', () => ({
+  AIWindow: ({
     id,
     onClose,
     onMinimize,
@@ -1163,7 +1163,7 @@ vi.mock('@/components/chat-window', () => ({
   }) => (
     <div
       role="dialog"
-      data-testid={`chat-window-${id}`}
+      data-testid={`ai-window-${id}`}
       data-zindex={zIndex}
       onClick={onFocus}
       onKeyDown={(e) => e.key === 'Enter' && onFocus()}
@@ -1914,14 +1914,14 @@ describe('WindowRenderer', () => {
       }
     },
     {
-      label: 'chat',
-      type: 'chat',
-      id: 'chat-1',
-      windowTestId: 'chat-window-chat-1',
-      closeTestId: 'close-chat-1',
-      focusTestId: 'chat-window-chat-1',
+      label: 'ai',
+      type: 'ai',
+      id: 'ai-1',
+      windowTestId: 'ai-window-ai-1',
+      closeTestId: 'close-ai-1',
+      focusTestId: 'ai-window-ai-1',
       minimize: {
-        testId: 'minimize-chat-1',
+        testId: 'minimize-ai-1',
         dimensions: { x: 0, y: 0, width: 700, height: 600 }
       }
     },
@@ -2053,7 +2053,7 @@ describe('WindowRenderer', () => {
       { id: 'wallet-1', type: 'wallet', zIndex: 110 },
       { id: 'contacts-1', type: 'contacts', zIndex: 111 },
       { id: 'sqlite-1', type: 'sqlite', zIndex: 112 },
-      { id: 'chat-1', type: 'chat', zIndex: 113 },
+      { id: 'ai-1', type: 'ai', zIndex: 113 },
       { id: 'analytics-1', type: 'analytics', zIndex: 114 },
       { id: 'audio-1', type: 'audio', zIndex: 115 },
       { id: 'admin-1', type: 'admin', zIndex: 116 },
@@ -2102,7 +2102,7 @@ describe('WindowRenderer', () => {
     expect(
       screen.getByTestId('local-storage-window-local-storage-1')
     ).toBeInTheDocument();
-    expect(screen.getByTestId('chat-window-chat-1')).toBeInTheDocument();
+    expect(screen.getByTestId('ai-window-ai-1')).toBeInTheDocument();
     expect(
       screen.getByTestId('analytics-window-analytics-1')
     ).toBeInTheDocument();

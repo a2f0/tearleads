@@ -1,22 +1,24 @@
-import { ModelSelector } from '@/components/ModelSelector';
-import {
-  DropdownMenu,
-  DropdownMenuItem,
-  DropdownMenuSeparator
-} from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import { useAIUI } from '../../context';
 
-interface ChatWindowMenuBarProps {
+interface AIWindowMenuBarProps {
   onNewChat: () => void | Promise<void>;
   onClose: () => void;
   modelDisplayName: string | undefined;
 }
 
-export function ChatWindowMenuBar({
+export function AIWindowMenuBar({
   onNewChat,
   onClose,
   modelDisplayName
-}: ChatWindowMenuBarProps) {
+}: AIWindowMenuBarProps) {
+  const {
+    DropdownMenu,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    WindowOptionsMenuItem,
+    ModelSelector
+  } = useAIUI();
+
   return (
     <div className="flex shrink-0 items-center justify-between gap-2 border-b bg-muted/30 px-1">
       <div className="flex items-center">

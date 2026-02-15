@@ -1,12 +1,11 @@
-import type { DecryptedAiConversation } from '@tearleads/shared';
 import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
+import { type DecryptedConversation, useAIUI } from '../../context';
+import { useDialogAccessibility } from '../../hooks';
 
 export interface DeleteConversationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  conversation: DecryptedAiConversation | null;
+  conversation: DecryptedConversation | null;
   onDelete: (conversationId: string) => Promise<void>;
 }
 
@@ -16,6 +15,7 @@ export function DeleteConversationDialog({
   conversation,
   onDelete
 }: DeleteConversationDialogProps) {
+  const { Button } = useAIUI();
   const [isDeleting, setIsDeleting] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 

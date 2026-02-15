@@ -41,7 +41,7 @@ const SEARCHABLE_APPS: SearchableAppDefinition[] = [
   },
   { windowType: 'sqlite', path: '/sqlite', title: 'SQLite' },
   { windowType: 'opfs', path: '/debug/browser/opfs', title: 'OPFS' },
-  { windowType: 'chat', path: '/ai', title: 'AI', keywords: ['chat'] },
+  { windowType: 'ai', path: '/ai', title: 'AI', keywords: ['chat'] },
   { windowType: 'analytics', path: '/analytics', title: 'Analytics' },
   { windowType: 'audio', path: '/audio', title: 'Audio', keywords: ['music'] },
   { windowType: 'models', path: '/models', title: 'Models', keywords: ['ai'] },

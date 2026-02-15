@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
-import { useDialogAccessibility } from '@/hooks/useDialogAccessibility';
+import { useAIUI } from '../../context';
+import { useDialogAccessibility } from '../../hooks';
 
 export interface NewConversationDialogProps {
   open: boolean;
@@ -13,6 +13,7 @@ export function NewConversationDialog({
   onOpenChange,
   onConfirm
 }: NewConversationDialogProps) {
+  const { Button } = useAIUI();
   const [isCreating, setIsCreating] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
 

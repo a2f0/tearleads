@@ -153,7 +153,7 @@ export function PhotosWindow({
   }, []);
 
   const handleOpenAIChat = useCallback(() => {
-    openWindow('chat');
+    openWindow('ai');
   }, [openWindow]);
 
   useEffect(() => {

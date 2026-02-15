@@ -20,8 +20,8 @@ describe('appCatalog', () => {
   });
 
   it('looks up app definitions by id', () => {
-    const app = getSearchableAppById(toAppSearchId('chat'));
-    expect(app?.windowType).toBe('chat');
+    const app = getSearchableAppById(toAppSearchId('ai'));
+    expect(app?.windowType).toBe('ai');
     expect(app?.path).toBe('/ai');
 
     expect(getSearchableAppById('app:missing')).toBeNull();
