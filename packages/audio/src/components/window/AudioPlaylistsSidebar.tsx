@@ -2,13 +2,14 @@ import {
   detectPlatform,
   useResizableSidebar,
   useSidebarDragOver,
+  useSidebarRefetch,
   WindowSidebarError,
   WindowSidebarHeader,
   WindowSidebarItem,
   WindowSidebarLoading
 } from '@tearleads/window-manager';
 import { List, Music, Plus } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
 import { filterFilesByAccept } from '../../lib/file-filter';
 import { getMediaDragIds } from '../../lib/mediaDragData';
@@ -192,17 +193,7 @@ export function AudioPlaylistsSidebar({
     y: number;
   } | null>(null);
 
-  const lastRefreshTokenRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (refreshToken === undefined) return;
-
-    if (lastRefreshTokenRef.current !== refreshToken) {
-      void refetch();
-    }
-
-    lastRefreshTokenRef.current = refreshToken;
-  }, [refreshToken, refetch]);
+  useSidebarRefetch(refreshToken, refetch);
 
   useEffect(() => {
     if (playlists.length === 0) return;

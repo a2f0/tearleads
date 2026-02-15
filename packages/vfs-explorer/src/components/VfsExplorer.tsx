@@ -7,6 +7,7 @@ import {
   useSensor,
   useSensors
 } from '@dnd-kit/core';
+import { useCombinedRefresh } from '@tearleads/window-manager';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { UNFILED_FOLDER_ID } from '../constants';
 import { useVfsClipboard, VfsClipboardProvider } from '../context';
@@ -69,7 +70,8 @@ function VfsExplorerInner({
   const [sharingItem, setSharingItem] = useState<DisplayItem | null>(null);
   const [activeItem, setActiveItem] = useState<DragItemData | null>(null);
   const [items, setItems] = useState<DisplayItem[]>([]);
-  const [folderRefreshToken, setFolderRefreshToken] = useState(0);
+  const { combinedRefreshToken, triggerRefresh } =
+    useCombinedRefresh(refreshToken);
   const [statusMessage, setStatusMessage] = useState<{
     text: string;
     type: 'error' | 'info';
@@ -202,6 +204,7 @@ function VfsExplorerInner({
             'info'
           );
         }
+        triggerRefresh();
         onItemMoved?.();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -209,7 +212,7 @@ function VfsExplorerInner({
         showStatusMessage(`Move failed: ${message}`, 'error');
       }
     },
-    [moveItem, onItemMoved, showStatusMessage]
+    [moveItem, onItemMoved, showStatusMessage, triggerRefresh]
   );
 
   const handlePaste = useCallback(
@@ -250,7 +253,7 @@ function VfsExplorerInner({
         }
 
         // Refresh the view
-        setFolderRefreshToken((prev) => prev + 1);
+        triggerRefresh();
         onItemMoved?.();
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err);
@@ -265,12 +268,10 @@ function VfsExplorerInner({
       copyItem,
       clearClipboard,
       onItemMoved,
-      showStatusMessage
+      showStatusMessage,
+      triggerRefresh
     ]
   );
-
-  // Combine external refresh token with internal folder refresh token
-  const combinedRefreshToken = (refreshToken ?? 0) + folderRefreshToken;
 
   return (
     <DndContext

@@ -1,4 +1,7 @@
-import { useResizableSidebar } from '@tearleads/window-manager';
+import {
+  useResizableSidebar,
+  useSidebarRefetch
+} from '@tearleads/window-manager';
 import { List, Loader2, Plus, Video } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
@@ -191,17 +194,7 @@ export function VideoPlaylistsSidebar({
     y: number;
   } | null>(null);
 
-  const lastRefreshTokenRef = useRef<number | null>(null);
-
-  useEffect(() => {
-    if (refreshToken === undefined) return;
-
-    if (lastRefreshTokenRef.current !== refreshToken) {
-      void refetch();
-    }
-
-    lastRefreshTokenRef.current = refreshToken;
-  }, [refreshToken, refetch]);
+  useSidebarRefetch(refreshToken, refetch);
 
   useEffect(() => {
     if (playlists.length === 0) return;
