@@ -7,6 +7,8 @@ import {
 } from '@tearleads/db/sqlite';
 import { asc, desc, eq } from 'drizzle-orm';
 
+import { DEFAULT_EXERCISES } from './default-exercises.js';
+
 export type WeightUnit = 'lb' | 'kg';
 
 export interface WeightReading {
@@ -94,52 +96,6 @@ export interface CreateHealthTrackerOptions {
   createId?: (prefix: string) => string;
   now?: () => Date;
 }
-
-interface DefaultExercise {
-  id: string;
-  name: string;
-  parentId?: string;
-}
-
-export const DEFAULT_EXERCISES: readonly DefaultExercise[] = [
-  { id: 'back-squat', name: 'Back Squat' },
-  { id: 'bench-press', name: 'Bench Press' },
-  { id: 'deadlift', name: 'Deadlift' },
-  { id: 'overhead-press', name: 'Overhead Press' },
-  { id: 'barbell-row', name: 'Barbell Row' },
-  { id: 'pull-up', name: 'Pull-Up' },
-  { id: 'pull-up-strict', name: 'Strict Pull-Up', parentId: 'pull-up' },
-  { id: 'pull-up-chin-up', name: 'Chin-Up', parentId: 'pull-up' },
-  { id: 'pull-up-wide-grip', name: 'Wide Grip Pull-Up', parentId: 'pull-up' },
-  {
-    id: 'pull-up-neutral-grip',
-    name: 'Neutral Grip Pull-Up',
-    parentId: 'pull-up'
-  },
-  { id: 'pull-up-weighted', name: 'Weighted Pull-Up', parentId: 'pull-up' },
-  { id: 'pull-up-l-sit', name: 'L-Sit Pull-Up', parentId: 'pull-up' },
-  { id: 'pull-up-archer', name: 'Archer Pull-Up', parentId: 'pull-up' },
-  { id: 'pull-up-commando', name: 'Commando Pull-Up', parentId: 'pull-up' },
-  { id: 'pull-up-kipping', name: 'Kipping Pull-Up', parentId: 'pull-up' },
-  { id: 'pull-up-towel', name: 'Towel Pull-Up', parentId: 'pull-up' },
-  { id: 'pull-up-mixed-grip', name: 'Mixed Grip Pull-Up', parentId: 'pull-up' },
-  { id: 'pull-up-eccentric', name: 'Eccentric Pull-Up', parentId: 'pull-up' },
-  {
-    id: 'pull-up-around-the-world',
-    name: 'Around-the-World Pull-Up',
-    parentId: 'pull-up'
-  },
-  {
-    id: 'pull-up-chest-to-bar',
-    name: 'Chest-to-Bar Pull-Up',
-    parentId: 'pull-up'
-  },
-  {
-    id: 'pull-up-one-arm-assisted',
-    name: 'One-Arm Pull-Up (Assisted)',
-    parentId: 'pull-up'
-  }
-];
 
 const NON_ALPHANUMERIC_REGEX = /[^a-z0-9]+/g;
 const EDGE_DASHES_REGEX = /^-+|-+$/g;

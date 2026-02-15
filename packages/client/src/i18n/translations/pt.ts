@@ -682,5 +682,41 @@ export const pt = {
       'Falha ao carregar algumas associações de grupo',
     organizationIdCopied: 'ID da organização copiado.',
     failedToCopyOrganizationId: 'Falha ao copiar ID da organização.'
+  },
+  health: {
+    exercises: 'Exercícios',
+    workouts: 'Treinos',
+    weight: 'Peso',
+    bloodPressure: 'Pressão Arterial',
+    noExercisesFound: 'Nenhum exercício encontrado',
+    variation: '{{count}} variação',
+    variations: '{{count}} variações',
+    exerciseName: 'Nome do Exercício',
+    category: 'Categoria (Opcional)',
+    addExercise: 'Adicionar Exercício',
+    exerciseNames: {
+      'ex_a1b2c3d4-1001-4000-8000-000000000001': 'Agachamento com Barra',
+      'ex_a1b2c3d4-1002-4000-8000-000000000002': 'Supino Reto',
+      'ex_a1b2c3d4-1003-4000-8000-000000000003': 'Levantamento Terra',
+      'ex_a1b2c3d4-1004-4000-8000-000000000004': 'Desenvolvimento Militar',
+      'ex_a1b2c3d4-1005-4000-8000-000000000005': 'Remada com Barra',
+      'ex_a1b2c3d4-1006-4000-8000-000000000006': 'Barra Fixa',
+      'ex_a1b2c3d4-1007-4000-8000-000000000007': 'Barra Fixa Estrita',
+      'ex_a1b2c3d4-1008-4000-8000-000000000008': 'Barra Fixa Supinada',
+      'ex_a1b2c3d4-1009-4000-8000-000000000009': 'Barra Fixa Pegada Aberta',
+      'ex_a1b2c3d4-1010-4000-8000-000000000010': 'Barra Fixa Pegada Neutra',
+      'ex_a1b2c3d4-1011-4000-8000-000000000011': 'Barra Fixa com Peso',
+      'ex_a1b2c3d4-1012-4000-8000-000000000012': 'Barra Fixa em L',
+      'ex_a1b2c3d4-1013-4000-8000-000000000013': 'Barra Fixa Arqueiro',
+      'ex_a1b2c3d4-1014-4000-8000-000000000014': 'Barra Fixa Comando',
+      'ex_a1b2c3d4-1015-4000-8000-000000000015': 'Barra Fixa Kipping',
+      'ex_a1b2c3d4-1016-4000-8000-000000000016': 'Barra Fixa com Toalha',
+      'ex_a1b2c3d4-1017-4000-8000-000000000017': 'Barra Fixa Pegada Mista',
+      'ex_a1b2c3d4-1018-4000-8000-000000000018': 'Barra Fixa Excêntrica',
+      'ex_a1b2c3d4-1019-4000-8000-000000000019': 'Barra Fixa Ao Redor do Mundo',
+      'ex_a1b2c3d4-1020-4000-8000-000000000020': 'Barra Fixa Peito na Barra',
+      'ex_a1b2c3d4-1021-4000-8000-000000000021':
+        'Barra Fixa Um Braço (Assistida)'
+    }
   }
 } as const satisfies I18NextTranslations;

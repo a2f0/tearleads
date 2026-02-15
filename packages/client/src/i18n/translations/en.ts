@@ -670,5 +670,40 @@ export const en = {
     failedToLoadSomeGroupMemberships: 'Failed to load some group memberships',
     organizationIdCopied: 'Organization ID copied.',
     failedToCopyOrganizationId: 'Failed to copy organization ID.'
+  },
+  health: {
+    exercises: 'Exercises',
+    workouts: 'Workouts',
+    weight: 'Weight',
+    bloodPressure: 'Blood Pressure',
+    noExercisesFound: 'No exercises found',
+    variation: '{{count}} variation',
+    variations: '{{count}} variations',
+    exerciseName: 'Exercise Name',
+    category: 'Category (Optional)',
+    addExercise: 'Add Exercise',
+    exerciseNames: {
+      'ex_a1b2c3d4-1001-4000-8000-000000000001': 'Back Squat',
+      'ex_a1b2c3d4-1002-4000-8000-000000000002': 'Bench Press',
+      'ex_a1b2c3d4-1003-4000-8000-000000000003': 'Deadlift',
+      'ex_a1b2c3d4-1004-4000-8000-000000000004': 'Overhead Press',
+      'ex_a1b2c3d4-1005-4000-8000-000000000005': 'Barbell Row',
+      'ex_a1b2c3d4-1006-4000-8000-000000000006': 'Pull-Up',
+      'ex_a1b2c3d4-1007-4000-8000-000000000007': 'Strict Pull-Up',
+      'ex_a1b2c3d4-1008-4000-8000-000000000008': 'Chin-Up',
+      'ex_a1b2c3d4-1009-4000-8000-000000000009': 'Wide Grip Pull-Up',
+      'ex_a1b2c3d4-1010-4000-8000-000000000010': 'Neutral Grip Pull-Up',
+      'ex_a1b2c3d4-1011-4000-8000-000000000011': 'Weighted Pull-Up',
+      'ex_a1b2c3d4-1012-4000-8000-000000000012': 'L-Sit Pull-Up',
+      'ex_a1b2c3d4-1013-4000-8000-000000000013': 'Archer Pull-Up',
+      'ex_a1b2c3d4-1014-4000-8000-000000000014': 'Commando Pull-Up',
+      'ex_a1b2c3d4-1015-4000-8000-000000000015': 'Kipping Pull-Up',
+      'ex_a1b2c3d4-1016-4000-8000-000000000016': 'Towel Pull-Up',
+      'ex_a1b2c3d4-1017-4000-8000-000000000017': 'Mixed Grip Pull-Up',
+      'ex_a1b2c3d4-1018-4000-8000-000000000018': 'Eccentric Pull-Up',
+      'ex_a1b2c3d4-1019-4000-8000-000000000019': 'Around-the-World Pull-Up',
+      'ex_a1b2c3d4-1020-4000-8000-000000000020': 'Chest-to-Bar Pull-Up',
+      'ex_a1b2c3d4-1021-4000-8000-000000000021': 'One-Arm Pull-Up (Assisted)'
+    }
   }
 } as const satisfies I18NextTranslations;

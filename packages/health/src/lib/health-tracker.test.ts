@@ -8,7 +8,11 @@ import { withRealDatabase } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { healthTestMigrations } from '../test/health-test-migrations.js';
-import { createHealthTracker, DEFAULT_EXERCISES } from './health-tracker.js';
+import {
+  DEFAULT_EXERCISE_IDS,
+  DEFAULT_EXERCISES
+} from './default-exercises.js';
+import { createHealthTracker } from './health-tracker.js';
 
 const createDeterministicId = (): ((prefix: string) => string) => {
   let sequence = 1;
@@ -48,7 +52,10 @@ describe('createHealthTracker', () => {
 
         const firstList = await tracker.listExercises();
         expect(firstList.length).toBe(DEFAULT_EXERCISES.length);
-        expect(firstList[0]).toEqual({ id: 'back-squat', name: 'Back Squat' });
+        expect(firstList[0]).toEqual({
+          id: DEFAULT_EXERCISE_IDS.BACK_SQUAT,
+          name: 'Back Squat'
+        });
 
         const firstExercise = requireValue(firstList[0]);
         firstExercise.name = 'Mutated Locally';
@@ -71,12 +78,12 @@ describe('createHealthTracker', () => {
         const parents = await tracker.listParentExercises();
         expect(parents).toHaveLength(6);
         expect(parents.map((e) => e.id)).toEqual([
-          'back-squat',
-          'bench-press',
-          'deadlift',
-          'overhead-press',
-          'barbell-row',
-          'pull-up'
+          DEFAULT_EXERCISE_IDS.BACK_SQUAT,
+          DEFAULT_EXERCISE_IDS.BENCH_PRESS,
+          DEFAULT_EXERCISE_IDS.DEADLIFT,
+          DEFAULT_EXERCISE_IDS.OVERHEAD_PRESS,
+          DEFAULT_EXERCISE_IDS.BARBELL_ROW,
+          DEFAULT_EXERCISE_IDS.PULL_UP
         ]);
         expect(parents.every((e) => e.parentId === undefined)).toBe(true);
       },
@@ -92,19 +99,25 @@ describe('createHealthTracker', () => {
           now: () => new Date('2026-02-13T10:00:00.000Z')
         });
 
-        const pullUpChildren = await tracker.listChildExercises('pull-up');
+        const pullUpChildren = await tracker.listChildExercises(
+          DEFAULT_EXERCISE_IDS.PULL_UP
+        );
         expect(pullUpChildren.length).toBeGreaterThan(10);
         expect(pullUpChildren[0]).toEqual({
-          id: 'pull-up-strict',
+          id: DEFAULT_EXERCISE_IDS.PULL_UP_STRICT,
           name: 'Strict Pull-Up',
-          parentId: 'pull-up',
+          parentId: DEFAULT_EXERCISE_IDS.PULL_UP,
           parentName: 'Pull-Up'
         });
-        expect(pullUpChildren.every((e) => e.parentId === 'pull-up')).toBe(
-          true
-        );
+        expect(
+          pullUpChildren.every(
+            (e) => e.parentId === DEFAULT_EXERCISE_IDS.PULL_UP
+          )
+        ).toBe(true);
 
-        const noChildren = await tracker.listChildExercises('back-squat');
+        const noChildren = await tracker.listChildExercises(
+          DEFAULT_EXERCISE_IDS.BACK_SQUAT
+        );
         expect(noChildren).toHaveLength(0);
       },
       { migrations: healthTestMigrations }
@@ -121,14 +134,18 @@ describe('createHealthTracker', () => {
 
         const hierarchy = await tracker.getExerciseHierarchy();
         expect(hierarchy.size).toBe(6);
-        expect(hierarchy.has('pull-up')).toBe(true);
-        expect(hierarchy.has('back-squat')).toBe(true);
+        expect(hierarchy.has(DEFAULT_EXERCISE_IDS.PULL_UP)).toBe(true);
+        expect(hierarchy.has(DEFAULT_EXERCISE_IDS.BACK_SQUAT)).toBe(true);
 
-        const pullUpChildren = requireValue(hierarchy.get('pull-up'));
+        const pullUpChildren = requireValue(
+          hierarchy.get(DEFAULT_EXERCISE_IDS.PULL_UP)
+        );
         expect(pullUpChildren.length).toBeGreaterThan(10);
         expect(pullUpChildren[0]?.name).toBe('Strict Pull-Up');
 
-        const squatChildren = requireValue(hierarchy.get('back-squat'));
+        const squatChildren = requireValue(
+          hierarchy.get(DEFAULT_EXERCISE_IDS.BACK_SQUAT)
+        );
         expect(squatChildren).toHaveLength(0);
       },
       { migrations: healthTestMigrations }
@@ -186,28 +203,30 @@ describe('createHealthTracker', () => {
 
         const frontSquat = await tracker.addExercise({
           name: 'Front Squat',
-          parentId: 'back-squat'
+          parentId: DEFAULT_EXERCISE_IDS.BACK_SQUAT
         });
         expect(frontSquat).toEqual({
           id: 'front-squat',
           name: 'Front Squat',
-          parentId: 'back-squat',
+          parentId: DEFAULT_EXERCISE_IDS.BACK_SQUAT,
           parentName: 'Back Squat'
         });
 
         const gobletSquat = await tracker.addExercise({
           id: 'goblet-squat',
           name: 'Goblet Squat',
-          parentId: 'back-squat'
+          parentId: DEFAULT_EXERCISE_IDS.BACK_SQUAT
         });
         expect(gobletSquat).toEqual({
           id: 'goblet-squat',
           name: 'Goblet Squat',
-          parentId: 'back-squat',
+          parentId: DEFAULT_EXERCISE_IDS.BACK_SQUAT,
           parentName: 'Back Squat'
         });
 
-        const squatChildren = await tracker.listChildExercises('back-squat');
+        const squatChildren = await tracker.listChildExercises(
+          DEFAULT_EXERCISE_IDS.BACK_SQUAT
+        );
         expect(squatChildren).toHaveLength(2);
         expect(squatChildren.map((e) => e.id)).toEqual([
           'front-squat',
@@ -491,7 +510,7 @@ describe('createHealthTracker', () => {
 
         const workout = await tracker.addWorkoutEntry({
           performedAt: '2026-02-12T18:00:00.000Z',
-          exerciseId: 'back-squat',
+          exerciseId: DEFAULT_EXERCISE_IDS.BACK_SQUAT,
           reps: 5,
           weight: 225,
           note: ' top set '
@@ -500,7 +519,7 @@ describe('createHealthTracker', () => {
         expect(workout).toEqual({
           id: 'workout_0001',
           performedAt: '2026-02-12T18:00:00.000Z',
-          exerciseId: 'back-squat',
+          exerciseId: DEFAULT_EXERCISE_IDS.BACK_SQUAT,
           exerciseName: 'Back Squat',
           reps: 5,
           weight: 225,
@@ -510,7 +529,7 @@ describe('createHealthTracker', () => {
 
         const metricDropDownSelection = await tracker.addWorkoutEntry({
           performedAt: '2026-02-12T19:00:00.000Z',
-          exerciseId: 'back-squat',
+          exerciseId: DEFAULT_EXERCISE_IDS.BACK_SQUAT,
           reps: 8,
           weight: 0,
           weightUnit: 'kg'
@@ -558,7 +577,7 @@ describe('createHealthTracker', () => {
         await expect(
           tracker.addWorkoutEntry({
             performedAt: '2026-02-12T18:00:00.000Z',
-            exerciseId: 'back-squat',
+            exerciseId: DEFAULT_EXERCISE_IDS.BACK_SQUAT,
             reps: 0,
             weight: 225
           })
@@ -567,7 +586,7 @@ describe('createHealthTracker', () => {
         await expect(
           tracker.addWorkoutEntry({
             performedAt: '2026-02-12T18:00:00.000Z',
-            exerciseId: 'back-squat',
+            exerciseId: DEFAULT_EXERCISE_IDS.BACK_SQUAT,
             reps: 5,
             weight: -1
           })

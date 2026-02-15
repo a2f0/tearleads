@@ -1,9 +1,12 @@
 import type { CreateExerciseInput, Exercise } from '@tearleads/health';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { selectClassName } from '../selectClassName';
+import { useExerciseTranslation } from './useExerciseTranslation';
 
 interface ExerciseFormProps {
   parentExercises: Exercise[];
@@ -20,6 +23,8 @@ export function ExerciseForm({ parentExercises, onSubmit }: ExerciseFormProps) {
   const [errors, setErrors] = useState<FormErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const { t } = useTranslation('health');
+  const { getExerciseName } = useExerciseTranslation();
 
   const handleSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -73,7 +78,7 @@ export function ExerciseForm({ parentExercises, onSubmit }: ExerciseFormProps) {
             htmlFor="exercise-name"
             className="font-medium text-muted-foreground text-sm"
           >
-            Exercise Name
+            {t('exerciseName')}
           </label>
           <Input
             id="exercise-name"
@@ -93,7 +98,7 @@ export function ExerciseForm({ parentExercises, onSubmit }: ExerciseFormProps) {
             htmlFor="exercise-parent"
             className="font-medium text-muted-foreground text-sm"
           >
-            Category (Optional)
+            {t('category')}
           </label>
           <select
             id="exercise-parent"
@@ -105,7 +110,7 @@ export function ExerciseForm({ parentExercises, onSubmit }: ExerciseFormProps) {
             <option value="">None (Top-level exercise)</option>
             {parentExercises.map((parent) => (
               <option key={parent.id} value={parent.id}>
-                {parent.name}
+                {getExerciseName(parent.id, parent.name)}
               </option>
             ))}
           </select>
@@ -119,7 +124,7 @@ export function ExerciseForm({ parentExercises, onSubmit }: ExerciseFormProps) {
                 Adding...
               </>
             ) : (
-              'Add Exercise'
+              t('addExercise')
             )}
           </Button>
         </div>

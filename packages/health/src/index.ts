@@ -1,3 +1,9 @@
+export {
+  DEFAULT_EXERCISE_IDS,
+  DEFAULT_EXERCISES,
+  type DefaultExerciseId,
+  isDefaultExercise
+} from './lib/default-exercises.js';
 export type {
   BloodPressureReading,
   CreateBloodPressureReadingInput,
@@ -11,7 +17,4 @@ export type {
   WeightUnit,
   WorkoutEntry
 } from './lib/health-tracker.js';
-export {
-  createHealthTracker,
-  DEFAULT_EXERCISES
-} from './lib/health-tracker.js';
+export { createHealthTracker } from './lib/health-tracker.js';

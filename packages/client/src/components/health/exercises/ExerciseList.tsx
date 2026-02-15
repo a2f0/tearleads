@@ -1,6 +1,9 @@
 import type { Exercise } from '@tearleads/health';
 import { ChevronDown, ChevronRight, Dumbbell } from 'lucide-react';
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { useExerciseTranslation } from './useExerciseTranslation';
 
 interface ExerciseListProps {
   parentExercises: Exercise[];
@@ -12,6 +15,8 @@ export function ExerciseList({
   hierarchy
 }: ExerciseListProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const { t } = useTranslation('health');
+  const { getExerciseName } = useExerciseTranslation();
 
   const toggleExpanded = (id: string) => {
     setExpandedIds((prev) => {
@@ -28,7 +33,7 @@ export function ExerciseList({
   if (parentExercises.length === 0) {
     return (
       <div className="flex h-40 items-center justify-center text-muted-foreground text-sm">
-        No exercises found
+        {t('noExercisesFound')}
       </div>
     );
   }
@@ -53,11 +58,15 @@ export function ExerciseList({
               aria-expanded={hasChildren ? isExpanded : undefined}
             >
               <Dumbbell className="h-4 w-4 text-muted-foreground" />
-              <span className="flex-1 font-medium">{parent.name}</span>
+              <span className="flex-1 font-medium">
+                {getExerciseName(parent.id, parent.name)}
+              </span>
               {hasChildren && (
                 <>
                   <span className="text-muted-foreground text-xs">
-                    {children.length} variation{children.length !== 1 && 's'}
+                    {children.length === 1
+                      ? t('variation', { count: children.length })
+                      : t('variations', { count: children.length })}
                   </span>
                   {isExpanded ? (
                     <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -75,7 +84,7 @@ export function ExerciseList({
                     className="flex items-center gap-3 py-2 pr-4 pl-12 text-sm"
                   >
                     <span className="text-muted-foreground">-</span>
-                    <span>{child.name}</span>
+                    <span>{getExerciseName(child.id, child.name)}</span>
                   </div>
                 ))}
               </div>

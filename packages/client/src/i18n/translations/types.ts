@@ -670,6 +670,44 @@ export interface AdminTranslations {
   failedToCopyOrganizationId: string;
 }
 
+export interface HealthExerciseNames {
+  'ex_a1b2c3d4-1001-4000-8000-000000000001': string; // Back Squat
+  'ex_a1b2c3d4-1002-4000-8000-000000000002': string; // Bench Press
+  'ex_a1b2c3d4-1003-4000-8000-000000000003': string; // Deadlift
+  'ex_a1b2c3d4-1004-4000-8000-000000000004': string; // Overhead Press
+  'ex_a1b2c3d4-1005-4000-8000-000000000005': string; // Barbell Row
+  'ex_a1b2c3d4-1006-4000-8000-000000000006': string; // Pull-Up
+  'ex_a1b2c3d4-1007-4000-8000-000000000007': string; // Strict Pull-Up
+  'ex_a1b2c3d4-1008-4000-8000-000000000008': string; // Chin-Up
+  'ex_a1b2c3d4-1009-4000-8000-000000000009': string; // Wide Grip Pull-Up
+  'ex_a1b2c3d4-1010-4000-8000-000000000010': string; // Neutral Grip Pull-Up
+  'ex_a1b2c3d4-1011-4000-8000-000000000011': string; // Weighted Pull-Up
+  'ex_a1b2c3d4-1012-4000-8000-000000000012': string; // L-Sit Pull-Up
+  'ex_a1b2c3d4-1013-4000-8000-000000000013': string; // Archer Pull-Up
+  'ex_a1b2c3d4-1014-4000-8000-000000000014': string; // Commando Pull-Up
+  'ex_a1b2c3d4-1015-4000-8000-000000000015': string; // Kipping Pull-Up
+  'ex_a1b2c3d4-1016-4000-8000-000000000016': string; // Towel Pull-Up
+  'ex_a1b2c3d4-1017-4000-8000-000000000017': string; // Mixed Grip Pull-Up
+  'ex_a1b2c3d4-1018-4000-8000-000000000018': string; // Eccentric Pull-Up
+  'ex_a1b2c3d4-1019-4000-8000-000000000019': string; // Around-the-World Pull-Up
+  'ex_a1b2c3d4-1020-4000-8000-000000000020': string; // Chest-to-Bar Pull-Up
+  'ex_a1b2c3d4-1021-4000-8000-000000000021': string; // One-Arm Pull-Up (Assisted)
+}
+
+export interface HealthTranslations {
+  exercises: string;
+  workouts: string;
+  weight: string;
+  bloodPressure: string;
+  noExercisesFound: string;
+  variation: string;
+  variations: string;
+  exerciseName: string;
+  category: string;
+  addExercise: string;
+  exerciseNames: HealthExerciseNames;
+}
+
 export interface Translations {
   common: CommonTranslations;
   menu: MenuTranslations;
@@ -684,7 +722,10 @@ export interface Translations {
   search: SearchTranslations;
   vehicles: VehiclesTranslations;
   admin: AdminTranslations;
+  health: HealthTranslations;
 }
+
+type TranslationValue = string | Record<string, string>;
 
 export type I18NextTranslations = {
   common: CommonTranslations;
@@ -700,7 +741,8 @@ export type I18NextTranslations = {
   search: SearchTranslations;
   vehicles: VehiclesTranslations;
   admin: AdminTranslations;
-} & Record<string, Record<string, string>>;
+  health: HealthTranslations;
+} & Record<string, Record<string, TranslationValue>>;
 
 export type CommonKeys = keyof CommonTranslations;
 export type MenuKeys = keyof MenuTranslations;
@@ -715,6 +757,7 @@ export type DebugKeys = keyof DebugTranslations;
 export type SearchKeys = keyof SearchTranslations;
 export type VehiclesKeys = keyof VehiclesTranslations;
 export type AdminKeys = keyof AdminTranslations;
+export type HealthKeys = keyof HealthTranslations;
 
 export type NamespaceKeys = keyof Translations;
 
