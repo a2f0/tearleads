@@ -135,6 +135,25 @@
       args:
         creates: /opt/buildkit/buildkitd
 
+    - name: Create buildkit config directory
+      ansible.builtin.file:
+        path: /etc/buildkit
+        state: directory
+        mode: "0755"
+
+    - name: Create buildkit config for k3s containerd
+      ansible.builtin.copy:
+        dest: /etc/buildkit/buildkitd.toml
+        content: |
+          [worker.containerd]
+            address = "/run/k3s/containerd/containerd.sock"
+            enabled = true
+            namespace = "k8s.io"
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart buildkit
+
     - name: Create buildkit systemd service
       ansible.builtin.copy:
         dest: /etc/systemd/system/buildkit.service
@@ -144,7 +163,7 @@
           After=network.target k3s.service
 
           [Service]
-          ExecStart=/usr/local/bin/buildkitd --addr unix:///run/buildkit/buildkitd.sock --containerd-worker-addr /run/k3s/containerd/containerd.sock
+          ExecStart=/usr/local/bin/buildkitd --config /etc/buildkit/buildkitd.toml --addr unix:///run/buildkit/buildkitd.sock
           Restart=always
           RestartSec=5
 
@@ -165,7 +184,7 @@
       ansible.builtin.systemd:
         name: buildkit
         enabled: true
-        state: started
+        state: restarted
         daemon_reload: true
 
     - name: Create tearleads source directory

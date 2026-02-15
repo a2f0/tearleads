@@ -15,14 +15,16 @@ echo "Building images on ${SERVER_IP}..."
 echo "Pulling latest from GitHub..."
 ssh "${USERNAME}@${SERVER_IP}" "cd /opt/tearleads && git pull"
 
-# Build images using nerdctl (k3s containerd)
+# Build images using nerdctl with k3s containerd socket
+NERDCTL="sudo nerdctl --address /run/k3s/containerd/containerd.sock --namespace k8s.io"
+
 echo "Building API image..."
-ssh "${USERNAME}@${SERVER_IP}" "cd /opt/tearleads && sudo nerdctl build -t localhost/tearleads-api:latest -f packages/api/Dockerfile ."
+ssh "${USERNAME}@${SERVER_IP}" "cd /opt/tearleads && ${NERDCTL} build -t localhost/tearleads-api:latest -f packages/api/Dockerfile ."
 
 echo "Building client image..."
-ssh "${USERNAME}@${SERVER_IP}" "cd /opt/tearleads && sudo nerdctl build --build-arg VITE_API_URL=${VITE_API_URL} -t localhost/tearleads-client:latest -f packages/client/Dockerfile ."
+ssh "${USERNAME}@${SERVER_IP}" "cd /opt/tearleads && ${NERDCTL} build --build-arg VITE_API_URL=${VITE_API_URL} -t localhost/tearleads-client:latest -f packages/client/Dockerfile ."
 
 echo "Building website image..."
-ssh "${USERNAME}@${SERVER_IP}" "cd /opt/tearleads && sudo nerdctl build -t localhost/tearleads-website:latest -f packages/website/Dockerfile ."
+ssh "${USERNAME}@${SERVER_IP}" "cd /opt/tearleads && ${NERDCTL} build -t localhost/tearleads-website:latest -f packages/website/Dockerfile ."
 
 echo "Images built successfully!"
