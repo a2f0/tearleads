@@ -63,8 +63,8 @@ const DEFAULTS = {
  */
 function calculateResourceCost(
   resourceType: string,
+  resourceName: string,
   attributes: Record<string, unknown>,
-  sourceFile: string,
 ): ResourceCost | null {
   const breakdown: CostBreakdown = {};
   let provider: Provider;
@@ -103,7 +103,7 @@ function calculateResourceCost(
     const rawSize = attributes.size as string;
     const rawLocation = attributes.location as string;
     const diskSizeGb =
-      (attributes.disk_size_gb as number) || DEFAULTS.azure.disk_size_gb;
+      parseInt(attributes.disk_size_gb as string, 10) || DEFAULTS.azure.disk_size_gb;
 
     sku =
       rawSize?.startsWith('var.')
@@ -133,7 +133,7 @@ function calculateResourceCost(
   }
 
   return {
-    resourceId: `${resourceType}.${path.basename(sourceFile, '.tf')}`,
+    resourceId: `${resourceType}.${resourceName}`,
     provider,
     type,
     sku,
@@ -161,7 +161,7 @@ function estimateCosts(): {
   // Process all terraform resources (hetzner, tuxedo, azure directories)
   for (const tfResourceList of Object.values(tfResources)) {
     for (const tf of tfResourceList) {
-      const cost = calculateResourceCost(tf.type, tf.attributes, tf.sourceFile);
+      const cost = calculateResourceCost(tf.type, tf.name, tf.attributes);
       if (cost) {
         resources.push(cost);
         providerTotals[cost.provider] += cost.monthlyCostUsd;

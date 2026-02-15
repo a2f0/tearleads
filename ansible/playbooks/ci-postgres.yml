@@ -61,6 +61,7 @@
             password: "{{ lookup('env', 'POSTGRES_READ_ONLY_PASSWORD') }}"
             role_attr_flags: "LOGIN,NOSUPERUSER,NOCREATEDB,NOCREATEROLE"
             state: present
+          no_log: true
 
         - name: Grant SELECT on all tables in public schema to read-only user
           community.postgresql.postgresql_privs:
