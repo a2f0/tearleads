@@ -74,6 +74,7 @@
     "@tearleads/keychain": "workspace:*",
     "@tearleads/mls-chat": "workspace:*",
     "@tearleads/notes": "workspace:*",
+    "@tearleads/photos": "workspace:*",
     "@tearleads/notifications": "workspace:*",
     "@tearleads/search": "workspace:*",
     "@tearleads/settings": "workspace:*",

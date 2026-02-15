@@ -65,6 +65,14 @@ export default defineConfig({
         'src/components/ui/card/index.ts',
         'src/components/ui/context-menu/index.ts',
         'src/components/ui/editable-title/index.ts',
+        // Dialog components are UI wrappers for the photos/calendar package context
+        'src/components/ui/dialog/index.ts',
+        'src/components/ui/dialog/Dialog.tsx',
+        'src/components/ui/dialog/DialogContent.tsx',
+        'src/components/ui/dialog/DialogDescription.tsx',
+        'src/components/ui/dialog/DialogFooter.tsx',
+        'src/components/ui/dialog/DialogHeader.tsx',
+        'src/components/ui/dialog/DialogTitle.tsx',
         'src/db/crypto/index.ts',
         'src/db/hooks/index.ts',
         'src/db/schema/index.ts',
@@ -102,6 +110,10 @@ export default defineConfig({
         'src/components/ui/drop-zone-overlay/index.ts',
         // Wrapper component that delegates to @tearleads/audio package
         'src/components/audio-window/index.tsx',
+        // Wrapper component that delegates to @tearleads/photos package
+        'src/components/photos-window/index.tsx',
+        // Photos provider has database/file operations that require integration testing
+        'src/contexts/ClientPhotosProvider.tsx',
         'src/components/window-renderer/index.ts',
         'src/db/backup/index.ts',
         // Backup importer requires full database setup, instance registry, and OPFS

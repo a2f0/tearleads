@@ -1,0 +1,243 @@
+import {
+  DesktopFloatingWindow as FloatingWindow,
+  type WindowDimensions
+} from '@tearleads/window-manager';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { usePhotosUIContext } from '../../context';
+import {
+  ALL_PHOTOS_ID,
+  PhotosWindowContentArea,
+  type PhotosWindowContentAreaProps
+} from './PhotosWindowContentArea';
+import type { ViewMode } from './PhotosWindowMenuBar';
+
+export interface PhotosWindowProps {
+  id: string;
+  onClose: () => void;
+  onMinimize: (dimensions: WindowDimensions) => void;
+  onDimensionsChange?: ((dimensions: WindowDimensions) => void) | undefined;
+  onRename?: ((title: string) => void) | undefined;
+  onFocus: () => void;
+  zIndex: number;
+  initialDimensions?: WindowDimensions | undefined;
+  /** Optional open request with albumId/photoId to navigate to on mount */
+  openRequest?: { albumId?: string; photoId?: string } | null | undefined;
+  /** Drop zone overlay component */
+  DropZoneOverlay?: PhotosWindowContentAreaProps['DropZoneOverlay'] | undefined;
+  /** Filter files by accept pattern (for sidebar drag-drop) */
+  filterFilesByAccept?:
+    | PhotosWindowContentAreaProps['filterFilesByAccept']
+    | undefined;
+  /** Get media drag IDs from data transfer (for sidebar drag-drop) */
+  getMediaDragIds?: PhotosWindowContentAreaProps['getMediaDragIds'] | undefined;
+}
+
+export function PhotosWindow({
+  id,
+  onClose,
+  onMinimize,
+  onDimensionsChange,
+  onRename,
+  onFocus,
+  zIndex,
+  initialDimensions,
+  openRequest,
+  DropZoneOverlay,
+  filterFilesByAccept,
+  getMediaDragIds
+}: PhotosWindowProps) {
+  const {
+    databaseState,
+    uploadFile,
+    addPhotoToAlbum,
+    useDropZone,
+    useMultiFileUpload,
+    openWindow
+  } = usePhotosUIContext();
+
+  const { isUnlocked } = databaseState;
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [selectedPhotoId, setSelectedPhotoId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('list');
+  const [showDeleted, setShowDeleted] = useState(false);
+  const [refreshToken, setRefreshToken] = useState(0);
+  const [showDropzone, setShowDropzone] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(200);
+  const [selectedAlbumId, setSelectedAlbumId] = useState<string | null>(
+    ALL_PHOTOS_ID
+  );
+
+  const { uploadMany, uploading, uploadProgress } = useMultiFileUpload({
+    uploadFile
+  });
+
+  // Handler for uploading files with optional target album override
+  const handleUploadFilesToAlbum = useCallback(
+    async (files: File[], targetAlbumId?: string | null) => {
+      const { results, errors } = await uploadMany(files);
+      for (const error of errors) {
+        console.error(`Failed to upload ${error.fileName}:`, error.message);
+      }
+
+      // Use target album if provided, otherwise use currently selected album
+      const albumToUse = targetAlbumId ?? selectedAlbumId;
+      if (albumToUse && albumToUse !== ALL_PHOTOS_ID) {
+        await Promise.all(
+          results.map(async (photoId) => {
+            try {
+              await addPhotoToAlbum(albumToUse, photoId);
+            } catch (error) {
+              console.error(
+                `Failed to add photo ${photoId} to album ${albumToUse}:`,
+                error
+              );
+            }
+          })
+        );
+      }
+
+      if (results.length > 0) {
+        setRefreshToken((value) => value + 1);
+      }
+    },
+    [uploadMany, selectedAlbumId, addPhotoToAlbum]
+  );
+
+  // Main content area drop zone
+  const { isDragging, dropZoneProps } = useDropZone({
+    accept: 'image/*',
+    onDrop: handleUploadFilesToAlbum,
+    disabled: !isUnlocked || uploading
+  });
+
+  // Handler for dropping files onto a specific album in the sidebar
+  const handleDropToAlbum = useCallback(
+    async (albumId: string, files: File[], photoIds?: string[]) => {
+      if (photoIds && photoIds.length > 0) {
+        await Promise.all(
+          photoIds.map((photoId) => addPhotoToAlbum(albumId, photoId))
+        );
+        setRefreshToken((value) => value + 1);
+        return;
+      }
+      await handleUploadFilesToAlbum(files, albumId);
+    },
+    [addPhotoToAlbum, handleUploadFilesToAlbum]
+  );
+
+  const handleUpload = useCallback(() => {
+    fileInputRef.current?.click();
+  }, []);
+
+  const handleRefresh = useCallback(() => {
+    setRefreshToken((value) => value + 1);
+  }, []);
+
+  // Wrapper for existing upload patterns (no album override)
+  const handleUploadFiles = useCallback(
+    async (files: File[]) => {
+      await handleUploadFilesToAlbum(files);
+    },
+    [handleUploadFilesToAlbum]
+  );
+
+  const handleFileInputChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const files = Array.from(e.target.files ?? []);
+      if (files.length > 0) {
+        void handleUploadFiles(files);
+      }
+      e.target.value = '';
+    },
+    [handleUploadFiles]
+  );
+
+  const handleSelectPhoto = useCallback((photoId: string) => {
+    setSelectedPhotoId(photoId);
+  }, []);
+
+  const handleBack = useCallback(() => {
+    setSelectedPhotoId(null);
+  }, []);
+
+  const handleDeleted = useCallback(() => {
+    setSelectedPhotoId(null);
+    setRefreshToken((value) => value + 1);
+  }, []);
+
+  const handleOpenAIChat = useCallback(() => {
+    openWindow('ai');
+  }, [openWindow]);
+
+  useEffect(() => {
+    if (!openRequest) return;
+    if (openRequest.albumId) {
+      setSelectedAlbumId(openRequest.albumId);
+      setSelectedPhotoId(null);
+    }
+    if (openRequest.photoId) {
+      setSelectedPhotoId(openRequest.photoId);
+    }
+  }, [openRequest]);
+
+  return (
+    <FloatingWindow
+      id={id}
+      title="Photos"
+      onClose={onClose}
+      onMinimize={onMinimize}
+      onDimensionsChange={onDimensionsChange}
+      onRename={onRename}
+      onFocus={onFocus}
+      zIndex={zIndex}
+      {...(initialDimensions && { initialDimensions })}
+      defaultWidth={700}
+      defaultHeight={550}
+      minWidth={400}
+      minHeight={300}
+    >
+      <PhotosWindowContentArea
+        onClose={onClose}
+        onRefresh={handleRefresh}
+        onUpload={handleUpload}
+        viewMode={viewMode}
+        onViewModeChange={setViewMode}
+        showDeleted={showDeleted}
+        onShowDeletedChange={setShowDeleted}
+        showDropzone={showDropzone}
+        onShowDropzoneChange={setShowDropzone}
+        isUnlocked={isUnlocked}
+        sidebarWidth={sidebarWidth}
+        onSidebarWidthChange={setSidebarWidth}
+        selectedAlbumId={selectedAlbumId}
+        onAlbumSelect={setSelectedAlbumId}
+        refreshToken={refreshToken}
+        onAlbumChanged={handleRefresh}
+        onDropToAlbum={handleDropToAlbum}
+        dropZoneProps={dropZoneProps}
+        selectedPhotoId={selectedPhotoId}
+        onBack={handleBack}
+        onDeleted={handleDeleted}
+        onSelectPhoto={handleSelectPhoto}
+        onUploadFiles={handleUploadFiles}
+        uploading={uploading}
+        uploadProgress={uploadProgress}
+        onOpenAIChat={handleOpenAIChat}
+        isDragging={isDragging}
+        DropZoneOverlay={DropZoneOverlay}
+        filterFilesByAccept={filterFilesByAccept}
+        getMediaDragIds={getMediaDragIds}
+      />
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        className="hidden"
+        onChange={handleFileInputChange}
+        data-testid="photo-file-input"
+      />
+    </FloatingWindow>
+  );
+}
