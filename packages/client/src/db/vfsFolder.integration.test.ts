@@ -10,7 +10,7 @@
 // Import integration setup FIRST - this sets up mocks for adapters and key manager
 import '../test/setupIntegration';
 
-import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -41,25 +41,13 @@ describe('VFS Folder Integration Tests', () => {
         [VFS_ROOT_ID, 'folder', null, now]
       );
 
-      // 2. Create VFS root in vfs_folders
-      await adapter.execute(
-        `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-        [VFS_ROOT_ID, 'VFS Root']
-      );
-
-      // 3. Create the new folder in vfs_registry
+      // 2. Create the new folder in vfs_registry
       await adapter.execute(
         `INSERT INTO vfs_registry (id, object_type, owner_id, created_at) VALUES (?, ?, ?, ?)`,
         [folderId, 'folder', null, now]
       );
 
-      // 4. Create the new folder in vfs_folders
-      await adapter.execute(
-        `INSERT INTO vfs_folders (id, encrypted_name) VALUES (?, ?)`,
-        [folderId, 'Test Folder']
-      );
-
-      // 5. Create the link - should succeed now
+      // 3. Create the link - should succeed now
       await adapter.execute(
         `INSERT INTO vfs_links (id, parent_id, child_id, wrapped_session_key, created_at) VALUES (?, ?, ?, ?, ?)`,
         [linkId, VFS_ROOT_ID, folderId, '', now]
@@ -92,15 +80,8 @@ describe('VFS Folder Integration Tests', () => {
             objectType: 'folder',
             ownerId: null,
             encryptedSessionKey: null,
+            encryptedName: 'VFS Root',
             createdAt: now
-          })
-          .onConflictDoNothing();
-
-        await tx
-          .insert(vfsFolders)
-          .values({
-            id: VFS_ROOT_ID,
-            encryptedName: 'VFS Root'
           })
           .onConflictDoNothing();
 
@@ -110,12 +91,8 @@ describe('VFS Folder Integration Tests', () => {
           objectType: 'folder',
           ownerId: null,
           encryptedSessionKey: null,
+          encryptedName: 'Test Folder',
           createdAt: now
-        });
-
-        await tx.insert(vfsFolders).values({
-          id: folderId,
-          encryptedName: 'Test Folder'
         });
 
         // Create the link to VFS root
@@ -139,9 +116,10 @@ describe('VFS Folder Integration Tests', () => {
       // Verify the folder was created
       const folderResult = await db
         .select()
-        .from(vfsFolders)
-        .where(eq(vfsFolders.id, folderId));
+        .from(vfsRegistry)
+        .where(eq(vfsRegistry.id, folderId));
       expect(folderResult).toHaveLength(1);
+      expect(folderResult[0]?.objectType).toBe('folder');
       expect(folderResult[0]?.encryptedName).toBe('Test Folder');
 
       // Verify the link was created
@@ -165,12 +143,8 @@ describe('VFS Folder Integration Tests', () => {
         objectType: 'folder',
         ownerId: null,
         encryptedSessionKey: null,
+        encryptedName: 'VFS Root',
         createdAt: now
-      });
-
-      await db.insert(vfsFolders).values({
-        id: VFS_ROOT_ID,
-        encryptedName: 'VFS Root'
       });
 
       // Now create a folder using the same logic as useCreateVfsFolder
@@ -186,15 +160,8 @@ describe('VFS Folder Integration Tests', () => {
             objectType: 'folder',
             ownerId: null,
             encryptedSessionKey: null,
+            encryptedName: 'VFS Root',
             createdAt: now
-          })
-          .onConflictDoNothing();
-
-        await tx
-          .insert(vfsFolders)
-          .values({
-            id: VFS_ROOT_ID,
-            encryptedName: 'VFS Root'
           })
           .onConflictDoNothing();
 
@@ -204,12 +171,8 @@ describe('VFS Folder Integration Tests', () => {
           objectType: 'folder',
           ownerId: null,
           encryptedSessionKey: null,
+          encryptedName: 'Second Folder',
           createdAt: now
-        });
-
-        await tx.insert(vfsFolders).values({
-          id: folderId,
-          encryptedName: 'Second Folder'
         });
 
         // Create the link
@@ -229,9 +192,13 @@ describe('VFS Folder Integration Tests', () => {
         .where(eq(vfsRegistry.id, VFS_ROOT_ID));
       expect(rootResults).toHaveLength(1);
 
-      // Verify both the root and new folder exist in vfs_folders
-      const folderResults = await db.select().from(vfsFolders);
-      expect(folderResults).toHaveLength(2);
+      // Verify the new folder exists in canonical vfs_registry metadata
+      const folderResults = await db
+        .select()
+        .from(vfsRegistry)
+        .where(eq(vfsRegistry.id, folderId));
+      expect(folderResults).toHaveLength(1);
+      expect(folderResults[0]?.encryptedName).toBe('Second Folder');
     });
 
     it('creates nested folder under existing parent', async () => {
@@ -251,12 +218,8 @@ describe('VFS Folder Integration Tests', () => {
           objectType: 'folder',
           ownerId: null,
           encryptedSessionKey: null,
+          encryptedName: 'VFS Root',
           createdAt: now
-        });
-
-        await tx.insert(vfsFolders).values({
-          id: VFS_ROOT_ID,
-          encryptedName: 'VFS Root'
         });
 
         // Create parent folder
@@ -265,12 +228,8 @@ describe('VFS Folder Integration Tests', () => {
           objectType: 'folder',
           ownerId: null,
           encryptedSessionKey: null,
+          encryptedName: 'Parent Folder',
           createdAt: now
-        });
-
-        await tx.insert(vfsFolders).values({
-          id: parentFolderId,
-          encryptedName: 'Parent Folder'
         });
 
         // Link parent to root
@@ -291,12 +250,8 @@ describe('VFS Folder Integration Tests', () => {
           objectType: 'folder',
           ownerId: null,
           encryptedSessionKey: null,
+          encryptedName: 'Child Folder',
           createdAt: now
-        });
-
-        await tx.insert(vfsFolders).values({
-          id: childFolderId,
-          encryptedName: 'Child Folder'
         });
 
         // Link child to parent (should work without VFS root check)
