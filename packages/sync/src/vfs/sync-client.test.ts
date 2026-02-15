@@ -2064,6 +2064,69 @@ describe('VfsBackgroundSyncClient', () => {
     expect(secondOccurredAtMs).toBeGreaterThan(firstOccurredAtMs);
   });
 
+  it('fails closed when hydrated pending opId collides with persisted cursor boundary and keeps state pristine', () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer()),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    const pristineState = client.exportState();
+    const persisted = client.exportState();
+    persisted.replaySnapshot.cursor = {
+      changedAt: '2026-02-14T14:18:00.000Z',
+      changeId: 'desktop-2'
+    };
+    persisted.reconcileState = {
+      cursor: {
+        changedAt: '2026-02-14T14:18:01.000Z',
+        changeId: 'desktop-3'
+      },
+      lastReconciledWriteIds: {
+        desktop: 3
+      }
+    };
+    persisted.pendingOperations = [
+      {
+        opId: 'desktop-3',
+        opType: 'acl_add',
+        itemId: 'item-collision',
+        replicaId: 'desktop',
+        writeId: 4,
+        occurredAt: '2026-02-14T14:18:02.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'read'
+      }
+    ];
+    persisted.nextLocalWriteId = 5;
+
+    expect(() => client.hydrateState(persisted)).toThrowError(
+      /state.pendingOperations contains opId desktop-3 that collides with persisted cursor boundary/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message:
+        'state.pendingOperations contains opId desktop-3 that collides with persisted cursor boundary'
+    });
+    expect(client.exportState()).toEqual(pristineState);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;

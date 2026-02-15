@@ -695,6 +695,25 @@ export class VfsBackgroundSyncClient {
         previousWriteId = normalizedOperation.writeId;
       }
 
+      const persistedBoundaryChangeIds: Set<string> = new Set();
+      if (normalizedReplaySnapshot.cursor) {
+        persistedBoundaryChangeIds.add(
+          normalizedReplaySnapshot.cursor.changeId
+        );
+      }
+      if (normalizedReconcileState) {
+        persistedBoundaryChangeIds.add(
+          normalizedReconcileState.cursor.changeId
+        );
+      }
+      for (const operation of normalizedPendingOperations) {
+        if (persistedBoundaryChangeIds.has(operation.opId)) {
+          throw new Error(
+            `state.pendingOperations contains opId ${operation.opId} that collides with persisted cursor boundary`
+          );
+        }
+      }
+
       this.replayStore.replaceSnapshot(normalizedReplaySnapshot);
       this.containerClockStore.replaceSnapshot(normalizedContainerClocks);
 
