@@ -29,16 +29,6 @@ export const vfsTestMigrations = [
         )
       `);
       await adapter.execute(`
-        CREATE TABLE IF NOT EXISTS vfs_folders (
-          id TEXT PRIMARY KEY REFERENCES vfs_registry(id) ON DELETE CASCADE,
-          encrypted_name TEXT,
-          icon TEXT,
-          view_mode TEXT,
-          default_sort TEXT,
-          sort_direction TEXT
-        )
-      `);
-      await adapter.execute(`
         CREATE TABLE IF NOT EXISTS vfs_links (
           id TEXT PRIMARY KEY,
           parent_id TEXT NOT NULL REFERENCES vfs_registry(id) ON DELETE CASCADE,
