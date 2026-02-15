@@ -209,14 +209,6 @@
         state: restarted
         daemon_reload: true
 
-    - name: Create tearleads source directory
-      ansible.builtin.file:
-        path: /opt/tearleads
-        state: directory
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-        mode: "0755"
-
     - name: Display cluster status
       ansible.builtin.shell:
         cmd: |

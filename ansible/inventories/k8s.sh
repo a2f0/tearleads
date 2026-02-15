@@ -8,8 +8,8 @@ if [ -n "${TF_WORKSPACE_K8S:-}" ]; then
   export TF_WORKSPACE="$TF_WORKSPACE_K8S"
 fi
 
-HOSTNAME=$(terraform output -raw hostname 2>/dev/null)
-USERNAME=$(terraform output -raw server_username 2>/dev/null)
+HOSTNAME=$(terraform output -raw hostname)
+USERNAME=$(terraform output -raw server_username)
 
 if [ -z "$HOSTNAME" ] || [ -z "$USERNAME" ]; then
   echo '{"_meta": {"hostvars": {}}}'

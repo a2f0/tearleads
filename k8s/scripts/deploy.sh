@@ -6,6 +6,7 @@ cd "$(dirname "$0")/.."
 DOMAIN="${TF_VAR_domain:?TF_VAR_domain is not set}"
 : "${JWT_SECRET:?JWT_SECRET is not set}"
 : "${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is not set}"
+: "${CERT_EMAIL:?CERT_EMAIL for Let's Encrypt is not set}"
 MANIFESTS_DIR="$(pwd)/manifests"
 
 # Get kubeconfig if not already set
@@ -57,7 +58,7 @@ kubectl apply -f "${MANIFESTS_DIR}/website.yaml"
 echo "Applying cert-manager issuer..."
 if kubectl get crd clusterissuers.cert-manager.io >/dev/null 2>&1; then
   ISSUER_TEMP=$(mktemp)
-  sed "s/REPLACE_WITH_YOUR_EMAIL/${CERT_EMAIL:-admin@${DOMAIN}}/g" "${MANIFESTS_DIR}/cert-manager-issuer.yaml" > "$ISSUER_TEMP"
+  sed "s/REPLACE_WITH_YOUR_EMAIL/${CERT_EMAIL}/g" "${MANIFESTS_DIR}/cert-manager-issuer.yaml" > "$ISSUER_TEMP"
   kubectl apply -f "$ISSUER_TEMP"
   rm -f "$ISSUER_TEMP"
 else
