@@ -2519,6 +2519,124 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(pristineState);
   });
 
+  it('hydrates and flushes mixed acl+link pending ops when invariants hold', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+
+    const sourceClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      baseTransport
+    );
+    const persisted = sourceClient.exportState();
+    persisted.pendingOperations = [
+      {
+        opId: 'desktop-11',
+        opType: 'acl_add',
+        itemId: 'item-mixed-valid',
+        replicaId: 'desktop',
+        writeId: 11,
+        occurredAt: '2026-02-14T14:23:00.000Z',
+        principalType: 'group',
+        principalId: 'group-1',
+        accessLevel: 'read'
+      },
+      {
+        opId: 'desktop-12',
+        opType: 'link_add',
+        itemId: 'item-mixed-link',
+        replicaId: 'desktop',
+        writeId: 12,
+        occurredAt: '2026-02-14T14:23:01.000Z',
+        parentId: 'root',
+        childId: 'item-mixed-link'
+      },
+      {
+        opId: 'desktop-13',
+        opType: 'acl_remove',
+        itemId: 'item-mixed-valid',
+        replicaId: 'desktop',
+        writeId: 13,
+        occurredAt: '2026-02-14T14:23:02.000Z',
+        principalType: 'group',
+        principalId: 'group-1'
+      }
+    ];
+    persisted.nextLocalWriteId = 1;
+
+    const pushedSummary: Array<{
+      opId: string;
+      opType: string;
+      writeId: number;
+    }> = [];
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        for (const operation of input.operations) {
+          pushedSummary.push({
+            opId: operation.opId,
+            opType: operation.opType,
+            writeId: operation.writeId
+          });
+        }
+        return baseTransport.pushOperations(input);
+      },
+      pullOperations: (input) => baseTransport.pullOperations(input)
+    };
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      transport,
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    expect(() => resumedClient.hydrateState(persisted)).not.toThrow();
+    expect(resumedClient.snapshot().pendingOperations).toBe(3);
+    expect(resumedClient.snapshot().nextLocalWriteId).toBe(14);
+
+    await resumedClient.flush();
+
+    expect(guardrailViolations).toEqual([]);
+    expect(pushedSummary).toEqual([
+      {
+        opId: 'desktop-11',
+        opType: 'acl_add',
+        writeId: 11
+      },
+      {
+        opId: 'desktop-12',
+        opType: 'link_add',
+        writeId: 12
+      },
+      {
+        opId: 'desktop-13',
+        opType: 'acl_remove',
+        writeId: 13
+      }
+    ]);
+    expect(resumedClient.snapshot().pendingOperations).toBe(0);
+    expect(resumedClient.snapshot().nextLocalWriteId).toBe(14);
+    expect(resumedClient.snapshot().acl).toEqual([]);
+    expect(resumedClient.snapshot().links).toEqual([
+      {
+        parentId: 'root',
+        childId: 'item-mixed-link'
+      }
+    ]);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;
