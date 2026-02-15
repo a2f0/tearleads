@@ -40,6 +40,7 @@ This creates timestamped, encrypted backups in multiple locations.
 ### Where Backups Are Stored
 
 The backup script stores copies in:
+
 1. `~/.terraform-backups/tearleads/` - Local encrypted backup
 2. Optionally: 1Password, cloud storage, or other secure location (manual)
 
@@ -50,11 +51,13 @@ The backup script stores copies in:
 **Symptoms**: `terraform plan` shows it wants to create resources that already exist
 
 **Recovery**:
+
 ```bash
 ./scripts/restore.sh
 ```
 
 This script will:
+
 1. List available backups
 2. Let you choose which one to restore
 3. Validate the restored state
@@ -62,11 +65,13 @@ This script will:
 ### Scenario 2: State File Lost, No Backup Available
 
 **Recovery**:
+
 ```bash
 ./scripts/recover.sh
 ```
 
 This script will:
+
 1. Check if AWS resources still exist
 2. Re-import them into a fresh state file
 3. Validate the recovery with `terraform plan`
@@ -77,11 +82,13 @@ This script will:
 **This is catastrophic** - all other stacks would lose their state.
 
 **Prevention**:
+
 - `prevent_destroy` lifecycle rules are in place
 - DynamoDB deletion protection is enabled
 - S3 versioning allows object recovery
 
 **If this happens**:
+
 1. Restore S3 bucket from versioned objects (if bucket still exists)
 2. Or restore from S3 cross-region replication (if configured)
 3. Or recreate everything from scratch (last resort)

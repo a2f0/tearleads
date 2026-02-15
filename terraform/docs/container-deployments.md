@@ -175,16 +175,19 @@ kubectl rollout status deployment/api -n tearleads
 If pods fail with `ImagePullBackOff`:
 
 1. Check ECR secret exists and is fresh:
+
    ```bash
    kubectl get secret ecr-registry -n tearleads
    ```
 
 2. Refresh the secret:
+
    ```bash
    ./terraform/stacks/staging/k8s/scripts/setup-ecr-secret.sh
    ```
 
 3. Verify image exists in ECR:
+
    ```bash
    aws ecr describe-images --repository-name tearleads-staging/api
    ```
@@ -203,6 +206,7 @@ The CI pipeline uses the same IAM user for both S3 artifacts and ECR:
 - **Secret Access Key**: Output from `terraform output ci_secret_access_key`
 
 Add these to GitHub Secrets:
+
 - `AWS_ACCESS_KEY_ID_STAGING` / `AWS_ACCESS_KEY_ID_PROD`
 - `AWS_SECRET_ACCESS_KEY_STAGING` / `AWS_SECRET_ACCESS_KEY_PROD`
 

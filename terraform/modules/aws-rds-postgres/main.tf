@@ -70,8 +70,8 @@ resource "aws_db_instance" "main" {
   performance_insights_enabled = var.performance_insights_enabled
 
   # Deletion protection
-  deletion_protection = var.deletion_protection
-  skip_final_snapshot = var.skip_final_snapshot
+  deletion_protection       = var.deletion_protection
+  skip_final_snapshot       = var.skip_final_snapshot
   final_snapshot_identifier = var.skip_final_snapshot ? null : "${var.identifier}-final-snapshot"
 
   # Multi-AZ (disabled for cost savings)
