@@ -76,6 +76,9 @@ COPY packages/vfs-explorer packages/vfs-explorer
 COPY packages/wallet packages/wallet
 COPY packages/window-manager packages/window-manager
 
+# Copy docs directory (used by help system)
+COPY docs docs
+
 # Build shared packages first (dependencies must be built before client)
 RUN pnpm --filter @tearleads/shared build && \
     pnpm --filter @tearleads/db build && \
