@@ -125,14 +125,14 @@ describe('migrations', () => {
 
     it('skips already applied migrations', async () => {
       const pool = createMockPool(
-        new Map([['MAX(version)', { rows: [{ version: 40 }], rowCount: 1 }]])
+        new Map([['MAX(version)', { rows: [{ version: 41 }], rowCount: 1 }]])
       );
 
       const result = await runMigrations(pool);
 
       // No new migrations should be applied
       expect(result.applied).toEqual([]);
-      expect(result.currentVersion).toBe(40);
+      expect(result.currentVersion).toBe(41);
     });
 
     it('applies pending migrations when behind', async () => {
@@ -149,7 +149,7 @@ describe('migrations', () => {
               rowCount: 1
             });
           }
-          return Promise.resolve({ rows: [{ version: 40 }], rowCount: 1 });
+          return Promise.resolve({ rows: [{ version: 41 }], rowCount: 1 });
         }
 
         return Promise.resolve({ rows: [], rowCount: 0 });
@@ -160,9 +160,9 @@ describe('migrations', () => {
       expect(result.applied).toEqual([
         2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
         22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39,
-        40
+        40, 41
       ]);
-      expect(result.currentVersion).toBe(40);
+      expect(result.currentVersion).toBe(41);
     });
   });
 
@@ -1623,6 +1623,77 @@ describe('migrations', () => {
       }
 
       await expect(v040.up(pool)).rejects.toThrow('forced v040 failure');
+      expect(pool.queries[0]).toBe('BEGIN');
+      expect(pool.queries).toContain('ROLLBACK');
+      expect(pool.queries).not.toContain('COMMIT');
+    });
+  });
+
+  describe('v041 migration', () => {
+    it('records share drop execution candidates after v040 authorization checkpoints', async () => {
+      const pool = createMockPool(new Map());
+
+      const v041 = migrations.find((m: Migration) => m.version === 41);
+      if (!v041) {
+        throw new Error('v041 migration not found');
+      }
+
+      await v041.up(pool);
+
+      const queries = pool.queries.join('\n');
+      expect(queries).toContain(
+        'v040 must be recorded before share drop execution candidates'
+      );
+      expect(queries).toContain(
+        'share drop authorization checkpoints missing before execution candidates'
+      );
+      expect(queries).toContain(
+        'vfs_shares step-1 authorization checkpoint missing before execution candidates'
+      );
+      expect(queries).toContain(
+        'org_shares step-2 authorization checkpoint missing before execution candidates'
+      );
+      expect(queries).toContain(
+        'CREATE TABLE IF NOT EXISTS "vfs_share_retirement_drop_execution_candidates"'
+      );
+      expect(queries).toContain(
+        'INSERT INTO "vfs_share_retirement_drop_execution_candidates"'
+      );
+      expect(queries).toContain('DROP TABLE "vfs_shares";');
+      expect(queries).toContain('DROP TABLE "org_shares";');
+      expect(queries).toContain(
+        'Latest vfs_shares authorization is not executable'
+      );
+      expect(queries).toContain(
+        'org_shares drop is deferred until vfs_shares retirement completes.'
+      );
+      expect(queries).toContain("'executable'");
+    });
+
+    it('remains transactional and rolls back on failure', async () => {
+      const pool = {
+        queries: [] as string[],
+        query: vi.fn().mockImplementation((sql: string) => {
+          (pool as { queries: string[] }).queries.push(sql);
+
+          if (
+            sql.includes(
+              'INSERT INTO "vfs_share_retirement_drop_execution_candidates"'
+            )
+          ) {
+            throw new Error('forced v041 failure');
+          }
+
+          return Promise.resolve({ rows: [], rowCount: 0 });
+        })
+      } as unknown as Pool & { queries: string[] };
+
+      const v041 = migrations.find((m: Migration) => m.version === 41);
+      if (!v041) {
+        throw new Error('v041 migration not found');
+      }
+
+      await expect(v041.up(pool)).rejects.toThrow('forced v041 failure');
       expect(pool.queries[0]).toBe('BEGIN');
       expect(pool.queries).toContain('ROLLBACK');
       expect(pool.queries).not.toContain('COMMIT');
