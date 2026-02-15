@@ -245,7 +245,7 @@ describe('sync schema contract', () => {
     expect(isSqlReferenceSubsetOfFlattenedContract(unexpectedSql)).toBe(false);
   });
 
-  it('remains compatible with generated Postgres schema and reports transitional VFS tables', () => {
+  it('remains compatible with generated Postgres schema and excludes retired transitional VFS tables', () => {
     const syncPackageRoot = process.cwd();
     const generatedSchemaSource = readFileSync(
       resolve(syncPackageRoot, '../db/src/generated/postgresql/schema.ts'),
@@ -257,9 +257,9 @@ describe('sync schema contract', () => {
     const inventory = deriveVfsFlatteningInventory(generatedTables);
 
     expect(inventory.missingContractTables).toEqual([]);
-    expect(inventory.transitionalVfsTables).toEqual(
-      expect.arrayContaining(['vfs_shares'])
-    );
+    expect(inventory.transitionalVfsTables).toEqual([]);
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_shares');
+    expect(inventory.transitionalVfsTables).not.toContain('org_shares');
     expect(inventory.transitionalVfsTables).not.toContain('vfs_access');
     expect(inventory.transitionalVfsTables).not.toContain('vfs_folders');
     expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_objects');
