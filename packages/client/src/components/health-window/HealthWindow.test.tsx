@@ -32,17 +32,25 @@ vi.mock('@/components/floating-window', () => ({
 vi.mock('@/pages/Health', () => ({
   Health: ({
     showBackLink,
-    refreshToken
+    refreshToken,
+    activeRoute
   }: {
     showBackLink?: boolean;
     refreshToken?: number;
+    activeRoute?: string;
   }) => (
     <div
       data-testid="health-page"
       data-show-back-link={showBackLink}
       data-refresh-token={refreshToken}
     >
-      Health Page
+      {activeRoute ? (
+        <div data-testid={`health-detail-${activeRoute}`}>
+          Detail view for {activeRoute}
+        </div>
+      ) : (
+        'Health Page Overview'
+      )}
     </div>
   ),
   HEALTH_DRILLDOWN_CARDS: [
@@ -111,9 +119,51 @@ describe('HealthWindow', () => {
     const healthPage = screen.getByTestId('health-page');
     expect(healthPage.dataset['refreshToken']).toBe('0');
 
-    await user.click(screen.getByText('File'));
-    await user.click(screen.getByText('Refresh'));
+    await user.click(screen.getByTestId('health-window-control-refresh'));
 
     expect(healthPage.dataset['refreshToken']).toBe('1');
+  });
+
+  it('shows Back button in control bar when on drilldown route', async () => {
+    const user = userEvent.setup();
+    render(<HealthWindow {...defaultProps} />);
+
+    // Back button should not be visible initially
+    expect(screen.queryByTestId('health-window-control-back')).toBeNull();
+
+    // Navigate to a drilldown route via menu
+    await user.click(screen.getByText('Go'));
+    await user.click(screen.getByText('Height Tracking'));
+
+    // Back button should now be visible
+    expect(screen.getByTestId('health-window-control-back')).toBeTruthy();
+
+    // Click Back to return to overview
+    await user.click(screen.getByTestId('health-window-control-back'));
+
+    // Back button should be hidden again
+    expect(screen.queryByTestId('health-window-control-back')).toBeNull();
+  });
+
+  it.each([
+    ['Height Tracking', 'height'],
+    ['Weight Tracking', 'weight'],
+    ['Blood Pressure', 'blood-pressure'],
+    ['Exercises', 'exercises'],
+    ['Workouts', 'workouts']
+  ])('shows control bar with Back and Refresh on %s sub-route', async (menuLabel, route) => {
+    const user = userEvent.setup();
+    render(<HealthWindow {...defaultProps} />);
+
+    // Navigate to sub-route
+    await user.click(screen.getByText('Go'));
+    await user.click(screen.getByText(menuLabel));
+
+    // Control bar should show Back and Refresh buttons
+    expect(screen.getByTestId('health-window-control-back')).toBeTruthy();
+    expect(screen.getByTestId('health-window-control-refresh')).toBeTruthy();
+
+    // Health page should be on the correct route
+    expect(screen.getByTestId(`health-detail-${route}`)).toBeTruthy();
   });
 });

@@ -1,4 +1,9 @@
-import { WindowControlBar } from '@tearleads/window-manager';
+import {
+  WindowControlBar,
+  WindowControlButton,
+  WindowControlGroup
+} from '@tearleads/window-manager';
+import { ArrowLeft, RefreshCw } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import type { WindowDimensions } from '@/components/floating-window';
 import { FloatingWindow } from '@/components/floating-window';
@@ -64,13 +69,31 @@ export function HealthWindow({
       minHeight={HEALTH_WINDOW_MIN_HEIGHT}
     >
       <div className="flex h-full min-h-0 flex-col">
+        <HealthWindowMenuBar
+          activeRoute={activeRoute}
+          onRouteChange={handleRouteChange}
+          onRefresh={handleRefresh}
+          onClose={onClose}
+        />
         <WindowControlBar>
-          <HealthWindowMenuBar
-            activeRoute={activeRoute}
-            onRouteChange={handleRouteChange}
-            onRefresh={handleRefresh}
-            onClose={onClose}
-          />
+          <WindowControlGroup>
+            {activeRoute !== undefined && (
+              <WindowControlButton
+                icon={<ArrowLeft className="h-3 w-3" />}
+                onClick={() => handleRouteChange(undefined)}
+                data-testid="health-window-control-back"
+              >
+                Back
+              </WindowControlButton>
+            )}
+            <WindowControlButton
+              icon={<RefreshCw className="h-3 w-3" />}
+              onClick={handleRefresh}
+              data-testid="health-window-control-refresh"
+            >
+              Refresh
+            </WindowControlButton>
+          </WindowControlGroup>
         </WindowControlBar>
         <div className="min-h-0 flex-1 overflow-auto p-3">
           <Health
