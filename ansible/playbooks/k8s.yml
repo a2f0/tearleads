@@ -65,11 +65,13 @@
         group: "{{ ansible_user }}"
         mode: "0755"
 
-    - name: Clone tearleads repository
+    - name: Clone or update tearleads repository
       ansible.builtin.git:
         repo: "{{ tearleads_repo_url }}"
         dest: "{{ tearleads_dir }}"
         version: feat/k8s
+        update: true
+        force: true
       become: true
       become_user: "{{ ansible_user }}"
 
