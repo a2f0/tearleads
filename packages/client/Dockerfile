@@ -3,7 +3,8 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Install pnpm
+# Install pnpm and build dependencies
+RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 # Copy package files for dependency installation
@@ -80,6 +81,12 @@ COPY packages/window-manager packages/window-manager
 
 # Copy docs directory (used by help system)
 COPY docs docs
+
+# Copy scripts needed for setup
+COPY scripts/downloadSqliteWasm.sh scripts/
+
+# Download SQLite WASM files (gitignored, must be downloaded)
+RUN scripts/downloadSqliteWasm.sh
 
 # Build shared packages first (dependencies must be built before client)
 RUN pnpm --filter @tearleads/shared build && \
