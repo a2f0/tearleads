@@ -348,6 +348,31 @@ describe('InMemoryVfsCrdtStateStore', () => {
       status: 'invalidOp'
     });
   });
+
+  it('rejects self-referential link operations', () => {
+    const store = new InMemoryVfsCrdtStateStore();
+
+    const result = store.apply({
+      opId: 'self-link-1',
+      opType: 'link_add',
+      itemId: 'item-1',
+      replicaId: 'desktop',
+      writeId: 1,
+      occurredAt: '2026-02-14T03:00:00.000Z',
+      parentId: 'item-1',
+      childId: 'item-1'
+    });
+
+    expect(result).toEqual({
+      opId: 'self-link-1',
+      status: 'invalidOp'
+    });
+    expect(store.snapshot()).toEqual({
+      acl: [],
+      links: [],
+      lastReconciledWriteIds: {}
+    });
+  });
 });
 
 describe('canonical CRDT ordering guardrails', () => {
@@ -455,6 +480,25 @@ describe('canonical CRDT ordering guardrails', () => {
 
     expect(() => assertCanonicalVfsCrdtOperationOrder(operations)).toThrowError(
       /non-monotonic writeId/
+    );
+  });
+
+  it('throws when canonical feed contains self-referential link operations', () => {
+    const operations: VfsCrdtOperation[] = [
+      {
+        opId: 'op-self-link',
+        opType: 'link_add',
+        itemId: 'item-a',
+        replicaId: 'desktop',
+        writeId: 1,
+        occurredAt: '2026-02-14T02:00:01.000Z',
+        parentId: 'item-a',
+        childId: 'item-a'
+      }
+    ];
+
+    expect(() => assertCanonicalVfsCrdtOperationOrder(operations)).toThrowError(
+      /is invalid/
     );
   });
 });
