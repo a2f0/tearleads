@@ -460,6 +460,116 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.snapshot().pendingOperations).toBe(1);
   });
 
+  it('converges staggered background flush clients under concurrent writes', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(server, {
+        pushDelayMs: 9,
+        pullDelayMs: 4
+      }),
+      { pullLimit: 2 }
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      new InMemoryVfsCrdtSyncTransport(server, {
+        pushDelayMs: 3,
+        pullDelayMs: 11
+      }),
+      { pullLimit: 1 }
+    );
+    const tablet = new VfsBackgroundSyncClient(
+      'user-1',
+      'tablet',
+      new InMemoryVfsCrdtSyncTransport(server, {
+        pushDelayMs: 6,
+        pullDelayMs: 6
+      }),
+      { pullLimit: 3 }
+    );
+    const clients = [desktop, mobile, tablet];
+
+    desktop.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-a',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:05:00.000Z'
+    });
+    desktop.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-a',
+      parentId: 'root',
+      childId: 'item-a',
+      occurredAt: '2026-02-14T12:05:01.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-a',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T12:05:02.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'link_remove',
+      itemId: 'item-a',
+      parentId: 'root',
+      childId: 'item-a',
+      occurredAt: '2026-02-14T12:05:03.000Z'
+    });
+    tablet.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-b',
+      parentId: 'root',
+      childId: 'item-b',
+      occurredAt: '2026-02-14T12:05:04.000Z'
+    });
+    tablet.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-b',
+      principalType: 'organization',
+      principalId: 'org-1',
+      accessLevel: 'admin',
+      occurredAt: '2026-02-14T12:05:05.000Z'
+    });
+
+    desktop.startBackgroundFlush(9);
+    mobile.startBackgroundFlush(13);
+    tablet.startBackgroundFlush(7);
+    try {
+      await waitFor(
+        () =>
+          clients.every((client) => client.snapshot().pendingOperations === 0),
+        3000
+      );
+    } finally {
+      await Promise.all(clients.map((client) => client.stopBackgroundFlush()));
+    }
+
+    await Promise.all(clients.map((client) => client.sync()));
+
+    const serverSnapshot = server.snapshot();
+    expect(serverSnapshot.lastReconciledWriteIds).toEqual({
+      desktop: 2,
+      mobile: 2,
+      tablet: 2
+    });
+
+    for (const client of clients) {
+      const snapshot = client.snapshot();
+      expect(snapshot.pendingOperations).toBe(0);
+      expect(snapshot.acl).toEqual(serverSnapshot.acl);
+      expect(snapshot.links).toEqual(serverSnapshot.links);
+      expect(snapshot.lastReconciledWriteIds).toEqual(
+        serverSnapshot.lastReconciledWriteIds
+      );
+    }
+  });
+
   it('stopBackgroundFlush(false) returns before in-flight flush settles', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     let pushStarted = false;
