@@ -3,7 +3,7 @@
  * The VFS root is the implicit parent of all top-level folders.
  */
 
-import { vfsFolders, vfsRegistry } from '@tearleads/db/sqlite';
+import { vfsRegistry } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { VFS_ROOT_ID } from '../constants';
@@ -58,12 +58,6 @@ export function useEnsureVfsRoot(): UseEnsureVfsRootResult {
           // Guardrail: canonical folder metadata is on vfs_registry.
           encryptedName: 'VFS Root',
           createdAt: now
-        });
-
-        // Insert into vfs_folders
-        await tx.insert(vfsFolders).values({
-          id: VFS_ROOT_ID,
-          encryptedName: 'VFS Root'
         });
       });
 

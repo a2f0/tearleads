@@ -31,18 +31,18 @@ compatibility branches that are no longer needed before production.
 
 ## Execution Plan
 
-### Slice A: API Share Routes (in progress)
+### Slice A: API Share Routes
 
 - [x] Cut share CRUD/listing/auth to canonical `vfs_acl_entries`.
 - [x] Add `v045` migration to canonicalize active legacy org-share ACL ids.
 - [x] Remove org-share legacy fallback from auth context resolution.
-- [ ] Remove any remaining legacy org-share parsing assumptions in route tests.
+- [x] Remove remaining legacy org-share parsing assumptions in route tests.
 
 ### Slice B: Explorer/Folder Metadata
 
-- [ ] Remove `COALESCE(vfs_registry..., vfs_folders...)` fallback reads.
-- [ ] Remove folder metadata dual-write to `vfs_folders`.
-- [ ] Remove folder fallback integration tests and replace with canonical-only
+- [x] Remove `COALESCE(vfs_registry..., vfs_folders...)` fallback reads.
+- [x] Remove folder metadata dual-write to `vfs_folders`.
+- [x] Remove folder fallback integration tests and replace with canonical-only
       assertions.
 
 ### Slice C: Client/Local Compatibility

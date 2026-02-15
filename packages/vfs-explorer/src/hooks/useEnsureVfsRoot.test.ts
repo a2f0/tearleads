@@ -79,7 +79,7 @@ describe('useEnsureVfsRoot', () => {
     // Should have created the root
     expect(mockDb.transaction).toHaveBeenCalled();
     expect(insertedValues[0]?.['encryptedName']).toBe('VFS Root');
-    expect(insertedValues[1]?.['encryptedName']).toBe('VFS Root');
+    expect(insertedValues).toHaveLength(1);
   });
 
   it('handles errors during root creation', async () => {

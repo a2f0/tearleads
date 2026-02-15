@@ -33,7 +33,7 @@ describe('useRenameVfsFolder', () => {
     });
   });
 
-  it('renames folder in canonical and legacy metadata tables', async () => {
+  it('renames folder in canonical metadata table', async () => {
     const wrapper = createWrapper({ database: mockDb });
     const { result } = renderHook(() => useRenameVfsFolder(), { wrapper });
 
@@ -42,9 +42,8 @@ describe('useRenameVfsFolder', () => {
     });
 
     expect(mockDb.transaction).toHaveBeenCalledTimes(1);
-    expect(updateCallCount).toBe(2);
+    expect(updateCallCount).toBe(1);
     expect(setPayloads[0]?.['encryptedName']).toBe('New Name');
-    expect(setPayloads[1]?.['encryptedName']).toBe('New Name');
     expect(result.current.error).toBeNull();
     expect(result.current.isRenaming).toBe(false);
   });
