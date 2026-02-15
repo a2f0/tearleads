@@ -9,7 +9,7 @@ import {
   saveEmailDraftToDb
 } from './email-drafts';
 import { migrations } from './migrations';
-import { composedEmails } from './schema';
+import { composedEmails, emailFolders, vfsLinks, vfsRegistry } from './schema';
 
 describe('email drafts integration', () => {
   let warnSpy: ReturnType<typeof vi.spyOn>;
@@ -120,6 +120,88 @@ describe('email drafts integration', () => {
         expect(saved?.subject).toBe('');
         expect(saved?.body).toBe('');
         expect(saved?.to).toEqual(['alex@bitwisewebservices.com']);
+      },
+      { migrations }
+    );
+  });
+
+  it('links draft to Drafts folder when draftsFolderId is provided', async () => {
+    await withRealDatabase(
+      async ({ db }) => {
+        // Create a Drafts folder first
+        const draftsFolderId = crypto.randomUUID();
+        const now = new Date();
+
+        await db.insert(vfsRegistry).values({
+          id: draftsFolderId,
+          objectType: 'emailFolder',
+          ownerId: null,
+          createdAt: now
+        });
+
+        await db.insert(emailFolders).values({
+          id: draftsFolderId,
+          encryptedName: 'Drafts',
+          folderType: 'drafts',
+          unreadCount: 0
+        });
+
+        // Save a draft with the draftsFolderId
+        const saveResult = await saveEmailDraftToDb(
+          db,
+          {
+            id: null,
+            to: ['alice@example.com'],
+            cc: [],
+            bcc: [],
+            subject: 'Test subject',
+            body: 'Test body',
+            attachments: []
+          },
+          draftsFolderId
+        );
+
+        // Verify the vfs_links entry was created
+        const links = await db
+          .select()
+          .from(vfsLinks)
+          .where(eq(vfsLinks.childId, saveResult.id));
+
+        expect(links).toHaveLength(1);
+        expect(links[0]?.parentId).toBe(draftsFolderId);
+        expect(links[0]?.childId).toBe(saveResult.id);
+
+        // Update the draft and verify no duplicate links are created
+        await saveEmailDraftToDb(
+          db,
+          {
+            id: saveResult.id,
+            to: ['bob@example.com'],
+            cc: [],
+            bcc: [],
+            subject: 'Updated subject',
+            body: 'Updated body',
+            attachments: []
+          },
+          draftsFolderId
+        );
+
+        const linksAfterUpdate = await db
+          .select()
+          .from(vfsLinks)
+          .where(eq(vfsLinks.childId, saveResult.id));
+
+        expect(linksAfterUpdate).toHaveLength(1);
+
+        // Delete the draft and verify the link is cascade deleted
+        await deleteEmailDraftFromDb(db, saveResult.id);
+
+        const linksAfterDelete = await db
+          .select()
+          .from(vfsLinks)
+          .where(eq(vfsLinks.childId, saveResult.id));
+
+        expect(linksAfterDelete).toHaveLength(0);
       },
       { migrations }
     );
