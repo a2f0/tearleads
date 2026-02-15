@@ -406,6 +406,60 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.snapshot().pendingOperations).toBe(0);
   });
 
+  it('rejects invalid background flush intervals', () => {
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer())
+    );
+
+    expect(() => client.startBackgroundFlush(0)).toThrowError(
+      /positive integer/
+    );
+    expect(() => client.startBackgroundFlush(-1)).toThrowError(
+      /positive integer/
+    );
+    expect(() => client.startBackgroundFlush(1.5)).toThrowError(
+      /positive integer/
+    );
+  });
+
+  it('keeps background flush start idempotent with a single active timer', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(server)
+    );
+
+    client.startBackgroundFlush(10);
+    client.startBackgroundFlush(10);
+
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-start-idempotent-1',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:02:03.000Z'
+    });
+    await waitFor(() => client.snapshot().pendingOperations === 0, 1000);
+
+    await client.stopBackgroundFlush();
+
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-start-idempotent-2',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T12:02:04.000Z'
+    });
+
+    await wait(50);
+    expect(client.snapshot().pendingOperations).toBe(1);
+  });
+
   it('stopBackgroundFlush(false) returns before in-flight flush settles', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     let pushStarted = false;
