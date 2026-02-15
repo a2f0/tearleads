@@ -1,7 +1,11 @@
-import { Check, Languages } from 'lucide-react';
+import { Check, Flag, Type } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ContextMenu, ContextMenuItem } from '@/components/ui/context-menu';
 import type { SupportedLanguage } from '@/i18n';
 import { loadLanguage, supportedLanguages, useTypedTranslation } from '@/i18n';
+
+const DISPLAY_MODE_KEY = 'language-picker-display-mode';
+type DisplayMode = 'flag' | 'abbreviation';
 
 const LANGUAGE_NAMES: Record<SupportedLanguage, string> = {
   en: 'English',
@@ -38,9 +42,28 @@ function resolveCurrentLanguage(
   return matchedLanguage ?? 'en';
 }
 
+function getInitialDisplayMode(): DisplayMode {
+  try {
+    const stored = localStorage.getItem(DISPLAY_MODE_KEY);
+    if (stored === 'flag' || stored === 'abbreviation') {
+      return stored;
+    }
+  } catch {
+    // localStorage may not be available
+  }
+  return 'flag';
+}
+
 export function RuntimeLanguagePicker() {
   const { t, i18n } = useTypedTranslation('common');
   const [isOpen, setIsOpen] = useState(false);
+  const [displayMode, setDisplayMode] = useState<DisplayMode>(
+    getInitialDisplayMode
+  );
+  const [contextMenu, setContextMenu] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
 
   const activeLanguage = useMemo(
@@ -92,6 +115,22 @@ export function RuntimeLanguagePicker() {
     [i18n]
   );
 
+  const handleContextMenu = useCallback((event: React.MouseEvent) => {
+    event.preventDefault();
+    setContextMenu({ x: event.clientX, y: event.clientY });
+  }, []);
+
+  const handleToggleDisplayMode = useCallback(() => {
+    const newMode = displayMode === 'flag' ? 'abbreviation' : 'flag';
+    setDisplayMode(newMode);
+    try {
+      localStorage.setItem(DISPLAY_MODE_KEY, newMode);
+    } catch {
+      // localStorage may not be available
+    }
+    setContextMenu(null);
+  }, [displayMode]);
+
   return (
     <div
       ref={containerRef}
@@ -101,14 +140,18 @@ export function RuntimeLanguagePicker() {
       <button
         type="button"
         onClick={() => setIsOpen((open) => !open)}
-        className="inline-flex h-6 items-center gap-1 rounded-md border bg-background/95 px-2 font-medium text-[11px] uppercase shadow-sm transition-colors hover:bg-accent"
+        onContextMenu={handleContextMenu}
+        className="inline-flex h-6 items-center gap-1 rounded-md bg-background/95 px-2 font-medium text-[11px] uppercase transition-colors hover:bg-accent"
         aria-label={t('selectLanguage')}
         aria-expanded={isOpen}
         aria-haspopup="menu"
         data-testid="runtime-language-picker-trigger"
       >
-        <Languages className="h-3.5 w-3.5" aria-hidden="true" />
-        <span>{activeLanguage.toUpperCase()}</span>
+        {displayMode === 'flag' ? (
+          <span className="text-sm">{LANGUAGE_FLAGS[activeLanguage]}</span>
+        ) : (
+          <span>{activeLanguage.toUpperCase()}</span>
+        )}
       </button>
 
       {isOpen && (
@@ -140,6 +183,28 @@ export function RuntimeLanguagePicker() {
             </button>
           ))}
         </div>
+      )}
+
+      {contextMenu && (
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+        >
+          <ContextMenuItem
+            icon={
+              displayMode === 'flag' ? (
+                <Type className="h-4 w-4" />
+              ) : (
+                <Flag className="h-4 w-4" />
+              )
+            }
+            onClick={handleToggleDisplayMode}
+            data-testid="toggle-display-mode"
+          >
+            {displayMode === 'flag' ? t('showAbbreviation') : t('showFlag')}
+          </ContextMenuItem>
+        </ContextMenu>
       )}
     </div>
   );

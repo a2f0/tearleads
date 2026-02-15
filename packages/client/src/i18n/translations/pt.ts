@@ -5,6 +5,8 @@ export const pt = {
     language: 'Idioma',
     languageName: 'Português',
     selectLanguage: 'Selecionar idioma',
+    showFlag: 'Mostrar bandeira',
+    showAbbreviation: 'Mostrar abreviatura',
     settings: 'Configurações',
     theme: 'Tema',
     themeDescription: 'Escolha seu tema de cores preferido',

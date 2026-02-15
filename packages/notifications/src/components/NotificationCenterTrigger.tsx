@@ -55,19 +55,17 @@ export function NotificationCenterTrigger() {
 
   return (
     <>
-      <div className="relative">
-        <button
-          type="button"
-          onClick={handleOpen}
-          onContextMenu={handleContextMenu}
-          className="rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          aria-label="Open Notification Center"
-          title="Notification Center"
-        >
-          <Activity className="h-4 w-4 translate-y-0.5" />
-        </button>
+      <button
+        type="button"
+        onClick={handleOpen}
+        onContextMenu={handleContextMenu}
+        className="relative rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+        aria-label="Open Notification Center"
+        title="Notification Center"
+      >
+        <Activity className="h-4 w-4" />
         <NotificationBadge count={unreadCount} />
-      </div>
+      </button>
       {contextMenu && (
         <ContextMenu
           x={contextMenu.x}
