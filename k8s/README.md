@@ -22,6 +22,8 @@ export TF_VAR_server_username="deploy"
 
 ## Quick Start
 
+### 1. Provision Infrastructure
+
 ```bash
 cd k8s
 ./scripts/init.sh
@@ -29,7 +31,7 @@ cd k8s
 ./scripts/apply.sh
 ```
 
-## Retrieve Kubeconfig
+### 2. Get Kubeconfig
 
 ```bash
 ./scripts/kubeconfig.sh
@@ -37,20 +39,52 @@ export KUBECONFIG=~/.kube/config-k8s
 kubectl get nodes
 ```
 
+### 3. Configure Secrets
+
+Edit `manifests/secrets.yaml` and replace placeholder values:
+
+```bash
+# Generate JWT secret
+openssl rand -hex 32
+```
+
+### 4. Install Ingress Controller
+
+k3s is deployed with traefik disabled. Install nginx-ingress:
+
+```bash
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/cloud/deploy.yaml
+```
+
+### 5. Build and Deploy App
+
+```bash
+./scripts/build-images.sh   # Build images on server
+./scripts/deploy.sh         # Deploy to cluster
+```
+
 ## DNS Records
 
-The following DNS records are created automatically:
+Created automatically by Terraform:
 
 - `k8s.yourdomain.com` - points to server IP
 - `*.k8s.yourdomain.com` - wildcard for ingress routing
+
+## Application URLs
+
+After deployment:
+
+- **Website**: https://k8s.yourdomain.com
+- **Client**: https://app.k8s.yourdomain.com
+- **API**: https://api.k8s.yourdomain.com
 
 ## Server Details
 
 - **OS**: Ubuntu 24.04
 - **Default type**: cx23 (2 vCPU, 4GB RAM)
-- **K3s**: Installed via cloud-init with traefik disabled
+- **K3s**: Single-node with traefik disabled
 
-Override server type with `-var server_type=cx22` for more resources.
+Override server type with `-var server_type=cx32` for more resources.
 
 ## Scripts
 
@@ -62,6 +96,22 @@ Override server type with `-var server_type=cx22` for more resources.
 | `destroy.sh` | Tear down infrastructure |
 | `update.sh` | Upgrade provider versions |
 | `kubeconfig.sh` | Fetch kubeconfig and write to ~/.kube/config-k8s |
+| `build-images.sh` | Build container images on k3s node |
+| `deploy.sh` | Deploy application to cluster |
+
+## Manifests
+
+| File | Description |
+|------|-------------|
+| `namespace.yaml` | tearleads namespace |
+| `secrets.yaml` | JWT_SECRET, POSTGRES_PASSWORD |
+| `configmap.yaml` | Non-sensitive configuration |
+| `postgres.yaml` | PostgreSQL 16 StatefulSet + PVC |
+| `redis.yaml` | Redis 7 Deployment |
+| `api.yaml` | API Deployment + Service |
+| `client.yaml` | Client Deployment + Service |
+| `website.yaml` | Website Deployment + Service |
+| `ingress.yaml` | Ingress routing rules |
 
 ## Tear Down
 
