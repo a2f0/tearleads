@@ -315,9 +315,10 @@ export function ClientEmailProvider({ children }: ClientEmailProviderProps) {
   const saveDraft = useCallback<EmailDraftOperations['saveDraft']>(
     async (input) => {
       const db = getDatabase();
-      return saveEmailDraftToDb(db, input);
+      const draftsFolder = await getFolderByType('drafts');
+      return saveEmailDraftToDb(db, input, draftsFolder?.id);
     },
-    []
+    [getFolderByType]
   );
 
   const getDraft = useCallback<EmailDraftOperations['getDraft']>(async (id) => {

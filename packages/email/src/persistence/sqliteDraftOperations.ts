@@ -2,6 +2,7 @@ import type { Database } from '@tearleads/db/sqlite';
 import {
   composedEmails,
   emailAttachments,
+  vfsLinks,
   vfsRegistry
 } from '@tearleads/db/sqlite';
 import { desc, eq } from 'drizzle-orm';
@@ -61,7 +62,8 @@ function normalizeText(input: string | null | undefined): string {
 
 export async function saveEmailDraftToDb(
   db: Database,
-  input: SaveDraftInput
+  input: SaveDraftInput,
+  draftsFolderId?: string
 ): Promise<{ id: string; updatedAt: string }> {
   const now = new Date();
   const draftId = input.id ?? crypto.randomUUID();
@@ -109,6 +111,21 @@ export async function saveEmailDraftToDb(
           updatedAt: now
         }
       });
+
+    // Link the draft to the Drafts folder if folder ID is provided
+    if (draftsFolderId) {
+      const linkId = crypto.randomUUID();
+      await tx
+        .insert(vfsLinks)
+        .values({
+          id: linkId,
+          parentId: draftsFolderId,
+          childId: draftId,
+          wrappedSessionKey: '',
+          createdAt: now
+        })
+        .onConflictDoNothing();
+    }
 
     await tx
       .delete(emailAttachments)
