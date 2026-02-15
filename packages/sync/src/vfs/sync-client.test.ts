@@ -2835,6 +2835,204 @@ describe('VfsBackgroundSyncClient', () => {
     }
   });
 
+  it('keeps replay cursor monotonic across sequential replica handoff cycles', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const desktopTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 3,
+      pullDelayMs: 3
+    });
+    const mobileTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 2,
+      pullDelayMs: 4
+    });
+    const tabletTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 1,
+      pullDelayMs: 5
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      { pullLimit: 1 }
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport,
+      { pullLimit: 1 }
+    );
+    const tablet = new VfsBackgroundSyncClient(
+      'user-1',
+      'tablet',
+      tabletTransport,
+      { pullLimit: 1 }
+    );
+
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-handoff-a',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T14:34:00.000Z'
+    });
+    await mobile.flush();
+    await desktop.sync();
+
+    const persistedDesktopState = desktop.exportState();
+    const seedReplayCursor = persistedDesktopState.replaySnapshot.cursor;
+    if (!seedReplayCursor) {
+      throw new Error('expected replay seed cursor before handoff cycles');
+    }
+
+    const observedPulls: Array<{
+      requestCursor: { changedAt: string; changeId: string } | null;
+      items: VfsCrdtSyncItem[];
+      hasMore: boolean;
+      nextCursor: { changedAt: string; changeId: string } | null;
+    }> = [];
+    const baseDesktopTransport: VfsCrdtSyncTransport = desktopTransport;
+    const observingDesktopTransport: VfsCrdtSyncTransport = {
+      pushOperations: (input) => baseDesktopTransport.pushOperations(input),
+      pullOperations: async (input) => {
+        const response = await baseDesktopTransport.pullOperations(input);
+        observedPulls.push({
+          requestCursor: input.cursor ? { ...input.cursor } : null,
+          items: response.items.map((item) => ({ ...item })),
+          hasMore: response.hasMore,
+          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
+        });
+        return response;
+      },
+      reconcileState: baseDesktopTransport.reconcileState
+        ? (input) => baseDesktopTransport.reconcileState(input)
+        : undefined
+    };
+
+    const resumedDesktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      observingDesktopTransport,
+      { pullLimit: 1 }
+    );
+    resumedDesktop.hydrateState(persistedDesktopState);
+    await resumedDesktop.sync();
+    expect(observedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
+    expect(observedPulls[0]?.items).toEqual([]);
+
+    const cycleOneStart = observedPulls.length;
+
+    mobile.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-handoff-a',
+      parentId: 'root',
+      childId: 'item-handoff-a',
+      occurredAt: '2026-02-14T14:34:01.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-handoff-b',
+      principalType: 'organization',
+      principalId: 'org-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T14:34:02.000Z'
+    });
+    await mobile.flush();
+    await resumedDesktop.sync();
+
+    const cycleOnePulls = observedPulls.slice(cycleOneStart);
+    expect(cycleOnePulls.length).toBeGreaterThanOrEqual(2);
+    expect(cycleOnePulls[0]?.requestCursor).toEqual(seedReplayCursor);
+    expect(cycleOnePulls[cycleOnePulls.length - 1]?.hasMore).toBe(false);
+
+    const cycleOneItems = cycleOnePulls.flatMap((page) => page.items);
+    expect(cycleOneItems).toContainEqual(
+      expect.objectContaining({
+        opId: 'mobile-2',
+        opType: 'link_add',
+        itemId: 'item-handoff-a'
+      })
+    );
+    expect(cycleOneItems).toContainEqual(
+      expect.objectContaining({
+        opId: 'mobile-3',
+        opType: 'acl_add',
+        itemId: 'item-handoff-b'
+      })
+    );
+
+    const cycleOneTerminalCursor =
+      cycleOnePulls[cycleOnePulls.length - 1]?.nextCursor;
+    expect(cycleOneTerminalCursor).not.toBeNull();
+    if (!cycleOneTerminalCursor) {
+      throw new Error('expected cycle one handoff terminal cursor');
+    }
+
+    const cycleTwoStart = observedPulls.length;
+
+    tablet.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-handoff-c',
+      parentId: 'root',
+      childId: 'item-handoff-c',
+      occurredAt: '2026-02-14T14:34:03.000Z'
+    });
+    tablet.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-handoff-c',
+      principalType: 'group',
+      principalId: 'group-2',
+      accessLevel: 'admin',
+      occurredAt: '2026-02-14T14:34:04.000Z'
+    });
+    await tablet.flush();
+    await resumedDesktop.sync();
+
+    const cycleTwoPulls = observedPulls.slice(cycleTwoStart);
+    expect(cycleTwoPulls.length).toBeGreaterThanOrEqual(2);
+    expect(cycleTwoPulls[0]?.requestCursor).toEqual(cycleOneTerminalCursor);
+    expect(cycleTwoPulls[cycleTwoPulls.length - 1]?.hasMore).toBe(false);
+
+    /**
+     * Guardrail invariant: switching write source replicas across cycles must
+     * not reset cursor progression or replay prior cycle boundary rows.
+     */
+    const cycleTwoItems = cycleTwoPulls.flatMap((page) => page.items);
+    expect(cycleTwoItems).toContainEqual(
+      expect.objectContaining({
+        opId: 'tablet-1',
+        opType: 'link_add',
+        itemId: 'item-handoff-c'
+      })
+    );
+    expect(cycleTwoItems).toContainEqual(
+      expect.objectContaining({
+        opId: 'tablet-2',
+        opType: 'acl_add',
+        itemId: 'item-handoff-c'
+      })
+    );
+    expect(cycleTwoItems.map((item) => item.opId)).not.toContain(
+      cycleOneTerminalCursor.changeId
+    );
+    expect(cycleTwoItems.map((item) => item.opId)).not.toContain(
+      seedReplayCursor.changeId
+    );
+
+    for (const item of cycleTwoItems) {
+      expect(
+        compareVfsSyncCursorOrder(
+          {
+            changedAt: item.occurredAt,
+            changeId: item.opId
+          },
+          cycleOneTerminalCursor
+        )
+      ).toBeGreaterThan(0);
+    }
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
