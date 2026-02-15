@@ -6,7 +6,7 @@ data "hcloud_ssh_key" "main" {
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name         = "k8s-${var.domain}"
+  name         = "k8s-${var.staging_domain}"
   ssh_key_name = var.ssh_key_name
   server_type  = var.server_type
   location     = var.server_location
@@ -26,7 +26,7 @@ module "server" {
     runcmd:
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.staging_domain}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
@@ -71,7 +71,7 @@ module "server" {
 module "dns" {
   source = "../../../modules/hetzner-dns"
 
-  domain       = var.domain
+  domain       = var.staging_domain
   ipv4_address = module.server.ipv4_address
   ipv6_address = module.server.ipv6_address
 

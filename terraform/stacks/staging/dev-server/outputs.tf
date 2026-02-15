@@ -15,7 +15,7 @@ output "server_status" {
 
 output "hostname" {
   description = "Primary hostname"
-  value       = var.domain
+  value       = var.staging_domain
 }
 
 output "ssh_command" {

@@ -9,8 +9,8 @@ variable "ssh_key_name" {
   type        = string
 }
 
-variable "domain" {
-  description = "Domain name for DNS records"
+variable "staging_domain" {
+  description = "Staging domain name for DNS records"
   type        = string
 }
 

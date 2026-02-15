@@ -10,7 +10,7 @@ locals {
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name         = var.domain
+  name         = var.staging_domain
   ssh_key_name = var.ssh_key_name
   server_type  = var.server_type
   location     = var.server_location
@@ -66,7 +66,7 @@ module "server" {
 module "dns" {
   source = "../../../modules/hetzner-dns"
 
-  domain       = var.domain
+  domain       = var.staging_domain
   ipv4_address = module.server.ipv4_address
   ipv6_address = module.server.ipv6_address
 

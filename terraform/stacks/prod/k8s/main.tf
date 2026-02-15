@@ -6,7 +6,7 @@ data "hcloud_ssh_key" "main" {
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name         = "k8s-prod-${var.domain}"
+  name         = "k8s-prod-${var.production_domain}"
   ssh_key_name = var.ssh_key_name
   server_type  = var.server_type
   location     = var.server_location
@@ -26,7 +26,7 @@ module "server" {
     runcmd:
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.domain}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.production_domain}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
@@ -62,16 +62,16 @@ module "tunnel" {
   source = "../../../modules/cloudflare-tunnel"
 
   account_id  = var.cloudflare_account_id
-  zone_name   = var.domain
+  zone_name   = var.production_domain
   tunnel_name = "k8s-prod"
 
   ingress_rules = [
     {
-      hostname = "k8s.${var.domain}"
+      hostname = "k8s.${var.production_domain}"
       service  = "http://localhost:80"
     },
     {
-      hostname = "*.k8s.${var.domain}"
+      hostname = "*.k8s.${var.production_domain}"
       service  = "http://localhost:80"
     }
   ]

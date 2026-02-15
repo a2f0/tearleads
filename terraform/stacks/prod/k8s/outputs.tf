@@ -15,7 +15,7 @@ output "server_status" {
 
 output "k8s_hostname" {
   description = "K8s cluster hostname"
-  value       = "k8s.${var.domain}"
+  value       = "k8s.${var.production_domain}"
 }
 
 output "ssh_command" {

@@ -13,14 +13,39 @@ get_backend_config() {
   echo "$repo_root/terraform/configs/backend.hcl"
 }
 
-# Validate required environment variables for Hetzner stacks
+# Validate required environment variables for Hetzner stacks (base)
 validate_hetzner_env() {
   local missing=()
 
   [[ -z "${TF_VAR_hcloud_token:-}" ]] && missing+=("TF_VAR_hcloud_token")
   [[ -z "${TF_VAR_ssh_key_name:-}" ]] && missing+=("TF_VAR_ssh_key_name")
-  [[ -z "${TF_VAR_domain:-}" ]] && missing+=("TF_VAR_domain")
   [[ -z "${TF_VAR_server_username:-}" ]] && missing+=("TF_VAR_server_username")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: Missing required environment variables:" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+
+# Validate staging domain
+validate_staging_domain_env() {
+  local missing=()
+
+  [[ -z "${TF_VAR_staging_domain:-}" ]] && missing+=("TF_VAR_staging_domain")
+
+  if [[ ${#missing[@]} -gt 0 ]]; then
+    echo "ERROR: Missing required environment variables:" >&2
+    printf '  - %s\n' "${missing[@]}" >&2
+    return 1
+  fi
+}
+
+# Validate production domain
+validate_production_domain_env() {
+  local missing=()
+
+  [[ -z "${TF_VAR_production_domain:-}" ]] && missing+=("TF_VAR_production_domain")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2
