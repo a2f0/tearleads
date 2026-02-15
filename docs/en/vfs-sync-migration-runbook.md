@@ -181,98 +181,6 @@ LIMIT 100;
 SELECT to_regclass('public.vfs_folder_retirement_checkpoints') AS vfs_folder_retirement_checkpoints_table;
 ```
 
-1. Share retirement checkpoint snapshots should exist after `v035`.
-
-```sql
-SELECT legacy_vfs_shares_count,
-       legacy_org_shares_count,
-       missing_vfs_share_acl_count,
-       missing_org_share_acl_count,
-       orphaned_vfs_share_source_acl_count,
-       orphaned_org_share_source_acl_count,
-       captured_at
-FROM vfs_share_retirement_checkpoints
-ORDER BY captured_at DESC
-LIMIT 5;
-```
-
-1. Share drop-planning checkpoints should exist after `v037`.
-
-```sql
-SELECT planned_drop_order,
-       legacy_vfs_shares_count,
-       legacy_org_shares_count,
-       canonical_active_share_acl_count,
-       canonical_active_org_acl_count,
-       captured_at
-FROM vfs_share_retirement_drop_plans
-ORDER BY captured_at DESC
-LIMIT 5;
-```
-
-1. Share drop-candidate dry-run checkpoints should exist after `v038`.
-
-```sql
-SELECT candidate_table,
-       planned_step,
-       dry_run_statement,
-       legacy_row_count,
-       canonical_active_acl_count,
-       is_ready,
-       blocking_reason,
-       captured_at
-FROM vfs_share_retirement_drop_candidates
-ORDER BY captured_at DESC, id DESC
-LIMIT 10;
-```
-
-1. Share pre-drop execution readiness checkpoints should exist after `v039`.
-
-```sql
-SELECT required_marker,
-       legacy_read_surface_inventory,
-       canonical_read_contract,
-       read_surface_deactivation_confirmed,
-       is_ready,
-       blocking_reason,
-       captured_at
-FROM vfs_share_retirement_execution_readiness
-ORDER BY captured_at DESC, id DESC
-LIMIT 10;
-```
-
-1. Share drop-authorization checkpoints should exist after `v040`.
-
-```sql
-SELECT candidate_table,
-       planned_step,
-       required_marker,
-       read_surface_deactivation_confirmed,
-       execution_readiness_is_ready,
-       parity_revalidated,
-       is_drop_authorized,
-       blocking_reason,
-       captured_at
-FROM vfs_share_retirement_drop_authorizations
-ORDER BY captured_at DESC, id DESC
-LIMIT 10;
-```
-
-1. Share drop execution-candidate checkpoints should exist after `v041`.
-
-```sql
-SELECT candidate_table,
-       planned_step,
-       drop_statement,
-       authorization_checkpoint_id,
-       is_executable,
-       blocking_reason,
-       captured_at
-FROM vfs_share_retirement_drop_execution_candidates
-ORDER BY captured_at DESC, id DESC
-LIMIT 10;
-```
-
 1. Drop execution audit should show both sequenced share-retirement steps plus
    finalization marker.
 
@@ -299,7 +207,8 @@ LIMIT 10;
    - `POST /v1/vfs/crdt/reconcile`
 1. Confirm client builds include local migration `v019` so `vfs_registry`
    contains canonical folder metadata columns (`encrypted_name`, `icon`,
-   `view_mode`, `default_sort`, `sort_direction`) before read-path cutover.
+   `view_mode`, `default_sort`, `sort_direction`) for canonical folder
+   read/write paths.
 1. Confirm no SQL errors referencing dropped tables (`vfs_blob_staging`, `vfs_blob_refs`, `vfs_blob_objects`, `vfs_access`, `vfs_folders`).
 1. Confirm guardrail violations are not emitted for cursor/write-id regression in the same rollout window.
 
