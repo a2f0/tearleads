@@ -386,7 +386,8 @@ metric_count() {
     preen-compliance-docs)
       gaps=0
       for fw in HIPAA NIST.SP.800-53 SOC2; do
-        for policy in $(ls compliance/$fw/policies/*.md 2>/dev/null | xargs -I{} basename {} | sed 's/-policy\.md//'); do
+        find "compliance/$fw/policies" -name '*-policy.md' -type f 2>/dev/null | while read -r policy_file; do
+          policy=$(basename "$policy_file" -policy.md)
           [ ! -f "compliance/$fw/procedures/${policy}-procedure.md" ] && gaps=$((gaps + 1))
           [ ! -f "compliance/$fw/technical-controls/${policy}-control-map.md" ] && gaps=$((gaps + 1))
         done
@@ -396,11 +397,9 @@ metric_count() {
       ;;
     preen-review-instructions)
       GAPS=0
-      [ -z "$(rg 'TypeScript Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
-      [ -z "$(rg 'API Security' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
-      [ -z "$(rg 'React Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
-      [ -z "$(rg 'Database Performance' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
-      [ -z "$(rg 'Testing Standards' REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
+      for section in 'TypeScript Standards' 'API Security' 'React Standards' 'Database Performance' 'Testing Standards'; do
+        [ -z "$(rg --fixed-strings -- "$section" REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
+      done
       REVIEW_SECTIONS=$(rg '^## ' REVIEW.md 2>/dev/null | wc -l | tr -d ' ')
       GEMINI_SECTIONS=$(rg '^## ' .gemini/INSTRUCTIONS.md 2>/dev/null | wc -l | tr -d ' ')
       [ "$GEMINI_SECTIONS" -lt $((REVIEW_SECTIONS / 2)) ] && GAPS=$((GAPS + 1))
