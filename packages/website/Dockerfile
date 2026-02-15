@@ -3,7 +3,13 @@ FROM node:22-slim AS builder
 
 WORKDIR /app
 
-# Install pnpm
+# Install pnpm and Playwright dependencies
+RUN apt-get update && apt-get install -y \
+    libnss3 libnspr4 libdbus-1-3 libatk1.0-0 libatk-bridge2.0-0 \
+    libcups2 libdrm2 libxkbcommon0 libxcomposite1 libxdamage1 \
+    libxfixes3 libxrandr2 libgbm1 libasound2 libpango-1.0-0 \
+    libpangocairo-1.0-0 libcairo2 && \
+    rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 # Copy package files for dependency installation
@@ -26,6 +32,9 @@ COPY packages/ui packages/ui
 
 # Copy docs directory (used by website docs pages)
 COPY docs docs
+
+# Install Playwright browsers for Mermaid rendering
+RUN pnpm exec playwright install chromium
 
 # Build dependencies and generate OpenAPI spec for /docs page
 RUN pnpm --filter @tearleads/shared build && \
