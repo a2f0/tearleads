@@ -313,6 +313,13 @@ jobs:
         if: matrix.package == 'client'
         run: ./scripts/downloadSqliteWasm.sh
 
+      - name: Generate app configs
+        if: matrix.package == 'client'
+        run: |
+          npm install -g tsx
+          cd packages/app-builder
+          tsx src/cli.ts generate --app tearleads
+
       - name: Test with Coverage
         run: pnpm --filter @tearleads/${{ matrix.package }} test:coverage
 
