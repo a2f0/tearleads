@@ -194,16 +194,19 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 
 1. [P-01 Account Management Policy](./policies/01-account-management-policy.md)
 2. [P-02 Audit Logging Policy](./policies/02-audit-logging-policy.md)
+3. [P-03 Payment Infrastructure Policy](./policies/03-payment-infrastructure-policy.md)
 
 ### Procedures
 
 1. [PR-01 Account Management Procedure](./procedures/01-account-management-procedure.md)
 2. [PR-02 Audit Logging Procedure](./procedures/02-audit-logging-procedure.md)
+3. [PR-03 Payment Infrastructure Procedure](./procedures/03-payment-infrastructure-procedure.md)
 
 ### Technical Control Maps
 
 1. [TC-01 Account Management Technical Control Map](./technical-controls/01-account-management-control-map.md)
 2. [TC-02 Audit Logging Technical Control Map](./technical-controls/02-audit-logging-control-map.md)
+3. [TC-03 Payment Infrastructure Technical Control Map](./technical-controls/03-payment-infrastructure-control-map.md)
 
 ---
 
@@ -220,6 +223,7 @@ Points of focus provide guidance for each criterion but are not prescriptive req
 - **Data Protection**: CC6.5, CC6.7, C1.1, C1.2
 - **Malware Protection**: CC6.8
 - **Physical Security**: CC6.4
+- **Payment Infrastructure**: CC6.1, CC6.6, CC6.7, CC7.1, CC7.2, PI1.2, PI1.3, PI1.4
 
 ---
 

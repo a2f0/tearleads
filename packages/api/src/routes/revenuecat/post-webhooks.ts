@@ -2,6 +2,12 @@ import { randomUUID } from 'node:crypto';
 import type { Request, Response, Router as RouterType } from 'express';
 import type { Pool } from 'pg';
 import { getPostgresPool } from '../../lib/postgres.js';
+
+// COMPLIANCE_SENTINEL: TL-PAY-001 | control=webhook-signature-verification
+// COMPLIANCE_SENTINEL: TL-PAY-002 | control=replay-attack-prevention
+// COMPLIANCE_SENTINEL: TL-PAY-003 | control=idempotent-event-processing
+// COMPLIANCE_SENTINEL: TL-PAY-004 | control=billing-event-audit-trail
+// COMPLIANCE_SENTINEL: TL-PAY-006 | control=entitlement-state-integrity
 import type { BillingEntitlementStatus } from '../../lib/revenuecat.js';
 import {
   isSupportedRevenueCatEventType,

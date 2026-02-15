@@ -1,5 +1,8 @@
 import { createHmac, timingSafeEqual } from 'node:crypto';
 
+// COMPLIANCE_SENTINEL: TL-PAY-001 | control=webhook-signature-verification
+// COMPLIANCE_SENTINEL: TL-PAY-002 | control=replay-attack-prevention
+
 const REVENUECAT_APP_USER_PREFIX = 'org:';
 const HEX_REGEX = /^[a-fA-F0-9]+$/;
 
