@@ -21,11 +21,12 @@ This runbook covers staged rollout verification for the flattening migration cha
 1. `v040` (record share drop-authorization checkpoints; non-destructive)
 1. `v041` (record share drop execution candidates; non-destructive)
 1. `v042` (drop `vfs_shares` after executable step-1 guardrails)
+1. `v043` (drop `org_shares` after step-1 audit + executable step-2 guards)
 
 ## Ordering Guardrails
 
 1. Deploy runtime code that writes flattened blob/ACL state before running destructive drops.
-1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030` -> `v031` -> `v032` -> `v033` -> `v034` -> `v035` -> `v036` -> `v037` -> `v038` -> `v039` -> `v040` -> `v041` -> `v042`).
+1. Run migrations in strict order without skipping (`v024` -> `v025` -> `v026` -> `v027` -> `v028` -> `v029` -> `v030` -> `v031` -> `v032` -> `v033` -> `v034` -> `v035` -> `v036` -> `v037` -> `v038` -> `v039` -> `v040` -> `v041` -> `v042` -> `v043`).
 1. Treat any migration guardrail exception as fail-closed and stop rollout.
 1. Do not continue to a destructive migration when parity checks return non-zero rows.
 
@@ -52,6 +53,7 @@ This runbook covers staged rollout verification for the flattening migration cha
    - `packages/api/src/migrations/v040.ts`
    - `packages/api/src/migrations/v041.ts`
    - `packages/api/src/migrations/v042.ts`
+   - `packages/api/src/migrations/v043.ts`
 1. Confirm branch includes the schema retirement commit for `vfs_blob_objects` in canonical schema generation.
 1. Record baseline counts:
 
@@ -82,13 +84,13 @@ SELECT COUNT(*) AS legacy_vfs_folders FROM vfs_folders;
 ## Migration Execution
 
 1. Run normal API migration entrypoint (same mechanism used in production deploy).
-1. Verify schema version reaches `42`.
+1. Verify schema version reaches `43`.
 
 ```sql
 SELECT MAX(version) AS schema_version FROM schema_migrations;
 ```
 
-1. If schema version is below `42`, stop and inspect migration logs.
+1. If schema version is below `43`, stop and inspect migration logs.
 
 ## Post-Migration Parity Checks
 
@@ -103,19 +105,22 @@ SELECT to_regclass('public.vfs_blob_objects') AS blob_objects_table;
 SELECT to_regclass('public.vfs_access') AS vfs_access_table;
 SELECT to_regclass('public.vfs_folders') AS vfs_folders_table;
 SELECT to_regclass('public.vfs_shares') AS vfs_shares_table;
+SELECT to_regclass('public.org_shares') AS org_shares_table;
 ```
 
-1. Remaining `org_shares` parity should hold for active organization principals.
+1. Canonical share-sourced ACL rows should remain queryable after legacy share
+   table retirement.
 
 ```sql
-SELECT COUNT(*) AS missing_org_share_acl_rows
-FROM org_shares os
-LEFT JOIN vfs_acl_entries acl
-  ON acl.item_id = os.item_id
- AND acl.principal_type = 'organization'
- AND acl.principal_id = os.target_org_id
- AND acl.revoked_at IS NULL
-WHERE acl.id IS NULL;
+SELECT COUNT(*) AS active_share_source_acl_rows
+FROM vfs_acl_entries
+WHERE revoked_at IS NULL
+  AND id LIKE 'share:%';
+
+SELECT COUNT(*) AS active_org_share_source_acl_rows
+FROM vfs_acl_entries
+WHERE revoked_at IS NULL
+  AND id LIKE 'org-share:%';
 ```
 
 1. Every flattened blob-stage row should have canonical `blobStage` type.
@@ -251,7 +256,7 @@ ORDER BY captured_at DESC, id DESC
 LIMIT 10;
 ```
 
-1. `v042` drop execution audit should show step-1 `vfs_shares` retirement.
+1. Drop execution audit should show both sequenced share-retirement steps.
 
 ```sql
 SELECT candidate_table,
@@ -284,7 +289,7 @@ LIMIT 10;
 
 Rollback/incident response should trigger immediately if any condition occurs:
 
-1. Migration fails with guardrail exception from `v024` through `v042`.
+1. Migration fails with guardrail exception from `v024` through `v043`.
 1. Any post-migration parity query returns non-zero violation counts.
 1. API logs show attempts to query dropped legacy blob tables.
 1. Reconcile/pull endpoints begin returning cursor regression or write-id regression failures.
