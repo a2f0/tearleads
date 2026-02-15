@@ -35,7 +35,8 @@ vi.mock('@tearleads/window-manager', () => ({
   ),
   WindowPaneState: ({ title }: { title: string }) => (
     <div data-testid="window-pane-state">{title}</div>
-  )
+  ),
+  useSidebarRefetch: vi.fn()
 }));
 
 function createClickableUI() {

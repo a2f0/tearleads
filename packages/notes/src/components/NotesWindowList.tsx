@@ -1,6 +1,6 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { notes } from '@tearleads/db/sqlite';
-import { WindowPaneState } from '@tearleads/window-manager';
+import { useSidebarRefetch, WindowPaneState } from '@tearleads/window-manager';
 import { desc, eq } from 'drizzle-orm';
 import { Loader2, Plus, StickyNote } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -119,7 +119,12 @@ export function NotesWindowList({
 
   const fetchedForInstanceRef = useRef<string | null>(null);
   const lastShowDeletedRef = useRef(showDeleted);
-  const lastRefreshTokenRef = useRef(refreshToken);
+
+  // Use standardized hook for refresh token tracking
+  const triggerRefetch = useCallback(() => {
+    setHasFetched(false);
+  }, []);
+  useSidebarRefetch(refreshToken, triggerRefetch);
 
   useEffect(() => {
     const showDeletedChanged = lastShowDeletedRef.current !== showDeleted;
@@ -127,18 +132,12 @@ export function NotesWindowList({
       lastShowDeletedRef.current = showDeleted;
     }
 
-    const refreshTokenChanged = lastRefreshTokenRef.current !== refreshToken;
-    if (refreshTokenChanged) {
-      lastRefreshTokenRef.current = refreshToken;
-    }
-
     const needsFetch =
       isUnlocked &&
       !loading &&
       (!hasFetched ||
         fetchedForInstanceRef.current !== currentInstanceId ||
-        showDeletedChanged ||
-        refreshTokenChanged);
+        showDeletedChanged);
 
     if (needsFetch) {
       if (
@@ -164,8 +163,7 @@ export function NotesWindowList({
     hasFetched,
     currentInstanceId,
     fetchNotes,
-    showDeleted,
-    refreshToken
+    showDeleted
   ]);
 
   const handleNoteClick = useCallback(
