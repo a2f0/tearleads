@@ -1,4 +1,4 @@
-# Payment Infrastructure Technical Control Map
+# Payment Infrastructure Technical Control Map (SOC2)
 
 This map ties payment infrastructure policy controls to concrete implementation and test evidence.
 

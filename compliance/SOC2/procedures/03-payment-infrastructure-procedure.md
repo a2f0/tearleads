@@ -15,42 +15,42 @@
 
 ## Procedure Steps
 
-### 1. Webhook Signature Verification (`TL-PAY-001`)
+### 1. Webhook Signature Verification (`TL-PAY-001`) - CC6.1, CC6.6, CC6.7
 
 1. Verify HMAC-SHA256 signature validation is implemented with timing-safe comparison.
 2. Verify signature prefix normalization (sha256= prefix handling).
 3. Verify invalid signatures result in 401 Unauthorized response.
 4. Verify missing webhook secret results in 500 Internal Server Error.
 
-### 2. Replay Attack Prevention (`TL-PAY-002`)
+### 2. Replay Attack Prevention (`TL-PAY-002`) - CC6.1, CC6.6
 
 1. Verify event timestamp validation against configurable max age window.
 2. Verify rejection of events older than REVENUECAT_WEBHOOK_MAX_AGE_SECONDS.
 3. Verify rejection of future-dated events beyond REVENUECAT_WEBHOOK_MAX_FUTURE_SKEW_SECONDS.
 4. Verify rejected events return appropriate response with reason.
 
-### 3. Idempotent Event Processing (`TL-PAY-003`)
+### 3. Idempotent Event Processing (`TL-PAY-003`) - PI1.2, PI1.3
 
 1. Verify unique constraint on event_id in revenuecat_webhook_events table.
 2. Verify duplicate events are detected and not reprocessed.
 3. Verify duplicate detection returns appropriate response (duplicate: true).
 4. Verify database state is not modified by duplicate events.
 
-### 4. Billing Event Audit Trail (`TL-PAY-004`)
+### 4. Billing Event Audit Trail (`TL-PAY-004`) - CC7.1, CC7.2, CC4.1
 
 1. Verify all webhook events are stored with full payload.
 2. Verify timestamps (received_at, processed_at) are recorded.
 3. Verify processing errors are captured in processing_error field.
 4. Verify event_type and revenuecat_app_user_id are indexed for queries.
 
-### 5. Billing Data Authorization (`TL-PAY-005`)
+### 5. Billing Data Authorization (`TL-PAY-005`) - CC6.1, CC6.3
 
 1. Verify GET /v1/billing/organizations/{organizationId} requires authentication.
 2. Verify organization membership is validated before returning billing data.
 3. Verify unauthorized access results in 403 Forbidden response.
 4. Verify billing data is scoped to the requesting organization only.
 
-### 6. Entitlement State Integrity (`TL-PAY-006`)
+### 6. Entitlement State Integrity (`TL-PAY-006`) - PI1.3, PI1.4
 
 1. Verify entitlement status transitions are tracked in organization_billing_accounts.
 2. Verify last_webhook_event_id and last_webhook_at are updated on state changes.

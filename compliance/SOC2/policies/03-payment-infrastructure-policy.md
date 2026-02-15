@@ -82,19 +82,19 @@ Define mandatory controls for payment infrastructure security, webhook integrity
 ```text
 RevenueCat → POST /v1/revenuecat/webhooks
            ↓
-    Signature Verification (HMAC-SHA256)
+    Signature Verification (HMAC-SHA256) [CC6.1, CC6.6, CC6.7]
            ↓
-    Replay Window Validation
+    Replay Window Validation [CC6.1, CC6.6]
            ↓
-    Event Type Validation
+    Event Type Validation [PI1.2]
            ↓
-    Idempotency Check (unique event_id)
+    Idempotency Check (unique event_id) [PI1.2, PI1.3]
            ↓
-    Organization Resolution
+    Organization Resolution [CC6.1, CC6.3]
            ↓
-    Billing State Update
+    Billing State Update [PI1.3, PI1.4]
            ↓
-    Event Archive Storage
+    Event Archive Storage [CC7.1, CC7.2, CC4.1]
 ```
 
 ### Data Model
