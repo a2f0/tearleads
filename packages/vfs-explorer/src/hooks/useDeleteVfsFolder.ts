@@ -52,7 +52,7 @@ export function useDeleteVfsFolder(): UseDeleteVfsFolderResult {
             throw new Error('Refusing to delete non-folder VFS item');
           }
 
-          // Delete from vfs_registry; cascades remove legacy folder metadata + links.
+          // Delete from vfs_registry; cascades remove links and associated objects.
           await tx.delete(vfsRegistry).where(eq(vfsRegistry.id, folderId));
         });
       } catch (err) {

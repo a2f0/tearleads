@@ -109,8 +109,8 @@ describe('useCreateVfsFolder', () => {
       await result.current.createFolder('Child Folder', 'parent-folder-id');
     });
 
-    // Should have 3 inserts: registry, folders, links
-    expect(mockInsert).toHaveBeenCalledTimes(3);
+    // Should have 2 inserts: registry, links
+    expect(mockInsert).toHaveBeenCalledTimes(2);
   });
 
   it('creates folder with link to VFS root when not logged in and no parent specified', async () => {
@@ -124,9 +124,8 @@ describe('useCreateVfsFolder', () => {
       await result.current.createFolder('Root Folder');
     });
 
-    // Should have 5 inserts: vfs_registry (root), vfs_folders (root),
-    // vfs_registry (new folder), vfs_folders (new folder), vfs_links
-    expect(mockInsert).toHaveBeenCalledTimes(5);
+    // Should have 3 inserts: vfs_registry (root), vfs_registry (new folder), vfs_links
+    expect(mockInsert).toHaveBeenCalledTimes(3);
   });
 
   it('still creates folder when session key wrapping fails', async () => {
@@ -232,19 +231,16 @@ describe('useCreateVfsFolder', () => {
 
     expect(result.current.error).toBeNull();
 
-    // Should have inserted: vfs_registry (root), vfs_folders (root),
-    // vfs_registry (new folder), vfs_folders (new folder), vfs_links
-    expect(insertCount).toBe(5);
+    // Should have inserted: vfs_registry (root), vfs_registry (new folder), vfs_links
+    expect(insertCount).toBe(3);
 
-    // First two inserts should be for VFS root (with onConflictDoNothing)
+    // First insert should be for VFS root (with onConflictDoNothing)
     expect(insertedIds[0]).toBe(VFS_ROOT_ID);
-    expect(insertedIds[1]).toBe(VFS_ROOT_ID);
     expect(insertedValues[0]?.['encryptedName']).toBe('VFS Root');
 
-    // Third and fourth should be for the new folder
-    expect(insertedIds[2]).toBe('test-uuid-1234');
-    expect(insertedIds[3]).toBe('test-uuid-1234');
-    expect(insertedValues[2]?.['encryptedName']).toBe('New Folder');
+    // Second insert should be for the new folder
+    expect(insertedIds[1]).toBe('test-uuid-1234');
+    expect(insertedValues[1]?.['encryptedName']).toBe('New Folder');
   });
 
   it('does not insert VFS root when creating folder with explicit parent', async () => {
@@ -282,8 +278,8 @@ describe('useCreateVfsFolder', () => {
 
     expect(result.current.error).toBeNull();
 
-    // Should have inserted only: vfs_registry (new folder), vfs_folders (new folder), vfs_links
-    expect(insertCount).toBe(3);
+    // Should have inserted only: vfs_registry (new folder), vfs_links
+    expect(insertCount).toBe(2);
 
     // First insert should be the new folder, not the VFS root
     expect(insertedIds[0]).toBe('test-uuid-1234');

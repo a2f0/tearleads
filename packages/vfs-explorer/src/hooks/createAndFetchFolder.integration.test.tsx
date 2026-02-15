@@ -5,7 +5,7 @@
  * verifying actual database state rather than mock calls.
  */
 
-import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
+import { vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { vfsTestMigrations, withRealDatabase } from '@tearleads/db-test-utils';
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
@@ -102,14 +102,6 @@ describe('VFS Folder Integration: Create and Fetch', () => {
         expect(registryRows).toHaveLength(1);
         expect(registryRows[0]?.objectType).toBe('folder');
         expect(registryRows[0]?.encryptedName).toBe(folderName);
-
-        const folderRows = await db
-          .select()
-          .from(vfsFolders)
-          .where(eq(vfsFolders.id, createdFolder?.id ?? ''));
-
-        expect(folderRows).toHaveLength(1);
-        expect(folderRows[0]?.encryptedName).toBe(folderName);
 
         const linkRows = await db
           .select()
