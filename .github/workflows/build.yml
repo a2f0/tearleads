@@ -71,7 +71,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lint-type: [biome, scripts, markdown, rubocop, ansible]
+        lint-type: [biome, scripts, markdown, rubocop, ansible, terraform]
     steps:
       - name: Report no impact detected
         if: ${{ github.event_name != 'workflow_dispatch' && needs.detect-impact.outputs.should-run != 'true' }}
@@ -144,6 +144,26 @@ jobs:
       - name: Lint Ansible
         if: matrix.lint-type == 'ansible'
         run: pnpm lint:ansible
+
+      - name: Setup Terraform
+        if: matrix.lint-type == 'terraform'
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+
+      - name: Setup TFLint
+        if: matrix.lint-type == 'terraform'
+        uses: terraform-linters/setup-tflint@v4
+
+      - name: Init TFLint plugins
+        if: matrix.lint-type == 'terraform'
+        run: |
+          tflint --chdir=terraform --init
+          tflint --chdir=tuxedo/terraform --init
+
+      - name: Lint Terraform
+        if: matrix.lint-type == 'terraform'
+        run: ./scripts/checkTerraform.sh
 
   # Check for binary/JS files and verify guardrails
   guardrails:
