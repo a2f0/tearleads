@@ -406,6 +406,106 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.snapshot().pendingOperations).toBe(0);
   });
 
+  it('stopBackgroundFlush(false) returns before in-flight flush settles', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    let pushStarted = false;
+    let releasePush: (() => void) | null = null;
+    const pushGate = new Promise<void>((resolve) => {
+      releasePush = resolve;
+    });
+
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        pushStarted = true;
+        await pushGate;
+        return server.pushOperations({
+          operations: input.operations
+        });
+      },
+      pullOperations: async (input) =>
+        server.pullOperations({
+          cursor: input.cursor,
+          limit: input.limit
+        })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-stop-nowait',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:02:01.000Z'
+    });
+
+    client.startBackgroundFlush(5);
+    await waitFor(() => pushStarted, 1000);
+
+    await client.stopBackgroundFlush(false);
+    expect(client.snapshot().pendingOperations).toBe(1);
+
+    if (!releasePush) {
+      throw new Error('missing push release hook');
+    }
+    releasePush();
+    await waitFor(() => client.snapshot().pendingOperations === 0, 1000);
+  });
+
+  it('stopBackgroundFlush() waits for in-flight flush by default', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    let pushStarted = false;
+    let releasePush: (() => void) | null = null;
+    const pushGate = new Promise<void>((resolve) => {
+      releasePush = resolve;
+    });
+
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async (input) => {
+        pushStarted = true;
+        await pushGate;
+        return server.pushOperations({
+          operations: input.operations
+        });
+      },
+      pullOperations: async (input) =>
+        server.pullOperations({
+          cursor: input.cursor,
+          limit: input.limit
+        })
+    };
+
+    const client = new VfsBackgroundSyncClient('user-1', 'desktop', transport);
+    client.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-stop-wait',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T12:02:02.000Z'
+    });
+
+    client.startBackgroundFlush(5);
+    await waitFor(() => pushStarted, 1000);
+
+    let stopCompleted = false;
+    const stopPromise = client.stopBackgroundFlush().then(() => {
+      stopCompleted = true;
+    });
+
+    await wait(20);
+    expect(stopCompleted).toBe(false);
+    expect(client.snapshot().pendingOperations).toBe(1);
+
+    if (!releasePush) {
+      throw new Error('missing push release hook');
+    }
+    releasePush();
+
+    await stopPromise;
+    expect(client.snapshot().pendingOperations).toBe(0);
+  });
+
   it('fails closed when transport cursor metadata disagrees with page tail', async () => {
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
