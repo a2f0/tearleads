@@ -25,6 +25,7 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 
@@ -48,6 +49,7 @@ export function OrganizationDetailPage({
   onUserSelect,
   onGroupSelect
 }: OrganizationDetailPageProps) {
+  const { t } = useTypedTranslation('admin');
   const { id: paramId } = useParams<{ id: string }>();
   const id = organizationIdProp ?? paramId;
   const [organization, setOrganization] = useState<Organization | null>(null);
@@ -202,12 +204,12 @@ export function OrganizationDetailPage({
           {backLink ?? (
             <BackLink
               defaultTo="/admin/organizations"
-              defaultLabel="Back to Organizations"
+              defaultLabel={t('backToOrganizations')}
             />
           )}
         </div>
         <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-          <p className="text-destructive">Organization not found</p>
+          <p className="text-destructive">{t('organizationNotFound')}</p>
         </div>
       </div>
     );
@@ -220,7 +222,7 @@ export function OrganizationDetailPage({
         {backLink ?? (
           <BackLink
             defaultTo="/admin/organizations"
-            defaultLabel="Back to Organizations"
+            defaultLabel={t('backToOrganizations')}
           />
         )}
         {!isEditing && (
@@ -295,7 +297,7 @@ export function OrganizationDetailPage({
                 variant="ghost"
                 size="icon"
                 onClick={handleCopyId}
-                aria-label="Copy organization id to clipboard"
+                aria-label={t('copyOrganizationIdToClipboard')}
                 data-testid="copy-organization-id"
               >
                 {isIdCopied ? (
@@ -311,7 +313,7 @@ export function OrganizationDetailPage({
                   type="text"
                   value={formData.name}
                   onChange={(e) => handleFormChange('name', e.target.value)}
-                  placeholder="Organization name *"
+                  placeholder={t('organizationName')}
                   className="h-8 text-sm"
                   data-testid="organization-edit-name"
                 />
@@ -320,7 +322,7 @@ export function OrganizationDetailPage({
                   onChange={(e) =>
                     handleFormChange('description', e.target.value)
                   }
-                  placeholder="Description"
+                  placeholder={t('description')}
                   className="text-sm"
                   rows={2}
                   data-testid="organization-edit-description"
@@ -441,19 +443,19 @@ export function OrganizationDetailPage({
       {!isEditing && (
         <div className="rounded-lg border text-sm">
           <div className="border-b px-3 py-2">
-            <h2 className="font-medium">Details</h2>
+            <h2 className="font-medium">{t('details')}</h2>
           </div>
           <div className="divide-y">
             <div className="flex items-center gap-2 px-3 py-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Created</span>
+              <span className="text-muted-foreground">{t('created')}</span>
               <span className="ml-auto">
                 {formatDate(new Date(organization.createdAt))}
               </span>
             </div>
             <div className="flex items-center gap-2 px-3 py-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Updated</span>
+              <span className="text-muted-foreground">{t('updated')}</span>
               <span className="ml-auto">
                 {formatDate(new Date(organization.updatedAt))}
               </span>
@@ -465,9 +467,11 @@ export function OrganizationDetailPage({
       <ConfirmDialog
         open={deleteDialogOpen}
         onOpenChange={setDeleteDialogOpen}
-        title="Delete Organization"
-        description={`Are you sure you want to delete "${organization.name}"? This will remove all organization memberships.`}
-        confirmLabel="Delete"
+        title={t('deleteOrganization')}
+        description={t('deleteOrganizationConfirm', {
+          name: organization.name
+        })}
+        confirmLabel={t('delete')}
         onConfirm={handleDelete}
         variant="destructive"
       />

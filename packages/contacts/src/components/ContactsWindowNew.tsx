@@ -43,7 +43,7 @@ export function ContactsWindowNew({
   onBack,
   onCreated
 }: ContactsWindowNewProps) {
-  const { databaseState } = useContactsContext();
+  const { databaseState, t } = useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
   const { Button, Input, InlineUnlock } = useContactsUI();
   const { createContact, saving } = useContactSave();
@@ -195,7 +195,7 @@ export function ContactsWindowNew({
         >
           <ArrowLeft className="h-4 w-4" />
         </Button>
-        <h2 className="font-semibold text-sm">New Contact</h2>
+        <h2 className="font-semibold text-sm">{t('newContact')}</h2>
         <Button
           size="sm"
           onClick={handleSave}
@@ -213,13 +213,13 @@ export function ContactsWindowNew({
 
       {isLoading && (
         <div className="mt-3 rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
       {!isLoading && !isUnlocked && (
         <div className="mt-3">
-          <InlineUnlock description="create a contact" />
+          <InlineUnlock description={t('createContact')} />
         </div>
       )}
 
@@ -241,7 +241,7 @@ export function ContactsWindowNew({
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => handleFormChange('firstName', e.target.value)}
-                placeholder="First name *"
+                placeholder={t('firstNameRequired')}
                 className="h-8 text-base"
                 data-testid="window-new-first-name"
               />
@@ -249,7 +249,7 @@ export function ContactsWindowNew({
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => handleFormChange('lastName', e.target.value)}
-                placeholder="Last name"
+                placeholder={t('lastName')}
                 className="h-8 text-base"
                 data-testid="window-new-last-name"
               />
@@ -259,7 +259,7 @@ export function ContactsWindowNew({
                   type="text"
                   value={formData.birthday}
                   onChange={(e) => handleFormChange('birthday', e.target.value)}
-                  placeholder="Birthday (YYYY-MM-DD)"
+                  placeholder={t('birthdayPlaceholder')}
                   className="h-8 flex-1 text-base"
                   data-testid="window-new-birthday"
                 />
@@ -270,7 +270,7 @@ export function ContactsWindowNew({
           {/* Emails */}
           <div className="rounded-lg border text-xs">
             <div className="border-b px-3 py-2">
-              <h3 className="font-medium">Email Addresses</h3>
+              <h3 className="font-medium">{t('emailAddresses')}</h3>
             </div>
             <div className="divide-y">
               {emailsForm.map((email) => (
@@ -285,7 +285,7 @@ export function ContactsWindowNew({
                     onChange={(e) =>
                       handleEmailChange(email.id, 'email', e.target.value)
                     }
-                    placeholder="Email"
+                    placeholder={t('email')}
                     className="h-7 min-w-0 flex-1 text-base"
                     data-testid={`window-new-email-${email.id}`}
                   />
@@ -295,7 +295,7 @@ export function ContactsWindowNew({
                     onChange={(e) =>
                       handleEmailChange(email.id, 'label', e.target.value)
                     }
-                    placeholder="Label"
+                    placeholder={t('label')}
                     className="h-7 w-16 text-base"
                   />
                   <label className="flex shrink-0 items-center gap-1">
@@ -327,7 +327,7 @@ export function ContactsWindowNew({
                 data-testid="window-new-add-email"
               >
                 <Plus className="mr-1 h-3 w-3" />
-                Add
+                {t('add')}
               </Button>
             </div>
           </div>
@@ -335,7 +335,7 @@ export function ContactsWindowNew({
           {/* Phones */}
           <div className="rounded-lg border text-xs">
             <div className="border-b px-3 py-2">
-              <h3 className="font-medium">Phone Numbers</h3>
+              <h3 className="font-medium">{t('phoneNumbers')}</h3>
             </div>
             <div className="divide-y">
               {phonesForm.map((phone) => (
@@ -350,7 +350,7 @@ export function ContactsWindowNew({
                     onChange={(e) =>
                       handlePhoneChange(phone.id, 'phoneNumber', e.target.value)
                     }
-                    placeholder="Phone"
+                    placeholder={t('phone')}
                     className="h-7 min-w-0 flex-1 text-base"
                     data-testid={`window-new-phone-${phone.id}`}
                   />
@@ -360,7 +360,7 @@ export function ContactsWindowNew({
                     onChange={(e) =>
                       handlePhoneChange(phone.id, 'label', e.target.value)
                     }
-                    placeholder="Label"
+                    placeholder={t('label')}
                     className="h-7 w-16 text-base"
                   />
                   <label className="flex shrink-0 items-center gap-1">
@@ -392,7 +392,7 @@ export function ContactsWindowNew({
                 data-testid="window-new-add-phone"
               >
                 <Plus className="mr-1 h-3 w-3" />
-                Add
+                {t('add')}
               </Button>
             </div>
           </div>

@@ -321,7 +321,7 @@ export function AudioWindowList({
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
@@ -345,16 +345,16 @@ export function AudioWindowList({
               <div className="flex flex-col items-center justify-center gap-4 rounded-lg border p-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <div className="text-center">
-                  <p className="font-medium">Uploading...</p>
+                  <p className="font-medium">{t('uploading')}</p>
                 </div>
                 <div className="w-full max-w-sm">
                   <div className="mb-2 flex items-center justify-between text-muted-foreground text-xs">
-                    <span>Upload progress</span>
+                    <span>{t('uploadProgress')}</span>
                     <span>{clampedProgress}%</span>
                   </div>
                   <div
                     role="progressbar"
-                    aria-label="Upload progress"
+                    aria-label={t('uploadProgress')}
                     aria-valuemin={0}
                     aria-valuemax={100}
                     aria-valuenow={clampedProgress}
@@ -372,7 +372,7 @@ export function AudioWindowList({
         ) : loading && !hasFetched ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading audio...
+            {t('loadingAudio')}
           </div>
         ) : tracks.length === 0 && hasFetched ? (
           // biome-ignore lint/a11y/noStaticElementInteractions: right-click context menu on empty state
@@ -386,7 +386,7 @@ export function AudioWindowList({
                   onFilesSelected={onUploadFiles}
                   accept="audio/*"
                   multiple={false}
-                  label="audio files"
+                  label={t('audioFiles')}
                   source="media"
                 />
                 {isDesktopPlatform && (
@@ -399,7 +399,7 @@ export function AudioWindowList({
               <div className="flex flex-col items-center gap-2">
                 <Music className="h-8 w-8 text-muted-foreground" />
                 <div>
-                  <p className="font-medium text-sm">No audio files</p>
+                  <p className="font-medium text-sm">{t('noAudioFiles')}</p>
                   <p className="text-muted-foreground text-xs">
                     Use Upload to add audio
                   </p>
@@ -412,7 +412,7 @@ export function AudioWindowList({
             <AudioPlayer tracks={tracks} />
             <Input
               type="search"
-              placeholder="Search tracks..."
+              placeholder={t('searchTracks')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8 text-base"
@@ -515,7 +515,7 @@ export function AudioWindowList({
                 onFilesSelected={onUploadFiles}
                 accept="audio/*"
                 multiple={false}
-                label="audio files"
+                label={t('audioFiles')}
                 source="media"
                 compact
                 variant="row"

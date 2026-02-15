@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useContactsUI } from '../context';
+import { useContactsContext, useContactsUI } from '../context';
 
 interface NewContactGroupDialogProps {
   open: boolean;
@@ -13,6 +13,7 @@ export function NewContactGroupDialog({
   onCreate
 }: NewContactGroupDialogProps) {
   const { Button, Input } = useContactsUI();
+  const { t } = useContactsContext();
   const [name, setName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -64,13 +65,13 @@ export function NewContactGroupDialog({
         role="dialog"
         aria-modal="true"
       >
-        <h2 className="font-semibold text-lg">New Group</h2>
+        <h2 className="font-semibold text-lg">{t('newGroup')}</h2>
         <form onSubmit={handleSubmit}>
           <div className="mt-4">
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Group name"
+              placeholder={t('groupName')}
               disabled={isCreating}
               autoFocus
               className="text-base"
@@ -83,10 +84,10 @@ export function NewContactGroupDialog({
               onClick={handleCancel}
               disabled={isCreating}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={isCreating || !name.trim()}>
-              {isCreating ? 'Creating...' : 'Create'}
+              {isCreating ? t('creating') : t('create')}
             </Button>
           </div>
         </form>

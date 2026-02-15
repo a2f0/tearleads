@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   CREATE_CLASSIC_TAG_ARIA_LABEL,
   DEFAULT_CLASSIC_TAG_NAME,
@@ -75,6 +76,7 @@ export function TagSidebar({
   searchInputRef,
   contextMenuComponents
 }: TagSidebarProps) {
+  const { t } = useTranslation('classic');
   const [contextMenu, setContextMenu] = useState<TagContextMenuState | null>(
     null
   );
@@ -169,11 +171,14 @@ export function TagSidebar({
   };
 
   return (
-    <aside className="flex w-64 flex-col border-r" aria-label="Tags Sidebar">
+    <aside
+      className="flex w-64 flex-col border-r"
+      aria-label={t('tagsSidebar')}
+    >
       {/* biome-ignore lint/a11y/useSemanticElements: div with role=button required for flexible layout container */}
       <div
         role="button"
-        aria-label="Tag list, press Shift+F10 for context menu"
+        aria-label={t('tagListContextMenu')}
         tabIndex={0}
         className="flex-1 overflow-auto py-3 focus:outline-none"
         onContextMenu={(event) => {
@@ -194,7 +199,7 @@ export function TagSidebar({
       >
         <div className="pr-2">
           {/* Untagged Items virtual tag */}
-          <ul className="m-0 mb-2 list-none p-0" aria-label="Virtual Tags">
+          <ul className="m-0 mb-2 list-none p-0" aria-label={t('virtualTags')}>
             <li
               className={
                 activeTagId === UNTAGGED_TAG_ID
@@ -231,10 +236,10 @@ export function TagSidebar({
           {deletedTags.length > 0 && (
             <ul
               className="m-0 mb-2 list-none space-y-1 p-0"
-              aria-label="Deleted Tags"
+              aria-label={t('deletedTags')}
             >
               <li className="px-2 py-0.5 text-xs text-zinc-500 uppercase tracking-wide">
-                Deleted Tags ({deletedTags.length})
+                {t('deletedTags')} ({deletedTags.length})
               </li>
               {deletedTags.map((tag) => (
                 <li key={tag.id} className="border bg-zinc-50 px-2 py-0.5">
@@ -249,10 +254,10 @@ export function TagSidebar({
                       type="button"
                       className="rounded border border-zinc-300 px-1.5 py-0.5 text-xs"
                       onClick={() => onRestoreTag?.(tag.id)}
-                      aria-label={`Restore tag ${tag.name}`}
+                      aria-label={`${t('restoreTag')} ${tag.name}`}
                       disabled={onRestoreTag === undefined}
                     >
-                      Restore
+                      {t('restore')}
                     </button>
                   </div>
                 </li>
@@ -300,7 +305,10 @@ export function TagSidebar({
               </div>
             )}
           {tags.length > 0 && (
-            <ul className="m-0 list-none space-y-1 p-0" aria-label="Tag List">
+            <ul
+              className="m-0 list-none space-y-1 p-0"
+              aria-label={t('tagList')}
+            >
               {tags.map((tag, index) => {
                 const isActive = tag.id === activeTagId;
                 const canMoveUp = index > 0;
@@ -423,30 +431,30 @@ export function TagSidebar({
                       const actions: TagContextMenuState['actions'] = [];
                       if (onStartEditTag) {
                         actions.push({
-                          label: 'Edit',
+                          label: t('edit'),
                           onClick: () => onStartEditTag(tag.id),
-                          ariaLabel: `Edit tag ${tag.name}`
+                          ariaLabel: `${t('editTag')} ${tag.name}`
                         });
                       }
                       if (canMoveUp) {
                         actions.push({
-                          label: 'Move Up',
+                          label: t('moveUp'),
                           onClick: () => onMoveTag(tag.id, 'up'),
-                          ariaLabel: `Move tag ${tag.name} up`
+                          ariaLabel: `${t('moveUpTag')} ${tag.name} up`
                         });
                       }
                       if (canMoveDown) {
                         actions.push({
-                          label: 'Move Down',
+                          label: t('moveDown'),
                           onClick: () => onMoveTag(tag.id, 'down'),
-                          ariaLabel: `Move tag ${tag.name} down`
+                          ariaLabel: `${t('moveDownTag')} ${tag.name} down`
                         });
                       }
                       if (onDeleteTag) {
                         actions.push({
-                          label: 'Delete',
+                          label: t('delete'),
                           onClick: () => onDeleteTag(tag.id),
-                          ariaLabel: `Delete tag ${tag.name}`
+                          ariaLabel: `${t('deleteTag')} ${tag.name}`
                         });
                       }
                       setContextMenu({
@@ -468,7 +476,7 @@ export function TagSidebar({
                             ? 'w-4 shrink-0 cursor-grabbing select-none text-center text-xs text-zinc-500'
                             : 'w-4 shrink-0 cursor-grab select-none text-center text-xs text-zinc-400'
                         }
-                        title="Drag tag"
+                        title={t('dragTag')}
                       >
                         ⋮⋮
                       </span>
@@ -489,17 +497,17 @@ export function TagSidebar({
                               type="button"
                               onClick={() => handleSave(tag.id)}
                               className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
-                              aria-label="Save tag name"
+                              aria-label={t('saveTagName')}
                             >
-                              Save
+                              {t('save')}
                             </button>
                             <button
                               type="button"
                               onClick={handleCancel}
                               className="border border-zinc-300 px-1.5 py-0.5 text-xs text-zinc-700 hover:border-zinc-500 focus:border-zinc-500 focus:outline-none"
-                              aria-label="Cancel editing"
+                              aria-label={t('cancelEditing')}
                             >
-                              Cancel
+                              {t('cancel')}
                             </button>
                           </div>
                         </div>
@@ -535,7 +543,7 @@ export function TagSidebar({
             onChange={(e) => onSearchChange(e.target.value)}
             onKeyDown={onSearchKeyDown}
             className="box-border w-full border border-zinc-300 px-2 py-1 text-sm focus:border-zinc-500 focus:outline-none"
-            aria-label="Search tags"
+            aria-label={t('searchTags')}
           />
         </div>
       </div>

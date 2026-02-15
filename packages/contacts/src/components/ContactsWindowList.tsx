@@ -184,11 +184,13 @@ export function ContactsWindowList({
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
-      {!isLoading && !isUnlocked && <InlineUnlock description="contacts" />}
+      {!isLoading && !isUnlocked && (
+        <InlineUnlock description={t('contacts')} />
+      )}
 
       {error && (
         <div className="whitespace-pre-line rounded-lg border border-destructive bg-destructive/10 p-2 text-destructive text-xs">
@@ -201,7 +203,7 @@ export function ContactsWindowList({
         (loading && !hasFetched ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading contacts...
+            {t('loadingContacts')}
           </div>
         ) : contactsList.length === 0 && hasFetched ? (
           // biome-ignore lint/a11y/noStaticElementInteractions: Context menu on empty space
@@ -211,9 +213,9 @@ export function ContactsWindowList({
           >
             <User className="h-8 w-8 text-muted-foreground" />
             <div>
-              <p className="font-medium text-sm">No contacts yet</p>
+              <p className="font-medium text-sm">{t('noContactsYet')}</p>
               <p className="text-muted-foreground text-xs">
-                Create your first contact
+                {t('createFirstContact')}
               </p>
             </div>
             <Button
@@ -238,7 +240,7 @@ export function ContactsWindowList({
               <div className="sticky top-0 z-10 space-y-2 bg-background p-2">
                 <Input
                   type="search"
-                  placeholder="Search contacts..."
+                  placeholder={t('searchContacts')}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   inputRef={searchInputRef}
@@ -302,7 +304,7 @@ export function ContactsWindowList({
                               )}
                               {!contact.primaryEmail &&
                                 !contact.primaryPhone &&
-                                'No contact info'}
+                                t('noContactInfo')}
                             </p>
                           </div>
                         </button>

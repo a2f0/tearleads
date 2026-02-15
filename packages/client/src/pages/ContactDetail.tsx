@@ -14,6 +14,7 @@ import {
   X
 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
@@ -76,6 +77,7 @@ interface PhoneFormData {
 }
 
 export function ContactDetail() {
+  const { t } = useTranslation('contacts');
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const { isUnlocked, isLoading } = useDatabaseContext();
@@ -138,7 +140,7 @@ export function ContactDetail() {
 
       const foundContact = contactResult[0];
       if (!foundContact) {
-        setError('Contact not found');
+        setError(t('contactNotFound'));
         return;
       }
 
@@ -151,7 +153,7 @@ export function ContactDetail() {
     } finally {
       setLoading(false);
     }
-  }, [isUnlocked, id]);
+  }, [isUnlocked, id, t]);
 
   useEffect(() => {
     if (isUnlocked && id) {
@@ -310,14 +312,14 @@ export function ContactDetail() {
 
     // Validation
     if (!formData.firstName.trim()) {
-      setError('First name is required');
+      setError(t('firstNameIsRequired'));
       return;
     }
 
     const activeEmails = emailsForm.filter((e) => !e.isDeleted);
     for (const email of activeEmails) {
       if (!email.email.trim()) {
-        setError('Email address cannot be empty');
+        setError(t('emailCannotBeEmpty'));
         return;
       }
     }
@@ -325,7 +327,7 @@ export function ContactDetail() {
     const activePhones = phonesForm.filter((p) => !p.isDeleted);
     for (const phone of activePhones) {
       if (!phone.phoneNumber.trim()) {
-        setError('Phone number cannot be empty');
+        setError(t('phoneCannotBeEmpty'));
         return;
       }
     }
@@ -442,21 +444,23 @@ export function ContactDetail() {
     } finally {
       setSaving(false);
     }
-  }, [contact, formData, id, emailsForm, phonesForm, fetchContact]);
+  }, [contact, formData, id, emailsForm, phonesForm, fetchContact, t]);
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <BackLink defaultTo="/contacts" defaultLabel="Back to Contacts" />
+        <BackLink defaultTo="/contacts" defaultLabel={t('backToContacts')} />
       </div>
 
       {isLoading && (
         <div className="rounded-lg border p-8 text-center text-muted-foreground">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
-      {!isLoading && !isUnlocked && <InlineUnlock description="this contact" />}
+      {!isLoading && !isUnlocked && (
+        <InlineUnlock description={t('thisContact')} />
+      )}
 
       {error && (
         <div className="rounded-lg border border-destructive bg-destructive/10 p-4 text-destructive text-sm">
@@ -467,7 +471,7 @@ export function ContactDetail() {
       {isUnlocked && loading && (
         <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
-          Loading contact...
+          {t('loadingContact')}
         </div>
       )}
 
@@ -487,7 +491,7 @@ export function ContactDetail() {
                     onChange={(e) =>
                       handleFormChange('firstName', e.target.value)
                     }
-                    placeholder="First name *"
+                    placeholder={t('firstNameRequired')}
                     data-testid="edit-first-name"
                   />
                   <Input
@@ -496,7 +500,7 @@ export function ContactDetail() {
                     onChange={(e) =>
                       handleFormChange('lastName', e.target.value)
                     }
-                    placeholder="Last name"
+                    placeholder={t('lastName')}
                     data-testid="edit-last-name"
                   />
                   <div className="flex items-center gap-2">
@@ -507,7 +511,7 @@ export function ContactDetail() {
                       onChange={(e) =>
                         handleFormChange('birthday', e.target.value)
                       }
-                      placeholder="Birthday (YYYY-MM-DD)"
+                      placeholder={t('birthdayPlaceholder')}
                       className="flex-1"
                       data-testid="edit-birthday"
                     />
@@ -538,7 +542,7 @@ export function ContactDetail() {
                     data-testid="cancel-button"
                   >
                     <X className="mr-2 h-4 w-4" />
-                    Cancel
+                    {t('cancel')}
                   </Button>
                   <Button
                     size="sm"
@@ -551,7 +555,7 @@ export function ContactDetail() {
                     ) : (
                       <Save className="mr-2 h-4 w-4" />
                     )}
-                    Save
+                    {t('save')}
                   </Button>
                 </div>
               ) : (
@@ -568,7 +572,7 @@ export function ContactDetail() {
                     ) : (
                       <Download className="mr-2 h-4 w-4" />
                     )}
-                    Export
+                    {t('export')}
                   </Button>
                   <Button
                     variant="outline"
@@ -577,7 +581,7 @@ export function ContactDetail() {
                     data-testid="edit-button"
                   >
                     <Pencil className="mr-2 h-4 w-4" />
-                    Edit
+                    {t('edit')}
                   </Button>
                 </div>
               )}
@@ -588,7 +592,7 @@ export function ContactDetail() {
           {isEditing ? (
             <div className="rounded-lg border">
               <div className="border-b px-4 py-3">
-                <h2 className="font-semibold">Email Addresses</h2>
+                <h2 className="font-semibold">{t('emailAddresses')}</h2>
               </div>
               <div className="divide-y">
                 {emailsForm
@@ -605,7 +609,7 @@ export function ContactDetail() {
                         onChange={(e) =>
                           handleEmailChange(email.id, 'email', e.target.value)
                         }
-                        placeholder="Email address"
+                        placeholder={t('emailAddress')}
                         className="min-w-0 flex-1"
                         data-testid={`edit-email-${email.id}`}
                       />
@@ -615,7 +619,7 @@ export function ContactDetail() {
                         onChange={(e) =>
                           handleEmailChange(email.id, 'label', e.target.value)
                         }
-                        placeholder="Label"
+                        placeholder={t('label')}
                         className="w-24"
                         data-testid={`edit-email-label-${email.id}`}
                       />
@@ -627,7 +631,7 @@ export function ContactDetail() {
                           onChange={() => handleEmailPrimaryChange(email.id)}
                           className="h-5 w-5"
                         />
-                        Primary
+                        {t('primary')}
                       </label>
                       <Button
                         variant="ghost"
@@ -649,7 +653,7 @@ export function ContactDetail() {
                   data-testid="add-email-button"
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Email
+                  {t('addEmail')}
                 </Button>
               </div>
             </div>
@@ -657,7 +661,7 @@ export function ContactDetail() {
             emails.length > 0 && (
               <div className="rounded-lg border">
                 <div className="border-b px-4 py-3">
-                  <h2 className="font-semibold">Email Addresses</h2>
+                  <h2 className="font-semibold">{t('emailAddresses')}</h2>
                 </div>
                 <div className="divide-y">
                   {emails.map((email) => (
@@ -681,7 +685,7 @@ export function ContactDetail() {
                       </div>
                       {email.isPrimary && (
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
-                          Primary
+                          {t('primary')}
                         </span>
                       )}
                     </div>
@@ -695,7 +699,7 @@ export function ContactDetail() {
           {isEditing ? (
             <div className="rounded-lg border">
               <div className="border-b px-4 py-3">
-                <h2 className="font-semibold">Phone Numbers</h2>
+                <h2 className="font-semibold">{t('phoneNumbers')}</h2>
               </div>
               <div className="divide-y">
                 {phonesForm
@@ -716,7 +720,7 @@ export function ContactDetail() {
                             e.target.value
                           )
                         }
-                        placeholder="Phone number"
+                        placeholder={t('phoneNumber')}
                         className="min-w-0 flex-1"
                         data-testid={`edit-phone-${phone.id}`}
                       />
@@ -726,7 +730,7 @@ export function ContactDetail() {
                         onChange={(e) =>
                           handlePhoneChange(phone.id, 'label', e.target.value)
                         }
-                        placeholder="Label"
+                        placeholder={t('label')}
                         className="w-24"
                         data-testid={`edit-phone-label-${phone.id}`}
                       />
@@ -738,7 +742,7 @@ export function ContactDetail() {
                           onChange={() => handlePhonePrimaryChange(phone.id)}
                           className="h-5 w-5"
                         />
-                        Primary
+                        {t('primary')}
                       </label>
                       <Button
                         variant="ghost"
@@ -760,7 +764,7 @@ export function ContactDetail() {
                   data-testid="add-phone-button"
                 >
                   <Plus className="mr-2 h-4 w-4" />
-                  Add Phone
+                  {t('addPhone')}
                 </Button>
               </div>
             </div>
@@ -768,7 +772,7 @@ export function ContactDetail() {
             phones.length > 0 && (
               <div className="rounded-lg border">
                 <div className="border-b px-4 py-3">
-                  <h2 className="font-semibold">Phone Numbers</h2>
+                  <h2 className="font-semibold">{t('phoneNumbers')}</h2>
                 </div>
                 <div className="divide-y">
                   {phones.map((phone) => (
@@ -792,7 +796,7 @@ export function ContactDetail() {
                       </div>
                       {phone.isPrimary && (
                         <span className="rounded-full bg-primary/10 px-2 py-0.5 text-primary text-xs">
-                          Primary
+                          {t('primary')}
                         </span>
                       )}
                     </div>
@@ -804,19 +808,23 @@ export function ContactDetail() {
 
           <div className="rounded-lg border">
             <div className="border-b px-4 py-3">
-              <h2 className="font-semibold">Details</h2>
+              <h2 className="font-semibold">{t('details')}</h2>
             </div>
             <div className="divide-y">
               <div className="flex items-center gap-3 px-4 py-3">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">Created</span>
+                <span className="text-muted-foreground text-sm">
+                  {t('created')}
+                </span>
                 <span className="ml-auto text-sm">
                   {formatDate(contact.createdAt)}
                 </span>
               </div>
               <div className="flex items-center gap-3 px-4 py-3">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
-                <span className="text-muted-foreground text-sm">Updated</span>
+                <span className="text-muted-foreground text-sm">
+                  {t('updated')}
+                </span>
                 <span className="ml-auto text-sm">
                   {formatDate(contact.updatedAt)}
                 </span>

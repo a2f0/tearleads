@@ -1,4 +1,5 @@
 import type { AdminScopeOrganization } from '@tearleads/shared';
+import { useTypedTranslation } from '@/i18n';
 
 interface OrganizationScopeSelectorProps {
   organizations: AdminScopeOrganization[];
@@ -13,6 +14,8 @@ export function OrganizationScopeSelector({
   onSelectOrganization,
   allowAllOrganizations
 }: OrganizationScopeSelectorProps) {
+  const { t } = useTypedTranslation('admin');
+
   if (organizations.length === 0) {
     return null;
   }
@@ -23,7 +26,7 @@ export function OrganizationScopeSelector({
         htmlFor="admin-organization-scope"
         className="font-medium text-muted-foreground text-sm"
       >
-        Organization Scope
+        {t('organizationScope')}
       </label>
       <select
         id="admin-organization-scope"
@@ -35,7 +38,7 @@ export function OrganizationScopeSelector({
         className="h-10 rounded-md border border-input bg-background px-3 text-base text-foreground"
       >
         {allowAllOrganizations ? (
-          <option value="">All organizations</option>
+          <option value="">{t('allOrganizations')}</option>
         ) : null}
         {organizations.map((organization) => (
           <option key={organization.id} value={organization.id}>

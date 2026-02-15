@@ -3,6 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 interface CreateOrganizationDialogProps {
@@ -16,6 +17,7 @@ export function CreateOrganizationDialog({
   onOpenChange,
   onCreated
 }: CreateOrganizationDialogProps) {
+  const { t } = useTypedTranslation('admin');
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
@@ -108,7 +110,7 @@ export function CreateOrganizationDialog({
               id="org-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter organization name"
+              placeholder={t('enterOrganizationName')}
               disabled={loading}
             />
           </div>
@@ -120,7 +122,7 @@ export function CreateOrganizationDialog({
               id="org-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter organization description"
+              placeholder={t('enterOrganizationDescription')}
               disabled={loading}
               rows={3}
             />

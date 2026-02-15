@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useContactsUI } from '../context';
+import { useContactsContext, useContactsUI } from '../context';
 import type { ContactGroup } from '../hooks';
 
 interface RenameContactGroupDialogProps {
@@ -16,6 +16,7 @@ export function RenameContactGroupDialog({
   onRename
 }: RenameContactGroupDialogProps) {
   const { Button, Input } = useContactsUI();
+  const { t } = useContactsContext();
   const [name, setName] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const previousActiveElement = useRef<HTMLElement | null>(null);
@@ -71,13 +72,13 @@ export function RenameContactGroupDialog({
         role="dialog"
         aria-modal="true"
       >
-        <h2 className="font-semibold text-lg">Rename Group</h2>
+        <h2 className="font-semibold text-lg">{t('renameGroup')}</h2>
         <form onSubmit={handleSubmit}>
           <div className="mt-4">
             <Input
               value={name}
               onChange={(event) => setName(event.target.value)}
-              placeholder="Group name"
+              placeholder={t('groupName')}
               disabled={isSaving}
               autoFocus
               className="text-base"
@@ -90,10 +91,10 @@ export function RenameContactGroupDialog({
               onClick={handleCancel}
               disabled={isSaving}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={isSaving || !name.trim()}>
-              {isSaving ? 'Saving...' : 'Save'}
+              {isSaving ? t('saving') : t('save')}
             </Button>
           </div>
         </form>

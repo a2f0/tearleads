@@ -3,6 +3,7 @@ import {
   type WindowDimensions
 } from '@tearleads/window-manager';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useAudioUIContext } from '../../context/AudioUIContext';
 import { useDropZone } from '../../hooks/useDropZone';
 import { useMultiFileUpload } from '../../hooks/useMultiFileUpload';
@@ -36,6 +37,7 @@ export function AudioWindow({
   openPlaylistId,
   openRequestId
 }: AudioWindowProps) {
+  const { t } = useTranslation('audio');
   const { uploadFile, addTrackToPlaylist, databaseState } = useAudioUIContext();
   const { isUnlocked } = databaseState;
 
@@ -164,7 +166,7 @@ export function AudioWindow({
   return (
     <FloatingWindow
       id={id}
-      title="Audio"
+      title={t('audio')}
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}

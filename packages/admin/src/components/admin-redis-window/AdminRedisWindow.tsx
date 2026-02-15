@@ -4,6 +4,7 @@ import {
   DesktopFloatingWindow as FloatingWindow,
   type WindowDimensions
 } from '@tearleads/window-manager';
+import { useTypedTranslation } from '@/i18n';
 
 interface AdminRedisWindowProps {
   id: string;
@@ -26,10 +27,11 @@ export function AdminRedisWindow({
   zIndex,
   initialDimensions
 }: AdminRedisWindowProps) {
+  const { t } = useTypedTranslation('admin');
   return (
     <FloatingWindow
       id={id}
-      title="Redis Admin"
+      title={t('redisAdmin')}
       onClose={onClose}
       onMinimize={onMinimize}
       onDimensionsChange={onDimensionsChange}

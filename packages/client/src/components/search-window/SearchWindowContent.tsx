@@ -16,7 +16,8 @@ import {
   StickyNote
 } from 'lucide-react';
 import type { FormEvent, KeyboardEvent, MouseEvent } from 'react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
@@ -28,16 +29,16 @@ import { getSearchableAppById } from '@/search/appCatalog';
 import { getSearchableHelpDocById } from '@/search/helpCatalog';
 import type { SearchViewMode } from './SearchWindowMenuBar';
 
-const ENTITY_TYPE_LABELS: Record<SearchableEntityType, string> = {
-  app: 'App',
-  help_doc: 'Help Doc',
-  contact: 'Contact',
-  note: 'Note',
-  email: 'Email',
-  file: 'File',
-  playlist: 'Playlist',
-  album: 'Album',
-  ai_conversation: 'AI Chat'
+const ENTITY_TYPE_LABEL_KEYS: Record<SearchableEntityType, string> = {
+  app: 'app',
+  help_doc: 'helpDoc',
+  contact: 'contact',
+  note: 'note',
+  email: 'email',
+  file: 'file',
+  playlist: 'playlist',
+  album: 'album',
+  ai_conversation: 'aiConversation'
 };
 
 const ENTITY_TYPE_ICONS: Record<
@@ -68,18 +69,20 @@ const ENTITY_TYPE_ROUTES: Record<SearchableEntityType, (id: string) => string> =
     ai_conversation: (id) => `/ai?conversation=${id}`
   };
 
-const FILTER_OPTIONS: { label: string; value: SearchableEntityType | 'all' }[] =
-  [
-    { label: 'All', value: 'all' },
-    { label: 'Apps', value: 'app' },
-    { label: 'Help Docs', value: 'help_doc' },
-    { label: 'Contacts', value: 'contact' },
-    { label: 'Notes', value: 'note' },
-    { label: 'Emails', value: 'email' },
-    { label: 'Files', value: 'file' },
-    { label: 'Playlists', value: 'playlist' },
-    { label: 'AI Chats', value: 'ai_conversation' }
-  ];
+const FILTER_OPTION_KEYS: {
+  labelKey: string;
+  value: SearchableEntityType | 'all';
+}[] = [
+  { labelKey: 'all', value: 'all' },
+  { labelKey: 'apps', value: 'app' },
+  { labelKey: 'helpDocs', value: 'help_doc' },
+  { labelKey: 'contacts', value: 'contact' },
+  { labelKey: 'notes', value: 'note' },
+  { labelKey: 'emails', value: 'email' },
+  { labelKey: 'files', value: 'file' },
+  { labelKey: 'playlists', value: 'playlist' },
+  { labelKey: 'aiChats', value: 'ai_conversation' }
+];
 
 interface SearchWindowContentProps {
   viewMode?: SearchViewMode;
@@ -100,9 +103,19 @@ function getPreviewText(result: SearchResult): string | null {
 export function SearchWindowContent({
   viewMode = 'list'
 }: SearchWindowContentProps) {
+  const { t } = useTranslation('search');
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const { openWindow, requestWindowOpen } = useWindowManagerActions();
+
+  const filterOptions = useMemo(
+    () =>
+      FILTER_OPTION_KEYS.map((option) => ({
+        label: t(option.labelKey as keyof typeof t),
+        value: option.value
+      })),
+    [t]
+  );
   const [query, setQuery] = useState('');
   const [selectedFilters, setSelectedFilters] = useState<
     SearchableEntityType[]
@@ -399,7 +412,7 @@ export function SearchWindowContent({
             <Input
               ref={inputRef}
               type="text"
-              placeholder="Search..."
+              placeholder={t('searchPlaceholder')}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
@@ -411,7 +424,7 @@ export function SearchWindowContent({
 
       {/* Filter tabs */}
       <div className="flex gap-1 overflow-x-auto border-b px-3 py-2">
-        {FILTER_OPTIONS.map((option) => (
+        {filterOptions.map((option) => (
           <button
             key={option.value}
             type="button"
@@ -444,47 +457,50 @@ export function SearchWindowContent({
         {!isInitialized ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Initializing search...
+            {t('initializingSearch')}
           </div>
         ) : isIndexing ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Building search index...
+            {t('buildingSearchIndex')}
           </div>
         ) : documentCount === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <Search className="h-12 w-12" />
-            <p>Search index is empty</p>
-            <p className="text-sm">
-              Add some contacts, notes, or emails to get started
-            </p>
+            <p>{t('searchIndexEmpty')}</p>
+            <p className="text-sm">{t('addSomeContent')}</p>
           </div>
         ) : isSearching ? (
           <div className="flex h-full items-center justify-center text-muted-foreground">
             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Searching...
+            {t('searching')}
           </div>
         ) : !hasSearched ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <Search className="h-12 w-12" />
-            <p>Start typing to search</p>
-            <p className="text-sm">Press Enter to list all objects</p>
+            <p>{t('startTypingToSearch')}</p>
+            <p className="text-sm">{t('pressEnterToList')}</p>
           </div>
         ) : results.length === 0 ? (
           <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <Search className="h-12 w-12" />
             <p>
               {query.trim()
-                ? `No results found for "${query}"`
-                : 'No results found'}
+                ? t('noResultsFoundFor', { query })
+                : t('noResultsFound')}
             </p>
           </div>
         ) : (
           <div ref={resultsContainerRef} className="divide-y">
             <div className="px-3 py-2 text-muted-foreground text-xs">
               {totalCount === results.length
-                ? `${totalCount} result${totalCount === 1 ? '' : 's'}`
-                : `Showing ${results.length} of ${totalCount} results`}
+                ? totalCount === 1
+                  ? t('result', { count: totalCount })
+                  : t('results', { count: totalCount })
+                : t('showingResults', {
+                    shown: results.length,
+                    total: totalCount
+                  })}
             </div>
             {viewMode === 'table' ? (
               <div className="overflow-x-auto">
@@ -492,13 +508,13 @@ export function SearchWindowContent({
                   <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                     <tr>
                       <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                        Title
+                        {t('title')}
                       </th>
                       <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                        Type
+                        {t('type')}
                       </th>
                       <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                        Preview
+                        {t('preview')}
                       </th>
                     </tr>
                   </thead>
@@ -516,7 +532,11 @@ export function SearchWindowContent({
                           {result.document.title}
                         </td>
                         <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                          {ENTITY_TYPE_LABELS[result.entityType]}
+                          {t(
+                            ENTITY_TYPE_LABEL_KEYS[
+                              result.entityType
+                            ] as keyof typeof t
+                          )}
                         </td>
                         <td
                           className={`max-w-[300px] truncate ${WINDOW_TABLE_TYPOGRAPHY.mutedCell}`}
@@ -552,7 +572,11 @@ export function SearchWindowContent({
                           {result.document.title}
                         </span>
                         <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 text-muted-foreground text-xs">
-                          {ENTITY_TYPE_LABELS[result.entityType]}
+                          {t(
+                            ENTITY_TYPE_LABEL_KEYS[
+                              result.entityType
+                            ] as keyof typeof t
+                          )}
                         </span>
                       </div>
                       {(() => {
@@ -574,14 +598,16 @@ export function SearchWindowContent({
 
       <WindowStatusBar>
         {!isInitialized
-          ? 'Initializing search...'
+          ? t('initializingSearch')
           : isIndexing
-            ? 'Building search index...'
+            ? t('buildingSearchIndex')
             : isSearching
-              ? 'Searching...'
+              ? t('searching')
               : searchDurationMs === null
-                ? `${documentCount} item${documentCount === 1 ? '' : 's'} indexed`
-                : `Search took ${searchDurationMs} ms`}
+                ? documentCount === 1
+                  ? t('itemIndexed', { count: documentCount })
+                  : t('itemsIndexed', { count: documentCount })
+                : t('searchTook', { ms: searchDurationMs })}
       </WindowStatusBar>
     </div>
   );

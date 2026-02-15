@@ -5,6 +5,7 @@ import {
 } from '@tearleads/window-manager';
 import { ChevronDown, ChevronRight, Database, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
@@ -43,10 +44,12 @@ function formatTtl(ttl: number): string {
   return `${Math.floor(ttl / 86400)}d`;
 }
 
-function renderStringValue(value: string) {
+function renderStringValue(value: string, t: (key: string) => string) {
   return (
     <div className="mt-2">
-      <p className="mb-1 font-medium text-muted-foreground text-xs">Value:</p>
+      <p className="mb-1 font-medium text-muted-foreground text-xs">
+        {t('value')}:
+      </p>
       <pre className="overflow-auto rounded bg-muted p-2 font-mono text-xs">
         {value}
       </pre>
@@ -54,11 +57,11 @@ function renderStringValue(value: string) {
   );
 }
 
-function renderSetValue(value: string[]) {
+function renderSetValue(value: string[], t: (key: string) => string) {
   return (
     <div className="mt-2">
       <p className="mb-1 font-medium text-muted-foreground text-xs">
-        Members ({value.length}):
+        {t('members')} ({value.length}):
       </p>
       <ul className="space-y-1">
         {value.map((member) => (
@@ -74,18 +77,21 @@ function renderSetValue(value: string[]) {
   );
 }
 
-function renderHashValue(value: Record<string, string>) {
+function renderHashValue(
+  value: Record<string, string>,
+  t: (key: string) => string
+) {
   const entries = Object.entries(value);
   return (
     <div className="mt-2">
       <p className="mb-1 font-medium text-muted-foreground text-xs">
-        Fields ({entries.length}):
+        {t('field')}s ({entries.length}):
       </p>
       <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
         <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
           <tr className="border-b">
-            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Field</th>
-            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Value</th>
+            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>{t('field')}</th>
+            <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>{t('value')}</th>
           </tr>
         </thead>
         <tbody>
@@ -108,13 +114,13 @@ function renderHashValue(value: Record<string, string>) {
   );
 }
 
-function renderValue(data: RedisKeyValueResponse) {
+function renderValue(data: RedisKeyValueResponse, t: (key: string) => string) {
   const { type, value } = data;
 
   if (value === null) {
     return (
       <p className="mt-2 text-muted-foreground text-xs italic">
-        Value display not supported for this type
+        {t('valueDisplayNotSupported')}
       </p>
     );
   }
@@ -122,17 +128,17 @@ function renderValue(data: RedisKeyValueResponse) {
   switch (type) {
     case 'string':
       if (typeof value === 'string') {
-        return renderStringValue(value);
+        return renderStringValue(value, t);
       }
       break;
     case 'set':
       if (Array.isArray(value)) {
-        return renderSetValue(value);
+        return renderSetValue(value, t);
       }
       break;
     case 'hash':
       if (typeof value === 'object' && !Array.isArray(value)) {
-        return renderHashValue(value);
+        return renderHashValue(value, t);
       }
       break;
   }
@@ -146,6 +152,7 @@ export function RedisKeyRow({
   onToggle,
   onContextMenu
 }: RedisKeyRowProps) {
+  const { t } = useTypedTranslation('admin');
   const [valueData, setValueData] = useState<RedisKeyValueResponse | null>(
     null
   );
@@ -218,17 +225,17 @@ export function RedisKeyRow({
         <div className="space-y-2 bg-muted/30 px-9 py-3">
           <div className="text-muted-foreground text-xs">
             <p>
-              <span className="font-medium">Key:</span> {keyInfo.key}
+              <span className="font-medium">{t('key')}:</span> {keyInfo.key}
             </p>
             <p>
-              <span className="font-medium">Type:</span> {keyInfo.type}
+              <span className="font-medium">{t('type')}:</span> {keyInfo.type}
             </p>
             <p>
-              <span className="font-medium">TTL:</span>{' '}
+              <span className="font-medium">{t('ttl')}:</span>{' '}
               {keyInfo.ttl === -1
-                ? 'No expiry'
+                ? t('noExpiry')
                 : keyInfo.ttl === -2
-                  ? 'Key not found'
+                  ? t('keyNotFound')
                   : `${keyInfo.ttl} seconds`}
             </p>
           </div>
@@ -236,7 +243,7 @@ export function RedisKeyRow({
           {loading && (
             <div className="flex items-center text-muted-foreground text-xs">
               <Loader2 className="mr-2 h-3 w-3 animate-spin" />
-              Loading value...
+              {t('loadingValue')}
             </div>
           )}
 
@@ -244,7 +251,7 @@ export function RedisKeyRow({
             <div className="text-destructive text-xs">Error: {error}</div>
           )}
 
-          {valueData && renderValue(valueData)}
+          {valueData && renderValue(valueData, t as (key: string) => string)}
         </div>
       )}
     </div>

@@ -375,7 +375,7 @@ export function AudioWindowTableView({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Music className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-sm">Audio</h2>
+          <h2 className="font-semibold text-sm">{t('audio')}</h2>
         </div>
         {isUnlocked && (
           <RefreshButton onClick={fetchTracks} loading={loading} size="sm" />
@@ -384,7 +384,7 @@ export function AudioWindowTableView({
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
@@ -401,13 +401,13 @@ export function AudioWindowTableView({
         (loading && !hasFetched ? (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
             <Loader2 className="h-4 w-4 animate-spin" />
-            Loading audio...
+            {t('loadingAudio')}
           </div>
         ) : tracks.length === 0 && hasFetched ? (
           <div className="flex flex-col items-center justify-center gap-2 rounded-lg border p-6 text-center">
             <Music className="h-8 w-8 text-muted-foreground" />
             <div>
-              <p className="font-medium text-sm">No audio files</p>
+              <p className="font-medium text-sm">{t('noAudioFiles')}</p>
               <p className="text-muted-foreground text-xs">
                 Upload audio from the main Audio page
               </p>
@@ -418,7 +418,7 @@ export function AudioWindowTableView({
             <AudioPlayer tracks={tracks} />
             <Input
               type="search"
-              placeholder="Search tracks..."
+              placeholder={t('searchTracks')}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="h-8 text-base"
@@ -431,7 +431,7 @@ export function AudioWindowTableView({
                     <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="name"
-                        label="Name"
+                        label={t('name')}
                         currentColumn={sortColumn}
                         direction={sortDirection}
                         onClick={handleSortChange}
@@ -440,7 +440,7 @@ export function AudioWindowTableView({
                     <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="size"
-                        label="Size"
+                        label={t('size')}
                         currentColumn={sortColumn}
                         direction={sortDirection}
                         onClick={handleSortChange}
@@ -449,7 +449,7 @@ export function AudioWindowTableView({
                     <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="mimeType"
-                        label="Type"
+                        label={t('type')}
                         currentColumn={sortColumn}
                         direction={sortDirection}
                         onClick={handleSortChange}
@@ -458,7 +458,7 @@ export function AudioWindowTableView({
                     <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
                       <SortHeader
                         column="uploadDate"
-                        label="Date"
+                        label={t('date')}
                         currentColumn={sortColumn}
                         direction={sortDirection}
                         onClick={handleSortChange}

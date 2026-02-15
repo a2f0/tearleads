@@ -38,7 +38,7 @@ const getDatabaseAdapter = () => ({
 
 const saveFile = vi.fn(async () => {});
 const registerInVfs = vi.fn(async () => ({ success: true }));
-const t = vi.fn((key: 'getInfo' | 'edit' | 'delete' | 'exportVCard') => key);
+const t = vi.fn((key: string) => key);
 const navigate = vi.fn();
 const navigateWithFrom = vi.fn();
 const formatDate = vi.fn((date: Date) => date.toISOString());

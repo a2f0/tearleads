@@ -9,6 +9,7 @@ import { Loader2, Plus, Trash2, Users } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 interface GroupsListProps {
@@ -22,6 +23,7 @@ export function GroupsList({
   onGroupSelect,
   organizationId
 }: GroupsListProps) {
+  const { t } = useTypedTranslation('admin');
   const [groups, setGroups] = useState<GroupWithMemberCount[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -86,7 +88,7 @@ export function GroupsList({
           className="mt-2"
           onClick={() => void fetchGroups()}
         >
-          Retry
+          {t('retry')}
         </Button>
       </div>
     );
@@ -96,14 +98,14 @@ export function GroupsList({
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed py-12">
         <Users className="h-12 w-12 text-muted-foreground" />
-        <h3 className="mt-4 font-medium text-lg">No groups yet</h3>
+        <h3 className="mt-4 font-medium text-lg">{t('noGroupsYet')}</h3>
         <p className="mt-1 text-muted-foreground text-sm">
-          Create a group to organize users
+          {t('createGroupToOrganizeUsers')}
         </p>
         {onCreateClick && (
           <Button className="mt-4" onClick={onCreateClick}>
             <Plus className="mr-2 h-4 w-4" />
-            Create Group
+            {t('createGroup')}
           </Button>
         )}
       </div>
@@ -116,11 +118,15 @@ export function GroupsList({
         <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
           <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
             <tr>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Name</th>
               <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                Description
+                {t('name')}
               </th>
-              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Members</th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('description')}
+              </th>
+              <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                {t('members')}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -151,8 +157,10 @@ export function GroupsList({
                   )}
                 </td>
                 <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                  {group.memberCount}{' '}
-                  {group.memberCount === 1 ? 'member' : 'members'}
+                  {t('membersCount', {
+                    count: group.memberCount,
+                    label: group.memberCount === 1 ? t('member') : t('members')
+                  })}
                 </td>
               </WindowTableRow>
             ))}
@@ -173,7 +181,7 @@ export function GroupsList({
             }}
           >
             <Trash2 className="mr-2 h-4 w-4 text-destructive" />
-            <span className="text-destructive">Delete</span>
+            <span className="text-destructive">{t('delete')}</span>
           </ContextMenuItem>
         </ContextMenu>
       )}
@@ -181,9 +189,11 @@ export function GroupsList({
       <ConfirmDialog
         open={deleteDialog !== null}
         onOpenChange={(open) => !open && setDeleteDialog(null)}
-        title="Delete Group"
-        description={`Are you sure you want to delete "${deleteDialog?.name}"? This will remove all members from the group.`}
-        confirmLabel="Delete"
+        title={t('deleteGroup')}
+        description={t('deleteGroupConfirm', {
+          name: deleteDialog?.name ?? ''
+        })}
+        confirmLabel={t('delete')}
         onConfirm={handleDelete}
         variant="destructive"
       />

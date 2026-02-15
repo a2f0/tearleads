@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useContactsUI } from '../context';
+import { useContactsContext, useContactsUI } from '../context';
 import type { ContactGroup } from '../hooks';
 
 interface DeleteContactGroupDialogProps {
@@ -16,6 +16,7 @@ export function DeleteContactGroupDialog({
   onDelete
 }: DeleteContactGroupDialogProps) {
   const { Button } = useContactsUI();
+  const { t } = useContactsContext();
   const [isDeleting, setIsDeleting] = useState(false);
   const previousActiveElement = useRef<HTMLElement | null>(null);
 
@@ -60,10 +61,9 @@ export function DeleteContactGroupDialog({
         role="dialog"
         aria-modal="true"
       >
-        <h2 className="font-semibold text-lg">Delete Group</h2>
+        <h2 className="font-semibold text-lg">{t('deleteGroup')}</h2>
         <p className="mt-3 text-muted-foreground text-sm">
-          Delete "{group.name}"? Contacts will be kept, but removed from this
-          group.
+          {t('deleteGroupConfirm').replace('{{name}}', group.name)}
         </p>
         <div className="mt-6 flex justify-end gap-3">
           <Button
@@ -72,7 +72,7 @@ export function DeleteContactGroupDialog({
             onClick={handleCancel}
             disabled={isDeleting}
           >
-            Cancel
+            {t('cancel')}
           </Button>
           <Button
             type="button"
@@ -80,7 +80,7 @@ export function DeleteContactGroupDialog({
             onClick={handleDelete}
             disabled={isDeleting}
           >
-            {isDeleting ? 'Deleting...' : 'Delete'}
+            {isDeleting ? t('deleting') : t('delete')}
           </Button>
         </div>
       </div>

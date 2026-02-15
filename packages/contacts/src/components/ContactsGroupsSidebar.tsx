@@ -49,7 +49,7 @@ export function ContactsGroupsSidebar({
     renameGroup,
     deleteGroup
   } = useContactGroups();
-  const { getDatabase, openEmailComposer } = useContactsContext();
+  const { getDatabase, openEmailComposer, t } = useContactsContext();
   const { ContextMenu, ContextMenuItem } = useContactsUI();
   const [groupCounts, setGroupCounts] = useState<Record<string, number>>({});
   const [contextMenu, setContextMenu] = useState<{
@@ -256,8 +256,8 @@ export function ContactsGroupsSidebar({
       data-testid="contacts-groups-sidebar"
     >
       <WindowSidebarHeader
-        title="Groups"
-        actionLabel="New Group"
+        title={t('groups')}
+        actionLabel={t('newGroup')}
         onAction={() => setNewGroupDialogOpen(true)}
         actionIcon={<Plus className="h-4 w-4" />}
       />
@@ -267,7 +267,7 @@ export function ContactsGroupsSidebar({
         onContextMenu={handleEmptySpaceContextMenu}
       >
         <WindowSidebarItem
-          label="All Contacts"
+          label={t('allContacts')}
           icon={<Folder className="h-4 w-4 shrink-0 text-primary" />}
           selected={
             selectedGroupId === ALL_CONTACTS_ID || selectedGroupId === null
@@ -320,7 +320,7 @@ export function ContactsGroupsSidebar({
               void handleSendEmailToGroup();
             }}
           >
-            Send email
+            {t('sendEmail')}
           </ContextMenuItem>
           <ContextMenuItem
             onClick={() => {
@@ -328,7 +328,7 @@ export function ContactsGroupsSidebar({
               queueCloseContextMenu();
             }}
           >
-            Rename
+            {t('rename')}
           </ContextMenuItem>
           <ContextMenuItem
             icon={<Trash2 className="h-4 w-4" />}
@@ -337,7 +337,7 @@ export function ContactsGroupsSidebar({
               queueCloseContextMenu();
             }}
           >
-            Delete
+            {t('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}
@@ -352,7 +352,7 @@ export function ContactsGroupsSidebar({
             icon={<FolderPlus className="h-4 w-4" />}
             onClick={handleNewGroupFromEmptySpace}
           >
-            New Group
+            {t('newGroup')}
           </ContextMenuItem>
         </ContextMenu>
       )}

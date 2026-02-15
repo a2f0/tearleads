@@ -2,6 +2,7 @@ import { WindowControlBar } from '@tearleads/window-manager';
 import type { ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import { useTypedTranslation } from '@/i18n';
 
 interface AdminWindowMenuBarProps {
   onClose: () => void;
@@ -12,13 +13,14 @@ export function AdminWindowMenuBar({
   onClose,
   controls
 }: AdminWindowMenuBarProps) {
+  const { t } = useTypedTranslation('admin');
   return (
     <div className="shrink-0">
       <div className="flex border-b bg-muted/30 px-1">
-        <DropdownMenu trigger="File">
-          <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
+        <DropdownMenu trigger={t('file')}>
+          <DropdownMenuItem onClick={onClose}>{t('close')}</DropdownMenuItem>
         </DropdownMenu>
-        <DropdownMenu trigger="View">
+        <DropdownMenu trigger={t('view')}>
           <WindowOptionsMenuItem />
         </DropdownMenu>
       </div>

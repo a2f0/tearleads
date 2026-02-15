@@ -9,7 +9,8 @@ import {
   Pause,
   Play
 } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
@@ -44,6 +45,7 @@ interface AudioInfo {
 }
 
 export function AudioDetail() {
+  const { t } = useTranslation('audio');
   const { id } = useParams<{ id: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -328,21 +330,25 @@ export function AudioDetail() {
         ? `${metadata.trackNumber}/${metadata.trackTotal}`
         : `${metadata.trackNumber}`
       : null;
-  const metadataRows = [
-    { label: 'Title', value: metadata?.title ?? null },
-    { label: 'Artist', value: metadata?.artist ?? null },
-    { label: 'Album', value: metadata?.album ?? null },
-    { label: 'Album Artist', value: metadata?.albumArtist ?? null },
-    {
-      label: 'Year',
-      value: metadata?.year != null ? `${metadata.year}` : null
-    },
-    { label: 'Track', value: trackText },
-    {
-      label: 'Genre',
-      value: metadata?.genre?.length ? metadata.genre.join(', ') : null
-    }
-  ].filter((row) => row.value !== null);
+  const metadataRows = useMemo(
+    () =>
+      [
+        { label: t('title'), value: metadata?.title ?? null },
+        { label: t('artist'), value: metadata?.artist ?? null },
+        { label: t('album'), value: metadata?.album ?? null },
+        { label: t('albumArtist'), value: metadata?.albumArtist ?? null },
+        {
+          label: t('year'),
+          value: metadata?.year != null ? `${metadata.year}` : null
+        },
+        { label: t('track'), value: trackText },
+        {
+          label: t('genre'),
+          value: metadata?.genre?.length ? metadata.genre.join(', ') : null
+        }
+      ].filter((row) => row.value !== null),
+    [t, metadata, trackText]
+  );
 
   return (
     <div className="flex h-full gap-6">
@@ -356,17 +362,17 @@ export function AudioDetail() {
       )}
       <div className="min-w-0 flex-1 space-y-6">
         <div className="flex items-center gap-4">
-          <BackLink defaultTo="/audio" defaultLabel="Back to Audio" />
+          <BackLink defaultTo="/audio" defaultLabel={t('back')} />
         </div>
 
         {isLoading && (
           <div className="rounded-lg border p-8 text-center text-muted-foreground">
-            Loading database...
+            {t('loadingDatabase')}
           </div>
         )}
 
         {!isLoading && !isUnlocked && (
-          <InlineUnlock description="this audio file" />
+          <InlineUnlock description={t('thisAudioFile')} />
         )}
 
         {error && (
@@ -378,7 +384,7 @@ export function AudioDetail() {
         {isUnlocked && loading && (
           <div className="flex items-center justify-center gap-2 rounded-lg border p-8 text-muted-foreground">
             <Loader2 className="h-5 w-5 animate-spin" />
-            Loading audio...
+            {t('loadingAudio')}
           </div>
         )}
 
@@ -395,7 +401,7 @@ export function AudioDetail() {
                 {thumbnailUrl ? (
                   <img
                     src={thumbnailUrl}
-                    alt="Album cover"
+                    alt={t('albumCover')}
                     className="h-48 w-48 rounded-lg object-cover"
                   />
                 ) : (
@@ -405,19 +411,19 @@ export function AudioDetail() {
                   variant={isTrackPlaying ? 'default' : 'outline'}
                   size="lg"
                   onClick={handlePlayPause}
-                  aria-label={isTrackPlaying ? 'Pause' : 'Play'}
+                  aria-label={isTrackPlaying ? t('pause') : t('play')}
                   data-testid="play-pause-button"
                   className="gap-2"
                 >
                   {isTrackPlaying ? (
                     <>
                       <Pause className="h-5 w-5" />
-                      Pause
+                      {t('pause')}
                     </>
                   ) : (
                     <>
                       <Play className="h-5 w-5" />
-                      Play
+                      {t('play')}
                     </>
                   )}
                 </Button>
@@ -434,19 +440,23 @@ export function AudioDetail() {
 
             <div className="rounded-lg border">
               <div className="border-b px-4 py-3">
-                <h2 className="font-semibold">Audio Details</h2>
+                <h2 className="font-semibold">{t('audioDetails')}</h2>
               </div>
               <div className="divide-y">
                 <div className="flex items-center gap-3 px-4 py-3">
                   <FileType className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground text-sm">Type</span>
+                  <span className="text-muted-foreground text-sm">
+                    {t('type')}
+                  </span>
                   <span className="ml-auto font-mono text-sm">
                     {audio.mimeType}
                   </span>
                 </div>
                 <div className="flex items-center gap-3 px-4 py-3">
                   <HardDrive className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-muted-foreground text-sm">Size</span>
+                  <span className="text-muted-foreground text-sm">
+                    {t('size')}
+                  </span>
                   <span className="ml-auto font-mono text-sm">
                     {formatFileSize(audio.size)}
                   </span>
@@ -454,7 +464,7 @@ export function AudioDetail() {
                 <div className="flex items-center gap-3 px-4 py-3">
                   <Calendar className="h-4 w-4 text-muted-foreground" />
                   <span className="text-muted-foreground text-sm">
-                    Uploaded
+                    {t('uploaded')}
                   </span>
                   <span className="ml-auto text-sm">
                     {formatDate(audio.uploadDate)}
@@ -465,12 +475,12 @@ export function AudioDetail() {
 
             <div className="rounded-lg border">
               <div className="border-b px-4 py-3">
-                <h2 className="font-semibold">Metadata</h2>
+                <h2 className="font-semibold">{t('metadata')}</h2>
               </div>
               <div className="divide-y">
                 {metadataRows.length === 0 ? (
                   <div className="px-4 py-3 text-muted-foreground text-sm">
-                    No embedded metadata found.
+                    {t('noMetadataFound')}
                   </div>
                 ) : (
                   metadataRows.map((row) => (

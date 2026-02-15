@@ -4,6 +4,7 @@ import {
   WindowControlGroup
 } from '@tearleads/window-manager';
 import { ArrowLeft, RefreshCw, Upload } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { DropZoneOverlay } from '../DropZoneOverlay';
 import { ALL_AUDIO_ID, AudioPlaylistsSidebar } from './AudioPlaylistsSidebar';
 import { AudioWindowDetail } from './AudioWindowDetail';
@@ -73,6 +74,7 @@ export function AudioWindowContent({
   uploadProgress,
   isDragging
 }: AudioWindowContentProps) {
+  const { t } = useTranslation('audio');
   return (
     <div className="flex h-full flex-col">
       <AudioWindowMenuBar
@@ -93,7 +95,7 @@ export function AudioWindowContent({
               onClick={onBack}
               data-testid="audio-window-control-back"
             >
-              Back
+              {t('back')}
             </WindowControlButton>
           ) : (
             <>
@@ -159,7 +161,7 @@ export function AudioWindowContent({
               showDeleted={showDeleted}
             />
           )}
-          <DropZoneOverlay isVisible={isDragging} label="audio tracks" />
+          <DropZoneOverlay isVisible={isDragging} label={t('audioTracks')} />
         </div>
       </div>
     </div>

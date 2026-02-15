@@ -602,7 +602,7 @@ describe('AudioDetail', () => {
     it('renders back link to audio page', async () => {
       await renderAudioDetail();
 
-      const backLink = screen.getByText('Back to Audio');
+      const backLink = screen.getByText('Back');
       expect(backLink).toBeInTheDocument();
       expect(backLink.closest('a')).toHaveAttribute('href', '/audio');
     });

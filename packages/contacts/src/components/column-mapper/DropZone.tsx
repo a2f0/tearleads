@@ -1,3 +1,4 @@
+import { useContactsContext } from '../../context';
 import type { ColumnMapping } from '../../hooks/useContactsImport';
 import { DroppableArea } from './DroppableArea';
 import type { TargetField } from './types';
@@ -10,6 +11,8 @@ interface DropZoneProps {
 }
 
 export function DropZone({ field, mapping, headers, onRemove }: DropZoneProps) {
+  const { t } = useContactsContext();
+
   return (
     <div className="flex items-center gap-3">
       <span className="w-24 shrink-0 font-medium text-sm">
@@ -21,7 +24,7 @@ export function DropZone({ field, mapping, headers, onRemove }: DropZoneProps) {
         mapping={mapping}
         headers={headers}
         onRemove={onRemove}
-        placeholder="Drag a column here"
+        placeholder={t('dragColumnHere')}
       />
     </div>
   );

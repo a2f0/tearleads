@@ -10,6 +10,7 @@ import {
 } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
+import { useTypedTranslation } from '@/i18n';
 
 type UsersWindowView =
   | { type: 'index' }
@@ -37,14 +38,15 @@ export function AdminUsersWindow({
   zIndex,
   initialDimensions
 }: AdminUsersWindowProps) {
+  const { t } = useTypedTranslation('admin');
   const [view, setView] = useState<UsersWindowView>({ type: 'index' });
 
   const title =
     view.type === 'index'
-      ? 'Users Admin'
+      ? t('usersAdmin')
       : view.type === 'ai-requests'
-        ? 'AI Requests Admin'
-        : 'Edit User';
+        ? t('aiRequestsAdmin')
+        : t('editUser');
 
   const handleUserSelect = (userId: string) => {
     setView({ type: 'user', userId });
@@ -72,7 +74,7 @@ export function AdminUsersWindow({
     }
     if (view.type === 'user') {
       return {
-        label: 'Back to Users',
+        label: t('backToUsers'),
         onClick: handleBack,
         testId: 'admin-users-control-back'
       };

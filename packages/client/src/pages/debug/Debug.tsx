@@ -1,6 +1,7 @@
 import type { PingData } from '@tearleads/shared';
 import { Check, Copy } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -21,9 +22,12 @@ export function Debug({
   showTitle = true,
   showBackLink = false,
   backTo = '/',
-  backLabel = 'Back to Home'
+  backLabel
 }: DebugProps) {
+  const { t } = useTranslation('debug');
+  const { t: tCommon } = useTranslation('common');
   const appVersion = useAppVersion();
+  const resolvedBackLabel = backLabel ?? t('backToHome');
   const [ping, setPing] = useState<PingData | null>(null);
   const [pingLoading, setPingLoading] = useState(false);
   const [pingError, setPingError] = useState<string | null>(null);
@@ -46,11 +50,11 @@ export function Debug({
       setPing(data);
     } catch (err) {
       console.error('Failed to fetch API ping:', err);
-      setPingError('Failed to connect to API');
+      setPingError(t('failedToConnectToApi'));
     } finally {
       setPingLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     fetchPing();
@@ -70,30 +74,33 @@ export function Debug({
 
   const systemInfo = useMemo(
     () => [
-      { label: 'Version', value: appVersion ?? 'Unknown' },
-      { label: 'Environment', value: import.meta.env.MODE },
-      { label: 'Screen', value: `${screenSize.width} x ${screenSize.height}` },
+      { label: t('version'), value: appVersion ?? t('unknown') },
+      { label: t('environment'), value: import.meta.env.MODE },
       {
-        label: 'User Agent',
+        label: t('screen'),
+        value: `${screenSize.width} x ${screenSize.height}`
+      },
+      {
+        label: t('userAgent'),
         value: navigator.userAgent,
         valueClassName: 'text-xs break-all'
       },
-      { label: 'Platform', value: detectPlatform() },
-      { label: 'Pixel Ratio', value: `${window.devicePixelRatio}x` },
-      { label: 'Online', value: navigator.onLine ? 'Yes' : 'No' },
-      { label: 'Language', value: navigator.language },
+      { label: t('platform'), value: detectPlatform() },
+      { label: t('pixelRatio'), value: `${window.devicePixelRatio}x` },
+      { label: t('online'), value: navigator.onLine ? t('yes') : t('no') },
+      { label: t('language'), value: navigator.language },
       {
-        label: 'Touch Support',
-        value: 'ontouchstart' in window ? 'Yes' : 'No'
+        label: t('touchSupport'),
+        value: 'ontouchstart' in window ? t('yes') : t('no')
       },
       {
-        label: 'Standalone',
+        label: t('standalone'),
         value: window.matchMedia('(display-mode: standalone)').matches
-          ? 'Yes'
-          : 'No'
+          ? t('yes')
+          : t('no')
       }
     ],
-    [appVersion, screenSize]
+    [appVersion, screenSize, t]
   );
 
   const copyDebugInfo = useCallback(() => {
@@ -116,22 +123,22 @@ export function Debug({
       {(showBackLink || showTitle) && (
         <div className="space-y-2">
           {showBackLink && (
-            <BackLink defaultTo={backTo} defaultLabel={backLabel} />
+            <BackLink defaultTo={backTo} defaultLabel={resolvedBackLabel} />
           )}
           {showTitle && (
-            <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
+            <h1 className="font-bold text-2xl tracking-tight">{t('debug')}</h1>
           )}
         </div>
       )}
 
       <Card>
         <CardHeader className="flex-row items-center justify-between space-y-0">
-          <CardTitle>System Info</CardTitle>
+          <CardTitle>{t('systemInfo')}</CardTitle>
           <Button
             variant="ghost"
             size="icon"
             onClick={copyDebugInfo}
-            aria-label="Copy debug info to clipboard"
+            aria-label={t('copyDebugInfoToClipboard')}
             data-testid="copy-debug-info"
           >
             {isCopied ? (
@@ -157,23 +164,27 @@ export function Debug({
 
       <Card>
         <CardHeader>
-          <CardTitle>API Status</CardTitle>
+          <CardTitle>{t('apiStatus')}</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
           <div className="flex justify-between gap-2 text-sm">
-            <span className="shrink-0 text-muted-foreground">API URL</span>
+            <span className="shrink-0 text-muted-foreground">
+              {t('apiUrl')}
+            </span>
             <span className="min-w-0 break-all text-right text-xs">
-              {API_BASE_URL || '(not set)'}
+              {API_BASE_URL || t('notSet')}
             </span>
           </div>
           {pingLoading && (
-            <p className="text-muted-foreground text-sm">Loading...</p>
+            <p className="text-muted-foreground text-sm">
+              {tCommon('loading')}
+            </p>
           )}
           {pingError && <p className="text-destructive text-sm">{pingError}</p>}
           {!pingLoading && !pingError && ping && (
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Version</span>
+                <span className="text-muted-foreground">{t('version')}</span>
                 <span className="font-medium text-success">{ping.version}</span>
               </div>
             </div>
@@ -188,7 +199,7 @@ export function Debug({
 
       <Card>
         <CardHeader>
-          <CardTitle>Actions</CardTitle>
+          <CardTitle>{t('actions')}</CardTitle>
         </CardHeader>
         <CardContent>
           <Button
@@ -198,7 +209,7 @@ export function Debug({
             onClick={() => setShouldThrow(true)}
             data-testid="throw-error-button"
           >
-            Throw Error
+            {t('throwError')}
           </Button>
         </CardContent>
       </Card>

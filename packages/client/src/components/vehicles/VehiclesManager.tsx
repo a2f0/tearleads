@@ -5,6 +5,7 @@ import {
 } from '@tearleads/window-manager';
 import { CarFront, Pencil, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -22,15 +23,8 @@ interface VehicleFormErrors {
   color?: string;
 }
 
-function formatYearValue(year: number | null): string {
-  return year === null ? 'N/A' : String(year);
-}
-
-function formatColorValue(color: string | null): string {
-  return color === null ? 'N/A' : color;
-}
-
 export function VehiclesManager() {
+  const { t } = useTranslation('vehicles');
   const [vehicles, setVehicles] = useState<VehicleRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -142,7 +136,7 @@ export function VehiclesManager() {
       setIsSaving(false);
 
       if (savedVehicle === null) {
-        setFormError('Unable to save vehicle right now. Please try again.');
+        setFormError(t('unableToSaveVehicle'));
         return;
       }
 
@@ -156,6 +150,7 @@ export function VehiclesManager() {
       refreshVehicles,
       selectedVehicleId,
       setFormFromVehicle,
+      t,
       year
     ]
   );
@@ -176,7 +171,7 @@ export function VehiclesManager() {
       <form
         className="space-y-3 rounded-md border p-3"
         onSubmit={handleSubmit}
-        aria-label="Vehicle form"
+        aria-label={t('vehicleForm')}
       >
         <div className="grid grid-cols-1 gap-3 md:grid-cols-4">
           <div className="space-y-1">
@@ -184,7 +179,7 @@ export function VehiclesManager() {
               htmlFor="vehicle-make"
               className="font-medium text-muted-foreground text-sm"
             >
-              Make
+              {t('make')}
             </label>
             <Input
               id="vehicle-make"
@@ -203,7 +198,7 @@ export function VehiclesManager() {
               htmlFor="vehicle-model"
               className="font-medium text-muted-foreground text-sm"
             >
-              Model
+              {t('model')}
             </label>
             <Input
               id="vehicle-model"
@@ -222,7 +217,7 @@ export function VehiclesManager() {
               htmlFor="vehicle-year"
               className="font-medium text-muted-foreground text-sm"
             >
-              Year
+              {t('year')}
             </label>
             <Input
               id="vehicle-year"
@@ -241,7 +236,7 @@ export function VehiclesManager() {
               htmlFor="vehicle-color"
               className="font-medium text-muted-foreground text-sm"
             >
-              Color
+              {t('color')}
             </label>
             <Input
               id="vehicle-color"
@@ -258,10 +253,10 @@ export function VehiclesManager() {
 
         <div className="flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={resetForm}>
-            New Vehicle
+            {t('newVehicle')}
           </Button>
           <Button type="submit" disabled={isSaving}>
-            {selectedVehicleId === null ? 'Save Vehicle' : 'Update Vehicle'}
+            {selectedVehicleId === null ? t('saveVehicle') : t('updateVehicle')}
           </Button>
         </div>
 
@@ -275,28 +270,36 @@ export function VehiclesManager() {
       <section className="min-h-0 flex-1 overflow-hidden rounded-md border">
         {isLoading ? (
           <div className="flex h-full min-h-40 items-center justify-center p-6 text-center text-muted-foreground">
-            Loading vehicles...
+            {t('loadingVehicles')}
           </div>
         ) : sortedVehicles.length === 0 ? (
           <div className="flex h-full min-h-40 flex-col items-center justify-center gap-2 p-6 text-center text-muted-foreground">
             <CarFront className="h-5 w-5" />
-            <p>No vehicles yet</p>
-            <p className="text-sm">Add your first vehicle above.</p>
+            <p>{t('noVehiclesYet')}</p>
+            <p className="text-sm">{t('addFirstVehicle')}</p>
           </div>
         ) : (
           <div className="h-full overflow-auto" data-testid="vehicles-table">
             <table
               className={WINDOW_TABLE_TYPOGRAPHY.table}
-              aria-label="Vehicles table"
+              aria-label={t('vehiclesTable')}
             >
               <thead className={WINDOW_TABLE_TYPOGRAPHY.header}>
                 <tr>
-                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Make</th>
-                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Model</th>
-                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Year</th>
-                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Color</th>
                   <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
-                    Actions
+                    {t('make')}
+                  </th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    {t('model')}
+                  </th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    {t('year')}
+                  </th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    {t('color')}
+                  </th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>
+                    {t('actions')}
                   </th>
                 </tr>
               </thead>
@@ -312,10 +315,14 @@ export function VehiclesManager() {
                       {vehicle.model}
                     </td>
                     <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                      {formatYearValue(vehicle.year)}
+                      {vehicle.year === null
+                        ? t('notApplicable')
+                        : String(vehicle.year)}
                     </td>
                     <td className={WINDOW_TABLE_TYPOGRAPHY.mutedCell}>
-                      {formatColorValue(vehicle.color)}
+                      {vehicle.color === null
+                        ? t('notApplicable')
+                        : vehicle.color}
                     </td>
                     <td className={WINDOW_TABLE_TYPOGRAPHY.cell}>
                       <div className="flex items-center gap-2">
@@ -324,20 +331,20 @@ export function VehiclesManager() {
                           size="sm"
                           variant="outline"
                           onClick={() => setFormFromVehicle(vehicle)}
-                          aria-label={`Edit ${vehicle.make} ${vehicle.model}`}
+                          aria-label={`${t('edit')} ${vehicle.make} ${vehicle.model}`}
                         >
                           <Pencil className="h-3.5 w-3.5" />
-                          Edit
+                          {t('edit')}
                         </Button>
                         <Button
                           type="button"
                           size="sm"
                           variant="destructive"
                           onClick={() => void handleDelete(vehicle.id)}
-                          aria-label={`Delete ${vehicle.make} ${vehicle.model}`}
+                          aria-label={`${t('delete')} ${vehicle.make} ${vehicle.model}`}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
-                          Delete
+                          {t('delete')}
                         </Button>
                       </div>
                     </td>

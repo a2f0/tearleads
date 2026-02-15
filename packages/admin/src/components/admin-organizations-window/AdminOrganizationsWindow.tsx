@@ -11,6 +11,7 @@ import {
 } from '@tearleads/window-manager';
 import { ArrowLeft } from 'lucide-react';
 import { useState } from 'react';
+import { useTypedTranslation } from '@/i18n';
 
 type OrganizationsWindowView =
   | { type: 'index' }
@@ -39,18 +40,19 @@ export function AdminOrganizationsWindow({
   zIndex,
   initialDimensions
 }: AdminOrganizationsWindowProps) {
+  const { t } = useTypedTranslation('admin');
   const [view, setView] = useState<OrganizationsWindowView>({ type: 'index' });
 
   const title = (() => {
     switch (view.type) {
       case 'index':
-        return 'Organizations Admin';
+        return t('organizationsAdmin');
       case 'organization':
-        return 'Organization';
+        return t('organizations');
       case 'user':
-        return 'Edit User';
+        return t('editUser');
       case 'group':
-        return 'Edit Group';
+        return t('editGroup');
     }
   })();
 
@@ -79,14 +81,14 @@ export function AdminOrganizationsWindow({
   const backControl = (() => {
     if (view.type === 'organization') {
       return {
-        label: 'Back to Organizations',
+        label: t('backToOrganizations'),
         onClick: handleBack,
         testId: 'admin-organizations-control-back-to-list'
       };
     }
     if (view.type === 'user' || view.type === 'group') {
       return {
-        label: 'Back to Organization',
+        label: t('backToOrganization'),
         onClick: () => handleBackToOrganization(view.organizationId),
         testId: 'admin-organizations-control-back-to-organization'
       };

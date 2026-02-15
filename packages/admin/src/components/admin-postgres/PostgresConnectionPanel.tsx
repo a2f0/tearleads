@@ -2,11 +2,13 @@ import type { PostgresAdminInfoResponse } from '@tearleads/shared';
 import { Loader2, PlugZap } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 const FALLBACK_VALUE = 'Unknown';
 
 export function PostgresConnectionPanel() {
+  const { t } = useTypedTranslation('admin');
   const [info, setInfo] = useState<PostgresAdminInfoResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function PostgresConnectionPanel() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <PlugZap className="h-4 w-4 text-muted-foreground" />
-          <h2 className="font-medium">Connection</h2>
+          <h2 className="font-medium">{t('connection')}</h2>
         </div>
         <RefreshButton
           onClick={fetchInfo}

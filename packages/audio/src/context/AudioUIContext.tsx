@@ -230,7 +230,41 @@ export type AudioTranslationKey =
   | 'mute'
   | 'unmute'
   | 'volume'
-  | 'seek';
+  | 'seek'
+  // Window and UI labels
+  | 'audio'
+  | 'allTracks'
+  | 'playlists'
+  | 'searchTracks'
+  | 'noAudioFiles'
+  | 'audioTracks'
+  | 'audioFiles'
+  | 'playlistName'
+  | 'uploadProgress'
+  | 'uploading'
+  // Detail view labels
+  | 'audioDetails'
+  | 'metadata'
+  | 'noMetadataFound'
+  | 'albumCover'
+  | 'back'
+  | 'loadingDatabase'
+  | 'loadingAudio'
+  | 'thisAudioFile'
+  // Metadata fields
+  | 'title'
+  | 'artist'
+  | 'album'
+  | 'albumArtist'
+  | 'year'
+  | 'track'
+  | 'genre'
+  // File info
+  | 'type'
+  | 'size'
+  | 'name'
+  | 'date'
+  | 'uploaded';
 
 /**
  * Translation function type

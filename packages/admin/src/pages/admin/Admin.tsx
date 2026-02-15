@@ -23,7 +23,8 @@ interface AdminProps {
 }
 
 export function Admin({ showBackLink = true }: AdminProps) {
-  const { t } = useTypedTranslation('contextMenu');
+  const { t } = useTypedTranslation('admin');
+  const { t: tContext } = useTypedTranslation('contextMenu');
   const [keys, setKeys] = useState<RedisKeyInfo[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -184,11 +185,13 @@ export function Admin({ showBackLink = true }: AdminProps) {
   return (
     <div className="flex h-full flex-col space-y-6">
       <div className="space-y-2">
-        {showBackLink && <BackLink defaultTo="/" defaultLabel="Back to Home" />}
+        {showBackLink && (
+          <BackLink defaultTo="/" defaultLabel={t('backToHome')} />
+        )}
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="font-bold text-2xl tracking-tight">Admin</h1>
-            <p className="text-muted-foreground text-sm">Redis Browser</p>
+            <h1 className="font-bold text-2xl tracking-tight">{t('admin')}</h1>
+            <p className="text-muted-foreground text-sm">{t('redisBrowser')}</p>
           </div>
           <RefreshButton onClick={handleRefresh} loading={loading} />
         </div>
@@ -219,12 +222,12 @@ export function Admin({ showBackLink = true }: AdminProps) {
           {loading && keys.length === 0 ? (
             <div className="flex items-center justify-center p-8 text-muted-foreground">
               <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-              Loading Redis keys...
+              {t('loadingRedisKeys')}
             </div>
           ) : keys.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-muted-foreground">
               <Database className="mb-2 h-8 w-8" />
-              <p>No keys found.</p>
+              <p>{t('noKeysFound')}</p>
             </div>
           ) : (
             <div ref={parentRef} className="h-full overflow-auto">
@@ -248,7 +251,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
                         {loadingMore && (
                           <>
                             <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Loading more...
+                            {t('loadingMore')}
                           </>
                         )}
                       </div>
@@ -293,7 +296,7 @@ export function Admin({ showBackLink = true }: AdminProps) {
             icon={<Trash2 className="h-4 w-4" />}
             onClick={handleDeleteKeyClick}
           >
-            {t('delete')}
+            {tContext('delete')}
           </ContextMenuItem>
         </ContextMenu>
       )}
@@ -303,11 +306,11 @@ export function Admin({ showBackLink = true }: AdminProps) {
         onOpenChange={(open) => {
           if (!open) setDeleteDialog(null);
         }}
-        title="Delete Redis Key"
+        title={t('deleteRedisKey')}
         description={
           deleteDialog ? (
             <p>
-              Are you sure you want to delete the key{' '}
+              {t('deleteRedisKeyConfirm')}{' '}
               <strong className="break-all font-mono">
                 {deleteDialog.key}
               </strong>
@@ -315,8 +318,8 @@ export function Admin({ showBackLink = true }: AdminProps) {
             </p>
           ) : null
         }
-        confirmLabel="Delete"
-        confirmingLabel="Deleting..."
+        confirmLabel={t('delete')}
+        confirmingLabel={t('deleting')}
         onConfirm={handleConfirmDelete}
       />
     </div>

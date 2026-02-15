@@ -7,6 +7,7 @@ import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatNumber, formatTimestamp } from '@/lib/utils';
 
@@ -47,6 +48,7 @@ export function AiRequestsAdminPage({
   backLink,
   initialUserId
 }: AiRequestsAdminPageProps) {
+  const { t } = useTypedTranslation('admin');
   const [searchParams] = useSearchParams();
   const queryUserId = searchParams.get('userId')?.trim() ?? '';
   const initialFilterUserId = (initialUserId?.trim() || queryUserId).trim();
@@ -119,7 +121,7 @@ export function AiRequestsAdminPage({
   const resolvedBackLink = backLink ? (
     backLink
   ) : showBackLink ? (
-    <BackLink defaultTo="/admin/users" defaultLabel="Back to Users Admin" />
+    <BackLink defaultTo="/admin/users" defaultLabel={t('backToUsersAdmin')} />
   ) : null;
 
   return (
@@ -129,10 +131,10 @@ export function AiRequestsAdminPage({
         <div className="flex items-center justify-between">
           <div>
             <h1 className="font-bold text-2xl tracking-tight">
-              AI Requests Admin
+              {t('aiRequestsAdmin')}
             </h1>
             <p className="text-muted-foreground text-sm">
-              Request IDs and token usage for all AI requests
+              {t('requestIdsAndTokenUsage')}
             </p>
           </div>
           <RefreshButton onClick={handleRefresh} loading={loading} />
@@ -152,36 +154,42 @@ export function AiRequestsAdminPage({
               htmlFor="ai-usage-user-filter"
               className="font-medium text-muted-foreground text-xs uppercase tracking-wide"
             >
-              Filter by User ID
+              {t('filterByUserId')}
             </label>
             <Input
               id="ai-usage-user-filter"
               value={userIdFilter}
               onChange={(event) => setUserIdFilter(event.target.value)}
-              placeholder="user-123"
+              placeholder={t('enterUserId')}
               className="text-base"
             />
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3 text-sm md:grid-cols-4">
           <div>
-            <p className="text-muted-foreground text-xs uppercase">Requests</p>
+            <p className="text-muted-foreground text-xs uppercase">
+              {t('requests')}
+            </p>
             <p className="font-medium">{formatNumber(totals.requestCount)}</p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs uppercase">Prompt</p>
+            <p className="text-muted-foreground text-xs uppercase">
+              {t('prompt')}
+            </p>
             <p className="font-medium">{formatNumber(totals.promptTokens)}</p>
           </div>
           <div>
             <p className="text-muted-foreground text-xs uppercase">
-              Completion
+              {t('completion')}
             </p>
             <p className="font-medium">
               {formatNumber(totals.completionTokens)}
             </p>
           </div>
           <div>
-            <p className="text-muted-foreground text-xs uppercase">Total</p>
+            <p className="text-muted-foreground text-xs uppercase">
+              {t('total')}
+            </p>
             <p className="font-medium">{formatNumber(totals.totalTokens)}</p>
           </div>
         </div>
@@ -190,24 +198,24 @@ export function AiRequestsAdminPage({
       <div className="min-h-0 flex-1 overflow-auto rounded-lg border">
         <div className="min-w-[1240px]">
           <div className="grid grid-cols-[minmax(180px,1.2fr)_minmax(220px,1.4fr)_minmax(160px,1fr)_minmax(180px,1fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(120px,0.8fr)_minmax(180px,1fr)] items-center gap-3 border-b bg-muted/40 px-4 py-2 font-semibold text-muted-foreground text-xs uppercase tracking-wide">
-            <span>Usage ID</span>
-            <span>OpenRouter Request ID</span>
-            <span>User ID</span>
-            <span>Model</span>
-            <span>Prompt</span>
-            <span>Completion</span>
-            <span>Total</span>
-            <span>Created</span>
+            <span>{t('usageId')}</span>
+            <span>{t('openRouterRequestId')}</span>
+            <span>{t('userId')}</span>
+            <span>{t('model')}</span>
+            <span>{t('prompt')}</span>
+            <span>{t('completion')}</span>
+            <span>{t('total')}</span>
+            <span>{t('created')}</span>
           </div>
 
           {loading && filteredUsageRows.length === 0 ? (
             <div className="flex items-center justify-center gap-2 px-4 py-10 text-muted-foreground text-sm">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Loading AI request usage...
+              {t('loadingAiRequestUsage')}
             </div>
           ) : filteredUsageRows.length === 0 ? (
             <div className="px-4 py-10 text-center text-muted-foreground text-sm">
-              No AI usage requests found.
+              {t('noAiUsageRequestsFound')}
             </div>
           ) : (
             <>
@@ -251,10 +259,10 @@ export function AiRequestsAdminPage({
                     {loadingMore ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading...
+                        {t('loading')}
                       </>
                     ) : (
-                      'Load more'
+                      t('loadMore')
                     )}
                   </Button>
                 </div>

@@ -1,3 +1,4 @@
+import { useContactsContext } from '../../context';
 import type { ColumnMapping } from '../../hooks/useContactsImport';
 import { DropZoneSmall } from './DropZoneSmall';
 import type { FieldGroup } from './types';
@@ -15,6 +16,8 @@ export function FieldGroupRow({
   headers,
   onRemove
 }: FieldGroupRowProps) {
+  const { t } = useContactsContext();
+
   return (
     <div className="flex items-center gap-3">
       <span className="w-20 shrink-0 font-medium text-sm">{group.name}</span>
@@ -24,14 +27,14 @@ export function FieldGroupRow({
           mapping={mapping}
           headers={headers}
           onRemove={onRemove}
-          placeholder="Label"
+          placeholder={t('label')}
         />
         <DropZoneSmall
           fieldKey={group.valueKey}
           mapping={mapping}
           headers={headers}
           onRemove={onRemove}
-          placeholder="Value"
+          placeholder={t('value')}
         />
       </div>
     </div>

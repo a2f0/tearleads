@@ -20,7 +20,7 @@ export function ContactsWindowImport({
   onDone,
   onImported
 }: ContactsWindowImportProps) {
-  const { databaseState } = useContactsContext();
+  const { databaseState, t } = useContactsContext();
   const { isUnlocked, isLoading } = databaseState;
   const { Button, InlineUnlock } = useContactsUI();
   const { parseFile, importContacts, importing, progress } =
@@ -94,7 +94,7 @@ export function ContactsWindowImport({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Upload className="h-5 w-5 text-muted-foreground" />
-          <h2 className="font-semibold text-sm">Import CSV</h2>
+          <h2 className="font-semibold text-sm">{t('importCsv')}</h2>
         </div>
         <Button
           variant="ghost"
@@ -102,17 +102,19 @@ export function ContactsWindowImport({
           onClick={onDone}
           disabled={importing || isParsing}
         >
-          Done
+          {t('done')}
         </Button>
       </div>
 
       {isLoading && (
         <div className="rounded-lg border p-4 text-center text-muted-foreground text-xs">
-          Loading database...
+          {t('loadingDatabase')}
         </div>
       )}
 
-      {!isLoading && !isUnlocked && <InlineUnlock description="contacts" />}
+      {!isLoading && !isUnlocked && (
+        <InlineUnlock description={t('contacts')} />
+      )}
 
       {isUnlocked && (
         <>
@@ -125,7 +127,7 @@ export function ContactsWindowImport({
           {isParsing && (
             <div className="flex items-center gap-2 rounded-lg border p-4 text-muted-foreground text-xs">
               <Loader2 className="h-4 w-4 animate-spin" />
-              Parsing CSV...
+              {t('parsingCsv')}
             </div>
           )}
 
@@ -141,7 +143,7 @@ export function ContactsWindowImport({
                 <div className="mt-3">
                   <div className="mb-1 flex items-center gap-2 text-muted-foreground text-xs">
                     <Loader2 className="h-3 w-3 animate-spin" />
-                    Importing... {progress}%
+                    {t('importing').replace('{{progress}}', String(progress))}
                   </div>
                   <div className="h-2 overflow-hidden rounded-full bg-muted">
                     <div
@@ -156,17 +158,25 @@ export function ContactsWindowImport({
 
           {!parsedData && !isParsing && !error && !importResult && (
             <div className="rounded-lg border p-4 text-muted-foreground text-xs">
-              Choose File &gt; Import CSV to select a file.
+              {t('chooseFileHint')}
             </div>
           )}
 
           {importResult && (
             <div className="rounded-lg border p-3 text-xs">
               <p>
-                Imported {importResult.imported} contact
-                {importResult.imported !== 1 ? 's' : ''}
-                {importResult.skipped > 0 &&
-                  `, skipped ${importResult.skipped}`}
+                {t('importedContacts')
+                  .replace('{{imported}}', String(importResult.imported))
+                  .replace('{{plural}}', importResult.imported !== 1 ? 's' : '')
+                  .replace(
+                    '{{skippedText}}',
+                    importResult.skipped > 0
+                      ? t('skipped').replace(
+                          '{{count}}',
+                          String(importResult.skipped)
+                        )
+                      : ''
+                  )}
               </p>
               {importResult.errors.length > 0 && (
                 <ul className="mt-2 list-inside list-disc text-destructive">
@@ -174,7 +184,12 @@ export function ContactsWindowImport({
                     <li key={err}>{err}</li>
                   ))}
                   {importResult.errors.length > 5 && (
-                    <li>...and {importResult.errors.length - 5} more</li>
+                    <li>
+                      {t('andMore').replace(
+                        '{{count}}',
+                        String(importResult.errors.length - 5)
+                      )}
+                    </li>
                   )}
                 </ul>
               )}

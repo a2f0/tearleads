@@ -7,6 +7,7 @@ import { HardDrive } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { RefreshButton } from '@/components/ui/refresh-button';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 const ROW_COUNT_FORMATTER = new Intl.NumberFormat('en-US');
@@ -29,6 +30,7 @@ interface PostgresTableSizesProps {
 }
 
 export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
+  const { t } = useTypedTranslation('admin');
   const navigate = useNavigate();
   const [tables, setTables] = useState<PostgresTableInfo[]>([]);
   const [loading, setLoading] = useState(false);
@@ -84,7 +86,7 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
       data-testid="postgres-table-sizes"
     >
       <div className="flex items-center justify-between">
-        <h2 className="font-medium">Table summary</h2>
+        <h2 className="font-medium">{t('tableSummary')}</h2>
         <RefreshButton
           onClick={fetchTables}
           loading={loading}
@@ -100,7 +102,7 @@ export function PostgresTableSizes({ onTableSelect }: PostgresTableSizesProps) {
           <div className="flex items-center justify-between border-b pb-2">
             <div className="flex items-center gap-2">
               <HardDrive className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">Total Database</span>
+              <span className="font-medium">{t('totalDatabase')}</span>
             </div>
             <span className="font-mono">{formatBytes(totalBytes)}</span>
           </div>

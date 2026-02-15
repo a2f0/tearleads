@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 
 const EMPTY_ORGANIZATIONS: AdminScopeOrganization[] = [];
@@ -23,6 +24,7 @@ export function CreateGroupDialog({
   organizations = EMPTY_ORGANIZATIONS,
   defaultOrganizationId = null
 }: CreateGroupDialogProps) {
+  const { t } = useTypedTranslation('admin');
   const [name, setName] = useState('');
   const [organizationId, setOrganizationId] = useState('');
   const [description, setDescription] = useState('');
@@ -55,12 +57,12 @@ export function CreateGroupDialog({
     e.preventDefault();
 
     if (!name.trim()) {
-      setError('Name is required');
+      setError(t('nameIsRequired'));
       return;
     }
 
     if (!organizationId.trim()) {
-      setError('Organization ID is required');
+      setError(t('organizationIdIsRequired'));
       return;
     }
 
@@ -82,9 +84,9 @@ export function CreateGroupDialog({
       onCreated?.();
     } catch (err) {
       if (err instanceof Error && err.message.includes('409')) {
-        setError('A group with this name already exists');
+        setError(t('groupWithNameExists'));
       } else {
-        setError(err instanceof Error ? err.message : 'Failed to create group');
+        setError(err instanceof Error ? err.message : t('failedToLoadGroups'));
       }
     } finally {
       setLoading(false);
@@ -110,42 +112,42 @@ export function CreateGroupDialog({
         onKeyDown={handleKeyDown}
       >
         <h2 id="create-group-title" className="font-semibold text-lg">
-          Create Group
+          {t('createGroup')}
         </h2>
         <p className="mt-1 text-muted-foreground text-sm">
-          Create a new group to organize users.
+          {t('createGroupDescription')}
         </p>
 
         <form onSubmit={(e) => void handleSubmit(e)} className="mt-4 space-y-4">
           <div className="space-y-2">
             <label htmlFor="group-name" className="font-medium text-sm">
-              Name
+              {t('name')}
             </label>
             <Input
               ref={nameInputRef}
               id="group-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter group name"
+              placeholder={t('enterGroupName')}
               disabled={loading}
             />
           </div>
           <div className="space-y-2">
             <label htmlFor="group-description" className="font-medium text-sm">
-              Description (optional)
+              {t('descriptionOptional')}
             </label>
             <Textarea
               id="group-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Enter group description"
+              placeholder={t('enterGroupDescription')}
               disabled={loading}
               rows={3}
             />
           </div>
           <div className="space-y-2">
             <label htmlFor="group-org" className="font-medium text-sm">
-              Organization ID
+              {t('organizationId')}
             </label>
             {hasOrganizationOptions ? (
               <select
@@ -155,7 +157,7 @@ export function CreateGroupDialog({
                 disabled={loading}
                 className="h-10 w-full rounded-md border border-input bg-background px-3 text-base text-foreground"
               >
-                <option value="">Select organization</option>
+                <option value="">{t('selectOrganization')}</option>
                 {organizations.map((organization) => (
                   <option key={organization.id} value={organization.id}>
                     {organization.name}
@@ -167,7 +169,7 @@ export function CreateGroupDialog({
                 id="group-org"
                 value={organizationId}
                 onChange={(e) => setOrganizationId(e.target.value)}
-                placeholder="Enter organization ID"
+                placeholder={t('enterOrganizationId')}
                 disabled={loading}
               />
             )}
@@ -181,11 +183,11 @@ export function CreateGroupDialog({
               onClick={() => onOpenChange(false)}
               disabled={loading}
             >
-              Cancel
+              {t('cancel')}
             </Button>
             <Button type="submit" disabled={loading}>
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Create
+              {t('create')}
             </Button>
           </div>
         </form>

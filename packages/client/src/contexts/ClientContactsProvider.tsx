@@ -150,10 +150,26 @@ export function ClientContactsProvider({
   children
 }: ClientContactsProviderProps) {
   const databaseContext = useDatabaseContext();
-  const { t } = useTypedTranslation('contextMenu');
+  const { t: tContextMenu } = useTypedTranslation('contextMenu');
+  const { t: tContacts } = useTypedTranslation('contacts');
   const navigate = useNavigate();
   const navigateWithFrom = useNavigateWithFrom();
   const { openWindow, requestWindowOpen } = useWindowManagerActions();
+
+  // Combined translation function that checks contacts namespace first, then contextMenu
+  const t = useCallback(
+    (key: string): string => {
+      // Try contacts namespace first for contacts-specific keys
+      // Use type assertion since we're doing runtime lookup
+      const contactsResult = tContacts(key as Parameters<typeof tContacts>[0]);
+      // If not found (i18next returns the key), try contextMenu namespace
+      if (contactsResult === key) {
+        return tContextMenu(key as Parameters<typeof tContextMenu>[0]);
+      }
+      return contactsResult;
+    },
+    [tContacts, tContextMenu]
+  );
 
   const databaseState = useMemo(
     () => ({
