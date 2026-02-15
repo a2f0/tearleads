@@ -629,6 +629,33 @@ export class VfsBackgroundSyncClient {
         );
       }
 
+      const effectivePersistedCursor =
+        normalizedReconcileState?.cursor ?? normalizedReplaySnapshot.cursor;
+      if (effectivePersistedCursor) {
+        /**
+         * Guardrail invariant: per-container clocks are a projection of replayed
+         * feed history and therefore cannot advance beyond the persisted sync
+         * cursor boundary. A clock ahead of this cursor indicates corruption.
+         */
+        for (let index = 0; index < normalizedContainerClocks.length; index++) {
+          const clock = normalizedContainerClocks[index];
+          if (
+            clock &&
+            compareVfsSyncCursorOrder(
+              {
+                changedAt: clock.changedAt,
+                changeId: clock.changeId
+              },
+              effectivePersistedCursor
+            ) > 0
+          ) {
+            throw new Error(
+              `state.containerClocks[${index}] is ahead of persisted sync cursor`
+            );
+          }
+        }
+      }
+
       const normalizedPendingOperations: VfsCrdtOperation[] = [];
       const observedPendingOpIds: Set<string> = new Set();
       let maxPendingWriteId = 0;

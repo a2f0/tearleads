@@ -1654,6 +1654,127 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(pristineState);
   });
 
+  it('hydrates when persisted replay and reconcile cursors are equal', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-hydrate-equal',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T14:12:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const sourceClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(server)
+    );
+    await sourceClient.sync();
+
+    const persisted = sourceClient.exportState();
+    const replayCursor = persisted.replaySnapshot.cursor;
+    if (!replayCursor) {
+      throw new Error('expected replay cursor for equal-boundary hydrate test');
+    }
+
+    persisted.reconcileState = {
+      cursor: {
+        changedAt: replayCursor.changedAt,
+        changeId: replayCursor.changeId
+      },
+      lastReconciledWriteIds: {
+        desktop: 1
+      }
+    };
+
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const resumedClient = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(server),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    expect(() => resumedClient.hydrateState(persisted)).not.toThrow();
+    expect(guardrailViolations).toEqual([]);
+    expect(resumedClient.snapshot().cursor).toEqual(replayCursor);
+  });
+
+  it('fails closed when hydrated container clock is ahead of persisted sync cursor and keeps state pristine', () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer()),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    const pristineState = client.exportState();
+    const persisted = client.exportState();
+    persisted.replaySnapshot.cursor = {
+      changedAt: '2026-02-14T14:13:00.000Z',
+      changeId: 'desktop-1'
+    };
+    persisted.reconcileState = {
+      cursor: {
+        changedAt: '2026-02-14T14:13:00.000Z',
+        changeId: 'desktop-1'
+      },
+      lastReconciledWriteIds: {
+        desktop: 1
+      }
+    };
+    persisted.containerClocks = [
+      {
+        containerId: 'item-ahead',
+        changedAt: '2026-02-14T14:13:01.000Z',
+        changeId: 'desktop-2'
+      }
+    ];
+
+    expect(() => client.hydrateState(persisted)).toThrowError(
+      /state.containerClocks\[0\] is ahead of persisted sync cursor/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message: 'state.containerClocks[0] is ahead of persisted sync cursor'
+    });
+    expect(client.exportState()).toEqual(pristineState);
+  });
+
   it('fails closed when hydrated reconcile write ids are invalid and keeps state pristine', () => {
     const guardrailViolations: Array<{
       code: string;
