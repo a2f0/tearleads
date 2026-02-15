@@ -26,12 +26,14 @@ Identity table for all VFS-participating items.
 - `public_hierarchical_key`: public key for subtree sharing
 - `encrypted_private_hierarchical_key`: encrypted private hierarchical key
 
-### `vfs_folders`
+### Folder Metadata (Canonical)
 
-Folder-specific metadata for registry items of type `folder`.
+Folder metadata is canonical on `vfs_registry` for `object_type = 'folder'`.
+Runtime read/write paths use `vfs_registry.encrypted_name` and related metadata
+columns (`icon`, `view_mode`, `default_sort`, `sort_direction`).
 
-- `id`: foreign key to `vfs_registry.id`
-- `encrypted_name`: folder name encrypted with the item's session key
+`vfs_folders` is a retired runtime table kept only for historical
+migration/test scaffolding.
 
 ### `vfs_links`
 
@@ -54,13 +56,16 @@ Per-user key material.
 - encrypted private keys
 - Argon2 salt for password-based derivation
 
-### `vfs_access`
+### `vfs_acl_entries`
 
-Direct grants from item to user.
+Canonical access grants for users, groups, and organizations.
 
-- wrapped item keys for recipient
-- permission level (`read`, `write`, `admin`)
-- optional expiration metadata
+- principal-scoped grants (`user`, `group`, `organization`)
+- permission/access levels
+- lifecycle metadata (`revoked_at`, provenance, timestamps)
+
+`vfs_access` is retired from runtime schema and remains only in migration
+history guardrails.
 
 ## Registry Pattern
 
@@ -82,7 +87,7 @@ objects through one identity layer.
 
 ### Opening a root
 
-1. Read direct grants in `vfs_access`
+1. Read grants in `vfs_acl_entries`
 2. Decrypt wrapped keys with user's private key
 3. Render root items
 
@@ -95,7 +100,7 @@ objects through one identity layer.
 ### Sharing a subtree
 
 1. Wrap root keys for recipient user
-2. Insert grant in `vfs_access`
+2. Insert grant in `vfs_acl_entries`
 3. Recipient traverses subtree through wrapped link keys
 
 ### Multi-placement
