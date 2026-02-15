@@ -6,10 +6,7 @@ import {
 } from './EndConditionPicker';
 import { FrequencySelect } from './FrequencySelect';
 import { IntervalInput } from './IntervalInput';
-import {
-  MonthDayPicker,
-  type MonthDayValue
-} from './MonthDayPicker';
+import { MonthDayPicker, type MonthDayValue } from './MonthDayPicker';
 import { WeekdayPicker } from './WeekdayPicker';
 
 interface RecurrenceEditorProps {

@@ -9,9 +9,8 @@ import {
 } from './useTimeRangeSelection';
 
 describe('useTimeRangeSelection', () => {
-  const createMouseEvent = (
-    shiftKey = false
-  ): React.MouseEvent => ({ shiftKey, preventDefault: vi.fn() }) as never;
+  const createMouseEvent = (shiftKey = false): React.MouseEvent =>
+    ({ shiftKey, preventDefault: vi.fn() }) as never;
 
   describe('click-drag selection', () => {
     it('starts selection on mousedown', () => {

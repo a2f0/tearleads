@@ -110,7 +110,8 @@ export function NewCalendarEventModal({
         title: trimmedTitle,
         startAt,
         endAt,
-        recurrence: repeatEnabled && recurrenceRule ? { rrule: recurrenceRule } : null
+        recurrence:
+          repeatEnabled && recurrenceRule ? { rrule: recurrenceRule } : null
       });
       onOpenChange(false);
     } finally {

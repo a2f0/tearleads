@@ -31,8 +31,7 @@ function getEventMinutes(
   if (event.startAt < startOfDay) {
     startMinutes = 0;
   } else {
-    startMinutes =
-      event.startAt.getHours() * 60 + event.startAt.getMinutes();
+    startMinutes = event.startAt.getHours() * 60 + event.startAt.getMinutes();
   }
 
   if (event.endAt) {

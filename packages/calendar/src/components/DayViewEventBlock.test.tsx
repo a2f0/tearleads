@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from 'vitest';
 import type { CalendarEventItem } from '../types';
 import { DayViewEventBlock } from './DayViewEventBlock';
 
-function createEvent(overrides: Partial<CalendarEventItem> = {}): CalendarEventItem {
+function createEvent(
+  overrides: Partial<CalendarEventItem> = {}
+): CalendarEventItem {
   const startAt = new Date(2024, 5, 15, 10, 0, 0, 0);
   const endAt = new Date(2024, 5, 15, 11, 0, 0, 0);
 

@@ -31,9 +31,7 @@ describe('RecurrenceEditor', () => {
 
   it('shows month day picker when monthly frequency is selected', () => {
     render(<RecurrenceEditor {...defaultProps} value="FREQ=MONTHLY" />);
-    expect(
-      screen.getByRole('radio', { name: /on day/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /on day/i })).toBeInTheDocument();
   });
 
   it('calls onChange when frequency changes', () => {
@@ -80,8 +78,6 @@ describe('RecurrenceEditor', () => {
   it('shows end condition picker', () => {
     render(<RecurrenceEditor {...defaultProps} />);
     expect(screen.getByText('Ends')).toBeInTheDocument();
-    expect(
-      screen.getByRole('radio', { name: /never/i })
-    ).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: /never/i })).toBeInTheDocument();
   });
 });

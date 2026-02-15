@@ -152,8 +152,7 @@ export function isSlotInSelection(
   if (!selection) return false;
 
   const slotMinutes = slot.hour * 60 + slot.quarter * 15;
-  const startMinutes =
-    selection.start.hour * 60 + selection.start.quarter * 15;
+  const startMinutes = selection.start.hour * 60 + selection.start.quarter * 15;
   const endMinutes = selection.end.hour * 60 + selection.end.quarter * 15;
 
   return slotMinutes >= startMinutes && slotMinutes <= endMinutes;
@@ -164,20 +163,10 @@ export function selectionToTimeRange(
   baseDate: Date
 ): { startTime: Date; endTime: Date } {
   const startTime = new Date(baseDate);
-  startTime.setHours(
-    selection.start.hour,
-    selection.start.quarter * 15,
-    0,
-    0
-  );
+  startTime.setHours(selection.start.hour, selection.start.quarter * 15, 0, 0);
 
   const endTime = new Date(baseDate);
-  endTime.setHours(
-    selection.end.hour,
-    selection.end.quarter * 15 + 15,
-    0,
-    0
-  );
+  endTime.setHours(selection.end.hour, selection.end.quarter * 15 + 15, 0, 0);
 
   return { startTime, endTime };
 }

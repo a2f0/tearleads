@@ -20,7 +20,10 @@ describe('TimeRangePicker', () => {
   it('calls onStartTimeChange when start time changes', () => {
     const onStartTimeChange = vi.fn();
     render(
-      <TimeRangePicker {...defaultProps} onStartTimeChange={onStartTimeChange} />
+      <TimeRangePicker
+        {...defaultProps}
+        onStartTimeChange={onStartTimeChange}
+      />
     );
 
     fireEvent.change(screen.getByTestId('time-range-start'), {
