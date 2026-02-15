@@ -87,7 +87,7 @@ RUN pnpm --filter @tearleads/shared build && \
 # Use tsconfig.docker.json to exclude test files from type checking
 ARG VITE_API_URL
 ENV VITE_API_URL=${VITE_API_URL}
-RUN cd packages/client && pnpm tsc -p tsconfig.docker.json && cross-env DOTENV_CONFIG_QUIET=true pnpm vite build
+RUN cd packages/client && pnpm tsc -p tsconfig.docker.json && DOTENV_CONFIG_QUIET=true pnpm vite build
 
 # Production stage - nginx
 FROM nginx:alpine
