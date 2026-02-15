@@ -1106,6 +1106,95 @@ describe('VfsBackgroundSyncClient', () => {
     expect(client.exportState()).toEqual(pristineState);
   });
 
+  it('fails closed when hydrating while background flush is active', async () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(new InMemoryVfsCrdtSyncServer()),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    const persisted = client.exportState();
+    client.startBackgroundFlush(50);
+
+    expect(() => client.hydrateState(persisted)).toThrowError(
+      /background flush is active/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message: 'cannot hydrate state while background flush is active'
+    });
+
+    await client.stopBackgroundFlush(false);
+  });
+
+  it('fails closed when hydrating on a non-empty client state', async () => {
+    const guardrailViolations: Array<{
+      code: string;
+      stage: string;
+      message: string;
+    }> = [];
+    const server = new InMemoryVfsCrdtSyncServer();
+    await server.pushOperations({
+      operations: [
+        {
+          opId: 'remote-1',
+          opType: 'acl_add',
+          itemId: 'item-hydrate',
+          replicaId: 'remote',
+          writeId: 1,
+          occurredAt: '2026-02-14T14:20:00.000Z',
+          principalType: 'group',
+          principalId: 'group-1',
+          accessLevel: 'read'
+        }
+      ]
+    });
+
+    const client = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      new InMemoryVfsCrdtSyncTransport(server),
+      {
+        onGuardrailViolation: (violation) => {
+          guardrailViolations.push({
+            code: violation.code,
+            stage: violation.stage,
+            message: violation.message
+          });
+        }
+      }
+    );
+
+    await client.sync();
+    const stateBeforeHydrate = client.exportState();
+    const persisted = client.exportState();
+
+    expect(() => client.hydrateState(persisted)).toThrowError(
+      /non-empty client/
+    );
+    expect(guardrailViolations).toContainEqual({
+      code: 'hydrateGuardrailViolation',
+      stage: 'hydrate',
+      message: 'cannot hydrate state on a non-empty client'
+    });
+    expect(client.exportState()).toEqual(stateBeforeHydrate);
+  });
+
   it('drains queue after idempotent retry when first push fails post-commit', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
     let firstAttempt = true;
