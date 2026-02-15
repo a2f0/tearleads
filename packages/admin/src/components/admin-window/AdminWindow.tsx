@@ -235,21 +235,17 @@ export function AdminWindow({
 
     if (typeof view === 'object' && view.type === 'compliance-doc') {
       return (
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex min-h-0 flex-1 flex-col">
-            <ComplianceDocView
-              frameworkId={view.frameworkId}
-              docPath={view.docPath}
-              onDocSelect={(docPath) =>
-                setView({
-                  type: 'compliance-doc',
-                  frameworkId: view.frameworkId,
-                  docPath
-                })
-              }
-            />
-          </div>
-        </div>
+        <ComplianceDocView
+          frameworkId={view.frameworkId}
+          docPath={view.docPath}
+          onDocSelect={(docPath) =>
+            setView({
+              type: 'compliance-doc',
+              frameworkId: view.frameworkId,
+              docPath
+            })
+          }
+        />
       );
     }
 
