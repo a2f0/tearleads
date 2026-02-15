@@ -61,6 +61,9 @@ compatibility branches that are no longer needed before production.
       migration harnesses where runtime-path tests no longer need it
       (`vfs-test-migrations`, `classic-test-migrations`,
       `contacts-test-migrations`, `trashTestMigrations`).
+- [x] Remove non-migration client runtime/test references to `vfsFolders`
+      (`packages/client/src/db/schema/index.ts`,
+      `packages/client/src/db/adapters/utils.test.ts`).
 - [ ] Collapse migration notes that only existed to support fallback read paths.
 
 ### Slice D: Contract + Docs
