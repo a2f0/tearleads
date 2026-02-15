@@ -61,10 +61,10 @@ compatibility branches that are no longer needed before production.
 
 ### Slice D: Contract + Docs
 
-- [ ] Update schema contract doc to remove compatibility/fallback language.
-- [ ] Update migration runbook to remove post-finalization checks for dropped
+- [x] Update schema contract doc to remove compatibility/fallback language.
+- [x] Update migration runbook to remove post-finalization checks for dropped
       scaffolding snapshots as live requirements.
-- [ ] Add explicit canonical-only guardrail tests for share/explorer SQL
+- [x] Add explicit canonical-only guardrail tests for share/explorer SQL
       surfaces.
 - [x] Remove residual explorer integration-test setup assumptions that inserted
       `vfs_folders` rows purely for fallback behavior checks.
