@@ -11,6 +11,7 @@ import { FOOTER_HEIGHT } from '@/constants/layout';
 import { WINDOW_PATHS } from '@/constants/windowPaths';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useTypedTranslation } from '@/i18n';
+import { isAppFeatureEnabled } from '@/lib/app-config';
 import { cn } from '@/lib/utils';
 import { adminFlyoutItems, debugFlyoutItems, navItems } from './navItems';
 import { SidebarAdminFlyoutMenu } from './SidebarAdminFlyoutMenu';
@@ -65,17 +66,21 @@ export const Sidebar = forwardRef<HTMLElement, SidebarProps>(function Sidebar(
 
   const isDesktop = !isMobile && !isTouchDevice;
 
-  const sidebarItems = useMemo(
-    () =>
-      isDesktop
-        ? navItems.filter(
-            (item) =>
-              item.path !== '/admin/users' &&
-              item.path !== '/admin/organizations'
-          )
-        : navItems,
-    [isDesktop]
-  );
+  const sidebarItems = useMemo(() => {
+    // Filter by enabled features first
+    const featureFiltered = navItems.filter(
+      (item) =>
+        !item.requiredFeature || isAppFeatureEnabled(item.requiredFeature)
+    );
+
+    // Then filter desktop-specific items
+    return isDesktop
+      ? featureFiltered.filter(
+          (item) =>
+            item.path !== '/admin/users' && item.path !== '/admin/organizations'
+        )
+      : featureFiltered;
+  }, [isDesktop]);
 
   const handleClick = useCallback(
     (path: string) => {

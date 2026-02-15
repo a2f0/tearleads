@@ -1,6 +1,9 @@
 /**
- * Empty stub module for disabled packages.
- * When a feature is disabled, its package is aliased to this module.
- * This enables tree-shaking to remove the package code from the bundle.
+ * Stub module for disabled packages.
+ *
+ * NOTE: Package stubbing is now handled dynamically by the `vite-plugin-app-config`
+ * Vite plugin, which uses a Proxy with syntheticNamedExports to create stubs at
+ * build time. This file is kept for backwards compatibility but is no longer
+ * actively used by the main Vite build process.
  */
 export default {};

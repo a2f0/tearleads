@@ -1,5 +1,6 @@
 import type { ComponentType } from 'react';
 import type { MenuKeys } from '@/i18n';
+import type { AppFeature } from '../../../../app-builder/src/types.js';
 
 type IconComponent = ComponentType<{ className?: string }>;
 
@@ -9,6 +10,8 @@ export interface NavItem {
   labelKey: MenuKeys;
   inMobileMenu?: boolean;
   testId?: string;
+  /** Feature required for this nav item to be visible. If undefined, always visible. */
+  requiredFeature?: AppFeature;
 }
 
 export interface AdminFlyoutItem {

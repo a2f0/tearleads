@@ -2,9 +2,13 @@ import path from 'node:path';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { createViteAliases } from './vite.aliases';
+import { createAppConfigPlugin } from './vite-plugin-app-config';
+
+// Initialize app config plugin for virtual module support in tests
+const { plugin: appConfigPlugin } = createAppConfigPlugin(__dirname);
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [appConfigPlugin, react()],
   test: {
     environment: 'jsdom',
     globals: true,
@@ -146,7 +150,11 @@ export default defineConfig({
         // Help.tsx passes callbacks that are never invoked due to HelpLinksGrid
         // rendering different UI based on view (topLevel vs developer). The callbacks
         // for the inactive view cannot be exercised in tests.
-        'src/pages/help/Help.tsx'
+        'src/pages/help/Help.tsx',
+        // App-builder stub module for disabled packages - no behavior to test
+        'src/lib/disabled-package-stub.ts',
+        // App config runtime module - thin wrapper over virtual module
+        'src/lib/app-config.ts'
       ],
       thresholds: {
         // Threshold lowered from 91.5% to 91.4% after camera review feature

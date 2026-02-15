@@ -1,9 +1,11 @@
+// Import config from virtual module provided by vite-plugin-app-config
+import generatedConfig from 'virtual:app-config';
 import type { AppFeature } from '../../../app-builder/src/types.js';
-// Import generated config - Vite handles JSON imports
-import generatedConfig from '../../generated/app-config.json';
 
 /**
- * App configuration injected at build time.
+ * App configuration injected at build time via virtual module.
+ * The actual config is loaded from packages/app-builder/apps/{APP}/config.ts
+ * based on the APP environment variable (defaults to 'tearleads').
  */
 
 interface AppConfigData {
