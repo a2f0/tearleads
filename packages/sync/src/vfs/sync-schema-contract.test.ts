@@ -6,6 +6,7 @@ import { buildVfsSyncQuery } from './sync-engine.js';
 import {
   deriveVfsFlatteningInventory,
   extractPostgresTableNamesFromDrizzleSchema,
+  extractSqliteTableNamesFromDrizzleSchema,
   extractSqlTableReferences,
   findTransitionalTableReferences,
   isSqlReferenceSubsetOfFlattenedContract,
@@ -252,6 +253,28 @@ describe('sync schema contract', () => {
       'utf8'
     );
     const generatedTables = extractPostgresTableNamesFromDrizzleSchema(
+      generatedSchemaSource
+    );
+    const inventory = deriveVfsFlatteningInventory(generatedTables);
+
+    expect(inventory.missingContractTables).toEqual([]);
+    expect(inventory.transitionalVfsTables).toEqual([]);
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_shares');
+    expect(inventory.transitionalVfsTables).not.toContain('org_shares');
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_access');
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_folders');
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_objects');
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_refs');
+    expect(inventory.transitionalVfsTables).not.toContain('vfs_blob_staging');
+  });
+
+  it('remains compatible with generated SQLite schema and excludes retired transitional VFS tables', () => {
+    const syncPackageRoot = process.cwd();
+    const generatedSchemaSource = readFileSync(
+      resolve(syncPackageRoot, '../db/src/generated/sqlite/schema.ts'),
+      'utf8'
+    );
+    const generatedTables = extractSqliteTableNamesFromDrizzleSchema(
       generatedSchemaSource
     );
     const inventory = deriveVfsFlatteningInventory(generatedTables);
