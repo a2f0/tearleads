@@ -1184,6 +1184,8 @@ describe('VfsBackgroundSyncClient', () => {
       string,
       { changedAt: string; changeId: string }
     >();
+    let restartHydrateCount = 0;
+    let restartFloorChecks = 0;
     const assertReplayCursorMonotonic = (clientId: string): void => {
       const cursor = getClient(clientId).exportState().replaySnapshot.cursor;
       const previousCursor = lastReplayCursorByClient.get(clientId);
@@ -1200,6 +1202,7 @@ describe('VfsBackgroundSyncClient', () => {
       }
 
       if (restartFloorCursor && cursor) {
+        restartFloorChecks += 1;
         expect(
           compareVfsSyncCursorOrder(cursor, restartFloorCursor)
         ).toBeGreaterThanOrEqual(0);
@@ -1253,6 +1256,7 @@ describe('VfsBackgroundSyncClient', () => {
           const restartedClient = createClient(restartClientId);
           restartedClient.hydrateState(persistedState);
           clientsByClient.set(restartClientId, restartedClient);
+          restartHydrateCount += 1;
           assertReplayCursorMonotonic(restartClientId);
         }
       }
@@ -1316,6 +1320,28 @@ describe('VfsBackgroundSyncClient', () => {
         assertReplayCursorMonotonic(clientId);
       }
     }
+
+    if (restartHydrateCount === 0) {
+      const forcedRestartClientId = 'desktop';
+      const forcedRestartClient = getClient(forcedRestartClientId);
+      await forcedRestartClient.flush();
+      const persistedState = forcedRestartClient.exportState();
+      const persistedCursor = persistedState.replaySnapshot.cursor;
+      if (persistedCursor) {
+        restartCursorFloorByClient.set(forcedRestartClientId, {
+          changedAt: persistedCursor.changedAt,
+          changeId: persistedCursor.changeId
+        });
+      }
+      const restartedClient = createClient(forcedRestartClientId);
+      restartedClient.hydrateState(persistedState);
+      clientsByClient.set(forcedRestartClientId, restartedClient);
+      restartHydrateCount += 1;
+      assertReplayCursorMonotonic(forcedRestartClientId);
+    }
+
+    expect(restartHydrateCount).toBeGreaterThan(0);
+    expect(restartFloorChecks).toBeGreaterThan(0);
 
     const finalClients = clientIds.map((clientId) => getClient(clientId));
     await Promise.all(finalClients.map((client) => client.flush()));
