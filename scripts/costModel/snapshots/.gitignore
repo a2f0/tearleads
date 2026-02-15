@@ -1,0 +1,3 @@
+# Keep snapshot JSON files local (may contain sensitive cost data)
+*.json
+!.gitignore
