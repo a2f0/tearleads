@@ -40,10 +40,33 @@ describe('VFS canonical share-query guardrails', () => {
     }
   });
 
+  it('runtime share paths do not reference legacy orgShares/vfsAccess symbols', () => {
+    for (const relativePath of CANONICAL_SHARE_RUNTIME_PATHS) {
+      const source = loadSource(relativePath);
+      expect(source).not.toMatch(/\borgShares\b/u);
+      expect(source).not.toMatch(/\bvfsAccess\b/u);
+    }
+  });
+
   it('runtime share paths do not reference retired vfs_shares table', () => {
     for (const relativePath of CANONICAL_SHARE_RUNTIME_PATHS) {
       const source = loadSource(relativePath);
       expect(source).not.toMatch(/\bvfs_shares\b/u);
+    }
+  });
+
+  it('runtime share paths do not reference retired org_shares/vfs_access tables', () => {
+    for (const relativePath of CANONICAL_SHARE_RUNTIME_PATHS) {
+      const source = loadSource(relativePath);
+      expect(source).not.toMatch(/\borg_shares\b/u);
+      expect(source).not.toMatch(/\bvfs_access\b/u);
+    }
+  });
+
+  it('runtime share paths require canonical vfsAclEntries symbol', () => {
+    for (const relativePath of CANONICAL_SHARE_RUNTIME_PATHS) {
+      const source = loadSource(relativePath);
+      expect(source).toMatch(/\bvfsAclEntries\b/u);
     }
   });
 });
