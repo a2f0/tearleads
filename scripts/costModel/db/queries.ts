@@ -80,7 +80,17 @@ export async function getAiUsageSummary(
     ORDER BY "totalTokens" DESC
   `;
 
-  return query<AiUsageSummary>(sql, [startDate, endDate]);
+  const results = await query<Record<string, unknown>>(sql, [startDate, endDate]);
+  return results.map((row) => ({
+    organizationId: row.organizationId as string | null,
+    organizationName: row.organizationName as string | null,
+    totalPromptTokens: parseInt(row.totalPromptTokens as string, 10),
+    totalCompletionTokens: parseInt(row.totalCompletionTokens as string, 10),
+    totalTokens: parseInt(row.totalTokens as string, 10),
+    requestCount: parseInt(row.requestCount as string, 10),
+    periodStart: row.periodStart as Date,
+    periodEnd: row.periodEnd as Date,
+  }));
 }
 
 /**
@@ -95,10 +105,16 @@ export async function getUserCountSummary(): Promise<UserCountSummary> {
     FROM users
   `;
 
-  const results = await query<UserCountSummary>(sql);
-  return (
-    results[0] ?? { totalUsers: 0, activeUsers: 0, disabledUsers: 0 }
-  );
+  const results = await query<Record<string, string>>(sql);
+  const row = results[0];
+  if (!row) {
+    return { totalUsers: 0, activeUsers: 0, disabledUsers: 0 };
+  }
+  return {
+    totalUsers: parseInt(row.totalUsers, 10),
+    activeUsers: parseInt(row.activeUsers, 10),
+    disabledUsers: parseInt(row.disabledUsers, 10),
+  };
 }
 
 /**
@@ -118,5 +134,10 @@ export async function getSubscriptionsByProduct(): Promise<
     ORDER BY "count" DESC
   `;
 
-  return query(sql);
+  const results = await query<Record<string, string>>(sql);
+  return results.map((row) => ({
+    productId: row.productId,
+    status: row.status,
+    count: parseInt(row.count, 10),
+  }));
 }

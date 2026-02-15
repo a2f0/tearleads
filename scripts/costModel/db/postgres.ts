@@ -82,8 +82,8 @@ export async function query<T extends Record<string, unknown>>(
 ): Promise<T[]> {
   const client = await getPool().connect();
   try {
-    // Ensure read-only transaction
-    await client.query('SET TRANSACTION READ ONLY');
+    // Ensure read-only for the entire session on this client
+    await client.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
     const result = await client.query(sql, params);
     return result.rows as T[];
   } finally {

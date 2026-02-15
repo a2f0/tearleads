@@ -158,30 +158,14 @@ function estimateCosts(): {
     azure: 0,
   };
 
-  // Process Hetzner resources (terraform/ directory)
-  for (const tf of tfResources.hetzner) {
-    const cost = calculateResourceCost(tf.type, tf.attributes, tf.sourceFile);
-    if (cost) {
-      resources.push(cost);
-      providerTotals[cost.provider] += cost.monthlyCostUsd;
-    }
-  }
-
-  // Process Tuxedo resources (also Hetzner)
-  for (const tf of tfResources.tuxedo) {
-    const cost = calculateResourceCost(tf.type, tf.attributes, tf.sourceFile);
-    if (cost) {
-      resources.push(cost);
-      providerTotals[cost.provider] += cost.monthlyCostUsd;
-    }
-  }
-
-  // Process Azure resources (tee/ directory)
-  for (const tf of tfResources.azure) {
-    const cost = calculateResourceCost(tf.type, tf.attributes, tf.sourceFile);
-    if (cost) {
-      resources.push(cost);
-      providerTotals[cost.provider] += cost.monthlyCostUsd;
+  // Process all terraform resources (hetzner, tuxedo, azure directories)
+  for (const tfResourceList of Object.values(tfResources)) {
+    for (const tf of tfResourceList) {
+      const cost = calculateResourceCost(tf.type, tf.attributes, tf.sourceFile);
+      if (cost) {
+        resources.push(cost);
+        providerTotals[cost.provider] += cost.monthlyCostUsd;
+      }
     }
   }
 
@@ -250,16 +234,12 @@ function listSnapshots(): string[] {
 }
 
 /**
- * Check database credentials before running db-dependent commands
+ * Check database credentials before running db-dependent commands.
+ * Uses checkPostgresEnvVars from db/postgres.ts via dynamic import.
  */
-function checkDbEnvVars(): { valid: boolean; missing: string[] } {
-  const required = ['POSTGRES_READ_ONLY_PASSWORD', 'POSTGRES_DATABASE'];
-  const missing = required.filter((key) => !process.env[key]);
-  return { valid: missing.length === 0, missing };
-}
-
-function requireDbCredentials(): void {
-  const { valid, missing } = checkDbEnvVars();
+async function requireDbCredentials(): Promise<void> {
+  const db = (await import('./db/postgres')) as DbModule;
+  const { valid, missing } = db.checkPostgresEnvVars();
   if (!valid) {
     console.error('Missing required environment variables:');
     for (const key of missing) {
@@ -418,9 +398,9 @@ async function main(): Promise<void> {
     }
 
     case 'billing': {
-      requireDbCredentials();
-
       // Dynamic import to avoid loading pg when not needed
+      // requireDbCredentials also imports db/postgres dynamically
+      await requireDbCredentials();
       const db = (await import('./db/postgres')) as DbModule;
       const queries = (await import('./db/queries')) as QueriesModule;
 
