@@ -149,6 +149,26 @@ describe('acl-first share authorization context', () => {
     ).resolves.toBeNull();
   });
 
+  it('accepts owner-only compatibility rows when explicitly enabled', async () => {
+    const query = vi.fn().mockResolvedValueOnce({
+      rows: [{ owner_id: 'owner-1' }]
+    });
+
+    await expect(
+      loadShareAuthorizationContext({ query }, 'share-1', {
+        allowOwnerOnlyMockRow: true
+      })
+    ).resolves.toEqual({
+      ownerId: 'owner-1',
+      itemId: '',
+      shareType: 'user',
+      targetId: '',
+      accessLevel: 'read',
+      source: 'legacy'
+    });
+    expect(query).toHaveBeenCalledTimes(1);
+  });
+
   it('throws on unsupported canonical ACL access levels', async () => {
     const query = vi.fn().mockResolvedValueOnce({
       rows: [

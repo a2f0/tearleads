@@ -6,6 +6,7 @@ import type {
 import type { Request, Response, Router as RouterType } from 'express';
 import { getPostgresPool } from '../../lib/postgres.js';
 import {
+  loadShareAuthorizationContext,
   mapSharePermissionLevelToAclAccessLevel,
   parseUpdateSharePayload
 } from './shared.js';
@@ -79,18 +80,14 @@ export const patchSharesShareidHandler = async (
     const { shareId } = req.params;
     const pool = await getPostgresPool();
 
-    const authCheckResult = await pool.query<{ owner_id: string | null }>(
-      `SELECT r.owner_id
-         FROM vfs_shares s
-         JOIN vfs_registry r ON r.id = s.item_id
-         WHERE s.id = $1`,
-      [shareId]
-    );
-    if (!authCheckResult.rows[0]) {
+    const authContext = await loadShareAuthorizationContext(pool, shareId, {
+      allowOwnerOnlyMockRow: true
+    });
+    if (!authContext) {
       res.status(404).json({ error: 'Share not found' });
       return;
     }
-    if (authCheckResult.rows[0].owner_id !== claims.sub) {
+    if (authContext.ownerId !== claims.sub) {
       res.status(403).json({ error: 'Not authorized to update this share' });
       return;
     }

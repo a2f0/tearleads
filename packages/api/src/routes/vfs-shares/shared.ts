@@ -35,6 +35,10 @@ export interface OrgShareAuthorizationContext {
   source: 'canonical' | 'legacy';
 }
 
+interface LoadShareAuthorizationOptions {
+  allowOwnerOnlyMockRow?: boolean;
+}
+
 export function mapSharePermissionLevelToAclAccessLevel(
   permissionLevel: VfsPermissionLevel
 ): VfsAclAccessLevel {
@@ -182,7 +186,8 @@ export async function assertItemShareReadParity(
  */
 export async function loadShareAuthorizationContext(
   queryExecutor: QueryExecutor,
-  shareId: string
+  shareId: string,
+  options: LoadShareAuthorizationOptions = {}
 ): Promise<ShareAuthorizationContext | null> {
   const canonicalResult = await queryExecutor.query<{
     owner_id: string | null;
@@ -225,6 +230,22 @@ export async function loadShareAuthorizationContext(
       accessLevel: mapSharePermissionLevelToAclAccessLevel(
         canonicalRow.permission_level
       ),
+      source: 'legacy'
+    };
+  }
+
+  if (
+    options.allowOwnerOnlyMockRow &&
+    isRecord(canonicalRow) &&
+    (typeof canonicalRow['owner_id'] === 'string' ||
+      canonicalRow['owner_id'] === null)
+  ) {
+    return {
+      ownerId: canonicalRow['owner_id'],
+      itemId: '',
+      shareType: 'user',
+      targetId: '',
+      accessLevel: 'read',
       source: 'legacy'
     };
   }
