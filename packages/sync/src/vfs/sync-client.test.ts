@@ -2224,6 +2224,113 @@ describe('VfsBackgroundSyncClient', () => {
     }
   });
 
+  it('reused mixed acl+link cursor excludes boundary rows and returns strict-forward updates', async () => {
+    const server = new InMemoryVfsCrdtSyncServer();
+    const desktopTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 3,
+      pullDelayMs: 3
+    });
+    const mobileTransport = new InMemoryVfsCrdtSyncTransport(server, {
+      pushDelayMs: 2,
+      pullDelayMs: 4
+    });
+
+    const desktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      { pullLimit: 2 }
+    );
+    const mobile = new VfsBackgroundSyncClient(
+      'user-1',
+      'mobile',
+      mobileTransport,
+      { pullLimit: 1 }
+    );
+
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-mix-a',
+      principalType: 'group',
+      principalId: 'group-1',
+      accessLevel: 'read',
+      occurredAt: '2026-02-14T14:30:00.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'link_add',
+      itemId: 'item-mix-link',
+      parentId: 'root',
+      childId: 'item-mix-link',
+      occurredAt: '2026-02-14T14:30:01.000Z'
+    });
+    await mobile.flush();
+    await desktop.sync();
+
+    const seedPage = desktop.listChangedContainers(null, 10);
+    const seedCursor = seedPage.nextCursor;
+    if (!seedCursor) {
+      throw new Error('expected mixed pre-restart seed cursor');
+    }
+
+    const resumedDesktop = new VfsBackgroundSyncClient(
+      'user-1',
+      'desktop',
+      desktopTransport,
+      { pullLimit: 2 }
+    );
+    resumedDesktop.hydrateState(desktop.exportState());
+
+    const emptyPage = resumedDesktop.listChangedContainers(seedCursor, 10);
+    expect(emptyPage).toEqual({
+      items: [],
+      hasMore: false,
+      nextCursor: null
+    });
+
+    mobile.queueLocalOperation({
+      opType: 'acl_add',
+      itemId: 'item-mix-b',
+      principalType: 'organization',
+      principalId: 'org-1',
+      accessLevel: 'write',
+      occurredAt: '2026-02-14T14:30:02.000Z'
+    });
+    mobile.queueLocalOperation({
+      opType: 'link_remove',
+      itemId: 'item-mix-link',
+      parentId: 'root',
+      childId: 'item-mix-link',
+      occurredAt: '2026-02-14T14:30:03.000Z'
+    });
+    await mobile.flush();
+    await resumedDesktop.sync();
+
+    const forwardPage = resumedDesktop.listChangedContainers(seedCursor, 10);
+    expect(forwardPage.items).toContainEqual({
+      containerId: 'item-mix-b',
+      changedAt: '2026-02-14T14:30:02.000Z',
+      changeId: 'mobile-3'
+    });
+    expect(forwardPage.items).toContainEqual({
+      containerId: 'root',
+      changedAt: '2026-02-14T14:30:03.000Z',
+      changeId: 'mobile-4'
+    });
+
+    for (const item of forwardPage.items) {
+      expect(
+        compareVfsSyncCursorOrder(
+          {
+            changedAt: item.changedAt,
+            changeId: item.changeId
+          },
+          seedCursor
+        )
+      ).toBeGreaterThan(0);
+      expect(item.changeId).not.toBe(seedCursor.changeId);
+    }
+  });
+
   it('fails closed when hydrating on a non-empty client state', async () => {
     const guardrailViolations: Array<{
       code: string;
