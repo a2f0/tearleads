@@ -22,9 +22,7 @@ export function DebugWindowMenuBar({
           <WindowOptionsMenuItem />
         </DropdownMenu>
       </div>
-      <WindowControlBar>
-        <div data-testid="debug-window-controls">{controls}</div>
-      </WindowControlBar>
+      <WindowControlBar>{controls}</WindowControlBar>
     </div>
   );
 }

@@ -77,7 +77,6 @@ describe('DebugWindowMenuBar', () => {
         controls={<button type="button">Back</button>}
       />
     );
-    expect(screen.getByTestId('debug-window-controls')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Back' })).toBeInTheDocument();
   });
 });

@@ -33,14 +33,17 @@ interface DebugWindowProps {
   initialDimensions?: WindowDimensions | undefined;
 }
 
+const VIEW_TITLES: Record<DebugView, string> = {
+  index: 'Debug',
+  'system-info': 'System Info',
+  browser: 'Browser',
+  'local-storage': 'Local Storage',
+  opfs: 'OPFS',
+  'cache-storage': 'Cache Storage'
+};
+
 function getViewTitle(view: DebugView): string {
-  if (view === 'index') return 'Debug';
-  if (view === 'system-info') return 'System Info';
-  if (view === 'browser') return 'Browser';
-  if (view === 'local-storage') return 'Local Storage';
-  if (view === 'opfs') return 'OPFS';
-  if (view === 'cache-storage') return 'Cache Storage';
-  return 'Debug';
+  return VIEW_TITLES[view] ?? 'Debug';
 }
 
 export function DebugWindow({
@@ -98,64 +101,54 @@ export function DebugWindow({
   };
 
   const renderContent = () => {
-    if (view === 'index') {
-      return (
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <Bug className="h-8 w-8 text-muted-foreground" />
-            <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
+    switch (view) {
+      case 'index':
+        return (
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <Bug className="h-8 w-8 text-muted-foreground" />
+              <h1 className="font-bold text-2xl tracking-tight">Debug</h1>
+            </div>
+            <DebugOptionsGrid onSelect={handleOptionSelect} />
           </div>
-          <DebugOptionsGrid onSelect={handleOptionSelect} />
-        </div>
-      );
-    }
-
-    if (view === 'system-info') {
-      return <Debug showTitle={true} />;
-    }
-
-    if (view === 'browser') {
-      return (
-        <div className="space-y-6">
-          <h1 className="font-bold text-2xl tracking-tight">Browser</h1>
-          <div className="grid grid-cols-2 gap-2 sm:max-w-md lg:grid-cols-3">
-            <IconSquare
-              icon={Database}
-              label="Local Storage"
-              onClick={() => setView('local-storage')}
-              data-testid="debug-browser-local-storage"
-            />
-            <IconSquare
-              icon={HardDrive}
-              label="OPFS"
-              onClick={() => setView('opfs')}
-              data-testid="debug-browser-opfs"
-            />
-            <IconSquare
-              icon={Archive}
-              label="Cache Storage"
-              onClick={() => setView('cache-storage')}
-              data-testid="debug-browser-cache-storage"
-            />
+        );
+      case 'system-info':
+        return <Debug showTitle={true} />;
+      case 'browser':
+        return (
+          <div className="space-y-6">
+            <h1 className="font-bold text-2xl tracking-tight">Browser</h1>
+            <div className="grid grid-cols-2 gap-2 sm:max-w-md lg:grid-cols-3">
+              <IconSquare
+                icon={Database}
+                label="Local Storage"
+                onClick={() => setView('local-storage')}
+                data-testid="debug-browser-local-storage"
+              />
+              <IconSquare
+                icon={HardDrive}
+                label="OPFS"
+                onClick={() => setView('opfs')}
+                data-testid="debug-browser-opfs"
+              />
+              <IconSquare
+                icon={Archive}
+                label="Cache Storage"
+                onClick={() => setView('cache-storage')}
+                data-testid="debug-browser-cache-storage"
+              />
+            </div>
           </div>
-        </div>
-      );
+        );
+      case 'local-storage':
+        return <LocalStorage showBackLink={false} />;
+      case 'opfs':
+        return <Opfs showBackLink={false} />;
+      case 'cache-storage':
+        return <CacheStorage showBackLink={false} />;
+      default:
+        return null;
     }
-
-    // Browser sub-views
-    if (view === 'local-storage') {
-      return <LocalStorage showBackLink={false} />;
-    }
-
-    if (view === 'opfs') {
-      return <Opfs showBackLink={false} />;
-    }
-
-    if (view === 'cache-storage') {
-      return <CacheStorage showBackLink={false} />;
-    }
-
-    return null;
   };
 
   return (
