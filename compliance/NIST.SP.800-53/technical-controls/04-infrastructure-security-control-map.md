@@ -8,12 +8,13 @@ This map ties infrastructure security policy controls to concrete implementation
 | --- | --- | --- | --- | --- |
 | `TL-NINFRA-004` | AC-17, IA-2, IA-5 | SSH hardening with key-only auth, modern ciphers | `ansible/playbooks/templates/sshd_config.j2` | `ssh user@host 'grep -E "^(PermitRootLogin\|PasswordAuthentication)" /etc/ssh/sshd_config'` |
 | `TL-NNET-003` | SC-7 | UFW host firewall with default-deny incoming | `ansible/playbooks/main.yml` (UFW tasks) | `ssh user@host 'sudo ufw status verbose'` |
-| `TL-NNET-004` | SC-7 | Hetzner Cloud firewall with explicit port rules | `terraform/main.tf` (hcloud_firewall) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "hcloud_firewall")'` |
+| `TL-NNET-004` | SC-7 | Hetzner Cloud firewall with explicit port rules | `terraform/modules/hetzner-server/main.tf` (hcloud_firewall) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "hcloud_firewall")'` |
+| `TL-NET-006` | SC-7 | Cloudflare Tunnel isolation for inbound traffic | `terraform/modules/cloudflare-tunnel/main.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "cloudflare_tunnel")'` |
 | `TL-NKERN-001` | SC-5, SI-16 | Kernel sysctl hardening (ASLR, rp_filter, syncookies) | `ansible/playbooks/templates/99-security-hardening.conf.j2` | `ssh user@host 'sysctl kernel.randomize_va_space net.ipv4.tcp_syncookies'` |
 | `TL-NAUTH-001` | AC-7 | Fail2ban SSH jail with progressive bans | `ansible/playbooks/templates/fail2ban-sshd.conf.j2` | `ssh user@host 'sudo fail2ban-client status sshd'` |
 | `TL-NSVC-001` | SC-7, AC-6 | API service systemd sandboxing | `ansible/playbooks/templates/tearleads-api.service.j2` | `ssh user@host 'systemctl show tearleads-api --property=NoNewPrivileges,ProtectSystem'` |
 | `TL-NSVC-002` | SC-7, AC-6 | SMTP service systemd sandboxing with CAP_NET_BIND | `ansible/playbooks/templates/tearleads-smtp-listener.service.j2` | `ssh user@host 'systemctl show tearleads-smtp-listener --property=AmbientCapabilities'` |
-| `TL-NCRYPTO-005` | SC-12 | Key Vault purge protection and soft-delete | `tee/kms.tf`, `tee/versions.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "azurerm_key_vault") \| .values.purge_protection_enabled'` |
+| `TL-NCRYPTO-005` | SC-12 | Key Vault purge protection and soft-delete | `terraform/stacks/*/tee/versions.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "azurerm_key_vault") \| .values.purge_protection_enabled'` |
 
 ## NIST Control Family Mapping
 
@@ -78,7 +79,7 @@ This map ties infrastructure security policy controls to concrete implementation
 **Implementation:**
 
 - `ansible/playbooks/main.yml` - UFW configuration
-- `terraform/main.tf` - Hetzner Cloud firewall
+- `terraform/modules/hetzner-server/main.tf` - Hetzner Cloud firewall
 
 **Key Configuration:**
 
@@ -149,8 +150,8 @@ This map ties infrastructure security policy controls to concrete implementation
 
 **Implementation:**
 
-- `tee/kms.tf` - Azure Key Vault configuration
-- `tee/versions.tf` - Provider settings
+- `terraform/modules/azure-tee/main.tf` - Azure Key Vault configuration
+- `terraform/stacks/*/tee/versions.tf` - Provider settings enabling protection features
 
 **Key Configuration:**
 

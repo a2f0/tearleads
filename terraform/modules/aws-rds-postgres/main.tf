@@ -1,3 +1,4 @@
+# COMPLIANCE_SENTINEL: TL-NET-005 | control=database-network-isolation
 # Security group for RDS
 resource "aws_security_group" "rds" {
   name        = "${var.identifier}-rds-sg"
@@ -34,6 +35,9 @@ resource "aws_db_subnet_group" "main" {
   })
 }
 
+# COMPLIANCE_SENTINEL: TL-DB-001 | control=database-encryption
+# COMPLIANCE_SENTINEL: TL-DB-002 | control=database-backups
+# COMPLIANCE_SENTINEL: TL-DB-003 | control=database-deletion-protection
 # RDS PostgreSQL instance
 resource "aws_db_instance" "main" {
   identifier = var.identifier

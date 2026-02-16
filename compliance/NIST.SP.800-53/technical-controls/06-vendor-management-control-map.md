@@ -7,8 +7,8 @@ This map ties vendor management policy controls to NIST SP 800-53 requirements a
 | Sentinel | Description | NIST Controls | Implementation Evidence |
 | --- | --- | --- | --- |
 | `TL-VENDOR-001` | External services inventory | SA-9, PM-30 | `compliance/vendor-registry.md` |
-| `TL-VENDOR-002` | Hetzner Cloud controls | SA-9, SC-7 | `terraform/main.tf`, `ansible/playbooks/main.yml` |
-| `TL-VENDOR-003` | Azure TEE controls | SA-9, SC-28, SI-7 | `tee/compute.tf`, `tee/kms.tf` |
+| `TL-VENDOR-002` | Hetzner Cloud controls | SA-9, SC-7 | `terraform/modules/hetzner-server/main.tf`, `ansible/playbooks/main.yml` |
+| `TL-VENDOR-003` | Azure TEE controls | SA-9, SC-28, SI-7 | `terraform/modules/azure-tee/main.tf` |
 | `TL-VENDOR-004` | Let's Encrypt controls | SC-8, SC-13 | `ansible/playbooks/main.yml` |
 | `TL-VENDOR-005` | GitHub controls | SA-9, CM-3 | `.github/workflows/` |
 | `TL-VENDOR-006` | RevenueCat controls | SA-9, SC-8 | `packages/api/src/lib/revenuecat.ts` |
@@ -59,11 +59,11 @@ This map ties vendor management policy controls to NIST SP 800-53 requirements a
 
 | File | Vendor | Controls |
 | --- | --- | --- |
-| `terraform/main.tf` | Hetzner | Network boundary, access control |
-| `terraform/dns.tf` | Hetzner | DNS security |
-| `tee/compute.tf` | Azure | Confidential computing |
-| `tee/kms.tf` | Azure | Key management |
-| `tee/network.tf` | Azure | Network security |
+| `terraform/modules/hetzner-server/main.tf` | Hetzner | Network boundary, access control |
+| `terraform/modules/hetzner-dns/main.tf` | Hetzner | DNS security |
+| `terraform/modules/azure-tee/main.tf` | Azure | Confidential computing |
+| `terraform/modules/azure-tee/main.tf` | Azure | Key management |
+| `terraform/modules/azure-tee/main.tf` | Azure | Network security |
 
 ### Platform Service Vendors (SA-9, SC-8)
 
@@ -88,7 +88,7 @@ This map ties vendor management policy controls to NIST SP 800-53 requirements a
 cat compliance/vendor-registry.md | grep "^### "
 
 # Check infrastructure security controls
-grep -r "TL-INFRA\|TL-NET\|TL-CRYPTO" terraform/ tee/
+grep -r "TL-INFRA\|TL-NET\|TL-CRYPTO" terraform/modules/
 
 # Verify API security implementations
 grep -r "verify\|sign\|auth" packages/api/src/lib/

@@ -59,8 +59,8 @@
 grep -r "hcloud_ssh_key" terraform/
 
 # Azure TEE infrastructure (verify confidential VM and RBAC)
-grep -r "confidential_vm" tee/compute.tf
-grep -r "rbac_authorization_enabled = true" tee/kms.tf
+grep -r "confidential_vm" terraform/modules/azure-tee/
+grep -r "rbac_authorization_enabled = true" terraform/modules/azure-tee/
 
 # Ansible server configuration (verify security settings)
 grep -r "PermitRootLogin no" ansible/playbooks/main.yml

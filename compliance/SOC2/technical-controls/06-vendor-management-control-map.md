@@ -7,8 +7,8 @@ This map ties vendor management policy controls to concrete implementation and e
 | Sentinel | Description | Implementation Evidence | Review Evidence |
 | --- | --- | --- | --- |
 | `TL-VENDOR-001` | Vendor inventory maintenance | `compliance/vendor-registry.md` | Quarterly review logs |
-| `TL-VENDOR-002` | Hetzner Cloud vendor controls | `terraform/main.tf`, `terraform/dns.tf`, `ansible/playbooks/main.yml` | Terraform state, SSH audit |
-| `TL-VENDOR-003` | Microsoft Azure vendor controls | `tee/compute.tf`, `tee/kms.tf`, `tee/network.tf`, `tee/iam.tf` | Azure compliance portal |
+| `TL-VENDOR-002` | Hetzner Cloud vendor controls | `terraform/modules/hetzner-server/main.tf`, `terraform/modules/hetzner-dns/main.tf`, `ansible/playbooks/main.yml` | Terraform state, SSH audit |
+| `TL-VENDOR-003` | Microsoft Azure vendor controls | `terraform/modules/azure-tee/main.tf` | Azure compliance portal |
 | `TL-VENDOR-004` | Let's Encrypt vendor controls | `ansible/playbooks/main.yml` (certbot tasks) | Certificate transparency logs |
 | `TL-VENDOR-005` | GitHub vendor controls | `.github/workflows/`, repository settings | GitHub audit log |
 | `TL-VENDOR-006` | RevenueCat vendor controls | `packages/api/src/lib/revenuecat.ts`, `packages/api/src/routes/revenuecat/` | Webhook test suite |
@@ -26,20 +26,20 @@ This map ties vendor management policy controls to concrete implementation and e
 
 | File | Control | Description |
 | --- | --- | --- |
-| `terraform/main.tf` | SSH key authentication | SSH key-only access via `hcloud_ssh_key` |
-| `terraform/main.tf` | Server hardening | Cloud-init with root disabled, non-root user |
-| `terraform/dns.tf` | DNS management | Hetzner DNS zone configuration |
-| `terraform/outputs.tf` | Resource tracking | Server IP and resource outputs |
+| `terraform/modules/hetzner-server/main.tf` | SSH key authentication | SSH key-only access via `hcloud_ssh_key` |
+| `terraform/modules/hetzner-server/main.tf` | Server hardening | Cloud-init with root disabled, non-root user |
+| `terraform/modules/hetzner-dns/main.tf` | DNS management | Hetzner DNS zone configuration |
+| `terraform/stacks/*/outputs.tf` | Resource tracking | Server IP and resource outputs |
 | `ansible/playbooks/main.yml` | Server configuration | nginx, PostgreSQL, Redis, API services |
 
 ### Microsoft Azure (`TL-VENDOR-003`)
 
 | File | Control | Description |
 | --- | --- | --- |
-| `tee/compute.tf` | Confidential VM | AMD SEV-SNP, vTPM, Secure Boot |
-| `tee/kms.tf` | Key Vault | RBAC authorization, secrets management |
-| `tee/network.tf` | Network security | NSG with deny-by-default, explicit allows |
-| `tee/iam.tf` | Identity management | User-assigned managed identity |
+| `terraform/modules/azure-tee/main.tf` | Confidential VM | AMD SEV-SNP, vTPM, Secure Boot |
+| `terraform/modules/azure-tee/main.tf` | Key Vault | RBAC authorization, secrets management |
+| `terraform/modules/azure-tee/main.tf` | Network security | NSG with deny-by-default, explicit allows |
+| `terraform/modules/azure-tee/main.tf` | Identity management | User-assigned managed identity |
 
 ### GitHub (`TL-VENDOR-005`)
 
@@ -110,10 +110,10 @@ This map ties vendor management policy controls to concrete implementation and e
 cat compliance/vendor-registry.md | grep -c "^###"
 
 # Check Hetzner Terraform configuration
-terraform -chdir=terraform show -json 2>/dev/null | jq '.values.root_module.resources[] | select(.type | startswith("hcloud"))' || echo "Run terraform init first"
+terraform -chdir=terraform/stacks/prod/k8s show -json 2>/dev/null | jq '.values.root_module.resources[] | select(.type | startswith("hcloud"))' || echo "Run terraform init first"
 
 # Check Azure Terraform configuration
-terraform -chdir=tee show -json 2>/dev/null | jq '.values.root_module.resources[] | select(.type | startswith("azurerm"))' || echo "Run terraform init first"
+terraform -chdir=terraform/stacks/prod/tee show -json 2>/dev/null | jq '.values.root_module.resources[] | select(.type | startswith("azurerm"))' || echo "Run terraform init first"
 
 # Verify RevenueCat integration tests pass
 pnpm --filter @tearleads/api test -- src/routes/revenuecat.test.ts

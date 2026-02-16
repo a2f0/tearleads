@@ -42,6 +42,7 @@ resource "aws_s3_bucket_public_access_block" "terraform_state" {
   restrict_public_buckets = true
 }
 
+# COMPLIANCE_SENTINEL: TL-DR-002 | control=state-locking
 # DynamoDB table for state locking
 resource "aws_dynamodb_table" "terraform_locks" {
   name         = var.dynamodb_table_name

@@ -60,8 +60,8 @@ This document maintains a centralized inventory of all third-party vendors with 
 - **Data Processed**: Application logs, system metrics, network traffic metadata
 - **Data Residency**: EU (Germany/Finland)
 - **Infrastructure Files**:
-  - `terraform/main.tf` - VM provisioning
-  - `terraform/dns.tf` - DNS configuration
+  - `terraform/modules/hetzner-server/` - VM provisioning
+  - `terraform/modules/hetzner-dns/` - DNS configuration
   - `ansible/playbooks/main.yml` - Server configuration
 - **Compliance Certifications**: ISO 27001, SOC 2 Type II, GDPR compliant
 - **Security Controls**: SSH key-only authentication, firewall rules, encrypted storage
@@ -79,10 +79,8 @@ This document maintains a centralized inventory of all third-party vendors with 
 - **Data Processed**: Encrypted workloads, attestation data, sealed keys
 - **Data Residency**: Configurable (US East by default)
 - **Infrastructure Files**:
-  - `tee/compute.tf` - Confidential VM provisioning
-  - `tee/kms.tf` - Azure Key Vault configuration
-  - `tee/network.tf` - Network security groups
-  - `tee/iam.tf` - Identity and access management
+  - `terraform/modules/azure-tee/` - Modular TEE provisioning (VM, KV, Network)
+  - `terraform/stacks/*/tee/` - Environment-specific TEE stacks
 - **Compliance Certifications**: SOC 2 Type II, ISO 27001, HIPAA, FedRAMP
 - **Security Controls**: AMD SEV-SNP hardware attestation, Key Vault RBAC, managed identity
 - **Contract Terms**: Microsoft Customer Agreement

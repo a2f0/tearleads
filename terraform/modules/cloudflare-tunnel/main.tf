@@ -8,6 +8,7 @@ resource "random_id" "tunnel_secret" {
   byte_length = 32
 }
 
+# COMPLIANCE_SENTINEL: TL-NET-006 | control=cloudflare-tunnel-isolation
 # Create the tunnel
 resource "cloudflare_tunnel" "main" {
   account_id = var.account_id

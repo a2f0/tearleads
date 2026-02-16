@@ -138,6 +138,8 @@ resource "aws_iam_access_key" "ci" {
   user = aws_iam_user.ci.name
 }
 
+# COMPLIANCE_SENTINEL: TL-CR-001 | control=container-registry
+# COMPLIANCE_SENTINEL: TL-CR-002 | control=container-image-scanning
 # ECR repositories
 resource "aws_ecr_repository" "repos" {
   for_each = toset(var.ecr_repositories)
@@ -159,6 +161,7 @@ resource "aws_ecr_repository" "repos" {
   })
 }
 
+# COMPLIANCE_SENTINEL: TL-CR-004 | control=container-lifecycle
 # ECR lifecycle policy to limit stored images
 resource "aws_ecr_lifecycle_policy" "repos" {
   for_each   = var.ecr_lifecycle_max_images > 0 ? toset(var.ecr_repositories) : toset([])

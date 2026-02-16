@@ -6,10 +6,10 @@ This map ties audit logging policy controls to concrete implementation and test 
 
 | Sentinel | NIST Control | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- |
-| `TL-NAUDT-001` | AU-2, AU-3, AU-12 | Nginx access logging with AU-3 compliant fields (type, when, where, source, outcome, identity) | `ansible/playbooks/templates/nginx-logging.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `nginx -T \| grep audit_combined` |
-| `TL-NAUDT-002` | AU-4, AU-11 | Journald 90-day persistent retention with storage limits | `ansible/playbooks/templates/journald.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
-| `TL-NAUDT-003` | AU-4, AU-9 | Nginx log rotation with 90-day retention and compression | `ansible/playbooks/templates/nginx-logrotate.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `cat /etc/logrotate.d/nginx` |
-| `TL-NAUDT-004` | AU-9, AU-11 | Monthly log archive with 6-year retention for compliance | `ansible/playbooks/templates/scripts/audit-log-archive.sh.j2`, `ansible/playbooks/templates/audit-log-archive.service.j2`, `ansible/playbooks/templates/audit-log-archive.timer.j2`, `ansible/playbooks/main.yml` | Manual verification: `systemctl status audit-log-archive.timer` |
+| `TL-NAUDT-001` | AU-2, AU-3, AU-12 | Nginx access logging with AU-3 compliant fields (type, when, where, source, outcome, identity) | `ansible/playbooks/main.yml` (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
+| `TL-NAUDT-002` | AU-4, AU-11 | Journald 90-day persistent retention with storage limits | `ansible/playbooks/main.yml` (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
+| `TL-NAUDT-003` | AU-4, AU-9 | Nginx log rotation with 90-day retention and compression | `ansible/playbooks/main.yml` (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
+| `TL-NAUDT-004` | AU-9, AU-11 | Monthly log archive with 6-year retention for compliance | `ansible/playbooks/main.yml` (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
 
 ## NIST SP 800-53 Control Coverage
 

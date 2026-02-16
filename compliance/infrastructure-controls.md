@@ -6,19 +6,24 @@ This document maps infrastructure compliance sentinels to their implementations 
 
 | Sentinel | Control | Location | Description |
 | --- | --- | --- | --- |
-| `TL-INFRA-001` | SSH Key Authentication | `terraform/main.tf` | SSH key-only authentication via Hetzner SSH key reference |
-| `TL-INFRA-002` | Server Hardening | `terraform/main.tf` | Cloud-init hardening: root disabled, non-root user, SSH key-only |
-| `TL-INFRA-003` | Managed Identity | `tee/iam.tf` | User-assigned managed identity for credential-less Azure auth |
+| `TL-INFRA-001` | SSH Key Authentication | `terraform/modules/hetzner-server/main.tf` | SSH key-only authentication via Hetzner SSH key reference |
+| `TL-INFRA-002` | Server Hardening | `terraform/modules/hetzner-server/main.tf` | Cloud-init hardening: root disabled, non-root user, SSH key-only |
+| `TL-INFRA-003` | Managed Identity | `terraform/modules/azure-tee/main.tf` | User-assigned managed identity for credential-less Azure auth |
 | `TL-INFRA-004` | SSH Hardening | `ansible/playbooks/templates/sshd_config.j2` | Comprehensive SSH hardening (root disabled, key-only, modern ciphers, rate limiting) |
-| `TL-NET-001` | Network Security Group | `tee/network.tf` | NSG with default deny and explicit allow rules |
-| `TL-NET-002` | SSH Access Restriction | `tee/network.tf` | SSH limited to `allowed_ssh_cidr` variable |
+| `TL-NET-001` | Network Security Group | `terraform/modules/azure-tee/main.tf` | NSG with default deny and explicit allow rules |
+| `TL-NET-002` | SSH Access Restriction | `terraform/modules/azure-tee/main.tf` | SSH limited to `allowed_ssh_cidr` variable |
 | `TL-NET-003` | Host Firewall | `ansible/playbooks/main.yml` | UFW firewall with default deny incoming |
-| `TL-NET-004` | Infrastructure Firewall | `terraform/main.tf` | Hetzner Cloud firewall with explicit port rules |
-| `TL-CRYPTO-001` | Key Vault RBAC | `tee/kms.tf` | Azure Key Vault with RBAC, purge protection, Premium SKU |
-| `TL-CRYPTO-002` | VM Secrets Access | `tee/kms.tf` | Least-privilege Key Vault Secrets User role for VM |
-| `TL-CRYPTO-003` | Attestation Key | `tee/kms.tf` | RSA 2048-bit key for TEE attestation workflows |
-| `TL-CRYPTO-004` | Confidential VM | `tee/compute.tf` | Azure CVM with vTPM, Secure Boot, AMD SEV-SNP |
-| `TL-CRYPTO-005` | Key Vault Protection | `tee/versions.tf` | Disable purge on destroy, enable soft delete recovery |
+| `TL-NET-004` | Infrastructure Firewall | `terraform/modules/hetzner-server/main.tf` | Hetzner Cloud firewall with explicit port rules |
+| `TL-NET-005` | DB Network Isolation | `terraform/modules/aws-rds-postgres/main.tf` | RDS security group restricting access to allowed CIDRs |
+| `TL-NET-006` | Cloudflare Tunnel Isolation | `terraform/modules/cloudflare-tunnel/main.tf` | Inbound traffic routed via secure tunnel without public port exposure |
+| `TL-CRYPTO-001` | Key Vault RBAC | `terraform/modules/azure-tee/main.tf` | Azure Key Vault with RBAC, purge protection, Premium SKU |
+| `TL-CRYPTO-002` | VM Secrets Access | `terraform/modules/azure-tee/main.tf` | Least-privilege Key Vault Secrets User role for VM |
+| `TL-CRYPTO-003` | Attestation Key | `terraform/modules/azure-tee/main.tf` | RSA 2048-bit key for TEE attestation workflows |
+| `TL-CRYPTO-004` | Confidential VM | `terraform/modules/azure-tee/main.tf` | Azure CVM with vTPM, Secure Boot, AMD SEV-SNP |
+| `TL-CRYPTO-005` | Key Vault Protection | `terraform/stacks/*/tee/versions.tf` | Disable purge on destroy, enable soft delete recovery |
+| `TL-DB-001` | Database Encryption | `terraform/modules/aws-rds-postgres/main.tf` | RDS encryption at rest enabled using AWS managed keys |
+| `TL-DB-002` | Database Backups | `terraform/modules/aws-rds-postgres/main.tf` | Automated RDS backups with defined retention period |
+| `TL-DB-003` | Database Deletion Protection | `terraform/modules/aws-rds-postgres/main.tf` | RDS deletion protection enabled to prevent accidental data loss |
 | `TL-KERN-001` | Kernel Hardening | `ansible/playbooks/templates/99-security-hardening.conf.j2` | Sysctl security parameters (ASLR, network hardening, ptrace restrictions) |
 | `TL-AUTH-001` | Brute-Force Protection | `ansible/playbooks/templates/fail2ban-sshd.conf.j2` | Fail2ban SSH jail with progressive bans |
 | `TL-SVC-001` | API Service Sandboxing | `ansible/playbooks/templates/tearleads-api.service.j2` | Systemd hardening (namespaces, syscall filters, capabilities) |
@@ -27,9 +32,26 @@ This document maps infrastructure compliance sentinels to their implementations 
 | `TL-CR-002` | Container Image Scanning | `terraform/modules/aws-ci-artifacts/main.tf` | ECR scan-on-push for vulnerability detection |
 | `TL-CR-003` | Container Pull Secrets | `terraform/stacks/*/k8s/scripts/setup-ecr-secret.sh` | K8s registry authentication with rotating ECR tokens |
 | `TL-CR-004` | Container Lifecycle | `terraform/modules/aws-ci-artifacts/main.tf` | ECR lifecycle policies for image retention and cleanup |
-| `TL-DR-001` | State Isolation | `terraform/stacks/*/terraform.tf` | Per-stack S3 backend with unique state keys |
-| `TL-DR-002` | State Locking | `terraform/stacks/bootstrap/main.tf` | DynamoDB state locking for concurrent access protection |
+| `TL-DR-001` | State Isolation | `terraform/stacks/*/versions.tf` | Per-stack S3 backend with unique state keys |
+| `TL-DR-002` | State Locking | `terraform/bootstrap/main.tf` | DynamoDB state locking for concurrent access protection |
 | `TL-DR-003` | Container Recovery | `terraform/docs/container-deployments.md` | Documented build/push/deploy workflow for rapid recovery |
+
+## Modular Terraform Structure
+
+The infrastructure has been refactored into a modular, stack-based structure to enhance maintainability and isolation:
+
+- **`terraform/modules/`**: Reusable infrastructure components (e.g., `hetzner-server`, `azure-tee`). Sentinels should be placed here for base security configurations.
+- **`terraform/stacks/`**: Environment-specific compositions (e.g., `prod/k8s`, `staging/tee`). Sentinels here track specific deployment configurations like state isolation and provider features.
+- **`terraform/bootstrap/`**: Critical state management resources (S3/DynamoDB).
+
+## Sentinel Placement Guidelines
+
+When adding new infrastructure controls:
+
+1. **Resource Level**: Place sentinels directly above the resource or module that implements the control.
+2. **Provider Level**: For provider-wide security features (like Key Vault protection), place sentinels in `versions.tf`.
+3. **Backend Level**: For state isolation and locking, place sentinels in the `terraform` block within `versions.tf`.
+4. **Wildcards**: When referencing files across multiple environments, use `terraform/stacks/*/` to denote consistency across all stacks.
 
 ## Framework Mapping
 
@@ -40,9 +62,10 @@ These controls support the following framework requirements:
 | Sentinel | TSC Controls | Rationale |
 | --- | --- | --- |
 | `TL-INFRA-001`, `TL-INFRA-002`, `TL-INFRA-004` | CC6.1, CC6.6 | Logical access controls, protection from external threats |
-| `TL-NET-001`, `TL-NET-002`, `TL-NET-003`, `TL-NET-004` | CC6.1, CC6.6 | Network isolation and access restriction (NSG, UFW, Hetzner firewall) |
+| `TL-NET-001`, `TL-NET-002`, `TL-NET-003`, `TL-NET-004`, `TL-NET-005`, `TL-NET-006` | CC6.1, CC6.6 | Network isolation and access restriction (NSG, UFW, Hetzner, RDS, Cloudflare) |
 | `TL-CRYPTO-001`, `TL-CRYPTO-002`, `TL-CRYPTO-005` | CC6.1, CC6.7 | Cryptographic key management, purge protection |
 | `TL-CRYPTO-003`, `TL-CRYPTO-004` | CC6.1, CC6.7 | Hardware-based encryption and attestation |
+| `TL-DB-001`, `TL-DB-002`, `TL-DB-003` | CC6.1, CC6.7, A1.2 | Database encryption, backups, and deletion protection |
 | `TL-INFRA-003` | CC6.1, CC6.2 | Identity management without stored credentials |
 | `TL-KERN-001` | CC6.1 | Kernel hardening prevents privilege escalation |
 | `TL-AUTH-001` | CC6.1 | Brute-force protection for authentication |
@@ -58,9 +81,10 @@ These controls support the following framework requirements:
 | Sentinel | NIST Controls | Rationale |
 | --- | --- | --- |
 | `TL-INFRA-001`, `TL-INFRA-002`, `TL-INFRA-004` | AC-17, IA-2, IA-5 | Remote access, identification, authenticator management |
-| `TL-NET-001`, `TL-NET-002`, `TL-NET-003`, `TL-NET-004` | SC-7, AC-4 | Boundary protection, information flow enforcement |
+| `TL-NET-001`, `TL-NET-002`, `TL-NET-003`, `TL-NET-004`, `TL-NET-005`, `TL-NET-006` | SC-7, AC-4 | Boundary protection, information flow enforcement |
 | `TL-CRYPTO-001`, `TL-CRYPTO-002`, `TL-CRYPTO-003`, `TL-CRYPTO-005` | SC-12, SC-13 | Cryptographic key establishment, protection |
 | `TL-CRYPTO-004` | SC-28, SI-7 | Protection of information at rest, software integrity |
+| `TL-DB-001`, `TL-DB-002`, `TL-DB-003` | SC-28, CP-9 | Database encryption and backup/recovery |
 | `TL-INFRA-003` | IA-2, IA-5 | Identification, authenticator management |
 | `TL-KERN-001` | SC-5, SI-16 | Denial of service protection, memory protection |
 | `TL-AUTH-001` | AC-7 | Unsuccessful logon attempts handling |
@@ -76,9 +100,10 @@ These controls support the following framework requirements:
 | Sentinel | HIPAA Standard | Rationale |
 | --- | --- | --- |
 | `TL-INFRA-001`, `TL-INFRA-002`, `TL-INFRA-004` | 164.312(d) | Person or entity authentication |
-| `TL-NET-001`, `TL-NET-002`, `TL-NET-003`, `TL-NET-004` | 164.312(e)(1) | Transmission security |
+| `TL-NET-001`, `TL-NET-002`, `TL-NET-003`, `TL-NET-004`, `TL-NET-005`, `TL-NET-006` | 164.312(e)(1) | Transmission security |
 | `TL-CRYPTO-001`, `TL-CRYPTO-002`, `TL-CRYPTO-003`, `TL-CRYPTO-005` | 164.312(a)(2)(iv) | Encryption and decryption |
 | `TL-CRYPTO-004` | 164.312(a)(2)(iv), 164.312(e)(2)(ii) | Encryption mechanism |
+| `TL-DB-001`, `TL-DB-002`, `TL-DB-003` | 164.312(a)(2)(iv), 164.308(a)(7)(ii)(A) | Database encryption and backups |
 | `TL-AUTH-001` | 164.312(d) | Person or entity authentication |
 | `TL-SVC-001`, `TL-SVC-002` | 164.312(a)(1) | Access control |
 | `TL-CR-001`, `TL-CR-003` | 164.312(a)(1), 164.312(d) | Container registry access control, authentication |
@@ -103,6 +128,9 @@ terraform show -json | jq '.values.root_module.resources[] | select(.type == "az
 
 # Verify confidential VM settings (TL-CRYPTO-004)
 terraform show -json | jq '.values.root_module.resources[] | select(.type == "azurerm_linux_virtual_machine") | {vtpm: .values.vtpm_enabled, secure_boot: .values.secure_boot_enabled}'
+
+# Verify RDS configuration (TL-DB-001, TL-DB-002, TL-DB-003)
+terraform show -json | jq '.values.root_module.resources[] | select(.type == "aws_db_instance") | {encrypted: .values.storage_encrypted, backup_retention: .values.backup_retention_period, deletion_protection: .values.deletion_protection}'
 ```
 
 ### Ansible Playbook Evidence
@@ -165,7 +193,7 @@ aws s3api get-bucket-versioning --bucket tearleads-terraform-state
 aws dynamodb describe-table --table-name tearleads-terraform-locks --query 'Table.{name:TableName,status:TableStatus}'
 
 # Verify state isolation - each stack has unique key
-grep -r "key.*=" terraform/stacks/*/terraform.tf
+grep -r "key.*=" terraform/stacks/*/versions.tf
 
 # Container recovery procedure test (TL-DR-003)
 ./scripts/buildContainers.sh staging --no-push  # Verify build works

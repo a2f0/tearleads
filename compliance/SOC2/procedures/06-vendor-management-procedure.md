@@ -71,7 +71,7 @@
 grep -r "hcloud_ssh_key" terraform/
 
 # Verify Azure Key Vault RBAC
-grep -r "enable_rbac_authorization" tee/
+grep -r "enable_rbac_authorization" terraform/modules/azure-tee/
 ```
 
 1. Review Ansible playbooks for hardening controls:
@@ -91,7 +91,7 @@ grep -r "TL-VENDOR" compliance/
 wc -l compliance/vendor-registry.md
 
 # Check infrastructure vendor configurations
-ls -la terraform/*.tf tee/*.tf
+ls -la terraform/modules/ terraform/stacks/
 ```
 
 ## Evidence Template
