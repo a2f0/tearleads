@@ -501,6 +501,24 @@ function expectLastWriteIdRegressionViolation(input: {
   });
 }
 
+function createGuardrailViolationCollector(): {
+  violations: GuardrailViolationSnapshot[];
+  onGuardrailViolation: (violation: GuardrailViolationSnapshot) => void;
+} {
+  const violations: GuardrailViolationSnapshot[] = [];
+  return {
+    violations,
+    onGuardrailViolation: (violation) => {
+      violations.push({
+        code: violation.code,
+        stage: violation.stage,
+        message: violation.message,
+        details: violation.details ? { ...violation.details } : undefined
+      });
+    }
+  };
+}
+
 describe('VfsBackgroundSyncClient', () => {
   it('converges multiple clients after concurrent flush and sync', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -7926,12 +7944,8 @@ describe('VfsBackgroundSyncClient', () => {
 
   it('fails closed with replica-specific details when one replica regresses during pull', async () => {
     let pullCount = 0;
-    const guardrailViolations: Array<{
-      code: string;
-      stage: string;
-      message: string;
-      details?: Record<string, string | number | boolean | null>;
-    }> = [];
+    const guardrailCollector = createGuardrailViolationCollector();
+    const guardrailViolations = guardrailCollector.violations;
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
         results: []
@@ -7986,14 +8000,7 @@ describe('VfsBackgroundSyncClient', () => {
       'desktop',
       transport,
       {
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     await seedClient.sync();
@@ -8007,14 +8014,7 @@ describe('VfsBackgroundSyncClient', () => {
       'desktop',
       transport,
       {
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     resumedClient.hydrateState(seedClient.exportState());
@@ -8235,12 +8235,8 @@ describe('VfsBackgroundSyncClient', () => {
     });
 
     const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
-    const guardrailViolations: Array<{
-      code: string;
-      stage: string;
-      message: string;
-      details?: Record<string, string | number | boolean | null>;
-    }> = [];
+    const guardrailCollector = createGuardrailViolationCollector();
+    const guardrailViolations = guardrailCollector.violations;
     const observedPulls: ObservedPhasePullPage[] = [];
     const reconcileState = createPhaseReconcileRecordingHandler({
       resolve: ({ reconcileInput, callCount }) => {
@@ -8277,14 +8273,7 @@ describe('VfsBackgroundSyncClient', () => {
       makeObservedTransport('seed'),
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     await seedClient.sync();
@@ -8331,14 +8320,7 @@ describe('VfsBackgroundSyncClient', () => {
       makeObservedTransport('resumed'),
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     resumedClient.hydrateState(persistedSeedState);
@@ -8416,12 +8398,8 @@ describe('VfsBackgroundSyncClient', () => {
     });
 
     const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
-    const guardrailViolations: Array<{
-      code: string;
-      stage: string;
-      message: string;
-      details?: Record<string, string | number | boolean | null>;
-    }> = [];
+    const guardrailCollector = createGuardrailViolationCollector();
+    const guardrailViolations = guardrailCollector.violations;
     const observedPulls: ObservedPhasePullPage[] = [];
     const reconcileState = createPhaseReconcileRecordingHandler({
       resolve: ({ reconcileInput, callCount }) => {
@@ -8469,14 +8447,7 @@ describe('VfsBackgroundSyncClient', () => {
       makeObservedTransport('seed'),
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     await seedClient.sync();
@@ -8518,14 +8489,7 @@ describe('VfsBackgroundSyncClient', () => {
       makeObservedTransport('resumed'),
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     resumedClient.hydrateState(persistedSeedState);
@@ -8622,12 +8586,8 @@ describe('VfsBackgroundSyncClient', () => {
         };
       }
     });
-    const guardrailViolations: Array<{
-      code: string;
-      stage: string;
-      message: string;
-      details?: Record<string, string | number | boolean | null>;
-    }> = [];
+    const guardrailCollector = createGuardrailViolationCollector();
+    const guardrailViolations = guardrailCollector.violations;
     const observedPullRequests: Array<{
       cursor: { changedAt: string; changeId: string } | null;
       limit: number;
@@ -8724,14 +8684,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     await seedClient.sync();
@@ -8746,14 +8699,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     resumedClient.hydrateState(seedClient.exportState());
@@ -8877,12 +8823,8 @@ describe('VfsBackgroundSyncClient', () => {
         };
       }
     });
-    const guardrailViolations: Array<{
-      code: string;
-      stage: string;
-      message: string;
-      details?: Record<string, string | number | boolean | null>;
-    }> = [];
+    const guardrailCollector = createGuardrailViolationCollector();
+    const guardrailViolations = guardrailCollector.violations;
     const observedPullRequests: Array<{
       cursor: { changedAt: string; changeId: string } | null;
       limit: number;
@@ -9033,14 +8975,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     await seedClient.sync();
@@ -9055,14 +8990,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     resumedClient.hydrateState(seedClient.exportState());
@@ -9213,12 +9141,8 @@ describe('VfsBackgroundSyncClient', () => {
         };
       }
     });
-    const guardrailViolations: Array<{
-      code: string;
-      stage: string;
-      message: string;
-      details?: Record<string, string | number | boolean | null>;
-    }> = [];
+    const guardrailCollector = createGuardrailViolationCollector();
+    const guardrailViolations = guardrailCollector.violations;
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
         results: []
@@ -9327,14 +9251,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     await seedClient.sync();
@@ -9345,14 +9262,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     resumedClient.hydrateState(seedClient.exportState());
@@ -9451,12 +9361,8 @@ describe('VfsBackgroundSyncClient', () => {
         };
       }
     });
-    const guardrailViolations: Array<{
-      code: string;
-      stage: string;
-      message: string;
-      details?: Record<string, string | number | boolean | null>;
-    }> = [];
+    const guardrailCollector = createGuardrailViolationCollector();
+    const guardrailViolations = guardrailCollector.violations;
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
         results: []
@@ -9574,14 +9480,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     await seedClient.sync();
@@ -9592,14 +9491,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     resumedClient.hydrateState(seedClient.exportState());
@@ -9725,12 +9617,8 @@ describe('VfsBackgroundSyncClient', () => {
         };
       }
     });
-    const guardrailViolations: Array<{
-      code: string;
-      stage: string;
-      message: string;
-      details?: Record<string, string | number | boolean | null>;
-    }> = [];
+    const guardrailCollector = createGuardrailViolationCollector();
+    const guardrailViolations = guardrailCollector.violations;
     const transport: VfsCrdtSyncTransport = {
       pushOperations: async () => ({
         results: []
@@ -9878,14 +9766,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     await seedClient.sync();
@@ -9896,14 +9777,7 @@ describe('VfsBackgroundSyncClient', () => {
       transport,
       {
         pullLimit: 1,
-        onGuardrailViolation: (violation) => {
-          guardrailViolations.push({
-            code: violation.code,
-            stage: violation.stage,
-            message: violation.message,
-            details: violation.details
-          });
-        }
+        onGuardrailViolation: guardrailCollector.onGuardrailViolation
       }
     );
     resumedClient.hydrateState(seedClient.exportState());
@@ -10040,12 +9914,8 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
       });
-      const guardrailViolations: Array<{
-        code: string;
-        stage: string;
-        message: string;
-        details?: Record<string, string | number | boolean | null>;
-      }> = [];
+      const guardrailCollector = createGuardrailViolationCollector();
+      const guardrailViolations = guardrailCollector.violations;
       const transport: VfsCrdtSyncTransport = {
         pushOperations: async () => ({
           results: []
@@ -10198,14 +10068,7 @@ describe('VfsBackgroundSyncClient', () => {
         transport,
         {
           pullLimit: 1,
-          onGuardrailViolation: (violation) => {
-            guardrailViolations.push({
-              code: violation.code,
-              stage: violation.stage,
-              message: violation.message,
-              details: violation.details
-            });
-          }
+          onGuardrailViolation: guardrailCollector.onGuardrailViolation
         }
       );
       await seedClient.sync();
@@ -10216,14 +10079,7 @@ describe('VfsBackgroundSyncClient', () => {
         transport,
         {
           pullLimit: 1,
-          onGuardrailViolation: (violation) => {
-            guardrailViolations.push({
-              code: violation.code,
-              stage: violation.stage,
-              message: violation.message,
-              details: violation.details
-            });
-          }
+          onGuardrailViolation: guardrailCollector.onGuardrailViolation
         }
       );
       resumedClient.hydrateState(seedClient.exportState());
