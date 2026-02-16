@@ -8,6 +8,19 @@ import {
   type DatabaseState
 } from '../context';
 
+// Mock translation function that handles the keys used in tests
+const mockT = (key: string) => {
+  const translations: Record<string, string> = {
+    allContacts: 'All Contacts',
+    groups: 'Groups',
+    newGroup: 'New Group',
+    delete: 'Delete',
+    rename: 'Rename',
+    sendEmail: 'Send email'
+  };
+  return translations[key] || key;
+};
+
 export const createMockDatabaseState = (
   overrides?: Partial<DatabaseState>
 ): DatabaseState => ({
@@ -171,7 +184,7 @@ export function TestContactsProvider({
   database,
   databaseAdapter,
   ui = mockUIComponents,
-  t = (key) => key,
+  t = mockT,
   navigate = vi.fn(),
   navigateWithFrom = vi.fn(),
   saveFile = vi.fn().mockResolvedValue(undefined),

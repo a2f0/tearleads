@@ -19,9 +19,29 @@ export async function loadLanguage(lang: SupportedLanguage): Promise<void> {
   if (loadedLanguages.has(lang)) return;
 
   const translations = await import(`./translations/${lang}.ts`);
-  i18n.addResourceBundle(lang, 'common', translations[lang].common, true, true);
-  i18n.addResourceBundle(lang, 'menu', translations[lang].menu, true, true);
-  i18n.addResourceBundle(lang, 'health', translations[lang].health, true, true);
+  const namespaces = [
+    'common',
+    'menu',
+    'health',
+    'contacts',
+    'admin',
+    'sync',
+    'audio',
+    'settings',
+    'classic',
+    'debug',
+    'search',
+    'vehicles',
+    'contextMenu',
+    'tooltips'
+  ];
+
+  for (const ns of namespaces) {
+    if (translations[lang][ns]) {
+      i18n.addResourceBundle(lang, ns, translations[lang][ns], true, true);
+    }
+  }
+
   loadedLanguages.add(lang);
 }
 
@@ -52,7 +72,22 @@ i18n
 
     supportedLngs: supportedLanguages,
 
-    ns: ['common', 'menu', 'health'],
+    ns: [
+      'common',
+      'menu',
+      'health',
+      'contacts',
+      'admin',
+      'sync',
+      'audio',
+      'settings',
+      'classic',
+      'debug',
+      'search',
+      'vehicles',
+      'contextMenu',
+      'tooltips'
+    ],
     defaultNS: 'common',
 
     detection: {

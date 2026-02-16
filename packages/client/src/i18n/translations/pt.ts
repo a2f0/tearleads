@@ -654,6 +654,8 @@ export const pt = {
     tableSummary: 'Resumo da tabela',
     totalDatabase: 'Total do Banco de Dados',
     connection: 'Conexão',
+    documentView: 'Visualização de documento',
+    tableView: 'Visualização de tabela',
     // Redis
     valueDisplayNotSupported: 'Exibição de valor não suportada para este tipo',
     // Menu bar

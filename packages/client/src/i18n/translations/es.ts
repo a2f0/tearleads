@@ -652,6 +652,8 @@ export const es = {
     tableSummary: 'Resumen de tabla',
     totalDatabase: 'Total de Base de Datos',
     connection: 'Conexión',
+    documentView: 'Vista de documento',
+    tableView: 'Vista de tabla',
     // Redis
     valueDisplayNotSupported:
       'La visualización de valor no es compatible con este tipo',

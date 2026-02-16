@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
@@ -27,6 +28,13 @@ export default defineConfig({
         functions: 0,
         lines: 0
       }
+    }
+  },
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@contacts': fileURLToPath(new URL('./src', import.meta.url))
     }
   }
 });

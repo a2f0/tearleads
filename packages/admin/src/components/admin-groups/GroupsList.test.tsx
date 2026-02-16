@@ -89,8 +89,8 @@ describe('GroupsList', () => {
 
     expect(screen.getByText('Admin users')).toBeInTheDocument();
     expect(screen.getByText('Users')).toBeInTheDocument();
-    expect(screen.getByText('3 members')).toBeInTheDocument();
-    expect(screen.getByText('10 members')).toBeInTheDocument();
+    expect(screen.getByText('3 Members')).toBeInTheDocument();
+    expect(screen.getByText('10 Members')).toBeInTheDocument();
   });
 
   it('renders singular member count correctly', async () => {
