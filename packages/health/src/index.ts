@@ -1,3 +1,4 @@
+export { HealthWindow } from './components/health-window';
 export {
   DEFAULT_EXERCISE_IDS,
   DEFAULT_EXERCISES,
@@ -18,5 +19,8 @@ export type {
   WorkoutEntry
 } from './lib/healthTracker';
 export { createHealthTracker } from './lib/healthTracker';
-export { Health, HEALTH_DRILLDOWN_CARDS, type HealthDrilldownRoute } from './pages/Health';
-export { HealthWindow } from './components/health-window';
+export {
+  HEALTH_DRILLDOWN_CARDS,
+  Health,
+  type HealthDrilldownRoute
+} from './pages/Health';

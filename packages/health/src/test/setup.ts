@@ -1,6 +1,6 @@
 import '@testing-library/jest-dom/vitest';
-import failOnConsole from 'vitest-fail-on-console';
 import { vi } from 'vitest';
+import failOnConsole from 'vitest-fail-on-console';
 
 vi.mock('react-i18next', () => ({
   initReactI18next: {

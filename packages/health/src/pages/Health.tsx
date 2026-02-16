@@ -7,6 +7,7 @@ import {
   Scale
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
+import { BackLink } from '@/components/ui/back-link';
 import {
   BloodPressureDetail,
   ExerciseDetail,
@@ -14,7 +15,6 @@ import {
   WeightDetail,
   WorkoutDetail
 } from '../components/health';
-import { BackLink } from '@/components/ui/back-link';
 
 export type HealthDrilldownRoute =
   | 'height'
