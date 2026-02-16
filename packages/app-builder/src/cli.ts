@@ -288,7 +288,7 @@ program
       dryRun?: boolean;
     }) => {
       try {
-        const { config } = await loadAppConfig(options.app);
+        const { config, assetsDir } = await loadAppConfig(options.app);
         const outputDir = options.output || getDefaultOutputDir();
 
         console.log(
@@ -379,7 +379,6 @@ program
         });
 
         // Copy assets
-        const { assetsDir } = await loadAppConfig(options.app);
         copyAssets(config, assetsDir, outputDir, options.dryRun);
 
         // Write files

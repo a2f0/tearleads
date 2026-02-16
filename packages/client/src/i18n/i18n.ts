@@ -25,6 +25,14 @@ export async function loadLanguage(lang: SupportedLanguage): Promise<void> {
   loadedLanguages.add(lang);
 }
 
+function applyAppOverrides(lang: string): void {
+  if (appConfig.translations) {
+    Object.entries(appConfig.translations).forEach(([key, value]) => {
+      i18n.addResource(lang, 'common', key, value);
+    });
+  }
+}
+
 i18n
   .use(LanguageDetector)
   .use(initReactI18next)
@@ -57,20 +65,17 @@ i18n
     }
   });
 
-// Apply app-specific translation overrides
-if (appConfig.translations) {
-  Object.entries(appConfig.translations).forEach(([key, value]) => {
-    i18n.addResource('en', 'common', key, value);
-    // Also apply to current language if it's not en
-    if (i18n.language && i18n.language !== 'en') {
-      i18n.addResource(i18n.language, 'common', key, value);
-    }
-  });
+// Apply app-specific translation overrides for initial languages
+applyAppOverrides('en');
+if (i18n.language && i18n.language !== 'en') {
+  applyAppOverrides(i18n.language);
 }
 
 i18n.on('languageChanged', (lang) => {
   if (isSupportedLanguage(lang)) {
-    loadLanguage(lang);
+    loadLanguage(lang).then(() => {
+      applyAppOverrides(lang);
+    });
   }
 });
 
