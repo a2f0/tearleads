@@ -10,13 +10,20 @@ describe('AdminUserAiUsage', () => {
     emailConfirmed: true,
     admin: false,
     organizationIds: [],
+    createdAt: '2024-01-01T00:00:00Z',
+    lastActiveAt: null,
     accounting: {
       totalTokens: 1000,
       totalPromptTokens: 600,
       totalCompletionTokens: 400,
       requestCount: 10,
       lastUsedAt: '2024-01-01T12:00:00Z'
-    }
+    },
+    disabled: false,
+    disabledAt: null,
+    disabledBy: null,
+    markedForDeletionAt: null,
+    markedForDeletionBy: null
   };
 
   it('renders accounting information correctly', () => {

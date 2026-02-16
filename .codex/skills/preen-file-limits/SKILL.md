@@ -56,7 +56,7 @@ If no candidate meets the criteria, report that no high-value refactor was found
 7. **Tests (CRITICAL)**: When extracting code into new files, you MUST create or update tests to maintain coverage thresholds. Splitting code without tests causes CI failures.
 8. **Coverage check**: Run `pnpm --filter @tearleads/<package> test:coverage` for the affected package. DO NOT proceed if coverage thresholds fail.
 9. **Validate**: Run lint, type-check, and relevant tests to ensure no regressions.
-10. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
+10. **Commit and merge**: Run `<cmd:commit-and-push>`, then `<cmd:enter-merge-queue>`.
 
 ## Guardrails
 
@@ -69,11 +69,11 @@ If no candidate meets the criteria, report that no high-value refactor was found
 
 ```bash
 # Suppress verbose validation output
-pnpm lint >/dev/null 2>&1
-pnpm typecheck >/dev/null 2>&1
-pnpm test >/dev/null 2>&1
-git commit -S -m "message" >/dev/null 2>&1
-git push >/dev/null 2>&1
+pnpm lint >/dev/null
+pnpm typecheck >/dev/null
+pnpm test >/dev/null
+git commit -S -m "message" >/dev/null
+git push >/dev/null
 ```
 
 On failure, re-run without suppression to see errors.

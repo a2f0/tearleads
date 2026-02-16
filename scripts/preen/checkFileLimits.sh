@@ -16,7 +16,7 @@ IGNORE_PATTERNS=(
   "^\.gemini/"
   "^\.claude/"
   "^\.codex/"
-  "^\\.opencode/skills/"
+  "^\.opencode/"
   "\.min\.js$"
   "\.map$"
 )

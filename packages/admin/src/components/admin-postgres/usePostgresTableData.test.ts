@@ -22,13 +22,13 @@ describe('usePostgresTableData', () => {
     { name: 'email', type: 'text' }
   ];
   const mockRows = [{ id: 1, email: 'test@example.com' }];
+  const mockedGetColumns = vi.mocked(api.admin.postgres.getColumns);
+  const mockedGetRows = vi.mocked(api.admin.postgres.getRows);
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(api.admin.postgres.getColumns).mockResolvedValue({
-      columns: mockColumns
-    });
-    vi.mocked(api.admin.postgres.getRows).mockResolvedValue({
+    mockedGetColumns.mockResolvedValue({ columns: mockColumns });
+    mockedGetRows.mockResolvedValue({
       rows: mockRows,
       totalCount: 1
     });

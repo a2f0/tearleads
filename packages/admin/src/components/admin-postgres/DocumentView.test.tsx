@@ -1,10 +1,13 @@
+import type { Virtualizer } from '@tanstack/react-virtual';
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { DocumentVirtualizer } from './DocumentView';
 import { DocumentView } from './DocumentView';
 
 describe('DocumentView', () => {
-  const mockVirtualizer: DocumentVirtualizer = {
+  const mockVirtualizer: Pick<
+    Virtualizer<HTMLDivElement, Element>,
+    'getVirtualItems' | 'getTotalSize' | 'measureElement'
+  > = {
     getVirtualItems: () => [],
     getTotalSize: () => 0,
     measureElement: vi.fn()
