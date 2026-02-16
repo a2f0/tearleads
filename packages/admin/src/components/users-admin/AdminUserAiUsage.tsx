@@ -1,6 +1,6 @@
 import type { AdminUser } from '@tearleads/shared';
-import { useTypedTranslation } from '@/i18n';
 import { Button } from '@/components/ui/button';
+import { useTypedTranslation } from '@/i18n';
 import { formatNumber, formatTimestamp } from '@/lib/utils';
 
 interface AdminUserAiUsageProps {
@@ -8,7 +8,10 @@ interface AdminUserAiUsageProps {
   onViewAiRequests: () => void;
 }
 
-export function AdminUserAiUsage({ user, onViewAiRequests }: AdminUserAiUsageProps) {
+export function AdminUserAiUsage({
+  user,
+  onViewAiRequests
+}: AdminUserAiUsageProps) {
   const { t } = useTypedTranslation('admin');
 
   return (
