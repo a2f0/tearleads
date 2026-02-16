@@ -7,6 +7,7 @@ import {
   albums,
   contactGroups,
   contacts,
+  type Database,
   emailFolders,
   emails,
   files,
@@ -16,8 +17,7 @@ import {
   users,
   vfsFolders,
   vfsRegistry,
-  vfsShares,
-  type Database
+  vfsShares
 } from '@tearleads/db/sqlite';
 import {
   isVfsSharedByMeQueryRow,
@@ -25,7 +25,7 @@ import {
   type VfsSharedByMeQueryRow,
   type VfsSharedWithMeQueryRow
 } from '@tearleads/shared';
-import { and, asc, desc, eq, inArray, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import type { VfsSortState } from './vfsTypes';
 
 function isMissingSqliteTableError(
