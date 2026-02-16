@@ -11,17 +11,7 @@ import {
 } from '../context';
 
 // Mock translation function that handles the keys used in tests
-const _mockT = (key: string) => {
-  const translations: Record<string, string> = {
-    allContacts: 'All Contacts',
-    groups: 'Groups',
-    newGroup: 'New Group',
-    delete: 'Delete',
-    rename: 'Rename',
-    sendEmail: 'Send email'
-  };
-  return translations[key] || key;
-};
+// (currently using i18next mock instead)
 
 export const createMockDatabaseState = (
   overrides?: Partial<DatabaseState>
