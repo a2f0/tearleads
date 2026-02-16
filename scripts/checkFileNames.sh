@@ -116,5 +116,4 @@ echo "" >&2
 echo "Files with invalid naming:" >&2
 printf '  %s\n' "${bad_files[@]}" >&2
 echo "" >&2
-echo "Run ./scripts/refactor/renameKebabToCamel.ts --dry-run to preview fixes." >&2
 exit 1
