@@ -7113,7 +7113,7 @@ describe('VfsBackgroundSyncClient', () => {
     const observedPulls: ObservedPhasePullPage[] = [];
     const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
     const makeObservedTransport = (
-      phase: 'seed' | 'resumed'
+      phase: ObservedPullPhase
     ): VfsCrdtSyncTransport =>
       createPhasePullRecordingTransport({
         phase,
@@ -7280,18 +7280,18 @@ describe('VfsBackgroundSyncClient', () => {
     const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
     const observedPulls: ObservedPhasePullPage[] = [];
     const observedReconcileInputs: Array<{
-      phase: 'seed' | 'resumed';
+      phase: ObservedPullPhase;
       cursor: { changedAt: string; changeId: string };
       lastReconciledWriteIds: Record<string, number>;
     }> = [];
     const observedReconcileResponses: Array<{
-      phase: 'seed' | 'resumed';
+      phase: ObservedPullPhase;
       cursor: { changedAt: string; changeId: string };
       lastReconciledWriteIds: Record<string, number>;
     }> = [];
     let reconcileCallCount = 0;
     const makeObservedTransport = (
-      phase: 'seed' | 'resumed'
+      phase: ObservedPullPhase
     ): VfsCrdtSyncTransport =>
       createPhasePullRecordingTransport({
         phase,
@@ -8145,7 +8145,7 @@ describe('VfsBackgroundSyncClient', () => {
     const observedPulls: ObservedPhasePullPage[] = [];
     let reconcileCallCount = 0;
     const makeObservedTransport = (
-      phase: 'seed' | 'resumed'
+      phase: ObservedPullPhase
     ): VfsCrdtSyncTransport =>
       createPhasePullRecordingTransport({
         phase,
@@ -8328,7 +8328,7 @@ describe('VfsBackgroundSyncClient', () => {
     const observedPulls: ObservedPhasePullPage[] = [];
     let reconcileCallCount = 0;
     const makeObservedTransport = (
-      phase: 'seed' | 'resumed'
+      phase: ObservedPullPhase
     ): VfsCrdtSyncTransport =>
       createPhasePullRecordingTransport({
         phase,
