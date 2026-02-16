@@ -64,7 +64,7 @@ export function TableView({
           </tr>
         </thead>
         <tbody>
-          {virtualItems.map((virtualItem) => {
+          {virtualItems.map((virtualItem: any) => {
             const isLoaderRow = virtualItem.index >= rows.length;
 
             if (isLoaderRow) {

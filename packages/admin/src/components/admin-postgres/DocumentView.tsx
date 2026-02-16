@@ -30,7 +30,7 @@ export function DocumentView({
         style={{ height: `${virtualizer.getTotalSize()}px` }}
         className="relative w-full"
       >
-        {virtualItems.map((virtualItem) => {
+        {virtualItems.map((virtualItem: any) => {
           const isLoaderRow = virtualItem.index >= rows.length;
 
           if (isLoaderRow) {
