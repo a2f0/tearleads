@@ -1,7 +1,7 @@
 import { Button } from '@client/components/ui/button';
 import { Input } from '@client/components/ui/input';
-import { formatBytes } from './utils';
 import type { BackupProgress } from './utils';
+import { formatBytes } from './utils';
 
 interface CreateBackupSectionProps {
   password: string;

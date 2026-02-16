@@ -3,8 +3,8 @@ import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
-import { formatBytes, formatDate } from './utils';
 import type { BackupListItem } from './utils';
+import { formatBytes, formatDate } from './utils';
 
 interface StoredBackupsSectionProps {
   backups: BackupListItem[];
