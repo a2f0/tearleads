@@ -35,5 +35,12 @@ export default defineConfig({
         lines: 0
       }
     }
+  },
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@sync': fileURLToPath(new URL('./src', import.meta.url))
+    }
   }
 });

@@ -1,5 +1,6 @@
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
+import { fileURLToPath } from 'node:url';
 
 export default defineConfig({
   plugins: [react()],
@@ -26,6 +27,13 @@ export default defineConfig({
         functions: 0,
         lines: 0
       }
+    }
+  },
+  resolve: {
+    alias: {
+      '@tearleads/window-manager': fileURLToPath(
+        new URL('../window-manager/src/index.ts', import.meta.url)
+      )
     }
   }
 });

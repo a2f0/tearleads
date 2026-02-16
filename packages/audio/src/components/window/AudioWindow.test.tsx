@@ -24,6 +24,9 @@ vi.mock('@tearleads/window-manager', () => ({
     <button type="button" onClick={onClick} {...props}>
       {children}
     </button>
+  ),
+  WindowMenuBar: ({ children }: { children: ReactNode }) => (
+    <div data-testid="window-menu-bar">{children}</div>
   )
 }));
 
