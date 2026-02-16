@@ -44,7 +44,7 @@ export function BusinessesWindow({
       onRename={onRename}
       onFocus={onFocus}
       zIndex={zIndex}
-      {...(initialDimensions && { initialDimensions })}
+      initialDimensions={initialDimensions}
       defaultWidth={BUSINESSES_WINDOW_DEFAULT_WIDTH}
       defaultHeight={BUSINESSES_WINDOW_DEFAULT_HEIGHT}
       minWidth={BUSINESSES_WINDOW_MIN_WIDTH}

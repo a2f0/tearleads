@@ -4,6 +4,7 @@
  */
 
 import {
+  type AboutMenuItemProps,
   BusinessesProvider,
   type BusinessesUIComponents
 } from '@tearleads/businesses';
@@ -12,14 +13,8 @@ import type { ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 
-function BusinessesAboutMenuItem() {
-  return (
-    <AboutMenuItem
-      appName="Businesses"
-      version={businessesPackageJson.version}
-      closeLabel="Close"
-    />
-  );
+function BusinessesAboutMenuItem(props: AboutMenuItemProps) {
+  return <AboutMenuItem {...props} version={businessesPackageJson.version} />;
 }
 
 const businessesUIComponents: BusinessesUIComponents = {
