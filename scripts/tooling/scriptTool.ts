@@ -953,10 +953,7 @@ function createActionCommand(actionName: ActionName): Command {
       cmd
         .requiredOption('--base <sha>', 'Base commit for diff')
         .requiredOption('--head <sha>', 'Head commit for diff')
-        .option(
-          '--scripts-only',
-          'Run only impacted ciImpact script tests'
-        );
+        .option('--scripts-only', 'Run only impacted ciImpact script tests');
       break;
 
     case 'checkBinaryFiles':

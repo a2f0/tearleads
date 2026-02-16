@@ -28,7 +28,10 @@ test('runImpactedTests dry-run selects ciImpact script tests for ciImpact change
     '--scripts-only'
   ]);
   assert.equal(result.status, 0, stderrText(result));
-  assert.match(stdoutText(result), /ci-impact: running ciImpact script tests\./);
+  assert.match(
+    stdoutText(result),
+    /ci-impact: running ciImpact script tests\./
+  );
   assert.match(stdoutText(result), /ci-impact: scripts-only mode enabled\./);
 });
 

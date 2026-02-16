@@ -277,10 +277,7 @@ function shouldRunAnsibleLint(changedFiles: string[]): boolean {
 
 function shouldRunScriptsTypecheck(changedFiles: string[]): boolean {
   return changedFiles.some(
-    (f) =>
-      f.startsWith('scripts/') &&
-      f.endsWith('.ts') &&
-      !f.endsWith('.d.ts')
+    (f) => f.startsWith('scripts/') && f.endsWith('.ts') && !f.endsWith('.d.ts')
   );
 }
 
@@ -430,7 +427,13 @@ function main(): void {
   }
 
   if (runScriptsTypecheck) {
-    runCommand('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'scripts/tsconfig.json']);
+    runCommand('pnpm', [
+      'exec',
+      'tsc',
+      '--noEmit',
+      '-p',
+      'scripts/tsconfig.json'
+    ]);
     runCommand('pnpm', [
       'exec',
       'tsc',
