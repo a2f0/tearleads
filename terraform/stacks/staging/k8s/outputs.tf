@@ -15,20 +15,20 @@ output "server_status" {
 
 output "k8s_hostname" {
   description = "K8s cluster hostname"
-  value       = "k8s.${var.STAGING_DOMAIN}"
+  value       = "k8s.${var.staging_domain}"
 }
 
 output "ssh_command" {
   description = "SSH command to connect to the server"
-  value       = "ssh ${var.SERVER_USERNAME}@${module.server.ipv4_address}"
+  value       = "ssh ${var.server_username}@${module.server.ipv4_address}"
 }
 
 output "kubeconfig_command" {
   description = "Command to fetch kubeconfig"
-  value       = "scp ${var.SERVER_USERNAME}@${module.server.ipv4_address}:.kube/config ~/.kube/config-staging-k8s"
+  value       = "scp ${var.server_username}@${module.server.ipv4_address}:.kube/config ~/.kube/config-staging-k8s"
 }
 
 output "SERVER_USERNAME" {
   description = "Username for SSH access"
-  value       = var.SERVER_USERNAME
+  value       = var.server_username
 }

@@ -18,9 +18,9 @@ validate_hetzner_env() {
   setup_ssh_host_keys
   local missing=()
 
-  [[ -z "${TF_VAR_HCLOUD_TOKEN:-}" ]] && missing+=("TF_VAR_HCLOUD_TOKEN")
-  [[ -z "${TF_VAR_SSH_KEY_NAME:-}" ]] && missing+=("TF_VAR_SSH_KEY_NAME")
-  [[ -z "${TF_VAR_SERVER_USERNAME:-}" ]] && missing+=("TF_VAR_SERVER_USERNAME")
+  [[ -z "${TF_VAR_hcloud_token:-}" ]] && missing+=("TF_VAR_hcloud_token")
+  [[ -z "${TF_VAR_ssh_key_name:-}" ]] && missing+=("TF_VAR_ssh_key_name")
+  [[ -z "${TF_VAR_server_username:-}" ]] && missing+=("TF_VAR_server_username")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2
@@ -33,7 +33,7 @@ validate_hetzner_env() {
 validate_staging_domain_env() {
   local missing=()
 
-  [[ -z "${TF_VAR_STAGING_DOMAIN:-}" ]] && missing+=("TF_VAR_STAGING_DOMAIN")
+  [[ -z "${TF_VAR_staging_domain:-}" ]] && missing+=("TF_VAR_staging_domain")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2
@@ -46,7 +46,7 @@ validate_staging_domain_env() {
 validate_production_domain_env() {
   local missing=()
 
-  [[ -z "${TF_VAR_PRODUCTION_DOMAIN:-}" ]] && missing+=("TF_VAR_PRODUCTION_DOMAIN")
+  [[ -z "${TF_VAR_production_domain:-}" ]] && missing+=("TF_VAR_production_domain")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2
@@ -89,8 +89,8 @@ validate_aws_env() {
 validate_cloudflare_env() {
   local missing=()
 
-  [[ -z "${TF_VAR_CLOUDFLARE_API_TOKEN:-}" ]] && missing+=("TF_VAR_CLOUDFLARE_API_TOKEN")
-  [[ -z "${TF_VAR_CLOUDFLARE_ACCOUNT_ID:-}" ]] && missing+=("TF_VAR_CLOUDFLARE_ACCOUNT_ID")
+  [[ -z "${TF_VAR_cloudflare_api_token:-}" ]] && missing+=("TF_VAR_cloudflare_api_token")
+  [[ -z "${TF_VAR_cloudflare_account_id:-}" ]] && missing+=("TF_VAR_cloudflare_account_id")
 
   if [[ ${#missing[@]} -gt 0 ]]; then
     echo "ERROR: Missing required environment variables:" >&2
@@ -109,6 +109,6 @@ setup_ssh_host_keys() {
     ssh-keygen -t ed25519 -f "$key_file" -N "" -C "persistent_ssh_host_ed25519_key" > /dev/null
   fi
 
-  export TF_VAR_SSH_HOST_PRIVATE_KEY=$(cat "$key_file")
-  export TF_VAR_SSH_HOST_PUBLIC_KEY=$(cat "$key_file.pub")
+  export TF_VAR_ssh_host_private_key=$(cat "$key_file")
+  export TF_VAR_ssh_host_public_key=$(cat "$key_file.pub")
 }

@@ -4,14 +4,14 @@ This document provides review guidelines for AI agents (Gemini, Claude Code, Cod
 
 ## Quick Reference
 
-| Area       | Key Files                      | Watch For                        | Detailed Standards |
-| ---------- | ------------------------------ | -------------------------------- | ------------------ |
-| TypeScript | `*.ts`, `*.tsx`              | `any`, `as` casts, `@ts-ignore`  | [TypeScript](./agent-instructions/reviews/typescript.md) |
-| React      | `packages/*/src/components/` | Oversized files, missing tests   | [React](./agent-instructions/reviews/react.md) |
-| API        | `packages/api/src/routes/`    | Auth checks, ownership           | [API Security](./agent-instructions/reviews/api-security.md) |
-| Database   | `packages/*/src/**/*.ts`      | N+1 queries, missing indexes     | See below |
-| Security   | All routes, auth code          | Boundary violations, injection   | [Security](./agent-instructions/reviews/security-compliance.md) |
-| i18n       | `packages/*/src/i18n/`         | Missing keys, hardcoded strings  | [i18n](./agent-instructions/reviews/i18n.md) |
+| Area       | Key Files                    | Watch For                       | Detailed Standards                                       |
+|------------|------------------------------|---------------------------------|----------------------------------------------------------|
+| TypeScript | `*.ts`, `*.tsx`              | `any`, `as` casts, `@ts-ignore` | [TypeScript](./agent-instructions/reviews/typescript.md) |
+| React      | `packages/*/src/components/` | Oversized files, missing tests  | [React](./agent-instructions/reviews/react.md)           |
+| API        | `packages/api/src/routes/`   | Auth checks, ownership          | [API Security](./agent-instructions/reviews/api-security.md) |
+| Database   | `packages/*/src/**/*.ts`     | N+1 queries, missing indexes    | See below                                                |
+| Security   | All routes, auth code         | Boundary violations, injection  | [Security](./agent-instructions/reviews/security-compliance.md) |
+| i18n       | `packages/*/src/i18n/`       | Missing keys, hardcoded strings | [i18n](./agent-instructions/reviews/i18n.md)             |
 
 ## Database Performance
 
@@ -49,7 +49,8 @@ const usersWithOrders = await db
 
 ### Environment Variables
 
-- **All caps only** - Environment variables (e.g., TF_VAR_HCLOUD_TOKEN) must always be all uppercase to ensure consistency across all automation and infrastructure tools.
+- **All caps only** - Non-Terraform environment variables (e.g., `DATABASE_URL`, `GITHUB_TOKEN`) must always be uppercase to stay consistent across automation and tool chains.
+- **Terraform inputs** - When you export `TF_VAR_*` variables, make the suffix match the Terraform input name in snake_case (e.g., `TF_VAR_hcloud_token`, `TF_VAR_server_username`, `TF_VAR_production_domain`). Keeping Terraform variables in snake_case keeps the configuration aligned with community conventions and avoids confusing casing differences between the environment and Terraform code.
 
 ### File Restrictions
 

@@ -1,24 +1,24 @@
 # Lookup SSH key for cloud-init user_data
 data "hcloud_ssh_key" "main" {
-  name = var.SSH_KEY_NAME
+  name = var.ssh_key_name
 }
 
 module "server" {
   source = "../../../modules/hetzner-server"
 
-  name         = "k8s-${var.STAGING_DOMAIN}"
-  ssh_key_name = var.SSH_KEY_NAME
-  server_type  = var.SERVER_TYPE
-  location     = var.SERVER_LOCATION
+  name         = "k8s-${var.staging_domain}"
+  ssh_key_name = var.ssh_key_name
+  server_type  = var.server_type
+  location     = var.server_location
 
   user_data = <<-EOF
     #cloud-config
     ssh_keys:
       ed25519_private: | 
-        ${indent(8, var.SSH_HOST_PRIVATE_KEY)}
-      ed25519_public: ${var.SSH_HOST_PUBLIC_KEY}
+        ${indent(8, var.ssh_host_private_key)}
+      ed25519_public: ${var.ssh_host_public_key}
     users:
-      - name: ${var.SERVER_USERNAME}
+      - name: ${var.server_username}
         groups: sudo
         shell: /bin/bash
         sudo: ALL=(ALL) NOPASSWD:ALL
@@ -30,15 +30,15 @@ module "server" {
     runcmd:
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.STAGING_DOMAIN}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.staging_domain}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
-      - mkdir -p /home/${var.SERVER_USERNAME}/.kube
-      - cp /etc/rancher/k3s/k3s.yaml /home/${var.SERVER_USERNAME}/.kube/config
-      - chown -R ${var.SERVER_USERNAME}:${var.SERVER_USERNAME} /home/${var.SERVER_USERNAME}/.kube
+      - mkdir -p /home/${var.server_username}/.kube
+      - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
+      - chown -R ${var.server_username}:${var.server_username} /home/${var.server_username}/.kube
   EOF
 
   create_firewall = true
-  allowed_ssh_ips = var.ALLOWED_SSH_IPS
+  allowed_ssh_ips = var.allowed_ssh_ips
 
   firewall_rules = [
     {
@@ -57,7 +57,7 @@ module "server" {
       direction  = "in"
       protocol   = "tcp"
       port       = "6443"
-      source_ips = var.ALLOWED_K8S_API_IPS
+      source_ips = var.allowed_k8s_api_ips
     },
     {
       direction  = "in"
@@ -75,7 +75,7 @@ module "server" {
 module "dns" {
   source = "../../../modules/hetzner-dns"
 
-  domain       = var.STAGING_DOMAIN
+  domain       = var.staging_domain
   ipv4_address = module.server.ipv4_address
   ipv6_address = module.server.ipv6_address
 
