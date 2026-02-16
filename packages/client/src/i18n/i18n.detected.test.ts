@@ -41,12 +41,19 @@ describe('i18n detected language loading', () => {
     }));
 
     const originalWindow = globalThis.window;
-    // @ts-expect-error - intentional undefined for test
-    globalThis.window = undefined;
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: undefined,
+      writable: true
+    });
 
     await import('./i18n');
 
-    globalThis.window = originalWindow;
+    Object.defineProperty(globalThis, 'window', {
+      configurable: true,
+      value: originalWindow,
+      writable: true
+    });
 
     expect(i18nMock.on).toHaveBeenCalled();
   });
