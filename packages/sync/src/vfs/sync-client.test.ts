@@ -9851,62 +9851,26 @@ describe('VfsBackgroundSyncClient', () => {
     await resumedClient.sync();
     await resumedClient.sync();
 
-    const pageOne = resumedClient.listChangedContainers(seedCursor, 1);
-    const pageOneCursor = pageOne.nextCursor;
-    if (!pageOneCursor) {
-      throw new Error('expected first paginated forward cursor');
-    }
-    const pageTwo = resumedClient.listChangedContainers(pageOneCursor, 1);
-    const pageTwoCursor = pageTwo.nextCursor;
-    if (!pageTwoCursor) {
-      throw new Error('expected second paginated forward cursor');
-    }
-    const pageThree = resumedClient.listChangedContainers(pageTwoCursor, 1);
-
-    expect(pageOne.items).toHaveLength(1);
-    expect(pageTwo.items).toHaveLength(1);
-    expect(pageThree.items).toHaveLength(1);
-    expect(pageOne.hasMore).toBe(true);
-    expect(pageTwo.hasMore).toBe(true);
-    expect(pageThree.hasMore).toBe(false);
-
-    const pagedItems = [...pageOne.items, ...pageTwo.items, ...pageThree.items];
-    expect(pagedItems.map((item) => item.containerId)).toEqual([
-      'root',
-      'item-good-acl-paged',
-      'archive'
+    const pagedSignatures = readForwardContainerSignatures({
+      client: resumedClient,
+      seedCursor,
+      pageLimit: 1
+    });
+    expect(pagedSignatures).toEqual([
+      'root|good-link-root-paged',
+      'item-good-acl-paged|good-acl-paged',
+      'archive|good-link-archive-paged'
     ]);
-    expect(pagedItems.map((item) => item.changeId)).toEqual([
-      'good-link-root-paged',
-      'good-acl-paged',
-      'good-link-archive-paged'
-    ]);
-    expect(pagedItems.map((item) => item.containerId)).not.toContain(
-      'item-phantom-paged'
-    );
-    expect(pagedItems.map((item) => item.changeId)).not.toContain(
-      seedCursor.changeId
-    );
-    for (const item of pagedItems) {
-      expect(
-        compareVfsSyncCursorOrder(
-          {
-            changedAt: item.changedAt,
-            changeId: item.changeId
-          },
-          seedCursor
-        )
-      ).toBeGreaterThan(0);
-    }
     expect(
-      compareVfsSyncCursorOrder(pageTwoCursor, pageOneCursor)
-    ).toBeGreaterThan(0);
-    if (!pageThree.nextCursor) {
-      throw new Error('expected terminal paginated cursor');
-    }
+      pagedSignatures.some((signature) =>
+        signature.startsWith('item-phantom-paged|')
+      )
+    ).toBe(false);
     expect(
-      compareVfsSyncCursorOrder(pageThree.nextCursor, pageTwoCursor)
-    ).toBeGreaterThan(0);
+      pagedSignatures.some((signature) =>
+        signature.endsWith(`|${seedCursor.changeId}`)
+      )
+    ).toBe(false);
 
     expect(guardrailViolations).toContainEqual({
       code: 'lastWriteIdRegression',
@@ -10212,49 +10176,27 @@ describe('VfsBackgroundSyncClient', () => {
       await resumedClient.sync();
       await resumedClient.sync();
 
-      const pageSignatures: string[] = [];
-      let paginationCursor = seedCursor;
-      for (let pageIndex = 0; pageIndex < 3; pageIndex++) {
-        const page = resumedClient.listChangedContainers(paginationCursor, 1);
-        const item = page.items[0];
-        if (!item) {
-          throw new Error(`expected paginated item ${pageIndex + 1}`);
-        }
-
-        pageSignatures.push(`${item.containerId}|${item.changeId}`);
-        expect(
-          compareVfsSyncCursorOrder(
-            {
-              changedAt: item.changedAt,
-              changeId: item.changeId
-            },
-            seedCursor
-          )
-        ).toBeGreaterThan(0);
-        expect(item.containerId).not.toBe(itemPhantom);
-        expect(item.changeId).not.toBe(seedCursor.changeId);
-
-        const nextCursor = page.nextCursor;
-        if (!nextCursor) {
-          throw new Error(`expected next cursor for page ${pageIndex + 1}`);
-        }
-        expect(
-          compareVfsSyncCursorOrder(nextCursor, paginationCursor)
-        ).toBeGreaterThan(0);
-        paginationCursor = nextCursor;
-      }
-      const terminalPage = resumedClient.listChangedContainers(
-        paginationCursor,
-        1
-      );
-      expect(terminalPage.items).toEqual([]);
-      expect(terminalPage.hasMore).toBe(false);
+      const pageSignatures = readForwardContainerSignatures({
+        client: resumedClient,
+        seedCursor,
+        pageLimit: 1
+      });
 
       expect(pageSignatures).toEqual([
         `${parentOne}|good-link-${seed}-1`,
         `${itemGoodAcl}|good-acl-${seed}-1`,
         `${parentTwo}|good-link-${seed}-2`
       ]);
+      expect(
+        pageSignatures.some((signature) =>
+          signature.startsWith(`${itemPhantom}|`)
+        )
+      ).toBe(false);
+      expect(
+        pageSignatures.some((signature) =>
+          signature.endsWith(`|${seedCursor.changeId}`)
+        )
+      ).toBe(false);
       const guardrailSignatures = guardrailViolations.map((violation) => {
         const replicaId = violation.details?.['replicaId'];
         return `${violation.stage}:${violation.code}:${typeof replicaId === 'string' ? replicaId : 'none'}`;
@@ -10550,30 +10492,16 @@ describe('VfsBackgroundSyncClient', () => {
       await activeClient.sync();
       await activeClient.sync();
 
-      const pageOne = activeClient.listChangedContainers(seedCursor, 1);
-      const pageOneCursor = pageOne.nextCursor;
-      if (!pageOneCursor) {
-        throw new Error('expected first continuation page cursor');
-      }
-      const pageTwo = activeClient.listChangedContainers(pageOneCursor, 1);
-      const pageTwoCursor = pageTwo.nextCursor;
-      if (!pageTwoCursor) {
-        throw new Error('expected second continuation page cursor');
-      }
-      const pageThree = activeClient.listChangedContainers(pageTwoCursor, 1);
-      const pageSignatures = [
-        ...pageOne.items.map((item) => `${item.containerId}|${item.changeId}`),
-        ...pageTwo.items.map((item) => `${item.containerId}|${item.changeId}`),
-        ...pageThree.items.map((item) => `${item.containerId}|${item.changeId}`)
-      ];
+      const pageSignatures = readForwardContainerSignatures({
+        client: activeClient,
+        seedCursor,
+        pageLimit: 1
+      });
       expect(pageSignatures).toEqual([
         `${parentOne}|good-link-mid-${seed}-1`,
         `${itemGoodAcl}|good-acl-mid-${seed}-1`,
         `${parentTwo}|good-link-mid-${seed}-2`
       ]);
-      expect(pageOne.hasMore).toBe(true);
-      expect(pageTwo.hasMore).toBe(true);
-      expect(pageThree.hasMore).toBe(false);
       expect(pageSignatures).not.toContain(
         `${itemPhantom}|pull-fail-mid-${seed}-1`
       );
@@ -10904,22 +10832,11 @@ describe('VfsBackgroundSyncClient', () => {
       await activeClient.flush();
       await activeClient.sync();
 
-      const pageOne = activeClient.listChangedContainers(seedCursor, 1);
-      const pageOneCursor = pageOne.nextCursor;
-      if (!pageOneCursor) {
-        throw new Error('expected first page cursor in pending continuation');
-      }
-      const pageTwo = activeClient.listChangedContainers(pageOneCursor, 1);
-      const pageTwoCursor = pageTwo.nextCursor;
-      if (!pageTwoCursor) {
-        throw new Error('expected second page cursor in pending continuation');
-      }
-      const pageThree = activeClient.listChangedContainers(pageTwoCursor, 1);
-      const pageSignatures = [
-        ...pageOne.items.map((item) => `${item.containerId}|${item.changeId}`),
-        ...pageTwo.items.map((item) => `${item.containerId}|${item.changeId}`),
-        ...pageThree.items.map((item) => `${item.containerId}|${item.changeId}`)
-      ];
+      const pageSignatures = readForwardContainerSignatures({
+        client: activeClient,
+        seedCursor,
+        pageLimit: 1
+      });
       expect(pageSignatures).toEqual([
         `${parentRecovered}|good-link-pending-${seed}-1`,
         `${localAclItem}|${localAclOpId}`,
@@ -11302,16 +11219,11 @@ describe('VfsBackgroundSyncClient', () => {
 
       await targetClient.flush();
 
-      const pageOne = targetClient.listChangedContainers(seedCursor, 1);
-      const pageOneCursor = pageOne.nextCursor;
-      if (!pageOneCursor) {
-        throw new Error('expected first corrected page cursor');
-      }
-      const pageTwo = targetClient.listChangedContainers(pageOneCursor, 1);
-      const pageSignatures = [
-        ...pageOne.items.map((item) => `${item.containerId}|${item.changeId}`),
-        ...pageTwo.items.map((item) => `${item.containerId}|${item.changeId}`)
-      ];
+      const pageSignatures = readForwardContainerSignatures({
+        client: targetClient,
+        seedCursor,
+        pageLimit: 1
+      });
       expect(pageSignatures).toEqual([
         `${itemLocalAcl}|${localAclOpId}`,
         `${parentId}|${localLinkOpId}`
