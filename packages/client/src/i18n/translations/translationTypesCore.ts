@@ -1,0 +1,250 @@
+export interface CommonTranslations {
+  language: string;
+  languageName: string;
+  selectLanguage: string;
+  showFlag: string;
+  showAbbreviation: string;
+  settings: string;
+  theme: string;
+  themeDescription: string;
+  create: string;
+  restore: string;
+  stored: string;
+  close: string;
+  open: string;
+  refresh: string;
+  copyLogs: string;
+  copyLogsToClipboard: string;
+  clearLogs: string;
+  dismissNotification: string;
+  markAllAsRead: string;
+  dismissAll: string;
+  noLogsYet: string;
+  logCount: string;
+  logCountPlural: string;
+  noNotifications: string;
+  notificationCount: string;
+  notificationCountPlural: string;
+  unread: string;
+  databaseLocked: string;
+  loading: string;
+  noEventsInLastHour: string;
+  lastHour: string;
+  moreEventTypes: string;
+}
+
+export interface MenuTranslations {
+  home: string;
+  search: string;
+  calendar: string;
+  files: string;
+  file: string;
+  businesses: string;
+  vehicles: string;
+  health: string;
+  contacts: string;
+  photos: string;
+  camera: string;
+  documents: string;
+  help: string;
+  notes: string;
+  audio: string;
+  videos: string;
+  tables: string;
+  analytics: string;
+  sqlite: string;
+  console: string;
+  debug: string;
+  systemInfo: string;
+  opfs: string;
+  cacheStorage: string;
+  localStorage: string;
+  keychain: string;
+  wallet: string;
+  chat: string;
+  mlsChat: string;
+  models: string;
+  admin: string;
+  redis: string;
+  postgres: string;
+  postgresAdmin: string;
+  groups: string;
+  organizations: string;
+  adminUsers: string;
+  settings: string;
+  email: string;
+  sync: string;
+  vfs: string;
+  classic: string;
+  backups: string;
+  logs: string;
+  notifications: string;
+  notificationCenter: string;
+  openNotificationCenter: string;
+}
+
+export interface AudioTranslations {
+  play: string;
+  pause: string;
+  previousTrack: string;
+  nextTrack: string;
+  restart: string;
+  rewind: string;
+  close: string;
+  repeatOff: string;
+  repeatAll: string;
+  repeatOne: string;
+  hideVisualizer: string;
+  showVisualizer: string;
+  mute: string;
+  unmute: string;
+  volume: string;
+  seek: string;
+  getInfo: string;
+  delete: string;
+  restore: string;
+  download: string;
+  share: string;
+  // Window and UI labels
+  audio: string;
+  allTracks: string;
+  playlists: string;
+  searchTracks: string;
+  noAudioFiles: string;
+  audioTracks: string;
+  audioFiles: string;
+  playlistName: string;
+  unknownAlbum: string;
+  clearAlbumFilter: string;
+  uploadProgress: string;
+  uploading: string;
+  // Detail view labels
+  audioDetails: string;
+  metadata: string;
+  noMetadataFound: string;
+  albumCover: string;
+  back: string;
+  loadingDatabase: string;
+  loadingAudio: string;
+  thisAudioFile: string;
+  // Metadata fields
+  title: string;
+  artist: string;
+  album: string;
+  albumArtist: string;
+  year: string;
+  track: string;
+  genre: string;
+  // File info
+  type: string;
+  size: string;
+  name: string;
+  date: string;
+  uploaded: string;
+}
+
+export interface TooltipsTranslations {
+  sseConnected: string;
+  sseConnecting: string;
+  sseDisconnected: string;
+  keychainSalt: string;
+  keychainKeyCheckValue: string;
+  keychainSessionWrappingKey: string;
+  keychainSessionWrappedKey: string;
+}
+
+export interface ContextMenuTranslations {
+  play: string;
+  pause: string;
+  getInfo: string;
+  viewDetails: string;
+  download: string;
+  share: string;
+  edit: string;
+  delete: string;
+  restore: string;
+  exportVCard: string;
+  newNote: string;
+}
+
+export interface SettingsTranslations {
+  font: string;
+  fontDescription: string;
+  fontSystem: string;
+  fontMonospace: string;
+  iconDepth: string;
+  iconDepthDescription: string;
+  iconDepthEmbossed: string;
+  iconDepthDebossed: string;
+  iconBackground: string;
+  iconBackgroundDescription: string;
+  iconBackgroundColored: string;
+  iconBackgroundTransparent: string;
+  tooltips: string;
+  tooltipsDescription: string;
+  tooltipsEnabled: string;
+  tooltipsDisabled: string;
+  windowOpacity: string;
+  windowOpacityDescription: string;
+  windowOpacityTranslucent: string;
+  windowOpacityOpaque: string;
+  borderRadius: string;
+  borderRadiusDescription: string;
+  borderRadiusRounded: string;
+  borderRadiusSquare: string;
+}
+
+export interface ClassicTranslations {
+  // TagSidebar
+  tagsSidebar: string;
+  tagListContextMenu: string;
+  virtualTags: string;
+  deletedTags: string;
+  tagList: string;
+  searchTags: string;
+  dragTag: string;
+  save: string;
+  cancel: string;
+  saveTagName: string;
+  cancelEditing: string;
+  restore: string;
+  restoreTag: string;
+  edit: string;
+  editTag: string;
+  moveUp: string;
+  moveUpTag: string;
+  moveDown: string;
+  moveDownTag: string;
+  delete: string;
+  deleteTag: string;
+  // NotesPane
+  notesPane: string;
+  entryListContextMenu: string;
+  noteList: string;
+  searchEntries: string;
+  dragEntry: string;
+  editEntryTitle: string;
+  editEntryBody: string;
+  saveEntry: string;
+  editNote: string;
+  moveUpNote: string;
+  moveDownNote: string;
+  // ClassicMenuBar
+  sortTags: string;
+  sortEntries: string;
+  tags: string;
+  entries: string;
+  // ClassicContextMenu
+  closeContextMenu: string;
+  // ClassicWindowMenuBar
+  file: string;
+  newEntry: string;
+  close: string;
+  undo: string;
+  redo: string;
+  newTag: string;
+  sortBy: string;
+  view: string;
+  help: string;
+  classic: string;
+}

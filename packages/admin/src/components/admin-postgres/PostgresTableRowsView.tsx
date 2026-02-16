@@ -1,74 +1,30 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import type { PostgresColumnInfo } from '@tearleads/shared';
-import {
-  WINDOW_TABLE_TYPOGRAPHY,
-  WindowTableRow
-} from '@tearleads/window-manager';
-import {
-  ArrowDown,
-  ArrowUp,
-  ArrowUpDown,
-  Braces,
-  Download,
-  Loader2,
-  Settings
-} from 'lucide-react';
+import { Braces, Download, Loader2, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { RefreshButton } from '@/components/ui/RefreshButton';
-import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { createCsv } from '@/lib/csv';
+import { DocumentView } from './DocumentView';
+import {
+  downloadFile,
+  isMobileViewport,
+  ROW_HEIGHT_ESTIMATE
+} from './PostgresTableUtils';
+import { StickyVirtualListStatus } from './StickyVirtualListStatus';
+import { TableView } from './TableView';
+import { usePostgresTableData } from './usePostgresTableData';
 
-function downloadFile(content: string, filename: string, mimeType: string) {
-  const blob = new Blob([content], { type: mimeType });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
-
-const PAGE_SIZE = 50;
-const ROW_HEIGHT_ESTIMATE = 40;
-const MOBILE_BREAKPOINT = 640;
 const DEFAULT_CONTAINER_CLASSNAME =
   'flex flex-1 min-h-0 flex-col space-y-4 overflow-hidden';
-
-function isMobileViewport(): boolean {
-  return typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT;
-}
-
-type SortDirection = 'asc' | 'desc' | null;
-
-interface SortState {
-  column: string | null;
-  direction: SortDirection;
-}
 
 interface PostgresTableRowsViewProps {
   schema: string | null;
   tableName: string | null;
   backLink?: ReactNode;
   containerClassName?: string;
-}
-
-function formatCellValue(value: unknown): string {
-  if (value === null) return 'NULL';
-  if (value === undefined) return '';
-  if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (typeof value === 'object') return JSON.stringify(value);
-  return String(value);
-}
-
-function getRowKey(index: number): string {
-  // Use index-based key for Postgres (no PK info in our column response)
-  return `idx-${index}`;
 }
 
 export function PostgresTableRowsView({
@@ -78,127 +34,61 @@ export function PostgresTableRowsView({
   containerClassName = DEFAULT_CONTAINER_CLASSNAME
 }: PostgresTableRowsViewProps) {
   const { t } = useTypedTranslation('admin');
-  const [columns, setColumns] = useState<PostgresColumnInfo[]>([]);
-  const [rows, setRows] = useState<Record<string, unknown>[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [hasMore, setHasMore] = useState(false);
-  const [totalCount, setTotalCount] = useState<number | null>(null);
-  const offsetRef = useRef<number>(0);
+  const {
+    columns,
+    rows,
+    loading,
+    loadingMore,
+    error,
+    hasMore,
+    totalCount,
+    initialLoadComplete,
+    sort,
+    handleSort,
+    fetchTableData,
+    setError
+  } = usePostgresTableData(schema, tableName);
+
   const parentRef = useRef<HTMLDivElement>(null);
   const [documentView, setDocumentView] = useState(isMobileViewport);
   const userToggledViewRef = useRef(false);
-  const [sort, setSort] = useState<SortState>({
-    column: null,
-    direction: null
-  });
   const [hiddenColumns, setHiddenColumns] = useState<Set<string>>(
     new Set(['id'])
   );
   const [showColumnSettings, setShowColumnSettings] = useState(false);
   const settingsRef = useRef<HTMLDivElement>(null);
   const [exporting, setExporting] = useState(false);
-
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  const isLoadingMoreRef = useRef(false);
   const [hasScrolled, setHasScrolled] = useState(false);
 
-  // Local component to reduce duplication of sticky VirtualListStatus
-  const StickyVirtualListStatus = ({
-    firstVisible,
-    lastVisible
-  }: {
-    firstVisible: number | null;
-    lastVisible: number | null;
-  }) => (
-    <div className="sticky top-0 z-10 bg-background px-4 py-2">
-      <VirtualListStatus
-        firstVisible={firstVisible}
-        lastVisible={lastVisible}
-        loadedCount={rows.length}
-        totalCount={totalCount}
-        hasMore={hasMore}
-        itemLabel="row"
-      />
-    </div>
+  // Calculate visible range for sticky status
+  const virtualizer = useVirtualizer({
+    count: rows.length + (hasMore ? 1 : 0),
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => ROW_HEIGHT_ESTIMATE,
+    overscan: 5
+  });
+
+  const virtualItems = virtualizer.getVirtualItems();
+
+  const visibleRowItems = virtualItems.filter(
+    (item) => item.index < rows.length
   );
+  const firstVisible =
+    visibleRowItems.length > 0 ? (visibleRowItems[0]?.index ?? null) : null;
+  const lastVisible =
+    visibleRowItems.length > 0
+      ? (visibleRowItems[visibleRowItems.length - 1]?.index ?? null)
+      : null;
 
-  const fetchTableData = useCallback(
-    async (reset = true) => {
-      if (!schema || !tableName) return;
-
-      setError(null);
-      if (reset) {
-        setLoading(true);
-        setRows([]);
-        offsetRef.current = 0;
-        setInitialLoadComplete(false);
-        isLoadingMoreRef.current = false;
-        setHasScrolled(false);
-      } else {
-        if (isLoadingMoreRef.current) return;
-        isLoadingMoreRef.current = true;
-        setLoadingMore(true);
-      }
-
-      try {
-        // Fetch columns on initial load
-        if (reset) {
-          const columnsResponse = await api.admin.postgres.getColumns(
-            schema,
-            tableName
-          );
-          setColumns(columnsResponse.columns);
-        }
-
-        // Fetch rows
-        const rowsOptions: {
-          limit: number;
-          offset: number;
-          sortColumn?: string;
-          sortDirection?: 'asc' | 'desc';
-        } = {
-          limit: PAGE_SIZE,
-          offset: reset ? 0 : offsetRef.current
-        };
-        if (sort.column) rowsOptions.sortColumn = sort.column;
-        if (sort.direction) rowsOptions.sortDirection = sort.direction;
-
-        const rowsResponse = await api.admin.postgres.getRows(
-          schema,
-          tableName,
-          rowsOptions
-        );
-
-        if (reset) {
-          setRows(rowsResponse.rows);
-        } else {
-          setRows((prev) => [...prev, ...rowsResponse.rows]);
-        }
-
-        setTotalCount(rowsResponse.totalCount);
-        offsetRef.current += rowsResponse.rows.length;
-        setHasMore(offsetRef.current < rowsResponse.totalCount);
-      } catch (err) {
-        console.error('Failed to fetch Postgres table data:', err);
-        setError(err instanceof Error ? err.message : String(err));
-      } finally {
-        setLoading(false);
-        setLoadingMore(false);
-        if (reset) {
-          setInitialLoadComplete(true);
-        }
-        isLoadingMoreRef.current = false;
-      }
-    },
-    [schema, tableName, sort.column, sort.direction]
+  const stickyStatusElement = (
+    <StickyVirtualListStatus
+      firstVisible={firstVisible}
+      lastVisible={lastVisible}
+      loadedCount={rows.length}
+      totalCount={totalCount}
+      hasMore={hasMore}
+    />
   );
-
-  // Fetch data on mount and when dependencies change
-  useEffect(() => {
-    fetchTableData(true);
-  }, [fetchTableData]);
 
   // Close column settings when clicking outside
   useEffect(() => {
@@ -236,15 +126,6 @@ export function PostgresTableRowsView({
     [columns, hiddenColumns]
   );
 
-  const virtualizer = useVirtualizer({
-    count: rows.length + (hasMore ? 1 : 0),
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT_ESTIMATE,
-    overscan: 5
-  });
-
-  const virtualItems = virtualizer.getVirtualItems();
-
   // Load more when scrolling near end
   useEffect(() => {
     if (!initialLoadComplete || !hasMore || loadingMore || loading) return;
@@ -255,14 +136,14 @@ export function PostgresTableRowsView({
       fetchTableData(false);
     }
   }, [
-    virtualItems,
     hasMore,
     loadingMore,
     loading,
     rows.length,
     fetchTableData,
     initialLoadComplete,
-    hasScrolled
+    hasScrolled,
+    virtualItems
   ]);
 
   // Track scroll
@@ -279,19 +160,6 @@ export function PostgresTableRowsView({
     scrollElement.addEventListener('scroll', handleScroll, { passive: true });
     return () => scrollElement.removeEventListener('scroll', handleScroll);
   }, []);
-
-  const handleSort = (columnName: string) => {
-    setSort((prev) => {
-      if (prev.column === columnName) {
-        if (prev.direction === 'asc') {
-          return { column: columnName, direction: 'desc' };
-        } else if (prev.direction === 'desc') {
-          return { column: null, direction: null };
-        }
-      }
-      return { column: columnName, direction: 'asc' };
-    });
-  };
 
   const handleToggleColumn = (columnName: string) => {
     setHiddenColumns((prev) => {
@@ -338,7 +206,6 @@ export function PostgresTableRowsView({
 
         allRows.push(...response.rows);
 
-        // Prevent infinite loop if API returns empty array despite hasMore being true
         if (response.rows.length === 0) {
           break;
         }
@@ -365,18 +232,15 @@ export function PostgresTableRowsView({
     } finally {
       setExporting(false);
     }
-  }, [schema, tableName, columns, sort.column, sort.direction, exporting]);
-
-  // Calculate visible range
-  const visibleRowItems = virtualItems.filter(
-    (item) => item.index < rows.length
-  );
-  const firstVisible =
-    visibleRowItems.length > 0 ? (visibleRowItems[0]?.index ?? null) : null;
-  const lastVisible =
-    visibleRowItems.length > 0
-      ? (visibleRowItems[visibleRowItems.length - 1]?.index ?? null)
-      : null;
+  }, [
+    schema,
+    tableName,
+    columns,
+    sort.column,
+    sort.direction,
+    exporting,
+    setError
+  ]);
 
   if (!schema || !tableName) {
     return (
@@ -474,147 +338,24 @@ export function PostgresTableRowsView({
           No rows found.
         </div>
       ) : documentView ? (
-        // Document view - scroll container with sticky VirtualListStatus inside
-        <div
-          ref={parentRef}
-          className="min-h-0 flex-1 overflow-auto rounded-lg border"
-          data-testid="scroll-container"
-        >
-          <StickyVirtualListStatus
-            firstVisible={firstVisible}
-            lastVisible={lastVisible}
-          />
-          <div
-            style={{ height: `${virtualizer.getTotalSize()}px` }}
-            className="relative w-full"
-          >
-            {virtualItems.map((virtualItem) => {
-              const isLoaderRow = virtualItem.index >= rows.length;
-
-              if (isLoaderRow) {
-                return (
-                  <div
-                    key="loader"
-                    className="absolute top-0 left-0 flex w-full items-center justify-center p-4 text-muted-foreground"
-                    style={{
-                      transform: `translateY(${virtualItem.start}px)`
-                    }}
-                  >
-                    {loadingMore && (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Loading more...
-                      </>
-                    )}
-                  </div>
-                );
-              }
-
-              const row = rows[virtualItem.index];
-              if (!row) return null;
-
-              return (
-                <div
-                  key={getRowKey(virtualItem.index)}
-                  data-index={virtualItem.index}
-                  ref={virtualizer.measureElement}
-                  className="absolute top-0 left-0 w-full p-2"
-                  style={{
-                    transform: `translateY(${virtualItem.start}px)`
-                  }}
-                >
-                  <pre className="overflow-x-auto rounded border bg-muted/50 p-3 font-mono text-xs">
-                    {JSON.stringify(row, null, 2)}
-                  </pre>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+        <DocumentView
+          parentRef={parentRef}
+          virtualizer={virtualizer}
+          rows={rows}
+          loadingMore={loadingMore}
+          stickyStatus={stickyStatusElement}
+        />
       ) : (
-        // Table view - scroll container with sticky VirtualListStatus inside
-        <div
-          ref={parentRef}
-          className="min-h-0 flex-1 overflow-auto rounded-lg border"
-          data-testid="scroll-container"
-        >
-          <StickyVirtualListStatus
-            firstVisible={firstVisible}
-            lastVisible={lastVisible}
-          />
-          <table className={`${WINDOW_TABLE_TYPOGRAPHY.table} border-collapse`}>
-            <thead className="sticky top-[2.25rem] z-10 bg-muted">
-              <tr>
-                {visibleColumns.map((col) => (
-                  <th
-                    key={col.name}
-                    className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} cursor-pointer hover:bg-muted/80`}
-                    onClick={() => handleSort(col.name)}
-                  >
-                    <div className="flex items-center gap-1">
-                      <span className="truncate">{col.name}</span>
-                      {sort.column === col.name ? (
-                        sort.direction === 'asc' ? (
-                          <ArrowUp className="h-4 w-4 shrink-0" />
-                        ) : (
-                          <ArrowDown className="h-4 w-4 shrink-0" />
-                        )
-                      ) : (
-                        <ArrowUpDown className="h-4 w-4 shrink-0 text-muted-foreground/50" />
-                      )}
-                    </div>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {virtualItems.map((virtualItem) => {
-                const isLoaderRow = virtualItem.index >= rows.length;
-
-                if (isLoaderRow) {
-                  return (
-                    <WindowTableRow
-                      key="loader"
-                      className="cursor-default border-b-0 hover:bg-transparent"
-                    >
-                      <td
-                        colSpan={visibleColumns.length}
-                        className={`${WINDOW_TABLE_TYPOGRAPHY.mutedCell} p-4 text-center`}
-                      >
-                        {loadingMore && (
-                          <span className="flex items-center justify-center">
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Loading more...
-                          </span>
-                        )}
-                      </td>
-                    </WindowTableRow>
-                  );
-                }
-
-                const row = rows[virtualItem.index];
-                if (!row) return null;
-
-                return (
-                  <WindowTableRow
-                    key={getRowKey(virtualItem.index)}
-                    className="cursor-default hover:bg-muted/50"
-                  >
-                    {visibleColumns.map((col) => (
-                      <td
-                        key={col.name}
-                        className={`${WINDOW_TABLE_TYPOGRAPHY.cell} max-w-xs truncate font-mono text-sm`}
-                        title={formatCellValue(row[col.name])}
-                      >
-                        {formatCellValue(row[col.name])}
-                      </td>
-                    ))}
-                  </WindowTableRow>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+        <TableView
+          parentRef={parentRef}
+          virtualizer={virtualizer}
+          rows={rows}
+          visibleColumns={visibleColumns}
+          sort={sort}
+          handleSort={handleSort}
+          loadingMore={loadingMore}
+          stickyStatus={stickyStatusElement}
+        />
       )}
     </div>
   );

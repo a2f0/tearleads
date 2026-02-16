@@ -318,6 +318,17 @@
         "MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')",
         "echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))"
       ]
+    },
+    {
+      "id": "preen-file-limits",
+      "purpose": "Break down large files exceeding project size limits (500 lines or 20,000 bytes)",
+      "checklistLabel": "Large files exceeding project limits",
+      "qualityMetric": "Files exceeding size limits (500 lines or 20,000 bytes)",
+      "security": false,
+      "discoveryCommands": [
+        "./scripts/preen/checkFileLimits.sh --all 2>&1 | head -40"
+      ],
+      "metricCountCommand": "./scripts/preen/checkFileLimits.sh --all 2>&1 | grep \"^  - \" | wc -l"
     }
   ]
 }

@@ -54,6 +54,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-i18n` | Audit i18n translation coverage, missing keys, and hardcoded strings |
 | `preen-docs-internationalization` | Translate and sync documentation across all supported languages |
 | `preen-window-consistency` | Normalize window components and standardize refresh patterns into window-manager |
+| `preen-file-limits` | Break down large files exceeding project size limits (500 lines or 20,000 bytes) |
 
 ## Run Modes
 
@@ -94,6 +95,7 @@ CATEGORIES=(
   "preen-i18n"
   "preen-docs-internationalization"
   "preen-window-consistency"
+  "preen-file-limits"
 )
 
 SECURITY_CATEGORIES=(
@@ -440,6 +442,9 @@ run_discovery() {
         'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent'
         packages | rg -v 'window-manager' | head -20
       ;;
+    preen-file-limits)
+      ./scripts/preen/checkFileLimits.sh --all 2>&1 | head -40
+      ;;
   esac
 }
 
@@ -527,6 +532,9 @@ metric_count() {
       MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
       MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
       echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))
+      ;;
+    preen-file-limits)
+      ./scripts/preen/checkFileLimits.sh --all 2>&1 | grep "^  - " | wc -l
       ;;
     *)
       echo 0
@@ -652,6 +660,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - i18n gaps (missing translation keys + hardcoded strings)
 - Missing or orphaned doc translations
 - Non-standardized window patterns (manual refresh, drag, resize)
+- Files exceeding size limits (500 lines or 20,000 bytes)
 
 Quality gate for the selected category:
 
@@ -701,6 +710,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] i18n translation coverage and consistency
 - [ ] Documentation internationalization coverage
 - [ ] Window component consistency and refresh patterns
+- [ ] Large files exceeding project limits
 
 ## Quality Delta
 - [x] Baseline metric captured for selected category

@@ -6,21 +6,23 @@ LINE_LIMIT=500
 BYTE_LIMIT=20000
 
 # Files to ignore (regex patterns)
+# Documentation and AI skill definition directories are ignored as they
+# are often automatically generated or contain large meta-logic descriptions.
 IGNORE_PATTERNS=(
   "^pnpm-lock\.yaml$"
   "^ansible/vendor/"
   "^package\.json$"
   "^pnpm-workspace\.yaml$"
-  "^\\.claude/commands/"
-  "^\\.codex/skills/"
-  "^\\.gemini/skills/"
+  "^\.gemini/"
+  "^\.claude/"
+  "^\.codex/"
   "^\\.opencode/skills/"
   "\.min\.js$"
   "\.map$"
 )
 
 usage() {
-  echo "Usage: $0 --staged | --from-upstream" >&2
+  echo "Usage: $0 --staged | --from-upstream | --all" >&2
   exit 2
 }
 
@@ -43,6 +45,11 @@ is_ignored() {
 collect_files() {
   if [ "$mode" = "--staged" ]; then
     git diff --name-only --diff-filter=AM --cached
+    return
+  fi
+
+  if [ "$mode" = "--all" ]; then
+    git ls-files
     return
   fi
 
