@@ -15,8 +15,8 @@ const createAdapter = (
   rollbackTransaction: vi.fn(async () => {}),
   rekeyDatabase: vi.fn(async () => {}),
   getConnection: vi.fn(() => async () => ({ rows: [] })),
-exportDatabase: vi.fn(async () => new Uint8Array()),
-importDatabase: vi.fn(async () => {})
+  exportDatabase: vi.fn(async () => new Uint8Array()),
+  importDatabase: vi.fn(async () => {})
 });
 
 describe('v012 migration', () => {
