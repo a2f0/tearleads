@@ -1,4 +1,4 @@
-import { and, asc, desc, eq } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray } from 'drizzle-orm';
 import { Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -307,18 +307,25 @@ export function ContactDetail() {
           (e) => !e.isNew && !e.isDeleted
         );
 
-        for (const email of emailsToDelete) {
-          await db.delete(contactEmails).where(eq(contactEmails.id, email.id));
+        if (emailsToDelete.length > 0) {
+          await db.delete(contactEmails).where(
+            inArray(
+              contactEmails.id,
+              emailsToDelete.map((e) => e.id)
+            )
+          );
         }
 
-        for (const email of emailsToInsert) {
-          await db.insert(contactEmails).values({
-            id: email.id,
-            contactId: id,
-            email: email.email.trim(),
-            label: email.label.trim() || null,
-            isPrimary: email.isPrimary
-          });
+        if (emailsToInsert.length > 0) {
+          await db.insert(contactEmails).values(
+            emailsToInsert.map((email) => ({
+              id: email.id,
+              contactId: id,
+              email: email.email.trim(),
+              label: email.label.trim() || null,
+              isPrimary: email.isPrimary
+            }))
+          );
         }
 
         for (const email of emailsToUpdate) {
@@ -343,18 +350,25 @@ export function ContactDetail() {
           (p) => !p.isNew && !p.isDeleted
         );
 
-        for (const phone of phonesToDelete) {
-          await db.delete(contactPhones).where(eq(contactPhones.id, phone.id));
+        if (phonesToDelete.length > 0) {
+          await db.delete(contactPhones).where(
+            inArray(
+              contactPhones.id,
+              phonesToDelete.map((p) => p.id)
+            )
+          );
         }
 
-        for (const phone of phonesToInsert) {
-          await db.insert(contactPhones).values({
-            id: phone.id,
-            contactId: id,
-            phoneNumber: phone.phoneNumber.trim(),
-            label: phone.label.trim() || null,
-            isPrimary: phone.isPrimary
-          });
+        if (phonesToInsert.length > 0) {
+          await db.insert(contactPhones).values(
+            phonesToInsert.map((phone) => ({
+              id: phone.id,
+              contactId: id,
+              phoneNumber: phone.phoneNumber.trim(),
+              label: phone.label.trim() || null,
+              isPrimary: phone.isPrimary
+            }))
+          );
         }
 
         for (const phone of phonesToUpdate) {
