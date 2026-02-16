@@ -1,5 +1,7 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { createAuthHeader } from '../test/auth.js';
+import { mockConsoleError } from '../test/consoleMocks.js';
 import {
   buildLinkPushPayload,
   buildValidPushPayload,
@@ -8,11 +10,9 @@ import {
   setupCrdtPushRouteTestEnv,
   teardownCrdtPushRouteTestEnv
 } from './vfs-crdt-push-test-support.js';
-import { app } from '../index.js';
-import { createAuthHeader } from '../test/auth.js';
-import { mockConsoleError } from '../test/consoleMocks.js';
 
-async function postCrdtPush(authHeader: string, payload: unknown) {
+async function postCrdtPush(payload: unknown, authHeader: string) {
+  const { app } = await import('../index.js');
   return request(app)
     .post('/v1/vfs/crdt/push')
     .set('Authorization', authHeader)
@@ -41,7 +41,7 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -73,7 +73,7 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -95,7 +95,7 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({ rows: [{ id: 'crdt-row-1' }] }) // existing source
       .mockResolvedValueOnce({}); // COMMIT
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -117,7 +117,7 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({ rows: [{ max_write_id: 5 }] }) // max write
       .mockResolvedValueOnce({}); // COMMIT
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -140,15 +140,18 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
-    const response = await postCrdtPush(authHeader, {
-      ...buildValidPushPayload(),
-      operations: [
-        {
-          ...buildValidPushPayload().operations[0],
-          writeId: 3
-        }
-      ]
-    });
+    const response = await postCrdtPush(
+      {
+        ...buildValidPushPayload(),
+        operations: [
+          {
+            ...buildValidPushPayload().operations[0],
+            writeId: 3
+          }
+        ]
+      },
+      authHeader
+    );
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -170,7 +173,7 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({ rowCount: 1 }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -192,7 +195,7 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({ rowCount: 0 }) // INSERT
       .mockResolvedValueOnce({}); // COMMIT
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -215,8 +218,8 @@ describe('VFS CRDT push route processing', () => {
       .mockResolvedValueOnce({}); // COMMIT
 
     const response = await postCrdtPush(
-      authHeader,
-      buildLinkPushPayload({ childId: undefined })
+      buildLinkPushPayload({ childId: undefined }),
+      authHeader
     );
 
     expect(response.status).toBe(200);
@@ -236,7 +239,7 @@ describe('VFS CRDT push route processing', () => {
       }) // owner lookup
       .mockResolvedValueOnce({}); // COMMIT
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
@@ -257,7 +260,7 @@ describe('VFS CRDT push route processing', () => {
       .mockRejectedValueOnce(new Error('lock failed')) // advisory lock
       .mockResolvedValueOnce({}); // ROLLBACK
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'Failed to push CRDT operations' });
@@ -277,7 +280,7 @@ describe('VFS CRDT push route processing', () => {
       .mockRejectedValueOnce(new Error('lock failed')) // advisory lock
       .mockRejectedValueOnce(new Error('rollback failed')); // ROLLBACK
 
-    const response = await postCrdtPush(authHeader, buildValidPushPayload());
+    const response = await postCrdtPush(buildValidPushPayload(), authHeader);
 
     expect(response.status).toBe(500);
     expect(response.body).toEqual({ error: 'Failed to push CRDT operations' });
