@@ -65,7 +65,7 @@ export function fetchVmSizes(location: string): AzureVmSize[] {
   try {
     const output = execSync(`az vm list-sizes --location ${location} -o json`, {
       encoding: 'utf-8',
-      stdio: 'pipe',
+      stdio: 'pipe'
     });
 
     const sizes = JSON.parse(output) as Array<{
@@ -83,7 +83,7 @@ export function fetchVmSizes(location: string): AzureVmSize[] {
       vCpus: sz.numberOfCores,
       memoryGb: sz.memoryInMB / 1024,
       maxDataDisks: sz.maxDataDiskCount,
-      osDiskSizeGb: sz.osDiskSizeInMB / 1024,
+      osDiskSizeGb: sz.osDiskSizeInMB / 1024
     }));
   } catch (error) {
     console.error('Failed to fetch Azure VM sizes:', error);
@@ -101,7 +101,7 @@ export function fetchVmSizes(location: string): AzureVmSize[] {
  */
 export async function fetchRetailPrices(
   armSkuName: string,
-  armRegionName: string = 'eastus',
+  armRegionName: string = 'eastus'
 ): Promise<AzureRetailPrice[]> {
   const baseUrl = 'https://prices.azure.com/api/retail/prices';
 
@@ -110,7 +110,7 @@ export async function fetchRetailPrices(
     `armSkuName eq '${armSkuName}'`,
     `armRegionName eq '${armRegionName}'`,
     `priceType eq 'Consumption'`,
-    `contains(meterName, 'Spot') eq false`,
+    `contains(meterName, 'Spot') eq false`
   ].join(' and ');
 
   const url = `${baseUrl}?$filter=${encodeURIComponent(filter)}`;
@@ -134,14 +134,14 @@ export async function fetchRetailPrices(
  * Azure charges for outbound data transfer after first 100 GB/month free
  */
 export async function fetchBandwidthPricing(
-  armRegionName: string = 'eastus',
+  armRegionName: string = 'eastus'
 ): Promise<AzureRetailPrice[]> {
   const baseUrl = 'https://prices.azure.com/api/retail/prices';
 
   const filter = [
     `serviceName eq 'Bandwidth'`,
     `armRegionName eq '${armRegionName}'`,
-    `priceType eq 'Consumption'`,
+    `priceType eq 'Consumption'`
   ].join(' and ');
 
   const url = `${baseUrl}?$filter=${encodeURIComponent(filter)}`;
@@ -178,7 +178,7 @@ export async function scrapeAzurePricing(): Promise<void> {
     'Standard_DC2as_v5',
     'Standard_DC4as_v5',
     'Standard_DC8as_v5',
-    'Standard_DC16as_v5',
+    'Standard_DC16as_v5'
   ];
 
   const regions = ['eastus', 'westus2', 'westeurope'];
@@ -190,11 +190,11 @@ export async function scrapeAzurePricing(): Promise<void> {
       const linuxPrice = prices.find(
         (p) =>
           p.productName.includes('Linux') &&
-          !p.meterName.includes('Low Priority'),
+          !p.meterName.includes('Low Priority')
       );
       if (linuxPrice) {
         console.log(
-          `  ${region}: $${linuxPrice.retailPrice}/hr ($${monthlyFromHourly(linuxPrice.retailPrice)}/mo)`,
+          `  ${region}: $${linuxPrice.retailPrice}/hr ($${monthlyFromHourly(linuxPrice.retailPrice)}/mo)`
         );
       }
     }

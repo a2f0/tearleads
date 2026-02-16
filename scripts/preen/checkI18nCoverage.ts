@@ -33,11 +33,6 @@ interface HardcodedString {
   attributeName?: string;
 }
 
-interface TranslationKey {
-  namespace: string;
-  key: string;
-}
-
 interface LanguageCoverage {
   language: string;
   keyCount: number;
@@ -229,10 +224,7 @@ const isLikelyTranslatableText = (text: string): boolean => {
   }
 
   // Likely CSS class or code identifier
-  if (
-    /^[a-z]+(-[a-z]+)+$/.test(trimmed) ||
-    /^[a-z]+_[a-z]+$/.test(trimmed)
-  ) {
+  if (/^[a-z]+(-[a-z]+)+$/.test(trimmed) || /^[a-z]+_[a-z]+$/.test(trimmed)) {
     return false;
   }
 
@@ -272,8 +264,11 @@ const findHardcodedStrings = async (
   const jsxTextRegex = />([^<>{}\n]+)</g;
   let match: RegExpExecArray | null;
 
-  while ((match = jsxTextRegex.exec(content)) !== null) {
-    const text = match[1].trim();
+  match = jsxTextRegex.exec(content);
+  while (match !== null) {
+    const currentMatch = match;
+    match = jsxTextRegex.exec(content);
+    const text = currentMatch[1].trim();
 
     if (!isLikelyTranslatableText(text)) {
       continue;
@@ -281,21 +276,21 @@ const findHardcodedStrings = async (
 
     // Skip if inside a comment
     const beforeMatch = content.substring(
-      Math.max(0, match.index - 100),
-      match.index
+      Math.max(0, currentMatch.index - 100),
+      currentMatch.index
     );
     if (beforeMatch.includes('//') || beforeMatch.includes('/*')) {
       continue;
     }
 
-    const { line, column } = getLineAndColumn(content, match.index);
+    const { line, column } = getLineAndColumn(content, currentMatch.index);
     results.push({
       file: relativePath,
       line,
       column,
       type: 'jsx-text',
       value: text,
-      context: getContextLine(content, match.index)
+      context: getContextLine(content, currentMatch.index)
     });
   }
 
@@ -303,9 +298,12 @@ const findHardcodedStrings = async (
   // Match: attribute="value" or attribute='value'
   const attributeRegex = /(\w+)=["']([^"']+)["']/g;
 
-  while ((match = attributeRegex.exec(content)) !== null) {
-    const attrName = match[1];
-    const attrValue = match[2].trim();
+  match = attributeRegex.exec(content);
+  while (match !== null) {
+    const currentMatch = match;
+    match = attributeRegex.exec(content);
+    const attrName = currentMatch[1];
+    const attrValue = currentMatch[2].trim();
 
     // Skip non-user-facing attributes
     if (SKIP_ATTRIBUTES.has(attrName)) {
@@ -321,7 +319,7 @@ const findHardcodedStrings = async (
       continue;
     }
 
-    const { line, column } = getLineAndColumn(content, match.index);
+    const { line, column } = getLineAndColumn(content, currentMatch.index);
     results.push({
       file: relativePath,
       line,
@@ -329,7 +327,7 @@ const findHardcodedStrings = async (
       type: 'attribute',
       value: attrValue,
       attributeName: attrName,
-      context: getContextLine(content, match.index)
+      context: getContextLine(content, currentMatch.index)
     });
   }
 
@@ -338,21 +336,24 @@ const findHardcodedStrings = async (
   const labelInObjectRegex =
     /label:\s*["']([^"']+)["']|trigger:\s*["']([^"']+)["']/g;
 
-  while ((match = labelInObjectRegex.exec(content)) !== null) {
-    const value = (match[1] || match[2]).trim();
+  match = labelInObjectRegex.exec(content);
+  while (match !== null) {
+    const currentMatch = match;
+    match = labelInObjectRegex.exec(content);
+    const value = (currentMatch[1] || currentMatch[2]).trim();
 
     if (!isLikelyTranslatableText(value)) {
       continue;
     }
 
-    const { line, column } = getLineAndColumn(content, match.index);
+    const { line, column } = getLineAndColumn(content, currentMatch.index);
     results.push({
       file: relativePath,
       line,
       column,
       type: 'array-literal',
       value,
-      context: getContextLine(content, match.index)
+      context: getContextLine(content, currentMatch.index)
     });
   }
 
@@ -375,8 +376,10 @@ const extractKeysFromTranslationFile = async (
     const keyRegex = /^\s+(\w+):\s*['"][^'"]*['"]/gm;
     let match: RegExpExecArray | null;
 
-    while ((match = keyRegex.exec(content)) !== null) {
+    match = keyRegex.exec(content);
+    while (match !== null) {
       keys.add(match[1]);
+      match = keyRegex.exec(content);
     }
 
     return keys;
@@ -396,8 +399,10 @@ const extractNamespacesFromTranslationFile = async (
     const namespaceRegex = /^\s{2}(\w+):\s*\{/gm;
     let match: RegExpExecArray | null;
 
-    while ((match = namespaceRegex.exec(content)) !== null) {
+    match = namespaceRegex.exec(content);
+    while (match !== null) {
       namespaces.push(match[1]);
+      match = namespaceRegex.exec(content);
     }
 
     return namespaces;

@@ -7,10 +7,15 @@
  * Actions are documented in --help output and README.md.
  */
 import { execFileSync, execSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
-import { program, Command, Option, InvalidArgumentError } from 'commander';
-import { extractKeyLines, getRepoRoot, parsePositiveInt, runWithTimeout } from '../../tooling/lib/cliShared.ts';
+import { Command, InvalidArgumentError, Option, program } from 'commander';
+import {
+  extractKeyLines,
+  getRepoRoot,
+  parsePositiveInt,
+  runWithTimeout
+} from '../../tooling/lib/cliShared.ts';
 
 // ============================================================================
 // Types
@@ -103,66 +108,116 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_write_local',
     retrySafe: false,
     isInline: false,
-    scriptPath: (_repo, agents) => path.join(agents, 'refresh.sh'),
+    scriptPath: (_repo, agents) => path.join(agents, 'refresh.sh')
   },
   // Manual-only wrapper used for explicit toolchain maintenance runs.
   syncToolchainVersions: {
     safetyClass: 'safe_write_local',
     retrySafe: true,
     isInline: false,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'syncToolchainVersions.sh'),
+    scriptPath: (repo) => path.join(repo, 'scripts', 'syncToolchainVersions.sh')
   },
   setVscodeTitle: {
     safetyClass: 'safe_write_local',
     retrySafe: true,
     isInline: false,
-    scriptPath: (_repo, agents) => path.join(agents, 'setVscodeTitle.sh'),
+    scriptPath: (_repo, agents) => path.join(agents, 'setVscodeTitle.sh')
   },
   solicitCodexReview: {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: false,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'solicitCodexReview.sh'),
+    scriptPath: (repo) => path.join(repo, 'scripts', 'solicitCodexReview.sh')
   },
   solicitClaudeCodeReview: {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: false,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'solicitClaudeCodeReview.sh'),
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'solicitClaudeCodeReview.sh')
   },
   addLabel: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: false,
-    scriptPath: (_repo, agents) => path.join(agents, 'addLabel.sh'),
+    scriptPath: (_repo, agents) => path.join(agents, 'addLabel.sh')
   },
   // Manual-only wrapper used when checks are intentionally skipped by CI routing.
   approveSkippedChecks: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: false,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'approveSkippedChecks.sh'),
+    scriptPath: (repo) => path.join(repo, 'scripts', 'approveSkippedChecks.sh')
   },
   tagPrWithTuxedoInstance: {
     safetyClass: 'safe_write_remote',
     retrySafe: true,
     isInline: false,
-    scriptPath: (_repo, agents) => path.join(agents, 'tagPrWithTuxedoInstance.sh'),
+    scriptPath: (_repo, agents) =>
+      path.join(agents, 'tagPrWithTuxedoInstance.sh')
   },
   getPrInfo: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
-  getReviewThreads: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
-  replyToComment: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true },
-  replyToGemini: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true },
-  resolveThread: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true },
+  getReviewThreads: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  replyToComment: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
+  replyToGemini: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
+  resolveThread: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
   getCiStatus: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
-  cancelWorkflow: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true },
-  rerunWorkflow: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true },
-  downloadArtifact: { safetyClass: 'safe_write_local', retrySafe: true, isInline: true },
-  enableAutoMerge: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true },
-  findPrForBranch: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
-  listHighPriorityPrs: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
-  triggerGeminiReview: { safetyClass: 'safe_write_remote', retrySafe: true, isInline: true },
-  findDeferredWork: { safetyClass: 'safe_read', retrySafe: true, isInline: true },
+  cancelWorkflow: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
+  rerunWorkflow: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
+  downloadArtifact: {
+    safetyClass: 'safe_write_local',
+    retrySafe: true,
+    isInline: true
+  },
+  enableAutoMerge: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
+  findPrForBranch: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  listHighPriorityPrs: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  },
+  triggerGeminiReview: {
+    safetyClass: 'safe_write_remote',
+    retrySafe: true,
+    isInline: true
+  },
+  findDeferredWork: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
+  }
 };
 
 // ============================================================================
@@ -174,16 +229,26 @@ function isShaLike(value: string): boolean {
   return value.length >= 7 && value.length <= 40;
 }
 
+function requireDefined<T>(value: T | undefined, name: string): T {
+  if (value === undefined) {
+    throw new Error(`Missing required option: ${name}`);
+  }
+  return value;
+}
 // ============================================================================
 // Helpers
 // ============================================================================
 
 function getRepo(): string {
   try {
-    return execFileSync('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
+    return execFileSync(
+      'gh',
+      ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }
+    ).trim();
   } catch {
     throw new Error('Could not determine repository. Is gh CLI authenticated?');
   }
@@ -208,14 +273,18 @@ function runInlineAction(
   const runGh = (args: string[]): string =>
     execFileSync('gh', args, {
       encoding: 'utf8',
-      timeout: timeoutMs,
+      timeout: timeoutMs
     });
 
   switch (action) {
     case 'getPrInfo': {
-      const fields = options.fields ?? 'number,state,mergeStateStatus,headRefName,baseRefName,url';
+      const fields =
+        options.fields ??
+        'number,state,mergeStateStatus,headRefName,baseRefName,url';
       // When using -R, gh pr view needs an explicit branch/PR reference
-      const branch = execSync('git branch --show-current', { encoding: 'utf8' }).trim();
+      const branch = execSync('git branch --show-current', {
+        encoding: 'utf8'
+      }).trim();
       return runGh(['pr', 'view', branch, '--json', fields, '-R', repo]);
     }
 
@@ -227,7 +296,9 @@ function runInlineAction(
       if (!owner || !repoName) {
         throw new Error(`Invalid repository format: ${repo}`);
       }
-      const filter = options.unresolvedOnly ? 'map(select(.isResolved == false))' : '.';
+      const filter = options.unresolvedOnly
+        ? 'map(select(.isResolved == false))'
+        : '.';
       const query = `
         query($owner: String!, $repo: String!, $pr: Int!, $after: String) {
           repository(owner: $owner, name: $repo) {
@@ -273,7 +344,7 @@ function runInlineAction(
           '-f',
           `repo=${repoName}`,
           '-F',
-          `pr=${options.number}`,
+          `pr=${options.number}`
         ];
         if (afterCursor) {
           queryArgs.push('-F', `after=${afterCursor}`);
@@ -282,18 +353,18 @@ function runInlineAction(
         const pageHasNext = runGh([
           ...queryArgs,
           '--jq',
-          '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage',
+          '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage'
         ]).trim();
         const pageEndCursor = runGh([
           ...queryArgs,
           '--jq',
-          '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // ""',
+          '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // ""'
         ]).trim();
 
         const threadIdsWithExtraComments = runGh([
           ...queryArgs,
           '--jq',
-          '.data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.pageInfo.hasNextPage == true) | .id',
+          '.data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.pageInfo.hasNextPage == true) | .id'
         ]).trim();
         if (threadIdsWithExtraComments) {
           throw new Error(
@@ -304,7 +375,7 @@ function runInlineAction(
         const pageThreads = runGh([
           ...queryArgs,
           '--jq',
-          `.data.repository.pullRequest.reviewThreads.nodes | ${filter}`,
+          `.data.repository.pullRequest.reviewThreads.nodes | ${filter}`
         ]).trim();
         if (pageThreads.startsWith('[') && pageThreads.endsWith(']')) {
           const innerJson = pageThreads.slice(1, -1).trim();
@@ -319,7 +390,9 @@ function runInlineAction(
           break;
         }
         if (!pageEndCursor) {
-          throw new Error('getReviewThreads pagination indicated next page but missing endCursor');
+          throw new Error(
+            'getReviewThreads pagination indicated next page but missing endCursor'
+          );
         }
         afterCursor = pageEndCursor;
       }
@@ -334,7 +407,7 @@ function runInlineAction(
         'POST',
         `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
         '-f',
-        `body=${options.body}`,
+        `body=${options.body}`
       ]);
     }
 
@@ -346,7 +419,7 @@ function runInlineAction(
         'POST',
         `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
         '-f',
-        `body=${body}`,
+        `body=${body}`
       ]);
     }
 
@@ -358,7 +431,14 @@ function runInlineAction(
           }
         }
       `;
-      return runGh(['api', 'graphql', '-f', `query=${mutation}`, '-f', `threadId=${options.threadId}`]);
+      return runGh([
+        'api',
+        'graphql',
+        '-f',
+        `query=${mutation}`,
+        '-f',
+        `threadId=${options.threadId}`
+      ]);
     }
 
     case 'getCiStatus': {
@@ -372,7 +452,7 @@ function runInlineAction(
           '--jq',
           '{status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
           '-R',
-          repo,
+          repo
         ]);
       }
       // Find run from commit
@@ -380,7 +460,7 @@ function runInlineAction(
         'run',
         'list',
         '--commit',
-        options.commit!,
+        requireDefined(options.commit, '--commit'),
         '--limit',
         '1',
         '--json',
@@ -388,7 +468,7 @@ function runInlineAction(
         '--jq',
         '.[0].databaseId',
         '-R',
-        repo,
+        repo
       ]).trim();
 
       if (!runIdOutput || runIdOutput === 'null') {
@@ -404,33 +484,52 @@ function runInlineAction(
         '--jq',
         '{run_id: .databaseId, status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
         '-R',
-        repo,
+        repo
       ]);
     }
 
     case 'cancelWorkflow': {
-      runGh(['run', 'cancel', options.runId!, '-R', repo]);
-      return JSON.stringify({ status: 'cancelled', run_id: options.runId });
+      const runId = requireDefined(options.runId, '--run-id');
+      runGh(['run', 'cancel', runId, '-R', repo]);
+      return JSON.stringify({ status: 'cancelled', run_id: runId });
     }
 
     case 'rerunWorkflow': {
-      runGh(['run', 'rerun', options.runId!, '-R', repo]);
-      return JSON.stringify({ status: 'rerun_triggered', run_id: options.runId });
+      const runId = requireDefined(options.runId, '--run-id');
+      runGh(['run', 'rerun', runId, '-R', repo]);
+      return JSON.stringify({
+        status: 'rerun_triggered',
+        run_id: runId
+      });
     }
 
     case 'downloadArtifact': {
-      runGh(['run', 'download', options.runId!, '-n', options.artifact!, '-D', options.dest!, '-R', repo]);
+      const runId = requireDefined(options.runId, '--run-id');
+      const artifact = requireDefined(options.artifact, '--artifact');
+      const dest = requireDefined(options.dest, '--dest');
+      runGh(['run', 'download', runId, '-n', artifact, '-D', dest, '-R', repo]);
       return JSON.stringify({
         status: 'downloaded',
-        run_id: options.runId,
-        artifact: options.artifact,
-        dest: options.dest,
+        run_id: runId,
+        artifact,
+        dest
       });
     }
 
     case 'enableAutoMerge': {
-      runGh(['pr', 'merge', String(options.number), '--auto', '--merge', '-R', repo]);
-      return JSON.stringify({ status: 'auto_merge_enabled', pr: options.number });
+      runGh([
+        'pr',
+        'merge',
+        String(options.number),
+        '--auto',
+        '--merge',
+        '-R',
+        repo
+      ]);
+      return JSON.stringify({
+        status: 'auto_merge_enabled',
+        pr: options.number
+      });
     }
 
     case 'findPrForBranch': {
@@ -439,7 +538,7 @@ function runInlineAction(
         'pr',
         'list',
         '--head',
-        options.branch!,
+        requireDefined(options.branch, '--branch'),
         '--state',
         state,
         '--json',
@@ -447,7 +546,7 @@ function runInlineAction(
         '-R',
         repo,
         '--jq',
-        '.[0] // {"error": "No PR found"}',
+        '.[0] // {"error": "No PR found"}'
       ]);
     }
 
@@ -466,7 +565,7 @@ function runInlineAction(
         '-R',
         repo,
         '--jq',
-        '.[].number',
+        '.[].number'
       ]).trim();
 
       if (!prsOutput) return '[]';
@@ -475,7 +574,15 @@ function runInlineAction(
       const results: string[] = [];
 
       for (const prNum of prNumbers) {
-        const prData = runGh(['pr', 'view', prNum, '--json', 'number,title,mergeStateStatus', '-R', repo]).trim();
+        const prData = runGh([
+          'pr',
+          'view',
+          prNum,
+          '--json',
+          'number,title,mergeStateStatus',
+          '-R',
+          repo
+        ]).trim();
         results.push(prData);
       }
 
@@ -495,24 +602,33 @@ function runInlineAction(
         '-R',
         repo,
         '--jq',
-        '[.reviews[] | select(.author.login == "gemini-code-assist") | .submittedAt] | max // ""',
+        '[.reviews[] | select(.author.login == "gemini-code-assist") | .submittedAt] | max // ""'
       ];
 
       const latestReviewBeforeRequest = runGh(latestGeminiReviewQuery).trim();
 
-      runGh(['pr', 'comment', prNumber, '-R', repo, '--body', '/gemini review']);
+      runGh([
+        'pr',
+        'comment',
+        prNumber,
+        '-R',
+        repo,
+        '--body',
+        '/gemini review'
+      ]);
 
       const deadline = Date.now() + pollTimeoutSeconds * 1000;
       while (Date.now() < deadline) {
         const latestReviewAfterRequest = runGh(latestGeminiReviewQuery).trim();
         if (
           latestReviewAfterRequest &&
-          (!latestReviewBeforeRequest || latestReviewAfterRequest > latestReviewBeforeRequest)
+          (!latestReviewBeforeRequest ||
+            latestReviewAfterRequest > latestReviewBeforeRequest)
         ) {
           return JSON.stringify({
             status: 'review_received',
             pr: options.number,
-            submitted_at: latestReviewAfterRequest,
+            submitted_at: latestReviewAfterRequest
           });
         }
         sleepMs(pollIntervalMilliseconds);
@@ -522,7 +638,7 @@ function runInlineAction(
         status: 'review_requested',
         pr: options.number,
         timed_out: true,
-        poll_timeout_seconds: pollTimeoutSeconds,
+        poll_timeout_seconds: pollTimeoutSeconds
       });
     }
 
@@ -532,7 +648,7 @@ function runInlineAction(
         `repos/${repo}/pulls/${options.number}/comments`,
         '--paginate',
         '--jq',
-        '.[] | select(.body | test("defer|follow[- ]?up|future PR|later|TODO|FIXME"; "i")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}',
+        '.[] | select(.body | test("defer|follow[- ]?up|future PR|later|TODO|FIXME"; "i")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}'
       ]);
     }
 
@@ -582,9 +698,9 @@ function runDelegatedAction(
       args.push('--max-android-jump', String(options.maxAndroidJump));
     }
   } else if (action === 'addLabel') {
-    args.push('--type', options.type!);
+    args.push('--type', requireDefined(options.type, '--type'));
     args.push('--number', String(options.number));
-    args.push('--label', options.label!);
+    args.push('--label', requireDefined(options.label, '--label'));
   } else if (action === 'tagPrWithTuxedoInstance' && options.pr) {
     args.push('--pr', String(options.pr));
   }
@@ -602,7 +718,9 @@ function createActionCommand(actionName: ActionName): Command {
 
   // Common options for all actions
   cmd
-    .option('--timeout-seconds <n>', 'Timeout in seconds', (v) => parsePositiveInt(v, '--timeout-seconds'))
+    .option('--timeout-seconds <n>', 'Timeout in seconds', (v) =>
+      parsePositiveInt(v, '--timeout-seconds')
+    )
     .option('--repo-root <path>', 'Execute from this repo root')
     .option('--dry-run', 'Validate and report without executing')
     .option('--json', 'Emit structured JSON summary');
@@ -615,8 +733,10 @@ function createActionCommand(actionName: ActionName): Command {
         .option('--check', 'Check only (default)')
         .option('--skip-node', 'Skip Electron -> Node alignment')
         .option('--skip-android', 'Skip Android SDK alignment')
-        .option('--max-android-jump <n>', 'Max Android API bump in one run', (v) =>
-          parsePositiveInt(v, '--max-android-jump')
+        .option(
+          '--max-android-jump <n>',
+          'Max Android API bump in one run',
+          (v) => parsePositiveInt(v, '--max-android-jump')
         )
         .hook('preAction', (thisCommand) => {
           const opts = thisCommand.opts();
@@ -632,35 +752,49 @@ function createActionCommand(actionName: ActionName): Command {
     case 'addLabel':
       cmd
         .requiredOption('--type <pr|issue>', 'Target type', (v) => {
-          if (v !== 'pr' && v !== 'issue') throw new InvalidArgumentError('--type must be "pr" or "issue"');
+          if (v !== 'pr' && v !== 'issue')
+            throw new InvalidArgumentError('--type must be "pr" or "issue"');
           return v as 'pr' | 'issue';
         })
-        .requiredOption('--number <n>', 'PR or issue number', (v) => parsePositiveInt(v, '--number'))
+        .requiredOption('--number <n>', 'PR or issue number', (v) =>
+          parsePositiveInt(v, '--number')
+        )
         .requiredOption('--label <name>', 'Label name');
       break;
     case 'tagPrWithTuxedoInstance':
-      cmd.option('--pr <n>', 'PR number (auto-detected if omitted)', (v) => parsePositiveInt(v, '--pr'));
+      cmd.option('--pr <n>', 'PR number (auto-detected if omitted)', (v) =>
+        parsePositiveInt(v, '--pr')
+      );
       break;
     case 'getPrInfo':
       cmd.option('--fields <list>', 'Comma-separated fields');
       break;
     case 'getReviewThreads':
       cmd
-        .requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'))
+        .requiredOption('--number <n>', 'PR number', (v) =>
+          parsePositiveInt(v, '--number')
+        )
         .option('--unresolved-only', 'Only return unresolved threads');
       break;
     case 'replyToComment':
       cmd
-        .requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'))
+        .requiredOption('--number <n>', 'PR number', (v) =>
+          parsePositiveInt(v, '--number')
+        )
         .requiredOption('--comment-id <id>', 'Comment database ID')
         .requiredOption('--body <text>', 'Comment body');
       break;
     case 'replyToGemini':
       cmd
-        .requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'))
+        .requiredOption('--number <n>', 'PR number', (v) =>
+          parsePositiveInt(v, '--number')
+        )
         .requiredOption('--comment-id <id>', 'Comment database ID')
         .requiredOption('--commit <sha>', 'Commit SHA', (v) => {
-          if (!isShaLike(v)) throw new InvalidArgumentError('--commit must be a 7-40 character hexadecimal SHA');
+          if (!isShaLike(v))
+            throw new InvalidArgumentError(
+              '--commit must be a 7-40 character hexadecimal SHA'
+            );
           return v;
         });
       break;
@@ -690,23 +824,31 @@ function createActionCommand(actionName: ActionName): Command {
         .requiredOption('--dest <path>', 'Destination path');
       break;
     case 'enableAutoMerge':
-      cmd.requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'));
+      cmd.requiredOption('--number <n>', 'PR number', (v) =>
+        parsePositiveInt(v, '--number')
+      );
       break;
     case 'triggerGeminiReview':
       cmd
-        .requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'))
+        .requiredOption('--number <n>', 'PR number', (v) =>
+          parsePositiveInt(v, '--number')
+        )
         .option('--poll-timeout <secs>', 'Polling timeout in seconds', (v) =>
           parsePositiveInt(v, '--poll-timeout')
         );
       break;
     case 'findDeferredWork':
-      cmd.requiredOption('--number <n>', 'PR number', (v) => parsePositiveInt(v, '--number'));
+      cmd.requiredOption('--number <n>', 'PR number', (v) =>
+        parsePositiveInt(v, '--number')
+      );
       break;
     case 'findPrForBranch':
       cmd
         .requiredOption('--branch <name>', 'Branch name')
         .addOption(
-          new Option('--state <state>', 'PR state filter').choices(['open', 'merged']).default('open')
+          new Option('--state <state>', 'PR state filter')
+            .choices(['open', 'merged'])
+            .default('open')
         );
       break;
   }
@@ -719,20 +861,29 @@ function createActionCommand(actionName: ActionName): Command {
 
     try {
       const repoRoot = getRepoRoot(opts.repoRoot);
-      const timeoutMs = (opts.timeoutSeconds ?? (actionName === 'refresh' ? 3600 : 300)) * 1000;
+      const timeoutMs =
+        (opts.timeoutSeconds ?? (actionName === 'refresh' ? 3600 : 300)) * 1000;
 
       if (opts.dryRun) {
         if (config.isInline) {
           output = `dry-run: would run inline action ${actionName}`;
         } else {
-          const scriptPath = config.scriptPath!(repoRoot, AGENTS_DIR);
+          if (!config.scriptPath) {
+            throw new Error(`No script path for action: ${actionName}`);
+          }
+          const scriptPath = config.scriptPath(repoRoot, AGENTS_DIR);
           output = `dry-run: would run ${scriptPath} from ${repoRoot}`;
         }
       } else if (config.isInline) {
         const repo = getRepo();
         output = runInlineAction(actionName, opts, repo, timeoutMs);
       } else {
-        const result = runDelegatedAction(actionName, opts, repoRoot, timeoutMs);
+        const result = runDelegatedAction(
+          actionName,
+          opts,
+          repoRoot,
+          timeoutMs
+        );
         output = result.stdout + result.stderr;
         exitCode = result.exitCode;
       }
@@ -767,7 +918,7 @@ function createActionCommand(actionName: ActionName): Command {
         safety_class: config.safetyClass,
         retry_safe: config.retrySafe,
         dry_run: opts.dryRun ?? false,
-        key_lines: extractKeyLines(output),
+        key_lines: extractKeyLines(output)
       };
 
       if (windowTitle !== undefined) {
@@ -796,7 +947,9 @@ function createActionCommand(actionName: ActionName): Command {
 
 program
   .name('agentTool.ts')
-  .description('Agent tooling CLI for environment setup, GitHub API actions, and script execution')
+  .description(
+    'Agent tooling CLI for environment setup, GitHub API actions, and script execution'
+  )
   .version('1.0.0');
 
 // Register all action commands

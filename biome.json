@@ -43,7 +43,11 @@
     }
   },
   "files": {
-    "includes": ["packages/**/src/**/*.{ts,tsx}", "!**/dist-tests"],
+    "includes": [
+      "packages/**/src/**/*.{ts,tsx}",
+      "scripts/**/*.{ts,tsx}",
+      "!**/dist-tests"
+    ],
     "ignoreUnknown": true
   },
   "assist": {

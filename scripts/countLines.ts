@@ -17,7 +17,7 @@ const rootDir = join(__dirname, '..');
 const result = spawnSync(
   'tokei',
   ['--output', 'json', '--sort', 'code', ...process.argv.slice(2)],
-  { cwd: rootDir, encoding: 'utf8' },
+  { cwd: rootDir, encoding: 'utf8' }
 );
 
 if (result.error) {
@@ -62,7 +62,7 @@ const rows: Row[] = Object.entries(data)
     files: readStat(stats, 'files'),
     blank: readStat(stats, 'blanks'),
     comment: readStat(stats, 'comments'),
-    code: readStat(stats, 'code'),
+    code: readStat(stats, 'code')
   }))
   .sort((a, b) => b.code - a.code);
 
@@ -73,7 +73,7 @@ if (totalStats) {
     files: readStat(totalStats, 'files'),
     blank: readStat(totalStats, 'blanks'),
     comment: readStat(totalStats, 'comments'),
-    code: readStat(totalStats, 'code'),
+    code: readStat(totalStats, 'code')
   });
 }
 
@@ -84,7 +84,7 @@ const headers = {
   files: 'Files',
   blank: 'Blank',
   comment: 'Comment',
-  code: 'Code',
+  code: 'Code'
 };
 
 const columnWidths = rows.reduce(
@@ -93,15 +93,15 @@ const columnWidths = rows.reduce(
     files: Math.max(widths.files, formatNumber(row.files).length),
     blank: Math.max(widths.blank, formatNumber(row.blank).length),
     comment: Math.max(widths.comment, formatNumber(row.comment).length),
-    code: Math.max(widths.code, formatNumber(row.code).length),
+    code: Math.max(widths.code, formatNumber(row.code).length)
   }),
   {
     language: headers.language.length,
     files: headers.files.length,
     blank: headers.blank.length,
     comment: headers.comment.length,
-    code: headers.code.length,
-  },
+    code: headers.code.length
+  }
 );
 
 const padRight = (value: string, width: number): string => value.padEnd(width);
@@ -112,7 +112,7 @@ const headerLine = [
   padLeft(headers.files, columnWidths.files),
   padLeft(headers.blank, columnWidths.blank),
   padLeft(headers.comment, columnWidths.comment),
-  padLeft(headers.code, columnWidths.code),
+  padLeft(headers.code, columnWidths.code)
 ].join('  ');
 
 const separatorLine = [
@@ -120,7 +120,7 @@ const separatorLine = [
   '-'.repeat(columnWidths.files),
   '-'.repeat(columnWidths.blank),
   '-'.repeat(columnWidths.comment),
-  '-'.repeat(columnWidths.code),
+  '-'.repeat(columnWidths.code)
 ].join('  ');
 
 console.log(headerLine);

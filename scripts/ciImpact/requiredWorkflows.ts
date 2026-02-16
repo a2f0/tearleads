@@ -1,6 +1,10 @@
 #!/usr/bin/env -S pnpm exec tsx
 import { execSync } from 'node:child_process';
-import { ALL_JOB_NAMES, WORKFLOW_BY_JOB, type JobName } from './workflowConfig.js';
+import {
+  ALL_JOB_NAMES,
+  type JobName,
+  WORKFLOW_BY_JOB
+} from './workflowConfig.js';
 
 interface CliArgs {
   base?: string;
@@ -113,7 +117,10 @@ function parseCiImpact(raw: string): CiImpactOutput {
       'website-e2e': parseJobState(jobsRaw, 'website-e2e'),
       'electron-e2e': parseJobState(jobsRaw, 'electron-e2e'),
       android: parseJobState(jobsRaw, 'android'),
-      'android-maestro-release': parseJobState(jobsRaw, 'android-maestro-release'),
+      'android-maestro-release': parseJobState(
+        jobsRaw,
+        'android-maestro-release'
+      ),
       'ios-maestro-release': parseJobState(jobsRaw, 'ios-maestro-release')
     }
   };
@@ -123,12 +130,19 @@ function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
 
-  const cmdParts = ['pnpm exec tsx scripts/ciImpact/ciImpact.ts', `--base ${base}`, `--head ${head}`];
+  const cmdParts = [
+    'pnpm exec tsx scripts/ciImpact/ciImpact.ts',
+    `--base ${base}`,
+    `--head ${head}`
+  ];
   if (args.files !== undefined) {
     cmdParts.push(`--files "${args.files}"`);
   }
 
-  const output = execSync(cmdParts.join(' '), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const output = execSync(cmdParts.join(' '), {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
   return parseCiImpact(output);
 }
 

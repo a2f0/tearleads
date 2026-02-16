@@ -158,7 +158,10 @@ function parsePullRequestSummaries(rawJson: string): PullRequestSummary[] {
   return results;
 }
 
-function getChangedFilesForPullRequest(repo: string, pullNumber: number): string[] {
+function getChangedFilesForPullRequest(
+  repo: string,
+  pullNumber: number
+): string[] {
   const out = runCommand('gh', [
     'api',
     '--paginate',
@@ -177,7 +180,11 @@ function getChangedFilesForPullRequest(repo: string, pullNumber: number): string
     .filter((entry) => entry.length > 0);
 }
 
-function getRecentMergedPullRequests(repo: string, sampleSize: number, cutoffMs: number): PullRequestSummary[] {
+function getRecentMergedPullRequests(
+  repo: string,
+  sampleSize: number,
+  cutoffMs: number
+): PullRequestSummary[] {
   const out = runCommand('gh', [
     'api',
     '--jq',
@@ -193,7 +200,10 @@ function getRecentMergedPullRequests(repo: string, sampleSize: number, cutoffMs:
       continue;
     }
 
-    candidate.changedFiles = getChangedFilesForPullRequest(repo, candidate.number);
+    candidate.changedFiles = getChangedFilesForPullRequest(
+      repo,
+      candidate.number
+    );
     selected.push(candidate);
     if (selected.length >= sampleSize) {
       break;
@@ -216,8 +226,13 @@ function parseRequiredWorkflows(rawJson: string): RequiredWorkflowsOutput {
   }
 
   const workflowsRaw = Reflect.get(parsed, 'requiredWorkflows');
-  if (!Array.isArray(workflowsRaw) || !workflowsRaw.every((entry) => typeof entry === 'string')) {
-    throw new Error('requiredWorkflows output.requiredWorkflows must be a string[]');
+  if (
+    !Array.isArray(workflowsRaw) ||
+    !workflowsRaw.every((entry) => typeof entry === 'string')
+  ) {
+    throw new Error(
+      'requiredWorkflows output.requiredWorkflows must be a string[]'
+    );
   }
 
   return {
@@ -227,7 +242,13 @@ function parseRequiredWorkflows(rawJson: string): RequiredWorkflowsOutput {
 
 function getRequiredWorkflows(files: string[]): string[] {
   const fileArg = files.join(',');
-  const out = runCommand('pnpm', ['exec', 'tsx', 'scripts/ciImpact/requiredWorkflows.ts', '--files', fileArg]);
+  const out = runCommand('pnpm', [
+    'exec',
+    'tsx',
+    'scripts/ciImpact/requiredWorkflows.ts',
+    '--files',
+    fileArg
+  ]);
   return parseRequiredWorkflows(out).requiredWorkflows;
 }
 
@@ -253,7 +274,11 @@ function parseWorkflowRuns(rawJson: string): WorkflowRun[] {
     const conclusionRaw = Reflect.get(runEntry, 'conclusion');
     const createdAtRaw = Reflect.get(runEntry, 'created_at');
 
-    if (typeof nameRaw !== 'string' || typeof statusRaw !== 'string' || typeof createdAtRaw !== 'string') {
+    if (
+      typeof nameRaw !== 'string' ||
+      typeof statusRaw !== 'string' ||
+      typeof createdAtRaw !== 'string'
+    ) {
       continue;
     }
 
@@ -273,8 +298,14 @@ function parseWorkflowRuns(rawJson: string): WorkflowRun[] {
   return runs;
 }
 
-function getObservedWorkflowStates(repo: string, headSha: string): Map<string, WorkflowRun> {
-  const out = runCommand('gh', ['api', `/repos/${repo}/actions/runs?head_sha=${headSha}&per_page=100`]);
+function getObservedWorkflowStates(
+  repo: string,
+  headSha: string
+): Map<string, WorkflowRun> {
+  const out = runCommand('gh', [
+    'api',
+    `/repos/${repo}/actions/runs?head_sha=${headSha}&per_page=100`
+  ]);
   const runs = parseWorkflowRuns(out);
 
   const latestByName = new Map<string, WorkflowRun>();
@@ -287,7 +318,10 @@ function getObservedWorkflowStates(repo: string, headSha: string): Map<string, W
 
     const existingTs = Date.parse(existing.createdAt);
     const currentTs = Date.parse(run.createdAt);
-    if (!Number.isNaN(currentTs) && (Number.isNaN(existingTs) || currentTs > existingTs)) {
+    if (
+      !Number.isNaN(currentTs) &&
+      (Number.isNaN(existingTs) || currentTs > existingTs)
+    ) {
       latestByName.set(run.name, run);
     }
   }
@@ -299,7 +333,9 @@ function main(): void {
   const args = parseArgs(process.argv);
   const repo = args.repo || process.env.GITHUB_REPOSITORY;
   if (repo === undefined || repo.length === 0) {
-    throw new Error('Missing repo. Pass --repo owner/name or set GITHUB_REPOSITORY.');
+    throw new Error(
+      'Missing repo. Pass --repo owner/name or set GITHUB_REPOSITORY.'
+    );
   }
 
   const sampleSize = args.sampleSize || DEFAULT_SAMPLE_SIZE;
@@ -315,20 +351,25 @@ function main(): void {
   const checkedPullRequests: CheckedPullRequest[] = [];
   for (const pullRequest of pullRequests) {
     if (pullRequest.changedFiles.length === 0) {
-      notes.push(`PR #${pullRequest.number} had no changed files listed by API; skipped.`);
+      notes.push(
+        `PR #${pullRequest.number} had no changed files listed by API; skipped.`
+      );
       continue;
     }
 
     const requiredWorkflows = getRequiredWorkflows(pullRequest.changedFiles);
     const observedMap = getObservedWorkflowStates(repo, pullRequest.headSha);
-    const observedWorkflows = [...observedMap.keys()].sort((a, b) => a.localeCompare(b));
+    const observedWorkflows = [...observedMap.keys()].sort((a, b) =>
+      a.localeCompare(b)
+    );
     const missingWorkflows = requiredWorkflows
       .filter((workflowName) => !observedMap.has(workflowName))
       .sort((a, b) => a.localeCompare(b));
 
     const workflowStates: Record<string, string> = {};
     for (const [workflowName, state] of observedMap.entries()) {
-      workflowStates[workflowName] = `${state.status}/${state.conclusion ?? 'null'}`;
+      workflowStates[workflowName] =
+        `${state.status}/${state.conclusion ?? 'null'}`;
     }
 
     checkedPullRequests.push({
@@ -345,7 +386,9 @@ function main(): void {
     });
   }
 
-  const potentialFalseNegatives = checkedPullRequests.filter((pr) => pr.missingWorkflows.length > 0);
+  const potentialFalseNegatives = checkedPullRequests.filter(
+    (pr) => pr.missingWorkflows.length > 0
+  );
 
   const output: ValidationOutput = {
     generatedAt: new Date().toISOString(),
@@ -358,7 +401,11 @@ function main(): void {
   };
 
   if (args.output !== undefined) {
-    fs.writeFileSync(args.output, `${JSON.stringify(output, null, 2)}\n`, 'utf8');
+    fs.writeFileSync(
+      args.output,
+      `${JSON.stringify(output, null, 2)}\n`,
+      'utf8'
+    );
   }
 
   process.stdout.write(`${JSON.stringify(output, null, 2)}\n`);

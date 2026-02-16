@@ -54,7 +54,7 @@ export function fetchServerTypes(): HetznerServerType[] {
   try {
     const output = execSync('hcloud server-type list -o json', {
       encoding: 'utf-8',
-      stdio: 'pipe',
+      stdio: 'pipe'
     });
 
     const serverTypes = JSON.parse(output) as Array<{
@@ -80,7 +80,7 @@ export function fetchServerTypes(): HetznerServerType[] {
       memory: st.memory,
       disk: st.disk,
       storageType: st.storage_type as 'local' | 'network',
-      deprecation: st.deprecation?.unavailable_after ?? null,
+      deprecation: st.deprecation?.unavailable_after ?? null
     }));
   } catch (error) {
     console.error('Failed to fetch Hetzner server types:', error);
@@ -99,7 +99,7 @@ export function fetchLocations(): HetznerLocation[] {
   try {
     const output = execSync('hcloud location list -o json', {
       encoding: 'utf-8',
-      stdio: 'pipe',
+      stdio: 'pipe'
     });
 
     const locations = JSON.parse(output) as Array<{
@@ -117,7 +117,7 @@ export function fetchLocations(): HetznerLocation[] {
       description: loc.description,
       country: loc.country,
       city: loc.city,
-      networkZone: loc.network_zone,
+      networkZone: loc.network_zone
     }));
   } catch (error) {
     console.error('Failed to fetch Hetzner locations:', error);
@@ -145,7 +145,7 @@ export function fetchServers(): Array<{
   try {
     const output = execSync('hcloud server list -o json', {
       encoding: 'utf-8',
-      stdio: 'pipe',
+      stdio: 'pipe'
     });
 
     const servers = JSON.parse(output) as Array<{
@@ -169,7 +169,7 @@ export function fetchServers(): Array<{
       status: srv.status,
       publicIpv4: srv.public_net.ipv4?.ip ?? null,
       publicIpv6: srv.public_net.ipv6?.ip ?? null,
-      created: srv.created,
+      created: srv.created
     }));
   } catch (error) {
     console.error('Failed to fetch Hetzner servers:', error);
@@ -194,7 +194,9 @@ export function scrapeHetznerInfo(): void {
   if (servers.length > 0) {
     console.log('Active Servers:');
     for (const srv of servers) {
-      console.log(`  ${srv.name}: ${srv.serverType} @ ${srv.location} (${srv.status})`);
+      console.log(
+        `  ${srv.name}: ${srv.serverType} @ ${srv.location} (${srv.status})`
+      );
     }
   }
 }

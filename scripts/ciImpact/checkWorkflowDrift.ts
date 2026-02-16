@@ -28,7 +28,9 @@ function readConfig(): CiImpactConfig {
   const raw = readFile('scripts/ciImpact/job-groups.json');
   const parsed = JSON.parse(raw);
   if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error('scripts/ciImpact/job-groups.json must contain a JSON object');
+    throw new Error(
+      'scripts/ciImpact/job-groups.json must contain a JSON object'
+    );
   }
   return parsed;
 }
@@ -102,7 +104,9 @@ function sorted(values: string[]): string[] {
 
 function hasCiImpactLookup(workflowRaw: string, jobName: string): boolean {
   const escapedJobName = escapeRegex(jobName);
-  const pattern = new RegExp(`\\.jobs\\s*\\[\\s*['"]${escapedJobName}['"]\\s*\\]\\s*\\.\\s*run`);
+  const pattern = new RegExp(
+    `\\.jobs\\s*\\[\\s*['"]${escapedJobName}['"]\\s*\\]\\s*\\.\\s*run`
+  );
   return pattern.test(workflowRaw);
 }
 
@@ -115,7 +119,9 @@ function main(): void {
     : [];
 
   const expectedJobNames = [...ALL_JOB_NAMES];
-  if (sorted(configuredJobNames).join('|') !== sorted(expectedJobNames).join('|')) {
+  if (
+    sorted(configuredJobNames).join('|') !== sorted(expectedJobNames).join('|')
+  ) {
     errors.push(
       `job-groups.json jobNames drift detected: expected [${expectedJobNames.join(', ')}], got [${configuredJobNames.join(', ')}]`
     );
@@ -137,7 +143,9 @@ function main(): void {
     const absoluteWorkflowPath = path.join(ROOT, workflowFile);
 
     if (!fs.existsSync(absoluteWorkflowPath)) {
-      errors.push(`Missing workflow file for job \"${jobName}\": ${workflowFile}`);
+      errors.push(
+        `Missing workflow file for job "${jobName}": ${workflowFile}`
+      );
       continue;
     }
 
@@ -147,7 +155,7 @@ function main(): void {
       errors.push(`Workflow file ${workflowFile} is missing a top-level name`);
     } else if (actualWorkflowName !== expectedWorkflowName) {
       errors.push(
-        `Workflow name drift for job \"${jobName}\": expected \"${expectedWorkflowName}\" in ${workflowFile}, found \"${actualWorkflowName}\"`
+        `Workflow name drift for job "${jobName}": expected "${expectedWorkflowName}" in ${workflowFile}, found "${actualWorkflowName}"`
       );
     }
 
@@ -168,18 +176,20 @@ function main(): void {
 
     if (ciGateName !== CI_GATE_WORKFLOW_NAME) {
       errors.push(
-        `CI Gate workflow name drift: expected \"${CI_GATE_WORKFLOW_NAME}\", found \"${ciGateName ?? '(missing)'}\"`
+        `CI Gate workflow name drift: expected "${CI_GATE_WORKFLOW_NAME}", found "${ciGateName ?? '(missing)'}"`
       );
     }
 
     if (!ciGateRaw.includes('scripts/ciImpact/requiredWorkflows.ts')) {
-      errors.push(`${CI_GATE_WORKFLOW_FILE} must invoke scripts/ciImpact/requiredWorkflows.ts`);
+      errors.push(
+        `${CI_GATE_WORKFLOW_FILE} must invoke scripts/ciImpact/requiredWorkflows.ts`
+      );
     }
 
     const ciGateJobName = parseJobName(ciGateRaw, 'ci-gate');
     if (ciGateJobName !== CI_GATE_WORKFLOW_NAME) {
       errors.push(
-        `${CI_GATE_WORKFLOW_FILE} must include a ci-gate job named \"${CI_GATE_WORKFLOW_NAME}\" (found \"${ciGateJobName ?? '(missing)'}\")`
+        `${CI_GATE_WORKFLOW_FILE} must include a ci-gate job named "${CI_GATE_WORKFLOW_NAME}" (found "${ciGateJobName ?? '(missing)'}")`
       );
     }
   }
