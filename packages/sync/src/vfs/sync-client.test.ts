@@ -205,6 +205,43 @@ function toStageCodeSignatures(
   return events.map((event) => `${event.stage}:${event.code}`);
 }
 
+function readForwardContainerSignatures(input: {
+  client: VfsBackgroundSyncClient;
+  seedCursor: {
+    changedAt: string;
+    changeId: string;
+  };
+  pageLimit: number;
+}): string[] {
+  const signatures: string[] = [];
+  let cursor = input.seedCursor;
+
+  while (true) {
+    const page = input.client.listChangedContainers(cursor, input.pageLimit);
+    for (const item of page.items) {
+      const itemCursor = {
+        changedAt: item.changedAt,
+        changeId: item.changeId
+      };
+      expect(compareVfsSyncCursorOrder(itemCursor, input.seedCursor)).toBe(1);
+      expect(compareVfsSyncCursorOrder(itemCursor, cursor)).toBe(1);
+      signatures.push(`${item.containerId}|${item.changeId}`);
+    }
+
+    if (!page.hasMore) {
+      break;
+    }
+
+    if (!page.nextCursor) {
+      throw new Error('expected next container cursor when hasMore is true');
+    }
+    expect(compareVfsSyncCursorOrder(page.nextCursor, cursor)).toBe(1);
+    cursor = page.nextCursor;
+  }
+
+  return signatures;
+}
+
 describe('VfsBackgroundSyncClient', () => {
   it('converges multiple clients after concurrent flush and sync', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -2282,38 +2319,11 @@ describe('VfsBackgroundSyncClient', () => {
         `${at(4)}|desktop-seeded-chain-recover-1-${seed}`
       ]);
 
-      const forwardContainerSignatures: string[] = [];
-      let containerCursor = seedCursor;
-      while (true) {
-        const page = phaseThreeClient.listChangedContainers(containerCursor, 1);
-        for (const item of page.items) {
-          const itemCursor = {
-            changedAt: item.changedAt,
-            changeId: item.changeId
-          };
-          expect(compareVfsSyncCursorOrder(itemCursor, seedCursor)).toBe(1);
-          expect(compareVfsSyncCursorOrder(itemCursor, containerCursor)).toBe(
-            1
-          );
-          forwardContainerSignatures.push(
-            `${item.containerId}|${item.changeId}`
-          );
-        }
-
-        if (!page.hasMore) {
-          break;
-        }
-
-        if (!page.nextCursor) {
-          throw new Error(
-            'expected next container cursor when hasMore is true'
-          );
-        }
-        expect(
-          compareVfsSyncCursorOrder(page.nextCursor, containerCursor)
-        ).toBe(1);
-        containerCursor = page.nextCursor;
-      }
+      const forwardContainerSignatures = readForwardContainerSignatures({
+        client: phaseThreeClient,
+        seedCursor,
+        pageLimit: 1
+      });
 
       expect(forwardContainerSignatures).toEqual([
         `item-seeded-chain-dup-1-${seed}|${duplicateOpId}`,
