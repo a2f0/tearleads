@@ -6,7 +6,7 @@
  */
 
 // Import integration setup FIRST - this sets up mocks for adapters and key manager
-import './test/setup-integration';
+import './test/setupIntegration';
 
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { screen, waitFor, within } from '@testing-library/react';

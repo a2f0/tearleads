@@ -8,7 +8,7 @@
  */
 
 // Import integration setup FIRST - this sets up mocks for adapters and key manager
-import '../test/setup-integration';
+import '../test/setupIntegration';
 
 import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { resetTestKeyManager } from '@tearleads/db-test-utils';

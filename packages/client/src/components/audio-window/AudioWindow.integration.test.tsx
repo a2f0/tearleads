@@ -1,4 +1,4 @@
-import '../../test/setup-integration';
+import '../../test/setupIntegration';
 
 import {
   ALL_AUDIO_ID,
