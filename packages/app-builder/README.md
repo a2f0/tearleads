@@ -59,7 +59,13 @@ tsx src/cli.ts generate --app tearleads --dry-run
 tsx src/cli.ts list
 # Output:
 # Available apps:
+#   - health
+#   - notepad
 #   - tearleads
+
+# Output as JSON (for CI)
+tsx src/cli.ts list --json
+# Output: ["health", "notepad", "tearleads"]
 ```
 
 ### Validate App Configuration
@@ -80,6 +86,22 @@ tsx src/cli.ts packages --app tearleads
 
 # Show only disabled packages (for tree-shaking)
 tsx src/cli.ts packages --app acme-crm --disabled --json
+```
+
+### Generate Build Commands
+
+```bash
+# Show build commands for an app's enabled packages
+tsx src/cli.ts build-deps --app health
+# Output:
+#   pnpm --filter @tearleads/api build
+#   pnpm --filter @tearleads/window-manager build
+#   pnpm --filter @tearleads/ui build
+#   pnpm --filter @tearleads/vfs-explorer build
+#   pnpm --filter @tearleads/health build
+
+# Output as shell script (for CI)
+tsx src/cli.ts build-deps --app health --shell
 ```
 
 ## Creating a New App
@@ -240,6 +262,63 @@ This ensures `generated/app-config.json` exists for:
 - TypeScript compilation (type-checks import)
 - Vite builds (runtime config injection)
 - Unit tests (mock data)
+
+## CI Secrets
+
+Each app can have its own set of secrets for signing and deployment. The CI matrix workflows use a **per-app secret with fallback** pattern:
+
+```yaml
+# Pattern: {APP_ID_UPPER}_SECRET_NAME falls back to SECRET_NAME
+APP_STORE_CONNECT_KEY_ID: ${{ secrets.HEALTH_APP_STORE_CONNECT_KEY_ID || secrets.APP_STORE_CONNECT_KEY_ID }}
+```
+
+### Required Secrets per App
+
+To deploy a new app (e.g., `health`), configure these GitHub repository secrets:
+
+#### iOS (TestFlight)
+
+| Secret | Description | Required |
+|--------|-------------|----------|
+| `{APP}_APP_STORE_CONNECT_KEY_ID` | App Store Connect API Key ID | Yes |
+| `{APP}_APP_STORE_CONNECT_ISSUER_ID` | App Store Connect Issuer ID | Yes |
+| `{APP}_APP_STORE_CONNECT_API_KEY` | Base64-encoded .p8 key file | Yes |
+| `{APP}_APPLE_ID` | Apple Developer account email | Yes |
+| `{APP}_TEAM_ID` | Apple Developer Team ID | Yes |
+| `{APP}_ITC_TEAM_ID` | App Store Connect Team ID | Yes |
+| `{APP}_MATCH_GIT_URL` | Fastlane Match certificates repo | Yes |
+| `{APP}_MATCH_PASSWORD` | Fastlane Match encryption password | Yes |
+| `{APP}_MATCH_GIT_BASIC_AUTHORIZATION` | Base64 Git credentials for Match | Yes |
+
+#### Android (Play Store)
+
+| Secret | Description | Required |
+|--------|-------------|----------|
+| `{APP}_ANDROID_KEYSTORE_BASE64` | Base64-encoded release keystore | Yes |
+| `{APP}_ANDROID_KEYSTORE_STORE_PASS` | Keystore password | Yes |
+| `{APP}_ANDROID_KEYSTORE_KEY_PASS` | Key password | Yes |
+| `{APP}_ANDROID_KEY_ALIAS` | Signing key alias (defaults to app ID) | No |
+| `{APP}_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON` | Base64-encoded service account JSON | Yes |
+
+### Example: Health App Secrets
+
+For the `health` app, create these secrets:
+
+- `HEALTH_APP_STORE_CONNECT_KEY_ID`
+- `HEALTH_APP_STORE_CONNECT_ISSUER_ID`
+- `HEALTH_APP_STORE_CONNECT_API_KEY`
+- `HEALTH_APPLE_ID`
+- `HEALTH_TEAM_ID`
+- `HEALTH_ITC_TEAM_ID`
+- `HEALTH_MATCH_GIT_URL`
+- `HEALTH_MATCH_PASSWORD`
+- `HEALTH_MATCH_GIT_BASIC_AUTHORIZATION`
+- `HEALTH_ANDROID_KEYSTORE_BASE64`
+- `HEALTH_ANDROID_KEYSTORE_STORE_PASS`
+- `HEALTH_ANDROID_KEYSTORE_KEY_PASS`
+- `HEALTH_GOOGLE_PLAY_SERVICE_ACCOUNT_JSON`
+
+If app-specific secrets are not configured, the workflow falls back to the default secrets (without the app prefix).
 
 ## Programmatic API
 

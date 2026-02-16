@@ -692,6 +692,22 @@ export interface HealthExerciseNames {
   'ex_a1b2c3d4-1019-4000-8000-000000000019': string; // Around-the-World Pull-Up
   'ex_a1b2c3d4-1020-4000-8000-000000000020': string; // Chest-to-Bar Pull-Up
   'ex_a1b2c3d4-1021-4000-8000-000000000021': string; // One-Arm Pull-Up (Assisted)
+  'ex_a1b2c3d4-1022-4000-8000-000000000022': string; // Push-Up
+  'ex_a1b2c3d4-1023-4000-8000-000000000023': string; // Strict Push-Up
+  'ex_a1b2c3d4-1024-4000-8000-000000000024': string; // Wide Push-Up
+  'ex_a1b2c3d4-1025-4000-8000-000000000025': string; // Narrow Push-Up
+  'ex_a1b2c3d4-1026-4000-8000-000000000026': string; // Diamond Push-Up
+  'ex_a1b2c3d4-1027-4000-8000-000000000027': string; // Weighted Push-Up
+  'ex_a1b2c3d4-1028-4000-8000-000000000028': string; // Decline Push-Up
+  'ex_a1b2c3d4-1029-4000-8000-000000000029': string; // Incline Push-Up
+  'ex_a1b2c3d4-1030-4000-8000-000000000030': string; // Archer Push-Up
+  'ex_a1b2c3d4-1031-4000-8000-000000000031': string; // Clapping Push-Up
+  'ex_a1b2c3d4-1032-4000-8000-000000000032': string; // Pike Push-Up
+  'ex_a1b2c3d4-1033-4000-8000-000000000033': string; // Spiderman Push-Up
+  'ex_a1b2c3d4-1034-4000-8000-000000000034': string; // One-Arm Push-Up
+  'ex_a1b2c3d4-1035-4000-8000-000000000035': string; // Eccentric Push-Up
+  'ex_a1b2c3d4-1036-4000-8000-000000000036': string; // Knuckle Push-Up
+  'ex_a1b2c3d4-1037-4000-8000-000000000037': string; // Hindu Push-Up
 }
 
 export interface HealthTranslations {

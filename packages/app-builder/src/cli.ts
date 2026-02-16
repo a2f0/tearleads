@@ -170,6 +170,61 @@ program
   );
 
 /**
+ * Packages that require explicit build before client build.
+ * Core packages and feature packages that have build scripts.
+ */
+const PACKAGES_REQUIRING_BUILD = [
+  '@tearleads/api', // OpenAPI spec generation
+  '@tearleads/window-manager',
+  '@tearleads/ui',
+  '@tearleads/notes',
+  '@tearleads/email',
+  '@tearleads/vfs-explorer',
+  '@tearleads/audio',
+  '@tearleads/contacts',
+  '@tearleads/db-test-utils',
+  '@tearleads/health'
+] as const;
+
+/**
+ * Output build commands for an app's enabled packages.
+ */
+program
+  .command('build-deps')
+  .description('Output build commands for app dependencies')
+  .requiredOption('-a, --app <id>', 'App ID')
+  .option('--shell', 'Output as shell script')
+  .option('--json', 'Output as JSON array')
+  .action(async (options: { app: string; shell?: boolean; json?: boolean }) => {
+    try {
+      const loaded = await loadAppConfig(options.app);
+      const enabled = new Set(getEnabledPackages(loaded.config.features));
+
+      // Filter to only packages that need building AND are enabled for this app
+      // Always include @tearleads/api for OpenAPI spec
+      const packagesToBuild = PACKAGES_REQUIRING_BUILD.filter(
+        (pkg) => pkg === '@tearleads/api' || enabled.has(pkg)
+      );
+
+      if (options.json) {
+        console.log(JSON.stringify(packagesToBuild));
+      } else if (options.shell) {
+        for (const pkg of packagesToBuild) {
+          console.log(`pnpm --filter ${pkg} build`);
+        }
+      } else {
+        console.log(`Build commands for "${options.app}":`);
+        for (const pkg of packagesToBuild) {
+          console.log(`  pnpm --filter ${pkg} build`);
+        }
+      }
+    } catch (error) {
+      console.error(`Error: ${(error as Error).message}`);
+      process.exit(1);
+    }
+  });
+
+/**
  * Generate configuration files for an app.
  */
 program

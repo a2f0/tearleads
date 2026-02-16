@@ -76,14 +76,15 @@ describe('createHealthTracker', () => {
         });
 
         const parents = await tracker.listParentExercises();
-        expect(parents).toHaveLength(6);
+        expect(parents).toHaveLength(7);
         expect(parents.map((e) => e.id)).toEqual([
           DEFAULT_EXERCISE_IDS.BACK_SQUAT,
           DEFAULT_EXERCISE_IDS.BENCH_PRESS,
           DEFAULT_EXERCISE_IDS.DEADLIFT,
           DEFAULT_EXERCISE_IDS.OVERHEAD_PRESS,
           DEFAULT_EXERCISE_IDS.BARBELL_ROW,
-          DEFAULT_EXERCISE_IDS.PULL_UP
+          DEFAULT_EXERCISE_IDS.PULL_UP,
+          DEFAULT_EXERCISE_IDS.PUSH_UP
         ]);
         expect(parents.every((e) => e.parentId === undefined)).toBe(true);
       },
@@ -133,8 +134,9 @@ describe('createHealthTracker', () => {
         });
 
         const hierarchy = await tracker.getExerciseHierarchy();
-        expect(hierarchy.size).toBe(6);
+        expect(hierarchy.size).toBe(7);
         expect(hierarchy.has(DEFAULT_EXERCISE_IDS.PULL_UP)).toBe(true);
+        expect(hierarchy.has(DEFAULT_EXERCISE_IDS.PUSH_UP)).toBe(true);
         expect(hierarchy.has(DEFAULT_EXERCISE_IDS.BACK_SQUAT)).toBe(true);
 
         const pullUpChildren = requireValue(

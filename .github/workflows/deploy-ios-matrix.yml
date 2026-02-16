@@ -32,6 +32,12 @@ jobs:
         with:
           node-version-file: '.nvmrc'
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Install dependencies
+        run: pnpm install --filter @tearleads/app-builder
+
       - name: Determine apps to build
         id: set-matrix
         run: |
@@ -44,8 +50,9 @@ jobs:
               APPS=$(echo "${{ inputs.apps }}" | jq -R 'split(",") | map(gsub("\\s+"; "")) | map(select(. != ""))')
             fi
           else
-            # Default to tearleads
-            APPS='["tearleads"]'
+            # Auto-discover all apps from app-builder
+            cd packages/app-builder
+            APPS=$(pnpm tsx src/cli.ts list --json)
           fi
           echo "Building apps: $APPS"
           echo "matrix={\"app\":$APPS}" >> $GITHUB_OUTPUT
@@ -114,32 +121,14 @@ jobs:
       - name: Download SQLite WASM
         run: ./scripts/downloadSqliteWasm.sh
 
-      - name: Build API (for OpenAPI spec)
-        run: pnpm --filter @tearleads/api build
-
-      - name: Build window-manager
-        run: pnpm --filter @tearleads/window-manager build
-
-      - name: Build UI
-        run: pnpm --filter @tearleads/ui build
-
-      - name: Build notes
-        run: pnpm --filter @tearleads/notes build
-
-      - name: Build email
-        run: pnpm --filter @tearleads/email build
-
-      - name: Build vfs-explorer
-        run: pnpm --filter @tearleads/vfs-explorer build
-
-      - name: Build audio
-        run: pnpm --filter @tearleads/audio build
-
-      - name: Build contacts
-        run: pnpm --filter @tearleads/contacts build
-
-      - name: Build db-test-utils
-        run: pnpm --filter @tearleads/db-test-utils build
+      - name: Build app dependencies
+        run: |
+          cd packages/app-builder
+          # Generate build commands for this app's enabled packages
+          tsx src/cli.ts build-deps --app $APP_ID --shell | while read cmd; do
+            echo "Running: $cmd"
+            eval "$cmd"
+          done
 
       - name: Build web assets
         run: pnpm --filter @tearleads/client build
