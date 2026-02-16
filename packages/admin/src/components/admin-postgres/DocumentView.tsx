@@ -1,11 +1,11 @@
-import type { useVirtualizer } from '@tanstack/react-virtual';
+import type { VirtualItem, Virtualizer } from '@tanstack/react-virtual';
 import { Loader2 } from 'lucide-react';
 import type { RefObject } from 'react';
 import { getRowKey } from './PostgresTableUtils';
 
 interface DocumentViewProps {
   parentRef: RefObject<HTMLDivElement | null>;
-  virtualizer: any;
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
   rows: Record<string, unknown>[];
   loadingMore: boolean;
   stickyStatus: React.ReactNode;
@@ -31,7 +31,7 @@ export function DocumentView({
         style={{ height: `${virtualizer.getTotalSize()}px` }}
         className="relative w-full"
       >
-        {virtualItems.map((virtualItem) => {
+        {virtualItems.map((virtualItem: VirtualItem) => {
           const isLoaderRow = virtualItem.index >= rows.length;
 
           if (isLoaderRow) {

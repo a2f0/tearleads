@@ -1,23 +1,20 @@
-import type { AdminUser } from '@tearleads/shared';
-import { fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { AdminUserGroups } from './AdminUserGroups';
 import { useAdminUserGroups } from './useAdminUserGroups';
+import type { AdminUser } from '@tearleads/shared';
 
 vi.mock('./useAdminUserGroups');
 
 describe('AdminUserGroups', () => {
-  const mockUser: AdminUser = {
-    id: 'user-1',
-    email: 'test@example.com'
-  };
+  const mockUser: AdminUser = { id: 'user-1', email: 'test@example.com' } as any;
   const mockGroups = [
     { id: 'group-1', name: 'Group 1', description: 'Desc 1', memberCount: 5 }
   ];
 
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(useAdminUserGroups).mockReturnValue({
+    (useAdminUserGroups as any).mockReturnValue({
       groups: mockGroups,
       groupMemberships: { 'group-1': { isMember: false } },
       loading: false,
@@ -31,7 +28,7 @@ describe('AdminUserGroups', () => {
   });
 
   it('renders groups and handles add action', async () => {
-    const { addToGroup } = vi.mocked(useAdminUserGroups)();
+    const { addToGroup } = (useAdminUserGroups as any)();
     render(<AdminUserGroups user={mockUser} />);
 
     expect(screen.getByText('Groups')).toBeInTheDocument();
@@ -44,7 +41,7 @@ describe('AdminUserGroups', () => {
   });
 
   it('shows loading state', () => {
-    vi.mocked(useAdminUserGroups).mockReturnValue({
+    (useAdminUserGroups as any).mockReturnValue({
       groups: [],
       groupMemberships: {},
       loading: true,

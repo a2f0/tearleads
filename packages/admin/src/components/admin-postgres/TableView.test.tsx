@@ -1,10 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import type { TableVirtualizer } from './TableView';
 import { TableView } from './TableView';
 
 describe('TableView', () => {
-  const mockVirtualizer: TableVirtualizer = {
+  const mockVirtualizer = {
     getVirtualItems: () => [],
     getTotalSize: () => 0,
     measureElement: vi.fn()
@@ -14,7 +13,7 @@ describe('TableView', () => {
     render(
       <TableView
         parentRef={{ current: null }}
-        virtualizer={mockVirtualizer}
+        virtualizer={mockVirtualizer as any}
         rows={[]}
         visibleColumns={[]}
         sort={{ column: null, direction: null }}

@@ -1,4 +1,4 @@
-import type { useVirtualizer } from '@tanstack/react-virtual';
+import type { VirtualItem, Virtualizer } from '@tanstack/react-virtual';
 import type { PostgresColumnInfo } from '@tearleads/shared';
 import {
   WINDOW_TABLE_TYPOGRAPHY,
@@ -11,7 +11,7 @@ import type { SortState } from './usePostgresTableData';
 
 interface TableViewProps {
   parentRef: RefObject<HTMLDivElement | null>;
-  virtualizer: any;
+  virtualizer: Virtualizer<HTMLDivElement, Element>;
   rows: Record<string, unknown>[];
   visibleColumns: PostgresColumnInfo[];
   sort: SortState;
@@ -65,7 +65,7 @@ export function TableView({
           </tr>
         </thead>
         <tbody>
-          {virtualItems.map((virtualItem) => {
+          {virtualItems.map((virtualItem: VirtualItem) => {
             const isLoaderRow = virtualItem.index >= rows.length;
 
             if (isLoaderRow) {
