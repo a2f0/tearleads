@@ -1,125 +1,8 @@
-#!/usr/bin/env bash
-set -euo pipefail
-
-usage() {
-  cat <<'USAGE' >&2
-Usage: ./scripts/preen/generatePreenDocs.sh [--check]
-
-Without arguments, rewrites both:
-  - .claude/commands/preen.md
-  - .codex/skills/preen/SKILL.md
-
-With --check, verifies generated output matches files and exits non-zero on drift.
-USAGE
-  exit 2
-}
-
-MODE="write"
-if [ "$#" -gt 1 ]; then
-  usage
-fi
-if [ "$#" -eq 1 ]; then
-  case "$1" in
-    --check)
-      MODE="check"
-      ;;
-    *)
-      usage
-      ;;
-  esac
-fi
-
-ROOT_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-cd "$ROOT_DIR"
-
-REGISTRY_FILE="scripts/preen/registry.json"
-if [ ! -f "$REGISTRY_FILE" ]; then
-  echo "Error: missing $REGISTRY_FILE" >&2
-  exit 1
-fi
-
-render_table_rows() {
-  jq -r '.categories[] | "| `\(.id)` | \(.purpose) |"' "$REGISTRY_FILE"
-}
-
-render_category_array() {
-  jq -r '.categories[] | "  \"\(.id)\""' "$REGISTRY_FILE"
-}
-
-render_security_category_array() {
-  jq -r '.categories[] | select(.security == true) | "  \"\(.id)\""' "$REGISTRY_FILE"
-}
-
-render_discovery_case() {
-  jq -r '
-    .categories[]
-    | "    \(.id))",
-      (.discoveryCommands[] | "      " + .),
-      "      ;;"
-  ' "$REGISTRY_FILE"
-}
-
-render_metric_case() {
-  jq -r '
-    .categories[]
-    | "    \(.id))",
-      ((.metricCountCommands // [.metricCountCommand])[] | "      " + .),
-      "      ;;"
-  ' "$REGISTRY_FILE"
-}
-
-render_quality_metrics() {
-  jq -r '.categories[] | "- \(.qualityMetric)"' "$REGISTRY_FILE"
-}
-
-render_checklist_rows() {
-  jq -r '.categories[] | "- [ ] \(.checklistLabel)"' "$REGISTRY_FILE"
-}
-
-render_document() {
-  local platform="$1"
-  local merge_queue_command
-  local frontmatter
-
-  case "$platform" in
-    claude)
-      frontmatter=$(cat <<'EOF_FRONTMATTER'
----
-description: Stateful preening across all preen skills (project)
----
-EOF_FRONTMATTER
-)
-      merge_queue_command='/enter-merge-queue'
-      ;;
-    codex)
-      frontmatter=$(cat <<'EOF_FRONTMATTER'
 ---
 name: preen
 description: Stateful preening across all preen skills. Lands focused improvements, opens a PR, and enters merge queue.
 ---
-EOF_FRONTMATTER
-)
-      merge_queue_command="\$enter-merge-queue"
-      ;;
-    gemini)
-      frontmatter=$(cat <<'EOF_FRONTMATTER'
----
-name: preen
-description: Stateful preening across all preen skills. Lands focused improvements, opens a PR, and enters merge queue.
----
-EOF_FRONTMATTER
-)
-      merge_queue_command="/enter-merge-queue"
-      ;;
-    *)
-      echo "Error: unknown platform '$platform'" >&2
-      exit 1
-      ;;
-  esac
 
-  printf '%s\n\n' "$frontmatter"
-
-  cat <<'EOF_BLOCK'
 # Preen All
 
 Perform a proactive, stateful pass through preen skills, implement focused improvements, open a PR, and enter the merge queue.
@@ -155,11 +38,22 @@ If checks fail, STOP and sync before running preen:
 
 | Skill | Purpose |
 | ----- | ------- |
-EOF_BLOCK
-
-  render_table_rows
-
-  cat <<'EOF_BLOCK'
+| `preen-typescript` | Fix weak TypeScript typings (`any`, `as` casts, `@ts-ignore`) |
+| `preen-split-react-components` | Split oversized React components into smaller files |
+| `preen-deferred-fixes` | Complete deferred follow-ups from merged PR reviews |
+| `preen-optimize-test-execution` | Tune CI impact analysis (workflow filters, package dependencies) |
+| `preen-database-performance` | Find and fix database performance issues (N+1 queries, inefficient joins, index gaps) |
+| `preen-api-security` | Audit API for authorization, data access, and security issues |
+| `preen-dependency-security` | Audit dependency vulnerabilities and unsafe versioning |
+| `preen-test-flakiness` | Reduce flaky tests and nondeterministic waiting patterns |
+| `preen-msw-parity` | Audit MSW handlers against API routes and improve test coverage assertions |
+| `preen-skill-tooling` | Validate skills are wired into agentTool.ts and scriptTool.ts |
+| `preen-compliance-docs` | Audit compliance documentation for gaps and cross-framework parity |
+| `preen-package-docs` | Audit and generate missing package README.md files |
+| `preen-review-instructions` | Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md) |
+| `preen-i18n` | Audit i18n translation coverage, missing keys, and hardcoded strings |
+| `preen-docs-internationalization` | Translate and sync documentation across all supported languages |
+| `preen-window-consistency` | Normalize window components and standardize refresh patterns into window-manager |
 
 ## Run Modes
 
@@ -183,19 +77,27 @@ CURSOR_FILE="$STATE_DIR/cursor"
 RUNS_FILE="$STATE_DIR/runs.jsonl"
 
 CATEGORIES=(
-EOF_BLOCK
-
-  render_category_array
-
-  cat <<'EOF_BLOCK'
+  "preen-typescript"
+  "preen-split-react-components"
+  "preen-deferred-fixes"
+  "preen-optimize-test-execution"
+  "preen-database-performance"
+  "preen-api-security"
+  "preen-dependency-security"
+  "preen-test-flakiness"
+  "preen-msw-parity"
+  "preen-skill-tooling"
+  "preen-compliance-docs"
+  "preen-package-docs"
+  "preen-review-instructions"
+  "preen-i18n"
+  "preen-docs-internationalization"
+  "preen-window-consistency"
 )
 
 SECURITY_CATEGORIES=(
-EOF_BLOCK
-
-  render_security_category_array
-
-  cat <<'EOF_BLOCK'
+  "preen-api-security"
+  "preen-dependency-security"
 )
 
 mkdir -p "$STATE_DIR"
@@ -396,21 +298,229 @@ Run discovery only for selected categories:
 ```bash
 run_discovery() {
   case "$1" in
-EOF_BLOCK
-
-  render_discovery_case
-
-  cat <<'EOF_BLOCK'
+    preen-typescript)
+      rg -n --glob '*.{ts,tsx}'
+        ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' .
+        | head -20
+      ;;
+    preen-split-react-components)
+      find . -name '*.tsx'
+        -not -path '*/node_modules/*'
+        -not -path '*/.next/*'
+        -not -path '*/dist/*'
+        -exec wc -l {} \; 2>/dev/null
+        | awk '$1 > 300'
+        | sort -rn
+        | head -20
+      ;;
+    preen-deferred-fixes)
+      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null);
+      gh issue list -R "$REPO"
+        --label 'deferred'
+        --state open
+        --limit 20 2>/dev/null || true
+      ;;
+    preen-optimize-test-execution)
+      pnpm exec tsx scripts/ciImpact/ciImpact.ts
+        --base origin/main
+        --head HEAD
+        | head -40
+      ;;
+    preen-database-performance)
+      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}'
+        'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)'
+        packages | head -40 || true
+      rg -n --glob '*.{ts,tsx}'
+        '\.(leftJoin|innerJoin|rightJoin|fullJoin|crossJoin)\('
+        packages | head -40 || true
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}'
+        'withRealDatabase\(|createTestDatabase\('
+        packages | head -40 || true
+      ;;
+    preen-api-security)
+      rg -n --glob '*.ts'
+        'router\.(get|post|put|patch|delete)|authClaims|req\.session|pool\.query|client\.query'
+        packages/api/src/routes | head -40
+      ;;
+    preen-dependency-security)
+      pnpm audit --prod --audit-level high --json 2>/dev/null | head -40 || true
+      rg -n --glob 'package.json'
+        'latest|next|canary|beta'
+        packages scripts . | head -20 || true
+      ;;
+    preen-test-flakiness)
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}'
+        'setTimeout\(|waitForTimeout\(|sleep\('
+        packages . | head -30 || true
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}'
+        'retry|retries|flaky|TODO.*flaky'
+        packages . | head -30 || true
+      ;;
+    preen-msw-parity)
+      ./scripts/preen/checkMswParity.ts
+      ./scripts/preen/checkMswParity.ts --json | head -40
+      ;;
+    preen-skill-tooling)
+      ./scripts/checkPreenEcosystem.sh --summary
+      ;;
+    preen-compliance-docs)
+      for fw in HIPAA NIST.SP.800-53 SOC2; do
+        echo "=== $fw ==="
+        echo "Policies: $(ls compliance/$fw/policies/*.md 2>/dev/null | wc -l | tr -d ' ')"
+        echo "Procedures: $(ls compliance/$fw/procedures/*.md 2>/dev/null | wc -l | tr -d ' ')"
+        echo "Controls: $(ls compliance/$fw/technical-controls/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      done
+      find compliance -name '*.md'
+        -not -name 'POLICY_INDEX.md'
+        -not -name 'AGENTS.md'
+        | xargs -I{} basename {}
+        | grep -v '^[0-9][0-9]-'
+        | head -10
+      ;;
+    preen-package-docs)
+      echo '=== Packages missing README ==='
+      for pkg in packages/*/; do
+        [ ! -f "${pkg}README.md" ] && basename "$pkg"
+      done
+      echo '=== Summary ==='
+      total=$(ls -d packages/*/ | wc -l | tr -d ' ')
+      with_readme=$(ls packages/*/README.md 2>/dev/null | wc -l | tr -d ' ')
+      echo "$with_readme/$total packages have READMEs"
+      ;;
+    preen-review-instructions)
+      echo '=== REVIEW.md sections ==='
+      rg '^##' REVIEW.md | head -20
+      echo '=== Gemini sections ==='
+      rg '^##' .gemini/INSTRUCTIONS.md | head -20
+      echo '=== Section comparison ==='
+      echo "REVIEW.md: $(rg '^## ' REVIEW.md | wc -l | tr -d ' ')"
+      echo "Gemini: $(rg '^## ' .gemini/INSTRUCTIONS.md | wc -l | tr -d ' ')"
+      ;;
+    preen-i18n)
+      echo '=== Translation Files ==='
+      find packages -path '*/i18n/translations/*.ts'
+        -not -name 'types.ts'
+        -not -name 'index.ts' | head -20
+      echo '=== Key Count by Language ==='
+      for lang in en es ua pt; do
+        count=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ')
+        echo "${lang}: ${count} keys"
+      done
+      echo '=== Potential Hardcoded Strings ==='
+      rg -n --glob '*.tsx'
+        '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<'
+        packages | rg -v 'test\.' | head -20
+      ;;
+    preen-docs-internationalization)
+      echo '=== Translation Coverage ==='
+      echo "English (source): $(ls docs/en/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo "Spanish: $(ls docs/es/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo "Ukrainian: $(ls docs/ua/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo "Portuguese: $(ls docs/pt/*.md 2>/dev/null | wc -l | tr -d ' ')"
+      echo '=== Missing Translations ==='
+      for lang in es ua pt; do
+        for file in docs/en/*.md; do
+          target="docs/$lang/$(basename "$file")"
+          [ -f "$target" ] || echo "Missing: $target"
+        done
+      done
+      ;;
+    preen-window-consistency)
+      rg -n --glob '*.tsx'
+        'lastRefreshTokenRef|lastRefreshToken'
+        packages | rg -v 'window-manager' | head -20
+      rg -n --glob '*.tsx'
+        'dragOverId.*useState|setDragOver.*Id'
+        packages | rg -v 'window-manager' | head -20
+      rg -n --glob '*.tsx'
+        'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent'
+        packages | rg -v 'window-manager' | head -20
+      ;;
   esac
 }
 
 metric_count() {
   case "$1" in
-EOF_BLOCK
-
-  render_metric_case
-
-  cat <<'EOF_BLOCK'
+    preen-typescript)
+      rg -n --glob '*.{ts,tsx}' ': any|: any\[\]|<any>|as any|@ts-ignore|@ts-expect-error' . | wc -l
+      ;;
+    preen-split-react-components)
+      find . -name '*.tsx' -not -path '*/node_modules/*' -not -path '*/.next/*' -not -path '*/dist/*' -exec wc -l {} \; 2>/dev/null | awk '$1 > 300' | wc -l
+      ;;
+    preen-deferred-fixes)
+      REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner 2>/dev/null); gh issue list -R "$REPO" --label 'deferred' --state open --json number --jq 'length' 2>/dev/null || echo 0
+      ;;
+    preen-optimize-test-execution)
+      pnpm exec tsx scripts/ciImpact/ciImpact.ts --base origin/main --head HEAD 2>/dev/null | jq '.warnings | length' 2>/dev/null || echo 0
+      ;;
+    preen-database-performance)
+      rg -n --multiline --multiline-dotall --glob '*.{ts,tsx}' 'for\s*\([^)]*\)\s*\{.{0,400}?await\s+[^\n;]*db\.(select|query|execute)' packages | wc -l
+      ;;
+    preen-api-security)
+      rg -L --glob '*.ts' 'authClaims|req\.session' packages/api/src/routes | rg -v 'index\.ts|shared\.ts|test\.' | wc -l
+      ;;
+    preen-dependency-security)
+      pnpm audit --prod --audit-level high --json 2>/dev/null | jq '[.. | objects | .severity? // empty | select(. == "high" or . == "critical")] | length' 2>/dev/null || echo 0
+      ;;
+    preen-test-flakiness)
+      rg -n --glob '**/*.{test,spec}.{ts,tsx}' 'setTimeout\(|waitForTimeout\(|sleep\(|retry|retries|flaky|TODO.*flaky' packages . | wc -l
+      ;;
+    preen-msw-parity)
+      ./scripts/preen/checkMswParity.ts --json | jq '.missingRouteCount + .lowConfidenceRouteCount'
+      ;;
+    preen-skill-tooling)
+      ./scripts/checkPreenEcosystem.sh --count-issues
+      ;;
+    preen-compliance-docs)
+      gaps=0
+      for fw in HIPAA NIST.SP.800-53 SOC2; do
+        find "compliance/$fw/policies" -name '*-policy.md' -type f 2>/dev/null | while read -r policy_file; do
+          policy=$(basename "$policy_file" -policy.md)
+          [ ! -f "compliance/$fw/procedures/${policy}-procedure.md" ] && gaps=$((gaps + 1))
+          [ ! -f "compliance/$fw/technical-controls/${policy}-control-map.md" ] && gaps=$((gaps + 1))
+        done
+      done
+      unnumbered=$(find compliance -name '*.md' -not -name 'POLICY_INDEX.md' -not -name 'AGENTS.md' | xargs -I{} basename {} | grep -v '^[0-9][0-9]-' | wc -l)
+      echo $((gaps + unnumbered))
+      ;;
+    preen-package-docs)
+      count=0; for pkg in packages/*/; do [ ! -f "${pkg}README.md" ] && count=$((count + 1)); done; echo $count
+      ;;
+    preen-review-instructions)
+      GAPS=0
+      for section in 'TypeScript Standards' 'API Security' 'React Standards' 'Database Performance' 'Testing Standards'; do
+        [ -z "$(rg --fixed-strings -- "$section" REVIEW.md 2>/dev/null)" ] && GAPS=$((GAPS + 1))
+      done
+      REVIEW_SECTIONS=$(rg '^## ' REVIEW.md 2>/dev/null | wc -l | tr -d ' ')
+      GEMINI_SECTIONS=$(rg '^## ' .gemini/INSTRUCTIONS.md 2>/dev/null | wc -l | tr -d ' ')
+      [ "$GEMINI_SECTIONS" -lt $((REVIEW_SECTIONS / 2)) ] && GAPS=$((GAPS + 1))
+      echo $GAPS
+      ;;
+    preen-i18n)
+      EN_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/en.ts 2>/dev/null | wc -l | tr -d ' ')
+      GAPS=0
+      for lang in es ua pt; do
+        LANG_KEYS=$(rg -o "^\s+\w+:" packages/client/src/i18n/translations/${lang}.ts 2>/dev/null | wc -l | tr -d ' ')
+        [ "$LANG_KEYS" -lt "$EN_KEYS" ] && GAPS=$((GAPS + EN_KEYS - LANG_KEYS))
+      done
+      HARDCODED=$(rg -c --glob '*.tsx' '>\s*[A-Z][a-z]+(\s+[a-z]+)*\s*<' packages 2>/dev/null | rg -v 'test\.' | awk -F: '{sum+=$2} END {print sum+0}')
+      echo $((GAPS + HARDCODED))
+      ;;
+    preen-docs-internationalization)
+      EN_COUNT=$(ls docs/en/*.md 2>/dev/null | wc -l | tr -d ' ')
+      GAPS=0
+      for lang in es ua pt; do
+        LANG_COUNT=$(ls docs/$lang/*.md 2>/dev/null | wc -l | tr -d ' ')
+        [ "$LANG_COUNT" -lt "$EN_COUNT" ] && GAPS=$((GAPS + EN_COUNT - LANG_COUNT))
+      done
+      echo $GAPS
+      ;;
+    preen-window-consistency)
+      MANUAL_REFRESH=$(rg -c --glob '*.tsx' 'lastRefreshTokenRef|lastRefreshToken' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
+      MANUAL_DRAG=$(rg -c --glob '*.tsx' 'dragOverId.*useState|setDragOver.*Id' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
+      MANUAL_RESIZE=$(rg -c --glob '*.tsx' 'cursor-col-resize.*onMouseDown|handleResize.*MouseEvent' packages 2>/dev/null | rg -v 'window-manager' | awk -F: '{sum+=$NF} END {print sum+0}')
+      echo $((MANUAL_REFRESH + MANUAL_DRAG + MANUAL_RESIZE))
+      ;;
     *)
       echo 0
       ;;
@@ -518,11 +628,22 @@ If coverage thresholds fail, **DO NOT proceed**. Add tests to bring coverage bac
 
 Before opening a PR, record measurable improvement. Example metrics:
 
-EOF_BLOCK
-
-  render_quality_metrics
-
-  cat <<'EOF_BLOCK'
+- Type safety findings (`any`, unsafe casts, `@ts-ignore`)
+- Oversized React files
+- Deferred issue count
+- CI impact warnings
+- N+1 loop/query anti-pattern matches
+- API security findings in touched area
+- High/Critical dependency findings
+- Flaky-pattern matches in tests
+- MSW parity risk count (missing + low-confidence)
+- Skill parity/tooling issues
+- Compliance documentation gaps (missing triads + unnumbered files)
+- Packages missing README.md
+- Review instruction gaps (missing sections + Gemini drift)
+- i18n gaps (missing translation keys + hardcoded strings)
+- Missing or orphaned doc translations
+- Non-standardized window patterns (manual refresh, drag, resize)
 
 Quality gate for the selected category:
 
@@ -555,11 +676,22 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - Landed focused quality improvements with measurable delta
 
 ## Categories Checked
-EOF_BLOCK
-
-  render_checklist_rows
-
-  cat <<'EOF_BLOCK'
+- [ ] TypeScript types (`any`, `as` casts, `@ts-ignore`)
+- [ ] React component splitting
+- [ ] Deferred fixes from PR reviews
+- [ ] CI impact/test execution tuning
+- [ ] Database performance (N+1, joins, indexes)
+- [ ] API security boundaries
+- [ ] Dependency/security hygiene
+- [ ] Test flakiness hardening
+- [ ] MSW/API parity and request-assertion wiring
+- [ ] Skill tooling validation
+- [ ] Compliance documentation gaps and parity
+- [ ] Package documentation (README.md files)
+- [ ] Review instruction completeness and sync
+- [ ] i18n translation coverage and consistency
+- [ ] Documentation internationalization coverage
+- [ ] Window component consistency and refresh patterns
 
 ## Quality Delta
 - [x] Baseline metric captured for selected category
@@ -574,11 +706,7 @@ PR_BODY
 )")
 
 PR_NUMBER=$(echo "$PR_URL" | rg -o '[0-9]+$' || true)
-EOF_BLOCK
-
-  printf '%s\n' "$merge_queue_command"
-
-  cat <<'EOF_BLOCK'
+/enter-merge-queue
 ```
 
 ### 10. Persist Cursor and Structured Run Log
@@ -740,44 +868,3 @@ git push >/dev/null
 ```
 
 On failure, re-run the failing command without suppression.
-EOF_BLOCK
-}
-
-check_or_write_file() {
-  local destination="$1"
-  local content="$2"
-
-  if [ "$MODE" = "write" ]; then
-    printf '%s\n' "$content" > "$destination"
-    return
-  fi
-
-  local temp_file
-  temp_file="$(mktemp)"
-  printf '%s\n' "$content" > "$temp_file"
-
-  if ! diff -u "$destination" "$temp_file" >/dev/null; then
-    echo "Drift detected in $destination" >&2
-    diff -u "$destination" "$temp_file" >&2 || true
-    rm -f "$temp_file"
-    return 1
-  fi
-
-  rm -f "$temp_file"
-  return 0
-}
-
-CLAUDE_DOC_CONTENT="$(render_document claude)"
-CODEX_DOC_CONTENT="$(render_document codex)"
-GEMINI_DOC_CONTENT="$(render_document gemini)"
-
-FAILED=0
-check_or_write_file ".claude/commands/preen.md" "$CLAUDE_DOC_CONTENT" || FAILED=1
-check_or_write_file ".codex/skills/preen/SKILL.md" "$CODEX_DOC_CONTENT" || FAILED=1
-check_or_write_file ".gemini/skills/preen/SKILL.md" "$GEMINI_DOC_CONTENT" || FAILED=1
-
-if [ "$MODE" = "check" ] && [ "$FAILED" -ne 0 ]; then
-  exit 1
-fi
-
-echo "preen docs are up to date"

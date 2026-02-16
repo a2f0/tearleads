@@ -25,8 +25,8 @@ Run the single-source checker first:
 
 This validates:
 
-- Semantic parity between `.claude/commands/preen*.md` and `.codex/skills/preen*/SKILL.md`
-- Command prefix style (`/command` in Claude docs, `$command` in Codex docs)
+- Semantic parity between `.claude/commands/preen*.md`, `.codex/skills/preen*/SKILL.md`, and `.gemini/skills/preen*/SKILL.md`
+- Command prefix style (`/command` in Claude docs, `$command` in Codex docs, `/command` in Gemini docs)
 - Top-level preen docs are generated from `scripts/preen/registry.json`
 
 ## Discovery Phase
@@ -63,6 +63,10 @@ rg --no-filename "/agentTool\.ts" .claude/commands/*.md | rg -o "agentTool\.ts\s
 echo "=== agentTool.ts invocations in Codex skills ==="
 rg --no-filename "/agentTool\.ts" .codex/skills/*/SKILL.md | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
 
+# agentTool.ts invocations in Gemini skills
+echo "=== agentTool.ts invocations in Gemini skills ==="
+rg --no-filename "/agentTool\.ts" .gemini/skills/*/SKILL.md | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
+
 # scriptTool.ts invocations in Claude skills
 echo "=== scriptTool.ts invocations in Claude skills ==="
 rg --no-filename "/scriptTool\.ts" .claude/commands/*.md | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
@@ -70,6 +74,10 @@ rg --no-filename "/scriptTool\.ts" .claude/commands/*.md | rg -o "scriptTool\.ts
 # scriptTool.ts invocations in Codex skills
 echo "=== scriptTool.ts invocations in Codex skills ==="
 rg --no-filename "/scriptTool\.ts" .codex/skills/*/SKILL.md | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
+
+# scriptTool.ts invocations in Gemini skills
+echo "=== scriptTool.ts invocations in Gemini skills ==="
+rg --no-filename "/scriptTool\.ts" .gemini/skills/*/SKILL.md | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u
 ```
 
 ### 3. Cross-reference for issues
@@ -89,12 +97,12 @@ extract_union_actions() {
 # Find undefined actions (invoked but not defined)
 echo "=== Checking for undefined agentTool actions ==="
 DEFINED=$(extract_union_actions scripts/agents/tooling/agentTool.ts)
-INVOKED=$(rg --no-filename "/agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
+INVOKED=$(rg --no-filename "/agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md .gemini/skills/*/SKILL.md 2>/dev/null | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
 comm -23 <(echo "$INVOKED") <(echo "$DEFINED")
 
 echo "=== Checking for undefined scriptTool actions ==="
 DEFINED=$(extract_union_actions scripts/tooling/scriptTool.ts)
-INVOKED_ALL=$(rg --no-filename "/scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
+INVOKED_ALL=$(rg --no-filename "/scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md .gemini/skills/*/SKILL.md 2>/dev/null | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
 # scriptTool.ts expose `generateDocs` as a top-level command (not in ActionName union).
 INVOKED=$(echo "$INVOKED_ALL" | rg -v '^generateDocs$' || true)
 comm -23 <(echo "$INVOKED") <(echo "$DEFINED")
@@ -102,12 +110,12 @@ comm -23 <(echo "$INVOKED") <(echo "$DEFINED")
 # Find dead code (defined but never invoked)
 echo "=== Checking for unused agentTool actions ==="
 DEFINED=$(extract_union_actions scripts/agents/tooling/agentTool.ts)
-INVOKED=$(rg --no-filename "/agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
+INVOKED=$(rg --no-filename "/agentTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md .gemini/skills/*/SKILL.md 2>/dev/null | rg -o "agentTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
 comm -23 <(echo "$DEFINED") <(echo "$INVOKED")
 
 echo "=== Checking for unused scriptTool actions ==="
 DEFINED=$(extract_union_actions scripts/tooling/scriptTool.ts)
-INVOKED_ALL=$(rg --no-filename "/scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md 2>/dev/null | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
+INVOKED_ALL=$(rg --no-filename "/scriptTool\.ts" .claude/commands/*.md .codex/skills/*/SKILL.md .gemini/skills/*/SKILL.md 2>/dev/null | rg -o "scriptTool\.ts\s+[A-Za-z][A-Za-z0-9]*" | awk '{print $2}' | sort -u)
 INVOKED=$(echo "$INVOKED_ALL" | rg -v '^generateDocs$' || true)
 comm -23 <(echo "$DEFINED") <(echo "$INVOKED")
 ```
@@ -127,7 +135,7 @@ echo "=== Checking scriptTool.ts README freshness ==="
 | -------- | -------- | ------ |
 | Undefined action invoked | High | Fix skill to use correct action name, or add missing action to tool |
 | Defined action never used | Low | Consider removing dead code, or document why it exists |
-| Skill/Codex parity mismatch | Medium | Ensure both Claude and Codex versions reference equivalent actions (cross-agent fallback action names may differ) |
+| Skill parity mismatch | Medium | Ensure Claude, Codex, and Gemini versions reference equivalent actions |
 | README out of date | Medium | Run `./scripts/tooling/scriptTool.ts generateDocs` to regenerate |
 
 ## Prioritization
@@ -135,7 +143,7 @@ echo "=== Checking scriptTool.ts README freshness ==="
 Fix issues in this order:
 
 1. **Undefined actions** - Skills will fail at runtime
-2. **Parity mismatches** - Claude and Codex skills should be equivalent for runtime behavior
+2. **Parity mismatches** - All agent versions should be equivalent for runtime behavior
 3. **Unused actions** - Dead code, lower priority unless cleanup pass
 
 ## Fix Strategies
@@ -154,8 +162,8 @@ Fix issues in this order:
 
 ### Parity Mismatch
 
-1. Compare `.claude/commands/<skill>.md` with `.codex/skills/<skill>/SKILL.md`
-2. Sync the files to use equivalent action references (allow `solicitCodexReview` vs `solicitClaudeCodeReview` when agent context differs)
+1. Compare `.claude/commands/<skill>.md`, `.codex/skills/<skill>/SKILL.md`, and `.gemini/skills/<skill>/SKILL.md`
+2. Sync the files to use equivalent action references
 3. Run the parity check from main `preen` skill
 
 ### README Out of Date
@@ -180,29 +188,13 @@ If no issues found during discovery, do not create a branch.
 
 - Do not remove actions that are used by scripts outside of skills
 - Do not change action behavior when fixing wiring issues
-- Keep Claude and Codex skill files in sync
+- Keep Claude, Codex, and Gemini skill files in sync
 - Add tests when adding new actions
 
 ## Quality Bar
 
 - Zero undefined action references in skills
-- Zero unresolved parity mismatches between Claude and Codex skills (excluding intentional cross-agent fallback action differences)
+- Zero unresolved parity mismatches between agent skills
 - All unused actions either removed or documented
 - Tool wrapper tests pass
 - Auto-generated READMEs are up to date
-
-## Token Efficiency
-
-```bash
-# Limit discovery output
-rg --no-filename "/agentTool\.ts" .claude/commands/*.md | head -20
-rg --no-filename "/scriptTool\.ts" .claude/commands/*.md | head -20
-
-# Suppress validation output
-pnpm typecheck >/dev/null
-pnpm test >/dev/null
-git commit -S -m "message" >/dev/null
-git push >/dev/null
-```
-
-On failure, re-run without suppression to see errors.
