@@ -715,7 +715,23 @@ export const es = {
       'ex_a1b2c3d4-1019-4000-8000-000000000019': 'Dominada Alrededor del Mundo',
       'ex_a1b2c3d4-1020-4000-8000-000000000020': 'Dominada Pecho a Barra',
       'ex_a1b2c3d4-1021-4000-8000-000000000021':
-        'Dominada a Un Brazo (Asistida)'
+        'Dominada a Un Brazo (Asistida)',
+      'ex_a1b2c3d4-1022-4000-8000-000000000022': 'Flexión',
+      'ex_a1b2c3d4-1023-4000-8000-000000000023': 'Flexión Estricta',
+      'ex_a1b2c3d4-1024-4000-8000-000000000024': 'Flexión Amplia',
+      'ex_a1b2c3d4-1025-4000-8000-000000000025': 'Flexión Cerrada',
+      'ex_a1b2c3d4-1026-4000-8000-000000000026': 'Flexión Diamante',
+      'ex_a1b2c3d4-1027-4000-8000-000000000027': 'Flexión con Peso',
+      'ex_a1b2c3d4-1028-4000-8000-000000000028': 'Flexión Declinada',
+      'ex_a1b2c3d4-1029-4000-8000-000000000029': 'Flexión Inclinada',
+      'ex_a1b2c3d4-1030-4000-8000-000000000030': 'Flexión Arquero',
+      'ex_a1b2c3d4-1031-4000-8000-000000000031': 'Flexión con Palmada',
+      'ex_a1b2c3d4-1032-4000-8000-000000000032': 'Flexión Pike',
+      'ex_a1b2c3d4-1033-4000-8000-000000000033': 'Flexión Spiderman',
+      'ex_a1b2c3d4-1034-4000-8000-000000000034': 'Flexión a Un Brazo',
+      'ex_a1b2c3d4-1035-4000-8000-000000000035': 'Flexión Excéntrica',
+      'ex_a1b2c3d4-1036-4000-8000-000000000036': 'Flexión de Nudillos',
+      'ex_a1b2c3d4-1037-4000-8000-000000000037': 'Flexión Hindú'
     }
   }
 } as const satisfies I18NextTranslations;

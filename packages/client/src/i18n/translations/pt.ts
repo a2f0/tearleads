@@ -716,7 +716,23 @@ export const pt = {
       'ex_a1b2c3d4-1019-4000-8000-000000000019': 'Barra Fixa Ao Redor do Mundo',
       'ex_a1b2c3d4-1020-4000-8000-000000000020': 'Barra Fixa Peito na Barra',
       'ex_a1b2c3d4-1021-4000-8000-000000000021':
-        'Barra Fixa Um Braço (Assistida)'
+        'Barra Fixa Um Braço (Assistida)',
+      'ex_a1b2c3d4-1022-4000-8000-000000000022': 'Flexão',
+      'ex_a1b2c3d4-1023-4000-8000-000000000023': 'Flexão Estrita',
+      'ex_a1b2c3d4-1024-4000-8000-000000000024': 'Flexão Ampla',
+      'ex_a1b2c3d4-1025-4000-8000-000000000025': 'Flexão Fechada',
+      'ex_a1b2c3d4-1026-4000-8000-000000000026': 'Flexão Diamante',
+      'ex_a1b2c3d4-1027-4000-8000-000000000027': 'Flexão com Peso',
+      'ex_a1b2c3d4-1028-4000-8000-000000000028': 'Flexão Declinada',
+      'ex_a1b2c3d4-1029-4000-8000-000000000029': 'Flexão Inclinada',
+      'ex_a1b2c3d4-1030-4000-8000-000000000030': 'Flexão Arqueiro',
+      'ex_a1b2c3d4-1031-4000-8000-000000000031': 'Flexão com Palmas',
+      'ex_a1b2c3d4-1032-4000-8000-000000000032': 'Flexão Pike',
+      'ex_a1b2c3d4-1033-4000-8000-000000000033': 'Flexão Homem-Aranha',
+      'ex_a1b2c3d4-1034-4000-8000-000000000034': 'Flexão Um Braço',
+      'ex_a1b2c3d4-1035-4000-8000-000000000035': 'Flexão Excêntrica',
+      'ex_a1b2c3d4-1036-4000-8000-000000000036': 'Flexão de Punhos',
+      'ex_a1b2c3d4-1037-4000-8000-000000000037': 'Flexão Hindu'
     }
   }
 } as const satisfies I18NextTranslations;

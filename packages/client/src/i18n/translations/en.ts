@@ -703,7 +703,23 @@ export const en = {
       'ex_a1b2c3d4-1018-4000-8000-000000000018': 'Eccentric Pull-Up',
       'ex_a1b2c3d4-1019-4000-8000-000000000019': 'Around-the-World Pull-Up',
       'ex_a1b2c3d4-1020-4000-8000-000000000020': 'Chest-to-Bar Pull-Up',
-      'ex_a1b2c3d4-1021-4000-8000-000000000021': 'One-Arm Pull-Up (Assisted)'
+      'ex_a1b2c3d4-1021-4000-8000-000000000021': 'One-Arm Pull-Up (Assisted)',
+      'ex_a1b2c3d4-1022-4000-8000-000000000022': 'Push-Up',
+      'ex_a1b2c3d4-1023-4000-8000-000000000023': 'Strict Push-Up',
+      'ex_a1b2c3d4-1024-4000-8000-000000000024': 'Wide Push-Up',
+      'ex_a1b2c3d4-1025-4000-8000-000000000025': 'Narrow Push-Up',
+      'ex_a1b2c3d4-1026-4000-8000-000000000026': 'Diamond Push-Up',
+      'ex_a1b2c3d4-1027-4000-8000-000000000027': 'Weighted Push-Up',
+      'ex_a1b2c3d4-1028-4000-8000-000000000028': 'Decline Push-Up',
+      'ex_a1b2c3d4-1029-4000-8000-000000000029': 'Incline Push-Up',
+      'ex_a1b2c3d4-1030-4000-8000-000000000030': 'Archer Push-Up',
+      'ex_a1b2c3d4-1031-4000-8000-000000000031': 'Clapping Push-Up',
+      'ex_a1b2c3d4-1032-4000-8000-000000000032': 'Pike Push-Up',
+      'ex_a1b2c3d4-1033-4000-8000-000000000033': 'Spiderman Push-Up',
+      'ex_a1b2c3d4-1034-4000-8000-000000000034': 'One-Arm Push-Up',
+      'ex_a1b2c3d4-1035-4000-8000-000000000035': 'Eccentric Push-Up',
+      'ex_a1b2c3d4-1036-4000-8000-000000000036': 'Knuckle Push-Up',
+      'ex_a1b2c3d4-1037-4000-8000-000000000037': 'Hindu Push-Up'
     }
   }
 } as const satisfies I18NextTranslations;
