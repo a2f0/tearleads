@@ -13,92 +13,16 @@ import { Command, InvalidArgumentError, Option, program } from 'commander';
 import {
   extractKeyLines,
   getRepoRoot,
-  parsePositiveInt,
-  runWithTimeout
+  parsePositiveInt
 } from '../../tooling/lib/cliShared.ts';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-type SafetyClass = 'safe_read' | 'safe_write_local' | 'safe_write_remote';
-
-type ActionName =
-  | 'refresh'
-  | 'syncToolchainVersions'
-  | 'setVscodeTitle'
-  | 'solicitCodexReview'
-  | 'solicitClaudeCodeReview'
-  | 'addLabel'
-  | 'approveSkippedChecks'
-  | 'tagPrWithTuxedoInstance'
-  | 'getPrInfo'
-  | 'getReviewThreads'
-  | 'replyToComment'
-  | 'replyToGemini'
-  | 'resolveThread'
-  | 'getCiStatus'
-  | 'cancelWorkflow'
-  | 'rerunWorkflow'
-  | 'downloadArtifact'
-  | 'enableAutoMerge'
-  | 'findPrForBranch'
-  | 'listHighPriorityPrs'
-  | 'triggerGeminiReview'
-  | 'findDeferredWork';
-
-interface GlobalOptions {
-  apply?: boolean;
-  check?: boolean;
-  skipNode?: boolean;
-  skipAndroid?: boolean;
-  maxAndroidJump?: number;
-  title?: string;
-  type?: 'pr' | 'issue';
-  number?: number;
-  label?: string;
-  fields?: string;
-  unresolvedOnly?: boolean;
-  commentId?: string;
-  body?: string;
-  threadId?: string;
-  commit?: string;
-  runId?: string;
-  artifact?: string;
-  dest?: string;
-  branch?: string;
-  state?: 'open' | 'merged';
-  pollTimeout?: number;
-  timeoutSeconds?: number;
-  repoRoot?: string;
-  dryRun?: boolean;
-  json?: boolean;
-  pr?: number;
-}
-
-interface ActionConfig {
-  safetyClass: SafetyClass;
-  retrySafe: boolean;
-  isInline: boolean;
-  scriptPath?: (repoRoot: string, agentsDir: string) => string;
-}
-
-interface JsonOutput {
-  status: 'success' | 'failure';
-  exit_code: number;
-  duration_ms: number;
-  action: string;
-  repo_root: string;
-  safety_class: SafetyClass;
-  retry_safe: boolean;
-  dry_run: boolean;
-  key_lines: string[];
-  'window.title'?: string;
-}
-
-// ============================================================================
-// Constants
-// ============================================================================
+import { runInlineAction, runDelegatedAction } from './utils/actions.ts';
+import { getRepo, isShaLike, requireDefined } from './utils/helpers.ts';
+import {
+  ActionName,
+  ActionConfig,
+  GlobalOptions,
+  JsonOutput
+} from './types.ts';
 
 const SCRIPT_DIR = path.dirname(new URL(import.meta.url).pathname);
 const AGENTS_DIR = path.dirname(SCRIPT_DIR);
@@ -217,500 +141,19 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     safetyClass: 'safe_read',
     retrySafe: true,
     isInline: true
+  },
+  runPreen: {
+    safetyClass: 'safe_write_local',
+    retrySafe: false,
+    isInline: false,
+    scriptPath: (repo) => path.join(repo, 'scripts', 'preen', 'runPreen.sh')
+  },
+  issueTemplate: {
+    safetyClass: 'safe_read',
+    retrySafe: true,
+    isInline: true
   }
 };
-
-// ============================================================================
-// Validation
-// ============================================================================
-
-function isShaLike(value: string): boolean {
-  if (!/^[0-9a-fA-F]+$/.test(value)) return false;
-  return value.length >= 7 && value.length <= 40;
-}
-
-function requireDefined<T>(value: T | undefined, name: string): T {
-  if (value === undefined) {
-    throw new Error(`Missing required option: ${name}`);
-  }
-  return value;
-}
-// ============================================================================
-// Helpers
-// ============================================================================
-
-function getRepo(): string {
-  try {
-    return execFileSync(
-      'gh',
-      ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner'],
-      {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore']
-      }
-    ).trim();
-  } catch {
-    throw new Error('Could not determine repository. Is gh CLI authenticated?');
-  }
-}
-
-function sleepMs(milliseconds: number): void {
-  const waitBuffer = new SharedArrayBuffer(4);
-  const waitArray = new Int32Array(waitBuffer);
-  Atomics.wait(waitArray, 0, 0, milliseconds);
-}
-
-// ============================================================================
-// Inline GitHub API Actions
-// ============================================================================
-
-function runInlineAction(
-  action: ActionName,
-  options: GlobalOptions,
-  repo: string,
-  timeoutMs: number
-): string {
-  const runGh = (args: string[]): string =>
-    execFileSync('gh', args, {
-      encoding: 'utf8',
-      timeout: timeoutMs
-    });
-
-  switch (action) {
-    case 'getPrInfo': {
-      const fields =
-        options.fields ??
-        'number,state,mergeStateStatus,headRefName,baseRefName,url';
-      // When using -R, gh pr view needs an explicit branch/PR reference
-      const branch = execSync('git branch --show-current', {
-        encoding: 'utf8'
-      }).trim();
-      return runGh(['pr', 'view', branch, '--json', fields, '-R', repo]);
-    }
-
-    case 'getReviewThreads': {
-      if (options.number === undefined) {
-        throw new Error('getReviewThreads requires --number');
-      }
-      const [owner, repoName] = repo.split('/');
-      if (!owner || !repoName) {
-        throw new Error(`Invalid repository format: ${repo}`);
-      }
-      const filter = options.unresolvedOnly
-        ? 'map(select(.isResolved == false))'
-        : '.';
-      const query = `
-        query($owner: String!, $repo: String!, $pr: Int!, $after: String) {
-          repository(owner: $owner, name: $repo) {
-            pullRequest(number: $pr) {
-              reviewThreads(first: 100, after: $after) {
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-                nodes {
-                  id
-                  isResolved
-                  path
-                  line
-                  comments(first: 100) {
-                    pageInfo {
-                      hasNextPage
-                    }
-                    nodes {
-                      id
-                      databaseId
-                      author { login }
-                      body
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      `;
-      const threadJsonChunks: string[] = [];
-      let afterCursor: string | undefined;
-
-      while (true) {
-        const queryArgs = [
-          'api',
-          'graphql',
-          '-f',
-          `query=${query}`,
-          '-f',
-          `owner=${owner}`,
-          '-f',
-          `repo=${repoName}`,
-          '-F',
-          `pr=${options.number}`
-        ];
-        if (afterCursor) {
-          queryArgs.push('-F', `after=${afterCursor}`);
-        }
-
-        const pageHasNext = runGh([
-          ...queryArgs,
-          '--jq',
-          '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage'
-        ]).trim();
-        const pageEndCursor = runGh([
-          ...queryArgs,
-          '--jq',
-          '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // ""'
-        ]).trim();
-
-        const threadIdsWithExtraComments = runGh([
-          ...queryArgs,
-          '--jq',
-          '.data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.pageInfo.hasNextPage == true) | .id'
-        ]).trim();
-        if (threadIdsWithExtraComments) {
-          throw new Error(
-            `getReviewThreads found threads with >100 comments; unsupported pagination for thread IDs: ${threadIdsWithExtraComments}`
-          );
-        }
-
-        const pageThreads = runGh([
-          ...queryArgs,
-          '--jq',
-          `.data.repository.pullRequest.reviewThreads.nodes | ${filter}`
-        ]).trim();
-        if (pageThreads.startsWith('[') && pageThreads.endsWith(']')) {
-          const innerJson = pageThreads.slice(1, -1).trim();
-          if (innerJson.length > 0) {
-            threadJsonChunks.push(innerJson);
-          }
-        } else {
-          throw new Error('Unexpected getReviewThreads response shape');
-        }
-
-        if (pageHasNext !== 'true') {
-          break;
-        }
-        if (!pageEndCursor) {
-          throw new Error(
-            'getReviewThreads pagination indicated next page but missing endCursor'
-          );
-        }
-        afterCursor = pageEndCursor;
-      }
-
-      return `[${threadJsonChunks.join(',')}]`;
-    }
-
-    case 'replyToComment': {
-      return runGh([
-        'api',
-        '-X',
-        'POST',
-        `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
-        '-f',
-        `body=${options.body}`
-      ]);
-    }
-
-    case 'replyToGemini': {
-      const body = `@gemini-code-assist Fixed in commit ${options.commit}. Please confirm this addresses the issue.`;
-      return runGh([
-        'api',
-        '-X',
-        'POST',
-        `repos/${repo}/pulls/${options.number}/comments/${options.commentId}/replies`,
-        '-f',
-        `body=${body}`
-      ]);
-    }
-
-    case 'resolveThread': {
-      const mutation = `
-        mutation($threadId: ID!) {
-          resolveReviewThread(input: {threadId: $threadId}) {
-            thread { isResolved }
-          }
-        }
-      `;
-      return runGh([
-        'api',
-        'graphql',
-        '-f',
-        `query=${mutation}`,
-        '-f',
-        `threadId=${options.threadId}`
-      ]);
-    }
-
-    case 'getCiStatus': {
-      if (options.runId) {
-        return runGh([
-          'run',
-          'view',
-          options.runId,
-          '--json',
-          'status,conclusion,jobs',
-          '--jq',
-          '{status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
-          '-R',
-          repo
-        ]);
-      }
-      // Find run from commit
-      const runIdOutput = runGh([
-        'run',
-        'list',
-        '--commit',
-        requireDefined(options.commit, '--commit'),
-        '--limit',
-        '1',
-        '--json',
-        'databaseId',
-        '--jq',
-        '.[0].databaseId',
-        '-R',
-        repo
-      ]).trim();
-
-      if (!runIdOutput || runIdOutput === 'null') {
-        throw new Error('No workflow run found for commit');
-      }
-
-      return runGh([
-        'run',
-        'view',
-        runIdOutput,
-        '--json',
-        'status,conclusion,jobs,databaseId',
-        '--jq',
-        '{run_id: .databaseId, status, conclusion, jobs: [.jobs[] | {name, status, conclusion}]}',
-        '-R',
-        repo
-      ]);
-    }
-
-    case 'cancelWorkflow': {
-      const runId = requireDefined(options.runId, '--run-id');
-      runGh(['run', 'cancel', runId, '-R', repo]);
-      return JSON.stringify({ status: 'cancelled', run_id: runId });
-    }
-
-    case 'rerunWorkflow': {
-      const runId = requireDefined(options.runId, '--run-id');
-      runGh(['run', 'rerun', runId, '-R', repo]);
-      return JSON.stringify({
-        status: 'rerun_triggered',
-        run_id: runId
-      });
-    }
-
-    case 'downloadArtifact': {
-      const runId = requireDefined(options.runId, '--run-id');
-      const artifact = requireDefined(options.artifact, '--artifact');
-      const dest = requireDefined(options.dest, '--dest');
-      runGh(['run', 'download', runId, '-n', artifact, '-D', dest, '-R', repo]);
-      return JSON.stringify({
-        status: 'downloaded',
-        run_id: runId,
-        artifact,
-        dest
-      });
-    }
-
-    case 'enableAutoMerge': {
-      runGh([
-        'pr',
-        'merge',
-        String(options.number),
-        '--auto',
-        '--merge',
-        '-R',
-        repo
-      ]);
-      return JSON.stringify({
-        status: 'auto_merge_enabled',
-        pr: options.number
-      });
-    }
-
-    case 'findPrForBranch': {
-      const state = options.state ?? 'open';
-      return runGh([
-        'pr',
-        'list',
-        '--head',
-        requireDefined(options.branch, '--branch'),
-        '--state',
-        state,
-        '--json',
-        'number,title,state,url',
-        '-R',
-        repo,
-        '--jq',
-        '.[0] // {"error": "No PR found"}'
-      ]);
-    }
-
-    case 'listHighPriorityPrs': {
-      const prsOutput = runGh([
-        'pr',
-        'list',
-        '--label',
-        'high-priority',
-        '--state',
-        'open',
-        '--search',
-        '-is:draft',
-        '--json',
-        'number',
-        '-R',
-        repo,
-        '--jq',
-        '.[].number'
-      ]).trim();
-
-      if (!prsOutput) return '[]';
-
-      const prNumbers = prsOutput.split('\n').filter(Boolean);
-      const results: string[] = [];
-
-      for (const prNum of prNumbers) {
-        const prData = runGh([
-          'pr',
-          'view',
-          prNum,
-          '--json',
-          'number,title,mergeStateStatus',
-          '-R',
-          repo
-        ]).trim();
-        results.push(prData);
-      }
-
-      return `[${results.join(',')}]`;
-    }
-
-    case 'triggerGeminiReview': {
-      const pollTimeoutSeconds = options.pollTimeout ?? 300;
-      const pollIntervalMilliseconds = 15_000;
-      const prNumber = String(options.number);
-      const latestGeminiReviewQuery = [
-        'pr',
-        'view',
-        prNumber,
-        '--json',
-        'reviews',
-        '-R',
-        repo,
-        '--jq',
-        '[.reviews[] | select(.author.login == "gemini-code-assist") | .submittedAt] | max // ""'
-      ];
-
-      const latestReviewBeforeRequest = runGh(latestGeminiReviewQuery).trim();
-
-      runGh([
-        'pr',
-        'comment',
-        prNumber,
-        '-R',
-        repo,
-        '--body',
-        '/gemini review'
-      ]);
-
-      const deadline = Date.now() + pollTimeoutSeconds * 1000;
-      while (Date.now() < deadline) {
-        const latestReviewAfterRequest = runGh(latestGeminiReviewQuery).trim();
-        if (
-          latestReviewAfterRequest &&
-          (!latestReviewBeforeRequest ||
-            latestReviewAfterRequest > latestReviewBeforeRequest)
-        ) {
-          return JSON.stringify({
-            status: 'review_received',
-            pr: options.number,
-            submitted_at: latestReviewAfterRequest
-          });
-        }
-        sleepMs(pollIntervalMilliseconds);
-      }
-
-      return JSON.stringify({
-        status: 'review_requested',
-        pr: options.number,
-        timed_out: true,
-        poll_timeout_seconds: pollTimeoutSeconds
-      });
-    }
-
-    case 'findDeferredWork': {
-      return runGh([
-        'api',
-        `repos/${repo}/pulls/${options.number}/comments`,
-        '--paginate',
-        '--jq',
-        '.[] | select(.body | test("defer|follow[- ]?up|future PR|later|TODO|FIXME"; "i")) | {id: .id, path: .path, line: .line, body: .body, html_url: .html_url}'
-      ]);
-    }
-
-    default:
-      throw new Error(`Unknown inline action: ${action}`);
-  }
-}
-
-// ============================================================================
-// Delegated Script Actions
-// ============================================================================
-
-function runDelegatedAction(
-  action: ActionName,
-  options: GlobalOptions,
-  repoRoot: string,
-  timeoutMs: number
-): { stdout: string; stderr: string; exitCode: number } {
-  const config = ACTION_CONFIG[action];
-  if (!config.scriptPath) {
-    throw new Error(`No script path for action: ${action}`);
-  }
-
-  const scriptPath = config.scriptPath(repoRoot, AGENTS_DIR);
-
-  if (!existsSync(scriptPath)) {
-    throw new Error(`Script not found: ${scriptPath}`);
-  }
-
-  const args: string[] = [];
-
-  if (action === 'setVscodeTitle' && options.title) {
-    args.push('--title', options.title);
-  } else if (action === 'syncToolchainVersions') {
-    if (options.apply) {
-      args.push('--apply');
-    } else {
-      args.push('--check');
-    }
-    if (options.skipNode) {
-      args.push('--skip-node');
-    }
-    if (options.skipAndroid) {
-      args.push('--skip-android');
-    }
-    if (options.maxAndroidJump !== undefined) {
-      args.push('--max-android-jump', String(options.maxAndroidJump));
-    }
-  } else if (action === 'addLabel') {
-    args.push('--type', requireDefined(options.type, '--type'));
-    args.push('--number', String(options.number));
-    args.push('--label', requireDefined(options.label, '--label'));
-  } else if (action === 'tagPrWithTuxedoInstance' && options.pr) {
-    args.push('--pr', String(options.pr));
-  }
-
-  return runWithTimeout(scriptPath, args, timeoutMs, repoRoot);
-}
-
-// ============================================================================
-// Main Execution
-// ============================================================================
 
 function createActionCommand(actionName: ActionName): Command {
   const cmd = new Command(actionName);
@@ -842,6 +285,30 @@ function createActionCommand(actionName: ActionName): Command {
         parsePositiveInt(v, '--number')
       );
       break;
+    case 'runPreen':
+      cmd
+        .option('--mode <mode>', 'Preen mode', (v) => {
+          const allowed = ['full', 'single', 'security', 'audit'];
+          if (!allowed.includes(v)) {
+            throw new InvalidArgumentError(
+              `--mode must be one of ${allowed.join(', ')}`
+            );
+          }
+          return v as GlobalOptions['mode'];
+        })
+        .option('--dry-run', 'Validate steps without mutating the workspace');
+      break;
+    case 'issueTemplate':
+      cmd.requiredOption('--type <type>', 'Template type', (v) => {
+        const allowed = ['user-requested', 'deferred-fix'];
+        if (!allowed.includes(v)) {
+          throw new InvalidArgumentError(
+            `--type must be one of ${allowed.join(', ')}`
+          );
+        }
+        return v as GlobalOptions['type'];
+      });
+      break;
     case 'findPrForBranch':
       cmd
         .requiredOption('--branch <name>', 'Branch name')
@@ -881,14 +348,15 @@ function createActionCommand(actionName: ActionName): Command {
         const result = runDelegatedAction(
           actionName,
           opts,
+          config,
           repoRoot,
-          timeoutMs
+          timeoutMs,
+          AGENTS_DIR
         );
         output = result.stdout + result.stderr;
         exitCode = result.exitCode;
       }
 
-      // Extract window.title for setVscodeTitle action from settings file
       if (actionName === 'setVscodeTitle' && !opts.dryRun && exitCode === 0) {
         const settingsPath = path.join(repoRoot, '.vscode', 'settings.json');
         if (existsSync(settingsPath)) {

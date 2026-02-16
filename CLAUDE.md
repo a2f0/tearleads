@@ -35,25 +35,13 @@ gh pr view 123 -R "$REPO"
 When the user explicitly requests an issue:
 
 1. **Check for existing issue**: Search for a related open issue first
-2. **Create an issue if none exists**: Use the template below. After merge, `/enter-merge-queue` adds "needs-qa" label to this issue.
+2. **Create an issue if none exists**: Run the issue-template action, then pipe it into `gh issue create`. After merge, `/enter-merge-queue` adds the "needs-qa" label.
 3. **Do NOT auto-close issues**: Never use `Closes #`, `Fixes #`, or `Resolves #` in PR descriptions. Issues are marked "needs-qa" after merge for verification before manual closure.
 
 ```bash
-# Create an issue for the user's request (rewrite in your own words; add context)
-cat <<'EOF' | gh issue create --title "feat: <brief description>" --body-file -
-## Summary
-<one paragraph describing the user goal and outcome in your own words>
-
-## Context
-<why this matters, impacted area, or constraints mentioned by the user>
-
-## Requirements
-- [ ] <clear, testable requirement 1>
-- [ ] <clear, testable requirement 2>
-
-## Implementation Notes
-<initial approach, dependencies, or questions to resolve>
-EOF
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+./scripts/agents/tooling/agentTool.ts issueTemplate --type user-requested | \
+  gh issue create --repo "$REPO" --title "feat: <brief description>" --body-file -
 ```
 
 ### Deferred Fix Issues
@@ -67,19 +55,9 @@ When review feedback cannot be addressed in the current PR and must be deferred:
 The `/enter-merge-queue` and `/address-gemini-feedback` skills handle deferred fix issue creation automatically. The `/preen-deferred-fixes` skill finds issues with the `deferred-fix` label to implement.
 
 ```bash
-# Create a deferred fix issue (handled by skills, shown for reference)
-cat <<EOF | gh issue create --title "chore: deferred fix from PR #<number>" --label "deferred-fix" --body-file -
-## Summary
-<brief description of what was deferred>
-
-## Source
-- PR: #<pr-number>
-- Review thread: <url to thread>
-
-## Deferred Items
-- [ ] <item 1 from review feedback>
-- [ ] <item 2 from review feedback>
-EOF
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+./scripts/agents/tooling/agentTool.ts issueTemplate --type deferred-fix | \
+  gh issue create --repo "$REPO" --title "chore: deferred fix from PR #<number>" --label "deferred-fix" --body-file -
 ```
 
 ### Issue Guidelines
@@ -150,8 +128,11 @@ When resolving merge conflicts during rebase, the goal is to **preserve BOTH the
 
 If conflicts are on the exact same lines and truly incompatible, abort and ask for help rather than discarding either side's work.
 
-## Binary Files Policy
+## File Size Guardrail
 
+Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, split the logic into smaller modules—move shared types into `scripts/agents/tooling/types.ts`, helpers into `scripts/agents/tooling/utils/`, etc.—so CLI entry points remain compact without losing functionality.
+
+## Binary Files Policy
 - Do not add binary files to the repo. Prefer SVG or external URLs.
 - Binary guardrails run in `pre-commit` (staged files) and `pre-push` (unpushed commits).
 - Allowed binaries must be explicitly listed in `scripts/checkBinaryFiles.sh` with documented rationale in the issue or PR.

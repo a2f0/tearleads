@@ -73,3 +73,8 @@ I noticed that this route doesn't seem to have any authentication...
 ---
 
 *This document is maintained by the preen-review-instructions skill. Run /preen-review-instructions to audit for gaps.*
+
+## Automation
+
+- Use `./scripts/agents/tooling/agentTool.ts issueTemplate --type user-requested` (or `--type deferred-fix`) to print the standard issue body and pipe it into `gh issue create`.
+- Run `./scripts/agents/tooling/agentTool.ts runPreen --mode audit --dry-run` to preview the discovery output that feeds this guidance and the related review-instructions skill.
