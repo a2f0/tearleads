@@ -199,6 +199,12 @@ function expectContainerClocksMonotonic(
   }
 }
 
+function toStageCodeSignatures(
+  events: Array<{ stage: string; code: string }>
+): string[] {
+  return events.map((event) => `${event.stage}:${event.code}`);
+}
+
 describe('VfsBackgroundSyncClient', () => {
   it('converges multiple clients after concurrent flush and sync', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -1404,9 +1410,8 @@ describe('VfsBackgroundSyncClient', () => {
       const failureWriteIdSignature = JSON.stringify(
         failedSnapshot.lastReconciledWriteIds
       );
-      const failureGuardrailSignatures = failingGuardrails.map(
-        (violation) => `${violation.stage}:${violation.code}`
-      );
+      const failureGuardrailSignatures =
+        toStageCodeSignatures(failingGuardrails);
       const finalCursorSignature = `${finalSnapshot.cursor.changedAt}|${finalSnapshot.cursor.changeId}`;
       const finalWriteIdSignature = JSON.stringify(
         finalSnapshot.lastReconciledWriteIds
@@ -2263,14 +2268,10 @@ describe('VfsBackgroundSyncClient', () => {
       phaseThreeClient.hydrateState(phaseTwoClient.exportState());
       await phaseThreeClient.sync();
 
-      const phaseOneGuardrails = phaseOneGuardrailEvents.map(
-        (event) => `${event.stage}:${event.code}`
-      );
-      const phaseTwoGuardrails = phaseTwoGuardrailEvents.map(
-        (event) => `${event.stage}:${event.code}`
-      );
-      const phaseThreeGuardrails = phaseThreeGuardrailEvents.map(
-        (event) => `${event.stage}:${event.code}`
+      const phaseOneGuardrails = toStageCodeSignatures(phaseOneGuardrailEvents);
+      const phaseTwoGuardrails = toStageCodeSignatures(phaseTwoGuardrailEvents);
+      const phaseThreeGuardrails = toStageCodeSignatures(
+        phaseThreeGuardrailEvents
       );
 
       expect(phaseOneGuardrails).toEqual(['pull:pullDuplicateOpReplay']);
