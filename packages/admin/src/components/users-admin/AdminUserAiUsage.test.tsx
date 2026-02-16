@@ -17,7 +17,7 @@ describe('AdminUserAiUsage', () => {
       requestCount: 10,
       lastUsedAt: '2024-01-01T12:00:00Z'
     }
-  } as any;
+  };
 
   it('renders accounting information correctly', () => {
     render(<AdminUserAiUsage user={mockUser} onViewAiRequests={() => {}} />);

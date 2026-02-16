@@ -8,9 +8,9 @@ import { TestEmailProvider } from '../test/testUtils';
 import { EmailWindow } from './EmailWindow';
 import { EmailWindowMenuBarMock, windowManagerMock } from './EmailWindowTestMocks';
 import {
-  mockEmails,
   mockEmailLargeSize,
   mockEmailSmallSize,
+  mockEmails,
   mockFolderOperations
 } from './emailWindowTestFixtures';
 

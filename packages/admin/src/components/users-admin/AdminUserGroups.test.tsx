@@ -10,14 +10,14 @@ describe('AdminUserGroups', () => {
   const mockUser: AdminUser = {
     id: 'user-1',
     email: 'test@example.com'
-  } as any;
+  };
   const mockGroups = [
     { id: 'group-1', name: 'Group 1', description: 'Desc 1', memberCount: 5 }
   ];
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (useAdminUserGroups as any).mockReturnValue({
+    vi.mocked(useAdminUserGroups).mockReturnValue({
       groups: mockGroups,
       groupMemberships: { 'group-1': { isMember: false } },
       loading: false,
@@ -31,7 +31,7 @@ describe('AdminUserGroups', () => {
   });
 
   it('renders groups and handles add action', async () => {
-    const { addToGroup } = (useAdminUserGroups as any)();
+    const { addToGroup } = vi.mocked(useAdminUserGroups)();
     render(<AdminUserGroups user={mockUser} />);
 
     expect(screen.getByText('Groups')).toBeInTheDocument();
@@ -44,7 +44,7 @@ describe('AdminUserGroups', () => {
   });
 
   it('shows loading state', () => {
-    (useAdminUserGroups as any).mockReturnValue({
+    vi.mocked(useAdminUserGroups).mockReturnValue({
       groups: [],
       groupMemberships: {},
       loading: true,

@@ -209,9 +209,11 @@ describe('UsersAdminDetail (groups)', () => {
 
     await user.click(screen.getByRole('button', { name: 'Add to Group' }));
 
-    await waitFor(() => {
-      expect(screen.getByText('Failed to add user to group')).toBeInTheDocument();
-    });
+      await waitFor(() => {
+        expect(
+          screen.getByText('Failed to add user to group')
+        ).toBeInTheDocument();
+      });
   });
 
   it('shows error when remove member fails', async () => {
@@ -245,9 +247,11 @@ describe('UsersAdminDetail (groups)', () => {
     await user.click(screen.getByRole('button', { name: 'Remove from Group' }));
     await user.click(screen.getByRole('button', { name: 'Remove' }));
 
-    await waitFor(() => {
-      expect(screen.getByText('Failed to remove user from group')).toBeInTheDocument();
-    });
+      await waitFor(() => {
+        expect(
+          screen.getByText('Failed to remove user from group')
+        ).toBeInTheDocument();
+      });
   });
 
   it('refreshes groups when refresh button is clicked', async () => {

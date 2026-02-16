@@ -25,8 +25,8 @@ describe('useAdminUserGroups', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (api.admin.groups.list as any).mockResolvedValue({ groups: mockGroups });
-    (api.admin.groups.getMembers as any).mockImplementation(
+    vi.mocked(api.admin.groups.list).mockResolvedValue({ groups: mockGroups });
+    vi.mocked(api.admin.groups.getMembers).mockImplementation(
       (groupId: string) => {
         if (groupId === 'group-1') {
           return Promise.resolve({
@@ -54,7 +54,7 @@ describe('useAdminUserGroups', () => {
   });
 
   it('handles adding a user to a group', async () => {
-    (api.admin.groups.addMember as any).mockResolvedValue({});
+    vi.mocked(api.admin.groups.addMember).mockResolvedValue({});
     const { result } = renderHook(() => useAdminUserGroups(mockUserId));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -76,7 +76,7 @@ describe('useAdminUserGroups', () => {
   });
 
   it('handles removing a user from a group', async () => {
-    (api.admin.groups.removeMember as any).mockResolvedValue({});
+    vi.mocked(api.admin.groups.removeMember).mockResolvedValue({});
     const { result } = renderHook(() => useAdminUserGroups(mockUserId));
 
     await waitFor(() => expect(result.current.loading).toBe(false));
@@ -98,7 +98,7 @@ describe('useAdminUserGroups', () => {
   });
 
   it('handles errors when fetching groups', async () => {
-    (api.admin.groups.list as any).mockRejectedValue(
+    vi.mocked(api.admin.groups.list).mockRejectedValue(
       new Error('Network error')
     );
     const { result } = renderHook(() => useAdminUserGroups(mockUserId));
