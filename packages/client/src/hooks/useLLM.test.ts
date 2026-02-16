@@ -10,7 +10,7 @@ import type { ClassificationResult } from './useLLM';
 const mockPostMessage = vi.fn();
 let mockOnMessage: ((event: MessageEvent) => void) | null = null;
 
-vi.mock('../workers/llm-worker.ts', () => ({}));
+vi.mock('../workers/llmWorker.ts', () => ({}));
 
 // Mock Worker constructor
 class MockWorker {

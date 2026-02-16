@@ -344,7 +344,7 @@ let loadReject: ((error: Error) => void) | null = null;
 
 function getWorker(): Worker {
   if (!worker) {
-    worker = new Worker(new URL('../workers/llm-worker.ts', import.meta.url), {
+    worker = new Worker(new URL('../workers/llmWorker.ts', import.meta.url), {
       type: 'module'
     });
 
