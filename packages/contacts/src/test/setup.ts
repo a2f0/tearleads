@@ -1,10 +1,9 @@
 import '@testing-library/jest-dom/vitest';
 import { cleanup } from '@testing-library/react';
-import { afterEach } from 'vitest';
-import failOnConsole from 'vitest-fail-on-console';
-
 import i18n from 'i18next';
 import { initReactI18next } from 'react-i18next';
+import { afterEach } from 'vitest';
+import failOnConsole from 'vitest-fail-on-console';
 
 // Initialize i18n for tests
 i18n.use(initReactI18next).init({
