@@ -50,7 +50,7 @@ export function runWithTimeout(
   return {
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
-    exitCode: result.status ?? (result.signal ? 1 : 0),
+    exitCode: result.status ?? 1,
   };
 }
 
