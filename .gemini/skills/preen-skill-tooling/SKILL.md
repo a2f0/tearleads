@@ -1,4 +1,5 @@
 ---
+name: preen-skill-tooling
 description: Validate skills are wired into agentTool.ts and scriptTool.ts
 ---
 

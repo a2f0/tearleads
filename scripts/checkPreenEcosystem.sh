@@ -98,6 +98,13 @@ check_prefix_usage() {
           sed 's/^/  /' "$grep_output" >&2
         fi
       fi
+    elif [ "$expected_style" = "gemini" ]; then
+      if grep -nE "(^|[^[:alnum:]_.-])\\\$${command_name}([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
+        report_issue "Gemini skill uses dollar command '\$${command_name}' in ${file_path}"
+        if [ "$MODE" != "count" ]; then
+          sed 's/^/  /' "$grep_output" >&2
+        fi
+      fi
     else
       if grep -nE "(^|[^[:alnum:]_.-])\\\$${command_name}([^[:alnum:]-]|$)" "$file_path" >"$grep_output"; then
         report_issue "Claude command uses dollar command '\$${command_name}' in ${file_path}"
@@ -161,6 +168,10 @@ while IFS= read -r codex_skill_file; do
   check_prefix_usage "$codex_skill_file" codex
 done < <(find .codex/skills -type f -name 'SKILL.md' | grep -E '/preen[^/]*/SKILL\.md$|/misc/preen-enhancements/SKILL\.md$' | sort)
 
+while IFS= read -r gemini_skill_file; do
+  check_prefix_usage "$gemini_skill_file" gemini
+done < <(find .gemini/skills -type f -name 'SKILL.md' | grep -E '/preen[^/]*/SKILL\.md$|/preen-enhancements/SKILL\.md$' | sort)
+
 while IFS= read -r claude_command_file; do
   check_prefix_usage "$claude_command_file" claude
 done < <(find .claude/commands -maxdepth 1 -type f -name 'preen*.md' | sort)
@@ -168,11 +179,14 @@ done < <(find .claude/commands -maxdepth 1 -type f -name 'preen*.md' | sort)
 # Ensure preen skill id parity.
 mapfile -t CLAUDE_PREEN_IDS < <(find .claude/commands -maxdepth 1 -type f -name 'preen-*.md' -print | sed 's#.*/##;s#\.md$##' | sort)
 mapfile -t CODEX_PREEN_IDS < <(find .codex/skills -maxdepth 1 -mindepth 1 -type d -name 'preen-*' -print | sed 's#.*/##' | sort)
+mapfile -t GEMINI_PREEN_IDS < <(find .gemini/skills -maxdepth 1 -mindepth 1 -type d -name 'preen-*' -print | sed 's#.*/##' | sort)
 
 CLAUDE_LIST_FILE="$(mktemp)"
 CODEX_LIST_FILE="$(mktemp)"
+GEMINI_LIST_FILE="$(mktemp)"
 printf '%s\n' "${CLAUDE_PREEN_IDS[@]}" > "$CLAUDE_LIST_FILE"
 printf '%s\n' "${CODEX_PREEN_IDS[@]}" > "$CODEX_LIST_FILE"
+printf '%s\n' "${GEMINI_PREEN_IDS[@]}" > "$GEMINI_LIST_FILE"
 
 while IFS= read -r missing_in_codex; do
   if [ -n "$missing_in_codex" ]; then
@@ -180,27 +194,40 @@ while IFS= read -r missing_in_codex; do
   fi
 done < <(comm -23 "$CLAUDE_LIST_FILE" "$CODEX_LIST_FILE")
 
+while IFS= read -r missing_in_gemini; do
+  if [ -n "$missing_in_gemini" ]; then
+    report_issue "Missing Gemini preen skill for ${missing_in_gemini}"
+  fi
+done < <(comm -23 "$CLAUDE_LIST_FILE" "$GEMINI_LIST_FILE")
+
 while IFS= read -r missing_in_claude; do
   if [ -n "$missing_in_claude" ]; then
     report_issue "Missing Claude preen command for ${missing_in_claude}"
   fi
 done < <(comm -13 "$CLAUDE_LIST_FILE" "$CODEX_LIST_FILE")
 
-rm -f "$CLAUDE_LIST_FILE" "$CODEX_LIST_FILE"
+rm -f "$CLAUDE_LIST_FILE" "$CODEX_LIST_FILE" "$GEMINI_LIST_FILE"
 
 # Compare semantic parity for paired preen skills.
 for preen_id in "${CLAUDE_PREEN_IDS[@]}"; do
   claude_file=".claude/commands/${preen_id}.md"
   codex_file=".codex/skills/${preen_id}/SKILL.md"
+  gemini_file=".gemini/skills/${preen_id}/SKILL.md"
 
   if [ -f "$claude_file" ] && [ -f "$codex_file" ]; then
-    compare_normalized_pair "$preen_id" "$claude_file" "$codex_file"
+    compare_normalized_pair "$preen_id (Claude/Codex)" "$claude_file" "$codex_file"
+  fi
+  if [ -f "$claude_file" ] && [ -f "$gemini_file" ]; then
+    compare_normalized_pair "$preen_id (Claude/Gemini)" "$claude_file" "$gemini_file"
   fi
 done
 
 # Compare top-level preen docs.
 if [ -f .claude/commands/preen.md ] && [ -f .codex/skills/preen/SKILL.md ]; then
-  compare_normalized_pair "preen" .claude/commands/preen.md .codex/skills/preen/SKILL.md
+  compare_normalized_pair "preen (Claude/Codex)" .claude/commands/preen.md .codex/skills/preen/SKILL.md
+fi
+if [ -f .claude/commands/preen.md ] && [ -f .gemini/skills/preen/SKILL.md ]; then
+  compare_normalized_pair "preen (Claude/Gemini)" .claude/commands/preen.md .gemini/skills/preen/SKILL.md
 fi
 
 check_registry_generation
