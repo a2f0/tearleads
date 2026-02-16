@@ -41,8 +41,20 @@ const MSW_LITERAL_REGEX =
 
 const ROOT_DIR = process.cwd();
 const API_ROUTES_DIR = path.join(ROOT_DIR, 'packages', 'api', 'src', 'routes');
-const API_INDEX_FILE = path.join(ROOT_DIR, 'packages', 'api', 'src', 'index.ts');
-const MSW_HANDLERS_FILE = path.join(ROOT_DIR, 'packages', 'msw', 'src', 'handlers.ts');
+const API_INDEX_FILE = path.join(
+  ROOT_DIR,
+  'packages',
+  'api',
+  'src',
+  'index.ts'
+);
+const MSW_HANDLERS_FILE = path.join(
+  ROOT_DIR,
+  'packages',
+  'msw',
+  'src',
+  'handlers.ts'
+);
 const LITERAL_PATH_SEGMENT_REGEX = /^[A-Za-z0-9._~-]+$/;
 
 const splitPathPatternSegments = (pathPattern: string): string[] => {
@@ -119,9 +131,11 @@ const routePrefixForFile = (filePath: string): string | null => {
   if (normalized.includes('/routes/admin/organizations/')) {
     return '/v1/admin/organizations';
   }
-  if (normalized.includes('/routes/admin/postgres/')) return '/v1/admin/postgres';
+  if (normalized.includes('/routes/admin/postgres/'))
+    return '/v1/admin/postgres';
   if (normalized.includes('/routes/admin/redis/')) return '/v1/admin/redis';
-  if (normalized.endsWith('/routes/admin/context.ts')) return '/v1/admin/context';
+  if (normalized.endsWith('/routes/admin/context.ts'))
+    return '/v1/admin/context';
   if (normalized.includes('/routes/auth/')) return '/v1/auth';
   if (normalized.includes('/routes/billing/')) return '/v1/billing';
   if (normalized.includes('/routes/chat/')) return '/v1/chat';
@@ -371,7 +385,9 @@ const evaluateParity = async (): Promise<ParityResult> => {
 
         lowConfidenceRoutes.push({
           route,
-          matcherPatterns: matchingMatchers.map((matcher) => matcher.sourcePattern),
+          matcherPatterns: matchingMatchers.map(
+            (matcher) => matcher.sourcePattern
+          ),
           reasons
         });
       }
@@ -436,7 +452,8 @@ const formatTextReport = (result: ParityResult): string => {
   lines.push('');
   lines.push('First 30 low-confidence routes:');
   for (const entry of result.lowConfidenceRoutes.slice(0, 30)) {
-    const reason = entry.reasons.length > 0 ? ` | reasons: ${entry.reasons.join('; ')}` : '';
+    const reason =
+      entry.reasons.length > 0 ? ` | reasons: ${entry.reasons.join('; ')}` : '';
     lines.push(
       `- ${entry.route.method} ${entry.route.path} (${entry.route.source}) | matchers: ${entry.matcherPatterns.join(', ')}${reason}`
     );

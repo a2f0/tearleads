@@ -25,7 +25,7 @@ export function getRepoRoot(providedRoot?: string): string {
   try {
     return execFileSync('git', ['rev-parse', '--show-toplevel'], {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
   } catch {
     throw new Error('Could not detect git repository root. Use --repo-root.');
@@ -44,13 +44,13 @@ export function runWithTimeout(
     timeout: timeoutMs,
     cwd,
     env: env ? { ...process.env, ...env } : undefined,
-    stdio: ['ignore', 'pipe', 'pipe'],
+    stdio: ['ignore', 'pipe', 'pipe']
   });
 
   return {
     stdout: result.stdout ?? '',
     stderr: result.stderr ?? '',
-    exitCode: result.status ?? 1,
+    exitCode: result.status ?? 1
   };
 }
 

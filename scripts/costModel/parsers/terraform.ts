@@ -14,13 +14,18 @@ import type { TerraformResource } from '../types';
 // Resource patterns we care about for cost estimation
 const RESOURCE_PATTERNS = {
   // Hetzner Cloud
-  hcloud_server: /resource\s+"hcloud_server"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
-  hcloud_volume: /resource\s+"hcloud_volume"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
+  hcloud_server:
+    /resource\s+"hcloud_server"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
+  hcloud_volume:
+    /resource\s+"hcloud_volume"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
 
   // Azure
-  azurerm_linux_virtual_machine: /resource\s+"azurerm_linux_virtual_machine"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
-  azurerm_managed_disk: /resource\s+"azurerm_managed_disk"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
-  azurerm_key_vault: /resource\s+"azurerm_key_vault"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
+  azurerm_linux_virtual_machine:
+    /resource\s+"azurerm_linux_virtual_machine"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
+  azurerm_managed_disk:
+    /resource\s+"azurerm_managed_disk"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs,
+  azurerm_key_vault:
+    /resource\s+"azurerm_key_vault"\s+"(\w+)"\s*\{([^}]+(?:\{[^}]*\}[^}]*)*)\}/gs
 } as const;
 
 // Attribute extraction patterns
@@ -28,19 +33,17 @@ const ATTR_PATTERNS: Record<string, RegExp> = {
   server_type: /server_type\s*=\s*"([^"]+)"/,
   size: /size\s*=\s*"([^"]+)"/,
   vm_size: /size\s*=\s*(?:var\.vm_size|"([^"]+)")/,
-  location: /location\s*=\s*(?:var\.(?:server_location|azure_location)|"([^"]+)")/,
+  location:
+    /location\s*=\s*(?:var\.(?:server_location|azure_location)|"([^"]+)")/,
   disk_size_gb: /disk_size_gb\s*=\s*(\d+)/,
   storage_account_type: /storage_account_type\s*=\s*"([^"]+)"/,
-  image: /image\s*=\s*"([^"]+)"/,
+  image: /image\s*=\s*"([^"]+)"/
 };
 
 /**
  * Extract attribute value from resource block
  */
-function extractAttribute(
-  block: string,
-  attrName: string,
-): string | undefined {
+function extractAttribute(block: string, attrName: string): string | undefined {
   const pattern = ATTR_PATTERNS[attrName];
   if (!pattern) return undefined;
 
@@ -62,8 +65,8 @@ export function parseTerraformFile(filePath: string): TerraformResource[] {
     // Reset regex lastIndex
     pattern.lastIndex = 0;
 
-    let match;
-    while ((match = pattern.exec(content)) !== null) {
+    let match: RegExpExecArray | null = pattern.exec(content);
+    while (match !== null) {
       const [, name, block] = match;
       const attributes: Record<string, unknown> = {};
 
@@ -81,13 +84,13 @@ export function parseTerraformFile(filePath: string): TerraformResource[] {
         attributes.disk_size_gb = extractAttribute(block, 'disk_size_gb');
         attributes.storage_account_type = extractAttribute(
           block,
-          'storage_account_type',
+          'storage_account_type'
         );
       } else if (resourceType === 'azurerm_managed_disk') {
         attributes.disk_size_gb = extractAttribute(block, 'disk_size_gb');
         attributes.storage_account_type = extractAttribute(
           block,
-          'storage_account_type',
+          'storage_account_type'
         );
         attributes.location = extractAttribute(block, 'location');
       }
@@ -96,8 +99,10 @@ export function parseTerraformFile(filePath: string): TerraformResource[] {
         type: resourceType,
         name: name ?? 'unknown',
         attributes,
-        sourceFile: filePath,
+        sourceFile: filePath
       });
+
+      match = pattern.exec(content);
     }
   }
 
@@ -107,9 +112,7 @@ export function parseTerraformFile(filePath: string): TerraformResource[] {
 /**
  * Find and parse all .tf files in a directory
  */
-export function parseTerraformDirectory(
-  dirPath: string,
-): TerraformResource[] {
+export function parseTerraformDirectory(dirPath: string): TerraformResource[] {
   const resources: TerraformResource[] = [];
 
   if (!fs.existsSync(dirPath)) {
@@ -138,8 +141,8 @@ export function parseAllTerraform(projectRoot: string): {
   return {
     hetzner: parseTerraformDirectory(path.join(projectRoot, 'terraform')),
     tuxedo: parseTerraformDirectory(
-      path.join(projectRoot, 'tuxedo', 'terraform'),
+      path.join(projectRoot, 'tuxedo', 'terraform')
     ),
-    azure: parseTerraformDirectory(path.join(projectRoot, 'tee')),
+    azure: parseTerraformDirectory(path.join(projectRoot, 'tee'))
   };
 }

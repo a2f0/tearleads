@@ -9,7 +9,7 @@
  * - POSTGRES_DATABASE (required)
  */
 
-import { Pool, type PoolClient } from 'pg';
+import { Pool } from 'pg';
 
 export interface PostgresConfig {
   user: string;
@@ -31,7 +31,7 @@ export function checkPostgresEnvVars(): {
 
   return {
     valid: missing.length === 0,
-    missing,
+    missing
   };
 }
 
@@ -42,16 +42,22 @@ export function getPostgresConfig(): PostgresConfig {
   const { valid, missing } = checkPostgresEnvVars();
   if (!valid) {
     throw new Error(
-      `Missing required environment variables: ${missing.join(', ')}`,
+      `Missing required environment variables: ${missing.join(', ')}`
     );
+  }
+
+  const password = process.env.POSTGRES_READ_ONLY_PASSWORD;
+  const database = process.env.POSTGRES_DATABASE;
+  if (password === undefined || database === undefined) {
+    throw new Error('Missing required PostgreSQL environment variables');
   }
 
   return {
     user: process.env.POSTGRES_READ_ONLY_USER ?? 'costmodel_ro',
-    password: process.env.POSTGRES_READ_ONLY_PASSWORD!,
+    password,
     host: process.env.POSTGRES_HOST ?? 'localhost',
     port: parseInt(process.env.POSTGRES_PORT ?? '5432', 10),
-    database: process.env.POSTGRES_DATABASE!,
+    database
   };
 }
 
@@ -67,7 +73,7 @@ export function getPool(): Pool {
       ...config,
       max: 3, // Read-only, minimal connections
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: 5000
     });
   }
   return pool;
@@ -78,7 +84,7 @@ export function getPool(): Pool {
  */
 export async function query<T extends Record<string, unknown>>(
   sql: string,
-  params?: unknown[],
+  params?: unknown[]
 ): Promise<T[]> {
   const client = await getPool().connect();
   try {

@@ -1,7 +1,7 @@
 #!/usr/bin/env -S pnpm exec tsx
+import { execSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
-import { execSync } from 'node:child_process';
 import { ALL_JOB_NAMES, type JobName } from './workflowConfig.js';
 
 type StringSetMap = Map<string, Set<string>>;
@@ -95,7 +95,10 @@ function parseArgs(argv: string[]): CliArgs {
 }
 
 function run(cmd: string): string {
-  return execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim();
+  return execSync(cmd, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  }).trim();
 }
 
 function hasPath(filePath: string): boolean {
@@ -170,7 +173,10 @@ function readConfig(filePath: string): Config {
   }
 
   const rawJobNames = Reflect.get(parsed, 'jobNames');
-  if (!Array.isArray(rawJobNames) || !rawJobNames.every((name) => typeof name === 'string' && isJobName(name))) {
+  if (
+    !Array.isArray(rawJobNames) ||
+    !rawJobNames.every((name) => typeof name === 'string' && isJobName(name))
+  ) {
     throw new Error('Invalid config JSON: jobNames must be known CI jobs');
   }
 
@@ -178,7 +184,10 @@ function readConfig(filePath: string): Config {
     ignoredPrefixes: readStringArray(parsed, 'ignoredPrefixes'),
     ignoredExact: readStringArray(parsed, 'ignoredExact'),
     ignoredSuffixes: readStringArray(parsed, 'ignoredSuffixes'),
-    workflowCriticalPrefixes: readStringArray(parsed, 'workflowCriticalPrefixes'),
+    workflowCriticalPrefixes: readStringArray(
+      parsed,
+      'workflowCriticalPrefixes'
+    ),
     clientRuntimePackages: readStringArray(parsed, 'clientRuntimePackages'),
     jobNames: rawJobNames
   };
@@ -197,7 +206,11 @@ function readPackageJson(filePath: string): PackageJsonShape {
     data.name = name;
   }
 
-  const depKeys: Array<keyof PackageJsonShape> = ['dependencies', 'devDependencies', 'peerDependencies'];
+  const depKeys: Array<keyof PackageJsonShape> = [
+    'dependencies',
+    'devDependencies',
+    'peerDependencies'
+  ];
   for (const depKey of depKeys) {
     const depValue = Reflect.get(parsed, depKey);
     if (typeof depValue === 'object' && depValue !== null) {
@@ -258,7 +271,9 @@ function unionDeps(pkg: PackageJsonShape): Record<string, string> {
   };
 }
 
-function buildReverseGraph(packagesByName: Map<string, WorkspacePackage>): StringSetMap {
+function buildReverseGraph(
+  packagesByName: Map<string, WorkspacePackage>
+): StringSetMap {
   const reverse: StringSetMap = new Map<string, Set<string>>();
 
   for (const pkgName of packagesByName.keys()) {
@@ -301,12 +316,20 @@ function diffFiles(range: string): string[] {
     .filter((line) => line.length > 0);
 }
 
-function detectChangedFiles(base: string, head: string, filesArg?: string): string[] {
+function detectChangedFiles(
+  base: string,
+  head: string,
+  filesArg?: string
+): string[] {
   if (filesArg !== undefined) {
     return splitCsv(filesArg);
   }
 
-  const candidateRanges = [`${base}...${head}`, `${head}^...${head}`, FALLBACK_DIFF];
+  const candidateRanges = [
+    `${base}...${head}`,
+    `${head}^...${head}`,
+    FALLBACK_DIFF
+  ];
   for (const range of candidateRanges) {
     try {
       return diffFiles(range);
@@ -324,7 +347,9 @@ function startsWithOneOf(file: string, prefixes: string[]): boolean {
 }
 
 function isAndroidNativePath(file: string): boolean {
-  return file.startsWith('packages/client/android/') || file.startsWith('android/');
+  return (
+    file.startsWith('packages/client/android/') || file.startsWith('android/')
+  );
 }
 
 function isIosNativePath(file: string): boolean {
@@ -356,7 +381,10 @@ function isIgnored(file: string, config: Config): boolean {
   return false;
 }
 
-function packageFromFile(file: string, byDir: Map<string, string>): string | null {
+function packageFromFile(
+  file: string,
+  byDir: Map<string, string>
+): string | null {
   for (const [dir, pkgName] of byDir.entries()) {
     if (file === dir || file.startsWith(`${dir}/`)) {
       return pkgName;
@@ -365,7 +393,10 @@ function packageFromFile(file: string, byDir: Map<string, string>): string | nul
   return null;
 }
 
-function transitiveDependents(changedPackages: Set<string>, reverseGraph: StringSetMap): Set<string> {
+function transitiveDependents(
+  changedPackages: Set<string>,
+  reverseGraph: StringSetMap
+): Set<string> {
   const impacted = new Set<string>(changedPackages);
   const queue = [...changedPackages];
 
@@ -432,11 +463,15 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
   jobs.build.run = true;
   jobs.build.reasons.push('material file changes detected');
 
-  const workflowCriticalChanged = changedFiles.some((file) => startsWithOneOf(file, config.workflowCriticalPrefixes));
+  const workflowCriticalChanged = changedFiles.some((file) =>
+    startsWithOneOf(file, config.workflowCriticalPrefixes)
+  );
   if (workflowCriticalChanged) {
     for (const name of config.jobNames) {
       jobs[name].run = true;
-      jobs[name].reasons.push('workflow/config changed: run full integration matrix');
+      jobs[name].reasons.push(
+        'workflow/config changed: run full integration matrix'
+      );
     }
     return jobs;
   }
@@ -449,7 +484,9 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
   const hasClientImpact = affectedPackages.has('@tearleads/client');
 
   const hasWebE2ETestFiles = changedFiles.some(
-    (file) => file === 'packages/client/playwright.config.ts' || /^packages\/client\/tests\/.*\.spec\.ts$/.test(file)
+    (file) =>
+      file === 'packages/client/playwright.config.ts' ||
+      /^packages\/client\/tests\/.*\.spec\.ts$/.test(file)
   );
   const hasElectronSpecific = changedFiles.some(
     (file) =>
@@ -457,22 +494,42 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
       file.startsWith('packages/client/tests/electron/') ||
       file === 'packages/client/playwright.electron.config.ts'
   );
-  const hasWebsiteFiles = changedFiles.some((file) => file.startsWith('packages/website/'));
-  const hasAndroidNativeSpecific = changedFiles.some((file) => isAndroidNativePath(file));
-  const hasIosNativeSpecific = changedFiles.some((file) => isIosNativePath(file));
-  const hasSharedMobileReleaseSpecific = changedFiles.some((file) => isSharedMobileReleasePath(file));
+  const hasWebsiteFiles = changedFiles.some((file) =>
+    file.startsWith('packages/website/')
+  );
+  const hasAndroidNativeSpecific = changedFiles.some((file) =>
+    isAndroidNativePath(file)
+  );
+  const hasIosNativeSpecific = changedFiles.some((file) =>
+    isIosNativePath(file)
+  );
+  const hasSharedMobileReleaseSpecific = changedFiles.some((file) =>
+    isSharedMobileReleasePath(file)
+  );
   const hasMaestroSpecific = changedFiles.some((file) => isMaestroPath(file));
-  const hasAndroidSpecific = hasAndroidNativeSpecific || hasSharedMobileReleaseSpecific;
+  const hasAndroidSpecific =
+    hasAndroidNativeSpecific || hasSharedMobileReleaseSpecific;
   const hasIosSpecific = hasIosNativeSpecific || hasSharedMobileReleaseSpecific;
-  const hasMobileSpecific = hasAndroidSpecific || hasIosSpecific || hasMaestroSpecific;
+  const hasMobileSpecific =
+    hasAndroidSpecific || hasIosSpecific || hasMaestroSpecific;
   const mobilePlatformIsolatedChange =
     materialFiles.length > 0 &&
-    materialFiles.every((file) => isAndroidNativePath(file) || isIosNativePath(file));
-  const hasSharedClientRuntimeImpact = hasClientRuntimePackageImpact && !mobilePlatformIsolatedChange;
+    materialFiles.every(
+      (file) => isAndroidNativePath(file) || isIosNativePath(file)
+    );
+  const hasSharedClientRuntimeImpact =
+    hasClientRuntimePackageImpact && !mobilePlatformIsolatedChange;
 
-  if (hasWebE2ETestFiles || hasClientImpact || hasApiImpact || hasSharedClientRuntimeImpact) {
+  if (
+    hasWebE2ETestFiles ||
+    hasClientImpact ||
+    hasApiImpact ||
+    hasSharedClientRuntimeImpact
+  ) {
     jobs['web-e2e'].run = true;
-    jobs['web-e2e'].reasons.push('client/web runtime or e2e test surface impacted');
+    jobs['web-e2e'].reasons.push(
+      'client/web runtime or e2e test surface impacted'
+    );
   }
 
   if (hasWebsiteFiles || hasWebsiteImpact || hasApiImpact) {
@@ -482,20 +539,26 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
 
   if (hasElectronSpecific || hasClientImpact || hasSharedClientRuntimeImpact) {
     jobs['electron-e2e'].run = true;
-    jobs['electron-e2e'].reasons.push('electron/client runtime surface impacted');
+    jobs['electron-e2e'].reasons.push(
+      'electron/client runtime surface impacted'
+    );
   }
 
   if (hasMobileSpecific || hasSharedClientRuntimeImpact) {
-    if (hasAndroidSpecific || hasSharedClientRuntimeImpact || hasMaestroSpecific) {
+    if (
+      hasAndroidSpecific ||
+      hasSharedClientRuntimeImpact ||
+      hasMaestroSpecific
+    ) {
       jobs.android.run = true;
       jobs.android.reasons.push(
         hasAndroidNativeSpecific
           ? 'android-specific files changed'
           : hasSharedMobileReleaseSpecific
             ? 'shared mobile release config changed'
-          : hasMaestroSpecific
-            ? 'maestro files changed'
-            : 'shared client runtime surface impacted'
+            : hasMaestroSpecific
+              ? 'maestro files changed'
+              : 'shared client runtime surface impacted'
       );
       jobs['android-maestro-release'].run = true;
       jobs['android-maestro-release'].reasons.push(
@@ -503,9 +566,9 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
           ? 'android files changed'
           : hasSharedMobileReleaseSpecific
             ? 'shared mobile release config changed'
-          : hasMaestroSpecific
-            ? 'maestro files changed'
-            : 'shared client runtime surface impacted'
+            : hasMaestroSpecific
+              ? 'maestro files changed'
+              : 'shared client runtime surface impacted'
       );
     }
 
@@ -516,9 +579,9 @@ function evaluateJobs(input: EvaluateInput): JobDecision {
           ? 'ios files changed'
           : hasSharedMobileReleaseSpecific
             ? 'shared mobile release config changed'
-          : hasMaestroSpecific
-            ? 'maestro files changed'
-            : 'shared client runtime surface impacted'
+            : hasMaestroSpecific
+              ? 'maestro files changed'
+              : 'shared client runtime surface impacted'
       );
     }
   }
@@ -574,13 +637,18 @@ function main(): void {
 
   const warnings: string[] = [];
   if (changedFiles.length > 0 && materialFiles.length === 0) {
-    warnings.push('All file changes are ignored by trigger policy (docs/config-only).');
+    warnings.push(
+      'All file changes are ignored by trigger policy (docs/config-only).'
+    );
   }
   const hasUnmappedWorkspaceFile = changedFiles.some(
-    (file) => file.startsWith('packages/') && packageFromFile(file, byDir) === null
+    (file) =>
+      file.startsWith('packages/') && packageFromFile(file, byDir) === null
   );
   if (hasUnmappedWorkspaceFile) {
-    warnings.push('Some files under packages/ did not map to a package.json workspace.');
+    warnings.push(
+      'Some files under packages/ did not map to a package.json workspace.'
+    );
   }
 
   const output: OutputPayload = {

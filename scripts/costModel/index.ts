@@ -1,4 +1,5 @@
 #!/usr/bin/env npx tsx
+
 /**
  * Cost Model - Infrastructure cost estimation tool
  *
@@ -10,30 +11,29 @@
  *   npx tsx scripts/costModel/index.ts servers     # List active Hetzner servers
  */
 
+import { execSync } from 'node:child_process';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-
+import { parseAllTerraform } from './parsers/terraform';
+import {
+  getAzureStorageCost,
+  getAzureVmCost,
+  getHetznerServerCost
+} from './providers';
+import { scrapeAzurePricing } from './scrapers/azure';
+import {
+  fetchServers,
+  isHcloudAvailable,
+  scrapeHetznerInfo
+} from './scrapers/hetzner';
 import type {
   CostBreakdown,
   CostSnapshot,
   Provider,
   ResourceCost,
-  ResourceType,
+  ResourceType
 } from './types';
-import { parseAllTerraform } from './parsers/terraform';
-import {
-  getHetznerServerCost,
-  getAzureVmCost,
-  getAzureStorageCost,
-} from './providers';
-import {
-  scrapeHetznerInfo,
-  fetchServers,
-  isHcloudAvailable,
-} from './scrapers/hetzner';
-import { scrapeAzurePricing } from './scrapers/azure';
 
 // Database modules are dynamically imported to avoid loading pg when not needed
 type DbModule = typeof import('./db/postgres');
@@ -49,13 +49,13 @@ const SNAPSHOTS_DIR = path.join(__dirname, 'snapshots');
 const DEFAULTS = {
   hetzner: {
     server_type: 'cx22',
-    server_location: 'hel1',
+    server_location: 'hel1'
   },
   azure: {
     vm_size: 'Standard_DC2as_v5',
     azure_location: 'eastus',
-    disk_size_gb: 30,
-  },
+    disk_size_gb: 30
+  }
 };
 
 /**
@@ -64,7 +64,7 @@ const DEFAULTS = {
 function calculateResourceCost(
   resourceType: string,
   resourceName: string,
-  attributes: Record<string, unknown>,
+  attributes: Record<string, unknown>
 ): ResourceCost | null {
   const breakdown: CostBreakdown = {};
   let provider: Provider;
@@ -81,15 +81,13 @@ function calculateResourceCost(
     const rawServerType = attributes.server_type as string;
     const rawLocation = attributes.location as string;
 
-    sku =
-      rawServerType?.startsWith('var.')
-        ? DEFAULTS.hetzner.server_type
-        : rawServerType || DEFAULTS.hetzner.server_type;
+    sku = rawServerType?.startsWith('var.')
+      ? DEFAULTS.hetzner.server_type
+      : rawServerType || DEFAULTS.hetzner.server_type;
 
-    location =
-      rawLocation?.startsWith('var.')
-        ? DEFAULTS.hetzner.server_location
-        : rawLocation || DEFAULTS.hetzner.server_location;
+    location = rawLocation?.startsWith('var.')
+      ? DEFAULTS.hetzner.server_location
+      : rawLocation || DEFAULTS.hetzner.server_location;
 
     const computeCost = getHetznerServerCost(sku, location);
     if (computeCost !== null) {
@@ -103,17 +101,16 @@ function calculateResourceCost(
     const rawSize = attributes.size as string;
     const rawLocation = attributes.location as string;
     const diskSizeGb =
-      parseInt(attributes.disk_size_gb as string, 10) || DEFAULTS.azure.disk_size_gb;
+      parseInt(attributes.disk_size_gb as string, 10) ||
+      DEFAULTS.azure.disk_size_gb;
 
-    sku =
-      rawSize?.startsWith('var.')
-        ? DEFAULTS.azure.vm_size
-        : rawSize || DEFAULTS.azure.vm_size;
+    sku = rawSize?.startsWith('var.')
+      ? DEFAULTS.azure.vm_size
+      : rawSize || DEFAULTS.azure.vm_size;
 
-    location =
-      rawLocation?.startsWith('var.')
-        ? DEFAULTS.azure.azure_location
-        : rawLocation || DEFAULTS.azure.azure_location;
+    location = rawLocation?.startsWith('var.')
+      ? DEFAULTS.azure.azure_location
+      : rawLocation || DEFAULTS.azure.azure_location;
 
     const computeCost = getAzureVmCost(sku, location);
     if (computeCost !== null) {
@@ -139,7 +136,7 @@ function calculateResourceCost(
     sku,
     location,
     monthlyCostUsd: Math.round(monthlyCostUsd * 100) / 100,
-    breakdown,
+    breakdown
   };
 }
 
@@ -155,7 +152,7 @@ function estimateCosts(): {
   const resources: ResourceCost[] = [];
   const providerTotals: Record<Provider, number> = {
     hetzner: 0,
-    azure: 0,
+    azure: 0
   };
 
   // Process all terraform resources (hetzner, tuxedo, azure directories)
@@ -171,7 +168,7 @@ function estimateCosts(): {
 
   const totalMonthlyCostUsd = Object.values(providerTotals).reduce(
     (sum, v) => sum + v,
-    0,
+    0
   );
 
   return {
@@ -179,8 +176,8 @@ function estimateCosts(): {
     totalMonthlyCostUsd: Math.round(totalMonthlyCostUsd * 100) / 100,
     providerTotals: {
       hetzner: Math.round(providerTotals.hetzner * 100) / 100,
-      azure: Math.round(providerTotals.azure * 100) / 100,
-    },
+      azure: Math.round(providerTotals.azure * 100) / 100
+    }
   };
 }
 
@@ -205,7 +202,7 @@ function saveSnapshot(): string {
     gitCommit: getGitCommit(),
     totalMonthlyCostUsd: estimate.totalMonthlyCostUsd,
     providerTotals: estimate.providerTotals,
-    resources: estimate.resources,
+    resources: estimate.resources
   };
 
   if (!fs.existsSync(SNAPSHOTS_DIR)) {
@@ -249,7 +246,9 @@ async function requireDbCredentials(): Promise<void> {
     console.error('  export POSTGRES_READ_ONLY_USER=costmodel_ro');
     console.error('  export POSTGRES_READ_ONLY_PASSWORD=<password>');
     console.error('  export POSTGRES_DATABASE=<database>');
-    console.error('  export POSTGRES_HOST=<host>  # optional, default: localhost');
+    console.error(
+      '  export POSTGRES_HOST=<host>  # optional, default: localhost'
+    );
     console.error('  export POSTGRES_PORT=<port>  # optional, default: 5432');
     process.exit(1);
   }
@@ -266,22 +265,34 @@ async function main(): Promise<void> {
       const estimate = estimateCosts();
       console.log('\nInfrastructure Cost Estimate (USD)\n');
       console.log('Provider Totals (monthly):');
-      console.log(`  Hetzner:  $${estimate.providerTotals.hetzner.toFixed(2)} USD`);
-      console.log(`  Azure:    $${estimate.providerTotals.azure.toFixed(2)} USD`);
+      console.log(
+        `  Hetzner:  $${estimate.providerTotals.hetzner.toFixed(2)} USD`
+      );
+      console.log(
+        `  Azure:    $${estimate.providerTotals.azure.toFixed(2)} USD`
+      );
       console.log(`  ────────────────────────`);
-      console.log(`  Total:    $${estimate.totalMonthlyCostUsd.toFixed(2)} USD\n`);
+      console.log(
+        `  Total:    $${estimate.totalMonthlyCostUsd.toFixed(2)} USD\n`
+      );
 
       console.log('Resources:');
       for (const r of estimate.resources) {
         console.log(
-          `  [${r.provider}] ${r.resourceId}: ${r.sku} @ ${r.location} = $${r.monthlyCostUsd.toFixed(2)}/mo`,
+          `  [${r.provider}] ${r.resourceId}: ${r.sku} @ ${r.location} = $${r.monthlyCostUsd.toFixed(2)}/mo`
         );
         if (r.breakdown.compute)
-          console.log(`           └─ compute: $${r.breakdown.compute.toFixed(2)}`);
+          console.log(
+            `           └─ compute: $${r.breakdown.compute.toFixed(2)}`
+          );
         if (r.breakdown.storage)
-          console.log(`           └─ storage: $${r.breakdown.storage.toFixed(2)}`);
+          console.log(
+            `           └─ storage: $${r.breakdown.storage.toFixed(2)}`
+          );
         if (r.breakdown.bandwidth && r.breakdown.bandwidth > 0)
-          console.log(`           └─ bandwidth: $${r.breakdown.bandwidth.toFixed(2)}`);
+          console.log(
+            `           └─ bandwidth: $${r.breakdown.bandwidth.toFixed(2)}`
+          );
       }
       console.log();
       break;
@@ -359,7 +370,7 @@ async function main(): Promise<void> {
               name: srv.name,
               type: srv.serverType,
               location: srv.location,
-              cost,
+              cost
             });
           }
         }
@@ -373,23 +384,29 @@ async function main(): Promise<void> {
       console.log(`  Hetzner (live):  $${hetznerTotal.toFixed(2)} USD`);
       console.log(`  Azure (tf est):  $${azureTotal.toFixed(2)} USD`);
       console.log(`  ──────────────────────────`);
-      console.log(`  Total:           $${(hetznerTotal + azureTotal).toFixed(2)} USD\n`);
+      console.log(
+        `  Total:           $${(hetznerTotal + azureTotal).toFixed(2)} USD\n`
+      );
 
       if (hetznerServers.length > 0) {
         console.log('Hetzner Servers (live):');
         for (const srv of hetznerServers) {
           console.log(
-            `  ${srv.name}: ${srv.type} @ ${srv.location} = $${srv.cost.toFixed(2)}/mo`,
+            `  ${srv.name}: ${srv.type} @ ${srv.location} = $${srv.cost.toFixed(2)}/mo`
           );
         }
         console.log();
       }
 
-      if (tfEstimate.resources.filter((r) => r.provider === 'azure').length > 0) {
+      if (
+        tfEstimate.resources.filter((r) => r.provider === 'azure').length > 0
+      ) {
         console.log('Azure Resources (terraform estimate):');
-        for (const r of tfEstimate.resources.filter((r) => r.provider === 'azure')) {
+        for (const r of tfEstimate.resources.filter(
+          (r) => r.provider === 'azure'
+        )) {
           console.log(
-            `  ${r.resourceId}: ${r.sku} @ ${r.location} = $${r.monthlyCostUsd.toFixed(2)}/mo`,
+            `  ${r.resourceId}: ${r.sku} @ ${r.location} = $${r.monthlyCostUsd.toFixed(2)}/mo`
           );
         }
         console.log();
@@ -450,13 +467,15 @@ async function main(): Promise<void> {
       if (aiUsage.length > 0) {
         const totalTokens = aiUsage.reduce(
           (sum, u) => sum + Number(u.totalTokens),
-          0,
+          0
         );
         const totalRequests = aiUsage.reduce(
           (sum, u) => sum + Number(u.requestCount),
-          0,
+          0
         );
-        console.log(`\nAI Usage (${now.toLocaleString('default', { month: 'long' })}):`);
+        console.log(
+          `\nAI Usage (${now.toLocaleString('default', { month: 'long' })}):`
+        );
         console.log(`  Total tokens:   ${totalTokens.toLocaleString()}`);
         console.log(`  Total requests: ${totalRequests.toLocaleString()}`);
         console.log(`  Organizations:  ${aiUsage.length}`);
@@ -468,7 +487,9 @@ async function main(): Promise<void> {
 
     default:
       console.log(`Unknown command: ${command}`);
-      console.log('Usage: costModel estimate|live|snapshot|list|scrape|servers|billing');
+      console.log(
+        'Usage: costModel estimate|live|snapshot|list|scrape|servers|billing'
+      );
       console.log('\nCommands:');
       console.log('  estimate  - Estimate costs from terraform definitions');
       console.log('  live      - Estimate costs from live provisioned servers');
@@ -476,7 +497,9 @@ async function main(): Promise<void> {
       console.log('  list      - List saved snapshots');
       console.log('  scrape    - Scrape live pricing from providers');
       console.log('  servers   - List active Hetzner servers');
-      console.log('  billing   - Query postgres for user accounting (requires DB credentials)');
+      console.log(
+        '  billing   - Query postgres for user accounting (requires DB credentials)'
+      );
       process.exit(1);
   }
 }

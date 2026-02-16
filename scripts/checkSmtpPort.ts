@@ -10,7 +10,10 @@ import path from 'node:path';
 
 const host = process.env.SMTP_HOST || '127.0.0.1';
 const port = Number.parseInt(process.env.SMTP_PORT || '25', 10);
-const timeoutMs = Number.parseInt(process.env.SMTP_PORT_CHECK_TIMEOUT_MS || '500', 10);
+const timeoutMs = Number.parseInt(
+  process.env.SMTP_PORT_CHECK_TIMEOUT_MS || '500',
+  10
+);
 const repoRoot = realpathSync(process.cwd());
 const SIGTERM_WAIT_MS = 200;
 const SIGKILL_WAIT_MS = 100;
@@ -18,10 +21,14 @@ const POST_KILL_WAIT_MS = 100;
 
 const getProcessCwd = (pid: number): string | null => {
   try {
-    const output = execFileSync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    const output = execFileSync(
+      'lsof',
+      ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }
+    );
     const line = output
       .split('\n')
       .map((value) => value.trim())
@@ -39,12 +46,18 @@ const isInRepo = (cwd: string | null): boolean => {
   try {
     const resolved = realpathSync(cwd);
     // Check if it's in the current repo
-    if (resolved === repoRoot || resolved.startsWith(`${repoRoot}${path.sep}`)) {
+    if (
+      resolved === repoRoot ||
+      resolved.startsWith(`${repoRoot}${path.sep}`)
+    ) {
       return true;
     }
     // Also check if it's a tearleads SMTP listener from another clone
     // (tearleads2, tearleads5, tearleads-shared, etc. are all clones of the same repo)
-    if (resolved.includes('/smtp-listener') && /\/tearleads[^/]*\//.test(resolved)) {
+    if (
+      resolved.includes('/smtp-listener') &&
+      /\/tearleads[^/]*\//.test(resolved)
+    ) {
       return true;
     }
     return false;
@@ -57,7 +70,7 @@ const getPidsOnPort = (): number[] => {
   try {
     const output = execFileSync('lsof', ['-i', `:${port}`, '-t'], {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'ignore']
     });
     return output
       .trim()

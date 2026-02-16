@@ -11,12 +11,7 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import {
-  realpathSync,
-  statSync,
-  writeFileSync,
-  mkdirSync
-} from 'node:fs';
+import { mkdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -34,7 +29,7 @@ const resolveRepoRoot = (): string => {
   try {
     const output = execFileSync('git', ['rev-parse', '--show-toplevel'], {
       encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
+      stdio: ['ignore', 'pipe', 'ignore']
     }).trim();
 
     if (output) {
@@ -98,7 +93,7 @@ const parseProcessList = (output: string): ProcessInfo[] => {
 
 const getProcessList = (): ProcessInfo[] => {
   const output = execFileSync('ps', ['-ax', '-o', 'pid=,ppid=,command='], {
-    encoding: 'utf8',
+    encoding: 'utf8'
   });
   return parseProcessList(output);
 };
@@ -111,7 +106,10 @@ const buildPpidMap = (processes: ProcessInfo[]): Map<number, number> => {
   return map;
 };
 
-const getAncestorPids = (pid: number, ppidMap: Map<number, number>): Set<number> => {
+const getAncestorPids = (
+  pid: number,
+  ppidMap: Map<number, number>
+): Set<number> => {
   const ancestors = new Set<number>();
   let current: number | undefined = pid;
 
@@ -129,10 +127,14 @@ const getAncestorPids = (pid: number, ppidMap: Map<number, number>): Set<number>
 
 const getProcessCwd = (pid: number): string | null => {
   try {
-    const output = execFileSync('lsof', ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    const output = execFileSync(
+      'lsof',
+      ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }
+    );
     const line = output
       .split('\n')
       .map((value) => value.trim())
@@ -154,7 +156,9 @@ const isInRepo = (cwd: string | null): boolean => {
   }
   try {
     const resolved = realpathSync(cwd);
-    return resolved === repoRoot || resolved.startsWith(`${repoRoot}${path.sep}`);
+    return (
+      resolved === repoRoot || resolved.startsWith(`${repoRoot}${path.sep}`)
+    );
   } catch {
     return false;
   }
@@ -182,10 +186,14 @@ const DEV_PORTS = [25, 3000, 3001, 5001];
 
 const getProcessOnPort = (port: number): number | null => {
   try {
-    const output = execFileSync('lsof', ['-i', `:${port}`, '-t', '-sTCP:LISTEN'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    });
+    const output = execFileSync(
+      'lsof',
+      ['-i', `:${port}`, '-t', '-sTCP:LISTEN'],
+      {
+        encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore']
+      }
+    );
     const pid = Number.parseInt(output.trim().split('\n')[0], 10);
     return Number.isNaN(pid) ? null : pid;
   } catch {
@@ -223,7 +231,9 @@ const main = async (): Promise<void> => {
   const ancestors = getAncestorPids(process.pid, ppidMap);
 
   const pnpmDevRegex = /\bpnpm\b.*\bdev\b/;
-  const candidates = processes.filter((proc) => pnpmDevRegex.test(proc.command));
+  const candidates = processes.filter((proc) =>
+    pnpmDevRegex.test(proc.command)
+  );
 
   const targets = candidates
     .filter((proc) => !ancestors.has(proc.pid))
@@ -236,16 +246,17 @@ const main = async (): Promise<void> => {
   );
 
   // Combine pnpm dev targets with port-holding processes
-  const allTargetPids = [...new Set([
-    ...targets.map((proc) => proc.pid),
-    ...portPids,
-  ])];
+  const allTargetPids = [
+    ...new Set([...targets.map((proc) => proc.pid), ...portPids])
+  ];
 
   if (allTargetPids.length === 0) {
     return;
   }
 
-  console.log(`[killPnpmDev] Stopping existing dev processes: ${allTargetPids.join(', ')}`);
+  console.log(
+    `[killPnpmDev] Stopping existing dev processes: ${allTargetPids.join(', ')}`
+  );
 
   for (const pid of allTargetPids) {
     killPid(pid, 'SIGTERM');
@@ -273,7 +284,9 @@ const main = async (): Promise<void> => {
 
   if (!allPortsAreFree) {
     const busyPorts = DEV_PORTS.filter((port) => !isPortFree(port));
-    console.warn(`[killPnpmDev] Timed out waiting for ports to be released: ${busyPorts.join(', ')}`);
+    console.warn(
+      `[killPnpmDev] Timed out waiting for ports to be released: ${busyPorts.join(', ')}`
+    );
   }
 
   // Refresh marker for accurate cooldown timing after kill completes

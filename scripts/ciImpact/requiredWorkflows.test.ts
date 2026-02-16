@@ -32,8 +32,14 @@ function baseImpactOutput(): string {
   });
 }
 
-function withStubPnpm(stubOutput: string): { tempDir: string; argsFile: string; pathValue: string } {
-  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'required-workflows-stub-'));
+function withStubPnpm(stubOutput: string): {
+  tempDir: string;
+  argsFile: string;
+  pathValue: string;
+} {
+  const tempDir = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'required-workflows-stub-')
+  );
   const argsFile = path.join(tempDir, 'pnpm-args.txt');
   const stubPath = path.join(tempDir, 'pnpm');
   const script = `#!/bin/sh
@@ -50,17 +56,30 @@ JSON
   return { tempDir, argsFile, pathValue };
 }
 
-function runRequiredWorkflowsViaNode(args: string[], env: NodeJS.ProcessEnv): ReturnType<typeof spawnSync> {
-  return spawnSync('node', ['--import', 'tsx', 'scripts/ciImpact/requiredWorkflows.ts', ...args], {
-    encoding: 'utf8',
-    env
-  });
+function runRequiredWorkflowsViaNode(
+  args: string[],
+  env: NodeJS.ProcessEnv
+): ReturnType<typeof spawnSync> {
+  return spawnSync(
+    'node',
+    ['--import', 'tsx', 'scripts/ciImpact/requiredWorkflows.ts', ...args],
+    {
+      encoding: 'utf8',
+      env
+    }
+  );
 }
 
 function runRequiredWorkflows(files: string[]): RequiredWorkflowsOutput {
   const output = execFileSync(
     'pnpm',
-    ['exec', 'tsx', 'scripts/ciImpact/requiredWorkflows.ts', '--files', files.join(',')],
+    [
+      'exec',
+      'tsx',
+      'scripts/ciImpact/requiredWorkflows.ts',
+      '--files',
+      files.join(',')
+    ],
     {
       encoding: 'utf8'
     }
@@ -72,8 +91,13 @@ function runRequiredWorkflows(files: string[]): RequiredWorkflowsOutput {
   }
   const requiredWorkflowsRaw = Reflect.get(parsed, 'requiredWorkflows');
   const reasonsRaw = Reflect.get(parsed, 'reasons');
-  if (!Array.isArray(requiredWorkflowsRaw) || !requiredWorkflowsRaw.every((value) => typeof value === 'string')) {
-    throw new Error('requiredWorkflows output.requiredWorkflows must be a string[]');
+  if (
+    !Array.isArray(requiredWorkflowsRaw) ||
+    !requiredWorkflowsRaw.every((value) => typeof value === 'string')
+  ) {
+    throw new Error(
+      'requiredWorkflows output.requiredWorkflows must be a string[]'
+    );
   }
   if (typeof reasonsRaw !== 'object' || reasonsRaw === null) {
     throw new Error('requiredWorkflows output.reasons must be an object');
@@ -81,8 +105,13 @@ function runRequiredWorkflows(files: string[]): RequiredWorkflowsOutput {
   const reasons: Record<string, string[]> = {};
   for (const key of Object.keys(reasonsRaw)) {
     const value = Reflect.get(reasonsRaw, key);
-    if (!Array.isArray(value) || !value.every((item) => typeof item === 'string')) {
-      throw new Error(`requiredWorkflows output.reasons.${key} must be a string[]`);
+    if (
+      !Array.isArray(value) ||
+      !value.every((item) => typeof item === 'string')
+    ) {
+      throw new Error(
+        `requiredWorkflows output.reasons.${key} must be a string[]`
+      );
     }
     reasons[key] = value;
   }
@@ -123,7 +152,11 @@ const scenarios: ReadonlyArray<Scenario> = [
   {
     name: 'API-only change',
     files: ['packages/api/src/index.ts'],
-    expectedWorkflows: ['build', 'Web E2E Tests (Release)', 'Website E2E Tests (Release)']
+    expectedWorkflows: [
+      'build',
+      'Web E2E Tests (Release)',
+      'Website E2E Tests (Release)'
+    ]
   },
   {
     name: 'website-only change',

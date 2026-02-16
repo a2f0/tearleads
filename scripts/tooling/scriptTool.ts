@@ -9,8 +9,13 @@
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import { program, Command, InvalidArgumentError } from 'commander';
-import { extractKeyLines, getRepoRoot, parsePositiveInt, runWithTimeout } from './lib/cliShared.ts';
+import { Command, InvalidArgumentError, program } from 'commander';
+import {
+  extractKeyLines,
+  getRepoRoot,
+  parsePositiveInt,
+  runWithTimeout
+} from './lib/cliShared.ts';
 
 // ============================================================================
 // Types
@@ -88,7 +93,13 @@ interface ActionConfig {
   /** Short description for documentation */
   description: string;
   /** Category for grouping in documentation */
-  category: 'analysis' | 'quality' | 'testing' | 'environment' | 'device' | 'operations';
+  category:
+    | 'analysis'
+    | 'quality'
+    | 'testing'
+    | 'environment'
+    | 'device'
+    | 'operations';
   /** Action-specific options */
   options?: ActionOption[];
 }
@@ -117,7 +128,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'analyzeBundle.sh'),
     scriptType: 'shell',
     description: 'Build and open bundle analysis report',
-    category: 'analysis',
+    category: 'analysis'
   },
   checkBinaryFiles: {
     safetyClass: 'safe_read',
@@ -129,8 +140,11 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     category: 'analysis',
     options: [
       { name: '--staged', description: 'Check staged files' },
-      { name: '--from-upstream', description: 'Check files changed from upstream' },
-    ],
+      {
+        name: '--from-upstream',
+        description: 'Check files changed from upstream'
+      }
+    ]
   },
   ciImpact: {
     safetyClass: 'safe_read',
@@ -141,9 +155,17 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     description: 'Analyze CI impact for changed files (JSON output)',
     category: 'analysis',
     options: [
-      { name: '--base <sha>', description: 'Base commit for diff', required: true },
-      { name: '--head <sha>', description: 'Head commit for diff', required: true },
-    ],
+      {
+        name: '--base <sha>',
+        description: 'Base commit for diff',
+        required: true
+      },
+      {
+        name: '--head <sha>',
+        description: 'Head commit for diff',
+        required: true
+      }
+    ]
   },
   copyTestFilesAndroid: {
     safetyClass: 'safe_write_local',
@@ -152,7 +174,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'copyTestFilesAndroid.sh'),
     scriptType: 'shell',
     description: 'Copy .test_files payload into Android emulator storage',
-    category: 'device',
+    category: 'device'
   },
   copyTestFilesIos: {
     safetyClass: 'safe_write_local',
@@ -162,33 +184,56 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptType: 'shell',
     description: 'Copy .test_files payload into iOS simulator app container',
     category: 'device',
-    options: [{ name: '--bundle-id <id>', description: 'Bundle ID (default: com.tearleads.app)' }],
+    options: [
+      {
+        name: '--bundle-id <id>',
+        description: 'Bundle ID (default: com.tearleads.app)'
+      }
+    ]
   },
   runImpactedQuality: {
     safetyClass: 'safe_write_local',
     retrySafe: false,
     defaultTimeoutSeconds: 300,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'ciImpact', 'runImpactedQuality.ts'),
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'ciImpact', 'runImpactedQuality.ts'),
     scriptType: 'typescript',
     description: 'Run quality checks on impacted files only',
     category: 'quality',
     options: [
-      { name: '--base <sha>', description: 'Base commit for diff', required: true },
-      { name: '--head <sha>', description: 'Head commit for diff', required: true },
-    ],
+      {
+        name: '--base <sha>',
+        description: 'Base commit for diff',
+        required: true
+      },
+      {
+        name: '--head <sha>',
+        description: 'Head commit for diff',
+        required: true
+      }
+    ]
   },
   runImpactedTests: {
     safetyClass: 'safe_write_local',
     retrySafe: false,
     defaultTimeoutSeconds: 300,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'ciImpact', 'runImpactedTests.ts'),
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'ciImpact', 'runImpactedTests.ts'),
     scriptType: 'typescript',
     description: 'Run tests on impacted packages only',
     category: 'testing',
     options: [
-      { name: '--base <sha>', description: 'Base commit for diff', required: true },
-      { name: '--head <sha>', description: 'Head commit for diff', required: true },
-    ],
+      {
+        name: '--base <sha>',
+        description: 'Base commit for diff',
+        required: true
+      },
+      {
+        name: '--head <sha>',
+        description: 'Head commit for diff',
+        required: true
+      }
+    ]
   },
   runAllTests: {
     safetyClass: 'safe_write_local',
@@ -198,7 +243,9 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptType: 'shell',
     description: 'Run full test suite (lint, build, unit, e2e)',
     category: 'testing',
-    options: [{ name: '--headed', description: 'Run tests with visible browser' }],
+    options: [
+      { name: '--headed', description: 'Run tests with visible browser' }
+    ]
   },
   runElectronTests: {
     safetyClass: 'safe_write_local',
@@ -211,8 +258,8 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     options: [
       { name: '--headed', description: 'Run tests with visible browser' },
       { name: '--filter <pattern>', description: 'Test filter pattern' },
-      { name: '--file <path>', description: 'Specific test file' },
-    ],
+      { name: '--file <path>', description: 'Specific test file' }
+    ]
   },
   runPlaywrightTests: {
     safetyClass: 'safe_write_local',
@@ -225,8 +272,8 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     options: [
       { name: '--headed', description: 'Run tests with visible browser' },
       { name: '--filter <pattern>', description: 'Test filter pattern' },
-      { name: '--file <path>', description: 'Specific test file' },
-    ],
+      { name: '--file <path>', description: 'Specific test file' }
+    ]
   },
   verifyFileGuardrails: {
     safetyClass: 'safe_read',
@@ -235,7 +282,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'verifyFileGuardrails.sh'),
     scriptType: 'shell',
     description: 'Verify file guardrail configuration',
-    category: 'analysis',
+    category: 'analysis'
   },
   runAndroid: {
     safetyClass: 'safe_write_local',
@@ -244,7 +291,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'runAndroid.sh'),
     scriptType: 'shell',
     description: 'Build/sync and run Android app on emulator',
-    category: 'device',
+    category: 'device'
   },
   runIos: {
     safetyClass: 'safe_write_local',
@@ -254,7 +301,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptType: 'shell',
     description: 'Build/sync and run iOS app on simulator',
     category: 'device',
-    options: [{ name: '--device <name>', description: 'Simulator device name' }],
+    options: [{ name: '--device <name>', description: 'Simulator device name' }]
   },
   runIpad: {
     safetyClass: 'safe_write_local',
@@ -263,7 +310,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'runIpad.sh'),
     scriptType: 'shell',
     description: 'Build/sync and run iOS app on iPad simulator',
-    category: 'device',
+    category: 'device'
   },
   runElectron: {
     safetyClass: 'safe_write_local',
@@ -272,13 +319,14 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'runElectron.sh'),
     scriptType: 'shell',
     description: 'Start Electron development runtime',
-    category: 'device',
+    category: 'device'
   },
   runMaestroAndroidTests: {
     safetyClass: 'safe_write_local',
     retrySafe: false,
     defaultTimeoutSeconds: 3600,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'runMaestroAndroidTests.sh'),
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'runMaestroAndroidTests.sh'),
     scriptType: 'shell',
     description: 'Run Maestro Android flows via Fastlane',
     category: 'testing',
@@ -286,8 +334,8 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
       { name: '--headless', description: 'Run emulator without UI' },
       { name: '--flow <path>', description: 'Flow file path to execute' },
       { name: '--record-video', description: 'Enable Maestro video recording' },
-      { name: '--video-seconds <n>', description: 'Video duration in seconds' },
-    ],
+      { name: '--video-seconds <n>', description: 'Video duration in seconds' }
+    ]
   },
   runMaestroIosTests: {
     safetyClass: 'safe_write_local',
@@ -300,8 +348,8 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     options: [
       { name: '--headless', description: 'Run simulator headless' },
       { name: '--flow <path>', description: 'Flow file path to execute' },
-      { name: '--record-video', description: 'Enable Maestro video recording' },
-    ],
+      { name: '--record-video', description: 'Enable Maestro video recording' }
+    ]
   },
   setupPostgresDev: {
     safetyClass: 'safe_write_local',
@@ -310,7 +358,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'setupPostgresDev.sh'),
     scriptType: 'shell',
     description: 'Install/start Homebrew PostgreSQL and provision dev DB',
-    category: 'environment',
+    category: 'environment'
   },
   setupSerenaMcp: {
     safetyClass: 'safe_write_local',
@@ -320,7 +368,12 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptType: 'shell',
     description: 'Configure Serena MCP server for Codex and Claude',
     category: 'environment',
-    options: [{ name: '--script-dry-run', description: 'Pass through --dry-run to setupSerenaMcp.sh' }],
+    options: [
+      {
+        name: '--script-dry-run',
+        description: 'Pass through --dry-run to setupSerenaMcp.sh'
+      }
+    ]
   },
   setupTuxedoRepos: {
     safetyClass: 'safe_write_local',
@@ -331,9 +384,15 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     description: 'Clone/fetch local tuxedo workspace repositories',
     category: 'environment',
     options: [
-      { name: '--base-dir <path>', description: 'Set TUXEDO_BASE_DIR for this run' },
-      { name: '--workspace-count <n>', description: 'Set TUXEDO_WORKSPACE_COUNT for this run' },
-    ],
+      {
+        name: '--base-dir <path>',
+        description: 'Set TUXEDO_BASE_DIR for this run'
+      },
+      {
+        name: '--workspace-count <n>',
+        description: 'Set TUXEDO_WORKSPACE_COUNT for this run'
+      }
+    ]
   },
   syncCliAuth: {
     safetyClass: 'safe_write_remote',
@@ -344,18 +403,27 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     description: 'Sync local Claude/Codex auth credentials to remote host',
     category: 'operations',
     options: [
-      { name: '--host <user@host>', description: 'Remote host destination', required: true },
-      { name: '--confirm', description: 'Explicitly allow credential sync', required: true },
-    ],
+      {
+        name: '--host <user@host>',
+        description: 'Remote host destination',
+        required: true
+      },
+      {
+        name: '--confirm',
+        description: 'Explicitly allow credential sync',
+        required: true
+      }
+    ]
   },
   toggleAndroidKeyboard: {
     safetyClass: 'safe_write_local',
     retrySafe: true,
     defaultTimeoutSeconds: 120,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'toggleAndroidKeyboard.sh'),
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'toggleAndroidKeyboard.sh'),
     scriptType: 'shell',
     description: 'Toggle Android emulator software keyboard visibility',
-    category: 'device',
+    category: 'device'
   },
   tuxedo: {
     safetyClass: 'safe_write_local',
@@ -369,11 +437,17 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
       {
         name: '--mode <default|no-pr-dashboards|no-screen>',
         description: 'Tuxedo launch mode',
-        required: true,
+        required: true
       },
-      { name: '--base-dir <path>', description: 'Set TUXEDO_BASE_DIR for this run' },
-      { name: '--workspace-count <n>', description: 'Set TUXEDO_WORKSPACES for this run' },
-    ],
+      {
+        name: '--base-dir <path>',
+        description: 'Set TUXEDO_BASE_DIR for this run'
+      },
+      {
+        name: '--workspace-count <n>',
+        description: 'Set TUXEDO_WORKSPACES for this run'
+      }
+    ]
   },
   tuxedoKill: {
     safetyClass: 'safe_write_local',
@@ -384,9 +458,17 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     description: 'Terminate tuxedo resources (scope flag required)',
     category: 'operations',
     options: [
-      { name: '--scope <all>', description: 'Kill scope (currently only all)', required: true },
-      { name: '--confirm', description: 'Explicitly allow tuxedo termination', required: true },
-    ],
+      {
+        name: '--scope <all>',
+        description: 'Kill scope (currently only all)',
+        required: true
+      },
+      {
+        name: '--confirm',
+        description: 'Explicitly allow tuxedo termination',
+        required: true
+      }
+    ]
   },
   updateEverything: {
     safetyClass: 'safe_write_local',
@@ -397,9 +479,16 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     description: 'Run repository-wide dependency and validation refresh',
     category: 'environment',
     options: [
-      { name: '--mode <full|quick>', description: 'Execution profile', required: true },
-      { name: '--confirm', description: 'Required when executing without --dry-run' },
-    ],
+      {
+        name: '--mode <full|quick>',
+        description: 'Execution profile',
+        required: true
+      },
+      {
+        name: '--confirm',
+        description: 'Required when executing without --dry-run'
+      }
+    ]
   },
   verifyCleanIosBuild: {
     safetyClass: 'safe_write_local',
@@ -408,22 +497,27 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) => path.join(repo, 'scripts', 'verifyCleanIosBuild.sh'),
     scriptType: 'shell',
     description: 'Clean iOS build artifacts and verify workspace cleanliness',
-    category: 'device',
+    category: 'device'
   },
   muteIosSimulatorAudio: {
     safetyClass: 'safe_write_local',
     retrySafe: true,
     defaultTimeoutSeconds: 120,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'muteIosSimulatorAudio.sh'),
+    scriptPath: (repo) =>
+      path.join(repo, 'scripts', 'muteIosSimulatorAudio.sh'),
     scriptType: 'shell',
     description: 'Mute iOS simulator audio output',
-    category: 'device',
-  },
+    category: 'device'
+  }
 };
 
 // Actions used directly by preen/merge automation skills. The remaining actions
 // are intentionally kept for manual operator workflows.
-const SKILL_INVOKED_ACTIONS: readonly ActionName[] = ['ciImpact', 'runImpactedQuality', 'runImpactedTests'];
+const SKILL_INVOKED_ACTIONS: readonly ActionName[] = [
+  'ciImpact',
+  'runImpactedQuality',
+  'runImpactedTests'
+];
 
 // ============================================================================
 // Helpers
@@ -439,13 +533,24 @@ function escapeMarkdownTableCell(value: string): string {
 }
 
 function commandExists(command: string, cwd?: string): boolean {
-  const check = runWithTimeout('sh', ['-lc', `command -v ${command} >/dev/null 2>&1`], 15_000, cwd);
+  const check = runWithTimeout(
+    'sh',
+    ['-lc', `command -v ${command} >/dev/null 2>&1`],
+    15_000,
+    cwd
+  );
   return check.exitCode === 0;
 }
 
-function ensureCommand(action: ActionName, command: string, cwd?: string): void {
+function ensureCommand(
+  action: ActionName,
+  command: string,
+  cwd?: string
+): void {
   if (!commandExists(command, cwd)) {
-    throw new Error(`${action} preflight failed: required command not found: ${command}`);
+    throw new Error(
+      `${action} preflight failed: required command not found: ${command}`
+    );
   }
 }
 
@@ -466,12 +571,21 @@ function hasBootedAndroidEmulator(repoRoot: string): boolean {
 }
 
 function hasBootedIosSimulator(repoRoot: string): boolean {
-  const result = runWithTimeout('xcrun', ['simctl', 'list', 'devices'], 15_000, repoRoot);
+  const result = runWithTimeout(
+    'xcrun',
+    ['simctl', 'list', 'devices'],
+    15_000,
+    repoRoot
+  );
   if (result.exitCode !== 0) return false;
   return result.stdout.includes('(Booted)');
 }
 
-function runPreflight(action: ActionName, opts: GlobalOptions, repoRoot: string): string[] {
+function runPreflight(
+  action: ActionName,
+  opts: GlobalOptions,
+  repoRoot: string
+): string[] {
   const checks: string[] = [];
   const addCheck = (message: string): void => {
     checks.push(`preflight: ${message}`);
@@ -525,7 +639,9 @@ function runPreflight(action: ActionName, opts: GlobalOptions, repoRoot: string)
       ensureMacOs(action);
       ensureCommand(action, 'xcrun', repoRoot);
       if (!hasBootedIosSimulator(repoRoot)) {
-        throw new Error(`${action} preflight failed: no booted iOS simulator detected`);
+        throw new Error(
+          `${action} preflight failed: no booted iOS simulator detected`
+        );
       }
       addCheck('booted iOS simulator detected');
       break;
@@ -534,7 +650,9 @@ function runPreflight(action: ActionName, opts: GlobalOptions, repoRoot: string)
     case 'copyTestFilesAndroid':
       ensureCommand(action, 'adb', repoRoot);
       if (!hasBootedAndroidEmulator(repoRoot)) {
-        throw new Error(`${action} preflight failed: no booted Android emulator detected`);
+        throw new Error(
+          `${action} preflight failed: no booted Android emulator detected`
+        );
       }
       addCheck('booted Android emulator detected');
       break;
@@ -549,8 +667,13 @@ function runPreflight(action: ActionName, opts: GlobalOptions, repoRoot: string)
       ensureCommand(action, 'codex', repoRoot);
       ensureCommand(action, 'claude', repoRoot);
       ensureCommand(action, 'git', repoRoot);
-      if (!commandExists('uvx', repoRoot) && !commandExists('pyenv', repoRoot)) {
-        throw new Error(`${action} preflight failed: uvx or pyenv must be installed`);
+      if (
+        !commandExists('uvx', repoRoot) &&
+        !commandExists('pyenv', repoRoot)
+      ) {
+        throw new Error(
+          `${action} preflight failed: uvx or pyenv must be installed`
+        );
       }
       addCheck('codex/claude/git and uvx-or-pyenv are available');
       break;
@@ -633,7 +756,10 @@ interface ScriptInvocation {
   env: NodeJS.ProcessEnv;
 }
 
-function buildScriptInvocation(action: ActionName, options: ScriptArgs): ScriptInvocation {
+function buildScriptInvocation(
+  action: ActionName,
+  options: ScriptArgs
+): ScriptInvocation {
   const args: string[] = [];
   const env: NodeJS.ProcessEnv = {};
 
@@ -668,7 +794,8 @@ function buildScriptInvocation(action: ActionName, options: ScriptArgs): ScriptI
     case 'runMaestroAndroidTests':
       if (options.headless) args.push('--headless');
       if (options.recordVideo) args.push('--record-video');
-      if (options.videoSeconds !== undefined) args.push('--video-seconds', String(options.videoSeconds));
+      if (options.videoSeconds !== undefined)
+        args.push('--video-seconds', String(options.videoSeconds));
       if (options.flow) args.push(options.flow);
       break;
 
@@ -685,7 +812,8 @@ function buildScriptInvocation(action: ActionName, options: ScriptArgs): ScriptI
     case 'setupTuxedoRepos':
       if (options.baseDir) env.TUXEDO_BASE_DIR = options.baseDir;
       // setupTuxedoRepos.sh reads TUXEDO_WORKSPACE_COUNT.
-      if (options.workspaceCount !== undefined) env.TUXEDO_WORKSPACE_COUNT = String(options.workspaceCount);
+      if (options.workspaceCount !== undefined)
+        env.TUXEDO_WORKSPACE_COUNT = String(options.workspaceCount);
       break;
 
     case 'updateEverything':
@@ -706,7 +834,8 @@ function buildScriptInvocation(action: ActionName, options: ScriptArgs): ScriptI
     case 'tuxedo':
       if (options.baseDir) env.TUXEDO_BASE_DIR = options.baseDir;
       // tuxedo/tuxedo.sh reads TUXEDO_WORKSPACES.
-      if (options.workspaceCount !== undefined) env.TUXEDO_WORKSPACES = String(options.workspaceCount);
+      if (options.workspaceCount !== undefined)
+        env.TUXEDO_WORKSPACES = String(options.workspaceCount);
       if (options.mode === 'no-pr-dashboards') {
         env.TUXEDO_ENABLE_PR_DASHBOARDS = '0';
       } else if (options.mode === 'no-screen') {
@@ -766,7 +895,13 @@ function runScript(
   }
 
   // Run shell scripts directly
-  return runWithTimeout(scriptPath, invocation.args, timeoutMs, repoRoot, invocation.env);
+  return runWithTimeout(
+    scriptPath,
+    invocation.args,
+    timeoutMs,
+    repoRoot,
+    invocation.env
+  );
 }
 
 // ============================================================================
@@ -784,8 +919,14 @@ function createActionCommand(actionName: ActionName): Command {
       `Timeout in seconds (default: ${config.defaultTimeoutSeconds})`,
       (v) => parsePositiveInt(v, '--timeout-seconds')
     )
-    .option('--repo-root <path>', 'Execute from this repo root instead of auto-detecting')
-    .option('--dry-run', 'Validate and report without executing the target script')
+    .option(
+      '--repo-root <path>',
+      'Execute from this repo root instead of auto-detecting'
+    )
+    .option(
+      '--dry-run',
+      'Validate and report without executing the target script'
+    )
     .option('--json', 'Emit structured JSON summary');
 
   // Action-specific options
@@ -805,7 +946,9 @@ function createActionCommand(actionName: ActionName): Command {
         .hook('preAction', (thisCommand) => {
           const opts = thisCommand.opts();
           if (!opts.staged && !opts.fromUpstream) {
-            console.error('error: checkBinaryFiles requires --staged or --from-upstream');
+            console.error(
+              'error: checkBinaryFiles requires --staged or --from-upstream'
+            );
             process.exit(1);
           }
         });
@@ -850,14 +993,19 @@ function createActionCommand(actionName: ActionName): Command {
       break;
 
     case 'setupSerenaMcp':
-      cmd.option('--script-dry-run', 'Pass through --dry-run to setupSerenaMcp.sh');
+      cmd.option(
+        '--script-dry-run',
+        'Pass through --dry-run to setupSerenaMcp.sh'
+      );
       break;
 
     case 'setupTuxedoRepos':
       cmd
         .option('--base-dir <path>', 'TUXEDO_BASE_DIR override')
-        .option('--workspace-count <n>', 'TUXEDO_WORKSPACE_COUNT override', (v) =>
-          parsePositiveInt(v, '--workspace-count')
+        .option(
+          '--workspace-count <n>',
+          'TUXEDO_WORKSPACE_COUNT override',
+          (v) => parsePositiveInt(v, '--workspace-count')
         );
       break;
 
@@ -877,7 +1025,9 @@ function createActionCommand(actionName: ActionName): Command {
         .hook('preAction', (thisCommand) => {
           const opts = thisCommand.opts() as GlobalOptions;
           if (!opts.dryRun && !opts.confirm) {
-            console.error('error: updateEverything requires --confirm unless --dry-run is set');
+            console.error(
+              'error: updateEverything requires --confirm unless --dry-run is set'
+            );
             process.exit(1);
           }
         });
@@ -885,10 +1035,21 @@ function createActionCommand(actionName: ActionName): Command {
 
     case 'tuxedo':
       cmd
-        .requiredOption('--mode <default|no-pr-dashboards|no-screen>', 'Launch mode', (v) => {
-          if (v === 'default' || v === 'no-pr-dashboards' || v === 'no-screen') return v;
-          throw new InvalidArgumentError('--mode must be default, no-pr-dashboards, or no-screen');
-        })
+        .requiredOption(
+          '--mode <default|no-pr-dashboards|no-screen>',
+          'Launch mode',
+          (v) => {
+            if (
+              v === 'default' ||
+              v === 'no-pr-dashboards' ||
+              v === 'no-screen'
+            )
+              return v;
+            throw new InvalidArgumentError(
+              '--mode must be default, no-pr-dashboards, or no-screen'
+            );
+          }
+        )
         .option('--base-dir <path>', 'TUXEDO_BASE_DIR override')
         .option('--workspace-count <n>', 'TUXEDO_WORKSPACES override', (v) =>
           parsePositiveInt(v, '--workspace-count')
@@ -899,7 +1060,9 @@ function createActionCommand(actionName: ActionName): Command {
       cmd
         .requiredOption('--scope <all>', 'Kill scope', (v) => {
           if (v === 'all') return v;
-          throw new InvalidArgumentError('--scope currently supports only "all"');
+          throw new InvalidArgumentError(
+            '--scope currently supports only "all"'
+          );
         })
         .requiredOption('--confirm', 'Required to allow tuxedo termination');
       break;
@@ -924,15 +1087,21 @@ function createActionCommand(actionName: ActionName): Command {
 
     try {
       const repoRoot = getRepoRoot(opts.repoRoot);
-      const timeoutMs = (opts.timeoutSeconds ?? config.defaultTimeoutSeconds) * 1000;
+      const timeoutMs =
+        (opts.timeoutSeconds ?? config.defaultTimeoutSeconds) * 1000;
       const scriptPath = config.scriptPath(repoRoot);
       const invocation = buildScriptInvocation(actionName, opts);
       const envEntries = Object.entries(invocation.env);
-      const renderedArgs = invocation.args.map((arg) => quoteArg(arg)).join(' ');
-      const renderedCommand = renderedArgs.length > 0 ? `${scriptPath} ${renderedArgs}` : scriptPath;
+      const renderedArgs = invocation.args
+        .map((arg) => quoteArg(arg))
+        .join(' ');
+      const renderedCommand =
+        renderedArgs.length > 0 ? `${scriptPath} ${renderedArgs}` : scriptPath;
       const renderedEnv =
         envEntries.length > 0
-          ? envEntries.map(([key, value]) => `${key}=${quoteArg(String(value))}`).join(' ')
+          ? envEntries
+              .map(([key, value]) => `${key}=${quoteArg(String(value))}`)
+              .join(' ')
           : '(none)';
 
       if (opts.dryRun) {
@@ -940,13 +1109,15 @@ function createActionCommand(actionName: ActionName): Command {
           `dry-run: would run ${renderedCommand}`,
           `repo-root: ${repoRoot}`,
           `env: ${renderedEnv}`,
-          'preflight: skipped in dry-run mode',
+          'preflight: skipped in dry-run mode'
         ].join('\n');
       } else {
         const preflightLines = runPreflight(actionName, opts, repoRoot);
         const result = runScript(actionName, opts, repoRoot, timeoutMs);
         const combinedOutput = result.stdout + result.stderr;
-        output = [...preflightLines, combinedOutput].filter((line) => line.trim().length > 0).join('\n');
+        output = [...preflightLines, combinedOutput]
+          .filter((line) => line.trim().length > 0)
+          .join('\n');
         exitCode = result.exitCode;
       }
     } catch (err) {
@@ -967,7 +1138,7 @@ function createActionCommand(actionName: ActionName): Command {
         safety_class: config.safetyClass,
         retry_safe: config.retrySafe,
         dry_run: opts.dryRun ?? false,
-        key_lines: extractKeyLines(output),
+        key_lines: extractKeyLines(output)
       };
 
       console.log(JSON.stringify(jsonOutput, null, 2));
@@ -991,7 +1162,8 @@ function createActionCommand(actionName: ActionName): Command {
 // ============================================================================
 
 function formatTimeout(seconds: number): string {
-  if (seconds >= 3600) return `${seconds / 3600} hour${seconds > 3600 ? 's' : ''}`;
+  if (seconds >= 3600)
+    return `${seconds / 3600} hour${seconds > 3600 ? 's' : ''}`;
   if (seconds >= 60) return `${seconds / 60} minutes`;
   return `${seconds} seconds`;
 }
@@ -1001,10 +1173,16 @@ function generateReadme(): string {
 
   lines.push('# Script Tool Wrappers');
   lines.push('');
-  lines.push('> **Auto-generated from `scriptTool.ts`** - Do not edit manually.');
-  lines.push('> Run `./scripts/tooling/scriptTool.ts generateDocs` to regenerate.');
+  lines.push(
+    '> **Auto-generated from `scriptTool.ts`** - Do not edit manually.'
+  );
+  lines.push(
+    '> Run `./scripts/tooling/scriptTool.ts generateDocs` to regenerate.'
+  );
   lines.push('');
-  lines.push('`scriptTool.ts` is a TypeScript wrapper around utility scripts in `scripts/` for safer tool-calling.');
+  lines.push(
+    '`scriptTool.ts` is a TypeScript wrapper around utility scripts in `scripts/` for safer tool-calling.'
+  );
   lines.push('');
 
   // Usage section
@@ -1022,10 +1200,13 @@ function generateReadme(): string {
     environment: [],
     operations: [],
     quality: [],
-    testing: [],
+    testing: []
   };
 
-  for (const [name, config] of Object.entries(ACTION_CONFIG) as [ActionName, ActionConfig][]) {
+  for (const [name, config] of Object.entries(ACTION_CONFIG) as [
+    ActionName,
+    ActionConfig
+  ][]) {
     categories[config.category].push(name);
   }
 
@@ -1039,7 +1220,7 @@ function generateReadme(): string {
     environment: 'Environment',
     operations: 'Operations',
     quality: 'Quality',
-    testing: 'Testing',
+    testing: 'Testing'
   };
 
   for (const [category, actions] of Object.entries(categories)) {
@@ -1061,10 +1242,16 @@ function generateReadme(): string {
   );
   lines.push('## Skill Coverage');
   lines.push('');
-  lines.push('Automation skills currently invoke a focused subset of wrappers:');
+  lines.push(
+    'Automation skills currently invoke a focused subset of wrappers:'
+  );
   lines.push('');
-  lines.push(`- Skill-invoked: ${SKILL_INVOKED_ACTIONS.map((action) => `\`${action}\``).join(', ')}`);
-  lines.push(`- Manual-only: ${manualOnlyActions.map((action) => `\`${action}\``).join(', ')}`);
+  lines.push(
+    `- Skill-invoked: ${SKILL_INVOKED_ACTIONS.map((action) => `\`${action}\``).join(', ')}`
+  );
+  lines.push(
+    `- Manual-only: ${manualOnlyActions.map((action) => `\`${action}\``).join(', ')}`
+  );
   lines.push('');
 
   // Common options section
@@ -1084,7 +1271,10 @@ function generateReadme(): string {
   lines.push('## Action-Specific Options');
   lines.push('');
 
-  for (const [actionName, config] of Object.entries(ACTION_CONFIG) as [ActionName, ActionConfig][]) {
+  for (const [actionName, config] of Object.entries(ACTION_CONFIG) as [
+    ActionName,
+    ActionConfig
+  ][]) {
     if (!config.options || config.options.length === 0) continue;
 
     lines.push(`### ${actionName}`);
@@ -1106,17 +1296,26 @@ function generateReadme(): string {
   lines.push('| Action | Timeout |');
   lines.push('| ------ | ------- |');
 
-  for (const [actionName, config] of Object.entries(ACTION_CONFIG) as [ActionName, ActionConfig][]) {
-    lines.push(`| \`${actionName}\` | ${formatTimeout(config.defaultTimeoutSeconds)} |`);
+  for (const [actionName, config] of Object.entries(ACTION_CONFIG) as [
+    ActionName,
+    ActionConfig
+  ][]) {
+    lines.push(
+      `| \`${actionName}\` | ${formatTimeout(config.defaultTimeoutSeconds)} |`
+    );
   }
   lines.push('');
 
   // Safety classes section
   lines.push('## Safety Classes');
   lines.push('');
-  lines.push('- `safe_read`: read-only checks and analysis (no local/remote mutations)');
+  lines.push(
+    '- `safe_read`: read-only checks and analysis (no local/remote mutations)'
+  );
   lines.push('- `safe_write_local`: mutates local workspace/device state only');
-  lines.push('- `safe_write_remote`: may mutate remote systems/accounts and requires explicit confirmation');
+  lines.push(
+    '- `safe_write_remote`: may mutate remote systems/accounts and requires explicit confirmation'
+  );
   lines.push('');
   lines.push('| Class | Actions |');
   lines.push('| ----- | ------- |');
@@ -1124,16 +1323,21 @@ function generateReadme(): string {
   const safetyGroups: Record<SafetyClass, ActionName[]> = {
     safe_read: [],
     safe_write_local: [],
-    safe_write_remote: [],
+    safe_write_remote: []
   };
 
-  for (const [name, config] of Object.entries(ACTION_CONFIG) as [ActionName, ActionConfig][]) {
+  for (const [name, config] of Object.entries(ACTION_CONFIG) as [
+    ActionName,
+    ActionConfig
+  ][]) {
     safetyGroups[config.safetyClass].push(name);
   }
 
   for (const [safetyClass, actions] of Object.entries(safetyGroups)) {
     if (actions.length > 0) {
-      lines.push(`| \`${safetyClass}\` | ${actions.map((a) => `\`${a}\``).join(', ')} |`);
+      lines.push(
+        `| \`${safetyClass}\` | ${actions.map((a) => `\`${a}\``).join(', ')} |`
+      );
     }
   }
   lines.push('');
@@ -1143,28 +1347,44 @@ function generateReadme(): string {
   lines.push('');
   lines.push('```sh');
   lines.push('# Analyze CI impact between commits');
-  lines.push('./scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json');
+  lines.push(
+    './scripts/tooling/scriptTool.ts ciImpact --base origin/main --head HEAD --json'
+  );
   lines.push('');
   lines.push('# Run impacted quality checks');
-  lines.push('./scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD');
+  lines.push(
+    './scripts/tooling/scriptTool.ts runImpactedQuality --base origin/main --head HEAD'
+  );
   lines.push('');
   lines.push('# Run impacted tests only');
-  lines.push('./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD');
+  lines.push(
+    './scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD'
+  );
   lines.push('');
   lines.push('# Check for binary files in staged changes');
-  lines.push('./scripts/tooling/scriptTool.ts checkBinaryFiles --staged --json');
+  lines.push(
+    './scripts/tooling/scriptTool.ts checkBinaryFiles --staged --json'
+  );
   lines.push('');
   lines.push('# Run Playwright tests with filter');
-  lines.push('./scripts/tooling/scriptTool.ts runPlaywrightTests --filter "login" --headed');
+  lines.push(
+    './scripts/tooling/scriptTool.ts runPlaywrightTests --filter "login" --headed'
+  );
   lines.push('');
   lines.push('# Run iOS launch wrapper with explicit simulator');
-  lines.push('./scripts/tooling/scriptTool.ts runIos --device "iPhone 16 Pro" --dry-run --json');
+  lines.push(
+    './scripts/tooling/scriptTool.ts runIos --device "iPhone 16 Pro" --dry-run --json'
+  );
   lines.push('');
   lines.push('# Preview update-everything quick mode');
-  lines.push('./scripts/tooling/scriptTool.ts updateEverything --mode quick --dry-run --json');
+  lines.push(
+    './scripts/tooling/scriptTool.ts updateEverything --mode quick --dry-run --json'
+  );
   lines.push('');
   lines.push('# Sync CLI auth (requires explicit confirmation)');
-  lines.push('./scripts/tooling/scriptTool.ts syncCliAuth --host ubuntu@tuxedo.example.com --confirm');
+  lines.push(
+    './scripts/tooling/scriptTool.ts syncCliAuth --host ubuntu@tuxedo.example.com --confirm'
+  );
   lines.push('```');
   lines.push('');
 
@@ -1191,7 +1411,10 @@ function generateReadme(): string {
   return lines.join('\n');
 }
 
-function runGenerateDocs(repoRoot: string, dryRun: boolean): { output: string; changed: boolean } {
+function runGenerateDocs(
+  repoRoot: string,
+  dryRun: boolean
+): { output: string; changed: boolean } {
   const readmePath = path.join(repoRoot, 'scripts', 'tooling', 'README.md');
   const newContent = generateReadme();
 
@@ -1211,8 +1434,10 @@ function runGenerateDocs(repoRoot: string, dryRun: boolean): { output: string; c
   }
 
   return {
-    output: changed ? `Updated ${readmePath}` : `No changes needed for ${readmePath}`,
-    changed,
+    output: changed
+      ? `Updated ${readmePath}`
+      : `No changes needed for ${readmePath}`,
+    changed
   };
 }
 
@@ -1222,7 +1447,9 @@ function runGenerateDocs(repoRoot: string, dryRun: boolean): { output: string; c
 
 program
   .name('scriptTool.ts')
-  .description('Script Tool CLI for running utility scripts with safe tool-calling interface')
+  .description(
+    'Script Tool CLI for running utility scripts with safe tool-calling interface'
+  )
   .version('1.0.0');
 
 // Register all action commands
@@ -1264,7 +1491,7 @@ program
             duration_ms: durationMs,
             action: 'generateDocs',
             changed,
-            dry_run: opts.dryRun ?? false,
+            dry_run: opts.dryRun ?? false
           },
           null,
           2

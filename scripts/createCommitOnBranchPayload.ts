@@ -120,7 +120,10 @@ function collectFileChanges(diffOutput: string): {
         process.exit(1);
       }
       deletions.push({ path: oldPath });
-      additions.push({ path: newPath, contents: readFileSync(newPath).toString('base64') });
+      additions.push({
+        path: newPath,
+        contents: readFileSync(newPath).toString('base64')
+      });
       continue;
     }
 

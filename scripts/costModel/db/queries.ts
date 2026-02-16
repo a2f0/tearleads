@@ -61,7 +61,7 @@ export async function getOrganizationBilling(): Promise<
  */
 export async function getAiUsageSummary(
   startDate: Date,
-  endDate: Date,
+  endDate: Date
 ): Promise<AiUsageSummary[]> {
   const sql = `
     SELECT
@@ -80,7 +80,10 @@ export async function getAiUsageSummary(
     ORDER BY "totalTokens" DESC
   `;
 
-  const results = await query<Record<string, unknown>>(sql, [startDate, endDate]);
+  const results = await query<Record<string, unknown>>(sql, [
+    startDate,
+    endDate
+  ]);
   return results.map((row) => ({
     organizationId: row.organizationId as string | null,
     organizationName: row.organizationName as string | null,
@@ -89,7 +92,7 @@ export async function getAiUsageSummary(
     totalTokens: parseInt(row.totalTokens as string, 10),
     requestCount: parseInt(row.requestCount as string, 10),
     periodStart: row.periodStart as Date,
-    periodEnd: row.periodEnd as Date,
+    periodEnd: row.periodEnd as Date
   }));
 }
 
@@ -113,7 +116,7 @@ export async function getUserCountSummary(): Promise<UserCountSummary> {
   return {
     totalUsers: parseInt(row.totalUsers, 10),
     activeUsers: parseInt(row.activeUsers, 10),
-    disabledUsers: parseInt(row.disabledUsers, 10),
+    disabledUsers: parseInt(row.disabledUsers, 10)
   };
 }
 
@@ -138,6 +141,6 @@ export async function getSubscriptionsByProduct(): Promise<
   return results.map((row) => ({
     productId: row.productId,
     status: row.status,
-    count: parseInt(row.count, 10),
+    count: parseInt(row.count, 10)
   }));
 }

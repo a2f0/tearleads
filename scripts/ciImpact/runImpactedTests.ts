@@ -32,7 +32,11 @@ const COVERAGE_PACKAGES: ReadonlyArray<string> = [
   '@tearleads/website'
 ];
 
-const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = ['pnpm-lock.yaml', 'pnpm-workspace.yaml', 'package.json'];
+const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
+  'pnpm-lock.yaml',
+  'pnpm-workspace.yaml',
+  'package.json'
+];
 const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/actions/',
   'scripts/ciImpact/',
@@ -129,12 +133,19 @@ function parseImpact(rawJson: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
-  const parts = ['pnpm exec tsx scripts/ciImpact/ciImpact.ts', `--base ${base}`, `--head ${head}`];
+  const parts = [
+    'pnpm exec tsx scripts/ciImpact/ciImpact.ts',
+    `--base ${base}`,
+    `--head ${head}`
+  ];
   if (args.files !== undefined) {
     parts.push(`--files "${args.files}"`);
   }
   const cmd = parts.join(' ');
-  const output = execSync(cmd, { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const output = execSync(cmd, {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
   return parseImpact(output);
 }
 
@@ -193,12 +204,16 @@ function main(): void {
   }
 
   if (targets.length === 0) {
-    console.log('ci-impact: no impacted coverage packages, skipping coverage tests.');
+    console.log(
+      'ci-impact: no impacted coverage packages, skipping coverage tests.'
+    );
     return;
   }
 
   if (fullRun) {
-    console.log('ci-impact: running full coverage package set due to high-risk file changes.');
+    console.log(
+      'ci-impact: running full coverage package set due to high-risk file changes.'
+    );
   } else {
     console.log('ci-impact: running impacted coverage packages only.');
   }

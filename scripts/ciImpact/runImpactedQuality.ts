@@ -1,6 +1,6 @@
 #!/usr/bin/env -S pnpm exec tsx
-import fs from 'node:fs';
 import { execSync, spawnSync } from 'node:child_process';
+import fs from 'node:fs';
 import path from 'node:path';
 
 interface CliArgs {
@@ -110,16 +110,26 @@ function parseImpact(rawJson: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
-  const cmdParts = ['pnpm exec tsx scripts/ciImpact/ciImpact.ts', `--base ${base}`, `--head ${head}`];
+  const cmdParts = [
+    'pnpm exec tsx scripts/ciImpact/ciImpact.ts',
+    `--base ${base}`,
+    `--head ${head}`
+  ];
   if (args.files !== undefined) {
     cmdParts.push(`--files "${args.files}"`);
   }
-  const output = execSync(cmdParts.join(' '), { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  const output = execSync(cmdParts.join(' '), {
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe']
+  });
   return parseImpact(output);
 }
 
 function runCommand(command: string, args: string[]): void {
-  const result = spawnSync(command, args, { stdio: 'inherit', env: process.env });
+  const result = spawnSync(command, args, {
+    stdio: 'inherit',
+    env: process.env
+  });
   if (result.status === null) {
     process.exit(1);
   }
@@ -204,23 +214,33 @@ function uniqueSorted(values: string[]): string[] {
 }
 
 function isBiomeTarget(filePath: string): boolean {
-  // Must match biome.json includes pattern: packages/**/src/**/*.{ts,tsx}
-  if (!filePath.startsWith('packages/')) {
+  // Must match biome.json includes patterns:
+  // - packages/**/src/**/*.{ts,tsx}
+  // - scripts/**/*.{ts,tsx}
+  const isTsFile = filePath.endsWith('.ts') || filePath.endsWith('.tsx');
+  if (!isTsFile) {
     return false;
   }
-  if (!filePath.includes('/src/')) {
-    return false;
+
+  if (filePath.startsWith('packages/')) {
+    return filePath.includes('/src/');
   }
-  return filePath.endsWith('.ts') || filePath.endsWith('.tsx');
+
+  return filePath.startsWith('scripts/');
 }
 
 function changedBiomeFiles(changedFiles: string[]): string[] {
-  return uniqueSorted(changedFiles.filter((f) => fileExists(f) && isBiomeTarget(f)));
+  return uniqueSorted(
+    changedFiles.filter((f) => fileExists(f) && isBiomeTarget(f))
+  );
 }
 
 function shouldRunLintScripts(changedFiles: string[]): boolean {
   return changedFiles.some(
-    (f) => f.endsWith('.sh') || f.startsWith('scripts/') || f.startsWith('ansible/playbooks/files/scripts/')
+    (f) =>
+      f.endsWith('.sh') ||
+      f.startsWith('scripts/') ||
+      f.startsWith('ansible/playbooks/files/scripts/')
   );
 }
 
@@ -232,7 +252,10 @@ function shouldRunRubocop(changedFiles: string[]): boolean {
   return changedFiles.some(
     (f) =>
       f.startsWith('packages/client/') &&
-      (f.endsWith('.rb') || f.includes('/fastlane/') || f.endsWith('Gemfile') || f.endsWith('Gemfile.lock'))
+      (f.endsWith('.rb') ||
+        f.includes('/fastlane/') ||
+        f.endsWith('Gemfile') ||
+        f.endsWith('Gemfile.lock'))
   );
 }
 
@@ -240,13 +263,16 @@ function shouldRunAnsibleLint(changedFiles: string[]): boolean {
   return changedFiles.some(
     (f) =>
       f.startsWith('ansible/') ||
+      f.startsWith('tee/ansible/') ||
       f.startsWith('terraform/stacks/staging/tee/ansible/') ||
       f.startsWith('terraform/stacks/prod/tee/ansible/')
   );
 }
 
 function ensureCommandAvailable(cmd: string, help: string): void {
-  const result = spawnSync('sh', ['-c', `command -v ${cmd} >/dev/null 2>&1`], { stdio: 'ignore' });
+  const result = spawnSync('sh', ['-c', `command -v ${cmd} >/dev/null 2>&1`], {
+    stdio: 'ignore'
+  });
   if (result.status !== 0) {
     console.error(help);
     process.exit(1);
@@ -280,7 +306,9 @@ function main(): void {
   );
 
   if (fullRun) {
-    console.log('ci-impact: high-risk changes detected, running full quality pipeline.');
+    console.log(
+      'ci-impact: high-risk changes detected, running full quality pipeline.'
+    );
     if (!args.dryRun) {
       runCommand('pnpm', ['lint']);
       runCommand('pnpm', ['lint:scripts']);
@@ -288,7 +316,10 @@ function main(): void {
       runCommand('pnpm', ['exec', 'tsc', '-b']);
       runCommand('pnpm', ['build']);
 
-      ensureCommandAvailable('bundle', 'Error: bundle is not installed. Please install Ruby and Bundler.');
+      ensureCommandAvailable(
+        'bundle',
+        'Error: bundle is not installed. Please install Ruby and Bundler.'
+      );
       runCommand('pnpm', ['lint:rubocop']);
 
       ensureCommandAvailable(
@@ -308,7 +339,7 @@ function main(): void {
 
   const buildTargets = impactedPackages.filter((pkgName) => {
     const pkg = workspaceByName.get(pkgName);
-    return pkg !== undefined && Object.prototype.hasOwnProperty.call(pkg.scripts, 'build');
+    return pkg !== undefined && Object.hasOwn(pkg.scripts, 'build');
   });
 
   // Only typecheck packages with directly changed files (not dependents)
@@ -322,7 +353,9 @@ function main(): void {
   });
 
   console.log('ci-impact: selective quality checks enabled.');
-  console.log(`ci-impact: impacted packages => ${impactedPackages.join(', ') || '(none)'}`);
+  console.log(
+    `ci-impact: impacted packages => ${impactedPackages.join(', ') || '(none)'}`
+  );
 
   if (biomeTargets.length > 0) {
     console.log(`ci-impact: biome targets => ${biomeTargets.join(', ')}`);
@@ -345,7 +378,10 @@ function main(): void {
   }
 
   if (runRubo) {
-    ensureCommandAvailable('bundle', 'Error: bundle is not installed. Please install Ruby and Bundler.');
+    ensureCommandAvailable(
+      'bundle',
+      'Error: bundle is not installed. Please install Ruby and Bundler.'
+    );
     runCommand('pnpm', ['lint:rubocop']);
   }
 
@@ -363,7 +399,15 @@ function main(): void {
       continue;
     }
     // pnpm --filter runs from within the package directory, so use relative path
-    runCommand('pnpm', ['--filter', pkgName, 'exec', 'tsc', '--noEmit', '-p', 'tsconfig.json']);
+    runCommand('pnpm', [
+      '--filter',
+      pkgName,
+      'exec',
+      'tsc',
+      '--noEmit',
+      '-p',
+      'tsconfig.json'
+    ]);
   }
 
   for (const pkgName of buildTargets) {

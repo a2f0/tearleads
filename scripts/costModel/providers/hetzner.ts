@@ -16,7 +16,7 @@ export const HETZNER_LOCATIONS = {
   hel1: 'Helsinki, FI',
   ash: 'Ashburn, US',
   hil: 'Hillsboro, US',
-  sin: 'Singapore',
+  sin: 'Singapore'
 } as const;
 
 // Shared ARM instances (CX series) - monthly pricing in EUR
@@ -32,7 +32,7 @@ const CX_SERIES_MONTHLY_EUR: Record<string, number> = {
   cx41: 18.59, // 4 vCPU, 16 GB RAM, 160 GB disk
   cx42: 18.59, // 4 vCPU, 16 GB RAM, 160 GB disk (current naming)
   cx51: 35.59, // 8 vCPU, 32 GB RAM, 240 GB disk
-  cx52: 35.59, // 8 vCPU, 32 GB RAM, 240 GB disk (current naming)
+  cx52: 35.59 // 8 vCPU, 32 GB RAM, 240 GB disk (current naming)
 };
 
 // Dedicated vCPU instances (CCX series) - monthly pricing in EUR
@@ -42,7 +42,7 @@ const CCX_SERIES_MONTHLY_EUR: Record<string, number> = {
   ccx33: 49.99, // 8 vCPU, 32 GB RAM, 240 GB disk
   ccx43: 99.99, // 16 vCPU, 64 GB RAM, 360 GB disk
   ccx53: 189.99, // 32 vCPU, 128 GB RAM, 600 GB disk
-  ccx63: 359.99, // 48 vCPU, 192 GB RAM, 960 GB disk
+  ccx63: 359.99 // 48 vCPU, 192 GB RAM, 960 GB disk
 };
 
 // Standard instances (CPX series - AMD) - monthly pricing in EUR
@@ -51,7 +51,7 @@ const CPX_SERIES_MONTHLY_EUR: Record<string, number> = {
   cpx21: 7.49, // 3 vCPU, 4 GB RAM, 80 GB disk
   cpx31: 13.49, // 4 vCPU, 8 GB RAM, 160 GB disk
   cpx41: 25.49, // 8 vCPU, 16 GB RAM, 240 GB disk
-  cpx51: 48.99, // 16 vCPU, 32 GB RAM, 360 GB disk
+  cpx51: 48.99 // 16 vCPU, 32 GB RAM, 360 GB disk
 };
 
 // CAX ARM64 instances - monthly pricing in EUR
@@ -59,7 +59,7 @@ const CAX_SERIES_MONTHLY_EUR: Record<string, number> = {
   cax11: 3.79, // 2 vCPU, 4 GB RAM, 40 GB disk
   cax21: 6.49, // 4 vCPU, 8 GB RAM, 80 GB disk
   cax31: 12.49, // 8 vCPU, 16 GB RAM, 160 GB disk
-  cax41: 23.99, // 16 vCPU, 32 GB RAM, 320 GB disk
+  cax41: 23.99 // 16 vCPU, 32 GB RAM, 320 GB disk
 };
 
 // EUR to USD conversion (approximate, should be fetched dynamically)
@@ -69,8 +69,8 @@ function eurToUsd(eurPrices: Record<string, number>): Record<string, number> {
   return Object.fromEntries(
     Object.entries(eurPrices).map(([sku, eur]) => [
       sku,
-      Math.round(eur * EUR_TO_USD * 100) / 100,
-    ]),
+      Math.round(eur * EUR_TO_USD * 100) / 100
+    ])
   );
 }
 
@@ -79,17 +79,17 @@ const ALL_SERVER_TYPES_USD = {
   ...eurToUsd(CX_SERIES_MONTHLY_EUR),
   ...eurToUsd(CCX_SERIES_MONTHLY_EUR),
   ...eurToUsd(CPX_SERIES_MONTHLY_EUR),
-  ...eurToUsd(CAX_SERIES_MONTHLY_EUR),
+  ...eurToUsd(CAX_SERIES_MONTHLY_EUR)
 };
 
 // Convert flat pricing to regional pricing (same price for all regions)
 function toRegionalPricing(
-  prices: Record<string, number>,
+  prices: Record<string, number>
 ): Record<string, RegionalPricing> {
   const result: Record<string, RegionalPricing> = {};
   for (const [sku, price] of Object.entries(prices)) {
     result[sku] = Object.fromEntries(
-      Object.keys(HETZNER_LOCATIONS).map((loc) => [loc, price]),
+      Object.keys(HETZNER_LOCATIONS).map((loc) => [loc, price])
     );
   }
   return result;
@@ -103,17 +103,17 @@ export const hetznerPricing: ProviderPricing = {
   lastUpdated: '2025-02-15',
   compute: toRegionalPricing(ALL_SERVER_TYPES_USD),
   storage: toRegionalPricing({
-    volume: Math.round(VOLUME_STORAGE_EUR_PER_GB * EUR_TO_USD * 1000) / 1000,
+    volume: Math.round(VOLUME_STORAGE_EUR_PER_GB * EUR_TO_USD * 1000) / 1000
   }),
   // Hetzner does not charge for bandwidth
   bandwidth: Object.fromEntries(
-    Object.keys(HETZNER_LOCATIONS).map((loc) => [loc, 0]),
-  ),
+    Object.keys(HETZNER_LOCATIONS).map((loc) => [loc, 0])
+  )
 };
 
 export function getHetznerServerCost(
   serverType: string,
-  location: string,
+  location: string
 ): number | null {
   const pricing = hetznerPricing.compute[serverType.toLowerCase()];
   if (!pricing) return null;

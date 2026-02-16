@@ -4,13 +4,13 @@ import {
   DATABASE_KEYS,
   DATABASE_URL_KEYS,
   DEV_DATABASE_NAME,
+  getDevDefaults,
+  getEnvValue,
   HOST_KEYS,
   PASSWORD_KEYS,
   PORT_KEYS,
-  USER_KEYS,
-  getDevDefaults,
-  getEnvValue,
-  parsePort
+  parsePort,
+  USER_KEYS
 } from './lib/pg-helpers.ts';
 
 type ConnectionParts = {
@@ -57,7 +57,6 @@ function parseArgs(args: string[]): CliOptions {
     }
     if (arg?.startsWith('--database-url=')) {
       options.databaseUrl = arg.split('=', 2)[1];
-      continue;
     }
   }
 
@@ -116,28 +115,28 @@ const targetDatabase = options.database ?? baseParts.database;
 
 if (!targetDatabase) {
   console.error(
-    'Missing database name. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (or pass --database).',
+    'Missing database name. Set DATABASE_URL or PGDATABASE/POSTGRES_DATABASE (or pass --database).'
   );
   process.exit(1);
 }
 
 if (targetDatabase === DENIED_DATABASE) {
   console.error(
-    `Refusing to drop database "${targetDatabase}". This database is explicitly denied.`,
+    `Refusing to drop database "${targetDatabase}". This database is explicitly denied.`
   );
   process.exit(1);
 }
 
 if (targetDatabase !== ALLOWED_DATABASE) {
   console.error(
-    `Refusing to drop database "${targetDatabase}". Only "${ALLOWED_DATABASE}" is allowed.`,
+    `Refusing to drop database "${targetDatabase}". Only "${ALLOWED_DATABASE}" is allowed.`
   );
   process.exit(1);
 }
 
 if (!options.yes) {
   console.error(
-    `Refusing to drop database "${targetDatabase}" without --yes confirmation.`,
+    `Refusing to drop database "${targetDatabase}" without --yes confirmation.`
   );
   process.exit(1);
 }
@@ -159,9 +158,11 @@ try {
   execFileSync(
     'psql',
     ['--set=ON_ERROR_STOP=1', '--dbname', adminUrl, '-c', sql],
-    { stdio: 'inherit' },
+    { stdio: 'inherit' }
   );
 } catch (error) {
-  console.error('Failed to drop database. Ensure psql is installed and reachable.');
+  console.error(
+    'Failed to drop database. Ensure psql is installed and reachable.'
+  );
   throw error;
 }
