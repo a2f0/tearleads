@@ -22,7 +22,7 @@
   "scripts": {
     "build": "tsc && pnpm generateLicenses",
     "clean": "rm -rf dist",
-    "generateLicenses": "tsx scripts/generate-licenses.ts",
+    "generateLicenses": "tsx scripts/generateLicenses.ts",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
   },

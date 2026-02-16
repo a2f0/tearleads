@@ -26,8 +26,8 @@
   "scripts": {
     "build": "pnpm generate && tsc",
     "generate": "pnpm generate:sqlite && pnpm generate:postgresql",
-    "generate:sqlite": "tsx scripts/generate-sqlite.ts",
-    "generate:postgresql": "tsx scripts/generate-postgresql.ts",
+    "generate:sqlite": "tsx scripts/generateSqlite.ts",
+    "generate:postgresql": "tsx scripts/generatePostgresql.ts",
     "clean": "rm -rf dist",
     "test": "cross-env DOTENV_CONFIG_QUIET=true vitest run",
     "test:coverage": "cross-env DOTENV_CONFIG_QUIET=true vitest run --coverage"
