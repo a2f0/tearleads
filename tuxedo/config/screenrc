@@ -24,10 +24,11 @@ defscrollback 5000
 # This keeps full-screen app output visible to tmux/screen scrollback,
 # which restores expected selection and scroll behavior in tuxedo panes.
 # Trade-off: more scrollback retention can increase memory usage over time.
-termcapinfo * ti@:te@
+# termcapinfo * ti@:te@
 
 # Disable screen's own visual bell and other UI that might interfere
 vbell off
 
 # Make screen not grab mouse events - let tmux handle them
 mousetrack off
+altscreen on
