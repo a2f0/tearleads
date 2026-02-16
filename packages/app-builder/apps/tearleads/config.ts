@@ -14,6 +14,8 @@ const config: AppConfig = {
     desktop: 'com.tearleads.desktop'
   },
 
+  urlScheme: 'tearleads',
+
   platforms: ['ios', 'android', 'desktop', 'pwa'],
 
   // All features enabled for the main app

@@ -1,6 +1,10 @@
 @import "tailwindcss";
-@import "@tearleads/ui/styles.css";
-@import "@tearleads/ui/theme.css";
+
+@layer base, app, themes;
+
+@import "@tearleads/ui/styles.css" layer(base);
+@import "../generated/app-theme.css" layer(app);
+@import "@tearleads/ui/theme.css" layer(themes);
 
 @source "../../admin/src";
 @source "../../calendar/src";

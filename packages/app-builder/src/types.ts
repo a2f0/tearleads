@@ -61,6 +61,28 @@ export interface AppStoreConfig {
 }
 
 /**
+ * Assets configuration for branding.
+ */
+export interface AppAssets {
+  /** Path to 1024x1024 source icon */
+  iconSource?: string;
+  /** Path to source splash image */
+  splashSource?: string;
+}
+
+/**
+ * Monitoring and analytics configuration.
+ */
+export interface AppMonitoring {
+  /** Sentry DSN for error reporting */
+  sentryDsn?: string;
+  /** Google Analytics measurement ID */
+  googleAnalyticsId?: string;
+  /** PostHog project API key */
+  posthogToken?: string;
+}
+
+/**
  * Bundle identifiers per platform.
  */
 export interface AppBundleIds {
@@ -85,6 +107,9 @@ export interface AppConfig {
   /** Bundle identifiers per platform */
   bundleIds: AppBundleIds;
 
+  /** Custom URL scheme (e.g., "acmeapp") */
+  urlScheme?: string;
+
   /** Enabled platforms for this app */
   platforms: AppPlatform[];
 
@@ -99,6 +124,15 @@ export interface AppConfig {
 
   /** App store and signing configuration */
   store?: AppStoreConfig;
+
+  /** Visual assets (icons, splash) */
+  assets?: AppAssets;
+
+  /** Monitoring and analytics */
+  monitoring?: AppMonitoring;
+
+  /** Custom translation overrides */
+  translations?: Record<string, string>;
 
   /** SQLite keychain prefix (defaults to iOS bundle ID) */
   keychainPrefix?: string;

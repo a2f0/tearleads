@@ -1,3 +1,4 @@
+import appConfig from 'virtual:app-config';
 import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
@@ -22,6 +23,14 @@ export async function loadLanguage(lang: SupportedLanguage): Promise<void> {
   i18n.addResourceBundle(lang, 'menu', translations[lang].menu, true, true);
   i18n.addResourceBundle(lang, 'health', translations[lang].health, true, true);
   loadedLanguages.add(lang);
+}
+
+function applyAppOverrides(lang: string): void {
+  if (appConfig.translations) {
+    Object.entries(appConfig.translations).forEach(([key, value]) => {
+      i18n.addResource(lang, 'common', key, value);
+    });
+  }
 }
 
 i18n
@@ -56,9 +65,17 @@ i18n
     }
   });
 
+// Apply app-specific translation overrides for initial languages
+applyAppOverrides('en');
+if (i18n.language && i18n.language !== 'en') {
+  applyAppOverrides(i18n.language);
+}
+
 i18n.on('languageChanged', (lang) => {
   if (isSupportedLanguage(lang)) {
-    loadLanguage(lang);
+    loadLanguage(lang).then(() => {
+      applyAppOverrides(lang);
+    });
   }
 });
 

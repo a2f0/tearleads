@@ -24,6 +24,13 @@ describe('App Integration Tests', () => {
   it('renders the app with database context', async () => {
     await renderWithDatabase(<App />);
 
+    // Wait for lazy-loaded components to finish loading to avoid 'act' warnings
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('notification-center-trigger')
+      ).toBeInTheDocument();
+    });
+
     // App should render successfully
     expect(screen.getByTestId('app-container')).toBeInTheDocument();
   });
@@ -31,6 +38,13 @@ describe('App Integration Tests', () => {
   it('shows navigation links in mobile menu', async () => {
     const user = userEvent.setup();
     await renderWithDatabase(<App />);
+
+    // Wait for lazy-loaded components to finish loading to avoid 'act' warnings
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('notification-center-trigger')
+      ).toBeInTheDocument();
+    });
 
     // Open mobile menu first
     await user.click(screen.getByTestId('mobile-menu-button'));
@@ -45,6 +59,13 @@ describe('App Integration Tests', () => {
     const user = userEvent.setup();
 
     await renderWithDatabase(<App />, { initialRoute: '/' });
+
+    // Wait for lazy-loaded components to finish loading to avoid 'act' warnings
+    await waitFor(() => {
+      expect(
+        screen.getByTestId('notification-center-trigger')
+      ).toBeInTheDocument();
+    });
 
     // Open mobile menu first
     await user.click(screen.getByTestId('mobile-menu-button'));

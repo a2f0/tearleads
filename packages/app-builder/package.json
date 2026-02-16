@@ -21,6 +21,7 @@
     "generate": "tsx src/cli.ts generate",
     "validate": "tsx src/cli.ts validate",
     "list": "tsx src/cli.ts list",
+    "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -29,7 +30,9 @@
   },
   "devDependencies": {
     "@types/node": "^22.14.1",
+    "@vitest/coverage-v8": "4.0.18",
     "tsx": "^4.19.4",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vitest": "4.0.18"
   }
 }

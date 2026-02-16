@@ -65,6 +65,7 @@ export function NotificationCenterTrigger() {
         className="relative rounded p-1 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
         aria-label={tMenu('openNotificationCenter')}
         title={tMenu('notificationCenter')}
+        data-testid="notification-center-trigger"
       >
         <Activity className="h-4 w-4" />
         <NotificationBadge count={unreadCount} />
