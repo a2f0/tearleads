@@ -3,11 +3,7 @@
  * Check if a port is already in use. Exits with code 1 if the port is occupied.
  * Usage: tsx scripts/checkPort.ts <port> [host]
  */
-import {
-  createExitOnce,
-  isPortInUse,
-  parsePort
-} from './lib/portHelpers.ts';
+import { createExitOnce, isPortInUse, parsePort } from './lib/portHelpers.ts';
 
 const portArg = process.argv[2] || '3000';
 const port = parsePort(portArg);

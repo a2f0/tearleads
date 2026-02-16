@@ -3,11 +3,7 @@
  * Check if SMTP port is in use and kill existing listener if from this repo.
  * Usage: tsx scripts/checkSmtpPort.ts
  */
-import {
-  createExitOnce,
-  isPortInUse,
-  parsePort
-} from './lib/portHelpers.ts';
+import { createExitOnce, isPortInUse, parsePort } from './lib/portHelpers.ts';
 import {
   getPidsOnPort,
   getProcessCwd,
