@@ -134,7 +134,9 @@ describe('PostgresTableRowsView (interactions)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(`${defaultSchema}.${defaultTableName}`)).toBeInTheDocument();
+      expect(
+        screen.getByText(`${defaultSchema}.${defaultTableName}`)
+      ).toBeInTheDocument();
     });
 
     expect(container.firstChild).toHaveClass('custom-class');
@@ -142,7 +144,11 @@ describe('PostgresTableRowsView (interactions)', () => {
 
   it('toggles column visibility via checkbox', async () => {
     const user = userEvent.setup();
-    mockGetColumns.mockResolvedValue(buildColumnsResponse([{ name: 'col1', type: 'text', nullable: true, ordinalPosition: 1 }]));
+    mockGetColumns.mockResolvedValue(
+      buildColumnsResponse([
+        { name: 'col1', type: 'text', nullable: true, ordinalPosition: 1 }
+      ])
+    );
 
     await renderAndWait();
 
@@ -161,10 +167,15 @@ describe('PostgresTableRowsView (interactions)', () => {
   it('refetches on sort direction change', async () => {
     const user = userEvent.setup();
     mockGetColumns.mockResolvedValue(buildColumnsResponse(nameColumns));
-    mockGetRows.mockResolvedValue(buildRowsResponse({ rows: singleNameRow, totalCount: 1 }));
+    mockGetRows.mockResolvedValue(
+      buildRowsResponse({ rows: singleNameRow, totalCount: 1 })
+    );
 
     render(
-      <PostgresTableRowsView schema={defaultSchema} tableName={defaultTableName} />
+      <PostgresTableRowsView
+        schema={defaultSchema}
+        tableName={defaultTableName}
+      />
     );
 
     await waitFor(() => {
