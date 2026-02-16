@@ -48,6 +48,12 @@ interface AppConfig {
     productionUrl: string;
     stagingUrl?: string;
   };
+  monitoring?: {
+    sentryDsn?: string;
+    googleAnalyticsId?: string;
+    posthogToken?: string;
+  };
+  translations?: Record<string, string>;
 }
 
 /**
@@ -139,7 +145,9 @@ export function createAppConfigPlugin(
     features: config.features,
     platforms: config.platforms,
     theme: config.theme,
-    api: config.api
+    api: config.api,
+    monitoring: config.monitoring,
+    translations: config.translations
   };
 
   // Stub module ID prefix for disabled packages

@@ -1,5 +1,5 @@
 #!/usr/bin/env tsx
-import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { program } from 'commander';
@@ -8,6 +8,7 @@ import {
   generateAppConfigGradle,
   generateAppfile,
   generateAppMetadataJson,
+  generateAppThemeCss,
   generateCapacitorConfig,
   generateEnvScript,
   generateMatchfile,
@@ -15,6 +16,7 @@ import {
   generateXcconfig
 } from './generators/index.js';
 import { listApps, loadAppConfig } from './loader.js';
+import type { AppConfig } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -22,6 +24,43 @@ const __dirname = dirname(__filename);
 /** Get the default output directory (packages/client) */
 function getDefaultOutputDir(): string {
   return resolve(__dirname, '..', '..', 'client');
+}
+
+/**
+ * Copy app-specific assets (icons, splash) if they exist.
+ */
+function copyAssets(
+  config: AppConfig,
+  assetsDir: string,
+  outputDir: string,
+  dryRun?: boolean
+): void {
+  const assetsToCopy = [
+    { src: config.assets?.iconSource, dest: 'resources/icon.png' },
+    { src: config.assets?.splashSource, dest: 'resources/splash.png' }
+  ];
+
+  for (const asset of assetsToCopy) {
+    if (asset.src) {
+      const srcPath = resolve(assetsDir, '..', asset.src);
+      const destPath = join(outputDir, asset.dest);
+
+      if (existsSync(srcPath)) {
+        if (dryRun) {
+          console.log(`[dry-run] Would copy: ${srcPath} -> ${destPath}`);
+        } else {
+          const dir = dirname(destPath);
+          if (!existsSync(dir)) {
+            mkdirSync(dir, { recursive: true });
+          }
+          copyFileSync(srcPath, destPath);
+          console.log(`  Copied: ${asset.dest}`);
+        }
+      } else {
+        console.warn(`  Warning: Asset source not found: ${srcPath}`);
+      }
+    }
+  }
 }
 
 program
@@ -327,11 +366,21 @@ program
           content: generateAppMetadataJson(config)
         });
 
+        // Generate app-theme.css for CSS variable injection
+        filesToWrite.push({
+          path: join(generatedDir, 'app-theme.css'),
+          content: generateAppThemeCss(config)
+        });
+
         // Generate environment script for CI
         filesToWrite.push({
           path: join(generatedDir, 'env.sh'),
           content: generateEnvScript(config)
         });
+
+        // Copy assets
+        const { assetsDir } = await loadAppConfig(options.app);
+        copyAssets(config, assetsDir, outputDir, options.dryRun);
 
         // Write files
         for (const file of filesToWrite) {

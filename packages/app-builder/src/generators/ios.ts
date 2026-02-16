@@ -14,6 +14,7 @@ export function generateXcconfig(config: AppConfig): string {
 PRODUCT_BUNDLE_IDENTIFIER = ${config.bundleIds.ios}
 PRODUCT_NAME = ${config.displayName}
 KEYCHAIN_PREFIX = ${keychainPrefix}
+URL_SCHEME = ${config.urlScheme || config.bundleIds.ios.split('.').reverse()[0]}
 `;
 }
 

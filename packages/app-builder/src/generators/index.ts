@@ -9,3 +9,4 @@ export {
   generateMatchfile,
   generateXcconfig
 } from './ios.js';
+export { generateAppThemeCss } from './theme.js';

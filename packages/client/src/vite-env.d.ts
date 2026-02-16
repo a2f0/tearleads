@@ -31,6 +31,12 @@ declare module 'virtual:app-config' {
       productionUrl: string;
       stagingUrl?: string;
     };
+    monitoring?: {
+      sentryDsn?: string;
+      googleAnalyticsId?: string;
+      posthogToken?: string;
+    };
+    translations?: Record<string, string>;
   }
 
   const config: AppConfig;

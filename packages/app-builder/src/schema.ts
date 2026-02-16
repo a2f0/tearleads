@@ -87,6 +87,23 @@ export const AppStoreConfigSchema = z
   .optional();
 
 /**
+ * Assets configuration schema.
+ */
+export const AppAssetsSchema = z.object({
+  iconSource: z.string().optional(),
+  splashSource: z.string().optional()
+});
+
+/**
+ * Monitoring configuration schema.
+ */
+export const AppMonitoringSchema = z.object({
+  sentryDsn: z.string().url('Sentry DSN must be a valid URL').optional(),
+  googleAnalyticsId: z.string().optional(),
+  posthogToken: z.string().optional()
+});
+
+/**
  * Bundle IDs schema.
  */
 export const AppBundleIdsSchema = z.object({
@@ -119,6 +136,10 @@ export const AppConfigSchema = z.object({
     .min(1, 'Display name is required')
     .max(30, 'Display name too long'),
   bundleIds: AppBundleIdsSchema,
+  urlScheme: z
+    .string()
+    .regex(/^[a-z][a-z0-9+.-]*$/, 'URL scheme must be lower-case and valid')
+    .optional(),
   platforms: z
     .array(AppPlatformSchema)
     .min(1, 'At least one platform must be enabled'),
@@ -128,6 +149,9 @@ export const AppConfigSchema = z.object({
   api: AppApiConfigSchema,
   theme: AppThemeSchema,
   store: AppStoreConfigSchema,
+  assets: AppAssetsSchema.optional(),
+  monitoring: AppMonitoringSchema.optional(),
+  translations: z.record(z.string()).optional(),
   keychainPrefix: z.string().optional()
 });
 
