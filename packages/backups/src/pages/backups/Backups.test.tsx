@@ -7,13 +7,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { Backups } from './Backups';
 
 // Mock BackupManagerView to avoid testing its internals here
-vi.mock('@/components/backup-window/BackupManagerView', () => ({
+vi.mock('../../components/backup-window/BackupManagerView', () => ({
   BackupManagerView: () => (
     <div data-testid="backup-manager-view">BackupManagerView</div>
   )
 }));
 
-vi.mock('@/components/backup-window/BackupDocumentation', () => ({
+vi.mock('../../components/backup-window/BackupDocumentation', () => ({
   BackupDocumentation: ({ onBack }: { onBack?: (() => void) | undefined }) => (
     <div data-testid="backup-documentation">
       BackupDocumentation
@@ -26,7 +26,7 @@ vi.mock('@/components/backup-window/BackupDocumentation', () => ({
   )
 }));
 
-vi.mock('@/i18n', () => ({
+vi.mock('@client/i18n', () => ({
   useTypedTranslation: (namespace: string) => ({
     t: (key: string) => `${namespace}:${key}`
   })

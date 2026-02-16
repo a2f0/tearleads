@@ -17,6 +17,8 @@
       "@tearleads/admin": ["../admin/src/index.ts"],
       "@tearleads/audio/package.json": ["../audio/package.json"],
       "@tearleads/audio": ["../audio/src/index.ts"],
+      "@tearleads/backups/package.json": ["../backups/package.json"],
+      "@tearleads/backups": ["../backups/src/index.ts"],
       "@tearleads/businesses/package.json": ["../businesses/package.json"],
       "@tearleads/businesses": ["../businesses/src/index.ts"],
       "@tearleads/calendar/package.json": ["../calendar/package.json"],

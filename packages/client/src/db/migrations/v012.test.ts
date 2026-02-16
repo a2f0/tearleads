@@ -31,6 +31,18 @@ describe('v012 migration', () => {
     expect(executeMany).toHaveBeenCalledTimes(1);
     const statements = executeMany.mock.calls[0]?.[0] ?? [];
 
-    expect(statements).toMatchSnapshot();
+    expect(statements).toEqual([
+      'CREATE TABLE IF NOT EXISTS "calendar_events" (\n' +
+        '        "id" TEXT PRIMARY KEY NOT NULL,\n' +
+        '        "calendar_name" TEXT NOT NULL,\n' +
+        '        "title" TEXT NOT NULL,\n' +
+        '        "start_at" INTEGER NOT NULL,\n' +
+        '        "end_at" INTEGER,\n' +
+        '        "created_at" INTEGER NOT NULL,\n' +
+        '        "updated_at" INTEGER NOT NULL\n' +
+        '      )',
+      'CREATE INDEX IF NOT EXISTS "calendar_events_calendar_start_idx" ON "calendar_events" ("calendar_name", "start_at")',
+      'CREATE INDEX IF NOT EXISTS "calendar_events_start_idx" ON "calendar_events" ("start_at")'
+    ]);
   });
 });

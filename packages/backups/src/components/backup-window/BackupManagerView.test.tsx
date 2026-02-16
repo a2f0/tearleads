@@ -31,12 +31,12 @@ const {
 }));
 
 // Mock database and storage dependencies
-vi.mock('@/db', () => ({
+vi.mock('@client/db', () => ({
   getCurrentInstanceId: () => 'test-instance',
   getDatabaseAdapter: () => ({})
 }));
 
-vi.mock('@/db/backup', () => ({
+vi.mock('@client/db/backup', () => ({
   createBackup: mockCreateBackup,
   estimateBackupSize: vi.fn().mockResolvedValue({
     blobCount: 5,
@@ -44,21 +44,21 @@ vi.mock('@/db/backup', () => ({
   })
 }));
 
-vi.mock('@/db/crypto', () => ({
+vi.mock('@client/db/crypto', () => ({
   getKeyManager: () => ({
     getCurrentKey: () => new Uint8Array(32)
   })
 }));
 
-vi.mock('@/db/instanceRegistry', () => ({
+vi.mock('@client/db/instanceRegistry', () => ({
   getActiveInstance: vi.fn().mockResolvedValue({ name: 'Test Instance' })
 }));
 
-vi.mock('@/lib/fileUtils', () => ({
+vi.mock('@client/lib/fileUtils', () => ({
   saveFile: mockSaveFile
 }));
 
-vi.mock('@/storage/backupStorage', () => ({
+vi.mock('@client/storage/backupStorage', () => ({
   isBackupStorageSupported: () => true,
   listStoredBackups: mockListStoredBackups,
   getBackupStorageUsed: mockGetBackupStorageUsed,
@@ -67,7 +67,7 @@ vi.mock('@/storage/backupStorage', () => ({
   deleteBackupFromStorage: mockDeleteBackupFromStorage
 }));
 
-vi.mock('@/storage/opfs', () => ({
+vi.mock('@client/storage/opfs', () => ({
   isFileStorageInitialized: () => true,
   getFileStorageForInstance: () => ({}),
   initializeFileStorage: vi.fn()

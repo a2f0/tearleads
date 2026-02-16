@@ -6,6 +6,7 @@ import {
   AdminWindow
 } from '@tearleads/admin';
 import { AnalyticsWindow } from '@tearleads/analytics';
+import { BackupWindow } from '@tearleads/backups';
 import { ConsoleWindow } from '@tearleads/console';
 import { KeychainWindow } from '@tearleads/keychain';
 import { NotificationCenter } from '@tearleads/notifications';
@@ -16,7 +17,6 @@ import { memo, useCallback, useMemo, useRef } from 'react';
 import { AdminUsersWindow } from '@/components/admin-users-window';
 import { AIWindow } from '@/components/ai-window';
 import { AudioWindow } from '@/components/audio-window';
-import { BackupWindow } from '@/components/backup-window';
 import { BusinessesWindow } from '@/components/businesses-window';
 import { CacheStorageWindow } from '@/components/cache-storage-window';
 import { CalendarWindow } from '@/components/calendar-window';

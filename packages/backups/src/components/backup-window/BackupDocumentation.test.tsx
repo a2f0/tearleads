@@ -8,6 +8,7 @@ vi.mock('@tearleads/ui', () => ({
 }));
 
 vi.mock('@uiw/react-md-editor', () => ({
+  __esModule: true,
   default: {
     Markdown: ({ source }: { source: string }) => (
       <div data-testid="markdown">{source.slice(0, 20)}</div>
