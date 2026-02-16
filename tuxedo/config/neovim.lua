@@ -181,7 +181,9 @@ require('telescope').setup{
     vimgrep_arguments = {
       "rg", "--color=never", "--no-heading", "--with-filename",
       "--line-number", "--column", "--smart-case", "--hidden",
-      "--glob=!.git/*", "--glob=!node_modules/*", "--glob=!dist/*"
+      "--glob=!.git", "--glob=!node_modules", "--glob=!dist", "--glob=!build",
+      "--glob=!.next", "--glob=!.nuxt", "--glob=!.cache", "--glob=!.tmp",
+      "--glob=!.env", "--glob=!.venv", "--glob=!venv", "--glob=!__pycache__"
     },
   }
 }
