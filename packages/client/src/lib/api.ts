@@ -70,7 +70,7 @@ let refreshPromise: Promise<boolean> | null = null;
 
 /**
  * Core token refresh logic. Makes a single refresh request to the server.
- * Returns true if refresh succeeded, false otherwise.
+ * Returns true if refresh succeeded, false if it failed (transient or permanent).
  */
 async function executeTokenRefresh(refreshToken: string): Promise<boolean> {
   if (!API_BASE_URL) {
@@ -87,7 +87,13 @@ async function executeTokenRefresh(refreshToken: string): Promise<boolean> {
       body: JSON.stringify({ refreshToken })
     });
 
+    if (response.status === 401 || response.status === 403) {
+      // Permanent failure - token is invalid
+      return false;
+    }
+
     if (!response.ok) {
+      // Transient failure (500, etc) - don't clear auth yet
       return false;
     }
 
@@ -97,6 +103,7 @@ async function executeTokenRefresh(refreshToken: string): Promise<boolean> {
     return true;
   } catch (error) {
     console.error('Token refresh attempt failed:', error);
+    // Transient failure (network error)
     return false;
   } finally {
     const durationMs = performance.now() - startTime;
@@ -174,15 +181,27 @@ export async function tryRefreshToken(): Promise<boolean> {
     // Final check: ensure we didn't miss an update from another tab
     // that happened while we were processing
     const finalToken = getStoredRefreshToken();
-    if (finalToken) {
-      // There's still a token - another tab may have refreshed
-      // Don't clear auth, just report failure for this attempt
-      // The next API call will retry with the potentially-new token
-      return false;
+    if (!finalToken) {
+      // No token at all - session is truly expired
+      setSessionExpiredError();
+      clearStoredAuth();
+    } else {
+      // There's still a token. We only clear if we are sure it's invalid.
+      // If the token is already expired, we should be more aggressive.
+      // For now, let's fix the bug where we never clear if ANY token is present.
+
+      // If we are here, attemptTokenRefresh returned false, which means:
+      // 1. We had the lock and executeTokenRefresh failed.
+      // 2. OR we didn't get the lock and the other tab also didn't update the token.
+      // 3. AND finalToken is still equal to the original token (or changed but attemptTokenRefresh didn't see it).
+
+      // We should check if the token is definitely expired.
+      const { isJwtExpired } = await import('./jwt');
+      if (isJwtExpired(finalToken)) {
+        setSessionExpiredError();
+        clearStoredAuth();
+      }
     }
-    // No token at all - session is truly expired
-    setSessionExpiredError();
-    clearStoredAuth();
   }
   return refreshed;
 }

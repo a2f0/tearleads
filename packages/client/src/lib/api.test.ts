@@ -233,4 +233,71 @@ describe('api edge cases requiring direct fetch mocking', () => {
       }
     });
   });
+
+  describe('refresh failure and session expiration', () => {
+    beforeEach(() => {
+      vi.stubEnv('VITE_API_URL', 'http://localhost:3000');
+    });
+
+    function createJwt(expiresAtSeconds: number): string {
+      const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+      const payload = btoa(JSON.stringify({ exp: expiresAtSeconds }))
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_')
+        .replace(/=+$/g, '');
+      return `${header}.${payload}.`;
+    }
+
+    it('clears auth when refresh fails and token is expired (not a transient error)', async () => {
+      // Setup initial state with an expired token
+      const expiredToken = 'expired-token';
+      localStorage.setItem('auth_token', 'access-token');
+      localStorage.setItem('auth_refresh_token', expiredToken);
+      localStorage.setItem(
+        'auth_user',
+        JSON.stringify({ id: '1', email: 'test@example.com' })
+      );
+
+      // Mock refresh to fail with 401
+      vi.mocked(global.fetch).mockResolvedValue(
+        new Response(JSON.stringify({ error: 'Invalid' }), {
+          status: 401,
+          headers: { 'Content-Type': 'application/json' }
+        })
+      );
+
+      const { tryRefreshToken } = await import('./api');
+      const result = await tryRefreshToken();
+
+      expect(result).toBe(false);
+      expect(localStorage.getItem('auth_token')).toBeNull();
+      expect(localStorage.getItem('auth_refresh_token')).toBeNull();
+    });
+
+    it('does NOT clear auth on transient network error if token is NOT expired', async () => {
+      vi.spyOn(console, 'error').mockImplementation(() => {});
+      const futureExp = Math.floor(Date.now() / 1000) + 3600;
+      const validToken = createJwt(futureExp);
+      localStorage.setItem('auth_token', 'access-token');
+      localStorage.setItem('auth_refresh_token', validToken);
+      localStorage.setItem(
+        'auth_user',
+        JSON.stringify({ id: '1', email: 'test@example.com' })
+      );
+
+      // Mock refresh to fail with network error
+      vi.mocked(global.fetch).mockRejectedValue(new Error('Network error'));
+
+      const { tryRefreshToken } = await import('./api');
+      const result = await tryRefreshToken();
+
+      expect(result).toBe(false);
+      // Auth should be preserved
+      expect(localStorage.getItem('auth_token')).toBe('access-token');
+      expect(localStorage.getItem('auth_refresh_token')).toBe(validToken);
+    });
+  });
 });

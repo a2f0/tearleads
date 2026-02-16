@@ -23,6 +23,18 @@ vi.mock('@/db/analytics', () => ({
   logApiEvent: (...args: unknown[]) => mockLogApiEvent(...args)
 }));
 
+function createJwt(expiresAtSeconds: number): string {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+  const payload = btoa(JSON.stringify({ exp: expiresAtSeconds }))
+    .replace(/\+/g, '-')
+    .replace(/\//g, '_')
+    .replace(/=+$/g, '');
+  return `${header}.${payload}.`;
+}
+
 const loadApi = async () => {
   const module = await import('./api');
   return module.api;
@@ -163,8 +175,10 @@ describe('api with msw', () => {
     });
 
     it('does not clear auth when refresh fails but token still exists in storage', async () => {
+      const futureExp = Math.floor(Date.now() / 1000) + 3600;
+      const validRefreshToken = createJwt(futureExp);
       localStorage.setItem(AUTH_TOKEN_KEY, 'stale-token');
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, validRefreshToken);
       localStorage.setItem(
         AUTH_USER_KEY,
         JSON.stringify({ id: 'user-1', email: 'user@example.com' })
@@ -183,7 +197,7 @@ describe('api with msw', () => {
 
       await expect(api.ping.get()).rejects.toThrow('API error: 401');
       expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
-        'refresh-token'
+        validRefreshToken
       );
 
       const { getAuthError } = await loadAuthStorage();
@@ -268,7 +282,9 @@ describe('api with msw', () => {
     });
 
     it('does not clear auth when refresh fails but token still exists', async () => {
-      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, 'refresh-token');
+      const futureExp = Math.floor(Date.now() / 1000) + 3600;
+      const validRefreshToken = createJwt(futureExp);
+      localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, validRefreshToken);
       localStorage.setItem(AUTH_TOKEN_KEY, 'access-token');
 
       server.use(
@@ -281,7 +297,7 @@ describe('api with msw', () => {
 
       await expect(tryRefreshToken()).resolves.toBe(false);
       expect(localStorage.getItem(AUTH_REFRESH_TOKEN_KEY)).toBe(
-        'refresh-token'
+        validRefreshToken
       );
       expect(wasApiRequestMade('POST', '/auth/refresh')).toBe(true);
     });
