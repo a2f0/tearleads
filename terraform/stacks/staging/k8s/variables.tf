@@ -1,43 +1,43 @@
-variable "hcloud_token" {
+variable "HCLOUD_TOKEN" {
   description = "Hetzner Cloud API token"
   type        = string
   sensitive   = true
 }
 
-variable "ssh_key_name" {
+variable "SSH_KEY_NAME" {
   description = "Name of existing SSH key in Hetzner"
   type        = string
 }
 
-variable "staging_domain" {
+variable "STAGING_DOMAIN" {
   description = "Staging domain name for DNS records (k8s subdomain will be created)"
   type        = string
 }
 
-variable "server_location" {
+variable "SERVER_LOCATION" {
   description = "Hetzner server location (hel1, fsn1, nbg1, ash, sin)"
   type        = string
   default     = "hel1"
 }
 
-variable "server_username" {
+variable "SERVER_USERNAME" {
   description = "Non-root username for server access"
   type        = string
 }
 
-variable "server_type" {
+variable "SERVER_TYPE" {
   description = "Hetzner server type"
   type        = string
   default     = "cx22"
 }
 
-variable "allowed_ssh_ips" {
+variable "ALLOWED_SSH_IPS" {
   description = "List of IP addresses/CIDRs allowed to access SSH"
   type        = list(string)
   default     = ["0.0.0.0/0", "::/0"]
 }
 
-variable "allowed_k8s_api_ips" {
+variable "ALLOWED_K8S_API_IPS" {
   description = "List of IP addresses/CIDRs allowed to access k8s API (port 6443)"
   type        = list(string)
   default     = ["0.0.0.0/0", "::/0"] # More permissive for staging dev access
