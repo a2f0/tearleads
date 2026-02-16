@@ -31,3 +31,4 @@ vbell off
 
 # Make screen not grab mouse events - let tmux handle them
 mousetrack off
+altscreen on
