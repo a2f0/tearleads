@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 
-const windowManagerMock = {
+const windowManagerMock: Record<string, unknown> = {
   WINDOW_TABLE_TYPOGRAPHY: {
     table: 'w-full text-left text-xs',
     header: 'sticky top-0 border-b bg-muted/50 text-muted-foreground',
