@@ -1,5 +1,5 @@
-import type { GroupWithMemberCount } from '@tearleads/shared';
 import { useCallback, useEffect, useState } from 'react';
+import type { GroupWithMemberCount } from '@tearleads/shared';
 import { api } from '@/lib/api';
 
 export function useAdminUserGroups(userId: string | null) {
@@ -105,37 +105,32 @@ export function useAdminUserGroups(userId: string | null) {
     [userId]
   );
 
-  const removeFromGroup = useCallback(
-    async (groupId: string) => {
-      if (!userId) return;
+  const removeFromGroup = useCallback(async (groupId: string) => {
+    if (!userId) return;
 
-      try {
-        setActionId(groupId);
-        setActionError(null);
-        await api.admin.groups.removeMember(groupId, userId);
-        setGroupMemberships((prev) => ({
-          ...prev,
-          [groupId]: { isMember: false, joinedAt: undefined }
-        }));
-        setGroups((prev) =>
-          prev.map((group) =>
-            group.id === groupId
-              ? { ...group, memberCount: Math.max(0, group.memberCount - 1) }
-              : group
-          )
-        );
-      } catch (err) {
-        setActionError(
-          err instanceof Error
-            ? err.message
-            : 'Failed to remove user from group'
-        );
-      } finally {
-        setActionId(null);
-      }
-    },
-    [userId]
-  );
+    try {
+      setActionId(groupId);
+      setActionError(null);
+      await api.admin.groups.removeMember(groupId, userId);
+      setGroupMemberships((prev) => ({
+        ...prev,
+        [groupId]: { isMember: false, joinedAt: undefined }
+      }));
+      setGroups((prev) =>
+        prev.map((group) =>
+          group.id === groupId
+            ? { ...group, memberCount: Math.max(0, group.memberCount - 1) }
+            : group
+        )
+      );
+    } catch (err) {
+      setActionError(
+        err instanceof Error ? err.message : 'Failed to remove user from group'
+      );
+    } finally {
+      setActionId(null);
+    }
+  }, [userId]);
 
   return {
     groups,

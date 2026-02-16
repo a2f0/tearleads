@@ -1,5 +1,10 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import { Braces, Download, Loader2, Settings } from 'lucide-react';
+import {
+  Braces,
+  Download,
+  Loader2,
+  Settings
+} from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
@@ -7,15 +12,14 @@ import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { createCsv } from '@/lib/csv';
-import { DocumentView } from './DocumentView';
-import {
-  downloadFile,
-  isMobileViewport,
-  ROW_HEIGHT_ESTIMATE
-} from './PostgresTableUtils';
-import { StickyVirtualListStatus } from './StickyVirtualListStatus';
-import { TableView } from './TableView';
 import { usePostgresTableData } from './usePostgresTableData';
+import {
+  ROW_HEIGHT_ESTIMATE,
+  downloadFile,
+  isMobileViewport
+} from './PostgresTableUtils';
+import { DocumentView } from './DocumentView';
+import { TableView } from './TableView';
 
 const DEFAULT_CONTAINER_CLASSNAME =
   'flex flex-1 min-h-0 flex-col space-y-4 overflow-hidden';
@@ -60,35 +64,23 @@ export function PostgresTableRowsView({
   const [exporting, setExporting] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
 
-  // Calculate visible range for sticky status
-  const virtualizer = useVirtualizer({
-    count: rows.length + (hasMore ? 1 : 0),
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT_ESTIMATE,
-    overscan: 5
-  });
-
-  const virtualItems = virtualizer.getVirtualItems();
-
-  const visibleRowItems = virtualItems.filter(
-    (item) => item.index < rows.length
-  );
-  const firstVisible =
-    visibleRowItems.length > 0 ? (visibleRowItems[0]?.index ?? null) : null;
-  const lastVisible =
-    visibleRowItems.length > 0
-      ? (visibleRowItems[visibleRowItems.length - 1]?.index ?? null)
-      : null;
-
-  const stickyStatusElement = (
-    <StickyVirtualListStatus
-      firstVisible={firstVisible}
-      lastVisible={lastVisible}
-      loadedCount={rows.length}
-      totalCount={totalCount}
-      hasMore={hasMore}
-    />
-  );
+  // Local component to reduce duplication of sticky VirtualListStatus
+  const stickyStatus = useMemo(() => {
+    // Calculate visible range
+    const virtualItems = parentRef.current ? [] : []; // placeholder for useMemo dependency
+    return (first: number | null, last: number | null) => (
+      <div className="sticky top-0 z-10 bg-background px-4 py-2">
+        <VirtualListStatus
+          firstVisible={first}
+          lastVisible={last}
+          loadedCount={rows.length}
+          totalCount={totalCount}
+          hasMore={hasMore}
+          itemLabel="row"
+        />
+      </div>
+    );
+  }, [rows.length, totalCount, hasMore]);
 
   // Close column settings when clicking outside
   useEffect(() => {
@@ -232,15 +224,20 @@ export function PostgresTableRowsView({
     } finally {
       setExporting(false);
     }
-  }, [
-    schema,
-    tableName,
-    columns,
-    sort.column,
-    sort.direction,
-    exporting,
-    setError
-  ]);
+  }, [schema, tableName, columns, sort.column, sort.direction, exporting, setError]);
+
+  // Calculate visible range for sticky status
+  const visibleRowItems = virtualItems.filter(
+    (item) => item.index < rows.length
+  );
+  const firstVisible =
+    visibleRowItems.length > 0 ? (visibleRowItems[0]?.index ?? null) : null;
+  const lastVisible =
+    visibleRowItems.length > 0
+      ? (visibleRowItems[visibleRowItems.length - 1]?.index ?? null)
+      : null;
+
+  const stickyStatusElement = stickyStatus(firstVisible, lastVisible);
 
   if (!schema || !tableName) {
     return (

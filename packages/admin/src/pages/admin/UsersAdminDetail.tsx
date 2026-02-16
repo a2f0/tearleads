@@ -1,4 +1,7 @@
-import type { AdminUser, AdminUserUpdatePayload } from '@tearleads/shared';
+import type {
+  AdminUser,
+  AdminUserUpdatePayload
+} from '@tearleads/shared';
 import { Check, Copy, Loader2, Save } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';

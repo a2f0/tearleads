@@ -1,5 +1,5 @@
-import type { PostgresColumnInfo } from '@tearleads/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
+import type { PostgresColumnInfo } from '@tearleads/shared';
 import { api } from '@/lib/api';
 
 const PAGE_SIZE = 50;
@@ -11,10 +11,7 @@ export interface SortState {
   direction: SortDirection;
 }
 
-export function usePostgresTableData(
-  schema: string | null,
-  tableName: string | null
-) {
+export function usePostgresTableData(schema: string | null, tableName: string | null) {
   const [columns, setColumns] = useState<PostgresColumnInfo[]>([]);
   const [rows, setRows] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(false);
