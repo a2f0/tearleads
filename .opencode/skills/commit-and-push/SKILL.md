@@ -132,6 +132,7 @@ Track these state flags during execution:
 
 9. Address feedback:
    - If `gemini_quota_exhausted=false`, run `$address-gemini-feedback` for unresolved comments.
+   - When replying to Gemini, **always tag `@gemini-code-assist`** to ensure it receives a notification.
    - Reply to Gemini with `./scripts/agents/tooling/agentTool.ts replyToGemini --number <pr> --comment-id <id> --commit <sha>` (not `gh pr review`).
    - Use `replyToComment` only for custom non-fix responses.
    - Re-run step 8 after each Gemini interaction. If quota appears later, switch to fallback immediately.
