@@ -1,83 +1,18 @@
 import type { VfsAclAccessLevel, VfsAclPrincipalType } from '@tearleads/shared';
-
-export type VfsCrdtOpType =
-  | 'acl_add'
-  | 'acl_remove'
-  | 'link_add'
-  | 'link_remove';
-
-export interface VfsCrdtOperation {
-  opId: string;
-  opType: VfsCrdtOpType;
-  itemId: string;
-  replicaId: string;
-  writeId: number;
-  occurredAt: string;
-  principalType?: VfsAclPrincipalType;
-  principalId?: string;
-  accessLevel?: VfsAclAccessLevel;
-  parentId?: string;
-  childId?: string;
-}
-
-export type VfsCrdtApplyStatus =
-  | 'applied'
-  | 'staleWriteId'
-  | 'outdatedOp'
-  | 'invalidOp';
-
-export interface VfsCrdtApplyResult {
-  opId: string;
-  status: VfsCrdtApplyStatus;
-}
-
-export interface VfsCrdtAclEntry {
-  itemId: string;
-  principalType: VfsAclPrincipalType;
-  principalId: string;
-  accessLevel: VfsAclAccessLevel;
-}
-
-export interface VfsCrdtLinkEntry {
-  parentId: string;
-  childId: string;
-}
-
-export interface VfsCrdtSnapshot {
-  acl: VfsCrdtAclEntry[];
-  links: VfsCrdtLinkEntry[];
-  lastReconciledWriteIds: Record<string, number>;
-}
-
-export type VfsCrdtOrderViolationCode =
-  | 'invalidOperation'
-  | 'duplicateOpId'
-  | 'outOfOrderFeed'
-  | 'nonMonotonicReplicaWriteId';
-
-export class VfsCrdtOrderViolationError extends Error {
-  readonly code: VfsCrdtOrderViolationCode;
-  readonly operationIndex: number;
-
-  constructor(
-    code: VfsCrdtOrderViolationCode,
-    operationIndex: number,
-    message: string
-  ) {
-    super(message);
-    this.name = 'VfsCrdtOrderViolationError';
-    this.code = code;
-    this.operationIndex = operationIndex;
-  }
-}
-
-interface ParsedStamp {
-  replicaId: string;
-  writeId: number;
-  occurredAt: string;
-  occurredAtMs: number;
-  opId: string;
-}
+import {
+  compareFeedOrder,
+  compareParsedStamps,
+  type ParsedStamp,
+  prepareOperation
+} from './sync-crdt-prepare.js';
+import {
+  type VfsCrdtAclEntry,
+  type VfsCrdtApplyResult,
+  type VfsCrdtLinkEntry,
+  type VfsCrdtOperation,
+  VfsCrdtOrderViolationError,
+  type VfsCrdtSnapshot
+} from './sync-crdt-types.js';
 
 interface VfsCrdtAclRegister {
   itemId: string;
@@ -92,257 +27,6 @@ interface VfsCrdtLinkRegister {
   childId: string;
   present: boolean;
   stamp: ParsedStamp;
-}
-
-type PreparedOperation =
-  | {
-      kind: 'acl';
-      key: string;
-      itemId: string;
-      principalType: VfsAclPrincipalType;
-      principalId: string;
-      accessLevel: VfsAclAccessLevel | null;
-      stamp: ParsedStamp;
-    }
-  | {
-      kind: 'link';
-      key: string;
-      parentId: string;
-      childId: string;
-      present: boolean;
-      stamp: ParsedStamp;
-    };
-
-const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
-const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
-  'user',
-  'group',
-  'organization'
-];
-
-function normalizeNonEmptyString(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed ? trimmed : null;
-}
-
-function normalizeWriteId(value: unknown): number | null {
-  if (typeof value !== 'number' || !Number.isFinite(value)) {
-    return null;
-  }
-
-  if (!Number.isInteger(value) || value < 1) {
-    return null;
-  }
-
-  return value;
-}
-
-function normalizeAccessLevel(value: unknown): VfsAclAccessLevel | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  for (const accessLevel of VALID_ACCESS_LEVELS) {
-    if (accessLevel === value) {
-      return accessLevel;
-    }
-  }
-
-  return null;
-}
-
-function normalizePrincipalType(value: unknown): VfsAclPrincipalType | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  for (const principalType of VALID_PRINCIPAL_TYPES) {
-    if (principalType === value) {
-      return principalType;
-    }
-  }
-
-  return null;
-}
-
-function parseStamp(operation: VfsCrdtOperation): ParsedStamp | null {
-  const opId = normalizeNonEmptyString(operation.opId);
-  const replicaId = normalizeNonEmptyString(operation.replicaId);
-  const writeId = normalizeWriteId(operation.writeId);
-  const occurredAt = normalizeNonEmptyString(operation.occurredAt);
-
-  if (!opId || !replicaId || writeId === null || !occurredAt) {
-    return null;
-  }
-
-  const occurredAtMs = Date.parse(occurredAt);
-  if (!Number.isFinite(occurredAtMs)) {
-    return null;
-  }
-
-  return {
-    opId,
-    replicaId,
-    writeId,
-    occurredAt,
-    occurredAtMs
-  };
-}
-
-function compareParsedStamps(left: ParsedStamp, right: ParsedStamp): number {
-  if (left.replicaId === right.replicaId) {
-    if (left.writeId < right.writeId) {
-      return -1;
-    }
-    if (left.writeId > right.writeId) {
-      return 1;
-    }
-  }
-
-  if (left.occurredAtMs < right.occurredAtMs) {
-    return -1;
-  }
-  if (left.occurredAtMs > right.occurredAtMs) {
-    return 1;
-  }
-
-  if (left.opId < right.opId) {
-    return -1;
-  }
-  if (left.opId > right.opId) {
-    return 1;
-  }
-
-  if (left.replicaId < right.replicaId) {
-    return -1;
-  }
-  if (left.replicaId > right.replicaId) {
-    return 1;
-  }
-
-  if (left.writeId < right.writeId) {
-    return -1;
-  }
-  if (left.writeId > right.writeId) {
-    return 1;
-  }
-
-  return 0;
-}
-
-function compareFeedOrder(left: ParsedStamp, right: ParsedStamp): number {
-  if (left.occurredAtMs < right.occurredAtMs) {
-    return -1;
-  }
-
-  if (left.occurredAtMs > right.occurredAtMs) {
-    return 1;
-  }
-
-  if (left.opId < right.opId) {
-    return -1;
-  }
-
-  if (left.opId > right.opId) {
-    return 1;
-  }
-
-  return 0;
-}
-
-function toAclKey(
-  itemId: string,
-  principalType: VfsAclPrincipalType,
-  principalId: string
-): string {
-  return `${itemId}:${principalType}:${principalId}`;
-}
-
-function toLinkKey(parentId: string, childId: string): string {
-  return `${parentId}:${childId}`;
-}
-
-function prepareOperation(
-  operation: VfsCrdtOperation
-): PreparedOperation | null {
-  const stamp = parseStamp(operation);
-  const itemId = normalizeNonEmptyString(operation.itemId);
-
-  if (!stamp || !itemId) {
-    return null;
-  }
-
-  if (operation.opType === 'acl_add' || operation.opType === 'acl_remove') {
-    const principalType = normalizePrincipalType(operation.principalType);
-    const principalId = normalizeNonEmptyString(operation.principalId);
-    if (!principalType || !principalId) {
-      return null;
-    }
-
-    if (operation.opType === 'acl_add') {
-      const accessLevel = normalizeAccessLevel(operation.accessLevel);
-      if (!accessLevel) {
-        return null;
-      }
-
-      return {
-        kind: 'acl',
-        key: toAclKey(itemId, principalType, principalId),
-        itemId,
-        principalType,
-        principalId,
-        accessLevel,
-        stamp
-      };
-    }
-
-    return {
-      kind: 'acl',
-      key: toAclKey(itemId, principalType, principalId),
-      itemId,
-      principalType,
-      principalId,
-      accessLevel: null,
-      stamp
-    };
-  }
-
-  if (operation.opType === 'link_add' || operation.opType === 'link_remove') {
-    const parentId = normalizeNonEmptyString(operation.parentId);
-    const childId = normalizeNonEmptyString(operation.childId) ?? itemId;
-    if (!parentId || !childId) {
-      return null;
-    }
-    if (childId !== itemId) {
-      /**
-       * Guardrail: link operations are item-scoped and must not carry a
-       * mismatched childId payload for a different item.
-       */
-      return null;
-    }
-    if (parentId === childId) {
-      /**
-       * Guardrail: self-referential links create immediate cycles and are
-       * rejected at CRDT normalization so they cannot enter canonical state.
-       */
-      return null;
-    }
-
-    return {
-      kind: 'link',
-      key: toLinkKey(parentId, childId),
-      parentId,
-      childId,
-      present: operation.opType === 'link_add',
-      stamp
-    };
-  }
-
-  return null;
 }
 
 function toSortedLastWriteIds(
@@ -585,3 +269,13 @@ export function reconcileCanonicalVfsCrdtOperations(
   store.applyManyInCanonicalOrder(operations);
   return store.snapshot();
 }
+
+export {
+  type VfsCrdtApplyResult,
+  type VfsCrdtApplyStatus,
+  type VfsCrdtOperation,
+  type VfsCrdtOpType,
+  type VfsCrdtOrderViolationCode,
+  VfsCrdtOrderViolationError,
+  type VfsCrdtSnapshot
+} from './sync-crdt-types.js';
