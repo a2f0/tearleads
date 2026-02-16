@@ -1,10 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { isRecord } from '@tearleads/shared';
 import {
   compareVfsSyncCursorOrder,
-  decodeVfsSyncCursor,
   parseVfsCrdtLastReconciledWriteIds,
-  type VfsCrdtLastReconciledWriteIds,
   type VfsSyncCursor
 } from '@tearleads/sync/vfs';
 import type { Request, Response, Router as RouterType } from 'express';
@@ -15,6 +12,14 @@ import {
   parseBlobAttachBody,
   toIsoFromDateOrString
 } from './blob-shared.js';
+import {
+  dominatesLastWriteIds,
+  parseBlobAttachConsistency,
+  parseBlobLinkRelationKind,
+  parseBlobLinkRelationKindFromSessionKey,
+  toBlobLinkSessionKey,
+  toScopedCrdtClientId
+} from './post-blobs-stage-stagingId-attach-helpers.js';
 
 interface BlobStagingRow {
   id: string;
@@ -39,143 +44,6 @@ interface BlobLinkRow {
   created_at: Date | string;
   wrapped_session_key: string | null;
   visible_children: unknown;
-}
-
-interface ParsedBlobAttachConsistency {
-  clientId: string;
-  requiredCursor: VfsSyncCursor;
-  requiredLastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
-}
-
-type ParseBlobAttachConsistencyResult =
-  | {
-      ok: true;
-      value: ParsedBlobAttachConsistency | null;
-    }
-  | {
-      ok: false;
-      error: string;
-    };
-
-const CRDT_CLIENT_NAMESPACE = 'crdt';
-const BLOB_LINK_SESSION_KEY_PREFIX = 'blob-link:';
-
-function toScopedCrdtClientId(clientId: string): string {
-  return `${CRDT_CLIENT_NAMESPACE}:${clientId}`;
-}
-
-function toBlobLinkSessionKey(relationKind: string): string {
-  return `${BLOB_LINK_SESSION_KEY_PREFIX}${relationKind}`;
-}
-
-function parseBlobLinkRelationKind(value: unknown): string | null {
-  if (isRecord(value)) {
-    return normalizeRequiredString(value['relationKind']);
-  }
-
-  return null;
-}
-
-function parseBlobLinkRelationKindFromSessionKey(
-  value: unknown
-): string | null {
-  const normalized = normalizeRequiredString(value);
-  if (!normalized || !normalized.startsWith(BLOB_LINK_SESSION_KEY_PREFIX)) {
-    return null;
-  }
-
-  const relationKind = normalized.slice(BLOB_LINK_SESSION_KEY_PREFIX.length);
-  return relationKind.length > 0 ? relationKind : null;
-}
-
-function dominatesLastWriteIds(
-  current: VfsCrdtLastReconciledWriteIds,
-  required: VfsCrdtLastReconciledWriteIds
-): boolean {
-  for (const [replicaId, requiredWriteId] of Object.entries(required)) {
-    const currentWriteId = current[replicaId] ?? 0;
-    if (currentWriteId < requiredWriteId) {
-      return false;
-    }
-  }
-
-  return true;
-}
-
-function parseBlobAttachConsistency(
-  body: unknown
-): ParseBlobAttachConsistencyResult {
-  if (!isRecord(body)) {
-    return {
-      ok: true,
-      value: null
-    };
-  }
-
-  const rawClientId = body['clientId'];
-  const rawRequiredCursor = body['requiredCursor'];
-  const rawRequiredLastWriteIds = body['requiredLastReconciledWriteIds'];
-
-  if (
-    rawClientId === undefined &&
-    rawRequiredCursor === undefined &&
-    rawRequiredLastWriteIds === undefined
-  ) {
-    return {
-      ok: true,
-      value: null
-    };
-  }
-
-  const clientId = normalizeRequiredString(rawClientId);
-  if (!clientId) {
-    return {
-      ok: false,
-      error: 'clientId is required when reconcile guardrails are provided'
-    };
-  }
-
-  if (clientId.includes(':')) {
-    return {
-      ok: false,
-      error: 'clientId must not contain ":"'
-    };
-  }
-
-  const requiredCursorRaw = normalizeRequiredString(rawRequiredCursor);
-  if (!requiredCursorRaw) {
-    return {
-      ok: false,
-      error: 'requiredCursor is required when reconcile guardrails are provided'
-    };
-  }
-
-  const requiredCursor = decodeVfsSyncCursor(requiredCursorRaw);
-  if (!requiredCursor) {
-    return {
-      ok: false,
-      error: 'Invalid requiredCursor'
-    };
-  }
-
-  const parsedLastWriteIds = parseVfsCrdtLastReconciledWriteIds(
-    rawRequiredLastWriteIds
-  );
-  if (!parsedLastWriteIds.ok) {
-    return {
-      ok: false,
-      error: parsedLastWriteIds.error
-    };
-  }
-
-  return {
-    ok: true,
-    value: {
-      clientId,
-      requiredCursor,
-      requiredLastReconciledWriteIds: parsedLastWriteIds.value
-    }
-  };
 }
 
 export const postBlobsStageStagingIdAttachHandler = async (
