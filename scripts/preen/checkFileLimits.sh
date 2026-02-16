@@ -6,6 +6,8 @@ LINE_LIMIT=500
 BYTE_LIMIT=20000
 
 # Files to ignore (regex patterns)
+# Documentation and AI skill definition directories are ignored as they
+# are often automatically generated or contain large meta-logic descriptions.
 IGNORE_PATTERNS=(
   "^pnpm-lock\.yaml$"
   "^ansible/vendor/"
