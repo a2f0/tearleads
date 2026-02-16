@@ -100,7 +100,7 @@ Use the printed instructions as your checklist:
 
 `runPreen` streamlines the commands that used to be repeated in this document, but you still need to keep lint/type/test logs quiet when running locally:
 
-```
+```bash
 pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts >/dev/null
 pnpm exec tsx scripts/ciImpact/runImpactedTests.ts >/dev/null
 pnpm typecheck >/dev/null

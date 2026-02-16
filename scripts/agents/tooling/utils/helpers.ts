@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from 'node:child_process';
+import { execFileSync } from 'node:child_process';
 
 export function isShaLike(value: string): boolean {
   if (!/^[0-9a-fA-F]+$/.test(value)) return false;

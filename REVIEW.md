@@ -57,6 +57,7 @@ const usersWithOrders = await db
 - **Binary files** - Use SVG or external URLs
 - **JavaScript files** - TypeScript only (.ts, .tsx)
 - **Circular imports** - Extract shared code to break cycles
+- **File size** - Stay under 500 lines / 20,000 bytes; push shared types into `scripts/agents/tooling/types.ts`, helpers/actions into `scripts/agents/tooling/utils/`, and delegate CLI wiring to `scripts/agents/tooling/utils/commandFactory.ts` so entry points stay lean.
 
 ## Review Response Guidelines
 

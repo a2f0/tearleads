@@ -130,9 +130,10 @@ If conflicts are on the exact same lines and truly incompatible, abort and ask f
 
 ## File Size Guardrail
 
-Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, split the logic into smaller modules—move shared types into `scripts/agents/tooling/types.ts`, helpers into `scripts/agents/tooling/utils/`, etc.—so CLI entry points remain compact without losing functionality.
+Files must stay below 500 lines and 20,000 bytes. When the guardrail trips, split the logic into smaller modules—move shared types into `scripts/agents/tooling/types.ts`, helpers into `scripts/agents/tooling/utils/`, and delegate CLI wiring to `scripts/agents/tooling/utils/commandFactory.ts`—so entry points remain compact without losing functionality.
 
 ## Binary Files Policy
+
 - Do not add binary files to the repo. Prefer SVG or external URLs.
 - Binary guardrails run in `pre-commit` (staged files) and `pre-push` (unpushed commits).
 - Allowed binaries must be explicitly listed in `scripts/checkBinaryFiles.sh` with documented rationale in the issue or PR.

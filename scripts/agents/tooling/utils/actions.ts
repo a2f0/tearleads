@@ -1,9 +1,13 @@
 import { execFileSync, execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
-import path from 'node:path';
 import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
-import { ActionName, ActionConfig, GlobalOptions } from '../types.ts';
-import { getRepo, requireDefined, sleepMs } from './helpers.ts';
+import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
+import { requireDefined } from './helpers.ts';
+import {
+  handleGeneratePrSummary,
+  handleGetReviewThreads,
+  handleTriggerGeminiReview
+} from './inlineHandlers.ts';
 
 export function runInlineAction(
   action: ActionName,
@@ -29,115 +33,7 @@ export function runInlineAction(
     }
 
     case 'getReviewThreads': {
-      if (options.number === undefined) {
-        throw new Error('getReviewThreads requires --number');
-      }
-      const [owner, repoName] = repo.split('/');
-      if (!owner || !repoName) {
-        throw new Error(`Invalid repository format: ${repo}`);
-      }
-      const filter = options.unresolvedOnly
-        ? 'map(select(.isResolved == false))'
-        : '.';
-      const query = `
-        query($owner: String!, $repo: String!, $pr: Int!, $after: String) {
-          repository(owner: $owner, name: $repo) {
-            pullRequest(number: $pr) {
-              reviewThreads(first: 100, after: $after) {
-                pageInfo {
-                  hasNextPage
-                  endCursor
-                }
-                nodes {
-                  id
-                  isResolved
-                  path
-                  line
-                  comments(first: 100) {
-                    pageInfo {
-                      hasNextPage
-                    }
-                    nodes {
-                      id
-                      databaseId
-                      author { login }
-                      body
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      `;
-      const threadJsonChunks: string[] = [];
-      let afterCursor: string | undefined;
-
-      while (true) {
-        const queryArgs = [
-          'api',
-          'graphql',
-          '-f',
-          `query=${query}`,
-          '-f',
-          `owner=${owner}`,
-          '-f',
-          `repo=${repoName}`,
-          '-F',
-          `pr=${options.number}`
-        ];
-        if (afterCursor) {
-          queryArgs.push('-F', `after=${afterCursor}`);
-        }
-
-        const pageHasNext = runGh([
-          ...queryArgs,
-          '--jq',
-          '.data.repository.pullRequest.reviewThreads.pageInfo.hasNextPage'
-        ]).trim();
-        const pageEndCursor = runGh([
-          ...queryArgs,
-          '--jq',
-          '.data.repository.pullRequest.reviewThreads.pageInfo.endCursor // ""'
-        ]).trim();
-
-        const threadIdsWithExtraComments = runGh([
-          ...queryArgs,
-          '--jq',
-          '.data.repository.pullRequest.reviewThreads.nodes[] | select(.comments.pageInfo.hasNextPage == true) | .id'
-        ]).trim();
-        if (threadIdsWithExtraComments) {
-          throw new Error(
-            `getReviewThreads found threads with >100 comments; unsupported pagination for thread IDs: ${threadIdsWithExtraComments}`
-          );
-        }
-
-        const pageThreads = runGh([
-          ...queryArgs,
-          '--jq',
-          `.data.repository.pullRequest.reviewThreads.nodes | ${filter}`
-        ]).trim();
-        if (pageThreads.startsWith('[') && pageThreads.endsWith(']')) {
-          const innerJson = pageThreads.slice(1, -1).trim();
-          if (innerJson.length > 0) {
-            threadJsonChunks.push(innerJson);
-          }
-        } else {
-          throw new Error('Unexpected getReviewThreads response shape');
-        }
-
-        if (pageHasNext !== 'true') {
-          break;
-        }
-        if (!pageEndCursor) {
-          throw new Error(
-            'getReviewThreads pagination indicated next page but missing endCursor'
-          );
-        }
-        afterCursor = pageEndCursor;
-      }
-
-      return `[${threadJsonChunks.join(',')}]`;
+      return handleGetReviewThreads(options, repo, runGh);
     }
 
     case 'replyToComment': {
@@ -329,56 +225,11 @@ export function runInlineAction(
     }
 
     case 'triggerGeminiReview': {
-      const pollTimeoutSeconds = options.pollTimeout ?? 300;
-      const pollIntervalMilliseconds = 15_000;
-      const prNumber = String(options.number);
-      const latestGeminiReviewQuery = [
-        'pr',
-        'view',
-        prNumber,
-        '--json',
-        'reviews',
-        '-R',
-        repo,
-        '--jq',
-        '[.reviews[] | select(.author.login == "gemini-code-assist") | .submittedAt] | max // ""'
-      ];
+      return handleTriggerGeminiReview(options, repo, runGh);
+    }
 
-      const latestReviewBeforeRequest = runGh(latestGeminiReviewQuery).trim();
-
-      runGh([
-        'pr',
-        'comment',
-        prNumber,
-        '-R',
-        repo,
-        '--body',
-        '/gemini review'
-      ]);
-
-      const deadline = Date.now() + pollTimeoutSeconds * 1000;
-      while (Date.now() < deadline) {
-        const latestReviewAfterRequest = runGh(latestGeminiReviewQuery).trim();
-        if (
-          latestReviewAfterRequest &&
-          (!latestReviewBeforeRequest ||
-            latestReviewAfterRequest > latestReviewBeforeRequest)
-        ) {
-          return JSON.stringify({
-            status: 'review_received',
-            pr: options.number,
-            submitted_at: latestReviewAfterRequest
-          });
-        }
-        sleepMs(pollIntervalMilliseconds);
-      }
-
-      return JSON.stringify({
-        status: 'review_requested',
-        pr: options.number,
-        timed_out: true,
-        poll_timeout_seconds: pollTimeoutSeconds
-      });
+    case 'generatePrSummary': {
+      return handleGeneratePrSummary(options, repo, runGh);
     }
 
     case 'findDeferredWork': {
