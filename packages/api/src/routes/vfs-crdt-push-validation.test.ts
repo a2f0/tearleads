@@ -10,7 +10,10 @@ import {
   teardownCrdtPushRouteTestEnv
 } from './vfs-crdt-push-test-support.js';
 
-async function postCrdtPush(payload: unknown, authHeader?: string) {
+async function postCrdtPush(
+  payload: object | string | undefined,
+  authHeader?: string
+) {
   const { app } = await import('../index.js');
   const requestBuilder = request(app).post('/v1/vfs/crdt/push');
   if (authHeader) {
