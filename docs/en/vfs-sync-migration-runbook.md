@@ -98,7 +98,11 @@ SELECT MAX(version) AS schema_version FROM schema_migrations;
 
 ## Post-Migration Parity Checks
 
-Run all checks and require zero violating rows.
+Run all checks with explicit result expectations:
+
+- `COUNT(*)` violation queries should return `0`.
+- `to_regclass(...)` table-presence queries should return `NULL` for dropped
+  tables.
 
 1. Legacy staging/ref/object tables should be absent.
 
