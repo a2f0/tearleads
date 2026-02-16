@@ -13,6 +13,10 @@ module "server" {
 
   user_data = <<-EOF
     #cloud-config
+    ssh_keys:
+      ed25519_private: | 
+        ${indent(8, var.SSH_HOST_PRIVATE_KEY)}
+      ed25519_public: ${var.SSH_HOST_PUBLIC_KEY}
     users:
       - name: ${var.SERVER_USERNAME}
         groups: sudo

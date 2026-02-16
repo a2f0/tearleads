@@ -42,3 +42,14 @@ variable "ALLOWED_K8S_API_IPS" {
   type        = list(string)
   default     = ["0.0.0.0/0", "::/0"] # More permissive for staging dev access
 }
+
+variable "SSH_HOST_PRIVATE_KEY" {
+  description = "SSH host private key for the server"
+  type        = string
+  sensitive   = true
+}
+
+variable "SSH_HOST_PUBLIC_KEY" {
+  description = "SSH host public key for the server"
+  type        = string
+}

@@ -15,6 +15,7 @@ get_backend_config() {
 
 # Validate required environment variables for Hetzner stacks (base)
 validate_hetzner_env() {
+  setup_ssh_host_keys
   local missing=()
 
   [[ -z "${TF_VAR_HCLOUD_TOKEN:-}" ]] && missing+=("TF_VAR_HCLOUD_TOKEN")
@@ -96,4 +97,18 @@ validate_cloudflare_env() {
     printf '  - %s\n' "${missing[@]}" >&2
     return 1
   fi
+}
+
+# Setup SSH host keys for persistent identity
+setup_ssh_host_keys() {
+  local secrets_dir="$(get_repo_root)/.secrets"
+  local key_file="$secrets_dir/persistent_ssh_host_ed25519_key"
+
+  mkdir -p "$secrets_dir"
+  if [[ ! -f "$key_file" ]]; then
+    ssh-keygen -t ed25519 -f "$key_file" -N "" -C "persistent_ssh_host_ed25519_key" > /dev/null
+  fi
+
+  export TF_VAR_SSH_HOST_PRIVATE_KEY=$(cat "$key_file")
+  export TF_VAR_SSH_HOST_PUBLIC_KEY=$(cat "$key_file.pub")
 }
