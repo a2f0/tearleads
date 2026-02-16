@@ -225,6 +225,65 @@ interface ObservedPullPage {
   nextCursor: { changedAt: string; changeId: string } | null;
 }
 
+type ObservedPullPhase = 'seed' | 'resumed';
+
+interface ObservedPhasePullPage extends ObservedPullPage {
+  phase: ObservedPullPhase;
+  lastReconciledWriteIds?: Record<string, number>;
+}
+
+type ReconcileState = NonNullable<VfsCrdtSyncTransport['reconcileState']>;
+type ReconcileStateInput = Parameters<ReconcileState>[0];
+type ReconcileStateOutput = Awaited<ReturnType<ReconcileState>>;
+
+function createPhasePullRecordingTransport(input: {
+  phase: ObservedPullPhase;
+  baseTransport: VfsCrdtSyncTransport;
+  observedPulls: ObservedPhasePullPage[];
+  includeLastReconciledWriteIds?: boolean;
+  reconcileState?: (input: {
+    phase: ObservedPullPhase;
+    reconcileInput: ReconcileStateInput;
+    baseTransport: VfsCrdtSyncTransport;
+  }) => Promise<ReconcileStateOutput>;
+}): VfsCrdtSyncTransport {
+  const baseReconcileState = input.baseTransport.reconcileState;
+  const reconcileState = input.reconcileState
+    ? (reconcileInput: ReconcileStateInput) =>
+        input.reconcileState({
+          phase: input.phase,
+          reconcileInput,
+          baseTransport: input.baseTransport
+        })
+    : baseReconcileState
+      ? (reconcileInput: ReconcileStateInput) =>
+          baseReconcileState(reconcileInput)
+      : undefined;
+
+  return {
+    pushOperations: (pushInput) =>
+      input.baseTransport.pushOperations(pushInput),
+    pullOperations: async (pullInput) => {
+      const response = await input.baseTransport.pullOperations(pullInput);
+      const observedPull: ObservedPhasePullPage = {
+        phase: input.phase,
+        requestCursor: pullInput.cursor ? { ...pullInput.cursor } : null,
+        items: response.items.map((item) => ({ ...item })),
+        hasMore: response.hasMore,
+        nextCursor: response.nextCursor ? { ...response.nextCursor } : null
+      };
+      if (input.includeLastReconciledWriteIds) {
+        observedPull.lastReconciledWriteIds = {
+          ...response.lastReconciledWriteIds
+        };
+      }
+      input.observedPulls.push(observedPull);
+      return response;
+    },
+    reconcileState
+  };
+}
+
 function createPullRecordingTransport(input: {
   baseTransport: VfsCrdtSyncTransport;
   observedPulls: ObservedPullPage[];
@@ -7051,35 +7110,17 @@ describe('VfsBackgroundSyncClient', () => {
       ]
     });
 
-    const observedPulls: Array<{
-      phase: 'seed' | 'resumed';
-      requestCursor: { changedAt: string; changeId: string } | null;
-      items: VfsCrdtSyncItem[];
-      hasMore: boolean;
-      nextCursor: { changedAt: string; changeId: string } | null;
-      lastReconciledWriteIds: Record<string, number>;
-    }> = [];
+    const observedPulls: ObservedPhasePullPage[] = [];
     const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
     const makeObservedTransport = (
       phase: 'seed' | 'resumed'
-    ): VfsCrdtSyncTransport => ({
-      pushOperations: (input) => baseTransport.pushOperations(input),
-      pullOperations: async (input) => {
-        const response = await baseTransport.pullOperations(input);
-        observedPulls.push({
-          phase,
-          requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item })),
-          hasMore: response.hasMore,
-          nextCursor: response.nextCursor ? { ...response.nextCursor } : null,
-          lastReconciledWriteIds: { ...response.lastReconciledWriteIds }
-        });
-        return response;
-      },
-      reconcileState: baseTransport.reconcileState
-        ? (input) => baseTransport.reconcileState(input)
-        : undefined
-    });
+    ): VfsCrdtSyncTransport =>
+      createPhasePullRecordingTransport({
+        phase,
+        baseTransport,
+        observedPulls,
+        includeLastReconciledWriteIds: true
+      });
 
     const seedGuardrailViolations: Array<{
       code: string;
@@ -7168,7 +7209,7 @@ describe('VfsBackgroundSyncClient', () => {
     expect(resumedPulls[0]?.items.map((item) => item.opId)).toEqual([
       'remote-3'
     ]);
-    expect(resumedPulls[0]?.lastReconciledWriteIds.remote).toBe(4);
+    expect(resumedPulls[0]?.lastReconciledWriteIds?.remote).toBe(4);
     expect(resumedPulls[1]?.requestCursor).toEqual({
       changedAt: '2026-02-14T14:35:02.000Z',
       changeId: 'remote-3'
@@ -7237,14 +7278,7 @@ describe('VfsBackgroundSyncClient', () => {
     });
 
     const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
-    const observedPulls: Array<{
-      phase: 'seed' | 'resumed';
-      requestCursor: { changedAt: string; changeId: string } | null;
-      items: VfsCrdtSyncItem[];
-      hasMore: boolean;
-      nextCursor: { changedAt: string; changeId: string } | null;
-      lastReconciledWriteIds: Record<string, number>;
-    }> = [];
+    const observedPulls: ObservedPhasePullPage[] = [];
     const observedReconcileInputs: Array<{
       phase: 'seed' | 'resumed';
       cursor: { changedAt: string; changeId: string };
@@ -7258,52 +7292,44 @@ describe('VfsBackgroundSyncClient', () => {
     let reconcileCallCount = 0;
     const makeObservedTransport = (
       phase: 'seed' | 'resumed'
-    ): VfsCrdtSyncTransport => ({
-      pushOperations: (input) => baseTransport.pushOperations(input),
-      pullOperations: async (input) => {
-        const response = await baseTransport.pullOperations(input);
-        observedPulls.push({
-          phase,
-          requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item })),
-          hasMore: response.hasMore,
-          nextCursor: response.nextCursor ? { ...response.nextCursor } : null,
-          lastReconciledWriteIds: { ...response.lastReconciledWriteIds }
-        });
-        return response;
-      },
-      reconcileState: async (input) => {
-        reconcileCallCount += 1;
-        observedReconcileInputs.push({
-          phase,
-          cursor: { ...input.cursor },
-          lastReconciledWriteIds: { ...input.lastReconciledWriteIds }
-        });
+    ): VfsCrdtSyncTransport =>
+      createPhasePullRecordingTransport({
+        phase,
+        baseTransport,
+        observedPulls,
+        includeLastReconciledWriteIds: true,
+        reconcileState: async ({ phase: reconcilePhase, reconcileInput }) => {
+          reconcileCallCount += 1;
+          observedReconcileInputs.push({
+            phase: reconcilePhase,
+            cursor: { ...reconcileInput.cursor },
+            lastReconciledWriteIds: { ...reconcileInput.lastReconciledWriteIds }
+          });
 
-        const reconciledWriteIds =
-          reconcileCallCount === 1
-            ? {
-                ...input.lastReconciledWriteIds,
-                desktop: 3,
-                mobile: 5
-              }
-            : {
-                ...input.lastReconciledWriteIds,
-                desktop: 7,
-                mobile: 9
-              };
-        const response = {
-          cursor: { ...input.cursor },
-          lastReconciledWriteIds: reconciledWriteIds
-        };
-        observedReconcileResponses.push({
-          phase,
-          cursor: { ...response.cursor },
-          lastReconciledWriteIds: { ...response.lastReconciledWriteIds }
-        });
-        return response;
-      }
-    });
+          const reconciledWriteIds =
+            reconcileCallCount === 1
+              ? {
+                  ...reconcileInput.lastReconciledWriteIds,
+                  desktop: 3,
+                  mobile: 5
+                }
+              : {
+                  ...reconcileInput.lastReconciledWriteIds,
+                  desktop: 7,
+                  mobile: 9
+                };
+          const response = {
+            cursor: { ...reconcileInput.cursor },
+            lastReconciledWriteIds: reconciledWriteIds
+          };
+          observedReconcileResponses.push({
+            phase: reconcilePhase,
+            cursor: { ...response.cursor },
+            lastReconciledWriteIds: { ...response.lastReconciledWriteIds }
+          });
+          return response;
+        }
+      });
 
     const seedGuardrailViolations: Array<{
       code: string;
@@ -8116,52 +8142,38 @@ describe('VfsBackgroundSyncClient', () => {
       message: string;
       details?: Record<string, string | number | boolean | null>;
     }> = [];
-    const observedPulls: Array<{
-      phase: 'seed' | 'resumed';
-      requestCursor: { changedAt: string; changeId: string } | null;
-      items: VfsCrdtSyncItem[];
-      hasMore: boolean;
-      nextCursor: { changedAt: string; changeId: string } | null;
-    }> = [];
+    const observedPulls: ObservedPhasePullPage[] = [];
     let reconcileCallCount = 0;
     const makeObservedTransport = (
       phase: 'seed' | 'resumed'
-    ): VfsCrdtSyncTransport => ({
-      pushOperations: (input) => baseTransport.pushOperations(input),
-      pullOperations: async (input) => {
-        const response = await baseTransport.pullOperations(input);
-        observedPulls.push({
-          phase,
-          requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item })),
-          hasMore: response.hasMore,
-          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
-        });
-        return response;
-      },
-      reconcileState: async (input) => {
-        reconcileCallCount += 1;
-        if (reconcileCallCount === 1) {
+    ): VfsCrdtSyncTransport =>
+      createPhasePullRecordingTransport({
+        phase,
+        baseTransport,
+        observedPulls,
+        reconcileState: async ({ reconcileInput }) => {
+          reconcileCallCount += 1;
+          if (reconcileCallCount === 1) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                desktop: 3,
+                mobile: 5
+              }
+            };
+          }
+
           return {
-            cursor: { ...input.cursor },
+            cursor: { ...reconcileInput.cursor },
             lastReconciledWriteIds: {
-              ...input.lastReconciledWriteIds,
-              desktop: 3,
-              mobile: 5
+              ...reconcileInput.lastReconciledWriteIds,
+              desktop: 4,
+              mobile: 4
             }
           };
         }
-
-        return {
-          cursor: { ...input.cursor },
-          lastReconciledWriteIds: {
-            ...input.lastReconciledWriteIds,
-            desktop: 4,
-            mobile: 4
-          }
-        };
-      }
-    });
+      });
 
     const seedClient = new VfsBackgroundSyncClient(
       'user-1',
@@ -8313,63 +8325,49 @@ describe('VfsBackgroundSyncClient', () => {
       message: string;
       details?: Record<string, string | number | boolean | null>;
     }> = [];
-    const observedPulls: Array<{
-      phase: 'seed' | 'resumed';
-      requestCursor: { changedAt: string; changeId: string } | null;
-      items: VfsCrdtSyncItem[];
-      hasMore: boolean;
-      nextCursor: { changedAt: string; changeId: string } | null;
-    }> = [];
+    const observedPulls: ObservedPhasePullPage[] = [];
     let reconcileCallCount = 0;
     const makeObservedTransport = (
       phase: 'seed' | 'resumed'
-    ): VfsCrdtSyncTransport => ({
-      pushOperations: (input) => baseTransport.pushOperations(input),
-      pullOperations: async (input) => {
-        const response = await baseTransport.pullOperations(input);
-        observedPulls.push({
-          phase,
-          requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item })),
-          hasMore: response.hasMore,
-          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
-        });
-        return response;
-      },
-      reconcileState: async (input) => {
-        reconcileCallCount += 1;
-        if (reconcileCallCount === 1) {
-          return {
-            cursor: { ...input.cursor },
-            lastReconciledWriteIds: {
-              ...input.lastReconciledWriteIds,
-              desktop: 3,
-              mobile: 5
-            }
-          };
-        }
-
-        if (reconcileCallCount === 2) {
-          return {
-            cursor: { ...input.cursor },
-            lastReconciledWriteIds: {
-              ...input.lastReconciledWriteIds,
-              desktop: 4,
-              mobile: 4
-            }
-          };
-        }
-
-        return {
-          cursor: { ...input.cursor },
-          lastReconciledWriteIds: {
-            ...input.lastReconciledWriteIds,
-            desktop: 4,
-            mobile: 6
+    ): VfsCrdtSyncTransport =>
+      createPhasePullRecordingTransport({
+        phase,
+        baseTransport,
+        observedPulls,
+        reconcileState: async ({ reconcileInput }) => {
+          reconcileCallCount += 1;
+          if (reconcileCallCount === 1) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                desktop: 3,
+                mobile: 5
+              }
+            };
           }
-        };
-      }
-    });
+
+          if (reconcileCallCount === 2) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                desktop: 4,
+                mobile: 4
+              }
+            };
+          }
+
+          return {
+            cursor: { ...reconcileInput.cursor },
+            lastReconciledWriteIds: {
+              ...reconcileInput.lastReconciledWriteIds,
+              desktop: 4,
+              mobile: 6
+            }
+          };
+        }
+      });
 
     const seedClient = new VfsBackgroundSyncClient(
       'user-1',
