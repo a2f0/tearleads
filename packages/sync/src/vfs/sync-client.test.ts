@@ -77,6 +77,14 @@ function pickDifferent<T>(
   return candidate;
 }
 
+function pickTwoDistinct<T>(
+  values: readonly T[],
+  random: () => number
+): [T, T] {
+  const first = pickOne(values, random);
+  return [first, pickDifferent(values, first, random)];
+}
+
 function createSeededIsoTimestampFactory(input: {
   baseIso: string;
   seed: number;
@@ -9891,8 +9899,7 @@ describe('VfsBackgroundSyncClient', () => {
       const parentCandidates = ['root', 'archive', 'workspace'] as const;
       const principalTypes = ['group', 'organization'] as const;
       const accessLevels = ['read', 'write', 'admin'] as const;
-      const parentOne = pickOne(parentCandidates, random);
-      const parentTwo = pickDifferent(parentCandidates, parentOne, random);
+      const [parentOne, parentTwo] = pickTwoDistinct(parentCandidates, random);
       const principalType = pickOne(principalTypes, random);
       const accessLevel = pickOne(accessLevels, random);
 
@@ -10200,8 +10207,7 @@ describe('VfsBackgroundSyncClient', () => {
       const parentCandidates = ['root', 'archive', 'workspace'] as const;
       const principalTypes = ['group', 'organization'] as const;
       const accessLevels = ['read', 'write', 'admin'] as const;
-      const parentOne = pickOne(parentCandidates, random);
-      const parentTwo = pickDifferent(parentCandidates, parentOne, random);
+      const [parentOne, parentTwo] = pickTwoDistinct(parentCandidates, random);
       const principalType = pickOne(principalTypes, random);
       const accessLevel = pickOne(accessLevels, random);
 
@@ -10498,10 +10504,8 @@ describe('VfsBackgroundSyncClient', () => {
     }> => {
       const random = createDeterministicRandom(seed);
       const parentCandidates = ['root', 'archive', 'workspace'] as const;
-      const parentRecovered = pickOne(parentCandidates, random);
-      const parentLocal = pickDifferent(
+      const [parentRecovered, parentLocal] = pickTwoDistinct(
         parentCandidates,
-        parentRecovered,
         random
       );
 
