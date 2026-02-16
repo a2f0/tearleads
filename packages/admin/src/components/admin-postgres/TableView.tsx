@@ -11,7 +11,7 @@ import type { SortState } from './usePostgresTableData';
 
 interface TableViewProps {
   parentRef: RefObject<HTMLDivElement | null>;
-  virtualizer: ReturnType<typeof useVirtualizer>;
+  virtualizer: any;
   rows: Record<string, unknown>[];
   visibleColumns: PostgresColumnInfo[];
   sort: SortState;

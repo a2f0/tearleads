@@ -5,7 +5,7 @@ import { getRowKey } from './PostgresTableUtils';
 
 interface DocumentViewProps {
   parentRef: RefObject<HTMLDivElement | null>;
-  virtualizer: ReturnType<typeof useVirtualizer>;
+  virtualizer: any;
   rows: Record<string, unknown>[];
   loadingMore: boolean;
   stickyStatus: React.ReactNode;
