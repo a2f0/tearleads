@@ -1563,9 +1563,11 @@ describe('VfsBackgroundSyncClient', () => {
       const principalTypes = ['group', 'organization'] as const;
       const principalType = pickOne(principalTypes, random);
       const principalId = `${principalType}-seeded-dup-${seed}`;
-      const baseMs = Date.parse('2026-02-14T12:05:00.000Z') + seed * 7_000;
-      const at = (offsetSeconds: number): string =>
-        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+      const at = createSeededIsoTimestampFactory({
+        baseIso: '2026-02-14T12:05:00.000Z',
+        seed,
+        seedStrideMs: 7_000
+      });
 
       const seedServer = new InMemoryVfsCrdtSyncServer();
       await seedServer.pushOperations({
@@ -1825,9 +1827,11 @@ describe('VfsBackgroundSyncClient', () => {
       const desktopBase = nextInt(random, 2, 5);
       const mobileBase = nextInt(random, 4, 7);
       const remoteBase = nextInt(random, 3, 6);
-      const baseMs = Date.parse('2026-02-14T12:06:00.000Z') + seed * 9_000;
-      const at = (offsetSeconds: number): string =>
-        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+      const at = createSeededIsoTimestampFactory({
+        baseIso: '2026-02-14T12:06:00.000Z',
+        seed,
+        seedStrideMs: 9_000
+      });
 
       const seedServer = new InMemoryVfsCrdtSyncServer();
       await seedServer.pushOperations({
@@ -2371,9 +2375,11 @@ describe('VfsBackgroundSyncClient', () => {
       const desktopBase = nextInt(random, 1, 4);
       const mobileBase = nextInt(random, 2, 6);
       const remoteBase = nextInt(random, 2, 6);
-      const baseMs = Date.parse('2026-02-14T12:08:00.000Z') + seed * 11_000;
-      const at = (offsetSeconds: number): string =>
-        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+      const at = createSeededIsoTimestampFactory({
+        baseIso: '2026-02-14T12:08:00.000Z',
+        seed,
+        seedStrideMs: 11_000
+      });
 
       const seedServer = new InMemoryVfsCrdtSyncServer();
       await seedServer.pushOperations({
@@ -11226,10 +11232,11 @@ describe('VfsBackgroundSyncClient', () => {
       const itemLocalAcl = `item-local-acl-boundary-${input.seed}`;
       const itemLocalLink = `item-local-link-boundary-${input.seed}`;
 
-      const baseMs =
-        Date.parse('2026-02-14T13:10:00.000Z') + input.seed * 1_000;
-      const at = (offsetSeconds: number): string =>
-        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+      const at = createSeededIsoTimestampFactory({
+        baseIso: '2026-02-14T13:10:00.000Z',
+        seed: input.seed,
+        seedStrideMs: 1_000
+      });
 
       const server = new InMemoryVfsCrdtSyncServer();
       await server.pushOperations({
