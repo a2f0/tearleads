@@ -62,7 +62,9 @@
     { "path": "./packages/tee-client/tsconfig.test.json" },
     { "path": "./packages/client" },
     { "path": "./packages/client/tsconfig.test.json" },
-    { "path": "./packages/website" }
+    { "path": "./packages/website" },
+    { "path": "./scripts/tsconfig.json" },
+    { "path": "./scripts/tsconfig.test.json" }
   ],
   "files": []
 }

@@ -91,7 +91,10 @@ function parseJobName(rawWorkflow: string, jobId: string): string | null {
 
     const jobNameMatch = line.match(/^ {4}name:\s*(.+?)\s*$/);
     if (jobNameMatch !== null) {
-      return stripQuotes(jobNameMatch[1]);
+      const rawJobName = jobNameMatch[1];
+      if (rawJobName !== undefined) {
+        return stripQuotes(rawJobName);
+      }
     }
   }
 

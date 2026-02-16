@@ -211,6 +211,24 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      - name: Run impacted ciImpact script tests
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            HEAD_SHA="${{ github.sha }}"
+            git fetch --no-tags --prune --depth=2 origin "$HEAD_SHA" || true
+            BASE_SHA=$(git rev-list --parents -n 1 "$HEAD_SHA" | awk '{print $2}')
+            if [ -n "$BASE_SHA" ]; then
+              git fetch --no-tags --prune --depth=1 origin "$BASE_SHA" || true
+            else
+              BASE_SHA="$HEAD_SHA"
+            fi
+          fi
+
+          pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base "$BASE_SHA" --head "$HEAD_SHA" --scripts-only
+
       - name: Check for circular imports
         run: ./scripts/preen/checkCircularImports.sh
 

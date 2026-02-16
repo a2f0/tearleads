@@ -9,6 +9,8 @@ interface JobState {
 }
 
 interface CiImpactOutput {
+  base: string;
+  head: string;
   changedFiles: string[];
   materialFiles: string[];
   jobs: Record<JobName, JobState>;

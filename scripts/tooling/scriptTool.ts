@@ -69,6 +69,7 @@ interface GlobalOptions {
   mode?: 'full' | 'quick' | 'default' | 'no-pr-dashboards' | 'no-screen';
   recordVideo?: boolean;
   scope?: 'all';
+  scriptsOnly?: boolean;
   scriptDryRun?: boolean;
   timeoutSeconds?: number;
   repoRoot?: string;
@@ -220,7 +221,7 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
     scriptPath: (repo) =>
       path.join(repo, 'scripts', 'ciImpact', 'runImpactedTests.ts'),
     scriptType: 'typescript',
-    description: 'Run tests on impacted packages only',
+    description: 'Run impacted ciImpact script tests and coverage tests',
     category: 'testing',
     options: [
       {
@@ -232,6 +233,10 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
         name: '--head <sha>',
         description: 'Head commit for diff',
         required: true
+      },
+      {
+        name: '--scripts-only',
+        description: 'Run only impacted ciImpact script tests'
       }
     ]
   },
@@ -746,6 +751,7 @@ interface ScriptArgs {
   host?: string;
   mode?: 'full' | 'quick' | 'default' | 'no-pr-dashboards' | 'no-screen';
   recordVideo?: boolean;
+  scriptsOnly?: boolean;
   scriptDryRun?: boolean;
   videoSeconds?: number;
   workspaceCount?: number;
@@ -774,9 +780,14 @@ function buildScriptInvocation(
 
     case 'ciImpact':
     case 'runImpactedQuality':
+      if (options.base) args.push('--base', options.base);
+      if (options.head) args.push('--head', options.head);
+      break;
+
     case 'runImpactedTests':
       if (options.base) args.push('--base', options.base);
       if (options.head) args.push('--head', options.head);
+      if (options.scriptsOnly) args.push('--scripts-only');
       break;
 
     case 'runAllTests':
@@ -933,10 +944,16 @@ function createActionCommand(actionName: ActionName): Command {
   switch (actionName) {
     case 'ciImpact':
     case 'runImpactedQuality':
-    case 'runImpactedTests':
       cmd
         .requiredOption('--base <sha>', 'Base commit for diff')
         .requiredOption('--head <sha>', 'Head commit for diff');
+      break;
+
+    case 'runImpactedTests':
+      cmd
+        .requiredOption('--base <sha>', 'Base commit for diff')
+        .requiredOption('--head <sha>', 'Head commit for diff')
+        .option('--scripts-only', 'Run only impacted ciImpact script tests');
       break;
 
     case 'checkBinaryFiles':

@@ -27,6 +27,10 @@ interface PackageJsonShape {
   devDependencies?: Record<string, string>;
   peerDependencies?: Record<string, string>;
 }
+type PackageDependencyKey =
+  | 'dependencies'
+  | 'devDependencies'
+  | 'peerDependencies';
 
 interface WorkspacePackage {
   name: string;
@@ -73,6 +77,9 @@ function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
   for (let i = 2; i < argv.length; i += 1) {
     const token = argv[i];
+    if (token === undefined) {
+      continue;
+    }
     if (!token.startsWith('--')) {
       continue;
     }
@@ -206,7 +213,7 @@ function readPackageJson(filePath: string): PackageJsonShape {
     data.name = name;
   }
 
-  const depKeys: Array<keyof PackageJsonShape> = [
+  const depKeys: ReadonlyArray<PackageDependencyKey> = [
     'dependencies',
     'devDependencies',
     'peerDependencies'

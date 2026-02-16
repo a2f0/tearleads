@@ -137,6 +137,6 @@ Guía de ajuste seguro:
 
   ```bash
   pnpm exec tsx scripts/ciImpact/checkWorkflowDrift.ts
-  node --import tsx --test scripts/ciImpact/ciImpact.test.ts scripts/ciImpact/requiredWorkflows.test.ts
+  pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base origin/main --head HEAD --scripts-only
   pnpm dlx c8 --reporter=text-summary node --import tsx --test scripts/ciImpact/ciImpact.test.ts scripts/ciImpact/requiredWorkflows.test.ts
   ```
