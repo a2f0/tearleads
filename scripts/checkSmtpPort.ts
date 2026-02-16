@@ -3,11 +3,11 @@
  * Check if SMTP port is in use and kill existing listener if from this repo.
  * Usage: tsx scripts/checkSmtpPort.ts
  */
+import path from 'node:path';
 import { createExitOnce, isPortInUse, parsePort } from './lib/portHelpers.ts';
 import {
   getPidsOnPort,
   getProcessCwd,
-  isCwdWithinRepo,
   isPidAlive,
   killPid,
   resolveRealPath,
@@ -32,13 +32,15 @@ if (port === null) {
 }
 
 const isInRepo = (cwd: string | null): boolean => {
-  if (isCwdWithinRepo({ cwd, repoRoot })) {
-    return true;
+  if (!cwd) {
+    return false;
   }
-
-  const resolved = cwd ? resolveRealPath(cwd) : null;
+  const resolved = resolveRealPath(cwd);
   if (!resolved) {
     return false;
+  }
+  if (resolved === repoRoot || resolved.startsWith(`${repoRoot}${path.sep}`)) {
+    return true;
   }
 
   // Also check if it's a tearleads SMTP listener from another clone
