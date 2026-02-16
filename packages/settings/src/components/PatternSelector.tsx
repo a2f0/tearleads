@@ -1,5 +1,6 @@
 import { GridSquare } from '@tearleads/ui';
 import { useSettings } from '../context/SettingsProvider.js';
+import { useSelectorTileSize } from '../hooks/index.js';
 import type { DesktopPatternValue } from '../types/userSettings.js';
 import { PatternPreview } from './PatternPreview.js';
 
@@ -14,6 +15,12 @@ const PATTERNS: DesktopPatternValue[] = [
 export function PatternSelector() {
   const { getSetting, setSetting } = useSettings();
   const currentPattern = getSetting('desktopPattern');
+
+  const tileSize = useSelectorTileSize();
+  const tileStyle = {
+    width: `${tileSize}px`,
+    minWidth: `${tileSize}px`
+  };
 
   return (
     <div className="space-y-3">
@@ -33,7 +40,8 @@ export function PatternSelector() {
             onClick={() => setSetting('desktopPattern', pattern)}
             selected={currentPattern === pattern}
             data-testid={`pattern-option-${pattern}`}
-            className="w-[100px] shrink-0 md:w-[200px]"
+            className="shrink-0"
+            style={tileStyle}
           >
             <PatternPreview pattern={pattern} />
           </GridSquare>

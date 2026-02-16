@@ -19,6 +19,41 @@ const createAdapter = (
   importDatabase: vi.fn(async () => {})
 });
 
+const EXPECTED_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS "contact_groups" (
+        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+        "encrypted_name" TEXT,
+        "color" TEXT,
+        "icon" TEXT
+      )`,
+  `CREATE TABLE IF NOT EXISTS "email_folders" (
+        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+        "encrypted_name" TEXT,
+        "folder_type" TEXT,
+        "unread_count" INTEGER NOT NULL DEFAULT 0,
+        "sync_uid_validity" INTEGER,
+        "sync_last_uid" INTEGER
+      )`,
+  `CREATE TABLE IF NOT EXISTS "tags" (
+        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+        "encrypted_name" TEXT,
+        "color" TEXT,
+        "icon" TEXT
+      )`,
+  `CREATE TABLE IF NOT EXISTS "emails" (
+        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,
+        "encrypted_subject" TEXT,
+        "encrypted_from" TEXT,
+        "encrypted_to" TEXT,
+        "encrypted_cc" TEXT,
+        "encrypted_body_path" TEXT,
+        "received_at" INTEGER NOT NULL,
+        "is_read" INTEGER NOT NULL DEFAULT 0 CHECK("is_read" IN (0, 1)),
+        "is_starred" INTEGER NOT NULL DEFAULT 0 CHECK("is_starred" IN (0, 1))
+      )`,
+  `CREATE INDEX IF NOT EXISTS "emails_received_at_idx" ON "emails" ("received_at")`
+];
+
 describe('v011 migration', () => {
   it('creates missing VFS extension tables', async () => {
     const executeMany = vi
@@ -31,39 +66,6 @@ describe('v011 migration', () => {
     expect(executeMany).toHaveBeenCalledTimes(1);
     const statements = executeMany.mock.calls[0]?.[0] ?? [];
 
-    expect(statements).toEqual([
-      'CREATE TABLE IF NOT EXISTS "contact_groups" (\n' +
-        '        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,\n' +
-        '        "encrypted_name" TEXT,\n' +
-        '        "color" TEXT,\n' +
-        '        "icon" TEXT\n' +
-        '      )',
-      'CREATE TABLE IF NOT EXISTS "email_folders" (\n' +
-        '        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,\n' +
-        '        "encrypted_name" TEXT,\n' +
-        '        "folder_type" TEXT,\n' +
-        '        "unread_count" INTEGER NOT NULL DEFAULT 0,\n' +
-        '        "sync_uid_validity" INTEGER,\n' +
-        '        "sync_last_uid" INTEGER\n' +
-        '      )',
-      'CREATE TABLE IF NOT EXISTS "tags" (\n' +
-        '        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,\n' +
-        '        "encrypted_name" TEXT,\n' +
-        '        "color" TEXT,\n' +
-        '        "icon" TEXT\n' +
-        '      )',
-      'CREATE TABLE IF NOT EXISTS "emails" (\n' +
-        '        "id" TEXT PRIMARY KEY NOT NULL REFERENCES "vfs_registry"("id") ON DELETE CASCADE,\n' +
-        '        "encrypted_subject" TEXT,\n' +
-        '        "encrypted_from" TEXT,\n' +
-        '        "encrypted_to" TEXT,\n' +
-        '        "encrypted_cc" TEXT,\n' +
-        '        "encrypted_body_path" TEXT,\n' +
-        '        "received_at" INTEGER NOT NULL,\n' +
-        '        "is_read" INTEGER NOT NULL DEFAULT 0 CHECK("is_read" IN (0, 1)),\n' +
-        '        "is_starred" INTEGER NOT NULL DEFAULT 0 CHECK("is_starred" IN (0, 1))\n' +
-        '      )',
-      'CREATE INDEX IF NOT EXISTS "emails_received_at_idx" ON "emails" ("received_at")'
-    ]);
+    expect(statements).toEqual(EXPECTED_STATEMENTS);
   });
 });

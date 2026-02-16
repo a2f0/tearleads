@@ -147,12 +147,12 @@ describe('PatternSelector', () => {
     expect(container.className).toContain('md:overflow-visible');
   });
 
-  it('applies responsive widths on pattern options', () => {
+  it('applies fixed square dimensions on pattern options', () => {
     renderPatternSelector();
     const patternOption = screen.getByTestId('pattern-option-solid');
-    expect(patternOption.className).toContain('w-[100px]');
+    expect(patternOption.style.width).toBe('100px');
+    expect(patternOption.style.minWidth).toBe('100px');
     expect(patternOption.className).toContain('shrink-0');
-    expect(patternOption.className).toContain('md:w-[200px]');
   });
 
   it('renders pattern labels', () => {
