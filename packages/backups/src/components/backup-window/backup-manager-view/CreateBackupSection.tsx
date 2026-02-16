@@ -1,7 +1,7 @@
 import { Button } from '@client/components/ui/button';
 import { Input } from '@client/components/ui/input';
 import { formatBytes } from './utils';
-import { BackupProgress } from './utils';
+import type { BackupProgress } from './utils';
 
 interface CreateBackupSectionProps {
   password: string;
@@ -99,7 +99,8 @@ export function CreateBackupSection({
                   Include files
                   {estimatedSize && estimatedSize.blobCount > 0 && (
                     <span className="ml-1 text-muted-foreground">
-                      ({estimatedSize.blobCount}, {formatBytes(estimatedSize.blobTotalSize)})
+                      ({estimatedSize.blobCount},{' '}
+                      {formatBytes(estimatedSize.blobTotalSize)})
                     </span>
                   )}
                 </span>

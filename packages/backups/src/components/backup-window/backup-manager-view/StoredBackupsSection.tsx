@@ -3,7 +3,8 @@ import {
   WINDOW_TABLE_TYPOGRAPHY,
   WindowTableRow
 } from '@tearleads/window-manager';
-import { BackupListItem, formatBytes, formatDate } from './utils';
+import { formatBytes, formatDate } from './utils';
+import type { BackupListItem } from './utils';
 
 interface StoredBackupsSectionProps {
   backups: BackupListItem[];
@@ -54,13 +55,15 @@ export function StoredBackupsSection({
         <div className="overflow-hidden rounded-md border border-border">
           <table className={WINDOW_TABLE_TYPOGRAPHY.table}>
             <thead className="bg-muted/70 text-muted-foreground">
-              <tr>
-                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Name</th>
-                <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Size</th>
-                <th className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}>
-                  Actions
-                </th>
-              </tr>
+                <tr>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Name</th>
+                  <th className={WINDOW_TABLE_TYPOGRAPHY.headerCell}>Size</th>
+                  <th
+                    className={`${WINDOW_TABLE_TYPOGRAPHY.headerCell} text-right`}
+                  >
+                    Actions
+                  </th>
+                </tr>
             </thead>
             <tbody>
               {backups.map((backup) => (

@@ -17,15 +17,13 @@ import {
 } from '@client/storage/backupStorage';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { RestoreBackupForm } from '../RestoreBackupForm';
 import { CreateBackupSection } from './CreateBackupSection';
 import { StoredBackupsSection } from './StoredBackupsSection';
-import { RestoreBackupForm } from '../RestoreBackupForm';
+import type { BackupListItem, BackupProgress } from './utils';
 import {
-  BackupListItem,
-  BackupProgress,
   formatBackupFilename,
   formatBytes,
-  formatDate,
   getOrInitFileStorage
 } from './utils';
 
