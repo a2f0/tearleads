@@ -47,7 +47,9 @@ describe('VFS Type Guards', () => {
 
     it('returns false if a field has the wrong type', () => {
       expect(isVfsSharedByMeQueryRow({ ...validByMeRow, id: 123 })).toBe(false);
-      expect(isVfsSharedByMeQueryRow({ ...validByMeRow, createdAt: '2024-01-01' })).toBe(false);
+      expect(
+        isVfsSharedByMeQueryRow({ ...validByMeRow, createdAt: '2024-01-01' })
+      ).toBe(false);
     });
   });
 
@@ -66,7 +68,9 @@ describe('VFS Type Guards', () => {
     });
 
     it('returns false if a field has the wrong type', () => {
-      expect(isVfsSharedWithMeQueryRow({ ...validWithMeRow, shareType: 1 })).toBe(false);
+      expect(
+        isVfsSharedWithMeQueryRow({ ...validWithMeRow, shareType: 1 })
+      ).toBe(false);
     });
   });
 });
