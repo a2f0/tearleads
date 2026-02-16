@@ -9889,7 +9889,6 @@ describe('VfsBackgroundSyncClient', () => {
       const at = (offsetSeconds: number): string =>
         new Date(baseMs + offsetSeconds * 1_000).toISOString();
 
-      let pullCallCount = 0;
       const scriptedReconcileState = createCallCountedReconcileResolver({
         resolve: ({ reconcileInput, callCount }) => {
           if (callCount === 1) {
@@ -9943,13 +9942,9 @@ describe('VfsBackgroundSyncClient', () => {
       });
       const guardrailCollector = createGuardrailViolationCollector();
       const guardrailViolations = guardrailCollector.violations;
-      const transport: VfsCrdtSyncTransport = {
-        pushOperations: async () => ({
-          results: []
-        }),
-        pullOperations: async () => {
-          pullCallCount += 1;
-          if (pullCallCount === 1) {
+      const scriptedPullOperations = createCallCountedPullResolver({
+        resolve: ({ callCount }) => {
+          if (callCount === 1) {
             return {
               items: [
                 buildAclAddSyncItem({
@@ -9969,7 +9964,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 2) {
+          if (callCount === 2) {
             return {
               items: [
                 buildAclAddSyncItem({
@@ -9990,7 +9985,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 3) {
+          if (callCount === 3) {
             return {
               items: [
                 {
@@ -10020,7 +10015,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 4) {
+          if (callCount === 4) {
             return {
               items: [],
               hasMore: false,
@@ -10032,7 +10027,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 5) {
+          if (callCount === 5) {
             return {
               items: [
                 {
@@ -10085,7 +10080,13 @@ describe('VfsBackgroundSyncClient', () => {
               mobile: 7
             }
           };
-        },
+        }
+      });
+      const transport: VfsCrdtSyncTransport = {
+        pushOperations: async () => ({
+          results: []
+        }),
+        pullOperations: (input) => scriptedPullOperations(input),
         reconcileState: (input) => scriptedReconcileState(input)
       };
 
@@ -10196,7 +10197,6 @@ describe('VfsBackgroundSyncClient', () => {
       const at = (offsetSeconds: number): string =>
         new Date(baseMs + offsetSeconds * 1_000).toISOString();
 
-      let pullCallCount = 0;
       const scriptedReconcileState = createCallCountedReconcileResolver({
         resolve: ({ reconcileInput, callCount }) => {
           if (callCount === 1) {
@@ -10248,19 +10248,11 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
       });
-      const guardrailViolations: Array<{
-        code: string;
-        stage: string;
-        message: string;
-        details?: Record<string, string | number | boolean | null>;
-      }> = [];
-      const transport: VfsCrdtSyncTransport = {
-        pushOperations: async () => ({
-          results: []
-        }),
-        pullOperations: async () => {
-          pullCallCount += 1;
-          if (pullCallCount === 1) {
+      const guardrailCollector = createGuardrailViolationCollector();
+      const guardrailViolations = guardrailCollector.violations;
+      const scriptedPullOperations = createCallCountedPullResolver({
+        resolve: ({ callCount }) => {
+          if (callCount === 1) {
             return {
               items: [
                 buildAclAddSyncItem({
@@ -10280,7 +10272,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 2) {
+          if (callCount === 2) {
             return {
               items: [
                 buildAclAddSyncItem({
@@ -10301,7 +10293,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 3) {
+          if (callCount === 3) {
             return {
               items: [
                 {
@@ -10331,7 +10323,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 4) {
+          if (callCount === 4) {
             return {
               items: [],
               hasMore: false,
@@ -10343,7 +10335,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 5) {
+          if (callCount === 5) {
             return {
               items: [
                 {
@@ -10396,21 +10388,20 @@ describe('VfsBackgroundSyncClient', () => {
               mobile: 7
             }
           };
-        },
+        }
+      });
+      const transport: VfsCrdtSyncTransport = {
+        pushOperations: async () => ({
+          results: []
+        }),
+        pullOperations: (input) => scriptedPullOperations(input),
         reconcileState: (input) => scriptedReconcileState(input)
       };
 
       const makeClient = (): VfsBackgroundSyncClient =>
         new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
           pullLimit: 1,
-          onGuardrailViolation: (violation) => {
-            guardrailViolations.push({
-              code: violation.code,
-              stage: violation.stage,
-              message: violation.message,
-              details: violation.details
-            });
-          }
+          onGuardrailViolation: guardrailCollector.onGuardrailViolation
         });
 
       const seedClient = makeClient();
@@ -10507,7 +10498,6 @@ describe('VfsBackgroundSyncClient', () => {
       const at = (offsetSeconds: number): string =>
         new Date(baseMs + offsetSeconds * 1_000).toISOString();
 
-      let pullCallCount = 0;
       const scriptedReconcileState = createCallCountedReconcileResolver({
         resolve: ({ reconcileInput, callCount }) => {
           if (callCount === 1) {
@@ -10561,28 +10551,11 @@ describe('VfsBackgroundSyncClient', () => {
       });
       const pushedOpIds: string[] = [];
       const pushedWriteIds: number[] = [];
-      const guardrailViolations: Array<{
-        code: string;
-        stage: string;
-        message: string;
-        details?: Record<string, string | number | boolean | null>;
-      }> = [];
-      const transport: VfsCrdtSyncTransport = {
-        pushOperations: async (input) => {
-          for (const operation of input.operations) {
-            pushedOpIds.push(operation.opId);
-            pushedWriteIds.push(operation.writeId);
-          }
-          return {
-            results: input.operations.map((operation) => ({
-              opId: operation.opId,
-              status: 'applied' as const
-            }))
-          };
-        },
-        pullOperations: async () => {
-          pullCallCount += 1;
-          if (pullCallCount === 1) {
+      const guardrailCollector = createGuardrailViolationCollector();
+      const guardrailViolations = guardrailCollector.violations;
+      const scriptedPullOperations = createCallCountedPullResolver({
+        resolve: ({ callCount }) => {
+          if (callCount === 1) {
             return {
               items: [
                 buildAclAddSyncItem({
@@ -10602,7 +10575,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 2) {
+          if (callCount === 2) {
             return {
               items: [
                 buildAclAddSyncItem({
@@ -10623,7 +10596,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 3) {
+          if (callCount === 3) {
             return {
               items: [
                 {
@@ -10653,7 +10626,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 4) {
+          if (callCount === 4) {
             return {
               items: [],
               hasMore: false,
@@ -10665,7 +10638,7 @@ describe('VfsBackgroundSyncClient', () => {
             };
           }
 
-          if (pullCallCount === 5) {
+          if (callCount === 5) {
             return {
               items: [
                 {
@@ -10718,21 +10691,29 @@ describe('VfsBackgroundSyncClient', () => {
               mobile: 7
             }
           };
+        }
+      });
+      const transport: VfsCrdtSyncTransport = {
+        pushOperations: async (input) => {
+          for (const operation of input.operations) {
+            pushedOpIds.push(operation.opId);
+            pushedWriteIds.push(operation.writeId);
+          }
+          return {
+            results: input.operations.map((operation) => ({
+              opId: operation.opId,
+              status: 'applied' as const
+            }))
+          };
         },
+        pullOperations: (input) => scriptedPullOperations(input),
         reconcileState: (input) => scriptedReconcileState(input)
       };
 
       const makeClient = (): VfsBackgroundSyncClient =>
         new VfsBackgroundSyncClient('user-1', 'desktop', transport, {
           pullLimit: 1,
-          onGuardrailViolation: (violation) => {
-            guardrailViolations.push({
-              code: violation.code,
-              stage: violation.stage,
-              message: violation.message,
-              details: violation.details
-            });
-          }
+          onGuardrailViolation: guardrailCollector.onGuardrailViolation
         });
 
       const seedClient = makeClient();
