@@ -10,7 +10,7 @@ describe('WindowControlDivider', () => {
       'mx-0.5',
       'h-3',
       'w-px',
-      'bg-border'
+      'bg-border/60'
     );
   });
 
