@@ -455,7 +455,7 @@ done
 cat <<'INSTRUCTIONS'
 ### Next Steps
 1. Select the highest-value candidate (score = severity*3 + blast_radius*2 + confidence*2 - effort).
-2. Capture baseline: run preen runMetricCount for selected category.
+2. Capture baseline: find the selected category in the `metric_count` function and run that command manually.
 3. Only create a branch and make changes when you're ready to sign off. Use PREEN_MODE full/single/security/audit semantics.
 4. After editing, rerun `runPreen.sh` (or `./scripts/agents/tooling/agentTool.ts runPreen`) and verify coverage/impact, then commit with `refactor(preen): stateful single-pass improvements`.
 5. Push, open PR, and tag with `./scripts/agents/tooling/agentTool.ts tagPrWithTuxedoInstance`.

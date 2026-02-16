@@ -330,7 +330,7 @@ export function createActionCommand(actionName: ActionName): Command {
       const timeoutMs =
         (opts.timeoutSeconds ?? (actionName === 'refresh' ? 3600 : 300)) * 1000;
 
-      if (opts.dryRun) {
+      if (opts.dryRun && actionName !== 'runPreen') {
         if (config.isInline) {
           output = `dry-run: would run inline action ${actionName}`;
         } else {
