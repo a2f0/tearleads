@@ -52,13 +52,13 @@ if run_tool checkBinaryFiles --repo-root "$REPO_ROOT" >/dev/null 2>&1; then
 fi
 echo "Test 3 passed: checkBinaryFiles requires mode"
 
-# Test 4: verifyBinaryGuardrails should succeed
-VERIFY_JSON="$TEMP_DIR/verifyBinaryGuardrails.json"
-run_tool verifyBinaryGuardrails --repo-root "$REPO_ROOT" --json >"$VERIFY_JSON"
+# Test 4: verifyFileGuardrails should succeed
+VERIFY_JSON="$TEMP_DIR/verifyFileGuardrails.json"
+run_tool verifyFileGuardrails --repo-root "$REPO_ROOT" --json >"$VERIFY_JSON"
 assert_file_exists "$VERIFY_JSON"
 VERIFY_STATUS=$(node -e 'const fs=require("fs"); const d=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); process.stdout.write(`${d.status}|${d.action}|${d.safety_class}|${String(d.retry_safe)}`);' "$VERIFY_JSON")
-assert_contains "$VERIFY_STATUS" "success|verifyBinaryGuardrails|safe_read|true"
-echo "Test 4 passed: verifyBinaryGuardrails succeeds"
+assert_contains "$VERIFY_STATUS" "success|verifyFileGuardrails|safe_read|true"
+echo "Test 4 passed: verifyFileGuardrails succeeds"
 
 # Test 5: checkBinaryFiles --staged should succeed (no staged files = clean)
 CHECK_JSON="$TEMP_DIR/checkBinaryFiles.json"

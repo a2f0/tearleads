@@ -44,7 +44,7 @@ type ActionName =
   | 'tuxedoKill'
   | 'updateEverything'
   | 'verifyCleanIosBuild'
-  | 'verifyBinaryGuardrails';
+  | 'verifyFileGuardrails';
 
 interface GlobalOptions {
   base?: string;
@@ -228,13 +228,13 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
       { name: '--file <path>', description: 'Specific test file' },
     ],
   },
-  verifyBinaryGuardrails: {
+  verifyFileGuardrails: {
     safetyClass: 'safe_read',
     retrySafe: true,
     defaultTimeoutSeconds: 300,
-    scriptPath: (repo) => path.join(repo, 'scripts', 'verifyBinaryGuardrails.sh'),
+    scriptPath: (repo) => path.join(repo, 'scripts', 'verifyFileGuardrails.sh'),
     scriptType: 'shell',
-    description: 'Verify binary guardrail configuration',
+    description: 'Verify file guardrail configuration',
     category: 'analysis',
   },
   runAndroid: {
@@ -654,7 +654,7 @@ function runPreflight(action: ActionName, opts: GlobalOptions, repoRoot: string)
     case 'runAllTests':
     case 'runElectronTests':
     case 'runPlaywrightTests':
-    case 'verifyBinaryGuardrails':
+    case 'verifyFileGuardrails':
       // Existing wrappers with bounded behavior; no additional preflight.
       break;
   }
@@ -774,7 +774,7 @@ function buildScriptInvocation(action: ActionName, options: ScriptArgs): ScriptI
       break;
 
     case 'analyzeBundle':
-    case 'verifyBinaryGuardrails':
+    case 'verifyFileGuardrails':
     case 'copyTestFilesAndroid':
     case 'runAndroid':
     case 'runIpad':
@@ -878,7 +878,7 @@ function createActionCommand(actionName: ActionName): Command {
     case 'setupPostgresDev':
     case 'verifyCleanIosBuild':
     case 'muteIosSimulatorAudio':
-    case 'verifyBinaryGuardrails':
+    case 'verifyFileGuardrails':
     case 'analyzeBundle':
       // No additional options
       break;

@@ -99,7 +99,7 @@ description: Stateful preening across all preen skills. Lands focused improvemen
 ---
 EOF_FRONTMATTER
 )
-      merge_queue_command='$enter-merge-queue'
+      merge_queue_command="\$enter-merge-queue"
       ;;
     *)
       echo "Error: unknown platform '$platform'" >&2

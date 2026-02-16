@@ -15,9 +15,9 @@ case " ${NODE_OPTIONS-} " in
 esac
 
 ./scripts/checkBinaryFiles.sh --from-upstream
-./scripts/checkJs.sh --from-upstream
+./scripts/preen/checkJs.sh --from-upstream
 ./scripts/checkPreenEcosystem.sh --strict
-./scripts/checkCircularImports.sh
+./scripts/preen/checkCircularImports.sh
 ./scripts/checkTerraform.sh
 
 pnpm exec tsx scripts/ciImpact/runImpactedQuality.ts --base origin/main --head HEAD

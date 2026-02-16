@@ -4,7 +4,7 @@ set -euo pipefail
 # Detect circular imports in TypeScript packages using madge.
 # This is a codebase-wide check (not file-based) since cycles can span multiple packages.
 
-cd "$(dirname "$0")/.."
+cd "$(dirname "$0")/../.."
 
 # Run madge on all packages with TypeScript sources
 output=$(npx madge --circular --extensions ts,tsx packages/*/src 2>/dev/null)
