@@ -6,10 +6,11 @@
  *
  * Actions are documented in --help output and README.md.
  */
-import { execFileSync, execSync, spawnSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { program, Command, Option, InvalidArgumentError } from 'commander';
+import { extractKeyLines, getRepoRoot, parsePositiveInt, runWithTimeout } from '../../tooling/lib/cliShared.ts';
 
 // ============================================================================
 // Types
@@ -168,39 +169,14 @@ const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
 // Validation
 // ============================================================================
 
-function isPositiveInt(value: unknown): value is number {
-  return typeof value === 'number' && Number.isInteger(value) && value > 0;
-}
-
 function isShaLike(value: string): boolean {
   if (!/^[0-9a-fA-F]+$/.test(value)) return false;
   return value.length >= 7 && value.length <= 40;
 }
 
-function parsePositiveInt(value: string, name: string): number {
-  const parsed = Number.parseInt(value, 10);
-  if (!isPositiveInt(parsed)) {
-    throw new InvalidArgumentError(`${name} must be a positive integer`);
-  }
-  return parsed;
-}
-
 // ============================================================================
 // Helpers
 // ============================================================================
-
-function getRepoRoot(providedRoot?: string): string {
-  if (providedRoot) return providedRoot;
-
-  try {
-    return execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim();
-  } catch {
-    throw new Error('Could not detect git repository root. Use --repo-root.');
-  }
-}
 
 function getRepo(): string {
   try {
@@ -213,38 +189,10 @@ function getRepo(): string {
   }
 }
 
-function runWithTimeout(
-  command: string,
-  args: string[],
-  timeoutMs: number,
-  cwd?: string
-): { stdout: string; stderr: string; exitCode: number } {
-  const result = spawnSync(command, args, {
-    encoding: 'utf8',
-    timeout: timeoutMs,
-    cwd,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-
-  return {
-    stdout: result.stdout ?? '',
-    stderr: result.stderr ?? '',
-    exitCode: result.status ?? (result.signal ? 1 : 0),
-  };
-}
-
 function sleepMs(milliseconds: number): void {
   const waitBuffer = new SharedArrayBuffer(4);
   const waitArray = new Int32Array(waitBuffer);
   Atomics.wait(waitArray, 0, 0, milliseconds);
-}
-
-function extractKeyLines(output: string, count = 5): string[] {
-  return output
-    .split('\n')
-    .map((line) => line.trimEnd())
-    .filter((line) => line.length > 0)
-    .slice(-count);
 }
 
 // ============================================================================

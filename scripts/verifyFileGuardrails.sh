@@ -14,10 +14,10 @@ elif [ ! -x "scripts/checkBinaryFiles.sh" ]; then
 fi
 
 # Check 2: JavaScript check script exists
-if [ ! -f "scripts/checkJs.sh" ]; then
-  errors+=("Missing scripts/checkJs.sh")
-elif [ ! -x "scripts/checkJs.sh" ]; then
-  errors+=("scripts/checkJs.sh is not executable")
+if [ ! -f "scripts/preen/checkJs.sh" ]; then
+  errors+=("Missing scripts/preen/checkJs.sh")
+elif [ ! -x "scripts/preen/checkJs.sh" ]; then
+  errors+=("scripts/preen/checkJs.sh is not executable")
 fi
 
 # Check 3: Pre-commit hook exists and calls binary check
@@ -34,8 +34,8 @@ else
   if ! grep -q "checkBinaryFiles.sh --from-upstream" ".husky/pre-push"; then
     errors+=(".husky/pre-push does not call checkBinaryFiles.sh --from-upstream")
   fi
-  if ! grep -q "checkJs.sh --from-upstream" ".husky/pre-push"; then
-    errors+=(".husky/pre-push does not call checkJs.sh --from-upstream")
+  if ! grep -q "scripts/preen/checkJs.sh --from-upstream" ".husky/pre-push"; then
+    errors+=(".husky/pre-push does not call scripts/preen/checkJs.sh --from-upstream")
   fi
 fi
 
@@ -46,7 +46,7 @@ else
   if ! grep -q "checkBinaryFiles.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include binary file check")
   fi
-  if ! grep -q "checkJs.sh" ".github/workflows/build.yml"; then
+  if ! grep -q "scripts/preen/checkJs.sh" ".github/workflows/build.yml"; then
     errors+=(".github/workflows/build.yml does not include plain JavaScript file check")
   fi
 fi

@@ -18,7 +18,7 @@
 - `analyzeBundle` - Build and open bundle analysis report
 - `checkBinaryFiles` - Check for binary files (guardrail validation)
 - `ciImpact` - Analyze CI impact for changed files (JSON output)
-- `verifyBinaryGuardrails` - Verify binary guardrail configuration
+- `verifyFileGuardrails` - Verify file guardrail configuration
 
 ### Device
 
@@ -63,7 +63,7 @@
 Automation skills currently invoke a focused subset of wrappers:
 
 - Skill-invoked: `ciImpact`, `runImpactedQuality`, `runImpactedTests`
-- Manual-only: `analyzeBundle`, `checkBinaryFiles`, `copyTestFilesAndroid`, `copyTestFilesIos`, `runAllTests`, `runElectronTests`, `runPlaywrightTests`, `verifyBinaryGuardrails`, `runAndroid`, `runIos`, `runIpad`, `runElectron`, `runMaestroAndroidTests`, `runMaestroIosTests`, `setupPostgresDev`, `setupSerenaMcp`, `setupTuxedoRepos`, `syncCliAuth`, `toggleAndroidKeyboard`, `tuxedo`, `tuxedoKill`, `updateEverything`, `verifyCleanIosBuild`, `muteIosSimulatorAudio`
+- Manual-only: `analyzeBundle`, `checkBinaryFiles`, `copyTestFilesAndroid`, `copyTestFilesIos`, `runAllTests`, `runElectronTests`, `runPlaywrightTests`, `verifyFileGuardrails`, `runAndroid`, `runIos`, `runIpad`, `runElectron`, `runMaestroAndroidTests`, `runMaestroIosTests`, `setupPostgresDev`, `setupSerenaMcp`, `setupTuxedoRepos`, `syncCliAuth`, `toggleAndroidKeyboard`, `tuxedo`, `tuxedoKill`, `updateEverything`, `verifyCleanIosBuild`, `muteIosSimulatorAudio`
 
 ## Common Options
 
@@ -213,7 +213,7 @@ All actions support these options:
 | `runAllTests` | 1 hour |
 | `runElectronTests` | 30 minutes |
 | `runPlaywrightTests` | 30 minutes |
-| `verifyBinaryGuardrails` | 5 minutes |
+| `verifyFileGuardrails` | 5 minutes |
 | `runAndroid` | 1.5 hours |
 | `runIos` | 1.5 hours |
 | `runIpad` | 1.5 hours |
@@ -239,7 +239,7 @@ All actions support these options:
 
 | Class | Actions |
 | ----- | ------- |
-| `safe_read` | `checkBinaryFiles`, `ciImpact`, `verifyBinaryGuardrails` |
+| `safe_read` | `checkBinaryFiles`, `ciImpact`, `verifyFileGuardrails` |
 | `safe_write_local` | `analyzeBundle`, `copyTestFilesAndroid`, `copyTestFilesIos`, `runImpactedQuality`, `runImpactedTests`, `runAllTests`, `runElectronTests`, `runPlaywrightTests`, `runAndroid`, `runIos`, `runIpad`, `runElectron`, `runMaestroAndroidTests`, `runMaestroIosTests`, `setupPostgresDev`, `setupSerenaMcp`, `setupTuxedoRepos`, `toggleAndroidKeyboard`, `tuxedo`, `tuxedoKill`, `updateEverything`, `verifyCleanIosBuild`, `muteIosSimulatorAudio` |
 | `safe_write_remote` | `syncCliAuth` |
 

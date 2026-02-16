@@ -160,13 +160,13 @@ If conflicts are on the exact same lines and truly incompatible, abort and ask f
 
 - Do not commit plain JavaScript files (`.js`, `.mjs`, `.cjs`, `.jsx`) to the repo.
 - Use TypeScript files (`.ts`, `.tsx`) instead.
-- JavaScript guardrails run in `pre-push` and CI via `scripts/checkJs.sh`.
+- JavaScript guardrails run in `pre-push` and CI via `scripts/preen/checkJs.sh`.
 
 ## Circular Imports Policy
 
 - Do not introduce circular import cycles between modules.
 - Circular imports cause runtime errors, undefined values, and bundler warnings.
-- Guardrails run in `pre-push` and CI via `scripts/checkCircularImports.sh`.
+- Guardrails run in `pre-push` and CI via `scripts/preen/checkCircularImports.sh`.
 - To fix cycles: extract shared types/constants to a separate module, or restructure module boundaries.
 
 ## Node Version Management Policy
