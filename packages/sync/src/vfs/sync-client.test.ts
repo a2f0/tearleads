@@ -218,6 +218,36 @@ function toStageCodeReplicaSignatures(
   });
 }
 
+interface ObservedPullPage {
+  requestCursor: { changedAt: string; changeId: string } | null;
+  items: VfsCrdtSyncItem[];
+  hasMore: boolean;
+  nextCursor: { changedAt: string; changeId: string } | null;
+}
+
+function createPullRecordingTransport(input: {
+  baseTransport: VfsCrdtSyncTransport;
+  observedPulls: ObservedPullPage[];
+}): VfsCrdtSyncTransport {
+  return {
+    pushOperations: (pushInput) =>
+      input.baseTransport.pushOperations(pushInput),
+    pullOperations: async (pullInput) => {
+      const response = await input.baseTransport.pullOperations(pullInput);
+      input.observedPulls.push({
+        requestCursor: pullInput.cursor ? { ...pullInput.cursor } : null,
+        items: response.items.map((item) => ({ ...item })),
+        hasMore: response.hasMore,
+        nextCursor: response.nextCursor ? { ...response.nextCursor } : null
+      });
+      return response;
+    },
+    reconcileState: input.baseTransport.reconcileState
+      ? (reconcileInput) => input.baseTransport.reconcileState(reconcileInput)
+      : undefined
+  };
+}
+
 function readForwardContainerSignatures(input: {
   client: VfsBackgroundSyncClient;
   seedCursor: {
@@ -6410,29 +6440,11 @@ describe('VfsBackgroundSyncClient', () => {
       errorMessage: 'expected mixed pre-restart replay seed cursor'
     });
 
-    const observedPulls: Array<{
-      requestCursor: { changedAt: string; changeId: string } | null;
-      items: VfsCrdtSyncItem[];
-      hasMore: boolean;
-      nextCursor: { changedAt: string; changeId: string } | null;
-    }> = [];
-    const baseDesktopTransport: VfsCrdtSyncTransport = desktopTransport;
-    const observingDesktopTransport: VfsCrdtSyncTransport = {
-      pushOperations: (input) => baseDesktopTransport.pushOperations(input),
-      pullOperations: async (input) => {
-        const response = await baseDesktopTransport.pullOperations(input);
-        observedPulls.push({
-          requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item })),
-          hasMore: response.hasMore,
-          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
-        });
-        return response;
-      },
-      reconcileState: baseDesktopTransport.reconcileState
-        ? (input) => baseDesktopTransport.reconcileState(input)
-        : undefined
-    };
+    const observedPulls: ObservedPullPage[] = [];
+    const observingDesktopTransport = createPullRecordingTransport({
+      baseTransport: desktopTransport,
+      observedPulls
+    });
 
     const resumedDesktop = new VfsBackgroundSyncClient(
       'user-1',
@@ -6570,29 +6582,11 @@ describe('VfsBackgroundSyncClient', () => {
       errorMessage: 'expected multi-replica pre-restart replay seed cursor'
     });
 
-    const observedPulls: Array<{
-      requestCursor: { changedAt: string; changeId: string } | null;
-      items: VfsCrdtSyncItem[];
-      hasMore: boolean;
-      nextCursor: { changedAt: string; changeId: string } | null;
-    }> = [];
-    const baseDesktopTransport: VfsCrdtSyncTransport = desktopTransport;
-    const observingDesktopTransport: VfsCrdtSyncTransport = {
-      pushOperations: (input) => baseDesktopTransport.pushOperations(input),
-      pullOperations: async (input) => {
-        const response = await baseDesktopTransport.pullOperations(input);
-        observedPulls.push({
-          requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item })),
-          hasMore: response.hasMore,
-          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
-        });
-        return response;
-      },
-      reconcileState: baseDesktopTransport.reconcileState
-        ? (input) => baseDesktopTransport.reconcileState(input)
-        : undefined
-    };
+    const observedPulls: ObservedPullPage[] = [];
+    const observingDesktopTransport = createPullRecordingTransport({
+      baseTransport: desktopTransport,
+      observedPulls
+    });
 
     const resumedDesktop = new VfsBackgroundSyncClient(
       'user-1',
@@ -6731,29 +6725,11 @@ describe('VfsBackgroundSyncClient', () => {
       errorMessage: 'expected replay seed cursor before restart cycles'
     });
 
-    const observedPulls: Array<{
-      requestCursor: { changedAt: string; changeId: string } | null;
-      items: VfsCrdtSyncItem[];
-      hasMore: boolean;
-      nextCursor: { changedAt: string; changeId: string } | null;
-    }> = [];
-    const baseDesktopTransport: VfsCrdtSyncTransport = desktopTransport;
-    const observingDesktopTransport: VfsCrdtSyncTransport = {
-      pushOperations: (input) => baseDesktopTransport.pushOperations(input),
-      pullOperations: async (input) => {
-        const response = await baseDesktopTransport.pullOperations(input);
-        observedPulls.push({
-          requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item })),
-          hasMore: response.hasMore,
-          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
-        });
-        return response;
-      },
-      reconcileState: baseDesktopTransport.reconcileState
-        ? (input) => baseDesktopTransport.reconcileState(input)
-        : undefined
-    };
+    const observedPulls: ObservedPullPage[] = [];
+    const observingDesktopTransport = createPullRecordingTransport({
+      baseTransport: desktopTransport,
+      observedPulls
+    });
 
     const resumedDesktop = new VfsBackgroundSyncClient(
       'user-1',
@@ -6917,29 +6893,11 @@ describe('VfsBackgroundSyncClient', () => {
       errorMessage: 'expected replay seed cursor before handoff cycles'
     });
 
-    const observedPulls: Array<{
-      requestCursor: { changedAt: string; changeId: string } | null;
-      items: VfsCrdtSyncItem[];
-      hasMore: boolean;
-      nextCursor: { changedAt: string; changeId: string } | null;
-    }> = [];
-    const baseDesktopTransport: VfsCrdtSyncTransport = desktopTransport;
-    const observingDesktopTransport: VfsCrdtSyncTransport = {
-      pushOperations: (input) => baseDesktopTransport.pushOperations(input),
-      pullOperations: async (input) => {
-        const response = await baseDesktopTransport.pullOperations(input);
-        observedPulls.push({
-          requestCursor: input.cursor ? { ...input.cursor } : null,
-          items: response.items.map((item) => ({ ...item })),
-          hasMore: response.hasMore,
-          nextCursor: response.nextCursor ? { ...response.nextCursor } : null
-        });
-        return response;
-      },
-      reconcileState: baseDesktopTransport.reconcileState
-        ? (input) => baseDesktopTransport.reconcileState(input)
-        : undefined
-    };
+    const observedPulls: ObservedPullPage[] = [];
+    const observingDesktopTransport = createPullRecordingTransport({
+      baseTransport: desktopTransport,
+      observedPulls
+    });
 
     const resumedDesktop = new VfsBackgroundSyncClient(
       'user-1',
