@@ -28,7 +28,7 @@ variable "SERVER_USERNAME" {
 variable "SERVER_TYPE" {
   description = "Hetzner server type"
   type        = string
-  default     = "cx22"
+  default     = "cx23"
 }
 
 variable "ALLOWED_SSH_IPS" {
