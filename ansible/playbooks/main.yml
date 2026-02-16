@@ -5,7 +5,7 @@
 
   vars:
     ansible_python_interpreter: /usr/bin/python3
-    domain: "{{ lookup('env', 'TF_VAR_domain') | mandatory('TF_VAR_domain environment variable is required') }}"
+    domain: "{{ lookup('env', 'TF_VAR_STAGING_DOMAIN') | mandatory('TF_VAR_STAGING_DOMAIN environment variable is required') }}"
     certbot_email: "{{ lookup('env', 'CERTBOT_EMAIL') | mandatory('CERTBOT_EMAIL environment variable is required') }}"
     deploy_public_key: "{{ lookup('pipe', 'ssh-keygen -y -f ' ~ playbook_dir ~ '/../../.secrets/deploy.key') }}"
     nodejs_major_version: 24

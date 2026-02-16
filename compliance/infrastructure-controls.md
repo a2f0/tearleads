@@ -23,6 +23,13 @@ This document maps infrastructure compliance sentinels to their implementations 
 | `TL-AUTH-001` | Brute-Force Protection | `ansible/playbooks/templates/fail2ban-sshd.conf.j2` | Fail2ban SSH jail with progressive bans |
 | `TL-SVC-001` | API Service Sandboxing | `ansible/playbooks/templates/tearleads-api.service.j2` | Systemd hardening (namespaces, syscall filters, capabilities) |
 | `TL-SVC-002` | SMTP Service Sandboxing | `ansible/playbooks/templates/tearleads-smtp-listener.service.j2` | Systemd hardening with CAP_NET_BIND_SERVICE |
+| `TL-CR-001` | Container Registry | `terraform/modules/aws-ci-artifacts/main.tf` | ECR repositories with encryption, scan-on-push, lifecycle policies |
+| `TL-CR-002` | Container Image Scanning | `terraform/modules/aws-ci-artifacts/main.tf` | ECR scan-on-push for vulnerability detection |
+| `TL-CR-003` | Container Pull Secrets | `terraform/stacks/*/k8s/scripts/setup-ecr-secret.sh` | K8s registry authentication with rotating ECR tokens |
+| `TL-CR-004` | Container Lifecycle | `terraform/modules/aws-ci-artifacts/main.tf` | ECR lifecycle policies for image retention and cleanup |
+| `TL-DR-001` | State Isolation | `terraform/stacks/*/terraform.tf` | Per-stack S3 backend with unique state keys |
+| `TL-DR-002` | State Locking | `terraform/stacks/bootstrap/main.tf` | DynamoDB state locking for concurrent access protection |
+| `TL-DR-003` | Container Recovery | `terraform/docs/container-deployments.md` | Documented build/push/deploy workflow for rapid recovery |
 
 ## Framework Mapping
 
@@ -40,6 +47,11 @@ These controls support the following framework requirements:
 | `TL-KERN-001` | CC6.1 | Kernel hardening prevents privilege escalation |
 | `TL-AUTH-001` | CC6.1 | Brute-force protection for authentication |
 | `TL-SVC-001`, `TL-SVC-002` | CC6.1 | Service isolation via systemd sandboxing |
+| `TL-CR-001`, `TL-CR-003` | CC6.1, CC6.2 | Container registry access control and authentication |
+| `TL-CR-002` | CC7.1 | Container vulnerability scanning on push |
+| `TL-CR-004` | CC6.5 | Container image lifecycle and disposal |
+| `TL-DR-001`, `TL-DR-002` | CC9.1, A1.2 | Infrastructure state protection and recovery |
+| `TL-DR-003` | A1.2, A1.3 | Container deployment recovery procedures |
 
 ### NIST SP 800-53
 
@@ -53,6 +65,11 @@ These controls support the following framework requirements:
 | `TL-KERN-001` | SC-5, SI-16 | Denial of service protection, memory protection |
 | `TL-AUTH-001` | AC-7 | Unsuccessful logon attempts handling |
 | `TL-SVC-001`, `TL-SVC-002` | SC-7, AC-6 | Boundary protection, least privilege |
+| `TL-CR-001`, `TL-CR-003` | AC-2, IA-5 | Container registry account management, authenticator management |
+| `TL-CR-002` | RA-5, SI-3 | Container vulnerability scanning, malicious code protection |
+| `TL-CR-004` | MP-6 | Container image media sanitization |
+| `TL-DR-001`, `TL-DR-002` | CP-9, CP-10 | Infrastructure state backup and recovery |
+| `TL-DR-003` | CP-10, IR-4 | Container deployment recovery, incident handling |
 
 ### HIPAA Security Rule
 
@@ -64,6 +81,9 @@ These controls support the following framework requirements:
 | `TL-CRYPTO-004` | 164.312(a)(2)(iv), 164.312(e)(2)(ii) | Encryption mechanism |
 | `TL-AUTH-001` | 164.312(d) | Person or entity authentication |
 | `TL-SVC-001`, `TL-SVC-002` | 164.312(a)(1) | Access control |
+| `TL-CR-001`, `TL-CR-003` | 164.312(a)(1), 164.312(d) | Container registry access control, authentication |
+| `TL-CR-002` | 164.308(a)(1)(ii)(D) | Container security scanning (information system activity review) |
+| `TL-DR-001`, `TL-DR-002`, `TL-DR-003` | 164.308(a)(7)(ii)(A), 164.308(a)(7)(ii)(B) | Disaster recovery plan, data backup plan |
 
 ## Evidence Collection
 
@@ -107,4 +127,47 @@ ssh user@host 'systemctl show tearleads-api --property=NoNewPrivileges,ProtectSy
 
 # Verify journald retention
 ssh user@host 'cat /etc/systemd/journald.conf.d/compliance.conf'
+```
+
+### Container Registry Evidence
+
+ECR container registry compliance can be verified via AWS CLI and Terraform.
+Replace `<env>` with `staging` or `prod` as appropriate:
+
+```bash
+# Verify ECR repositories exist with encryption (TL-CR-001)
+# For staging:
+aws ecr describe-repositories --repository-names tearleads-staging/api tearleads-staging/client tearleads-staging/website
+# For prod:
+aws ecr describe-repositories --repository-names tearleads-prod/api tearleads-prod/client tearleads-prod/website
+
+# Verify scan-on-push is enabled for all repos (TL-CR-002)
+aws ecr describe-repositories --query 'repositories[*].{name:repositoryName,scanOnPush:imageScanningConfiguration.scanOnPush}'
+
+# Verify lifecycle policies exist for all repos (TL-CR-004)
+for repo in api client website; do
+  aws ecr get-lifecycle-policy --repository-name "tearleads-<env>/$repo" 2>/dev/null && echo "OK: $repo" || echo "MISSING: $repo"
+done
+
+# Verify K8s ECR secret exists (TL-CR-003)
+kubectl get secret ecr-registry -n tearleads -o jsonpath='{.type}'
+```
+
+### Disaster Recovery Evidence
+
+Infrastructure state and recovery procedures can be verified:
+
+```bash
+# Verify S3 state bucket exists with versioning (TL-DR-001)
+aws s3api get-bucket-versioning --bucket tearleads-terraform-state
+
+# Verify DynamoDB lock table exists (TL-DR-002)
+aws dynamodb describe-table --table-name tearleads-terraform-locks --query 'Table.{name:TableName,status:TableStatus}'
+
+# Verify state isolation - each stack has unique key
+grep -r "key.*=" terraform/stacks/*/terraform.tf
+
+# Container recovery procedure test (TL-DR-003)
+./scripts/buildContainers.sh staging --no-push  # Verify build works
+./terraform/stacks/staging/k8s/scripts/setup-ecr-secret.sh  # Verify auth works
 ```

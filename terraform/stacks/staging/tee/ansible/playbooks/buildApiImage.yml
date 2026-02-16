@@ -1,0 +1,130 @@
+---
+- name: Provision a VM image with tee-api preinstalled
+  hosts: all
+  become: true
+
+  vars:
+    ansible_python_interpreter: /usr/bin/python3
+    nodejs_major_version: 22
+    tee_api_user: teeapi
+    tee_api_group: teeapi
+    tee_api_install_dir: /opt/tee-api
+    tee_api_config_dir: /etc/tee-api
+    tee_api_data_dir: /var/lib/tee-api
+    tee_api_bundle_src: "{{ lookup('env', 'TEE_API_BUNDLE_SRC') | default(playbook_dir ~ '/../../../packages/tee-api/dist/server.cjs', true) }}"
+    tee_api_key_id: "{{ lookup('env', 'TEE_API_SIGNING_KEY_ID') | default('tee-primary', true) }}"
+    tee_api_port: "{{ lookup('env', 'TEE_API_PORT') | default('8080', true) }}"
+    tee_api_host: "{{ lookup('env', 'TEE_API_HOST') | default('0.0.0.0', true) }}"
+    tee_api_transport_mode: "{{ lookup('env', 'TEE_API_TRANSPORT_MODE') | default('auto', true) }}"
+    tee_api_proof_ttl_seconds: "{{ lookup('env', 'TEE_API_PROOF_TTL_SECONDS') | default('30', true) }}"
+
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install baseline packages
+      ansible.builtin.apt:
+        name:
+          - ca-certificates
+          - curl
+          - gnupg
+          - xz-utils
+        state: present
+
+    - name: Create keyrings directory
+      ansible.builtin.file:
+        path: /etc/apt/keyrings
+        state: directory
+        mode: "0755"
+
+    - name: Install NodeSource signing key
+      ansible.builtin.shell:
+        cmd: set -o pipefail && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key | gpg --dearmor -o /etc/apt/keyrings/nodesource.gpg
+        executable: /bin/bash
+        creates: /etc/apt/keyrings/nodesource.gpg
+
+    - name: Set permissions on NodeSource signing key
+      ansible.builtin.file:
+        path: /etc/apt/keyrings/nodesource.gpg
+        mode: "0644"
+
+    - name: Add NodeSource apt repository
+      ansible.builtin.apt_repository:
+        repo: "deb [signed-by=/etc/apt/keyrings/nodesource.gpg] https://deb.nodesource.com/node_{{ nodejs_major_version }}.x nodistro main"
+        state: present
+        filename: nodesource
+
+    - name: Install Node.js runtime
+      ansible.builtin.apt:
+        name: nodejs
+        state: present
+        update_cache: true
+
+    - name: Ensure tee-api group exists
+      ansible.builtin.group:
+        name: "{{ tee_api_group }}"
+        system: true
+
+    - name: Ensure tee-api user exists
+      ansible.builtin.user:
+        name: "{{ tee_api_user }}"
+        group: "{{ tee_api_group }}"
+        system: true
+        create_home: false
+        shell: /usr/sbin/nologin
+
+    - name: Create tee-api directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: directory
+        owner: "{{ item.owner }}"
+        group: "{{ item.group }}"
+        mode: "{{ item.mode }}"
+      loop:
+        - path: "{{ tee_api_install_dir }}"
+          owner: root
+          group: root
+          mode: "0755"
+        - path: "{{ tee_api_config_dir }}"
+          owner: root
+          group: "{{ tee_api_group }}"
+          mode: "0750"
+        - path: "{{ tee_api_data_dir }}"
+          owner: "{{ tee_api_user }}"
+          group: "{{ tee_api_group }}"
+          mode: "0750"
+
+    - name: Install tee-api bundle
+      ansible.builtin.copy:
+        src: "{{ tee_api_bundle_src }}"
+        dest: "{{ tee_api_install_dir }}/server.cjs"
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Install tee-api environment file
+      ansible.builtin.template:
+        src: templates/tee-api.env.j2
+        dest: "{{ tee_api_config_dir }}/tee-api.env"
+        owner: root
+        group: "{{ tee_api_group }}"
+        mode: "0640"
+
+    - name: Install tee-api systemd unit
+      ansible.builtin.template:
+        src: templates/tee-api.service.j2
+        dest: /etc/systemd/system/tee-api.service
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Reload systemd daemon
+      ansible.builtin.systemd:
+        daemon_reload: true
+
+    - name: Enable tee-api service
+      ansible.builtin.systemd:
+        name: tee-api
+        enabled: true

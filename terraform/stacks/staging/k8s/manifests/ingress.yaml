@@ -1,0 +1,50 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: tearleads-ingress
+  namespace: tearleads
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - k8s.DOMAIN_PLACEHOLDER
+        - app.k8s.DOMAIN_PLACEHOLDER
+        - api.k8s.DOMAIN_PLACEHOLDER
+      secretName: tearleads-tls
+  rules:
+    # Website at root domain: k8s.example.com
+    - host: k8s.DOMAIN_PLACEHOLDER
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: website
+                port:
+                  number: 80
+    # Client app: app.k8s.example.com
+    - host: app.k8s.DOMAIN_PLACEHOLDER
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: client
+                port:
+                  number: 80
+    # API: api.k8s.example.com
+    - host: api.k8s.DOMAIN_PLACEHOLDER
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api
+                port:
+                  number: 5001

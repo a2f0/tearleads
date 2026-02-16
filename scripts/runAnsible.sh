@@ -7,6 +7,6 @@ case $SCRIPT_PATH in
 esac
 SCRIPT_DIR=$(cd -- "$(dirname -- "${SCRIPT_PATH:-$0}")" && pwd -P)
 
-"$SCRIPT_DIR/../terraform/scripts/init.sh"
+"$SCRIPT_DIR/../terraform/stacks/staging/dev-server/scripts/init.sh"
 cd "$SCRIPT_DIR/../ansible/scripts"
 ./run.sh

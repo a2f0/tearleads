@@ -237,7 +237,12 @@ function shouldRunRubocop(changedFiles: string[]): boolean {
 }
 
 function shouldRunAnsibleLint(changedFiles: string[]): boolean {
-  return changedFiles.some((f) => f.startsWith('ansible/') || f.startsWith('tee/ansible/'));
+  return changedFiles.some(
+    (f) =>
+      f.startsWith('ansible/') ||
+      f.startsWith('terraform/stacks/staging/tee/ansible/') ||
+      f.startsWith('terraform/stacks/prod/tee/ansible/')
+  );
 }
 
 function ensureCommandAvailable(cmd: string, help: string): void {

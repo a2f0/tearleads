@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tearleads-config
+  namespace: tearleads
+data:
+  NODE_ENV: "production"
+  PORT: "5001"
+  # RDS endpoint - get from: terraform -chdir=terraform/stacks/prod/rds output address
+  POSTGRES_HOST: "tearleads-prod.xxxxx.us-east-1.rds.amazonaws.com"
+  POSTGRES_PORT: "5432"
+  POSTGRES_USER: "postgres"
+  POSTGRES_DATABASE: "tearleads"
+  REDIS_URL: "redis://redis:6379"
