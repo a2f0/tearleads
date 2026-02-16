@@ -48,6 +48,7 @@ If checks fail, STOP and sync before running preen:
 | `preen-test-flakiness` | Reduce flaky tests and nondeterministic waiting patterns |
 | `preen-msw-parity` | Audit MSW handlers against API routes and improve test coverage assertions |
 | `preen-skill-tooling` | Validate skills are wired into agentTool.ts and scriptTool.ts |
+| `preen-skill-parity` | Ensure skill definitions are consistent across OpenCode, Codex, Gemini, and Claude |
 | `preen-compliance-docs` | Audit compliance documentation for gaps and cross-framework parity |
 | `preen-package-docs` | Audit and generate missing package README.md files |
 | `preen-review-instructions` | Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md) |
@@ -87,6 +88,7 @@ CATEGORIES=(
   "preen-test-flakiness"
   "preen-msw-parity"
   "preen-skill-tooling"
+  "preen-skill-parity"
   "preen-compliance-docs"
   "preen-package-docs"
   "preen-review-instructions"
@@ -363,6 +365,9 @@ run_discovery() {
     preen-skill-tooling)
       ./scripts/checkPreenEcosystem.sh --summary
       ;;
+    preen-skill-parity)
+      ./scripts/checkSkillParity.sh --summary
+      ;;
     preen-compliance-docs)
       for fw in HIPAA NIST.SP.800-53 SOC2; do
         echo "=== $fw ==="
@@ -470,6 +475,9 @@ metric_count() {
       ;;
     preen-skill-tooling)
       ./scripts/checkPreenEcosystem.sh --count-issues
+      ;;
+    preen-skill-parity)
+      ./scripts/checkSkillParity.sh --count-issues
       ;;
     preen-compliance-docs)
       gaps=0
@@ -638,6 +646,7 @@ Before opening a PR, record measurable improvement. Example metrics:
 - Flaky-pattern matches in tests
 - MSW parity risk count (missing + low-confidence)
 - Skill parity/tooling issues
+- Cross-agent skill parity issues
 - Compliance documentation gaps (missing triads + unnumbered files)
 - Packages missing README.md
 - Review instruction gaps (missing sections + Gemini drift)
@@ -686,6 +695,7 @@ PR_URL=$(gh pr create --repo "$REPO" --title "refactor(preen): stateful single-p
 - [ ] Test flakiness hardening
 - [ ] MSW/API parity and request-assertion wiring
 - [ ] Skill tooling validation
+- [ ] Skill parity across agents
 - [ ] Compliance documentation gaps and parity
 - [ ] Package documentation (README.md files)
 - [ ] Review instruction completeness and sync

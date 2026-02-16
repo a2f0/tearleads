@@ -1,6 +1,3 @@
----
-description: Preen MSW parity
----
 
 # Preen MSW Parity
 
@@ -79,5 +76,5 @@ pnpm --filter @tearleads/client exec vitest run src/test/msw/msw.test.ts src/lib
 
 Then run:
 
-- `/commit-and-push`
-- `/enter-merge-queue`
+- `$commit-and-push`
+- `$enter-merge-queue`

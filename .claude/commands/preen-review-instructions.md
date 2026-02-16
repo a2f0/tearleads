@@ -1,6 +1,3 @@
----
-description: Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md)
----
 
 # Preen Review Instructions
 
@@ -161,7 +158,7 @@ $INSTRUCTIONS
 
 When security or compliance guidance is missing from review instructions:
 
-1. **Check `/preen-api-security` skill** for security patterns to document
+1. **Check `$preen-api-security` skill** for security patterns to document
 2. **Check `compliance/infrastructure-controls.md`** for sentinel patterns
 3. **Add security section** covering OWASP top 10 awareness
 4. **Add compliance section** explaining when to update compliance docs
@@ -213,7 +210,7 @@ When new security controls need compliance documentation:
 4. **Update REVIEW.md**: Add missing sections/patterns
 5. **Sync .gemini/INSTRUCTIONS.md**: Update to match
 6. **Validate**: Run discovery again to confirm coverage
-7. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`
+7. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`
 
 If no issues found during discovery, do not create a branch.
 
@@ -234,7 +231,7 @@ If no issues found during discovery, do not create a branch.
 - Compliance documentation workflow documented (sentinel system, document triads)
 - OWASP Top 10 awareness included
 - Instructions for adding new security controls and sentinels present
-- Cross-references to `compliance/infrastructure-controls.md` and `/preen-compliance-docs`
+- Cross-references to `compliance/infrastructure-controls.md` and `$preen-compliance-docs`
 
 ## Metric
 

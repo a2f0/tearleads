@@ -1,6 +1,3 @@
----
-description: Proactively find and fix database performance issues (N+1 queries, inefficient joins, index gaps) with real-db regression tests
----
 
 # Preen Database Performance
 
@@ -153,7 +150,7 @@ This is the committed state: real-db regression test plus improved baseline.
 4. **Fix**: Remove N+1 or inefficient join pattern with minimal behavior change.
 5. **Baseline update**: Re-run, then update test expectations to the new post-fix baseline.
 6. **Validate**: Run impacted tests and any directly affected suites.
-7. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`.
+7. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
 
 If no reproducible hotspot is found, do not create a branch.
 

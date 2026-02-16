@@ -1,6 +1,3 @@
----
-description: Preen Window Consistency (project)
----
 
 # Preen Window Consistency
 
@@ -245,7 +242,7 @@ Key principles:
 7. **Update consumers**: Update all affected window packages to use the new/existing abstractions
 8. **Tests**: Ensure existing tests pass; add tests for new window-manager code
 9. **Validate**: Run lint, type-check, and relevant tests
-10. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`
+10. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`
 
 If no high-value candidate is found, report findings and stop.
 

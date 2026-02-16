@@ -1,6 +1,3 @@
----
-description: Preen TypeScript Types
----
 
 # Preen TypeScript Types
 
@@ -229,7 +226,7 @@ export function assertIsTypeName(value: unknown): asserts value is TypeName {
 5. **Add type guards**: Create reusable type guards for complex types.
 6. **Validate**: Run `pnpm typecheck` and `pnpm lint` to ensure no regressions.
 7. **Run tests**: Ensure all tests still pass.
-8. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`.
+8. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
 
 If no high-value fixes were found during discovery, do not create a branch or run commit/merge workflows.
 

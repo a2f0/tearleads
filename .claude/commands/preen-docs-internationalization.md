@@ -1,6 +1,3 @@
----
-description: Preen documentation internationalization across all languages (project)
----
 
 # Preen Docs Internationalization
 

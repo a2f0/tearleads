@@ -1,49 +1,42 @@
----
-description: Request code review from another AI agent (Codex or Claude Code)
----
 
 # Cross-Agent Review
 
-Request a code review from another AI agent. This enables one agent (e.g., Claude Code) to solicit a review from another agent (e.g., Codex), or request a fresh self-review.
+Request a code review from another AI agent. This enables Codex to solicit a review from Claude Code, or request a fresh self-review.
 
 ## Arguments
 
-- `$ARGUMENTS` - Optional: `codex` or `claude` (defaults to `codex`, i.e. the other agent when invoked from Claude Code)
+- First argument: Optional - `claude` or `codex` (defaults to `claude`, i.e. the other agent when invoked from Codex)
 
 ## Prerequisites
 
 - The underlying scripts must exist: `./scripts/agents/tooling/agentTool.ts`
-- For Codex reviews: `OPENAI_API_KEY` must be configured
 - For Claude Code reviews: Claude CLI must be authenticated
+- For Codex reviews: `OPENAI_API_KEY` must be configured
 - Run from the repository root, or resolve paths from `git rev-parse --show-toplevel`
 
-## Steps
+## Setup
 
-1. **Get PR info**: Verify we're on a PR branch:
+Verify we're on a PR branch:
 
-   ```bash
-   BRANCH=$(git rev-parse --abbrev-ref HEAD)
-   REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
-   PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO" 2>/dev/null || echo "")
-   ROOT_DIR=$(git rev-parse --show-toplevel)
-   AGENT_TOOL="$ROOT_DIR/scripts/agents/tooling/agentTool.ts"
-   [ -f "$AGENT_TOOL" ] || { echo "Error: agentTool.ts not found at $AGENT_TOOL" >&2; exit 1; }
-   ```
+```bash
+BRANCH=$(git rev-parse --abbrev-ref HEAD)
+REPO=$(gh repo view --json nameWithOwner -q .nameWithOwner)
+PR_NUMBER=$(gh pr list --head "$BRANCH" --state open --json number --jq '.[0].number' -R "$REPO" 2>/dev/null || echo "")
+ROOT_DIR=$(git rev-parse --show-toplevel)
+AGENT_TOOL="$ROOT_DIR/scripts/agents/tooling/agentTool.ts"
+[ -f "$AGENT_TOOL" ] || { echo "Error: agentTool.ts not found at $AGENT_TOOL" >&2; exit 1; }
+```
 
-   If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
+If `$BRANCH` is `main` or `$PR_NUMBER` is empty, report the error and stop.
 
-2. **Determine agent**: Parse the argument:
+## Workflow
 
-   - If `$ARGUMENTS` is `claude`: use Claude Code
-   - Otherwise: use Codex (default)
+1. **Determine agent**: Parse the argument:
 
-3. **Run the review**: Execute the appropriate agentTool command.
+   - If argument is `codex`: use Codex (self-review)
+   - Otherwise: use Claude Code (default for Codex invoking this skill)
 
-   **For Codex review**:
-
-   ```bash
-   "$AGENT_TOOL" solicitCodexReview
-   ```
+2. **Run the review**: Execute the appropriate agentTool command.
 
    **For Claude Code review**:
 
@@ -51,18 +44,24 @@ Request a code review from another AI agent. This enables one agent (e.g., Claud
    "$AGENT_TOOL" solicitClaudeCodeReview
    ```
 
+   **For Codex review**:
+
+   ```bash
+   "$AGENT_TOOL" solicitCodexReview
+   ```
+
    If the command fails, report the error to the user and stop.
 
-4. **Report results**: Output the review results to the user. Include:
+3. **Report results**: Output the review results including:
    - Which agent performed the review
    - The PR number and branch
    - The review findings
 
 ## Use Cases
 
-- **Fallback review**: When Gemini quota is exhausted, invoke Codex or Claude as a fallback
+- **Fallback review**: When Gemini quota is exhausted, invoke Claude or Codex as a fallback
 - **Second opinion**: Get a review from a different agent for validation
-- **Self-review**: Claude can request a fresh self-review
+- **Self-review**: Request a fresh self-review
 
 ## Notes
 

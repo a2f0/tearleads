@@ -1,6 +1,3 @@
----
-description: Preen Split React Components
----
 
 # Preen Split React Components
 
@@ -72,7 +69,7 @@ src/features/billing/index.ts
 9. **Tests (CRITICAL)**: When extracting code into new files, you MUST create or update tests to maintain coverage thresholds. Splitting code without tests causes CI failures.
 10. **Coverage check**: Run `pnpm --filter @tearleads/<package> test:coverage` for the affected package. DO NOT proceed if coverage thresholds fail.
 11. **Validate**: Run lint, type-check, and relevant tests to ensure no regressions.
-12. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`.
+12. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
 
 If no high-value split was found during discovery, do not create a branch or run commit/merge workflows.
 

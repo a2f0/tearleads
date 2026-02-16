@@ -1,10 +1,9 @@
----
-description: Refresh Workspace
----
 
 # Refresh Workspace
 
 Run the workspace refresh script to update after a PR is merged.
+
+## Workflow
 
 ```bash
 ./scripts/agents/tooling/agentTool.ts refresh
@@ -16,7 +15,7 @@ This script:
 - Installs pnpm dependencies
 - Builds TypeScript packages
 - Installs Ruby gems
-- Installs CocoaPods using the committed `Podfile.lock`
+- Clean installs CocoaPods (removes `Pods/` and `Podfile.lock`, runs `pod install --repo-update`)
 - Clears queued status (resets VS Code title and tmux window)
 
-Note: Refresh uses the committed `Podfile.lock` to restore to the known state. Clean CocoaPods installs (which regenerate `Podfile.lock`) belong in `/update-everything` when dependencies change.
+The clean CocoaPods install ensures fresh native dependencies and prevents stale xcframework caches from causing build failures when native libraries are updated in merged PRs.

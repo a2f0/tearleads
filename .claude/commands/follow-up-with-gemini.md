@@ -1,6 +1,3 @@
----
-description: Respond to Gemini's comments after resolving and pushing feedback.
----
 
 # Follow Up With Gemini
 
@@ -46,14 +43,14 @@ gh api graphql -f query='mutation { addPullRequestReview(...) }'
 
 If at any point Gemini responds with quota exhaustion ("You have reached your daily quota limit"):
 
-- Fall back to Codex review:
+- Fall back to Claude Code review:
 
   ```bash
-  ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+  ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
   ```
 
 - Skip waiting for Gemini's response
-- Return early with a message that Codex was used as fallback
+- Return early with a message that Claude Code was used as fallback
 
 ## Steps
 

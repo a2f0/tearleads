@@ -1,6 +1,4 @@
----
-description: Preen test flakiness and nondeterminism
----
+
 
 # Preen Test Flakiness
 
@@ -104,7 +102,7 @@ vi.setSystemTime(new Date('2026-01-01T00:00:00Z'));
 4. **Implement**: Replace nondeterministic pattern with deterministic logic.
 5. **Validate**: Run impacted tests repeatedly for confidence.
 6. **Document**: Record before/after flake-pattern count.
-7. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`.
+7. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
 
 If no high-value fix is found, do not create a branch.
 

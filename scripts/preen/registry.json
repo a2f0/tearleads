@@ -146,6 +146,17 @@
       "metricCountCommand": "./scripts/checkPreenEcosystem.sh --count-issues"
     },
     {
+      "id": "preen-skill-parity",
+      "purpose": "Ensure skill definitions are consistent across OpenCode, Codex, Gemini, and Claude",
+      "checklistLabel": "Skill parity across agents",
+      "qualityMetric": "Cross-agent skill parity issues",
+      "security": false,
+      "discoveryCommands": [
+        "./scripts/checkSkillParity.sh --summary"
+      ],
+      "metricCountCommand": "./scripts/checkSkillParity.sh --count-issues"
+    },
+    {
       "id": "preen-compliance-docs",
       "purpose": "Audit compliance documentation for gaps and cross-framework parity",
       "checklistLabel": "Compliance documentation gaps and parity",

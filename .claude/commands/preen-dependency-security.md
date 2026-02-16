@@ -1,6 +1,4 @@
----
-description: Preen dependency security and version hygiene
----
+
 
 # Preen Dependency Security
 
@@ -121,7 +119,7 @@ pnpm test >/dev/null
 4. **Implement**: Apply the minimal safe upgrade or override.
 5. **Validate**: Run impacted quality/tests, then broaden if needed.
 6. **Document**: Record before/after metric (for example, high/critical count).
-7. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`.
+7. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
 
 If no high-value fix is found, do not create a branch.
 

@@ -1,36 +1,26 @@
----
-description: Update all dependencies
----
 
-# Update
+# Update Everything
 
-Update all of the dependencies in the `packages` folder and:
+Update all dependencies in the workspace (especially under `packages/`) and verify linting, builds, and tests. Capture and summarize warnings/deprecations.
 
-- Make sure biome issues are fixed.
-- Make sure TypeScript compiles.
-- Make sure unit tests pass.
-- Make sure integration tests pass.
-- Make sure the pnpm lockfile is updated.
-- Make sure all dependencies are pinned.
-- Provide a summary of any warnings / deprecations.
-- Make sure Capacitor's Podfile.lock is sync'd (`cap:sync` should pass).
-- Clean and reinstall CocoaPods to ensure fresh native dependencies (see CocoaPods section below).
-- Update Ruby dependencies in `packages/client` (Gemfile and Gemfile.lock), including fastlane.
-- Automatically sync Node/Electron and Android SDK levels before dependency updates (see Toolchain Sync section below).
-- Update the Gradle wrapper if a new version is available (see Gradle Version Update section below).
-- Make sure Maestro tests pass (both iOS and Android) - **always run in headless mode**.
-- Commit and push changes using `/commit-and-push`.
-- Prepare the PR for merging using `/enter-merge-queue`.
+## Preflight
 
-## Preferred Flow
+- Confirm you are not on `main`; create/switch branches before running updates.
+- Start from a clean `git status` or note existing changes so you do not clobber them.
+- `nvm` must be available in an interactive shell PATH; if missing, stop and report the blocker.
+- Run `nvm install && nvm use` to match `.nvmrc`.
+- Never install or update Node with Homebrew in this workflow.
+- Ensure platform tooling is available (pnpm, bundler, CocoaPods, Android SDK). If something is missing, continue where possible and flag the gap in the final summary.
 
-Use the shared update script:
+## Workflow
+
+Use the shared script to perform the standard update flow:
 
 ```bash
 ./scripts/updateEverything.sh
 ```
 
-The script enforces Node runtime management with `nvm` only (`nvm install && nvm use`) and fails if `nvm` is unavailable in an interactive shell PATH. Do not install/update Node with Homebrew in this flow.
+This now includes `nvm install && nvm use` (hard-fails if `nvm` is unavailable) and an automatic toolchain sync step before dependency updates.
 
 Optional toggles (set to `1` as needed): `SKIP_TOOLCHAIN_SYNC`, `SKIP_TOOLCHAIN_NODE`, `SKIP_TOOLCHAIN_ANDROID`, `SKIP_RUBY`, `SKIP_CAP_SYNC`, `SKIP_POD_CLEAN`, `SKIP_MAESTRO`, `SKIP_TESTS`, `SKIP_BUILD`, `SKIP_LINT`, `SKIP_UPDATE`, `SKIP_INSTALL`.
 
@@ -39,11 +29,15 @@ Additional toolchain controls:
 - `TOOLCHAIN_SYNC_MAX_ANDROID_JUMP=<n>`: limit Android API-level bump in one run (default: `1`)
 - `TOOLCHAIN_SYNC_ALLOW_RUNTIME_MISMATCH=1`: continue even when active `node` runtime differs from updated `.nvmrc`
 
-The script also fails fast if `@capacitor/*` versions in `packages/client/package.json` drift from the resolved versions in `packages/client/ios/App/Podfile.lock`.
+Script exits early on dependency hygiene checks—fix then rerun:
 
-## Toolchain Sync (Automatic)
+- Caret/tilde ranges in `dependencies`/`devDependencies` are blocked. Pin versions where reported.
+- Pinned `peerDependencies` must match `packages/client/package.json` versions. Align the peer versions to the client version before rerunning.
+- `@capacitor/*` versions in `packages/client/package.json` must match the resolved versions in `packages/client/ios/App/Podfile.lock` (when present). Align and rerun sync/pod install if mismatched.
 
-`./scripts/updateEverything.sh` now runs `./scripts/syncToolchainVersions.sh --apply` before dependency updates:
+## Automatic Toolchain Sync
+
+`./scripts/updateEverything.sh` runs `./scripts/syncToolchainVersions.sh --apply` before package updates:
 
 1. **Node/Electron**: reads `electron` from `packages/client/package.json`, resolves its bundled Node version from `https://releases.electronjs.org/releases.json`, then aligns:
    - `.nvmrc`
@@ -51,37 +45,14 @@ The script also fails fast if `@capacitor/*` versions in `packages/client/packag
 2. **Android SDK levels**: reads latest stable platform API from `https://dl.google.com/android/repository/repository2-1.xml`, then bumps:
    - `packages/client/android/variables.gradle` `compileSdkVersion`
    - `packages/client/android/variables.gradle` `targetSdkVersion`
+3. **Ansible playbooks**: uses the Node major version from step 1 (or falls back to `.nvmrc`) to align:
+   - `ansible/playbooks/main.yml` `nodejs_major_version`
+   - `ansible/playbooks/tuxedo.yml` `nodejs_major_version`
 
 Guardrails:
 
 - Android bumps are capped by `TOOLCHAIN_SYNC_MAX_ANDROID_JUMP` to avoid large blind jumps.
 - If Node files are updated and active runtime does not match `.nvmrc`, the toolchain script exits so you can run `nvm use` and rerun.
-
-## CocoaPods Clean Install
-
-When Capacitor plugins update their native iOS dependencies (e.g., xcframeworks like `IONFilesystemLib`), stale CocoaPods caches can cause build failures even when the upstream library is correctly packaged. Symptoms include:
-
-- Swift compiler errors about missing methods that should exist
-- "No such module" errors for vendored frameworks
-- Build failures that don't reproduce on clean machines
-
-The update script performs a clean pod install:
-
-```bash
-cd packages/client/ios/App
-rm -rf Pods Podfile.lock
-pod install --repo-update
-```
-
-This ensures:
-
-1. Fresh pod specs from the CocoaPods trunk repo (`--repo-update`)
-2. No stale cached frameworks or build artifacts
-3. Proper resolution of xcframework Swift interface files
-
-**Important**: The regenerated `Podfile.lock` must be committed along with other dependency changes. Always verify `packages/client/ios/App/Podfile.lock` is staged before committing.
-
-Skip with `SKIP_POD_CLEAN=1` if you need to preserve local pod modifications.
 
 ## Fastlane and Ruby Gems Update
 
@@ -114,157 +85,91 @@ bundle exec fastlane ios build_release --dry_run
 
 **Important**: The `Gemfile.lock` must be committed along with other dependency changes.
 
-## Node.js Version Alignment
+## Node.js Version Alignment (Electron)
 
-Node alignment is now automatic via toolchain sync. For manual fallback, when updating `electron`, ensure Node.js versions are aligned:
+Node alignment is now automatic via toolchain sync. For manual fallback, when updating `electron`, align Node.js versions:
 
-1. Check Electron's bundled Node.js version at <https://releases.electronjs.org/>
-2. Update `.nvmrc` to match Electron's Node.js version (e.g., `v22.21.1`)
-3. Update `engines.node` in root `package.json` to enforce the same major version (e.g., `>=22.21.1 <23`)
+1. Check Electron's bundled Node.js version at <https://releases.electronjs.org/>.
+2. Update `.nvmrc` to match (e.g., `v22.21.1`).
+3. Update `engines.node` in `package.json` to the same major range (e.g., `>=22.21.1 <23`).
 
-This alignment is recommended for consistency between development and production environments. While integration tests use SQLite WASM (avoiding native module ABI issues), Electron's production build uses native modules compiled for its bundled Node.js version. Keeping versions aligned ensures consistent behavior across all environments.
+## Gradle Wrapper Update
 
-## Android Emulator Update
+Only if a new Gradle version is available:
 
-The Android emulator's system image should be kept up-to-date to ensure modern JavaScript features are supported in WebView. Symptoms of an outdated WebView include:
-
-- `TypeError: Object.hasOwn is not a function` (WebView < Chrome 93)
-- Blank white screen on app startup
-- JavaScript errors for ES2022+ features
-
-To update the Android emulator:
-
-```bash
-./scripts/updateAndroidEmulator.sh
-```
-
-This script:
-
-1. Installs/updates the Android 35 system image with Google Play Store
-2. Deletes old AVDs (`Maestro_Pixel_6_API_33_1`, `Maestro_Pixel_6_API_35`)
-3. Creates a new AVD with modern WebView support
-4. Configures optimal emulator settings for Maestro tests
-
-**When to update**: Run this script when:
-
-- Maestro tests fail with JavaScript errors in logcat
-- WebView version is below Chrome 93 (check with `adb shell dumpsys webviewupdate`)
-- A new Android API level is released
-
-**Note**: This is a one-time setup per machine. The AVD persists across reboots.
-
-## Running Maestro Tests (CRITICAL: Use Headless Mode)
-
-**ALWAYS run Maestro tests in headless mode** to prevent the simulator/emulator UI from interfering with the agent workflow:
-
-```bash
-# iOS - headless mode
-./scripts/runMaestroIosTests.sh --headless
-
-# Android - headless mode
-./scripts/runMaestroAndroidTests.sh --headless
-```
-
-The `--headless` flag:
-
-- **iOS**: Boots the simulator via `simctl` without opening Simulator.app
-- **Android**: Runs the emulator with `-no-window -no-audio -no-boot-anim`
-
-**Never run Maestro tests without `--headless`** when running as an agent. The simulator/emulator window can:
-
-- Steal focus from the terminal
-- Cause unexpected keyboard input issues
-- Hang waiting for user interaction
-
-## Gradle Version Update
-
-To update the Gradle wrapper version:
-
-1. Edit `packages/client/android/gradle/wrapper/gradle-wrapper.properties`
-2. Update `distributionUrl` to the new version (e.g., `gradle-8.12-all.zip`)
-3. Delete the existing JAR: `rm packages/client/android/gradle/wrapper/gradle-wrapper.jar`
-4. Run the download script: `./packages/client/scripts/downloadGradleWrapper.sh`
-5. Test locally: `cd packages/client/android && ./gradlew assembleDebug`
-
-**Important**: Do NOT use `gradle wrapper` command to regenerate the wrapper files, as using a different local Gradle version can cause incompatibilities between the wrapper scripts (`gradlew`, `gradlew.bat`) and the JAR file.
+1. Edit `packages/client/android/gradle/wrapper/gradle-wrapper.properties`.
+2. Update `distributionUrl` (e.g., `gradle-8.12-all.zip`).
+3. Delete the existing JAR: `rm packages/client/android/gradle/wrapper/gradle-wrapper.jar`.
+4. Run `./packages/client/scripts/downloadGradleWrapper.sh`.
+5. Validate: `cd packages/client/android && ./gradlew assembleDebug`.
 
 ## Native Module Rebuilds
 
-When the script updates packages containing native Node.js addons (e.g., `better-sqlite3-multiple-ciphers`), they may need rebuilding for the current Node.js version. Symptoms of a stale native module:
+When updating packages with native Node.js addons (e.g., `better-sqlite3-multiple-ciphers`), they may need rebuilding. Symptoms:
 
 ```text
-Error: The module 'better_sqlite3.node' was compiled against a different Node.js version
-NODE_MODULE_VERSION 143. This version of Node.js requires NODE_MODULE_VERSION 127.
+Error: The module 'better_sqlite3.node' was compiled against NODE_MODULE_VERSION 143.
+This version of Node.js requires NODE_MODULE_VERSION 127.
 ```
 
-To fix, rebuild the native module in the affected package:
+Fix by rebuilding the module:
 
 ```bash
 cd packages/cli
 npm rebuild better-sqlite3-multiple-ciphers
 ```
 
-The update script runs `electron-rebuild` for the client package, but the CLI package uses the system Node.js and may require a separate rebuild.
+The client package runs `electron-rebuild` via postinstall, but CLI uses system Node and may need manual rebuild.
 
 ## Biome Schema Migration
 
-When biome is updated, the schema version in `biome.json` should be migrated:
+When biome is updated, migrate the schema:
 
 ```bash
 pnpm biome migrate --write
 ```
 
-This updates the `$schema` URL to match the installed biome version. The migration is automatic and non-breaking.
-
 ## pdfjs-dist and react-pdf Version Coupling
 
-**CRITICAL**: `pdfjs-dist` must match the version expected by `react-pdf`. Version mismatches cause PDF loading failures (PDFs stuck at "Loading...").
-
-**Check react-pdf's pdfjs-dist dependency**:
+**CRITICAL**: `pdfjs-dist` must match the version expected by `react-pdf`. Check with:
 
 ```bash
 cat packages/client/node_modules/react-pdf/package.json | grep '"pdfjs-dist"'
 ```
 
-If `pdfjs-dist` in `package.json` differs from react-pdf's dependency:
-
-1. **Revert pdfjs-dist** to match react-pdf's version, OR
-2. **Wait for react-pdf update** that supports the newer pdfjs-dist version
-
-The update script should NOT update pdfjs-dist independently of react-pdf.
+If versions differ, revert pdfjs-dist to match react-pdf's dependency. The update script should NOT update pdfjs-dist independently.
 
 ## Researching Breaking Changes
 
-After updates complete, review changelogs for significant package upgrades:
+After updates, review changelogs for major version bumps:
 
-1. **Check pnpm output** for deprecated subdependencies (transitive deps - usually not actionable)
-2. **Review GitHub releases** for direct dependencies with version bumps:
+1. **Check pnpm output** for deprecated subdependencies (transitive - usually not actionable)
+2. **Review GitHub releases** for direct deps:
    - Capacitor plugins: <https://github.com/ionic-team/capacitor-plugins/releases>
    - Biome: <https://github.com/biomejs/biome/releases>
    - pdfjs-dist: <https://github.com/mozilla/pdf.js/releases>
    - i18next: <https://github.com/i18next/i18next/releases>
-3. **Note any breaking changes** that require code modifications
-4. **Document deprecation warnings** in the PR description for future reference
+3. **Document deprecations** in the PR for future reference
 
 ## Known Acceptable Warnings
 
-Some warnings are expected and do not require action:
+These warnings are expected and do not require action:
 
-- **electron-builder peer dependency mismatches**: Internal version conflicts between `dmg-builder` and `electron-builder-squirrel-windows` are tracked upstream and do not affect builds
-- **Deprecated transitive dependencies**: Packages like `glob`, `rimraf`, `inflight` are deep transitive deps and will be resolved when upstream packages update
+- **electron-builder peer dependency mismatches**: Internal conflicts between `dmg-builder`/`electron-builder-squirrel-windows` tracked upstream
+- **Deprecated transitive dependencies**: `glob`, `rimraf`, `inflight` etc. are deep deps resolved when upstream updates
 
 ## Drizzle-ORM Peer Dependency Conflicts
 
-When `drizzle-orm` is used across multiple packages, its optional peer dependencies (like `sql.js`) can resolve to different versions in different packages. This causes TypeScript errors like:
+When `drizzle-orm` is used across multiple packages, its optional peer dependencies (like `sql.js`) can resolve to different versions. This causes TypeScript errors like:
 
 ```text
 Types have separate declarations of a private property 'shouldInlineParams'.
 Type 'SQL<unknown>' is not assignable to type 'SQL<unknown>'.
 ```
 
-**Diagnosis**: Run `pnpm why sql.js --recursive` to see if different packages resolve different versions.
+**Diagnosis**: Run `pnpm why sql.js --recursive` to see version mismatches.
 
-**Fix**: Add a pnpm override in root `package.json` to force a single version:
+**Fix**: Add a pnpm override in root `package.json`:
 
 ```json
 "pnpm": {
@@ -274,46 +179,29 @@ Type 'SQL<unknown>' is not assignable to type 'SQL<unknown>'.
 }
 ```
 
-Then run `pnpm install` to apply the override.
+Then run `pnpm install` to apply.
 
 ## Known Flaky CI Issues
 
-Some CI failures are transient infrastructure issues, not code problems:
+Some CI failures are transient infrastructure issues:
 
 ### Android Instrumented Tests Packaging
 
-The `capacitor-community-sqlite:packageDebugAndroidTest` task occasionally fails with:
-
-```text
-Execution failed for task ':capacitor-community-sqlite:packageDebugAndroidTest'.
-> A failure occurred while executing PackageAndroidArtifact$IncrementalSplitterRunnable
-```
-
-**Fix**: Rerun the workflow - this is a Gradle incremental build cache issue.
+`capacitor-community-sqlite:packageDebugAndroidTest` may fail with `PackageAndroidArtifact$IncrementalSplitterRunnable` error. **Fix**: Rerun workflow (Gradle cache issue).
 
 ### PDF Worker E2E Tests
 
-The `should load PDF without fake worker warning` test may timeout after pdfjs-dist updates:
-
-```text
-Expected substring: "Page 1 of"
-Timeout: 30000ms
-Error: element(s) not found (shows "Loading...")
-```
-
-**Cause**: Usually a **version mismatch** between `pdfjs-dist` and `react-pdf`. See "pdfjs-dist and react-pdf Version Coupling" section above.
-
-**Fix**: Revert `pdfjs-dist` to match the version `react-pdf` expects.
+PDF loading tests may timeout after pdfjs-dist updates (shows "Loading..." instead of "Page 1 of"). **Fix**: Check for version mismatch with react-pdf - see "pdfjs-dist and react-pdf Version Coupling" section.
 
 ### iOS Maestro "App crashed or stopped" Across Random Flows
 
-iOS Maestro can intermittently fail with:
+iOS Maestro may fail with:
 
 ```text
 App crashed or stopped while executing flow
 ```
 
-The failing flow is not stable (`database-reset-setup`, `sync-login-landscape-keyboard`, `orphan-cleanup`, etc.). In Maestro debug logs this often appears as:
+The failing flow can vary (`database-reset-setup`, `sync-login-landscape-keyboard`, `orphan-cleanup`, etc.). In `maestro.log`, this often appears as:
 
 ```text
 XCTestDriver request failed ... "Application com.tearleads.app is not running"
@@ -324,7 +212,18 @@ immediately after `Launch app "com.tearleads.app" with clear state`.
 **Fix**:
 
 1. Rerun only the failed iOS Maestro workflow/job.
-2. If `CI Gate` already failed from the first attempt, rerun `CI Gate` after iOS Maestro is green.
+2. If `CI Gate` already failed due to that first attempt, rerun `CI Gate` after the iOS rerun is green.
+
+## Warnings/Deprecations
+
+Collect warnings/deprecations from `pnpm`, bundler, CocoaPods, Gradle, and test runs. Summarize them in the final response along with any required follow-ups.
+
+## Finish
+
+- Review changes with `git status` and `git diff`.
+- **Verify `packages/client/ios/App/Podfile.lock` is staged** if iOS dependencies changed (the script regenerates it via `pod install`).
+- Commit and push using `$commit-and-push`.
+- Prepare the PR for merging using `$enter-merge-queue`.
 
 ## Token Efficiency
 
@@ -349,8 +248,4 @@ pod install --repo-update >/dev/null
 ./gradlew assembleDebug >/dev/null
 ```
 
-On failure, stderr is preserved. Re-run without suppression to debug:
-
-```bash
-./scripts/updateEverything.sh  # Full output for debugging
-```
+On failure, stderr is preserved. Re-run without suppression to debug.

@@ -1,6 +1,4 @@
----
-description: Tune CI impact analysis by keeping workflow filters aligned with package dependencies
----
+
 
 # Optimize Test Execution
 

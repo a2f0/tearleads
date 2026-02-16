@@ -1,6 +1,3 @@
----
-description: Implement deferred review follow-ups from merged PRs
----
 
 # Preen Deferred Fixes
 
@@ -8,7 +5,7 @@ Complete deferred follow-up commitments from recently merged PR review threads, 
 
 ## Finding Deferred Work
 
-Deferred fixes are tracked via GitHub issues with the `deferred-fix` label. These issues are created automatically by `/enter-merge-queue` when review feedback is deferred rather than fixed on-the-fly.
+Deferred fixes are tracked via GitHub issues with the `deferred-fix` label. These issues are created automatically by `$enter-merge-queue` when review feedback is deferred rather than fixed on-the-fly.
 
 ## Workflow
 
@@ -43,7 +40,7 @@ Deferred fixes are tracked via GitHub issues with the `deferred-fix` label. Thes
 5. Add or update tests for every item (unit/integration/e2e as needed).
 6. Validate locally using the smallest reliable command set first, then broader coverage if the area is cross-cutting.
 7. Summarize completed checklist items and any remaining risks.
-8. Commit and push with `/commit-and-push`, then prepare merge with `/enter-merge-queue`.
+8. Commit and push with `$commit-and-push`, then prepare merge with `$enter-merge-queue`.
 9. **After merge**: Close the deferred fix issue (if all items are addressed).
 
 ## Quality Bar

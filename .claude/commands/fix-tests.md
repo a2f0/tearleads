@@ -1,6 +1,3 @@
----
-description: Fix failing tests from CI
----
 
 # Fix Failing Tests
 
@@ -242,7 +239,6 @@ If Maestro can't find elements in a WebView:
 ```yaml
 appId: com.tearleads.app
 androidWebViewHierarchy: devtools
----
 - launchApp:
     clearState: true
 - assertVisible: "My Text"

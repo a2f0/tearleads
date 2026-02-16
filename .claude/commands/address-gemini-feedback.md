@@ -1,6 +1,3 @@
----
-description: Query the open PR and resolve Gemini's feedback.
----
 
 # Address Gemini Feedback
 
@@ -18,7 +15,7 @@ When replying to Gemini comments, you MUST use the REST API to create immediate 
 
 **Always tag `@gemini-code-assist`** in every reply to ensure Gemini receives a notification and responds.
 
-See `/follow-up-with-gemini` for the correct API usage and examples.
+See `$follow-up-with-gemini` for the correct API usage and examples.
 
 ## Quota Exhaustion Fallback
 
@@ -30,14 +27,14 @@ Before fetching comments, check if Gemini has hit its daily quota:
 
 Parse the comments to check for Gemini's quota message. If the response contains "You have reached your daily quota limit":
 
-- Fall back to Codex review:
+- Fall back to Claude Code review:
 
   ```bash
-  ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+  ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
   ```
 
 - Skip the remaining steps (no Gemini feedback to address)
-- Return early with a message that Codex was used as fallback
+- Return early with a message that Claude Code was used as fallback
 
 ## Deferred Fix Tracking
 
@@ -52,7 +49,7 @@ When addressing feedback, distinguish between:
 - The fix requires significant refactoring that would delay merge
 - The reviewer explicitly agrees to defer
 
-When deferring, add the item to the `deferred_items` state array (tracked by `/enter-merge-queue`):
+When deferring, add the item to the `deferred_items` state array (tracked by `$enter-merge-queue`):
 
 ```text
 deferred_items.push({
@@ -95,7 +92,7 @@ Then resolve the thread.
    - **Fix on-the-fly** (preferred): Make the necessary code changes. Make sure linting passes and TypeScript compiles.
    - **Defer** (when necessary): Add to `deferred_items` and reply explaining the deferral.
 
-3. **Commit and push** (if code changes were made): Commit with conventional message (e.g., `fix: address Gemini review feedback`), note the SHA for thread replies, and push directly (do NOT use `/commit-and-push` to avoid loops).
+3. **Commit and push** (if code changes were made): Commit with conventional message (e.g., `fix: address Gemini review feedback`), note the SHA for thread replies, and push directly (do NOT use `$commit-and-push` to avoid loops).
 
 4. **CRITICAL: Verify push completed before replying.**
 
@@ -117,7 +114,7 @@ Then resolve the thread.
 
 5. **Update PR description**: If changes are significant, update the PR body with `gh pr edit --body`.
 
-6. **Follow up**: Run `/follow-up-with-gemini` to reply, wait for confirmation, and resolve threads. The follow-up skill will re-verify push status before replying.
+6. **Follow up**: Run `$follow-up-with-gemini` to reply, wait for confirmation, and resolve threads. The follow-up skill will re-verify push status before replying.
 
 7. **Repeat**: If Gemini requests further changes, repeat from step 1.
 

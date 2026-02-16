@@ -11,6 +11,10 @@ IGNORE_PATTERNS=(
   "^ansible/vendor/"
   "^package\.json$"
   "^pnpm-workspace\.yaml$"
+  "^\\.claude/commands/"
+  "^\\.codex/skills/"
+  "^\\.gemini/skills/"
+  "^\\.opencode/skills/"
   "\.min\.js$"
   "\.map$"
 )
