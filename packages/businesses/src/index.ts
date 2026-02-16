@@ -1,3 +1,13 @@
+export type { BusinessesWindowProps } from './components/index.js';
+export { BusinessesWindow } from './components/index.js';
+export type {
+  AboutMenuItemProps,
+  BusinessesProviderProps,
+  BusinessesUIComponents,
+  DropdownMenuItemProps,
+  DropdownMenuProps
+} from './context/index.js';
+export { BusinessesProvider, useBusinesses } from './context/index.js';
 export type {
   BusinessIdentifierError,
   BusinessIdentifierField,
