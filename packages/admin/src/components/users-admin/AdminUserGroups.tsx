@@ -1,6 +1,6 @@
-import { useState } from 'react';
 import type { AdminUser, GroupWithMemberCount } from '@tearleads/shared';
 import { Loader2, UserMinus, UserPlus } from 'lucide-react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { useTypedTranslation } from '@/i18n';
@@ -21,8 +21,7 @@ export function AdminUserGroups({ user }: AdminUserGroupsProps) {
     actionId,
     fetchGroups,
     addToGroup,
-    removeFromGroup,
-    setActionError
+    removeFromGroup
   } = useAdminUserGroups(user.id);
 
   const [removeGroupDialog, setRemoveGroupDialog] =
@@ -44,9 +43,7 @@ export function AdminUserGroups({ user }: AdminUserGroupsProps) {
           onClick={() => void fetchGroups()}
           disabled={loading}
         >
-          {loading ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : null}
+          {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Refresh
         </Button>
       </div>

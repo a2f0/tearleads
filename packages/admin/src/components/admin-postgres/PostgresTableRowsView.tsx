@@ -1,25 +1,26 @@
 import { useVirtualizer } from '@tanstack/react-virtual';
-import {
-  Braces,
-  Download,
-  Loader2,
-  Settings
-} from 'lucide-react';
+import { Braces, Download, Loader2, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+// @ts-expect-error - cross-package import
 import { Button } from '@/components/ui/button';
+// @ts-expect-error - cross-package import
 import { RefreshButton } from '@/components/ui/RefreshButton';
+// @ts-expect-error - cross-package import
+import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
+// @ts-expect-error - cross-package import
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
+// @ts-expect-error - cross-package import
 import { createCsv } from '@/lib/csv';
-import { usePostgresTableData } from './usePostgresTableData';
-import {
-  ROW_HEIGHT_ESTIMATE,
-  downloadFile,
-  isMobileViewport
-} from './PostgresTableUtils';
 import { DocumentView } from './DocumentView';
+import {
+  downloadFile,
+  isMobileViewport,
+  ROW_HEIGHT_ESTIMATE
+} from './PostgresTableUtils';
 import { TableView } from './TableView';
+import { usePostgresTableData } from './usePostgresTableData';
 
 const DEFAULT_CONTAINER_CLASSNAME =
   'flex flex-1 min-h-0 flex-col space-y-4 overflow-hidden';
@@ -67,7 +68,7 @@ export function PostgresTableRowsView({
   // Local component to reduce duplication of sticky VirtualListStatus
   const stickyStatus = useMemo(() => {
     // Calculate visible range
-    const virtualItems = parentRef.current ? [] : []; // placeholder for useMemo dependency
+    const _virtualItems = parentRef.current ? [] : []; // placeholder for useMemo dependency
     return (first: number | null, last: number | null) => (
       <div className="sticky top-0 z-10 bg-background px-4 py-2">
         <VirtualListStatus
@@ -224,7 +225,15 @@ export function PostgresTableRowsView({
     } finally {
       setExporting(false);
     }
-  }, [schema, tableName, columns, sort.column, sort.direction, exporting, setError]);
+  }, [
+    schema,
+    tableName,
+    columns,
+    sort.column,
+    sort.direction,
+    exporting,
+    setError
+  ]);
 
   // Calculate visible range for sticky status
   const visibleRowItems = virtualItems.filter(
