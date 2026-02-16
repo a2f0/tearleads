@@ -3,11 +3,11 @@
  * Uses SQL JOINs for name resolution and ORDER BY at the database level.
  */
 
+import type { Database } from '@tearleads/db/sqlite';
 import {
   albums,
   contactGroups,
   contacts,
-  type Database,
   emailFolders,
   emails,
   files,

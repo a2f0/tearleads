@@ -2,6 +2,7 @@
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getErrorMessage } from '@tearleads/shared';
 import { program } from 'commander';
 import { getDisabledPackages, getEnabledPackages } from './featureMap.js';
 import {
@@ -20,14 +21,6 @@ import type { AppConfig } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-
-/**
- * Safely extract an error message from an unknown error value.
- */
-function getErrorMessage(error: unknown): string {
-  if (error instanceof Error) return error.message;
-  return String(error);
-}
 
 /** Get the default output directory (packages/client) */
 function getDefaultOutputDir(): string {
