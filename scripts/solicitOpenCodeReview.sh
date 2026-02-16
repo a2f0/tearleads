@@ -41,38 +41,27 @@ fi
 BASE_REF=$(gh pr view "$PR_NUMBER" --json baseRefName -q .baseRefName -R "$REPO")
 
 # Ensure there are changes against PR base
-DIFF=$(git diff "$BASE_REF"...HEAD)
-
-if [ -z "$DIFF" ]; then
+if git diff --quiet "$BASE_REF"...HEAD; then
   echo "Error: No changes found between $BASE_REF and current branch." >&2
   exit 1
 fi
 
-# Load review instructions if available
-REVIEW_INSTRUCTIONS=""
-if [ -f "$ROOT_DIR/REVIEW.md" ]; then
-  REVIEW_INSTRUCTIONS=$(cat "$ROOT_DIR/REVIEW.md")
-fi
-
-# Build the review prompt
-PROMPT="Review this PR diff. Be concise and actionable.
-
-## Review Guidelines
-$REVIEW_INSTRUCTIONS
-
-## PR Context
-Branch: $BRANCH
-PR: #$PR_NUMBER
-Base: $BASE_REF
-
-## Diff
-$DIFF
-
-## Instructions
-- Flag security issues, type safety violations, and missing tests as high priority
-- Use severity levels: Blocker, Major, Minor, Suggestion
-- Be concise: one line per issue with file:line reference
-- Output your review to stdout"
-
-# Run OpenCode in print mode (non-interactive, outputs to stdout)
-exec opencode run "$PROMPT"
+# Stream prompt to stdin to avoid ARG_MAX limits
+{
+    printf "Review this PR diff. Be concise and actionable.\n\n"
+    printf "## Review Guidelines\n"
+    if [ -f "$ROOT_DIR/REVIEW.md" ]; then
+        cat "$ROOT_DIR/REVIEW.md"
+    fi
+    printf "\n\n## PR Context\n"
+    printf "Branch: %s\n" "$BRANCH"
+    printf "PR: #%s\n" "$PR_NUMBER"
+    printf "Base: %s\n" "$BASE_REF"
+    printf "\n\n## Diff\n"
+    git diff "$BASE_REF"...HEAD
+    printf "\n\n## Instructions\n"
+    printf -- "- Flag security issues, type safety violations, and missing tests as high priority\n"
+    printf -- "- Use severity levels: Blocker, Major, Minor, Suggestion\n"
+    printf -- "- Be concise: one line per issue with file:line reference\n"
+    printf -- "- Output your review to stdout\n"
+} | exec opencode run
