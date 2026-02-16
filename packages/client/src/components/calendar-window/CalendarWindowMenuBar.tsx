@@ -7,6 +7,7 @@ import { Cake } from 'lucide-react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface CalendarWindowMenuBarProps {
   onClose: () => void;
@@ -20,7 +21,7 @@ export function CalendarWindowMenuBar({
   onShowBirthdaysFromContactsChange
 }: CalendarWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           onClick={() => window.dispatchEvent(new Event(CALENDAR_CREATE_EVENT))}

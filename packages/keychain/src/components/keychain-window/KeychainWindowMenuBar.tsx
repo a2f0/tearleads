@@ -7,6 +7,7 @@ import { AboutMenuItem } from '@client/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
 import keychainPackageJson from '@tearleads/keychain/package.json';
 import { RefreshCw } from 'lucide-react';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface KeychainWindowMenuBarProps {
   onRefresh: () => void;
@@ -18,7 +19,7 @@ export function KeychainWindowMenuBar({
   onClose
 }: KeychainWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<RefreshCw className="h-3 w-3" />}

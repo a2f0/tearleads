@@ -1,4 +1,7 @@
-import { WindowControlBar } from '@tearleads/window-manager';
+import {
+  WindowControlBar,
+  WindowMenuBar
+} from '@tearleads/window-manager';
 import type { ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
@@ -16,7 +19,7 @@ export function AdminWindowMenuBar({
   const { t } = useTypedTranslation('admin');
   return (
     <div className="shrink-0">
-      <div className="flex border-b bg-muted/30 px-1">
+      <WindowMenuBar>
         <DropdownMenu trigger={t('file')}>
           <DropdownMenuItem onClick={onClose}>{t('close')}</DropdownMenuItem>
         </DropdownMenu>

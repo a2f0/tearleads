@@ -9,6 +9,7 @@ import {
   HEALTH_DRILLDOWN_CARDS,
   type HealthDrilldownRoute
 } from '@/pages/Health';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface HealthWindowMenuBarProps {
   activeRoute: HealthDrilldownRoute | undefined;
@@ -24,7 +25,7 @@ export function HealthWindowMenuBar({
   onClose
 }: HealthWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<RefreshCw className="h-3 w-3" />}

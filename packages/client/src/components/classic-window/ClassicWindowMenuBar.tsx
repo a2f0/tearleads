@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface ClassicWindowMenuBarProps {
   onClose: () => void;
@@ -33,7 +34,7 @@ export function ClassicWindowMenuBar({
 }: ClassicWindowMenuBarProps) {
   const { t } = useTranslation('classic');
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger={t('file')}>
         <DropdownMenuItem onClick={NOOP}>{t('newEntry')}</DropdownMenuItem>
         <DropdownMenuSeparator />

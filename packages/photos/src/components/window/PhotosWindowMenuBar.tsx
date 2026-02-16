@@ -8,6 +8,7 @@ import {
   Upload
 } from 'lucide-react';
 import { usePhotosUIContext } from '../../context';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'list' | 'table' | 'thumbnail';
 
@@ -43,7 +44,7 @@ export function PhotosWindowMenuBar({
   } = ui;
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<Upload className="h-3 w-3" />}

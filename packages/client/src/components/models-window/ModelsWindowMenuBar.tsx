@@ -5,6 +5,7 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'cards' | 'table';
 
@@ -20,7 +21,7 @@ export function ModelsWindowMenuBar({
   onClose
 }: ModelsWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>

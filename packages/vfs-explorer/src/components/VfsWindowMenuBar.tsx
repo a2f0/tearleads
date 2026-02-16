@@ -1,6 +1,7 @@
 import { FolderPlus, Link, List, RefreshCw, Table2 } from 'lucide-react';
 import { useVfsExplorerContext } from '../context';
 import type { VfsViewMode } from '../lib';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type { VfsViewMode };
 
@@ -32,7 +33,7 @@ export function VfsWindowMenuBar({
   } = useVfsExplorerContext();
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<FolderPlus className="h-3 w-3" />}

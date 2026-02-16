@@ -1,5 +1,6 @@
 import { List, Table2, Upload } from 'lucide-react';
 import { useContactsContext, useContactsUI } from '../context';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'list' | 'table';
 
@@ -32,7 +33,7 @@ export function ContactsWindowMenuBar({
   const { t } = useContactsContext();
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger={t('file')}>
         <DropdownMenuItem
           onClick={onNewContact}

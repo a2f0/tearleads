@@ -1,5 +1,6 @@
 import { Eye, EyeOff, List, Table2 } from 'lucide-react';
 import { useNotesUI } from '../context/NotesContext';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'list' | 'table';
 
@@ -37,7 +38,7 @@ export function NotesWindowMenuBar({
   } = useNotesUI();
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem onClick={onNewNote}>New</DropdownMenuItem>
         <DropdownMenuSeparator />

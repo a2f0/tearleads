@@ -1,4 +1,5 @@
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface TablesWindowMenuBarProps {
   onClose: () => void;
@@ -6,7 +7,7 @@ interface TablesWindowMenuBarProps {
 
 export function TablesWindowMenuBar({ onClose }: TablesWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>

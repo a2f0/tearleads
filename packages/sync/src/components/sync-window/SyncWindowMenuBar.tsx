@@ -4,6 +4,7 @@ import {
 } from '@client/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
 import { useTranslation } from 'react-i18next';
+import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface SyncWindowMenuBarProps {
   onClose: () => void;
@@ -12,7 +13,7 @@ interface SyncWindowMenuBarProps {
 export function SyncWindowMenuBar({ onClose }: SyncWindowMenuBarProps) {
   const { t } = useTranslation('sync');
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger={t('file')}>
         <DropdownMenuItem onClick={onClose}>{t('close')}</DropdownMenuItem>
       </DropdownMenu>
