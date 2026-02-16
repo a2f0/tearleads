@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Home, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
@@ -9,7 +10,6 @@ import {
   HEALTH_DRILLDOWN_CARDS,
   type HealthDrilldownRoute
 } from '@/pages/Health';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface HealthWindowMenuBarProps {
   activeRoute: HealthDrilldownRoute | undefined;
@@ -62,6 +62,6 @@ export function HealthWindowMenuBar({
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

@@ -1,7 +1,7 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Cake } from 'lucide-react';
 import { useCalendarUI } from '../context/CalendarUIContext';
 import { CALENDAR_CREATE_EVENT, CALENDAR_CREATE_ITEM_EVENT } from '../events';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface CalendarWindowMenuBarProps {
   onClose: () => void;
@@ -59,6 +59,6 @@ export function CalendarWindowMenuBar({
           closeLabel="Close"
         />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

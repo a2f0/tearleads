@@ -1,7 +1,4 @@
-import {
-  WindowControlBar,
-  WindowMenuBar
-} from '@tearleads/window-manager';
+import { WindowControlBar, WindowMenuBar } from '@tearleads/window-manager';
 import type { ReactNode } from 'react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
@@ -26,7 +23,7 @@ export function AdminWindowMenuBar({
         <DropdownMenu trigger={t('view')}>
           <WindowOptionsMenuItem />
         </DropdownMenu>
-      </div>
+      </WindowMenuBar>
       <WindowControlBar>
         <div data-testid="admin-window-controls">{controls}</div>
       </WindowControlBar>

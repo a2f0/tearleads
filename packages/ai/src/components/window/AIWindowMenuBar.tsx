@@ -1,5 +1,5 @@
-import { useAIUI } from '../../context';
 import { WindowMenuBar } from '@tearleads/window-manager';
+import { useAIUI } from '../../context';
 
 interface AIWindowMenuBarProps {
   onNewChat: () => void | Promise<void>;
@@ -35,6 +35,6 @@ export function AIWindowMenuBar({
       <div className="pr-1">
         <ModelSelector modelDisplayName={modelDisplayName} variant="compact" />
       </div>
-    </div>
+    </WindowMenuBar>
   );
 }

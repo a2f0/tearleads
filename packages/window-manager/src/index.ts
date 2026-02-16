@@ -28,6 +28,8 @@ export {
   WindowControlGroup,
   type WindowControlGroupProps,
   type WindowDimensions,
+  WindowMenuBar,
+  type WindowMenuBarProps,
   WindowPaneState,
   type WindowPaneStateProps,
   WindowSidebarError,

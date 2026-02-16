@@ -5,8 +5,8 @@ import {
 } from '@client/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@client/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
-import { Plus, RefreshCw } from 'lucide-react';
 import { WindowMenuBar } from '@tearleads/window-manager';
+import { Plus, RefreshCw } from 'lucide-react';
 
 interface WalletWindowMenuBarProps {
   onCreateItem: () => void;
@@ -43,6 +43,6 @@ export function WalletWindowMenuBar({
       <DropdownMenu trigger="Help">
         <AboutMenuItem appName="Wallet" version="0.0.1" closeLabel="Close" />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

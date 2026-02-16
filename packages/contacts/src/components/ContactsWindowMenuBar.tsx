@@ -1,6 +1,6 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { List, Table2, Upload } from 'lucide-react';
 import { useContactsContext, useContactsUI } from '../context';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'list' | 'table';
 
@@ -72,6 +72,6 @@ export function ContactsWindowMenuBar({
       <DropdownMenu trigger={t('help')}>
         <AboutMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

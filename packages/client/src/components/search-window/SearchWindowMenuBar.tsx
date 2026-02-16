@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { List, Table2 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -5,7 +6,6 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type SearchViewMode = 'list' | 'table';
 
@@ -43,6 +43,6 @@ export function SearchWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

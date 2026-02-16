@@ -3,11 +3,11 @@ import {
   CALENDAR_CREATE_ITEM_EVENT
 } from '@tearleads/calendar';
 import calendarPackageJson from '@tearleads/calendar/package.json';
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Cake } from 'lucide-react';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface CalendarWindowMenuBarProps {
   onClose: () => void;
@@ -56,6 +56,6 @@ export function CalendarWindowMenuBar({
           closeLabel="Close"
         />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

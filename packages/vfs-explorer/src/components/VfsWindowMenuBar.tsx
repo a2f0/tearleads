@@ -1,7 +1,7 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { FolderPlus, Link, List, RefreshCw, Table2 } from 'lucide-react';
 import { useVfsExplorerContext } from '../context';
 import type { VfsViewMode } from '../lib';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type { VfsViewMode };
 
@@ -78,6 +78,6 @@ export function VfsWindowMenuBar({
       <DropdownMenu trigger="Help">
         <AboutMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

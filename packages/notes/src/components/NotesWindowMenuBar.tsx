@@ -1,6 +1,6 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Eye, EyeOff, List, Table2 } from 'lucide-react';
 import { useNotesUI } from '../context/NotesContext';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'list' | 'table';
 
@@ -94,6 +94,6 @@ export function NotesWindowMenuBar({
       <DropdownMenu trigger="Help">
         <AboutMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

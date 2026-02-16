@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { List, Table2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
@@ -5,7 +6,6 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'list' | 'table';
 
@@ -52,6 +52,6 @@ export function VideoWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

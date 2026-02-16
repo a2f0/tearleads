@@ -1,5 +1,5 @@
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { WindowMenuBar } from '@tearleads/window-manager';
+import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 
 interface DisplayPropertiesWindowMenuBarProps {
   onClose: () => void;
@@ -13,6 +13,6 @@ export function DisplayPropertiesWindowMenuBar({
       <DropdownMenu trigger="File">
         <DropdownMenuItem onClick={onClose}>Close</DropdownMenuItem>
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

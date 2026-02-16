@@ -1,10 +1,10 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import {
   DropdownMenu,
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface OpfsWindowMenuBarProps {
   onRefresh: () => void;
@@ -34,6 +34,6 @@ export function OpfsWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

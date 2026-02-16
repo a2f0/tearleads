@@ -3,8 +3,8 @@ import {
   DropdownMenuItem
 } from '@client/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
-import { useTranslation } from 'react-i18next';
 import { WindowMenuBar } from '@tearleads/window-manager';
+import { useTranslation } from 'react-i18next';
 
 interface SyncWindowMenuBarProps {
   onClose: () => void;
@@ -20,6 +20,6 @@ export function SyncWindowMenuBar({ onClose }: SyncWindowMenuBarProps) {
       <DropdownMenu trigger={t('view')}>
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

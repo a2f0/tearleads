@@ -1,6 +1,6 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Edit, List, RefreshCw, Table2 } from 'lucide-react';
 import { useEmailUI } from '../context';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'list' | 'table';
 
@@ -67,6 +67,6 @@ export function EmailWindowMenuBar({
       <DropdownMenu trigger="Help">
         <AboutMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

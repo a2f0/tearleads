@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Download } from 'lucide-react';
 import {
   DropdownMenu,
@@ -5,7 +6,6 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface AnalyticsWindowMenuBarProps {
   onClose: () => void;
@@ -38,6 +38,6 @@ export function AnalyticsWindowMenuBar({
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

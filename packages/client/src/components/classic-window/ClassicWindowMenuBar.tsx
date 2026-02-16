@@ -5,6 +5,7 @@ import {
   type TagSortOrder
 } from '@tearleads/classic';
 import classicPackageJson from '@tearleads/classic/package.json';
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
@@ -13,7 +14,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface ClassicWindowMenuBarProps {
   onClose: () => void;
@@ -84,6 +84,6 @@ export function ClassicWindowMenuBar({
           closeLabel={t('close')}
         />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

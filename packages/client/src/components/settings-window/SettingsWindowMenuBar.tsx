@@ -1,6 +1,6 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface SettingsWindowMenuBarProps {
   onClose: () => void;
@@ -15,6 +15,6 @@ export function SettingsWindowMenuBar({ onClose }: SettingsWindowMenuBarProps) {
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

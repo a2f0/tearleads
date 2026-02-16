@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
@@ -5,7 +6,6 @@ import {
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface CacheStorageWindowMenuBarProps {
   onRefresh: () => void;
@@ -31,6 +31,6 @@ export function CacheStorageWindowMenuBar({
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import {
   Eye,
   EyeOff,
@@ -8,7 +9,6 @@ import {
   Upload
 } from 'lucide-react';
 import { usePhotosUIContext } from '../../context';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type ViewMode = 'list' | 'table' | 'thumbnail';
 
@@ -107,6 +107,6 @@ export function PhotosWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

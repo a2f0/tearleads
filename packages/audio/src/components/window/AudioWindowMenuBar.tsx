@@ -1,6 +1,6 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Eye, EyeOff, Upload } from 'lucide-react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 export type AudioViewMode = 'list' | 'table';
 
@@ -86,6 +86,6 @@ export function AudioWindowMenuBar({
       <DropdownMenu trigger="Help">
         <AboutMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

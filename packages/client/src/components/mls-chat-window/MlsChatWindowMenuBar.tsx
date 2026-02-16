@@ -1,7 +1,7 @@
 import mlsChatPackageJson from '@tearleads/mls-chat/package.json';
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface MlsChatWindowMenuBarProps {
   onClose: () => void;
@@ -20,6 +20,6 @@ export function MlsChatWindowMenuBar({ onClose }: MlsChatWindowMenuBarProps) {
           closeLabel="Close"
         />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

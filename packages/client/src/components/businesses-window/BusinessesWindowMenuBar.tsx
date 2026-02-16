@@ -1,7 +1,7 @@
 import businessesPackageJson from '@tearleads/businesses/package.json';
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
-import { WindowMenuBar } from '@tearleads/window-manager';
 
 interface BusinessesWindowMenuBarProps {
   onClose: () => void;
@@ -22,6 +22,6 @@ export function BusinessesWindowMenuBar({
           closeLabel="Close"
         />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

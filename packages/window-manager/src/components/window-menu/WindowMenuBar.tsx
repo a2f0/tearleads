@@ -13,7 +13,7 @@ export function WindowMenuBar({
   return (
     <div
       className={cn(
-        'flex shrink-0 border-b border-border/70 bg-muted/30 px-1',
+        'flex shrink-0 border-border/70 border-b bg-muted/30 px-1',
         className
       )}
       {...props}

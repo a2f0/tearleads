@@ -4,8 +4,8 @@ import {
   DropdownMenuSeparator
 } from '@client/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
-import { Columns2, Rows2 } from 'lucide-react';
 import { WindowMenuBar } from '@tearleads/window-manager';
+import { Columns2, Rows2 } from 'lucide-react';
 
 interface ConsoleWindowMenuBarProps {
   onNewTab: () => void;
@@ -50,6 +50,6 @@ export function ConsoleWindowMenuBar({
           Documentation
         </DropdownMenuItem>
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }
