@@ -565,8 +565,6 @@ export const es = {
     completion: 'Completado',
     total: 'Total',
     table: 'Tabla',
-    tableView: 'Vista de tabla',
-    documentView: 'Vista de documento',
     size: 'Tamaño',
     rows: 'Filas',
     field: 'Campo',

@@ -11,7 +11,7 @@ import {
 } from '../context';
 
 // Mock translation function that handles the keys used in tests
-const mockT = (key: string) => {
+const _mockT = (key: string) => {
   const translations: Record<string, string> = {
     allContacts: 'All Contacts',
     groups: 'Groups',

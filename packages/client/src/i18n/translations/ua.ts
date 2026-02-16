@@ -563,8 +563,6 @@ export const ua = {
     completion: 'Завершення',
     total: 'Всього',
     table: 'Таблиця',
-    tableView: 'Вигляд таблиці',
-    documentView: 'Вигляд документа',
     size: 'Розмір',
     rows: 'Рядки',
     field: 'Поле',

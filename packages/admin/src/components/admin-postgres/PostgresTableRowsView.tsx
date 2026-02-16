@@ -15,16 +15,16 @@ import {
 } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-// @ts-ignore - cross-package import
+// @ts-expect-error - cross-package import
 import { Button } from '@/components/ui/button';
-// @ts-ignore - cross-package import
+// @ts-expect-error - cross-package import
 import { RefreshButton } from '@/components/ui/RefreshButton';
-// @ts-ignore - cross-package import
+// @ts-expect-error - cross-package import
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-// @ts-ignore - cross-package import
+// @ts-expect-error - cross-package import
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
-// @ts-ignore - cross-package import
+// @ts-expect-error - cross-package import
 import { createCsv } from '@/lib/csv';
 
 function downloadFile(content: string, filename: string, mimeType: string) {
