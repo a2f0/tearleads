@@ -7,12 +7,12 @@ const mockGetBackupInfo = vi.fn();
 const mockRestoreBackup = vi.fn();
 const mockRefreshInstances = vi.fn();
 
-vi.mock('@/db/backup', () => ({
+vi.mock('@client/db/backup', () => ({
   getBackupInfo: (...args: unknown[]) => mockGetBackupInfo(...args),
   restoreBackup: (...args: unknown[]) => mockRestoreBackup(...args)
 }));
 
-vi.mock('@/db/hooks/useDatabase', () => ({
+vi.mock('@client/db/hooks/useDatabase', () => ({
   useDatabaseContext: () => ({
     refreshInstances: () => mockRefreshInstances()
   })

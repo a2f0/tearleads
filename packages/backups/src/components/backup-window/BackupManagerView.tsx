@@ -4,17 +4,17 @@ import {
 } from '@tearleads/window-manager';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { getCurrentInstanceId, getDatabaseAdapter } from '@/db';
+import { Button } from '@client/components/ui/button';
+import { Input } from '@client/components/ui/input';
+import { getCurrentInstanceId, getDatabaseAdapter } from '@client/db';
 import {
   type BackupProgressEvent,
   createBackup,
   estimateBackupSize as estimateSize
-} from '@/db/backup';
-import { getKeyManager } from '@/db/crypto';
-import { getActiveInstance } from '@/db/instanceRegistry';
-import { saveFile } from '@/lib/fileUtils';
+} from '@client/db/backup';
+import { getKeyManager } from '@client/db/crypto';
+import { getActiveInstance } from '@client/db/instanceRegistry';
+import { saveFile } from '@client/lib/fileUtils';
 import {
   deleteBackupFromStorage,
   getBackupStorageUsed,
@@ -22,13 +22,13 @@ import {
   listStoredBackups,
   readBackupFromStorage,
   saveBackupToStorage
-} from '@/storage/backupStorage';
+} from '@client/storage/backupStorage';
 import {
   type FileStorage,
   getFileStorageForInstance,
   initializeFileStorage,
   isFileStorageInitialized
-} from '@/storage/opfs';
+} from '@client/storage/opfs';
 import { RestoreBackupForm } from './RestoreBackupForm';
 
 interface BackupProgress {

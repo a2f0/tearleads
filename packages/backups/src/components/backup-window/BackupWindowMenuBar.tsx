@@ -1,5 +1,8 @@
-import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
-import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
+import {
+  DropdownMenu,
+  DropdownMenuItem
+} from '@client/components/ui/dropdown-menu';
+import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
 
 interface BackupWindowMenuBarProps {
   onClose: () => void;

@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { Button } from '@client/components/ui/button';
+import { Input } from '@client/components/ui/input';
 import {
   type BackupManifest,
   type BackupProgressEvent,
   getBackupInfo,
   restoreBackup
-} from '@/db/backup';
-import { useDatabaseContext } from '@/db/hooks/useDatabase';
+} from '@client/db/backup';
+import { useDatabaseContext } from '@client/db/hooks/useDatabase';
 
 interface BackupProgress {
   phase: string;
