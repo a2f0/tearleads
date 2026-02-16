@@ -21,23 +21,21 @@ export interface LicenseInfo {
 
 // Sub-modules
 export * from './admin.js';
-export * from './auth.js';
-export * from './mls.js';
-export * from './vfs.js';
-
 // AI conversations
 export * from './aiConversations.js';
+export * from './auth.js';
 // Chat validation helpers
 export * from './chat.js';
 // Media drag-and-drop helpers
 export * from './mediaDragData.js';
+export * from './mls.js';
 // OpenRouter model options
 export * from './openrouter.js';
 // Tree utilities
 export * from './tree/index.js';
-
 // Type guards
 export * from './typeGuards/vfs.js';
+export * from './vfs.js';
 
 // Types
 export interface PingData {
