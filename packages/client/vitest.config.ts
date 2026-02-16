@@ -35,8 +35,8 @@ export default defineConfig({
         // LLM files are excluded because they rely on web workers and WebGPU
         // which require integration/e2e testing rather than unit tests
         'src/hooks/useLLM.ts',
-        'src/lib/llm-runtime.ts',
-        'src/workers/llm-worker.ts',
+        'src/lib/llmRuntime.ts',
+        'src/workers/llmWorker.ts',
         // Browser-specific APIs that cannot be tested in jsdom:
         // - OPFS (Origin Private File System) for encrypted file storage
         // - Canvas/createImageBitmap for image thumbnail generation
@@ -54,7 +54,7 @@ export default defineConfig({
         'src/db/adapters/electron.adapter.ts',
         'src/db/adapters/web.adapter.ts',
         // Native secure storage requires Capacitor native biometric APIs
-        'src/db/crypto/native-secure-storage.ts',
+        'src/db/crypto/nativeSecureStorage.ts',
         // Barrel files that only re-export from other modules
         // (footer.tsx re-exports Footer from @tearleads/ui package)
         'src/audio/index.ts',
@@ -132,7 +132,7 @@ export default defineConfig({
         'src/i18n/translations/types.ts',
         'src/pages/opfs/types.ts',
         // Test infrastructure for Playwright parallel execution
-        'src/lib/test-instance.ts',
+        'src/lib/testInstance.ts',
         // MLS chat page - TODO: add tests
         'src/pages/MlsChat.tsx',
         // Search module files that require OPFS or browser-specific APIs
@@ -152,9 +152,9 @@ export default defineConfig({
         // for the inactive view cannot be exercised in tests.
         'src/pages/help/Help.tsx',
         // App-builder stub module for disabled packages - no behavior to test
-        'src/lib/disabled-package-stub.ts',
+        'src/lib/disabledPackageStub.ts',
         // App config runtime module - thin wrapper over virtual module
-        'src/lib/app-config.ts'
+        'src/lib/appConfig.ts'
       ],
       thresholds: {
         // Threshold lowered from 91.5% to 91.4% after camera review feature

@@ -8,7 +8,13 @@
  *   ./scripts/refactor/renameKebabToCamel.ts --manifest    # Output JSON manifest
  */
 import { execSync, spawnSync } from 'node:child_process';
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+  writeFileSync
+} from 'node:fs';
 import { basename, dirname, extname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -108,7 +114,11 @@ function isReactComponent(filePath: string): boolean {
  */
 function isTestFile(filePath: string): boolean {
   const base = basename(filePath);
-  return base.includes('.test.') || base.includes('.spec.') || base.includes('.integration.test.');
+  return (
+    base.includes('.test.') ||
+    base.includes('.spec.') ||
+    base.includes('.integration.test.')
+  );
 }
 
 /**
@@ -124,7 +134,10 @@ function isTypeDefinition(filePath: string): boolean {
 function hasKebabCase(filePath: string): boolean {
   const base = basename(filePath);
   // Remove extension(s) to get the name
-  const namePart = base.replace(/(\.(test|spec|integration\.test))?\.d?\.tsx?$/, '');
+  const namePart = base.replace(
+    /(\.(test|spec|integration\.test))?\.d?\.tsx?$/,
+    ''
+  );
   return namePart.includes('-');
 }
 
@@ -149,7 +162,10 @@ function generateNewBasename(oldPath: string): string {
     if (testMatch) {
       const testSuffix = testMatch[1];
       const fileExt = testMatch[3];
-      const nameWithoutTestExt = base.slice(0, -(testSuffix.length + fileExt.length));
+      const nameWithoutTestExt = base.slice(
+        0,
+        -(testSuffix.length + fileExt.length)
+      );
       const newName = isReactComponent(oldPath.replace(testSuffix, ''))
         ? kebabToPascalCase(nameWithoutTestExt)
         : kebabToCamelCase(nameWithoutTestExt);
@@ -186,7 +202,10 @@ function findKebabCaseFiles(dir: string, files: string[] = []): string[] {
       findKebabCaseFiles(fullPath, files);
     } else if (stat.isFile()) {
       // Check if it's a TypeScript file with kebab-case naming
-      if ((entry.endsWith('.ts') || entry.endsWith('.tsx')) && hasKebabCase(fullPath)) {
+      if (
+        (entry.endsWith('.ts') || entry.endsWith('.tsx')) &&
+        hasKebabCase(fullPath)
+      ) {
         // Skip excluded patterns
         if (EXCLUDED_PATTERNS.some((pattern) => pattern.test(fullPath))) {
           continue;
@@ -206,7 +225,10 @@ function generateManifest(): RenameEntry[] {
   const packagesDir = join(ROOT_DIR, 'packages');
   const scriptsDir = join(ROOT_DIR, 'scripts');
 
-  const files = [...findKebabCaseFiles(packagesDir), ...findKebabCaseFiles(scriptsDir)];
+  const files = [
+    ...findKebabCaseFiles(packagesDir),
+    ...findKebabCaseFiles(scriptsDir)
+  ];
 
   const manifest: RenameEntry[] = [];
 
@@ -237,7 +259,7 @@ function generateManifest(): RenameEntry[] {
 /**
  * Find all files that import a given module
  */
-function findImporters(modulePath: string): string[] {
+function _findImporters(modulePath: string): string[] {
   const relPath = relative(ROOT_DIR, modulePath);
   const moduleNameNoExt = relPath.replace(/\.(tsx?|d\.ts)$/, '');
   const baseName = basename(moduleNameNoExt);
@@ -246,7 +268,15 @@ function findImporters(modulePath: string): string[] {
   try {
     const result = spawnSync(
       'grep',
-      ['-r', '-l', '--include=*.ts', '--include=*.tsx', baseName, 'packages/', 'scripts/'],
+      [
+        '-r',
+        '-l',
+        '--include=*.ts',
+        '--include=*.tsx',
+        baseName,
+        'packages/',
+        'scripts/'
+      ],
       { cwd: ROOT_DIR, encoding: 'utf-8' }
     );
     if (result.stdout) {
@@ -283,15 +313,30 @@ function updateImportsInFile(
     // from '@/lib/old-name'
     const patterns = [
       // Import with quotes and potential .js extension
-      new RegExp(`(from\\s+['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"])`, 'g'),
+      new RegExp(
+        `(from\\s+['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"])`,
+        'g'
+      ),
       // Dynamic import
-      new RegExp(`(import\\(['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"]\\))`, 'g'),
+      new RegExp(
+        `(import\\(['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"]\\))`,
+        'g'
+      ),
       // Require
-      new RegExp(`(require\\(['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"]\\))`, 'g'),
+      new RegExp(
+        `(require\\(['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"]\\))`,
+        'g'
+      ),
       // vi.mock / jest.mock
-      new RegExp(`(mock\\(['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"])`, 'g'),
+      new RegExp(
+        `(mock\\(['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"])`,
+        'g'
+      ),
       // export from
-      new RegExp(`(export\\s+\\*?\\s*from\\s+['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"])`, 'g')
+      new RegExp(
+        `(export\\s+\\*?\\s*from\\s+['"])([^'"]*/)${escapeRegex(oldName)}(\\.js)?(['"])`,
+        'g'
+      )
     ];
 
     for (const pattern of patterns) {
@@ -332,7 +377,9 @@ function executeRename(entry: RenameEntry, dryRun: boolean): boolean {
   }
 
   if (dryRun) {
-    console.log(`  → Would rename: ${entry.oldBasename} → ${entry.newBasename}`);
+    console.log(
+      `  → Would rename: ${entry.oldBasename} → ${entry.newBasename}`
+    );
     return true;
   }
 
@@ -345,7 +392,9 @@ function executeRename(entry: RenameEntry, dryRun: boolean): boolean {
     return true;
   } catch (error) {
     console.error(`  ✗ Failed to rename: ${entry.oldPath}`);
-    console.error(`    ${error instanceof Error ? error.message : String(error)}`);
+    console.error(
+      `    ${error instanceof Error ? error.message : String(error)}`
+    );
     return false;
   }
 }
@@ -361,9 +410,15 @@ function main(): void {
 
   if (!dryRun && !execute && !manifestOnly) {
     console.log('Usage:');
-    console.log('  ./scripts/refactor/renameKebabToCamel.ts --dry-run     # Preview changes');
-    console.log('  ./scripts/refactor/renameKebabToCamel.ts --execute     # Execute renames');
-    console.log('  ./scripts/refactor/renameKebabToCamel.ts --manifest    # Output JSON manifest');
+    console.log(
+      '  ./scripts/refactor/renameKebabToCamel.ts --dry-run     # Preview changes'
+    );
+    console.log(
+      '  ./scripts/refactor/renameKebabToCamel.ts --execute     # Execute renames'
+    );
+    console.log(
+      '  ./scripts/refactor/renameKebabToCamel.ts --manifest    # Output JSON manifest'
+    );
     process.exit(1);
   }
 
@@ -387,7 +442,7 @@ function main(): void {
     if (!byDir.has(dir)) {
       byDir.set(dir, []);
     }
-    byDir.get(dir)!.push(entry);
+    byDir.get(dir)?.push(entry);
   }
 
   console.log(`Found ${manifest.length} files to rename:\n`);
@@ -395,8 +450,12 @@ function main(): void {
   // Build rename mapping (old basename without ext -> new basename without ext)
   const renameMap = new Map<string, string>();
   for (const entry of manifest) {
-    const oldNameNoExt = entry.oldBasename.replace(/\.(tsx?|d\.ts)$/, '').replace(/\.(test|spec|integration\.test)$/, '');
-    const newNameNoExt = entry.newBasename.replace(/\.(tsx?|d\.ts)$/, '').replace(/\.(test|spec|integration\.test)$/, '');
+    const oldNameNoExt = entry.oldBasename
+      .replace(/\.(tsx?|d\.ts)$/, '')
+      .replace(/\.(test|spec|integration\.test)$/, '');
+    const newNameNoExt = entry.newBasename
+      .replace(/\.(tsx?|d\.ts)$/, '')
+      .replace(/\.(test|spec|integration\.test)$/, '');
     renameMap.set(oldNameNoExt, newNameNoExt);
   }
 
@@ -457,7 +516,10 @@ function findAllTsFiles(dir: string, files: string[] = []): string[] {
 
     if (stat.isDirectory()) {
       findAllTsFiles(fullPath, files);
-    } else if (stat.isFile() && (entry.endsWith('.ts') || entry.endsWith('.tsx'))) {
+    } else if (
+      stat.isFile() &&
+      (entry.endsWith('.ts') || entry.endsWith('.tsx'))
+    ) {
       files.push(fullPath);
     }
   }
