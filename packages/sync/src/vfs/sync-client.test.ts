@@ -11519,44 +11519,16 @@ describe('VfsBackgroundSyncClient', () => {
 
       await targetClient.flush();
 
-      const readForwardSignatures = (limit: number): string[] => {
-        const signatures: string[] = [];
-        let cursor = seedCursor;
-        while (true) {
-          const page = targetClient.listChangedContainers(cursor, limit);
-          for (const item of page.items) {
-            const itemCursor = {
-              changedAt: item.changedAt,
-              changeId: item.changeId
-            };
-            expect(compareVfsSyncCursorOrder(itemCursor, seedCursor)).toBe(1);
-            if (cursor) {
-              expect(compareVfsSyncCursorOrder(itemCursor, cursor)).toBe(1);
-            }
-            signatures.push(`${item.containerId}|${item.changeId}`);
-          }
-
-          if (!page.hasMore) {
-            break;
-          }
-
-          if (!page.nextCursor) {
-            throw new Error('expected nextCursor when hasMore is true');
-          }
-
-          if (cursor) {
-            expect(compareVfsSyncCursorOrder(page.nextCursor, cursor)).toBe(1);
-          }
-          cursor = page.nextCursor;
-        }
-
-        return signatures;
-      };
-
-      const fullWindowSignatures = readForwardSignatures(100);
-      const pagedWindowSignatures = readForwardSignatures(
-        input.containerWindowLimit
-      );
+      const fullWindowSignatures = readForwardContainerSignatures({
+        client: targetClient,
+        seedCursor,
+        pageLimit: 100
+      });
+      const pagedWindowSignatures = readForwardContainerSignatures({
+        client: targetClient,
+        seedCursor,
+        pageLimit: input.containerWindowLimit
+      });
       expect(pagedWindowSignatures).toEqual(fullWindowSignatures);
       expect(fullWindowSignatures).toEqual([
         `${itemLocalAcl}|${localAclOpId}`,
@@ -11573,9 +11545,7 @@ describe('VfsBackgroundSyncClient', () => {
       expect(new Set(pulledOpIds).size).toBe(pulledOpIds.length);
       expect(pulledOpIds).not.toContain(remoteSeedOpId);
 
-      const guardrailSignatures = guardrailViolations.map(
-        (violation) => `${violation.stage}:${violation.code}`
-      );
+      const guardrailSignatures = toStageCodeSignatures(guardrailViolations);
       expect(guardrailSignatures).toEqual([
         'hydrate:hydrateGuardrailViolation'
       ]);
