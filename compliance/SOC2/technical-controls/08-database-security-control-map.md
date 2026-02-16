@@ -16,12 +16,14 @@ This map ties database security policy controls to concrete implementation and t
 ### TL-DB-001: Encryption at Rest
 
 **Implementation:**
+
 - `storage_encrypted = true` in `aws_db_instance.main`
 - Uses AWS KMS for transparent data encryption.
 
 ### TL-DB-002: Automated Backups
 
 **Implementation:**
+
 - `backup_retention_period = var.backup_retention_period` (default 7 days)
 - `backup_window = "03:00-04:00"`
 - Enables point-in-time recovery (PITR).
@@ -29,12 +31,14 @@ This map ties database security policy controls to concrete implementation and t
 ### TL-DB-003: Deletion Protection
 
 **Implementation:**
+
 - `deletion_protection = var.deletion_protection` (default true)
 - Prevents the database from being deleted via Terraform or Console without explicitly disabling protection.
 
 ### TL-NET-005: Network Isolation
 
 **Implementation:**
+
 - `aws_security_group.rds` restricts ingress to `var.allowed_cidr_blocks`.
 - Default egress is restricted.
 - No public access unless `publicly_accessible` is explicitly set to true.
