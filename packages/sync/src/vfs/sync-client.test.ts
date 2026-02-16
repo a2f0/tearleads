@@ -304,6 +304,13 @@ function createPhasePullRecordingTransportFactory(input: {
     });
 }
 
+function filterObservedPullsByPhase(input: {
+  observedPulls: ObservedPhasePullPage[];
+  phase: ObservedPullPhase;
+}): ObservedPhasePullPage[] {
+  return input.observedPulls.filter((pull) => pull.phase === input.phase);
+}
+
 function createPullRecordingTransport(input: {
   baseTransport: VfsCrdtSyncTransport;
   observedPulls: ObservedPullPage[];
@@ -7217,9 +7224,10 @@ describe('VfsBackgroundSyncClient', () => {
     resumedClient.hydrateState(persistedSeedState);
     await resumedClient.sync();
 
-    const resumedPulls = observedPulls.filter(
-      (pull) => pull.phase === 'resumed'
-    );
+    const resumedPulls = filterObservedPullsByPhase({
+      observedPulls,
+      phase: 'resumed'
+    });
     expect(resumedPulls.length).toBe(2);
     expect(resumedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
     expect(resumedPulls[0]?.items.map((item) => item.opId)).toEqual([
@@ -7425,9 +7433,10 @@ describe('VfsBackgroundSyncClient', () => {
     resumedClient.hydrateState(persistedSeedState);
     await resumedClient.sync();
 
-    const resumedPulls = observedPulls.filter(
-      (pull) => pull.phase === 'resumed'
-    );
+    const resumedPulls = filterObservedPullsByPhase({
+      observedPulls,
+      phase: 'resumed'
+    });
     expect(resumedPulls.length).toBe(2);
     expect(resumedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
     expect(resumedPulls[0]?.items.map((item) => item.opId)).toEqual([
@@ -8269,9 +8278,10 @@ describe('VfsBackgroundSyncClient', () => {
       }
     });
 
-    const resumedPulls = observedPulls.filter(
-      (pull) => pull.phase === 'resumed'
-    );
+    const resumedPulls = filterObservedPullsByPhase({
+      observedPulls,
+      phase: 'resumed'
+    });
     expect(resumedPulls.length).toBe(2);
     expect(resumedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
     expect(resumedPulls[1]?.requestCursor).toEqual({
@@ -8482,9 +8492,10 @@ describe('VfsBackgroundSyncClient', () => {
       changeId: 'remote-4'
     });
 
-    const resumedPulls = observedPulls.filter(
-      (pull) => pull.phase === 'resumed'
-    );
+    const resumedPulls = filterObservedPullsByPhase({
+      observedPulls,
+      phase: 'resumed'
+    });
     expect(resumedPulls.length).toBe(3);
     expect(resumedPulls[0]?.requestCursor).toEqual(seedReplayCursor);
     expect(resumedPulls[1]?.requestCursor).toEqual({
