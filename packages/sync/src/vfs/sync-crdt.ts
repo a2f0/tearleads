@@ -271,8 +271,10 @@ export function reconcileCanonicalVfsCrdtOperations(
 }
 
 export {
+  type VfsCrdtAclEntry,
   type VfsCrdtApplyResult,
   type VfsCrdtApplyStatus,
+  type VfsCrdtLinkEntry,
   type VfsCrdtOperation,
   type VfsCrdtOpType,
   type VfsCrdtOrderViolationCode,
