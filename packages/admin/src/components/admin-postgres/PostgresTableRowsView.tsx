@@ -2,11 +2,8 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Braces, Download, Loader2, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-// @ts-expect-error - cross-package import
 import { Button } from '@/components/ui/button';
-// @ts-expect-error - cross-package import
 import { RefreshButton } from '@/components/ui/RefreshButton';
-// @ts-expect-error - cross-package import
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { createCsv } from '@/lib/csv';
