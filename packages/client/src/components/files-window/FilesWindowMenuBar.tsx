@@ -30,7 +30,7 @@ export function FilesWindowMenuBar({
   onClose
 }: FilesWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <div className="flex shrink-0 border-b border-border/70 bg-muted/30 px-1">
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<Upload className="h-3 w-3" />}
