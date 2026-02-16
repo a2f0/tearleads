@@ -1,405 +1,53 @@
+import {
+  normalizePersistedContainerClocks,
+  normalizePersistedPendingOperation,
+  normalizePersistedReconcileState,
+  normalizePersistedReplaySnapshot
+} from './sync-client-persistence-normalizers.js';
 import type {
-  VfsAclAccessLevel,
-  VfsAclPrincipalType,
-  VfsCrdtSyncItem
-} from '@tearleads/shared';
+  QueueVfsCrdtLocalOperationInput,
+  VfsBackgroundSyncClientFlushResult,
+  VfsBackgroundSyncClientOptions,
+  VfsBackgroundSyncClientPersistedState,
+  VfsBackgroundSyncClientSnapshot,
+  VfsBackgroundSyncClientSyncResult,
+  VfsCrdtSyncTransport,
+  VfsSyncGuardrailViolation
+} from './sync-client-utils.js';
+import {
+  assertNonRegressingLastWriteIds,
+  cloneCursor,
+  isAccessLevel,
+  isPrincipalType,
+  lastItemCursor,
+  MAX_STALE_PUSH_RECOVERY_ATTEMPTS,
+  normalizeCursor,
+  normalizeOccurredAt,
+  normalizeRequiredString,
+  parsePositiveSafeInteger,
+  parsePullLimit,
+  VfsCrdtSyncPushRejectedError,
+  validateClientId,
+  validatePushResponse
+} from './sync-client-utils.js';
 import {
   InMemoryVfsContainerClockStore,
-  type ListVfsContainerClockChangesResult,
-  type VfsContainerClockEntry
+  type ListVfsContainerClockChangesResult
 } from './sync-container-clocks.js';
-import type { VfsCrdtOperation, VfsCrdtOpType } from './sync-crdt.js';
-import {
-  InMemoryVfsCrdtFeedReplayStore,
-  type VfsCrdtFeedReplaySnapshot
-} from './sync-crdt-feed-replay.js';
+import type { VfsCrdtOperation } from './sync-crdt.js';
+import { InMemoryVfsCrdtFeedReplayStore } from './sync-crdt-feed-replay.js';
 import {
   InMemoryVfsCrdtClientStateStore,
-  parseVfsCrdtLastReconciledWriteIds,
-  type VfsCrdtClientReconcileState,
-  type VfsCrdtLastReconciledWriteIds
+  parseVfsCrdtLastReconciledWriteIds
 } from './sync-crdt-reconcile.js';
 import type { VfsSyncCursor } from './sync-cursor.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
 
-const DEFAULT_PULL_LIMIT = 100;
-const MAX_PULL_LIMIT = 500;
-const MAX_CLIENT_ID_LENGTH = 128;
-const MAX_STALE_PUSH_RECOVERY_ATTEMPTS = 2;
-
-const VALID_ACCESS_LEVELS: VfsAclAccessLevel[] = ['read', 'write', 'admin'];
-const VALID_PRINCIPAL_TYPES: VfsAclPrincipalType[] = [
-  'user',
-  'group',
-  'organization'
-];
-const VALID_OP_TYPES: VfsCrdtOpType[] = [
-  'acl_add',
-  'acl_remove',
-  'link_add',
-  'link_remove'
-];
-
-function isAccessLevel(value: unknown): value is VfsAclAccessLevel {
-  return (
-    typeof value === 'string' &&
-    VALID_ACCESS_LEVELS.some((candidate) => candidate === value)
-  );
-}
-
-function isPrincipalType(value: unknown): value is VfsAclPrincipalType {
-  return (
-    typeof value === 'string' &&
-    VALID_PRINCIPAL_TYPES.some((candidate) => candidate === value)
-  );
-}
-
-function normalizeRequiredString(value: unknown): string | null {
-  if (typeof value !== 'string') {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : null;
-}
-
-function normalizeOccurredAt(value: unknown): string | null {
-  const normalized = normalizeRequiredString(value);
-  if (!normalized) {
-    return null;
-  }
-
-  const parsedMs = Date.parse(normalized);
-  if (!Number.isFinite(parsedMs)) {
-    return null;
-  }
-
-  return new Date(parsedMs).toISOString();
-}
-
-function sleep(ms: number): Promise<void> {
-  if (ms < 1) {
-    return Promise.resolve();
-  }
-
-  return new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
-}
-
-function parsePullLimit(value: unknown): number {
-  if (value === undefined) {
-    return DEFAULT_PULL_LIMIT;
-  }
-
-  if (typeof value !== 'number' || !Number.isInteger(value)) {
-    throw new Error(
-      `pullLimit must be an integer between 1 and ${MAX_PULL_LIMIT}`
-    );
-  }
-
-  if (value < 1 || value > MAX_PULL_LIMIT) {
-    throw new Error(
-      `pullLimit must be an integer between 1 and ${MAX_PULL_LIMIT}`
-    );
-  }
-
-  return value;
-}
-
-function validateClientId(value: string): void {
-  if (value.length === 0 || value.length > MAX_CLIENT_ID_LENGTH) {
-    throw new Error('clientId must be non-empty and at most 128 characters');
-  }
-
-  if (value.includes(':')) {
-    throw new Error('clientId must not include ":"');
-  }
-}
-
-function parsePositiveSafeInteger(value: unknown, fieldName: string): number {
-  if (
-    typeof value !== 'number' ||
-    !Number.isFinite(value) ||
-    !Number.isInteger(value) ||
-    value < 1 ||
-    value > Number.MAX_SAFE_INTEGER
-  ) {
-    throw new Error(`${fieldName} must be a positive safe integer`);
-  }
-
-  return value;
-}
-
-function cloneCursor(cursor: VfsSyncCursor): VfsSyncCursor {
-  return {
-    changedAt: cursor.changedAt,
-    changeId: cursor.changeId
-  };
-}
-
-function toCursorFromItem(item: VfsCrdtSyncItem): VfsSyncCursor {
-  const occurredAtMs = Date.parse(item.occurredAt);
-  if (!Number.isFinite(occurredAtMs)) {
-    throw new Error('transport returned item with invalid occurredAt');
-  }
-
-  const changeId = normalizeRequiredString(item.opId);
-  if (!changeId) {
-    throw new Error('transport returned item with missing opId');
-  }
-
-  return {
-    changedAt: new Date(occurredAtMs).toISOString(),
-    changeId
-  };
-}
-
-function lastItemCursor(items: VfsCrdtSyncItem[]): VfsSyncCursor | null {
-  if (items.length === 0) {
-    return null;
-  }
-
-  const lastItem = items[items.length - 1];
-  if (!lastItem) {
-    return null;
-  }
-
-  return toCursorFromItem(lastItem);
-}
-
-function isPushStatus(value: unknown): value is VfsCrdtSyncPushStatus {
-  return (
-    value === 'applied' ||
-    value === 'alreadyApplied' ||
-    value === 'staleWriteId' ||
-    value === 'outdatedOp' ||
-    value === 'invalidOp'
-  );
-}
-
-function isCrdtOpType(value: unknown): value is VfsCrdtOpType {
-  return (
-    typeof value === 'string' &&
-    VALID_OP_TYPES.some((candidate) => candidate === value)
-  );
-}
-
-export interface VfsCrdtSyncPullResponse {
-  items: VfsCrdtSyncItem[];
-  hasMore: boolean;
-  nextCursor: VfsSyncCursor | null;
-  lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
-}
-
-export type VfsCrdtSyncPushStatus =
-  | 'applied'
-  | 'alreadyApplied'
-  | 'staleWriteId'
-  | 'outdatedOp'
-  | 'invalidOp';
-
-export interface VfsCrdtSyncPushResult {
-  opId: string;
-  status: VfsCrdtSyncPushStatus;
-}
-
-export interface VfsCrdtSyncPushResponse {
-  results: VfsCrdtSyncPushResult[];
-}
-
-export interface VfsCrdtSyncReconcileResponse {
-  cursor: VfsSyncCursor;
-  lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
-}
-
-export type VfsSyncGuardrailViolationCode =
-  | 'staleWriteRecoveryExhausted'
-  | 'pullPageInvariantViolation'
-  | 'pullDuplicateOpReplay'
-  | 'pullCursorRegression'
-  | 'reconcileCursorRegression'
-  | 'lastWriteIdRegression'
-  | 'hydrateGuardrailViolation';
-
-export interface VfsSyncGuardrailViolation {
-  code: VfsSyncGuardrailViolationCode;
-  stage: 'flush' | 'pull' | 'reconcile' | 'hydrate';
-  message: string;
-  details?: Record<string, string | number | boolean | null>;
-}
-
-export interface VfsCrdtSyncTransport {
-  pushOperations(input: {
-    userId: string;
-    clientId: string;
-    operations: VfsCrdtOperation[];
-  }): Promise<VfsCrdtSyncPushResponse>;
-  pullOperations(input: {
-    userId: string;
-    clientId: string;
-    cursor: VfsSyncCursor | null;
-    limit: number;
-  }): Promise<VfsCrdtSyncPullResponse>;
-  reconcileState?(input: {
-    userId: string;
-    clientId: string;
-    cursor: VfsSyncCursor;
-    lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
-  }): Promise<VfsCrdtSyncReconcileResponse>;
-}
-
-export class VfsCrdtSyncPushRejectedError extends Error {
-  readonly rejectedResults: VfsCrdtSyncPushResult[];
-
-  constructor(results: VfsCrdtSyncPushResult[]) {
-    super('push rejected one or more operations');
-    this.name = 'VfsCrdtSyncPushRejectedError';
-    this.rejectedResults = results;
-  }
-}
-
-function validatePushResponse(
-  operations: VfsCrdtOperation[],
-  response: VfsCrdtSyncPushResponse
-): VfsCrdtSyncPushResult[] {
-  if (!Array.isArray(response.results)) {
-    throw new Error('transport returned invalid push response');
-  }
-
-  if (response.results.length !== operations.length) {
-    throw new Error('transport returned mismatched push response size');
-  }
-
-  const byOpId = new Map<string, VfsCrdtSyncPushResult>();
-  for (const result of response.results) {
-    if (
-      !result ||
-      typeof result.opId !== 'string' ||
-      !isPushStatus(result.status)
-    ) {
-      throw new Error('transport returned invalid push result');
-    }
-
-    byOpId.set(result.opId, result);
-  }
-
-  const orderedResults: VfsCrdtSyncPushResult[] = [];
-  for (const operation of operations) {
-    const result = byOpId.get(operation.opId);
-    if (!result) {
-      throw new Error(
-        `transport push response missing result for opId ${operation.opId}`
-      );
-    }
-
-    orderedResults.push(result);
-  }
-
-  return orderedResults;
-}
-
-function assertNonRegressingLastWriteIds(
-  observedLastWriteIds: Map<string, number>,
-  incomingLastWriteIds: VfsCrdtLastReconciledWriteIds,
-  onRegression?:
-    | ((input: {
-        replicaId: string;
-        previousWriteId: number;
-        incomingWriteId: number;
-      }) => void)
-    | null
-): void {
-  for (const [replicaId, writeId] of Object.entries(incomingLastWriteIds)) {
-    const previousWriteId = observedLastWriteIds.get(replicaId) ?? 0;
-    if (writeId < previousWriteId) {
-      onRegression?.({
-        replicaId,
-        previousWriteId,
-        incomingWriteId: writeId
-      });
-      throw new Error(
-        `transport regressed lastReconciledWriteIds for replica ${replicaId}`
-      );
-    }
-
-    if (writeId > previousWriteId) {
-      observedLastWriteIds.set(replicaId, writeId);
-    }
-  }
-}
-
-function normalizeCursor(
-  cursor: VfsSyncCursor,
-  fieldName: string
-): VfsSyncCursor {
-  const normalizedChangedAt = normalizeOccurredAt(cursor.changedAt);
-  const normalizedChangeId = normalizeRequiredString(cursor.changeId);
-  if (!normalizedChangedAt || !normalizedChangeId) {
-    throw new Error(`transport returned invalid ${fieldName}`);
-  }
-
-  return {
-    changedAt: normalizedChangedAt,
-    changeId: normalizedChangeId
-  };
-}
-
-export interface QueueVfsCrdtLocalOperationInput {
-  opType: VfsCrdtOpType;
-  itemId: string;
-  principalType?: VfsAclPrincipalType;
-  principalId?: string;
-  accessLevel?: VfsAclAccessLevel;
-  parentId?: string;
-  childId?: string;
-  occurredAt?: string;
-  opId?: string;
-}
-
-export interface VfsBackgroundSyncClientOptions {
-  pullLimit?: number;
-  now?: () => Date;
-  onBackgroundError?: (error: unknown) => void;
-  onGuardrailViolation?: (violation: VfsSyncGuardrailViolation) => void;
-}
-
-export interface VfsBackgroundSyncClientFlushResult {
-  pushedOperations: number;
-  pulledOperations: number;
-  pullPages: number;
-}
-
-export interface VfsBackgroundSyncClientSyncResult {
-  pulledOperations: number;
-  pullPages: number;
-}
-
-export interface VfsBackgroundSyncClientSnapshot {
-  acl: Array<{
-    itemId: string;
-    principalType: VfsAclPrincipalType;
-    principalId: string;
-    accessLevel: VfsAclAccessLevel;
-  }>;
-  links: Array<{
-    parentId: string;
-    childId: string;
-  }>;
-  cursor: VfsSyncCursor | null;
-  lastReconciledWriteIds: VfsCrdtLastReconciledWriteIds;
-  containerClocks: VfsContainerClockEntry[];
-  pendingOperations: number;
-  nextLocalWriteId: number;
-}
-
-export interface VfsBackgroundSyncClientPersistedState {
-  replaySnapshot: VfsCrdtFeedReplaySnapshot;
-  reconcileState: VfsCrdtClientReconcileState | null;
-  containerClocks: VfsContainerClockEntry[];
-  pendingOperations: VfsCrdtOperation[];
-  nextLocalWriteId: number;
-}
+export type * from './sync-client-utils.js';
+export {
+  delayVfsCrdtSyncTransport,
+  VfsCrdtSyncPushRejectedError
+} from './sync-client-utils.js';
 
 export class VfsBackgroundSyncClient {
   private readonly userId: string;
@@ -602,13 +250,13 @@ export class VfsBackgroundSyncClient {
         throw new Error('state.containerClocks must be an array');
       }
 
-      const normalizedReplaySnapshot = this.normalizePersistedReplaySnapshot(
+      const normalizedReplaySnapshot = normalizePersistedReplaySnapshot(
         state.replaySnapshot
       );
-      const normalizedReconcileState = this.normalizePersistedReconcileState(
+      const normalizedReconcileState = normalizePersistedReconcileState(
         state.reconcileState
       );
-      const normalizedContainerClocks = this.normalizePersistedContainerClocks(
+      const normalizedContainerClocks = normalizePersistedContainerClocks(
         state.containerClocks
       );
 
@@ -672,10 +320,11 @@ export class VfsBackgroundSyncClient {
           throw new Error(`state.pendingOperations[${index}] is invalid`);
         }
 
-        const normalizedOperation = this.normalizePersistedPendingOperation(
+        const normalizedOperation = normalizePersistedPendingOperation({
           operation,
-          index
-        );
+          index,
+          clientId: this.clientId
+        });
         if (observedPendingOpIds.has(normalizedOperation.opId)) {
           throw new Error(
             `state.pendingOperations has duplicate opId ${normalizedOperation.opId}`
@@ -853,200 +502,6 @@ export class VfsBackgroundSyncClient {
     ) {
       throw new Error('cannot hydrate state on a non-empty client');
     }
-  }
-
-  private normalizePersistedReplaySnapshot(
-    value: VfsCrdtFeedReplaySnapshot
-  ): VfsCrdtFeedReplaySnapshot {
-    if (typeof value !== 'object' || value === null) {
-      throw new Error('state.replaySnapshot must be an object');
-    }
-    if (!Array.isArray(value.acl)) {
-      throw new Error('state.replaySnapshot.acl must be an array');
-    }
-    if (!Array.isArray(value.links)) {
-      throw new Error('state.replaySnapshot.links must be an array');
-    }
-
-    const normalizedAcl = value.acl.map((entry, index) => {
-      const itemId = normalizeRequiredString(entry.itemId);
-      const principalType = isPrincipalType(entry.principalType)
-        ? entry.principalType
-        : null;
-      const principalId = normalizeRequiredString(entry.principalId);
-      const accessLevel = isAccessLevel(entry.accessLevel)
-        ? entry.accessLevel
-        : null;
-      if (!itemId || !principalType || !principalId || !accessLevel) {
-        throw new Error(`state.replaySnapshot.acl[${index}] is invalid`);
-      }
-
-      return {
-        itemId,
-        principalType,
-        principalId,
-        accessLevel
-      };
-    });
-
-    const normalizedLinks = value.links.map((entry, index) => {
-      const parentId = normalizeRequiredString(entry.parentId);
-      const childId = normalizeRequiredString(entry.childId);
-      if (!parentId || !childId) {
-        throw new Error(`state.replaySnapshot.links[${index}] is invalid`);
-      }
-
-      return {
-        parentId,
-        childId
-      };
-    });
-
-    let normalizedCursor: VfsSyncCursor | null = null;
-    if (value.cursor !== null) {
-      normalizedCursor = normalizeCursor(
-        value.cursor,
-        'persisted replay cursor'
-      );
-    }
-
-    return {
-      acl: normalizedAcl,
-      links: normalizedLinks,
-      cursor: normalizedCursor
-    };
-  }
-
-  private normalizePersistedReconcileState(
-    value: VfsCrdtClientReconcileState | null
-  ): VfsCrdtClientReconcileState | null {
-    if (value === null) {
-      return null;
-    }
-
-    const normalizedCursor = normalizeCursor(
-      value.cursor,
-      'persisted reconcile cursor'
-    );
-    const parsedWriteIds = parseVfsCrdtLastReconciledWriteIds(
-      value.lastReconciledWriteIds
-    );
-    if (!parsedWriteIds.ok) {
-      throw new Error(parsedWriteIds.error);
-    }
-
-    return {
-      cursor: normalizedCursor,
-      lastReconciledWriteIds: parsedWriteIds.value
-    };
-  }
-
-  private normalizePersistedContainerClocks(
-    clocks: VfsContainerClockEntry[]
-  ): VfsContainerClockEntry[] {
-    const observedContainerIds: Set<string> = new Set();
-    return clocks.map((clock, index) => {
-      const containerId = normalizeRequiredString(clock.containerId);
-      const changeId = normalizeRequiredString(clock.changeId);
-      const changedAt = normalizeOccurredAt(clock.changedAt);
-      if (!containerId || !changeId || !changedAt) {
-        throw new Error(`state.containerClocks[${index}] is invalid`);
-      }
-      if (observedContainerIds.has(containerId)) {
-        throw new Error(
-          `state.containerClocks has duplicate containerId ${containerId}`
-        );
-      }
-      observedContainerIds.add(containerId);
-
-      return {
-        containerId,
-        changeId,
-        changedAt
-      };
-    });
-  }
-
-  private normalizePersistedPendingOperation(
-    operation: VfsCrdtOperation,
-    index: number
-  ): VfsCrdtOperation {
-    const opType = isCrdtOpType(operation.opType) ? operation.opType : null;
-    if (!opType) {
-      throw new Error(`state.pendingOperations[${index}].opType is invalid`);
-    }
-
-    const opId = normalizeRequiredString(operation.opId);
-    const itemId = normalizeRequiredString(operation.itemId);
-    const replicaId = normalizeRequiredString(operation.replicaId);
-    const occurredAt = normalizeOccurredAt(operation.occurredAt);
-    if (!opId || !itemId || !replicaId || !occurredAt) {
-      throw new Error(`state.pendingOperations[${index}] is invalid`);
-    }
-    if (replicaId !== this.clientId) {
-      throw new Error(
-        `state.pendingOperations[${index}] has replicaId that does not match clientId`
-      );
-    }
-
-    const writeId = parsePositiveSafeInteger(
-      operation.writeId,
-      `state.pendingOperations[${index}].writeId`
-    );
-
-    const normalized: VfsCrdtOperation = {
-      opId,
-      opType,
-      itemId,
-      replicaId,
-      writeId,
-      occurredAt
-    };
-
-    if (opType === 'acl_add' || opType === 'acl_remove') {
-      const principalType = isPrincipalType(operation.principalType)
-        ? operation.principalType
-        : null;
-      const principalId = normalizeRequiredString(operation.principalId);
-      if (!principalType || !principalId) {
-        throw new Error(
-          `state.pendingOperations[${index}] is missing acl principal fields`
-        );
-      }
-      normalized.principalType = principalType;
-      normalized.principalId = principalId;
-
-      if (opType === 'acl_add') {
-        const accessLevel = isAccessLevel(operation.accessLevel)
-          ? operation.accessLevel
-          : null;
-        if (!accessLevel) {
-          throw new Error(
-            `state.pendingOperations[${index}] is missing acl accessLevel`
-          );
-        }
-        normalized.accessLevel = accessLevel;
-      }
-    }
-
-    if (opType === 'link_add' || opType === 'link_remove') {
-      const parentId = normalizeRequiredString(operation.parentId);
-      const childId = normalizeRequiredString(operation.childId);
-      if (!parentId || !childId) {
-        throw new Error(
-          `state.pendingOperations[${index}] is missing link fields`
-        );
-      }
-      if (childId !== itemId) {
-        throw new Error(
-          `state.pendingOperations[${index}] has link childId that does not match itemId`
-        );
-      }
-      normalized.parentId = parentId;
-      normalized.childId = childId;
-    }
-
-    return normalized;
   }
 
   private async runFlush(): Promise<VfsBackgroundSyncClientFlushResult> {
@@ -1538,21 +993,4 @@ export class VfsBackgroundSyncClient {
       }
     }
   }
-}
-
-export interface InMemoryVfsCrdtSyncTransportDelayConfig {
-  pushDelayMs?: number;
-  pullDelayMs?: number;
-}
-
-export async function delayVfsCrdtSyncTransport(
-  delays: InMemoryVfsCrdtSyncTransportDelayConfig,
-  type: 'push' | 'pull'
-): Promise<void> {
-  const delayMs = type === 'push' ? delays.pushDelayMs : delays.pullDelayMs;
-  if (typeof delayMs !== 'number' || !Number.isFinite(delayMs)) {
-    return;
-  }
-
-  await sleep(delayMs);
 }
