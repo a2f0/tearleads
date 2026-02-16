@@ -37,6 +37,9 @@ function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = {};
   for (let i = 2; i < argv.length; i += 1) {
     const token = argv[i];
+    if (token === undefined) {
+      continue;
+    }
     if (!token.startsWith('--')) {
       continue;
     }

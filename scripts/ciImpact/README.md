@@ -26,6 +26,12 @@ Run impacted pre-push coverage selection:
 pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base origin/main --head HEAD
 ```
 
+Run impacted ciImpact script tests only (used in CI):
+
+```bash
+pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base origin/main --head HEAD --scripts-only
+```
+
 Dry-run package selection:
 
 ```bash
@@ -62,6 +68,12 @@ Sample recent merged PRs and compare predicted required workflows to observed wo
 pnpm exec tsx scripts/ciImpact/validateRecentDecisions.ts --repo a2f0/tearleads --sample-size 30 --lookback-hours 24
 ```
 
+Run the same ciImpact script-test path used by CI:
+
+```bash
+pnpm exec tsx scripts/ciImpact/runImpactedTests.ts --base origin/main --head HEAD --scripts-only
+```
+
 Baseline script coverage for the ciImpact/required-workflow decision path:
 
 ```bash
@@ -87,6 +99,7 @@ JSON with:
 
 `runImpactedTests.ts` prints selected coverage targets and executes:
 
+- `node --import tsx --test scripts/ciImpact/ciImpact.test.ts scripts/ciImpact/requiredWorkflows.test.ts` for impacted/high-risk ciImpact changes
 - `pnpm --filter <pkg> test:coverage`
 
 `runImpactedQuality.ts` runs:
@@ -94,6 +107,7 @@ JSON with:
 - selective `biome check` on changed files
 - conditional `lint:scripts`, `lint:md`, `lint:rubocop`, `lint:ansible` by file scope
 - selective per-package TypeScript checks
+- selective script TypeScript checks (`scripts/tsconfig*.json`) when script TS changes
 - selective per-package builds
 - full legacy quality pipeline on high-risk config/workflow changes
 

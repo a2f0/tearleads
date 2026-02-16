@@ -48,7 +48,7 @@ The impact analyzer (`scripts/ciImpact/`) determines which CI jobs should run ba
 | `ciImpact.ts` | Core analyzer - maps files to packages and jobs |
 | `requiredWorkflows.ts` | Maps job decisions to workflow names for CI Gate |
 | `runImpactedQuality.ts` | Pre-push hook for selective lint/typecheck/build |
-| `runImpactedTests.ts` | Pre-push hook for selective coverage tests |
+| `runImpactedTests.ts` | Impacted script-test runner (`--scripts-only`) plus selective coverage tests |
 | `checkWorkflowDrift.ts` | Validates workflow mapping consistency |
 
 ### Configuration
@@ -169,6 +169,8 @@ These patterns trigger full CI matrix (all jobs run):
 | `package.json` (root) | Dependency changes affect everything |
 | `pnpm-lock.yaml` | Lock file changes affect everything |
 | `tsconfig.json` (root) | TypeScript config affects all packages |
+| `tsconfig.base.json` | Base TS options affect all packages and scripts |
+| `scripts/tsconfig*.json` | Script TS project config affects script typechecks/tests |
 | `biome.json` | Linter config affects all packages |
 
 ## Safety Model
@@ -189,6 +191,9 @@ The impact system prioritizes safety:
 
 # Run impacted tests locally
 ./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD
+
+# Run only impacted ciImpact script tests (same path used in CI)
+./scripts/tooling/scriptTool.ts runImpactedTests --base origin/main --head HEAD --scripts-only
 ```
 
 ### Monitoring CI

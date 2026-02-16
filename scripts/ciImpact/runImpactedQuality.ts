@@ -32,6 +32,9 @@ const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
   'tsconfig.json',
+  'tsconfig.base.json',
+  'scripts/tsconfig.json',
+  'scripts/tsconfig.test.json',
   'biome.json',
   'biome.jsonc',
   '.nvmrc'
@@ -55,6 +58,9 @@ function parseArgs(argv: string[]): CliArgs {
   const args: CliArgs = { dryRun: false };
   for (let i = 2; i < argv.length; i += 1) {
     const token = argv[i];
+    if (token === undefined) {
+      continue;
+    }
     if (token === '--dry-run') {
       args.dryRun = true;
       continue;
@@ -269,6 +275,15 @@ function shouldRunAnsibleLint(changedFiles: string[]): boolean {
   );
 }
 
+function shouldRunScriptsTypecheck(changedFiles: string[]): boolean {
+  return changedFiles.some(
+    (f) =>
+      f.startsWith('scripts/') &&
+      f.endsWith('.ts') &&
+      !f.endsWith('.d.ts')
+  );
+}
+
 function ensureCommandAvailable(cmd: string, help: string): void {
   const result = spawnSync('sh', ['-c', `command -v ${cmd} >/dev/null 2>&1`], {
     stdio: 'ignore'
@@ -336,6 +351,7 @@ function main(): void {
   const runMdLint = shouldRunLintMd(impact.changedFiles);
   const runRubo = shouldRunRubocop(impact.changedFiles);
   const runAnsLint = shouldRunAnsibleLint(impact.changedFiles);
+  const runScriptsTypecheck = shouldRunScriptsTypecheck(impact.changedFiles);
 
   const buildTargets = impactedPackages.filter((pkgName) => {
     const pkg = workspaceByName.get(pkgName);
@@ -348,7 +364,7 @@ function main(): void {
     if (pkg === undefined || !pkg.hasTsconfig) {
       return false;
     }
-    const buildScript = pkg.scripts.build;
+    const buildScript = pkg.scripts['build'];
     return typeof buildScript === 'string' && /\btsc\b/.test(buildScript);
   });
 
@@ -359,6 +375,9 @@ function main(): void {
 
   if (biomeTargets.length > 0) {
     console.log(`ci-impact: biome targets => ${biomeTargets.join(', ')}`);
+  }
+  if (runScriptsTypecheck) {
+    console.log('ci-impact: script TypeScript changes detected.');
   }
 
   if (args.dryRun) {
@@ -407,6 +426,17 @@ function main(): void {
       '--noEmit',
       '-p',
       'tsconfig.json'
+    ]);
+  }
+
+  if (runScriptsTypecheck) {
+    runCommand('pnpm', ['exec', 'tsc', '--noEmit', '-p', 'scripts/tsconfig.json']);
+    runCommand('pnpm', [
+      'exec',
+      'tsc',
+      '--noEmit',
+      '-p',
+      'scripts/tsconfig.test.json'
     ]);
   }
 

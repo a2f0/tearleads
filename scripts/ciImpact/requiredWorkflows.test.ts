@@ -52,7 +52,7 @@ JSON
 `;
 
   fs.writeFileSync(stubPath, script, { encoding: 'utf8', mode: 0o755 });
-  const pathValue = `${tempDir}:${process.env.PATH ?? ''}`;
+  const pathValue = `${tempDir}:${process.env['PATH'] ?? ''}`;
   return { tempDir, argsFile, pathValue };
 }
 
@@ -68,6 +68,10 @@ function runRequiredWorkflowsViaNode(
       env
     }
   );
+}
+
+function stderrText(result: ReturnType<typeof spawnSync>): string {
+  return typeof result.stderr === 'string' ? result.stderr : '';
 }
 
 function runRequiredWorkflows(files: string[]): RequiredWorkflowsOutput {
@@ -217,7 +221,7 @@ test('required workflows uses default base/head when args are omitted', () => {
       PATH: stub.pathValue,
       STUB_ARGS_FILE: stub.argsFile
     });
-    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.status, 0, stderrText(result));
     const argsLogged = fs.readFileSync(stub.argsFile, 'utf8');
     assert.ok(argsLogged.includes('--base\norigin/main'));
     assert.ok(argsLogged.includes('--head\nHEAD'));
@@ -234,7 +238,7 @@ test('required workflows ignores incomplete --base flag and keeps defaults', () 
       PATH: stub.pathValue,
       STUB_ARGS_FILE: stub.argsFile
     });
-    assert.equal(result.status, 0, result.stderr);
+    assert.equal(result.status, 0, stderrText(result));
     const argsLogged = fs.readFileSync(stub.argsFile, 'utf8');
     assert.ok(argsLogged.includes('--base\norigin/main'));
     assert.ok(argsLogged.includes('--head\nHEAD'));
@@ -265,7 +269,9 @@ test('required workflows fails when ciImpact output has non-boolean run value', 
       STUB_ARGS_FILE: stub.argsFile
     });
     assert.notEqual(result.status, 0);
-    assert.ok(result.stderr.includes('Invalid ciImpact output.jobs.build.run'));
+    assert.ok(
+      stderrText(result).includes('Invalid ciImpact output.jobs.build.run')
+    );
   } finally {
     fs.rmSync(stub.tempDir, { recursive: true, force: true });
   }
@@ -293,7 +299,9 @@ test('required workflows fails when ciImpact output has invalid job object', () 
       STUB_ARGS_FILE: stub.argsFile
     });
     assert.notEqual(result.status, 0);
-    assert.ok(result.stderr.includes('Invalid ciImpact output.jobs.web-e2e'));
+    assert.ok(
+      stderrText(result).includes('Invalid ciImpact output.jobs.web-e2e')
+    );
   } finally {
     fs.rmSync(stub.tempDir, { recursive: true, force: true });
   }

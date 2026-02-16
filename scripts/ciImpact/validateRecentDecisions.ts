@@ -70,6 +70,9 @@ function parseArgs(argv: string[]): CliArgs {
 
   for (let i = 2; i < argv.length; i += 1) {
     const token = argv[i];
+    if (token === undefined) {
+      continue;
+    }
     if (!token.startsWith('--')) {
       continue;
     }
@@ -331,7 +334,7 @@ function getObservedWorkflowStates(
 
 function main(): void {
   const args = parseArgs(process.argv);
-  const repo = args.repo || process.env.GITHUB_REPOSITORY;
+  const repo = args.repo || process.env['GITHUB_REPOSITORY'];
   if (repo === undefined || repo.length === 0) {
     throw new Error(
       'Missing repo. Pass --repo owner/name or set GITHUB_REPOSITORY.'

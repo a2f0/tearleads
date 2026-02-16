@@ -51,7 +51,7 @@
 
 ### Testing
 
-- `runImpactedTests` - Run tests on impacted packages only
+- `runImpactedTests` - Run impacted ciImpact script tests and coverage tests
 - `runAllTests` - Run full test suite (lint, build, unit, e2e)
 - `runElectronTests` - Run Electron E2E tests
 - `runPlaywrightTests` - Run Playwright E2E tests
@@ -111,6 +111,7 @@ All actions support these options:
 | ------ | ----------- | -------- |
 | `--base <sha>` | Base commit for diff | Yes |
 | `--head <sha>` | Head commit for diff | Yes |
+| `--scripts-only` | Run only impacted ciImpact script tests | No |
 
 ### runAllTests
 

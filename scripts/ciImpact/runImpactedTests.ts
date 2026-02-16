@@ -6,6 +6,7 @@ interface CliArgs {
   head?: string;
   files?: string;
   dryRun: boolean;
+  scriptsOnly: boolean;
 }
 
 interface CiImpactJobs {
@@ -35,7 +36,11 @@ const COVERAGE_PACKAGES: ReadonlyArray<string> = [
 const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
   'pnpm-lock.yaml',
   'pnpm-workspace.yaml',
-  'package.json'
+  'package.json',
+  'tsconfig.json',
+  'tsconfig.base.json',
+  'scripts/tsconfig.json',
+  'scripts/tsconfig.test.json'
 ];
 const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/actions/',
@@ -50,13 +55,27 @@ const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/workflows/android-maestro-release.yml',
   '.github/workflows/ios-maestro-release.yml'
 ];
+const CI_IMPACT_SCRIPT_TEST_PREFIXES: ReadonlyArray<string> = [
+  'scripts/ciImpact/'
+];
+const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
+  'scripts/ciImpact/ciImpact.test.ts',
+  'scripts/ciImpact/requiredWorkflows.test.ts'
+];
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { dryRun: false };
+  const args: CliArgs = { dryRun: false, scriptsOnly: false };
   for (let i = 2; i < argv.length; i += 1) {
     const token = argv[i];
+    if (token === undefined) {
+      continue;
+    }
     if (token === '--dry-run') {
       args.dryRun = true;
+      continue;
+    }
+    if (token === '--scripts-only') {
+      args.scriptsOnly = true;
       continue;
     }
     if (!token.startsWith('--')) {
@@ -167,6 +186,37 @@ function uniqueSorted(values: string[]): string[] {
   return [...new Set(values)].sort();
 }
 
+function shouldRunCiImpactScriptTests(
+  changedFiles: string[],
+  fullRun: boolean
+): boolean {
+  if (fullRun) {
+    return true;
+  }
+  return changedFiles.some((file) =>
+    CI_IMPACT_SCRIPT_TEST_PREFIXES.some((prefix) => file.startsWith(prefix))
+  );
+}
+
+function runCiImpactScriptTests(): void {
+  const result = spawnSync(
+    'node',
+    ['--import', 'tsx', '--test', ...CI_IMPACT_SCRIPT_TEST_FILES],
+    {
+      stdio: 'inherit',
+      env: process.env
+    }
+  );
+
+  if (typeof result.status === 'number' && result.status !== 0) {
+    process.exit(result.status);
+  }
+
+  if (result.status === null) {
+    process.exit(1);
+  }
+}
+
 function runCoverageForPackage(pkg: string): void {
   const result = spawnSync('pnpm', ['--filter', pkg, 'test:coverage'], {
     stdio: 'inherit',
@@ -186,8 +236,36 @@ function main(): void {
   const args = parseArgs(process.argv);
   const impact = runCiImpact(args);
 
-  const affectedSet = new Set(impact.affectedPackages);
   const fullRun = requiresFullCoverageRun(impact.changedFiles);
+  const runScriptTests = shouldRunCiImpactScriptTests(
+    impact.changedFiles,
+    fullRun
+  );
+
+  if (impact.materialFiles.length === 0) {
+    console.log('ci-impact: no material changes, skipping impacted tests.');
+    return;
+  }
+
+  if (runScriptTests) {
+    console.log('ci-impact: running ciImpact script tests.');
+  } else {
+    console.log('ci-impact: no impacted ciImpact script tests.');
+  }
+
+  if (args.scriptsOnly) {
+    console.log('ci-impact: scripts-only mode enabled.');
+  }
+
+  if (!args.dryRun && runScriptTests) {
+    runCiImpactScriptTests();
+  }
+
+  if (args.scriptsOnly) {
+    return;
+  }
+
+  const affectedSet = new Set(impact.affectedPackages);
 
   let targets: string[] = [];
   if (fullRun) {
@@ -197,11 +275,6 @@ function main(): void {
   }
 
   targets = uniqueSorted(targets);
-
-  if (impact.materialFiles.length === 0) {
-    console.log('ci-impact: no material changes, skipping coverage tests.');
-    return;
-  }
 
   if (targets.length === 0) {
     console.log(
