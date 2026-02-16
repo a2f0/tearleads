@@ -1,8 +1,26 @@
-import type { VfsAclAccessLevel, VfsAclPrincipalType } from '@tearleads/shared';
 import {
   buildVfsAclKeyView,
   type VfsAclSnapshotEntry
 } from './acl-key-view.js';
+import {
+  cloneCursor,
+  compareMemberAccessPriority,
+  isMemberPrincipalMatch,
+  normalizeAuthoritativeSnapshotCursor,
+  normalizeMemberPrincipalView,
+  normalizePrincipalIdSet,
+  normalizeRequiredString,
+  toAclKey,
+  toSortedEffectiveAclView,
+  toSortedMemberAccessView
+} from './sync-access-harness-helpers.js';
+import type {
+  EffectiveVfsAclKeyViewEntry,
+  EffectiveVfsMemberItemAccessEntry,
+  VfsAuthoritativeMembershipSnapshot,
+  VfsAuthoritativePrincipalCatalogSnapshot,
+  VfsMemberPrincipalView
+} from './sync-access-harness-types.js';
 import type { VfsCrdtSyncItem } from './sync-crdt-feed.js';
 import {
   InMemoryVfsCrdtFeedReplayStore,
@@ -10,215 +28,6 @@ import {
 } from './sync-crdt-feed-replay.js';
 import type { VfsSyncCursor } from './sync-cursor.js';
 import { compareVfsSyncCursorOrder } from './sync-reconcile.js';
-
-export interface EffectiveVfsAclKeyViewEntry {
-  itemId: string;
-  principalType: VfsAclPrincipalType;
-  principalId: string;
-  accessLevel: VfsAclAccessLevel;
-  wrappedSessionKey: string | null;
-  wrappedHierarchicalKey: string | null;
-  updatedAt: string;
-}
-
-export interface VfsMemberPrincipalView {
-  userId: string;
-  groupIds: string[];
-  organizationIds: string[];
-}
-
-export interface EffectiveVfsMemberItemAccessEntry {
-  itemId: string;
-  accessLevel: VfsAclAccessLevel;
-  principalType: VfsAclPrincipalType;
-  principalId: string;
-  wrappedSessionKey: string | null;
-  wrappedHierarchicalKey: string | null;
-  updatedAt: string;
-}
-
-export interface VfsAuthoritativeMembershipSnapshot {
-  cursor: VfsSyncCursor;
-  members: VfsMemberPrincipalView[];
-}
-
-export interface VfsAuthoritativePrincipalCatalogSnapshot {
-  cursor: VfsSyncCursor;
-  groupIds: string[];
-  organizationIds: string[];
-}
-
-const ACCESS_RANK: Record<VfsAclAccessLevel, number> = {
-  read: 1,
-  write: 2,
-  admin: 3
-};
-
-const PRINCIPAL_SPECIFICITY_RANK: Record<VfsAclPrincipalType, number> = {
-  organization: 1,
-  group: 2,
-  user: 3
-};
-
-function toAclKey(entry: {
-  itemId: string;
-  principalType: VfsAclPrincipalType;
-  principalId: string;
-}): string {
-  return `${entry.itemId}:${entry.principalType}:${entry.principalId}`;
-}
-
-function toSortedEffectiveAclView(
-  entries: EffectiveVfsAclKeyViewEntry[]
-): EffectiveVfsAclKeyViewEntry[] {
-  return entries.slice().sort((left, right) => {
-    if (left.itemId !== right.itemId) {
-      return left.itemId.localeCompare(right.itemId);
-    }
-
-    if (left.principalType !== right.principalType) {
-      return left.principalType.localeCompare(right.principalType);
-    }
-
-    return left.principalId.localeCompare(right.principalId);
-  });
-}
-
-function normalizePrincipalIdSet(values: string[]): Set<string> {
-  const normalized = new Set<string>();
-  for (const value of values) {
-    const trimmed = value.trim();
-    if (trimmed.length > 0) {
-      normalized.add(trimmed);
-    }
-  }
-
-  return normalized;
-}
-
-function cloneCursor(cursor: VfsSyncCursor): VfsSyncCursor {
-  return {
-    changedAt: cursor.changedAt,
-    changeId: cursor.changeId
-  };
-}
-
-function normalizeRequiredString(value: unknown, fieldName: string): string {
-  if (typeof value !== 'string') {
-    throw new Error(`${fieldName} must be a string`);
-  }
-
-  const trimmed = value.trim();
-  if (trimmed.length === 0) {
-    throw new Error(`${fieldName} is required`);
-  }
-
-  return trimmed;
-}
-
-function normalizeAuthoritativeSnapshotCursor(
-  cursor: VfsSyncCursor,
-  snapshotName: string
-): VfsSyncCursor {
-  const changedAt = normalizeRequiredString(
-    cursor.changedAt,
-    `${snapshotName} cursor.changedAt`
-  );
-  const changeId = normalizeRequiredString(
-    cursor.changeId,
-    `${snapshotName} cursor.changeId`
-  );
-
-  const changedAtMs = Date.parse(changedAt);
-  if (!Number.isFinite(changedAtMs)) {
-    throw new Error(`${snapshotName} cursor.changedAt is invalid`);
-  }
-
-  return {
-    changedAt: new Date(changedAtMs).toISOString(),
-    changeId
-  };
-}
-
-function normalizeMemberPrincipalView(
-  principalView: VfsMemberPrincipalView
-): VfsMemberPrincipalView {
-  const normalizedUserId = principalView.userId.trim();
-  if (normalizedUserId.length === 0) {
-    throw new Error('principalView.userId is required');
-  }
-
-  return {
-    userId: normalizedUserId,
-    groupIds: Array.from(normalizePrincipalIdSet(principalView.groupIds)),
-    organizationIds: Array.from(
-      normalizePrincipalIdSet(principalView.organizationIds)
-    )
-  };
-}
-
-function isMemberPrincipalMatch(
-  aclEntry: EffectiveVfsAclKeyViewEntry,
-  principalView: VfsMemberPrincipalView
-): boolean {
-  if (aclEntry.principalType === 'user') {
-    return aclEntry.principalId === principalView.userId;
-  }
-
-  if (aclEntry.principalType === 'group') {
-    return principalView.groupIds.some(
-      (groupId) => groupId === aclEntry.principalId
-    );
-  }
-
-  return principalView.organizationIds.some(
-    (organizationId) => organizationId === aclEntry.principalId
-  );
-}
-
-function compareMemberAccessPriority(
-  candidate: EffectiveVfsMemberItemAccessEntry,
-  current: EffectiveVfsMemberItemAccessEntry
-): number {
-  const candidateAccessRank = ACCESS_RANK[candidate.accessLevel];
-  const currentAccessRank = ACCESS_RANK[current.accessLevel];
-  if (candidateAccessRank !== currentAccessRank) {
-    return candidateAccessRank - currentAccessRank;
-  }
-
-  const candidateSpecificity =
-    PRINCIPAL_SPECIFICITY_RANK[candidate.principalType];
-  const currentSpecificity = PRINCIPAL_SPECIFICITY_RANK[current.principalType];
-  if (candidateSpecificity !== currentSpecificity) {
-    return candidateSpecificity - currentSpecificity;
-  }
-
-  const candidateUpdatedAtMs = Date.parse(candidate.updatedAt);
-  const currentUpdatedAtMs = Date.parse(current.updatedAt);
-  const normalizedCandidateUpdatedAtMs = Number.isFinite(candidateUpdatedAtMs)
-    ? candidateUpdatedAtMs
-    : Number.NEGATIVE_INFINITY;
-  const normalizedCurrentUpdatedAtMs = Number.isFinite(currentUpdatedAtMs)
-    ? currentUpdatedAtMs
-    : Number.NEGATIVE_INFINITY;
-  if (normalizedCandidateUpdatedAtMs !== normalizedCurrentUpdatedAtMs) {
-    return normalizedCandidateUpdatedAtMs - normalizedCurrentUpdatedAtMs;
-  }
-
-  if (candidate.principalType !== current.principalType) {
-    return candidate.principalType.localeCompare(current.principalType);
-  }
-
-  return candidate.principalId.localeCompare(current.principalId);
-}
-
-function toSortedMemberAccessView(
-  entries: EffectiveVfsMemberItemAccessEntry[]
-): EffectiveVfsMemberItemAccessEntry[] {
-  return entries
-    .slice()
-    .sort((left, right) => left.itemId.localeCompare(right.itemId));
-}
 
 /**
  * Combines CRDT-authored ACL presence/levels with key-wrapping material from
@@ -576,3 +385,11 @@ export class InMemoryVfsAccessHarness {
     };
   }
 }
+
+export type {
+  EffectiveVfsAclKeyViewEntry,
+  EffectiveVfsMemberItemAccessEntry,
+  VfsAuthoritativeMembershipSnapshot,
+  VfsAuthoritativePrincipalCatalogSnapshot,
+  VfsMemberPrincipalView
+} from './sync-access-harness-types.js';
