@@ -80,8 +80,8 @@ echo "Gemini sections: $(rg '^##' .gemini/INSTRUCTIONS.md | wc -l)"
 
 ```bash
 echo "=== Review script prompt analysis ==="
-rg -n 'REVIEW.md|git diff|claude --print --input-format text' scripts/solicitClaudeCodeReview.sh
-rg -n 'codex review --base' scripts/solicitCodexReview.sh 2>/dev/null || true
+rg -A5 'PROMPT=' scripts/solicitClaudeCodeReview.sh | head -15
+rg -A5 'PROMPT=' scripts/solicitCodexReview.sh 2>/dev/null | head -15 || true
 ```
 
 ### 6. Check security and compliance coverage in review instructions
@@ -146,13 +146,12 @@ Ensure key sections from `REVIEW.md` have corresponding entries in `.gemini/INST
 If `solicitClaudeCodeReview.sh` doesn't reference `REVIEW.md`:
 
 ```bash
-# Read and include instructions, then stream prompt via stdin
-{
-  echo "Review using these guidelines:"
-  cat REVIEW.md | head -100
-  echo
-  echo "[Rest of prompt...]"
-} | claude --print --input-format text
+# Read and include instructions
+INSTRUCTIONS=$(cat REVIEW.md | head -100)
+PROMPT="Review using these guidelines:
+$INSTRUCTIONS
+
+[Rest of prompt...]"
 ```
 
 ### Adding Security and Compliance Guidance
