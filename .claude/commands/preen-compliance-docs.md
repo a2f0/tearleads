@@ -242,7 +242,7 @@ head -50 compliance/HIPAA/technical-controls/01-account-management-control-map.m
 4. **Create/fix documents**: Use templates from existing docs in same framework
 5. **Update POLICY_INDEX**: Add new documents to the index
 6. **Validate**: Re-run discovery to confirm gap is fixed
-7. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`
+7. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`
 
 If no high-value gaps were found during discovery, do not create a branch or run commit/merge workflows.
 

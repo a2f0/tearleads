@@ -1,3 +1,7 @@
+---
+name: preen-enhancements
+description: High-risk maintenance workflow for evolving the preen ecosystem (registry, parity checks, new categories, and automation guardrails).
+---
 
 # Misc Preen Enhancements
 
@@ -47,7 +51,7 @@ When adding a category (for example `preen-foo`):
 - `.claude/commands/preen-foo.md`
 - `.codex/skills/preen-foo/SKILL.md`
 
-1. Ensure Codex uses `/commit-and-push` and `/enter-merge-queue`.
+1. Ensure Codex uses `$commit-and-push` and `$enter-merge-queue`.
 1. Regenerate docs and rerun strict checks.
 
 ## Guardrails

@@ -176,7 +176,7 @@ Fix issues in this order:
 4. **Fix issues**: Update skills or tools as needed
 5. **Validate**: Run discovery again to confirm fixes
 6. **Test**: Ensure affected skills still work
-7. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`
+7. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`
 
 If no issues found during discovery, do not create a branch.
 

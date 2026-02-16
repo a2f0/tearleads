@@ -1,3 +1,6 @@
+---
+description: Stateful preening across all preen skills (project)
+---
 
 # Preen All
 
@@ -712,7 +715,7 @@ PR_BODY
 )")
 
 PR_NUMBER=$(echo "$PR_URL" | rg -o '[0-9]+$' || true)
-$enter-merge-queue
+/enter-merge-queue
 ```
 
 ### 10. Persist Cursor and Structured Run Log

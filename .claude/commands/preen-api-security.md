@@ -207,7 +207,7 @@ Fix issues in this order (highest impact first):
 5. **Add tests**: Write tests for security checks.
 6. **Validate**: Run `pnpm --filter @tearleads/api typecheck` and `pnpm --filter @tearleads/api lint`.
 7. **Run tests**: Run `pnpm --filter @tearleads/api test`.
-8. **Commit and merge**: Run `$commit-and-push`, then `$enter-merge-queue`.
+8. **Commit and merge**: Run `/commit-and-push`, then `/enter-merge-queue`.
 
 If no security issues were found during discovery, do not create a branch or run commit/merge workflows.
 
