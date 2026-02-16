@@ -11,7 +11,7 @@ import { FOOTER_HEIGHT } from '@/constants/layout';
 import { WINDOW_PATHS } from '@/constants/windowPaths';
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useTypedTranslation } from '@/i18n';
-import { isAppFeatureEnabled } from '@/lib/app-config';
+import { isAppFeatureEnabled } from '@/lib/appConfig';
 import { cn } from '@/lib/utils';
 import { adminFlyoutItems, debugFlyoutItems, navItems } from './navItems';
 import { SidebarAdminFlyoutMenu } from './SidebarAdminFlyoutMenu';
