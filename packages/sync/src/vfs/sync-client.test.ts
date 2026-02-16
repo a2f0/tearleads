@@ -242,6 +242,22 @@ function readForwardContainerSignatures(input: {
   return signatures;
 }
 
+function readSeedContainerCursorOrThrow(input: {
+  client: VfsBackgroundSyncClient;
+  pageLimit: number;
+  errorMessage: string;
+}): { changedAt: string; changeId: string } {
+  const seedCursor = input.client.listChangedContainers(
+    null,
+    input.pageLimit
+  ).nextCursor;
+  if (!seedCursor) {
+    throw new Error(input.errorMessage);
+  }
+
+  return seedCursor;
+}
+
 describe('VfsBackgroundSyncClient', () => {
   it('converges multiple clients after concurrent flush and sync', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -5886,11 +5902,11 @@ describe('VfsBackgroundSyncClient', () => {
     await mobile.flush();
     await desktop.sync();
 
-    const initialPage = desktop.listChangedContainers(null, 10);
-    const seedCursor = initialPage.nextCursor;
-    if (!seedCursor) {
-      throw new Error('expected pre-restart seed cursor');
-    }
+    const seedCursor = readSeedContainerCursorOrThrow({
+      client: desktop,
+      pageLimit: 10,
+      errorMessage: 'expected pre-restart seed cursor'
+    });
 
     const persistedState = desktop.exportState();
     const resumedDesktop = new VfsBackgroundSyncClient(
@@ -5979,11 +5995,11 @@ describe('VfsBackgroundSyncClient', () => {
     await mobile.flush();
     await desktop.sync();
 
-    const initialPage = desktop.listChangedContainers(null, 10);
-    const seedCursor = initialPage.nextCursor;
-    if (!seedCursor) {
-      throw new Error('expected pre-restart seed cursor');
-    }
+    const seedCursor = readSeedContainerCursorOrThrow({
+      client: desktop,
+      pageLimit: 10,
+      errorMessage: 'expected pre-restart seed cursor'
+    });
 
     const resumedDesktop = new VfsBackgroundSyncClient(
       'user-1',
@@ -6050,11 +6066,11 @@ describe('VfsBackgroundSyncClient', () => {
     await mobile.flush();
     await desktop.sync();
 
-    const initialPage = desktop.listChangedContainers(null, 10);
-    const seedCursor = initialPage.nextCursor;
-    if (!seedCursor) {
-      throw new Error('expected pre-restart seed cursor');
-    }
+    const seedCursor = readSeedContainerCursorOrThrow({
+      client: desktop,
+      pageLimit: 10,
+      errorMessage: 'expected pre-restart seed cursor'
+    });
 
     const resumedDesktop = new VfsBackgroundSyncClient(
       'user-1',
@@ -6249,11 +6265,11 @@ describe('VfsBackgroundSyncClient', () => {
     await mobile.flush();
     await desktop.sync();
 
-    const seedPage = desktop.listChangedContainers(null, 10);
-    const seedCursor = seedPage.nextCursor;
-    if (!seedCursor) {
-      throw new Error('expected mixed pre-restart seed cursor');
-    }
+    const seedCursor = readSeedContainerCursorOrThrow({
+      client: desktop,
+      pageLimit: 10,
+      errorMessage: 'expected mixed pre-restart seed cursor'
+    });
 
     const resumedDesktop = new VfsBackgroundSyncClient(
       'user-1',
@@ -9272,11 +9288,11 @@ describe('VfsBackgroundSyncClient', () => {
     );
     resumedClient.hydrateState(seedClient.exportState());
 
-    const seedPage = resumedClient.listChangedContainers(null, 10);
-    const seedCursor = seedPage.nextCursor;
-    if (!seedCursor) {
-      throw new Error('expected seed cursor before forward-window assertions');
-    }
+    const seedCursor = readSeedContainerCursorOrThrow({
+      client: resumedClient,
+      pageLimit: 10,
+      errorMessage: 'expected seed cursor before forward-window assertions'
+    });
 
     await expect(resumedClient.sync()).rejects.toThrowError(
       /regressed lastReconciledWriteIds for replica desktop/
@@ -9524,13 +9540,11 @@ describe('VfsBackgroundSyncClient', () => {
     );
     resumedClient.hydrateState(seedClient.exportState());
 
-    const seedPage = resumedClient.listChangedContainers(null, 10);
-    const seedCursor = seedPage.nextCursor;
-    if (!seedCursor) {
-      throw new Error(
-        'expected seed cursor before mixed forward-window checks'
-      );
-    }
+    const seedCursor = readSeedContainerCursorOrThrow({
+      client: resumedClient,
+      pageLimit: 10,
+      errorMessage: 'expected seed cursor before mixed forward-window checks'
+    });
 
     await expect(resumedClient.sync()).rejects.toThrowError(
       /regressed lastReconciledWriteIds for replica desktop/
@@ -9835,11 +9849,11 @@ describe('VfsBackgroundSyncClient', () => {
     );
     resumedClient.hydrateState(seedClient.exportState());
 
-    const seedPage = resumedClient.listChangedContainers(null, 10);
-    const seedCursor = seedPage.nextCursor;
-    if (!seedCursor) {
-      throw new Error('expected seed cursor for paginated window checks');
-    }
+    const seedCursor = readSeedContainerCursorOrThrow({
+      client: resumedClient,
+      pageLimit: 10,
+      errorMessage: 'expected seed cursor for paginated window checks'
+    });
 
     await expect(resumedClient.sync()).rejects.toThrowError(
       /regressed lastReconciledWriteIds for replica desktop/
@@ -10160,11 +10174,11 @@ describe('VfsBackgroundSyncClient', () => {
       );
       resumedClient.hydrateState(seedClient.exportState());
 
-      const seedPage = resumedClient.listChangedContainers(null, 10);
-      const seedCursor = seedPage.nextCursor;
-      if (!seedCursor) {
-        throw new Error('expected seed cursor before randomized pagination');
-      }
+      const seedCursor = readSeedContainerCursorOrThrow({
+        client: resumedClient,
+        pageLimit: 10,
+        errorMessage: 'expected seed cursor before randomized pagination'
+      });
 
       await expect(resumedClient.sync()).rejects.toThrowError(
         /regressed lastReconciledWriteIds for replica desktop/
@@ -10469,11 +10483,11 @@ describe('VfsBackgroundSyncClient', () => {
       let activeClient = makeClient();
       activeClient.hydrateState(seedClient.exportState());
 
-      const seedPage = activeClient.listChangedContainers(null, 10);
-      const seedCursor = seedPage.nextCursor;
-      if (!seedCursor) {
-        throw new Error('expected seed cursor before mid-chain continuation');
-      }
+      const seedCursor = readSeedContainerCursorOrThrow({
+        client: activeClient,
+        pageLimit: 10,
+        errorMessage: 'expected seed cursor before mid-chain continuation'
+      });
 
       await expect(activeClient.sync()).rejects.toThrowError(
         /regressed lastReconciledWriteIds for replica desktop/
@@ -10791,13 +10805,11 @@ describe('VfsBackgroundSyncClient', () => {
 
       let activeClient = makeClient();
       activeClient.hydrateState(seedClient.exportState());
-      const seedPage = activeClient.listChangedContainers(null, 10);
-      const seedCursor = seedPage.nextCursor;
-      if (!seedCursor) {
-        throw new Error(
-          'expected seed cursor before pending checkpoint scenario'
-        );
-      }
+      const seedCursor = readSeedContainerCursorOrThrow({
+        client: activeClient,
+        pageLimit: 10,
+        errorMessage: 'expected seed cursor before pending checkpoint scenario'
+      });
 
       await expect(activeClient.sync()).rejects.toThrowError(
         /regressed lastReconciledWriteIds for replica desktop/
@@ -11073,11 +11085,11 @@ describe('VfsBackgroundSyncClient', () => {
     ]);
 
     expect(() => targetClient.hydrateState(correctedState)).not.toThrow();
-    const seedPage = targetClient.listChangedContainers(null, 10);
-    const seedCursor = seedPage.nextCursor;
-    if (!seedCursor) {
-      throw new Error('expected seed cursor before corrected recovery flush');
-    }
+    const seedCursor = readSeedContainerCursorOrThrow({
+      client: targetClient,
+      pageLimit: 10,
+      errorMessage: 'expected seed cursor before corrected recovery flush'
+    });
 
     await targetClient.flush();
 
@@ -11211,11 +11223,11 @@ describe('VfsBackgroundSyncClient', () => {
       );
       expect(() => targetClient.hydrateState(correctedState)).not.toThrow();
 
-      const seedPage = targetClient.listChangedContainers(null, 10);
-      const seedCursor = seedPage.nextCursor;
-      if (!seedCursor) {
-        throw new Error('expected seed cursor in corrected deterministic run');
-      }
+      const seedCursor = readSeedContainerCursorOrThrow({
+        client: targetClient,
+        pageLimit: 10,
+        errorMessage: 'expected seed cursor in corrected deterministic run'
+      });
 
       await targetClient.flush();
 
@@ -11423,11 +11435,11 @@ describe('VfsBackgroundSyncClient', () => {
       );
       expect(() => targetClient.hydrateState(correctedState)).not.toThrow();
 
-      const seedPage = targetClient.listChangedContainers(null, 20);
-      const seedCursor = seedPage.nextCursor;
-      if (!seedCursor) {
-        throw new Error('expected seed cursor in boundary perturbation run');
-      }
+      const seedCursor = readSeedContainerCursorOrThrow({
+        client: targetClient,
+        pageLimit: 20,
+        errorMessage: 'expected seed cursor in boundary perturbation run'
+      });
 
       await targetClient.flush();
 
