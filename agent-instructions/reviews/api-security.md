@@ -1,6 +1,6 @@
 # API Security Standards
 
-### Authorization Hierarchy
+## Authorization Hierarchy
 
 ```text
 Admin > Org Admin > Group Admin > User
@@ -12,7 +12,7 @@ Every route must verify:
 2. **Authorization** - Permission for the action
 3. **Ownership** - Access to the specific resource
 
-### Required Checks
+## Required Checks
 
 ```typescript
 // Example: Editing a resource
@@ -31,7 +31,7 @@ router.put("/resources/:id", async (req, res) => {
 });
 ```
 
-### SQL Injection Prevention
+## SQL Injection Prevention
 
 ```typescript
 // GOOD: Parameterized queries
@@ -41,7 +41,7 @@ await db.select().from(users).where(eq(users.id, userId));
 await db.execute(`SELECT * FROM users WHERE id = "${userId}"`);  // NEVER
 ```
 
-### Review Checklist for Routes
+## Review Checklist for Routes
 
 - [ ] Authentication check present
 - [ ] Authorization check for user role

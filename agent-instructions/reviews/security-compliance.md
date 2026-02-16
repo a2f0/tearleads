@@ -1,14 +1,14 @@
 # Security and Compliance Standards
 
-### Security-First Review
+## Security-First Review
 
 All code changes should be evaluated for security implications. Reviewers must check for OWASP Top 10 vulnerabilities.
 
-### Compliance Documentation Integration
+## Compliance Documentation Integration
 
 This codebase maintains formal compliance documentation under compliance/ for HIPAA, NIST SP 800-53, and SOC2 frameworks.
 
-### Sentinel System
+## Sentinel System
 
 Security controls are tracked via sentinels with framework-specific prefixes:
 
@@ -20,7 +20,7 @@ Security controls are tracked via sentinels with framework-specific prefixes:
 | TL-CRYPTO-* | Cross-framework crypto | TL-CRYPTO-001 Key Vault RBAC |
 | TL-SVC-* | Cross-framework services | TL-SVC-001 API sandboxing |
 
-### OWASP Top 10 Quick Reference
+## OWASP Top 10 Quick Reference
 
 | Vulnerability | What to Flag |
 | --- | --- |

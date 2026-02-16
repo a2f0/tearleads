@@ -1,13 +1,13 @@
 # TypeScript Standards
 
-### Required
+## Required
 
 - **Explicit types** for function parameters and return values
 - **Type guards** over type assertions
 - **Strict null checking** - no non-null assertions (!) without justification
 - **Generic constraints** when accepting unknown types
 
-### Prohibited
+## Prohibited
 
 ```typescript
 // NEVER accept these patterns in review:
@@ -17,7 +17,7 @@ const y = value as SomeType  // Use type guards instead
 // @ts-expect-error          // Use only with documented reason
 ```
 
-### Preferred Patterns
+## Preferred Patterns
 
 ```typescript
 // Type narrowing with guards
