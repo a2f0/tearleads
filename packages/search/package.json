@@ -1,6 +1,6 @@
 {
   "name": "@tearleads/search",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Core full-text search functionality for Tearleads",
   "type": "module",
   "main": "dist/index.js",
