@@ -1,19 +1,19 @@
 import type {
   AdminUser,
-  AdminUserUpdatePayload,
-  GroupWithMemberCount
+  AdminUserUpdatePayload
 } from '@tearleads/shared';
-import { Check, Copy, Loader2, Save, UserMinus, UserPlus } from 'lucide-react';
+import { Check, Copy, Loader2, Save } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
-import { ConfirmDialog } from '@/components/ui/confirm-dialog';
 import { Input } from '@/components/ui/input';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
-import { cn, formatNumber, formatTimestamp } from '@/lib/utils';
+import { cn } from '@/lib/utils';
+import { AdminUserAiUsage } from '../../components/users-admin/AdminUserAiUsage';
+import { AdminUserGroups } from '../../components/users-admin/AdminUserGroups';
 
 interface UsersAdminDetailProps {
   userId?: string | null;
@@ -39,16 +39,6 @@ export function UsersAdminDetail({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [organizationIdsInput, setOrganizationIdsInput] = useState('');
   const [isIdCopied, setIsIdCopied] = useState(false);
-  const [groups, setGroups] = useState<GroupWithMemberCount[]>([]);
-  const [groupMemberships, setGroupMemberships] = useState<
-    Record<string, { isMember: boolean; joinedAt: string | undefined }>
-  >({});
-  const [groupsLoading, setGroupsLoading] = useState(false);
-  const [groupsError, setGroupsError] = useState<string | null>(null);
-  const [groupActionError, setGroupActionError] = useState<string | null>(null);
-  const [groupActionId, setGroupActionId] = useState<string | null>(null);
-  const [removeGroupDialog, setRemoveGroupDialog] =
-    useState<GroupWithMemberCount | null>(null);
 
   const fetchUser = useCallback(async () => {
     if (!userId) {
@@ -90,66 +80,6 @@ export function UsersAdminDetail({
       .filter((value) => value.length > 0);
     return Array.from(new Set(parts));
   }, []);
-
-  const fetchGroups = useCallback(async () => {
-    if (!userId) return;
-
-    try {
-      setGroupsLoading(true);
-      setGroupsError(null);
-      const response = await api.admin.groups.list();
-      setGroups(response.groups);
-
-      const membershipEntries = await Promise.all(
-        response.groups.map(async (group) => {
-          try {
-            const membersResponse = await api.admin.groups.getMembers(group.id);
-            const member = membersResponse.members.find(
-              (entry) => entry.userId === userId
-            );
-            return {
-              groupId: group.id,
-              membership: {
-                isMember: Boolean(member),
-                joinedAt: member?.joinedAt
-              },
-              error: null as Error | null
-            };
-          } catch (err) {
-            return {
-              groupId: group.id,
-              membership: { isMember: false, joinedAt: undefined },
-              error: err instanceof Error ? err : new Error(String(err))
-            };
-          }
-        })
-      );
-
-      const memberships: Record<
-        string,
-        { isMember: boolean; joinedAt: string | undefined }
-      > = {};
-      for (const entry of membershipEntries) {
-        memberships[entry.groupId] = entry.membership;
-      }
-      setGroupMemberships(memberships);
-
-      if (membershipEntries.some((entry) => entry.error)) {
-        setGroupsError('Failed to load some group memberships');
-      }
-    } catch (err) {
-      setGroupsError(
-        err instanceof Error ? err.message : 'Failed to load groups'
-      );
-    } finally {
-      setGroupsLoading(false);
-    }
-  }, [userId]);
-
-  useEffect(() => {
-    if (!user) return;
-    void fetchGroups();
-  }, [fetchGroups, user]);
 
   const buildUpdatePayload = useCallback(
     (current: AdminUser, edited: AdminUser) => {
@@ -221,69 +151,6 @@ export function UsersAdminDetail({
         console.error('Failed to copy user id:', err);
       });
   }, [user]);
-
-  const handleAddToGroup = useCallback(
-    async (groupId: string) => {
-      if (!user) return;
-
-      try {
-        setGroupActionId(groupId);
-        setGroupActionError(null);
-        await api.admin.groups.addMember(groupId, user.id);
-        setGroupMemberships((prev) => ({
-          ...prev,
-          [groupId]: { isMember: true, joinedAt: new Date().toISOString() }
-        }));
-        setGroups((prev) =>
-          prev.map((group) =>
-            group.id === groupId
-              ? { ...group, memberCount: group.memberCount + 1 }
-              : group
-          )
-        );
-      } catch (err) {
-        if (err instanceof Error && err.message.includes('409')) {
-          setGroupActionError('User is already a member of this group');
-        } else if (err instanceof Error && err.message.includes('404')) {
-          setGroupActionError('Group or user not found');
-        } else {
-          setGroupActionError(
-            err instanceof Error ? err.message : 'Failed to add user to group'
-          );
-        }
-      } finally {
-        setGroupActionId(null);
-      }
-    },
-    [user]
-  );
-
-  const handleConfirmRemoveFromGroup = useCallback(async () => {
-    if (!user || !removeGroupDialog) return;
-
-    try {
-      setGroupActionId(removeGroupDialog.id);
-      setGroupActionError(null);
-      await api.admin.groups.removeMember(removeGroupDialog.id, user.id);
-      setGroupMemberships((prev) => ({
-        ...prev,
-        [removeGroupDialog.id]: { isMember: false, joinedAt: undefined }
-      }));
-      setGroups((prev) =>
-        prev.map((group) =>
-          group.id === removeGroupDialog.id
-            ? { ...group, memberCount: Math.max(0, group.memberCount - 1) }
-            : group
-        )
-      );
-    } catch (err) {
-      setGroupActionError(
-        err instanceof Error ? err.message : 'Failed to remove user from group'
-      );
-    } finally {
-      setGroupActionId(null);
-    }
-  }, [removeGroupDialog, user]);
 
   const hasChanges =
     user && draft
@@ -458,175 +325,9 @@ export function UsersAdminDetail({
         </div>
       </div>
 
-      <div className="space-y-4 rounded-lg border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium text-lg">{t('aiUsage')}</h2>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleViewAiRequests}
-          >
-            View Requests
-          </Button>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <p className="text-muted-foreground text-xs uppercase tracking-wide">
-              Total Tokens
-            </p>
-            <p className="mt-1 font-semibold text-lg">
-              {formatNumber(user.accounting.totalTokens)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <p className="text-muted-foreground text-xs uppercase tracking-wide">
-              Prompt Tokens
-            </p>
-            <p className="mt-1 font-semibold text-lg">
-              {formatNumber(user.accounting.totalPromptTokens)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <p className="text-muted-foreground text-xs uppercase tracking-wide">
-              Completion Tokens
-            </p>
-            <p className="mt-1 font-semibold text-lg">
-              {formatNumber(user.accounting.totalCompletionTokens)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <p className="text-muted-foreground text-xs uppercase tracking-wide">
-              Requests
-            </p>
-            <p className="mt-1 font-semibold text-lg">
-              {formatNumber(user.accounting.requestCount)}
-            </p>
-          </div>
-          <div className="rounded-lg border bg-muted/30 p-3">
-            <p className="text-muted-foreground text-xs uppercase tracking-wide">
-              Last Usage
-            </p>
-            <p className="mt-1 text-muted-foreground text-sm">
-              {formatTimestamp(user.accounting.lastUsedAt)}
-            </p>
-          </div>
-        </div>
-      </div>
+      <AdminUserAiUsage user={user} onViewAiRequests={handleViewAiRequests} />
 
-      <div className="space-y-4 rounded-lg border bg-card p-4">
-        <div className="flex items-center justify-between">
-          <h2 className="font-medium text-lg">{t('groups')}</h2>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void fetchGroups()}
-            disabled={groupsLoading}
-          >
-            {groupsLoading ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : null}
-            Refresh
-          </Button>
-        </div>
-
-        {groupActionError && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
-            <p className="text-destructive text-sm">{groupActionError}</p>
-          </div>
-        )}
-
-        {groupsError && (
-          <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-3">
-            <p className="text-destructive text-sm">{groupsError}</p>
-          </div>
-        )}
-
-        {groupsLoading ? (
-          <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground text-sm">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            Loading groups...
-          </div>
-        ) : groups.length === 0 ? (
-          <p className="py-8 text-center text-muted-foreground text-sm">
-            No groups available
-          </p>
-        ) : (
-          <div className="space-y-2">
-            {groups.map((group) => {
-              const membership = groupMemberships[group.id];
-              const isMember = membership?.isMember ?? false;
-              const isUpdating = groupActionId === group.id;
-              return (
-                <div
-                  key={group.id}
-                  className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between"
-                >
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{group.name}</p>
-                    {group.description && (
-                      <p className="mt-1 truncate text-muted-foreground text-sm">
-                        {group.description}
-                      </p>
-                    )}
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
-                      <span>
-                        {group.memberCount}{' '}
-                        {group.memberCount === 1 ? 'member' : 'members'}
-                      </span>
-                      <span>
-                        {isMember ? 'Member' : 'Not a member'}
-                        {membership?.joinedAt
-                          ? ` since ${new Date(
-                              membership.joinedAt
-                            ).toLocaleDateString()}`
-                          : ''}
-                      </span>
-                    </div>
-                  </div>
-                  <Button
-                    variant={isMember ? 'ghost' : 'default'}
-                    size="sm"
-                    onClick={() =>
-                      isMember
-                        ? setRemoveGroupDialog(group)
-                        : void handleAddToGroup(group.id)
-                    }
-                    disabled={isUpdating}
-                    data-testid={
-                      isMember
-                        ? `remove-user-from-group-${group.id}`
-                        : `add-user-to-group-${group.id}`
-                    }
-                  >
-                    {isUpdating ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : isMember ? (
-                      <UserMinus className="mr-2 h-4 w-4" />
-                    ) : (
-                      <UserPlus className="mr-2 h-4 w-4" />
-                    )}
-                    {isMember ? 'Remove' : 'Add'}
-                  </Button>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      <ConfirmDialog
-        open={removeGroupDialog !== null}
-        onOpenChange={(open) => !open && setRemoveGroupDialog(null)}
-        title={t('removeFromGroup')}
-        description={t('removeFromGroupConfirm', {
-          email: user.email,
-          name: removeGroupDialog?.name
-        })}
-        confirmLabel={t('remove')}
-        onConfirm={handleConfirmRemoveFromGroup}
-        variant="destructive"
-      />
+      <AdminUserGroups user={user} />
     </div>
   );
 }
