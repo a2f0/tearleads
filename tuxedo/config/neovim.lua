@@ -53,7 +53,9 @@ vim.g.loaded_netrwPlugin = 1
 -- set termguicolors to enable highlight groups
 vim.opt.termguicolors = true
 
-vim.opt.wildmode = "longest:full,full"
+-- wildmenu: enables completion menu (Tab/CTRL-D)
+-- wildmode: list:full = typeahead - show all matches on first Tab, cycle with subsequent Tabs
+vim.opt.wildmode = "list:full"
 vim.opt.wildmenu = true
 
 vim.opt.number = true
@@ -115,6 +117,7 @@ require("lazy").setup({
     },
     opts = {
       filesystem = {
+        bind_to_root = false,
         window = {
           mappings = {
             ["<LeftRelease>"] = {
@@ -124,10 +127,23 @@ require("lazy").setup({
           },
         },
         use_libuv_file_watcher = true,
+        respect_gitignore = true,
         filtered_items = {
           visible = true,
           hide_dotfiles = false,
-          hide_gitignored = false,
+          hide_gitignored = true,
+          hide_hidden = true,
+          never_show = {
+            ".git",
+            "node_modules",
+            "dist",
+            "build",
+            ".next",
+            ".nuxt",
+            ".cache",
+            ".tmp",
+            ".opencode",
+          },
         },
       },
       git_status = {
@@ -153,11 +169,22 @@ vim.cmd('colorscheme tokyonight-night')
 
 -- ripgrep is required for live_grep and grep_string
 -- brew install ripgrep (macOS) or apt install ripgrep (Linux)
+-- fd is faster for file finding: brew install fd (macOS)
 require('telescope').setup{
   defaults = {
     file_ignore_patterns = {
-      "node_modules", "package-lock.json"
-    }
+      "node_modules", ".git", "dist", "build", ".next", ".nuxt",
+      "package%-lock.json", "yarn.lock", "pnpm%-lock.yaml",
+      ".cache", ".tmp", ".env", ".venv", "venv", "__pycache__"
+    },
+    initial_mode = "insert",
+    vimgrep_arguments = {
+      "rg", "--color=never", "--no-heading", "--with-filename",
+      "--line-number", "--column", "--smart-case", "--hidden",
+      "--glob=!.git", "--glob=!node_modules", "--glob=!dist", "--glob=!build",
+      "--glob=!.next", "--glob=!.nuxt", "--glob=!.cache", "--glob=!.tmp",
+      "--glob=!.env", "--glob=!.venv", "--glob=!venv", "--glob=!__pycache__"
+    },
   }
 }
 
