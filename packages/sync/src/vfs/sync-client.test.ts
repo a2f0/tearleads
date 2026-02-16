@@ -205,6 +205,19 @@ function toStageCodeSignatures(
   return events.map((event) => `${event.stage}:${event.code}`);
 }
 
+function toStageCodeReplicaSignatures(
+  events: Array<{
+    stage: string;
+    code: string;
+    details?: Record<string, string | number | boolean | null>;
+  }>
+): string[] {
+  return events.map((event) => {
+    const replicaId = event.details?.['replicaId'];
+    return `${event.stage}:${event.code}:${typeof replicaId === 'string' ? replicaId : 'none'}`;
+  });
+}
+
 function readForwardContainerSignatures(input: {
   client: VfsBackgroundSyncClient;
   seedCursor: {
@@ -10228,10 +10241,8 @@ describe('VfsBackgroundSyncClient', () => {
           signature.endsWith(`|${seedCursor.changeId}`)
         )
       ).toBe(false);
-      const guardrailSignatures = guardrailViolations.map((violation) => {
-        const replicaId = violation.details?.['replicaId'];
-        return `${violation.stage}:${violation.code}:${typeof replicaId === 'string' ? replicaId : 'none'}`;
-      });
+      const guardrailSignatures =
+        toStageCodeReplicaSignatures(guardrailViolations);
       expect(guardrailSignatures).toEqual([
         'pull:lastWriteIdRegression:desktop',
         'reconcile:lastWriteIdRegression:mobile'
@@ -10537,10 +10548,8 @@ describe('VfsBackgroundSyncClient', () => {
         `${itemPhantom}|pull-fail-mid-${seed}-1`
       );
 
-      const guardrailSignatures = guardrailViolations.map((violation) => {
-        const replicaId = violation.details?.['replicaId'];
-        return `${violation.stage}:${violation.code}:${typeof replicaId === 'string' ? replicaId : 'none'}`;
-      });
+      const guardrailSignatures =
+        toStageCodeReplicaSignatures(guardrailViolations);
       expect(guardrailSignatures).toEqual([
         'pull:lastWriteIdRegression:desktop',
         'reconcile:lastWriteIdRegression:mobile'
@@ -10872,10 +10881,8 @@ describe('VfsBackgroundSyncClient', () => {
         `${parentLocal}|${localLinkOpId}`
       ]);
 
-      const guardrailSignatures = guardrailViolations.map((violation) => {
-        const replicaId = violation.details?.['replicaId'];
-        return `${violation.stage}:${violation.code}:${typeof replicaId === 'string' ? replicaId : 'none'}`;
-      });
+      const guardrailSignatures =
+        toStageCodeReplicaSignatures(guardrailViolations);
       expect(guardrailSignatures).toEqual([
         'pull:lastWriteIdRegression:desktop',
         'reconcile:lastWriteIdRegression:mobile'
@@ -11260,9 +11267,7 @@ describe('VfsBackgroundSyncClient', () => {
 
       expect(pushedOpIds).toEqual([localAclOpId, localLinkOpId]);
       expect(pushedWriteIds).toEqual([1, 2]);
-      const guardrailSignatures = guardrailViolations.map(
-        (violation) => `${violation.stage}:${violation.code}`
-      );
+      const guardrailSignatures = toStageCodeSignatures(guardrailViolations);
       expect(guardrailSignatures).toEqual([
         'hydrate:hydrateGuardrailViolation'
       ]);
