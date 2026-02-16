@@ -24,31 +24,32 @@ Key compliance-relevant configurations:
 - Automatic patching (daily)
 - TLS certificates (certbot/Let's Encrypt)
 
-### `terraform/` - Hetzner Cloud Infrastructure
+### `terraform/` - Cloud Infrastructure
 
-Primary cloud infrastructure provisioning:
+Primary cloud infrastructure provisioning using a modular, stack-based approach:
 
-- `terraform/main.tf` - Compute instances (cloud-init hardening)
-- `terraform/dns.tf` - DNS records
-- `terraform/variables.tf` - Input variables
-- `terraform/outputs.tf` - Resource outputs
+- `terraform/bootstrap/` - Backend state storage (S3/DynamoDB)
+- `terraform/modules/` - Reusable infrastructure components (Hetzner, Azure, AWS, Cloudflare)
+- `terraform/stacks/` - Environment-specific resource compositions (prod, staging, shared)
+- `terraform/configs/` - Shared backend and provider configurations
 
 Key compliance-relevant configurations:
 
-- SSH-only access (password auth disabled)
-- Non-root server user
-- Resource tagging
+- SSH-only access (password auth disabled in `hetzner-server` module)
+- Non-root server user (cloud-init hardening)
+- Managed identities and RBAC (Azure TEE module)
+- State isolation and locking (S3/DynamoDB bootstrap)
+- Container registry security (AWS ECR in `ci-artifacts` module)
+- Network isolation (NSGs, Firewalls, Cloudflare Tunnels)
 
-### `tee/` - Azure Confidential VM (Trusted Execution Environment)
+### `terraform/modules/azure-tee` - Azure Confidential VM (Trusted Execution Environment)
 
 Confidential computing infrastructure for sensitive workloads:
 
-- `tee/compute.tf` - Azure Confidential VM provisioning
-- `tee/network.tf` - Network security groups and isolation
-- `tee/kms.tf` - Azure Key Vault for sealed keys and attestation
-- `tee/iam.tf` - Identity and access management
-- `tee/ansible/` - TEE API image provisioning
-- `tee/scripts/` - Terraform and image build automation
+- `terraform/modules/azure-tee/main.tf` - Confidential VM, Network, and Key Vault provisioning
+- `terraform/stacks/*/tee/` - Environment-specific TEE deployments
+- `terraform/stacks/*/tee/ansible/` - TEE API image provisioning
+- `terraform/stacks/*/tee/scripts/` - Terraform and image build automation
 
 Key compliance-relevant configurations:
 
@@ -109,6 +110,7 @@ resource "hcloud_server" "main" {
 - `TL-INFRA-XXX` - Infrastructure hardening controls
 - `TL-CRYPTO-XXX` - Cryptographic controls
 - `TL-NET-XXX` - Network security controls
+- `TL-DB-XXX` - Database security controls (RDS)
 - `TL-PAY-XXX` - Payment infrastructure controls (RevenueCat)
 - `TL-VENDOR-XXX` - Third-party vendor management controls
 

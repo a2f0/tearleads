@@ -8,12 +8,13 @@ This map ties infrastructure security policy controls to concrete implementation
 | --- | --- | --- | --- |
 | `TL-INFRA-004` | SSH hardening with key-only auth, modern ciphers, rate limiting | `ansible/playbooks/templates/sshd_config.j2`, `ansible/playbooks/main.yml` | `ssh user@host 'grep -E "^(PermitRootLogin\|PasswordAuthentication)" /etc/ssh/sshd_config'` |
 | `TL-NET-003` | UFW host firewall with default-deny incoming | `ansible/playbooks/main.yml` (UFW tasks) | `ssh user@host 'sudo ufw status verbose'` |
-| `TL-NET-004` | Hetzner Cloud firewall with explicit port rules | `terraform/main.tf` (hcloud_firewall resource) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "hcloud_firewall")'` |
+| `TL-NET-004` | Hetzner Cloud firewall with explicit port rules | `terraform/modules/hetzner-server/main.tf` (hcloud_firewall resource) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "hcloud_firewall")'` |
+| `TL-NET-006` | Cloudflare Tunnel isolation for inbound traffic | `terraform/modules/cloudflare-tunnel/main.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "cloudflare_tunnel")'` |
 | `TL-KERN-001` | Kernel sysctl hardening (ASLR, rp_filter, ptrace) | `ansible/playbooks/templates/99-security-hardening.conf.j2`, `ansible/playbooks/main.yml` | `ssh user@host 'sysctl kernel.randomize_va_space net.ipv4.conf.all.rp_filter'` |
 | `TL-AUTH-001` | Fail2ban SSH jail with progressive bans | `ansible/playbooks/templates/fail2ban-sshd.conf.j2`, `ansible/playbooks/main.yml` | `ssh user@host 'sudo fail2ban-client status sshd'` |
 | `TL-SVC-001` | API service systemd sandboxing | `ansible/playbooks/templates/tearleads-api.service.j2` | `ssh user@host 'systemctl show tearleads-api --property=NoNewPrivileges,ProtectSystem,RestrictNamespaces'` |
 | `TL-SVC-002` | SMTP service systemd sandboxing with CAP_NET_BIND_SERVICE | `ansible/playbooks/templates/tearleads-smtp-listener.service.j2` | `ssh user@host 'systemctl show tearleads-smtp-listener --property=AmbientCapabilities,NoNewPrivileges'` |
-| `TL-CRYPTO-005` | Key Vault purge protection and soft-delete recovery | `tee/kms.tf`, `tee/versions.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "azurerm_key_vault") \| .values.purge_protection_enabled'` |
+| `TL-CRYPTO-005` | Key Vault purge protection and soft-delete recovery | `terraform/stacks/*/tee/versions.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "azurerm_key_vault") \| .values.purge_protection_enabled'` |
 
 ## Control Details
 
@@ -53,7 +54,7 @@ This map ties infrastructure security policy controls to concrete implementation
 
 **Implementation Files:**
 
-- `terraform/main.tf` - `hcloud_firewall` resource
+- `terraform/modules/hetzner-server/main.tf` - `hcloud_firewall` resource
 
 **Key Configuration:**
 
@@ -115,8 +116,8 @@ This map ties infrastructure security policy controls to concrete implementation
 
 **Implementation Files:**
 
-- `tee/kms.tf` - Key Vault resource configuration
-- `tee/versions.tf` - Provider configuration
+- `terraform/modules/azure-tee/main.tf` - Key Vault resource configuration
+- `terraform/stacks/*/tee/versions.tf` - Provider configuration enabling protection features
 
 **Key Configuration:**
 

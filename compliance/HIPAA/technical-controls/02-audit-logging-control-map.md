@@ -6,10 +6,10 @@ This map ties audit logging policy controls to concrete implementation and test 
 
 | Sentinel | HIPAA Citation | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- | --- |
-| `TL-HAUDT-001` | 164.312(b), 164.308(a)(1)(ii)(D) | Nginx access logging with audit-grade fields for ePHI system activity | `ansible/playbooks/templates/nginx-logging.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `nginx -T \| grep audit_combined` |
-| `TL-HAUDT-002` | 164.312(b), 164.308(a)(1)(ii)(D) | Journald 90-day persistent retention for activity review | `ansible/playbooks/templates/journald.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
-| `TL-HAUDT-003` | 164.312(b) | Nginx log rotation with 90-day retention and compression | `ansible/playbooks/templates/nginx-logrotate.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `cat /etc/logrotate.d/nginx` |
-| `TL-HAUDT-004` | 164.316(b) | Monthly log archive with 6-year retention for documentation compliance | `ansible/playbooks/templates/scripts/audit-log-archive.sh.j2`, `ansible/playbooks/templates/audit-log-archive.service.j2`, `ansible/playbooks/templates/audit-log-archive.timer.j2`, `ansible/playbooks/main.yml` | Manual verification: `systemctl status audit-log-archive.timer` |
+| `TL-HAUDT-001` | 164.312(b), 164.308(a)(1)(ii)(D) | Nginx access logging with audit-grade fields for ePHI system activity | `ansible/playbooks/main.yml` (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
+| `TL-HAUDT-002` | 164.312(b), 164.308(a)(1)(ii)(D) | Journald 90-day persistent retention for activity review | `ansible/playbooks/main.yml` (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
+| `TL-HAUDT-003` | 164.312(b) | Nginx log rotation with 90-day retention and compression | `ansible/playbooks/main.yml` (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
+| `TL-HAUDT-004` | 164.316(b) | Monthly log archive with 6-year retention for documentation compliance | `ansible/playbooks/main.yml` (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
 
 ## HIPAA Security Rule Control Coverage
 

@@ -253,6 +253,8 @@ Requires notification following a breach of unsecured PHI.
 4. [TC-04 Infrastructure Security Technical Control Map](./technical-controls/04-infrastructure-security-control-map.md)
 5. [TC-05 End-to-End Encryption Technical Control Map](./technical-controls/05-end-to-end-encryption-control-map.md)
 6. [TC-06 Vendor Management Technical Control Map](./technical-controls/06-vendor-management-control-map.md)
+7. [TC-07 Disaster Recovery Technical Control Map](./technical-controls/07-disaster-recovery-control-map.md)
+8. [TC-08 Database Security Technical Control Map](./technical-controls/08-database-security-control-map.md)
 
 ---
 

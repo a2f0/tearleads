@@ -10,8 +10,8 @@ This map ties disaster recovery and container deployment controls to concrete im
 | `TL-CR-002` | ECR scan-on-push for vulnerability detection | `terraform/modules/aws-ci-artifacts/main.tf` | `aws ecr describe-repositories --query 'repositories[*].imageScanningConfiguration'` |
 | `TL-CR-003` | K8s registry authentication with rotating ECR tokens | `terraform/stacks/*/k8s/scripts/setup-ecr-secret.sh` | `kubectl get secret ecr-registry -n tearleads -o jsonpath='{.type}'` |
 | `TL-CR-004` | ECR lifecycle policies for image retention | `terraform/modules/aws-ci-artifacts/main.tf` | `for repo in api client website; do aws ecr get-lifecycle-policy --repository-name "tearleads-<env>/$repo"; done` |
-| `TL-DR-001` | Per-stack S3 backend with unique state keys | `terraform/stacks/*/terraform.tf` | `grep -r 'key.*=' terraform/stacks/*/terraform.tf` |
-| `TL-DR-002` | DynamoDB state locking for concurrent access | `terraform/stacks/bootstrap/main.tf` | `aws dynamodb describe-table --table-name tearleads-terraform-locks` |
+| `TL-DR-001` | Per-stack S3 backend with unique state keys | `terraform/stacks/*/versions.tf` | `grep -r 'key.*=' terraform/stacks/*/versions.tf` |
+| `TL-DR-002` | DynamoDB state locking for concurrent access | `terraform/bootstrap/main.tf` | `aws dynamodb describe-table --table-name tearleads-terraform-locks` |
 | `TL-DR-003` | Documented container build/push/deploy workflow | `terraform/docs/container-deployments.md` | `./scripts/buildContainers.sh staging --no-push` |
 
 ## Control Details
@@ -78,7 +78,7 @@ This map ties disaster recovery and container deployment controls to concrete im
 
 **Implementation Files:**
 
-- `terraform/stacks/*/terraform.tf` - Per-stack backend configuration
+- `terraform/stacks/*/versions.tf` - Per-stack backend configuration
 
 **Key Configuration:**
 
@@ -91,7 +91,7 @@ This map ties disaster recovery and container deployment controls to concrete im
 
 **Implementation Files:**
 
-- `terraform/stacks/bootstrap/main.tf` - DynamoDB table creation
+- `terraform/bootstrap/main.tf` - DynamoDB table creation
 
 **Key Configuration:**
 

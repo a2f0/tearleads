@@ -1,6 +1,7 @@
 terraform {
   required_version = ">= 1.6"
 
+  # COMPLIANCE_SENTINEL: TL-DR-001 | control=state-isolation
   backend "s3" {
     bucket         = "tearleads-terraform-state"
     key            = "stacks/prod/rds/terraform.tfstate"

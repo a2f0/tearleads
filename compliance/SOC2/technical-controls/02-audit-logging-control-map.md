@@ -6,10 +6,10 @@ This map ties audit logging policy controls to concrete implementation and test 
 
 | Sentinel | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- |
-| `TL-AUDT-001` | Nginx access logging with audit-grade fields (IP, timestamp, request, status, timing, SSL, request_id) | `ansible/playbooks/templates/nginx-logging.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `nginx -T \| grep audit_combined` |
-| `TL-AUDT-002` | Journald 90-day persistent retention with storage limits | `ansible/playbooks/templates/journald.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
-| `TL-AUDT-003` | Nginx log rotation with 90-day retention and compression | `ansible/playbooks/templates/nginx-logrotate.conf.j2`, `ansible/playbooks/main.yml` | Manual verification: `cat /etc/logrotate.d/nginx` |
-| `TL-AUDT-004` | Monthly log archive with 6-year retention for compliance | `ansible/playbooks/templates/scripts/audit-log-archive.sh.j2`, `ansible/playbooks/templates/audit-log-archive.service.j2`, `ansible/playbooks/templates/audit-log-archive.timer.j2`, `ansible/playbooks/main.yml` | Manual verification: `systemctl status audit-log-archive.timer` |
+| `TL-AUDT-001` | Nginx access logging with audit-grade fields (IP, timestamp, request, status, timing, SSL, request_id) | `ansible/playbooks/main.yml` (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
+| `TL-AUDT-002` | Journald 90-day persistent retention with storage limits | `ansible/playbooks/main.yml` (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
+| `TL-AUDT-003` | Nginx log rotation with 90-day retention and compression | `ansible/playbooks/main.yml` (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
+| `TL-AUDT-004` | Monthly log archive with 6-year retention for compliance | `ansible/playbooks/main.yml` (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
 
 ## Deployment Automation
 
