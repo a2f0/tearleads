@@ -9,7 +9,7 @@ import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMen
 import {
   HEALTH_DRILLDOWN_CARDS,
   type HealthDrilldownRoute
-} from '@/pages/Health';
+} from '../../pages/Health';
 
 interface HealthWindowMenuBarProps {
   activeRoute: HealthDrilldownRoute | undefined;

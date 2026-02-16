@@ -3,7 +3,7 @@ export {
   DEFAULT_EXERCISES,
   type DefaultExerciseId,
   isDefaultExercise
-} from './lib/defaultExercises.js';
+} from './lib/defaultExercises';
 export type {
   BloodPressureReading,
   CreateBloodPressureReadingInput,
@@ -16,5 +16,7 @@ export type {
   WeightReading,
   WeightUnit,
   WorkoutEntry
-} from './lib/healthTracker.js';
-export { createHealthTracker } from './lib/healthTracker.js';
+} from './lib/healthTracker';
+export { createHealthTracker } from './lib/healthTracker';
+export { Health, HEALTH_DRILLDOWN_CARDS, type HealthDrilldownRoute } from './pages/Health';
+export { HealthWindow } from './components/health-window';
