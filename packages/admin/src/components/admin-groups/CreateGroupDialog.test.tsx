@@ -8,6 +8,10 @@ const mockCreate = vi.fn();
 vi.mock('@/lib/api', () => ({
   api: {
     admin: {
+      getContext: vi.fn().mockResolvedValue({
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Org 1' }]
+      }),
       groups: {
         create: (data: unknown) => mockCreate(data)
       }

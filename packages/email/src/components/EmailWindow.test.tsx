@@ -464,6 +464,7 @@ describe('EmailWindow', () => {
       expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
     });
 
+    await screen.findByText('Test Subject');
     await user.click(screen.getByText('Test Subject'));
 
     await waitFor(() => {

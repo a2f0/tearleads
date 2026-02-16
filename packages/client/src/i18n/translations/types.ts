@@ -558,6 +558,8 @@ export interface AdminTranslations {
   completion: string;
   total: string;
   table: string;
+  tableView: string;
+  documentView: string;
   size: string;
   rows: string;
   field: string;
@@ -641,8 +643,6 @@ export interface AdminTranslations {
   tableSummary: string;
   totalDatabase: string;
   connection: string;
-  documentView: string;
-  tableView: string;
   // Redis
   valueDisplayNotSupported: string;
   // Menu bar

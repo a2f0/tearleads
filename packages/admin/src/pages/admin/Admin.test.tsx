@@ -14,6 +14,10 @@ const mockGetDbSize = vi.fn<() => Promise<{ count: number }>>();
 vi.mock('@/lib/api', () => ({
   api: {
     admin: {
+      getContext: vi.fn().mockResolvedValue({
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Org 1' }]
+      }),
       redis: {
         getKeys: (cursor?: string, limit?: number) =>
           mockGetKeys(cursor, limit),

@@ -17,6 +17,10 @@ const mockDelete = vi.fn();
 vi.mock('@/lib/api', () => ({
   api: {
     admin: {
+      getContext: vi.fn().mockResolvedValue({
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Org 1' }]
+      }),
       organizations: {
         list: (options?: { organizationId?: string }) => mockList(options),
         delete: (id: string) => mockDelete(id)

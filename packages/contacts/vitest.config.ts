@@ -34,7 +34,10 @@ export default defineConfig({
     alias: {
       '@': fileURLToPath(new URL('../client/src', import.meta.url)),
       '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
-      '@contacts': fileURLToPath(new URL('./src', import.meta.url))
+      '@contacts': fileURLToPath(new URL('./src', import.meta.url)),
+      '@tearleads/window-manager': fileURLToPath(
+        new URL('../window-manager/src/index.ts', import.meta.url)
+      )
     }
   }
 });
