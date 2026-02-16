@@ -232,6 +232,12 @@ interface ObservedPhasePullPage extends ObservedPullPage {
   lastReconciledWriteIds?: Record<string, number>;
 }
 
+interface ObservedPhaseReconcileSnapshot {
+  phase: ObservedPullPhase;
+  cursor: { changedAt: string; changeId: string };
+  lastReconciledWriteIds: Record<string, number>;
+}
+
 type ReconcileState = NonNullable<VfsCrdtSyncTransport['reconcileState']>;
 type ReconcileStateInput = Parameters<ReconcileState>[0];
 type ReconcileStateOutput = Awaited<ReturnType<ReconcileState>>;
@@ -309,6 +315,48 @@ function filterObservedPullsByPhase(input: {
   phase: ObservedPullPhase;
 }): ObservedPhasePullPage[] {
   return input.observedPulls.filter((pull) => pull.phase === input.phase);
+}
+
+function createPhaseReconcileRecordingHandler(input: {
+  observedInputs?: ObservedPhaseReconcileSnapshot[];
+  observedResponses?: ObservedPhaseReconcileSnapshot[];
+  resolve: (input: {
+    phase: ObservedPullPhase;
+    reconcileInput: ReconcileStateInput;
+    callCount: number;
+    baseTransport: VfsCrdtSyncTransport;
+  }) => Promise<ReconcileStateOutput> | ReconcileStateOutput;
+}): (input: {
+  phase: ObservedPullPhase;
+  reconcileInput: ReconcileStateInput;
+  baseTransport: VfsCrdtSyncTransport;
+}) => Promise<ReconcileStateOutput> {
+  let callCount = 0;
+  return async (handlerInput) => {
+    callCount += 1;
+    input.observedInputs?.push({
+      phase: handlerInput.phase,
+      cursor: { ...handlerInput.reconcileInput.cursor },
+      lastReconciledWriteIds: {
+        ...handlerInput.reconcileInput.lastReconciledWriteIds
+      }
+    });
+
+    const response = await input.resolve({
+      phase: handlerInput.phase,
+      reconcileInput: handlerInput.reconcileInput,
+      callCount,
+      baseTransport: handlerInput.baseTransport
+    });
+
+    input.observedResponses?.push({
+      phase: handlerInput.phase,
+      cursor: { ...response.cursor },
+      lastReconciledWriteIds: { ...response.lastReconciledWriteIds }
+    });
+
+    return response;
+  };
 }
 
 function createPullRecordingTransport(input: {
@@ -7303,31 +7351,14 @@ describe('VfsBackgroundSyncClient', () => {
 
     const baseTransport = new InMemoryVfsCrdtSyncTransport(server);
     const observedPulls: ObservedPhasePullPage[] = [];
-    const observedReconcileInputs: Array<{
-      phase: ObservedPullPhase;
-      cursor: { changedAt: string; changeId: string };
-      lastReconciledWriteIds: Record<string, number>;
-    }> = [];
-    const observedReconcileResponses: Array<{
-      phase: ObservedPullPhase;
-      cursor: { changedAt: string; changeId: string };
-      lastReconciledWriteIds: Record<string, number>;
-    }> = [];
-    let reconcileCallCount = 0;
-    const makeObservedTransport = createPhasePullRecordingTransportFactory({
-      baseTransport,
-      observedPulls,
-      includeLastReconciledWriteIds: true,
-      reconcileState: async ({ phase: reconcilePhase, reconcileInput }) => {
-        reconcileCallCount += 1;
-        observedReconcileInputs.push({
-          phase: reconcilePhase,
-          cursor: { ...reconcileInput.cursor },
-          lastReconciledWriteIds: { ...reconcileInput.lastReconciledWriteIds }
-        });
-
+    const observedReconcileInputs: ObservedPhaseReconcileSnapshot[] = [];
+    const observedReconcileResponses: ObservedPhaseReconcileSnapshot[] = [];
+    const reconcileState = createPhaseReconcileRecordingHandler({
+      observedInputs: observedReconcileInputs,
+      observedResponses: observedReconcileResponses,
+      resolve: ({ reconcileInput, callCount }) => {
         const reconciledWriteIds =
-          reconcileCallCount === 1
+          callCount === 1
             ? {
                 ...reconcileInput.lastReconciledWriteIds,
                 desktop: 3,
@@ -7338,17 +7369,17 @@ describe('VfsBackgroundSyncClient', () => {
                 desktop: 7,
                 mobile: 9
               };
-        const response = {
+        return {
           cursor: { ...reconcileInput.cursor },
           lastReconciledWriteIds: reconciledWriteIds
         };
-        observedReconcileResponses.push({
-          phase: reconcilePhase,
-          cursor: { ...response.cursor },
-          lastReconciledWriteIds: { ...response.lastReconciledWriteIds }
-        });
-        return response;
       }
+    });
+    const makeObservedTransport = createPhasePullRecordingTransportFactory({
+      baseTransport,
+      observedPulls,
+      includeLastReconciledWriteIds: true,
+      reconcileState
     });
 
     const seedGuardrailViolations: Array<{
@@ -8164,13 +8195,9 @@ describe('VfsBackgroundSyncClient', () => {
       details?: Record<string, string | number | boolean | null>;
     }> = [];
     const observedPulls: ObservedPhasePullPage[] = [];
-    let reconcileCallCount = 0;
-    const makeObservedTransport = createPhasePullRecordingTransportFactory({
-      baseTransport,
-      observedPulls,
-      reconcileState: async ({ reconcileInput }) => {
-        reconcileCallCount += 1;
-        if (reconcileCallCount === 1) {
+    const reconcileState = createPhaseReconcileRecordingHandler({
+      resolve: ({ reconcileInput, callCount }) => {
+        if (callCount === 1) {
           return {
             cursor: { ...reconcileInput.cursor },
             lastReconciledWriteIds: {
@@ -8190,6 +8217,11 @@ describe('VfsBackgroundSyncClient', () => {
           }
         };
       }
+    });
+    const makeObservedTransport = createPhasePullRecordingTransportFactory({
+      baseTransport,
+      observedPulls,
+      reconcileState
     });
 
     const seedClient = new VfsBackgroundSyncClient(
@@ -8344,13 +8376,9 @@ describe('VfsBackgroundSyncClient', () => {
       details?: Record<string, string | number | boolean | null>;
     }> = [];
     const observedPulls: ObservedPhasePullPage[] = [];
-    let reconcileCallCount = 0;
-    const makeObservedTransport = createPhasePullRecordingTransportFactory({
-      baseTransport,
-      observedPulls,
-      reconcileState: async ({ reconcileInput }) => {
-        reconcileCallCount += 1;
-        if (reconcileCallCount === 1) {
+    const reconcileState = createPhaseReconcileRecordingHandler({
+      resolve: ({ reconcileInput, callCount }) => {
+        if (callCount === 1) {
           return {
             cursor: { ...reconcileInput.cursor },
             lastReconciledWriteIds: {
@@ -8361,7 +8389,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (reconcileCallCount === 2) {
+        if (callCount === 2) {
           return {
             cursor: { ...reconcileInput.cursor },
             lastReconciledWriteIds: {
@@ -8381,6 +8409,11 @@ describe('VfsBackgroundSyncClient', () => {
           }
         };
       }
+    });
+    const makeObservedTransport = createPhasePullRecordingTransportFactory({
+      baseTransport,
+      observedPulls,
+      reconcileState
     });
 
     const seedClient = new VfsBackgroundSyncClient(
