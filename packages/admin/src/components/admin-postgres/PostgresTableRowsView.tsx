@@ -2,16 +2,16 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { Braces, Download, Loader2, Settings } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-// @ts-expect-error - cross-package import
+// @ts-ignore - cross-package import
 import { Button } from '@/components/ui/button';
-// @ts-expect-error - cross-package import
+// @ts-ignore - cross-package import
 import { RefreshButton } from '@/components/ui/RefreshButton';
-// @ts-expect-error - cross-package import
+// @ts-ignore - cross-package import
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
-// @ts-expect-error - cross-package import
+// @ts-ignore - cross-package import
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
-// @ts-expect-error - cross-package import
+// @ts-ignore - cross-package import
 import { createCsv } from '@/lib/csv';
 import { DocumentView } from './DocumentView';
 import {
@@ -67,8 +67,6 @@ export function PostgresTableRowsView({
 
   // Local component to reduce duplication of sticky VirtualListStatus
   const stickyStatus = useMemo(() => {
-    // Calculate visible range
-    const _virtualItems = parentRef.current ? [] : []; // placeholder for useMemo dependency
     return (first: number | null, last: number | null) => (
       <div className="sticky top-0 z-10 bg-background px-4 py-2">
         <VirtualListStatus
