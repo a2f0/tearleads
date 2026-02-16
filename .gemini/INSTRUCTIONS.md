@@ -9,8 +9,8 @@ When reviewing pull requests in this repository, follow these guidelines.
 1. **Security** - Auth checks, ownership verification, SQL injection
 2. **Type Safety**
 3. **Environment Variables** - Must always be **ALL CAPS** (e.g., `TF_VAR_HCLOUD_TOKEN`) - No `any`, `as` casts, or `@ts-ignore`
-3. **Test Coverage** - New code must have tests
-4. **Performance** - N+1 queries, missing memoization
+4. **Test Coverage** - New code must have tests
+5. **Performance** - N+1 queries, missing memoization
 
 ## TypeScript Rules
 
