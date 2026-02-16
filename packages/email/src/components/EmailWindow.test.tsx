@@ -3,8 +3,8 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmailContactOperations, EmailFolderOperations } from '../context';
-import { mockConsoleError } from '../test/console-mocks';
-import { TestEmailProvider } from '../test/test-utils';
+import { mockConsoleError } from '../test/consoleMocks';
+import { TestEmailProvider } from '../test/testUtils';
 import { EmailWindow } from './EmailWindow';
 
 vi.mock('@tearleads/window-manager', () => ({

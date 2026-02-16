@@ -23,9 +23,9 @@ export {
   composeWrappers,
   createRealDbWrapper,
   useTestDb
-} from './create-wrapper.js';
+} from './createWrapper.js';
 // WASM location
-export { locateWasmDir, wasmFilesExist } from './locate-wasm.js';
+export { locateWasmDir, wasmFilesExist } from './locateWasm.js';
 export type { SeedFolderOptions, SeedVfsItemOptions } from './seeding/index.js';
 
 // Seeding utilities
@@ -46,13 +46,13 @@ export {
   getTestKeyManager,
   resetTestKeyManager,
   TestKeyManager
-} from './test-key-manager.js';
+} from './testKeyManager.js';
 export type {
   Migration,
   TestDatabaseContext,
   WithRealDatabaseOptions
-} from './with-real-database.js';
+} from './withRealDatabase.js';
 export {
   createTestDatabase,
   withRealDatabase
-} from './with-real-database.js';
+} from './withRealDatabase.js';

@@ -25,7 +25,7 @@ import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Dropzone } from '@/components/ui/dropzone';
 import { Input } from '@/components/ui/input';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { ClientContactsProvider } from '@/contexts/ClientContactsProvider';
 import { getDatabase } from '@/db';

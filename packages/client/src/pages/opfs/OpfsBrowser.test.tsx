@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OpfsBrowserHandle } from './OpfsBrowser';
 import { OpfsBrowser } from './OpfsBrowser';
 
-vi.mock('./opfs-utils', () => ({
+vi.mock('./opfsUtils', () => ({
   readDirectory: vi.fn().mockResolvedValue([
     { name: 'folder1', type: 'directory', children: [] },
     { name: 'file1.txt', type: 'file', size: 100 }
@@ -23,7 +23,7 @@ vi.mock('@/components/ui/confirm-dialog', () => ({
   ConfirmDialog: () => null
 }));
 
-vi.mock('@/components/ui/refresh-button', () => ({
+vi.mock('@/components/ui/RefreshButton', () => ({
   RefreshButton: ({
     onClick,
     isLoading

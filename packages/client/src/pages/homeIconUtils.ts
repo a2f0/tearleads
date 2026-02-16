@@ -2,7 +2,7 @@ import type { navItems } from '@/components/Sidebar';
 import type {
   DesktopIconBackgroundValue,
   DesktopIconDepthValue
-} from '@/db/user-settings';
+} from '@/db/userSettings';
 
 export const ICON_SIZE = 64;
 const ICON_SIZE_MOBILE = 56;

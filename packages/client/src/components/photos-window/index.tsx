@@ -8,7 +8,7 @@ import type { WindowDimensions } from '@tearleads/window-manager';
 import { DropZoneOverlay } from '@/components/ui/drop-zone-overlay';
 import { ClientPhotosProvider } from '@/contexts/ClientPhotosProvider';
 import { useWindowOpenRequest } from '@/contexts/WindowManagerContext';
-import { filterFilesByAccept } from '@/lib/file-filter';
+import { filterFilesByAccept } from '@/lib/fileFilter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
 
 interface PhotosWindowProps {

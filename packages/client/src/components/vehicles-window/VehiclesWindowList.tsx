@@ -9,7 +9,7 @@ import {
   ContextMenuSeparator
 } from '@/components/ui/context-menu';
 import { Input } from '@/components/ui/input';
-import { ListRow } from '@/components/ui/list-row';
+import { ListRow } from '@/components/ui/ListRow';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useDatabaseContext } from '@/db/hooks';
 import { deleteVehicle, listVehicles, type VehicleRecord } from '@/db/vehicles';

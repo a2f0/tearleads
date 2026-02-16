@@ -2,6 +2,7 @@
  * Client-side VfsExplorerProvider wrapper that supplies all dependencies
  * to the @tearleads/vfs-explorer package components.
  */
+
 import {
   VfsExplorerProvider,
   type VfsExplorerUIComponents
@@ -27,8 +28,8 @@ import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { api } from '@/lib/api';
-import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
-import { getFeatureFlagValue } from '@/lib/feature-flags';
+import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
+import { getFeatureFlagValue } from '@/lib/featureFlags';
 
 export function VfsExplorerAboutMenuItem() {
   return (

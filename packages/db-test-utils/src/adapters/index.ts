@@ -13,5 +13,5 @@ export {
 export type {
   JsonBackupData,
   WasmNodeAdapterOptions
-} from './wasm-node.adapter.js';
-export { WasmNodeAdapter } from './wasm-node.adapter.js';
+} from './wasmNode.adapter.js';
+export { WasmNodeAdapter } from './wasmNode.adapter.js';

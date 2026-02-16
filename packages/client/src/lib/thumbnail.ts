@@ -8,7 +8,7 @@
 
 import { assertPlainArrayBuffer } from '@tearleads/shared';
 import * as pdfjs from 'pdfjs-dist';
-import { extractAudioCoverArt, isAudioMimeType } from './audio-metadata';
+import { extractAudioCoverArt, isAudioMimeType } from './audioMetadata';
 
 // Configure PDF.js worker using the recommended approach.
 pdfjs.GlobalWorkerOptions.workerSrc = new URL(

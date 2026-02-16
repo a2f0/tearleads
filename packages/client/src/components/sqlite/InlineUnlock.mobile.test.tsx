@@ -10,7 +10,7 @@ vi.mock('@/db/hooks', () => ({
   useDatabaseContext: () => mockUseDatabaseContext()
 }));
 
-vi.mock('@/db/crypto/key-manager', () => ({
+vi.mock('@/db/crypto/keyManager', () => ({
   isBiometricAvailable: () => mockIsBiometricAvailable()
 }));
 

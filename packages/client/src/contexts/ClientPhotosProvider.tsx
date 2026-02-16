@@ -21,7 +21,7 @@ import {
 import { and, desc, eq, inArray, like } from 'drizzle-orm';
 import { type ReactNode, useCallback, useMemo } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ActionToolbar } from '@/components/ui/action-toolbar';
+import { ActionToolbar } from '@/components/ui/ActionToolbar';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -39,9 +39,9 @@ import {
 import { Dropzone } from '@/components/ui/dropzone';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { Input } from '@/components/ui/input';
-import { ListRow } from '@/components/ui/list-row';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import { UploadProgress } from '@/components/ui/upload-progress';
+import { ListRow } from '@/components/ui/ListRow';
+import { RefreshButton } from '@/components/ui/RefreshButton';
+import { UploadProgress } from '@/components/ui/UploadProgress';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
@@ -58,9 +58,9 @@ import { albums, files, vfsLinks, vfsRegistry } from '@/db/schema';
 import { useDropZone } from '@/hooks/useDropZone';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useTypedTranslation } from '@/i18n';
-import { uint8ArrayToDataUrl } from '@/lib/chat-attachments';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { setAttachedImage } from '@/lib/llm-runtime';
+import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
+import { setAttachedImage } from '@/lib/llmRuntime';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import {
   getFileStorage,

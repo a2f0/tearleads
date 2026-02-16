@@ -1,5 +1,5 @@
 // Import integration setup FIRST - wires real db-test-utils adapter/key manager
-import '../test/setup-integration';
+import '../test/setupIntegration';
 
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { beforeEach, describe, expect, it } from 'vitest';

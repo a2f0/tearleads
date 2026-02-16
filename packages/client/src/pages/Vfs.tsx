@@ -11,7 +11,7 @@ import {
   type FileOpenTarget,
   resolveFileOpenTarget,
   resolvePlaylistType
-} from '@/lib/vfs-open';
+} from '@/lib/vfsOpen';
 
 export function Vfs() {
   const { isUnlocked, isLoading: isDatabaseLoading } = useDatabaseContext();

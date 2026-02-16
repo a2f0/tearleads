@@ -20,7 +20,7 @@ import {
   onAuthChange,
   readStoredAuth,
   storeAuth
-} from '@/lib/auth-storage';
+} from '@/lib/authStorage';
 import { getJwtExpiration, getJwtTimeRemaining } from '@/lib/jwt';
 
 const REFRESH_THRESHOLD_MS = 60 * 1000; // Refresh if expiring within 60 seconds

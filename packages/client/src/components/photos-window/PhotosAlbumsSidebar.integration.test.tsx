@@ -1,4 +1,4 @@
-import '../../test/setup-integration';
+import '../../test/setupIntegration';
 
 import { fireEvent, screen, waitFor } from '@testing-library/react';
 import { eq } from 'drizzle-orm';
@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { describe, expect, it } from 'vitest';
 import { getDatabase } from '@/db';
 import { albums, files, vfsLinks, vfsRegistry } from '@/db/schema';
-import { renderWithDatabase } from '../../test/render-with-database';
+import { renderWithDatabase } from '../../test/renderWithDatabase';
 import { ALL_PHOTOS_ID, PhotosAlbumsSidebar } from './PhotosAlbumsSidebar';
 import { usePhotoAlbums } from './usePhotoAlbums';
 

@@ -83,7 +83,7 @@ vi.mock('@/contexts/WindowManagerContext', () => ({
   })
 }));
 
-vi.mock('@/lib/vfs-open', () => ({
+vi.mock('@/lib/vfsOpen', () => ({
   resolveFileOpenTarget: (...args: unknown[]) =>
     mockResolveFileOpenTarget(...args),
   resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)

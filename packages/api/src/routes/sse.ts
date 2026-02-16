@@ -1,5 +1,5 @@
 import { Router, type Router as RouterType } from 'express';
-import { registerGetRootRoute } from './sse/get-root.js';
+import { registerGetRootRoute } from './sse/getRoot.js';
 
 export {
   addConnection,

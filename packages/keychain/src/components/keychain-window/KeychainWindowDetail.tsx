@@ -4,12 +4,12 @@ import {
   getKeyManagerForInstance,
   getKeyStatusForInstance,
   type KeyStatus
-} from '@client/db/crypto/key-manager';
+} from '@client/db/crypto/keyManager';
 import {
   deleteInstanceFromRegistry,
   getInstance,
   type InstanceMetadata
-} from '@client/db/instance-registry';
+} from '@client/db/instanceRegistry';
 import { ArrowLeft, Calendar, Key, Loader2, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { DeleteKeychainInstanceDialog } from '../../pages/keychain/DeleteKeychainInstanceDialog';

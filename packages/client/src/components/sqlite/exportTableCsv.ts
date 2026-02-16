@@ -1,7 +1,7 @@
 import { isRecord } from '@tearleads/shared';
 import { getDatabaseAdapter } from '@/db';
 import { createCsv } from '@/lib/csv';
-import { downloadFile } from '@/lib/file-utils';
+import { downloadFile } from '@/lib/fileUtils';
 
 export interface ColumnInfo {
   name: string;

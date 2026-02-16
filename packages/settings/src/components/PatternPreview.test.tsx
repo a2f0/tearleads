@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
-import type { DesktopPatternValue } from '../types/user-settings.js';
+import type { DesktopPatternValue } from '../types/userSettings.js';
 import { PatternPreview } from './PatternPreview.js';
 
 describe('PatternPreview', () => {

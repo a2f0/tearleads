@@ -13,7 +13,7 @@ import {
 } from 'react';
 import { Button } from '@/components/ui/button';
 import { getDatabaseAdapter } from '@/db';
-import { isBiometricAvailable } from '@/db/crypto/key-manager';
+import { isBiometricAvailable } from '@/db/crypto/keyManager';
 import { useDatabaseContext } from '@/db/hooks';
 import { useOnInstanceChange } from '@/hooks/useInstanceChange';
 import { getErrorMessage } from '@/lib/errors';

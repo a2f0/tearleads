@@ -1,4 +1,4 @@
-import type { DesktopPatternValue } from '../types/user-settings.js';
+import type { DesktopPatternValue } from '../types/userSettings.js';
 
 export interface PatternPreviewProps {
   pattern: DesktopPatternValue;

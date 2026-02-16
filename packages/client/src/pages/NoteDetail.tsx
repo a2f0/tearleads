@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { LazyMarkdownEditor } from '@/components/markdown-editor';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
+import { ActionToolbar, type ActionType } from '@/components/ui/ActionToolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu';
 import { EditableTitle } from '@/components/ui/editable-title';

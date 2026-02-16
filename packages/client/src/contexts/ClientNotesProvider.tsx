@@ -23,8 +23,8 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { Input } from '@/components/ui/input';
-import { ListRow } from '@/components/ui/list-row';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { ListRow } from '@/components/ui/ListRow';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
@@ -34,8 +34,8 @@ import { useDatabaseContext } from '@/db/hooks';
 import { generateSessionKey, wrapSessionKey } from '@/hooks/useVfsKeys';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
-import { isLoggedIn, readStoredAuth } from '@/lib/auth-storage';
-import { getFeatureFlagValue } from '@/lib/feature-flags';
+import { isLoggedIn, readStoredAuth } from '@/lib/authStorage';
+import { getFeatureFlagValue } from '@/lib/featureFlags';
 import { useNavigateWithFrom } from '@/lib/navigation';
 
 export function NotesAboutMenuItem() {

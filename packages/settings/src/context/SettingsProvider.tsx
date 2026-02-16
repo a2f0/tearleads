@@ -19,16 +19,13 @@ import {
   useRef,
   useState
 } from 'react';
-import type {
-  SettingValueMap,
-  UserSettingKey
-} from '../types/user-settings.js';
+import type { SettingValueMap, UserSettingKey } from '../types/userSettings.js';
 import {
   dispatchSettingsSyncedEvent,
   getSettingFromStorage,
   SETTING_DEFAULTS,
   setSettingInStorage
-} from '../types/user-settings.js';
+} from '../types/userSettings.js';
 
 interface SettingsContextValue {
   /** Get a setting value (from cache, localStorage, or default) */

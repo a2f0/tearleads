@@ -8,7 +8,7 @@ import {
   Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { ListRow } from '@/components/ui/list-row';
+import { ListRow } from '@/components/ui/ListRow';
 import { formatFileSize } from '@/lib/utils';
 import type { FileWithThumbnail } from './types';
 

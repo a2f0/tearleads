@@ -6,7 +6,7 @@ import {
   AUTH_USER_KEY,
   clearStoredAuth,
   setSessionExpiredError
-} from '@/lib/auth-storage';
+} from '@/lib/authStorage';
 import { AuthProvider, useAuth } from './AuthContext';
 
 const mockLogin = vi.fn();

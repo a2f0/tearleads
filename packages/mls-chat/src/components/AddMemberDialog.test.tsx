@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { renderWithProvider } from '../test/test-utils.js';
+import { renderWithProvider } from '../test/testUtils.js';
 import { AddMemberDialog } from './AddMemberDialog.js';
 
 describe('AddMemberDialog', () => {

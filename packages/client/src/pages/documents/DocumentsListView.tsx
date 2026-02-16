@@ -3,7 +3,7 @@ import { Download, FileText, Share2 } from 'lucide-react';
 import { useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dropzone } from '@/components/ui/dropzone';
-import { ListRow } from '@/components/ui/list-row';
+import { ListRow } from '@/components/ui/ListRow';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { formatFileSize } from '@/lib/utils';

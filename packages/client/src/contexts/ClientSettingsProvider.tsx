@@ -14,7 +14,7 @@ import {
   type SettingValueMap,
   saveSettingToDb,
   type UserSettingKey
-} from '@/db/user-settings';
+} from '@/db/userSettings';
 
 interface ClientSettingsProviderProps {
   children: ReactNode;

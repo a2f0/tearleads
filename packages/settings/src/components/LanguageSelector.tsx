@@ -1,6 +1,6 @@
 import { GridSquare } from '@tearleads/ui';
 import { useTranslation } from 'react-i18next';
-import type { LanguageValue } from '../types/user-settings.js';
+import type { LanguageValue } from '../types/userSettings.js';
 
 export interface LanguageConfig {
   code: LanguageValue;

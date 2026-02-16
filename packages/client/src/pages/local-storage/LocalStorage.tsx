@@ -3,8 +3,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { RefreshButton } from '@/components/ui/refresh-button';
-import { SETTING_STORAGE_KEYS } from '@/db/user-settings';
+import { RefreshButton } from '@/components/ui/RefreshButton';
+import { SETTING_STORAGE_KEYS } from '@/db/userSettings';
 import { formatFileSize } from '@/lib/utils';
 import { type StorageEntry, StorageRow } from './StorageRow';
 

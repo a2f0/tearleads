@@ -11,7 +11,7 @@ vi.mock('react-dom/client', () => ({
   }
 }));
 
-vi.mock('./lib/console-error-capture', () => ({
+vi.mock('./lib/consoleErrorCapture', () => ({
   installConsoleErrorCapture: vi.fn()
 }));
 

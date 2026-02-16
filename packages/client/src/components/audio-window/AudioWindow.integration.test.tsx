@@ -1,4 +1,4 @@
-import '../../test/setup-integration';
+import '../../test/setupIntegration';
 
 import {
   ALL_AUDIO_ID,
@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 import { ClientAudioProvider } from '@/contexts/ClientAudioProvider';
 import { getDatabase } from '@/db';
 import { files, playlists, vfsLinks, vfsRegistry } from '@/db/schema';
-import { renderWithDatabase } from '../../test/render-with-database';
+import { renderWithDatabase } from '../../test/renderWithDatabase';
 
 function SidebarDropHarness() {
   const { addTrackToPlaylist } = useAudioUIContext();

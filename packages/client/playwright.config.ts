@@ -41,7 +41,7 @@ export default defineConfig({
     : [['html', { open: 'never' }]],
   // Always run teardown to detect handle leaks
   // Set PW_DEBUG_HANDLES=true for verbose handle info
-  globalTeardown: './tests/playwright-global-teardown.ts',
+  globalTeardown: './tests/playwrightGlobalTeardown.ts',
   use: {
     baseURL,
     // Accept self-signed certificates in CI when using HTTPS

@@ -7,7 +7,7 @@
  */
 
 // Import integration setup FIRST - this sets up mocks for adapters and key manager
-import '../test/setup-integration';
+import '../test/setupIntegration';
 
 import { resetTestKeyManager } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';

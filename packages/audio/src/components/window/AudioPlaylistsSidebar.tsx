@@ -13,7 +13,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import type { AudioPlaylist } from '../../context/AudioUIContext';
 import { parseAlbumId } from '../../lib/albumUtils';
-import { filterFilesByAccept } from '../../lib/file-filter';
+import { filterFilesByAccept } from '../../lib/fileFilter';
 import { getMediaDragIds } from '../../lib/mediaDragData';
 import { AudioPlaylistsContextMenu } from './AudioPlaylistsContextMenu';
 import { DeletePlaylistDialog } from './DeletePlaylistDialog';

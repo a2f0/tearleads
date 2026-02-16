@@ -4,7 +4,7 @@ import type { ComponentProps, ReactNode } from 'react';
 import { Component } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '@/test/consoleMocks';
 import { Debug } from './Debug';
 
 // Mock the api module

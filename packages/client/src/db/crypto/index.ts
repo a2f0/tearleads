@@ -10,7 +10,7 @@ export {
   importKey,
   secureZero
 } from '@tearleads/shared';
-export type { KeyManagerConfig, StoredKeyData } from './key-manager';
+export type { KeyManagerConfig, StoredKeyData } from './keyManager';
 export {
   clearAllKeyManagers,
   clearKeyManagerForInstance,
@@ -19,4 +19,4 @@ export {
   getKeyManagerForInstance,
   KeyManager,
   setCurrentInstanceId
-} from './key-manager';
+} from './keyManager';

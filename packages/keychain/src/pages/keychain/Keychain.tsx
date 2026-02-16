@@ -1,10 +1,10 @@
 import { BackLink } from '@client/components/ui/back-link';
-import { RefreshButton } from '@client/components/ui/refresh-button';
+import { RefreshButton } from '@client/components/ui/RefreshButton';
 import {
   deleteSessionKeysForInstance,
   getKeyStatusForInstance
-} from '@client/db/crypto/key-manager';
-import { getInstances } from '@client/db/instance-registry';
+} from '@client/db/crypto/keyManager';
+import { getInstances } from '@client/db/instanceRegistry';
 import { useTypedTranslation } from '@client/i18n';
 import { useNavigateWithFrom } from '@client/lib/navigation';
 import {

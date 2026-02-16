@@ -2,7 +2,7 @@ import { ThemeProvider } from '@tearleads/ui';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { setupThemeMocks } from '@/test/theme-test-utils';
+import { setupThemeMocks } from '@/test/themeTestUtils';
 import { SettingsSheet } from './SettingsSheet';
 
 describe('SettingsSheet', () => {

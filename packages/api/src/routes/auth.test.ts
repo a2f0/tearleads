@@ -12,7 +12,7 @@ import {
   getSession,
   storeRefreshToken
 } from '../lib/sessions.js';
-import { mockConsoleError } from '../test/console-mocks.js';
+import { mockConsoleError } from '../test/consoleMocks.js';
 
 const mockQuery = vi.fn();
 const mockGetPostgresPool = vi.fn();

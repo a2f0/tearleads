@@ -9,7 +9,7 @@ import {
   onFeatureFlagsChange,
   resetFeatureFlagOverrides,
   setFeatureFlagOverride
-} from '@/lib/feature-flags';
+} from '@/lib/featureFlags';
 
 export interface FeatureFlagEntry {
   key: FeatureFlagKey;

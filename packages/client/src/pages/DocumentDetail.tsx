@@ -16,15 +16,15 @@ import {
 } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
-import { ActionToolbar, type ActionType } from '@/components/ui/action-toolbar';
+import { ActionToolbar, type ActionType } from '@/components/ui/ActionToolbar';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { EditableTitle } from '@/components/ui/editable-title';
 import { getDatabase } from '@/db';
 import { useDatabaseContext } from '@/db/hooks';
 import { files } from '@/db/schema';
-import { retrieveFileData } from '@/lib/data-retrieval';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
+import { retrieveFileData } from '@/lib/dataRetrieval';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
 import { formatDate, formatFileSize } from '@/lib/utils';
 
 const PdfViewer = lazy(() =>

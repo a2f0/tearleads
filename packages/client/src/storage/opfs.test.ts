@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseInsert } from '@/db/analytics';
-import { mockConsoleWarn } from '@/test/console-mocks';
+import { mockConsoleWarn } from '@/test/consoleMocks';
 
 // Use vi.hoisted for mock functions to avoid hoisting issues
 const { mockImportKey, mockEncrypt, mockDecrypt } = vi.hoisted(() => ({

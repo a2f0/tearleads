@@ -1,6 +1,6 @@
 import {test, expect, ElectronApplication, Page} from '@playwright/test';
 import {createRequire} from 'node:module';
-import {closeElectronApp, launchElectronApp} from './electron-test-helper';
+import {closeElectronApp, launchElectronApp} from './electronTestHelper';
 
 const require = createRequire(import.meta.url);
 const packageJson: { version: string } = require('../../package.json');

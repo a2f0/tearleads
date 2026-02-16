@@ -1,7 +1,7 @@
 import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { installConsoleErrorCapture } from '@/lib/console-error-capture';
+import { installConsoleErrorCapture } from '@/lib/consoleErrorCapture';
 import { logStore } from '@/stores/logStore';
 import { LogsTab } from './LogsTab';
 

@@ -11,7 +11,7 @@ import {
 } from './registry';
 
 // Mock the search tool
-vi.mock('./search-tool', () => ({
+vi.mock('./searchTool', () => ({
   executeSearchTool: vi.fn(() =>
     Promise.resolve({
       results: [],

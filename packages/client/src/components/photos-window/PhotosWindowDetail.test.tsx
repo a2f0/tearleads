@@ -1,7 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '@/test/consoleMocks';
 import { PhotosWindowDetail } from './PhotosWindowDetail';
 
 // Create mutable mock state
@@ -90,7 +90,7 @@ const { mockDownloadFile, mockShareFile, getMockCanShare, setMockCanShare } =
     };
   });
 
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   canShareFiles: () => getMockCanShare(),
   downloadFile: mockDownloadFile,
   shareFile: mockShareFile

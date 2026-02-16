@@ -1,4 +1,4 @@
-import '@/test/setup-integration';
+import '@/test/setupIntegration';
 import { contacts } from '@tearleads/db/sqlite';
 import { withRealDatabase } from '@tearleads/db-test-utils';
 import { describe, expect, it } from 'vitest';

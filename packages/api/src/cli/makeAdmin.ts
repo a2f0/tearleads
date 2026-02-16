@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
 import { buildPostgresConnectionLabel } from '../lib/cliPostgres.js';
-import { normalizeEmail } from '../lib/create-account.js';
+import { normalizeEmail } from '../lib/createAccount.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 
 type ParsedArgs = {

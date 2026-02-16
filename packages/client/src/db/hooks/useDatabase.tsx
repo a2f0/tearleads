@@ -23,7 +23,7 @@ import { emitInstanceChange } from '@/hooks/useInstanceChange';
 import { toError } from '@/lib/errors';
 import { deleteFileStorageForInstance } from '@/storage/opfs';
 import { logStore } from '@/stores/logStore';
-import { validateAndPruneOrphanedInstances } from '../crypto/key-manager';
+import { validateAndPruneOrphanedInstances } from '../crypto/keyManager';
 import type { Database } from '../index';
 import {
   changePassword,
@@ -39,7 +39,7 @@ import {
   setupDatabase,
   unlockDatabase
 } from '../index';
-import type { InstanceMetadata } from '../instance-registry';
+import type { InstanceMetadata } from '../instanceRegistry';
 import {
   createInstance as createRegistryInstance,
   deleteInstanceFromRegistry,
@@ -47,7 +47,7 @@ import {
   initializeRegistry,
   setActiveInstanceId,
   touchInstance
-} from '../instance-registry';
+} from '../instanceRegistry';
 
 interface DatabaseContextValue {
   /** The database instance (null if not unlocked) */

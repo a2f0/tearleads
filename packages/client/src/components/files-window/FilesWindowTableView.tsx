@@ -24,14 +24,14 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { Button } from '@/components/ui/button';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { getDatabase } from '@/db';
 import { getKeyManager } from '@/db/crypto';
 import { useDatabaseContext } from '@/db/hooks';
 import { files as filesTable } from '@/db/schema';
 import { useTypedTranslation } from '@/i18n';
-import { retrieveFileData } from '@/lib/data-retrieval';
-import { downloadFile } from '@/lib/file-utils';
+import { retrieveFileData } from '@/lib/dataRetrieval';
+import { downloadFile } from '@/lib/fileUtils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatFileSize } from '@/lib/utils';
 import {

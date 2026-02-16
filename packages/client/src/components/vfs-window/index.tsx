@@ -12,7 +12,7 @@ import type { WindowOpenRequestPayloads } from '@/contexts/WindowManagerContext'
 import { useWindowManagerActions } from '@/contexts/WindowManagerContext';
 import { useDatabaseContext } from '@/db/hooks';
 import { useVfsUploader } from '@/hooks/useVfsUploader';
-import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfs-open';
+import { resolveFileOpenTarget, resolvePlaylistType } from '@/lib/vfsOpen';
 
 interface VfsWindowProps {
   id: string;

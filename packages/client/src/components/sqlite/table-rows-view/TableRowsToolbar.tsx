@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { ColumnSettingsDropdown } from '@/components/sqlite/ColumnSettingsDropdown';
 import type { ColumnInfo } from '@/components/sqlite/exportTableCsv';
 import { Button } from '@/components/ui/button';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 
 interface TableRowsToolbarProps {
   backLink?: ReactNode;

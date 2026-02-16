@@ -1,4 +1,4 @@
-import '../../test/setup-integration';
+import '../../test/setupIntegration';
 
 import {
   ALL_CONTACTS_ID,
@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 import { ClientContactsProvider } from '@/contexts/ClientContactsProvider';
 import { getDatabase } from '@/db';
 import { contactGroups, contacts, vfsLinks, vfsRegistry } from '@/db/schema';
-import { renderWithDatabase } from '../../test/render-with-database';
+import { renderWithDatabase } from '../../test/renderWithDatabase';
 import { ContactsWindow } from './index';
 
 function ContactsSidebarDropHarness() {

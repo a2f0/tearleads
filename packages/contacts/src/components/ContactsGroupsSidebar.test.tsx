@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createMockDatabase, TestContactsProvider } from '../test/test-utils';
+import { createMockDatabase, TestContactsProvider } from '../test/testUtils';
 import {
   ALL_CONTACTS_ID,
   ContactsGroupsSidebar

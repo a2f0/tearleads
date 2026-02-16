@@ -34,7 +34,7 @@ vi.mock('@/lib/errors', () => ({
   getErrorMessage: (error: unknown) => String(error)
 }));
 
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   generateBackupFilename: () => 'backup.db',
   readFileAsUint8Array: async () => new Uint8Array([1]),
   saveFile: async () => {}

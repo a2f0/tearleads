@@ -1,7 +1,7 @@
 import { vfsFolders, vfsLinks, vfsRegistry } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
-import { withRealDatabase } from '../with-real-database.js';
+import { withRealDatabase } from '../withRealDatabase.js';
 import {
   ensureVfsRoot,
   seedFolder,
@@ -9,7 +9,7 @@ import {
   seedVfsLink,
   VFS_ROOT_ID
 } from './vfs.js';
-import { vfsTestMigrations } from './vfs-test-migrations.js';
+import { vfsTestMigrations } from './vfsTestMigrations.js';
 
 describe('VFS_ROOT_ID', () => {
   it('is a well-known UUID', () => {

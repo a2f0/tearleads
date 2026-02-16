@@ -6,7 +6,7 @@ import { useSearchParams } from 'react-router-dom';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { useTypedTranslation } from '@/i18n';
 import { api } from '@/lib/api';
 import { formatNumber, formatTimestamp } from '@/lib/utils';

@@ -7,7 +7,7 @@ import { ChevronRight, Film, Info, Play, Trash2, Upload } from 'lucide-react';
 import type { RefObject } from 'react';
 import { useCallback, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { ListRow } from '@/components/ui/list-row';
+import { ListRow } from '@/components/ui/ListRow';
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
 import { useTypedTranslation } from '@/i18n';

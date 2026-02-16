@@ -1,6 +1,6 @@
-export { classicTestMigrations } from './classic-test-migrations.js';
-export { commonTestMigrations } from './common-test-migrations.js';
-export { contactsTestMigrations } from './contacts-test-migrations.js';
+export { classicTestMigrations } from './classicTestMigrations.js';
+export { commonTestMigrations } from './commonTestMigrations.js';
+export { contactsTestMigrations } from './contactsTestMigrations.js';
 export type { SeedFolderOptions, SeedVfsItemOptions } from './vfs.js';
 export {
   ensureVfsRoot,
@@ -9,4 +9,4 @@ export {
   seedVfsLink,
   VFS_ROOT_ID
 } from './vfs.js';
-export { vfsTestMigrations } from './vfs-test-migrations.js';
+export { vfsTestMigrations } from './vfsTestMigrations.js';

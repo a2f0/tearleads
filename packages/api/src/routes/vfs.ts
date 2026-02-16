@@ -5,9 +5,9 @@
  */
 
 import { Router, type Router as RouterType } from 'express';
-import { registerGetKeysMeRoute } from './vfs/get-keys-me.js';
-import { registerPostKeysRoute } from './vfs/post-keys.js';
-import { registerPostRegisterRoute } from './vfs/post-register.js';
+import { registerGetKeysMeRoute } from './vfs/getKeysMe.js';
+import { registerPostKeysRoute } from './vfs/postKeys.js';
+import { registerPostRegisterRoute } from './vfs/postRegister.js';
 
 const vfsRouter: RouterType = Router();
 registerGetKeysMeRoute(vfsRouter);

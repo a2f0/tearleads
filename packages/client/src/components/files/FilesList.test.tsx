@@ -107,7 +107,7 @@ vi.mock('@/components/ui/dropzone', () => ({
   )
 }));
 
-vi.mock('@/components/ui/refresh-button', () => ({
+vi.mock('@/components/ui/RefreshButton', () => ({
   RefreshButton: ({
     onClick,
     loading

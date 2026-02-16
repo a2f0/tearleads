@@ -5,7 +5,7 @@ export type {
   BusinessIdentifiersInput,
   BusinessIdentifiersValidationResult,
   IdentifierValidationResult
-} from './lib/business-identifiers.js';
+} from './lib/businessIdentifiers.js';
 export {
   DUNS_DIGIT_COUNT,
   EIN_DIGIT_COUNT,
@@ -18,4 +18,4 @@ export {
   normalizeEin,
   validateDunsNumber,
   validateEin
-} from './lib/business-identifiers.js';
+} from './lib/businessIdentifiers.js';

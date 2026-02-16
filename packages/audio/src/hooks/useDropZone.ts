@@ -1,5 +1,5 @@
 import { useCallback, useRef, useState } from 'react';
-import { filterFilesByAccept } from '../lib/file-filter';
+import { filterFilesByAccept } from '../lib/fileFilter';
 
 export interface UseDropZoneOptions {
   /** MIME type accept string (e.g., "audio/*") */

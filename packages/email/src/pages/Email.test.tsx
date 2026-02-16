@@ -2,8 +2,8 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EmailFolderOperations } from '../context';
-import { mockConsoleError } from '../test/console-mocks';
-import { TestEmailProvider } from '../test/test-utils';
+import { mockConsoleError } from '../test/consoleMocks';
+import { TestEmailProvider } from '../test/testUtils';
 import { Email } from './Email';
 
 const mockEmails = [

@@ -1,7 +1,7 @@
 import { renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UnsupportedFileTypeError } from '@/lib/errors';
-import { mockConsoleWarn } from '@/test/console-mocks';
+import { mockConsoleWarn } from '@/test/consoleMocks';
 import { useFileUpload } from './useFileUpload';
 
 // Mock file-type
@@ -21,7 +21,7 @@ vi.mock('@/db/crypto', () => ({
 }));
 
 // Mock file utils
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   readFileAsUint8Array: vi.fn(),
   computeContentHash: vi.fn()
 }));
@@ -46,12 +46,12 @@ vi.mock('@/storage/opfs', () => ({
 }));
 
 // Mock auth storage
-vi.mock('@/lib/auth-storage', () => ({
+vi.mock('@/lib/authStorage', () => ({
   isLoggedIn: vi.fn(),
   readStoredAuth: vi.fn(() => ({ user: { id: 'test-user-id' } }))
 }));
 
-vi.mock('@/lib/feature-flags', () => ({
+vi.mock('@/lib/featureFlags', () => ({
   getFeatureFlagValue: vi.fn(() => false)
 }));
 
@@ -65,8 +65,8 @@ import { fileTypeFromBuffer } from 'file-type';
 import { getDatabase } from '@/db';
 import { logEvent } from '@/db/analytics';
 import { getCurrentInstanceId, getKeyManager } from '@/db/crypto';
-import { isLoggedIn } from '@/lib/auth-storage';
-import { computeContentHash, readFileAsUint8Array } from '@/lib/file-utils';
+import { isLoggedIn } from '@/lib/authStorage';
+import { computeContentHash, readFileAsUint8Array } from '@/lib/fileUtils';
 import { generateThumbnail, isThumbnailSupported } from '@/lib/thumbnail';
 import {
   getFileStorage,

@@ -32,7 +32,7 @@ vi.mock('./usePhotosWindowData', () => ({
   })
 }));
 
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   canShareFiles: () => mockCanShareFiles(),
   downloadFile: (data: ArrayBuffer, name: string) =>
     mockDownloadFile(data, name),
@@ -40,11 +40,11 @@ vi.mock('@/lib/file-utils', () => ({
     mockShareFile(data, name, mimeType)
 }));
 
-vi.mock('@/lib/llm-runtime', () => ({
+vi.mock('@/lib/llmRuntime', () => ({
   setAttachedImage: (image: string | null) => mockSetAttachedImage(image)
 }));
 
-vi.mock('@/lib/chat-attachments', () => ({
+vi.mock('@/lib/chatAttachments', () => ({
   uint8ArrayToDataUrl: (data: Uint8Array, mimeType: string) =>
     mockUint8ArrayToDataUrl(data, mimeType)
 }));

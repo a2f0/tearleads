@@ -1,11 +1,11 @@
 import { Router, type Router as RouterType } from 'express';
-import { registerDeleteIdRoute } from './organizations/delete-id.js';
-import { registerGetIdRoute } from './organizations/get-id.js';
-import { registerGetIdGroupsRoute } from './organizations/get-id-groups.js';
-import { registerGetIdUsersRoute } from './organizations/get-id-users.js';
-import { registerGetRootRoute } from './organizations/get-root.js';
-import { registerPostRootRoute } from './organizations/post-root.js';
-import { registerPutIdRoute } from './organizations/put-id.js';
+import { registerDeleteIdRoute } from './organizations/deleteId.js';
+import { registerGetIdRoute } from './organizations/getId.js';
+import { registerGetIdGroupsRoute } from './organizations/getIdGroups.js';
+import { registerGetIdUsersRoute } from './organizations/getIdUsers.js';
+import { registerGetRootRoute } from './organizations/getRoot.js';
+import { registerPostRootRoute } from './organizations/postRoot.js';
+import { registerPutIdRoute } from './organizations/putId.js';
 
 const organizationsRouter: RouterType = Router();
 registerGetRootRoute(organizationsRouter);

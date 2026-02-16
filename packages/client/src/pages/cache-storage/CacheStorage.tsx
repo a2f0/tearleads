@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { formatFileSize } from '@/lib/utils';
 import {
   type CacheEntry,

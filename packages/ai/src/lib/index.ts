@@ -3,4 +3,4 @@ export {
   createLLMAdapter,
   getAttachedImage,
   setAttachedImage
-} from './llm-runtime';
+} from './llmRuntime';

@@ -46,11 +46,11 @@ vi.mock('@/components/ui/input', () => ({
   Input: () => <input />
 }));
 
-vi.mock('@/components/ui/list-row', () => ({
+vi.mock('@/components/ui/ListRow', () => ({
   ListRow: () => <div>ListRow</div>
 }));
 
-vi.mock('@/components/ui/refresh-button', () => ({
+vi.mock('@/components/ui/RefreshButton', () => ({
   RefreshButton: () => <button type="button">Refresh</button>
 }));
 
@@ -105,12 +105,12 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
-vi.mock('@/lib/auth-storage', () => ({
+vi.mock('@/lib/authStorage', () => ({
   isLoggedIn: () => true,
   readStoredAuth: () => ({ user: { id: 'test-user' } })
 }));
 
-vi.mock('@/lib/feature-flags', () => ({
+vi.mock('@/lib/featureFlags', () => ({
   getFeatureFlagValue: vi.fn().mockReturnValue(false)
 }));
 

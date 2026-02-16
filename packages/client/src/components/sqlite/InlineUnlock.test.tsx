@@ -37,7 +37,7 @@ vi.mock('@/hooks/useIsMobile', () => ({
 
 // Mock isBiometricAvailable from key-manager
 const mockIsBiometricAvailable = vi.fn();
-vi.mock('@/db/crypto/key-manager', () => ({
+vi.mock('@/db/crypto/keyManager', () => ({
   isBiometricAvailable: () => mockIsBiometricAvailable()
 }));
 

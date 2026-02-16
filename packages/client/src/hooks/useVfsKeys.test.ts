@@ -50,7 +50,7 @@ vi.mock('@tearleads/shared', () => ({
 }));
 
 // Mock key manager
-vi.mock('@/db/crypto/key-manager', () => ({
+vi.mock('@/db/crypto/keyManager', () => ({
   getKeyManager: vi.fn()
 }));
 
@@ -64,7 +64,7 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
-import { getKeyManager } from '@/db/crypto/key-manager';
+import { getKeyManager } from '@/db/crypto/keyManager';
 import { api } from '@/lib/api';
 
 describe('useVfsKeys', () => {

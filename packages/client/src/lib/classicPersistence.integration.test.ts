@@ -6,7 +6,7 @@ import { and, eq } from 'drizzle-orm';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { migrations } from '@/db/migrations';
 import { notes, tags, vfsLinks, vfsRegistry } from '@/db/schema';
-import { mockConsoleWarn } from '@/test/console-mocks';
+import { mockConsoleWarn } from '@/test/consoleMocks';
 
 const testDbState = vi.hoisted(() => ({
   db: null as TestDatabaseContext['db'] | null

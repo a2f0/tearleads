@@ -9,7 +9,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps, FC } from 'react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '@/test/console-mocks';
+import { mockConsoleError } from '@/test/consoleMocks';
 import { TableRows } from './TableRows';
 
 // Mock lucide-react icons to add testids

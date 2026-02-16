@@ -7,7 +7,7 @@ import {
   buildCreateAccountInput,
   buildPersonalOrganizationId,
   buildPersonalOrganizationName
-} from '../lib/create-account.js';
+} from '../lib/createAccount.js';
 import { hashPassword } from '../lib/passwords.js';
 import { closePostgresPool, getPostgresPool } from '../lib/postgres.js';
 

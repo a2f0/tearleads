@@ -13,7 +13,7 @@ vi.mock('@/hooks/useLLM', () => ({
   resetLLMUIState: () => mockResetLLMUIState()
 }));
 
-vi.mock('@/lib/llm-runtime', () => ({
+vi.mock('@/lib/llmRuntime', () => ({
   clearAttachedImage: () => mockClearAttachedImage()
 }));
 

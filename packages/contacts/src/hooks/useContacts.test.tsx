@@ -1,6 +1,6 @@
 import { renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
-import { createWrapper } from '../test/test-utils';
+import { createWrapper } from '../test/testUtils';
 import { useContacts } from './useContacts';
 
 function createContactsQueryResult(id: string, firstName: string) {

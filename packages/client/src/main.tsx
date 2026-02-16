@@ -15,16 +15,13 @@ import {
   LaserScreensaver,
   ScreensaverProvider
 } from './components/screensaver';
-import {
-  ErrorBoundary,
-  errorBoundaryRef
-} from './components/ui/error-boundary';
+import { ErrorBoundary, errorBoundaryRef } from './components/ui/ErrorBoundary';
 import { WindowRenderer } from './components/window-renderer';
 import { AuthProvider } from './contexts/AuthContext';
 import { WindowManagerProvider } from './contexts/WindowManagerContext';
 import { ClientSettingsProvider, DatabaseProvider } from './db/hooks';
 import { i18n } from './i18n';
-import { installConsoleErrorCapture } from './lib/console-error-capture';
+import { installConsoleErrorCapture } from './lib/consoleErrorCapture';
 import { SearchProvider } from './search';
 import { SSEProvider } from './sse';
 import { VideoProvider } from './video';

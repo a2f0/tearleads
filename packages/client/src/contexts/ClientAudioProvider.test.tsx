@@ -54,7 +54,7 @@ vi.mock('@/hooks/useFileUpload', () => ({
   })
 }));
 
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   downloadFile: (data: Uint8Array, filename: string) =>
     mockDownloadFile(data, filename),
   shareFile: (data: Uint8Array, filename: string, mimeType: string) =>

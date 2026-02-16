@@ -5,7 +5,7 @@ import {
 import { List, Loader2, Plus, Video } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useVideoPlaylists } from '@/hooks/useVideoPlaylists';
-import { filterFilesByAccept } from '@/lib/file-filter';
+import { filterFilesByAccept } from '@/lib/fileFilter';
 import { getMediaDragIds } from '@/lib/mediaDragData';
 import { cn, detectPlatform } from '@/lib/utils';
 import type { VideoPlaylist } from '@/video/VideoPlaylistContext';

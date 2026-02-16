@@ -17,9 +17,9 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { useTypedTranslation } from '@/i18n';
-import { uint8ArrayToDataUrl } from '@/lib/chat-attachments';
-import { canShareFiles, downloadFile, shareFile } from '@/lib/file-utils';
-import { setAttachedImage } from '@/lib/llm-runtime';
+import { uint8ArrayToDataUrl } from '@/lib/chatAttachments';
+import { canShareFiles, downloadFile, shareFile } from '@/lib/fileUtils';
+import { setAttachedImage } from '@/lib/llmRuntime';
 import { setMediaDragData } from '@/lib/mediaDragData';
 import { formatFileSize } from '@/lib/utils';
 import { type PhotoWithUrl, usePhotosWindowData } from './usePhotosWindowData';

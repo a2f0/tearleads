@@ -3,7 +3,7 @@
  */
 
 import { Command } from 'commander';
-import { hasPersistedSession } from '../crypto/key-manager.js';
+import { hasPersistedSession } from '../crypto/keyManager.js';
 import {
   isDatabaseSetUp,
   isDatabaseUnlocked,

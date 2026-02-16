@@ -13,8 +13,8 @@ import { useAudio } from '@/audio';
 import { InlineUnlock } from '@/components/sqlite/InlineUnlock';
 import { BackLink } from '@/components/ui/back-link';
 import { Dropzone } from '@/components/ui/dropzone';
-import { ListRow } from '@/components/ui/list-row';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { ListRow } from '@/components/ui/ListRow';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import {
   getVirtualListStatusText,
   VirtualListStatus
@@ -26,9 +26,9 @@ import { files as filesTable } from '@/db/schema';
 import { useFileUpload } from '@/hooks/useFileUpload';
 import { useOnInstanceChange } from '@/hooks/useInstanceChange';
 import { useVirtualVisibleRange } from '@/hooks/useVirtualVisibleRange';
-import { retrieveFileData } from '@/lib/data-retrieval';
+import { retrieveFileData } from '@/lib/dataRetrieval';
 import { getErrorMessage } from '@/lib/errors';
-import { downloadFile } from '@/lib/file-utils';
+import { downloadFile } from '@/lib/fileUtils';
 import { useNavigateWithFrom } from '@/lib/navigation';
 import { formatFileSize } from '@/lib/utils';
 import {

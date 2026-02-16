@@ -2,11 +2,8 @@ import type { ColumnDefinition, TableDefinition } from '../schema/types.js';
 import {
   getPrimaryKeyColumns,
   hasCompositePrimaryKey
-} from '../utils/primary-key.js';
-import {
-  formatDefaultValue,
-  getSqliteTypeInfo
-} from '../utils/type-mapping.js';
+} from '../utils/primaryKey.js';
+import { formatDefaultValue, getSqliteTypeInfo } from '../utils/typeMapping.js';
 
 /**
  * Generate a SQLite column definition.

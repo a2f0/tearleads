@@ -2,11 +2,11 @@ import type { ColumnDefinition, TableDefinition } from '../schema/types.js';
 import {
   getPrimaryKeyColumns,
   hasCompositePrimaryKey
-} from '../utils/primary-key.js';
+} from '../utils/primaryKey.js';
 import {
   formatDefaultValue,
   getPostgresTypeInfo
-} from '../utils/type-mapping.js';
+} from '../utils/typeMapping.js';
 
 /**
  * Generate a PostgreSQL column definition.

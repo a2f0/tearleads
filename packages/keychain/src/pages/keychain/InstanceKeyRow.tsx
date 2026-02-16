@@ -1,6 +1,6 @@
 import { Button } from '@client/components/ui/button';
-import type { KeyStatus } from '@client/db/crypto/key-manager';
-import type { InstanceMetadata } from '@client/db/instance-registry';
+import type { KeyStatus } from '@client/db/crypto/keyManager';
+import type { InstanceMetadata } from '@client/db/instanceRegistry';
 import { ChevronDown, ChevronRight, Key, Trash2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { KeyStatusIndicator } from './KeyStatusIndicator';

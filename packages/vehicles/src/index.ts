@@ -3,10 +3,10 @@ export type {
   VehicleProfileInput,
   VehicleProfileValidationError,
   VehicleProfileValidationResult
-} from './lib/vehicle-profile.js';
+} from './lib/vehicleProfile.js';
 export {
   formatVehicleDisplayName,
   MAX_VEHICLE_YEAR,
   MIN_VEHICLE_YEAR,
   normalizeVehicleProfile
-} from './lib/vehicle-profile.js';
+} from './lib/vehicleProfile.js';

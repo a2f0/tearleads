@@ -65,7 +65,7 @@ vi.mock('@/lib/navigation', () => ({
   useNavigateWithFrom: () => mockNavigateWithFrom
 }));
 
-vi.mock('@/lib/vfs-open', () => ({
+vi.mock('@/lib/vfsOpen', () => ({
   resolveFileOpenTarget: (...args: unknown[]) =>
     mockResolveFileOpenTarget(...args),
   resolvePlaylistType: (...args: unknown[]) => mockResolvePlaylistType(...args)

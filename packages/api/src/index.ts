@@ -9,8 +9,8 @@ import packageJson from '../package.json' with { type: 'json' };
 import { closePostgresPool } from './lib/postgres.js';
 import { closeRedisClient } from './lib/redis.js';
 import { closeRedisSubscriberClient } from './lib/redisPubSub.js';
-import { adminAccessMiddleware } from './middleware/admin-access.js';
-import { adminSessionMiddleware } from './middleware/admin-session.js';
+import { adminAccessMiddleware } from './middleware/adminAccess.js';
+import { adminSessionMiddleware } from './middleware/adminSession.js';
 import { authMiddleware } from './middleware/auth.js';
 import { adminContextRouter } from './routes/admin/context.js';
 import { groupsRouter } from './routes/admin/groups.js';
@@ -18,7 +18,7 @@ import { organizationsRouter } from './routes/admin/organizations.js';
 import { postgresRouter } from './routes/admin/postgres.js';
 import { redisRouter } from './routes/admin/redis.js';
 import { usersRouter } from './routes/admin/users.js';
-import { aiConversationsRouter } from './routes/ai-conversations.js';
+import { aiConversationsRouter } from './routes/aiConversations.js';
 import { authRouter } from './routes/auth.js';
 import { billingRouter } from './routes/billing.js';
 import { chatRouter } from './routes/chat.js';
@@ -28,7 +28,7 @@ import { mlsRouter } from './routes/mls.js';
 import { revenuecatRouter } from './routes/revenuecat.js';
 import { closeAllSSEConnections, sseRouter } from './routes/sse.js';
 import { vfsRouter } from './routes/vfs.js';
-import { vfsSharesRouter } from './routes/vfs-shares.js';
+import { vfsSharesRouter } from './routes/vfsShares.js';
 
 dotenv.config({ quiet: true });
 

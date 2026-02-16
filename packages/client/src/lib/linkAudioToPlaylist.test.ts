@@ -1,4 +1,4 @@
-import '@/test/setup-integration';
+import '@/test/setupIntegration';
 import { withRealDatabase } from '@tearleads/db-test-utils';
 import { eq } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';

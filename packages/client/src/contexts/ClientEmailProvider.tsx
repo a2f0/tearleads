@@ -18,7 +18,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator
 } from '@/components/ui/dropdown-menu';
-import { RefreshButton } from '@/components/ui/refresh-button';
+import { RefreshButton } from '@/components/ui/RefreshButton';
 import { AboutMenuItem } from '@/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@/components/window-menu/WindowOptionsMenuItem';
 import { getDatabase } from '@/db';
@@ -27,7 +27,7 @@ import {
   getEmailDraftFromDb,
   listEmailDraftsFromDb,
   saveEmailDraftToDb
-} from '@/db/email-drafts';
+} from '@/db/emailDrafts';
 import { useDatabaseContext } from '@/db/hooks';
 import {
   contactEmails,
@@ -37,7 +37,7 @@ import {
   vfsRegistry
 } from '@/db/schema';
 import { API_BASE_URL } from '@/lib/api';
-import { getAuthHeaderValue } from '@/lib/auth-storage';
+import { getAuthHeaderValue } from '@/lib/authStorage';
 
 export function EmailAboutMenuItem() {
   return <AboutMenuItem appName="Email" version={emailPackageJson.version} />;

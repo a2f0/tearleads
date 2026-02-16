@@ -9,7 +9,7 @@ import {
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError, mockConsoleWarn } from '@/test/console-mocks';
+import { mockConsoleError, mockConsoleWarn } from '@/test/consoleMocks';
 import { Files } from './Files';
 
 // Mock useVirtualizer to simplify testing
@@ -98,7 +98,7 @@ vi.mock('@/storage/opfs', () => ({
 
 // Mock file-utils
 const mockDownloadFile = vi.fn();
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   downloadFile: (data: Uint8Array, filename: string) =>
     mockDownloadFile(data, filename),
   computeContentHash: vi.fn().mockResolvedValue('mock-hash'),
@@ -131,7 +131,7 @@ vi.mock('@/audio', () => ({
 
 // Mock data-retrieval
 const mockRetrieveFileData = vi.fn();
-vi.mock('@/lib/data-retrieval', () => ({
+vi.mock('@/lib/dataRetrieval', () => ({
   retrieveFileData: (storagePath: string, instanceId: string) =>
     mockRetrieveFileData(storagePath, instanceId)
 }));

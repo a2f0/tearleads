@@ -29,7 +29,7 @@ vi.mock('@/db/hooks', () => ({
 }));
 
 const mockDownloadFile = vi.fn();
-vi.mock('@/lib/file-utils', () => ({
+vi.mock('@/lib/fileUtils', () => ({
   downloadFile: (data: Uint8Array, filename: string) =>
     mockDownloadFile(data, filename)
 }));

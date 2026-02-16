@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { useAudio } from '@/audio';
-import { errorBoundaryRef } from '@/components/ui/error-boundary';
+import { errorBoundaryRef } from '@/components/ui/ErrorBoundary';
 
 /**
  * Hook to surface audio playback errors to the error boundary.

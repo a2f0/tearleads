@@ -8,7 +8,7 @@ import { WindowManagerProvider } from '@/contexts/WindowManagerContext';
 import {
   mockActivateScreensaver,
   setupScreensaverMock
-} from '@/test/screensaver-mock';
+} from '@/test/screensaverMock';
 import { Home } from './Home';
 import {
   GAP,

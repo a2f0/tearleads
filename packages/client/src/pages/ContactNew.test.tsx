@@ -9,12 +9,12 @@ import { ContactNew } from './ContactNew';
 const mockIsLoggedIn = vi.fn();
 const mockReadStoredAuth = vi.fn();
 const mockGetFeatureFlagValue = vi.fn();
-vi.mock('@/lib/auth-storage', () => ({
+vi.mock('@/lib/authStorage', () => ({
   isLoggedIn: () => mockIsLoggedIn(),
   readStoredAuth: () => mockReadStoredAuth()
 }));
 
-vi.mock('@/lib/feature-flags', () => ({
+vi.mock('@/lib/featureFlags', () => ({
   getFeatureFlagValue: () => mockGetFeatureFlagValue()
 }));
 

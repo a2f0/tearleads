@@ -1,7 +1,7 @@
 import { act, render, renderHook, screen } from '@testing-library/react';
 import { useLayoutEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockConsoleError } from '../test/console-mocks';
+import { mockConsoleError } from '../test/consoleMocks';
 import { AudioProvider, useAudio } from './AudioContext';
 
 // Mock HTMLAudioElement methods

@@ -1,6 +1,6 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
-import { clearOriginStorage, MINIMAL_WAV } from './test-utils';
+import { clearOriginStorage, MINIMAL_WAV } from './testUtils';
 
 test.beforeEach(async ({ page }) => {
   await clearOriginStorage(page);
