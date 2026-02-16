@@ -9,9 +9,14 @@ import type { RefObject } from 'react';
 import { formatCellValue, getRowKey } from './PostgresTableUtils';
 import type { SortState } from './usePostgresTableData';
 
+type TableViewVirtualizer = Pick<
+  Virtualizer<HTMLDivElement, Element>,
+  'getVirtualItems' | 'getTotalSize' | 'measureElement'
+>;
+
 interface TableViewProps {
   parentRef: RefObject<HTMLDivElement | null>;
-  virtualizer: Virtualizer<HTMLDivElement, Element>;
+  virtualizer: TableViewVirtualizer;
   rows: Record<string, unknown>[];
   visibleColumns: PostgresColumnInfo[];
   sort: SortState;

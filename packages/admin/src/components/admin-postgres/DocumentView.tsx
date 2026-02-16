@@ -3,9 +3,14 @@ import { Loader2 } from 'lucide-react';
 import type { RefObject } from 'react';
 import { getRowKey } from './PostgresTableUtils';
 
+type DocumentViewVirtualizer = Pick<
+  Virtualizer<HTMLDivElement, Element>,
+  'getVirtualItems' | 'getTotalSize' | 'measureElement'
+>;
+
 interface DocumentViewProps {
   parentRef: RefObject<HTMLDivElement | null>;
-  virtualizer: Virtualizer<HTMLDivElement, Element>;
+  virtualizer: DocumentViewVirtualizer;
   rows: Record<string, unknown>[];
   loadingMore: boolean;
   stickyStatus: React.ReactNode;
