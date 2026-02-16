@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { SnapshotClient, describe, expect, it, vi } from 'vitest';
 import type { DatabaseAdapter } from '@/db/adapters/types';
 import { v012 } from './v012';
 
@@ -15,9 +15,14 @@ const createAdapter = (
   rollbackTransaction: vi.fn(async () => {}),
   rekeyDatabase: vi.fn(async () => {}),
   getConnection: vi.fn(() => async () => ({ rows: [] })),
-  exportDatabase: vi.fn(async () => new Uint8Array()),
-  importDatabase: vi.fn(async () => {})
+exportDatabase: vi.fn(async () => new Uint8Array()),
+importDatabase: vi.fn(async () => {})
 });
+
+const snapshotClient = new SnapshotClient();
+
+beforeAll(() => snapshotClient.setup(__filename));
+afterAll(() => snapshotClient.teardown());
 
 describe('v012 migration', () => {
   it('creates calendar_events table and indexes', async () => {
