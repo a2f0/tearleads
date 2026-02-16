@@ -25,10 +25,10 @@ describe('usePostgresTableData', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (api.admin.postgres.getColumns as any).mockResolvedValue({
+    vi.mocked(api.admin.postgres.getColumns).mockResolvedValue({
       columns: mockColumns
     });
-    (api.admin.postgres.getRows as any).mockResolvedValue({
+    vi.mocked(api.admin.postgres.getRows).mockResolvedValue({
       rows: mockRows,
       totalCount: 1
     });

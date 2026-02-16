@@ -1,5 +1,5 @@
-import type { EmailFolderOperations } from '../context';
 import { vi } from 'vitest';
+import type { EmailFolderOperations } from '../context';
 
 const mockEmails = [
   {

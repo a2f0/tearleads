@@ -1,9 +1,10 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
+import type { DocumentVirtualizer } from './DocumentView';
 import { DocumentView } from './DocumentView';
 
 describe('DocumentView', () => {
-  const mockVirtualizer = {
+  const mockVirtualizer: DocumentVirtualizer = {
     getVirtualItems: () => [],
     getTotalSize: () => 0,
     measureElement: vi.fn()
@@ -13,7 +14,7 @@ describe('DocumentView', () => {
     render(
       <DocumentView
         parentRef={{ current: null }}
-        virtualizer={mockVirtualizer as any}
+        virtualizer={mockVirtualizer}
         rows={[]}
         loadingMore={false}
         stickyStatus={<div>Status</div>}

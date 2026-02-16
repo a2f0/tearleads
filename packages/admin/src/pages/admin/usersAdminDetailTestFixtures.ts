@@ -58,10 +58,4 @@ const buildUserResponse = (
 const user1Response = buildUserResponse(user1);
 const user2Response = buildUserResponse(user2);
 
-export {
-  buildUserResponse,
-  user1,
-  user1Response,
-  user2,
-  user2Response
-};
+export { buildUserResponse, user1, user1Response, user2, user2Response };

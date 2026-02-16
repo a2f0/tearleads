@@ -1,4 +1,4 @@
-// @ts-ignore - cross-package import
+// @ts-expect-error - cross-package import
 import { VirtualListStatus } from '@/components/ui/VirtualListStatus';
 
 interface StickyVirtualListStatusProps {
