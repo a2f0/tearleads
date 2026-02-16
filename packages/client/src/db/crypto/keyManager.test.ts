@@ -1448,8 +1448,11 @@ describe('validateAndPruneOrphanedInstances', () => {
     const originalIndexedDB = globalThis.indexedDB;
 
     // Remove indexedDB to simulate test environment
-    // @ts-expect-error - intentionally setting to undefined for test
-    delete globalThis.indexedDB;
+    Object.defineProperty(globalThis, 'indexedDB', {
+      configurable: true,
+      value: undefined,
+      writable: true
+    });
 
     try {
       // Re-import to get fresh module
@@ -1473,7 +1476,11 @@ describe('validateAndPruneOrphanedInstances', () => {
       expect(mockDelete).not.toHaveBeenCalled();
     } finally {
       // Restore indexedDB
-      globalThis.indexedDB = originalIndexedDB;
+      Object.defineProperty(globalThis, 'indexedDB', {
+        configurable: true,
+        value: originalIndexedDB,
+        writable: true
+      });
       vi.resetModules();
     }
   });
