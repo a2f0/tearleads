@@ -1,6 +1,6 @@
+import { MarkdownWithToc } from '@client/components/markdown-viewer/MarkdownWithToc';
 import { useTheme } from '@tearleads/ui';
 import { ArrowLeft, BookOpenText } from 'lucide-react';
-import { MarkdownWithToc } from '@client/components/markdown-viewer/MarkdownWithToc';
 import backupRestoreDocumentation from '../../../../../docs/en/backup-restore.md?raw';
 
 interface BackupDocumentationProps {

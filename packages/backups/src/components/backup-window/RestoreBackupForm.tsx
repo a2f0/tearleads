@@ -1,5 +1,3 @@
-import { useCallback, useEffect, useState } from 'react';
-
 import { Button } from '@client/components/ui/button';
 import { Input } from '@client/components/ui/input';
 import {
@@ -9,6 +7,7 @@ import {
   restoreBackup
 } from '@client/db/backup';
 import { useDatabaseContext } from '@client/db/hooks/useDatabase';
+import { useCallback, useEffect, useState } from 'react';
 
 interface BackupProgress {
   phase: string;
