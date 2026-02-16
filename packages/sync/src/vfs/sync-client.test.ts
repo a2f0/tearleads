@@ -241,6 +241,12 @@ interface ObservedPhaseReconcileSnapshot {
 type ReconcileState = NonNullable<VfsCrdtSyncTransport['reconcileState']>;
 type ReconcileStateInput = Parameters<ReconcileState>[0];
 type ReconcileStateOutput = Awaited<ReturnType<ReconcileState>>;
+type PullOperationsInput = Parameters<
+  VfsCrdtSyncTransport['pullOperations']
+>[0];
+type PullOperationsOutput = Awaited<
+  ReturnType<VfsCrdtSyncTransport['pullOperations']>
+>;
 
 function createPhasePullRecordingTransport(input: {
   phase: ObservedPullPhase;
@@ -370,6 +376,22 @@ function createCallCountedReconcileResolver(input: {
     callCount += 1;
     return input.resolve({
       reconcileInput,
+      callCount
+    });
+  };
+}
+
+function createCallCountedPullResolver(input: {
+  resolve: (input: {
+    pullInput: PullOperationsInput;
+    callCount: number;
+  }) => Promise<PullOperationsOutput> | PullOperationsOutput;
+}): (pullInput: PullOperationsInput) => Promise<PullOperationsOutput> {
+  let callCount = 0;
+  return async (pullInput) => {
+    callCount += 1;
+    return input.resolve({
+      pullInput,
       callCount
     });
   };
@@ -8554,7 +8576,6 @@ describe('VfsBackgroundSyncClient', () => {
   });
 
   it('recovers independently across adjacent pull and reconcile regression cycles without cross-path contamination', async () => {
-    let pullCallCount = 0;
     const scriptedReconcileState = createCallCountedReconcileResolver({
       resolve: ({ reconcileInput, callCount }) => {
         if (callCount === 1) {
@@ -8592,18 +8613,14 @@ describe('VfsBackgroundSyncClient', () => {
       cursor: { changedAt: string; changeId: string } | null;
       limit: number;
     }> = [];
-    const transport: VfsCrdtSyncTransport = {
-      pushOperations: async () => ({
-        results: []
-      }),
-      pullOperations: async (input) => {
-        pullCallCount += 1;
+    const scriptedPullOperations = createCallCountedPullResolver({
+      resolve: ({ pullInput: input, callCount }) => {
         observedPullRequests.push({
           cursor: input.cursor ? { ...input.cursor } : null,
           limit: input.limit
         });
 
-        if (pullCallCount === 1) {
+        if (callCount === 1) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -8623,7 +8640,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 2) {
+        if (callCount === 2) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -8644,7 +8661,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 3) {
+        if (callCount === 3) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -8674,7 +8691,13 @@ describe('VfsBackgroundSyncClient', () => {
             mobile: 5
           }
         };
-      },
+      }
+    });
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: (input) => scriptedPullOperations(input),
       reconcileState: (input) => scriptedReconcileState(input)
     };
 
@@ -8780,7 +8803,6 @@ describe('VfsBackgroundSyncClient', () => {
   });
 
   it('converges after scripted alternating pull and reconcile failures with bounded guardrail telemetry', async () => {
-    let pullCallCount = 0;
     const scriptedReconcileState = createCallCountedReconcileResolver({
       resolve: ({ reconcileInput: input, callCount }) => {
         if (callCount === 1) {
@@ -8829,18 +8851,14 @@ describe('VfsBackgroundSyncClient', () => {
       cursor: { changedAt: string; changeId: string } | null;
       limit: number;
     }> = [];
-    const transport: VfsCrdtSyncTransport = {
-      pushOperations: async () => ({
-        results: []
-      }),
-      pullOperations: async (input) => {
-        pullCallCount += 1;
+    const scriptedPullOperations = createCallCountedPullResolver({
+      resolve: ({ pullInput: input, callCount }) => {
         observedPullRequests.push({
           cursor: input.cursor ? { ...input.cursor } : null,
           limit: input.limit
         });
 
-        if (pullCallCount === 1) {
+        if (callCount === 1) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -8860,7 +8878,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 2) {
+        if (callCount === 2) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -8881,7 +8899,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 3) {
+        if (callCount === 3) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -8902,7 +8920,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 4) {
+        if (callCount === 4) {
           return {
             items: [],
             hasMore: false,
@@ -8914,7 +8932,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 5) {
+        if (callCount === 5) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -8935,7 +8953,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 6) {
+        if (callCount === 6) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -8965,7 +8983,13 @@ describe('VfsBackgroundSyncClient', () => {
             mobile: 8
           }
         };
-      },
+      }
+    });
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: (input) => scriptedPullOperations(input),
       reconcileState: (input) => scriptedReconcileState(input)
     };
 
