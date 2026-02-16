@@ -643,6 +643,8 @@ export const en = {
     tableSummary: 'Table summary',
     totalDatabase: 'Total Database',
     connection: 'Connection',
+    documentView: 'Document view',
+    tableView: 'Table view',
     // Redis
     valueDisplayNotSupported: 'Value display not supported for this type',
     // Menu bar

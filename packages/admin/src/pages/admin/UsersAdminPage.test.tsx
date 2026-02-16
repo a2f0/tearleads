@@ -5,11 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersAdminPage } from './UsersAdminPage';
 
 const mockList = vi.fn();
+const mockGetContext = vi.fn();
 const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({
   api: {
     admin: {
+      getContext: () => mockGetContext(),
       users: {
         list: () => mockList()
       }
@@ -28,6 +30,11 @@ vi.mock('react-router-dom', async () => {
 describe('UsersAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetContext.mockResolvedValue({
+      isRootAdmin: true,
+      organizations: [{ id: 'org-1', name: 'Test Org' }],
+      defaultOrganizationId: 'org-1'
+    });
   });
 
   const usersResponse = {

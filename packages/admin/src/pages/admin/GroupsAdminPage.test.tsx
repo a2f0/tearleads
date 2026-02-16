@@ -5,6 +5,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GroupsAdminPage } from './GroupsAdminPage';
 
 const mockNavigate = vi.fn();
+const mockGetContext = vi.fn();
+
+vi.mock('@/lib/api', () => ({
+  api: {
+    admin: {
+      getContext: () => mockGetContext()
+    }
+  }
+}));
 
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
@@ -32,6 +41,11 @@ vi.mock('@admin/components/admin-groups', () => ({
 describe('GroupsAdminPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetContext.mockResolvedValue({
+      isRootAdmin: true,
+      organizations: [{ id: 'org-1', name: 'Test Org' }],
+      defaultOrganizationId: 'org-1'
+    });
   });
 
   it('navigates to group detail page when group is selected', async () => {
@@ -50,15 +64,17 @@ describe('GroupsAdminPage', () => {
     });
   });
 
-  it('renders GroupsAdmin component', () => {
+  it('renders GroupsAdmin component', async () => {
     render(
       <MemoryRouter>
         <GroupsAdminPage />
       </MemoryRouter>
     );
 
-    expect(
-      screen.getByRole('heading', { name: 'Groups Admin' })
-    ).toBeInTheDocument();
+    await waitFor(() => {
+      expect(
+        screen.getByRole('heading', { name: 'Groups Admin' })
+      ).toBeInTheDocument();
+    });
   });
 });

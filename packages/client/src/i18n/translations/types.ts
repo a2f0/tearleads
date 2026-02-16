@@ -641,6 +641,8 @@ export interface AdminTranslations {
   tableSummary: string;
   totalDatabase: string;
   connection: string;
+  documentView: string;
+  tableView: string;
   // Redis
   valueDisplayNotSupported: string;
   // Menu bar

@@ -414,7 +414,7 @@ export function PostgresTableRowsView({
             variant={documentView ? 'secondary' : 'ghost'}
             size="sm"
             onClick={handleToggleView}
-            title={t('tableBrowser')}
+            title={documentView ? t('tableView') : t('documentView')}
           >
             <Braces className="h-4 w-4" />
           </Button>

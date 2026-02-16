@@ -132,9 +132,7 @@ describe('database operations', () => {
       lockDatabase();
 
       // Clear only the session, not the key data
-      const { clearPersistedSession } = await import(
-        '../crypto/key-manager.js'
-      );
+      const { clearPersistedSession } = await import('../crypto/keyManager.js');
       await clearPersistedSession();
 
       const restored = await restoreDatabaseSession();

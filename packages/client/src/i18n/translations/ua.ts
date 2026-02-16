@@ -649,6 +649,8 @@ export const ua = {
     tableSummary: 'Підсумок таблиці',
     totalDatabase: 'Всього База Даних',
     connection: "З'єднання",
+    documentView: 'Перегляд документа',
+    tableView: 'Перегляд таблиці',
     // Redis
     valueDisplayNotSupported:
       'Відображення значення не підтримується для цього типу',
