@@ -68,11 +68,11 @@ If no candidate meets the criteria, report that no high-value refactor was found
 
 ```bash
 # Suppress verbose validation output
-pnpm lint >/dev/null 2>&1
-pnpm typecheck >/dev/null 2>&1
-pnpm test >/dev/null 2>&1
-git commit -S -m "message" >/dev/null 2>&1
-git push >/dev/null 2>&1
+pnpm lint >/dev/null
+pnpm typecheck >/dev/null
+pnpm test >/dev/null
+git commit -S -m "message" >/dev/null
+git push >/dev/null
 ```
 
 On failure, re-run without suppression to see errors.
