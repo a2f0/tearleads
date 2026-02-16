@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
 import { encodeVfsSyncCursor } from '@tearleads/sync/vfs';
+import { describe, expect, it } from 'vitest';
 import {
   dominatesLastWriteIds,
   parseBlobAttachConsistency,
@@ -59,7 +59,8 @@ describe('post-blobs-stage-stagingId-attach-helpers', () => {
         })
       ).toEqual({
         ok: false,
-        error: 'requiredCursor is required when reconcile guardrails are provided'
+        error:
+          'requiredCursor is required when reconcile guardrails are provided'
       });
 
       expect(
