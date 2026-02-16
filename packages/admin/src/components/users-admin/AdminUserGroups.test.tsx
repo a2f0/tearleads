@@ -1,13 +1,16 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import type { AdminUser } from '@tearleads/shared';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AdminUserGroups } from './AdminUserGroups';
 import { useAdminUserGroups } from './useAdminUserGroups';
-import type { AdminUser } from '@tearleads/shared';
 
 vi.mock('./useAdminUserGroups');
 
 describe('AdminUserGroups', () => {
-  const mockUser: AdminUser = { id: 'user-1', email: 'test@example.com' } as any;
+  const mockUser: AdminUser = {
+    id: 'user-1',
+    email: 'test@example.com'
+  } as any;
   const mockGroups = [
     { id: 'group-1', name: 'Group 1', description: 'Desc 1', memberCount: 5 }
   ];
