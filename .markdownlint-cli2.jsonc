@@ -7,7 +7,6 @@
     "MD060": false // Table column style - allow compact table formatting
   },
   "ignores": [
-    "node_modules",
     "**/node_modules",
     "dist",
     "**/dist",
