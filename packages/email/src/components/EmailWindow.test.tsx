@@ -6,179 +6,20 @@ import type { EmailContactOperations, EmailFolderOperations } from '../context';
 import { mockConsoleError } from '../test/consoleMocks';
 import { TestEmailProvider } from '../test/testUtils';
 import { EmailWindow } from './EmailWindow';
+import { EmailWindowMenuBarMock, windowManagerMock } from './EmailWindowTestMocks';
+import {
+  mockEmails,
+  mockEmailLargeSize,
+  mockEmailSmallSize,
+  mockFolderOperations
+} from './emailWindowTestFixtures';
 
-vi.mock('@tearleads/window-manager', () => ({
-  WINDOW_TABLE_TYPOGRAPHY: {
-    table: 'w-full text-left text-xs',
-    header: 'sticky top-0 border-b bg-muted/50 text-muted-foreground',
-    headerCell: 'px-2 py-1.5 text-left font-medium',
-    cell: 'px-2 py-1.5',
-    mutedCell: 'px-2 py-1.5 text-muted-foreground'
-  },
-  FloatingWindow: ({
-    children,
-    title,
-    onClose
-  }: {
-    children: React.ReactNode;
-    title: string;
-    onClose: () => void;
-  }) => (
-    <div data-testid="floating-window">
-      <div data-testid="window-title">{title}</div>
-      <button type="button" onClick={onClose} data-testid="close-window">
-        Close
-      </button>
-      {children}
-    </div>
-  ),
-  WindowControlBar: ({ children }: { children: React.ReactNode }) => (
-    <div data-testid="control-bar">{children}</div>
-  ),
-  WindowControlGroup: ({ children }: { children: React.ReactNode }) => (
-    <div>{children}</div>
-  ),
-  WindowControlButton: ({
-    children,
-    onClick,
-    ...props
-  }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
-    <button type="button" onClick={onClick} {...props}>
-      {children}
-    </button>
-  ),
-  useResizableSidebar: () => ({
-    resizeHandleProps: {
-      role: 'separator',
-      tabIndex: 0,
-      'aria-orientation': 'vertical',
-      'aria-valuenow': 180,
-      'aria-valuemin': 150,
-      'aria-valuemax': 400,
-      'aria-label': 'Resize sidebar',
-      onMouseDown: vi.fn(),
-      onKeyDown: vi.fn()
-    }
-  }),
-  WindowTableRow: ({
-    children,
-    isDimmed: _isDimmed,
-    isSelected: _isSelected,
-    ...props
-  }: {
-    children: React.ReactNode;
-    isDimmed?: boolean;
-    isSelected?: boolean;
-  } & React.HTMLAttributes<HTMLTableRowElement>) => (
-    <tr {...props}>{children}</tr>
-  )
-}));
+vi.mock('@tearleads/window-manager', () => windowManagerMock);
 
 vi.mock('./EmailWindowMenuBar', () => ({
-  EmailWindowMenuBar: ({
-    viewMode,
-    onViewModeChange,
-    onRefresh,
-    onCompose
-  }: {
-    viewMode: string;
-    onViewModeChange: (mode: 'list' | 'table') => void;
-    onRefresh: () => void;
-    onCompose: () => void;
-    onClose: () => void;
-  }) => (
-    <div data-testid="menu-bar">
-      <span data-testid="current-view-mode">{viewMode}</span>
-      <button type="button" onClick={onCompose} data-testid="compose">
-        Compose
-      </button>
-      <button
-        type="button"
-        onClick={() => onViewModeChange('table')}
-        data-testid="switch-to-table"
-      >
-        Table
-      </button>
-      <button
-        type="button"
-        onClick={() => onViewModeChange('list')}
-        data-testid="switch-to-list"
-      >
-        List
-      </button>
-      <button type="button" onClick={onRefresh} data-testid="refresh">
-        Refresh
-      </button>
-    </div>
-  )
+  EmailWindowMenuBar: EmailWindowMenuBarMock
 }));
 
-const mockEmails = [
-  {
-    id: 'email-1',
-    from: 'sender@example.com',
-    to: ['recipient@example.com'],
-    subject: 'Test Subject',
-    receivedAt: '2024-01-15T10:00:00Z',
-    size: 1024
-  }
-];
-
-const mockEmailLargeSize = {
-  id: 'email-2',
-  from: 'large@example.com',
-  to: ['recipient@example.com'],
-  subject: 'Large Email',
-  receivedAt: '2024-01-15T11:00:00Z',
-  size: 2 * 1024 * 1024
-};
-
-const mockEmailSmallSize = {
-  id: 'email-3',
-  from: 'small@example.com',
-  to: ['recipient@example.com'],
-  subject: 'Small Email',
-  receivedAt: '2024-01-15T12:00:00Z',
-  size: 500
-};
-
-const mockFolderOperations: EmailFolderOperations = {
-  fetchFolders: vi.fn().mockResolvedValue([
-    {
-      id: 'folder-inbox',
-      name: 'Inbox',
-      folderType: 'inbox',
-      parentId: null,
-      unreadCount: 0
-    },
-    {
-      id: 'folder-sent',
-      name: 'Sent',
-      folderType: 'sent',
-      parentId: null,
-      unreadCount: 0
-    },
-    {
-      id: 'folder-trash',
-      name: 'Trash',
-      folderType: 'trash',
-      parentId: null,
-      unreadCount: 0
-    }
-  ]),
-  createFolder: vi.fn().mockResolvedValue({
-    id: 'new-folder',
-    name: 'New Folder',
-    folderType: 'custom',
-    parentId: null,
-    unreadCount: 0
-  }),
-  renameFolder: vi.fn().mockResolvedValue(undefined),
-  deleteFolder: vi.fn().mockResolvedValue(undefined),
-  moveFolder: vi.fn().mockResolvedValue(undefined),
-  initializeSystemFolders: vi.fn().mockResolvedValue(undefined),
-  getFolderByType: vi.fn().mockResolvedValue(null)
-};
 
 describe('EmailWindow', () => {
   const defaultProps: ComponentProps<typeof EmailWindow> = {
@@ -215,12 +56,18 @@ describe('EmailWindow', () => {
     global.fetch = vi.fn();
   });
 
-  const renderLoadedWindow = async () => {
+  const renderLoadedWindow = async (
+    props: ComponentProps<typeof EmailWindow> = defaultProps,
+    options?: {
+      contactOperations?: EmailContactOperations;
+      folderOperations?: EmailFolderOperations;
+    }
+  ) => {
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
       ok: true,
       json: async () => ({ emails: mockEmails })
     });
-    renderWithProvider();
+    renderWithProvider(props, options);
     await waitFor(() => {
       expect(screen.getByText('Test Subject')).toBeInTheDocument();
     });
@@ -238,16 +85,7 @@ describe('EmailWindow', () => {
   });
 
   it('displays emails after loading', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-
-    renderWithProvider();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Subject')).toBeInTheDocument();
-    });
+    await renderLoadedWindow();
 
     expect(screen.getByText('sender@example.com')).toBeInTheDocument();
   });
@@ -300,16 +138,7 @@ describe('EmailWindow', () => {
 
   it('shows email detail view when email is clicked', async () => {
     const user = userEvent.setup();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-
-    renderWithProvider();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Subject')).toBeInTheDocument();
-    });
+    await renderLoadedWindow();
 
     await user.click(screen.getByText('Test Subject'));
 
@@ -326,16 +155,7 @@ describe('EmailWindow', () => {
 
   it('returns to list view when back button is clicked', async () => {
     const user = userEvent.setup();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-
-    renderWithProvider();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Subject')).toBeInTheDocument();
-    });
+    await renderLoadedWindow();
 
     await user.click(screen.getByText('Test Subject'));
 
@@ -358,16 +178,7 @@ describe('EmailWindow', () => {
 
   it('renders table view when view mode is switched', async () => {
     const user = userEvent.setup();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-
-    renderWithProvider();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Subject')).toBeInTheDocument();
-    });
+    await renderLoadedWindow();
 
     await user.click(screen.getByTestId('switch-to-table'));
 
@@ -391,16 +202,7 @@ describe('EmailWindow', () => {
 
   it('displays email data in table view', async () => {
     const user = userEvent.setup();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-
-    renderWithProvider();
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Subject')).toBeInTheDocument();
-    });
+    await renderLoadedWindow();
 
     await user.click(screen.getByTestId('switch-to-table'));
 
@@ -453,16 +255,7 @@ describe('EmailWindow', () => {
 
   it('keeps menu bar when email is selected', async () => {
     const user = userEvent.setup();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-
-    renderWithProvider();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('menu-bar')).toBeInTheDocument();
-    });
+    await renderLoadedWindow();
 
     await screen.findByText('Test Subject');
     await user.click(screen.getByText('Test Subject'));
@@ -534,12 +327,7 @@ describe('EmailWindow', () => {
   });
 
   it('opens compose with recipients from open request', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-
-    renderWithProvider({
+    await renderLoadedWindow({
       ...defaultProps,
       openComposeRequest: {
         to: ['ada@example.com', 'grace@example.com'],
@@ -654,15 +442,7 @@ describe('EmailWindow', () => {
       ])
     };
 
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-    renderWithProvider(defaultProps, { contactOperations });
-
-    await waitFor(() => {
-      expect(screen.getByText('Test Subject')).toBeInTheDocument();
-    });
+    await renderLoadedWindow(defaultProps, { contactOperations });
 
     await user.click(screen.getByTestId('compose'));
 
@@ -694,17 +474,8 @@ describe('EmailWindow', () => {
 
   it('switches right panel when selecting Sent folder', async () => {
     const user = userEvent.setup();
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ emails: mockEmails })
-    });
-
-    renderWithProvider(defaultProps, {
+    await renderLoadedWindow(defaultProps, {
       folderOperations: mockFolderOperations
-    });
-
-    await waitFor(() => {
-      expect(screen.getByText('Sent')).toBeInTheDocument();
     });
 
     await user.click(screen.getByText('Sent'));
