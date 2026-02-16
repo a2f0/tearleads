@@ -77,6 +77,17 @@ function pickDifferent<T>(
   return candidate;
 }
 
+function createSeededIsoTimestampFactory(input: {
+  baseIso: string;
+  seed: number;
+  seedStrideMs?: number;
+}): (offsetSeconds: number) => string {
+  const baseMs =
+    Date.parse(input.baseIso) + input.seed * (input.seedStrideMs ?? 10_000);
+  return (offsetSeconds) =>
+    new Date(baseMs + offsetSeconds * 1_000).toISOString();
+}
+
 function createDeterministicJitterTransport(input: {
   server: InMemoryVfsCrdtSyncServer;
   random: () => number;
@@ -9885,9 +9896,10 @@ describe('VfsBackgroundSyncClient', () => {
       const itemGoodLinkOne = `item-good-link-one-rand-${seed}`;
       const itemGoodLinkTwo = `item-good-link-two-rand-${seed}`;
 
-      const baseMs = Date.parse('2026-02-14T12:30:00.000Z') + seed * 10_000;
-      const at = (offsetSeconds: number): string =>
-        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+      const at = createSeededIsoTimestampFactory({
+        baseIso: '2026-02-14T12:30:00.000Z',
+        seed
+      });
 
       const scriptedReconcileState = createCallCountedReconcileResolver({
         resolve: ({ reconcileInput, callCount }) => {
@@ -10193,9 +10205,10 @@ describe('VfsBackgroundSyncClient', () => {
       const itemGoodLinkOne = `item-good-link-one-mid-${seed}`;
       const itemGoodLinkTwo = `item-good-link-two-mid-${seed}`;
 
-      const baseMs = Date.parse('2026-02-14T12:31:00.000Z') + seed * 10_000;
-      const at = (offsetSeconds: number): string =>
-        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+      const at = createSeededIsoTimestampFactory({
+        baseIso: '2026-02-14T12:31:00.000Z',
+        seed
+      });
 
       const scriptedReconcileState = createCallCountedReconcileResolver({
         resolve: ({ reconcileInput, callCount }) => {
@@ -10494,9 +10507,10 @@ describe('VfsBackgroundSyncClient', () => {
       const localAclOpId = `local-acl-op-${seed}`;
       const localLinkOpId = `local-link-op-${seed}`;
 
-      const baseMs = Date.parse('2026-02-14T12:32:00.000Z') + seed * 10_000;
-      const at = (offsetSeconds: number): string =>
-        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+      const at = createSeededIsoTimestampFactory({
+        baseIso: '2026-02-14T12:32:00.000Z',
+        seed
+      });
 
       const scriptedReconcileState = createCallCountedReconcileResolver({
         resolve: ({ reconcileInput, callCount }) => {
@@ -11043,9 +11057,10 @@ describe('VfsBackgroundSyncClient', () => {
       const localAclOpId = `local-acl-corrected-${seed}`;
       const localLinkOpId = `local-link-corrected-${seed}`;
 
-      const baseMs = Date.parse('2026-02-14T12:35:00.000Z') + seed * 10_000;
-      const at = (offsetSeconds: number): string =>
-        new Date(baseMs + offsetSeconds * 1_000).toISOString();
+      const at = createSeededIsoTimestampFactory({
+        baseIso: '2026-02-14T12:35:00.000Z',
+        seed
+      });
 
       const server = new InMemoryVfsCrdtSyncServer();
       await server.pushOperations({
