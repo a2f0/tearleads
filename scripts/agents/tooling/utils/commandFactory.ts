@@ -16,7 +16,7 @@ import { runDelegatedAction, runInlineAction } from './actions.ts';
 import { getRepo, isShaLike } from './helpers.ts';
 
 const SCRIPT_DIR = path.dirname(new URL(import.meta.url).pathname);
-const AGENTS_DIR = path.dirname(SCRIPT_DIR);
+const AGENTS_DIR = path.dirname(path.dirname(SCRIPT_DIR));
 
 export const ACTION_CONFIG: Record<ActionName, ActionConfig> = {
   refresh: {
