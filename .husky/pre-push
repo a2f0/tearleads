@@ -2,18 +2,6 @@ set -e
 
 ./scripts/checkNodeVersion.sh
 
-case " ${NODE_OPTIONS-} " in
-  *" --no-experimental-webstorage "*)
-    ;;
-  *)
-    if [ -n "${NODE_OPTIONS-}" ]; then
-      export NODE_OPTIONS="$NODE_OPTIONS --no-experimental-webstorage"
-    else
-      export NODE_OPTIONS="--no-experimental-webstorage"
-    fi
-    ;;
-esac
-
 ./scripts/checkBinaryFiles.sh --from-upstream
 ./scripts/checkJs.sh --from-upstream
 ./scripts/checkPreenEcosystem.sh --strict
