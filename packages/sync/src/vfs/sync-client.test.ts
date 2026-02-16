@@ -9123,7 +9123,6 @@ describe('VfsBackgroundSyncClient', () => {
   });
 
   it('keeps listChangedContainers strictly forward after recovery cycles and excludes failed-cycle phantom containers', async () => {
-    let pullCallCount = 0;
     const scriptedReconcileState = createCallCountedReconcileResolver({
       resolve: ({ reconcileInput: input, callCount }) => {
         if (callCount === 1) {
@@ -9167,13 +9166,9 @@ describe('VfsBackgroundSyncClient', () => {
     });
     const guardrailCollector = createGuardrailViolationCollector();
     const guardrailViolations = guardrailCollector.violations;
-    const transport: VfsCrdtSyncTransport = {
-      pushOperations: async () => ({
-        results: []
-      }),
-      pullOperations: async () => {
-        pullCallCount += 1;
-        if (pullCallCount === 1) {
+    const scriptedPullOperations = createCallCountedPullResolver({
+      resolve: ({ callCount }) => {
+        if (callCount === 1) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -9193,7 +9188,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 2) {
+        if (callCount === 2) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -9214,7 +9209,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 3) {
+        if (callCount === 3) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -9235,7 +9230,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 4) {
+        if (callCount === 4) {
           return {
             items: [],
             hasMore: false,
@@ -9265,7 +9260,13 @@ describe('VfsBackgroundSyncClient', () => {
             mobile: 6
           }
         };
-      },
+      }
+    });
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: (input) => scriptedPullOperations(input),
       reconcileState: (input) => scriptedReconcileState(input)
     };
 
@@ -9343,7 +9344,6 @@ describe('VfsBackgroundSyncClient', () => {
   });
 
   it('keeps mixed acl/link container windows strictly forward after alternating failure recoveries', async () => {
-    let pullCallCount = 0;
     const scriptedReconcileState = createCallCountedReconcileResolver({
       resolve: ({ reconcileInput: input, callCount }) => {
         if (callCount === 1) {
@@ -9387,13 +9387,9 @@ describe('VfsBackgroundSyncClient', () => {
     });
     const guardrailCollector = createGuardrailViolationCollector();
     const guardrailViolations = guardrailCollector.violations;
-    const transport: VfsCrdtSyncTransport = {
-      pushOperations: async () => ({
-        results: []
-      }),
-      pullOperations: async () => {
-        pullCallCount += 1;
-        if (pullCallCount === 1) {
+    const scriptedPullOperations = createCallCountedPullResolver({
+      resolve: ({ callCount }) => {
+        if (callCount === 1) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -9413,7 +9409,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 2) {
+        if (callCount === 2) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -9434,7 +9430,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 3) {
+        if (callCount === 3) {
           return {
             items: [
               {
@@ -9464,7 +9460,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 4) {
+        if (callCount === 4) {
           return {
             items: [],
             hasMore: false,
@@ -9494,7 +9490,13 @@ describe('VfsBackgroundSyncClient', () => {
             mobile: 6
           }
         };
-      },
+      }
+    });
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: (input) => scriptedPullOperations(input),
       reconcileState: (input) => scriptedReconcileState(input)
     };
 
@@ -9589,7 +9591,6 @@ describe('VfsBackgroundSyncClient', () => {
   });
 
   it('keeps paginated container windows deterministic after alternating recovery failures', async () => {
-    let pullCallCount = 0;
     const scriptedReconcileState = createCallCountedReconcileResolver({
       resolve: ({ reconcileInput: input, callCount }) => {
         if (callCount === 1) {
@@ -9643,13 +9644,9 @@ describe('VfsBackgroundSyncClient', () => {
     });
     const guardrailCollector = createGuardrailViolationCollector();
     const guardrailViolations = guardrailCollector.violations;
-    const transport: VfsCrdtSyncTransport = {
-      pushOperations: async () => ({
-        results: []
-      }),
-      pullOperations: async () => {
-        pullCallCount += 1;
-        if (pullCallCount === 1) {
+    const scriptedPullOperations = createCallCountedPullResolver({
+      resolve: ({ callCount }) => {
+        if (callCount === 1) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -9669,7 +9666,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 2) {
+        if (callCount === 2) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -9690,7 +9687,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 3) {
+        if (callCount === 3) {
           return {
             items: [
               {
@@ -9720,7 +9717,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 4) {
+        if (callCount === 4) {
           return {
             items: [],
             hasMore: false,
@@ -9732,7 +9729,7 @@ describe('VfsBackgroundSyncClient', () => {
           };
         }
 
-        if (pullCallCount === 5) {
+        if (callCount === 5) {
           return {
             items: [
               buildAclAddSyncItem({
@@ -9780,7 +9777,13 @@ describe('VfsBackgroundSyncClient', () => {
             mobile: 7
           }
         };
-      },
+      }
+    });
+    const transport: VfsCrdtSyncTransport = {
+      pushOperations: async () => ({
+        results: []
+      }),
+      pullOperations: (input) => scriptedPullOperations(input),
       reconcileState: (input) => scriptedReconcileState(input)
     };
 
