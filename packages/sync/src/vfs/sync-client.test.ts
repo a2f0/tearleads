@@ -258,6 +258,25 @@ function readSeedContainerCursorOrThrow(input: {
   return seedCursor;
 }
 
+function readReplaySnapshotCursorOrThrow(input: {
+  state: {
+    replaySnapshot: {
+      cursor: {
+        changedAt: string;
+        changeId: string;
+      } | null;
+    };
+  };
+  errorMessage: string;
+}): { changedAt: string; changeId: string } {
+  const seedReplayCursor = input.state.replaySnapshot.cursor;
+  if (!seedReplayCursor) {
+    throw new Error(input.errorMessage);
+  }
+
+  return seedReplayCursor;
+}
+
 describe('VfsBackgroundSyncClient', () => {
   it('converges multiple clients after concurrent flush and sync', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -6373,10 +6392,10 @@ describe('VfsBackgroundSyncClient', () => {
     await desktop.sync();
 
     const persistedDesktopState = desktop.exportState();
-    const seedReplayCursor = persistedDesktopState.replaySnapshot.cursor;
-    if (!seedReplayCursor) {
-      throw new Error('expected mixed pre-restart replay seed cursor');
-    }
+    const seedReplayCursor = readReplaySnapshotCursorOrThrow({
+      state: persistedDesktopState,
+      errorMessage: 'expected mixed pre-restart replay seed cursor'
+    });
 
     const observedPulls: Array<{
       requestCursor: { changedAt: string; changeId: string } | null;
@@ -6533,10 +6552,10 @@ describe('VfsBackgroundSyncClient', () => {
     await desktop.sync();
 
     const persistedDesktopState = desktop.exportState();
-    const seedReplayCursor = persistedDesktopState.replaySnapshot.cursor;
-    if (!seedReplayCursor) {
-      throw new Error('expected multi-replica pre-restart replay seed cursor');
-    }
+    const seedReplayCursor = readReplaySnapshotCursorOrThrow({
+      state: persistedDesktopState,
+      errorMessage: 'expected multi-replica pre-restart replay seed cursor'
+    });
 
     const observedPulls: Array<{
       requestCursor: { changedAt: string; changeId: string } | null;
@@ -6694,10 +6713,10 @@ describe('VfsBackgroundSyncClient', () => {
     await desktop.sync();
 
     const persistedDesktopState = desktop.exportState();
-    const seedReplayCursor = persistedDesktopState.replaySnapshot.cursor;
-    if (!seedReplayCursor) {
-      throw new Error('expected replay seed cursor before restart cycles');
-    }
+    const seedReplayCursor = readReplaySnapshotCursorOrThrow({
+      state: persistedDesktopState,
+      errorMessage: 'expected replay seed cursor before restart cycles'
+    });
 
     const observedPulls: Array<{
       requestCursor: { changedAt: string; changeId: string } | null;
@@ -6880,10 +6899,10 @@ describe('VfsBackgroundSyncClient', () => {
     await desktop.sync();
 
     const persistedDesktopState = desktop.exportState();
-    const seedReplayCursor = persistedDesktopState.replaySnapshot.cursor;
-    if (!seedReplayCursor) {
-      throw new Error('expected replay seed cursor before handoff cycles');
-    }
+    const seedReplayCursor = readReplaySnapshotCursorOrThrow({
+      state: persistedDesktopState,
+      errorMessage: 'expected replay seed cursor before handoff cycles'
+    });
 
     const observedPulls: Array<{
       requestCursor: { changedAt: string; changeId: string } | null;
@@ -7116,10 +7135,10 @@ describe('VfsBackgroundSyncClient', () => {
     expect(seedClient.snapshot().lastReconciledWriteIds.remote).toBe(2);
 
     const persistedSeedState = seedClient.exportState();
-    const seedReplayCursor = persistedSeedState.replaySnapshot.cursor;
-    if (!seedReplayCursor) {
-      throw new Error('expected replay seed cursor before restart');
-    }
+    const seedReplayCursor = readReplaySnapshotCursorOrThrow({
+      state: persistedSeedState,
+      errorMessage: 'expected replay seed cursor before restart'
+    });
 
     await server.pushOperations({
       operations: [
@@ -7343,10 +7362,10 @@ describe('VfsBackgroundSyncClient', () => {
       remote: 2
     });
     const persistedSeedState = seedClient.exportState();
-    const seedReplayCursor = persistedSeedState.replaySnapshot.cursor;
-    if (!seedReplayCursor) {
-      throw new Error('expected replay cursor before reconcile restart cycle');
-    }
+    const seedReplayCursor = readReplaySnapshotCursorOrThrow({
+      state: persistedSeedState,
+      errorMessage: 'expected replay cursor before reconcile restart cycle'
+    });
 
     await server.pushOperations({
       operations: [
@@ -8196,12 +8215,10 @@ describe('VfsBackgroundSyncClient', () => {
       remote: 2
     });
     const persistedSeedState = seedClient.exportState();
-    const seedReplayCursor = persistedSeedState.replaySnapshot.cursor;
-    if (!seedReplayCursor) {
-      throw new Error(
-        'expected seed replay cursor before reconcile regression'
-      );
-    }
+    const seedReplayCursor = readReplaySnapshotCursorOrThrow({
+      state: persistedSeedState,
+      errorMessage: 'expected seed replay cursor before reconcile regression'
+    });
 
     await server.pushOperations({
       operations: [
@@ -8401,10 +8418,10 @@ describe('VfsBackgroundSyncClient', () => {
     );
     await seedClient.sync();
     const persistedSeedState = seedClient.exportState();
-    const seedReplayCursor = persistedSeedState.replaySnapshot.cursor;
-    if (!seedReplayCursor) {
-      throw new Error('expected seed replay cursor before recovery test');
-    }
+    const seedReplayCursor = readReplaySnapshotCursorOrThrow({
+      state: persistedSeedState,
+      errorMessage: 'expected seed replay cursor before recovery test'
+    });
 
     await server.pushOperations({
       operations: [
