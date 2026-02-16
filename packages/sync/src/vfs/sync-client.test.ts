@@ -359,6 +359,22 @@ function createPhaseReconcileRecordingHandler(input: {
   };
 }
 
+function createCallCountedReconcileResolver(input: {
+  resolve: (input: {
+    reconcileInput: ReconcileStateInput;
+    callCount: number;
+  }) => Promise<ReconcileStateOutput> | ReconcileStateOutput;
+}): (reconcileInput: ReconcileStateInput) => Promise<ReconcileStateOutput> {
+  let callCount = 0;
+  return async (reconcileInput) => {
+    callCount += 1;
+    return input.resolve({
+      reconcileInput,
+      callCount
+    });
+  };
+}
+
 function createPullRecordingTransport(input: {
   baseTransport: VfsCrdtSyncTransport;
   observedPulls: ObservedPullPage[];
@@ -9970,7 +9986,57 @@ describe('VfsBackgroundSyncClient', () => {
         new Date(baseMs + offsetSeconds * 1_000).toISOString();
 
       let pullCallCount = 0;
-      let reconcileCallCount = 0;
+      const scriptedReconcileState = createCallCountedReconcileResolver({
+        resolve: ({ reconcileInput, callCount }) => {
+          if (callCount === 1) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 5
+              }
+            };
+          }
+
+          if (callCount === 2) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 4
+              }
+            };
+          }
+
+          if (callCount === 3) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 6
+              }
+            };
+          }
+
+          if (callCount === 4) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 7
+              }
+            };
+          }
+
+          return {
+            cursor: { ...reconcileInput.cursor },
+            lastReconciledWriteIds: {
+              ...reconcileInput.lastReconciledWriteIds,
+              mobile: 8
+            }
+          };
+        }
+      });
       const guardrailViolations: Array<{
         code: string;
         stage: string;
@@ -10120,56 +10186,7 @@ describe('VfsBackgroundSyncClient', () => {
             }
           };
         },
-        reconcileState: async (input) => {
-          reconcileCallCount += 1;
-          if (reconcileCallCount === 1) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 5
-              }
-            };
-          }
-
-          if (reconcileCallCount === 2) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 4
-              }
-            };
-          }
-
-          if (reconcileCallCount === 3) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 6
-              }
-            };
-          }
-
-          if (reconcileCallCount === 4) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 7
-              }
-            };
-          }
-
-          return {
-            cursor: { ...input.cursor },
-            lastReconciledWriteIds: {
-              ...input.lastReconciledWriteIds,
-              mobile: 8
-            }
-          };
-        }
+        reconcileState: (input) => scriptedReconcileState(input)
       };
 
       const seedClient = new VfsBackgroundSyncClient(
@@ -10294,7 +10311,57 @@ describe('VfsBackgroundSyncClient', () => {
         new Date(baseMs + offsetSeconds * 1_000).toISOString();
 
       let pullCallCount = 0;
-      let reconcileCallCount = 0;
+      const scriptedReconcileState = createCallCountedReconcileResolver({
+        resolve: ({ reconcileInput, callCount }) => {
+          if (callCount === 1) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 5
+              }
+            };
+          }
+
+          if (callCount === 2) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 4
+              }
+            };
+          }
+
+          if (callCount === 3) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 6
+              }
+            };
+          }
+
+          if (callCount === 4) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 7
+              }
+            };
+          }
+
+          return {
+            cursor: { ...reconcileInput.cursor },
+            lastReconciledWriteIds: {
+              ...reconcileInput.lastReconciledWriteIds,
+              mobile: 8
+            }
+          };
+        }
+      });
       const guardrailViolations: Array<{
         code: string;
         stage: string;
@@ -10444,56 +10511,7 @@ describe('VfsBackgroundSyncClient', () => {
             }
           };
         },
-        reconcileState: async (input) => {
-          reconcileCallCount += 1;
-          if (reconcileCallCount === 1) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 5
-              }
-            };
-          }
-
-          if (reconcileCallCount === 2) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 4
-              }
-            };
-          }
-
-          if (reconcileCallCount === 3) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 6
-              }
-            };
-          }
-
-          if (reconcileCallCount === 4) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 7
-              }
-            };
-          }
-
-          return {
-            cursor: { ...input.cursor },
-            lastReconciledWriteIds: {
-              ...input.lastReconciledWriteIds,
-              mobile: 8
-            }
-          };
-        }
+        reconcileState: (input) => scriptedReconcileState(input)
       };
 
       const makeClient = (): VfsBackgroundSyncClient =>
@@ -10604,7 +10622,57 @@ describe('VfsBackgroundSyncClient', () => {
         new Date(baseMs + offsetSeconds * 1_000).toISOString();
 
       let pullCallCount = 0;
-      let reconcileCallCount = 0;
+      const scriptedReconcileState = createCallCountedReconcileResolver({
+        resolve: ({ reconcileInput, callCount }) => {
+          if (callCount === 1) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 5
+              }
+            };
+          }
+
+          if (callCount === 2) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 4
+              }
+            };
+          }
+
+          if (callCount === 3) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 6
+              }
+            };
+          }
+
+          if (callCount === 4) {
+            return {
+              cursor: { ...reconcileInput.cursor },
+              lastReconciledWriteIds: {
+                ...reconcileInput.lastReconciledWriteIds,
+                mobile: 7
+              }
+            };
+          }
+
+          return {
+            cursor: { ...reconcileInput.cursor },
+            lastReconciledWriteIds: {
+              ...reconcileInput.lastReconciledWriteIds,
+              mobile: 8
+            }
+          };
+        }
+      });
       const pushedOpIds: string[] = [];
       const pushedWriteIds: number[] = [];
       const guardrailViolations: Array<{
@@ -10765,56 +10833,7 @@ describe('VfsBackgroundSyncClient', () => {
             }
           };
         },
-        reconcileState: async (input) => {
-          reconcileCallCount += 1;
-          if (reconcileCallCount === 1) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 5
-              }
-            };
-          }
-
-          if (reconcileCallCount === 2) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 4
-              }
-            };
-          }
-
-          if (reconcileCallCount === 3) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 6
-              }
-            };
-          }
-
-          if (reconcileCallCount === 4) {
-            return {
-              cursor: { ...input.cursor },
-              lastReconciledWriteIds: {
-                ...input.lastReconciledWriteIds,
-                mobile: 7
-              }
-            };
-          }
-
-          return {
-            cursor: { ...input.cursor },
-            lastReconciledWriteIds: {
-              ...input.lastReconciledWriteIds,
-              mobile: 8
-            }
-          };
-        }
+        reconcileState: (input) => scriptedReconcileState(input)
       };
 
       const makeClient = (): VfsBackgroundSyncClient =>
