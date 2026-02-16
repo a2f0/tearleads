@@ -2,6 +2,7 @@
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { getErrorMessage } from '@tearleads/shared';
 import { program } from 'commander';
 import { getDisabledPackages, getEnabledPackages } from './featureMap.js';
 import {
@@ -106,7 +107,7 @@ program
         console.log(`  Platforms: ${loaded.config.platforms.join(', ')}`);
         console.log(`  Features: ${loaded.config.features.join(', ')}`);
       } catch (error) {
-        console.error(`Validation failed: ${(error as Error).message}`);
+        console.error(`Validation failed: ${getErrorMessage(error)}`);
         process.exit(1);
       }
     } else if (options.all) {
@@ -119,7 +120,7 @@ program
           await loadAppConfig(appId);
           console.log(`[OK] ${appId}`);
         } catch (error) {
-          console.error(`[FAIL] ${appId}: ${(error as Error).message}`);
+          console.error(`[FAIL] ${appId}: ${getErrorMessage(error)}`);
           hasErrors = true;
         }
       }
@@ -151,7 +152,7 @@ program
         console.log(JSON.stringify(loaded.config, null, 2));
       }
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(`Error: ${getErrorMessage(error)}`);
       process.exit(1);
     }
   });
@@ -202,7 +203,7 @@ program
           }
         }
       } catch (error) {
-        console.error(`Error: ${(error as Error).message}`);
+        console.error(`Error: ${getErrorMessage(error)}`);
         process.exit(1);
       }
     }
@@ -258,7 +259,7 @@ program
         }
       }
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(`Error: ${getErrorMessage(error)}`);
       process.exit(1);
     }
   });
@@ -402,7 +403,7 @@ program
           console.log(`\nGenerated ${filesToWrite.length} file(s).`);
         }
       } catch (error) {
-        console.error(`Error: ${(error as Error).message}`);
+        console.error(`Error: ${getErrorMessage(error)}`);
         process.exit(1);
       }
     }

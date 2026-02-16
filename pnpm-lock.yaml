@@ -347,6 +347,9 @@ importers:
 
   packages/app-builder:
     dependencies:
+      '@tearleads/shared':
+        specifier: workspace:*
+        version: link:../shared
       commander:
         specifier: ^13.1.0
         version: 13.1.0

@@ -19,8 +19,13 @@ import {
   vfsRegistry,
   vfsShares
 } from '@tearleads/db/sqlite';
-import type { SQL } from 'drizzle-orm';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import {
+  isVfsSharedByMeQueryRow,
+  isVfsSharedWithMeQueryRow,
+  type VfsSharedByMeQueryRow,
+  type VfsSharedWithMeQueryRow
+} from '@tearleads/shared';
+import { and, asc, desc, eq, inArray, type SQL, sql } from 'drizzle-orm';
 import type { VfsSortState } from './vfsTypes';
 
 function isMissingSqliteTableError(
@@ -115,36 +120,6 @@ function buildOrderBy(sort: VfsSortState, nameExpr: SQL<string>): SQL[] {
   }
 }
 
-/** Result shape for items shared by the current user. */
-export interface VfsSharedByMeQueryRow {
-  id: string;
-  objectType: string;
-  name: string;
-  createdAt: Date;
-  shareId: string;
-  targetId: string;
-  targetName: string;
-  shareType: string;
-  permissionLevel: string;
-  sharedAt: Date;
-  expiresAt: Date | null;
-}
-
-/** Result shape for items shared with the current user. */
-export interface VfsSharedWithMeQueryRow {
-  id: string;
-  objectType: string;
-  name: string;
-  createdAt: Date;
-  shareId: string;
-  sharedById: string;
-  sharedByEmail: string;
-  shareType: string;
-  permissionLevel: string;
-  sharedAt: Date;
-  expiresAt: Date | null;
-}
-
 /**
  * Query items that the current user has shared with others.
  */
@@ -237,7 +212,11 @@ export async function querySharedByMe(
       .where(eq(vfsShares.createdBy, currentUserId))
       .orderBy(...orderExprs);
 
-    return rows as VfsSharedByMeQueryRow[];
+    if (!rows.every(isVfsSharedByMeQueryRow)) {
+      throw new Error('Database returned invalid rows for SharedByMe query');
+    }
+
+    return rows;
   } catch (error) {
     if (isMissingSqliteTableError(error, 'vfs_shares')) {
       console.error(
@@ -347,7 +326,11 @@ export async function querySharedWithMe(
       )
       .orderBy(...orderExprs);
 
-    return rows as VfsSharedWithMeQueryRow[];
+    if (!rows.every(isVfsSharedWithMeQueryRow)) {
+      throw new Error('Database returned invalid rows for SharedWithMe query');
+    }
+
+    return rows;
   } catch (error) {
     if (
       isMissingSqliteTableError(error, 'vfs_shares') ||
