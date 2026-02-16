@@ -1,6 +1,3 @@
----
-description: Audit and update code review instructions (REVIEW.md, .gemini/INSTRUCTIONS.md)
----
 
 # Preen Review Instructions
 

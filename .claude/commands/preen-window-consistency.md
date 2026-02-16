@@ -1,6 +1,3 @@
----
-description: Preen Window Consistency (project)
----
 
 # Preen Window Consistency
 

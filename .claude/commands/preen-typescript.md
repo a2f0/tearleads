@@ -1,6 +1,3 @@
----
-description: Preen TypeScript Types
----
 
 # Preen TypeScript Types
 

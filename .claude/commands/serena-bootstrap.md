@@ -1,6 +1,3 @@
----
-description: Serena Bootstrap
----
 
 # Serena Bootstrap
 

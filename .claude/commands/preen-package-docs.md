@@ -1,6 +1,3 @@
----
-description: Preen Package Documentation (project)
----
 
 # Preen Package Documentation
 

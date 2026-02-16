@@ -1,6 +1,3 @@
----
-description: Implement deferred review follow-ups from merged PRs
----
 
 # Preen Deferred Fixes
 

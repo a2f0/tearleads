@@ -1,6 +1,3 @@
----
-description: Infrastructure cost estimation and tracking
----
 
 # Cost Model
 

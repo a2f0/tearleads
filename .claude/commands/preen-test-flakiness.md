@@ -1,7 +1,3 @@
----
-description: Preen test flakiness and nondeterminism
----
-
 # Preen Test Flakiness
 
 Proactively reduce flaky tests by removing nondeterministic waits, stabilizing async behavior, and tightening assertions so repeated runs produce the same result.

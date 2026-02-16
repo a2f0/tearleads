@@ -1,7 +1,3 @@
----
-description: Preen dependency security and version hygiene
----
-
 # Preen Dependency Security
 
 Proactively audit dependency risk across the monorepo by finding high/critical vulnerabilities, unsafe versioning patterns, and dependency drift that can weaken CI reliability or production security.

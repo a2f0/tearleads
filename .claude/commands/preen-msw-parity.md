@@ -1,6 +1,3 @@
----
-description: Preen MSW parity
----
 
 # Preen MSW Parity
 

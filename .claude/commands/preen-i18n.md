@@ -1,6 +1,3 @@
----
-description: Preen i18n translation coverage and consistency (project)
----
 
 # Preen i18n
 

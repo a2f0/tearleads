@@ -1,6 +1,3 @@
----
-description: Guarantee PR merge by cycling until merged
----
 
 # Enter Merge Queue
 
@@ -8,15 +5,13 @@ description: Guarantee PR merge by cycling until merged
 
 **This skill MUST run continuously until the PR state is `MERGED`.** Do NOT exit after:
 
-- Running `/address-gemini-feedback` - continue the loop
-- Running `/follow-up-with-gemini` - continue the loop
-- Running `/fix-tests` - continue the loop
+- Running `$address-gemini-feedback` - continue the loop
+- Running `$follow-up-with-gemini` - continue the loop
+- Running `$fix-tests` - continue the loop
 - CI completing successfully - continue to enable auto-merge, then keep polling
 - Enabling auto-merge - keep polling until `state` is `MERGED`
 
 **The ONLY valid exit condition is the `getPrInfo` action returning `"state":"MERGED"`.**
-
----
 
 **First**: Get PR info using the agentTool wrapper:
 
@@ -29,44 +24,20 @@ This returns JSON with the requested fields. Extract `number` as `PR_NUMBER` for
 
 This skill guarantees a PR gets merged by continuously monitoring CI, addressing reviews, and waiting until the PR is actually merged.
 
-## Environment Preflight (CRITICAL)
-
-Before running CI-impact scripts or any push that triggers hooks, ensure Node matches `.nvmrc`:
-
-```bash
-./scripts/checkNodeVersion.sh
-```
-
-If it fails, source nvm and switch to the correct version:
-
-```bash
-export NVM_DIR="${NVM_DIR:-$HOME/.nvm}"
-[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-nvm use
-```
-
-Do not proceed on a mismatched Node version.
-
-To avoid noisy Node webstorage warnings in nonstandard environments, ensure pre-push commands include:
-
-```bash
-NODE_OPTIONS=--no-experimental-webstorage
-```
-
 ## State Tracking
 
 Track the following state during execution:
 
 - `gemini_can_review`: Boolean, starts `true`. Set to `false` if PR contains only non-code files. Allows skipping Gemini checks entirely.
 - `gemini_quota_exhausted`: Boolean, starts `false`. Set to `true` when Gemini reports its daily quota limit.
-- `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback review via Codex.
+- `used_fallback_agent_review`: Boolean, starts `false`. Set to `true` after running one fallback review via Claude Code.
 - `associated_issue_number`: Number or null. The issue number associated with this PR (either extracted from PR body or newly created). All PRs should have an associated issue that gets marked `needs-qa` after merge.
 - `is_rollup_pr`: Boolean, starts `false`. Set to `true` if base branch is not `main`/`master`. Roll-up PRs must wait for their base PR to merge first.
 - `base_pr_number`: Number or null. For roll-up PRs, the PR number associated with the base branch.
 - `original_base_ref`: String or null. For roll-up PRs, stores the original base branch name before retargeting to main.
 - `job_failure_counts`: Map of job name → failure count. Tracks how many times each job has failed across workflow runs. Reset when job succeeds or PR is rebased.
 - `current_run_id`: Number or null. The workflow run ID being monitored. Used to detect when a new workflow starts after a fix push.
-- `deferred_items`: Array of `{thread_id, path, line, body, html_url}`. Collects review feedback explicitly deferred to a follow-up PR. Populated by `/address-gemini-feedback` when a fix is deferred rather than applied on-the-fly.
+- `deferred_items`: Array of `{thread_id, path, line, body, html_url}`. Collects review feedback explicitly deferred to a follow-up PR. Populated by `$address-gemini-feedback` when a fix is deferred rather than applied on-the-fly.
 - `deferred_fix_issue_number`: Number or null. If deferred items exist, a tracking issue is created with the `deferred-fix` label before merge.
 
 ## Polling with Jitter
@@ -279,7 +250,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
    - If `used_fallback_agent_review` is still `false`, run one cross-agent fallback review:
 
    ```bash
-   ./scripts/agents/tooling/agentTool.ts solicitCodexReview
+   ./scripts/agents/tooling/agentTool.ts solicitClaudeCodeReview
    ```
 
    - Set `used_fallback_agent_review = true`
@@ -326,7 +297,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
 
    2. **Handle Gemini feedback** (if `gemini_can_review` is `true`):
       - Always run Gemini evaluation and close-out checks on every poll iteration, including when CI jobs are still running or have failed.
-      - Run `/address-gemini-feedback` to fetch and address unresolved comments.
+      - Run `$address-gemini-feedback` to fetch and address unresolved comments.
       - If code changes were made, push and **verify push completed before replying**:
 
         ```bash
@@ -335,9 +306,9 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
         [ "$(git rev-parse HEAD)" = "$(git rev-parse origin/$BRANCH)" ] || echo "NOT PUSHED"
         ```
 
-        **Do NOT run `/follow-up-with-gemini` until push is verified.** Replying with "Fixed in commit X" when X is not visible on remote creates confusion.
-      - Once push is verified, run `/follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
-      - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Codex fallback review above.
+        **Do NOT run `$follow-up-with-gemini` until push is verified.** Replying with "Fixed in commit X" when X is not visible on remote creates confusion.
+      - Once push is verified, run `$follow-up-with-gemini` to close threads Gemini has confirmed as addressed.
+      - If sentiment indicates Gemini daily quota exhaustion, stop Gemini follow-ups and run the one-time Claude Code fallback review above.
       - **IMPORTANT**: Do not wait for CI completion to resolve review threads. After these sub-skills complete, continue the polling loop - do NOT exit.
 
    3. **Check individual job statuses** (in priority order):
@@ -353,7 +324,7 @@ For example, a 30-second base wait becomes 24-36 seconds. A 2-minute wait become
           - Stop and ask user for guidance
         - Else:
           - Log: "Job '<job-name>' failed (attempt X/3). Starting fix."
-          - Run `/fix-tests <job-name>` targeting the specific job
+          - Run `$fix-tests <job-name>` targeting the specific job
           - If fix was pushed:
             - Cancel the obsolete workflow: `./scripts/agents/tooling/agentTool.ts cancelWorkflow --run-id "$RUN_ID"`
             - Log: "Cancelled obsolete workflow. New CI starting."
@@ -463,7 +434,7 @@ Create issues for problems that shouldn't block the PR (flaky tests, infrastruct
 
 ## Resolving Conversation Threads
 
-All threads must be resolved before merge, and close-out should happen continuously during CI polling rather than after CI completion. Use `/follow-up-with-gemini` after each `/address-gemini-feedback` pass to resolve confirmed threads in-loop.
+All threads must be resolved before merge, and close-out should happen continuously during CI polling rather than after CI completion. Use `$follow-up-with-gemini` after each `$address-gemini-feedback` pass to resolve confirmed threads in-loop.
 
 ## Token Efficiency (CRITICAL - ENFORCE STRICTLY)
 
@@ -522,7 +493,7 @@ git rebase origin/<baseRefName>      # Can be noisy and waste tokens
 - If stuck (same job fails 3 times after 2 fix attempts), ask user for help
 - Gemini confirmation detection: positive phrases ("looks good", "lgtm", etc.) WITHOUT negative qualifiers ("but", "however", "still")
 - Only resolve threads after explicit Gemini confirmation
-- If Gemini hits daily quota, run one Codex fallback review and treat it as sufficient for the review step
+- If Gemini hits daily quota, run one Claude Code fallback review and treat it as sufficient for the review step
 - **Roll-up PRs**: PRs targeting a non-main branch wait for their base PR to merge first. Once merged, GitHub auto-retargets to main and the roll-up continues normally.
 
 ## Keeping PR Description Updated

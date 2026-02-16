@@ -1,6 +1,3 @@
----
-description: Preen Split React Components
----
 
 # Preen Split React Components
 

@@ -1,6 +1,3 @@
----
-description: Preen Compliance Documentation (project)
----
 
 # Preen Compliance Documentation
 

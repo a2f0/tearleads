@@ -1,6 +1,3 @@
----
-description: Proactively find and fix database performance issues (N+1 queries, inefficient joins, index gaps) with real-db regression tests
----
 
 # Preen Database Performance
 
