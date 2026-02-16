@@ -1,4 +1,3 @@
-import { i18n } from '@client/i18n';
 import type { Database } from '@tearleads/db/sqlite';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
@@ -8,6 +7,19 @@ import {
   type DatabaseAdapter,
   type DatabaseState
 } from '../context';
+
+// Mock translation function that handles the keys used in tests
+const mockT = (key: string) => {
+  const translations: Record<string, string> = {
+    allContacts: 'All Contacts',
+    groups: 'Groups',
+    newGroup: 'New Group',
+    delete: 'Delete',
+    rename: 'Rename',
+    sendEmail: 'Send email'
+  };
+  return translations[key] || key;
+};
 
 export const createMockDatabaseState = (
   overrides?: Partial<DatabaseState>
@@ -172,8 +184,7 @@ export function TestContactsProvider({
   database,
   databaseAdapter,
   ui = mockUIComponents,
-  t = (key) =>
-    i18n.t([`contacts:${key}`, `contextMenu:${key}`], { defaultValue: key }),
+  t = mockT,
   navigate = vi.fn(),
   navigateWithFrom = vi.fn(),
   saveFile = vi.fn().mockResolvedValue(undefined),
