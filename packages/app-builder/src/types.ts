@@ -45,7 +45,7 @@ export interface AppApiConfig {
   /** Production API URL */
   productionUrl: string;
   /** Optional staging API URL */
-  stagingUrl?: string;
+  stagingUrl?: string | undefined;
 }
 
 /**
@@ -53,11 +53,11 @@ export interface AppApiConfig {
  */
 export interface AppStoreConfig {
   /** iOS App Store team ID (optional, falls back to env) */
-  appleTeamId?: string;
+  appleTeamId?: string | undefined;
   /** iOS App Store Connect team ID (optional, falls back to env) */
-  appleItcTeamId?: string;
+  appleItcTeamId?: string | undefined;
   /** Android signing key alias */
-  androidKeyAlias?: string;
+  androidKeyAlias?: string | undefined;
 }
 
 /**
@@ -65,9 +65,9 @@ export interface AppStoreConfig {
  */
 export interface AppAssets {
   /** Path to 1024x1024 source icon */
-  iconSource?: string;
+  iconSource?: string | undefined;
   /** Path to source splash image */
-  splashSource?: string;
+  splashSource?: string | undefined;
 }
 
 /**
@@ -75,11 +75,11 @@ export interface AppAssets {
  */
 export interface AppMonitoring {
   /** Sentry DSN for error reporting */
-  sentryDsn?: string;
+  sentryDsn?: string | undefined;
   /** Google Analytics measurement ID */
-  googleAnalyticsId?: string;
+  googleAnalyticsId?: string | undefined;
   /** PostHog project API key */
-  posthogToken?: string;
+  posthogToken?: string | undefined;
 }
 
 /**
@@ -108,7 +108,7 @@ export interface AppConfig {
   bundleIds: AppBundleIds;
 
   /** Custom URL scheme (e.g., "acmeapp") */
-  urlScheme?: string;
+  urlScheme?: string | undefined;
 
   /** Enabled platforms for this app */
   platforms: AppPlatform[];
@@ -123,19 +123,19 @@ export interface AppConfig {
   theme: AppTheme;
 
   /** App store and signing configuration */
-  store?: AppStoreConfig;
+  store?: AppStoreConfig | undefined;
 
   /** Visual assets (icons, splash) */
-  assets?: AppAssets;
+  assets?: AppAssets | undefined;
 
   /** Monitoring and analytics */
-  monitoring?: AppMonitoring;
+  monitoring?: AppMonitoring | undefined;
 
   /** Custom translation overrides */
-  translations?: Record<string, string>;
+  translations?: Record<string, string> | undefined;
 
   /** SQLite keychain prefix (defaults to iOS bundle ID) */
-  keychainPrefix?: string;
+  keychainPrefix?: string | undefined;
 }
 
 /**

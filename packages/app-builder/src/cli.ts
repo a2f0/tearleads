@@ -21,6 +21,14 @@ import type { AppConfig } from './types.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+/**
+ * Safely extract an error message from an unknown error value.
+ */
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
 /** Get the default output directory (packages/client) */
 function getDefaultOutputDir(): string {
   return resolve(__dirname, '..', '..', 'client');
@@ -106,7 +114,7 @@ program
         console.log(`  Platforms: ${loaded.config.platforms.join(', ')}`);
         console.log(`  Features: ${loaded.config.features.join(', ')}`);
       } catch (error) {
-        console.error(`Validation failed: ${(error as Error).message}`);
+        console.error(`Validation failed: ${getErrorMessage(error)}`);
         process.exit(1);
       }
     } else if (options.all) {
@@ -119,7 +127,7 @@ program
           await loadAppConfig(appId);
           console.log(`[OK] ${appId}`);
         } catch (error) {
-          console.error(`[FAIL] ${appId}: ${(error as Error).message}`);
+          console.error(`[FAIL] ${appId}: ${getErrorMessage(error)}`);
           hasErrors = true;
         }
       }
@@ -151,7 +159,7 @@ program
         console.log(JSON.stringify(loaded.config, null, 2));
       }
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(`Error: ${getErrorMessage(error)}`);
       process.exit(1);
     }
   });
@@ -202,7 +210,7 @@ program
           }
         }
       } catch (error) {
-        console.error(`Error: ${(error as Error).message}`);
+        console.error(`Error: ${getErrorMessage(error)}`);
         process.exit(1);
       }
     }
@@ -258,7 +266,7 @@ program
         }
       }
     } catch (error) {
-      console.error(`Error: ${(error as Error).message}`);
+      console.error(`Error: ${getErrorMessage(error)}`);
       process.exit(1);
     }
   });
@@ -402,7 +410,7 @@ program
           console.log(`\nGenerated ${filesToWrite.length} file(s).`);
         }
       } catch (error) {
-        console.error(`Error: ${(error as Error).message}`);
+        console.error(`Error: ${getErrorMessage(error)}`);
         process.exit(1);
       }
     }

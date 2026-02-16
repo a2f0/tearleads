@@ -2,7 +2,7 @@ import { existsSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { validateAppConfig } from './schema.js';
-import type { AppConfig, LoadedAppConfig } from './types.js';
+import type { LoadedAppConfig } from './types.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -64,7 +64,7 @@ export async function loadAppConfig(appId: string): Promise<LoadedAppConfig> {
   }
 
   return {
-    config: config as AppConfig,
+    config,
     configDir,
     assetsDir: join(configDir, 'assets')
   };
