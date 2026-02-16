@@ -22,7 +22,7 @@ export function WindowStatusBar({
   return (
     <div
       className={cn(
-        'flex h-6 shrink-0 items-center border-t px-3 text-xs',
+        'flex h-6 shrink-0 items-center border-border/70 border-t px-3 text-xs',
         TONE_CLASSNAMES[tone],
         className
       )}

@@ -12,7 +12,7 @@ export function WindowSidebarHeader({
   actionIcon
 }: WindowSidebarHeaderProps) {
   return (
-    <div className="flex items-center justify-between border-b px-3 py-2">
+    <div className="flex items-center justify-between border-border/70 border-b px-3 py-2">
       <span className="font-medium text-muted-foreground text-xs">{title}</span>
       <button
         type="button"
