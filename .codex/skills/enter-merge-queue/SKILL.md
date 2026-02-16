@@ -464,6 +464,20 @@ git rebase origin/<baseRefName>      # Can be noisy and waste tokens
 
 **Why this is non-negotiable**: Pre-push hooks run lint, type-check, build, and tests. A single unsuppressed push adds 5,000+ lines to context. Over a merge queue session with multiple pushes, this can consume 20,000+ tokens of pure noise.
 
+### MANDATORY: Suppress Local Test Output
+
+If you must run tests locally (e.g., to verify a fix before pushing), YOU MUST suppress output. We run a LOT of tests and cannot afford to burn tokens on standard output.
+
+```bash
+# CORRECT
+pnpm test >/dev/null 2>&1
+pnpm lint >/dev/null 2>&1
+
+# WRONG
+pnpm test
+pnpm lint
+```
+
 ### Other mandatory token-saving practices
 
 - **Cache immutable PR data**: Fetch `number`, `baseRefName`, `headRefName`, `url` ONCE in step 1. Never re-fetch.
@@ -481,7 +495,7 @@ git rebase origin/<baseRefName>      # Can be noisy and waste tokens
 
 - **Don't echo status unnecessarily**: The user sees your tool calls. Don't add "Checking CI status..." messages.
 - **Batch state updates**: Combine related status messages rather than outputting each check individually.
-- **Avoid verbose CI logs**: Only fetch CI logs on failure, and only the failing job's logs.
+- **Avoid verbose CI logs**: Only fetch CI logs on failure. ALWAYS use `--log-failed` to fetch only the relevant error context. Never dump full logs.
 - **Skip redundant operations**: Use state flags (`gemini_can_review`) religiously.
 - **No redundant file reads**: If you read a file, cache its content mentally. Don't re-read unchanged files.
 
