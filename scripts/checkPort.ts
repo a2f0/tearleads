@@ -3,43 +3,33 @@
  * Check if a port is already in use. Exits with code 1 if the port is occupied.
  * Usage: tsx scripts/checkPort.ts <port> [host]
  */
-import net from 'node:net';
+import { createExitOnce, isPortInUse, parsePort } from './lib/portHelpers.ts';
 
-const port = Number.parseInt(process.argv[2] || '3000', 10);
+const portArg = process.argv[2] || '3000';
+const port = parsePort(portArg);
 const host = process.argv[3] || '127.0.0.1';
 const timeoutMs = 500;
 
-if (Number.isNaN(port) || port < 1 || port > 65535) {
+if (port === null) {
   console.error(`Invalid port: ${process.argv[2]}`);
   process.exit(2);
 }
 
-let finished = false;
-const finish = (code: number): void => {
-  if (finished) {
+const finish = createExitOnce();
+
+const main = async (): Promise<void> => {
+  const inUse = await isPortInUse({ host, port, timeoutMs });
+  if (inUse) {
+    console.error(`Error: Port ${port} is already in use on ${host}.`);
+    console.error('Please stop the existing server before running tests.');
+    finish(1);
     return;
   }
-  finished = true;
-  process.exit(code);
+
+  finish(0);
 };
 
-const socket = net.connect({ host, port });
-
-socket.setTimeout(timeoutMs);
-
-socket.once('connect', () => {
-  console.error(`Error: Port ${port} is already in use on ${host}.`);
-  console.error('Please stop the existing server before running tests.');
-  socket.end();
+main().catch((error: unknown) => {
+  console.error('[checkPort] Error:', error);
   finish(1);
-});
-
-socket.once('timeout', () => {
-  socket.destroy();
-  finish(0);
-});
-
-socket.once('error', () => {
-  socket.destroy();
-  finish(0);
 });

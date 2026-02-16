@@ -11,9 +11,18 @@
  */
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync, realpathSync, statSync, writeFileSync } from 'node:fs';
+import { mkdirSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import {
+  getPidsOnPort,
+  getProcessCwd,
+  isCwdWithinRepo,
+  isPidAlive,
+  killPid,
+  resolveRepoRoot,
+  sleep
+} from './lib/processHelpers.ts';
 
 type ProcessInfo = {
   pid: number;
@@ -24,23 +33,6 @@ type ProcessInfo = {
 const COOLDOWN_MS = 10_000; // 10 seconds
 const PORT_RELEASE_MAX_WAIT_MS = 2000;
 const PORT_RELEASE_POLL_INTERVAL_MS = 100;
-
-const resolveRepoRoot = (): string => {
-  try {
-    const output = execFileSync('git', ['rev-parse', '--show-toplevel'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore']
-    }).trim();
-
-    if (output) {
-      return realpathSync(output);
-    }
-  } catch {
-    // Fall back to cwd if git isn't available (e.g. non-git execution context).
-  }
-
-  return realpathSync(process.cwd());
-};
 
 const repoRoot = resolveRepoRoot();
 
@@ -125,90 +117,21 @@ const getAncestorPids = (
   return ancestors;
 };
 
-const getProcessCwd = (pid: number): string | null => {
-  try {
-    const output = execFileSync(
-      'lsof',
-      ['-a', '-p', String(pid), '-d', 'cwd', '-Fn'],
-      {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore']
-      }
-    );
-    const line = output
-      .split('\n')
-      .map((value) => value.trim())
-      .find((value) => value.startsWith('n'));
-
-    if (!line) {
-      return null;
-    }
-
-    return line.slice(1);
-  } catch {
-    return null;
-  }
-};
-
 const isInRepo = (cwd: string | null): boolean => {
-  if (!cwd) {
-    return false;
-  }
-  try {
-    const resolved = realpathSync(cwd);
-    return (
-      resolved === repoRoot || resolved.startsWith(`${repoRoot}${path.sep}`)
-    );
-  } catch {
-    return false;
-  }
-};
-
-const isAlive = (pid: number): boolean => {
-  try {
-    process.kill(pid, 0);
-    return true;
-  } catch {
-    return false;
-  }
-};
-
-const killPid = (pid: number, signal: NodeJS.Signals): void => {
-  try {
-    process.kill(pid, signal);
-  } catch {
-    // Ignore errors for already-dead processes or permission issues.
-  }
+  return isCwdWithinRepo({ cwd, repoRoot });
 };
 
 // Dev ports that should be freed before starting
 const DEV_PORTS = [25, 3000, 3001, 5001];
 
 const getProcessOnPort = (port: number): number | null => {
-  try {
-    const output = execFileSync(
-      'lsof',
-      ['-i', `:${port}`, '-t', '-sTCP:LISTEN'],
-      {
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore']
-      }
-    );
-    const pid = Number.parseInt(output.trim().split('\n')[0], 10);
-    return Number.isNaN(pid) ? null : pid;
-  } catch {
-    return null;
-  }
+  const pids = getPidsOnPort({ port, listenOnly: true });
+  return pids[0] ?? null;
 };
 
 const isPortFree = (port: number): boolean => {
   return getProcessOnPort(port) === null;
 };
-
-const sleep = (ms: number): Promise<void> =>
-  new Promise((resolve) => {
-    setTimeout(resolve, ms);
-  });
 
 const main = async (): Promise<void> => {
   if (process.env.TEARLEADS_SKIP_DEV_KILL === '1') {
@@ -265,7 +188,7 @@ const main = async (): Promise<void> => {
   await sleep(200);
 
   for (const pid of allTargetPids) {
-    if (isAlive(pid)) {
+    if (isPidAlive(pid)) {
       killPid(pid, 'SIGKILL');
     }
   }
