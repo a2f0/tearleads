@@ -266,32 +266,29 @@ const findHardcodedStrings = async (
 
   match = jsxTextRegex.exec(content);
   while (match !== null) {
-    const currentMatch = match;
+    const text = match[1].trim();
+    const matchIndex = match.index;
+
+    if (isLikelyTranslatableText(text)) {
+      // Skip if inside a comment
+      const beforeMatch = content.substring(
+        Math.max(0, matchIndex - 100),
+        matchIndex
+      );
+      if (!beforeMatch.includes('//') && !beforeMatch.includes('/*')) {
+        const { line, column } = getLineAndColumn(content, matchIndex);
+        results.push({
+          file: relativePath,
+          line,
+          column,
+          type: 'jsx-text',
+          value: text,
+          context: getContextLine(content, matchIndex)
+        });
+      }
+    }
+
     match = jsxTextRegex.exec(content);
-    const text = currentMatch[1].trim();
-
-    if (!isLikelyTranslatableText(text)) {
-      continue;
-    }
-
-    // Skip if inside a comment
-    const beforeMatch = content.substring(
-      Math.max(0, currentMatch.index - 100),
-      currentMatch.index
-    );
-    if (beforeMatch.includes('//') || beforeMatch.includes('/*')) {
-      continue;
-    }
-
-    const { line, column } = getLineAndColumn(content, currentMatch.index);
-    results.push({
-      file: relativePath,
-      line,
-      column,
-      type: 'jsx-text',
-      value: text,
-      context: getContextLine(content, currentMatch.index)
-    });
   }
 
   // Pattern 2: User-facing attributes with string literals
@@ -300,35 +297,26 @@ const findHardcodedStrings = async (
 
   match = attributeRegex.exec(content);
   while (match !== null) {
-    const currentMatch = match;
+    const attrName = match[1];
+    const attrValue = match[2].trim();
+    const matchIndex = match.index;
+
+    const isUserFacing =
+      !SKIP_ATTRIBUTES.has(attrName) && USER_FACING_ATTRIBUTES.has(attrName);
+    if (isUserFacing && isLikelyTranslatableText(attrValue)) {
+      const { line, column } = getLineAndColumn(content, matchIndex);
+      results.push({
+        file: relativePath,
+        line,
+        column,
+        type: 'attribute',
+        value: attrValue,
+        attributeName: attrName,
+        context: getContextLine(content, matchIndex)
+      });
+    }
+
     match = attributeRegex.exec(content);
-    const attrName = currentMatch[1];
-    const attrValue = currentMatch[2].trim();
-
-    // Skip non-user-facing attributes
-    if (SKIP_ATTRIBUTES.has(attrName)) {
-      continue;
-    }
-
-    // Only check user-facing attributes
-    if (!USER_FACING_ATTRIBUTES.has(attrName)) {
-      continue;
-    }
-
-    if (!isLikelyTranslatableText(attrValue)) {
-      continue;
-    }
-
-    const { line, column } = getLineAndColumn(content, currentMatch.index);
-    results.push({
-      file: relativePath,
-      line,
-      column,
-      type: 'attribute',
-      value: attrValue,
-      attributeName: attrName,
-      context: getContextLine(content, currentMatch.index)
-    });
   }
 
   // Pattern 3: Array literals with label properties (common pattern for tabs, menus)
@@ -338,23 +326,22 @@ const findHardcodedStrings = async (
 
   match = labelInObjectRegex.exec(content);
   while (match !== null) {
-    const currentMatch = match;
-    match = labelInObjectRegex.exec(content);
-    const value = (currentMatch[1] || currentMatch[2]).trim();
+    const value = (match[1] || match[2]).trim();
+    const matchIndex = match.index;
 
-    if (!isLikelyTranslatableText(value)) {
-      continue;
+    if (isLikelyTranslatableText(value)) {
+      const { line, column } = getLineAndColumn(content, matchIndex);
+      results.push({
+        file: relativePath,
+        line,
+        column,
+        type: 'array-literal',
+        value,
+        context: getContextLine(content, matchIndex)
+      });
     }
 
-    const { line, column } = getLineAndColumn(content, currentMatch.index);
-    results.push({
-      file: relativePath,
-      line,
-      column,
-      type: 'array-literal',
-      value,
-      context: getContextLine(content, currentMatch.index)
-    });
+    match = labelInObjectRegex.exec(content);
   }
 
   return results;
