@@ -558,6 +558,8 @@ export interface AdminTranslations {
   completion: string;
   total: string;
   table: string;
+  tableView: string;
+  documentView: string;
   size: string;
   rows: string;
   field: string;

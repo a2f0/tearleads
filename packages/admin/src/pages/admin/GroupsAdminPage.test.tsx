@@ -15,6 +15,17 @@ vi.mock('@/lib/api', () => ({
   }
 }));
 
+vi.mock('@/lib/api', () => ({
+  api: {
+    admin: {
+      getContext: vi.fn().mockResolvedValue({
+        isRootAdmin: true,
+        organizations: [{ id: 'org-1', name: 'Org 1' }]
+      })
+    }
+  }
+}));
+
 vi.mock('react-router-dom', async () => {
   const actual = await vi.importActual('react-router-dom');
   return {

@@ -566,6 +566,8 @@ export const pt = {
     completion: 'Conclusão',
     total: 'Total',
     table: 'Tabela',
+    tableView: 'Visualização de tabela',
+    documentView: 'Visualização de documento',
     size: 'Tamanho',
     rows: 'Linhas',
     field: 'Campo',

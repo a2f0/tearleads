@@ -5,7 +5,10 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { UsersAdminPage } from './UsersAdminPage';
 
 const mockList = vi.fn();
-const mockGetContext = vi.fn();
+const mockGetContext = vi.fn().mockResolvedValue({
+  isRootAdmin: true,
+  organizations: [{ id: 'org-1', name: 'Org 1' }]
+});
 const mockNavigate = vi.fn();
 
 vi.mock('@/lib/api', () => ({

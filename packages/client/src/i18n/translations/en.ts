@@ -637,6 +637,8 @@ export const en = {
     completionTokens: 'Completion Tokens',
     // Postgres
     tableBrowser: 'Table browser',
+    tableView: 'Table view',
+    documentView: 'Document view',
     exportAsCsv: 'Export as CSV',
     columnSettings: 'Column settings',
     visibleColumns: 'Visible columns',

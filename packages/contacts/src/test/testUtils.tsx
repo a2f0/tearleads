@@ -1,8 +1,10 @@
 import type { Database } from '@tearleads/db/sqlite';
+import i18next from 'i18next';
 import type { ReactNode } from 'react';
 import { vi } from 'vitest';
 import {
   ContactsProvider,
+  type ContactsTranslationKey,
   type ContactsUIComponents,
   type DatabaseAdapter,
   type DatabaseState
@@ -162,7 +164,7 @@ export interface TestContactsProviderProps {
   database?: MockDb;
   databaseAdapter?: DatabaseAdapter;
   ui?: ContactsUIComponents;
-  t?: (key: string) => string;
+  t?: (key: ContactsTranslationKey) => string;
   navigate?: (to: string) => void;
   navigateWithFrom?: (to: string) => void;
   saveFile?: (
@@ -184,7 +186,7 @@ export function TestContactsProvider({
   database,
   databaseAdapter,
   ui = mockUIComponents,
-  t = mockT,
+  t = (key) => i18next.t(key, { ns: ['contacts', 'contextMenu', 'common'] }),
   navigate = vi.fn(),
   navigateWithFrom = vi.fn(),
   saveFile = vi.fn().mockResolvedValue(undefined),

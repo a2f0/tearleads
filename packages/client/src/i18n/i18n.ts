@@ -75,18 +75,18 @@ i18n
     ns: [
       'common',
       'menu',
-      'health',
-      'contacts',
-      'admin',
-      'sync',
       'audio',
+      'tooltips',
+      'contextMenu',
       'settings',
       'classic',
+      'contacts',
+      'sync',
       'debug',
       'search',
       'vehicles',
-      'contextMenu',
-      'tooltips'
+      'admin',
+      'health'
     ],
     defaultNS: 'common',
 
