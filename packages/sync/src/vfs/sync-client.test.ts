@@ -470,6 +470,37 @@ function readReplaySnapshotCursorOrThrow(input: {
   return seedReplayCursor;
 }
 
+type GuardrailViolationSnapshot = {
+  code: string;
+  stage: string;
+  message: string;
+  details?: Record<string, string | number | boolean | null>;
+};
+
+function expectLastWriteIdRegressionViolation(input: {
+  violations: GuardrailViolationSnapshot[];
+  stage: 'pull' | 'reconcile';
+  replicaId: string;
+  previousWriteId: number;
+  incomingWriteId: number;
+}): void {
+  const message =
+    input.stage === 'pull'
+      ? 'pull response regressed replica write-id state'
+      : 'reconcile acknowledgement regressed replica write-id state';
+
+  expect(input.violations).toContainEqual({
+    code: 'lastWriteIdRegression',
+    stage: input.stage,
+    message,
+    details: {
+      replicaId: input.replicaId,
+      previousWriteId: input.previousWriteId,
+      incomingWriteId: input.incomingWriteId
+    }
+  });
+}
+
 describe('VfsBackgroundSyncClient', () => {
   it('converges multiple clients after concurrent flush and sync', async () => {
     const server = new InMemoryVfsCrdtSyncServer();
@@ -8730,15 +8761,12 @@ describe('VfsBackgroundSyncClient', () => {
     await expect(resumedClient.sync()).rejects.toThrowError(
       /regressed lastReconciledWriteIds for replica desktop/
     );
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'pull',
-      message: 'pull response regressed replica write-id state',
-      details: {
-        replicaId: 'desktop',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'desktop',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
     expect(resumedClient.snapshot().acl).not.toContainEqual(
       expect.objectContaining({
@@ -8749,15 +8777,12 @@ describe('VfsBackgroundSyncClient', () => {
     await expect(resumedClient.sync()).rejects.toThrowError(
       /regressed lastReconciledWriteIds for replica mobile/
     );
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'reconcile',
-      message: 'reconcile acknowledgement regressed replica write-id state',
-      details: {
-        replicaId: 'mobile',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'mobile',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
     expect(resumedClient.snapshot().lastReconciledWriteIds).toEqual({
       desktop: 6,
@@ -9063,35 +9088,26 @@ describe('VfsBackgroundSyncClient', () => {
       pullPages: 1
     });
 
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'pull',
-      message: 'pull response regressed replica write-id state',
-      details: {
-        replicaId: 'desktop',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'desktop',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'reconcile',
-      message: 'reconcile acknowledgement regressed replica write-id state',
-      details: {
-        replicaId: 'mobile',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'mobile',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'pull',
-      message: 'pull response regressed replica write-id state',
-      details: {
-        replicaId: 'desktop',
-        previousWriteId: 6,
-        incomingWriteId: 5
-      }
+      replicaId: 'desktop',
+      previousWriteId: 6,
+      incomingWriteId: 5
     });
     expect(guardrailViolations).toHaveLength(3);
 
@@ -9375,25 +9391,19 @@ describe('VfsBackgroundSyncClient', () => {
       ).toBeGreaterThan(0);
     }
 
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'pull',
-      message: 'pull response regressed replica write-id state',
-      details: {
-        replicaId: 'desktop',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'desktop',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'reconcile',
-      message: 'reconcile acknowledgement regressed replica write-id state',
-      details: {
-        replicaId: 'mobile',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'mobile',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
     expect(guardrailViolations).toHaveLength(2);
   });
@@ -9645,25 +9655,19 @@ describe('VfsBackgroundSyncClient', () => {
       })
     );
 
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'pull',
-      message: 'pull response regressed replica write-id state',
-      details: {
-        replicaId: 'desktop',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'desktop',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'reconcile',
-      message: 'reconcile acknowledgement regressed replica write-id state',
-      details: {
-        replicaId: 'mobile',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'mobile',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
     expect(guardrailViolations).toHaveLength(2);
   });
@@ -9941,25 +9945,19 @@ describe('VfsBackgroundSyncClient', () => {
       )
     ).toBe(false);
 
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'pull',
-      message: 'pull response regressed replica write-id state',
-      details: {
-        replicaId: 'desktop',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'desktop',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
-    expect(guardrailViolations).toContainEqual({
-      code: 'lastWriteIdRegression',
+    expectLastWriteIdRegressionViolation({
+      violations: guardrailViolations,
       stage: 'reconcile',
-      message: 'reconcile acknowledgement regressed replica write-id state',
-      details: {
-        replicaId: 'mobile',
-        previousWriteId: 5,
-        incomingWriteId: 4
-      }
+      replicaId: 'mobile',
+      previousWriteId: 5,
+      incomingWriteId: 4
     });
     expect(guardrailViolations).toHaveLength(2);
   });
