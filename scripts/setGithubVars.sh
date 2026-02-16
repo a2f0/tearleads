@@ -49,8 +49,8 @@ check_var "ANTHROPIC_API_KEY"
 # npm: No longer needed - using OIDC trusted publishing
 
 # Server Deploy
-check_var "TF_VAR_STAGING_DOMAIN"
-check_var "TF_VAR_SERVER_USERNAME"
+check_var "TF_VAR_staging_domain"
+check_var "TF_VAR_server_username"
 check_var "VITE_API_URL"
 
 # https://appstoreconnect.apple.com/access/integrations/api
@@ -116,9 +116,9 @@ set_secret "ANTHROPIC_API_KEY" "$ANTHROPIC_API_KEY"
 # Deploy
 set_secret "DEPLOY_SSH_KEY" "$DEPLOY_SSH_KEY"
 # shellcheck disable=SC2154 # validated by check_var
-set_secret "DEPLOY_DOMAIN" "$TF_VAR_STAGING_DOMAIN"
+set_secret "DEPLOY_DOMAIN" "$TF_VAR_staging_domain"
 # shellcheck disable=SC2154 # validated by check_var
-set_secret "DEPLOY_USER" "$TF_VAR_SERVER_USERNAME"
+set_secret "DEPLOY_USER" "$TF_VAR_server_username"
 # shellcheck disable=SC2154 # validated by check_var
 set_secret "VITE_API_URL" "$VITE_API_URL"
 

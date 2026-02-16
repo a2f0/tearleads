@@ -28,7 +28,7 @@ variable "server_username" {
 variable "server_type" {
   description = "Hetzner server type"
   type        = string
-  default     = "cx22"
+  default     = "cx23"
 }
 
 variable "allowed_ssh_ips" {
@@ -41,4 +41,15 @@ variable "allowed_k8s_api_ips" {
   description = "List of IP addresses/CIDRs allowed to access k8s API (port 6443)"
   type        = list(string)
   default     = ["0.0.0.0/0", "::/0"] # More permissive for staging dev access
+}
+
+variable "ssh_host_private_key" {
+  description = "SSH host private key for the server"
+  type        = string
+  sensitive   = true
+}
+
+variable "ssh_host_public_key" {
+  description = "SSH host public key for the server"
+  type        = string
 }

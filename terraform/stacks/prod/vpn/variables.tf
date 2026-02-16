@@ -23,7 +23,7 @@ variable "server_location" {
 variable "server_type" {
   description = "Hetzner server type"
   type        = string
-  default     = "cx22"
+  default     = "cx23"
 }
 
 variable "allowed_ssh_ips" {

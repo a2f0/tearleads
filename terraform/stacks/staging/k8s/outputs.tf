@@ -28,7 +28,7 @@ output "kubeconfig_command" {
   value       = "scp ${var.server_username}@${module.server.ipv4_address}:.kube/config ~/.kube/config-staging-k8s"
 }
 
-output "server_username" {
+output "SERVER_USERNAME" {
   description = "Username for SSH access"
   value       = var.server_username
 }

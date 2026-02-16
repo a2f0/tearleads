@@ -11,7 +11,7 @@ variable "ssh_key_name" {
 variable "server_type" {
   description = "Hetzner server type (e.g., cx22, cx32, cx42)"
   type        = string
-  default     = "cx22"
+  default     = "cx23"
 }
 
 variable "image" {

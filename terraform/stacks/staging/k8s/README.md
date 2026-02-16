@@ -12,9 +12,11 @@ This stack provisions a k3s Kubernetes cluster on Hetzner Cloud for the staging 
 
 ## Prerequisites
 
-- Hetzner Cloud API token (`TF_VAR_HCLOUD_TOKEN`)
-- SSH key registered in Hetzner (`TF_VAR_SSH_KEY_NAME`)
-- Staging domain configured (`TF_VAR_STAGING_DOMAIN`)
+- Hetzner Cloud API token (`TF_VAR_hcloud_token`)
+- SSH key registered in Hetzner (`TF_VAR_ssh_key_name`)
+- Staging domain configured (`TF_VAR_staging_domain`)
+
+> For backwards compatibility with scripts (like the Ansible playbook) that still reference `TF_VAR_STAGING_DOMAIN`, setting the uppercase alias to the same value is still supported. The canonical names are the lowercase `TF_VAR_*` variants listed above.
 
 ## Scripts
 
