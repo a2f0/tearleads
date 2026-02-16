@@ -1,11 +1,5 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  buildColumnsResponse,
-  buildRowsResponse,
-  createMockApi
-} from './postgresTableRowsViewTestUtils';
 import {
   defaultSchema,
   defaultTableName,
@@ -13,6 +7,11 @@ import {
   singleIdRow
 } from './postgresTableRowsViewTestCases';
 import { PostgresTableRowsView } from './PostgresTableRowsView';
+import {
+  buildColumnsResponse,
+  buildRowsResponse,
+  createMockApi
+} from './postgresTableRowsViewTestUtils';
 
 const { mockGetColumns, mockGetRows } = createMockApi();
 
@@ -51,13 +50,17 @@ const renderView = (
   schema: string | null = defaultSchema,
   tableName: string | null = defaultTableName
 ) => {
-  return render(<PostgresTableRowsView schema={schema} tableName={tableName} />);
+  return render(
+    <PostgresTableRowsView schema={schema} tableName={tableName} />
+  );
 };
 
 const renderAndWait = async () => {
   renderView();
   await waitFor(() => {
-    expect(screen.getByText(`${defaultSchema}.${defaultTableName}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${defaultSchema}.${defaultTableName}`)
+    ).toBeInTheDocument();
   });
 };
 
@@ -85,7 +88,9 @@ describe('PostgresTableRowsView (basic)', () => {
     renderView();
 
     await waitFor(() => {
-      expect(screen.getByText(`${defaultSchema}.${defaultTableName}`)).toBeInTheDocument();
+      expect(
+        screen.getByText(`${defaultSchema}.${defaultTableName}`)
+      ).toBeInTheDocument();
     });
   });
 

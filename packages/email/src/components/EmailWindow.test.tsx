@@ -6,7 +6,10 @@ import type { EmailContactOperations, EmailFolderOperations } from '../context';
 import { mockConsoleError } from '../test/consoleMocks';
 import { TestEmailProvider } from '../test/testUtils';
 import { EmailWindow } from './EmailWindow';
-import { EmailWindowMenuBarMock, windowManagerMock } from './EmailWindowTestMocks';
+import {
+  EmailWindowMenuBarMock,
+  windowManagerMock
+} from './EmailWindowTestMocks';
 import {
   mockEmailLargeSize,
   mockEmailSmallSize,
@@ -19,7 +22,6 @@ vi.mock('@tearleads/window-manager', () => windowManagerMock);
 vi.mock('./EmailWindowMenuBar', () => ({
   EmailWindowMenuBar: EmailWindowMenuBarMock
 }));
-
 
 describe('EmailWindow', () => {
   const defaultProps: ComponentProps<typeof EmailWindow> = {

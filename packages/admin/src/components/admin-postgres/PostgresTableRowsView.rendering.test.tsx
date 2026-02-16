@@ -1,11 +1,6 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  buildColumnsResponse,
-  buildRowsResponse,
-  createMockApi
-} from './postgresTableRowsViewTestUtils';
-import {
   defaultSchema,
   defaultTableName,
   jsonColumns,
@@ -13,6 +8,11 @@ import {
   nameRows
 } from './postgresTableRowsViewTestCases';
 import { PostgresTableRowsView } from './PostgresTableRowsView';
+import {
+  buildColumnsResponse,
+  buildRowsResponse,
+  createMockApi
+} from './postgresTableRowsViewTestUtils';
 
 const { mockGetColumns, mockGetRows } = createMockApi();
 
@@ -51,7 +51,9 @@ const renderAndWait = async () => {
     <PostgresTableRowsView schema={defaultSchema} tableName={defaultTableName} />
   );
   await waitFor(() => {
-    expect(screen.getByText(`${defaultSchema}.${defaultTableName}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${defaultSchema}.${defaultTableName}`)
+    ).toBeInTheDocument();
   });
 };
 
@@ -59,7 +61,9 @@ describe('PostgresTableRowsView (rendering)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetColumns.mockResolvedValue(buildColumnsResponse(jsonColumns));
-    mockGetRows.mockResolvedValue(buildRowsResponse({ rows: jsonRow, totalCount: 1 }));
+    mockGetRows.mockResolvedValue(
+      buildRowsResponse({ rows: jsonRow, totalCount: 1 })
+    );
   });
 
   it('renders rows with json data', async () => {
@@ -69,7 +73,9 @@ describe('PostgresTableRowsView (rendering)', () => {
   });
 
   it('renders multiple rows', async () => {
-    mockGetRows.mockResolvedValue(buildRowsResponse({ rows: nameRows, totalCount: 2 }));
+    mockGetRows.mockResolvedValue(
+      buildRowsResponse({ rows: nameRows, totalCount: 2 })
+    );
     await renderAndWait();
 
     expect(screen.getByText('Alice')).toBeInTheDocument();
@@ -87,7 +93,9 @@ describe('PostgresTableRowsView (rendering)', () => {
   });
 
   it('renders row count in status', async () => {
-    mockGetRows.mockResolvedValue(buildRowsResponse({ rows: nameRows, totalCount: 2 }));
+    mockGetRows.mockResolvedValue(
+      buildRowsResponse({ rows: nameRows, totalCount: 2 })
+    );
 
     await renderAndWait();
 

@@ -2,11 +2,6 @@ import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  buildColumnsResponse,
-  buildRowsResponse,
-  createMockApi
-} from './postgresTableRowsViewTestUtils';
-import {
   defaultSchema,
   defaultTableName,
   emailColumns,
@@ -16,6 +11,11 @@ import {
   singleNameRow
 } from './postgresTableRowsViewTestCases';
 import { PostgresTableRowsView } from './PostgresTableRowsView';
+import {
+  buildColumnsResponse,
+  buildRowsResponse,
+  createMockApi
+} from './postgresTableRowsViewTestUtils';
 
 const { mockGetColumns, mockGetRows } = createMockApi();
 
@@ -54,7 +54,9 @@ const renderAndWait = async () => {
     <PostgresTableRowsView schema={defaultSchema} tableName={defaultTableName} />
   );
   await waitFor(() => {
-    expect(screen.getByText(`${defaultSchema}.${defaultTableName}`)).toBeInTheDocument();
+    expect(
+      screen.getByText(`${defaultSchema}.${defaultTableName}`)
+    ).toBeInTheDocument();
   });
 };
 
