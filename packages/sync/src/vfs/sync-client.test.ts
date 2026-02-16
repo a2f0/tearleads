@@ -2013,6 +2013,7 @@ describe('VfsBackgroundSyncClient', () => {
       phaseTwoPullCursorSignatures: string[];
       phaseThreeGuardrails: string[];
       finalWriteIds: string;
+      forwardContainerSignatures: string[];
     }> => {
       const random = createDeterministicRandom(seed);
       const desktopBase = nextInt(random, 1, 4);
@@ -2058,6 +2059,10 @@ describe('VfsBackgroundSyncClient', () => {
         }
       );
       await sourceClient.sync();
+      const seedCursor = sourceClient.snapshot().cursor;
+      if (!seedCursor) {
+        throw new Error('expected seed cursor in mixed seeded chain run');
+      }
 
       const duplicateOpId = `desktop-seeded-chain-dup-${seed}`;
       const phaseOneGuardrailEvents: Array<{ stage: string; code: string }> =
@@ -2276,6 +2281,45 @@ describe('VfsBackgroundSyncClient', () => {
         `${at(4)}|desktop-seeded-chain-recover-1-${seed}`
       ]);
 
+      const forwardContainerSignatures: string[] = [];
+      let containerCursor = seedCursor;
+      while (true) {
+        const page = phaseThreeClient.listChangedContainers(containerCursor, 1);
+        for (const item of page.items) {
+          const itemCursor = {
+            changedAt: item.changedAt,
+            changeId: item.changeId
+          };
+          expect(compareVfsSyncCursorOrder(itemCursor, seedCursor)).toBe(1);
+          expect(compareVfsSyncCursorOrder(itemCursor, containerCursor)).toBe(
+            1
+          );
+          forwardContainerSignatures.push(
+            `${item.containerId}|${item.changeId}`
+          );
+        }
+
+        if (!page.hasMore) {
+          break;
+        }
+
+        if (!page.nextCursor) {
+          throw new Error(
+            'expected next container cursor when hasMore is true'
+          );
+        }
+        expect(
+          compareVfsSyncCursorOrder(page.nextCursor, containerCursor)
+        ).toBe(1);
+        containerCursor = page.nextCursor;
+      }
+
+      expect(forwardContainerSignatures).toEqual([
+        `item-seeded-chain-dup-1-${seed}|${duplicateOpId}`,
+        `item-seeded-chain-recover-1-${seed}|desktop-seeded-chain-recover-1-${seed}`,
+        `item-seeded-chain-recover-2-${seed}|desktop-seeded-chain-recover-2-${seed}`
+      ]);
+
       const finalWriteIds = JSON.stringify(
         phaseThreeClient.snapshot().lastReconciledWriteIds
       );
@@ -2292,7 +2336,8 @@ describe('VfsBackgroundSyncClient', () => {
         phaseTwoGuardrails,
         phaseTwoPullCursorSignatures,
         phaseThreeGuardrails,
-        finalWriteIds
+        finalWriteIds,
+        forwardContainerSignatures
       };
     };
 
