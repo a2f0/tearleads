@@ -4,6 +4,18 @@
 
 This file is for Codex. Claude Code uses CLAUDE.md.
 
+## Code Verification
+
+**Always verify the actual state of the codebase before making claims.** Before stating that something is "already done," "doesn't exist," or "works a certain way," check the actual code to confirm. Issue descriptions, commit messages, or GitHub comments may not reflect the current state of the repository.
+
+Common mistakes:
+
+- Assuming code exists based on an issue description without checking
+- Claiming something is "already implemented" without verifying
+- Trusting that file paths mentioned in issues are correct
+
+When in doubt, use search tools (`grep`, `glob`) or read the relevant files directly to verify.
+
 ## Repository Identification (CRITICAL)
 
 **Never infer the repository name from the workspace folder name.** Workspaces like `tearleads2`, `tearleads10`, `tearleads-main` are all clones of the same repository.
