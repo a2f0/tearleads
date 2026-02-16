@@ -74,10 +74,7 @@ describe('UsersAdminDetail (basic)', () => {
 
   it('renders loading state initially', async () => {
     mockGet.mockImplementation(
-      () =>
-        new Promise((resolve) =>
-          setTimeout(() => resolve(user1Response), 100)
-        )
+      () => new Promise((resolve) => setTimeout(() => resolve(user1Response), 100))
     );
 
     renderWithRouter('user-1');
