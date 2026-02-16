@@ -1,15 +1,7 @@
-import {
-  DesktopFloatingWindow as FloatingWindow,
-  WindowControlBar,
-  type WindowDimensions
-} from '@tearleads/window-manager';
+import { BusinessesWindow as BaseBusinessesWindow } from '@tearleads/businesses';
+import type { WindowDimensions } from '@tearleads/window-manager';
 import { BusinessesManager } from '@/components/businesses';
-import { BusinessesWindowMenuBar } from './BusinessesWindowMenuBar';
-
-const BUSINESSES_WINDOW_DEFAULT_WIDTH = 860;
-const BUSINESSES_WINDOW_DEFAULT_HEIGHT = 560;
-const BUSINESSES_WINDOW_MIN_WIDTH = 620;
-const BUSINESSES_WINDOW_MIN_HEIGHT = 420;
+import { ClientBusinessesProvider } from '@/contexts/ClientBusinessesProvider';
 
 interface BusinessesWindowProps {
   id: string;
@@ -22,39 +14,12 @@ interface BusinessesWindowProps {
   initialDimensions?: WindowDimensions;
 }
 
-export function BusinessesWindow({
-  id,
-  onClose,
-  onMinimize,
-  onDimensionsChange,
-  onRename,
-  onFocus,
-  zIndex,
-  initialDimensions
-}: BusinessesWindowProps) {
+export function BusinessesWindow(props: BusinessesWindowProps) {
   return (
-    <FloatingWindow
-      id={id}
-      title="Businesses"
-      onClose={onClose}
-      onMinimize={onMinimize}
-      onDimensionsChange={onDimensionsChange}
-      onRename={onRename}
-      onFocus={onFocus}
-      zIndex={zIndex}
-      {...(initialDimensions && { initialDimensions })}
-      defaultWidth={BUSINESSES_WINDOW_DEFAULT_WIDTH}
-      defaultHeight={BUSINESSES_WINDOW_DEFAULT_HEIGHT}
-      minWidth={BUSINESSES_WINDOW_MIN_WIDTH}
-      minHeight={BUSINESSES_WINDOW_MIN_HEIGHT}
-    >
-      <div className="flex h-full min-h-0 flex-col">
-        <BusinessesWindowMenuBar onClose={onClose} />
-        <WindowControlBar>{null}</WindowControlBar>
-        <div className="min-h-0 flex-1 p-3">
-          <BusinessesManager />
-        </div>
-      </div>
-    </FloatingWindow>
+    <ClientBusinessesProvider>
+      <BaseBusinessesWindow {...props}>
+        <BusinessesManager />
+      </BaseBusinessesWindow>
+    </ClientBusinessesProvider>
   );
 }
