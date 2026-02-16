@@ -162,10 +162,9 @@ export const getCrdtSyncHandler = async (req: Request, res: Response) => {
       FROM vfs_crdt_ops
       WHERE source_table = $1
         AND actor_id = $2
-        AND position($3 in source_id) = 1
       GROUP BY split_part(source_id, ':', 2)
       `,
-      [CRDT_CLIENT_PUSH_SOURCE_TABLE, claims.sub, `${claims.sub}:`]
+      [CRDT_CLIENT_PUSH_SOURCE_TABLE, claims.sub]
     );
 
     const response: VfsCrdtSyncResponse = mapVfsCrdtSyncRows(

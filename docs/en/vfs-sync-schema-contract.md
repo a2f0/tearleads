@@ -27,14 +27,14 @@ are defined in:
 
 The current flattened target contract is:
 
-1. `user_groups`
-2. `user_organizations`
-3. `vfs_acl_entries`
-4. `vfs_crdt_ops`
-5. `vfs_links`
-6. `vfs_registry`
-7. `vfs_sync_changes`
-8. `vfs_sync_client_state`
+- `user_groups`
+- `user_organizations`
+- `vfs_acl_entries`
+- `vfs_crdt_ops`
+- `vfs_links`
+- `vfs_registry`
+- `vfs_sync_changes`
+- `vfs_sync_client_state`
 
 Any SQL references outside this set are treated as out-of-contract and should
 fail the schema-contract guardrail tests.

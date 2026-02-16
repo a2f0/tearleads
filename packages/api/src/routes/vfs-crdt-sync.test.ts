@@ -162,8 +162,7 @@ describe('VFS CRDT sync route', () => {
     ]);
     expect(mockQuery.mock.calls[1]?.[1]).toEqual([
       'vfs_crdt_client_push',
-      'user-1',
-      'user-1:'
+      'user-1'
     ]);
   });
 

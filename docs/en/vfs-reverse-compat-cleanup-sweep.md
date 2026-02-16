@@ -13,14 +13,14 @@ compatibility branches that are no longer needed before production.
 
 ## Sweep Scope
 
-1. Share ACL identifier cleanup (`org-share:<sourceOrgId>:<shareId>` only)
-1. Share-route query cleanup (no legacy share-id parsing/fallback reads)
-1. Explorer/read-path cleanup (remove `vfs_folders` fallback behavior)
-1. Write-path cleanup (remove dual-write compatibility scaffolding)
-1. Client local schema cleanup (remove compatibility migration assumptions)
-1. Contract/doc cleanup (retire outdated transitional wording/checks)
-1. Explorer share-query cleanup (`vfs_acl_entries` canonical source only)
-1. Runtime schema-generation cleanup (exclude retired VFS tables from runtime outputs)
+- Share ACL identifier cleanup (`org-share:<sourceOrgId>:<shareId>` only)
+- Share-route query cleanup (no legacy share-id parsing/fallback reads)
+- Explorer/read-path cleanup (remove `vfs_folders` fallback behavior)
+- Write-path cleanup (remove dual-write compatibility scaffolding)
+- Client local schema cleanup (remove compatibility migration assumptions)
+- Contract/doc cleanup (retire outdated transitional wording/checks)
+- Explorer share-query cleanup (`vfs_acl_entries` canonical source only)
+- Runtime schema-generation cleanup (exclude retired VFS tables from runtime outputs)
 
 ## Canonical Invariants
 
