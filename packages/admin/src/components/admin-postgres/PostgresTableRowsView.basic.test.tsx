@@ -1,12 +1,12 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PostgresTableRowsView } from './PostgresTableRowsView';
 import {
   defaultSchema,
   defaultTableName,
   minimalColumns,
   singleIdRow
 } from './postgresTableRowsViewTestCases';
-import { PostgresTableRowsView } from './PostgresTableRowsView';
 import {
   buildColumnsResponse,
   buildRowsResponse,

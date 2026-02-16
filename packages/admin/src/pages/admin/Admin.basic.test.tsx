@@ -175,7 +175,9 @@ describe('Admin (basic)', () => {
       renderAdmin();
 
       await waitFor(() => {
-        expect(screen.getByText(new RegExp(`${count} key`))).toBeInTheDocument();
+        expect(
+          screen.getByText(new RegExp(`${count} key`))
+        ).toBeInTheDocument();
       });
     });
   });

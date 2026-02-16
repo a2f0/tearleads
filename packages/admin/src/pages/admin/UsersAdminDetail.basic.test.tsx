@@ -74,7 +74,10 @@ describe('UsersAdminDetail (basic)', () => {
 
   it('renders loading state initially', async () => {
     mockGet.mockImplementation(
-      () => new Promise((resolve) => setTimeout(() => resolve(user1Response), 100))
+      () =>
+        new Promise((resolve) =>
+          setTimeout(() => resolve(user1Response), 100)
+        )
     );
 
     renderWithRouter('user-1');
@@ -253,9 +256,13 @@ describe('UsersAdminDetail (basic)', () => {
   it('navigates to filtered AI requests route from detail view', async () => {
     await renderUser(user1Response);
 
-    await userEvent.click(screen.getByRole('button', { name: 'View Requests' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'View Requests' })
+    );
 
-    expect(mockNavigate).toHaveBeenCalledWith('/admin/ai-requests?userId=user-1');
+    expect(mockNavigate).toHaveBeenCalledWith(
+      '/admin/ai-requests?userId=user-1'
+    );
   });
 
   it('calls onViewAiRequests callback when provided', async () => {
@@ -275,7 +282,9 @@ describe('UsersAdminDetail (basic)', () => {
 
     await screen.findByRole('heading', { name: 'Edit User' });
 
-    await userEvent.click(screen.getByRole('button', { name: 'View Requests' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: 'View Requests' })
+    );
 
     expect(onViewAiRequests).toHaveBeenCalledWith('user-1');
   });

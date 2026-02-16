@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { PostgresTableRowsView } from './PostgresTableRowsView';
 import {
   defaultSchema,
   defaultTableName,
@@ -10,7 +11,6 @@ import {
   singleIdRow,
   singleNameRow
 } from './postgresTableRowsViewTestCases';
-import { PostgresTableRowsView } from './PostgresTableRowsView';
 import {
   buildColumnsResponse,
   buildRowsResponse,
@@ -51,7 +51,10 @@ vi.mock('@tanstack/react-virtual', () => ({
 
 const renderAndWait = async () => {
   render(
-    <PostgresTableRowsView schema={defaultSchema} tableName={defaultTableName} />
+    <PostgresTableRowsView
+      schema={defaultSchema}
+      tableName={defaultTableName}
+    />
   );
   await waitFor(() => {
     expect(
