@@ -1,4 +1,4 @@
-import { useTheme } from './useTheme';
+import { useTheme } from './useTheme.js';
 
 export function ThemeProviderTestConsumer() {
   const { theme, setTheme, resolvedTheme } = useTheme();

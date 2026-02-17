@@ -86,8 +86,8 @@ export function TableRowsView({
     isUnlocked,
     isLoading,
     currentInstanceId,
-    onStatusTextChange,
-    onExportCsvChange
+    ...(onStatusTextChange ? { onStatusTextChange } : {}),
+    ...(onExportCsvChange ? { onExportCsvChange } : {})
   });
 
   return (

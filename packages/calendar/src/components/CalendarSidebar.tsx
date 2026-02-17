@@ -11,7 +11,7 @@ interface CalendarSidebarProps {
   activeCalendar: string;
   onSelectCalendar: (name: string) => void;
   onCalendarContextMenu: (
-    event: ReactMouseEvent<HTMLElement>,
+    event: ReactMouseEvent<Element>,
     name: string
   ) => void;
   onEmptySpaceContextMenu: (position: { x: number; y: number }) => void;

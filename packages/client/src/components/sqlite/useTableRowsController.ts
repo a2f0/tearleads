@@ -401,7 +401,7 @@ export function useTableRowsController({
     error,
     initialLoadComplete,
     documentView,
-    onStatusTextChange,
+    ...(onStatusTextChange ? { onStatusTextChange } : {}),
     onFetchMore: () => fetchTableDataRef.current(false)
   });
 
