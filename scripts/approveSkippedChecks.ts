@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 interface CliArgs {
   prNumber?: string;
   dryRun: boolean;
+  help: boolean;
 }
 
 interface CheckRun {
@@ -22,6 +23,20 @@ interface CheckRunsApiResponse {
   check_runs?: unknown;
 }
 
+class UsageError extends Error {}
+
+function usage(): string {
+  return `Usage: approveSkippedChecks.ts [--pr <number>] [--dry-run] [--help]
+
+This script creates check runs with "success" conclusion for required checks
+that are currently "skipped" due to CI impact detection.
+
+Options:
+  --pr <number>   PR number (auto-detected from current branch if omitted)
+  --dry-run       Perform a dry run without creating actual check runs
+  --help, -h      Show help`;
+}
+
 const requiredChecks = [
   'build',
   'Web E2E Tests (Release)',
@@ -33,7 +48,7 @@ const requiredChecks = [
 ];
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { dryRun: false };
+  const args: CliArgs = { dryRun: false, help: false };
 
   for (let index = 2; index < argv.length; index += 1) {
     const token = argv[index];
@@ -52,7 +67,12 @@ function parseArgs(argv: string[]): CliArgs {
       continue;
     }
 
-    throw new Error(`Unknown option: ${token}`);
+    if (token === '--help' || token === '-h') {
+      args.help = true;
+      continue;
+    }
+
+    throw new UsageError(`Unknown option: ${token}`);
   }
 
   return args;
@@ -134,7 +154,7 @@ function getPrNumber(maybePrNumber: string | undefined): string {
     '.number'
   ]);
   if (!currentPr || currentPr.length === 0) {
-    throw new Error('Could not determine PR number. Use --pr <number>');
+    throw new UsageError('Could not determine PR number. Use --pr <number>');
   }
   return currentPr;
 }
@@ -202,6 +222,10 @@ function getStatus(
 
 function main(): void {
   const args = parseArgs(process.argv);
+  if (args.help) {
+    process.stdout.write(`${usage()}\n`);
+    return;
+  }
   const repo = getRepo();
   const prNumber = getPrNumber(args.prNumber);
   const headSha = getHeadSha(repo, prNumber);
@@ -276,5 +300,8 @@ try {
 } catch (error) {
   const message = error instanceof Error ? error.message : String(error);
   process.stderr.write(`Error: ${message}\n`);
+  if (error instanceof UsageError) {
+    process.stderr.write(`${usage()}\n`);
+  }
   process.exit(1);
 }
