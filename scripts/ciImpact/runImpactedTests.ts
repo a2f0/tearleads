@@ -1,5 +1,5 @@
 #!/usr/bin/env -S pnpm exec tsx
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -168,20 +168,33 @@ function parseImpact(rawJson: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
-  const parts = [
-    'pnpm exec tsx scripts/ciImpact/ciImpact.ts',
-    `--base ${base}`,
-    `--head ${head}`
+  const ciImpactArgs = [
+    '--import',
+    'tsx',
+    'scripts/ciImpact/ciImpact.ts',
+    '--base',
+    base,
+    '--head',
+    head
   ];
   if (args.files !== undefined) {
-    parts.push(`--files "${args.files}"`);
+    ciImpactArgs.push('--files', args.files);
   }
-  const cmd = parts.join(' ');
-  const output = execSync(cmd, {
+
+  const result = spawnSync(process.execPath, ciImpactArgs, {
     encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe']
+    stdio: ['ignore', 'pipe', 'pipe'],
+    env: process.env
   });
-  return parseImpact(output);
+  if (typeof result.status === 'number' && result.status !== 0) {
+    const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+    throw new Error(stderr || 'Failed to run ciImpact');
+  }
+  if (result.status === null) {
+    throw new Error('ciImpact process terminated unexpectedly');
+  }
+
+  return parseImpact(typeof result.stdout === 'string' ? result.stdout : '');
 }
 
 function requiresFullCoverageRun(changedFiles: string[]): boolean {
