@@ -30,8 +30,6 @@
     { "path": "./packages/email/tsconfig.test.json" },
     { "path": "./packages/calendar" },
     { "path": "./packages/calendar/tsconfig.test.json" },
-    { "path": "./packages/health" },
-    { "path": "./packages/health/tsconfig.test.json" },
     { "path": "./packages/businesses" },
     { "path": "./packages/businesses/tsconfig.test.json" },
     { "path": "./packages/vehicles" },

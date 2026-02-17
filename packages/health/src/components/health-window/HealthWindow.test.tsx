@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HealthWindow } from './HealthWindow';
 
-vi.mock('@/components/floating-window', () => ({
+vi.mock('@tearleads/window-manager', () => ({
   FloatingWindow: ({
     children,
     title,
@@ -26,10 +26,29 @@ vi.mock('@/components/floating-window', () => ({
       </button>
       {children}
     </div>
+  ),
+  WindowControlBar: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  WindowControlGroup: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  WindowControlButton: ({
+    children,
+    onClick,
+    ...rest
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    [key: string]: unknown;
+  }) => (
+    <button type="button" onClick={onClick} {...rest}>
+      {children}
+    </button>
   )
 }));
 
-vi.mock('@/pages/Health', () => ({
+vi.mock('../../pages/Health', () => ({
   Health: ({
     showBackLink,
     refreshToken,

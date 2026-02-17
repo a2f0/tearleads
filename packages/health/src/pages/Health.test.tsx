@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { Health } from './Health';
 
 // Mock detail components that require DatabaseProvider
-vi.mock('@/components/health/weight', () => ({
+vi.mock('../components/health/weight', () => ({
   WeightDetail: ({ refreshToken }: { refreshToken?: number }) => (
     <div data-testid="weight-detail-mock" data-refresh-token={refreshToken}>
       Weight Detail Mock
@@ -13,7 +13,7 @@ vi.mock('@/components/health/weight', () => ({
   )
 }));
 
-vi.mock('@/components/health/workouts', () => ({
+vi.mock('../components/health/workouts', () => ({
   WorkoutDetail: ({ refreshToken }: { refreshToken?: number }) => (
     <div data-testid="workout-detail-mock" data-refresh-token={refreshToken}>
       Workout Detail Mock
@@ -21,7 +21,7 @@ vi.mock('@/components/health/workouts', () => ({
   )
 }));
 
-vi.mock('@/components/health/blood-pressure', () => ({
+vi.mock('../components/health/blood-pressure', () => ({
   BloodPressureDetail: ({ refreshToken }: { refreshToken?: number }) => (
     <div
       data-testid="blood-pressure-detail-mock"
@@ -32,7 +32,7 @@ vi.mock('@/components/health/blood-pressure', () => ({
   )
 }));
 
-vi.mock('@/components/health/exercises', () => ({
+vi.mock('../components/health/exercises', () => ({
   ExerciseDetail: ({ refreshToken }: { refreshToken?: number }) => (
     <div data-testid="exercise-detail-mock" data-refresh-token={refreshToken}>
       Exercise Detail Mock
