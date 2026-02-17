@@ -82,7 +82,7 @@ vi.mock('@/pages/contacts/Contacts', () => ({
 vi.mock('@/pages/debug/Debug', () => ({
   Debug: () => null
 }));
-vi.mock('@tearleads/keychain', () => ({
+vi.mock('@/pages/keychain', () => ({
   Keychain: () => null,
   KeychainDetail: () => null
 }));

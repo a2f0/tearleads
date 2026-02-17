@@ -129,19 +129,19 @@ export const Health = lazy(() =>
   import('./pages/Health').then((m) => ({ default: m.Health }))
 );
 export const Keychain = lazy(() =>
-  import('@tearleads/keychain').then((m) => ({ default: m.Keychain }))
+  import('./pages/keychain').then((m) => ({ default: m.Keychain }))
 );
 export const KeychainDetail = lazy(() =>
-  import('@tearleads/keychain').then((m) => ({ default: m.KeychainDetail }))
+  import('./pages/keychain').then((m) => ({ default: m.KeychainDetail }))
 );
 export const Wallet = lazy(() =>
-  import('@tearleads/wallet').then((m) => ({ default: m.Wallet }))
+  import('./pages/wallet').then((m) => ({ default: m.Wallet }))
 );
 export const WalletDetail = lazy(() =>
-  import('@tearleads/wallet').then((m) => ({ default: m.WalletDetail }))
+  import('./pages/wallet').then((m) => ({ default: m.WalletDetail }))
 );
 export const WalletNewItem = lazy(() =>
-  import('@tearleads/wallet').then((m) => ({ default: m.WalletNewItem }))
+  import('./pages/wallet').then((m) => ({ default: m.WalletNewItem }))
 );
 export const Licenses = lazy(() =>
   import('./pages/Licenses').then((m) => ({ default: m.Licenses }))
@@ -174,7 +174,7 @@ export const Settings = lazy(() =>
   import('./pages/Settings').then((m) => ({ default: m.Settings }))
 );
 export const Sync = lazy(() =>
-  import('@tearleads/sync').then((m) => ({ default: m.Sync }))
+  import('./pages/sync').then((m) => ({ default: m.Sync }))
 );
 export const Sqlite = lazy(() =>
   import('./pages/Sqlite').then((m) => ({ default: m.Sqlite }))

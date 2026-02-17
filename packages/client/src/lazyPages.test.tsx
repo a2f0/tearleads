@@ -20,16 +20,16 @@ vi.mock('@tearleads/admin', () => ({
   UsersAdminPage: page('UsersAdminPage'),
   UsersAdminDetail: page('UsersAdminDetail')
 }));
-vi.mock('@tearleads/keychain', () => ({
+vi.mock('./pages/keychain', () => ({
   Keychain: page('Keychain'),
   KeychainDetail: page('KeychainDetail')
 }));
-vi.mock('@tearleads/wallet', () => ({
+vi.mock('./pages/wallet', () => ({
   Wallet: page('Wallet'),
   WalletDetail: page('WalletDetail'),
   WalletNewItem: page('WalletNewItem')
 }));
-vi.mock('@tearleads/sync', () => ({
+vi.mock('./pages/sync', () => ({
   Sync: page('Sync')
 }));
 
