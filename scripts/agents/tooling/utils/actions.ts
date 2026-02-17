@@ -298,7 +298,10 @@ export function runInlineAction(
 
     case 'createIssue': {
       const templateType = requireDefined(options.type, '--type');
-      if (templateType !== 'user-requested' && templateType !== 'deferred-fix') {
+      if (
+        templateType !== 'user-requested' &&
+        templateType !== 'deferred-fix'
+      ) {
         throw new Error(`Unknown issue template type: ${templateType}`);
       }
 
@@ -348,7 +351,16 @@ export function runInlineAction(
       }
 
       const body = buildIssueTemplate(templateType, options);
-      const args = ['issue', 'create', '--title', title, '--body', body, '-R', repo];
+      const args = [
+        'issue',
+        'create',
+        '--title',
+        title,
+        '--body',
+        body,
+        '-R',
+        repo
+      ];
       if (templateType === 'deferred-fix') {
         args.push('--label', 'deferred-fix');
       }

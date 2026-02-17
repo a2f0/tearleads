@@ -327,7 +327,10 @@ export function createActionCommand(actionName: ActionName): Command {
         .option('--source-pr <n>', 'Source PR number for deferred fixes', (v) =>
           parsePositiveInt(v, '--source-pr')
         )
-        .option('--review-thread-url <url>', 'Review thread URL for deferred fixes')
+        .option(
+          '--review-thread-url <url>',
+          'Review thread URL for deferred fixes'
+        )
         .option('--label <name>', 'Additional label to apply')
         .option(
           '--force',
@@ -336,7 +339,9 @@ export function createActionCommand(actionName: ActionName): Command {
         .hook('preAction', (thisCommand) => {
           const opts = thisCommand.opts();
           if (opts.type === 'deferred-fix' && opts.sourcePr === undefined) {
-            console.error('error: createIssue --type deferred-fix requires --source-pr');
+            console.error(
+              'error: createIssue --type deferred-fix requires --source-pr'
+            );
             process.exit(1);
           }
         });
