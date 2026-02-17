@@ -1,4 +1,4 @@
-import { execSync } from 'node:child_process';
+import { execFileSync, execSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 
 import type { GlobalOptions } from '../types.ts';
@@ -12,6 +12,10 @@ interface DeferredItem {
   html_url: string;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 function parseDeferredItems(rawItems: string): DeferredItem[] {
   const parsed: unknown = JSON.parse(rawItems);
   if (!Array.isArray(parsed)) {
@@ -19,33 +23,35 @@ function parseDeferredItems(rawItems: string): DeferredItem[] {
   }
 
   return parsed.map((item, index) => {
-    if (typeof item !== 'object' || item === null) {
+    if (!isRecord(item)) {
       throw new Error(`Deferred item at index ${index} must be an object`);
     }
 
-    const body = Reflect.get(item, 'body');
-    const path = Reflect.get(item, 'path');
-    const line = Reflect.get(item, 'line');
-    const htmlUrl = Reflect.get(item, 'html_url');
+    const {
+      body: itemBody,
+      path: itemPath,
+      line: itemLine,
+      html_url: itemHtmlUrl
+    } = item;
 
-    if (typeof body !== 'string' || body.trim().length === 0) {
+    if (typeof itemBody !== 'string' || itemBody.trim().length === 0) {
       throw new Error(`Deferred item at index ${index} has invalid "body"`);
     }
-    if (typeof path !== 'string' || path.trim().length === 0) {
+    if (typeof itemPath !== 'string' || itemPath.trim().length === 0) {
       throw new Error(`Deferred item at index ${index} has invalid "path"`);
     }
-    if (line !== null && typeof line !== 'number') {
+    if (itemLine !== null && typeof itemLine !== 'number') {
       throw new Error(`Deferred item at index ${index} has invalid "line"`);
     }
-    if (typeof htmlUrl !== 'string' || htmlUrl.trim().length === 0) {
+    if (typeof itemHtmlUrl !== 'string' || itemHtmlUrl.trim().length === 0) {
       throw new Error(`Deferred item at index ${index} has invalid "html_url"`);
     }
 
     return {
-      body: body.trim(),
-      path: path.trim(),
-      line,
-      html_url: htmlUrl.trim()
+      body: itemBody.trim(),
+      path: itemPath.trim(),
+      line: itemLine,
+      html_url: itemHtmlUrl.trim()
     };
   });
 }
@@ -197,18 +203,10 @@ export function handleUpdatePrBody(
     throw new Error('updatePrBody requires --number');
   }
 
-  const hasBody = typeof options.body === 'string';
-  const hasBodyFile = typeof options.bodyFile === 'string';
-  if (!hasBody && !hasBodyFile) {
-    throw new Error('updatePrBody requires --body or --body-file');
-  }
-  if (hasBody && hasBodyFile) {
-    throw new Error('updatePrBody accepts either --body or --body-file');
-  }
-
-  const bodyText = hasBody
-    ? (options.body ?? '')
-    : readFileSync(options.bodyFile ?? '', 'utf8');
+  const bodyText =
+    typeof options.body === 'string'
+      ? options.body
+      : readFileSync(options.bodyFile ?? '', 'utf8');
 
   runGh(['pr', 'edit', String(options.number), '--body', bodyText, '-R', repo]);
 
@@ -238,13 +236,13 @@ export function handleVerifyBranchPush(options: GlobalOptions): string {
   const branch = resolveBranchName(options.branch);
   validateBranchName(branch);
 
-  execSync(`git fetch origin "${branch}"`, {
+  execFileSync('git', ['fetch', 'origin', branch], {
     encoding: 'utf8',
     stdio: ['ignore', 'ignore', 'pipe']
   });
 
   const localHead = execSync('git rev-parse HEAD', { encoding: 'utf8' }).trim();
-  const remoteHead = execSync(`git rev-parse origin/${branch}`, {
+  const remoteHead = execFileSync('git', ['rev-parse', `origin/${branch}`], {
     encoding: 'utf8'
   }).trim();
   const synced = localHead === remoteHead;
