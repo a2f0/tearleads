@@ -13,6 +13,14 @@
     nerdctl_checksum: "sha256:0326d6a42dbec5c104ed9d7aa8cbc62727433dbe000cf21cc29d06b22507e0f0"
     buildkit_version: "0.13.2"
     buildkit_checksum: "sha256:9cd121931b015f05d7e4337f08272e36a83f69724c40141947eb11246ca0bb9d"
+    linux_security_baseline_manage_ufw: false
+    linux_security_baseline_ufw_allow_rules: []
+    linux_security_baseline_ssh_settings:
+      - { key: "PermitRootLogin", value: "no" }
+      - { key: "PasswordAuthentication", value: "no" }
+      - { key: "PubkeyAuthentication", value: "yes" }
+      - { key: "MaxAuthTries", value: "3" }
+      - { key: "KbdInteractiveAuthentication", value: "no" }
     tuxedo_github_deploy_key_name: tuxedoGithubDeployKey
     tuxedo_github_deploy_key_path: "{{ playbook_dir }}/../../.secrets/tuxedoGithubDeployKey"
     tearleads_repo_url: "git@github.com-tuxedo:a2f0/tearleads.git"
@@ -25,6 +33,9 @@
     # yamllint enable rule:line-length
 
   tasks:
+    - name: Apply shared Linux security baseline
+      ansible.builtin.import_tasks: tasks/linuxSecurityBaseline.yml
+
     # GitHub deploy key setup
     - name: Ensure SSH directory exists
       ansible.builtin.file:
@@ -278,3 +289,8 @@
         name: buildkit
         state: restarted
         daemon_reload: true
+
+    - name: Restart sshd
+      ansible.builtin.systemd:
+        name: ssh
+        state: restarted

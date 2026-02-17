@@ -9,10 +9,10 @@ This document maps infrastructure compliance sentinels to their implementations 
 | `TL-INFRA-001` | SSH Key Authentication | `terraform/modules/hetzner-server/main.tf` | SSH key-only authentication via Hetzner SSH key reference |
 | `TL-INFRA-002` | Server Hardening | `terraform/modules/hetzner-server/main.tf` | Cloud-init hardening: root disabled, non-root user, SSH key-only |
 | `TL-INFRA-003` | Managed Identity | `terraform/modules/azure-tee/main.tf` | User-assigned managed identity for credential-less Azure auth |
-| `TL-INFRA-004` | SSH Hardening | `ansible/playbooks/templates/sshd_config.j2` | Comprehensive SSH hardening (root disabled, key-only, modern ciphers, rate limiting) |
+| `TL-INFRA-004` | SSH Hardening | `ansible/playbooks/k8s.yml` | SSH hardening defaults (root disabled, key-only auth, auth attempt limits) |
 | `TL-NET-001` | Network Security Group | `terraform/modules/azure-tee/main.tf` | NSG with default deny and explicit allow rules |
 | `TL-NET-002` | SSH Access Restriction | `terraform/modules/azure-tee/main.tf` | SSH limited to `allowed_ssh_cidr` variable |
-| `TL-NET-003` | Host Firewall | `ansible/playbooks/main.yml` | UFW firewall with default deny incoming |
+| `TL-NET-003` | Host Firewall | `terraform/stacks/staging/k8s/main.tf` | UFW firewall with default deny incoming |
 | `TL-NET-004` | Infrastructure Firewall | `terraform/modules/hetzner-server/main.tf` | Hetzner Cloud firewall with explicit port rules |
 | `TL-NET-005` | DB Network Isolation | `terraform/modules/aws-rds-postgres/main.tf` | RDS security group restricting access to allowed CIDRs |
 | `TL-NET-006` | Cloudflare Tunnel Isolation | `terraform/modules/cloudflare-tunnel/main.tf` | Inbound traffic routed via secure tunnel without public port exposure |
@@ -24,10 +24,10 @@ This document maps infrastructure compliance sentinels to their implementations 
 | `TL-DB-001` | Database Encryption | `terraform/modules/aws-rds-postgres/main.tf` | RDS encryption at rest enabled using AWS managed keys |
 | `TL-DB-002` | Database Backups | `terraform/modules/aws-rds-postgres/main.tf` | Automated RDS backups with defined retention period |
 | `TL-DB-003` | Database Deletion Protection | `terraform/modules/aws-rds-postgres/main.tf` | RDS deletion protection enabled to prevent accidental data loss |
-| `TL-KERN-001` | Kernel Hardening | `ansible/playbooks/templates/99-security-hardening.conf.j2` | Sysctl security parameters (ASLR, network hardening, ptrace restrictions) |
-| `TL-AUTH-001` | Brute-Force Protection | `ansible/playbooks/templates/fail2ban-sshd.conf.j2` | Fail2ban SSH jail with progressive bans |
-| `TL-SVC-001` | API Service Sandboxing | `ansible/playbooks/templates/tearleads-api.service.j2` | Systemd hardening (namespaces, syscall filters, capabilities) |
-| `TL-SVC-002` | SMTP Service Sandboxing | `ansible/playbooks/templates/tearleads-smtp-listener.service.j2` | Systemd hardening with CAP_NET_BIND_SERVICE |
+| `TL-KERN-001` | Kernel Hardening | `terraform/stacks/staging/k8s/main.tf` | Sysctl security parameters (ASLR, network hardening, ptrace restrictions) |
+| `TL-AUTH-001` | Brute-Force Protection | `terraform/stacks/staging/k8s/main.tf` | Fail2ban SSH jail with progressive bans |
+| `TL-SVC-001` | API Service Sandboxing | `terraform/stacks/staging/k8s/main.tf` | Systemd hardening (namespaces, syscall filters, capabilities) |
+| `TL-SVC-002` | SMTP Service Sandboxing | `terraform/stacks/staging/k8s/main.tf` | Systemd hardening with CAP_NET_BIND_SERVICE |
 | `TL-CR-001` | Container Registry | `terraform/modules/aws-ci-artifacts/main.tf` | ECR repositories with encryption, scan-on-push, lifecycle policies |
 | `TL-CR-002` | Container Image Scanning | `terraform/modules/aws-ci-artifacts/main.tf` | ECR scan-on-push for vulnerability detection |
 | `TL-CR-003` | Container Pull Secrets | `terraform/stacks/*/k8s/scripts/setup-ecr-secret.sh` | K8s registry authentication with rotating ECR tokens |

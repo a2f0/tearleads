@@ -90,7 +90,7 @@ export POSTGRES_HOST=<host>                    # default: localhost
 export POSTGRES_PORT=<port>                    # default: 5432
 ```
 
-The read-only user is provisioned by `ansible/playbooks/ci-postgres.yml` when `POSTGRES_READ_ONLY_PASSWORD` is set.
+Provision the read-only user via your database bootstrap workflow before running billing reports.
 
 ## Future Work
 

@@ -238,7 +238,6 @@ sync_android() {
 }
 
 sync_ansible() {
-  MAIN_YML="$REPO_ROOT/ansible/playbooks/main.yml"
   TUXEDO_YML="$REPO_ROOT/ansible/playbooks/tuxedo.yml"
 
   if [ -z "$NODE_MAJOR_FOR_ANSIBLE" ]; then
@@ -257,7 +256,7 @@ sync_ansible() {
 
   ANSIBLE_FILES_UPDATED=0
 
-  for YML_FILE in "$MAIN_YML" "$TUXEDO_YML"; do
+  for YML_FILE in $TUXEDO_YML; do
     if [ ! -f "$YML_FILE" ]; then
       log "Toolchain sync (ansible): skipped $YML_FILE (file not found)."
       continue

@@ -246,7 +246,8 @@ function shouldRunLintScripts(changedFiles: string[]): boolean {
     (f) =>
       f.endsWith('.sh') ||
       f.startsWith('scripts/') ||
-      f.startsWith('ansible/playbooks/files/scripts/')
+      f.startsWith('ansible/scripts/') ||
+      f.startsWith('ansible/inventories/')
   );
 }
 

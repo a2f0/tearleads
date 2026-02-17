@@ -7,9 +7,9 @@ This map ties vendor management policy controls to NIST SP 800-53 requirements a
 | Sentinel | Description | NIST Controls | Implementation Evidence |
 | --- | --- | --- | --- |
 | `TL-VENDOR-001` | External services inventory | SA-9, PM-30 | `compliance/vendor-registry.md` |
-| `TL-VENDOR-002` | Hetzner Cloud controls | SA-9, SC-7 | `terraform/modules/hetzner-server/main.tf`, `ansible/playbooks/main.yml` |
+| `TL-VENDOR-002` | Hetzner Cloud controls | SA-9, SC-7 | `terraform/modules/hetzner-server/main.tf`, `terraform/stacks/staging/k8s/main.tf` |
 | `TL-VENDOR-003` | Azure TEE controls | SA-9, SC-28, SI-7 | `terraform/modules/azure-tee/main.tf` |
-| `TL-VENDOR-004` | Let's Encrypt controls | SC-8, SC-13 | `ansible/playbooks/main.yml` |
+| `TL-VENDOR-004` | Let's Encrypt controls | SC-8, SC-13 | `terraform/stacks/staging/k8s/main.tf` |
 | `TL-VENDOR-005` | GitHub controls | SA-9, CM-3 | `.github/workflows/` |
 | `TL-VENDOR-006` | RevenueCat controls | SA-9, SC-8 | `packages/api/src/lib/revenuecat.ts` |
 | `TL-VENDOR-007` | OpenRouter controls | SA-9, SC-8 | `packages/api/src/routes/chat/post-completions.ts` |

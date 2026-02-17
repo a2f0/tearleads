@@ -8,21 +8,18 @@ Infrastructure-as-code files that implement compliance controls are located in:
 
 ### `ansible/` - Configuration Management
 
-Server configuration playbooks for production and CI environments:
+Kubernetes and automation-host configuration:
 
-- `ansible/playbooks/main.yml` - Production server setup (nginx, PostgreSQL, Redis, API services)
-- `ansible/playbooks/ci-nginx.yml` - CI nginx configuration
-- `ansible/playbooks/ci-postgres.yml` - CI PostgreSQL configuration
-- `ansible/playbooks/tuxedo.yml` - Tuxedo agent configuration
-- `ansible/inventories/` - Host inventories
+- `ansible/playbooks/k8s.yml` - k3s host bootstrap (ingress, cert-manager, build tooling)
+- `ansible/playbooks/tuxedo.yml` - Tuxedo automation host configuration
+- `ansible/inventories/` - Dynamic inventories (`k8s`, `k8s-prod`, `tuxedo`)
 
 Key compliance-relevant configurations:
 
-- SSH hardening (root login disabled, key-only auth)
-- Audit logging (journald, nginx logs, 90-day retention, 6-year archive)
-- Database backups (daily, 7-day retention)
-- Automatic patching (daily)
-- TLS certificates (certbot/Let's Encrypt)
+- k3s bootstrap and control-plane readiness checks
+- ingress and certificate manager installation
+- buildkit/nerdctl installation for container build workflows
+- deploy-key based GitHub access for automation hosts
 
 ### `terraform/` - Cloud Infrastructure
 

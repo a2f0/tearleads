@@ -1,3 +1,3 @@
 #!/bin/sh
-cd "$(dirname "$0")"
+cd "$(dirname "$0")" || exit
 ansible-playbook -i ../inventories/k8s.sh ../playbooks/k8s.yml

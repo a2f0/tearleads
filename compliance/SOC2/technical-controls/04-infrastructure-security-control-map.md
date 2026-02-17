@@ -6,14 +6,14 @@ This map ties infrastructure security policy controls to concrete implementation
 
 | Sentinel | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- |
-| `TL-INFRA-004` | SSH hardening with key-only auth, modern ciphers, rate limiting | `ansible/playbooks/templates/sshd_config.j2`, `ansible/playbooks/main.yml` | `ssh user@host 'grep -E "^(PermitRootLogin\|PasswordAuthentication)" /etc/ssh/sshd_config'` |
-| `TL-NET-003` | UFW host firewall with default-deny incoming | `ansible/playbooks/main.yml` (UFW tasks) | `ssh user@host 'sudo ufw status verbose'` |
+| `TL-INFRA-004` | SSH hardening with key-only auth and auth attempt limits | `ansible/playbooks/k8s.yml` | `ssh user@host 'grep -E "^(PermitRootLogin\|PasswordAuthentication\|PubkeyAuthentication\|MaxAuthTries)" /etc/ssh/sshd_config'` |
+| `TL-NET-003` | UFW host firewall with default-deny incoming | `terraform/stacks/staging/k8s/main.tf` (UFW tasks) | `ssh user@host 'sudo ufw status verbose'` |
 | `TL-NET-004` | Hetzner Cloud firewall with explicit port rules | `terraform/modules/hetzner-server/main.tf` (hcloud_firewall resource) | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "hcloud_firewall")'` |
 | `TL-NET-006` | Cloudflare Tunnel isolation for inbound traffic | `terraform/modules/cloudflare-tunnel/main.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "cloudflare_tunnel")'` |
-| `TL-KERN-001` | Kernel sysctl hardening (ASLR, rp_filter, ptrace) | `ansible/playbooks/templates/99-security-hardening.conf.j2`, `ansible/playbooks/main.yml` | `ssh user@host 'sysctl kernel.randomize_va_space net.ipv4.conf.all.rp_filter'` |
-| `TL-AUTH-001` | Fail2ban SSH jail with progressive bans | `ansible/playbooks/templates/fail2ban-sshd.conf.j2`, `ansible/playbooks/main.yml` | `ssh user@host 'sudo fail2ban-client status sshd'` |
-| `TL-SVC-001` | API service systemd sandboxing | `ansible/playbooks/templates/tearleads-api.service.j2` | `ssh user@host 'systemctl show tearleads-api --property=NoNewPrivileges,ProtectSystem,RestrictNamespaces'` |
-| `TL-SVC-002` | SMTP service systemd sandboxing with CAP_NET_BIND_SERVICE | `ansible/playbooks/templates/tearleads-smtp-listener.service.j2` | `ssh user@host 'systemctl show tearleads-smtp-listener --property=AmbientCapabilities,NoNewPrivileges'` |
+| `TL-KERN-001` | Kernel sysctl hardening (ASLR, rp_filter, ptrace) | `terraform/stacks/staging/k8s/main.tf`, `terraform/stacks/staging/k8s/main.tf` | `ssh user@host 'sysctl kernel.randomize_va_space net.ipv4.conf.all.rp_filter'` |
+| `TL-AUTH-001` | Fail2ban SSH jail with progressive bans | `terraform/stacks/staging/k8s/main.tf`, `terraform/stacks/staging/k8s/main.tf` | `ssh user@host 'sudo fail2ban-client status sshd'` |
+| `TL-SVC-001` | API service systemd sandboxing | `terraform/stacks/staging/k8s/main.tf` | `ssh user@host 'systemctl show tearleads-api --property=NoNewPrivileges,ProtectSystem,RestrictNamespaces'` |
+| `TL-SVC-002` | SMTP service systemd sandboxing with CAP_NET_BIND_SERVICE | `terraform/stacks/staging/k8s/main.tf` | `ssh user@host 'systemctl show tearleads-smtp-listener --property=AmbientCapabilities,NoNewPrivileges'` |
 | `TL-CRYPTO-005` | Key Vault purge protection and soft-delete recovery | `terraform/stacks/*/tee/versions.tf` | `terraform show -json \| jq '.values.root_module.resources[] \| select(.type == "azurerm_key_vault") \| .values.purge_protection_enabled'` |
 
 ## Control Details
@@ -22,8 +22,8 @@ This map ties infrastructure security policy controls to concrete implementation
 
 **Implementation Files:**
 
-- `ansible/playbooks/templates/sshd_config.j2` - SSH server configuration template
-- `ansible/playbooks/main.yml` - Playbook task deploying the template
+- `terraform/stacks/staging/k8s/main.tf` - SSH server configuration template
+- `terraform/stacks/staging/k8s/main.tf` - Playbook task deploying the template
 
 **Key Configuration:**
 
@@ -39,7 +39,7 @@ This map ties infrastructure security policy controls to concrete implementation
 
 **Implementation Files:**
 
-- `ansible/playbooks/main.yml` - UFW configuration tasks
+- `terraform/stacks/staging/k8s/main.tf` - UFW configuration tasks
 
 **Key Configuration:**
 
@@ -65,8 +65,8 @@ This map ties infrastructure security policy controls to concrete implementation
 
 **Implementation Files:**
 
-- `ansible/playbooks/templates/99-security-hardening.conf.j2` - Sysctl configuration
-- `ansible/playbooks/main.yml` - Deployment task
+- `terraform/stacks/staging/k8s/main.tf` - Sysctl configuration
+- `terraform/stacks/staging/k8s/main.tf` - Deployment task
 
 **Key Parameters:**
 
@@ -81,8 +81,8 @@ This map ties infrastructure security policy controls to concrete implementation
 
 **Implementation Files:**
 
-- `ansible/playbooks/templates/fail2ban-sshd.conf.j2` - Fail2ban jail configuration
-- `ansible/playbooks/main.yml` - Deployment and enablement tasks
+- `terraform/stacks/staging/k8s/main.tf` - Fail2ban jail configuration
+- `terraform/stacks/staging/k8s/main.tf` - Deployment and enablement tasks
 
 **Key Configuration:**
 
@@ -97,8 +97,8 @@ This map ties infrastructure security policy controls to concrete implementation
 
 **Implementation Files:**
 
-- `ansible/playbooks/templates/tearleads-api.service.j2` - API service unit
-- `ansible/playbooks/templates/tearleads-smtp-listener.service.j2` - SMTP service unit
+- `terraform/stacks/staging/k8s/main.tf` - API service unit
+- `terraform/stacks/staging/k8s/main.tf` - SMTP service unit
 
 **Key Hardening Directives:**
 

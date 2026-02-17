@@ -6,17 +6,17 @@ This map ties audit logging policy controls to concrete implementation and test 
 
 | Sentinel | Description | Implementation Evidence | Test Evidence |
 | --- | --- | --- | --- |
-| `TL-AUDT-001` | Nginx access logging with audit-grade fields (IP, timestamp, request, status, timing, SSL, request_id) | `ansible/playbooks/main.yml` (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
-| `TL-AUDT-002` | Journald 90-day persistent retention with storage limits | `ansible/playbooks/main.yml` (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
-| `TL-AUDT-003` | Nginx log rotation with 90-day retention and compression | `ansible/playbooks/main.yml` (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
-| `TL-AUDT-004` | Monthly log archive with 6-year retention for compliance | `ansible/playbooks/main.yml` (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
+| `TL-AUDT-001` | Nginx access logging with audit-grade fields (IP, timestamp, request, status, timing, SSL, request_id) | `terraform/stacks/staging/k8s/main.tf` (nginx tasks) | Manual verification: `nginx -T \| grep audit_combined` |
+| `TL-AUDT-002` | Journald 90-day persistent retention with storage limits | `terraform/stacks/staging/k8s/main.tf` (journald tasks) | Manual verification: `cat /etc/systemd/journald.conf.d/compliance.conf` |
+| `TL-AUDT-003` | Nginx log rotation with 90-day retention and compression | `terraform/stacks/staging/k8s/main.tf` (logrotate tasks) | Manual verification: `cat /etc/logrotate.d/nginx` |
+| `TL-AUDT-004` | Monthly log archive with 6-year retention for compliance | `terraform/stacks/staging/k8s/main.tf` (archive tasks) | Manual verification: `systemctl status audit-log-archive.timer` |
 
 ## Deployment Automation
 
 All audit logging controls are deployed via Ansible:
 
-- **Playbook**: `ansible/playbooks/main.yml`
-- **Templates directory**: `ansible/playbooks/templates/`
+- **Playbook**: `terraform/stacks/staging/k8s/main.tf`
+- **Kubernetes stack directory**: `terraform/stacks/staging/k8s/`
 
 ## Control Variables
 

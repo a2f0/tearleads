@@ -7,9 +7,9 @@ This map ties vendor management policy controls to concrete implementation and e
 | Sentinel | Description | Implementation Evidence | Review Evidence |
 | --- | --- | --- | --- |
 | `TL-VENDOR-001` | Vendor inventory maintenance | `compliance/vendor-registry.md` | Quarterly review logs |
-| `TL-VENDOR-002` | Hetzner Cloud vendor controls | `terraform/modules/hetzner-server/main.tf`, `terraform/modules/hetzner-dns/main.tf`, `ansible/playbooks/main.yml` | Terraform state, SSH audit |
+| `TL-VENDOR-002` | Hetzner Cloud vendor controls | `terraform/modules/hetzner-server/main.tf`, `terraform/modules/hetzner-dns/main.tf`, `terraform/stacks/staging/k8s/main.tf` | Terraform state, SSH audit |
 | `TL-VENDOR-003` | Microsoft Azure vendor controls | `terraform/modules/azure-tee/main.tf` | Azure compliance portal |
-| `TL-VENDOR-004` | Let's Encrypt vendor controls | `ansible/playbooks/main.yml` (certbot tasks) | Certificate transparency logs |
+| `TL-VENDOR-004` | Let's Encrypt vendor controls | `terraform/stacks/staging/k8s/main.tf` (certbot tasks) | Certificate transparency logs |
 | `TL-VENDOR-005` | GitHub vendor controls | `.github/workflows/`, repository settings | GitHub audit log |
 | `TL-VENDOR-006` | RevenueCat vendor controls | `packages/api/src/lib/revenuecat.ts`, `packages/api/src/routes/revenuecat/` | Webhook test suite |
 | `TL-VENDOR-007` | OpenRouter vendor controls | `packages/api/src/routes/chat/post-completions.ts` | API usage logs |
@@ -30,7 +30,7 @@ This map ties vendor management policy controls to concrete implementation and e
 | `terraform/modules/hetzner-server/main.tf` | Server hardening | Cloud-init with root disabled, non-root user |
 | `terraform/modules/hetzner-dns/main.tf` | DNS management | Hetzner DNS zone configuration |
 | `terraform/stacks/*/outputs.tf` | Resource tracking | Server IP and resource outputs |
-| `ansible/playbooks/main.yml` | Server configuration | nginx, PostgreSQL, Redis, API services |
+| `terraform/stacks/staging/k8s/main.tf` | Server configuration | nginx, PostgreSQL, Redis, API services |
 
 ### Microsoft Azure (`TL-VENDOR-003`)
 
