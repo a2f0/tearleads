@@ -1,6 +1,7 @@
 import { useMultiFileUpload } from '@tearleads/audio';
 import {
   DesktopFloatingWindow as FloatingWindow,
+  useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
@@ -57,7 +58,7 @@ function VideoWindowInner({
   const [activeVideoId, setActiveVideoId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('list');
   const [autoPlay, setAutoPlay] = useState(false);
-  const [refreshToken, setRefreshToken] = useState(0);
+  const { refreshToken, triggerRefresh } = useWindowRefresh();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { uploadFile } = useFileUpload();
   const { uploadMany, uploading, uploadProgress } = useMultiFileUpload({
@@ -96,8 +97,8 @@ function VideoWindowInner({
   }, []);
 
   const handleRefresh = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   // Handler for uploading files with optional target playlist override
   const handleUploadFilesToPlaylist = useCallback(
@@ -128,10 +129,10 @@ function VideoWindowInner({
       }
 
       if (results.length > 0) {
-        setRefreshToken((value) => value + 1);
+        triggerRefresh();
       }
     },
-    [uploadMany, selectedPlaylistId, addTrackToPlaylist]
+    [uploadMany, selectedPlaylistId, addTrackToPlaylist, triggerRefresh]
   );
 
   // Main content area drop zone
@@ -148,12 +149,12 @@ function VideoWindowInner({
         await Promise.all(
           videoIds.map((videoId) => addTrackToPlaylist(playlistId, videoId))
         );
-        setRefreshToken((value) => value + 1);
+        triggerRefresh();
         return;
       }
       await handleUploadFilesToPlaylist(files, playlistId);
     },
-    [addTrackToPlaylist, handleUploadFilesToPlaylist]
+    [addTrackToPlaylist, handleUploadFilesToPlaylist, triggerRefresh]
   );
 
   // Wrapper for existing upload patterns (no playlist override)
@@ -186,8 +187,8 @@ function VideoWindowInner({
   }, [handleOpenVideo, openRequest]);
 
   const handlePlaylistChanged = useCallback(() => {
-    setRefreshToken((value) => value + 1);
-  }, []);
+    triggerRefresh();
+  }, [triggerRefresh]);
 
   return (
     <FloatingWindow
