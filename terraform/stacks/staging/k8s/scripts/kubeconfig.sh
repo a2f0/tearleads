@@ -6,7 +6,11 @@ STACK_DIR="$(dirname "$SCRIPT_DIR")"
 
 # Get outputs from Terraform
 SERVER_IP=$(terraform -chdir="$STACK_DIR" output -raw server_ip)
-K8S_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_hostname)
+if K8S_API_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_api_hostname 2>/dev/null); then
+  :
+else
+  K8S_API_HOSTNAME=$(terraform -chdir="$STACK_DIR" output -raw k8s_hostname)
+fi
 
 if SERVER_USERNAME=$(terraform -chdir="$STACK_DIR" output -raw server_username 2>/dev/null); then
   :
@@ -30,7 +34,7 @@ echo "Fetching kubeconfig from $SERVER_USERNAME@$SERVER_IP..."
 
 # Fetch kubeconfig and update server URL
 ssh "$SERVER_USERNAME@$SERVER_IP" 'sudo cat /etc/rancher/k3s/k3s.yaml' | \
-  sed "s/127.0.0.1/$K8S_HOSTNAME/" > "$KUBECONFIG_FILE"
+  sed "s/127.0.0.1/$K8S_API_HOSTNAME/" > "$KUBECONFIG_FILE"
 
 chmod 600 "$KUBECONFIG_FILE"
 

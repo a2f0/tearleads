@@ -137,53 +137,26 @@ jobs:
         if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && steps.playwright-cache.outputs.cache-hit == 'true' }}
         run: pnpm --filter @tearleads/website exec playwright install-deps
 
-      - name: Build API OpenAPI spec
+      - name: Build website image (k8s Dockerfile)
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/api buildOpenapi
+        run: docker build -f packages/website/Dockerfile -t tearleads-website-ci:latest .
 
-      - name: Build website
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: pnpm --filter @tearleads/website build
-
-      - name: Generate self-signed certificate
+      - name: Start website container
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
-          sudo mkdir -p /etc/ssl/private
-          sudo openssl req -x509 -nodes -days 1 \
-            -newkey rsa:2048 \
-            -keyout /etc/ssl/private/localhost.key \
-            -out /etc/ssl/certs/localhost.crt \
-            -subj "/CN=localhost" \
-            -addext "subjectAltName=DNS:localhost,IP:127.0.0.1"
-          sudo chmod 644 /etc/ssl/certs/localhost.crt
-          sudo chmod 600 /etc/ssl/private/localhost.key
-
-      - name: Make workspace accessible to NGINX
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: |
-          # NGINX runs as www-data and needs execute permission on ALL parent directories
-          current="$GITHUB_WORKSPACE"
-          while [ "$current" != "/" ]; do
-            sudo chmod a+x "$current"
-            current="$(dirname "$current")"
-          done
-          sudo chmod -R a+rX "$GITHUB_WORKSPACE"
-
-      - name: Install and configure NGINX
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: |
-          sudo apt-get update && sudo apt-get install -y nginx ansible
-          ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=website
-
-      - name: Verify NGINX is serving
-        if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
-        run: curl -k https://localhost:8444/ -I
+          docker rm -f ci-website >/dev/null 2>&1 || true
+          docker run -d \
+            --name ci-website \
+            -p 8082:80 \
+            tearleads-website-ci:latest
+          timeout 30 bash -c 'until curl -fsS http://localhost:8082/ >/dev/null; do sleep 1; done'
 
       - name: Run Playwright tests
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: pnpm --filter @tearleads/website test:e2e
         env:
-          BASE_URL: https://localhost:8444
+          BASE_URL: http://localhost:8082
+          PW_EXTERNAL_SERVER: 'true'
 
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4

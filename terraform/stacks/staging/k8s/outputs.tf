@@ -18,17 +18,38 @@ output "k8s_hostname" {
   value       = "k8s.${var.staging_domain}"
 }
 
+output "k8s_api_hostname" {
+  description = "K8s API hostname"
+  value       = "k8s-api.${var.staging_domain}"
+}
+
 output "ssh_command" {
   description = "SSH command to connect to the server"
-  value       = "ssh ${var.server_username}@k8s.${var.staging_domain}"
+  value       = "ssh ${var.server_username}@${module.server.ipv4_address}"
 }
 
 output "kubeconfig_command" {
   description = "Command to fetch kubeconfig"
-  value       = "scp ${var.server_username}@k8s.${var.staging_domain}:.kube/config ~/.kube/config-staging-k8s"
+  value       = "scp ${var.server_username}@${module.server.ipv4_address}:.kube/config ~/.kube/config-staging-k8s"
+}
+
+output "server_username" {
+  description = "Username for SSH access"
+  value       = var.server_username
 }
 
 output "SERVER_USERNAME" {
   description = "Username for SSH access"
   value       = var.server_username
+}
+
+output "tunnel_id" {
+  description = "Cloudflare tunnel ID"
+  value       = module.tunnel.tunnel_id
+}
+
+output "tunnel_token" {
+  description = "Cloudflare tunnel token (for cloudflared deployment)"
+  value       = module.tunnel.tunnel_token
+  sensitive   = true
 }

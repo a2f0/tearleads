@@ -53,3 +53,14 @@ variable "ssh_host_public_key" {
   description = "SSH host public key for the server"
   type        = string
 }
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token"
+  type        = string
+  sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID"
+  type        = string
+}

@@ -123,7 +123,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4]
+        shard: [1]
     steps:
       - uses: actions/checkout@v4
 
@@ -185,58 +185,68 @@ jobs:
           sudo chmod 644 /etc/ssl/certs/localhost.crt
           sudo chmod 600 /etc/ssl/private/localhost.key
 
-      - name: Make workspace accessible to NGINX
+      - name: Start PostgreSQL container
         run: |
-          current="$GITHUB_WORKSPACE"
-          while [ "$current" != "/" ]; do
-            sudo chmod a+x "$current"
-            current="$(dirname "$current")"
-          done
-          sudo chmod -R a+rX "$GITHUB_WORKSPACE"
+          docker network create ci-e2e || true
+          docker rm -f ci-postgres >/dev/null 2>&1 || true
+          docker run -d \
+            --name ci-postgres \
+            --network ci-e2e \
+            -e POSTGRES_USER=tearleads \
+            -e POSTGRES_PASSWORD=tearleads_password \
+            -e POSTGRES_DB=tearleads \
+            -p 5432:5432 \
+            postgres:16
 
-      - name: Cache Ansible collections
-        uses: actions/cache@v4
-        with:
-          path: ~/.ansible/collections
-          key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
-
-      - name: Install and configure PostgreSQL
+      - name: Wait for PostgreSQL readiness
         run: |
-          sudo apt-get update && sudo apt-get install -y ansible
-          ansible-galaxy collection install -r ansible/requirements.yml
-          POSTGRES_USER=tearleads \
-            POSTGRES_PASSWORD=tearleads_password \
-            POSTGRES_DATABASE=tearleads \
-            ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-postgres.yml
+          timeout 60 bash -c 'until docker exec ci-postgres pg_isready -U tearleads -d tearleads; do sleep 2; done'
 
-      - name: Install and configure NGINX
+      - name: Generate app configs
         run: |
-          sudo apt-get install -y nginx
-          ansible-playbook -i ansible/inventories/ci.yml ansible/playbooks/ci-nginx.yml -e nginx_ci_site=client
+          npm install -g tsx
+          cd packages/app-builder
+          tsx src/cli.ts generate --app tearleads
 
-      - name: Start API server
+      - name: Build API and client images (k8s Dockerfiles)
         run: |
-          pnpm --filter @tearleads/api dev &
-          echo "Waiting for API server to be ready..."
-          timeout 30 bash -c 'until curl -f http://localhost:5001/v1/ping; do sleep 1; done'
-        env:
-          POSTGRES_HOST: localhost
-          POSTGRES_PORT: '5432'
-          POSTGRES_USER: tearleads
-          POSTGRES_PASSWORD: tearleads_password
-          POSTGRES_DATABASE: tearleads
+          docker build -f packages/api/Dockerfile -t tearleads-api-ci:latest .
+          docker build \
+            -f packages/client/Dockerfile \
+            --build-arg VITE_API_URL=http://localhost:5001/v1 \
+            -t tearleads-client-ci:latest .
 
-      - name: Verify NGINX is serving
+      - name: Start API container
         run: |
-          echo "=== NGINX static file test ==="
-          curl -k https://localhost:8443/ -I
-          echo "=== NGINX API proxy test ==="
-          curl -k https://localhost:8443/v1/ping
-          echo "=== NGINX SQLite WASM test ==="
-          curl -k https://localhost:8443/sqlite/sqlite3.wasm -I
-          curl -k https://localhost:8443/sqlite/sqlite3.js -I
-          echo "=== NGINX error log (if any) ==="
-          sudo tail -20 /var/log/nginx/error.log || true
+          docker rm -f ci-api >/dev/null 2>&1 || true
+          docker run -d \
+            --name ci-api \
+            --network ci-e2e \
+            -e POSTGRES_HOST=ci-postgres \
+            -e POSTGRES_PORT=5432 \
+            -e POSTGRES_USER=tearleads \
+            -e POSTGRES_PASSWORD=tearleads_password \
+            -e POSTGRES_DATABASE=tearleads \
+            -e NODE_ENV=production \
+            -p 5001:5001 \
+            tearleads-api-ci:latest
+          timeout 60 bash -c 'until curl -fsS http://localhost:5001/v1/ping >/dev/null; do sleep 2; done'
+
+      - name: Start client container
+        run: |
+          docker rm -f ci-client >/dev/null 2>&1 || true
+          docker run -d \
+            --name ci-client \
+            -p 8080:80 \
+            tearleads-client-ci:latest
+          timeout 30 bash -c 'until curl -fsS http://localhost:8080/ >/dev/null; do sleep 1; done'
+
+      - name: Verify container endpoints
+        run: |
+          curl -fsS http://localhost:8080/ -I
+          curl -fsS http://localhost:8080/sqlite -I
+          curl -fsS http://localhost:8080/sqlite/sqlite3.wasm -I
+          curl -fsS http://localhost:5001/v1/ping
 
       - name: Get Playwright version
         id: playwright-version
@@ -253,10 +263,11 @@ jobs:
         if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: pnpm --filter @tearleads/client exec playwright install chromium
 
-      - name: Run Playwright tests (shard ${{ matrix.shard }}/4)
-        run: pnpm --filter @tearleads/client test:e2e --shard=${{ matrix.shard }}/4
+      - name: Run Playwright tests (shard ${{ matrix.shard }}/1)
+        run: pnpm --filter @tearleads/client test:e2e --shard=${{ matrix.shard }}/1
         env:
-          BASE_URL: https://localhost:8443
+          BASE_URL: http://localhost:8080
+          PW_EXTERNAL_SERVER: 'true'
           PW_FULLY_PARALLEL: 'true'
 
       - name: Upload Playwright report

@@ -4,7 +4,7 @@ FROM node:22-slim AS builder
 WORKDIR /app
 
 # Install pnpm and build dependencies
-RUN apt-get update && apt-get install -y curl unzip && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && apt-get install -y curl unzip git && rm -rf /var/lib/apt/lists/*
 RUN corepack enable && corepack prepare pnpm@9.15.9 --activate
 
 # Copy package files for dependency installation

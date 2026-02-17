@@ -45,10 +45,12 @@ COPY --from=builder /app/packages/website/dist /usr/share/nginx/html
 # Copy nginx config
 RUN echo 'server { \
     listen 80; \
+    server_name _; \
     root /usr/share/nginx/html; \
     index index.html; \
+    absolute_redirect off; \
     location / { \
-        try_files $uri $uri/ =404; \
+        try_files $uri $uri/index.html =404; \
     } \
     location /_astro/ { \
         expires 1y; \

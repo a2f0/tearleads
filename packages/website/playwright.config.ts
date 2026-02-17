@@ -3,6 +3,7 @@ import { defineConfig, devices } from '@playwright/test';
 const isCI = !!process.env.CI;
 const baseURL = process.env.BASE_URL || 'http://localhost:3001';
 const isHTTPS = baseURL.startsWith('https://');
+const useExternalServer = process.env.PW_EXTERNAL_SERVER === 'true';
 
 /**
  * Playwright configuration for website navigation tests
@@ -55,7 +56,7 @@ export default defineConfig({
 
   // In CI with HTTPS, NGINX serves the built site (no webServer needed)
   // In development or CI with HTTP, use Astro preview server
-  ...(isCI && isHTTPS
+  ...(isCI && isHTTPS || useExternalServer
     ? {}
     : {
         webServer: {

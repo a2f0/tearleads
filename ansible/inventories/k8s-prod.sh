@@ -6,7 +6,10 @@ cd "$(dirname "$0")/../../terraform/stacks/prod/k8s"
 
 # Capture stderr to detect actual errors vs missing outputs
 TF_STDERR=$(mktemp)
-HOSTNAME=$(terraform output -raw k8s_hostname 2>"$TF_STDERR") || true
+HOSTNAME=$(terraform output -raw server_ip 2>"$TF_STDERR") || true
+if [ -z "$HOSTNAME" ]; then
+  HOSTNAME=$(terraform output -raw k8s_hostname 2>>"$TF_STDERR") || true
+fi
 USERNAME=$(terraform output -raw server_username 2>>"$TF_STDERR") || true
 
 # Check for real errors (not just "output not found")

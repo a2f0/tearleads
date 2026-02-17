@@ -52,6 +52,7 @@ kubectl apply -f "$MANIFESTS_DIR/redis.yaml"
 kubectl apply -f "$MANIFESTS_DIR/api.yaml"
 kubectl apply -f "$MANIFESTS_DIR/client.yaml"
 kubectl apply -f "$MANIFESTS_DIR/website.yaml"
+kubectl apply -f "$MANIFESTS_DIR/cloudflared.yaml"
 kubectl apply -f "$RENDERED_INGRESS"
 kubectl apply -f "$RENDERED_ISSUER"
 

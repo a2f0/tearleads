@@ -37,7 +37,7 @@ module "server" {
     runcmd:
       - curl -sfL https://get.k3s.io -o /tmp/install-k3s.sh
       - chmod +x /tmp/install-k3s.sh
-      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.staging_domain}" /tmp/install-k3s.sh
+      - INSTALL_K3S_EXEC="--disable traefik --tls-san k8s.${var.staging_domain} --tls-san k8s-api.${var.staging_domain}" /tmp/install-k3s.sh
       - rm /tmp/install-k3s.sh
       - mkdir -p /home/${var.server_username}/.kube
       - cp /etc/rancher/k3s/k3s.yaml /home/${var.server_username}/.kube/config
@@ -79,15 +79,45 @@ module "server" {
   }
 }
 
-module "dns" {
-  source = "../../../modules/hetzner-dns"
+# Cloudflare Tunnel - routes staging traffic through Cloudflare
+module "tunnel" {
+  source = "../../../modules/cloudflare-tunnel"
 
-  domain       = var.staging_domain
-  ipv4_address = module.server.ipv4_address
-  ipv6_address = module.server.ipv6_address
+  account_id  = var.cloudflare_account_id
+  zone_name   = var.staging_domain
+  tunnel_name = "k8s-staging"
 
-  create_apex_records = false
-  subdomains          = toset(["k8s"])
-  wildcard_subdomain  = "k8s"
-  create_mx_records   = false
+  ingress_rules = [
+    {
+      hostname = "k8s.${var.staging_domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
+    },
+    {
+      hostname = "app.k8s.${var.staging_domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
+    },
+    {
+      hostname = "api.k8s.${var.staging_domain}"
+      service  = "http://ingress-nginx-controller.ingress-nginx.svc.cluster.local:80"
+    }
+  ]
+}
+
+# Keep k8s API endpoint directly resolvable for kubeconfig/6443.
+data "cloudflare_zone" "main" {
+  name = var.staging_domain
+}
+
+resource "cloudflare_record" "k8s_api" {
+  for_each = {
+    A    = module.server.ipv4_address
+    AAAA = module.server.ipv6_address
+  }
+
+  zone_id = data.cloudflare_zone.main.id
+  name    = "k8s-api.${var.staging_domain}"
+  type    = each.key
+  content = each.value
+  proxied = false
+  ttl     = 1
 }
