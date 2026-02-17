@@ -12,7 +12,7 @@ vi.mock('./useWeightData', () => ({
   useWeightData: () => mockUseWeightData()
 }));
 
-vi.mock('@/components/sqlite/InlineUnlock', () => ({
+vi.mock('../../sqlite/InlineUnlock', () => ({
   InlineUnlock: ({ description }: { description: string }) => (
     <div data-testid="inline-unlock">Unlock to view {description}</div>
   )

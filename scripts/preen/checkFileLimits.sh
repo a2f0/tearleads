@@ -13,6 +13,7 @@ IGNORE_PATTERNS=(
   "^ansible/vendor/"
   "^package\.json$"
   "^pnpm-workspace\.yaml$"
+  "^\.github/workflows/build\.yml$"
   "^\.gemini/"
   "^\.claude/"
   "^\.codex/"

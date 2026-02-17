@@ -57,3 +57,78 @@ test('runImpactedTests skips impacted tests when all changes are non-material', 
     /ci-impact: no material changes, skipping impacted tests\./
   );
 });
+
+test('runImpactedTests dry-run includes contacts coverage when contacts changes', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/contacts/src/components/ContactsGroupsSidebar.tsx',
+    '--dry-run'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+  assert.match(
+    stdoutText(result),
+    /ci-impact: targets => .*@tearleads\/contacts/
+  );
+});
+
+test('runImpactedTests dry-run skips coverage for test-only package changes', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/contacts/src/components/ContactsGroupsSidebar.test.tsx',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), []);
+  assert.equal(Reflect.get(parsed, 'fullRun'), false);
+});
+
+test('runImpactedTests dry-run includes cli coverage when cli changes', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/cli/src/db/adapter.ts',
+    '--dry-run'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+  assert.match(stdoutText(result), /ci-impact: targets => .*@tearleads\/cli/);
+});
+
+test('runImpactedTests emits target JSON for automation consumers', () => {
+  const result = runImpactedTests([
+    '--files',
+    'packages/cli/src/db/adapter.ts',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  if (typeof parsed !== 'object' || parsed === null) {
+    assert.fail('Expected JSON object output');
+  }
+
+  assert.equal(Array.isArray(Reflect.get(parsed, 'targets')), true);
+  assert.equal(Reflect.get(parsed, 'hasMaterialChanges'), true);
+  assert.equal(Reflect.get(parsed, 'fullRun'), false);
+  assert.equal(Reflect.get(parsed, 'runScriptTests'), false);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), ['@tearleads/cli']);
+});
+
+test('runImpactedTests dry-run treats build workflow edits as non-full-run exception', () => {
+  const result = runImpactedTests([
+    '--files',
+    '.github/workflows/build.yml',
+    '--dry-run',
+    '--print-targets-json'
+  ]);
+  assert.equal(result.status, 0, stderrText(result));
+
+  const stdout = stdoutText(result);
+  const parsed = JSON.parse(stdout);
+  assert.equal(Reflect.get(parsed, 'fullRun'), false);
+  assert.deepEqual(Reflect.get(parsed, 'targets'), []);
+});

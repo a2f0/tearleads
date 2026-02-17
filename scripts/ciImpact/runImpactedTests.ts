@@ -1,5 +1,7 @@
 #!/usr/bin/env -S pnpm exec tsx
-import { execSync, spawnSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
 
 interface CliArgs {
   base?: string;
@@ -7,6 +9,7 @@ interface CliArgs {
   files?: string;
   dryRun: boolean;
   scriptsOnly: boolean;
+  printTargetsJson: boolean;
 }
 
 interface CiImpactJobs {
@@ -24,14 +27,15 @@ interface CiImpactOutput {
 const DEFAULT_BASE = 'origin/main';
 const DEFAULT_HEAD = 'HEAD';
 
-const COVERAGE_PACKAGES: ReadonlyArray<string> = [
-  '@tearleads/shared',
-  '@tearleads/ui',
-  '@tearleads/api',
-  '@tearleads/client',
-  '@tearleads/chrome-extension',
-  '@tearleads/website'
-];
+interface PackageJsonShape {
+  name?: string;
+  scripts?: Record<string, string>;
+}
+
+interface WorkspacePackage {
+  name: string;
+  hasCoverageScript: boolean;
+}
 
 const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
   'pnpm-lock.yaml',
@@ -44,7 +48,6 @@ const FULL_RUN_FILE_NAMES: ReadonlyArray<string> = [
 ];
 const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/actions/',
-  'scripts/ciImpact/',
   '.github/workflows/build.yml',
   '.github/workflows/ci-gate.yml',
   '.github/workflows/integration-deploy.yml',
@@ -54,6 +57,9 @@ const FULL_RUN_PREFIXES: ReadonlyArray<string> = [
   '.github/workflows/android.yml',
   '.github/workflows/android-maestro-release.yml',
   '.github/workflows/ios-maestro-release.yml'
+];
+const FULL_RUN_EXACT_EXCEPTIONS: ReadonlyArray<string> = [
+  '.github/workflows/build.yml'
 ];
 const CI_IMPACT_SCRIPT_TEST_PREFIXES: ReadonlyArray<string> = [
   'scripts/ciImpact/',
@@ -66,7 +72,11 @@ const CI_IMPACT_SCRIPT_TEST_FILES: ReadonlyArray<string> = [
 ];
 
 function parseArgs(argv: string[]): CliArgs {
-  const args: CliArgs = { dryRun: false, scriptsOnly: false };
+  const args: CliArgs = {
+    dryRun: false,
+    scriptsOnly: false,
+    printTargetsJson: false
+  };
   for (let i = 2; i < argv.length; i += 1) {
     const token = argv[i];
     if (token === undefined) {
@@ -78,6 +88,10 @@ function parseArgs(argv: string[]): CliArgs {
     }
     if (token === '--scripts-only') {
       args.scriptsOnly = true;
+      continue;
+    }
+    if (token === '--print-targets-json') {
+      args.printTargetsJson = true;
       continue;
     }
     if (!token.startsWith('--')) {
@@ -154,24 +168,66 @@ function parseImpact(rawJson: string): CiImpactOutput {
 function runCiImpact(args: CliArgs): CiImpactOutput {
   const base = args.base || DEFAULT_BASE;
   const head = args.head || DEFAULT_HEAD;
-  const parts = [
-    'pnpm exec tsx scripts/ciImpact/ciImpact.ts',
-    `--base ${base}`,
-    `--head ${head}`
-  ];
+  const ciImpactScript = 'scripts/ciImpact/ciImpact.ts';
+  const ciImpactArgs = [ciImpactScript, '--base', base, '--head', head];
   if (args.files !== undefined) {
-    parts.push(`--files "${args.files}"`);
+    ciImpactArgs.push('--files', args.files);
   }
-  const cmd = parts.join(' ');
-  const output = execSync(cmd, {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe']
-  });
-  return parseImpact(output);
+
+  const runners: ReadonlyArray<{
+    cmd: string;
+    args: string[];
+    display: string;
+  }> = [
+    { cmd: 'tsx', args: ciImpactArgs, display: 'tsx' },
+    {
+      cmd: 'pnpm',
+      args: ['exec', 'tsx', ...ciImpactArgs],
+      display: 'pnpm exec tsx'
+    },
+    {
+      cmd: process.execPath,
+      args: ['--import', 'tsx', ...ciImpactArgs],
+      display: 'node --import tsx'
+    }
+  ];
+
+  let lastError = '';
+  for (const runner of runners) {
+    const result = spawnSync(runner.cmd, runner.args, {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+      env: process.env
+    });
+
+    const spawnError = result.error;
+    if (
+      spawnError !== undefined &&
+      typeof spawnError === 'object' &&
+      'code' in spawnError &&
+      spawnError.code === 'ENOENT'
+    ) {
+      lastError = `${runner.display} not available`;
+      continue;
+    }
+
+    if (typeof result.status === 'number' && result.status === 0) {
+      return parseImpact(
+        typeof result.stdout === 'string' ? result.stdout : ''
+      );
+    }
+
+    const stderr = typeof result.stderr === 'string' ? result.stderr : '';
+    throw new Error(stderr || `Failed to run ciImpact via ${runner.display}`);
+  }
+  throw new Error(lastError || 'Failed to find a ciImpact runner');
 }
 
 function requiresFullCoverageRun(changedFiles: string[]): boolean {
   for (const file of changedFiles) {
+    if (FULL_RUN_EXACT_EXCEPTIONS.includes(file)) {
+      continue;
+    }
     if (FULL_RUN_FILE_NAMES.includes(file)) {
       return true;
     }
@@ -186,6 +242,38 @@ function requiresFullCoverageRun(changedFiles: string[]): boolean {
 
 function uniqueSorted(values: string[]): string[] {
   return [...new Set(values)].sort();
+}
+
+function isTestOnlyPath(filePath: string): boolean {
+  return (
+    /(^|\/)__tests__(\/|$)/.test(filePath) ||
+    /(^|\/)test(\/|$)/.test(filePath) ||
+    /(^|\/)tests(\/|$)/.test(filePath) ||
+    /\.(test|spec)\.[cm]?[jt]sx?$/.test(filePath)
+  );
+}
+
+function packageDirPrefix(pkg: string): string | null {
+  const parts = pkg.split('/');
+  const packageName = parts[1];
+  if (packageName === undefined || packageName.length === 0) {
+    return null;
+  }
+  return `packages/${packageName}/`;
+}
+
+function hasNonTestPackageChange(pkg: string, changedFiles: string[]): boolean {
+  const prefix = packageDirPrefix(pkg);
+  if (prefix === null) {
+    return false;
+  }
+
+  const packageFiles = changedFiles.filter((file) => file.startsWith(prefix));
+  if (packageFiles.length === 0) {
+    return false;
+  }
+
+  return packageFiles.some((file) => !isTestOnlyPath(file));
 }
 
 function shouldRunCiImpactScriptTests(
@@ -234,15 +322,121 @@ function runCoverageForPackage(pkg: string): void {
   }
 }
 
+function readPackageJson(filePath: string): PackageJsonShape {
+  const raw = fs.readFileSync(filePath, 'utf8');
+  const parsed = JSON.parse(raw);
+  if (typeof parsed !== 'object' || parsed === null) {
+    return {};
+  }
+
+  const scriptsRaw = Reflect.get(parsed, 'scripts');
+  let scripts: Record<string, string> | undefined;
+  if (typeof scriptsRaw === 'object' && scriptsRaw !== null) {
+    const nextScripts: Record<string, string> = {};
+    for (const [key, value] of Object.entries(scriptsRaw)) {
+      if (typeof value === 'string') {
+        nextScripts[key] = value;
+      }
+    }
+    scripts = nextScripts;
+  }
+
+  const nameRaw = Reflect.get(parsed, 'name');
+  const name = typeof nameRaw === 'string' ? nameRaw : undefined;
+  const result: PackageJsonShape = {};
+  if (typeof name === 'string') {
+    result.name = name;
+  }
+  if (scripts !== undefined) {
+    result.scripts = scripts;
+  }
+  return result;
+}
+
+function listCoveragePackages(): string[] {
+  const packagesDir = 'packages';
+  if (!fs.existsSync(packagesDir)) {
+    return [];
+  }
+
+  const entries = fs.readdirSync(packagesDir, { withFileTypes: true });
+  const workspacePackages: WorkspacePackage[] = [];
+
+  for (const entry of entries) {
+    if (!entry.isDirectory()) {
+      continue;
+    }
+
+    const packageJsonPath = path.join(packagesDir, entry.name, 'package.json');
+    if (!fs.existsSync(packageJsonPath)) {
+      continue;
+    }
+
+    const pkg = readPackageJson(packageJsonPath);
+    if (typeof pkg.name !== 'string') {
+      continue;
+    }
+
+    const hasCoverageScript =
+      typeof pkg.scripts?.['test:coverage'] === 'string';
+
+    workspacePackages.push({
+      name: pkg.name,
+      hasCoverageScript
+    });
+  }
+
+  return uniqueSorted(
+    workspacePackages
+      .filter((pkg) => pkg.hasCoverageScript)
+      .map((pkg) => pkg.name)
+  );
+}
+
 function main(): void {
   const args = parseArgs(process.argv);
   const impact = runCiImpact(args);
+  const coveragePackages = listCoveragePackages();
 
   const fullRun = requiresFullCoverageRun(impact.changedFiles);
   const runScriptTests = shouldRunCiImpactScriptTests(
     impact.changedFiles,
     fullRun
   );
+
+  const affectedSet = new Set(impact.affectedPackages);
+
+  let targets: string[] = [];
+  if (impact.materialFiles.length === 0) {
+    targets = [];
+  } else if (fullRun) {
+    targets = [...coveragePackages];
+  } else {
+    targets = coveragePackages.filter(
+      (pkg) =>
+        affectedSet.has(pkg) &&
+        hasNonTestPackageChange(pkg, impact.changedFiles)
+    );
+  }
+
+  targets = uniqueSorted(targets);
+
+  if (args.printTargetsJson) {
+    process.stdout.write(
+      JSON.stringify(
+        {
+          targets,
+          fullRun,
+          runScriptTests,
+          hasMaterialChanges: impact.materialFiles.length > 0
+        },
+        null,
+        2
+      )
+    );
+    process.stdout.write('\n');
+    return;
+  }
 
   if (impact.materialFiles.length === 0) {
     console.log('ci-impact: no material changes, skipping impacted tests.');
@@ -266,17 +460,6 @@ function main(): void {
   if (args.scriptsOnly) {
     return;
   }
-
-  const affectedSet = new Set(impact.affectedPackages);
-
-  let targets: string[] = [];
-  if (fullRun) {
-    targets = [...COVERAGE_PACKAGES];
-  } else {
-    targets = COVERAGE_PACKAGES.filter((pkg) => affectedSet.has(pkg));
-  }
-
-  targets = uniqueSorted(targets);
 
   if (targets.length === 0) {
     console.log(

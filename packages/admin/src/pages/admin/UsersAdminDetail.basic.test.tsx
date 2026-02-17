@@ -211,6 +211,7 @@ describe('UsersAdminDetail (basic)', () => {
 
   it('shows error when save fails', async () => {
     const user = userEvent.setup();
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
     mockUpdate.mockRejectedValueOnce(new Error('Update failed'));
 
     await renderUser(user1Response);
@@ -225,6 +226,7 @@ describe('UsersAdminDetail (basic)', () => {
     await waitFor(() => {
       expect(screen.getByText('Update failed')).toBeInTheDocument();
     });
+    consoleSpy.mockRestore();
   });
 
   it('resets draft when Reset button is clicked', async () => {
@@ -259,7 +261,7 @@ describe('UsersAdminDetail (basic)', () => {
     );
 
     expect(mockNavigate).toHaveBeenCalledWith(
-      '/admin/ai-requests?userId=user-1'
+      '/admin/users/ai-requests?userId=user-1'
     );
   });
 
@@ -337,22 +339,23 @@ describe('UsersAdminDetail (basic)', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('User ID is required')).toBeInTheDocument();
+      expect(screen.getByText('No user ID provided')).toBeInTheDocument();
     });
   });
 
   it('copies user id to clipboard', async () => {
     const user = userEvent.setup();
-    Object.assign(navigator, {
-      clipboard: {
-        writeText: vi.fn()
-      }
-    });
+    const writeTextSpy = vi
+      .spyOn(navigator.clipboard, 'writeText')
+      .mockResolvedValue(undefined);
 
     await renderUser(user1Response);
 
-    await user.click(screen.getByRole('button', { name: 'Copy User ID' }));
+    await user.click(
+      screen.getByRole('button', { name: 'Copy user id to clipboard' })
+    );
 
-    expect(navigator.clipboard.writeText).toHaveBeenCalledWith('user-1');
+    expect(writeTextSpy).toHaveBeenCalledWith('user-1');
+    writeTextSpy.mockRestore();
   });
 });

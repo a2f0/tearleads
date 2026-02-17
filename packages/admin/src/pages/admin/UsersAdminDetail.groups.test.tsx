@@ -63,19 +63,20 @@ describe('UsersAdminDetail (groups)', () => {
 
   it('renders group membership status and allows adding to a group', async () => {
     const user = userEvent.setup();
-    mockGroupsList.mockResolvedValueOnce({
+    mockGroupsList.mockResolvedValue({
       groups: [
         {
           id: 'group-1',
           name: 'Team A',
           description: 'Team A description',
           organizationId: 'org-1',
+          memberCount: 1,
           createdAt: '2024-03-01T00:00:00.000Z',
           updatedAt: '2024-03-01T00:00:00.000Z'
         }
       ]
     });
-    mockGetMembers.mockResolvedValueOnce({ members: [] });
+    mockGetMembers.mockResolvedValue({ members: [] });
     mockAddMember.mockResolvedValueOnce({});
 
     await renderUserDetail();
@@ -85,7 +86,7 @@ describe('UsersAdminDetail (groups)', () => {
     });
     expect(screen.getByText('Not a member')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Add to Group' }));
+    await user.click(screen.getByTestId('add-user-to-group-group-1'));
 
     await waitFor(() => {
       expect(mockAddMember).toHaveBeenCalledWith('group-1', 'user-1');
@@ -94,19 +95,20 @@ describe('UsersAdminDetail (groups)', () => {
 
   it('removes a user from a group via confirmation dialog', async () => {
     const user = userEvent.setup();
-    mockGroupsList.mockResolvedValueOnce({
+    mockGroupsList.mockResolvedValue({
       groups: [
         {
           id: 'group-1',
           name: 'Team A',
           description: 'Team A description',
           organizationId: 'org-1',
+          memberCount: 1,
           createdAt: '2024-03-01T00:00:00.000Z',
           updatedAt: '2024-03-01T00:00:00.000Z'
         }
       ]
     });
-    mockGetMembers.mockResolvedValueOnce({
+    mockGetMembers.mockResolvedValue({
       members: [
         {
           id: 'membership-1',
@@ -124,12 +126,8 @@ describe('UsersAdminDetail (groups)', () => {
       expect(screen.getByText('Member')).toBeInTheDocument();
     });
 
-    await user.click(screen.getByRole('button', { name: 'Remove from Group' }));
-    await waitFor(() => {
-      expect(screen.getByText('Remove member from group?')).toBeInTheDocument();
-    });
-
-    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(screen.getByTestId('remove-user-from-group-group-1'));
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
     await waitFor(() => {
       expect(mockRemoveMember).toHaveBeenCalledWith('group-1', 'user-1');
@@ -138,50 +136,62 @@ describe('UsersAdminDetail (groups)', () => {
 
   it('shows 409 conflict error when adding user already in group', async () => {
     const user = userEvent.setup();
-    mockGroupsList.mockResolvedValueOnce({
+    mockGroupsList.mockResolvedValue({
       groups: [
         {
           id: 'group-1',
           name: 'Team A',
           description: 'Team A description',
           organizationId: 'org-1',
+          memberCount: 1,
           createdAt: '2024-03-01T00:00:00.000Z',
           updatedAt: '2024-03-01T00:00:00.000Z'
         }
       ]
     });
-    mockGetMembers.mockResolvedValueOnce({ members: [] });
-    mockAddMember.mockRejectedValueOnce({ status: 409 });
+    mockGetMembers.mockResolvedValue({ members: [] });
+    mockAddMember.mockRejectedValueOnce(new Error('409'));
 
     await renderUserDetail();
+    await waitFor(() => {
+      expect(screen.getByText('Team A')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Not a member')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Add to Group' }));
+    await user.click(screen.getByTestId('add-user-to-group-group-1'));
 
     await waitFor(() => {
-      expect(screen.getByText('User already in group')).toBeInTheDocument();
+      expect(
+        screen.getByText('User is already a member of this group')
+      ).toBeInTheDocument();
     });
   });
 
   it('shows 404 error when group or user not found', async () => {
     const user = userEvent.setup();
-    mockGroupsList.mockResolvedValueOnce({
+    mockGroupsList.mockResolvedValue({
       groups: [
         {
           id: 'group-1',
           name: 'Team A',
           description: 'Team A description',
           organizationId: 'org-1',
+          memberCount: 1,
           createdAt: '2024-03-01T00:00:00.000Z',
           updatedAt: '2024-03-01T00:00:00.000Z'
         }
       ]
     });
-    mockGetMembers.mockResolvedValueOnce({ members: [] });
-    mockAddMember.mockRejectedValueOnce({ status: 404 });
+    mockGetMembers.mockResolvedValue({ members: [] });
+    mockAddMember.mockRejectedValueOnce(new Error('404'));
 
     await renderUserDetail();
+    await waitFor(() => {
+      expect(screen.getByText('Team A')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Not a member')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Add to Group' }));
+    await user.click(screen.getByTestId('add-user-to-group-group-1'));
 
     await waitFor(() => {
       expect(screen.getByText('Group or user not found')).toBeInTheDocument();
@@ -190,47 +200,51 @@ describe('UsersAdminDetail (groups)', () => {
 
   it('shows generic error message for other add member errors', async () => {
     const user = userEvent.setup();
-    mockGroupsList.mockResolvedValueOnce({
+    mockGroupsList.mockResolvedValue({
       groups: [
         {
           id: 'group-1',
           name: 'Team A',
           description: 'Team A description',
           organizationId: 'org-1',
+          memberCount: 1,
           createdAt: '2024-03-01T00:00:00.000Z',
           updatedAt: '2024-03-01T00:00:00.000Z'
         }
       ]
     });
-    mockGetMembers.mockResolvedValueOnce({ members: [] });
+    mockGetMembers.mockResolvedValue({ members: [] });
     mockAddMember.mockRejectedValueOnce(new Error('Boom'));
 
     await renderUserDetail();
+    await waitFor(() => {
+      expect(screen.getByText('Team A')).toBeInTheDocument();
+    });
+    expect(screen.getByText('Not a member')).toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: 'Add to Group' }));
+    await user.click(screen.getByTestId('add-user-to-group-group-1'));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Failed to add user to group')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Boom')).toBeInTheDocument();
     });
   });
 
   it('shows error when remove member fails', async () => {
     const user = userEvent.setup();
-    mockGroupsList.mockResolvedValueOnce({
+    mockGroupsList.mockResolvedValue({
       groups: [
         {
           id: 'group-1',
           name: 'Team A',
           description: 'Team A description',
           organizationId: 'org-1',
+          memberCount: 1,
           createdAt: '2024-03-01T00:00:00.000Z',
           updatedAt: '2024-03-01T00:00:00.000Z'
         }
       ]
     });
-    mockGetMembers.mockResolvedValueOnce({
+    mockGetMembers.mockResolvedValue({
       members: [
         {
           id: 'membership-1',
@@ -243,14 +257,15 @@ describe('UsersAdminDetail (groups)', () => {
     mockRemoveMember.mockRejectedValueOnce(new Error('Boom'));
 
     await renderUserDetail();
+    await waitFor(() => {
+      expect(screen.getByText('Member')).toBeInTheDocument();
+    });
 
-    await user.click(screen.getByRole('button', { name: 'Remove from Group' }));
-    await user.click(screen.getByRole('button', { name: 'Remove' }));
+    await user.click(screen.getByTestId('remove-user-from-group-group-1'));
+    await user.click(screen.getByTestId('confirm-dialog-confirm'));
 
     await waitFor(() => {
-      expect(
-        screen.getByText('Failed to remove user from group')
-      ).toBeInTheDocument();
+      expect(screen.getByText('Boom')).toBeInTheDocument();
     });
   });
 

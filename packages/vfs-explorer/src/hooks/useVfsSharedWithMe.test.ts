@@ -221,24 +221,24 @@ describe('useVfsSharedWithMe', () => {
     consoleError.mockRestore();
   });
 
-  it('converts date strings to Date objects', async () => {
-    const createdAtStr = '2024-01-15T10:00:00.000Z';
-    const sharedAtStr = '2024-01-20T10:00:00.000Z';
-    const expiresAtStr = '2025-12-31T23:59:59.000Z';
+  it('converts database dates to Date objects', async () => {
+    const createdAt = new Date('2024-01-15T10:00:00.000Z');
+    const sharedAt = new Date('2024-01-20T10:00:00.000Z');
+    const expiresAt = new Date('2025-12-31T23:59:59.000Z');
 
     mockDb.orderBy.mockResolvedValueOnce([
       {
         id: 'item-1',
         objectType: 'folder',
         name: 'Shared Folder',
-        createdAt: createdAtStr,
+        createdAt,
         shareId: 'share-1',
         sharedById: 'user-1',
         sharedByEmail: 'user1@example.com',
         shareType: 'user',
         permissionLevel: 'view',
-        sharedAt: sharedAtStr,
-        expiresAt: expiresAtStr
+        sharedAt,
+        expiresAt
       }
     ]);
 

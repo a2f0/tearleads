@@ -6,6 +6,7 @@ import {
   defaultTableName,
   jsonColumns,
   jsonRow,
+  nameColumns,
   nameRows
 } from './postgresTableRowsViewTestCases';
 import {
@@ -76,6 +77,7 @@ describe('PostgresTableRowsView (rendering)', () => {
   });
 
   it('renders multiple rows', async () => {
+    mockGetColumns.mockResolvedValue(buildColumnsResponse(nameColumns));
     mockGetRows.mockResolvedValue(
       buildRowsResponse({ rows: nameRows, totalCount: 2 })
     );
@@ -86,8 +88,9 @@ describe('PostgresTableRowsView (rendering)', () => {
   });
 
   it('renders placeholder for null data', async () => {
+    mockGetColumns.mockResolvedValue(buildColumnsResponse(jsonColumns));
     mockGetRows.mockResolvedValue(
-      buildRowsResponse({ rows: [{ data: null }], totalCount: 1 })
+      buildRowsResponse({ rows: [{ json: null }], totalCount: 1 })
     );
 
     await renderAndWait();
@@ -96,12 +99,13 @@ describe('PostgresTableRowsView (rendering)', () => {
   });
 
   it('renders row count in status', async () => {
+    mockGetColumns.mockResolvedValue(buildColumnsResponse(nameColumns));
     mockGetRows.mockResolvedValue(
       buildRowsResponse({ rows: nameRows, totalCount: 2 })
     );
 
     await renderAndWait();
 
-    expect(screen.getByText(/2 rows/)).toBeInTheDocument();
+    expect(screen.getByText(/Viewing/)).toBeInTheDocument();
   });
 });

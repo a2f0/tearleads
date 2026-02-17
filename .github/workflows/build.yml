@@ -17,6 +17,8 @@ jobs:
     outputs:
       should-run: ${{ steps.impact.outputs.should-run }}
       impact-json: ${{ steps.impact.outputs.impact-json }}
+      test-packages: ${{ steps.impact.outputs.test-packages }}
+      test-should-run: ${{ steps.impact.outputs.test-should-run }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -49,7 +51,16 @@ jobs:
 
           tsx scripts/ciImpact/ciImpact.ts --base "$BASE_SHA" --head "$HEAD_SHA" > ci-impact.json
           SHOULD_RUN="$(jq -r '.jobs["build"].run' ci-impact.json)"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TARGETS_JSON="$(tsx scripts/ciImpact/runImpactedTests.ts --files "package.json" --dry-run --print-targets-json)"
+          else
+            TARGETS_JSON="$(tsx scripts/ciImpact/runImpactedTests.ts --base "$BASE_SHA" --head "$HEAD_SHA" --dry-run --print-targets-json)"
+          fi
+          TEST_PACKAGES="$(printf '%s' "$TARGETS_JSON" | jq -cr '.targets | map(sub("^@tearleads/"; ""))')"
+          TEST_SHOULD_RUN="$(printf '%s' "$TARGETS_JSON" | jq -r 'if (.targets | length) > 0 then "true" else "false" end')"
           echo "should-run=$SHOULD_RUN" >> "$GITHUB_OUTPUT"
+          echo "test-packages=$TEST_PACKAGES" >> "$GITHUB_OUTPUT"
+          echo "test-should-run=$TEST_SHOULD_RUN" >> "$GITHUB_OUTPUT"
           echo "impact-json<<JSON" >> "$GITHUB_OUTPUT"
           cat ci-impact.json >> "$GITHUB_OUTPUT"
           echo "JSON" >> "$GITHUB_OUTPUT"
@@ -61,6 +72,7 @@ jobs:
           jq -r '"- build: " + (.jobs["build"].run|tostring) + " (" + (.jobs["build"].reasons|join(", ")) + ")"' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
           jq -r '"- changed packages: " + (.changedPackages|join(", "))' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
           jq -r 'if (.warnings|length) > 0 then "- warnings: " + (.warnings|join("; ")) else "- warnings: none" end' ci-impact.json >> "$GITHUB_STEP_SUMMARY"
+          echo "- impacted test packages: ${{ steps.impact.outputs.test-packages }}" >> "$GITHUB_STEP_SUMMARY"
 
   # Lint jobs run in parallel
   lint:
@@ -271,24 +283,13 @@ jobs:
   # Unit tests run in parallel matrix
   test:
     needs: [detect-impact, typecheck-build]
-    if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
+    if: ${{ (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && needs.detect-impact.outputs.test-should-run == 'true' }}
     runs-on: ${{ vars.USE_SELF_HOSTED == 'true' && 'self-hosted' || 'ubuntu-latest' }}
     timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
-        package:
-          - shared
-          - ui
-          - window-manager
-          - audio
-          - terminal
-          - keychain
-          - api
-          - smtp-listener
-          - client
-          - chrome-extension
-          - website
+        package: ${{ fromJson(needs.detect-impact.outputs.test-packages) }}
     steps:
       - uses: actions/checkout@v4
 
@@ -399,7 +400,7 @@ jobs:
   # Aggregate coverage reports and create summary
   coverage-summary:
     needs: [detect-impact, test, test-tuxedo]
-    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') }}
+    if: ${{ always() && (github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true') && needs.detect-impact.outputs.test-should-run == 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -419,11 +420,17 @@ jobs:
       - name: Reorganize coverage reports
         run: |
           mkdir -p packages
-          for pkg in shared ui window-manager audio terminal keychain api smtp-listener client chrome-extension website; do
-            if [ -d "coverage-reports/coverage-$pkg" ]; then
-              mkdir -p "packages/$pkg/coverage"
-              cp -r "coverage-reports/coverage-$pkg"/* "packages/$pkg/coverage/" 2>/dev/null || true
+          for report_dir in coverage-reports/coverage-*; do
+            if [ ! -d "$report_dir" ]; then
+              continue
             fi
+            pkg="$(basename "$report_dir")"
+            pkg="${pkg#coverage-}"
+            if [ "$pkg" = "tuxedo" ]; then
+              continue
+            fi
+            mkdir -p "packages/$pkg/coverage"
+            cp -r "$report_dir"/* "packages/$pkg/coverage/" 2>/dev/null || true
           done
           if [ -d "coverage-reports/coverage-tuxedo" ]; then
             mkdir -p "tuxedo/tests/coverage"
@@ -443,21 +450,23 @@ jobs:
         run: |
           echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          for pkg in shared ui window-manager audio terminal keychain api smtp-listener client chrome-extension website; do
-            if [ -f "packages/$pkg/coverage/coverage-summary.json" ]; then
-              echo "### @tearleads/$pkg" >> $GITHUB_STEP_SUMMARY
-              node -e "
-                const summary = require('./packages/$pkg/coverage/coverage-summary.json');
-                const total = summary.total;
-                console.log('| Metric | Coverage |');
-                console.log('|--------|----------|');
-                console.log('| Lines | ' + total.lines.pct + '% |');
-                console.log('| Statements | ' + total.statements.pct + '% |');
-                console.log('| Functions | ' + total.functions.pct + '% |');
-                console.log('| Branches | ' + total.branches.pct + '% |');
-              " >> $GITHUB_STEP_SUMMARY
-              echo "" >> $GITHUB_STEP_SUMMARY
+          for summary in packages/*/coverage/coverage-summary.json; do
+            if [ ! -f "$summary" ]; then
+              continue
             fi
+            pkg="$(echo "$summary" | awk -F'/' '{print $2}')"
+            echo "### @tearleads/$pkg" >> $GITHUB_STEP_SUMMARY
+            node -e "
+              const summary = require('./$summary');
+              const total = summary.total;
+              console.log('| Metric | Coverage |');
+              console.log('|--------|----------|');
+              console.log('| Lines | ' + total.lines.pct + '% |');
+              console.log('| Statements | ' + total.statements.pct + '% |');
+              console.log('| Functions | ' + total.functions.pct + '% |');
+              console.log('| Branches | ' + total.branches.pct + '% |');
+            " >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           done
 
   # Final build status (for branch protection)
@@ -476,13 +485,33 @@ jobs:
       - name: Check job results
         if: ${{ github.event_name == 'workflow_dispatch' || needs.detect-impact.outputs.should-run == 'true' }}
         run: |
+          TEST_MATRIX_REQUIRED="${{ needs.detect-impact.outputs.test-should-run }}"
+
           if [ "${{ needs.lint.result }}" != "success" ] || \
              [ "${{ needs.guardrails.result }}" != "success" ] || \
              [ "${{ needs.typecheck-build.result }}" != "success" ] || \
-             [ "${{ needs.test.result }}" != "success" ] || \
-             [ "${{ needs.test-tuxedo.result }}" != "success" ] || \
-             [ "${{ needs.coverage-summary.result }}" != "success" ]; then
+             [ "${{ needs.test-tuxedo.result }}" != "success" ]; then
             echo "One or more jobs did not complete successfully"
             exit 1
           fi
+
+          if [ "$TEST_MATRIX_REQUIRED" = "true" ]; then
+            if [ "${{ needs.test.result }}" != "success" ] || \
+               [ "${{ needs.coverage-summary.result }}" != "success" ]; then
+              echo "One or more jobs did not complete successfully"
+              exit 1
+            fi
+          else
+            if [ "${{ needs.test.result }}" != "skipped" ] && \
+               [ "${{ needs.test.result }}" != "success" ]; then
+              echo "Unexpected test job result: ${{ needs.test.result }}"
+              exit 1
+            fi
+            if [ "${{ needs.coverage-summary.result }}" != "skipped" ] && \
+               [ "${{ needs.coverage-summary.result }}" != "success" ]; then
+              echo "Unexpected coverage-summary job result: ${{ needs.coverage-summary.result }}"
+              exit 1
+            fi
+          fi
+
           echo "All jobs passed successfully"

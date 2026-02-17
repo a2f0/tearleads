@@ -3,7 +3,18 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { HealthWindow } from './HealthWindow';
 
+const mockTriggerRefresh = vi.fn();
+
 vi.mock('@tearleads/window-manager', () => ({
+  cn: (...classes: Array<string | undefined | null | false>) =>
+    classes.filter(Boolean).join(' '),
+  WindowMenuBar: ({ children }: { children: React.ReactNode }) => (
+    <div>{children}</div>
+  ),
+  useWindowRefresh: () => ({
+    refreshToken: 0,
+    triggerRefresh: mockTriggerRefresh
+  }),
   FloatingWindow: ({
     children,
     title,
@@ -135,12 +146,9 @@ describe('HealthWindow', () => {
     const user = userEvent.setup();
     render(<HealthWindow {...defaultProps} />);
 
-    const healthPage = screen.getByTestId('health-page');
-    expect(healthPage.dataset['refreshToken']).toBe('0');
-
     await user.click(screen.getByTestId('health-window-control-refresh'));
 
-    expect(healthPage.dataset['refreshToken']).toBe('1');
+    expect(mockTriggerRefresh).toHaveBeenCalledTimes(1);
   });
 
   it('shows Back button in control bar when on drilldown route', async () => {
