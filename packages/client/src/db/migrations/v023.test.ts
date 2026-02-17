@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { DatabaseAdapter } from '@/db/adapters/types';
-import { v021 } from './v021';
+import { v023 } from './v023';
 
 const createAdapter = (
   execute: DatabaseAdapter['execute']
@@ -19,7 +19,7 @@ const createAdapter = (
   importDatabase: vi.fn(async () => {})
 });
 
-describe('v021 migration', () => {
+describe('v023 migration', () => {
   it('adds canonical folder metadata columns to vfs_registry', async () => {
     const execute = vi
       .fn<DatabaseAdapter['execute']>()
@@ -31,7 +31,7 @@ describe('v021 migration', () => {
       });
     const adapter = createAdapter(execute);
 
-    await v021.up(adapter);
+    await v023.up(adapter);
 
     const statements = execute.mock.calls.map(([query]) => query);
     expect(statements).toContain(
