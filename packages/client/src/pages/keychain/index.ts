@@ -1,4 +1,4 @@
 export {
   Keychain,
   KeychainDetail
-} from '../../../../keychain/src/pages/keychain';
+} from '../../../../keychain/src/clientEntry';

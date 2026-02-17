@@ -91,30 +91,29 @@ vi.mock('@/components/console-window', () => ({
     )
 }));
 
-vi.mock('@/components/keychain-window', () => ({
-  KeychainWindow: ({
-    id,
-    onClose,
-    onMinimize,
-    onFocus,
-    zIndex
-  }: {
-    id: string;
-    onClose: () => void;
-    onMinimize: (dimensions: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }) => void;
-    onFocus: () => void;
-    zIndex: number;
-  }) =>
+type MockWindowProps = {
+  id: string;
+  onClose: () => void;
+  onMinimize: (dimensions: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  }) => void;
+  onFocus: () => void;
+  zIndex: number;
+};
+
+function createMockWindow(
+  name: string,
+  minimizeDimensions: { width: number; height: number }
+) {
+  return ({ id, onClose, onMinimize, onFocus, zIndex }: MockWindowProps) =>
     createElement(
       'div',
       {
         role: 'dialog',
-        'data-testid': `keychain-window-${id}`,
+        'data-testid': `${name}-window-${id}`,
         'data-zindex': zIndex,
         onClick: onFocus
       },
@@ -131,60 +130,20 @@ vi.mock('@/components/keychain-window', () => ({
         'button',
         {
           type: 'button',
-          onClick: () => onMinimize({ x: 0, y: 0, width: 600, height: 500 }),
+          onClick: () => onMinimize({ x: 0, y: 0, ...minimizeDimensions }),
           'data-testid': `minimize-${id}`
         },
         'Minimize'
       )
-    )
+    );
+}
+
+vi.mock('@/components/keychain-window', () => ({
+  KeychainWindow: createMockWindow('keychain', { width: 600, height: 500 })
 }));
 
 vi.mock('@/components/sync-window', () => ({
-  SyncWindow: ({
-    id,
-    onClose,
-    onMinimize,
-    onFocus,
-    zIndex
-  }: {
-    id: string;
-    onClose: () => void;
-    onMinimize: (dimensions: {
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-    }) => void;
-    onFocus: () => void;
-    zIndex: number;
-  }) =>
-    createElement(
-      'div',
-      {
-        role: 'dialog',
-        'data-testid': `sync-window-${id}`,
-        'data-zindex': zIndex,
-        onClick: onFocus
-      },
-      createElement(
-        'button',
-        {
-          type: 'button',
-          onClick: onClose,
-          'data-testid': `close-${id}`
-        },
-        'Close'
-      ),
-      createElement(
-        'button',
-        {
-          type: 'button',
-          onClick: () => onMinimize({ x: 0, y: 0, width: 400, height: 450 }),
-          'data-testid': `minimize-${id}`
-        },
-        'Minimize'
-      )
-    )
+  SyncWindow: createMockWindow('sync', { width: 400, height: 450 })
 }));
 
 // Mock @ionic/core gestures to avoid DOM issues in jsdom

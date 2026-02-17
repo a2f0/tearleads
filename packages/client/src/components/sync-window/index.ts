@@ -1,1 +1,1 @@
-export { SyncWindow } from '../../../../sync/src/components/sync-window';
+export { SyncWindow } from '../../../../sync/src/clientEntry';
