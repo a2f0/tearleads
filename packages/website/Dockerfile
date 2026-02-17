@@ -48,9 +48,9 @@ RUN echo 'server { \
     server_name _; \
     root /usr/share/nginx/html; \
     index index.html; \
-    port_in_redirect on; \
+    absolute_redirect off; \
     location / { \
-        try_files $uri $uri/ =404; \
+        try_files $uri $uri/index.html =404; \
     } \
     location /_astro/ { \
         expires 1y; \
