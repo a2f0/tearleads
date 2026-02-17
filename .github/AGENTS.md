@@ -37,6 +37,16 @@ This document describes the CI architecture and how agents should interact with 
 | `android-maestro-release.yml` | workflow_dispatch, PR | Android Maestro tests |
 | `ios-maestro-release.yml` | workflow_dispatch, PR | iOS Maestro tests |
 
+## CI Service Runtime
+
+CI E2E workflows are Docker-first for environment parity with staging k8s runtime:
+
+- `web-e2e.yml` builds and runs app services with package Dockerfiles.
+- `electron-e2e.yml` runs PostgreSQL/API via containers.
+- `website-e2e.yml` serves the website from the website Docker image.
+
+Legacy CI ansible artifacts (`ansible/playbooks/ci-nginx.yml`, `ansible/playbooks/ci-postgres.yml`, `ansible/inventories/ci.yml`) were removed and should not be reintroduced for CI setup.
+
 ## Impact Analysis System
 
 The impact analyzer (`scripts/ciImpact/`) determines which CI jobs should run based on changed files. This reduces unnecessary test execution while remaining conservative.
