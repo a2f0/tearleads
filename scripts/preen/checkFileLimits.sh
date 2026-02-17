@@ -18,6 +18,7 @@ IGNORE_PATTERNS=(
   "^\.claude/"
   "^\.codex/"
   "^\.opencode/"
+  "^compliance/"
   "\.min\.js$"
   "\.map$"
 )
