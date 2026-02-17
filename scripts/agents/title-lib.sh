@@ -22,6 +22,6 @@ agent_workspace_title() {
 agent_sync_tmux_title() {
     # No-op: tmux window titles now update automatically via automatic-rename-format
     # in tmux.conf, which uses the @workspace window option to get the git branch.
-    # This function is preserved for backward compatibility with setVscodeTitle.sh.
+    # This function is preserved for backward compatibility with setVscodeTitle.ts.
     :
 }

@@ -26,7 +26,7 @@ Se necesita una clave API de App Store Connect para la automatización de compil
 5. Establezca el rol como **App Manager**.
 6. Descargue el archivo `.p8` y colóquelo en `.secrets/`
 7. Exporte `APP_STORE_CONNECT_KEY_ID` y `APP_STORE_CONNECT_ISSUER_ID`.
-8. Use [scripts/setGithubVars.sh](../scripts/setGithubVars.sh) para desplegarlo en GitHub.
+8. Use [scripts/setGithubVars.ts](../scripts/setGithubVars.ts) para desplegarlo en GitHub.
 
 ## Token de Acceso Personal de GitHub
 
@@ -38,4 +38,4 @@ Se requiere un token de acceso personal para Fastlane Match, que se utiliza para
   a. Acceso de lectura a metadatos
   b. Acceso de lectura y escritura al código
 4. Codifique el token con `echo -n "<usuario de github>:<token de acceso personal>" | base64 | pbcopy` y asígnelo a `MATCH_GIT_BASIC_AUTHORIZATION`
-5. Use [scripts/setGithubVars.sh](../scripts/setGithubVars.sh) para configurarlo en GitHub (para GitHub Actions).
+5. Use [scripts/setGithubVars.ts](../scripts/setGithubVars.ts) para configurarlo en GitHub (para GitHub Actions).

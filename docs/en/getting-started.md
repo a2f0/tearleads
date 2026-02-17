@@ -24,7 +24,7 @@ An App Store connect API key is needed for Fastlane's build automation.
 5. Set role to **App Manager**.
 6. Download the `.p8` file, and put it into `.secrets/`
 7. Export `APP_STORE_CONNECT_KEY_ID` and `APP_STORE_CONNECT_ISSUER_ID`.
-8. Use [scripts/setGithubVars.sh](../scripts/setGithubVars.sh) to deploy it to GitHub.
+8. Use [scripts/setGithubVars.ts](../scripts/setGithubVars.ts) to deploy it to GitHub.
 
 ## GitHub Personal Access Token
 
@@ -36,4 +36,4 @@ A personal access token is required for Fastlane Match, which is used for signin
   a. Read access to metadata
   b. Read and Write access to code
 4. Encode the token with `echo -n "<github handle>:<personal access token>" | base64 | pbcopy` and set it to `MATCH_GIT_BASIC_AUTHORIZATION`
-5. Use [scripts/setGithubVars.sh](../scripts/setGithubVars.sh) to set it in GitHub (for GitHub Actions).
+5. Use [scripts/setGithubVars.ts](../scripts/setGithubVars.ts) to set it in GitHub (for GitHub Actions).

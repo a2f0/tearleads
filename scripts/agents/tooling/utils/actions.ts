@@ -1,5 +1,6 @@
 import { execFileSync, execSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
+import path from 'node:path';
 import { runWithTimeout } from '../../../tooling/lib/cliShared.ts';
 import type { ActionConfig, ActionName, GlobalOptions } from '../types.ts';
 import { requireDefined } from './helpers.ts';
@@ -328,6 +329,20 @@ export function runDelegatedAction(
     if (options.dryRun) {
       args.push('--dry-run');
     }
+  }
+
+  if (scriptPath.endsWith('.ts')) {
+    const scriptsRepoRoot = path.dirname(path.dirname(agentsDir));
+    const tsxBin = path.join(scriptsRepoRoot, 'node_modules', '.bin', 'tsx');
+    if (existsSync(tsxBin)) {
+      return runWithTimeout(tsxBin, [scriptPath, ...args], timeoutMs, repoRoot);
+    }
+    return runWithTimeout(
+      'pnpm',
+      ['--dir', scriptsRepoRoot, 'exec', 'tsx', scriptPath, ...args],
+      timeoutMs,
+      repoRoot
+    );
   }
 
   return runWithTimeout(scriptPath, args, timeoutMs, repoRoot);
