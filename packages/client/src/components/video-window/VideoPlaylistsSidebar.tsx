@@ -1,6 +1,6 @@
 import {
-  useSidebarDragOver,
   useResizableSidebar,
+  useSidebarDragOver,
   useSidebarRefetch
 } from '@tearleads/window-manager';
 import { List, Loader2, Plus, Video } from 'lucide-react';

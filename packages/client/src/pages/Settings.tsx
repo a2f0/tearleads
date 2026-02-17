@@ -1,7 +1,4 @@
-import {
-  SettingsPage,
-  type SettingsPageProps
-} from '@tearleads/settings';
+import { SettingsPage, type SettingsPageProps } from '@tearleads/settings';
 import { ChevronRight, Scale } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { FeatureFlags } from '@/components/settings/FeatureFlags';

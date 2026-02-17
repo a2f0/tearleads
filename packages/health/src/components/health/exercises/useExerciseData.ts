@@ -1,5 +1,5 @@
-import type { CreateExerciseInput, Exercise } from '../../../lib/healthTracker';
 import { useCallback, useEffect, useState } from 'react';
+import type { CreateExerciseInput, Exercise } from '../../../lib/healthTracker';
 import { useHealthRuntime } from '../../../runtime';
 import { useHealthTracker } from '../useHealthTracker';
 

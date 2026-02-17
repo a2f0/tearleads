@@ -20,13 +20,13 @@ export type {
 } from './lib/healthTracker';
 export { createHealthTracker } from './lib/healthTracker';
 export {
-  HealthRuntimeProvider,
-  type HealthRuntimeContextValue,
-  type HealthRuntimeProviderProps,
-  useHealthRuntime
-} from './runtime';
-export {
   HEALTH_DRILLDOWN_CARDS,
   Health,
   type HealthDrilldownRoute
 } from './pages/Health';
+export {
+  type HealthRuntimeContextValue,
+  HealthRuntimeProvider,
+  type HealthRuntimeProviderProps,
+  useHealthRuntime
+} from './runtime';

@@ -1,9 +1,9 @@
 import {
   DesktopFloatingWindow as FloatingWindow,
+  useWindowRefresh,
   WindowControlBar,
   WindowControlButton,
   WindowControlGroup,
-  useWindowRefresh,
   type WindowDimensions,
   WindowStatusBar
 } from '@tearleads/window-manager';

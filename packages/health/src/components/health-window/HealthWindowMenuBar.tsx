@@ -19,9 +19,7 @@ export function HealthWindowMenuBar({
   onRefresh,
   onClose
 }: HealthWindowMenuBarProps) {
-  const [openMenu, setOpenMenu] = useState<'file' | 'go' | 'view' | null>(
-    null
-  );
+  const [openMenu, setOpenMenu] = useState<'file' | 'go' | 'view' | null>(null);
 
   const toggleMenu = (menu: 'file' | 'go' | 'view') => {
     setOpenMenu((current) => (current === menu ? null : menu));
