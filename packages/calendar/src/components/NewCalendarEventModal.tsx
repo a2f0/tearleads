@@ -166,9 +166,11 @@ export function NewCalendarEventModal({
                 checked={repeatEnabled}
                 onChange={(e) => setRepeatEnabled(e.target.checked)}
                 className="h-4 w-4 accent-primary"
-                aria-label="Repeat"
+                aria-labelledby="repeat-label"
               />
-              <span className="font-medium text-sm">Repeat</span>
+              <span id="repeat-label" className="font-medium text-sm">
+                Repeat
+              </span>
             </div>
 
             {repeatEnabled && (
