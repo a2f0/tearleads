@@ -108,4 +108,31 @@ describe('HelpWindow', () => {
     expect(screen.getByTestId('window-title')).toHaveTextContent('CLI');
     expect(screen.getByTestId('help-documentation')).toHaveTextContent('cli');
   });
+
+  it('navigates through developer and legal documentation views', async () => {
+    const user = userEvent.setup();
+    mockUseWindowOpenRequest.mockReturnValue(undefined);
+    renderHelpWindow();
+
+    await user.click(screen.getByText('Developer'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Developer');
+    await user.click(screen.getByText('CLI Reference'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'CLI Reference'
+    );
+    expect(screen.getByTestId('help-documentation')).toHaveTextContent(
+      'cliReference'
+    );
+
+    await user.click(screen.getByTestId('help-window-control-back'));
+    await user.click(screen.getByText('Legal'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent('Legal');
+    await user.click(screen.getByText('Terms of Service'));
+    expect(screen.getByTestId('window-title')).toHaveTextContent(
+      'Terms of Service'
+    );
+    expect(screen.getByTestId('help-documentation')).toHaveTextContent(
+      'termsOfService'
+    );
+  });
 });
