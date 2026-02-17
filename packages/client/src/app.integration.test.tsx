@@ -26,9 +26,7 @@ describe('App Integration Tests', () => {
 
     // Wait for lazy-loaded components to finish loading to avoid 'act' warnings
     await waitFor(() => {
-      expect(
-        screen.getByTestId('notification-center-trigger')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('mobile-menu-button')).toBeInTheDocument();
     });
 
     // App should render successfully
@@ -41,9 +39,7 @@ describe('App Integration Tests', () => {
 
     // Wait for lazy-loaded components to finish loading to avoid 'act' warnings
     await waitFor(() => {
-      expect(
-        screen.getByTestId('notification-center-trigger')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('mobile-menu-button')).toBeInTheDocument();
     });
 
     // Open mobile menu first
@@ -62,9 +58,7 @@ describe('App Integration Tests', () => {
 
     // Wait for lazy-loaded components to finish loading to avoid 'act' warnings
     await waitFor(() => {
-      expect(
-        screen.getByTestId('notification-center-trigger')
-      ).toBeInTheDocument();
+      expect(screen.getByTestId('mobile-menu-button')).toBeInTheDocument();
     });
 
     // Open mobile menu first

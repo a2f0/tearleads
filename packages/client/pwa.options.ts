@@ -13,15 +13,9 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     scope: '/',
     icons: [
       {
-        src: '/generated/icon-192x192.png',
-        sizes: '192x192',
-        type: 'image/png',
-      },
-      {
-        src: '/generated/icon-512x512.png',
-        sizes: '512x512',
-        type: 'image/png',
-        purpose: 'maskable',
+        src: '/favicon.svg',
+        sizes: 'any',
+        type: 'image/svg+xml',
       },
     ],
   },

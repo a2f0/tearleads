@@ -7,6 +7,7 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 KUBECONFIG_FILE="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 ROLLOUT_TIMEOUT="${ROLLOUT_TIMEOUT:-300s}"
+SKIP_WEBSITE="${SKIP_WEBSITE:-false}"
 
 if [[ ! -f "$KUBECONFIG_FILE" ]]; then
   echo "ERROR: Kubeconfig not found at $KUBECONFIG_FILE"
@@ -17,18 +18,27 @@ fi
 export KUBECONFIG="$KUBECONFIG_FILE"
 
 echo "Building and pushing staging images..."
-"$REPO_ROOT/scripts/buildContainers.sh" staging "$@"
+if [[ "$SKIP_WEBSITE" == "true" ]]; then
+  "$REPO_ROOT/scripts/buildContainers.sh" staging --no-website "$@"
+else
+  "$REPO_ROOT/scripts/buildContainers.sh" staging "$@"
+fi
 
 echo "Refreshing ECR pull secret..."
 "$SCRIPT_DIR/setup-ecr-secret.sh"
 
 echo "Restarting deployments..."
-kubectl rollout restart deployment/api deployment/client deployment/website -n tearleads
+kubectl rollout restart deployment/api deployment/client -n tearleads
+if [[ "$SKIP_WEBSITE" != "true" ]]; then
+  kubectl rollout restart deployment/website -n tearleads
+fi
 
 echo "Waiting for rollouts (timeout: $ROLLOUT_TIMEOUT)..."
 kubectl rollout status deployment/api -n tearleads --timeout="$ROLLOUT_TIMEOUT"
 kubectl rollout status deployment/client -n tearleads --timeout="$ROLLOUT_TIMEOUT"
-kubectl rollout status deployment/website -n tearleads --timeout="$ROLLOUT_TIMEOUT"
+if [[ "$SKIP_WEBSITE" != "true" ]]; then
+  kubectl rollout status deployment/website -n tearleads --timeout="$ROLLOUT_TIMEOUT"
+fi
 
 echo ""
 echo "Step 3 complete. Latest staging images are deployed."
