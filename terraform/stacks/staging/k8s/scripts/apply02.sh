@@ -9,6 +9,7 @@ K8S_READY_TIMEOUT="${K8S_READY_TIMEOUT:-300s}"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 AWS_ACCOUNT_ID="${AWS_ACCOUNT_ID:-}"
 CERT_MANAGER_MANIFEST_URL="${CERT_MANAGER_MANIFEST_URL:-https://github.com/cert-manager/cert-manager/releases/download/v1.14.5/cert-manager.yaml}"
+INGRESS_NGINX_MANIFEST_URL="${INGRESS_NGINX_MANIFEST_URL:-https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.12.1/deploy/static/provider/cloud/deploy.yaml}"
 ECR_REPOSITORIES=(
   "tearleads-staging/api"
   "tearleads-staging/client"
@@ -68,6 +69,23 @@ ensure_cert_manager_installed() {
   kubectl rollout status deployment/cert-manager-webhook -n cert-manager --timeout=300s
 }
 
+ensure_ingress_nginx_installed() {
+  if kubectl get deployment ingress-nginx-controller -n ingress-nginx >/dev/null 2>&1; then
+    echo "ingress-nginx already installed."
+  else
+    echo "Installing ingress-nginx from $INGRESS_NGINX_MANIFEST_URL..."
+    kubectl apply -f "$INGRESS_NGINX_MANIFEST_URL"
+  fi
+
+  echo "Waiting for ingress-nginx controller to become ready..."
+  kubectl rollout status deployment/ingress-nginx-controller -n ingress-nginx --timeout=300s
+
+  # Required for cert-manager HTTP-01 solver ingress paths using pathType=Exact.
+  kubectl patch configmap ingress-nginx-controller -n ingress-nginx \
+    --type merge \
+    -p '{"data":{"strict-validate-path-type":"false"}}'
+}
+
 "$SCRIPT_DIR/kubeconfig.sh" "$KUBECONFIG_FILE"
 export KUBECONFIG="$KUBECONFIG_FILE"
 
@@ -83,6 +101,7 @@ echo "Refreshing ECR pull secret..."
 "$SCRIPT_DIR/setup-ecr-secret.sh"
 
 ensure_cert_manager_installed
+ensure_ingress_nginx_installed
 
 echo "Deploying Kubernetes manifests..."
 "$SCRIPT_DIR/deploy.sh"

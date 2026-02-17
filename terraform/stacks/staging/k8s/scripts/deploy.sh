@@ -6,6 +6,7 @@ STACK_DIR="$(dirname "$SCRIPT_DIR")"
 MANIFESTS_DIR="$STACK_DIR/manifests"
 STAGING_DOMAIN="${TF_VAR_staging_domain:-}"
 K8S_HOSTNAME=""
+LETSENCRYPT_EMAIL="${LETSENCRYPT_EMAIL:-}"
 
 KUBECONFIG="${KUBECONFIG:-$HOME/.kube/config-staging-k8s}"
 
@@ -28,10 +29,16 @@ if [[ -z "$STAGING_DOMAIN" ]]; then
   exit 1
 fi
 
+if [[ -z "$LETSENCRYPT_EMAIL" ]]; then
+  LETSENCRYPT_EMAIL="admin@$STAGING_DOMAIN"
+fi
+
 TMP_DIR="$(mktemp -d)"
 trap 'rm -rf "$TMP_DIR"' EXIT
 RENDERED_INGRESS="$TMP_DIR/ingress.yaml"
+RENDERED_ISSUER="$TMP_DIR/cert-manager-issuer.yaml"
 sed "s/DOMAIN_PLACEHOLDER/$STAGING_DOMAIN/g" "$MANIFESTS_DIR/ingress.yaml" > "$RENDERED_INGRESS"
+sed "s|REPLACE_WITH_YOUR_EMAIL|$LETSENCRYPT_EMAIL|g" "$MANIFESTS_DIR/cert-manager-issuer.yaml" > "$RENDERED_ISSUER"
 
 echo "Deploying manifests from $MANIFESTS_DIR..."
 
@@ -45,7 +52,7 @@ kubectl apply -f "$MANIFESTS_DIR/api.yaml"
 kubectl apply -f "$MANIFESTS_DIR/client.yaml"
 kubectl apply -f "$MANIFESTS_DIR/website.yaml"
 kubectl apply -f "$RENDERED_INGRESS"
-kubectl apply -f "$MANIFESTS_DIR/cert-manager-issuer.yaml"
+kubectl apply -f "$RENDERED_ISSUER"
 
 echo ""
 echo "Deployment complete!"
