@@ -6,6 +6,8 @@ import {
 } from '@tearleads/vehicles';
 import { getDatabaseAdapter, isDatabaseInitialized } from './index';
 
+export type { VehicleRecord } from '@tearleads/vehicles';
+
 interface RawVehicleRow {
   id: string;
   make: string;
