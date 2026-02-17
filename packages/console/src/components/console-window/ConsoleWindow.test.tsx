@@ -66,9 +66,9 @@ vi.mock('@client/components/terminal', () => ({
   }
 }));
 
-vi.mock('@tearleads/help', () => ({
-  HelpDocumentation: ({ docId }: { docId: string }) => (
-    <div data-testid="help-documentation">{docId}</div>
+vi.mock('./ConsoleDocumentation', () => ({
+  ConsoleDocumentation: () => (
+    <div data-testid="console-documentation">consoleReference</div>
   )
 }));
 
@@ -435,7 +435,7 @@ describe('ConsoleWindow', () => {
     render(<ConsoleWindow {...defaultProps} />);
 
     await user.click(screen.getByTestId('open-documentation-button'));
-    expect(screen.getByTestId('help-documentation')).toHaveTextContent(
+    expect(screen.getByTestId('console-documentation')).toHaveTextContent(
       'consoleReference'
     );
     expect(screen.queryByTestId('terminal')).not.toBeInTheDocument();
@@ -449,7 +449,7 @@ describe('ConsoleWindow', () => {
     render(<ConsoleWindow {...defaultProps} />);
 
     await user.click(screen.getByTestId('open-documentation-button'));
-    expect(screen.getByTestId('help-documentation')).toHaveTextContent(
+    expect(screen.getByTestId('console-documentation')).toHaveTextContent(
       'consoleReference'
     );
     expect(
