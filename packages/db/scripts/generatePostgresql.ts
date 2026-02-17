@@ -70,6 +70,15 @@ function detectUsedSymbols(
   source: string,
   names: readonly string[]
 ): string[] {
+  return names.filter((name) =>
+    new RegExp(`\\b${name}\\s*\\.`, 'u').test(source)
+  );
+}
+
+function detectUsedCoreSymbols(
+  source: string,
+  names: readonly string[]
+): string[] {
   return names.filter((name) => new RegExp(`\\b${name}\\b`, 'u').test(source));
 }
 
@@ -92,7 +101,26 @@ function splitGeneratedPostgresSchema(input: string): {
   const contentBody = `${lines.slice(contentStart, runtimeStart).join('\n').trimEnd()}\n`;
   const runtimeBody = `${lines.slice(runtimeStart).join('\n').trimEnd()}\n`;
 
-  const pgCoreImport = `import {\n  type AnyPgColumn,\n  boolean,\n  index,\n  integer,\n  jsonb,\n  pgTable,\n  primaryKey,\n  text,\n  timestamp,\n  uniqueIndex\n} from 'drizzle-orm/pg-core';\n\n`;
+  const pgCoreSymbols = [
+    'AnyPgColumn',
+    'boolean',
+    'index',
+    'integer',
+    'jsonb',
+    'pgTable',
+    'primaryKey',
+    'text',
+    'timestamp',
+    'uniqueIndex'
+  ] as const;
+  const foundationCoreImports = detectUsedCoreSymbols(foundationBody, pgCoreSymbols);
+  const contentCoreImports = detectUsedCoreSymbols(contentBody, pgCoreSymbols);
+  const runtimeCoreImports = detectUsedCoreSymbols(runtimeBody, pgCoreSymbols);
+
+  const renderPgCoreImport = (symbols: readonly string[]) =>
+    `import {\n${symbols
+      .map((name) => (name === 'AnyPgColumn' ? `  type ${name},` : `  ${name},`))
+      .join('\n')}\n} from 'drizzle-orm/pg-core';\n\n`;
 
   const contentFoundationImports = detectUsedSymbols(
     contentBody,
@@ -104,14 +132,14 @@ function splitGeneratedPostgresSchema(input: string): {
   );
   const runtimeContentImports = detectUsedSymbols(runtimeBody, contentNames);
 
-  const contentImports = [pgCoreImport];
+  const contentImports = [renderPgCoreImport(contentCoreImports)];
   if (contentFoundationImports.length > 0) {
     contentImports.push(
       `import {\n${contentFoundationImports.map((name) => `  ${name},`).join('\n')}\n} from './schema-foundation.js';\n\n`
     );
   }
 
-  const runtimeImports = [pgCoreImport];
+  const runtimeImports = [renderPgCoreImport(runtimeCoreImports)];
   if (runtimeFoundationImports.length > 0) {
     runtimeImports.push(
       `import {\n${runtimeFoundationImports.map((name) => `  ${name},`).join('\n')}\n} from './schema-foundation.js';\n\n`
@@ -128,7 +156,7 @@ function splitGeneratedPostgresSchema(input: string): {
 
   return {
     root,
-    foundation: `${pgCoreImport}${foundationBody}`,
+    foundation: `${renderPgCoreImport(foundationCoreImports)}${foundationBody}`,
     content: `${contentImports.join('')}${contentBody}`,
     runtime: `${runtimeImports.join('')}${runtimeBody}`
   };

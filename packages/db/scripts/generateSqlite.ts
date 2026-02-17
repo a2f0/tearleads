@@ -81,6 +81,15 @@ function detectUsedSymbols(
   source: string,
   names: readonly string[]
 ): string[] {
+  return names.filter((name) =>
+    new RegExp(`\\b${name}\\s*\\.`, 'u').test(source)
+  );
+}
+
+function detectUsedCoreSymbols(
+  source: string,
+  names: readonly string[]
+): string[] {
   return names.filter((name) => new RegExp(`\\b${name}\\b`, 'u').test(source));
 }
 
@@ -110,7 +119,26 @@ function splitGeneratedSqliteSchema(input: string): {
   const contentBody = `${lines.slice(contentStart, runtimeStart).join('\n').trimEnd()}\n`;
   const runtimeBody = `${lines.slice(runtimeStart, schemaStart).join('\n').trimEnd()}\n`;
 
-  const sqliteCoreImport = `import {\n  type AnySQLiteColumn,\n  index,\n  integer,\n  primaryKey,\n  sqliteTable,\n  text,\n  uniqueIndex\n} from 'drizzle-orm/sqlite-core';\n\n`;
+  const sqliteCoreSymbols = [
+    'AnySQLiteColumn',
+    'index',
+    'integer',
+    'primaryKey',
+    'sqliteTable',
+    'text',
+    'uniqueIndex'
+  ] as const;
+  const foundationCoreImports = detectUsedCoreSymbols(
+    foundationBody,
+    sqliteCoreSymbols
+  );
+  const contentCoreImports = detectUsedCoreSymbols(contentBody, sqliteCoreSymbols);
+  const runtimeCoreImports = detectUsedCoreSymbols(runtimeBody, sqliteCoreSymbols);
+
+  const renderSqliteCoreImport = (symbols: readonly string[]) =>
+    `import {\n${symbols
+      .map((name) => (name === 'AnySQLiteColumn' ? `  type ${name},` : `  ${name},`))
+      .join('\n')}\n} from 'drizzle-orm/sqlite-core';\n\n`;
 
   const contentFoundationImports = detectUsedSymbols(
     contentBody,
@@ -122,14 +150,14 @@ function splitGeneratedSqliteSchema(input: string): {
   );
   const runtimeContentImports = detectUsedSymbols(runtimeBody, contentNames);
 
-  const contentImports = [sqliteCoreImport];
+  const contentImports = [renderSqliteCoreImport(contentCoreImports)];
   if (contentFoundationImports.length > 0) {
     contentImports.push(
       `import {\n${contentFoundationImports.map((name) => `  ${name},`).join('\n')}\n} from './schema-foundation.js';\n\n`
     );
   }
 
-  const runtimeImports = [sqliteCoreImport];
+  const runtimeImports = [renderSqliteCoreImport(runtimeCoreImports)];
   if (runtimeFoundationImports.length > 0) {
     runtimeImports.push(
       `import {\n${runtimeFoundationImports.map((name) => `  ${name},`).join('\n')}\n} from './schema-foundation.js';\n\n`
@@ -147,7 +175,7 @@ function splitGeneratedSqliteSchema(input: string): {
 
   return {
     root,
-    foundation: `${sqliteCoreImport}${foundationBody}`,
+    foundation: `${renderSqliteCoreImport(foundationCoreImports)}${foundationBody}`,
     content: `${contentImports.join('')}${contentBody}`,
     runtime: `${runtimeImports.join('')}${runtimeBody}`
   };
