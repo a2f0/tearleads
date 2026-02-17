@@ -42,7 +42,7 @@ function MenuDropdown({
         <div
           role="menu"
           className={cn(
-            'absolute left-0 z-50 mt-1 rounded border bg-popover p-1 shadow-md [border-color:var(--soft-border)]',
+            'absolute left-0 z-50 mt-1 rounded border bg-popover p-1 shadow-md',
             minWidthClassName
           )}
         >
@@ -89,7 +89,7 @@ export function HealthWindowMenuBar({
           <RefreshCw className="h-3 w-3" />
           Refresh
         </button>
-        <div className="my-1 border-t [border-color:var(--soft-border)]" />
+        <div className="my-1 border-t" />
         <button
           type="button"
           role="menuitem"
@@ -121,7 +121,7 @@ export function HealthWindowMenuBar({
           <Home className="h-3 w-3" />
           Overview
         </button>
-        <div className="my-1 border-t [border-color:var(--soft-border)]" />
+        <div className="my-1 border-t" />
         {HEALTH_DRILLDOWN_CARDS.map((card) => {
           const Icon = card.icon;
           return (

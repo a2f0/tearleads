@@ -193,8 +193,6 @@ export function BusinessesManager() {
             const rightStatus = Number(hasValidIdentifier(right));
             return leftStatus - rightStatus;
           }
-          default:
-            return 0;
         }
       })();
 
