@@ -18,142 +18,23 @@
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
-
-// ============================================================================
-// Types
-// ============================================================================
-
-interface HardcodedString {
-  file: string;
-  line: number;
-  column: number;
-  type: 'jsx-text' | 'attribute' | 'array-literal';
-  value: string;
-  context: string;
-  attributeName?: string;
-}
-
-interface LanguageCoverage {
-  language: string;
-  keyCount: number;
-  missingFromEnglish: string[];
-  orphanKeys: string[];
-}
-
-interface I18nCoverageResult {
-  hardcodedStrings: HardcodedString[];
-  englishKeyCount: number;
-  languageCoverage: LanguageCoverage[];
-  namespaces: string[];
-}
-
-// ============================================================================
-// Configuration
-// ============================================================================
-
-const ROOT_DIR = process.cwd();
-const PACKAGES_DIR = path.join(ROOT_DIR, 'packages');
-const TRANSLATIONS_DIR = path.join(
+import {
+  MIN_TEXT_LENGTH,
+  PACKAGES_DIR,
   ROOT_DIR,
-  'packages/client/src/i18n/translations'
-);
-
-// Directories and files to skip
-const SKIP_PATTERNS = [
-  '/node_modules/',
-  '/.next/',
-  '/dist/',
-  '/coverage/',
-  '.test.tsx',
-  '.spec.tsx',
-  '/test/',
-  '/tests/',
-  '/__tests__/',
-  '/__mocks__/',
-  '/mocks/'
-];
-
-// Attributes that commonly contain user-facing text
-const USER_FACING_ATTRIBUTES = new Set([
-  'title',
-  'label',
-  'placeholder',
-  'alt',
-  'aria-label',
-  'aria-description',
-  'trigger',
-  'appName',
-  'closeLabel',
-  'description',
-  'helperText',
-  'errorMessage',
-  'successMessage',
-  'emptyMessage',
-  'loadingText',
-  'buttonText',
-  'submitLabel',
-  'cancelLabel',
-  'confirmLabel',
-  'header',
-  'subheader',
-  'tooltip'
-]);
-
-// Attributes to skip (technical, not user-facing)
-const SKIP_ATTRIBUTES = new Set([
-  'className',
-  'class',
-  'id',
-  'data-testid',
-  'data-test-id',
-  'testId',
-  'key',
-  'ref',
-  'name',
-  'type',
-  'role',
-  'href',
-  'src',
-  'srcSet',
-  'fill',
-  'stroke',
-  'viewBox',
-  'd',
-  'transform',
-  'style',
-  'pattern',
-  'accept',
-  'autoComplete',
-  'autoFocus',
-  'method',
-  'action',
-  'target',
-  'rel',
-  'xmlns',
-  'version',
-  'encoding'
-]);
-
-// Patterns for text that should be skipped (technical/code values)
-const SKIP_TEXT_PATTERNS = [
-  /^[A-Z_]+$/, // ALL_CAPS constants
-  /^\d+(\.\d+)?$/, // Numbers
-  /^#[0-9a-fA-F]{3,8}$/, // Hex colors
-  /^(px|em|rem|%|vh|vw|pt)$/, // CSS units
-  /^https?:\/\//, // URLs
-  /^[a-z]+:\/\//, // Protocol URLs
-  /^\{.*\}$/, // JSX expressions (curly braces)
-  /^[./]/, // Paths
-  /^@/, // Package scopes
-  /^[a-z-]+\/[a-z-]+$/, // Package names
-  /^(true|false|null|undefined)$/, // Boolean/null literals
-  /^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$/, // HTTP methods
-  /^[a-z]+_[a-z_]+$/i, // snake_case identifiers
-  /^[a-z]+[A-Z][a-zA-Z]*$/ // camelCase identifiers (likely code)
-];
-
-// Minimum length for text to be considered translatable
-const MIN_TEXT_LENGTH = 2;
+  SKIP_ATTRIBUTES,
+  SKIP_PATTERNS,
+  SKIP_TEXT_PATTERNS,
+  TRANSLATIONS_DIR,
+  USER_FACING_ATTRIBUTES,
+  type HardcodedString,
+  type I18nCoverageResult,
+  type LanguageCoverage
+} from './checkI18nCoverage/config.ts';
+import {
+  formatTextReport,
+  summarizeByFile
+} from './checkI18nCoverage/report.ts';
 
 // ============================================================================
 // File System Utilities
@@ -168,25 +49,27 @@ const listTsxFiles = async (directory: string): Promise<string[]> => {
   const files: string[] = [];
 
   const processDirectory = async (dir: string): Promise<void> => {
-    let entries: Awaited<ReturnType<typeof fs.readdir>>;
     try {
-      entries = await fs.readdir(dir, { withFileTypes: true });
+      const entries = await fs.readdir(dir, {
+        withFileTypes: true,
+        encoding: 'utf8'
+      });
+
+      for (const entry of entries) {
+        const absolutePath = path.join(dir, entry.name);
+
+        if (shouldSkipFile(absolutePath)) {
+          continue;
+        }
+
+        if (entry.isDirectory()) {
+          await processDirectory(absolutePath);
+        } else if (entry.isFile() && entry.name.endsWith('.tsx')) {
+          files.push(absolutePath);
+        }
+      }
     } catch {
       return;
-    }
-
-    for (const entry of entries) {
-      const absolutePath = path.join(dir, entry.name);
-
-      if (shouldSkipFile(absolutePath)) {
-        continue;
-      }
-
-      if (entry.isDirectory()) {
-        await processDirectory(absolutePath);
-      } else if (entry.isFile() && entry.name.endsWith('.tsx')) {
-        files.push(absolutePath);
-      }
     }
   };
 
@@ -238,7 +121,7 @@ const getLineAndColumn = (
   const lines = content.substring(0, index).split('\n');
   return {
     line: lines.length,
-    column: lines[lines.length - 1].length + 1
+    column: (lines[lines.length - 1]?.length ?? 0) + 1
   };
 };
 
@@ -266,7 +149,12 @@ const findHardcodedStrings = async (
 
   match = jsxTextRegex.exec(content);
   while (match !== null) {
-    const text = match[1].trim();
+    const textValue = match[1];
+    if (textValue === undefined) {
+      match = jsxTextRegex.exec(content);
+      continue;
+    }
+    const text = textValue.trim();
     const matchIndex = match.index;
 
     if (isLikelyTranslatableText(text)) {
@@ -298,22 +186,28 @@ const findHardcodedStrings = async (
   match = attributeRegex.exec(content);
   while (match !== null) {
     const attrName = match[1];
-    const attrValue = match[2].trim();
+    const attrValueRaw = match[2];
+    if (attrName === undefined || attrValueRaw === undefined) {
+      match = attributeRegex.exec(content);
+      continue;
+    }
+    const attrValue = attrValueRaw.trim();
     const matchIndex = match.index;
 
     const isUserFacing =
       !SKIP_ATTRIBUTES.has(attrName) && USER_FACING_ATTRIBUTES.has(attrName);
     if (isUserFacing && isLikelyTranslatableText(attrValue)) {
       const { line, column } = getLineAndColumn(content, matchIndex);
-      results.push({
+      const entry: HardcodedString = {
         file: relativePath,
         line,
         column,
         type: 'attribute',
         value: attrValue,
-        attributeName: attrName,
         context: getContextLine(content, matchIndex)
-      });
+      };
+      entry.attributeName = attrName;
+      results.push(entry);
     }
 
     match = attributeRegex.exec(content);
@@ -326,7 +220,14 @@ const findHardcodedStrings = async (
 
   match = labelInObjectRegex.exec(content);
   while (match !== null) {
-    const value = (match[1] || match[2]).trim();
+    const first = match[1];
+    const second = match[2];
+    const rawValue = first ?? second;
+    if (rawValue === undefined) {
+      match = labelInObjectRegex.exec(content);
+      continue;
+    }
+    const value = rawValue.trim();
     const matchIndex = match.index;
 
     if (isLikelyTranslatableText(value)) {
@@ -365,7 +266,10 @@ const extractKeysFromTranslationFile = async (
 
     match = keyRegex.exec(content);
     while (match !== null) {
-      keys.add(match[1]);
+      const key = match[1];
+      if (key !== undefined) {
+        keys.add(key);
+      }
       match = keyRegex.exec(content);
     }
 
@@ -388,7 +292,10 @@ const extractNamespacesFromTranslationFile = async (
 
     match = namespaceRegex.exec(content);
     while (match !== null) {
-      namespaces.push(match[1]);
+      const namespace = match[1];
+      if (namespace !== undefined) {
+        namespaces.push(namespace);
+      }
       match = namespaceRegex.exec(content);
     }
 
@@ -481,103 +388,6 @@ const runAnalysis = async (): Promise<I18nCoverageResult> => {
     languageCoverage,
     namespaces
   };
-};
-
-// ============================================================================
-// Output Formatting
-// ============================================================================
-
-const summarizeByFile = (
-  strings: HardcodedString[]
-): Array<{ file: string; count: number }> => {
-  const counts = new Map<string, number>();
-
-  for (const s of strings) {
-    const current = counts.get(s.file) ?? 0;
-    counts.set(s.file, current + 1);
-  }
-
-  return [...counts.entries()]
-    .map(([file, count]) => ({ file, count }))
-    .sort((a, b) => b.count - a.count);
-};
-
-const formatTextReport = (result: I18nCoverageResult): string => {
-  const lines: string[] = [];
-
-  lines.push('=== i18n Coverage Report ===');
-  lines.push('');
-
-  // Summary
-  lines.push(`Hardcoded strings found: ${result.hardcodedStrings.length}`);
-  lines.push(`English translation keys: ${result.englishKeyCount}`);
-  lines.push(`Registered namespaces: ${result.namespaces.join(', ')}`);
-  lines.push('');
-
-  // Language coverage
-  lines.push('=== Language Coverage ===');
-  for (const lang of result.languageCoverage) {
-    const status =
-      lang.missingFromEnglish.length === 0 && lang.orphanKeys.length === 0
-        ? '✓'
-        : '⚠';
-    lines.push(
-      `${status} ${lang.language}: ${lang.keyCount} keys, ` +
-        `${lang.missingFromEnglish.length} missing, ` +
-        `${lang.orphanKeys.length} orphan`
-    );
-  }
-  lines.push('');
-
-  // Hardcoded strings by file
-  if (result.hardcodedStrings.length > 0) {
-    lines.push('=== Hardcoded Strings by File ===');
-    for (const summary of summarizeByFile(result.hardcodedStrings).slice(
-      0,
-      20
-    )) {
-      lines.push(`- ${summary.file}: ${summary.count}`);
-    }
-    lines.push('');
-
-    // First 50 hardcoded strings with details
-    lines.push('=== First 50 Hardcoded Strings ===');
-    for (const s of result.hardcodedStrings.slice(0, 50)) {
-      const attr = s.attributeName ? ` (${s.attributeName})` : '';
-      lines.push(`${s.file}:${s.line}:${s.column} [${s.type}${attr}]`);
-      lines.push(`  Value: "${s.value}"`);
-      lines.push(`  Context: ${s.context}`);
-      lines.push('');
-    }
-  }
-
-  // Missing translations
-  for (const lang of result.languageCoverage) {
-    if (lang.missingFromEnglish.length > 0) {
-      lines.push(
-        `=== ${lang.language.toUpperCase()}: Missing ${lang.missingFromEnglish.length} keys ===`
-      );
-      for (const key of lang.missingFromEnglish.slice(0, 20)) {
-        lines.push(`- ${key}`);
-      }
-      if (lang.missingFromEnglish.length > 20) {
-        lines.push(`... and ${lang.missingFromEnglish.length - 20} more`);
-      }
-      lines.push('');
-    }
-
-    if (lang.orphanKeys.length > 0) {
-      lines.push(
-        `=== ${lang.language.toUpperCase()}: ${lang.orphanKeys.length} orphan keys ===`
-      );
-      for (const key of lang.orphanKeys.slice(0, 20)) {
-        lines.push(`- ${key}`);
-      }
-      lines.push('');
-    }
-  }
-
-  return lines.join('\n');
 };
 
 // ============================================================================

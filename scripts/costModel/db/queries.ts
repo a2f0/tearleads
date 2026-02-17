@@ -33,6 +33,50 @@ export interface UserCountSummary {
   disabledUsers: number;
 }
 
+function asNullableString(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return value;
+  }
+  return null;
+}
+
+function asString(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') {
+    return value;
+  }
+  return fallback;
+}
+
+function asNumber(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === 'string') {
+    const parsed = Number.parseInt(value, 10);
+    if (Number.isFinite(parsed)) {
+      return parsed;
+    }
+  }
+  return 0;
+}
+
+function asNullableDate(value: unknown): Date | null {
+  if (value instanceof Date) {
+    return value;
+  }
+  if (typeof value === 'string' || typeof value === 'number') {
+    const parsed = new Date(value);
+    if (!Number.isNaN(parsed.getTime())) {
+      return parsed;
+    }
+  }
+  return null;
+}
+
+function asDate(value: unknown, fallback: Date): Date {
+  return asNullableDate(value) ?? fallback;
+}
+
 /**
  * Get billing status for all organizations
  */
@@ -53,7 +97,21 @@ export async function getOrganizationBilling(): Promise<
     ORDER BY oba.created_at DESC
   `;
 
-  return query<OrganizationBillingSummary>(sql);
+  const rows = await query(sql);
+  return rows.map((row) => ({
+    organizationId: asString(row.organizationId),
+    organizationName: asString(row.organizationName),
+    entitlementStatus: asString(row.entitlementStatus),
+    activeProductId: asNullableString(row.activeProductId),
+    periodEndsAt: asNullableDate(row.periodEndsAt),
+    willRenew:
+      typeof row.willRenew === 'boolean'
+        ? row.willRenew
+        : row.willRenew === null
+          ? null
+          : null,
+    createdAt: asDate(row.createdAt, new Date(0))
+  }));
 }
 
 /**
@@ -80,19 +138,16 @@ export async function getAiUsageSummary(
     ORDER BY "totalTokens" DESC
   `;
 
-  const results = await query<Record<string, unknown>>(sql, [
-    startDate,
-    endDate
-  ]);
+  const results = await query(sql, [startDate, endDate]);
   return results.map((row) => ({
-    organizationId: row.organizationId as string | null,
-    organizationName: row.organizationName as string | null,
-    totalPromptTokens: parseInt(row.totalPromptTokens as string, 10),
-    totalCompletionTokens: parseInt(row.totalCompletionTokens as string, 10),
-    totalTokens: parseInt(row.totalTokens as string, 10),
-    requestCount: parseInt(row.requestCount as string, 10),
-    periodStart: row.periodStart as Date,
-    periodEnd: row.periodEnd as Date
+    organizationId: asNullableString(row.organizationId),
+    organizationName: asNullableString(row.organizationName),
+    totalPromptTokens: asNumber(row.totalPromptTokens),
+    totalCompletionTokens: asNumber(row.totalCompletionTokens),
+    totalTokens: asNumber(row.totalTokens),
+    requestCount: asNumber(row.requestCount),
+    periodStart: asDate(row.periodStart, startDate),
+    periodEnd: asDate(row.periodEnd, endDate)
   }));
 }
 
@@ -108,15 +163,15 @@ export async function getUserCountSummary(): Promise<UserCountSummary> {
     FROM users
   `;
 
-  const results = await query<Record<string, string>>(sql);
+  const results = await query(sql);
   const row = results[0];
   if (!row) {
     return { totalUsers: 0, activeUsers: 0, disabledUsers: 0 };
   }
   return {
-    totalUsers: parseInt(row.totalUsers, 10),
-    activeUsers: parseInt(row.activeUsers, 10),
-    disabledUsers: parseInt(row.disabledUsers, 10)
+    totalUsers: asNumber(row.totalUsers),
+    activeUsers: asNumber(row.activeUsers),
+    disabledUsers: asNumber(row.disabledUsers)
   };
 }
 
@@ -137,10 +192,10 @@ export async function getSubscriptionsByProduct(): Promise<
     ORDER BY "count" DESC
   `;
 
-  const results = await query<Record<string, string>>(sql);
+  const results = await query(sql);
   return results.map((row) => ({
-    productId: row.productId,
-    status: row.status,
-    count: parseInt(row.count, 10)
+    productId: asString(row.productId),
+    status: asString(row.status),
+    count: asNumber(row.count)
   }));
 }

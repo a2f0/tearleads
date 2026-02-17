@@ -11,7 +11,7 @@ import {
   PORT_KEYS,
   parsePort,
   USER_KEYS
-} from './lib/pg-helpers.ts';
+} from './lib/pgHelpers.ts';
 
 type ConnectionParts = {
   host: string | null;
@@ -23,8 +23,8 @@ type ConnectionParts = {
 
 type CliOptions = {
   yes: boolean;
-  database?: string;
-  databaseUrl?: string;
+  database: string | undefined;
+  databaseUrl: string | undefined;
 };
 
 const ALLOWED_DATABASE = DEV_DATABASE_NAME;
@@ -32,7 +32,9 @@ const DENIED_DATABASE = 'tearleads_production';
 
 function parseArgs(args: string[]): CliOptions {
   const options: CliOptions = {
-    yes: false
+    yes: false,
+    database: undefined,
+    databaseUrl: undefined
   };
 
   for (let i = 0; i < args.length; i += 1) {

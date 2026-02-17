@@ -1,10 +1,9 @@
 {
   "extends": "./tsconfig.json",
   "compilerOptions": {
-    "composite": true,
     "noEmit": true,
     "tsBuildInfoFile": "./dist-tests/.tsbuildinfo"
   },
-  "include": ["./ciImpact/**/*.ts", "./ciImpact/**/*.test.ts"],
+  "include": ["./**/*.ts"],
   "exclude": ["node_modules"]
 }
