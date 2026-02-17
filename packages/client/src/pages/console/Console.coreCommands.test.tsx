@@ -1,4 +1,3 @@
-import { AccountSwitcher } from '@client/components/AccountSwitcher';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -47,17 +46,6 @@ function renderConsole() {
   return render(
     <MemoryRouter>
       <Console />
-    </MemoryRouter>
-  );
-}
-
-function renderConsoleWithAccountSwitcher() {
-  return render(
-    <MemoryRouter>
-      <div>
-        <AccountSwitcher />
-        <Console />
-      </div>
     </MemoryRouter>
   );
 }
@@ -418,5 +406,4 @@ describe('Console', () => {
     });
     expect(screen.getByText('Database locked.')).toBeInTheDocument();
   });
-
 });

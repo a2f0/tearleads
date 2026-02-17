@@ -83,13 +83,13 @@ if (rootElement) {
                             <SSEProvider>
                               <WindowManagerProvider>
                                 <BrowserRouter>
-                                <Suspense
-                                  fallback={
-                                    <div className="p-8 text-center text-muted-foreground">
-                                      Loading...
-                                    </div>
-                                  }
-                                >
+                                  <Suspense
+                                    fallback={
+                                      <div className="p-8 text-center text-muted-foreground">
+                                        Loading...
+                                      </div>
+                                    }
+                                  >
                                     <AppRoutes />
                                   </Suspense>
                                   <WindowRenderer />

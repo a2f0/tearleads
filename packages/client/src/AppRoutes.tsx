@@ -116,10 +116,7 @@ export function AppRoutes() {
         <Route
           path="debug/browser/local-storage"
           element={
-            <LocalStorage
-              backTo="/debug/browser"
-              backLabel="Back to Browser"
-            />
+            <LocalStorage backTo="/debug/browser" backLabel="Back to Browser" />
           }
         />
         <Route
@@ -135,10 +132,7 @@ export function AppRoutes() {
         <Route
           path="debug/browser/cache-storage"
           element={
-            <CacheStorage
-              backTo="/debug/browser"
-              backLabel="Back to Browser"
-            />
+            <CacheStorage backTo="/debug/browser" backLabel="Back to Browser" />
           }
         />
         <Route path="help" element={<Help />} />
@@ -196,13 +190,19 @@ export function AppRoutes() {
         <Route path="admin/postgres" element={<PostgresAdmin />} />
         <Route path="admin/groups" element={<GroupsAdminPage />} />
         <Route path="admin/groups/:id" element={<GroupDetailPageRoute />} />
-        <Route path="admin/organizations" element={<OrganizationsAdminPage />} />
+        <Route
+          path="admin/organizations"
+          element={<OrganizationsAdminPage />}
+        />
         <Route
           path="admin/organizations/:id"
           element={<OrganizationDetailPageRoute />}
         />
         <Route path="admin/users" element={<UsersAdminPage />} />
-        <Route path="admin/users/ai-requests" element={<AiRequestsAdminPage />} />
+        <Route
+          path="admin/users/ai-requests"
+          element={<AiRequestsAdminPage />}
+        />
         <Route path="admin/users/:id" element={<UsersAdminDetail />} />
         <Route path="sync" element={<Sync />} />
         <Route path="vfs" element={<Vfs />} />
