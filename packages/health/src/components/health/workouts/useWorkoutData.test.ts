@@ -18,8 +18,11 @@ vi.mock('../useHealthTracker', () => ({
   useHealthTracker: () => mockTracker
 }));
 
-vi.mock('@/db/hooks', () => ({
-  useDatabaseContext: () => ({ isUnlocked: mockIsUnlocked })
+vi.mock('../../../runtime', () => ({
+  useHealthRuntime: () => ({
+    isUnlocked: mockIsUnlocked,
+    createTracker: vi.fn()
+  })
 }));
 
 const mockExercises = [

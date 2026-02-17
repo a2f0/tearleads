@@ -202,7 +202,7 @@ describe('PostgresTableRowsView (interactions)', () => {
 
     await renderAndWait();
 
-    const scrollElement = screen.getByTestId('postgres-table-rows-scroll');
+    const scrollElement = screen.getByTestId('scroll-container');
     await act(async () => {
       scrollElement.scrollTop = 200;
       scrollElement.dispatchEvent(new Event('scroll'));
