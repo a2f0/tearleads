@@ -8,8 +8,7 @@
  * - POSTGRES_PORT (default: 5432)
  * - POSTGRES_DATABASE (required)
  */
-
-import { Pool } from 'pg';
+import { createRequire } from 'node:module';
 
 export interface PostgresConfig {
   user: string;
@@ -65,15 +64,41 @@ export function getPostgresConfig(): PostgresConfig {
   };
 }
 
-let pool: Pool | null = null;
+type QueryResultRow = Record<string, unknown>;
+type QueryResult = {
+  rows: QueryResultRow[];
+};
+type PoolClient = {
+  query: (sql: string, params?: unknown[]) => Promise<QueryResult>;
+  release: () => void;
+};
+type PoolInstance = {
+  connect: () => Promise<PoolClient>;
+  end: () => Promise<void>;
+};
+type PoolConstructor = new (config: {
+  user: string;
+  password: string;
+  host: string;
+  port: number;
+  database: string;
+  max: number;
+  idleTimeoutMillis: number;
+  connectionTimeoutMillis: number;
+}) => PoolInstance;
+
+const require = createRequire(import.meta.url);
+const { Pool: PgPool } = require('pg') as { Pool: PoolConstructor };
+
+let pool: PoolInstance | null = null;
 
 /**
  * Get a connection pool (singleton)
  */
-export function getPool(): Pool {
+export function getPool(): PoolInstance {
   if (!pool) {
     const config = getPostgresConfig();
-    pool = new Pool({
+    pool = new PgPool({
       ...config,
       max: 3, // Read-only, minimal connections
       idleTimeoutMillis: 30000,

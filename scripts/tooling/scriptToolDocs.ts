@@ -57,14 +57,19 @@ export function generateReadme(): string {
     ActionName,
     ActionConfig
   ][]) {
-    categories[config.category].push(name);
+    const category = config.category as keyof typeof categories;
+    const actionBucket = categories[category];
+    if (!actionBucket) {
+      throw new Error(`Unknown action category: ${String(category)}`);
+    }
+    actionBucket.push(name);
   }
 
   // Actions section
   lines.push('## Actions');
   lines.push('');
 
-  const categoryTitles: Record<string, string> = {
+  const categoryTitles: Record<keyof typeof categories, string> = {
     analysis: 'Analysis',
     device: 'Device',
     environment: 'Environment',
@@ -73,7 +78,10 @@ export function generateReadme(): string {
     testing: 'Testing'
   };
 
-  for (const [category, actions] of Object.entries(categories)) {
+  for (const [category, actions] of Object.entries(categories) as [
+    keyof typeof categories,
+    ActionName[]
+  ][]) {
     if (actions.length === 0) continue;
 
     lines.push(`### ${categoryTitles[category]}`);
