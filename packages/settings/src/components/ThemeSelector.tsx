@@ -1,5 +1,6 @@
 import { GridSquare, type ResolvedTheme, useTheme } from '@tearleads/ui';
 import { useTranslation } from 'react-i18next';
+import { useSelectorTileSize } from '../hooks/index.js';
 import { ThemePreview } from './ThemePreview.js';
 
 const THEMES: ResolvedTheme[] = ['light', 'dark', 'tokyo-night', 'monochrome'];
@@ -7,6 +8,12 @@ const THEMES: ResolvedTheme[] = ['light', 'dark', 'tokyo-night', 'monochrome'];
 export function ThemeSelector() {
   const { t } = useTranslation('common');
   const { resolvedTheme, setTheme } = useTheme();
+
+  const tileSize = useSelectorTileSize();
+  const tileStyle = {
+    width: `${tileSize}px`,
+    minWidth: `${tileSize}px`
+  };
 
   return (
     <div className="space-y-3">
@@ -21,7 +28,8 @@ export function ThemeSelector() {
             onClick={() => setTheme(themeOption)}
             selected={resolvedTheme === themeOption}
             data-testid={`theme-option-${themeOption}`}
-            className="w-[100px] shrink-0 md:w-[200px]"
+            className="shrink-0"
+            style={tileStyle}
           >
             <ThemePreview theme={themeOption} />
           </GridSquare>

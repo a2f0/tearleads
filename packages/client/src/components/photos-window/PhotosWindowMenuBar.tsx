@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import {
   Eye,
   EyeOff,
@@ -40,7 +41,7 @@ export function PhotosWindowMenuBar({
   onClose
 }: PhotosWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<Upload className="h-3 w-3" />}
@@ -103,6 +104,6 @@ export function PhotosWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

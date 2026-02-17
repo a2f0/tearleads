@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Cake } from 'lucide-react';
 import { useCalendarUI } from '../context/CalendarUIContext';
 import { CALENDAR_CREATE_EVENT, CALENDAR_CREATE_ITEM_EVENT } from '../events';
@@ -23,7 +24,7 @@ export function CalendarWindowMenuBar({
   } = useCalendarUI();
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           onClick={() => window.dispatchEvent(new Event(CALENDAR_CREATE_EVENT))}
@@ -58,6 +59,6 @@ export function CalendarWindowMenuBar({
           closeLabel="Close"
         />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

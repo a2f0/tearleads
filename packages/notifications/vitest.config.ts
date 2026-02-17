@@ -10,6 +10,9 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const { plugin: appConfigPlugin } = createAppConfigPlugin(resolve(__dirname, '../client'));
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify('0.0.1')
+  },
   plugins: [appConfigPlugin, react()],
   test: {
     environment: 'jsdom',
@@ -34,6 +37,13 @@ export default defineConfig({
         functions: 0,
         lines: 0
       }
+    }
+  },
+  resolve: {
+    alias: {
+      '@': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@client': fileURLToPath(new URL('../client/src', import.meta.url)),
+      '@notifications': fileURLToPath(new URL('./src', import.meta.url))
     }
   }
 });

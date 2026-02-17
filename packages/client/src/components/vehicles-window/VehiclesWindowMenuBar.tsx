@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { CarFront, List, Table2 } from 'lucide-react';
 import {
   DropdownMenu,
@@ -22,7 +23,7 @@ export function VehiclesWindowMenuBar({
   onClose
 }: VehiclesWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<CarFront className="h-3 w-3" />}
@@ -51,6 +52,6 @@ export function VehiclesWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

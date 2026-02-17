@@ -4,6 +4,7 @@ import {
   DropdownMenuSeparator
 } from '@client/components/ui/dropdown-menu';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Columns2, Rows2 } from 'lucide-react';
 
 interface ConsoleWindowMenuBarProps {
@@ -22,7 +23,7 @@ export function ConsoleWindowMenuBar({
   onOpenDocumentation
 }: ConsoleWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar className="gap-0.5 py-0.5">
       <DropdownMenu trigger="File">
         <DropdownMenuItem onClick={onNewTab}>New Tab</DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -49,6 +50,6 @@ export function ConsoleWindowMenuBar({
           Documentation
         </DropdownMenuItem>
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

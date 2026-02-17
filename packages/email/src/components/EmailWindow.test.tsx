@@ -7,21 +7,21 @@ import { mockConsoleError } from '../test/consoleMocks';
 import { TestEmailProvider } from '../test/testUtils';
 import { EmailWindow } from './EmailWindow';
 import {
-  EmailWindowMenuBarMock,
-  windowManagerMock
-} from './EmailWindowTestMocks';
-import {
   mockEmailLargeSize,
   mockEmailSmallSize,
   mockEmails,
   mockFolderOperations
 } from './emailWindowTestFixtures';
 
-vi.mock('@tearleads/window-manager', () => windowManagerMock);
+vi.mock('@tearleads/window-manager', async () => {
+  const { windowManagerMock } = await import('./EmailWindowTestMocks');
+  return windowManagerMock;
+});
 
-vi.mock('./EmailWindowMenuBar', () => ({
-  EmailWindowMenuBar: EmailWindowMenuBarMock
-}));
+vi.mock('./EmailWindowMenuBar', async () => {
+  const { EmailWindowMenuBarMock } = await import('./EmailWindowTestMocks');
+  return { EmailWindowMenuBar: EmailWindowMenuBarMock };
+});
 
 describe('EmailWindow', () => {
   const defaultProps: ComponentProps<typeof EmailWindow> = {
@@ -329,7 +329,12 @@ describe('EmailWindow', () => {
   });
 
   it('opens compose with recipients from open request', async () => {
-    await renderLoadedWindow({
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      ok: true,
+      json: async () => ({ emails: mockEmails })
+    });
+
+    renderWithProvider({
       ...defaultProps,
       openComposeRequest: {
         to: ['ada@example.com', 'grace@example.com'],

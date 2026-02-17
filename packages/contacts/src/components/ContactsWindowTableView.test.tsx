@@ -48,7 +48,7 @@ describe('ContactsWindowTableView', () => {
     if (!row) return;
 
     fireEvent.contextMenu(row);
-    fireEvent.click(screen.getByText('Send email'));
+    fireEvent.click(screen.getByText('sendEmail'));
 
     expect(openEmailComposer).toHaveBeenCalledWith(['ada@example.com']);
   });
@@ -86,6 +86,6 @@ describe('ContactsWindowTableView', () => {
     if (!row) return;
 
     fireEvent.contextMenu(row);
-    expect(screen.queryByText('Send email')).not.toBeInTheDocument();
+    expect(screen.queryByText('sendEmail')).not.toBeInTheDocument();
   });
 });

@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Download, RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
@@ -26,7 +27,7 @@ export function SqliteWindowMenuBar({
   };
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         {showExportCsv && (
           <>
@@ -52,6 +53,6 @@ export function SqliteWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

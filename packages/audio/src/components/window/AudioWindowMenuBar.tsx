@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Eye, EyeOff, Upload } from 'lucide-react';
 import { useAudioUIContext } from '../../context/AudioUIContext';
 
@@ -34,7 +35,7 @@ export function AudioWindowMenuBar({
   } = ui;
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<Upload className="h-3 w-3" />}
@@ -85,6 +86,6 @@ export function AudioWindowMenuBar({
       <DropdownMenu trigger="Help">
         <AboutMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

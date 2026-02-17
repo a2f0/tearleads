@@ -5,6 +5,7 @@ import {
   type TagSortOrder
 } from '@tearleads/classic';
 import classicPackageJson from '@tearleads/classic/package.json';
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { useTranslation } from 'react-i18next';
 import {
   DropdownMenu,
@@ -33,7 +34,7 @@ export function ClassicWindowMenuBar({
 }: ClassicWindowMenuBarProps) {
   const { t } = useTranslation('classic');
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger={t('file')}>
         <DropdownMenuItem onClick={NOOP}>{t('newEntry')}</DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -83,6 +84,6 @@ export function ClassicWindowMenuBar({
           closeLabel={t('close')}
         />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

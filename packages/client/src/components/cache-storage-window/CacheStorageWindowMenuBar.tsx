@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { RefreshCw } from 'lucide-react';
 import {
   DropdownMenu,
@@ -16,7 +17,7 @@ export function CacheStorageWindowMenuBar({
   onClose
 }: CacheStorageWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<RefreshCw className="h-3 w-3" />}
@@ -30,6 +31,6 @@ export function CacheStorageWindowMenuBar({
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

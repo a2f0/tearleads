@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Edit, List, RefreshCw, Table2 } from 'lucide-react';
 import { useEmailUI } from '../context';
 
@@ -27,7 +28,7 @@ export function EmailWindowMenuBar({
   } = useEmailUI();
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           onClick={onCompose}
@@ -66,6 +67,6 @@ export function EmailWindowMenuBar({
       <DropdownMenu trigger="Help">
         <AboutMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

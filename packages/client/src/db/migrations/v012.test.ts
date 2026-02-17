@@ -19,6 +19,20 @@ const createAdapter = (
   importDatabase: vi.fn(async () => {})
 });
 
+const EXPECTED_STATEMENTS = [
+  `CREATE TABLE IF NOT EXISTS "calendar_events" (
+        "id" TEXT PRIMARY KEY NOT NULL,
+        "calendar_name" TEXT NOT NULL,
+        "title" TEXT NOT NULL,
+        "start_at" INTEGER NOT NULL,
+        "end_at" INTEGER,
+        "created_at" INTEGER NOT NULL,
+        "updated_at" INTEGER NOT NULL
+      )`,
+  `CREATE INDEX IF NOT EXISTS "calendar_events_calendar_start_idx" ON "calendar_events" ("calendar_name", "start_at")`,
+  `CREATE INDEX IF NOT EXISTS "calendar_events_start_idx" ON "calendar_events" ("start_at")`
+];
+
 describe('v012 migration', () => {
   it('creates calendar_events table and indexes', async () => {
     const executeMany = vi
@@ -31,18 +45,6 @@ describe('v012 migration', () => {
     expect(executeMany).toHaveBeenCalledTimes(1);
     const statements = executeMany.mock.calls[0]?.[0] ?? [];
 
-    expect(statements).toEqual([
-      'CREATE TABLE IF NOT EXISTS "calendar_events" (\n' +
-        '        "id" TEXT PRIMARY KEY NOT NULL,\n' +
-        '        "calendar_name" TEXT NOT NULL,\n' +
-        '        "title" TEXT NOT NULL,\n' +
-        '        "start_at" INTEGER NOT NULL,\n' +
-        '        "end_at" INTEGER,\n' +
-        '        "created_at" INTEGER NOT NULL,\n' +
-        '        "updated_at" INTEGER NOT NULL\n' +
-        '      )',
-      'CREATE INDEX IF NOT EXISTS "calendar_events_calendar_start_idx" ON "calendar_events" ("calendar_name", "start_at")',
-      'CREATE INDEX IF NOT EXISTS "calendar_events_start_idx" ON "calendar_events" ("start_at")'
-    ]);
+    expect(statements).toEqual(EXPECTED_STATEMENTS);
   });
 });

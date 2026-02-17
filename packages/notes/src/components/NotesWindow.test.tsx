@@ -21,6 +21,9 @@ vi.mock('@tearleads/window-manager', () => ({
   WindowControlBar: ({ children }: { children: ReactNode }) => (
     <div data-testid="control-bar">{children}</div>
   ),
+  WindowMenuBar: ({ children }: { children: ReactNode }) => (
+    <div data-testid="window-menu-bar">{children}</div>
+  ),
   WindowControlGroup: ({ children }: { children: ReactNode }) => (
     <div>{children}</div>
   ),

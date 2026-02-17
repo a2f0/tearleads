@@ -5,6 +5,7 @@ import {
 } from '@client/components/ui/dropdown-menu';
 import { AboutMenuItem } from '@client/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Plus, RefreshCw } from 'lucide-react';
 
 interface WalletWindowMenuBarProps {
@@ -19,7 +20,7 @@ export function WalletWindowMenuBar({
   onClose
 }: WalletWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<Plus className="h-3 w-3" />}
@@ -42,6 +43,6 @@ export function WalletWindowMenuBar({
       <DropdownMenu trigger="Help">
         <AboutMenuItem appName="Wallet" version="0.0.1" closeLabel="Close" />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

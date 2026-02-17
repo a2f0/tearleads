@@ -6,6 +6,7 @@ import {
 import { AboutMenuItem } from '@client/components/window-menu/AboutMenuItem';
 import { WindowOptionsMenuItem } from '@client/components/window-menu/WindowOptionsMenuItem';
 import keychainPackageJson from '@tearleads/keychain/package.json';
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { RefreshCw } from 'lucide-react';
 
 interface KeychainWindowMenuBarProps {
@@ -18,7 +19,7 @@ export function KeychainWindowMenuBar({
   onClose
 }: KeychainWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<RefreshCw className="h-3 w-3" />}
@@ -39,6 +40,6 @@ export function KeychainWindowMenuBar({
           closeLabel="Close"
         />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

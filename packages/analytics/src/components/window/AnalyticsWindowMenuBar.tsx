@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Download } from 'lucide-react';
 import {
   DropdownMenu,
@@ -22,7 +23,7 @@ export function AnalyticsWindowMenuBar({
   };
 
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           onClick={handleExportCsv}
@@ -37,6 +38,6 @@ export function AnalyticsWindowMenuBar({
       <DropdownMenu trigger="View">
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

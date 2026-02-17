@@ -73,3 +73,7 @@ export {
   type WindowTableRowProps
 } from './WindowTableRow.js';
 export { WINDOW_TABLE_TYPOGRAPHY } from './WindowTableTypography.js';
+export {
+  WindowMenuBar,
+  type WindowMenuBarProps
+} from './window-menu/WindowMenuBar.js';

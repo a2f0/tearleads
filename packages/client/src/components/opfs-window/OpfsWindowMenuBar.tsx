@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import {
   DropdownMenu,
   DropdownMenuItem,
@@ -19,7 +20,7 @@ export function OpfsWindowMenuBar({
   onClose
 }: OpfsWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem onClick={onRefresh}>Refresh</DropdownMenuItem>
         <DropdownMenuSeparator />
@@ -33,6 +34,6 @@ export function OpfsWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }

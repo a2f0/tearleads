@@ -23,6 +23,7 @@ describe('WindowControlBar', () => {
     expect(container.firstChild).toHaveClass(
       'flex',
       'h-6',
+      'border-border/70',
       'border-b',
       'bg-muted/20',
       'custom-class'

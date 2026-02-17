@@ -1,3 +1,4 @@
+import { WindowMenuBar } from '@tearleads/window-manager';
 import { Eye, EyeOff, List, Table2, Upload } from 'lucide-react';
 import {
   DropdownMenu,
@@ -30,7 +31,7 @@ export function FilesWindowMenuBar({
   onClose
 }: FilesWindowMenuBarProps) {
   return (
-    <div className="flex shrink-0 border-b bg-muted/30 px-1">
+    <WindowMenuBar>
       <DropdownMenu trigger="File">
         <DropdownMenuItem
           icon={<Upload className="h-3 w-3" />}
@@ -80,6 +81,6 @@ export function FilesWindowMenuBar({
         <DropdownMenuSeparator />
         <WindowOptionsMenuItem />
       </DropdownMenu>
-    </div>
+    </WindowMenuBar>
   );
 }
