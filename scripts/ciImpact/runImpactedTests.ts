@@ -374,7 +374,9 @@ function main(): void {
     targets = [...coveragePackages];
   } else {
     targets = coveragePackages.filter(
-      (pkg) => affectedSet.has(pkg) && hasNonTestPackageChange(pkg, impact.changedFiles)
+      (pkg) =>
+        affectedSet.has(pkg) &&
+        hasNonTestPackageChange(pkg, impact.changedFiles)
     );
   }
 
