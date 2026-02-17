@@ -71,10 +71,18 @@ function runGh(args: string[]): string {
   }).trim();
 }
 
-function setSecret(repo: string, secretName: string, secretValue: string): void {
-  execFileSync('gh', ['secret', 'set', secretName, '-R', repo, '--body', secretValue], {
-    stdio: ['ignore', 'inherit', 'inherit']
-  });
+function setSecret(
+  repo: string,
+  secretName: string,
+  secretValue: string
+): void {
+  execFileSync(
+    'gh',
+    ['secret', 'set', secretName, '-R', repo, '--body', secretValue],
+    {
+      stdio: ['ignore', 'inherit', 'inherit']
+    }
+  );
 }
 
 function listCurrentSecretNames(repo: string): string[] {
@@ -136,7 +144,10 @@ function main(): void {
     googlePlayJsonFile,
     `Error: Google Play service account JSON not found at ${googlePlayJsonFile}`
   );
-  requireFile(deployKeyFile, `Error: Deploy SSH key not found at ${deployKeyFile}`);
+  requireFile(
+    deployKeyFile,
+    `Error: Deploy SSH key not found at ${deployKeyFile}`
+  );
 
   const appStoreConnectApiKey = readFileSync(p8File).toString('base64');
   const deploySshKey = readFileSync(deployKeyFile, 'utf8');
@@ -161,7 +172,10 @@ function main(): void {
       value: env.MATCH_GIT_BASIC_AUTHORIZATION
     },
     { name: 'ANDROID_KEYSTORE_BASE64', value: androidKeystoreBase64 },
-    { name: 'ANDROID_KEYSTORE_STORE_PASS', value: env.ANDROID_KEYSTORE_STORE_PASS },
+    {
+      name: 'ANDROID_KEYSTORE_STORE_PASS',
+      value: env.ANDROID_KEYSTORE_STORE_PASS
+    },
     { name: 'ANDROID_KEYSTORE_KEY_PASS', value: env.ANDROID_KEYSTORE_KEY_PASS },
     {
       name: 'GOOGLE_PLAY_SERVICE_ACCOUNT_JSON',

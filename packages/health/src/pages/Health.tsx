@@ -1,3 +1,4 @@
+import { isRecord } from '@tearleads/shared';
 import {
   Activity,
   ArrowLeft,
@@ -8,7 +9,6 @@ import {
   Scale
 } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
-import { isRecord } from '@tearleads/shared';
 import {
   BloodPressureDetail,
   ExerciseDetail,

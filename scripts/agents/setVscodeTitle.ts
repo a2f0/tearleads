@@ -40,7 +40,9 @@ function parseArgs(argv: string[]): { help: boolean; titleOverride?: string } {
     }
 
     if (titleOverride !== undefined) {
-      throw new Error(`Error: Unexpected argument '${token}'. Use -h for help.`);
+      throw new Error(
+        `Error: Unexpected argument '${token}'. Use -h for help.`
+      );
     }
     titleOverride = token;
   }
@@ -69,7 +71,11 @@ function main(): void {
     const raw = readFileSync(settingsFile, 'utf8');
     try {
       const parsed = JSON.parse(raw) as unknown;
-      if (typeof parsed === 'object' && parsed !== null && !Array.isArray(parsed)) {
+      if (
+        typeof parsed === 'object' &&
+        parsed !== null &&
+        !Array.isArray(parsed)
+      ) {
         settings = parsed as Record<string, unknown>;
       } else {
         throw new Error('settings.json must be a JSON object');

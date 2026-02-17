@@ -89,7 +89,14 @@ function getRepoRoot(): string {
 }
 
 function getRepoName(): string {
-  const repo = tryRun('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
+  const repo = tryRun('gh', [
+    'repo',
+    'view',
+    '--json',
+    'nameWithOwner',
+    '-q',
+    '.nameWithOwner'
+  ]);
   if (!repo) {
     throw new Error('Error: Could not determine repository.');
   }
@@ -101,9 +108,18 @@ function resolvePrNumber(explicitPr: string | undefined): string {
     return explicitPr;
   }
 
-  const detected = tryRun('gh', ['pr', 'view', '--json', 'number', '--jq', '.number']);
+  const detected = tryRun('gh', [
+    'pr',
+    'view',
+    '--json',
+    'number',
+    '--jq',
+    '.number'
+  ]);
   if (!detected) {
-    throw new Error('Error: No PR found for current branch. Use --pr to specify.');
+    throw new Error(
+      'Error: No PR found for current branch. Use --pr to specify.'
+    );
   }
   return detected;
 }
@@ -140,8 +156,12 @@ function main(): void {
     '-R',
     repo
   ]);
-  const currentLabels = currentLabelsRaw ? parseLabelNames(currentLabelsRaw) : [];
-  const oldTuxedoLabels = currentLabels.filter((label) => label.startsWith('tuxedo:'));
+  const currentLabels = currentLabelsRaw
+    ? parseLabelNames(currentLabelsRaw)
+    : [];
+  const oldTuxedoLabels = currentLabels.filter((label) =>
+    label.startsWith('tuxedo:')
+  );
 
   if (oldTuxedoLabels.length === 1 && oldTuxedoLabels[0] === newLabel) {
     process.stdout.write(
@@ -151,11 +171,28 @@ function main(): void {
   }
 
   for (const oldLabel of oldTuxedoLabels) {
-    tryRun('gh', ['pr', 'edit', prNumber, '--remove-label', oldLabel, '-R', repo]);
+    tryRun('gh', [
+      'pr',
+      'edit',
+      prNumber,
+      '--remove-label',
+      oldLabel,
+      '-R',
+      repo
+    ]);
     process.stdout.write(`Removed label '${oldLabel}' from PR #${prNumber}.\n`);
   }
 
-  const repoLabelsRaw = tryRun('gh', ['label', 'list', '--json', 'name', '--jq', '.', '-R', repo]);
+  const repoLabelsRaw = tryRun('gh', [
+    'label',
+    'list',
+    '--json',
+    'name',
+    '--jq',
+    '.',
+    '-R',
+    repo
+  ]);
   const repoLabels = repoLabelsRaw ? parseLabelNames(repoLabelsRaw) : [];
 
   if (!repoLabels.includes(newLabel)) {
@@ -188,7 +225,9 @@ function main(): void {
   const verifyLabels = parseLabelNames(verifyRaw);
 
   if (!verifyLabels.includes(newLabel)) {
-    throw new Error(`Error: Failed to add label '${newLabel}' to PR #${prNumber}.`);
+    throw new Error(
+      `Error: Failed to add label '${newLabel}' to PR #${prNumber}.`
+    );
   }
 
   process.stdout.write(`Tagged PR #${prNumber} with '${newLabel}'.\n`);

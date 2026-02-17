@@ -133,7 +133,14 @@ function main(): void {
   const number = validateNumber(args.number);
   const label = validateLabel(args.label);
 
-  const repo = run('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
+  const repo = run('gh', [
+    'repo',
+    'view',
+    '--json',
+    'nameWithOwner',
+    '-q',
+    '.nameWithOwner'
+  ]);
   const currentLabelsRaw = tryRun('gh', [
     type,
     'view',
@@ -145,10 +152,14 @@ function main(): void {
     '-R',
     repo
   ]);
-  const currentLabels = currentLabelsRaw ? parseLabelNames(currentLabelsRaw) : [];
+  const currentLabels = currentLabelsRaw
+    ? parseLabelNames(currentLabelsRaw)
+    : [];
 
   if (currentLabels.includes(label)) {
-    process.stdout.write(`Label '${label}' already present on ${type} #${number}.\n`);
+    process.stdout.write(
+      `Label '${label}' already present on ${type} #${number}.\n`
+    );
     return;
   }
 
@@ -166,7 +177,9 @@ function main(): void {
   ]);
   const verifyLabels = parseLabelNames(verifyRaw);
   if (!verifyLabels.includes(label)) {
-    throw new Error(`Error: Failed to add label '${label}' to ${type} #${number}.`);
+    throw new Error(
+      `Error: Failed to add label '${label}' to ${type} #${number}.`
+    );
   }
 
   process.stdout.write(`Added label '${label}' to ${type} #${number}.\n`);

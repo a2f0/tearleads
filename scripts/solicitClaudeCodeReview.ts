@@ -39,10 +39,18 @@ function main(): void {
   }
 
   const repo =
-    tryRun('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']) ||
-    '';
+    tryRun('gh', [
+      'repo',
+      'view',
+      '--json',
+      'nameWithOwner',
+      '-q',
+      '.nameWithOwner'
+    ]) || '';
   if (repo.length === 0) {
-    throw new Error('Could not determine repository. Ensure gh is authenticated.');
+    throw new Error(
+      'Could not determine repository. Ensure gh is authenticated.'
+    );
   }
 
   const prNumber =

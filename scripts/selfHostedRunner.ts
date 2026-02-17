@@ -131,12 +131,10 @@ function ensureRunnerGitconfig(): void {
   }
 
   const existing = tryRun('git', ['config', '--file', runnerGitconfig, '--get-all', 'include.path']);
-  const hasInclude =
-    existing !== null &&
-    existing
-      .split('\n')
-      .map((line) => line.trim())
-      .includes(includePath);
+  const hasInclude = existing
+    ?.split('\n')
+    .map((line) => line.trim())
+    .includes(includePath);
 
   if (!hasInclude) {
     run('git', ['config', '--file', runnerGitconfig, '--add', 'include.path', includePath]);

@@ -180,7 +180,14 @@ async function waitForCompletion(repo: string, headSha: string): Promise<void> {
 async function main(): Promise<void> {
   const args = parseArgs(process.argv);
   const branch = args.branch ?? run('git', ['branch', '--show-current']);
-  const repo = run('gh', ['repo', 'view', '--json', 'nameWithOwner', '-q', '.nameWithOwner']);
+  const repo = run('gh', [
+    'repo',
+    'view',
+    '--json',
+    'nameWithOwner',
+    '-q',
+    '.nameWithOwner'
+  ]);
   const headSha = run('git', ['rev-parse', 'HEAD']);
 
   process.stdout.write(
@@ -191,7 +198,15 @@ async function main(): Promise<void> {
 
   for (const workflow of WORKFLOWS) {
     process.stdout.write(`  - ${workflow.file}\n`);
-    tryRun('gh', ['workflow', 'run', workflow.file, '--ref', branch, '-R', repo]);
+    tryRun('gh', [
+      'workflow',
+      'run',
+      workflow.file,
+      '--ref',
+      branch,
+      '-R',
+      repo
+    ]);
   }
 
   if (args.wait) {
