@@ -1,12 +1,12 @@
+import { LogOut, Mail } from 'lucide-react';
+import { useCallback, useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { LoginForm, RegisterForm } from '@/components/auth';
 import { SessionList } from '@/components/sessions';
 import { BackLink } from '@/components/ui/back-link';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
-import { LogOut, Mail } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
 
 type AuthMode = 'login' | 'register';
 
