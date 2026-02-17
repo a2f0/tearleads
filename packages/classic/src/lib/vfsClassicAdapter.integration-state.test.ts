@@ -1,8 +1,6 @@
 import { notes, vfsLinks } from '@tearleads/db/sqlite';
 import { and, eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { sortNoteIds, sortTags } from './sorting';
-import { buildClassicStateFromVfs } from './vfsClassicAdapter';
 import {
   CLASSIC_ROOT_ID,
   queryClassicData,
@@ -10,7 +8,9 @@ import {
   seedNote,
   seedTag,
   withClassicRealDatabase
-} from './vfsClassicAdapter.integration-test-support';
+} from '../test/vfsClassicAdapter.integration-test-support';
+import { sortNoteIds, sortTags } from './sorting';
+import { buildClassicStateFromVfs } from './vfsClassicAdapter';
 
 describe('Classic VFS Integration state hydration (real database)', () => {
   beforeEach(() => {

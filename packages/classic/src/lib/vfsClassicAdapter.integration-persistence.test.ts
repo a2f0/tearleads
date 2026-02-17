@@ -1,7 +1,6 @@
 import { notes, tags, vfsLinks } from '@tearleads/db/sqlite';
 import { eq } from 'drizzle-orm';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { buildClassicStateFromVfs } from './vfsClassicAdapter';
 import {
   CLASSIC_ROOT_ID,
   queryClassicData,
@@ -9,7 +8,8 @@ import {
   seedNote,
   seedTag,
   withClassicRealDatabase
-} from './vfsClassicAdapter.integration-test-support';
+} from '../test/vfsClassicAdapter.integration-test-support';
+import { buildClassicStateFromVfs } from './vfsClassicAdapter';
 import { buildClassicPositionUpdates } from './vfsPositionUpdates';
 
 describe('Classic VFS Integration persistence (real database)', () => {
